@@ -555,13 +555,13 @@ _public_ int sd_get_uids(uid_t **users) {
 
         for (;;) {
                 struct dirent *de;
-                union dirent_storage buf;
                 int k;
                 uid_t uid;
 
-                k = readdir_r(d, &buf.de, &de);
-                if (k != 0)
-                        return -k;
+                errno = 0;
+                de = readdir(d);
+                if (!de && errno != 0)
+                        return -errno;
 
                 if (!de)
                         break;
