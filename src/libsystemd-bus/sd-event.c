@@ -1986,7 +1986,7 @@ _public_ int sd_event_run(sd_event *e, uint64_t timeout) {
         m = epoll_wait(e->epoll_fd, ev_queue, ev_queue_max,
                        timeout == (uint64_t) -1 ? -1 : (int) ((timeout + USEC_PER_MSEC - 1) / USEC_PER_MSEC));
         if (m < 0) {
-                r = errno == EAGAIN || errno == EINTR ? 0 : -errno;
+                r = errno == EAGAIN || errno == EINTR ? 1 : -errno;
                 goto finish;
         }
 
