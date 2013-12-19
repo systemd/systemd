@@ -180,9 +180,7 @@ int journal_directory_vacuum(
                 return -errno;
 
         for (;;) {
-                int k;
                 struct dirent *de;
-                union dirent_storage buf;
                 size_t q;
                 struct stat st;
                 char *p;
@@ -190,9 +188,10 @@ int journal_directory_vacuum(
                 sd_id128_t seqnum_id;
                 bool have_seqnum;
 
-                k = readdir_r(d, &buf.de, &de);
-                if (k != 0) {
-                        r = -k;
+                errno = 0;
+                de = readdir(d);
+                if (!de && errno != 0) {
+                        r = -errno;
                         goto finish;
                 }
 
