@@ -2306,7 +2306,6 @@ bool is_device_path(const char *path) {
 
 int dir_is_empty(const char *path) {
         _cleanup_closedir_ DIR *d;
-        int r;
 
         d = opendir(path);
         if (!d)
@@ -2314,11 +2313,11 @@ int dir_is_empty(const char *path) {
 
         for (;;) {
                 struct dirent *de;
-                union dirent_storage buf;
 
-                r = readdir_r(d, &buf.de, &de);
-                if (r > 0)
-                        return -r;
+                errno = 0;
+                de = readdir(d);
+                if (!de && errno != 0)
+                        return -errno;
 
                 if (!de)
                         return 1;
@@ -2660,14 +2659,15 @@ int rm_rf_children_dangerous(int fd, bool only_dirs, bool honour_sticky, struct 
 
         for (;;) {
                 struct dirent *de;
-                union dirent_storage buf;
                 bool is_dir, keep_around;
                 struct stat st;
                 int r;
 
-                r = readdir_r(d, &buf.de, &de);
-                if (r != 0 && ret == 0) {
-                        ret = -r;
+                errno = 0;
+                de = readdir(d);
+                if (!de && errno != 0) {
+                        if (ret == 0)
+                                ret = -errno;
                         break;
                 }
 
@@ -4485,13 +4485,11 @@ int get_files_in_directory(const char *path, char ***list) {
 
         for (;;) {
                 struct dirent *de;
-                union dirent_storage buf;
-                int k;
 
-                k = readdir_r(d, &buf.de, &de);
-                assert(k >= 0);
-                if (k > 0)
-                        return -k;
+                errno = 0;
+                de = readdir(d);
+                if (!de && errno != 0)
+                        return -errno;
                 if (!de)
                         break;
 
@@ -5617,15 +5615,14 @@ int on_ac_power(void) {
 
         for (;;) {
                 struct dirent *de;
-                union dirent_storage buf;
                 _cleanup_close_ int fd = -1, device = -1;
                 char contents[6];
                 ssize_t n;
-                int k;
 
-                k = readdir_r(d, &buf.de, &de);
-                if (k != 0)
-                        return -k;
+                errno = 0;
+                de = readdir(d);
+                if (!de && errno != 0)
+                        return -errno;
 
                 if (!de)
                         break;
