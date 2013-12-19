@@ -51,7 +51,8 @@ static int add_addresses(sd_rtnl *rtnl, int if_loopback, struct in_addr *ipv4_ad
         _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *ipv4 = NULL, *ipv6 = NULL;
         int r;
 
-        r = sd_rtnl_message_addr_new(RTM_NEWADDR, if_loopback, AF_INET, 8, IFA_F_PERMANENT, RT_SCOPE_HOST, &ipv4);
+        r = sd_rtnl_message_addr_new(RTM_NEWADDR, if_loopback, AF_INET, 8,
+                                     IFA_F_PERMANENT, RT_SCOPE_HOST, &ipv4);
         if (r < 0)
                 return r;
 
@@ -68,7 +69,8 @@ static int add_addresses(sd_rtnl *rtnl, int if_loopback, struct in_addr *ipv4_ad
         if (!socket_ipv6_is_supported())
                 return 0;
 
-        r = sd_rtnl_message_addr_new(RTM_NEWADDR, if_loopback, AF_INET6, 128, 0, 0, &ipv6);
+        r = sd_rtnl_message_addr_new(RTM_NEWADDR, if_loopback, AF_INET6, 128,
+                                     IFA_F_PERMANENT, RT_SCOPE_HOST, &ipv6);
         if (r < 0)
                 return r;
 
