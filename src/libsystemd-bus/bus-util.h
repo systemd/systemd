@@ -54,7 +54,9 @@ int bus_map_all_properties(sd_bus *bus,
 
 int bus_async_unregister_and_exit(sd_event *e, sd_bus *bus, const char *name);
 
-int bus_event_loop_with_idle(sd_event *e, sd_bus *bus, const char *name, usec_t timeout);
+typedef bool (*check_idle_t)(void *userdata);
+
+int bus_event_loop_with_idle(sd_event *e, sd_bus *bus, const char *name, usec_t timeout, check_idle_t check_idle, void *userdata);
 
 int bus_name_has_owner(sd_bus *c, const char *name, sd_bus_error *error);
 

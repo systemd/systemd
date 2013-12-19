@@ -87,7 +87,13 @@ int bus_async_unregister_and_exit(sd_event *e, sd_bus *bus, const char *name) {
         return 0;
 }
 
-int bus_event_loop_with_idle(sd_event *e, sd_bus *bus, const char *name, usec_t timeout) {
+int bus_event_loop_with_idle(
+                sd_event *e,
+                sd_bus *bus,
+                const char *name,
+                usec_t timeout,
+                check_idle_t check_idle,
+                void *userdata) {
         bool exiting = false;
         int r, code;
 
@@ -96,14 +102,20 @@ int bus_event_loop_with_idle(sd_event *e, sd_bus *bus, const char *name, usec_t 
         assert(name);
 
         for (;;) {
+                bool idle;
+
                 r = sd_event_get_state(e);
                 if (r < 0)
                         return r;
-
                 if (r == SD_EVENT_FINISHED)
                         break;
 
-                r = sd_event_run(e, exiting ? (uint64_t) -1 : timeout);
+                if (check_idle)
+                        idle = check_idle(userdata);
+                else
+                        idle = true;
+
+                r = sd_event_run(e, exiting || !idle ? (uint64_t) -1 : timeout);
                 if (r < 0)
                         return r;
 

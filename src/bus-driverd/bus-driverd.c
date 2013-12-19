@@ -772,6 +772,13 @@ static int connect_bus(Context *c) {
         return 0;
 }
 
+static bool check_idle(void *userdata) {
+        Context *c = userdata;
+        assert(c);
+
+        return hashmap_isempty(c->clients);
+}
+
 int main(int argc, char *argv[]) {
         Context context = {};
         Client *c;
@@ -799,7 +806,7 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 goto finish;
 
-        r = bus_event_loop_with_idle(context.event, context.bus, "org.freedesktop.DBus", DEFAULT_EXIT_USEC);
+        r = bus_event_loop_with_idle(context.event, context.bus, "org.freedesktop.DBus", DEFAULT_EXIT_USEC, check_idle, &context);
         if (r < 0) {
                 log_error("Failed to run event loop: %s", strerror(-r));
                 goto finish;

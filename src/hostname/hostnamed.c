@@ -639,7 +639,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        r = bus_event_loop_with_idle(event, bus, "org.freedesktop.hostname1", DEFAULT_EXIT_USEC);
+        r = bus_event_loop_with_idle(event, bus, "org.freedesktop.hostname1", DEFAULT_EXIT_USEC, NULL, NULL);
         if (r < 0) {
                 log_error("Failed to run event loop: %s", strerror(-r));
                 goto finish;
