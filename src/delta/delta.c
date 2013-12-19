@@ -280,13 +280,13 @@ static int enumerate_dir(Hashmap *top, Hashmap *bottom, Hashmap *drops, const ch
 
         for (;;) {
                 struct dirent *de;
-                union dirent_storage buf;
                 int k;
                 char *p;
 
-                k = readdir_r(d, &buf.de, &de);
-                if (k != 0)
-                        return -k;
+                errno = 0;
+                de = readdir(d);
+                if (!de && errno != 0)
+                        return -errno;
 
                 if (!de)
                         break;
