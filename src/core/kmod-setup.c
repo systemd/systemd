@@ -47,13 +47,13 @@ static void systemd_kmod_log(
 
 #pragma GCC diagnostic pop
 
-static bool kmod_check_cmdline(void) {
+static bool cmdline_check_kdbus(void) {
         _cleanup_free_ char *line = NULL;
 
-        if (proc_cmdline(&line) < 0)
+        if (proc_cmdline(&line) <= 0)
                 return false;
 
-        return strstr(line, "kdbus") == 0;
+        return strstr(line, "kdbus") != NULL;
 }
 
 int kmod_setup(void) {
@@ -73,7 +73,7 @@ int kmod_setup(void) {
                 { "unix",    "/proc/net/unix",         true, NULL },
 
                 /* IPC is needed before we bring up any other services */
-                { "kdbus",   "/sys/bus/kdbus",         false, kmod_check_cmdline },
+                { "kdbus",   "/sys/bus/kdbus",         false, cmdline_check_kdbus },
         };
         struct kmod_ctx *ctx = NULL;
         unsigned int i;
@@ -82,10 +82,10 @@ int kmod_setup(void) {
         for (i = 0; i < ELEMENTSOF(kmod_table); i++) {
                 struct kmod_module *mod;
 
-                if (kmod_table[i].condition_fn && kmod_table[i].condition_fn())
+                if (kmod_table[i].path && access(kmod_table[i].path, F_OK) >= 0)
                         continue;
 
-                if (access(kmod_table[i].path, F_OK) >= 0)
+                if (kmod_table[i].condition_fn && !kmod_table[i].condition_fn())
                         continue;
 
                 if (kmod_table[i].warn)
@@ -113,7 +113,7 @@ int kmod_setup(void) {
                         log_info("Inserted module '%s'", kmod_module_get_name(mod));
                 else if (r == KMOD_PROBE_APPLY_BLACKLIST)
                         log_info("Module '%s' is blacklisted", kmod_module_get_name(mod));
-                else
+                else if (kmod_table[i].warn)
                         log_error("Failed to insert module '%s'", kmod_module_get_name(mod));
 
                 kmod_module_unref(mod);
