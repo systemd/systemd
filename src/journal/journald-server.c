@@ -135,11 +135,11 @@ static uint64_t available_space(Server *s, bool verbose) {
         for (;;) {
                 struct stat st;
                 struct dirent *de;
-                union dirent_storage buf;
 
-                r = readdir_r(d, &buf.de, &de);
-                if (r != 0)
-                        break;
+                errno = 0;
+                de = readdir(d);
+                if (!de && errno != 0)
+                        return 0;
 
                 if (!de)
                         break;
