@@ -53,13 +53,13 @@ static int files_add(Hashmap *h, const char *root, const char *path, const char 
 
         for (;;) {
                 struct dirent *de;
-                union dirent_storage buf;
                 char *p;
                 int r;
 
-                r = readdir_r(dir, &buf.de, &de);
-                if (r != 0)
-                        return -r;
+                errno = 0;
+                de = readdir(dir);
+                if (!de && errno != 0)
+                        return -errno;
 
                 if (!de)
                         break;
