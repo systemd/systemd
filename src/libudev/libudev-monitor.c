@@ -126,7 +126,6 @@ static bool udev_has_devtmpfs(struct udev *udev) {
                 return false;
 
         FOREACH_LINE(line, f, return false) {
-                _cleanup_free_ char *opts = NULL;
                 int mid;
 
                 if (sscanf(line, "%i", &mid) != 1)
