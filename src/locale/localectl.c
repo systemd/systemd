@@ -128,8 +128,10 @@ static int show_status(sd_bus *bus, char **args, unsigned n) {
                                    "/org/freedesktop/locale1",
                                    map,
                                    &info);
-        if (r < 0)
+        if (r < 0) {
+                log_error("Could not get properties: %s", strerror(-r));
                 goto fail;
+        }
 
         print_status_info(&info);
 
