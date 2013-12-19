@@ -275,26 +275,23 @@ int manager_startup(Manager *m) {
         return 0;
 }
 
-int manager_run(Manager *m) {
-        int r;
+static bool check_idle(void *userdata) {
+        Manager *m = userdata;
 
+        manager_gc(m, true);
+
+        return hashmap_isempty(m->machines);
+}
+
+int manager_run(Manager *m) {
         assert(m);
 
-        for (;;) {
-                r = sd_event_get_state(m->event);
-                if (r < 0)
-                        return r;
-                if (r == SD_EVENT_FINISHED)
-                        return 0;
-
-                manager_gc(m, true);
-
-                r = sd_event_run(m->event, (uint64_t) -1);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
+        return bus_event_loop_with_idle(
+                        m->event,
+                        m->bus,
+                        "org.freedesktop.machine1",
+                        DEFAULT_EXIT_USEC,
+                        check_idle, m);
 }
 
 int main(int argc, char *argv[]) {
