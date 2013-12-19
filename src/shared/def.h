@@ -30,7 +30,10 @@
 #define DEFAULT_START_LIMIT_INTERVAL (10*USEC_PER_SEC)
 #define DEFAULT_START_LIMIT_BURST 5
 
-#define DEFAULT_EXIT_USEC (5*USEC_PER_MINUTE)
+/* The default time after which exit-on-idle services exit. This
+ * should be kept lower than the watchdog timeout, because otherwise
+ * the watchdog pings will keep the loop busy. */
+#define DEFAULT_EXIT_USEC (30*USEC_PER_SEC)
 
 #define SYSTEMD_CGROUP_CONTROLLER "name=systemd"
 
