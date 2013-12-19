@@ -851,7 +851,7 @@ static int add_name_change_match(sd_bus *bus,
 
                 item = m->items;
                 item->size = offsetof(struct kdbus_item, id_change) + sizeof(struct kdbus_notify_id_change);
-                /* item->id_change.id = name_id; */
+                item->id_change.id = name_id;
 
                 /* If the old name is unset or empty, then this can
                  * match against added ids */
