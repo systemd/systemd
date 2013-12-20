@@ -96,61 +96,6 @@ static int manager_dispatch_idle_pipe_fd(sd_event_source *source, int fd, uint32
 static int manager_dispatch_jobs_in_progress(sd_event_source *source, usec_t usec, void *userdata);
 static int manager_dispatch_run_queue(sd_event_source *source, void *userdata);
 
-static int manager_setup_notify(Manager *m) {
-        union {
-                struct sockaddr sa;
-                struct sockaddr_un un;
-        } sa = {
-                .sa.sa_family = AF_UNIX,
-        };
-        int one = 1, r;
-
-        m->notify_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
-        if (m->notify_fd < 0) {
-                log_error("Failed to allocate notification socket: %m");
-                return -errno;
-        }
-
-        if (getpid() != 1 || detect_container(NULL) > 0)
-                snprintf(sa.un.sun_path, sizeof(sa.un.sun_path), NOTIFY_SOCKET "/%llu", random_ull());
-        else
-                strncpy(sa.un.sun_path, NOTIFY_SOCKET, sizeof(sa.un.sun_path));
-        sa.un.sun_path[0] = 0;
-
-        r = bind(m->notify_fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + 1 + strlen(sa.un.sun_path+1));
-        if (r < 0) {
-                log_error("bind() failed: %m");
-                return -errno;
-        }
-
-        r = setsockopt(m->notify_fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one));
-        if (r < 0) {
-                log_error("SO_PASSCRED failed: %m");
-                return -errno;
-        }
-
-        r = sd_event_add_io(m->event, m->notify_fd, EPOLLIN, manager_dispatch_notify_fd, m, &m->notify_event_source);
-        if (r < 0) {
-                log_error("Failed to allocate notify event source: %s", strerror(-r));
-                return -errno;
-        }
-
-        /* Process signals a bit earlier than SIGCHLD, so that we can
-         * still identify to which service an exit message belongs */
-        r = sd_event_source_set_priority(m->notify_event_source, -7);
-        if (r < 0)
-                return r;
-
-        sa.un.sun_path[0] = '@';
-        m->notify_socket = strdup(sa.un.sun_path);
-        if (!m->notify_socket)
-                return log_oom();
-
-        log_debug("Using notification socket %s", m->notify_socket);
-
-        return 0;
-}
-
 static int manager_watch_jobs_in_progress(Manager *m) {
         assert(m);
 
@@ -416,51 +361,6 @@ static int manager_default_environment(Manager *m) {
         return 0;
 }
 
-static int manager_setup_kdbus(Manager *m) {
-        _cleanup_free_ char *p = NULL;
-
-        assert(m);
-
-#ifdef ENABLE_KDBUS
-        if (m->kdbus_fd >= 0)
-                return 0;
-
-        /* If there's already a bus address set, don't set up kdbus */
-        if (m->running_as == SYSTEMD_USER && getenv("DBUS_SESSION_BUS_ADDRESS"))
-                return 0;
-
-        m->kdbus_fd = bus_kernel_create_bus(m->running_as == SYSTEMD_SYSTEM ? "system" : "user", &p);
-        if (m->kdbus_fd < 0) {
-                log_debug("Failed to set up kdbus: %s", strerror(-m->kdbus_fd));
-                return m->kdbus_fd;
-        }
-
-        log_debug("Successfully set up kdbus on %s", p);
-
-        /* Create the namespace directory here, so that the contents
-         * of that directory is not visible to non-root users. This is
-         * necessary to ensure that users cannot get access to busses
-         * of virtualized users when no UID namespacing is used. */
-        mkdir_p_label("/dev/kdbus/ns", 0700);
-#endif
-
-        return 0;
-}
-
-static int manager_connect_bus(Manager *m, bool reexecuting) {
-        bool try_bus_connect;
-
-        assert(m);
-
-        try_bus_connect =
-                m->kdbus_fd >= 0 ||
-                reexecuting ||
-                (m->running_as == SYSTEMD_USER && getenv("DBUS_SESSION_BUS_ADDRESS"));
-
-        /* Try to connect to the busses, if possible. */
-        return bus_init(m, try_bus_connect);
-}
-
 int manager_new(SystemdRunningAs running_as, Manager **_m) {
         Manager *m;
         int r;
@@ -534,10 +434,6 @@ int manager_new(SystemdRunningAs running_as, Manager **_m) {
         if (r < 0)
                 goto fail;
 
-        r = manager_setup_notify(m);
-        if (r < 0)
-                goto fail;
-
         r = manager_setup_time_change(m);
         if (r < 0)
                 goto fail;
@@ -548,6 +444,10 @@ int manager_new(SystemdRunningAs running_as, Manager **_m) {
                 goto fail;
         }
 
+        /* Note that we set up neither kdbus, nor the notify fd
+         * here. We do that after deserialization, since they might
+         * have gotten serialized across the reexec. */
+
         m->taint_usr = dir_is_empty("/usr") > 0;
 
         *_m = m;
@@ -556,6 +456,122 @@ int manager_new(SystemdRunningAs running_as, Manager **_m) {
 fail:
         manager_free(m);
         return r;
+}
+
+static int manager_setup_notify(Manager *m) {
+        union {
+                struct sockaddr sa;
+                struct sockaddr_un un;
+        } sa = {
+                .sa.sa_family = AF_UNIX,
+        };
+        int one = 1, r;
+
+        if (m->notify_fd < 0) {
+                _cleanup_close_ int fd = -1;
+
+                /* First free all secondary fields */
+                free(m->notify_socket);
+                m->notify_socket = NULL;
+                m->notify_event_source = sd_event_source_unref(m->notify_event_source);
+
+                fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+                if (fd < 0) {
+                        log_error("Failed to allocate notification socket: %m");
+                        return -errno;
+                }
+
+                if (getpid() != 1 || detect_container(NULL) > 0)
+                        snprintf(sa.un.sun_path, sizeof(sa.un.sun_path), NOTIFY_SOCKET "/%llu", random_ull());
+                else
+                        strncpy(sa.un.sun_path, NOTIFY_SOCKET, sizeof(sa.un.sun_path));
+                sa.un.sun_path[0] = 0;
+
+                r = bind(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + 1 + strlen(sa.un.sun_path+1));
+                if (r < 0) {
+                        log_error("bind() failed: %m");
+                        return -errno;
+                }
+
+                r = setsockopt(fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one));
+                if (r < 0) {
+                        log_error("SO_PASSCRED failed: %m");
+                        return -errno;
+                }
+
+                sa.un.sun_path[0] = '@';
+                m->notify_socket = strdup(sa.un.sun_path);
+                if (!m->notify_socket)
+                        return log_oom();
+
+                m->notify_fd = fd;
+                fd = -1;
+
+                log_debug("Using notification socket %s", m->notify_socket);
+        }
+
+        if (!m->notify_event_source) {
+                r = sd_event_add_io(m->event, m->notify_fd, EPOLLIN, manager_dispatch_notify_fd, m, &m->notify_event_source);
+                if (r < 0) {
+                        log_error("Failed to allocate notify event source: %s", strerror(-r));
+                        return -errno;
+                }
+
+                /* Process signals a bit earlier than SIGCHLD, so that we can
+                 * still identify to which service an exit message belongs */
+                r = sd_event_source_set_priority(m->notify_event_source, -7);
+                if (r < 0) {
+                        log_error("Failed to set priority of notify event source: %s", strerror(-r));
+                        return r;
+                }
+        }
+
+        return 0;
+}
+
+static int manager_setup_kdbus(Manager *m) {
+        _cleanup_free_ char *p = NULL;
+
+        assert(m);
+
+#ifdef ENABLE_KDBUS
+        if (m->kdbus_fd >= 0)
+                return 0;
+
+        /* If there's already a bus address set, don't set up kdbus */
+        if (m->running_as == SYSTEMD_USER && getenv("DBUS_SESSION_BUS_ADDRESS"))
+                return 0;
+
+        m->kdbus_fd = bus_kernel_create_bus(m->running_as == SYSTEMD_SYSTEM ? "system" : "user", &p);
+        if (m->kdbus_fd < 0) {
+                log_debug("Failed to set up kdbus: %s", strerror(-m->kdbus_fd));
+                return m->kdbus_fd;
+        }
+
+        log_debug("Successfully set up kdbus on %s", p);
+
+        /* Create the namespace directory here, so that the contents
+         * of that directory is not visible to non-root users. This is
+         * necessary to ensure that users cannot get access to busses
+         * of virtualized users when no UID namespacing is used. */
+        mkdir_p_label("/dev/kdbus/ns", 0700);
+#endif
+
+        return 0;
+}
+
+static int manager_connect_bus(Manager *m, bool reexecuting) {
+        bool try_bus_connect;
+
+        assert(m);
+
+        try_bus_connect =
+                m->kdbus_fd >= 0 ||
+                reexecuting ||
+                (m->running_as == SYSTEMD_USER && getenv("DBUS_SESSION_BUS_ADDRESS"));
+
+        /* Try to connect to the busses, if possible. */
+        return bus_init(m, try_bus_connect);
 }
 
 static unsigned manager_dispatch_cleanup_queue(Manager *m) {
@@ -930,6 +946,10 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
                 if (q < 0)
                         r = q;
         }
+
+        /* We might have deserialized the notify fd, but if we didn't
+         * then let's create the bus now */
+        manager_setup_notify(m);
 
         /* We might have deserialized the kdbus control fd, but if we
          * didn't, then let's create the bus now. */
@@ -1941,7 +1961,7 @@ void manager_dispatch_bus_name_owner_changed(
 }
 
 int manager_open_serialization(Manager *m, FILE **_f) {
-        char *path = NULL;
+        _cleanup_free_ char *path = NULL;
         int fd = -1;
         FILE *f;
 
@@ -1959,19 +1979,17 @@ int manager_open_serialization(Manager *m, FILE **_f) {
                 fd = mkostemp(path, O_RDWR|O_CLOEXEC);
         }
 
-        if (fd < 0) {
-                free(path);
+        if (fd < 0)
                 return -errno;
-        }
 
         unlink(path);
-
         log_debug("Serializing state to %s", path);
-        free(path);
 
         f = fdopen(fd, "w+");
-        if (!f)
+        if (!f) {
+                close_nointr_nofail(fd);
                 return -errno;
+        }
 
         *_f = f;
 
@@ -2022,6 +2040,17 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool switching_root) {
 
                         fprintf(f, "env=%s\n", *e);
                 }
+        }
+
+        if (m->notify_fd >= 0) {
+                int copy;
+
+                copy = fdset_put_dup(fds, m->notify_fd);
+                if (copy < 0)
+                        return copy;
+
+                fprintf(f, "notify-fd=%i\n", copy);
+                fprintf(f, "notify-socket=%s\n", m->notify_socket);
         }
 
         if (m->kdbus_fd >= 0) {
@@ -2172,6 +2201,30 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
 
                         strv_free(m->environment);
                         m->environment = e;
+
+                } else if (startswith(l, "notify-fd=")) {
+                        int fd;
+
+                        if (safe_atoi(l + 10, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
+                                log_debug("Failed to parse notify fd: %s", l + 10);
+                        else {
+                                if (m->notify_fd >= 0)
+                                        close_nointr_nofail(m->notify_fd);
+
+                                m->notify_fd = fdset_remove(fds, fd);
+                        }
+
+                } else if (startswith(l, "notify-socket=")) {
+                        char *n;
+
+                        n = strdup(l+14);
+                        if (!n) {
+                                r = -ENOMEM;
+                                goto finish;
+                        }
+
+                        free(m->notify_socket);
+                        m->notify_socket = n;
 
                 } else if (startswith(l, "kdbus-fd=")) {
                         int fd;
