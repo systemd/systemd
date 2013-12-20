@@ -114,7 +114,6 @@ Features:
 * libsystemd-bus:
   - when kdbus doesn't take our message without memfds, try again with memfds
   - implement monitor logic
-  - implement support for byebye ioctl
   - properly map matches with well-known names against messages with unique names
   - when triggering property change events, allow a NULL strv indicate that all properties listed as such are send out as changed
   - see if we can drop more message validation on the sending side
@@ -122,7 +121,6 @@ Features:
   - add API to clone sd_bus_message objects
   - SD_BUS_COMMENT() macro for inclusion in vtables, syntax inspired by gdbus
   - kdbus: matches against source or destination pids for an "strace -p"-like feel. Problem: The PID info needs to be available in userspace too...
-  - kdbus: when we do "systemctl daemon-reexec" the call doesn't get properly cancelled
   - longer term:
     * priority queues
     * priority inheritance
