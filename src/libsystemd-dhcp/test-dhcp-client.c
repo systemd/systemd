@@ -119,13 +119,7 @@ static void test_checksum(void)
                 0xff, 0xff, 0xff, 0xff
         };
 
-        uint8_t check[2] = {
-                0x78, 0xae
-        };
-
-        uint16_t *val = (uint16_t *)check;
-
-        assert(client_checksum(&buf, 20) == *val);
+        assert(client_checksum(&buf, 20) == be16toh(0x78ae));
 }
 
 static int check_options(uint8_t code, uint8_t len, const uint8_t *option,
