@@ -36,10 +36,10 @@ struct DHCPLease {
         uint32_t t1;
         uint32_t t2;
         uint32_t lifetime;
-        uint32_t address;
-        uint32_t server_address;
-        uint32_t subnet_mask;
-        uint32_t router;
+        be32_t address;
+        be32_t server_address;
+        be32_t subnet_mask;
+        be32_t router;
 };
 
 typedef struct DHCPLease DHCPLease;
@@ -54,7 +54,7 @@ struct sd_dhcp_client {
         sd_event_source *receive_message;
         uint8_t *req_opts;
         size_t req_opts_size;
-        uint32_t last_addr;
+        be32_t last_addr;
         struct ether_addr mac_addr;
         uint32_t xid;
         usec_t start_time;

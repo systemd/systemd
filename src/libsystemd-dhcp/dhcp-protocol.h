@@ -36,10 +36,10 @@ struct DHCPMessage {
         be32_t xid;
         be16_t secs;
         be16_t flags;
-        uint32_t ciaddr;
-        uint32_t yiaddr;
-        uint32_t siaddr;
-        uint32_t giaddr;
+        be32_t ciaddr;
+        be32_t yiaddr;
+        be32_t siaddr;
+        be32_t giaddr;
         uint8_t chaddr[16];
         uint8_t sname[64];
         uint8_t file[128];
