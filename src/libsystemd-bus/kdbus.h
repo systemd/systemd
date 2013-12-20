@@ -23,7 +23,7 @@
 #define KDBUS_IOC_MAGIC			0x95
 #define KDBUS_SRC_ID_KERNEL		(0)
 #define KDBUS_DST_ID_NAME		(0)
-#define KDBUS_MATCH_SRC_ID_ANY		(~0ULL)
+#define KDBUS_MATCH_ID_ANY		(~0ULL)
 #define KDBUS_DST_ID_BROADCAST		(~0ULL)
 
 /**
@@ -205,6 +205,7 @@ struct kdbus_policy {
  * @KDBUS_ITEM_POLICY_NAME:	Policy in struct kdbus_policy
  * @KDBUS_ITEM_POLICY_ACCESS:	Policy in struct kdbus_policy
  * @KDBUS_ITEM_NAME:		Well-know name with flags
+ * @KDBUS_ITEM_ID:		Connection ID
  * @KDBUS_ITEM_TIMESTAMP:	Timestamp
  * @KDBUS_ITEM_CREDS:		Process credential
  * @KDBUS_ITEM_PID_COMM:	Process ID "comm" identifier
@@ -242,6 +243,7 @@ enum kdbus_item_type {
 
 	_KDBUS_ITEM_ATTACH_BASE	= 0x600,
 	KDBUS_ITEM_NAME		= _KDBUS_ITEM_ATTACH_BASE,
+	KDBUS_ITEM_ID,
 	KDBUS_ITEM_TIMESTAMP,
 	KDBUS_ITEM_CREDS,
 	KDBUS_ITEM_PID_COMM,
@@ -625,36 +627,12 @@ struct kdbus_conn_info {
 };
 
 /**
- * enum kdbus_match_type - type of match record
- * @KDBUS_MATCH_BLOOM:		Matches against KDBUS_MSG_BLOOM
- * @KDBUS_MATCH_SRC_NAME:	Matches a name string
- * @KDBUS_MATCH_NAME_ADD:	Matches a name string
- * @KDBUS_MATCH_NAME_REMOVE:	Matches a name string
- * @KDBUS_MATCH_NAME_CHANGE:	Matches a name string
- * @KDBUS_MATCH_ID_ADD:		Matches an ID
- * @KDBUS_MATCH_ID_REMOVE:	Matches an ID
- */
-enum kdbus_match_type {
-	_KDBUS_MATCH_NULL,
-	KDBUS_MATCH_BLOOM,
-	KDBUS_MATCH_SRC_NAME,
-	KDBUS_MATCH_NAME_ADD,
-	KDBUS_MATCH_NAME_REMOVE,
-	KDBUS_MATCH_NAME_CHANGE,
-	KDBUS_MATCH_ID_ADD,
-	KDBUS_MATCH_ID_REMOVE,
-};
-
-/**
  * struct kdbus_cmd_match - struct to add or remove matches
  * @size:		The total size of the struct
  * @id:			Privileged users may (de)register matches on behalf
  * 			of other peers. In other cases, set to 0.
  * @cookie:		Userspace supplied cookie. When removing, the cookie
  * 			identifies the match to remove.
- * @src_id:		The source ID to match against. Use
- * 			KDBUS_MATCH_SRC_ID_ANY or any other value for a unique
- * 			match.
  * @items:		A list of items for additional information
  *
  * This structure is used with the KDBUS_CMD_ADD_MATCH and
@@ -664,7 +642,6 @@ struct kdbus_cmd_match {
 	__u64 size;
 	__u64 id;
 	__u64 cookie;
-	__u64 src_id;
 	struct kdbus_item items[0];
 } __attribute__((aligned(8)));
 

@@ -723,19 +723,19 @@ static int add_name_change_match(sd_bus *bus,
 
         /* If we encounter a match that could match against
          * NameOwnerChanged messages, then we need to create
-         * KDBUS_MATCH_NAME_{ADD,REMOVE,CHANGE} and
-         * KDBUS_MATCH_ID_{ADD,REMOVE} matches for it, possibly
+         * KDBUS_ITEM_NAME_{ADD,REMOVE,CHANGE} and
+         * KDBUS_ITEM_ID_{ADD,REMOVE} matches for it, possibly
          * multiple if the match is underspecified.
          *
          * The NameOwnerChanged signals take three parameters with
          * unique or well-known names, but only some forms actually
          * exist:
          *
-         * WELLKNOWN, "", UNIQUE       → KDBUS_MATCH_NAME_ADD
-         * WELLKNOWN, UNIQUE, ""       → KDBUS_MATCH_NAME_REMOVE
-         * WELLKNOWN, UNIQUE, UNIQUE   → KDBUS_MATCH_NAME_CHANGE
-         * UNIQUE, "", UNIQUE          → KDBUS_MATCH_ID_ADD
-         * UNIQUE, UNIQUE, ""          → KDBUS_MATCH_ID_REMOVE
+         * WELLKNOWN, "", UNIQUE       → KDBUS_ITEM_NAME_ADD
+         * WELLKNOWN, UNIQUE, ""       → KDBUS_ITEM_NAME_REMOVE
+         * WELLKNOWN, UNIQUE, UNIQUE   → KDBUS_ITEM_NAME_CHANGE
+         * UNIQUE, "", UNIQUE          → KDBUS_ITEM_ID_ADD
+         * UNIQUE, UNIQUE, ""          → KDBUS_ITEM_ID_REMOVE
          *
          * For the latter two the two unique names must be identical.
          *
@@ -755,7 +755,8 @@ static int add_name_change_match(sd_bus *bus,
                         return 0;
                 if (is_name_id > 0 && old_owner_id != name_id)
                         return 0;
-        }
+        } else
+                old_owner_id = KDBUS_MATCH_ID_ANY;
 
         if (!isempty(new_owner)) {
                 r = bus_kernel_parse_unique_name(new_owner, &new_owner_id);
@@ -765,14 +766,15 @@ static int add_name_change_match(sd_bus *bus,
                         return 0;
                 if (is_name_id > 0 && new_owner_id != name_id)
                         return 0;
-        }
+        } else
+                new_owner_id = KDBUS_MATCH_ID_ANY;
 
         if (is_name_id <= 0) {
                 struct kdbus_cmd_match *m;
                 size_t sz, l;
 
                 /* If the name argument is missing or is a well-known
-                 * name, then add KDBUS_MATCH_NAME_{ADD,REMOVE,CHANGE}
+                 * name, then add KDBUS_ITEM_NAME_{ADD,REMOVE,CHANGE}
                  * matches for it */
 
                 l = name ? strlen(name) + 1 : 0;
@@ -785,7 +787,6 @@ static int add_name_change_match(sd_bus *bus,
                 m = alloca0(sz);
                 m->size = sz;
                 m->cookie = cookie;
-                m->src_id = KDBUS_SRC_ID_KERNEL;
 
                 item = m->items;
                 item->size =
@@ -802,7 +803,7 @@ static int add_name_change_match(sd_bus *bus,
                 /* If the old name is unset or empty, then
                  * this can match against added names */
                 if (!old_owner || old_owner[0] == 0) {
-                        item->type = KDBUS_MATCH_NAME_ADD;
+                        item->type = KDBUS_ITEM_NAME_ADD;
 
                         r = ioctl(bus->input_fd, KDBUS_CMD_MATCH_ADD, m);
                         if (r < 0)
@@ -812,7 +813,7 @@ static int add_name_change_match(sd_bus *bus,
                 /* If the new name is unset or empty, then
                  * this can match against removed names */
                 if (!new_owner || new_owner[0] == 0) {
-                        item->type = KDBUS_MATCH_NAME_REMOVE;
+                        item->type = KDBUS_ITEM_NAME_REMOVE;
 
                         r = ioctl(bus->input_fd, KDBUS_CMD_MATCH_ADD, m);
                         if (r < 0)
@@ -821,10 +822,10 @@ static int add_name_change_match(sd_bus *bus,
 
                 /* If the neither name is explicitly set to
                  * the empty string, then this can match
-                 * agains changed names */
+                 * against changed names */
                 if (!(old_owner && old_owner[0] == 0) &&
                     !(new_owner && new_owner[0] == 0)) {
-                        item->type = KDBUS_MATCH_NAME_CHANGE;
+                        item->type = KDBUS_ITEM_NAME_CHANGE;
 
                         r = ioctl(bus->input_fd, KDBUS_CMD_MATCH_ADD, m);
                         if (r < 0)
@@ -837,7 +838,7 @@ static int add_name_change_match(sd_bus *bus,
                 uint64_t sz;
 
                 /* If the name argument is missing or is a unique
-                 * name, then add KDBUS_MATCH_ID_{ADD,REMOVE} matches
+                 * name, then add KDBUS_ITEM_ID_{ADD,REMOVE} matches
                  * for it */
 
                 sz = ALIGN8(offsetof(struct kdbus_cmd_match, items) +
@@ -847,7 +848,6 @@ static int add_name_change_match(sd_bus *bus,
                 m = alloca0(sz);
                 m->size = sz;
                 m->cookie = cookie;
-                m->src_id = KDBUS_SRC_ID_KERNEL;
 
                 item = m->items;
                 item->size = offsetof(struct kdbus_item, id_change) + sizeof(struct kdbus_notify_id_change);
@@ -856,7 +856,7 @@ static int add_name_change_match(sd_bus *bus,
                 /* If the old name is unset or empty, then this can
                  * match against added ids */
                 if (!old_owner || old_owner[0] == 0) {
-                        item->type = KDBUS_MATCH_ID_ADD;
+                        item->type = KDBUS_ITEM_ID_ADD;
 
                         r = ioctl(bus->input_fd, KDBUS_CMD_MATCH_ADD, m);
                         if (r < 0)
@@ -864,9 +864,9 @@ static int add_name_change_match(sd_bus *bus,
                 }
 
                 /* If thew new name is unset or empty, then this can
-                match against removed ids */
+                 * match against removed ids */
                 if (!new_owner || new_owner[0] == 0) {
-                        item->type = KDBUS_MATCH_ID_REMOVE;
+                        item->type = KDBUS_ITEM_ID_REMOVE;
 
                         r = ioctl(bus->input_fd, KDBUS_CMD_MATCH_ADD, m);
                         if (r < 0)
@@ -890,7 +890,7 @@ int bus_add_match_internal_kernel(
         size_t sz;
         const char *sender = NULL;
         size_t sender_length = 0;
-        uint64_t src_id = KDBUS_MATCH_SRC_ID_ANY;
+        uint64_t src_id = KDBUS_MATCH_ID_ANY;
         bool using_bloom = false;
         unsigned i;
         bool matches_name_change = true;
@@ -901,7 +901,8 @@ int bus_add_match_internal_kernel(
 
         zero(bloom);
 
-        sz = offsetof(struct kdbus_cmd_match, items);
+        sz = ALIGN8(offsetof(struct kdbus_cmd_match, items) +
+                    offsetof(struct kdbus_item, id) + sizeof(uint64_t));
 
         for (i = 0; i < n_components; i++) {
                 struct bus_match_component *c = &components[i];
@@ -1016,22 +1017,24 @@ int bus_add_match_internal_kernel(
         m = alloca0(sz);
         m->size = sz;
         m->cookie = cookie;
-        m->src_id = src_id;
         m->id = id;
 
         item = m->items;
+        item->size = offsetof(struct kdbus_item, id) + sizeof(uint64_t);
+        item->type = KDBUS_ITEM_ID;
+        item->id = src_id;
 
         if (using_bloom) {
-                item->size = offsetof(struct kdbus_item, data64) + BLOOM_SIZE;
-                item->type = KDBUS_MATCH_BLOOM;
-                memcpy(item->data64, bloom, BLOOM_SIZE);
-
                 item = KDBUS_ITEM_NEXT(item);
+                item->size = offsetof(struct kdbus_item, data64) + BLOOM_SIZE;
+                item->type = KDBUS_ITEM_BLOOM;
+                memcpy(item->data64, bloom, BLOOM_SIZE);
         }
 
         if (sender) {
+                item = KDBUS_ITEM_NEXT(item);
                 item->size = offsetof(struct kdbus_item, str) + sender_length + 1;
-                item->type = KDBUS_MATCH_SRC_NAME;
+                item->type = KDBUS_ITEM_NAME;
                 memcpy(item->str, sender, sender_length + 1);
         }
 
