@@ -382,10 +382,13 @@ static uint16_t client_checksum(void *buf, int len)
 
         if (len & 0x01) {
                 odd = buf;
-                sum += odd[len];
+                sum += odd[len - 1];
         }
 
-        return ~((sum & 0xffff) + (sum >> 16));
+        while (sum >> 16)
+                sum = (sum & 0xffff) + (sum >> 16);
+
+        return ~sum;
 }
 
 static void client_append_ip_headers(DHCPPacket *packet, uint16_t len)
