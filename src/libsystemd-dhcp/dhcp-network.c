@@ -31,7 +31,7 @@
 #include "dhcp-internal.h"
 
 int dhcp_network_bind_raw_socket(int index, union sockaddr_union *link)
- {
+{
         int s;
 
         s = socket(AF_PACKET, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK,
@@ -46,7 +46,7 @@ int dhcp_network_bind_raw_socket(int index, union sockaddr_union *link)
         memset(link->ll.sll_addr, 0xff, ETH_ALEN);
 
         if (bind(s, &link->sa, sizeof(link->ll)) < 0) {
-                close(s);
+                close_nointr_nofail(s);
                 return -errno;
         }
 
@@ -56,10 +56,8 @@ int dhcp_network_bind_raw_socket(int index, union sockaddr_union *link)
 int dhcp_network_send_raw_socket(int s, const union sockaddr_union *link,
                                  const void *packet, size_t len)
 {
-        int err = 0;
-
         if (sendto(s, packet, len, 0, &link->sa, sizeof(link->ll)) < 0)
-                err = -errno;
+                return -errno;
 
-        return err;
+        return 0;
 }
