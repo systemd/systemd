@@ -715,7 +715,7 @@ static int add_name_change_match(sd_bus *bus,
                                  const char *old_owner,
                                  const char *new_owner) {
 
-        uint64_t name_id = 0, old_owner_id = 0, new_owner_id = 0;
+        uint64_t name_id = KDBUS_MATCH_ID_ANY, old_owner_id = 0, new_owner_id = 0;
         int is_name_id = -1, r;
         struct kdbus_item *item;
 
