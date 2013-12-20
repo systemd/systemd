@@ -184,6 +184,17 @@ int dhcp_network_bind_raw_socket(int index, union sockaddr_union *link)
         return test_fd[0];
 }
 
+int dhcp_network_bind_udp_socket(int index, be32_t client_address)
+{
+        return 0;
+}
+
+int dhcp_network_send_udp_socket(int s, be32_t server_address,
+                                 const void *packet, size_t len)
+{
+        return 0;
+}
+
 static void test_discover_message(sd_event *e)
 {
         sd_dhcp_client *client;

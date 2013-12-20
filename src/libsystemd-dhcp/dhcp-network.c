@@ -53,10 +53,46 @@ int dhcp_network_bind_raw_socket(int index, union sockaddr_union *link)
         return s;
 }
 
+int dhcp_network_bind_udp_socket(int index, be32_t client_address)
+{
+        int s;
+        union sockaddr_union src = {
+                .in.sin_family = AF_INET,
+                .in.sin_port = htobe16(DHCP_PORT_CLIENT),
+                .in.sin_addr.s_addr = client_address,
+        };
+
+        s = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
+        if (s < 0)
+                return -errno;
+
+        if (bind(s, &src.sa, sizeof(src.in)) < 0) {
+                close_nointr_nofail(s);
+                return -errno;
+        }
+
+        return s;
+}
+
 int dhcp_network_send_raw_socket(int s, const union sockaddr_union *link,
                                  const void *packet, size_t len)
 {
         if (sendto(s, packet, len, 0, &link->sa, sizeof(link->ll)) < 0)
+                return -errno;
+
+        return 0;
+}
+
+int dhcp_network_send_udp_socket(int s, be32_t server_address,
+                                 const void *packet, size_t len)
+{
+        union sockaddr_union dest = {
+                .in.sin_family = AF_INET,
+                .in.sin_port = htobe16(DHCP_PORT_SERVER),
+                .in.sin_addr.s_addr = server_address,
+        };
+
+        if (sendto(s, packet, len, 0, &dest.sa, sizeof(dest.in)) < 0)
                 return -errno;
 
         return 0;

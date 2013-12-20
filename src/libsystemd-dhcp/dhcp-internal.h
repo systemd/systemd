@@ -29,7 +29,10 @@
 #include "dhcp-protocol.h"
 
 int dhcp_network_bind_raw_socket(int index, union sockaddr_union *link);
+int dhcp_network_bind_udp_socket(int index, be32_t client_address);
 int dhcp_network_send_raw_socket(int s, const union sockaddr_union *link,
+                                 const void *packet, size_t len);
+int dhcp_network_send_udp_socket(int s, be32_t server_address,
                                  const void *packet, size_t len);
 
 int dhcp_option_append(uint8_t **buf, size_t *buflen, uint8_t code,
