@@ -607,6 +607,28 @@ error:
         return 0;
 }
 
+static int client_initialize_events(sd_dhcp_client *client, usec_t usec)
+{
+        int r;
+
+        r = sd_event_add_io(client->event, client->fd, EPOLLIN,
+                            client_receive_message, client,
+                            &client->receive_message);
+        if (r < 0)
+                goto error;
+
+        r = sd_event_add_monotonic(client->event, usec, 0,
+                                   client_timeout_resend, client,
+                                   &client->timeout_resend);
+
+error:
+        if (r < 0)
+                client_stop(client, r);
+
+        return 0;
+
+}
+
 static int client_timeout_expire(sd_event_source *s, uint64_t usec,
                                  void *userdata)
 {
@@ -632,28 +654,14 @@ static int client_timeout_t1(sd_event_source *s, uint64_t usec, void *userdata)
 
         r = dhcp_network_bind_udp_socket(client->index,
                                          client->lease->address);
-        if (r < 0)
-                goto error;
+        if (r < 0) {
+                client_stop(client, r);
+                return 0;
+        }
 
         client->fd = r;
-        r = sd_event_add_io(client->event, client->fd, EPOLLIN,
-                            client_receive_message, client,
-                            &client->receive_message);
-        if (r < 0)
-                goto error;
 
-        r = sd_event_add_monotonic(client->event, usec, 0,
-                                   client_timeout_resend, client,
-                                   &client->timeout_resend);
-        if (r < 0)
-                goto error;
-
-        return 0;
-
-error:
-        client_stop(client, r);
-
-        return 0;
+        return client_initialize_events(client, usec);
 }
 
 static int client_parse_offer(uint8_t code, uint8_t len, const uint8_t *option,
@@ -1019,7 +1027,7 @@ error:
 
 int sd_dhcp_client_start(sd_dhcp_client *client)
 {
-        int err;
+        int r;
 
         assert_return(client, -EINVAL);
         assert_return(client->index >= 0, -EINVAL);
@@ -1028,33 +1036,17 @@ int sd_dhcp_client_start(sd_dhcp_client *client)
 
         client->xid = random_u();
 
-        client->fd = dhcp_network_bind_raw_socket(client->index,
-                                                  &client->link);
+        r = dhcp_network_bind_raw_socket(client->index, &client->link);
 
-        if (client->fd < 0) {
-                err = client->fd;
-                goto error;
+        if (r < 0) {
+                client_stop(client, r);
+                return r;
         }
 
-        err = sd_event_add_io(client->event, client->fd, EPOLLIN,
-                              client_receive_message, client,
-                              &client->receive_message);
-        if (err < 0)
-                goto error;
-
+        client->fd = r;
         client->start_time = now(CLOCK_MONOTONIC);
-        err = sd_event_add_monotonic(client->event, client->start_time, 0,
-                                     client_timeout_resend, client,
-                                     &client->timeout_resend);
-        if (err < 0)
-                goto error;
 
-        return 0;
-
-error:
-        client_stop(client, err);
-
-        return err;
+        return client_initialize_events(client, client->start_time);
 }
 
 int sd_dhcp_client_stop(sd_dhcp_client *client)
