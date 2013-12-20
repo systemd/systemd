@@ -726,7 +726,7 @@ static int client_receive_ack(sd_dhcp_client *client, DHCPPacket *offer,
 
         lease = new0(DHCPLease, 1);
         if (!lease)
-                return -ENOBUFS;
+                return -ENOMEM;
 
         len = len - DHCP_IP_UDP_SIZE;
         r = dhcp_option_parse(&offer->dhcp, len, client_parse_offer, lease);
