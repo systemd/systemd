@@ -731,8 +731,15 @@ static int client_receive_ack(sd_dhcp_client *client, DHCPPacket *offer,
         len = len - DHCP_IP_UDP_SIZE;
         r = dhcp_option_parse(&offer->dhcp, len, client_parse_offer, lease);
 
-        if (r != DHCP_ACK)
+        if (r == DHCP_NAK) {
+                r = DHCP_EVENT_NO_LEASE;
                 goto error;
+        }
+
+        if (r != DHCP_ACK) {
+                r = -ENOMSG;
+                goto error;
+        }
 
         lease->address = offer->dhcp.yiaddr;
 
