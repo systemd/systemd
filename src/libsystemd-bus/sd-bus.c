@@ -2956,3 +2956,19 @@ _public_ int sd_bus_get_peer_creds(sd_bus *bus, uint64_t mask, sd_bus_creds **re
         *ret = c;
         return 0;
 }
+
+_public_ int sd_bus_try_close(sd_bus *bus) {
+        int r;
+
+        assert_return(bus, -EINVAL);
+        assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(bus->is_kernel, -ENOTSUP);
+
+        r = bus_kernel_try_close(bus);
+        if (r < 0)
+                return r;
+
+        sd_bus_close(bus);
+        return 0;
+}

@@ -95,6 +95,9 @@ int main(int argc, char *argv[]) {
         r = sd_bus_emit_signal(a, "/foo/bar/waldo", "waldo.com", "Piep", "sss", "I am a string", "/this/is/a/path", "and.this.a.domain.name");
         assert_se(r >= 0);
 
+        r = sd_bus_try_close(b);
+        assert_se(r == -EBUSY);
+
         r = sd_bus_process(b, &m);
         assert_se(r > 0);
         assert_se(m);
@@ -159,6 +162,9 @@ int main(int argc, char *argv[]) {
 
         r = sd_bus_release_name(a, "net.x0pointer.foobar");
         assert_se(r == -ESRCH);
+
+        r = sd_bus_try_close(a);
+        assert_se(r >= 0);
 
         sd_bus_unref(a);
         sd_bus_unref(b);
