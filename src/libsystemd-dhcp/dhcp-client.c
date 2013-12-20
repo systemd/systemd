@@ -892,10 +892,10 @@ static int client_receive_raw_message(sd_event_source *s, int fd,
 
                         client_notify(client, DHCP_EVENT_IP_ACQUIRE);
 
-                        close(client->fd);
-                        client->fd = -1;
                         client->receive_message =
                                 sd_event_source_unref(client->receive_message);
+                        close(client->fd);
+                        client->fd = -1;
                 }
 
                 r = 0;
