@@ -1243,7 +1243,7 @@ int main(int argc, char *argv[]) {
                         gid_t gid = (gid_t) -1;
                         unsigned n_env = 2;
                         const char *envp[] = {
-                                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                                "PATH=" DEFAULT_PATH_SPLIT_USR,
                                 "container=systemd-nspawn", /* LXC sets container=lxc, so follow the scheme here */
                                 NULL, /* TERM */
                                 NULL, /* HOME */
