@@ -364,21 +364,42 @@ finish:
         return r;
 }
 
-static int driver_get_security_ctx(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        char *arg0;
+static int get_creds(sd_bus *bus, sd_bus_message *m, uint64_t mask, sd_bus_creds **_creds, sd_bus_error *error) {
+        _cleanup_bus_creds_unref_ sd_bus_creds *c = NULL;
+        const char *name;
         int r;
 
-        r = sd_bus_message_read(m, "s", &arg0);
+        assert(bus);
+        assert(m);
+        assert(_creds);
+
+        r = sd_bus_message_read(m, "s", &name);
         if (r < 0)
                 return r;
 
-        assert_return(service_name_is_valid(arg0), -EINVAL);
+        assert_return(service_name_is_valid(name), -EINVAL);
 
-        r = sd_bus_get_owner(bus, arg0, SD_BUS_CREDS_SELINUX_CONTEXT, &creds);
-        if (r == -ENOENT)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NAME_HAS_NO_OWNER, "Name %s is currently not owned by anyone.", arg0);
+        r = sd_bus_get_owner(bus, name, mask, &c);
+        if (r == -ENOENT || r == -ENXIO)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NAME_HAS_NO_OWNER, "Name %s is currently not owned by anyone.", name);
+        if (r < 0)
+                return r;
+
+        if ((c->mask & mask) != mask)
+                return -ENOTSUP;
+
+        *_creds = c;
+        c = NULL;
+
+        return 0;
+}
+
+static int driver_get_security_context(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+        int r;
+
+        r = get_creds(bus, m, SD_BUS_CREDS_SELINUX_CONTEXT, &creds, error);
         if (r < 0)
                 return r;
 
@@ -395,42 +416,35 @@ static int driver_get_security_ctx(sd_bus *bus, sd_bus_message *m, void *userdat
 
 static int driver_get_pid(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
         _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
-        char *arg0;
         int r;
 
-        r = sd_bus_message_read(m, "s", &arg0);
+        r = get_creds(bus, m, SD_BUS_CREDS_PID, &creds, error);
         if (r < 0)
                 return r;
 
-        assert_return(service_name_is_valid(arg0), -EINVAL);
-
-        r = sd_bus_get_owner(bus, arg0, SD_BUS_CREDS_PID, &creds);
-        if (r == -ENOENT)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NAME_HAS_NO_OWNER, "Name %s is currently not owned by anyone.", arg0);
-        if (r < 0)
-                return r;
-
-        return sd_bus_reply_method_return(m, "u", creds->pid);
+        return sd_bus_reply_method_return(m, "u", (uint32_t) creds->pid);
 }
 
 static int driver_get_user(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
         _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
-        char *arg0;
         int r;
 
-        r = sd_bus_message_read(m, "s", &arg0);
+        r = get_creds(bus, m, SD_BUS_CREDS_UID, &creds, error);
         if (r < 0)
                 return r;
 
-        assert_return(service_name_is_valid(arg0), -EINVAL);
+        return sd_bus_reply_method_return(m, "u", (uint32_t) creds->uid);
+}
 
-        r = sd_bus_get_owner(bus, arg0, SD_BUS_CREDS_UID, &creds);
-        if (r == -ENOENT)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NAME_HAS_NO_OWNER, "Name %s is currently not owned by anyone.", arg0);
+static int driver_get_name_owner(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+        int r;
+
+        r = get_creds(bus, m, SD_BUS_CREDS_UNIQUE_NAME, &creds, error);
         if (r < 0)
                 return r;
 
-        return sd_bus_reply_method_return(m, "u", creds->uid);
+        return sd_bus_reply_method_return(m, "s", creds->unique_name);
 }
 
 static int driver_get_id(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
@@ -443,26 +457,6 @@ static int driver_get_id(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_
                 return r;
 
         return sd_bus_reply_method_return(m, "s", sd_id128_to_string(server_id, buf));
-}
-
-static int driver_get_name_owner(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
-        char *arg0;
-        int r;
-
-        r = sd_bus_message_read(m, "s", &arg0);
-        if (r < 0)
-                return r;
-
-        assert_return(service_name_is_valid(arg0), -EINVAL);
-
-        r = sd_bus_get_owner(bus, arg0, SD_BUS_CREDS_UNIQUE_NAME, &creds);
-        if (r == -ENOENT)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NAME_HAS_NO_OWNER, "Name %s is currently not owned by anyone.", arg0);
-        if (r < 0)
-                return r;
-
-        return sd_bus_reply_method_return(m, "s", creds->unique_name);
 }
 
 static int driver_hello(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
@@ -727,7 +721,7 @@ static int driver_unsupported(sd_bus *bus, sd_bus_message *m, void *userdata, sd
 static const sd_bus_vtable driver_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_METHOD("AddMatch", "s", NULL, driver_add_match, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("GetConnectionSELinuxSecurityContext", "s", "ay", driver_get_security_ctx, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("GetConnectionSELinuxSecurityContext", "s", "ay", driver_get_security_context, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetConnectionUnixProcessID", "s", "u", driver_get_pid, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetConnectionUnixUser", "s", "u", driver_get_user, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetId", NULL, "s", driver_get_id, SD_BUS_VTABLE_UNPRIVILEGED),
