@@ -2965,6 +2965,9 @@ _public_ int sd_bus_try_close(sd_bus *bus) {
         assert_return(!bus_pid_changed(bus), -ECHILD);
         assert_return(bus->is_kernel, -ENOTSUP);
 
+        if (bus->rqueue_size > 0)
+                return -EBUSY;
+
         r = bus_kernel_try_close(bus);
         if (r < 0)
                 return r;
