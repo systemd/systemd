@@ -848,14 +848,15 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
                 m->sender = m->creds.unique_name = m->sender_buffer;
         }
 
-        if (!m->destination) {
-                if (destination)
-                        m->destination = destination;
-                else if (k->dst_id != KDBUS_DST_ID_NAME &&
-                         k->dst_id != KDBUS_DST_ID_BROADCAST) {
-                        snprintf(m->destination_buffer, sizeof(m->destination_buffer), ":1.%llu", (unsigned long long) k->dst_id);
-                        m->destination = m->destination_buffer;
-                }
+        if (destination)
+                m->destination = destination;
+        else if (k->dst_id == KDBUS_DST_ID_BROADCAST)
+                m->destination = NULL;
+        else if (k->dst_id == KDBUS_DST_ID_NAME)
+                m->destination = bus->unique_name; /* fill in unique name if the well-known name is missing */
+        else {
+                snprintf(m->destination_buffer, sizeof(m->destination_buffer), ":1.%llu", (unsigned long long) k->dst_id);
+                m->destination = m->destination_buffer;
         }
 
         /* We take possession of the kmsg struct now */
