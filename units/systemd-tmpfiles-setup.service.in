@@ -6,7 +6,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Recreate Volatile Files and Directories
+Description=Create Volatile Files and Directories
 Documentation=man:tmpfiles.d(5) man:systemd-tmpfiles(8)
 DefaultDependencies=no
 Wants=local-fs.target
@@ -18,8 +18,10 @@ ConditionDirectoryNotEmpty=|/lib/tmpfiles.d
 ConditionDirectoryNotEmpty=|/usr/local/lib/tmpfiles.d
 ConditionDirectoryNotEmpty=|/etc/tmpfiles.d
 ConditionDirectoryNotEmpty=|/run/tmpfiles.d
+RefuseManualStart=yes
+RefuseManualStop=yes
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=@rootbindir@/systemd-tmpfiles --create --remove --exclude-prefix=/dev
+ExecStart=@rootbindir@/systemd-tmpfiles --create --remove --unsafe --exclude-prefix=/dev

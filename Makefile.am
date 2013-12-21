@@ -1584,6 +1584,7 @@ nodist_systemunit_DATA += \
 
 dist_tmpfiles_DATA = \
 	tmpfiles.d/systemd.conf \
+	tmpfiles.d/systemd-nologin.conf \
 	tmpfiles.d/tmp.conf \
 	tmpfiles.d/x11.conf
 

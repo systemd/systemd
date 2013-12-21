@@ -107,6 +107,7 @@ static Set *unix_sockets = NULL;
 static bool arg_create = false;
 static bool arg_clean = false;
 static bool arg_remove = false;
+static bool arg_unsafe = false;
 
 static char **include_prefixes = NULL;
 static char **exclude_prefixes = NULL;
@@ -1077,7 +1078,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         _cleanup_item_free_ Item *i = NULL;
         Item *existing;
         _cleanup_free_ char
-                *mode = NULL, *user = NULL, *group = NULL, *age = NULL, *path = NULL;
+                *action = NULL, *mode = NULL, *user = NULL, *group = NULL, *age = NULL, *path = NULL;
         char type;
         Hashmap *h;
         int r, n = -1;
@@ -1087,8 +1088,8 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         assert(buffer);
 
         r = sscanf(buffer,
-                   "%c %ms %ms %ms %ms %ms %n",
-                   &type,
+                   "%ms %ms %ms %ms %ms %ms %n",
+                   &action,
                    &path,
                    &mode,
                    &user,
@@ -1099,6 +1100,14 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 log_error("[%s:%u] Syntax error.", fname, line);
                 return -EIO;
         }
+
+        if (strlen(action) > 2 || (strlen(action) > 1 && action[1] != '!')) {
+                log_error("[%s:%u] Unknown modifier '%s'", fname, line, action);
+                return -EINVAL;
+        } else if (strlen(action) > 1 && !arg_unsafe)
+                return 0;
+
+        type = action[0];
 
         i = new0(Item, 1);
         if (!i)
@@ -1271,6 +1280,7 @@ static int help(void) {
                "     --create               Create marked files/directories\n"
                "     --clean                Clean up marked directories\n"
                "     --remove               Remove marked files/directories\n"
+               "     --unsafe               Execute actions only safe at boot\n"
                "     --prefix=PATH          Only apply rules that apply to paths with the specified prefix\n"
                "     --exclude-prefix=PATH  Ignore rules that apply to paths with the specified prefix\n",
                program_invocation_short_name);
@@ -1285,6 +1295,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_CREATE,
                 ARG_CLEAN,
                 ARG_REMOVE,
+                ARG_UNSAFE,
                 ARG_PREFIX,
                 ARG_EXCLUDE_PREFIX,
         };
@@ -1295,6 +1306,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "create",         no_argument,         NULL, ARG_CREATE         },
                 { "clean",          no_argument,         NULL, ARG_CLEAN          },
                 { "remove",         no_argument,         NULL, ARG_REMOVE         },
+                { "unsafe",         no_argument,         NULL, ARG_UNSAFE         },
                 { "prefix",         required_argument,   NULL, ARG_PREFIX         },
                 { "exclude-prefix", required_argument,   NULL, ARG_EXCLUDE_PREFIX },
                 {}
@@ -1327,6 +1339,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_REMOVE:
                         arg_remove = true;
+                        break;
+
+                case ARG_UNSAFE:
+                        arg_unsafe = true;
                         break;
 
                 case ARG_PREFIX:

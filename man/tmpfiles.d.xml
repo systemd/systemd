@@ -113,6 +113,9 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
                 <refsect2>
                         <title>Type</title>
 
+                        <para>The type consists of a single letter and
+                        optionally an exclamation mark.</para>
+
                         <para>The following line types are understood:</para>
 
                         <variablelist>
@@ -262,6 +265,28 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
                                         names.</para></listitem>
                                 </varlistentry>
                         </variablelist>
+
+                        <para>If the exclamation mark is used, this
+                        line is only safe of execute during boot, and
+                        can break a running system. Lines without the
+                        exclamation mark are presumed to be safe to
+                        execute at any time, e.g. on package upgrades.
+                        <command>systemd-tmpfiles</command> will
+                        execute line with an exclamation mark only if
+                        option <option>--unsafe</option> is given.
+                        </para>
+
+                        <para>For example:
+                        <programlisting>
+# Make sure these are created by default so that nobody else can
+d /tmp/.X11-unix 1777 root root 10d
+
+# Unlink the X11 lock files
+r! /tmp/.X[0-9]*-lock
+                        </programlisting>
+                        The second line in contrast to the first one
+                        would break a running system, and will only be
+                        executed with <option>--unsafe</option>.</para>
                 </refsect2>
 
                 <refsect2>

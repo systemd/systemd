@@ -147,6 +147,12 @@
                                 removed.</para></listitem>
                         </varlistentry>
                         <varlistentry>
+                                <term><option>--unsafe</option></term>
+                                <listitem><para>Also execute lines
+                                with an exclamation mark.
+                                </para></listitem>
+                        </varlistentry>
+                        <varlistentry>
                                 <term><option>--prefix=PATH</option></term>
                                 <listitem><para>Only apply rules that
                                 apply to paths with the specified
