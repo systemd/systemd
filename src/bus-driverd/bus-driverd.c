@@ -377,6 +377,8 @@ static int driver_get_security_ctx(sd_bus *bus, sd_bus_message *m, void *userdat
         assert_return(service_name_is_valid(arg0), -EINVAL);
 
         r = sd_bus_get_owner(bus, arg0, SD_BUS_CREDS_SELINUX_CONTEXT, &creds);
+        if (r == -ENOENT)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NAME_HAS_NO_OWNER, "Name %s is currently not owned by anyone.", arg0);
         if (r < 0)
                 return r;
 
@@ -403,6 +405,8 @@ static int driver_get_pid(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus
         assert_return(service_name_is_valid(arg0), -EINVAL);
 
         r = sd_bus_get_owner(bus, arg0, SD_BUS_CREDS_PID, &creds);
+        if (r == -ENOENT)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NAME_HAS_NO_OWNER, "Name %s is currently not owned by anyone.", arg0);
         if (r < 0)
                 return r;
 
@@ -421,6 +425,8 @@ static int driver_get_user(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bu
         assert_return(service_name_is_valid(arg0), -EINVAL);
 
         r = sd_bus_get_owner(bus, arg0, SD_BUS_CREDS_UID, &creds);
+        if (r == -ENOENT)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NAME_HAS_NO_OWNER, "Name %s is currently not owned by anyone.", arg0);
         if (r < 0)
                 return r;
 
@@ -451,6 +457,8 @@ static int driver_get_name_owner(sd_bus *bus, sd_bus_message *m, void *userdata,
         assert_return(service_name_is_valid(arg0), -EINVAL);
 
         r = sd_bus_get_owner(bus, arg0, SD_BUS_CREDS_UNIQUE_NAME, &creds);
+        if (r == -ENOENT)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NAME_HAS_NO_OWNER, "Name %s is currently not owned by anyone.", arg0);
         if (r < 0)
                 return r;
 
