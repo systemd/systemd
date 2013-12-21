@@ -1680,7 +1680,7 @@ static int add_object_vtable_internal(
                             !signature_is_valid(strempty(v->x.method.signature), false) ||
                             !signature_is_valid(strempty(v->x.method.result), false) ||
                             !(v->x.method.handler || (isempty(v->x.method.signature) && isempty(v->x.method.result))) ||
-                            v->flags & (SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE|SD_BUS_VTABLE_PROPERTY_INVALIDATE_ONLY)) {
+                            v->flags & (SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE|SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION)) {
                                 r = -EINVAL;
                                 goto fail;
                         }
@@ -1722,12 +1722,11 @@ static int add_object_vtable_internal(
                             !signature_is_single(v->x.property.signature, false) ||
                             !(v->x.property.get || bus_type_is_basic(v->x.property.signature[0]) || streq(v->x.property.signature, "as")) ||
                             v->flags & SD_BUS_VTABLE_METHOD_NO_REPLY ||
-                            (v->flags & SD_BUS_VTABLE_PROPERTY_INVALIDATE_ONLY && !(v->flags & SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE)) ||
+                            (!!(v->flags & SD_BUS_VTABLE_PROPERTY_CONST) + !!(v->flags & SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE) + !!(v->flags & SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION)) > 1 ||
                             (v->flags & SD_BUS_VTABLE_UNPRIVILEGED && v->type == _SD_BUS_VTABLE_PROPERTY)) {
                                 r = -EINVAL;
                                 goto fail;
                         }
-
 
                         m = new0(struct vtable_member, 1);
                         if (!m) {
@@ -2013,9 +2012,10 @@ static int emit_properties_changed_on_interface(
                         if (c != v->parent)
                                 continue;
 
-                        assert_return(v->vtable->flags & SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE, -EDOM);
+                        assert_return(v->vtable->flags & SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE ||
+                                      v->vtable->flags & SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION, -EDOM);
 
-                        if (v->vtable->flags & SD_BUS_VTABLE_PROPERTY_INVALIDATE_ONLY) {
+                        if (v->vtable->flags & SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION) {
                                 has_invalidating = true;
                                 continue;
                         }
@@ -2084,7 +2084,7 @@ static int emit_properties_changed_on_interface(
                                 assert_se(v = hashmap_get(bus->vtable_properties, &key));
                                 assert(c == v->parent);
 
-                                if (!(v->vtable->flags & SD_BUS_VTABLE_PROPERTY_INVALIDATE_ONLY))
+                                if (!(v->vtable->flags & SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION))
                                         continue;
 
                                 r = sd_bus_message_append(m, "s", *property);

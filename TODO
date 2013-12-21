@@ -118,11 +118,18 @@ Features:
   - support "const" properties as flag
   - add API to clone sd_bus_message objects
   - SD_BUS_COMMENT() macro for inclusion in vtables, syntax inspired by gdbus
+  - systemd-bus-proxyd needs to synthesize NameLost/NameAcquired
   - kdbus: matches against source or destination pids for an "strace -p"-like feel. Problem: The PID info needs to be available in userspace too...
   - kdbus: we need a way to figure out whether there's currently an activator for a name that is already activated
   - longer term:
     * priority queues
     * priority inheritance
+  - move to siphash for bloom filter
+  - dbus spec updates:
+       - kdbus mapping
+       - NameLost/NameAcquired obsolete
+       - GVariant
+       - "const" properties
 
 * sd-event
   - allow multiple signal handlers per signal?
