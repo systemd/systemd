@@ -24,6 +24,7 @@
 #include "bus-match.h"
 #include "bus-error.h"
 #include "bus-util.h"
+#include "strv.h"
 
 /* Example:
  *
@@ -129,7 +130,8 @@ static bool value_node_test(
                 struct bus_match_node *node,
                 enum bus_match_node_type parent_type,
                 uint8_t value_u8,
-                const char *value_str) {
+                const char *value_str,
+                sd_bus_message *m) {
 
         assert(node);
         assert(node->type == BUS_MATCH_VALUE);
@@ -143,23 +145,34 @@ static bool value_node_test(
                 return node->value.u8 == value_u8;
 
         case BUS_MATCH_SENDER:
-        case BUS_MATCH_DESTINATION:
                 if (streq_ptr(node->value.str, value_str))
                         return true;
 
-                /* FIXME: So here's an ugliness: if the match is for a
-                 * well-known name then we cannot actually check this
-                 * correctly here. This doesn't matter much for dbus1
-                 * where no false positives exist, hence we just
-                 * ignore this case here. For kdbus the messages
-                 * should contain all well-known names of the sender,
-                 * hence we can fix things there correctly. */
+                if (m->creds.mask & SD_BUS_CREDS_WELL_KNOWN_NAMES) {
+                        char **i;
 
-                if (node->value.str[0] != ':' && value_str && value_str[0] == ':')
-                        return true;
+                        /* on kdbus we have the well known names list
+                         * in the credentials, let's make use of that
+                         * for an accurate match */
+
+                        STRV_FOREACH(i, m->creds.well_known_names)
+                                if (streq_ptr(node->value.str, *i))
+                                        return true;
+
+                } else {
+
+                        /* If we don't have kdbus, we don't know the
+                         * well-known names of the senders. In that,
+                         * let's just hope that dbus-daemon doesn't
+                         * send us stuff we didn't want. */
+
+                        if (node->value.str[0] != ':' && value_str && value_str[0] == ':')
+                                return true;
+                }
 
                 return false;
 
+        case BUS_MATCH_DESTINATION:
         case BUS_MATCH_INTERFACE:
         case BUS_MATCH_MEMBER:
         case BUS_MATCH_PATH:
@@ -349,7 +362,7 @@ int bus_match_run(
                 /* No hash table, so let's iterate manually... */
 
                 for (c = node->child; c; c = c->next) {
-                        if (!value_node_test(c, node->type, test_u8, test_str))
+                        if (!value_node_test(c, node->type, test_u8, test_str, m))
                                 continue;
 
                         r = bus_match_run(bus, c, m);
