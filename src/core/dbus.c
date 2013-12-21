@@ -623,6 +623,7 @@ static int bus_setup_disconnected_match(Manager *m, sd_bus *bus) {
 
         r = sd_bus_add_match(
                         bus,
+                        "sender='org.freedesktop.DBus.Local',"
                         "type='signal',"
                         "path='/org/freedesktop/DBus/Local',"
                         "interface='org.freedesktop.DBus.Local',"
