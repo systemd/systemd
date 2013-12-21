@@ -266,6 +266,7 @@ int main(int argc, char *argv[]) {
                 int events_a, events_b, fd;
                 uint64_t timeout_a, timeout_b, t;
                 struct timespec _ts, *ts;
+                struct pollfd *pollfd;
                 int k;
 
                 r = sd_bus_process(a, &m);
@@ -374,14 +375,13 @@ int main(int argc, char *argv[]) {
                         ts = timespec_store(&_ts, t);
                 }
 
-                {
-                        struct pollfd p[3] = {
-                                {.fd = fd,            .events = events_a, },
-                                {.fd = STDIN_FILENO,  .events = events_b & POLLIN, },
-                                {.fd = STDOUT_FILENO, .events = events_b & POLLOUT, }};
+                pollfd = (struct pollfd[3]) {
+                        {.fd = fd,     .events = events_a,           },
+                        {.fd = in_fd,  .events = events_b & POLLIN,  },
+                        {.fd = out_fd, .events = events_b & POLLOUT, }
+                };
 
-                        r = ppoll(p, ELEMENTSOF(p), ts, NULL);
-                }
+                r = ppoll(pollfd, 3, ts, NULL);
                 if (r < 0) {
                         log_error("ppoll() failed: %m");
                         goto finish;
