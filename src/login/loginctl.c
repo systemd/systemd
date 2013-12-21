@@ -45,6 +45,7 @@ static char **arg_property = NULL;
 static bool arg_all = false;
 static bool arg_full = false;
 static bool arg_no_pager = false;
+static bool arg_legend = true;
 static const char *arg_kill_who = NULL;
 static int arg_signal = SIGTERM;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
@@ -99,7 +100,8 @@ static int list_sessions(sd_bus *bus, char **args, unsigned n) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        printf("%10s %10s %-16s %-16s\n", "SESSION", "UID", "USER", "SEAT");
+        if (arg_legend)
+                printf("%10s %10s %-16s %-16s\n", "SESSION", "UID", "USER", "SEAT");
 
         while ((r = sd_bus_message_read(reply, "(susso)", &id, &uid, &user, &seat, &object)) > 0) {
                 printf("%10s %10u %-16s %-16s\n", id, (unsigned) uid, user, seat);
@@ -108,7 +110,8 @@ static int list_sessions(sd_bus *bus, char **args, unsigned n) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        printf("\n%u sessions listed.\n", k);
+        if (arg_legend)
+                printf("\n%u sessions listed.\n", k);
 
         return 0;
 }
@@ -140,7 +143,8 @@ static int list_users(sd_bus *bus, char **args, unsigned n) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        printf("%10s %-16s\n", "UID", "USER");
+        if (arg_legend)
+                printf("%10s %-16s\n", "UID", "USER");
 
         while ((r = sd_bus_message_read(reply, "(uso)", &uid, &user, &object)) > 0) {
                 printf("%10u %-16s\n", (unsigned) uid, user);
@@ -149,7 +153,8 @@ static int list_users(sd_bus *bus, char **args, unsigned n) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        printf("\n%u users listed.\n", k);
+        if (arg_legend)
+                printf("\n%u users listed.\n", k);
 
         return 0;
 }
@@ -180,7 +185,8 @@ static int list_seats(sd_bus *bus, char **args, unsigned n) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        printf("%-16s\n", "SEAT");
+        if (arg_legend)
+                printf("%-16s\n", "SEAT");
 
         while ((r = sd_bus_message_read(reply, "(so)", &seat, &object)) > 0) {
                 printf("%-16s\n", seat);
@@ -189,7 +195,8 @@ static int list_seats(sd_bus *bus, char **args, unsigned n) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        printf("\n%u seats listed.\n", k);
+        if (arg_legend)
+                printf("\n%u seats listed.\n", k);
 
         return 0;
 }
@@ -1040,6 +1047,7 @@ static int help(void) {
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
                "     --no-pager          Do not pipe output into a pager\n"
+               "     --no-legend         Do not show the headers and footers\n"
                "     --no-ask-password   Don't prompt for password\n"
                "  -H --host=[USER@]HOST  Operate on remote host\n"
                "  -M --machine=CONTAINER Operate on local container\n"
@@ -1082,6 +1090,7 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_NO_PAGER,
+                ARG_NO_LEGEND,
                 ARG_KILL_WHO,
                 ARG_NO_ASK_PASSWORD,
         };
@@ -1093,6 +1102,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "all",             no_argument,       NULL, 'a'                 },
                 { "full",            no_argument,       NULL, 'l'                 },
                 { "no-pager",        no_argument,       NULL, ARG_NO_PAGER        },
+                { "no-legend",       no_argument,       NULL, ARG_NO_LEGEND       },
                 { "kill-who",        required_argument, NULL, ARG_KILL_WHO        },
                 { "signal",          required_argument, NULL, 's'                 },
                 { "host",            required_argument, NULL, 'H'                 },
@@ -1140,6 +1150,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_PAGER:
                         arg_no_pager = true;
+                        break;
+
+                case ARG_NO_LEGEND:
+                        arg_legend = false;
                         break;
 
                 case ARG_NO_ASK_PASSWORD:

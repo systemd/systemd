@@ -1,8 +1,8 @@
 #compdef loginctl
 
-_loginctl_all_sessions(){_sys_all_sessions=($(loginctl list-sessions | { while read a b; do echo " $a"; done; }) )}
-_loginctl_all_users()   {_sys_all_users=(   $(loginctl list-users    | { while read a b; do echo " $a"; done; }) )}
-_loginctl_all_seats()   {_sys_all_seats=(   $(loginctl list-seats    | { while read a b; do echo " $a"; done; }) )}
+_loginctl_all_sessions(){_sys_all_sessions=($(loginctl --no-legend list-sessions | { while read a b; do echo " $a"; done; }) )}
+_loginctl_all_users()   {_sys_all_users=(   $(loginctl --no-legend list-users    | { while read a b; do echo " $a"; done; }) )}
+_loginctl_all_seats()   {_sys_all_seats=(   $(loginctl --no-legend list-seats    | { while read a b; do echo " $a"; done; }) )}
 
 # Completion functions for SESSIONS
 for fun in session-status show-session activate lock-session unlock-session terminate-session kill-session ; do
