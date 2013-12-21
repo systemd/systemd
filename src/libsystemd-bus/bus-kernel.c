@@ -693,6 +693,13 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
         if (r < 0)
                 return r;
 
+        /* The well-known names list is different from the other
+        credentials. If we asked for it, but nothing is there, this
+        means that the list of well-known names is simply empty, not
+        that we lack any data */
+
+        m->creds.mask |= (SD_BUS_CREDS_UNIQUE_NAME|SD_BUS_CREDS_WELL_KNOWN_NAMES) & bus->creds_mask;
+
         KDBUS_ITEM_FOREACH(d, k, items) {
                 size_t l;
 
@@ -818,7 +825,6 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
                         r = strv_extend(&m->creds.well_known_names, d->name.name);
                         if (r < 0)
                                 goto fail;
-                        m->creds.mask |= SD_BUS_CREDS_WELL_KNOWN_NAMES & bus->creds_mask;
                         break;
 
                 case KDBUS_ITEM_FDS:
@@ -836,11 +842,10 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
 
         /* Override information from the user header with data from the kernel */
         if (k->src_id == KDBUS_SRC_ID_KERNEL)
-                m->sender = "org.freedesktop.DBus";
+                m->sender = m->creds.unique_name = (char*) "org.freedesktop.DBus";
         else {
                 snprintf(m->sender_buffer, sizeof(m->sender_buffer), ":1.%llu", (unsigned long long) k->src_id);
                 m->sender = m->creds.unique_name = m->sender_buffer;
-                m->creds.mask |= SD_BUS_CREDS_UNIQUE_NAME & bus->creds_mask;
         }
 
         if (!m->destination) {
