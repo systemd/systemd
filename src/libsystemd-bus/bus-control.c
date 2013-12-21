@@ -820,17 +820,16 @@ static int add_name_change_match(sd_bus *bus,
                                 return -errno;
                 }
 
-                /* If the neither name is explicitly set to
-                 * the empty string, then this can match
-                 * against changed names */
-                if (!(old_owner && old_owner[0] == 0) &&
-                    !(new_owner && new_owner[0] == 0)) {
-                        item->type = KDBUS_ITEM_NAME_CHANGE;
-
-                        r = ioctl(bus->input_fd, KDBUS_CMD_MATCH_ADD, m);
-                        if (r < 0)
-                                return -errno;
-                }
+                /* The CHANGE match we need in either case, because
+                 * what is reported as a name change by the kernel
+                 * might just be an owner change between starter and
+                 * normal clients. For userspace such a change should
+                 * be considered a removal/addition, hence let's
+                 * subscribe to this unconditionally. */
+                item->type = KDBUS_ITEM_NAME_CHANGE;
+                r = ioctl(bus->input_fd, KDBUS_CMD_MATCH_ADD, m);
+                if (r < 0)
+                        return -errno;
         }
 
         if (is_name_id != 0) {
