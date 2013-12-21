@@ -387,6 +387,10 @@ static int bus_get_owner_kdbus(
 
         conn_info = (struct kdbus_conn_info *) ((uint8_t *) bus->kdbus_buffer + cmd->offset);
 
+        /* Non-activated names are considered not available */
+        if (conn_info->flags & KDBUS_HELLO_ACTIVATOR)
+                return name[0] == ':' ? -ENXIO : -ENOENT;
+
         c = bus_creds_new();
         if (!c)
                 return -ENOMEM;
