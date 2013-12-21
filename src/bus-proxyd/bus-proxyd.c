@@ -41,19 +41,19 @@
 #include "build.h"
 
 #ifdef ENABLE_KDBUS
-const char *arg_bus_path = "kernel:path=/dev/kdbus/0-system/bus;unix:path=/run/dbus/system_bus_socket";
+const char *arg_address = "kernel:path=/dev/kdbus/0-system/bus;unix:path=/run/dbus/system_bus_socket";
 #else
-const char *arg_bus_path = "unix:path=/run/dbus/system_bus_socket";
+const char *arg_address = "unix:path=/run/dbus/system_bus_socket";
 #endif
 
 static int help(void) {
 
         printf("%s [OPTIONS...]\n\n"
-               "Connection STDIO or a socket to a given bus address.\n\n"
+               "Connect STDIO or a socket to a given bus address.\n\n"
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
-               "  -p --bus-path=PATH     Bus address to forward to (default: %s)\n",
-               program_invocation_short_name, arg_bus_path);
+               "     --address=ADDRESS   Connect to bus specified by address\n",
+               program_invocation_short_name);
 
         return 0;
 }
@@ -62,12 +62,14 @@ static int parse_argv(int argc, char *argv[]) {
 
         enum {
                 ARG_VERSION = 0x100,
+                ARG_ADDRESS,
         };
 
         static const struct option options[] = {
-                { "help",            no_argument,       NULL, 'h'     },
-                { "bus-path",        required_argument, NULL, 'p'     },
-                { NULL,              0,                 NULL, 0       }
+                { "help",       no_argument,       NULL, 'h'            },
+                { "version",    no_argument,       NULL, ARG_VERSION    },
+                { "address",    required_argument, NULL, ARG_ADDRESS    },
+                { NULL,         0,                 NULL, 0              }
         };
 
         int c;
@@ -88,16 +90,15 @@ static int parse_argv(int argc, char *argv[]) {
                         puts(SYSTEMD_FEATURES);
                         return 0;
 
+                case ARG_ADDRESS:
+                        arg_address = optarg;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
-                case 'p':
-                        arg_bus_path = optarg;
-                        break;
-
                 default:
-                        log_error("Unknown option code %c", c);
-                        return -EINVAL;
+                        assert_not_reached("Unhandled option");
                 }
         }
 
@@ -140,7 +141,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        r = sd_bus_set_address(a, arg_bus_path);
+        r = sd_bus_set_address(a, arg_address);
         if (r < 0) {
                 log_error("Failed to set address to connect to: %s", strerror(-r));
                 goto finish;
