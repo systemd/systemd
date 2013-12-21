@@ -5133,6 +5133,14 @@ int bus_message_parse_fields(sd_bus_message *m) {
                 break;
         }
 
+        /* Refuse non-local messages that claim they are local */
+        if (streq_ptr(m->path, "/org/freedesktop/DBus/Local"))
+                return -EBADMSG;
+        if (streq_ptr(m->interface, "org.freedesktop.DBus.Local"))
+                return -EBADMSG;
+        if (streq_ptr(m->sender, "org.freedesktop.DBus.Local"))
+                return -EBADMSG;
+
         m->root_container.end = BUS_MESSAGE_BODY_SIZE(m);
 
         if (BUS_MESSAGE_IS_GVARIANT(m)) {
