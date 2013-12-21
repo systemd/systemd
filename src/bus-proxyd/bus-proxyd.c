@@ -41,12 +41,16 @@
 #include "build.h"
 #include "strv.h"
 
+#define UNIX_BUS_PATH "unix:path=/run/dbus/system_bus_socket"
+#define KERNEL_BUS_PATH "kernel:path=/dev/kdbus/0-system/bus"
+
 #ifdef ENABLE_KDBUS
-static const char *arg_address = "kernel:path=/dev/kdbus/0-system/bus;unix:path=/run/dbus/system_bus_socket";
+#  define DEFAULT_BUS_PATH KERNEL_BUS_PATH ";" UNIX_BUS_PATH
 #else
-static const char *arg_address = "unix:path=/run/dbus/system_bus_socket";
+#  define DEFAULT_BUS_PATH UNIX_BUS_PATH
 #endif
 
+static const char *arg_address = DEFAULT_BUS_PATH;
 static char *arg_command_line_buffer = NULL;
 
 static int help(void) {
@@ -55,7 +59,8 @@ static int help(void) {
                "Connect STDIO or a socket to a given bus address.\n\n"
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
-               "     --address=ADDRESS   Connect to bus specified by address\n",
+               "     --address=ADDRESS   Connect to the bus specified by ADDRESS\n"
+               "                         (default: " DEFAULT_BUS_PATH ")\n",
                program_invocation_short_name);
 
         return 0;
