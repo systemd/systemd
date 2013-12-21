@@ -372,7 +372,7 @@ static int print_session_status_info(sd_bus *bus, const char *path, bool *new_li
                 { "Remote",     "b", NULL, offsetof(SessionStatusInfo, remote) },
                 { "Timestamp",  "t", NULL, offsetof(SessionStatusInfo, timestamp) },
                 { "User",       "(uo)", prop_map_first_of_struct, offsetof(SessionStatusInfo, uid) },
-                { "Seat",       "(so)", prop_map_first_of_struct, offsetof(SessionStatusInfo, id) },
+                { "Seat",       "(so)", prop_map_first_of_struct, offsetof(SessionStatusInfo, seat) },
                 {}
         };
 
@@ -419,7 +419,7 @@ static int print_session_status_info(sd_bus *bus, const char *path, bool *new_li
                 printf("\n");
         }
 
-        if (i.seat) {
+        if (!isempty(i.seat)) {
                 printf("\t    Seat: %s", i.seat);
 
                 if (i.vtnr > 0)
