@@ -156,6 +156,7 @@ MANPAGES_ALIAS += \
 	man/sd_journal_get_monotonic_usec.3 \
 	man/sd_journal_get_timeout.3 \
 	man/sd_journal_next_skip.3 \
+	man/sd_journal_open_container.3 \
 	man/sd_journal_open_directory.3 \
 	man/sd_journal_open_files.3 \
 	man/sd_journal_perror.3 \
@@ -258,6 +259,7 @@ man/sd_journal_get_events.3: man/sd_journal_get_fd.3
 man/sd_journal_get_monotonic_usec.3: man/sd_journal_get_realtime_usec.3
 man/sd_journal_get_timeout.3: man/sd_journal_get_fd.3
 man/sd_journal_next_skip.3: man/sd_journal_next.3
+man/sd_journal_open_container.3: man/sd_journal_open.3
 man/sd_journal_open_directory.3: man/sd_journal_open.3
 man/sd_journal_open_files.3: man/sd_journal_open.3
 man/sd_journal_perror.3: man/sd_journal_print.3
@@ -462,6 +464,9 @@ man/sd_journal_get_timeout.html: man/sd_journal_get_fd.html
 	$(html-alias)
 
 man/sd_journal_next_skip.html: man/sd_journal_next.html
+	$(html-alias)
+
+man/sd_journal_open_container.html: man/sd_journal_open.html
 	$(html-alias)
 
 man/sd_journal_open_directory.html: man/sd_journal_open.html
