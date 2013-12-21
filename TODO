@@ -120,6 +120,7 @@ Features:
   - add API to clone sd_bus_message objects
   - SD_BUS_COMMENT() macro for inclusion in vtables, syntax inspired by gdbus
   - kdbus: matches against source or destination pids for an "strace -p"-like feel. Problem: The PID info needs to be available in userspace too...
+  - kdbus: we need a way to figure out whether there's currently an activator for a name that is already activated
   - longer term:
     * priority queues
     * priority inheritance
