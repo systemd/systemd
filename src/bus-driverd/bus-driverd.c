@@ -484,6 +484,9 @@ static int driver_list_names(sd_bus *bus, sd_bus_message *m, void *userdata, sd_
         if (r < 0)
                 return r;
 
+        /* Let's sort the names list to make it stable */
+        strv_sort(names);
+
         return return_strv(bus, m, names);
 }
 
@@ -494,6 +497,9 @@ static int driver_list_activatable_names(sd_bus *bus, sd_bus_message *m, void *u
         r = sd_bus_list_names(bus, NULL, &names);
         if (r < 0)
                 return r;
+
+        /* Let's sort the names list to make it stable */
+        strv_sort(names);
 
         return return_strv(bus, m, names);
 }
