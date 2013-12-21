@@ -20,6 +20,7 @@
 from __future__ import print_function
 import collections
 import sys
+import os.path
 from xml_helper import *
 
 SECTION = '''\
@@ -50,8 +51,17 @@ HTML_ALIAS_RULE = '''\
 	$(html-alias)
 '''
 
+FOOTER = '''\
+
+EXTRA_DIST += \\
+       {files}
+'''
+
 def man(page, number):
     return 'man/{}.{}'.format(page, number)
+
+def xml(file):
+    return 'man/{}'.format(os.path.basename(file))
 
 def add_rules(rules, name):
     xml = xml_parse(name)
@@ -72,7 +82,7 @@ def add_rules(rules, name):
         rulegroup[alias] = target
         # print('{} => {} [{}]'.format(alias, target, conditional), file=sys.stderr)
 
-def create_rules(*xml_files):
+def create_rules(xml_files):
     " {conditional => {alias-name => source-name}} "
     rules = collections.defaultdict(dict)
     for name in xml_files:
@@ -82,7 +92,7 @@ def create_rules(*xml_files):
 def mjoin(files):
     return ' \\\n\t'.join(sorted(files) or '#')
 
-def make_makefile(rules):
+def make_makefile(rules, files):
     return HEADER + '\n'.join(
         (CONDITIONAL if conditional else SECTION).format(
             manpages=mjoin(set(rulegroup.values())),
@@ -94,8 +104,10 @@ def make_makefile(rules):
                                 for k,v in sorted(rulegroup.items())
                                 if k != v),
             conditional=conditional)
-        for conditional,rulegroup in sorted(rules.items()))
+        for conditional,rulegroup in sorted(rules.items())
+        ) + FOOTER.format(files=mjoin(sorted(files)))
 
 if __name__ == '__main__':
-    rules = create_rules(*sys.argv[1:])
-    print(make_makefile(rules), end='')
+    rules = create_rules(sys.argv[1:])
+    files = (xml(file) for file in sys.argv[1:])
+    print(make_makefile(rules, files), end='')
