@@ -209,11 +209,22 @@ int main(int argc, char *argv[]) {
 
                 r = sd_bus_process(a, &m);
                 if (r < 0) {
-                        log_error("Failed to process bus a: %s", strerror(-r));
+                        /* treat 'connection reset by peer' as clean exit condition */
+                        if (r == -ECONNRESET)
+                                r = 0;
+                        else
+                                log_error("Failed to process bus a: %s", strerror(-r));
+
                         goto finish;
                 }
 
                 if (m) {
+                        /* We officially got EOF, let's quit */
+                        if (sd_bus_message_is_signal(m, "org.freedesktop.DBus.Local", "Disconnected")) {
+                                r = 0;
+                                goto finish;
+                        }
+
                         r = sd_bus_send(b, m, NULL);
                         if (r < 0) {
                                 log_error("Failed to send message: %s", strerror(-r));
@@ -229,11 +240,19 @@ int main(int argc, char *argv[]) {
                         /* treat 'connection reset by peer' as clean exit condition */
                         if (r == -ECONNRESET)
                                 r = 0;
+                        else
+                                log_error("Failed to process bus b: %s", strerror(-r));
 
                         goto finish;
                 }
 
                 if (m) {
+                        /* We officially got EOF, let's quit */
+                        if (sd_bus_message_is_signal(m, "org.freedesktop.DBus.Local", "Disconnected")) {
+                                r = 0;
+                                goto finish;
+                        }
+
                         r = sd_bus_send(a, m, NULL);
                         if (r < 0) {
                                 log_error("Failed to send message: %s", strerror(-r));
@@ -309,5 +328,8 @@ int main(int argc, char *argv[]) {
         r = 0;
 
 finish:
+        sd_bus_flush(a);
+        sd_bus_flush(b);
+
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
