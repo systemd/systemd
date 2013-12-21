@@ -26,10 +26,11 @@
 #include "bus-internal.h"
 #include "bus-protocol.h"
 
-int introspect_begin(struct introspect *i) {
+int introspect_begin(struct introspect *i, bool trusted) {
         assert(i);
 
         zero(*i);
+        i->trusted = trusted;
 
         i->f = open_memstream(&i->introspection, &i->size);
         if (!i->f)
@@ -87,8 +88,10 @@ static void introspect_write_flags(struct introspect *i, int type, int flags) {
                         fputs("   <annotation name=\"org.freedesktop.DBus.Property.EmitsChangedSignal\" value=\"invalidates\"/>\n", i->f);
         }
 
-        if ((type == _SD_BUS_VTABLE_METHOD || type == _SD_BUS_VTABLE_WRITABLE_PROPERTY) && (flags & SD_BUS_VTABLE_UNPRIVILEGED))
-                fputs("   <annotation name=\"org.freedesktop.systemd1.Unprivileged\" value=\"true\"/>\n", i->f);
+        if (!i->trusted &&
+            (type == _SD_BUS_VTABLE_METHOD || type == _SD_BUS_VTABLE_WRITABLE_PROPERTY) &&
+            !(flags & SD_BUS_VTABLE_UNPRIVILEGED))
+                fputs("   <annotation name=\"org.freedesktop.systemd1.Privileged\" value=\"true\"/>\n", i->f);
 }
 
 static int introspect_write_arguments(struct introspect *i, const char *signature, const char *direction) {
@@ -120,6 +123,10 @@ int introspect_write_interface(struct introspect *i, const sd_bus_vtable *v) {
         assert(v);
 
         for (; v->type != _SD_BUS_VTABLE_END; v++) {
+
+                /* Ignore methods, signals and properties that are
+                 * marked "hidden", but do show the interface
+                 * itself */
 
                 if (v->type != _SD_BUS_VTABLE_START && (v->flags & SD_BUS_VTABLE_HIDDEN))
                         continue;

@@ -831,7 +831,7 @@ static int process_introspect(
         if (bus->nodes_modified)
                 return 0;
 
-        r = introspect_begin(&intro);
+        r = introspect_begin(&intro, bus->trusted);
         if (r < 0)
                 return r;
 

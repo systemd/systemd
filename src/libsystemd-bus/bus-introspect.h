@@ -31,9 +31,10 @@ struct introspect {
         FILE *f;
         char *introspection;
         size_t size;
+        bool trusted;
 };
 
-int introspect_begin(struct introspect *i);
+int introspect_begin(struct introspect *i, bool trusted);
 int introspect_write_default_interfaces(struct introspect *i, bool object_manager);
 int introspect_write_child_nodes(struct introspect *i, Set *s, const char *prefix);
 int introspect_write_interface(struct introspect *i, const sd_bus_vtable *v);
