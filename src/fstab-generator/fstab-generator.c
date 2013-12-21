@@ -152,6 +152,11 @@ static int add_fsck(FILE *f, const char *what, const char *where, const char *ty
         if (passno == 0)
                 return 0;
 
+        if (!is_device_path(what)) {
+                log_warning("Checking was requested for \"%s\", but it is not a device.", what);
+                return 0;
+        }
+
         if (type && !streq(type, "auto")) {
                 int r;
                 const char *checker;
