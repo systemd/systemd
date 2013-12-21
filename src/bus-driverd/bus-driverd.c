@@ -555,17 +555,17 @@ static int driver_list_queued_owners(sd_bus *bus, sd_bus_message *m, void *userd
 }
 
 static int driver_name_has_owner(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        char *arg0;
+        const char *name;
         int r;
 
-        r = sd_bus_message_read(m, "s", &arg0);
+        r = sd_bus_message_read(m, "s", &name);
         if (r < 0)
                 return r;
 
-        assert_return(service_name_is_valid(arg0), -EINVAL);
+        assert_return(service_name_is_valid(name), -EINVAL);
 
-        r = sd_bus_get_owner(bus, arg0, 0, NULL);
-        if (r < 0 && r != -ENOENT)
+        r = sd_bus_get_owner(bus, name, 0, NULL);
+        if (r < 0 && r != -ENOENT && r != -ENXIO)
                 return r;
 
         return sd_bus_reply_method_return(m, "b", r >= 0);
