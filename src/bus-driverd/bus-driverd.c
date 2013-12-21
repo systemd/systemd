@@ -694,7 +694,7 @@ static int driver_start_service_by_name(sd_bus *bus, sd_bus_message *m, void *us
         if (r < 0)
                 return r;
 
-        if (!t[0] || t[1])
+        if (!t || !t[0] || t[1])
                 return -EIO;
 
         r = sd_bus_call_method(
