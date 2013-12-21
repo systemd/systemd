@@ -39,12 +39,15 @@
 #include "bus-message.h"
 #include "bus-util.h"
 #include "build.h"
+#include "strv.h"
 
 #ifdef ENABLE_KDBUS
-const char *arg_address = "kernel:path=/dev/kdbus/0-system/bus;unix:path=/run/dbus/system_bus_socket";
+static const char *arg_address = "kernel:path=/dev/kdbus/0-system/bus;unix:path=/run/dbus/system_bus_socket";
 #else
-const char *arg_address = "unix:path=/run/dbus/system_bus_socket";
+static const char *arg_address = "unix:path=/run/dbus/system_bus_socket";
 #endif
+
+static char *arg_command_line_buffer = NULL;
 
 static int help(void) {
 
@@ -102,14 +105,30 @@ static int parse_argv(int argc, char *argv[]) {
                 }
         }
 
+        /* If the first command line argument is only "x" characters
+         * we'll write who we are talking to into it, so that "ps" is
+         * explanatory */
+        arg_command_line_buffer = argv[optind];
+        if (argc > optind + 1 ||
+            (arg_command_line_buffer && arg_command_line_buffer[strspn(arg_command_line_buffer, "x")] != 0)) {
+                log_error("Too many arguments");
+                return -EINVAL;
+        }
+
         return 1;
 }
 
 int main(int argc, char *argv[]) {
+
+        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
         _cleanup_bus_unref_ sd_bus *a = NULL, *b = NULL;
         sd_id128_t server_id;
-        bool is_unix;
         int r, in_fd, out_fd;
+        char **cmdline;
+        const char *comm;
+        bool is_unix;
+        uid_t uid;
+        pid_t pid;
 
         log_set_target(LOG_TARGET_JOURNAL_OR_KMSG);
         log_parse_environment();
@@ -201,11 +220,53 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
+        if (sd_bus_get_peer_creds(b, SD_BUS_CREDS_UID|SD_BUS_CREDS_PID|SD_BUS_CREDS_CMDLINE|SD_BUS_CREDS_COMM, &creds) >= 0 &&
+            sd_bus_creds_get_uid(creds, &uid) >= 0 &&
+            sd_bus_creds_get_pid(creds, &pid) >= 0 &&
+            sd_bus_creds_get_cmdline(creds, &cmdline) >= 0 &&
+            sd_bus_creds_get_comm(creds, &comm) >= 0) {
+                _cleanup_free_ char *p = NULL, *name = NULL;
+
+                name = uid_to_name(uid);
+                if (!name) {
+                        r = log_oom();
+                        goto finish;
+                }
+
+                p = strv_join(cmdline, " ");
+                if (!p) {
+                        r = log_oom();
+                        goto finish;
+                }
+
+                /* The status string gets the full command line ... */
+                sd_notifyf(false,
+                           "STATUS=Processing requests from client PID %lu (%s); UID %lu (%s)",
+                           (unsigned long) pid, p,
+                           (unsigned long) uid, name);
+
+                /* ... and the argv line only the short comm */
+                if (arg_command_line_buffer) {
+                        size_t m, w;
+
+                        m = strlen(arg_command_line_buffer);
+                        w = snprintf(arg_command_line_buffer, m,
+                                     "[PID %lu/%s; UID %lu/%s]",
+                                     (unsigned long) pid, comm,
+                                     (unsigned long) uid, name);
+
+                        if (m > w)
+                                memset(arg_command_line_buffer + w, 0, m - w);
+
+                }
+        }
+
         for (;;) {
                 _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
                 int events_a, events_b, fd;
                 uint64_t timeout_a, timeout_b, t;
                 struct timespec _ts, *ts;
+                int k;
 
                 r = sd_bus_process(a, &m);
                 if (r < 0) {
@@ -225,8 +286,9 @@ int main(int argc, char *argv[]) {
                                 goto finish;
                         }
 
-                        r = sd_bus_send(b, m, NULL);
-                        if (r < 0) {
+                        k = sd_bus_send(b, m, NULL);
+                        if (k < 0) {
+                                r = k;
                                 log_error("Failed to send message: %s", strerror(-r));
                                 goto finish;
                         }
@@ -253,8 +315,9 @@ int main(int argc, char *argv[]) {
                                 goto finish;
                         }
 
-                        r = sd_bus_send(a, m, NULL);
-                        if (r < 0) {
+                        k = sd_bus_send(a, m, NULL);
+                        if (k < 0) {
+                                r = k;
                                 log_error("Failed to send message: %s", strerror(-r));
                                 goto finish;
                         }

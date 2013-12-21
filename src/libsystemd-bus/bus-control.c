@@ -702,6 +702,7 @@ _public_ int sd_bus_get_owner(
         assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
         assert_return(!bus_pid_changed(bus), -ECHILD);
         assert_return(service_name_is_valid(name), -EINVAL);
+        assert_return(bus->bus_client, -ENODATA);
 
         if (bus->is_kernel)
                 return bus_get_owner_kdbus(bus, name, mask, creds);
