@@ -20,16 +20,18 @@
 ***/
 
 #include "util.h"
-#include "MurmurHash3.h"
-
+#include "siphash24.h"
 #include "bus-bloom.h"
 
 static inline void set_bit(uint64_t filter[], unsigned b) {
         filter[b >> 6] |= 1ULL << (b & 63);
 }
 
+#define HASH_KEY1 SD_ID128_MAKE(b9,66,0b,f0,46,70,47,c1,88,75,c4,9c,54,b9,bd,15)
+#define HASH_KEY2 SD_ID128_MAKE(aa,a1,54,a2,e0,71,4b,39,bf,e1,dd,2e,9f,c5,4a,3b)
+
 static void bloom_add_data(uint64_t filter[BLOOM_SIZE/8], const void *data, size_t n) {
-        uint16_t hash[8];
+        uint8_t a[8], b[8];
         unsigned k = 0;
 
         /*
@@ -38,17 +40,19 @@ static void bloom_add_data(uint64_t filter[BLOOM_SIZE/8], const void *data, size
          * m=512   (bits in the filter)
          * k=8     (hash functions)
          *
-         * We calculate a single 128bit MurmurHash value of which we
-         * use 8 parts of 9 bits as individual hash functions.
+         * We calculate a two 64bit SipHash values (for two fixed but
+         * randomly generated hash keys) of which we use 8 parts of 9 bits
+         * as individual hash functions.
          *
          */
 
-        MurmurHash3_x64_128(data, n, 0, hash);
+        siphash24(a, data, n, HASH_KEY1.bytes);
+        siphash24(b, data, n, HASH_KEY2.bytes);
 
         assert_cc(BLOOM_SIZE*8 == 512);
 
-        for (k = 0; k < ELEMENTSOF(hash); k++)
-                set_bit(filter, hash[k] & 511);
+        for (k = 0; k < 8; k++)
+                set_bit(filter, ((uint16_t) a[k] << 1) ^ (uint16_t) b[k]);
 
         /* log_debug("bloom: adding <%.*s>", (int) n, (char*) data); */
 }

@@ -757,8 +757,6 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/output-mode.h \
 	src/shared/MurmurHash2.c \
 	src/shared/MurmurHash2.h \
-	src/shared/MurmurHash3.c \
-	src/shared/MurmurHash3.h \
 	src/shared/acpi-fpdt.h \
 	src/shared/acpi-fpdt.c \
 	src/shared/boot-timestamps.h \
