@@ -164,11 +164,15 @@
                                 <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                                 for details. It is recommended to send
                                 this message if the
-                                <varname>WATCHDOG_USEC=</varname>
-                                environment variable has been set for
-                                the service process, in every half the
-                                time interval that is specified in the
-                                variable.</para></listitem>
+                                <varname>$WATCHDOG_PID</varname>
+                                environment variable has been set to
+                                the PID of the service process, in
+                                every half the time interval that is
+                                specified in the
+                                <varname>$WATCHDOG_USEC</varname>
+                                environment variable. See
+                                <citerefentry><refentrytitle>sd_watchdog_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                                for details.</para></listitem>
                         </varlistentry>
                 </variablelist>
 
@@ -311,7 +315,8 @@
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>daemon</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sd_watchdog_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 </para>
         </refsect1>
 

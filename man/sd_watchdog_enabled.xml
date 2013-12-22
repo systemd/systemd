@@ -1,0 +1,198 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2013 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="sd_watchdog_enabled">
+
+        <refentryinfo>
+                <title>sd_watchdog_enabled</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Lennart</firstname>
+                                <surname>Poettering</surname>
+                                <email>lennart@poettering.net</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>sd_watchdog_enabled</refentrytitle>
+                <manvolnum>3</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>sd_watchdog_enabled</refname>
+                <refpurpose>Check whether the service manager expects watchdog keep-alive notifications from a service</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <funcsynopsis>
+                        <funcsynopsisinfo>#include &lt;systemd/sd-daemon.h&gt;</funcsynopsisinfo>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_watchdog_enabled</function></funcdef>
+                                <paramdef>int <parameter>unset_environment</parameter></paramdef>
+                                <paramdef>const uint64_t *<parameter>usec</parameter></paramdef>
+                        </funcprototype>
+                </funcsynopsis>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+                <para><function>sd_watchdog_enabled()</function> may
+                be called by a service to detect whether the service
+                manager expects regular keep-alive watchdog
+                notification events from it, and the timeout after
+                which the manager will act on the service if it did
+                not get such a notification.</para>
+
+                <para>If the <parameter>unset_environment</parameter>
+                parameter is non-zero,
+                <function>sd_watchdog_enabled()</function> will unset
+                the <varname>$WATCHDOG_USEC</varname> and
+                <varname>$WATCHDOG_PID</varname> environment variables
+                before returning (regardless whether the function call
+                itself succeeded or not). Further calls to
+                <function>sd_watchdog_enabled()</function> will then
+                return with zero, but the variable is no longer
+                inherited by child processes.</para>
+
+                <para>If the <parameter>usec</parameter> parameter is
+                non-NULL <function>sd_watchdog_enabled()</function>
+                will return the timeout in µs for the watchdog
+                logic. The service manager will usually terminate a
+                service when it did not get a notification message
+                within the specified time after startup and after each
+                previous message. It is recommended that a daemon
+                sends a keep-alive notification message to the service
+                manager every half of the time returned
+                here. Notification messages may be sent with
+                <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                with a message string of
+                <literal>WATCHDOG=1</literal>.</para>
+
+                <para>To enable service supervision with the watchdog
+                logic use <varname>WatchdogSec=</varname> in service
+                files. See
+                <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                for details.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Return Value</title>
+
+                <para>On failure, this call returns a negative
+                errno-style error code. If the service manager expects
+                watchdog keep-alive notification messages to be sent,
+                &gt; 0 is returned, otherwise 0 is returned. Only if
+                the return value is &gt; 0 the
+                <parameter>usec</parameter> parameter is valid after
+                the call.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Notes</title>
+
+                <para>This function is provided by the reference
+                implementation of APIs for new-style daemons and
+                distributed with the systemd package. The algorithm
+                it implements is simple, and can easily be
+                reimplemented in daemons if it is important to support
+                this interface without using the reference
+                implementation.</para>
+
+                <para>Internally, this functions parses the
+                <varname>$WATCHDOG_PID</varname> and
+                <varname>$WATCHDOG_USEC</varname> environment
+                variable. The call will ignore these variables if
+                <varname>$WATCHDOG_PID</varname> does containe the PID
+                of the current process, under the assumption that in
+                that case the variables were set for a different
+                process further up the process tree.</para>
+
+                <para>For details about the algorithm check the
+                liberally licensed reference implementation sources:
+                <ulink url="http://cgit.freedesktop.org/systemd/systemd/plain/src/libsystemd-daemon/sd-daemon.c"/>
+                and <ulink
+                url="http://cgit.freedesktop.org/systemd/systemd/plain/src/systemd/sd-daemon.h"/></para>
+
+                <para><function>sd_watchdog_enabled()</function> is
+                implemented in the reference implementation's
+                <filename>sd-daemon.c</filename> and
+                <filename>sd-daemon.h</filename> files. These
+                interfaces are available as shared library, which can
+                be compiled and linked to with the
+                <constant>libsystemd-daemon</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                file. Alternatively, applications consuming these APIs
+                may copy the implementation into their source
+                tree. For more details about the reference
+                implementation see
+                <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+
+                <para>If the reference implementation is used as
+                drop-in files and -DDISABLE_SYSTEMD is set during
+                compilation, these functions will always return 0 and
+                otherwise become a NOP.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Environment</title>
+
+                <variablelist class='environment-variables'>
+                        <varlistentry>
+                                <term><varname>$WATCHDOG_PID</varname></term>
+
+                                <listitem><para>Set by the system
+                                manager for supervised process for
+                                which watchdog support is enabled, and
+                                contains the PID of that process. See
+                                above for details.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>$WATCHDOG_USEC</varname></term>
+
+                                <listitem><para>Set by the system
+                                manager for supervised process for
+                                which watchdog support is enabled, and
+                                contains the watchdog timeout in µs
+                                See above for
+                                details.</para></listitem>
+                        </varlistentry>
+                </variablelist>
+        </refsect1>
+
+        <refsect1>
+                <title>See Also</title>
+                <para>
+                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>daemon</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                </para>
+        </refsect1>
+
+</refentry>

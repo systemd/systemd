@@ -1020,6 +1020,7 @@ static void do_idle_pipe_dance(int idle_pipe[4]) {
 static int build_environment(
                 ExecContext *c,
                 unsigned n_fds,
+                usec_t watchdog_usec,
                 const char *home,
                 const char *username,
                 const char *shell,
@@ -1032,7 +1033,7 @@ static int build_environment(
         assert(c);
         assert(ret);
 
-        our_env = new(char*, 8);
+        our_env = new0(char*, 10);
         if (!our_env)
                 return -ENOMEM;
 
@@ -1042,6 +1043,16 @@ static int build_environment(
                 our_env[n_env++] = x;
 
                 if (asprintf(&x, "LISTEN_FDS=%u", n_fds) < 0)
+                        return -ENOMEM;
+                our_env[n_env++] = x;
+        }
+
+        if (watchdog_usec > 0) {
+                if (asprintf(&x, "WATCHDOG_PID=%lu", (unsigned long) getpid()) < 0)
+                        return -ENOMEM;
+                our_env[n_env++] = x;
+
+                if (asprintf(&x, "WATCHDOG_USEC=%llu", (unsigned long long) watchdog_usec) < 0)
                         return -ENOMEM;
                 our_env[n_env++] = x;
         }
@@ -1084,7 +1095,7 @@ static int build_environment(
         }
 
         our_env[n_env++] = NULL;
-        assert(n_env <= 8);
+        assert(n_env <= 10);
 
         *ret = our_env;
         our_env = NULL;
@@ -1104,6 +1115,7 @@ int exec_spawn(ExecCommand *command,
                CGroupControllerMask cgroup_supported,
                const char *cgroup_path,
                const char *unit_id,
+               usec_t watchdog_usec,
                int idle_pipe[4],
                ExecRuntime *runtime,
                pid_t *ret) {
@@ -1560,7 +1572,7 @@ int exec_spawn(ExecCommand *command,
                         }
                 }
 
-                err = build_environment(context, n_fds, home, username, shell, &our_env);
+                err = build_environment(context, n_fds, watchdog_usec, home, username, shell, &our_env);
                 if (r < 0) {
                         r = EXIT_MEMORY;
                         goto fail_child;

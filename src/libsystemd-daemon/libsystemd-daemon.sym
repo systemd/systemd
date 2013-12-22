@@ -25,3 +25,8 @@ global:
 local:
         *;
 };
+
+LIBSYSTEMD_DAEMON_209 {
+global:
+        sd_watchdog_enabled;
+} LIBSYSTEMD_DAEMON_31;

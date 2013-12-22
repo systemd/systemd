@@ -2164,17 +2164,10 @@ _public_ int sd_event_set_watchdog(sd_event *e, int b) {
 
         if (b) {
                 struct epoll_event ev = {};
-                const char *env;
 
-                env = getenv("WATCHDOG_USEC");
-                if (!env)
-                        return false;
-
-                r = safe_atou64(env, &e->watchdog_period);
-                if (r < 0)
+                r = sd_watchdog_enabled(false, &e->watchdog_period);
+                if (r <= 0)
                         return r;
-                if (e->watchdog_period <= 0)
-                        return -EIO;
 
                 /* Issue first ping immediately */
                 sd_notify(false, "WATCHDOG=1");

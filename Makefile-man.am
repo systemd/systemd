@@ -41,6 +41,7 @@ MANPAGES += \
 	man/sd_journal_stream_fd.3 \
 	man/sd_listen_fds.3 \
 	man/sd_notify.3 \
+	man/sd_watchdog_enabled.3 \
 	man/shutdown.8 \
 	man/sysctl.d.5 \
 	man/systemctl.1 \
@@ -1133,6 +1134,7 @@ EXTRA_DIST += \
 	man/sd_seat_get_active.xml \
 	man/sd_session_is_active.xml \
 	man/sd_uid_get_state.xml \
+	man/sd_watchdog_enabled.xml \
 	man/shutdown.xml \
 	man/sysctl.d.xml \
 	man/systemctl.xml \

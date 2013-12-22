@@ -186,6 +186,8 @@ int sd_is_socket_unix(int fd, int type, int listening, const char *path, size_t 
   the file descriptor is a POSIX Message Queue of the specified name,
   0 otherwise. If path is NULL a message queue name check is not
   done. Returns a negative errno style error code on failure.
+
+  See sd_is_mq(3) for more information.
 */
 int sd_is_mq(int fd, const char *path);
 
@@ -220,7 +222,8 @@ int sd_is_mq(int fd, const char *path);
      WATCHDOG=1   Tells systemd to update the watchdog timestamp.
                   Services using this feature should do this in
                   regular intervals. A watchdog framework can use the
-                  timestamps to detect failed services.
+                  timestamps to detect failed services. Also see
+                  sd_watchdog_enabled() below.
 
   Daemons can choose to send additional variables. However, it is
   recommended to prefix variable names not listed above with X_.
@@ -274,6 +277,22 @@ int sd_notifyf(int unset_environment, const char *format, ...) _sd_printf_attr_(
   See sd_booted(3) for more information.
 */
 int sd_booted(void);
+
+/*
+  Returns > 0 if the service manager expects watchdog keep-alive
+  events to be sent regularly via sd_notify(0, "WATCHDOG=1"). Returns
+  0 if it does not expect this. If the usec argument is non-NULL
+  returns the watchdog timeout in µs after which the service manager
+  will act on a process that has not sent a watchdog keep alive
+  message. This function is useful to implement services that
+  recognize automatically if they are being run under supervision of
+  systemd with WatchdogSec= set. It is recommended for clients to
+  generate keep-alive pings via sd_notify(0, "WATCHDOG=1") every half
+  of the returned time.
+
+  See sd_watchdog_enabled(3) for more information.
+*/
+int sd_watchdog_enabled(int unset_environment, uint64_t *usec);
 
 #ifdef __cplusplus
 }

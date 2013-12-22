@@ -518,3 +518,69 @@ _sd_export_ int sd_booted(void) {
         return !!S_ISDIR(st.st_mode);
 #endif
 }
+
+_sd_export_ int sd_watchdog_enabled(int unset_environment, uint64_t *usec) {
+
+#if defined(DISABLE_SYSTEMD) || !defined(__linux__)
+        return 0;
+#else
+        unsigned long long ll;
+        unsigned long l;
+        const char *e;
+        char *p = NULL;
+        int r;
+
+        e = getenv("WATCHDOG_PID");
+        if (!e) {
+                r = 0;
+                goto finish;
+        }
+
+        errno = 0;
+        l = strtoul(e, &p, 10);
+        if (errno > 0) {
+                r = -errno;
+                goto finish;
+        }
+        if (!p || p == e || *p || l <= 0) {
+                r = -EINVAL;
+                goto finish;
+        }
+
+        /* Is this for us? */
+        if (getpid() != (pid_t) l) {
+                r = 0;
+                goto finish;
+        }
+
+        e = getenv("WATCHDOG_USEC");
+        if (!e) {
+                r = -EINVAL;
+                goto finish;
+        }
+
+        errno = 0;
+        ll = strtoull(e, &p, 10);
+        if (errno > 0) {
+                r = -errno;
+                goto finish;
+        }
+        if (!p || p == e || *p || l <= 0) {
+                r = -EINVAL;
+                goto finish;
+        }
+
+        if (usec)
+                *usec = ll;
+
+        r = 1;
+
+finish:
+        if (unset_environment) {
+                unsetenv("WATCHDOG_PID");
+                unsetenv("WATCHDOG_USEC");
+        }
+
+        return r;
+#endif
+}
