@@ -72,6 +72,12 @@ int main(int argc, char *argv[]) {
         for (;;) {
                 usec_t t = (usec_t) -1, n;
 
+                r = sd_event_get_state(server.event);
+                if (r < 0)
+                        goto finish;
+                if (r == SD_EVENT_FINISHED)
+                        break;
+
                 n = now(CLOCK_REALTIME);
 
                 if (server.max_retention_usec > 0 && server.oldest_file_usec > 0) {
