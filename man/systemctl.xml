@@ -174,10 +174,11 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <term><option>--full</option></term>
 
         <listitem>
-          <para>Do not ellipsize unit names, process tree entries, and
-          truncate unit descriptions in the output of
-          <command>list-units</command> and
-          <command>list-jobs</command>.</para>
+          <para>Do not ellipsize unit names, process tree entries,
+          journal output, or truncate unit descriptions in the output
+          of <command>status</command>, <command>list-units</command>,
+          <command>list-jobs</command>, and
+          <command>list-timers</command>.</para>
         </listitem>
       </varlistentry>
 
