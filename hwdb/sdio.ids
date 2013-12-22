@@ -30,6 +30,8 @@
 	0109  AR6001
 	010a  AR6001
 	010b  AR6001
+0296  GCT Semiconductor, Inc.
+	5347  GDM72xx WiMAX
 02d0  Broadcom Corp.
 	044b  Nintendo Wii WLAN daughter card
 02db  SyChip Inc.
@@ -37,6 +39,11 @@
 02df  Marvell Technology Group Ltd.
 02fe  Spectec Computer Co., Ltd
 	2128  SDIO WLAN Card (SDW820)
+032a  Cambridge Silicon Radio
+	0001 UniFi 1
+	0002 UniFi 2
+	0007 UniFi 3
+	0008 UniFi 4
 037a  MediaTek Inc.
 	5911  Spectec WLAN-11b/g
 039a  Siano Mobile Silicon
