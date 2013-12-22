@@ -113,14 +113,13 @@ Features:
 * libsystemd-bus:
   - when kdbus doesn't take our message without memfds, try again with memfds
   - implement monitor logic
-  - when triggering property change events, allow a NULL strv indicate that all properties listed as such are send out as changed
   - see if we can drop more message validation on the sending side
-  - support "const" properties as flag
   - add API to clone sd_bus_message objects
   - SD_BUS_COMMENT() macro for inclusion in vtables, syntax inspired by gdbus
   - systemd-bus-proxyd needs to synthesize NameLost/NameAcquired
+  - systemd-bus-proxyd needs to enforce good old XML policy
+  - upload minimal kdbus policy into the kernel at boot
   - kdbus: matches against source or destination pids for an "strace -p"-like feel. Problem: The PID info needs to be available in userspace too...
-  - kdbus: we need a way to figure out whether there's currently an activator for a name that is already activated
   - longer term:
     * priority queues
     * priority inheritance
@@ -129,7 +128,7 @@ Features:
        - kdbus mapping
        - NameLost/NameAcquired obsolete
        - GVariant
-       - "const" properties
+       - "const" properties (posted)
 
 * sd-event
   - allow multiple signal handlers per signal?
