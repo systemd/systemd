@@ -453,10 +453,12 @@ static int print_session_status_info(sd_bus *bus, const char *path, bool *new_li
 
                 printf("\n");
         } else if (i.type) {
-                printf("\t    Type: %s\n", i.type);
+                printf("\t    Type: %s", i.type);
 
                 if (i.class)
                         printf("; class %s", i.class);
+
+                printf("\n");
         } else if (i.class)
                 printf("\t   Class: %s\n", i.class);
 
