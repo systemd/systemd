@@ -206,6 +206,73 @@ sub pci_classes {
         close(OUT);
 }
 
+sub sdio_vendor {
+        my $vendor;
+        my $device;
+
+        open(IN, "<", "sdio.ids");
+        open(OUT, ">", "20-sdio-vendor-model.hwdb");
+        print(OUT "# This file is part of systemd.\n" .
+                  "#\n" .
+                  "# Data imported from: hwdb/sdio.ids\n");
+
+        while (my $line = <IN>) {
+                $line =~ s/\s+$//;
+                $line =~ m/^([0-9a-f]{4})\s*(.+)$/;
+
+                if (defined $1) {
+                        $vendor = uc $1;
+                        my $text = $2;
+                        print(OUT "\n");
+                        print(OUT "sdio:c*v" . $vendor . "*\n");
+                        print(OUT " ID_VENDOR_FROM_DATABASE=" . $text . "\n");
+                        next;
+                }
+
+                $line =~ m/^\t([0-9a-f]{4})\s*(.+)$/;
+                if (defined $1) {
+                        $device = uc $1;
+                        my $text = $2;
+                        print(OUT "\n");
+                        print(OUT "sdio:c*v" . $vendor . "d" . $device . "*\n");
+                        print(OUT " ID_MODEL_FROM_DATABASE=" . $text . "\n");
+                        next;
+                }
+        }
+
+        close(IN);
+        close(OUT);
+}
+
+sub sdio_classes {
+        my $class;
+        my $subclass;
+        my $interface;
+
+        open(IN, "<", "sdio.ids");
+        open(OUT, ">", "20-sdio-classes.hwdb");
+        print(OUT "# This file is part of systemd.\n" .
+                  "#\n" .
+                  "# Data imported from: hwdb/sdio.ids\n");
+
+        while (my $line = <IN>) {
+                $line =~ s/\s+$//;
+
+                $line =~ m/^C\ ([0-9a-f]{2})\s*(.+)$/;
+                if (defined $1) {
+                        $class = uc $1;
+                        my $text = $2;
+                        print(OUT "\n");
+                        print(OUT "sdio:c" . $class . "v*d*\n");
+                        print(OUT " ID_SDIO_CLASS_FROM_DATABASE=" . $text . "\n");
+                        next;
+                }
+        }
+
+        close(IN);
+        close(OUT);
+}
+
 sub oui {
         my $iab_prefix;
         my %iab_prefixes = ();
@@ -266,5 +333,8 @@ usb_classes();
 
 pci_vendor();
 pci_classes();
+
+sdio_vendor();
+sdio_classes();
 
 oui();
