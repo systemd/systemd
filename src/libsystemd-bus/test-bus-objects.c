@@ -143,6 +143,17 @@ static int notify_test(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_er
         return 1;
 }
 
+static int notify_test2(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        int r;
+
+        assert_se(sd_bus_emit_properties_changed_strv(bus, m->path, "org.freedesktop.systemd.ValueTest", NULL) >= 0);
+
+        r = sd_bus_reply_method_return(m, NULL);
+        assert_se(r >= 0);
+
+        return 1;
+}
+
 static int emit_interfaces_added(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
         int r;
 
@@ -181,7 +192,11 @@ static const sd_bus_vtable vtable[] = {
 static const sd_bus_vtable vtable2[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_METHOD("NotifyTest", "", "", notify_test, 0),
+        SD_BUS_METHOD("NotifyTest2", "", "", notify_test2, 0),
         SD_BUS_PROPERTY("Value", "s", value_handler, 10, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("Value2", "s", value_handler, 10, SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
+        SD_BUS_PROPERTY("Value3", "s", value_handler, 10, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("Value4", "s", value_handler, 10, 0),
         SD_BUS_VTABLE_END
 };
 
@@ -394,6 +409,18 @@ static int client(struct context *c) {
         reply = NULL;
 
         r = sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/value/a", "org.freedesktop.systemd.ValueTest", "NotifyTest", &error, NULL, "");
+        assert_se(r >= 0);
+
+        r = sd_bus_process(bus, &reply);
+        assert_se(r > 0);
+
+        assert_se(sd_bus_message_is_signal(reply, "org.freedesktop.DBus.Properties", "PropertiesChanged"));
+        bus_message_dump(reply, stdout, true);
+
+        sd_bus_message_unref(reply);
+        reply = NULL;
+
+        r = sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/value/a", "org.freedesktop.systemd.ValueTest", "NotifyTest2", &error, NULL, "");
         assert_se(r >= 0);
 
         r = sd_bus_process(bus, &reply);

@@ -617,6 +617,52 @@ static int property_get_set_callbacks_run(
         return 1;
 }
 
+static int vtable_append_one_property(
+                sd_bus *bus,
+                sd_bus_message *reply,
+                const char *path,
+                struct node_vtable *c,
+                const sd_bus_vtable *v,
+                void *userdata,
+                sd_bus_error *error) {
+
+        int r;
+
+        assert(bus);
+        assert(reply);
+        assert(path);
+        assert(c);
+        assert(v);
+
+        r = sd_bus_message_open_container(reply, 'e', "sv");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(reply, "s", v->x.property.member);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_open_container(reply, 'v', v->x.property.signature);
+        if (r < 0)
+                return r;
+
+        r = invoke_property_get(bus, v, path, c->interface, v->x.property.member, reply, vtable_property_convert_userdata(v, userdata), error);
+        if (r < 0)
+                return r;
+        if (bus->nodes_modified)
+                return 0;
+
+        r = sd_bus_message_close_container(reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_close_container(reply);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static int vtable_append_all_properties(
                 sd_bus *bus,
                 sd_bus_message *reply,
@@ -643,31 +689,11 @@ static int vtable_append_all_properties(
                 if (v->flags & SD_BUS_VTABLE_HIDDEN)
                         continue;
 
-                r = sd_bus_message_open_container(reply, 'e', "sv");
-                if (r < 0)
-                        return r;
-
-                r = sd_bus_message_append(reply, "s", v->x.property.member);
-                if (r < 0)
-                        return r;
-
-                r = sd_bus_message_open_container(reply, 'v', v->x.property.signature);
-                if (r < 0)
-                        return r;
-
-                r = invoke_property_get(bus, v, path, c->interface, v->x.property.member, reply, vtable_property_convert_userdata(v, userdata), error);
+                r = vtable_append_one_property(bus, reply, path, c, v, userdata, error);
                 if (r < 0)
                         return r;
                 if (bus->nodes_modified)
                         return 0;
-
-                r = sd_bus_message_close_container(reply);
-                if (r < 0)
-                        return r;
-
-                r = sd_bus_message_close_container(reply);
-                if (r < 0)
-                        return r;
         }
 
         return 1;
@@ -1996,57 +2022,75 @@ static int emit_properties_changed_on_interface(
                 if (r == 0)
                         continue;
 
-                STRV_FOREACH(property, names) {
-                        struct vtable_member *v;
+                if (names) {
+                        /* If the caller specified a list of
+                         * properties we include exactly those in the
+                         * PropertiesChanged message */
 
-                        assert_return(member_name_is_valid(*property), -EINVAL);
+                        STRV_FOREACH(property, names) {
+                                struct vtable_member *v;
 
-                        key.member = *property;
-                        v = hashmap_get(bus->vtable_properties, &key);
-                        if (!v)
-                                return -ENOENT;
+                                assert_return(member_name_is_valid(*property), -EINVAL);
 
-                        /* If there are two vtables for the same
-                         * interface, let's handle this property when
-                         * we come to that vtable. */
-                        if (c != v->parent)
-                                continue;
+                                key.member = *property;
+                                v = hashmap_get(bus->vtable_properties, &key);
+                                if (!v)
+                                        return -ENOENT;
 
-                        assert_return(v->vtable->flags & SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE ||
-                                      v->vtable->flags & SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION, -EDOM);
+                                /* If there are two vtables for the same
+                                 * interface, let's handle this property when
+                                 * we come to that vtable. */
+                                if (c != v->parent)
+                                        continue;
 
-                        if (v->vtable->flags & SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION) {
-                                has_invalidating = true;
-                                continue;
+                                assert_return(v->vtable->flags & SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE ||
+                                              v->vtable->flags & SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION, -EDOM);
+
+                                assert_return(!(v->vtable->flags & SD_BUS_VTABLE_HIDDEN), -EDOM);
+
+                                if (v->vtable->flags & SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION) {
+                                        has_invalidating = true;
+                                        continue;
+                                }
+
+                                has_changing = true;
+
+                                r = vtable_append_one_property(bus, m, m->path, c, v->vtable, u, &error);
+                                if (r < 0)
+                                        return r;
+                                if (bus->nodes_modified)
+                                        return 0;
                         }
+                } else {
+                        const sd_bus_vtable *v;
 
-                        has_changing = true;
+                        /* If the caller specified no properties list
+                         * we include all properties that are marked
+                         * as changing in the message. */
 
-                        r = sd_bus_message_open_container(m, 'e', "sv");
-                        if (r < 0)
-                                return r;
+                        for (v = c->vtable+1; v->type != _SD_BUS_VTABLE_END; v++) {
+                                if (v->type != _SD_BUS_VTABLE_PROPERTY && v->type != _SD_BUS_VTABLE_WRITABLE_PROPERTY)
+                                        continue;
 
-                        r = sd_bus_message_append(m, "s", *property);
-                        if (r < 0)
-                                return r;
+                                if (v->flags & SD_BUS_VTABLE_HIDDEN)
+                                        continue;
 
-                        r = sd_bus_message_open_container(m, 'v', v->vtable->x.property.signature);
-                        if (r < 0)
-                                return r;
+                                if (v->flags & SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION) {
+                                        has_invalidating = true;
+                                        continue;
+                                }
 
-                        r = invoke_property_get(bus, v->vtable, m->path, interface, *property, m, vtable_property_convert_userdata(v->vtable, u), &error);
-                        if (r < 0)
-                                return r;
-                        if (bus->nodes_modified)
-                                return 0;
+                                if (!(v->flags & SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE))
+                                        continue;
 
-                        r = sd_bus_message_close_container(m);
-                        if (r < 0)
-                                return r;
+                                has_changing = true;
 
-                        r = sd_bus_message_close_container(m);
-                        if (r < 0)
-                                return r;
+                                r = vtable_append_one_property(bus, m, m->path, c, v, u, &error);
+                                if (r < 0)
+                                        return r;
+                                if (bus->nodes_modified)
+                                        return 0;
+                        }
                 }
         }
 
@@ -2077,19 +2121,38 @@ static int emit_properties_changed_on_interface(
                         if (r == 0)
                                 continue;
 
-                        STRV_FOREACH(property, names) {
-                                struct vtable_member *v;
+                        if (names) {
+                                STRV_FOREACH(property, names) {
+                                        struct vtable_member *v;
 
-                                key.member = *property;
-                                assert_se(v = hashmap_get(bus->vtable_properties, &key));
-                                assert(c == v->parent);
+                                        key.member = *property;
+                                        assert_se(v = hashmap_get(bus->vtable_properties, &key));
+                                        assert(c == v->parent);
 
-                                if (!(v->vtable->flags & SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION))
-                                        continue;
+                                        if (!(v->vtable->flags & SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION))
+                                                continue;
 
-                                r = sd_bus_message_append(m, "s", *property);
-                                if (r < 0)
-                                        return r;
+                                        r = sd_bus_message_append(m, "s", *property);
+                                        if (r < 0)
+                                                return r;
+                                }
+                        } else {
+                                const sd_bus_vtable *v;
+
+                                for (v = c->vtable+1; v->type != _SD_BUS_VTABLE_END; v++) {
+                                        if (v->type != _SD_BUS_VTABLE_PROPERTY && v->type != _SD_BUS_VTABLE_WRITABLE_PROPERTY)
+                                                continue;
+
+                                        if (v->flags & SD_BUS_VTABLE_HIDDEN)
+                                                continue;
+
+                                        if (!(v->flags & SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION))
+                                                continue;
+
+                                        r = sd_bus_message_append(m, "s", v->x.property.member);
+                                        if (r < 0)
+                                                return r;
+                                }
                         }
                 }
         }
@@ -2121,7 +2184,12 @@ _public_ int sd_bus_emit_properties_changed_strv(
         assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
-        if (strv_isempty(names))
+
+        /* A non-NULL but empty names list means nothing needs to be
+           generated. A NULL list OTOH indicates that all properties
+           that are set to EMITS_CHANGE or EMITS_INVALIDATION shall be
+           included in the PropertiesChanged message. */
+        if (names && names[0] == NULL)
                 return 0;
 
         do {
