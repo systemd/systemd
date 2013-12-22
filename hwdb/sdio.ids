@@ -8,12 +8,16 @@
 # vendor  vendor_name
 #	device  device_name				<-- single tab
 
+0020  ST-Ericsson
+	2280  CW1200
 0089  Intel Corp.
 0092  C-guys, Inc.
 	0001  SD-Link11b WiFi Card (TI ACX100)
 	0004  EW-CG1102GC
 	0005  SD FM Radio 2
 	5544  SD FM Radio
+0097  Texas Instruments, Inc.
+	4076  WL1271
 0098  Toshiba Corp.
 	0001  SD BT Card 1
 	0002  SD BT Card 2
@@ -38,6 +42,8 @@
 039a  Siano Mobile Silicon
 0501  Globalsat Technology Co.
 	f501  SD-501 GPS Card
+104c  Texas Instruments, Inc.
+	9066  WL1251
 1180  Ricoh Co., Ltd
 	e823  MMC card reader
 13d1  AboCom Systems, Inc.
