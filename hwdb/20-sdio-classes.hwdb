@@ -1,0 +1,33 @@
+# This file is part of systemd.
+#
+# Data imported from: hwdb/sdio.ids
+
+sdio:c00v*d*
+ ID_SDIO_CLASS_FROM_DATABASE=Not a SDIO standard interface
+
+sdio:c01v*d*
+ ID_SDIO_CLASS_FROM_DATABASE=UART standard interface
+
+sdio:c02v*d*
+ ID_SDIO_CLASS_FROM_DATABASE=Bluetooth Type-A standard interface
+
+sdio:c03v*d*
+ ID_SDIO_CLASS_FROM_DATABASE=Bluetooth Type-B standard interface
+
+sdio:c04v*d*
+ ID_SDIO_CLASS_FROM_DATABASE=GPS standard interface
+
+sdio:c05v*d*
+ ID_SDIO_CLASS_FROM_DATABASE=Camera standard interface
+
+sdio:c06v*d*
+ ID_SDIO_CLASS_FROM_DATABASE=PHS standard interface
+
+sdio:c07v*d*
+ ID_SDIO_CLASS_FROM_DATABASE=WLAN interface
+
+sdio:c08v*d*
+ ID_SDIO_CLASS_FROM_DATABASE=Embedded SDIO-ATA standard interface
+
+sdio:c09v*d*
+ ID_SDIO_CLASS_FROM_DATABASE=Bluetooth AMP standard interface

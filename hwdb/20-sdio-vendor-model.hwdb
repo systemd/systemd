@@ -1,0 +1,45 @@
+# This file is part of systemd.
+#
+# Data imported from: hwdb/sdio.ids
+
+sdio:c*v0089*
+ ID_VENDOR_FROM_DATABASE=Intel Corp.
+
+sdio:c*v0092*
+ ID_VENDOR_FROM_DATABASE=C-guys, Inc.
+
+sdio:c*v0098*
+ ID_VENDOR_FROM_DATABASE=Toshiba
+
+sdio:c*v0104*
+ ID_VENDOR_FROM_DATABASE=Socket Communications, Inc.
+
+sdio:c*v0104d00C5*
+ ID_MODEL_FROM_DATABASE=Bluetooth SDIO Card
+
+sdio:c*v0271*
+ ID_VENDOR_FROM_DATABASE=Atheros
+
+sdio:c*v02DB*
+ ID_VENDOR_FROM_DATABASE=SyChip Inc.
+
+sdio:c*v02DF*
+ ID_VENDOR_FROM_DATABASE=Marvell Technology Group Ltd.
+
+sdio:c*v02FE*
+ ID_VENDOR_FROM_DATABASE=Spectec Computer Co., Ltd
+
+sdio:c*v037A*
+ ID_VENDOR_FROM_DATABASE=MediaTek Inc.
+
+sdio:c*v039A*
+ ID_VENDOR_FROM_DATABASE=Siano Mobile Silicon
+
+sdio:c*v0501*
+ ID_VENDOR_FROM_DATABASE=Globalsat Technology Co.
+
+sdio:c*v1180*
+ ID_VENDOR_FROM_DATABASE=Ricoh
+
+sdio:c*v13D1*
+ ID_VENDOR_FROM_DATABASE=AboCom Systems, Inc.
