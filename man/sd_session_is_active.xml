@@ -44,6 +44,7 @@
 
         <refnamediv>
                 <refname>sd_session_is_active</refname>
+                <refname>sd_session_is_remote</refname>
                 <refname>sd_session_get_state</refname>
                 <refname>sd_session_get_uid</refname>
                 <refname>sd_session_get_seat</refname>
@@ -53,6 +54,8 @@
                 <refname>sd_session_get_display</refname>
                 <refname>sd_session_get_tty</refname>
                 <refname>sd_session_get_vt</refname>
+                <refname>sd_session_get_remote_host</refname>
+                <refname>sd_session_get_remote_user</refname>
                 <refpurpose>Determine state of a specific session</refpurpose>
         </refnamediv>
 
