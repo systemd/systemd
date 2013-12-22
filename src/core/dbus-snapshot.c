@@ -45,6 +45,6 @@ int bus_snapshot_method_remove(sd_bus *bus, sd_bus_message *message, void *userd
 const sd_bus_vtable bus_snapshot_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_METHOD("Remove", NULL, NULL, bus_snapshot_method_remove, 0),
-        SD_BUS_PROPERTY("Cleanup", "b", bus_property_get_bool, offsetof(Snapshot, cleanup), 0),
+        SD_BUS_PROPERTY("Cleanup", "b", bus_property_get_bool, offsetof(Snapshot, cleanup), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_VTABLE_END
 };

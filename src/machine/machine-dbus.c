@@ -21,6 +21,7 @@
 
 #include <errno.h>
 #include <string.h>
+#include <sys/capability.h>
 
 #include "bus-util.h"
 #include "strv.h"
@@ -127,18 +128,17 @@ static int method_kill(sd_bus *bus, sd_bus_message *message, void *userdata, sd_
 
 const sd_bus_vtable machine_vtable[] = {
         SD_BUS_VTABLE_START(0),
-        SD_BUS_PROPERTY("Name", "s", NULL, offsetof(Machine, name), 0),
-        SD_BUS_PROPERTY("Id", "ay", property_get_id, 0, 0),
-        SD_BUS_PROPERTY("Timestamp", "t", NULL, offsetof(Machine, timestamp.realtime), 0),
-        SD_BUS_PROPERTY("TimestampMonotonic", "t", NULL, offsetof(Machine, timestamp.monotonic), 0),
-        SD_BUS_PROPERTY("Service", "s", NULL, offsetof(Machine, service), 0),
-        SD_BUS_PROPERTY("Scope", "s", NULL, offsetof(Machine, scope), 0),
-        SD_BUS_PROPERTY("Leader", "u", NULL, offsetof(Machine, leader), 0),
-        SD_BUS_PROPERTY("Class", "s", property_get_class, offsetof(Machine, class), 0),
+        SD_BUS_PROPERTY("Name", "s", NULL, offsetof(Machine, name), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("Id", "ay", property_get_id, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        BUS_PROPERTY_DUAL_TIMESTAMP("Timestamp", offsetof(Machine, timestamp), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("Service", "s", NULL, offsetof(Machine, service), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("Scope", "s", NULL, offsetof(Machine, scope), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("Leader", "u", NULL, offsetof(Machine, leader), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("Class", "s", property_get_class, offsetof(Machine, class), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("RootDirectory", "s", NULL, offsetof(Machine, root_directory), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("State", "s", property_get_state, 0, 0),
-        SD_BUS_PROPERTY("RootDirectory", "s", NULL, offsetof(Machine, root_directory), 0),
-        SD_BUS_METHOD("Terminate", NULL, NULL, method_terminate, 0),
-        SD_BUS_METHOD("Kill", "si", NULL, method_kill, 0),
+        SD_BUS_METHOD("Terminate", NULL, NULL, method_terminate, SD_BUS_VTABLE_CAPABILITY(CAP_KILL)),
+        SD_BUS_METHOD("Kill", "si", NULL, method_kill, SD_BUS_VTABLE_CAPABILITY(CAP_KILL)),
         SD_BUS_VTABLE_END
 };
 
