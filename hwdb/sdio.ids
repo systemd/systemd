@@ -10,18 +10,35 @@
 
 0089  Intel Corp.
 0092  C-guys, Inc.
+	0001  SD-Link11b WiFi Card (TI ACX100)
+	0005  SD FM Radio 2
+	5544  SD FM Radio
 0098  Toshiba Corp.
+	0001  SD BT Card 1
+	0002  SD BT Card 2
+	0003  SD BT Card 3
 0104  Socket Communications, Inc.
+	005e  SD Scanner
 	00c5  Bluetooth SDIO Card
 0271  Atheros Communications, Inc.
+	0108  AR6001
+	0109  AR6001
+	010a  AR6001
+	010b  AR6001
 02db  SyChip Inc.
+	0002  Pegasus WLAN SDIO Card (6060SD)
 02df  Marvell Technology Group Ltd.
 02fe  Spectec Computer Co., Ltd
+	2128  SDIO WLAN Card (SDW820)
 037a  MediaTek Inc.
+	5911  Spectec WLAN-11b/g
 039a  Siano Mobile Silicon
 0501  Globalsat Technology Co.
+	f501  SD-501 GPS Card
 1180  Ricoh Co., Ltd
+	e823  MMC card reader
 13d1  AboCom Systems, Inc.
+	ac02  SDW11G
 
 # List of known interface classes
 #
