@@ -268,52 +268,69 @@ int main(int argc, char *argv[]) {
 
         for (;;) {
                 _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
-                uint64_t t;
+                int events_a, events_b, fd;
+                uint64_t timeout_a, timeout_b, t;
                 struct timespec _ts, *ts;
                 struct pollfd *pollfd;
-                int k, i, fd;
+                int k;
 
-                struct bus_bus {
-                        sd_bus *bus;
-                        const char *name;
-                        int events;
-                        uint64_t timeout;
-                } busses[2] = {
-                        {a, "a"},
-                        {b, "b"},
-                };
+                r = sd_bus_process(a, &m);
+                if (r < 0) {
+                        /* treat 'connection reset by peer' as clean exit condition */
+                        if (r == -ECONNRESET)
+                                r = 0;
+                        else
+                                log_error("Failed to process bus a: %s", strerror(-r));
 
-                for (i = 0; i < 2; i ++) {
-                        r = sd_bus_process(busses[i].bus, &m);
-                        if (r < 0) {
-                                /* treat 'connection reset by peer' as clean exit condition */
-                                if (r == -ECONNRESET)
-                                        r = 0;
-                                else
-                                        log_error("Failed to process bus %s: %s",
-                                                  busses[i].name, strerror(-r));
+                        goto finish;
+                }
+
+                if (m) {
+                        /* We officially got EOF, let's quit */
+                        if (sd_bus_message_is_signal(m, "org.freedesktop.DBus.Local", "Disconnected")) {
+                                r = 0;
                                 goto finish;
                         }
 
-                        if (m) {
-                                /* We officially got EOF, let's quit */
-                                if (sd_bus_message_is_signal(m, "org.freedesktop.DBus.Local", "Disconnected")) {
-                                        r = 0;
-                                        goto finish;
-                                }
+                        k = sd_bus_send(b, m, NULL);
+                        if (k < 0) {
+                                r = k;
+                                log_error("Failed to send message: %s", strerror(-r));
+                                goto finish;
+                        }
+                }
 
-                                k = sd_bus_send(busses[1-i].bus, m, NULL);
-                                if (k < 0) {
-                                        r = k;
-                                        log_error("Failed to send message to bus %s: %s",
-                                                  busses[1-i].name, strerror(-r));
-                                        goto finish;
-                                }
+                if (r > 0)
+                        continue;
+
+                r = sd_bus_process(b, &m);
+                if (r < 0) {
+                        /* treat 'connection reset by peer' as clean exit condition */
+                        if (r == -ECONNRESET)
+                                r = 0;
+                        else
+                                log_error("Failed to process bus b: %s", strerror(-r));
+
+                        goto finish;
+                }
+
+                if (m) {
+                        /* We officially got EOF, let's quit */
+                        if (sd_bus_message_is_signal(m, "org.freedesktop.DBus.Local", "Disconnected")) {
+                                r = 0;
+                                goto finish;
                         }
 
-                        if (r > 0)
-                                continue;
+                        k = sd_bus_send(a, m, NULL);
+                        if (k < 0) {
+                                r = k;
+                                log_error("Failed to send message: %s", strerror(-r));
+                                goto finish;
+                        }
                 }
+
+                if (r > 0)
+                        continue;
 
                 fd = sd_bus_get_fd(a);
                 if (fd < 0) {
@@ -321,24 +338,33 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
 
-                for (i = 0; i < 2; i ++) {
-                        busses[i].events = sd_bus_get_events(a);
-                        if (busses[i].events < 0) {
-                                log_error("Failed to get events mask: %s", strerror(-r));
-                                goto finish;
-                        }
-
-                        r = sd_bus_get_timeout(a, &busses[i].timeout);
-                        if (r < 0) {
-                                log_error("Failed to get timeout: %s", strerror(-r));
-                                goto finish;
-                        }
+                events_a = sd_bus_get_events(a);
+                if (events_a < 0) {
+                        log_error("Failed to get events mask: %s", strerror(-r));
+                        goto finish;
                 }
 
-                t = busses[0].timeout;
-                if (t == (uint64_t) -1 ||
-                    (busses[1].timeout != (uint64_t) -1 && busses[1].timeout < t))
-                        t = busses[1].timeout;
+                r = sd_bus_get_timeout(a, &timeout_a);
+                if (r < 0) {
+                        log_error("Failed to get timeout: %s", strerror(-r));
+                        goto finish;
+                }
+
+                events_b = sd_bus_get_events(b);
+                if (events_b < 0) {
+                        log_error("Failed to get events mask: %s", strerror(-r));
+                        goto finish;
+                }
+
+                r = sd_bus_get_timeout(b, &timeout_b);
+                if (r < 0) {
+                        log_error("Failed to get timeout: %s", strerror(-r));
+                        goto finish;
+                }
+
+                t = timeout_a;
+                if (t == (uint64_t) -1 || (timeout_b != (uint64_t) -1 && timeout_b < timeout_a))
+                        t = timeout_b;
 
                 if (t == (uint64_t) -1)
                         ts = NULL;
@@ -355,9 +381,9 @@ int main(int argc, char *argv[]) {
                 }
 
                 pollfd = (struct pollfd[3]) {
-                        {.fd = fd,     .events = busses[0].events           },
-                        {.fd = in_fd,  .events = busses[1].events & POLLIN  },
-                        {.fd = out_fd, .events = busses[1].events & POLLOUT },
+                        {.fd = fd,     .events = events_a,           },
+                        {.fd = in_fd,  .events = events_b & POLLIN,  },
+                        {.fd = out_fd, .events = events_b & POLLOUT, }
                 };
 
                 r = ppoll(pollfd, 3, ts, NULL);
