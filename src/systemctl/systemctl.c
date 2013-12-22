@@ -3823,9 +3823,11 @@ static int cat(sd_bus *bus, char **args) {
                 }
 
                 STRV_FOREACH(path, dropin_paths) {
-                        printf("%s# %s\n",
+                        printf("%s%s# %s%s\n",
                                isempty(fragment_path) && path == dropin_paths ? "" : "\n",
-                               *path);
+                               ansi_highlight_blue(),
+                               *path,
+                               ansi_highlight_off());
                         fflush(stdout);
 
                         r = sendfile_full(STDOUT_FILENO, *path);
