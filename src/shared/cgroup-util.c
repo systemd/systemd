@@ -1183,6 +1183,9 @@ int cg_pid_get_unit(pid_t pid, char **unit) {
         return cg_path_get_unit(cgroup, unit);
 }
 
+/**
+ * Skip session-*.scope, but require it to be there.
+ */
 static const char *skip_session(const char *p) {
         size_t n;
 
@@ -1191,7 +1194,27 @@ static const char *skip_session(const char *p) {
         p += strspn(p, "/");
 
         n = strcspn(p, "/");
-        if (n <= 12 || memcmp(p, "session-", 8) != 0 || memcmp(p + n - 6, ".scope", 6) != 0)
+        if (n < strlen("session-x.scope") || memcmp(p, "session-", 8) != 0 || memcmp(p + n - 6, ".scope", 6) != 0)
+                return NULL;
+
+        p += n;
+        p += strspn(p, "/");
+
+        return p;
+}
+
+/**
+ * Skip user@*.service, but require it to be there.
+ */
+static const char *skip_user_manager(const char *p) {
+        size_t n;
+
+        assert(p);
+
+        p += strspn(p, "/");
+
+        n = strcspn(p, "/");
+        if (n < strlen("user@x.service") || memcmp(p, "user@", 5) != 0 || memcmp(p + n - 8, ".service", 8) != 0)
                 return NULL;
 
         p += n;
@@ -1201,7 +1224,7 @@ static const char *skip_session(const char *p) {
 }
 
 int cg_path_get_user_unit(const char *path, char **unit) {
-        const char *e;
+        const char *e, *t;
 
         assert(path);
         assert(unit);
@@ -1213,13 +1236,17 @@ int cg_path_get_user_unit(const char *path, char **unit) {
         /* Skip slices, if there are any */
         e = skip_slices(path);
 
-        /* Skip the session scope, require that there is one */
-        e = skip_session(e);
-        if (!e)
-                return -ENOENT;
-
-        /* And skip more slices */
-        e = skip_slices(e);
+        /* Skip the session scope... */
+        t = skip_session(e);
+        if (t)
+                /* ... and skip more slices if there's one */
+                e = skip_slices(t);
+        else {
+                /* ... or require a user manager unit to be there */
+                e = skip_user_manager(e);
+                if (!e)
+                        return -ENOENT;
+        }
 
         return cg_path_decode_unit(e, unit);
 }

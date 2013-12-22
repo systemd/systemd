@@ -27,8 +27,11 @@
 
 static void check_p_d_u(const char *path, int code, const char *result) {
         _cleanup_free_ char *unit = NULL;
+        int r;
 
-        assert_se(cg_path_decode_unit(path, &unit) == code);
+        r = cg_path_decode_unit(path, &unit);
+        printf("%s: %s → %s %d expected %s %d\n", __func__, path, unit, r, result, code);
+        assert_se(r == code);
         assert_se(streq_ptr(unit, result));
 }
 
@@ -46,8 +49,11 @@ static void test_path_decode_unit(void) {
 
 static void check_p_g_u(const char *path, int code, const char *result) {
         _cleanup_free_ char *unit = NULL;
+        int r;
 
-        assert_se(cg_path_get_unit(path, &unit) == code);
+        r = cg_path_get_unit(path, &unit);
+        printf("%s: %s → %s %d expected %s %d\n", __func__, path, unit, r, result, code);
+        assert_se(r == code);
         assert_se(streq_ptr(unit, result));
 }
 
@@ -61,12 +67,17 @@ static void test_path_get_unit(void) {
         check_p_g_u("/system.slice/getty####@tty6.service/xxx", -EINVAL, NULL);
         check_p_g_u("/system.slice/system-waldo.slice/foobar.service/sdfdsaf", 0, "foobar.service");
         check_p_g_u("/system.slice/system-waldo.slice/_cpu.service/sdfdsaf", 0, "cpu.service");
+        check_p_g_u("/user.slice/user-1000.slice/user@1000.service/server.service", 0, "user@1000.service");
+        check_p_g_u("/user.slice/user-1000.slice/user@.service/server.service", -EINVAL, NULL);
 }
 
 static void check_p_g_u_u(const char *path, int code, const char *result) {
         _cleanup_free_ char *unit = NULL;
+        int r;
 
-        assert_se(cg_path_get_user_unit(path, &unit) == code);
+        r = cg_path_get_user_unit(path, &unit);
+        printf("%s: %s → %s %d expected %s %d\n", __func__, path, unit, r, result, code);
+        assert_se(r == code);
         assert_se(streq_ptr(unit, result));
 }
 
@@ -81,6 +92,8 @@ static void test_path_get_user_unit(void) {
         check_p_g_u_u("/xyz.slice/xyz-waldo.slice/session-77.scope/foobar@pie.service/pa/po", 0, "foobar@pie.service");
         check_p_g_u_u("/meh.service", -ENOENT, NULL);
         check_p_g_u_u("/session-3.scope/_cpu.service", 0, "cpu.service");
+        check_p_g_u_u("/user.slice/user-1000.slice/user@1000.service/server.service", 0, "server.service");
+        check_p_g_u_u("/user.slice/user-1000.slice/user@.service/server.service", -ENOENT, NULL);
 }
 
 static void check_p_g_s(const char *path, int code, const char *result) {
