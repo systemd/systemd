@@ -37,6 +37,16 @@
 02db  SyChip Inc.
 	0002  Pegasus WLAN SDIO Card (6060SD)
 02df  Marvell Technology Group Ltd.
+	9103  Libertas
+	9104  SD8688 WLAN
+	9105  SD8688 BT
+	9116  SD8786 WLAN
+	9119  SD8787 WLAN
+	911a  SD8787 BT
+	911b  SD8787 BT AMP
+	9129  SD8797 WLAN
+	912a  SD8797 BT
+	912e  SD8897 BT
 02fe  Spectec Computer Co., Ltd
 	2128  SDIO WLAN Card (SDW820)
 032a  Cambridge Silicon Radio
