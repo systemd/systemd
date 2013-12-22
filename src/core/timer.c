@@ -646,5 +646,4 @@ const UnitVTable timer_vtable = {
 
         .bus_interface = "org.freedesktop.systemd1.Timer",
         .bus_vtable = bus_timer_vtable,
-        .bus_changing_properties = bus_timer_changing_properties,
 };

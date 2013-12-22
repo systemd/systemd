@@ -3836,7 +3836,6 @@ const UnitVTable service_vtable = {
 
         .bus_interface = "org.freedesktop.systemd1.Service",
         .bus_vtable = bus_service_vtable,
-        .bus_changing_properties = bus_service_changing_properties,
         .bus_set_property = bus_service_set_property,
         .bus_commit_properties = bus_service_commit_properties,
 

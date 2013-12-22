@@ -1445,7 +1445,6 @@ const UnitVTable swap_vtable = {
 
         .bus_interface = "org.freedesktop.systemd1.Swap",
         .bus_vtable = bus_swap_vtable,
-        .bus_changing_properties = bus_swap_changing_properties,
         .bus_set_property = bus_swap_set_property,
         .bus_commit_properties = bus_swap_commit_properties,
 

@@ -25,4 +25,3 @@
 #include "sd-bus.h"
 
 extern const sd_bus_vtable bus_path_vtable[];
-extern const char* const bus_path_changing_properties[];

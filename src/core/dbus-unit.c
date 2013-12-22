@@ -634,29 +634,25 @@ static int send_changed_signal(sd_bus *bus, const char *destination, void *userd
          * type, then for the generic unit. The clients may rely on
          * this order to get atomic behavior if needed. */
 
-        if (UNIT_VTABLE(u)->bus_changing_properties) {
-
-                r = sd_bus_emit_properties_changed_strv(
-                                bus, p,
-                                UNIT_VTABLE(u)->bus_interface,
-                                (char**) UNIT_VTABLE(u)->bus_changing_properties);
-                if (r < 0)
-                        return r;
+        r = sd_bus_emit_properties_changed_strv(
+                        bus, p,
+                        UNIT_VTABLE(u)->bus_interface,
+                        NULL);
+        if (r < 0) {
+                log_warning("Failed to send out specific PropertiesChanged signal for %s: %s", u->id, strerror(-r));
+                return r;
         }
 
-        return sd_bus_emit_properties_changed(
+        r = sd_bus_emit_properties_changed_strv(
                         bus, p,
                         "org.freedesktop.systemd1.Unit",
-                        "ActiveState",
-                        "SubState",
-                        "InactiveExitTimestamp",
-                        "ActiveEnterTimestamp",
-                        "ActiveExitTimestamp",
-                        "InactiveEnterTimestamp",
-                        "Job",
-                        "ConditionResult",
-                        "ConditionTimestamp",
                         NULL);
+        if (r < 0) {
+                log_warning("Failed to send out generic PropertiesChanged signal for %s: %s", u->id, strerror(-r));
+                return r;
+        }
+
+        return 0;
 }
 
 void bus_unit_send_change_signal(Unit *u) {

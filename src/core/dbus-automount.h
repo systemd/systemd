@@ -24,4 +24,3 @@
 #include "sd-bus.h"
 
 extern const sd_bus_vtable bus_automount_vtable[];
-extern const char* const bus_automount_changing_properties[];

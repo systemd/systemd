@@ -29,8 +29,3 @@ const sd_bus_vtable bus_device_vtable[] = {
         SD_BUS_PROPERTY("SysFSPath", "s", NULL, offsetof(Device, sysfs), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_VTABLE_END
 };
-
-const char* const bus_device_changing_properties[] = {
-        "SysFSPath",
-        NULL
-};

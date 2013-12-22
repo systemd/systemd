@@ -2424,7 +2424,6 @@ const UnitVTable socket_vtable = {
 
         .bus_interface = "org.freedesktop.systemd1.Socket",
         .bus_vtable = bus_socket_vtable,
-        .bus_changing_properties = bus_socket_changing_properties,
         .bus_set_property = bus_socket_set_property,
         .bus_commit_properties = bus_socket_commit_properties,
 

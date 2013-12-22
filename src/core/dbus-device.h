@@ -25,4 +25,3 @@
 #include "unit.h"
 
 extern const sd_bus_vtable bus_device_vtable[];
-extern const char* const bus_device_changing_properties[];

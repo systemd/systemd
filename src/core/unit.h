@@ -426,9 +426,6 @@ struct UnitVTable {
         /* The bus vtable */
         const sd_bus_vtable *bus_vtable;
 
-        /* strv list of changing properties */
-        const char * const * const bus_changing_properties;
-
         /* The strings to print in status messages */
         UnitStatusMessageFormats status_message_formats;
 

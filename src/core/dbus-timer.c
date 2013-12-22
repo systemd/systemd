@@ -146,10 +146,3 @@ const sd_bus_vtable bus_timer_vtable[] = {
         SD_BUS_PROPERTY("AccuracyUSec", "t", bus_property_get_usec, offsetof(Timer, accuracy_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_VTABLE_END
 };
-
-const char* const bus_timer_changing_properties[] = {
-        "NextElapseUSecRealtime",
-        "NextElapseUSecMonotonic",
-        "Result",
-        NULL
-};

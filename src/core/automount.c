@@ -874,7 +874,6 @@ const UnitVTable automount_vtable = {
 
         .bus_interface = "org.freedesktop.systemd1.Automount",
         .bus_vtable = bus_automount_vtable,
-        .bus_changing_properties = bus_automount_changing_properties,
 
         .shutdown = automount_shutdown,
 

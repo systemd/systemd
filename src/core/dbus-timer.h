@@ -24,4 +24,3 @@
 #include "sd-bus.h"
 
 extern const sd_bus_vtable bus_timer_vtable[];
-extern const char* const bus_timer_changing_properties[];

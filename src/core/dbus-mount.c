@@ -124,15 +124,6 @@ const sd_bus_vtable bus_mount_vtable[] = {
         SD_BUS_VTABLE_END
 };
 
-const char * const bus_mount_changing_properties[] = {
-        "What",
-        "Options",
-        "Type",
-        "ControlPID",
-        "Result",
-        NULL
-};
-
 int bus_mount_set_property(
                 Unit *u,
                 const char *name,

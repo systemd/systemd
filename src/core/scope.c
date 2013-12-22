@@ -492,7 +492,6 @@ const UnitVTable scope_vtable = {
 
         .bus_interface = "org.freedesktop.systemd1.Scope",
         .bus_vtable = bus_scope_vtable,
-        .bus_changing_properties = bus_scope_changing_properties,
         .bus_set_property = bus_scope_set_property,
         .bus_commit_properties = bus_scope_commit_properties,
 

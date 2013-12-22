@@ -86,8 +86,3 @@ const sd_bus_vtable bus_path_vtable[] = {
         SD_BUS_PROPERTY("Result", "s", property_get_result, offsetof(Path, result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_VTABLE_END
 };
-
-const char* const bus_path_changing_properties[] = {
-        "Result",
-        NULL
-};

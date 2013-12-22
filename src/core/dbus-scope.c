@@ -36,11 +36,6 @@ const sd_bus_vtable bus_scope_vtable[] = {
         SD_BUS_VTABLE_END
 };
 
-const char* const bus_scope_changing_properties[] = {
-        "Result",
-        NULL
-};
-
 static int bus_scope_set_transient_property(
                 Scope *s,
                 const char *name,

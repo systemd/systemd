@@ -69,21 +69,6 @@ const sd_bus_vtable bus_service_vtable[] = {
         SD_BUS_VTABLE_END
 };
 
-const char* const bus_service_changing_properties[] = {
-        "ExecMainStartTimestamp",
-        "ExecMainStartTimestampMonotonic",
-        "ExecMainExitTimestamp",
-        "ExecMainExitTimestampMonotonic",
-        "ExecMainPID",
-        "ExecMainCode",
-        "ExecMainStatus",
-        "MainPID",
-        "ControlPID",
-        "StatusText",
-        "Result",
-        NULL
-};
-
 static int bus_service_set_transient_property(
                 Service *s,
                 const char *name,

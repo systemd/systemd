@@ -1793,7 +1793,6 @@ const UnitVTable mount_vtable = {
 
         .bus_interface = "org.freedesktop.systemd1.Mount",
         .bus_vtable = bus_mount_vtable,
-        .bus_changing_properties = bus_mount_changing_properties,
         .bus_set_property = bus_mount_set_property,
         .bus_commit_properties = bus_mount_commit_properties,
 

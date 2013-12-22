@@ -25,7 +25,6 @@
 #include "unit.h"
 
 extern const sd_bus_vtable bus_scope_vtable[];
-extern const char* const bus_scope_changing_properties[];
 
 int bus_scope_set_property(Unit *u, const char *name, sd_bus_message *i, UnitSetPropertiesMode mode, sd_bus_error *error);
 int bus_scope_commit_properties(Unit *u);

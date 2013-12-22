@@ -69,14 +69,6 @@ const sd_bus_vtable bus_swap_vtable[] = {
         SD_BUS_VTABLE_END
 };
 
-const char* const bus_swap_changing_properties[] = {
-        "What",
-        "Priority",
-        "ControlPID",
-        "Result",
-        NULL
-};
-
 int bus_swap_set_property(
                 Unit *u,
                 const char *name,

@@ -34,8 +34,3 @@ const sd_bus_vtable bus_automount_vtable[] = {
         SD_BUS_PROPERTY("Result", "s", property_get_result, offsetof(Automount, result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_VTABLE_END
 };
-
-const char* const bus_automount_changing_properties[] = {
-        "Result",
-        NULL
-};
