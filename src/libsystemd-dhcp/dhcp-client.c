@@ -540,7 +540,6 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec,
                         time_left = 60;
 
                 next_timeout = usec + time_left * USEC_PER_SEC;
-
                 break;
 
         case DHCP_STATE_INIT:
@@ -558,7 +557,7 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec,
                 break;
         }
 
-        next_timeout += (random_u() & 0x1fffff);
+        next_timeout += (random_u32() & 0x1fffff);
 
         err = sd_event_add_monotonic(client->event, next_timeout,
                                      10 * USEC_PER_MSEC,
@@ -894,7 +893,7 @@ static uint64_t client_compute_timeout(uint64_t request_sent,
                                        uint32_t lifetime)
 {
         return request_sent + (lifetime - 3) * USEC_PER_SEC +
-                + (random_u() & 0x1fffff);
+                + (random_u32() & 0x1fffff);
 }
 
 static int client_set_lease_timeouts(sd_dhcp_client *client, uint64_t usec)
@@ -1065,7 +1064,7 @@ int sd_dhcp_client_start(sd_dhcp_client *client)
         assert_return(client->state == DHCP_STATE_INIT ||
                       client->state == DHCP_STATE_INIT_REBOOT, -EBUSY);
 
-        client->xid = random_u();
+        client->xid = random_u32();
 
         r = dhcp_network_bind_raw_socket(client->index, &client->link);
 

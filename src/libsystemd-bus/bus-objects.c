@@ -1593,15 +1593,25 @@ static void free_node_vtable(sd_bus *bus, struct node_vtable *w) {
         free(w);
 }
 
-static unsigned vtable_member_hash_func(const void *a) {
+static unsigned long vtable_member_hash_func(const void *a, const uint8_t hash_key[HASH_KEY_SIZE]) {
         const struct vtable_member *m = a;
+        uint8_t hash_key2[HASH_KEY_SIZE];
+        unsigned long ret;
 
         assert(m);
 
-        return
-                string_hash_func(m->path) ^
-                string_hash_func(m->interface) ^
-                string_hash_func(m->member);
+        ret = string_hash_func(m->path, hash_key);
+
+        /* Use a slightly different hash key for the interface */
+        memcpy(hash_key2, hash_key, HASH_KEY_SIZE);
+        hash_key2[0]++;
+        ret ^= string_hash_func(m->interface, hash_key2);
+
+        /* And an even different one for the  member */
+        hash_key2[0]++;
+        ret ^= string_hash_func(m->member, hash_key2);
+
+        return ret;
 }
 
 static int vtable_member_compare_func(const void *a, const void *b) {

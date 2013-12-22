@@ -31,6 +31,8 @@
  * for all read operations. That way it is not necessary to
  * instantiate an object for each Hashmap use. */
 
+#define HASH_KEY_SIZE 16
+
 typedef struct Hashmap Hashmap;
 typedef struct _IteratorStruct _IteratorStruct;
 typedef _IteratorStruct* Iterator;
@@ -38,19 +40,19 @@ typedef _IteratorStruct* Iterator;
 #define ITERATOR_FIRST ((Iterator) 0)
 #define ITERATOR_LAST ((Iterator) -1)
 
-typedef unsigned (*hash_func_t)(const void *p);
+typedef unsigned long (*hash_func_t)(const void *p, const uint8_t hash_key[HASH_KEY_SIZE]);
 typedef int (*compare_func_t)(const void *a, const void *b);
 
-unsigned string_hash_func(const void *p) _pure_;
+unsigned long string_hash_func(const void *p, const uint8_t hash_key[HASH_KEY_SIZE]) _pure_;
 int string_compare_func(const void *a, const void *b) _pure_;
 
 /* This will compare the passed pointers directly, and will not
  * dereference them. This is hence not useful for strings or
  * suchlike. */
-unsigned trivial_hash_func(const void *p) _const_;
+unsigned long trivial_hash_func(const void *p, const uint8_t hash_key[HASH_KEY_SIZE]) _pure_;
 int trivial_compare_func(const void *a, const void *b) _const_;
 
-unsigned uint64_hash_func(const void *p) _pure_;
+unsigned long uint64_hash_func(const void *p, const uint8_t hash_key[HASH_KEY_SIZE]) _pure_;
 int uint64_compare_func(const void *a, const void *b) _pure_;
 
 Hashmap *hashmap_new(hash_func_t hash_func, compare_func_t compare_func);

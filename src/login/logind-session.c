@@ -40,10 +40,10 @@
 #include "bus-error.h"
 #include "logind-session.h"
 
-static unsigned devt_hash_func(const void *p) {
+static unsigned long devt_hash_func(const void *p, const uint8_t hash_key[HASH_KEY_SIZE]) {
         uint64_t u = *(const dev_t*)p;
 
-        return uint64_hash_func(&u);
+        return uint64_hash_func(&u, hash_key);
 }
 
 static int devt_compare_func(const void *_a, const void *_b) {

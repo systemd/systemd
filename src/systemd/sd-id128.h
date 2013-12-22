@@ -51,7 +51,7 @@ int sd_id128_get_machine(sd_id128_t *ret);
 int sd_id128_get_boot(sd_id128_t *ret);
 
 #define SD_ID128_MAKE(v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15) \
-        ((sd_id128_t) { .bytes = { 0x##v0, 0x##v1, 0x##v2, 0x##v3, 0x##v4, 0x##v5, 0x##v6, 0x##v7, \
+        ((const sd_id128_t) { .bytes = { 0x##v0, 0x##v1, 0x##v2, 0x##v3, 0x##v4, 0x##v5, 0x##v6, 0x##v7, \
                                    0x##v8, 0x##v9, 0x##v10, 0x##v11, 0x##v12, 0x##v13, 0x##v14, 0x##v15 }})
 
 /* Note that SD_ID128_FORMAT_VAL will evaluate the passed argument 16
@@ -63,7 +63,7 @@ int sd_id128_get_boot(sd_id128_t *ret);
 #define SD_ID128_FORMAT_VAL(x) (x).bytes[0], (x).bytes[1], (x).bytes[2], (x).bytes[3], (x).bytes[4], (x).bytes[5], (x).bytes[6], (x).bytes[7], (x).bytes[8], (x).bytes[9], (x).bytes[10], (x).bytes[11], (x).bytes[12], (x).bytes[13], (x).bytes[14], (x).bytes[15]
 
 #define SD_ID128_CONST_STR(x)                                           \
-        ((char[SD_ID128_STRING_MAX]) {                                  \
+        ((const char[SD_ID128_STRING_MAX]) {                            \
                 ((x).bytes[0] >> 4) >= 10 ? 'a' + ((x).bytes[0] >> 4) - 10 : '0' + ((x).bytes[0] >> 4), \
                 ((x).bytes[0] & 15) >= 10 ? 'a' + ((x).bytes[0] & 15) - 10 : '0' + ((x).bytes[0] & 15), \
                 ((x).bytes[1] >> 4) >= 10 ? 'a' + ((x).bytes[1] >> 4) - 10 : '0' + ((x).bytes[1] >> 4), \
@@ -102,7 +102,7 @@ _sd_pure_ static inline int sd_id128_equal(sd_id128_t a, sd_id128_t b) {
         return memcmp(&a, &b, 16) == 0;
 }
 
-#define SD_ID128_NULL ((sd_id128_t) { .qwords = { 0, 0 }})
+#define SD_ID128_NULL ((const sd_id128_t) { .qwords = { 0, 0 }})
 
 _SD_END_DECLARATIONS;
 

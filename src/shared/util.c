@@ -61,6 +61,10 @@
 #include <libgen.h>
 #undef basename
 
+#ifdef HAVE_SYS_AUXV_H
+#include <sys/auxv.h>
+#endif
+
 #include "macro.h"
 #include "util.h"
 #include "ioprio.h"
@@ -2345,42 +2349,48 @@ char* dirname_malloc(const char *path) {
         return dir;
 }
 
-unsigned long long random_ull(void) {
+void random_bytes(void *p, size_t n) {
+        static bool srand_called = false;
         _cleanup_close_ int fd;
-        uint64_t ull;
-        ssize_t r;
+        ssize_t k;
+        uint8_t *q;
 
         fd = open("/dev/urandom", O_RDONLY|O_CLOEXEC|O_NOCTTY);
         if (fd < 0)
                 goto fallback;
 
-        r = loop_read(fd, &ull, sizeof(ull), true);
-        if (r != sizeof(ull))
+        k = loop_read(fd, p, n, true);
+        if (k < 0 || (size_t) k != n)
                 goto fallback;
 
-        return ull;
+        return;
 
 fallback:
-        return random() * RAND_MAX + random();
-}
 
-unsigned random_u(void) {
-        _cleanup_close_ int fd;
-        unsigned u;
-        ssize_t r;
+        if (!srand_called) {
 
-        fd = open("/dev/urandom", O_RDONLY|O_CLOEXEC|O_NOCTTY);
-        if (fd < 0)
-                goto fallback;
+#ifdef HAVE_SYS_AUXV_H
+                /* The kernel provides us with a bit of entropy in
+                 * auxv, so let's try to make use of that to seed the
+                 * pseudo-random generator. It's better than
+                 * nothing... */
 
-        r = loop_read(fd, &u, sizeof(u), true);
-        if (r != sizeof(u))
-                goto fallback;
+                void *auxv;
 
-        return u;
+                auxv = (void*) getauxval(AT_RANDOM);
+                if (auxv)
+                        srand(*(unsigned*) auxv);
+                else
+#endif
+                        srand(time(NULL) + gettid());
 
-fallback:
-        return random() * RAND_MAX + random();
+                srand_called = true;
+        }
+
+        /* If some idiot made /dev/urandom unavailable to us, he'll
+         * get a PRNG instead. */
+        for (q = p; q < (uint8_t*) p + n; q ++)
+                *q = rand();
 }
 
 void rename_process(const char name[8]) {
@@ -4137,7 +4147,7 @@ int symlink_atomic(const char *from, const char *to) {
         _cleanup_free_ char *t;
         const char *fn;
         size_t k;
-        unsigned long long ull;
+        uint64_t u;
         unsigned i;
         int r;
 
@@ -4154,10 +4164,10 @@ int symlink_atomic(const char *from, const char *to) {
         t[k] = '.';
         x = stpcpy(t+k+1, fn);
 
-        ull = random_ull();
+        u = random_u64();
         for (i = 0; i < 16; i++) {
-                *(x++) = hexchar(ull & 0xF);
-                ull >>= 4;
+                *(x++) = hexchar(u & 0xF);
+                u >>= 4;
         }
 
         *x = 0;

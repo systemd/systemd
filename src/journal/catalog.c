@@ -39,6 +39,7 @@
 #include "conf-files.h"
 #include "mkdir.h"
 #include "catalog.h"
+#include "siphash24.h"
 
 const char * const catalog_file_dirs[] = {
         "/usr/local/lib/systemd/catalog/",
@@ -63,28 +64,21 @@ typedef struct CatalogItem {
         le64_t offset;
 } CatalogItem;
 
-unsigned catalog_hash_func(const void *p) {
+unsigned long catalog_hash_func(const void *p, const uint8_t hash_key[HASH_KEY_SIZE]) {
         const CatalogItem *i = p;
+        uint64_t u;
+        size_t l, sz;
+        void *v;
 
-        assert_cc(sizeof(unsigned) == sizeof(uint8_t)*4);
+        l = strlen(i->language);
+        sz = sizeof(i->id) + l;
+        v = alloca(sz);
 
-        return (((unsigned) i->id.bytes[0] << 24) |
-                ((unsigned) i->id.bytes[1] << 16) |
-                ((unsigned) i->id.bytes[2] << 8) |
-                ((unsigned) i->id.bytes[3])) ^
-               (((unsigned) i->id.bytes[4] << 24) |
-                ((unsigned) i->id.bytes[5] << 16) |
-                ((unsigned) i->id.bytes[6] << 8) |
-                ((unsigned) i->id.bytes[7])) ^
-               (((unsigned) i->id.bytes[8] << 24) |
-                ((unsigned) i->id.bytes[9] << 16) |
-                ((unsigned) i->id.bytes[10] << 8) |
-                ((unsigned) i->id.bytes[11])) ^
-               (((unsigned) i->id.bytes[12] << 24) |
-                ((unsigned) i->id.bytes[13] << 16) |
-                ((unsigned) i->id.bytes[14] << 8) |
-                ((unsigned) i->id.bytes[15])) ^
-                string_hash_func(i->language);
+        memcpy(mempcpy(v, &i->id, sizeof(i->id)), i->language, l);
+
+        siphash24((uint8_t*) &u, v, sz, hash_key);
+
+        return (unsigned long) u;
 }
 
 int catalog_compare_func(const void *a, const void *b) {

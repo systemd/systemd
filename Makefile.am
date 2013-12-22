@@ -694,6 +694,8 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/time-util.h \
 	src/shared/hashmap.c \
 	src/shared/hashmap.h \
+	src/shared/siphash24.c \
+	src/shared/siphash24.h \
 	src/shared/set.c \
 	src/shared/set.h \
 	src/shared/fdset.c \

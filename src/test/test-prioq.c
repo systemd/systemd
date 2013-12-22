@@ -24,6 +24,7 @@
 #include "util.h"
 #include "set.h"
 #include "prioq.h"
+#include "siphash24.h"
 
 #define SET_SIZE 1024*4
 
@@ -88,10 +89,13 @@ static int test_compare(const void *a, const void *b) {
         return 0;
 }
 
-static unsigned test_hash(const void *a) {
+static unsigned long test_hash(const void *a, const uint8_t hash_key[HASH_KEY_SIZE]) {
         const struct test *x = a;
+        uint64_t u;
 
-        return x->value;
+        siphash24((uint8_t*) &u, &x->value, sizeof(x->value), hash_key);
+
+        return (unsigned long) u;
 }
 
 static void test_struct(void) {

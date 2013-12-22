@@ -24,13 +24,10 @@
 #include <string.h>
 #include <errno.h>
 
-#ifdef HAVE_SYS_AUXV_H
-#include <sys/auxv.h>
-#endif
-
 #include "util.h"
 #include "hashmap.h"
 #include "macro.h"
+#include "siphash24.h"
 
 #define INITIAL_N_BUCKETS 31
 
@@ -50,8 +47,8 @@ struct Hashmap {
         struct hashmap_entry ** buckets;
         unsigned n_buckets, n_entries;
 
-        unsigned random_xor;
-        bool from_pool;
+        uint8_t hash_key[HASH_KEY_SIZE];
+        bool from_pool:1;
 };
 
 struct pool {
@@ -134,51 +131,60 @@ __attribute__((destructor)) static void cleanup_pool(void) {
 
 #endif
 
-unsigned string_hash_func(const void *p) {
-        unsigned hash = 5381;
-        const signed char *c;
-
-        /* DJB's hash function */
-
-        for (c = p; *c; c++)
-                hash = (hash << 5) + hash + (unsigned) *c;
-
-        return hash;
+unsigned long string_hash_func(const void *p, const uint8_t hash_key[HASH_KEY_SIZE]) {
+        uint64_t u;
+        siphash24((uint8_t*) &u, p, strlen(p), hash_key);
+        return (unsigned long) u;
 }
 
 int string_compare_func(const void *a, const void *b) {
         return strcmp(a, b);
 }
 
-unsigned trivial_hash_func(const void *p) {
-        return PTR_TO_UINT(p);
+unsigned long trivial_hash_func(const void *p, const uint8_t hash_key[HASH_KEY_SIZE]) {
+        uint64_t u;
+        siphash24((uint8_t*) &u, &p, sizeof(p), hash_key);
+        return (unsigned long) u;
 }
 
 int trivial_compare_func(const void *a, const void *b) {
         return a < b ? -1 : (a > b ? 1 : 0);
 }
 
-unsigned uint64_hash_func(const void *p) {
+unsigned long uint64_hash_func(const void *p, const uint8_t hash_key[HASH_KEY_SIZE]) {
         uint64_t u;
-
-        assert_cc(sizeof(uint64_t) == 2*sizeof(unsigned));
-
-        u = *(const uint64_t*) p;
-
-        return (unsigned) ((u >> 32) ^ u);
+        siphash24((uint8_t*) &u, p, sizeof(uint64_t), hash_key);
+        return (unsigned long) u;
 }
 
 int uint64_compare_func(const void *_a, const void *_b) {
         uint64_t a, b;
-
         a = *(const uint64_t*) _a;
         b = *(const uint64_t*) _b;
-
         return a < b ? -1 : (a > b ? 1 : 0);
 }
 
 static unsigned bucket_hash(Hashmap *h, const void *p) {
-        return (h->hash_func(p) ^ h->random_xor) % h->n_buckets;
+        return (unsigned) (h->hash_func(p, h->hash_key) % h->n_buckets);
+}
+
+static void get_hash_key(uint8_t hash_key[HASH_KEY_SIZE], bool reuse_is_ok) {
+        static uint8_t current[HASH_KEY_SIZE];
+        static bool current_initialized = false;
+
+        /* Returns a hash function key to use. In order to keep things
+         * fast we will not generate a new key each time we allocate a
+         * new hash table. Instead, we'll just reuse the most recently
+         * generated one, except if we never generated one or when we
+         * are rehashing an entire hash table because we reached a
+         * fill level */
+
+        if (!current_initialized || !reuse_is_ok) {
+                random_bytes(current, sizeof(current));
+                current_initialized = true;
+        }
+
+        memcpy(hash_key, current, sizeof(current));
 }
 
 Hashmap *hashmap_new(hash_func_t hash_func, compare_func_t compare_func) {
@@ -214,21 +220,7 @@ Hashmap *hashmap_new(hash_func_t hash_func, compare_func_t compare_func) {
 
         h->from_pool = b;
 
-        /* Let's randomize our hash functions a bit so that they are
-         * harder to guess for clients. For this, start out by cheaply
-         * using some bits the kernel passed into the process using
-         * the auxiliary vector. If the hashmap grows later on we will
-         * rehash everything using a new random XOR mask from
-         * /dev/random. */
-#ifdef HAVE_SYS_AUXV_H
-        {
-                void *auxv;
-                auxv = (void*) getauxval(AT_RANDOM);
-                h->random_xor = auxv ? *(unsigned*) auxv : random_u();
-        }
-#else
-        h->random_xor = random_u();
-#endif
+        get_hash_key(h->hash_key, true);
 
         return h;
 }
@@ -407,7 +399,8 @@ static struct hashmap_entry *hash_scan(Hashmap *h, unsigned hash, const void *ke
 
 static bool resize_buckets(Hashmap *h) {
         struct hashmap_entry **n, *i;
-        unsigned m, nxor;
+        unsigned m;
+        uint8_t nkey[HASH_KEY_SIZE];
 
         assert(h);
 
@@ -422,15 +415,15 @@ static bool resize_buckets(Hashmap *h) {
         if (!n)
                 return false;
 
-        /* Let's use a different randomized xor value for the
+        /* Let's use a different randomized hash key for the
          * extension, so that people cannot guess what we are using
          * here forever */
-        nxor = random_u();
+        get_hash_key(nkey, false);
 
         for (i = h->iterate_list_head; i; i = i->iterate_next) {
-                unsigned hash, x;
+                unsigned long old_bucket, new_bucket;
 
-                hash = h->hash_func(i->key);
+                old_bucket = h->hash_func(i->key, h->hash_key) % h->n_buckets;
 
                 /* First, drop from old bucket table */
                 if (i->bucket_next)
@@ -439,16 +432,16 @@ static bool resize_buckets(Hashmap *h) {
                 if (i->bucket_previous)
                         i->bucket_previous->bucket_next = i->bucket_next;
                 else
-                        h->buckets[(hash ^ h->random_xor) % h->n_buckets] = i->bucket_next;
+                        h->buckets[old_bucket] = i->bucket_next;
 
                 /* Then, add to new backet table */
-                x = (hash ^ nxor) % m;
+                new_bucket = h->hash_func(i->key, nkey)  % m;
 
-                i->bucket_next = n[x];
+                i->bucket_next = n[new_bucket];
                 i->bucket_previous = NULL;
-                if (n[x])
-                        n[x]->bucket_previous = i;
-                n[x] = i;
+                if (n[new_bucket])
+                        n[new_bucket]->bucket_previous = i;
+                n[new_bucket] = i;
         }
 
         if (h->buckets != (struct hashmap_entry**) ((uint8_t*) h + ALIGN(sizeof(Hashmap))))
@@ -456,7 +449,8 @@ static bool resize_buckets(Hashmap *h) {
 
         h->buckets = n;
         h->n_buckets = m;
-        h->random_xor = nxor;
+
+        memcpy(h->hash_key, nkey, HASH_KEY_SIZE);
 
         return true;
 }

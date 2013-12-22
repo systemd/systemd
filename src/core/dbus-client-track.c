@@ -22,10 +22,10 @@
 #include "bus-util.h"
 #include "dbus-client-track.h"
 
-static unsigned tracked_client_hash(const void *a) {
+static unsigned long tracked_client_hash(const void *a, const uint8_t hash_key[HASH_KEY_SIZE]) {
         const BusTrackedClient *x = a;
 
-        return string_hash_func(x->name) ^ PTR_TO_UINT(x->bus);
+        return string_hash_func(x->name, hash_key) ^ trivial_hash_func(x->bus, hash_key);
 }
 
 static int tracked_client_compare(const void *a, const void *b) {
