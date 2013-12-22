@@ -30,7 +30,7 @@
 static void test_login(void) {
         int r, k;
         uid_t u, u2;
-        char *seat, *type, *class, *display;
+        char *seat, *type, *class, *display, *remote_user, *remote_host;
         char *session;
         char *state;
         char *session2;
@@ -71,6 +71,10 @@ static void test_login(void) {
         assert_se(r >= 0);
         printf("active = %s\n", yes_no(r));
 
+        r = sd_session_is_remote(session);
+        assert_se(r >= 0);
+        printf("remote = %s\n", yes_no(r));
+
         r = sd_session_get_state(session, &state);
         assert_se(r >= 0);
         printf("state = %s\n", state);
@@ -91,6 +95,14 @@ static void test_login(void) {
         assert_se(sd_session_get_display(session, &display) >= 0);
         printf("display = %s\n", display);
         free(display);
+
+        assert_se(sd_session_get_remote_user(session, &remote_user) >= 0);
+        printf("remote_user = %s\n", remote_user);
+        free(remote_user);
+
+        assert_se(sd_session_get_remote_host(session, &remote_host) >= 0);
+        printf("remote_host = %s\n", remote_host);
+        free(remote_host);
 
         assert_se(sd_session_get_seat(session, &seat) >= 0);
         printf("seat = %s\n", seat);

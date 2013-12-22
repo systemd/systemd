@@ -85,3 +85,10 @@ LIBSYSTEMD_LOGIN_207 {
 global:
         sd_session_get_vt;
 } LIBSYSTEMD_LOGIN_205;
+
+LIBSYSTEMD_LOGIN_209 {
+global:
+        sd_session_is_remote;
+        sd_session_get_remote_user;
+        sd_session_get_remote_host;
+} LIBSYSTEMD_LOGIN_207;

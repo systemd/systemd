@@ -254,6 +254,26 @@ _public_ int sd_session_is_active(const char *session) {
         return r;
 }
 
+_public_ int sd_session_is_remote(const char *session) {
+        int r;
+        _cleanup_free_ char *p = NULL, *s = NULL;
+
+        r = file_of_session(session, &p);
+        if (r < 0)
+                return r;
+
+        r = parse_env_file(p, NEWLINE, "REMOTE", &s, NULL);
+        if (r < 0)
+                return r;
+
+        if (!s)
+                return -EIO;
+
+        r = parse_boolean(s);
+
+        return r;
+}
+
 _public_ int sd_session_get_state(const char *session, char **state) {
         _cleanup_free_ char *p = NULL, *s = NULL;
         int r;
@@ -362,6 +382,14 @@ _public_ int sd_session_get_class(const char *session, char **class) {
 
 _public_ int sd_session_get_display(const char *session, char **display) {
         return session_get_string(session, "DISPLAY", display);
+}
+
+_public_ int sd_session_get_remote_user(const char *session, char **remote_user) {
+        return session_get_string(session, "REMOTE_USER", remote_user);
+}
+
+_public_ int sd_session_get_remote_host(const char *session, char **remote_host) {
+        return session_get_string(session, "REMOTE_HOST", remote_host);
 }
 
 static int file_of_seat(const char *seat, char **_p) {

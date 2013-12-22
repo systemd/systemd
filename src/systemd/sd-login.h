@@ -95,8 +95,11 @@ int sd_uid_get_sessions(uid_t uid, int require_active, char ***sessions);
  * just return number of seats.*/
 int sd_uid_get_seats(uid_t uid, int require_active, char ***seats);
 
-/* Return 1 if the session is a active. */
+/* Return 1 if the session is active. */
 int sd_session_is_active(const char *session);
+
+/* Return 1 if the session is remote. */
+int sd_session_is_remote(const char *session);
 
 /* Get state from session. Possible states: online, active, closing
  * (This function is a more generic version of
@@ -120,6 +123,12 @@ int sd_session_get_class(const char *session, char **clazz);
 
 /* Determine the X11 display of this session. */
 int sd_session_get_display(const char *session, char **display);
+
+/* Determine the remote host of this session. */
+int sd_session_get_remote_host(const char *session, char **remote_host);
+
+/* Determine the remote user of this session (if provided by PAM). */
+int sd_session_get_remote_user(const char *session, char **remote_user);
 
 /* Determine the TTY of this session. */
 int sd_session_get_tty(const char *session, char **display);
