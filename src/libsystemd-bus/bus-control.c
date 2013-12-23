@@ -96,7 +96,7 @@ static int bus_request_name_dbus1(sd_bus *bus, const char *name, uint64_t flags)
         r = sd_bus_call_method(
                         bus,
                         "org.freedesktop.DBus",
-                        "/",
+                        "/org/freedesktop/DBus",
                         "org.freedesktop.DBus",
                         "RequestName",
                         NULL,
@@ -173,7 +173,7 @@ static int bus_release_name_dbus1(sd_bus *bus, const char *name) {
         r = sd_bus_call_method(
                         bus,
                         "org.freedesktop.DBus",
-                        "/",
+                        "/org/freedesktop/DBus",
                         "org.freedesktop.DBus",
                         "ReleaseName",
                         NULL,
@@ -295,7 +295,7 @@ static int bus_list_names_dbus1(sd_bus *bus, char ***acquired, char ***activatab
                 r = sd_bus_call_method(
                                 bus,
                                 "org.freedesktop.DBus",
-                                "/",
+                                "/org/freedesktop/DBus",
                                 "org.freedesktop.DBus",
                                 "ListNames",
                                 NULL,
@@ -315,7 +315,7 @@ static int bus_list_names_dbus1(sd_bus *bus, char ***acquired, char ***activatab
                 r = sd_bus_call_method(
                                 bus,
                                 "org.freedesktop.DBus",
-                                "/",
+                                "/org/freedesktop/DBus",
                                 "org.freedesktop.DBus",
                                 "ListActivatableNames",
                                 NULL,
@@ -565,7 +565,7 @@ static int bus_get_owner_dbus1(
                 r = sd_bus_call_method(
                                 bus,
                                 "org.freedesktop.DBus",
-                                "/",
+                                "/org/freedesktop/DBus",
                                 "org.freedesktop.DBus",
                                 "GetNameOwner",
                                 NULL,
@@ -603,7 +603,7 @@ static int bus_get_owner_dbus1(
                         r = sd_bus_call_method(
                                         bus,
                                         "org.freedesktop.DBus",
-                                        "/",
+                                        "/org/freedesktop/DBus",
                                         "org.freedesktop.DBus",
                                         "GetConnectionUnixProcessID",
                                         NULL,
@@ -632,7 +632,7 @@ static int bus_get_owner_dbus1(
                         r = sd_bus_call_method(
                                         bus,
                                         "org.freedesktop.DBus",
-                                        "/",
+                                        "/org/freedesktop/DBus",
                                         "org.freedesktop.DBus",
                                         "GetConnectionUnixUser",
                                         NULL,
@@ -659,7 +659,7 @@ static int bus_get_owner_dbus1(
                         r = sd_bus_call_method(
                                         bus,
                                         "org.freedesktop.DBus",
-                                        "/",
+                                        "/org/freedesktop/DBus",
                                         "org.freedesktop.DBus",
                                         "GetConnectionSELinuxSecurityContext",
                                         NULL,
@@ -1073,7 +1073,7 @@ static int bus_add_match_internal_dbus1(
         return sd_bus_call_method(
                         bus,
                         "org.freedesktop.DBus",
-                        "/",
+                        "/org/freedesktop/DBus",
                         "org.freedesktop.DBus",
                         "AddMatch",
                         NULL,
@@ -1130,7 +1130,7 @@ static int bus_remove_match_internal_dbus1(
         return sd_bus_call_method(
                         bus,
                         "org.freedesktop.DBus",
-                        "/",
+                        "/org/freedesktop/DBus",
                         "org.freedesktop.DBus",
                         "RemoveMatch",
                         NULL,
