@@ -5994,8 +5994,20 @@ int proc_cmdline(char **ret) {
         int r;
 
         if (detect_container(NULL) > 0) {
-                *ret = NULL;
-                return 0;
+                char *buf, *p;
+                size_t sz = 0;
+
+                r = read_full_file("/proc/1/cmdline", &buf, &sz);
+                if (r < 0)
+                        return r;
+
+                for (p = buf; p + 1 < buf + sz; p++)
+                        if (*p == 0)
+                                *p = ' ';
+
+                *p  = 0;
+                *ret = buf;
+                return 1;
         }
 
         r = read_one_line_file("/proc/cmdline", ret);
