@@ -461,7 +461,7 @@ int main(int argc, char *argv[]) {
                 log_debug("Failed to rename process: %s", strerror(-r));
 
         if (a->is_kernel) {
-                _cleanup_free_ char *match;
+                _cleanup_free_ char *match = NULL;
                 const char *unique;
 
                 r = sd_bus_get_unique_name(a, &unique);
