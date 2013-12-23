@@ -374,7 +374,7 @@ static int bus_send_hello(sd_bus *bus) {
         r = sd_bus_message_new_method_call(
                         bus,
                         "org.freedesktop.DBus",
-                        "/",
+                        "/org/freedesktop/DBus",
                         "org.freedesktop.DBus",
                         "Hello",
                         &m);

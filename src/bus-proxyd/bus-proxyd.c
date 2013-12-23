@@ -123,17 +123,248 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
+static int rename_service(sd_bus *b) {
+        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+        _cleanup_free_ char *p = NULL, *name = NULL;
+        const char *comm;
+        char **cmdline;
+        uid_t uid;
+        pid_t pid;
+        int r;
+
+        assert(b);
+
+        r = sd_bus_get_peer_creds(b, SD_BUS_CREDS_UID|SD_BUS_CREDS_PID|SD_BUS_CREDS_CMDLINE|SD_BUS_CREDS_COMM, &creds);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_creds_get_uid(creds, &uid);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_creds_get_pid(creds, &pid);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_creds_get_cmdline(creds, &cmdline);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_creds_get_comm(creds, &comm);
+        if (r < 0)
+                return r;
+
+        name = uid_to_name(uid);
+        if (!name)
+                return -ENOMEM;
+
+        p = strv_join(cmdline, " ");
+        if (!p)
+                return -ENOMEM;
+
+        /* The status string gets the full command line ... */
+        sd_notifyf(false,
+                   "STATUS=Processing requests from client PID %lu (%s); UID %lu (%s)",
+                   (unsigned long) pid, p,
+                   (unsigned long) uid, name);
+
+        /* ... and the argv line only the short comm */
+        if (arg_command_line_buffer) {
+                size_t m, w;
+
+                m = strlen(arg_command_line_buffer);
+                w = snprintf(arg_command_line_buffer, m,
+                             "[PID %lu/%s; UID %lu/%s]",
+                             (unsigned long) pid, comm,
+                             (unsigned long) uid, name);
+
+                if (m > w)
+                        memset(arg_command_line_buffer + w, 0, m - w);
+        }
+
+        return 0;
+}
+
+static int synthesize_name_acquired(sd_bus *a, sd_bus *b, sd_bus_message *m) {
+        _cleanup_bus_message_unref_ sd_bus_message *n = NULL;
+        const char *name, *old_owner, *new_owner;
+        int r;
+
+        assert(a);
+        assert(b);
+        assert(m);
+
+        /* If we get NameOwnerChanged for our own name, we need to
+         * synthesize NameLost/NameAcquired, since socket clients need
+         * that, even though it is obsoleted on kdbus */
+
+        if (!a->is_kernel)
+                return 0;
+
+        if (!sd_bus_message_is_signal(m, "org.freedesktop.DBus", "NameOwnerChanged") ||
+            !streq_ptr(m->path, "/org/freedesktop/DBus") ||
+            !streq_ptr(m->sender, "org.freedesktop.DBus"))
+                return 0;
+
+        r = sd_bus_message_read(m, "sss", &name, &old_owner, &new_owner);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_rewind(m, true);
+        if (r < 0)
+                return r;
+
+        if (streq(old_owner, a->unique_name)) {
+
+                r = sd_bus_message_new_signal(
+                                b,
+                                "/org/freedesktop/DBus",
+                                "org.freedesktop.DBus",
+                                "NameLost",
+                                &n);
+
+        } else if (streq(new_owner, a->unique_name)) {
+
+                r = sd_bus_message_new_signal(
+                                b,
+                                "/org/freedesktop/DBus",
+                                "org.freedesktop.DBus",
+                                "NameAcquired",
+                                &n);
+        } else
+                return 0;
+
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(n, "s", name);
+        if (r < 0)
+                return r;
+
+        r = bus_message_append_sender(n, "org.freedesktop.DBus");
+        if (r < 0)
+                return r;
+
+        r = bus_seal_synthetic_message(b, n);
+        if (r < 0)
+                return r;
+
+        return sd_bus_send(b, n, NULL);
+}
+
+static int process_hello(sd_bus *a, sd_bus *b, sd_bus_message *m, bool *got_hello) {
+        _cleanup_bus_message_unref_ sd_bus_message *n = NULL;
+        bool is_hello;
+        int r;
+
+        assert(a);
+        assert(b);
+        assert(m);
+        assert(got_hello);
+
+        /* As reaction to hello we need to respond with two messages:
+         * the callback reply and the NameAcquired for the unique
+         * name, since hello is otherwise obsolete on kdbus. */
+
+        is_hello =
+                sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "Hello") &&
+                streq_ptr(m->destination, "org.freedesktop.DBus");
+
+        if (!is_hello) {
+
+                if (*got_hello)
+                        return 0;
+
+                log_error("First packet isn't hello (it's %s.%s), aborting.", m->interface, m->member);
+                return -EIO;
+        }
+
+        if (*got_hello) {
+                log_error("Got duplicate hello, aborting.");
+                return -EIO;
+        }
+
+        *got_hello = true;
+
+        if (!a->is_kernel)
+                return 0;
+
+        r = sd_bus_message_new_method_return(m, &n);
+        if (r < 0) {
+                log_error("Failed to generate HELLO reply: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_bus_message_append(n, "s", a->unique_name);
+        if (r < 0) {
+                log_error("Failed to append unique name to HELLO reply: %s", strerror(-r));
+                return r;
+        }
+
+        r = bus_message_append_sender(n, "org.freedesktop.DBus");
+        if (r < 0) {
+                log_error("Failed to append sender to HELLO reply: %s", strerror(-r));
+                return r;
+        }
+
+        r = bus_seal_synthetic_message(b, n);
+        if (r < 0) {
+                log_error("Failed to seal HELLO reply: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_bus_send(b, n, NULL);
+        if (r < 0) {
+                log_error("Failed to send HELLO reply: %s", strerror(-r));
+                return r;
+        }
+
+        n = sd_bus_message_unref(n);
+        r = sd_bus_message_new_signal(
+                        b,
+                        "/org/freedesktop/DBus",
+                        "org.freedesktop.DBus",
+                        "NameAcquired",
+                        &n);
+        if (r < 0) {
+                log_error("Failed to allocate initial NameAcquired message: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_bus_message_append(n, "s", a->unique_name);
+        if (r < 0) {
+                log_error("Failed to append unique name to NameAcquired message: %s", strerror(-r));
+                return r;
+        }
+
+        r = bus_message_append_sender(n, "org.freedesktop.DBus");
+        if (r < 0) {
+                log_error("Failed to append sender to NameAcquired message: %s", strerror(-r));
+                return r;
+        }
+
+        r = bus_seal_synthetic_message(b, n);
+        if (r < 0) {
+                log_error("Failed to seal NameAcquired message: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_bus_send(b, n, NULL);
+        if (r < 0) {
+                log_error("Failed to send NameAcquired message: %s", strerror(-r));
+                return r;
+        }
+
+        return 1;
+}
+
 int main(int argc, char *argv[]) {
 
-        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
         _cleanup_bus_unref_ sd_bus *a = NULL, *b = NULL;
         sd_id128_t server_id;
         int r, in_fd, out_fd;
-        char **cmdline;
-        const char *comm;
+        bool got_hello = false;
         bool is_unix;
-        uid_t uid;
-        pid_t pid;
 
         log_set_target(LOG_TARGET_JOURNAL_OR_KMSG);
         log_parse_environment();
@@ -225,44 +456,59 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        if (sd_bus_get_peer_creds(b, SD_BUS_CREDS_UID|SD_BUS_CREDS_PID|SD_BUS_CREDS_CMDLINE|SD_BUS_CREDS_COMM, &creds) >= 0 &&
-            sd_bus_creds_get_uid(creds, &uid) >= 0 &&
-            sd_bus_creds_get_pid(creds, &pid) >= 0 &&
-            sd_bus_creds_get_cmdline(creds, &cmdline) >= 0 &&
-            sd_bus_creds_get_comm(creds, &comm) >= 0) {
-                _cleanup_free_ char *p = NULL, *name = NULL;
+        r = rename_service(b);
+        if (r < 0)
+                log_debug("Failed to rename process: %s", strerror(-r));
 
-                name = uid_to_name(uid);
-                if (!name) {
-                        r = log_oom();
+        if (a->is_kernel) {
+                _cleanup_free_ char *match;
+                const char *unique;
+
+                r = sd_bus_get_unique_name(a, &unique);
+                if (r < 0) {
+                        log_error("Failed to get unique name: %s", strerror(-r));
                         goto finish;
                 }
 
-                p = strv_join(cmdline, " ");
-                if (!p) {
-                        r = log_oom();
+                match = strjoin("type='signal',"
+                                "sender='org.freedesktop.DBus',"
+                                "path='/org/freedesktop/DBus',"
+                                "interface='org.freedesktop.DBus',"
+                                "member='NameOwnerChanged',"
+                                "arg1='",
+                                unique,
+                                "'",
+                                NULL);
+                if (!match) {
+                        log_oom();
                         goto finish;
                 }
 
-                /* The status string gets the full command line ... */
-                sd_notifyf(false,
-                           "STATUS=Processing requests from client PID %lu (%s); UID %lu (%s)",
-                           (unsigned long) pid, p,
-                           (unsigned long) uid, name);
+                r = sd_bus_add_match(a, match, NULL, NULL);
+                if (r < 0) {
+                        log_error("Failed to add match for NameLost: %s", strerror(-r));
+                        goto finish;
+                }
 
-                /* ... and the argv line only the short comm */
-                if (arg_command_line_buffer) {
-                        size_t m, w;
+                free(match);
+                match = strjoin("type='signal',"
+                                "sender='org.freedesktop.DBus',"
+                                "path='/org/freedesktop/DBus',"
+                                "interface='org.freedesktop.DBus',"
+                                "member='NameOwnerChanged',"
+                                "arg2='",
+                                unique,
+                                "'",
+                                NULL);
+                if (!match) {
+                        log_oom();
+                        goto finish;
+                }
 
-                        m = strlen(arg_command_line_buffer);
-                        w = snprintf(arg_command_line_buffer, m,
-                                     "[PID %lu/%s; UID %lu/%s]",
-                                     (unsigned long) pid, comm,
-                                     (unsigned long) uid, name);
-
-                        if (m > w)
-                                memset(arg_command_line_buffer + w, 0, m - w);
-
+                r = sd_bus_add_match(a, match, NULL, NULL);
+                if (r < 0) {
+                        log_error("Failed to add match for NameAcquired: %s", strerror(-r));
+                        goto finish;
                 }
         }
 
@@ -274,34 +520,43 @@ int main(int argc, char *argv[]) {
                 struct pollfd *pollfd;
                 int k;
 
-                r = sd_bus_process(a, &m);
-                if (r < 0) {
-                        /* treat 'connection reset by peer' as clean exit condition */
-                        if (r == -ECONNRESET)
-                                r = 0;
-                        else
-                                log_error("Failed to process bus a: %s", strerror(-r));
+                if (got_hello) {
+                        r = sd_bus_process(a, &m);
+                        if (r < 0) {
+                                /* treat 'connection reset by peer' as clean exit condition */
+                                if (r == -ECONNRESET)
+                                        r = 0;
+                                else
+                                        log_error("Failed to process bus a: %s", strerror(-r));
 
-                        goto finish;
-                }
-
-                if (m) {
-                        /* We officially got EOF, let's quit */
-                        if (sd_bus_message_is_signal(m, "org.freedesktop.DBus.Local", "Disconnected")) {
-                                r = 0;
                                 goto finish;
                         }
 
-                        k = sd_bus_send(b, m, NULL);
-                        if (k < 0) {
-                                r = k;
-                                log_error("Failed to send message: %s", strerror(-r));
-                                goto finish;
-                        }
-                }
+                        if (m) {
+                                /* We officially got EOF, let's quit */
+                                if (sd_bus_message_is_signal(m, "org.freedesktop.DBus.Local", "Disconnected")) {
+                                        r = 0;
+                                        goto finish;
+                                }
 
-                if (r > 0)
-                        continue;
+                                k = synthesize_name_acquired(a, b, m);
+                                if (k < 0) {
+                                        r = k;
+                                        log_error("Failed to synthesize message: %s", strerror(-r));
+                                        goto finish;
+                                }
+
+                                k = sd_bus_send(b, m, NULL);
+                                if (k < 0) {
+                                        r = k;
+                                        log_error("Failed to send message: %s", strerror(-r));
+                                        goto finish;
+                                }
+                        }
+
+                        if (r > 0)
+                                continue;
+                }
 
                 r = sd_bus_process(b, &m);
                 if (r < 0) {
@@ -321,11 +576,21 @@ int main(int argc, char *argv[]) {
                                 goto finish;
                         }
 
-                        k = sd_bus_send(a, m, NULL);
+                        k = process_hello(a, b, m, &got_hello);
                         if (k < 0) {
                                 r = k;
-                                log_error("Failed to send message: %s", strerror(-r));
                                 goto finish;
+                        }
+
+                        if (k > 0)
+                                r = k;
+                        else {
+                                k = sd_bus_send(a, m, NULL);
+                                if (k < 0) {
+                                        r = k;
+                                        log_error("Failed to send message: %s", strerror(-r));
+                                        goto finish;
+                                }
                         }
                 }
 

@@ -5524,3 +5524,13 @@ int bus_message_remarshal(sd_bus *bus, sd_bus_message **m) {
 
         return 0;
 }
+
+int bus_message_append_sender(sd_bus_message *m, const char *sender) {
+        assert(m);
+        assert(sender);
+
+        assert_return(!m->sealed, -EPERM);
+        assert_return(!m->sender, -EPERM);
+
+        return message_append_field_string(m, BUS_MESSAGE_HEADER_SENDER, SD_BUS_TYPE_STRING, sender, &m->sender);
+}

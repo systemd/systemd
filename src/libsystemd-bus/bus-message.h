@@ -234,3 +234,5 @@ int bus_message_to_errno(sd_bus_message *m);
 int bus_message_new_synthetic_error(sd_bus *bus, uint64_t serial, const sd_bus_error *e, sd_bus_message **m);
 
 int bus_message_remarshal(sd_bus *bus, sd_bus_message **m);
+
+int bus_message_append_sender(sd_bus_message *m, const char *sender);
