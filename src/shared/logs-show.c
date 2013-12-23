@@ -1174,13 +1174,13 @@ static int get_boot_id_for_machine(const char *machine, sd_id128_t *boot_id) {
         close_nointr_nofail(pair[1]);
         pair[1] = -1;
 
-        k = recv(pair[0], buf, 36, 0);
-        if (k != 36)
-                return -EIO;
-
         r = wait_for_terminate(child, &si);
         if (r < 0 || si.si_code != CLD_EXITED || si.si_status != EXIT_SUCCESS)
                 return r < 0 ? r : -EIO;
+
+        k = recv(pair[0], buf, 36, 0);
+        if (k != 36)
+                return -EIO;
 
         buf[36] = 0;
         r = sd_id128_from_string(buf, boot_id);

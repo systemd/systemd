@@ -205,6 +205,16 @@ int bus_container_connect_kernel(sd_bus *b) {
         close_nointr_nofail(pair[1]);
         pair[1] = -1;
 
+        r = wait_for_terminate(child, &si);
+        if (r < 0)
+                return r;
+
+        if (si.si_code != CLD_EXITED)
+                return -EIO;
+
+        if (si.si_status != EXIT_SUCCESS)
+                return -EIO;
+
         if (recvmsg(pair[0], &mh, MSG_NOSIGNAL|MSG_CMSG_CLOEXEC) < 0)
                 return -errno;
 
@@ -223,16 +233,6 @@ int bus_container_connect_kernel(sd_bus *b) {
 
                         fd = fds[0];
                 }
-
-        r = wait_for_terminate(child, &si);
-        if (r < 0)
-                return r;
-
-        if (si.si_code != CLD_EXITED)
-                return -EIO;
-
-        if (si.si_status != EXIT_SUCCESS)
-                return -EIO;
 
         b->input_fd = b->output_fd = fd;
         fd = -1;

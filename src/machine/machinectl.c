@@ -451,6 +451,15 @@ static int openpt_in_namespace(pid_t pid, int flags) {
         close_nointr_nofail(pair[1]);
         pair[1] = -1;
 
+        r = wait_for_terminate(child, &si);
+        if (r < 0 || si.si_code != CLD_EXITED || si.si_status != EXIT_SUCCESS || master < 0) {
+
+                if (master >= 0)
+                        close_nointr_nofail(master);
+
+                return r < 0 ? r : -EIO;
+        }
+
         if (recvmsg(pair[0], &mh, MSG_NOSIGNAL|MSG_CMSG_CLOEXEC) < 0)
                 return -errno;
 
@@ -469,15 +478,6 @@ static int openpt_in_namespace(pid_t pid, int flags) {
 
                         master = fds[0];
                 }
-
-        r = wait_for_terminate(child, &si);
-        if (r < 0 || si.si_code != CLD_EXITED || si.si_status != EXIT_SUCCESS || master < 0) {
-
-                if (master >= 0)
-                        close_nointr_nofail(master);
-
-                return r < 0 ? r : -EIO;
-        }
 
         return master;
 }
