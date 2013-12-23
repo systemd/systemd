@@ -2171,6 +2171,12 @@ static int process_running(sd_bus *bus, sd_bus_message **ret) {
 
         if (m->header->type == SD_BUS_MESSAGE_METHOD_CALL) {
 
+                log_debug("Unprocessed message call sender=%s object=%s interface=%s member=%s",
+                          strna(sd_bus_message_get_sender(m)),
+                          strna(sd_bus_message_get_path(m)),
+                          strna(sd_bus_message_get_interface(m)),
+                          strna(sd_bus_message_get_member(m)));
+
                 r = sd_bus_reply_method_errorf(
                                 m,
                                 SD_BUS_ERROR_UNKNOWN_OBJECT,
