@@ -1981,6 +1981,7 @@ static int emit_properties_changed_on_interface(
                 const char *path,
                 const char *interface,
                 bool require_fallback,
+                bool *found_interface,
                 char **names) {
 
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1997,6 +1998,7 @@ static int emit_properties_changed_on_interface(
         assert(prefix);
         assert(path);
         assert(interface);
+        assert(found_interface);
 
         n = hashmap_get(bus->nodes, prefix);
         if (!n)
@@ -2031,6 +2033,8 @@ static int emit_properties_changed_on_interface(
                         return 0;
                 if (r == 0)
                         continue;
+
+                *found_interface = true;
 
                 if (names) {
                         /* If the caller specified a list of
@@ -2185,6 +2189,7 @@ _public_ int sd_bus_emit_properties_changed_strv(
                 char **names) {
 
         BUS_DONT_DESTROY(bus);
+        bool found_interface = false;
         char *prefix;
         int r;
 
@@ -2205,7 +2210,7 @@ _public_ int sd_bus_emit_properties_changed_strv(
         do {
                 bus->nodes_modified = false;
 
-                r = emit_properties_changed_on_interface(bus, path, path, interface, false, names);
+                r = emit_properties_changed_on_interface(bus, path, path, interface, false, &found_interface, names);
                 if (r != 0)
                         return r;
                 if (bus->nodes_modified)
@@ -2213,7 +2218,7 @@ _public_ int sd_bus_emit_properties_changed_strv(
 
                 prefix = alloca(strlen(path) + 1);
                 OBJECT_PATH_FOREACH_PREFIX(prefix, path) {
-                        r = emit_properties_changed_on_interface(bus, prefix, path, interface, true, names);
+                        r = emit_properties_changed_on_interface(bus, prefix, path, interface, true, &found_interface, names);
                         if (r != 0)
                                 return r;
                         if (bus->nodes_modified)
@@ -2222,7 +2227,7 @@ _public_ int sd_bus_emit_properties_changed_strv(
 
         } while (bus->nodes_modified);
 
-        return -ENOENT;
+        return found_interface ? 0 : -ENOENT;
 }
 
 _public_ int sd_bus_emit_properties_changed(
