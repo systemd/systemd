@@ -907,8 +907,7 @@ int bus_add_match_internal_kernel(
 
         zero(bloom);
 
-        sz = ALIGN8(offsetof(struct kdbus_cmd_match, items) +
-                    offsetof(struct kdbus_item, id) + sizeof(uint64_t));
+        sz = ALIGN8(offsetof(struct kdbus_cmd_match, items));
 
         for (i = 0; i < n_components; i++) {
                 struct bus_match_component *c = &components[i];
@@ -922,8 +921,9 @@ int bus_add_match_internal_kernel(
                         r = bus_kernel_parse_unique_name(c->value_str, &src_id);
                         if (r < 0)
                                 return r;
-
-                        if (r == 0) {
+                        else if (r > 0)
+                                sz += ALIGN8(offsetof(struct kdbus_item, id) + sizeof(uint64_t));
+                        else  {
                                 sender = c->value_str;
                                 sender_length = strlen(sender);
                                 sz += ALIGN8(offsetof(struct kdbus_item, str) + sender_length + 1);
@@ -1026,19 +1026,22 @@ int bus_add_match_internal_kernel(
         m->owner_id = id;
 
         item = m->items;
-        item->size = offsetof(struct kdbus_item, id) + sizeof(uint64_t);
-        item->type = KDBUS_ITEM_ID;
-        item->id = src_id;
+
+        if (src_id != KDBUS_MATCH_ID_ANY) {
+                item->size = offsetof(struct kdbus_item, id) + sizeof(uint64_t);
+                item->type = KDBUS_ITEM_ID;
+                item->id = src_id;
+                item = KDBUS_ITEM_NEXT(item);
+        }
 
         if (using_bloom) {
-                item = KDBUS_ITEM_NEXT(item);
                 item->size = offsetof(struct kdbus_item, data64) + BLOOM_SIZE;
                 item->type = KDBUS_ITEM_BLOOM;
                 memcpy(item->data64, bloom, BLOOM_SIZE);
+                item = KDBUS_ITEM_NEXT(item);
         }
 
         if (sender) {
-                item = KDBUS_ITEM_NEXT(item);
                 item->size = offsetof(struct kdbus_item, str) + sender_length + 1;
                 item->type = KDBUS_ITEM_NAME;
                 memcpy(item->str, sender, sender_length + 1);
