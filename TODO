@@ -50,8 +50,6 @@ Features:
 * code cleanup
   - we probably should replace the left-over uses of strv_append() and replace them by strv_push() or strv_extend()
 
-* switch to SipHash for hashmaps/sets?
-
 * when we detect low battery and no AC on boot, show pretty splash and refuse boot
 
 * move libasyncns into systemd as libsystemd-asyncns
@@ -123,7 +121,6 @@ Features:
   - longer term:
     * priority queues
     * priority inheritance
-  - move to siphash for bloom filter
   - dbus spec updates:
        - kdbus mapping
        - NameLost/NameAcquired obsolete
