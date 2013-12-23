@@ -141,9 +141,10 @@ static void test_marshal(void) {
         assert_se(sd_bus_message_new_method_call(bus, "a.service.name", "/an/object/path/which/is/really/really/long/so/that/we/hit/the/eight/bit/boundary/by/quite/some/margin/to/test/this/stuff/that/it/really/works", "an.interface.name", "AMethodName", &m) >= 0);
 
         assert_se(sd_bus_message_append(m,
-                                        "a(usv)", 2,
+                                        "a(usv)", 3,
                                         4711, "first-string-parameter", "(st)", "X", (uint64_t) 1111,
-                                        4712, "second-string-parameter", "(a(si))", 2, "Y", 5, "Z", 6) >= 0);
+                                        4712, "second-string-parameter", "(a(si))", 2, "Y", 5, "Z", 6,
+                                        4713, "third-string-parameter", "(uu)", 1, 2) >= 0);
 
         assert_se(bus_message_seal(m, 4711, 0) >= 0);
 

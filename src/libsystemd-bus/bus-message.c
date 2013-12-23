@@ -2055,7 +2055,7 @@ static int bus_message_close_struct(sd_bus_message *m, struct bus_container *c, 
                                 return r;
                 }
 
-                assert(i <= c->n_offsets);
+                assert(!c->need_offsets || i <= c->n_offsets);
 
                 /* We need to add an offset for each item that has a
                  * variable size and that is not the last one in the
@@ -2067,7 +2067,8 @@ static int bus_message_close_struct(sd_bus_message *m, struct bus_container *c, 
                 p += n;
         }
 
-        assert(i == c->n_offsets);
+        assert(!c->need_offsets || i == c->n_offsets);
+        assert(c->need_offsets || n_variable == 0);
 
         if (n_variable <= 0) {
                 a = message_extend_body(m, 1, 0, add_offset);
