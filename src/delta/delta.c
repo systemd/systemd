@@ -4,6 +4,7 @@
   This file is part of systemd.
 
   Copyright 2012 Lennart Poettering
+  Copyright 2013 Zbigniew Jędrzejewski-Szmek
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -346,7 +347,7 @@ static int enumerate_dir(Hashmap *top, Hashmap *bottom, Hashmap *drops, const ch
         }
 }
 
-static int process_suffix(const char *suffix) {
+static int process_suffix(const char *suffix, const char *onlyprefix) {
         const char *p;
         char *f;
         Hashmap *top, *bottom, *drops;
@@ -391,20 +392,23 @@ static int process_suffix(const char *suffix) {
                 o = hashmap_get(bottom, key);
                 assert(o);
 
-                if (path_equal(o, f))
-                        notify_override_unchanged(f);
-                else {
-                        k = found_override(f, o);
-                        if (k < 0)
-                                r = k;
-                        else
-                                n_found += k;
+                if (!onlyprefix || startswith(o, onlyprefix)) {
+                        if (path_equal(o, f)) {
+                                notify_override_unchanged(f);
+                        } else {
+                                k = found_override(f, o);
+                                if (k < 0)
+                                        r = k;
+                                else
+                                        n_found += k;
+                        }
                 }
 
                 h = hashmap_get(drops, key);
                 if (h)
                         HASHMAP_FOREACH(o, h, j)
-                                n_found += notify_override_extended(f, o);
+                                if (!onlyprefix || startswith(o, onlyprefix))
+                                        n_found += notify_override_extended(f, o);
         }
 
 finish:
@@ -423,24 +427,41 @@ finish:
         return r < 0 ? r : n_found;
 }
 
-static int process_suffix_chop(const char *suffix) {
+static int process_suffixes(const char *onlyprefix) {
+        const char *n;
+        int n_found = 0, r;
+
+        NULSTR_FOREACH(n, suffixes) {
+                r = process_suffix(n, onlyprefix);
+                if (r < 0)
+                        return r;
+                else
+                        n_found += r;
+        }
+        return n_found;
+}
+
+static int process_suffix_chop(const char *arg) {
         const char *p;
 
-        assert(suffix);
+        assert(arg);
 
-        if (!path_is_absolute(suffix))
-                return process_suffix(suffix);
+        if (!path_is_absolute(arg))
+                return process_suffix(arg, NULL);
 
         /* Strip prefix from the suffix */
         NULSTR_FOREACH(p, prefixes) {
-                if (startswith(suffix, p)) {
-                        suffix += strlen(p);
+                const char *suffix = startswith(arg, p);
+                if (suffix) {
                         suffix += strspn(suffix, "/");
-                        return process_suffix(suffix);
+                        if (*suffix)
+                                return process_suffix(suffix, NULL);
+                        else
+                                return process_suffixes(arg);
                 }
         }
 
-        log_error("Invalid suffix specification %s.", suffix);
+        log_error("Invalid suffix specification %s.", arg);
         return -EINVAL;
 }
 
@@ -595,15 +616,11 @@ int main(int argc, char *argv[]) {
                 }
 
         } else {
-                const char *n;
-
-                NULSTR_FOREACH(n, suffixes) {
-                        k = process_suffix(n);
-                        if (k < 0)
-                                r = k;
-                        else
-                                n_found += k;
-                }
+                k = process_suffixes(NULL);
+                if (k < 0)
+                        r = k;
+                else
+                        n_found += k;
         }
 
         if (r >= 0)
