@@ -2208,8 +2208,10 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         if (safe_atoi(l + 10, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
                                 log_debug("Failed to parse notify fd: %s", l + 10);
                         else {
-                                if (m->notify_fd >= 0)
+                                if (m->notify_fd >= 0) {
+                                        m->notify_event_source = sd_event_source_unref(m->notify_event_source);
                                         close_nointr_nofail(m->notify_fd);
+                                }
 
                                 m->notify_fd = fdset_remove(fds, fd);
                         }
