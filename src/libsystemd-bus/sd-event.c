@@ -22,6 +22,7 @@
 #include <sys/epoll.h>
 #include <sys/timerfd.h>
 #include <sys/wait.h>
+#include <pthread.h>
 
 #include "sd-id128.h"
 #include "sd-daemon.h"
@@ -813,6 +814,7 @@ _public_ int sd_event_add_signal(
                 sd_event_source **ret) {
 
         sd_event_source *s;
+        sigset_t ss;
         int r;
 
         assert_return(e, -EINVAL);
@@ -822,6 +824,13 @@ _public_ int sd_event_add_signal(
         assert_return(ret, -EINVAL);
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_pid_changed(e), -ECHILD);
+
+        r = pthread_sigmask(SIG_SETMASK, NULL, &ss);
+        if (r < 0)
+                return -errno;
+
+        if (!sigismember(&ss, sig))
+                return -EBUSY;
 
         if (!e->signal_sources) {
                 e->signal_sources = new0(sd_event_source*, _NSIG);
