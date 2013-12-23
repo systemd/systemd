@@ -803,7 +803,7 @@ static int add_name_change_match(sd_bus *bus,
                 item->name_change.new.id = new_owner_id;
 
                 if (name)
-                        strcpy(item->name_change.name, name);
+                        memcpy(item->name_change.name, name, l);
 
                 /* If the old name is unset or empty, then
                  * this can match against added names */
@@ -854,7 +854,9 @@ static int add_name_change_match(sd_bus *bus,
                 m->cookie = cookie;
 
                 item = m->items;
-                item->size = offsetof(struct kdbus_item, id_change) + sizeof(struct kdbus_notify_id_change);
+                item->size =
+                        offsetof(struct kdbus_item, id_change) +
+                        sizeof(struct kdbus_notify_id_change);
                 item->id_change.id = name_id;
 
                 /* If the old name is unset or empty, then this can
