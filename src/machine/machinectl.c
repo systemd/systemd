@@ -452,10 +452,7 @@ static int openpt_in_namespace(pid_t pid, int flags) {
         pair[1] = -1;
 
         r = wait_for_terminate(child, &si);
-        if (r < 0 || si.si_code != CLD_EXITED || si.si_status != EXIT_SUCCESS || master < 0) {
-
-                if (master >= 0)
-                        close_nointr_nofail(master);
+        if (r < 0 || si.si_code != CLD_EXITED || si.si_status != EXIT_SUCCESS) {
 
                 return r < 0 ? r : -EIO;
         }
@@ -478,6 +475,9 @@ static int openpt_in_namespace(pid_t pid, int flags) {
 
                         master = fds[0];
                 }
+
+        if (master < 0)
+                return -EIO;
 
         return master;
 }
