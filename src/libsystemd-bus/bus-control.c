@@ -230,10 +230,10 @@ static int kernel_get_list(sd_bus *bus, uint64_t flags, char ***x) {
 
         KDBUS_ITEM_FOREACH(name, name_list, names) {
 
-                if ((flags & KDBUS_NAME_LIST_UNIQUE) && name->id != previous_id) {
+                if ((flags & KDBUS_NAME_LIST_UNIQUE) && name->owner_id != previous_id) {
                         char *n;
 
-                        if (asprintf(&n, ":1.%llu", (unsigned long long) name->id) < 0)
+                        if (asprintf(&n, ":1.%llu", (unsigned long long) name->owner_id) < 0)
                                 return -ENOMEM;
 
                         r = strv_push(x, n);
@@ -242,7 +242,7 @@ static int kernel_get_list(sd_bus *bus, uint64_t flags, char ***x) {
                                 return -ENOMEM;
                         }
 
-                        previous_id = name->id;
+                        previous_id = name->owner_id;
                 }
 
                 if (name->size > sizeof(*name) && service_name_is_valid(name->name)) {
@@ -1023,7 +1023,7 @@ int bus_add_match_internal_kernel(
         m = alloca0(sz);
         m->size = sz;
         m->cookie = cookie;
-        m->id = id;
+        m->owner_id = id;
 
         item = m->items;
         item->size = offsetof(struct kdbus_item, id) + sizeof(uint64_t);
@@ -1111,7 +1111,7 @@ int bus_remove_match_internal_kernel(
         zero(m);
         m.size = offsetof(struct kdbus_cmd_match, items);
         m.cookie = cookie;
-        m.id = id;
+        m.owner_id = id;
 
         r = ioctl(bus->input_fd, KDBUS_CMD_MATCH_REMOVE, &m);
         if (r < 0)

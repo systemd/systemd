@@ -537,7 +537,7 @@ static int driver_list_queued_owners(sd_bus *bus, sd_bus_message *m, void *userd
                 if (!streq(name->name, arg0))
                         continue;
 
-                if (asprintf(&n, ":1.%llu", (unsigned long long) name->id) < 0)
+                if (asprintf(&n, ":1.%llu", (unsigned long long) name->owner_id) < 0)
                         return -ENOMEM;
 
                 r = strv_push(&owners, n);
@@ -599,7 +599,7 @@ static int driver_request_name(sd_bus *bus, sd_bus_message *m, void *userdata, s
         if (r < 0)
                 return r;
 
-        n->id = id;
+        n->owner_id = id;
 
         r = ioctl(bus->input_fd, KDBUS_CMD_NAME_ACQUIRE, n);
         if (r < 0) {
@@ -642,7 +642,7 @@ static int driver_release_name(sd_bus *bus, sd_bus_message *m, void *userdata, s
         if (r < 0)
                 return r;
 
-        n->id = id;
+        n->owner_id = id;
 
         r = ioctl(bus->input_fd, KDBUS_CMD_NAME_RELEASE, n);
         if (r < 0) {

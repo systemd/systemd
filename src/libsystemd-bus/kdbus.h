@@ -528,7 +528,7 @@ enum kdbus_name_flags {
  * struct kdbus_cmd_name - struct to describe a well-known name
  * @size:		The total size of the struct
  * @flags:		Flags for a name entry (KDBUS_NAME_*)
- * @id:			Privileged users may use this field to (de)register
+ * @owner_id:		Privileged users may use this field to (de)register
  * 			names on behalf of other peers.
  * @conn_flags:		The flags of the owning connection (KDBUS_HELLO_*)
  * @name:		The well-known name
@@ -538,7 +538,7 @@ enum kdbus_name_flags {
 struct kdbus_cmd_name {
 	__u64 size;
 	__u64 flags;
-	__u64 id;
+	__u64 owner_id;
 	__u64 conn_flags;
 	char name[0];
 } __attribute__((aligned(8)));
@@ -629,7 +629,7 @@ struct kdbus_conn_info {
 /**
  * struct kdbus_cmd_match - struct to add or remove matches
  * @size:		The total size of the struct
- * @id:			Privileged users may (de)register matches on behalf
+ * @owner_id:		Privileged users may (de)register matches on behalf
  * 			of other peers. In other cases, set to 0.
  * @cookie:		Userspace supplied cookie. When removing, the cookie
  * 			identifies the match to remove.
@@ -640,7 +640,7 @@ struct kdbus_conn_info {
  */
 struct kdbus_cmd_match {
 	__u64 size;
-	__u64 id;
+	__u64 owner_id;
 	__u64 cookie;
 	struct kdbus_item items[0];
 } __attribute__((aligned(8)));
@@ -765,6 +765,8 @@ enum kdbus_ioctl_type {
  * @EBADFD:		A bus connection is in a corrupted state.
  * @EBADMSG:		Passed data contains a combination of conflicting or
  * 			inconsistent types.
+ * @EBUSY:		The user tried to say BYEBYE to a connection, but the
+ * 			connection had a non-empty message list.
  * @ECONNRESET:		A connection is shut down, no further operations are
  * 			possible.
  * @ECOMM:		A peer does not accept the file descriptors addressed
@@ -791,6 +793,8 @@ enum kdbus_ioctl_type {
  * 			size.
  * @ENOBUFS:		There is no space left for the submitted data to fit
  * 			into the receiver's pool.
+ * @ENOENT:		The name to query information about is currently not on
+ *			the bus.
  * @ENOMEM:		Out of memory.
  * @ENOSYS:		The requested functionality is not available.
  * @ENOTCONN:		The addressed peer is not an active connection.
