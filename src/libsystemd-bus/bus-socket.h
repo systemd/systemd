@@ -23,7 +23,8 @@
 
 #include "sd-bus.h"
 
-int bus_socket_setup(sd_bus *b);
+void bus_socket_setup(sd_bus *b);
+
 int bus_socket_connect(sd_bus *b);
 int bus_socket_exec(sd_bus *b);
 int bus_socket_take_fd(sd_bus *b);

@@ -52,9 +52,7 @@ int bus_container_connect_socket(sd_bus *b) {
 
         b->output_fd = b->input_fd;
 
-        r = bus_socket_setup(b);
-        if (r < 0)
-                return r;
+        bus_socket_setup(b);
 
         child = fork();
         if (child < 0)

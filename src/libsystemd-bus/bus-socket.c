@@ -602,9 +602,8 @@ static int bus_socket_read_auth(sd_bus *b) {
         return 1;
 }
 
-int bus_socket_setup(sd_bus *b) {
+void bus_socket_setup(sd_bus *b) {
         int enable;
-        socklen_t l;
 
         assert(b);
 
@@ -620,16 +619,20 @@ int bus_socket_setup(sd_bus *b) {
         fd_inc_rcvbuf(b->input_fd, SNDBUF_SIZE);
         fd_inc_sndbuf(b->output_fd, SNDBUF_SIZE);
 
+        b->is_kernel = false;
+        b->message_version = 1;
+        b->message_endian = 0;
+}
+
+static void bus_get_peercred(sd_bus *b) {
+        socklen_t l;
+
+        assert(b);
+
         /* Get the peer for socketpair() sockets */
         l = sizeof(b->ucred);
         if (getsockopt(b->input_fd, SOL_SOCKET, SO_PEERCRED, &b->ucred, &l) >= 0 && l >= sizeof(b->ucred))
                 b->ucred_valid = b->ucred.pid > 0;
-
-        b->is_kernel = false;
-        b->message_version = 1;
-        b->message_endian = 0;
-
-        return 0;
 }
 
 static int bus_socket_start_auth_client(sd_bus *b) {
@@ -677,6 +680,8 @@ static int bus_socket_start_auth_client(sd_bus *b) {
 int bus_socket_start_auth(sd_bus *b) {
         assert(b);
 
+        bus_get_peercred(b);
+
         b->state = BUS_AUTHENTICATING;
         b->auth_timeout = now(CLOCK_MONOTONIC) + BUS_DEFAULT_TIMEOUT;
 
@@ -707,9 +712,7 @@ int bus_socket_connect(sd_bus *b) {
 
         b->output_fd = b->input_fd;
 
-        r = bus_socket_setup(b);
-        if (r < 0)
-                return r;
+        bus_socket_setup(b);
 
         r = connect(b->input_fd, &b->sockaddr.sa, b->sockaddr_size);
         if (r < 0) {
@@ -771,20 +774,15 @@ int bus_socket_exec(sd_bus *b) {
         close_nointr_nofail(s[1]);
         b->output_fd = b->input_fd = s[0];
 
-        r = bus_socket_setup(b);
-        if (r < 0)
-                return r;
+        bus_socket_setup(b);
 
         return bus_socket_start_auth(b);
 }
 
 int bus_socket_take_fd(sd_bus *b) {
-        int  r;
         assert(b);
 
-        r = bus_socket_setup(b);
-        if (r < 0)
-                return r;
+        bus_socket_setup(b);
 
         return bus_socket_start_auth(b);
 }
