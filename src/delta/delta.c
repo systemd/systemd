@@ -33,6 +33,34 @@
 #include "build.h"
 #include "strv.h"
 
+static const char prefixes[] =
+        "/etc\0"
+        "/run\0"
+        "/usr/local/lib\0"
+        "/usr/local/share\0"
+        "/usr/lib\0"
+        "/usr/share\0"
+#ifdef HAVE_SPLIT_USR
+        "/lib\0"
+#endif
+        ;
+
+static const char suffixes[] =
+        "sysctl.d\0"
+        "tmpfiles.d\0"
+        "modules-load.d\0"
+        "binfmt.d\0"
+        "systemd/system\0"
+        "systemd/user\0"
+        "systemd/system-preset\0"
+        "systemd/user-preset\0"
+        "udev/rules.d\0"
+        "modprobe.d\0";
+
+static const char have_dropins[] =
+        "systemd/system\0"
+        "systemd/user\0";
+
 static bool arg_no_pager = false;
 static int arg_diff = -1;
 
@@ -47,6 +75,14 @@ static enum {
         SHOW_DEFAULTS =
         (SHOW_MASKED | SHOW_EQUIVALENT | SHOW_REDIRECTED | SHOW_OVERRIDDEN | SHOW_EXTENDED)
 } arg_flags = 0;
+
+static void pager_open_if_enabled(void) {
+
+        if (arg_no_pager)
+                return;
+
+        pager_open(false);
+}
 
 static int equivalent(const char *a, const char *b) {
         _cleanup_free_ char *x = NULL, *y = NULL;
@@ -76,7 +112,7 @@ static int notify_override_equivalent(const char *top, const char *bottom) {
                 return 0;
 
         printf("%s%s%s %s → %s\n",
-               ansi_highlight_green(), "[EQUIVALENT]", ansi_highlight(), top, bottom);
+               ansi_highlight_green(), "[EQUIVALENT]", ansi_highlight_off(), top, bottom);
         return 1;
 }
 
@@ -160,24 +196,26 @@ static int found_override(const char *top, const char *bottom) {
 }
 
 static int enumerate_dir_d(Hashmap *top, Hashmap *bottom, Hashmap *drops, const char *toppath, const char *drop) {
-        _cleanup_free_ char *conf = NULL;
+        _cleanup_free_ char *unit = NULL;
         _cleanup_free_ char *path = NULL;
         _cleanup_strv_free_ char **list = NULL;
         char **file;
         char *c;
         int r;
 
+        assert(!endswith(drop, "/"));
+
         path = strjoin(toppath, "/", drop, NULL);
         if (!path)
                 return -ENOMEM;
 
-        path_kill_slashes(path);
+        log_debug("Looking at %s", path);
 
-        conf = strdup(drop);
-        if (!conf)
+        unit = strdup(drop);
+        if (!unit)
                 return -ENOMEM;
 
-        c = strrchr(conf, '.');
+        c = strrchr(unit, '.');
         if (!c)
                 return -EINVAL;
         *c = 0;
@@ -200,35 +238,21 @@ static int enumerate_dir_d(Hashmap *top, Hashmap *bottom, Hashmap *drops, const 
                 p = strjoin(path, "/", *file, NULL);
                 if (!p)
                         return -ENOMEM;
+                d = p + strlen(toppath) + 1;
 
-                path_kill_slashes(p);
-
-                d = strrchr(p, '/');
-                if (!d || d == p) {
-                        free(p);
-                        return -EINVAL;
-                }
-                d--;
-                d = strrchr(p, '/');
-
-                if (!d || d == p) {
-                        free(p);
-                        return -EINVAL;
-                }
-
+                log_debug("Adding at top: %s → %s", d, p);
                 k = hashmap_put(top, d, p);
                 if (k >= 0) {
                         p = strdup(p);
                         if (!p)
                                 return -ENOMEM;
-                        d = strrchr(p, '/');
-                        d--;
-                        d = strrchr(p, '/');
+                        d = p + strlen(toppath) + 1;
                 } else if (k != -EEXIST) {
                         free(p);
                         return k;
                 }
 
+                log_debug("Adding at bottom: %s → %s", d, p);
                 free(hashmap_remove(bottom, d));
                 k = hashmap_put(bottom, d, p);
                 if (k < 0) {
@@ -236,14 +260,14 @@ static int enumerate_dir_d(Hashmap *top, Hashmap *bottom, Hashmap *drops, const 
                         return k;
                 }
 
-                h = hashmap_get(drops, conf);
+                h = hashmap_get(drops, unit);
                 if (!h) {
                         h = hashmap_new(string_hash_func, string_compare_func);
                         if (!h)
                                 return -ENOMEM;
-                        hashmap_put(drops, conf, h);
-                        conf = strdup(conf);
-                        if (!conf)
+                        hashmap_put(drops, unit, h);
+                        unit = strdup(unit);
+                        if (!unit)
                                 return -ENOMEM;
                 }
 
@@ -251,6 +275,7 @@ static int enumerate_dir_d(Hashmap *top, Hashmap *bottom, Hashmap *drops, const 
                 if (!p)
                         return -ENOMEM;
 
+                log_debug("Adding to drops: %s → %s → %s", unit, basename(p), p);
                 k = hashmap_put(h, basename(p), p);
                 if (k < 0) {
                         free(p);
@@ -269,12 +294,14 @@ static int enumerate_dir(Hashmap *top, Hashmap *bottom, Hashmap *drops, const ch
         assert(drops);
         assert(path);
 
+        log_debug("Looking at %s", path);
+
         d = opendir(path);
         if (!d) {
                 if (errno == ENOENT)
                         return 0;
 
-                log_error("Failed to enumerate %s: %m", path);
+                log_error("Failed to open %s: %m", path);
                 return -errno;
         }
 
@@ -285,11 +312,8 @@ static int enumerate_dir(Hashmap *top, Hashmap *bottom, Hashmap *drops, const ch
 
                 errno = 0;
                 de = readdir(d);
-                if (!de && errno != 0)
-                        return -errno;
-
                 if (!de)
-                        break;
+                        return -errno;
 
                 if (dropins && de->d_type == DT_DIR && endswith(de->d_name, ".d"))
                         enumerate_dir_d(top, bottom, drops, path, de->d_name);
@@ -301,8 +325,7 @@ static int enumerate_dir(Hashmap *top, Hashmap *bottom, Hashmap *drops, const ch
                 if (!p)
                         return -ENOMEM;
 
-                path_kill_slashes(p);
-
+                log_debug("Adding at top: %s → %s", basename(p), p);
                 k = hashmap_put(top, basename(p), p);
                 if (k >= 0) {
                         p = strdup(p);
@@ -313,6 +336,7 @@ static int enumerate_dir(Hashmap *top, Hashmap *bottom, Hashmap *drops, const ch
                         return k;
                 }
 
+                log_debug("Adding at bottom: %s → %s", basename(p), p);
                 free(hashmap_remove(bottom, basename(p)));
                 k = hashmap_put(bottom, basename(p), p);
                 if (k < 0) {
@@ -320,37 +344,29 @@ static int enumerate_dir(Hashmap *top, Hashmap *bottom, Hashmap *drops, const ch
                         return k;
                 }
         }
-
-        return 0;
 }
 
-static int process_suffix(const char *prefixes, const char *suffix, bool dropins) {
+static int process_suffix(const char *suffix) {
         const char *p;
         char *f;
-        Hashmap *top, *bottom=NULL, *drops=NULL;
+        Hashmap *top, *bottom, *drops;
         Hashmap *h;
         char *key;
         int r = 0, k;
         Iterator i, j;
         int n_found = 0;
+        bool dropins;
 
-        assert(prefixes);
         assert(suffix);
+        assert(!startswith(suffix, "/"));
+        assert(!strstr(suffix, "//"));
+
+        dropins = nulstr_contains(have_dropins, suffix);
 
         top = hashmap_new(string_hash_func, string_compare_func);
-        if (!top) {
-                r = -ENOMEM;
-                goto finish;
-        }
-
         bottom = hashmap_new(string_hash_func, string_compare_func);
-        if (!bottom) {
-                r = -ENOMEM;
-                goto finish;
-        }
-
         drops = hashmap_new(string_hash_func, string_compare_func);
-        if (!drops) {
+        if (!top || !bottom || !drops) {
                 r = -ENOMEM;
                 goto finish;
         }
@@ -365,10 +381,8 @@ static int process_suffix(const char *prefixes, const char *suffix, bool dropins
                 }
 
                 k = enumerate_dir(top, bottom, drops, t, dropins);
-                if (k < 0)
+                if (r == 0)
                         r = k;
-
-                log_debug("Looking at %s", t);
         }
 
         HASHMAP_FOREACH_KEY(f, key, top, i) {
@@ -409,21 +423,20 @@ finish:
         return r < 0 ? r : n_found;
 }
 
-static int process_suffix_chop(const char *prefixes, const char *suffix, const char *have_dropins) {
+static int process_suffix_chop(const char *suffix) {
         const char *p;
 
-        assert(prefixes);
         assert(suffix);
 
         if (!path_is_absolute(suffix))
-                return process_suffix(prefixes, suffix, nulstr_contains(have_dropins, suffix));
+                return process_suffix(suffix);
 
         /* Strip prefix from the suffix */
         NULSTR_FOREACH(p, prefixes) {
                 if (startswith(suffix, p)) {
                         suffix += strlen(p);
                         suffix += strspn(suffix, "/");
-                        return process_suffix(prefixes, suffix, nulstr_contains(have_dropins, suffix));
+                        return process_suffix(suffix);
                 }
         }
 
@@ -549,35 +562,6 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
-
-        const char prefixes[] =
-                "/etc\0"
-                "/run\0"
-                "/usr/local/lib\0"
-                "/usr/local/share\0"
-                "/usr/lib\0"
-                "/usr/share\0"
-#ifdef HAVE_SPLIT_USR
-                "/lib\0"
-#endif
-                ;
-
-        const char suffixes[] =
-                "sysctl.d\0"
-                "tmpfiles.d\0"
-                "modules-load.d\0"
-                "binfmt.d\0"
-                "systemd/system\0"
-                "systemd/user\0"
-                "systemd/system-preset\0"
-                "systemd/user-preset\0"
-                "udev/rules.d\0"
-                "modprobe.d\0";
-
-        const char have_dropins[] =
-                "systemd/system\0"
-                "systemd/user\0";
-
         int r = 0, k;
         int n_found = 0;
 
@@ -596,14 +580,14 @@ int main(int argc, char *argv[]) {
         else if (arg_diff)
                 arg_flags |= SHOW_OVERRIDDEN;
 
-        if (!arg_no_pager)
-                pager_open(false);
+        pager_open_if_enabled();
 
         if (optind < argc) {
                 int i;
 
                 for (i = optind; i < argc; i++) {
-                        k = process_suffix_chop(prefixes, argv[i], have_dropins);
+                        path_kill_slashes(argv[i]);
+                        k = process_suffix_chop(argv[i]);
                         if (k < 0)
                                 r = k;
                         else
@@ -614,7 +598,7 @@ int main(int argc, char *argv[]) {
                 const char *n;
 
                 NULSTR_FOREACH(n, suffixes) {
-                        k = process_suffix(prefixes, n, nulstr_contains(have_dropins, n));
+                        k = process_suffix(n);
                         if (k < 0)
                                 r = k;
                         else
