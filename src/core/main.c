@@ -462,7 +462,6 @@ DEFINE_SETTER(config_parse_target, log_set_target_from_string, "target")
 DEFINE_SETTER(config_parse_color, log_show_color_from_string, "color" )
 DEFINE_SETTER(config_parse_location, log_show_location_from_string, "location")
 
-
 static int config_parse_cpu_affinity2(const char *unit,
                                       const char *filename,
                                       unsigned line,
