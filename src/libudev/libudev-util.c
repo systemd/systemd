@@ -36,6 +36,7 @@
 #include "libudev.h"
 #include "libudev-private.h"
 #include "utf8.h"
+#include "MurmurHash2.h"
 
 /**
  * SECTION:libudev-util
@@ -396,64 +397,9 @@ _public_ int udev_util_encode_string(const char *str, char *str_enc, size_t len)
         return encode_devnode_name(str, str_enc, len);
 }
 
-/*
- * http://sites.google.com/site/murmurhash/
- *
- * All code is released to the public domain. For business purposes,
- * Murmurhash is under the MIT license.
- *
- */
-static unsigned int murmur_hash2(const char *key, size_t len, unsigned int seed)
-{
-        /*
-         *  'm' and 'r' are mixing constants generated offline.
-         *  They're not really 'magic', they just happen to work well.
-         */
-        const unsigned int m = 0x5bd1e995;
-        const int r = 24;
-
-        /* initialize the hash to a 'random' value */
-        unsigned int h = seed ^ len;
-
-        /* mix 4 bytes at a time into the hash */
-        const unsigned char * data = (const unsigned char *)key;
-
-        while(len >= sizeof(unsigned int)) {
-                unsigned int k;
-
-                memcpy(&k, data, sizeof(k));
-                k *= m;
-                k ^= k >> r;
-                k *= m;
-                h *= m;
-                h ^= k;
-
-                data += sizeof(k);
-                len -= sizeof(k);
-        }
-
-        /* handle the last few bytes of the input array */
-        switch(len) {
-        case 3:
-                h ^= data[2] << 16;
-        case 2:
-                h ^= data[1] << 8;
-        case 1:
-                h ^= data[0];
-                h *= m;
-        };
-
-        /* do a few final mixes of the hash to ensure the last few bytes are well-incorporated */
-        h ^= h >> 13;
-        h *= m;
-        h ^= h >> 15;
-
-        return h;
-}
-
 unsigned int util_string_hash32(const char *str)
 {
-        return murmur_hash2(str, strlen(str), 0);
+        return MurmurHash2(str, strlen(str), 0);
 }
 
 /* get a bunch of bit numbers out of the hash, and set the bits in our bit field */

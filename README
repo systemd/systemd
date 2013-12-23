@@ -31,7 +31,7 @@ AUTHOR:
 LICENSE:
         LGPLv2.1+ for all code
         - except sd-daemon.[ch] and sd-readahead.[ch] which are MIT
-        - except src/shared/MurmurHash3.c which is Public Domain
+        - except src/shared/MurmurHash[23].c which is Public Domain
         - except src/journal/lookup3.c which is Public Domain
         - except src/udev/* which is (currently still) GPLv2, GPLv2+
 
