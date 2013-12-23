@@ -923,7 +923,7 @@ int bus_add_match_internal_kernel(
                         if (r < 0)
                                 return r;
 
-                        if (r > 0) {
+                        if (r == 0) {
                                 sender = c->value_str;
                                 sender_length = strlen(sender);
                                 sz += ALIGN8(offsetof(struct kdbus_item, str) + sender_length + 1);
