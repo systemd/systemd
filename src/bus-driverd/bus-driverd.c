@@ -695,7 +695,7 @@ static int driver_start_service_by_name(sd_bus *bus, sd_bus_message *m, void *us
                 return r;
 
         if (!t || !t[0] || t[1])
-                return -EIO;
+                return sd_bus_error_setf(error, SD_BUS_ERROR_SERVICE_UNKNOWN, "Bus name %s not found.", name);
 
         r = sd_bus_call_method(
                         bus,
