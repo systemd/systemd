@@ -48,6 +48,8 @@ struct bus_container {
         /* gvariant: list of offsets to end of children if this is struct/dict entry/array */
         size_t *offsets, n_offsets, offsets_allocated, offset_index;
         size_t item_size;
+
+        char *peeked_signature;
 };
 
 struct bus_header {

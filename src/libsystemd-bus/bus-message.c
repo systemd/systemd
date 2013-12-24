@@ -151,7 +151,7 @@ static void message_free(sd_bus_message *m) {
         free(m->root_container.signature);
         free(m->root_container.offsets);
 
-        free(m->peeked_signature);
+        free(m->root_container.peeked_signature);
 
         bus_creds_done(&m->creds);
         free(m);
@@ -3916,6 +3916,7 @@ _public_ int sd_bus_message_enter_container(sd_bus_message *m,
         w = m->containers + m->n_containers++;
         w->enclosing = type;
         w->signature = signature;
+        w->peeked_signature = NULL;
         w->index = 0;
 
         w->before = before;
@@ -3960,6 +3961,7 @@ _public_ int sd_bus_message_exit_container(sd_bus_message *m) {
         }
 
         free(c->signature);
+        free(c->peeked_signature);
         free(c->offsets);
         m->n_containers--;
 
@@ -4037,10 +4039,8 @@ _public_ int sd_bus_message_peek_type(sd_bus_message *m, char *type, const char 
                         if (!sig)
                                 return -ENOMEM;
 
-                        free(m->peeked_signature);
-                        m->peeked_signature = sig;
-
-                        *contents = sig;
+                        free(c->peeked_signature);
+                        *contents = c->peeked_signature = sig;
                 }
 
                 if (type)
@@ -4065,10 +4065,8 @@ _public_ int sd_bus_message_peek_type(sd_bus_message *m, char *type, const char 
                         if (!sig)
                                 return -ENOMEM;
 
-                        free(m->peeked_signature);
-                        m->peeked_signature = sig;
-
-                        *contents = sig;
+                        free(c->peeked_signature);
+                        *contents = c->peeked_signature = sig;
                 }
 
                 if (type)
@@ -4108,15 +4106,15 @@ _public_ int sd_bus_message_peek_type(sd_bus_message *m, char *type, const char 
                                 if (k > c->item_size)
                                         return -EBADMSG;
 
-                                free(m->peeked_signature);
-                                m->peeked_signature = strndup((char*) q + 1, k - 1);
-                                if (!m->peeked_signature)
+                                free(c->peeked_signature);
+                                c->peeked_signature = strndup((char*) q + 1, k - 1);
+                                if (!c->peeked_signature)
                                         return -ENOMEM;
 
-                                if (!signature_is_valid(m->peeked_signature, true))
+                                if (!signature_is_valid(c->peeked_signature, true))
                                         return -EBADMSG;
 
-                                *contents = m->peeked_signature;
+                                *contents = c->peeked_signature;
                         } else {
                                 size_t rindex, l;
 
