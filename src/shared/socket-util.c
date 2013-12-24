@@ -422,8 +422,7 @@ const char* socket_address_get_path(const SocketAddress *a) {
 }
 
 bool socket_ipv6_is_supported(void) {
-        char *l = 0;
-        bool enabled;
+        _cleanup_free_ char *l = NULL;
 
         if (access("/sys/module/ipv6", F_OK) != 0)
                 return 0;
@@ -433,10 +432,7 @@ bool socket_ipv6_is_supported(void) {
                 return 1;
 
         /* If module was loaded with disable=1 no IPv6 available */
-        enabled = l[0] == '0';
-        free(l);
-
-        return enabled;
+        return l[0] == '0';
 }
 
 bool socket_address_matches_fd(const SocketAddress *a, int fd) {

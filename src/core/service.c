@@ -3656,6 +3656,8 @@ static void service_bus_name_owner_change(
 }
 
 int service_set_socket_fd(Service *s, int fd, Socket *sock) {
+        _cleanup_free_ char *peer = NULL;
+        int r;
 
         assert(s);
         assert(fd >= 0);
@@ -3672,6 +3674,23 @@ int service_set_socket_fd(Service *s, int fd, Socket *sock) {
 
         if (s->state != SERVICE_DEAD)
                 return -EAGAIN;
+
+        if (getpeername_pretty(fd, &peer) >= 0) {
+
+                if (UNIT(s)->description) {
+                        _cleanup_free_ char *a;
+
+                        a = strjoin(UNIT(s)->description, " (", peer, ")", NULL);
+                        if (!a)
+                                return -ENOMEM;
+
+                        r = unit_set_description(UNIT(s), a);
+                }  else
+                        r = unit_set_description(UNIT(s), peer);
+
+                if (r < 0)
+                        return r;
+        }
 
         s->socket_fd = fd;
 
