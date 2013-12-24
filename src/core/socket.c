@@ -671,10 +671,11 @@ static int instance_from_socket(int fd, unsigned nr, char **instance) {
 
         case AF_UNIX: {
                 struct ucred ucred;
+                int k;
 
-                l = sizeof(ucred);
-                if (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &ucred, &l) < 0)
-                        return -errno;
+                k = getpeercred(fd, &ucred);
+                if (k < 0)
+                        return k;
 
                 if (asprintf(&r,
                              "%u-%lu-%lu",

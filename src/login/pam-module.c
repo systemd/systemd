@@ -120,7 +120,6 @@ static int get_seat_from_display(const char *display, const char **seat, uint32_
         _cleanup_free_ char *p = NULL, *tty = NULL;
         _cleanup_close_ int fd = -1;
         struct ucred ucred;
-        socklen_t l;
         int v, r;
 
         assert(display);
@@ -144,10 +143,9 @@ static int get_seat_from_display(const char *display, const char **seat, uint32_
         if (connect(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path)) < 0)
                 return -errno;
 
-        l = sizeof(ucred);
-        r = getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &ucred, &l);
+        r = getpeercred(fd, &ucred);
         if (r < 0)
-                return -errno;
+                return r;
 
         r = get_ctty(ucred.pid, NULL, &tty);
         if (r < 0)

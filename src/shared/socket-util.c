@@ -579,6 +579,7 @@ int sockaddr_pretty(const struct sockaddr *_sa, socklen_t salen, bool translate_
 int getpeername_pretty(int fd, char **ret) {
         union sockaddr_union sa;
         socklen_t salen;
+        int r;
 
         assert(fd >= 0);
         assert(ret);
@@ -593,9 +594,9 @@ int getpeername_pretty(int fd, char **ret) {
                 /* UNIX connection sockets are anonymous, so let's use
                  * PID/UID as pretty credentials instead */
 
-                salen = sizeof(ucred);
-                if (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &ucred, &salen) < 0)
-                        return -errno;
+                r = getpeercred(fd, &ucred);
+                if (r < 0)
+                        return r;
 
                 if (asprintf(ret, "PID %lu/UID %lu", (unsigned long) ucred.pid, (unsigned long) ucred.pid) < 0)
                         return -ENOMEM;

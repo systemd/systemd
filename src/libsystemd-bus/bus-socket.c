@@ -625,14 +625,10 @@ void bus_socket_setup(sd_bus *b) {
 }
 
 static void bus_get_peercred(sd_bus *b) {
-        socklen_t l;
-
         assert(b);
 
         /* Get the peer for socketpair() sockets */
-        l = sizeof(b->ucred);
-        if (getsockopt(b->input_fd, SOL_SOCKET, SO_PEERCRED, &b->ucred, &l) >= 0 && l >= sizeof(b->ucred))
-                b->ucred_valid = b->ucred.pid > 0;
+        b->ucred_valid = getpeercred(b->input_fd, &b->ucred) >= 0;
 }
 
 static int bus_socket_start_auth_client(sd_bus *b) {

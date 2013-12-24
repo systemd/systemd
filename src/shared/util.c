@@ -6117,3 +6117,61 @@ bool pid_valid(pid_t pid) {
 
         return errno != ESRCH;
 }
+
+int getpeercred(int fd, struct ucred *ucred) {
+        socklen_t n = sizeof(struct ucred);
+        struct ucred u;
+        int r;
+
+        assert(fd >= 0);
+        assert(ucred);
+
+        r = getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &u, &n);
+        if (r < 0)
+                return -errno;
+
+        if (n != sizeof(struct ucred))
+                return -EIO;
+
+        /* Check if the data is actually useful and not suppressed due
+         * to namespacing issues */
+        if (u.pid <= 0)
+                return -ENODATA;
+
+        *ucred = u;
+        return 0;
+}
+
+int getpeersec(int fd, char **ret) {
+        socklen_t n = 64;
+        char *s;
+        int r;
+
+        assert(fd >= 0);
+        assert(ret);
+
+        s = new0(char, n);
+        if (!s)
+                return -ENOMEM;
+
+        r = getsockopt(fd, SOL_SOCKET, SO_PEERSEC, s, &n);
+        if (r < 0) {
+                free(s);
+
+                if (errno != ERANGE)
+                        return -errno;
+
+                s = new0(char, n);
+                if (!s)
+                        return -ENOMEM;
+
+                r = getsockopt(fd, SOL_SOCKET, SO_PEERSEC, s, &n);
+                if (r < 0) {
+                        free(s);
+                        return -errno;
+                }
+        }
+
+        *ret = s;
+        return 0;
+}

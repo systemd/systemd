@@ -40,6 +40,7 @@
 #include <unistd.h>
 #include <locale.h>
 #include <mntent.h>
+#include <sys/socket.h>
 
 #include "macro.h"
 #include "time-util.h"
@@ -811,3 +812,6 @@ int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *root_fd);
 int namespace_enter(int pidns_fd, int mntns_fd, int root_fd);
 
 bool pid_valid(pid_t pid);
+
+int getpeercred(int fd, struct ucred *ucred);
+int getpeersec(int fd, char **ret);

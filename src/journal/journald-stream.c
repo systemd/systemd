@@ -354,7 +354,6 @@ static int stdout_stream_new(sd_event_source *es, int listen_fd, uint32_t revent
         Server *s = userdata;
         StdoutStream *stream;
         int fd, r;
-        socklen_t len;
 
         assert(s);
 
@@ -386,8 +385,8 @@ static int stdout_stream_new(sd_event_source *es, int listen_fd, uint32_t revent
 
         stream->fd = fd;
 
-        len = sizeof(stream->ucred);
-        if (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &stream->ucred, &len) < 0) {
+        r = getpeercred(fd, &stream->ucred);
+        if (r < 0) {
                 log_error("Failed to determine peer credentials: %m");
                 goto fail;
         }

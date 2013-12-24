@@ -181,10 +181,10 @@ struct udev_ctrl_connection *udev_ctrl_get_connection(struct udev_ctrl *uctrl)
 {
         struct udev_ctrl_connection *conn;
         struct ucred ucred;
-        socklen_t slen;
         const int on = 1;
+        int r;
 
-        conn = calloc(1, sizeof(struct udev_ctrl_connection));
+        conn = new(struct udev_ctrl_connection, 1);
         if (conn == NULL)
                 return NULL;
         conn->refcount = 1;
@@ -198,9 +198,9 @@ struct udev_ctrl_connection *udev_ctrl_get_connection(struct udev_ctrl *uctrl)
         }
 
         /* check peer credential of connection */
-        slen = sizeof(ucred);
-        if (getsockopt(conn->sock, SOL_SOCKET, SO_PEERCRED, &ucred, &slen) < 0) {
-                log_error("unable to receive credentials of ctrl connection: %m\n");
+        r = getpeercred(conn->sock, &ucred);
+        if (r < 0) {
+                log_error("unable to receive credentials of ctrl connection: %s", strerror(-r));
                 goto err;
         }
         if (ucred.uid > 0) {
