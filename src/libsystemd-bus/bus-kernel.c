@@ -319,7 +319,7 @@ fail:
 int bus_kernel_take_fd(sd_bus *b) {
         struct kdbus_cmd_hello *hello;
         struct kdbus_item *item;
-        size_t l, sz;
+        size_t l = 0, sz;
         int r;
 
         assert(b);
