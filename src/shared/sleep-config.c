@@ -183,7 +183,7 @@ static int hibernation_partition_size(size_t *size, size_t *used) {
         (void) fscanf(f, "%*s %*s %*s %*s %*s\n");
 
         for (i = 1;; i++) {
-                _cleanup_free_ char *dev = NULL, *d = NULL, *type = NULL;
+                _cleanup_free_ char *dev = NULL, *type = NULL;
                 size_t size_field, used_field;
                 int k;
 
@@ -202,12 +202,8 @@ static int hibernation_partition_size(size_t *size, size_t *used) {
                         continue;
                 }
 
-                d = cunescape(dev);
-                if (!d)
-                        return -ENOMEM;
-
-                if (!streq(type, "partition") && !streq(type, "file")) {
-                        log_debug("Partition %s has type %s, ignoring.", d, type);
+                if (streq(type, "partition") && endswith(dev, "\\040(deleted)")) {
+                        log_warning("Ignoring deleted swapfile '%s'.", dev);
                         continue;
                 }
 
