@@ -36,6 +36,7 @@
 #include "bus-error.h"
 #include "bus-match.h"
 #include "bus-kernel.h"
+#include "kdbus.h"
 
 struct reply_callback {
         sd_bus_message_handler_t callback;
@@ -161,6 +162,7 @@ struct sd_bus {
         bool filter_callbacks_modified:1;
         bool nodes_modified:1;
         bool trusted:1;
+        bool fake_creds_valid:1;
 
         int use_memfd;
 
@@ -259,6 +261,9 @@ struct sd_bus {
 
         sd_bus **default_bus_ptr;
         pid_t tid;
+
+        struct kdbus_creds fake_creds;
+        char *fake_label;
 };
 
 #define BUS_DEFAULT_TIMEOUT ((usec_t) (25 * USEC_PER_SEC))

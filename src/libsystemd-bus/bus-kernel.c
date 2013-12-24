@@ -317,7 +317,9 @@ fail:
 }
 
 int bus_kernel_take_fd(sd_bus *b) {
-        struct kdbus_cmd_hello hello;
+        struct kdbus_cmd_hello *hello;
+        struct kdbus_item *item;
+        size_t l, sz;
         int r;
 
         assert(b);
@@ -327,13 +329,38 @@ int bus_kernel_take_fd(sd_bus *b) {
 
         b->use_memfd = 1;
 
-        zero(hello);
-        hello.size = sizeof(hello);
-        hello.conn_flags = b->hello_flags;
-        hello.attach_flags = b->attach_flags;
-        hello.pool_size = KDBUS_POOL_SIZE;
+        sz = ALIGN8(offsetof(struct kdbus_cmd_hello, items));
 
-        r = ioctl(b->input_fd, KDBUS_CMD_HELLO, &hello);
+        if (b->fake_creds_valid)
+                sz += ALIGN8(offsetof(struct kdbus_item, creds));
+
+        if (b->fake_label) {
+                l = strlen(b->fake_label);
+                sz += ALIGN8(offsetof(struct kdbus_item, str) + l + 1);
+        }
+
+        hello = alloca0(sz);
+        hello->size = sz;
+        hello->conn_flags = b->hello_flags;
+        hello->attach_flags = b->attach_flags;
+        hello->pool_size = KDBUS_POOL_SIZE;
+
+        item = hello->items;
+
+        if (b->fake_creds_valid) {
+                item->size = offsetof(struct kdbus_item, creds) + sizeof(struct kdbus_creds);
+                item->type = KDBUS_ITEM_CREDS;
+                item->creds = b->fake_creds;
+
+                item = KDBUS_ITEM_NEXT(item);
+        }
+
+        if (b->fake_label) {
+                item->size = offsetof(struct kdbus_item, str) + l + 1;
+                memcpy(item->str, b->fake_label, l+1);
+        }
+
+        r = ioctl(b->input_fd, KDBUS_CMD_HELLO, hello);
         if (r < 0)
                 return -errno;
 
@@ -347,26 +374,26 @@ int bus_kernel_take_fd(sd_bus *b) {
 
         /* The higher 32bit of both flags fields are considered
          * 'incompatible flags'. Refuse them all for now. */
-        if (hello.bus_flags > 0xFFFFFFFFULL ||
-            hello.conn_flags > 0xFFFFFFFFULL)
+        if (hello->bus_flags > 0xFFFFFFFFULL ||
+            hello->conn_flags > 0xFFFFFFFFULL)
                 return -ENOTSUP;
 
-        if (hello.bloom_size != BLOOM_SIZE)
+        if (hello->bloom_size != BLOOM_SIZE)
                 return -ENOTSUP;
 
-        if (asprintf(&b->unique_name, ":1.%llu", (unsigned long long) hello.id) < 0)
+        if (asprintf(&b->unique_name, ":1.%llu", (unsigned long long) hello->id) < 0)
                 return -ENOMEM;
 
-        b->unique_id = hello.id;
+        b->unique_id = hello->id;
 
         b->is_kernel = true;
         b->bus_client = true;
-        b->can_fds = !!(hello.conn_flags & KDBUS_HELLO_ACCEPT_FD);
+        b->can_fds = !!(hello->conn_flags & KDBUS_HELLO_ACCEPT_FD);
         b->message_version = 2;
         b->message_endian = BUS_NATIVE_ENDIAN;
 
         /* the kernel told us the UUID of the underlying bus */
-        memcpy(b->server_id.bytes, hello.id128, sizeof(b->server_id.bytes));
+        memcpy(b->server_id.bytes, hello->id128, sizeof(b->server_id.bytes));
 
         return bus_start_running(b);
 }

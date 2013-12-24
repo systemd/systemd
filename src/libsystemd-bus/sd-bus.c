@@ -141,6 +141,7 @@ static void bus_free(sd_bus *b) {
         free(b->address);
         free(b->kernel);
         free(b->machine);
+        free(b->fake_label);
 
         free(b->exec_path);
         strv_free(b->exec_argv);

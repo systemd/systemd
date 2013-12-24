@@ -358,6 +358,40 @@ static int process_hello(sd_bus *a, sd_bus *b, sd_bus_message *m, bool *got_hell
         return 1;
 }
 
+static int getpeersec(int fd, char **ret) {
+        socklen_t n = 64;
+        char *s;
+        int r;
+
+        assert(fd >= 0);
+        assert(ret);
+
+        s = new0(char, n);
+        if (!s)
+                return -ENOMEM;
+
+        r = getsockopt(fd, SOL_SOCKET, SO_PEERSEC, s, &n);
+        if (r < 0) {
+                free(s);
+
+                if (errno != ERANGE)
+                        return r;
+
+                s = new0(char, n);
+                if (!s)
+                        return -ENOMEM;
+
+                r = getsockopt(fd, SOL_SOCKET, SO_PEERSEC, s, &n);
+                if (r < 0) {
+                        free(s);
+                        return r;
+                }
+        }
+
+        *ret = s;
+        return 0;
+}
+
 int main(int argc, char *argv[]) {
 
         _cleanup_bus_unref_ sd_bus *a = NULL, *b = NULL;
@@ -365,6 +399,8 @@ int main(int argc, char *argv[]) {
         int r, in_fd, out_fd;
         bool got_hello = false;
         bool is_unix;
+        struct ucred ucred = {};
+        _cleanup_free_ char *peersec = NULL;
 
         log_set_target(LOG_TARGET_JOURNAL_OR_KMSG);
         log_parse_environment();
@@ -390,6 +426,20 @@ int main(int argc, char *argv[]) {
                 sd_is_socket(in_fd, AF_UNIX, 0, 0) > 0 &&
                 sd_is_socket(out_fd, AF_UNIX, 0, 0) > 0;
 
+        if (is_unix) {
+                socklen_t l = sizeof(ucred);
+
+                r = getsockopt(in_fd, SOL_SOCKET, SO_PEERCRED, &ucred, &l);
+                if (r < 0) {
+                        r = -errno;
+                        goto finish;
+                }
+
+                assert(l == sizeof(ucred));
+
+                getpeersec(in_fd, &peersec);
+        }
+
         r = sd_bus_new(&a);
         if (r < 0) {
                 log_error("Failed to allocate bus: %s", strerror(-r));
@@ -406,6 +456,18 @@ int main(int argc, char *argv[]) {
         if (r < 0) {
                 log_error("Failed to set FD negotiation: %s", strerror(-r));
                 goto finish;
+        }
+
+        if (ucred.pid > 0) {
+                a->fake_creds.pid = ucred.pid;
+                a->fake_creds.uid = ucred.uid;
+                a->fake_creds.gid = ucred.gid;
+                a->fake_creds_valid = true;
+        }
+
+        if (peersec) {
+                a->fake_label = peersec;
+                peersec = NULL;
         }
 
         r = sd_bus_start(a);
