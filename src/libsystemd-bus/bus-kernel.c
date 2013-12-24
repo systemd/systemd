@@ -332,7 +332,7 @@ int bus_kernel_take_fd(sd_bus *b) {
         sz = ALIGN8(offsetof(struct kdbus_cmd_hello, items));
 
         if (b->fake_creds_valid)
-                sz += ALIGN8(offsetof(struct kdbus_item, creds));
+                sz += ALIGN8(offsetof(struct kdbus_item, creds)) + sizeof(struct kdbus_creds);
 
         if (b->fake_label) {
                 l = strlen(b->fake_label);
