@@ -33,7 +33,7 @@ static bool set_loading(struct udev *udev, char *loadpath, const char *state)
 
         ldfile = fopen(loadpath, "we");
         if (ldfile == NULL) {
-                log_error("error: can not open '%s'\n", loadpath);
+                log_error("error: can not open '%s'", loadpath);
                 return false;
         };
         fprintf(ldfile, "%s\n", state);
@@ -53,7 +53,7 @@ static bool copy_firmware(struct udev *udev, const char *source, const char *tar
                 return false;
         }
 
-        log_debug("writing '%s' (%zi) to '%s'\n", source, size, target);
+        log_debug("writing '%s' (%zi) to '%s'", source, size, target);
 
         fsource = fopen(source, "re");
         if (fsource == NULL)
@@ -90,7 +90,7 @@ static int builtin_firmware(struct udev_device *dev, int argc, char *argv[], boo
 
         firmware = udev_device_get_property_value(dev, "FIRMWARE");
         if (firmware == NULL) {
-                log_error("firmware parameter missing\n\n");
+                log_error("firmware parameter missing");
                 rc = EXIT_FAILURE;
                 goto exit;
         }
@@ -112,7 +112,7 @@ static int builtin_firmware(struct udev_device *dev, int argc, char *argv[], boo
         strscpyl(loadpath, sizeof(loadpath), udev_device_get_syspath(dev), "/loading", NULL);
 
         if (fwfile == NULL) {
-                log_debug("did not find firmware file '%s'\n", firmware);
+                log_debug("did not find firmware file '%s'", firmware);
                 rc = EXIT_FAILURE;
                 /*
                  * Do not cancel the request in the initrd, the real root might have
@@ -136,7 +136,7 @@ static int builtin_firmware(struct udev_device *dev, int argc, char *argv[], boo
 
         strscpyl(datapath, sizeof(datapath), udev_device_get_syspath(dev), "/data", NULL);
         if (!copy_firmware(udev, fwpath, datapath, statbuf.st_size)) {
-                log_error("error sending firmware '%s' to device\n", firmware);
+                log_error("error sending firmware '%s' to device", firmware);
                 set_loading(udev, loadpath, "-1");
                 rc = EXIT_FAILURE;
                 goto exit;

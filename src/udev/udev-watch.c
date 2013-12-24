@@ -40,7 +40,7 @@ int udev_watch_init(struct udev *udev)
 {
         inotify_fd = inotify_init1(IN_CLOEXEC);
         if (inotify_fd < 0)
-                log_error("inotify_init failed: %m\n");
+                log_error("inotify_init failed: %m");
         return inotify_fd;
 }
 
@@ -79,7 +79,7 @@ void udev_watch_restore(struct udev *udev)
                         if (dev == NULL)
                                 goto unlink;
 
-                        log_debug("restoring old watch on '%s'\n", udev_device_get_devnode(dev));
+                        log_debug("restoring old watch on '%s'", udev_device_get_devnode(dev));
                         udev_watch_begin(udev, dev);
                         udev_device_unref(dev);
 unlink:
@@ -103,10 +103,10 @@ void udev_watch_begin(struct udev *udev, struct udev_device *dev)
         if (inotify_fd < 0)
                 return;
 
-        log_debug("adding watch on '%s'\n", udev_device_get_devnode(dev));
+        log_debug("adding watch on '%s'", udev_device_get_devnode(dev));
         wd = inotify_add_watch(inotify_fd, udev_device_get_devnode(dev), IN_CLOSE_WRITE);
         if (wd < 0) {
-                log_error("inotify_add_watch(%d, %s, %o) failed: %m\n",
+                log_error("inotify_add_watch(%d, %s, %o) failed: %m",
                     inotify_fd, udev_device_get_devnode(dev), IN_CLOSE_WRITE);
                 return;
         }
@@ -133,7 +133,7 @@ void udev_watch_end(struct udev *udev, struct udev_device *dev)
         if (wd < 0)
                 return;
 
-        log_debug("removing watch on '%s'\n", udev_device_get_devnode(dev));
+        log_debug("removing watch on '%s'", udev_device_get_devnode(dev));
         inotify_rm_watch(inotify_fd, wd);
 
         snprintf(filename, sizeof(filename), "/run/udev/watch/%d", wd);

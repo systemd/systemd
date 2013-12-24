@@ -95,7 +95,7 @@ static int apply_file(const char *path, bool ignore_enoent) {
                 return r;
         }
 
-        log_debug("apply: %s\n", path);
+        log_debug("apply: %s", path);
         for (;;) {
                 char l[LINE_MAX], *p;
                 int k;

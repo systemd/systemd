@@ -184,7 +184,7 @@ static int get_file_options(struct udev *udev,
                 if (errno == ENOENT)
                         return 1;
                 else {
-                        log_error("can't open %s: %m\n", config_file);
+                        log_error("can't open %s: %m", config_file);
                         return -1;
                 }
         }
@@ -208,7 +208,7 @@ static int get_file_options(struct udev *udev,
                         break;
                 lineno++;
                 if (buf[strlen(buffer) - 1] != '\n') {
-                        log_error("Config file line %d too long\n", lineno);
+                        log_error("Config file line %d too long", lineno);
                         break;
                 }
 
@@ -257,7 +257,7 @@ static int get_file_options(struct udev *udev,
                  * Only allow: [vendor=foo[,model=bar]]options=stuff
                  */
                 if (!options_in || (!vendor_in && model_in)) {
-                        log_error("Error parsing config file line %d '%s'\n", lineno, buffer);
+                        log_error("Error parsing config file line %d '%s'", lineno, buffer);
                         retval = -1;
                         break;
                 }
@@ -372,7 +372,7 @@ static int set_options(struct udev *udev,
                         else if (streq(optarg, "pre-spc3-83"))
                                 default_page_code = PAGE_83_PRE_SPC3;
                         else {
-                                log_error("Unknown page code '%s'\n", optarg);
+                                log_error("Unknown page code '%s'", optarg);
                                 return -1;
                         }
                         break;
@@ -380,7 +380,7 @@ static int set_options(struct udev *udev,
                 case 's':
                         sg_version = atoi(optarg);
                         if (sg_version < 3 || sg_version > 4) {
-                                log_error("Unknown SG version '%s'\n", optarg);
+                                log_error("Unknown SG version '%s'", optarg);
                                 return -1;
                         }
                         break;
@@ -453,13 +453,13 @@ static int per_dev_options(struct udev *udev,
                         } else if (streq(optarg, "pre-spc3-83")) {
                                 *page_code = PAGE_83_PRE_SPC3;
                         } else {
-                                log_error("Unknown page code '%s'\n", optarg);
+                                log_error("Unknown page code '%s'", optarg);
                                 retval = -1;
                         }
                         break;
 
                 default:
-                        log_error("Unknown or bad option '%c' (0x%x)\n", option, option);
+                        log_error("Unknown or bad option '%c' (0x%x)", option, option);
                         retval = -1;
                         break;
                 }
@@ -615,7 +615,7 @@ int main(int argc, char **argv)
                 exit(1);
 
         if (!dev_specified) {
-                log_error("no device specified\n");
+                log_error("no device specified");
                 retval = 1;
                 goto exit;
         }

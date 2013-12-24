@@ -122,20 +122,20 @@ static int adm_settle(struct udev *udev, int argc, char *argv[])
                         end = udev_queue_get_kernel_seqnum(udev_queue);
 
                 if (start > end) {
-                        log_error("seq-start larger than seq-end, ignoring\n");
+                        log_error("seq-start larger than seq-end, ignoring");
                         start = 0;
                         end = 0;
                 }
 
                 if (start > kernel_seq || end > kernel_seq) {
-                        log_error("seq-start or seq-end larger than current kernel value, ignoring\n");
+                        log_error("seq-start or seq-end larger than current kernel value, ignoring");
                         start = 0;
                         end = 0;
                 }
-                log_debug("start=%llu end=%llu current=%llu\n", (unsigned long long)start, (unsigned long long)end, kernel_seq);
+                log_debug("start=%llu end=%llu current=%llu", (unsigned long long)start, (unsigned long long)end, kernel_seq);
         } else {
                 if (end > 0) {
-                        log_error("seq-end needs seq-start parameter, ignoring\n");
+                        log_error("seq-end needs seq-start parameter, ignoring");
                         end = 0;
                 }
         }
@@ -147,7 +147,7 @@ static int adm_settle(struct udev *udev, int argc, char *argv[])
                 uctrl = udev_ctrl_new(udev);
                 if (uctrl != NULL) {
                         if (udev_ctrl_send_ping(uctrl, timeout) < 0) {
-                                log_debug("no connection to daemon\n");
+                                log_debug("no connection to daemon");
                                 udev_ctrl_unref(uctrl);
                                 rc = EXIT_SUCCESS;
                                 goto out;
@@ -159,10 +159,10 @@ static int adm_settle(struct udev *udev, int argc, char *argv[])
         pfd[0].events = POLLIN;
         pfd[0].fd = inotify_init1(IN_CLOEXEC);
         if (pfd[0].fd < 0) {
-                log_error("inotify_init failed: %m\n");
+                log_error("inotify_init failed: %m");
         } else {
                 if (inotify_add_watch(pfd[0].fd, "/run/udev" , IN_MOVED_TO) < 0) {
-                        log_error("watching /run/udev failed\n");
+                        log_error("watching /run/udev failed");
                         close(pfd[0].fd);
                         pfd[0].fd = -1;
                 }
@@ -215,7 +215,7 @@ static int adm_settle(struct udev *udev, int argc, char *argv[])
                                 struct udev_list_entry *list_entry;
 
                                 if (!quiet && udev_queue_get_queued_list_entry(udev_queue) != NULL) {
-                                        log_debug("timeout waiting for udev queue\n");
+                                        log_debug("timeout waiting for udev queue");
                                         printf("\nudevadm settle - timeout of %i seconds reached, the event queue contains:\n", timeout);
                                         udev_list_entry_foreach(list_entry, udev_queue_get_queued_list_entry(udev_queue))
                                                 printf("  %s (%s)\n",

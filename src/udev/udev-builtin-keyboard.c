@@ -59,7 +59,7 @@ static int install_force_release(struct udev_device *dev, const unsigned int *re
         for (i = 0; i < release_count; i++)
                 l = strpcpyf(&s, l, ",%d", release[i]);
 
-        log_debug("keyboard: updating force-release list with '%s'\n", codes);
+        log_debug("keyboard: updating force-release list with '%s'", codes);
         ret = udev_device_set_sysattr_value(atkbd, "force_release", codes);
         if (ret < 0)
                 log_error("Error writing force-release attribute: %s", strerror(-ret));
@@ -90,7 +90,7 @@ static int builtin_keyboard(struct udev_device *dev, int argc, char *argv[], boo
                 /* KEYBOARD_KEY_<hex scan code>=<key identifier string> */
                 scancode = strtoul(key + 13, &endptr, 16);
                 if (endptr[0] != '\0') {
-                        log_error("Error, unable to parse scan code from '%s'\n", key);
+                        log_error("Error, unable to parse scan code from '%s'", key);
                         continue;
                 }
 
@@ -111,7 +111,7 @@ static int builtin_keyboard(struct udev_device *dev, int argc, char *argv[], boo
                 /* translate identifier to key code */
                 k = keyboard_lookup_key(keycode, strlen(keycode));
                 if (!k) {
-                        log_error("Error, unknown key identifier '%s'\n", keycode);
+                        log_error("Error, unknown key identifier '%s'", keycode);
                         continue;
                 }
 
@@ -128,22 +128,22 @@ static int builtin_keyboard(struct udev_device *dev, int argc, char *argv[], boo
 
                 node = udev_device_get_devnode(dev);
                 if (!node) {
-                        log_error("Error, no device node for '%s'\n", udev_device_get_syspath(dev));
+                        log_error("Error, no device node for '%s'", udev_device_get_syspath(dev));
                         return EXIT_FAILURE;
                 }
 
                 fd = open(udev_device_get_devnode(dev), O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
                 if (fd < 0) {
-                        log_error("Error, opening device '%s': %m\n", node);
+                        log_error("Error, opening device '%s': %m", node);
                         return EXIT_FAILURE;
                 }
 
                 /* install list of map codes */
                 for (i = 0; i < map_count; i++) {
-                        log_debug("keyboard: mapping scan code %d (0x%x) to key code %d (0x%x)\n",
+                        log_debug("keyboard: mapping scan code %d (0x%x) to key code %d (0x%x)",
                                   map[i].scan, map[i].scan, map[i].key, map[i].key);
                         if (ioctl(fd, EVIOCSKEYCODE, &map[i]) < 0)
-                                log_error("Error calling EVIOCSKEYCODE (scan code 0x%x, key code %d): %m\n", map[i].scan, map[i].key);
+                                log_error("Error calling EVIOCSKEYCODE (scan code 0x%x, key code %d): %m", map[i].scan, map[i].key);
                 }
 
                 /* install list of force-release codes */

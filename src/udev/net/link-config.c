@@ -86,7 +86,7 @@ int link_config_ctx_new(link_config_ctx **ret) {
         }
 
         if (!path_strv_canonicalize_uniq(ctx->link_dirs)) {
-                log_error("failed to canonicalize link config directories\n");
+                log_error("failed to canonicalize link config directories");
                 return -ENOMEM;
         }
 

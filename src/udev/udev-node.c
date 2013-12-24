@@ -66,7 +66,7 @@ static int node_symlink(struct udev_device *dev, const char *node, const char *s
         /* preserve link with correct target, do not replace node of other device */
         if (lstat(slink, &stats) == 0) {
                 if (S_ISBLK(stats.st_mode) || S_ISCHR(stats.st_mode)) {
-                        log_error("conflicting device node '%s' found, link to '%s' will not be created\n", slink, node);
+                        log_error("conflicting device node '%s' found, link to '%s' will not be created", slink, node);
                         goto exit;
                 } else if (S_ISLNK(stats.st_mode)) {
                         char buf[UTIL_PATH_SIZE];
@@ -76,7 +76,7 @@ static int node_symlink(struct udev_device *dev, const char *node, const char *s
                         if (len > 0 && len < (int)sizeof(buf)) {
                                 buf[len] = '\0';
                                 if (streq(target, buf)) {
-                                        log_debug("preserve already existing symlink '%s' to '%s'\n", slink, target);
+                                        log_debug("preserve already existing symlink '%s' to '%s'", slink, target);
                                         label_fix(slink, true, false);
                                         utimensat(AT_FDCWD, slink, NULL, AT_SYMLINK_NOFOLLOW);
                                         goto exit;
@@ -84,7 +84,7 @@ static int node_symlink(struct udev_device *dev, const char *node, const char *s
                         }
                 }
         } else {
-                log_debug("creating symlink '%s' to '%s'\n", slink, target);
+                log_debug("creating symlink '%s' to '%s'", slink, target);
                 do {
                         err = mkdir_parents_label(slink, 0755);
                         if (err != 0 && err != -ENOENT)
@@ -99,7 +99,7 @@ static int node_symlink(struct udev_device *dev, const char *node, const char *s
                         goto exit;
         }
 
-        log_debug("atomically replace '%s'\n", slink);
+        log_debug("atomically replace '%s'", slink);
         strscpyl(slink_tmp, sizeof(slink_tmp), slink, ".tmp-", udev_device_get_id_filename(dev), NULL);
         unlink(slink_tmp);
         do {
@@ -113,12 +113,12 @@ static int node_symlink(struct udev_device *dev, const char *node, const char *s
                 label_context_clear();
         } while (err == -ENOENT);
         if (err != 0) {
-                log_error("symlink '%s' '%s' failed: %m\n", target, slink_tmp);
+                log_error("symlink '%s' '%s' failed: %m", target, slink_tmp);
                 goto exit;
         }
         err = rename(slink_tmp, slink);
         if (err != 0) {
-                log_error("rename '%s' '%s' failed: %m\n", slink_tmp, slink);
+                log_error("rename '%s' '%s' failed: %m", slink_tmp, slink);
                 unlink(slink_tmp);
         }
 exit:
@@ -152,7 +152,7 @@ static const char *link_find_prioritized(struct udev_device *dev, bool add, cons
                 if (dent->d_name[0] == '.')
                         continue;
 
-                log_debug("found '%s' claiming '%s'\n", dent->d_name, stackdir);
+                log_debug("found '%s' claiming '%s'", dent->d_name, stackdir);
 
                 /* did we find ourself? */
                 if (streq(dent->d_name, udev_device_get_id_filename(dev)))
@@ -165,7 +165,7 @@ static const char *link_find_prioritized(struct udev_device *dev, bool add, cons
                         devnode = udev_device_get_devnode(dev_db);
                         if (devnode != NULL) {
                                 if (target == NULL || udev_device_get_devlink_priority(dev_db) > priority) {
-                                        log_debug("'%s' claims priority %i for '%s'\n",
+                                        log_debug("'%s' claims priority %i for '%s'",
                                                   udev_device_get_syspath(dev_db), udev_device_get_devlink_priority(dev_db), stackdir);
                                         priority = udev_device_get_devlink_priority(dev_db);
                                         strscpy(buf, bufsize, devnode);
@@ -198,11 +198,11 @@ static void link_update(struct udev_device *dev, const char *slink, bool add)
 
         target = link_find_prioritized(dev, add, dirname, buf, sizeof(buf));
         if (target == NULL) {
-                log_debug("no reference left, remove '%s'\n", slink);
+                log_debug("no reference left, remove '%s'", slink);
                 if (unlink(slink) == 0)
                         util_delete_path(udev, slink);
         } else {
-                log_debug("creating link '%s' to '%s'\n", slink, target);
+                log_debug("creating link '%s' to '%s'", slink, target);
                 node_symlink(dev, target, slink);
         }
 
@@ -247,7 +247,7 @@ void udev_node_update_old_links(struct udev_device *dev, struct udev_device *dev
                 if (found)
                         continue;
 
-                log_debug("update old name, '%s' no longer belonging to '%s'\n",
+                log_debug("update old name, '%s' no longer belonging to '%s'",
                      name, udev_device_get_devpath(dev));
                 link_update(dev, name, false);
         }
@@ -269,13 +269,13 @@ static int node_permissions_apply(struct udev_device *dev, bool apply,
 
         if (lstat(devnode, &stats) != 0) {
                 err = -errno;
-                log_debug("can not stat() node '%s' (%m)\n", devnode);
+                log_debug("can not stat() node '%s' (%m)", devnode);
                 goto out;
         }
 
         if (((stats.st_mode & S_IFMT) != (mode & S_IFMT)) || (stats.st_rdev != devnum)) {
                 err = -EEXIST;
-                log_debug("found node '%s' with non-matching devnum %s, skip handling\n",
+                log_debug("found node '%s' with non-matching devnum %s, skip handling",
                           udev_device_get_devnode(dev), udev_device_get_id_filename(dev));
                 goto out;
         }
@@ -285,11 +285,11 @@ static int node_permissions_apply(struct udev_device *dev, bool apply,
                 bool smack = false;
 
                 if ((stats.st_mode & 0777) != (mode & 0777) || stats.st_uid != uid || stats.st_gid != gid) {
-                        log_debug("set permissions %s, %#o, uid=%u, gid=%u\n", devnode, mode, uid, gid);
+                        log_debug("set permissions %s, %#o, uid=%u, gid=%u", devnode, mode, uid, gid);
                         chmod(devnode, mode);
                         chown(devnode, uid, gid);
                 } else {
-                        log_debug("preserve permissions %s, %#o, uid=%u, gid=%u\n", devnode, mode, uid, gid);
+                        log_debug("preserve permissions %s, %#o, uid=%u, gid=%u", devnode, mode, uid, gid);
                 }
 
                 /* apply SECLABEL{$module}=$label */
@@ -336,7 +336,7 @@ void udev_node_add(struct udev_device *dev, bool apply,
         char filename[UTIL_PATH_SIZE];
         struct udev_list_entry *list_entry;
 
-        log_debug("handling device node '%s', devnum=%s, mode=%#o, uid=%d, gid=%d\n",
+        log_debug("handling device node '%s', devnum=%s, mode=%#o, uid=%d, gid=%d",
                   udev_device_get_devnode(dev), udev_device_get_id_filename(dev), mode, uid, gid);
 
         if (node_permissions_apply(dev, apply, mode, uid, gid, seclabel_list) < 0)

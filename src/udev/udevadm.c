@@ -79,7 +79,7 @@ static int run_command(struct udev *udev, const struct udevadm_cmd *cmd, int arg
 {
         if (cmd->debug)
                 log_set_max_level(LOG_DEBUG);
-        log_debug("calling: %s\n", cmd->name);
+        log_debug("calling: %s", cmd->name);
         return cmd->cmd(udev, argc, argv);
 }
 

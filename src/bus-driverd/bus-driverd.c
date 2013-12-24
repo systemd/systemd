@@ -767,7 +767,7 @@ static int connect_bus(Context *c) {
 
         r = sd_bus_request_name(c->bus, "org.freedesktop.DBus", 0);
         if (r < 0) {
-                log_error("Unable to request name: %s\n", strerror(-r));
+                log_error("Unable to request name: %s", strerror(-r));
                 return r;
         }
 

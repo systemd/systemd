@@ -57,7 +57,7 @@ static void get_cap_mask(struct udev_device *dev,
         unsigned long val;
 
         snprintf(text, sizeof(text), "%s", udev_device_get_sysattr_value(pdev, attr));
-        log_debug("%s raw kernel attribute: %s\n", attr, text);
+        log_debug("%s raw kernel attribute: %s", attr, text);
 
         memset (bitmask, 0, bitmask_size);
         i = 0;
@@ -66,7 +66,7 @@ static void get_cap_mask(struct udev_device *dev,
                 if (i < bitmask_size/sizeof(unsigned long))
                         bitmask[i] = val;
                 else
-                        log_debug("ignoring %s block %lX which is larger than maximum size\n", attr, val);
+                        log_debug("ignoring %s block %lX which is larger than maximum size", attr, val);
                 *word = '\0';
                 ++i;
         }
@@ -74,12 +74,12 @@ static void get_cap_mask(struct udev_device *dev,
         if (i < bitmask_size / sizeof(unsigned long))
                 bitmask[i] = val;
         else
-                log_debug("ignoring %s block %lX which is larger than maximum size\n", attr, val);
+                log_debug("ignoring %s block %lX which is larger than maximum size", attr, val);
 
         if (test) {
                 /* printf pattern with the right unsigned long number of hex chars */
                 snprintf(text, sizeof(text), "  bit %%4u: %%0%zilX\n", 2 * sizeof(unsigned long));
-                log_debug("%s decoded bit map:\n", attr);
+                log_debug("%s decoded bit map:", attr);
                 val = bitmask_size / sizeof (unsigned long);
                 /* skip over leading zeros */
                 while (bitmask[val-1] == 0 && val > 0)
@@ -151,7 +151,7 @@ static void test_key (struct udev_device *dev,
 
         /* do we have any KEY_* capability? */
         if (!test_bit (EV_KEY, bitmask_ev)) {
-                log_debug("test_key: no EV_KEY capability\n");
+                log_debug("test_key: no EV_KEY capability");
                 return;
         }
 
@@ -159,13 +159,13 @@ static void test_key (struct udev_device *dev,
         found = 0;
         for (i = 0; i < BTN_MISC/BITS_PER_LONG; ++i) {
                 found |= bitmask_key[i];
-                log_debug("test_key: checking bit block %lu for any keys; found=%i\n", (unsigned long)i*BITS_PER_LONG, found > 0);
+                log_debug("test_key: checking bit block %lu for any keys; found=%i", (unsigned long)i*BITS_PER_LONG, found > 0);
         }
         /* If there are no keys in the lower block, check the higher block */
         if (!found) {
                 for (i = KEY_OK; i < BTN_TRIGGER_HAPPY; ++i) {
                         if (test_bit (i, bitmask_key)) {
-                                log_debug("test_key: Found key %x in high block\n", i);
+                                log_debug("test_key: Found key %x in high block", i);
                                 found = 1;
                                 break;
                         }

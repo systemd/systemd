@@ -416,7 +416,7 @@ static int dump_core(sd_journal* j) {
 
         r = sd_journal_previous(j);
         if (r >= 0)
-                log_warning("More than one entry matches, ignoring rest.\n");
+                log_warning("More than one entry matches, ignoring rest.");
 
         return 0;
 }

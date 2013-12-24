@@ -384,7 +384,7 @@ int main(int argc, char *argv[]) {
                 in_fd = SD_LISTEN_FDS_START;
                 out_fd = SD_LISTEN_FDS_START;
         } else {
-                log_error("Illegal number of file descriptors passed\n");
+                log_error("Illegal number of file descriptors passed");
                 goto finish;
         }
 

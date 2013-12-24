@@ -132,7 +132,7 @@ static int parse_file(Hashmap *sysctl_options, const char *path, bool ignore_eno
                 return r;
         }
 
-        log_debug("parse: %s\n", path);
+        log_debug("parse: %s", path);
         while (!feof(f)) {
                 char l[LINE_MAX], *p, *value, *new_value, *property, *existing;
                 void *v;

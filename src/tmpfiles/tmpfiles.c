@@ -360,7 +360,7 @@ static int dir_cleanup(
                                 continue;
 
                         if (i->type != IGNORE_DIRECTORY_PATH || !streq(dent->d_name, p)) {
-                                log_debug("rmdir '%s'\n", sub_path);
+                                log_debug("rmdir '%s'", sub_path);
 
                                 if (unlinkat(dirfd(d), dent->d_name, AT_REMOVEDIR) < 0) {
                                         if (errno != ENOENT && errno != ENOTEMPTY) {
@@ -408,7 +408,7 @@ static int dir_cleanup(
                         if (age >= cutoff)
                                 continue;
 
-                        log_debug("unlink '%s'\n", sub_path);
+                        log_debug("unlink '%s'", sub_path);
 
                         if (unlinkat(dirfd(d), dent->d_name, 0) < 0) {
                                 if (errno != ENOENT) {

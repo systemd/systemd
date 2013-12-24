@@ -486,7 +486,7 @@ bool paths_check_timestamp(char **paths, usec_t *timestamp, bool update) {
                 if (*timestamp >= u)
                         continue;
 
-                log_debug("timestamp of '%s' changed\n", *i);
+                log_debug("timestamp of '%s' changed", *i);
 
                 /* update timestamp */
                 if (update) {

@@ -335,7 +335,7 @@ int main (int argc, char** argv)
                 return 0;
         }
 
-        log_debug("opening accelerometer device %s\n", devnode);
+        log_debug("opening accelerometer device %s", devnode);
         test_orientation(udev, dev, devnode);
         free(devnode);
         log_close();

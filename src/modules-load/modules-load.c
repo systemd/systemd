@@ -118,7 +118,7 @@ static int load_module(struct kmod_ctx *ctx, const char *m) {
         struct kmod_list *itr, *modlist = NULL;
         int r = 0;
 
-        log_debug("load: %s\n", m);
+        log_debug("load: %s", m);
 
         r = kmod_module_new_from_lookup(ctx, m, &modlist);
         if (r < 0) {
@@ -186,7 +186,7 @@ static int apply_file(struct kmod_ctx *ctx, const char *path, bool ignore_enoent
                 return r;
         }
 
-        log_debug("apply: %s\n", path);
+        log_debug("apply: %s", path);
         for (;;) {
                 char line[LINE_MAX], *l;
                 int k;

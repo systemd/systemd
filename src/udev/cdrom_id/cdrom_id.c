@@ -138,10 +138,10 @@ static bool is_mounted(const char *device)
 static void info_scsi_cmd_err(struct udev *udev, const char *cmd, int err)
 {
         if (err == -1) {
-                log_debug("%s failed\n", cmd);
+                log_debug("%s failed", cmd);
                 return;
         }
-        log_debug("%s failed with SK=%Xh/ASC=%02Xh/ACQ=%02Xh\n", cmd, SK(err), ASC(err), ASCQ(err));
+        log_debug("%s failed with SK=%Xh/ASC=%02Xh/ACQ=%02Xh", cmd, SK(err), ASC(err), ASCQ(err));
 }
 
 struct scsi_cmd {
@@ -206,11 +206,11 @@ static int media_lock(struct udev *udev, int fd, bool lock)
         /* disable the kernel's lock logic */
         err = ioctl(fd, CDROM_CLEAR_OPTIONS, CDO_LOCK);
         if (err < 0)
-                log_debug("CDROM_CLEAR_OPTIONS, CDO_LOCK failed\n");
+                log_debug("CDROM_CLEAR_OPTIONS, CDO_LOCK failed");
 
         err = ioctl(fd, CDROM_LOCKDOOR, lock ? 1 : 0);
         if (err < 0)
-                log_debug("CDROM_LOCKDOOR failed\n");
+                log_debug("CDROM_LOCKDOOR failed");
 
         return err;
 }
@@ -238,7 +238,7 @@ static int cd_capability_compat(struct udev *udev, int fd)
 
         capability = ioctl(fd, CDROM_GET_CAPABILITY, NULL);
         if (capability < 0) {
-                log_debug("CDROM_GET_CAPABILITY failed\n");
+                log_debug("CDROM_GET_CAPABILITY failed");
                 return -1;
         }
 
@@ -262,7 +262,7 @@ static int cd_capability_compat(struct udev *udev, int fd)
 static int cd_media_compat(struct udev *udev, int fd)
 {
         if (ioctl(fd, CDROM_DRIVE_STATUS, CDSL_CURRENT) != CDS_DISC_OK) {
-                log_debug("CDROM_DRIVE_STATUS != CDS_DISC_OK\n");
+                log_debug("CDROM_DRIVE_STATUS != CDS_DISC_OK");
                 return -1;
         }
         cd_media = 1;
@@ -286,11 +286,11 @@ static int cd_inquiry(struct udev *udev, int fd)
         }
 
         if ((inq[0] & 0x1F) != 5) {
-                log_debug("not an MMC unit\n");
+                log_debug("not an MMC unit");
                 return -1;
         }
 
-        log_debug("INQUIRY: [%.8s][%.16s][%.4s]\n", inq + 8, inq + 16, inq + 32);
+        log_debug("INQUIRY: [%.8s][%.16s][%.4s]", inq + 8, inq + 16, inq + 32);
         return 0;
 }
 
@@ -300,105 +300,105 @@ static void feature_profile_media(struct udev *udev, int cur_profile)
         case 0x03:
         case 0x04:
         case 0x05:
-                log_debug("profile 0x%02x \n", cur_profile);
+                log_debug("profile 0x%02x ", cur_profile);
                 cd_media = 1;
                 cd_media_mo = 1;
                 break;
         case 0x08:
-                log_debug("profile 0x%02x media_cd_rom\n", cur_profile);
+                log_debug("profile 0x%02x media_cd_rom", cur_profile);
                 cd_media = 1;
                 cd_media_cd_rom = 1;
                 break;
         case 0x09:
-                log_debug("profile 0x%02x media_cd_r\n", cur_profile);
+                log_debug("profile 0x%02x media_cd_r", cur_profile);
                 cd_media = 1;
                 cd_media_cd_r = 1;
                 break;
         case 0x0a:
-                log_debug("profile 0x%02x media_cd_rw\n", cur_profile);
+                log_debug("profile 0x%02x media_cd_rw", cur_profile);
                 cd_media = 1;
                 cd_media_cd_rw = 1;
                 break;
         case 0x10:
-                log_debug("profile 0x%02x media_dvd_ro\n", cur_profile);
+                log_debug("profile 0x%02x media_dvd_ro", cur_profile);
                 cd_media = 1;
                 cd_media_dvd_rom = 1;
                 break;
         case 0x11:
-                log_debug("profile 0x%02x media_dvd_r\n", cur_profile);
+                log_debug("profile 0x%02x media_dvd_r", cur_profile);
                 cd_media = 1;
                 cd_media_dvd_r = 1;
                 break;
         case 0x12:
-                log_debug("profile 0x%02x media_dvd_ram\n", cur_profile);
+                log_debug("profile 0x%02x media_dvd_ram", cur_profile);
                 cd_media = 1;
                 cd_media_dvd_ram = 1;
                 break;
         case 0x13:
-                log_debug("profile 0x%02x media_dvd_rw_ro\n", cur_profile);
+                log_debug("profile 0x%02x media_dvd_rw_ro", cur_profile);
                 cd_media = 1;
                 cd_media_dvd_rw = 1;
                 cd_media_dvd_rw_ro = 1;
                 break;
         case 0x14:
-                log_debug("profile 0x%02x media_dvd_rw_seq\n", cur_profile);
+                log_debug("profile 0x%02x media_dvd_rw_seq", cur_profile);
                 cd_media = 1;
                 cd_media_dvd_rw = 1;
                 cd_media_dvd_rw_seq = 1;
                 break;
         case 0x1B:
-                log_debug("profile 0x%02x media_dvd_plus_r\n", cur_profile);
+                log_debug("profile 0x%02x media_dvd_plus_r", cur_profile);
                 cd_media = 1;
                 cd_media_dvd_plus_r = 1;
                 break;
         case 0x1A:
-                log_debug("profile 0x%02x media_dvd_plus_rw\n", cur_profile);
+                log_debug("profile 0x%02x media_dvd_plus_rw", cur_profile);
                 cd_media = 1;
                 cd_media_dvd_plus_rw = 1;
                 break;
         case 0x2A:
-                log_debug("profile 0x%02x media_dvd_plus_rw_dl\n", cur_profile);
+                log_debug("profile 0x%02x media_dvd_plus_rw_dl", cur_profile);
                 cd_media = 1;
                 cd_media_dvd_plus_rw_dl = 1;
                 break;
         case 0x2B:
-                log_debug("profile 0x%02x media_dvd_plus_r_dl\n", cur_profile);
+                log_debug("profile 0x%02x media_dvd_plus_r_dl", cur_profile);
                 cd_media = 1;
                 cd_media_dvd_plus_r_dl = 1;
                 break;
         case 0x40:
-                log_debug("profile 0x%02x media_bd\n", cur_profile);
+                log_debug("profile 0x%02x media_bd", cur_profile);
                 cd_media = 1;
                 cd_media_bd = 1;
                 break;
         case 0x41:
         case 0x42:
-                log_debug("profile 0x%02x media_bd_r\n", cur_profile);
+                log_debug("profile 0x%02x media_bd_r", cur_profile);
                 cd_media = 1;
                 cd_media_bd_r = 1;
                 break;
         case 0x43:
-                log_debug("profile 0x%02x media_bd_re\n", cur_profile);
+                log_debug("profile 0x%02x media_bd_re", cur_profile);
                 cd_media = 1;
                 cd_media_bd_re = 1;
                 break;
         case 0x50:
-                log_debug("profile 0x%02x media_hddvd\n", cur_profile);
+                log_debug("profile 0x%02x media_hddvd", cur_profile);
                 cd_media = 1;
                 cd_media_hddvd = 1;
                 break;
         case 0x51:
-                log_debug("profile 0x%02x media_hddvd_r\n", cur_profile);
+                log_debug("profile 0x%02x media_hddvd_r", cur_profile);
                 cd_media = 1;
                 cd_media_hddvd_r = 1;
                 break;
         case 0x52:
-                log_debug("profile 0x%02x media_hddvd_rw\n", cur_profile);
+                log_debug("profile 0x%02x media_hddvd_rw", cur_profile);
                 cd_media = 1;
                 cd_media_hddvd_rw = 1;
                 break;
         default:
-                log_debug("profile 0x%02x <ignored>\n", cur_profile);
+                log_debug("profile 0x%02x <ignored>", cur_profile);
                 break;
         }
 }
@@ -415,77 +415,77 @@ static int feature_profiles(struct udev *udev, const unsigned char *profiles, si
                 case 0x03:
                 case 0x04:
                 case 0x05:
-                        log_debug("profile 0x%02x mo\n", profile);
+                        log_debug("profile 0x%02x mo", profile);
                         cd_mo = 1;
                         break;
                 case 0x08:
-                        log_debug("profile 0x%02x cd_rom\n", profile);
+                        log_debug("profile 0x%02x cd_rom", profile);
                         cd_cd_rom = 1;
                         break;
                 case 0x09:
-                        log_debug("profile 0x%02x cd_r\n", profile);
+                        log_debug("profile 0x%02x cd_r", profile);
                         cd_cd_r = 1;
                         break;
                 case 0x0A:
-                        log_debug("profile 0x%02x cd_rw\n", profile);
+                        log_debug("profile 0x%02x cd_rw", profile);
                         cd_cd_rw = 1;
                         break;
                 case 0x10:
-                        log_debug("profile 0x%02x dvd_rom\n", profile);
+                        log_debug("profile 0x%02x dvd_rom", profile);
                         cd_dvd_rom = 1;
                         break;
                 case 0x12:
-                        log_debug("profile 0x%02x dvd_ram\n", profile);
+                        log_debug("profile 0x%02x dvd_ram", profile);
                         cd_dvd_ram = 1;
                         break;
                 case 0x13:
                 case 0x14:
-                        log_debug("profile 0x%02x dvd_rw\n", profile);
+                        log_debug("profile 0x%02x dvd_rw", profile);
                         cd_dvd_rw = 1;
                         break;
                 case 0x1B:
-                        log_debug("profile 0x%02x dvd_plus_r\n", profile);
+                        log_debug("profile 0x%02x dvd_plus_r", profile);
                         cd_dvd_plus_r = 1;
                         break;
                 case 0x1A:
-                        log_debug("profile 0x%02x dvd_plus_rw\n", profile);
+                        log_debug("profile 0x%02x dvd_plus_rw", profile);
                         cd_dvd_plus_rw = 1;
                         break;
                 case 0x2A:
-                        log_debug("profile 0x%02x dvd_plus_rw_dl\n", profile);
+                        log_debug("profile 0x%02x dvd_plus_rw_dl", profile);
                         cd_dvd_plus_rw_dl = 1;
                         break;
                 case 0x2B:
-                        log_debug("profile 0x%02x dvd_plus_r_dl\n", profile);
+                        log_debug("profile 0x%02x dvd_plus_r_dl", profile);
                         cd_dvd_plus_r_dl = 1;
                         break;
                 case 0x40:
                         cd_bd = 1;
-                        log_debug("profile 0x%02x bd\n", profile);
+                        log_debug("profile 0x%02x bd", profile);
                         break;
                 case 0x41:
                 case 0x42:
                         cd_bd_r = 1;
-                        log_debug("profile 0x%02x bd_r\n", profile);
+                        log_debug("profile 0x%02x bd_r", profile);
                         break;
                 case 0x43:
                         cd_bd_re = 1;
-                        log_debug("profile 0x%02x bd_re\n", profile);
+                        log_debug("profile 0x%02x bd_re", profile);
                         break;
                 case 0x50:
                         cd_hddvd = 1;
-                        log_debug("profile 0x%02x hddvd\n", profile);
+                        log_debug("profile 0x%02x hddvd", profile);
                         break;
                 case 0x51:
                         cd_hddvd_r = 1;
-                        log_debug("profile 0x%02x hddvd_r\n", profile);
+                        log_debug("profile 0x%02x hddvd_r", profile);
                         break;
                 case 0x52:
                         cd_hddvd_rw = 1;
-                        log_debug("profile 0x%02x hddvd_rw\n", profile);
+                        log_debug("profile 0x%02x hddvd_rw", profile);
                         break;
                 default:
-                        log_debug("profile 0x%02x <ignored>\n", profile);
+                        log_debug("profile 0x%02x <ignored>", profile);
                         break;
                 }
         }
@@ -508,13 +508,13 @@ static int cd_profiles_old_mmc(struct udev *udev, int fd)
         if ((err != 0)) {
                 info_scsi_cmd_err(udev, "READ DISC INFORMATION", err);
                 if (cd_media == 1) {
-                        log_debug("no current profile, but disc is present; assuming CD-ROM\n");
+                        log_debug("no current profile, but disc is present; assuming CD-ROM");
                         cd_media_cd_rom = 1;
                         cd_media_track_count = 1;
                         cd_media_track_count_data = 1;
                         return 0;
                 } else {
-                        log_debug("no current profile, assuming no media\n");
+                        log_debug("no current profile, assuming no media");
                         return -1;
                 }
         };
@@ -523,13 +523,13 @@ static int cd_profiles_old_mmc(struct udev *udev, int fd)
 
         if (header[2] & 16) {
                 cd_media_cd_rw = 1;
-                log_debug("profile 0x0a media_cd_rw\n");
+                log_debug("profile 0x0a media_cd_rw");
         } else if ((header[2] & 3) < 2 && cd_cd_r) {
                 cd_media_cd_r = 1;
-                log_debug("profile 0x09 media_cd_r\n");
+                log_debug("profile 0x09 media_cd_r");
         } else {
                 cd_media_cd_rom = 1;
-                log_debug("profile 0x08 media_cd_rom\n");
+                log_debug("profile 0x08 media_cd_rom");
         }
         return 0;
 }
@@ -557,8 +557,8 @@ static int cd_profiles(struct udev *udev, int fd)
                 info_scsi_cmd_err(udev, "GET CONFIGURATION", err);
                 /* handle pre-MMC2 drives which do not support GET CONFIGURATION */
                 if (SK(err) == 0x5 && ASC(err) == 0x20) {
-                        log_debug("drive is pre-MMC2 and does not support 46h get configuration command\n");
-                        log_debug("trying to work around the problem\n");
+                        log_debug("drive is pre-MMC2 and does not support 46h get configuration command");
+                        log_debug("trying to work around the problem");
                         ret = cd_profiles_old_mmc(udev, fd);
                 }
                 goto out;
@@ -566,18 +566,18 @@ static int cd_profiles(struct udev *udev, int fd)
 
         cur_profile = features[6] << 8 | features[7];
         if (cur_profile > 0) {
-                log_debug("current profile 0x%02x\n", cur_profile);
+                log_debug("current profile 0x%02x", cur_profile);
                 feature_profile_media (udev, cur_profile);
                 ret = 0; /* we have media */
         } else {
-                log_debug("no current profile, assuming no media\n");
+                log_debug("no current profile, assuming no media");
         }
 
         len = features[0] << 24 | features[1] << 16 | features[2] << 8 | features[3];
-        log_debug("GET CONFIGURATION: size of features buffer 0x%04x\n", len);
+        log_debug("GET CONFIGURATION: size of features buffer 0x%04x", len);
 
         if (len > sizeof(features)) {
-                log_debug("can not get features in a single query, truncating\n");
+                log_debug("can not get features in a single query, truncating");
                 len = sizeof(features);
         } else if (len <= 8) {
                 len = sizeof(features);
@@ -597,10 +597,10 @@ static int cd_profiles(struct udev *udev, int fd)
 
         /* parse the length once more, in case the drive decided to have other features suddenly :) */
         len = features[0] << 24 | features[1] << 16 | features[2] << 8 | features[3];
-        log_debug("GET CONFIGURATION: size of features buffer 0x%04x\n", len);
+        log_debug("GET CONFIGURATION: size of features buffer 0x%04x", len);
 
         if (len > sizeof(features)) {
-                log_debug("can not get features in a single query, truncating\n");
+                log_debug("can not get features in a single query, truncating");
                 len = sizeof(features);
         }
 
@@ -612,11 +612,11 @@ static int cd_profiles(struct udev *udev, int fd)
 
                 switch (feature) {
                 case 0x00:
-                        log_debug("GET CONFIGURATION: feature 'profiles', with %i entries\n", features[i+3] / 4);
+                        log_debug("GET CONFIGURATION: feature 'profiles', with %i entries", features[i+3] / 4);
                         feature_profiles(udev, &features[i]+4, features[i+3]);
                         break;
                 default:
-                        log_debug("GET CONFIGURATION: feature 0x%04x <ignored>, with 0x%02x bytes\n", feature, features[i+3]);
+                        log_debug("GET CONFIGURATION: feature 0x%04x <ignored>, with 0x%02x bytes", feature, features[i+3]);
                         break;
                 }
         }
@@ -647,8 +647,8 @@ static int cd_media_info(struct udev *udev, int fd)
         };
 
         cd_media = 1;
-        log_debug("disk type %02x\n", header[8]);
-        log_debug("hardware reported media status: %s\n", media_status[header[2] & 3]);
+        log_debug("disk type %02x", header[8]);
+        log_debug("hardware reported media status: %s", media_status[header[2] & 3]);
 
         /* exclude plain CDROM, some fake cdroms return 0 for "blank" media here */
         if (!cd_media_cd_rom)
@@ -686,7 +686,7 @@ static int cd_media_info(struct udev *udev, int fd)
                         }
                         if (dvdstruct[4] & 0x02) {
                                 cd_media_state = media_status[2];
-                                log_debug("write-protected DVD-RAM media inserted\n");
+                                log_debug("write-protected DVD-RAM media inserted");
                                 goto determined;
                         }
 
@@ -703,13 +703,13 @@ static int cd_media_info(struct udev *udev, int fd)
 
                         len = format[3];
                         if (len & 7 || len < 16) {
-                                log_debug("invalid format capacities length\n");
+                                log_debug("invalid format capacities length");
                                 return -1;
                         }
 
                         switch(format[8] & 3) {
                             case 1:
-                                log_debug("unformatted DVD-RAM media inserted\n");
+                                log_debug("unformatted DVD-RAM media inserted");
                                 /* This means that last format was interrupted
                                  * or failed, blank dvd-ram discs are factory
                                  * formatted. Take no action here as it takes
@@ -718,12 +718,12 @@ static int cd_media_info(struct udev *udev, int fd)
                                 goto determined;
 
                             case 2:
-                                log_debug("formatted DVD-RAM media inserted\n");
+                                log_debug("formatted DVD-RAM media inserted");
                                 break;
 
                             case 3:
                                 cd_media = 0; //return no media
-                                log_debug("format capacities returned no media\n");
+                                log_debug("format capacities returned no media");
                                 return -1;
                         }
                 }
@@ -759,9 +759,9 @@ static int cd_media_info(struct udev *udev, int fd)
 
                 if (!result) {
                         cd_media_state = media_status[0];
-                        log_debug("no data in blocks 0 or 16, assuming blank\n");
+                        log_debug("no data in blocks 0 or 16, assuming blank");
                 } else {
-                        log_debug("data in blocks 0 or 16, assuming complete\n");
+                        log_debug("data in blocks 0 or 16, assuming complete");
                 }
         }
 
@@ -797,7 +797,7 @@ static int cd_media_toc(struct udev *udev, int fd)
         }
 
         len = (header[0] << 8 | header[1]) + 2;
-        log_debug("READ TOC: len: %d, start track: %d, end track: %d\n", len, header[2], header[3]);
+        log_debug("READ TOC: len: %d, start track: %d, end track: %d", len, header[2], header[3]);
         if (len > sizeof(toc))
                 return -1;
         if (len < 2)
@@ -831,7 +831,7 @@ static int cd_media_toc(struct udev *udev, int fd)
                 is_data_track = (p[1] & 0x04) != 0;
 
                 block = p[4] << 24 | p[5] << 16 | p[6] << 8 | p[7];
-                log_debug("track=%u info=0x%x(%s) start_block=%u\n",
+                log_debug("track=%u info=0x%x(%s) start_block=%u",
                      p[2], p[1] & 0x0f, is_data_track ? "data":"audio", block);
 
                 if (is_data_track)
@@ -851,7 +851,7 @@ static int cd_media_toc(struct udev *udev, int fd)
                 return -1;
         }
         len = header[4+4] << 24 | header[4+5] << 16 | header[4+6] << 8 | header[4+7];
-        log_debug("last track %u starts at block %u\n", header[4+2], len);
+        log_debug("last track %u starts at block %u", header[4+2], len);
         cd_media_session_last_offset = (unsigned long long int)len * 2048;
         return 0;
 }
@@ -920,7 +920,7 @@ int main(int argc, char *argv[])
 
         node = argv[optind];
         if (!node) {
-                log_error("no device\n");
+                log_error("no device");
                 fprintf(stderr, "no device\n");
                 rc = 1;
                 goto exit;
@@ -938,12 +938,12 @@ int main(int argc, char *argv[])
                 nanosleep(&duration, NULL);
         }
         if (fd < 0) {
-                log_debug("unable to open '%s'\n", node);
+                log_debug("unable to open '%s'", node);
                 fprintf(stderr, "unable to open '%s'\n", node);
                 rc = 1;
                 goto exit;
         }
-        log_debug("probing: '%s'\n", node);
+        log_debug("probing: '%s'", node);
 
         /* same data as original cdrom_id */
         if (cd_capability_compat(udev, fd) < 0) {
@@ -974,19 +974,19 @@ int main(int argc, char *argv[])
 work:
         /* lock the media, so we enable eject button events */
         if (lock && cd_media) {
-                log_debug("PREVENT_ALLOW_MEDIUM_REMOVAL (lock)\n");
+                log_debug("PREVENT_ALLOW_MEDIUM_REMOVAL (lock)");
                 media_lock(udev, fd, true);
         }
 
         if (unlock && cd_media) {
-                log_debug("PREVENT_ALLOW_MEDIUM_REMOVAL (unlock)\n");
+                log_debug("PREVENT_ALLOW_MEDIUM_REMOVAL (unlock)");
                 media_lock(udev, fd, false);
         }
 
         if (eject) {
-                log_debug("PREVENT_ALLOW_MEDIUM_REMOVAL (unlock)\n");
+                log_debug("PREVENT_ALLOW_MEDIUM_REMOVAL (unlock)");
                 media_lock(udev, fd, false);
-                log_debug("START_STOP_UNIT (eject)\n");
+                log_debug("START_STOP_UNIT (eject)");
                 media_eject(udev, fd);
         }
 

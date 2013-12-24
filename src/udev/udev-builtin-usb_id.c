@@ -275,7 +275,7 @@ static int builtin_usb_id(struct udev_device *dev, int argc, char *argv[], bool 
         /* usb interface directory */
         dev_interface = udev_device_get_parent_with_subsystem_devtype(dev, "usb", "usb_interface");
         if (dev_interface == NULL) {
-                log_debug("unable to access usb_interface device of '%s'\n",
+                log_debug("unable to access usb_interface device of '%s'",
                      udev_device_get_syspath(dev));
                 return EXIT_FAILURE;
         }
@@ -285,7 +285,7 @@ static int builtin_usb_id(struct udev_device *dev, int argc, char *argv[], bool 
 
         if_class = udev_device_get_sysattr_value(dev_interface, "bInterfaceClass");
         if (!if_class) {
-                log_debug("%s: cannot get bInterfaceClass attribute\n",
+                log_debug("%s: cannot get bInterfaceClass attribute",
                      udev_device_get_sysname(dev));
                 return EXIT_FAILURE;
         }
@@ -300,13 +300,13 @@ static int builtin_usb_id(struct udev_device *dev, int argc, char *argv[], bool 
                 set_usb_iftype(type_str, if_class_num, sizeof(type_str)-1);
         }
 
-        log_debug("%s: if_class %d protocol %d\n",
+        log_debug("%s: if_class %d protocol %d",
              udev_device_get_syspath(dev_interface), if_class_num, protocol);
 
         /* usb device directory */
         dev_usb = udev_device_get_parent_with_subsystem_devtype(dev_interface, "usb", "usb_device");
         if (!dev_usb) {
-                log_debug("unable to find parent 'usb' device of '%s'\n",
+                log_debug("unable to find parent 'usb' device of '%s'",
                      udev_device_get_syspath(dev));
                 return EXIT_FAILURE;
         }
@@ -323,19 +323,19 @@ static int builtin_usb_id(struct udev_device *dev, int argc, char *argv[], bool 
                 /* get scsi device */
                 dev_scsi = udev_device_get_parent_with_subsystem_devtype(dev, "scsi", "scsi_device");
                 if (dev_scsi == NULL) {
-                        log_debug("unable to find parent 'scsi' device of '%s'\n",
+                        log_debug("unable to find parent 'scsi' device of '%s'",
                              udev_device_get_syspath(dev));
                         goto fallback;
                 }
                 if (sscanf(udev_device_get_sysname(dev_scsi), "%d:%d:%d:%d", &host, &bus, &target, &lun) != 4) {
-                        log_debug("invalid scsi device '%s'\n", udev_device_get_sysname(dev_scsi));
+                        log_debug("invalid scsi device '%s'", udev_device_get_sysname(dev_scsi));
                         goto fallback;
                 }
 
                 /* Generic SPC-2 device */
                 scsi_vendor = udev_device_get_sysattr_value(dev_scsi, "vendor");
                 if (!scsi_vendor) {
-                        log_debug("%s: cannot get SCSI vendor attribute\n",
+                        log_debug("%s: cannot get SCSI vendor attribute",
                              udev_device_get_sysname(dev_scsi));
                         goto fallback;
                 }
@@ -345,7 +345,7 @@ static int builtin_usb_id(struct udev_device *dev, int argc, char *argv[], bool 
 
                 scsi_model = udev_device_get_sysattr_value(dev_scsi, "model");
                 if (!scsi_model) {
-                        log_debug("%s: cannot get SCSI model attribute\n",
+                        log_debug("%s: cannot get SCSI model attribute",
                              udev_device_get_sysname(dev_scsi));
                         goto fallback;
                 }
@@ -355,7 +355,7 @@ static int builtin_usb_id(struct udev_device *dev, int argc, char *argv[], bool 
 
                 scsi_type = udev_device_get_sysattr_value(dev_scsi, "type");
                 if (!scsi_type) {
-                        log_debug("%s: cannot get SCSI type attribute\n",
+                        log_debug("%s: cannot get SCSI type attribute",
                              udev_device_get_sysname(dev_scsi));
                         goto fallback;
                 }
@@ -363,7 +363,7 @@ static int builtin_usb_id(struct udev_device *dev, int argc, char *argv[], bool 
 
                 scsi_rev = udev_device_get_sysattr_value(dev_scsi, "rev");
                 if (!scsi_rev) {
-                        log_debug("%s: cannot get SCSI revision attribute\n",
+                        log_debug("%s: cannot get SCSI revision attribute",
                              udev_device_get_sysname(dev_scsi));
                         goto fallback;
                 }
@@ -389,7 +389,7 @@ fallback:
                 if (!usb_vendor)
                         usb_vendor = vendor_id;
                 if (!usb_vendor) {
-                        log_debug("No USB vendor information available\n");
+                        log_debug("No USB vendor information available");
                         return EXIT_FAILURE;
                 }
                 udev_util_encode_string(usb_vendor, vendor_str_enc, sizeof(vendor_str_enc));

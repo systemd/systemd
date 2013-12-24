@@ -100,20 +100,20 @@ int main(int argc, char *argv[]) {
         if (udev == NULL)
                 return EXIT_FAILURE;
 
-        log_debug("version %s\n", VERSION);
+        log_debug("version %s", VERSION);
         label_init("/dev");
 
         sigprocmask(SIG_SETMASK, NULL, &sigmask_orig);
 
         action = argv[1];
         if (action == NULL) {
-                log_error("action missing\n");
+                log_error("action missing");
                 goto out;
         }
 
         devpath = argv[2];
         if (devpath == NULL) {
-                log_error("devpath missing\n");
+                log_error("devpath missing");
                 goto out;
         }
 
@@ -122,7 +122,7 @@ int main(int argc, char *argv[]) {
         strscpyl(syspath, sizeof(syspath), "/sys", devpath, NULL);
         dev = udev_device_new_from_syspath(udev, syspath);
         if (dev == NULL) {
-                log_debug("unknown device '%s'\n", devpath);
+                log_debug("unknown device '%s'", devpath);
                 goto out;
         }
 

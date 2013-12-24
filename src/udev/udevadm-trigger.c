@@ -55,7 +55,7 @@ static void exec_list(struct udev_enumerate *udev_enumerate, const char *action)
                 if (fd < 0)
                         continue;
                 if (write(fd, action, strlen(action)) < 0)
-                        log_debug("error writing '%s' to '%s': %m\n", action, filename);
+                        log_debug("error writing '%s' to '%s': %m", action, filename);
                 close(fd);
         }
 }
@@ -141,13 +141,13 @@ static int adm_trigger(struct udev *udev, int argc, char *argv[])
                         else if (streq(optarg, "subsystems"))
                                 device_type = TYPE_SUBSYSTEMS;
                         else {
-                                log_error("unknown type --type=%s\n", optarg);
+                                log_error("unknown type --type=%s", optarg);
                                 return 2;
                         }
                         break;
                 case 'c':
                         if (!nulstr_contains("add\0" "remove\0" "change\0", optarg)) {
-                                log_error("unknown action '%s'\n", optarg);
+                                log_error("unknown action '%s'", optarg);
                                 return 2;
                         } else
                                 action = optarg;
@@ -189,7 +189,7 @@ static int adm_trigger(struct udev *udev, int argc, char *argv[])
                         util_remove_trailing_chars(path, '/');
                         dev = udev_device_new_from_syspath(udev, path);
                         if (dev == NULL) {
-                                log_error("unable to open the device '%s'\n", optarg);
+                                log_error("unable to open the device '%s'", optarg);
                                 return 2;
                         }
                         udev_enumerate_add_match_parent(udev_enumerate, dev);

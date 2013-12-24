@@ -60,7 +60,7 @@ int journal_file_append_tag(JournalFile *f) {
         o->tag.seqnum = htole64(journal_file_tag_seqnum(f));
         o->tag.epoch = htole64(FSPRG_GetEpoch(f->fsprg_state));
 
-        log_debug("Writing tag %"PRIu64" for epoch %"PRIu64"\n",
+        log_debug("Writing tag %"PRIu64" for epoch %"PRIu64"",
                   le64toh(o->tag.seqnum),
                   FSPRG_GetEpoch(f->fsprg_state));
 
