@@ -6172,6 +6172,11 @@ int getpeersec(int fd, char **ret) {
                 }
         }
 
+        if (isempty(s)) {
+                free(s);
+                return -ENOTSUP;
+        }
+
         *ret = s;
         return 0;
 }
