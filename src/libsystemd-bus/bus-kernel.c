@@ -793,12 +793,27 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
                 }
 
                 case KDBUS_ITEM_CREDS:
-                        m->creds.pid_starttime = d->creds.starttime / NSEC_PER_USEC;
+                        /* UID/GID/PID are always valid */
                         m->creds.uid = d->creds.uid;
                         m->creds.gid = d->creds.gid;
                         m->creds.pid = d->creds.pid;
-                        m->creds.tid = d->creds.tid;
-                        m->creds.mask |= (SD_BUS_CREDS_UID|SD_BUS_CREDS_GID|SD_BUS_CREDS_PID|SD_BUS_CREDS_PID_STARTTIME|SD_BUS_CREDS_TID) & bus->creds_mask;
+                        m->creds.mask |= (SD_BUS_CREDS_UID|SD_BUS_CREDS_GID|SD_BUS_CREDS_PID) & bus->creds_mask;
+
+                        /* The PID starttime/TID might be missing
+                         * however, when the data is faked by some
+                         * data bus proxy and it lacks that
+                         * information about the real client since
+                         * SO_PEERCRED is used for that */
+
+                        if (d->creds.starttime > 0) {
+                                m->creds.pid_starttime = d->creds.starttime / NSEC_PER_USEC;
+                                m->creds.mask |= SD_BUS_CREDS_PID_STARTTIME & bus->creds_mask;
+                        }
+
+                        if (d->creds.tid > 0) {
+                                m->creds.tid = d->creds.tid;
+                                m->creds.mask |= SD_BUS_CREDS_TID & bus->creds_mask;
+                        }
                         break;
 
                 case KDBUS_ITEM_TIMESTAMP:

@@ -407,17 +407,25 @@ static int bus_get_owner_kdbus(
                 switch (item->type) {
 
                 case KDBUS_ITEM_CREDS:
-                        m = (SD_BUS_CREDS_UID | SD_BUS_CREDS_GID | SD_BUS_CREDS_PID |
-                             SD_BUS_CREDS_TID | SD_BUS_CREDS_PID_STARTTIME) & mask;
+                        m = (SD_BUS_CREDS_UID | SD_BUS_CREDS_GID | SD_BUS_CREDS_PID) & mask;
 
                         if (m) {
                                 c->uid = item->creds.uid;
                                 c->pid = item->creds.pid;
                                 c->gid = item->creds.gid;
-                                c->tid = item->creds.tid;
-                                c->pid_starttime = item->creds.starttime;
                                 c->mask |= m;
                         }
+
+                        if (mask & SD_BUS_CREDS_TID && item->creds.tid > 0) {
+                                c->tid = item->creds.tid;
+                                c->mask |= SD_BUS_CREDS_TID;
+                        }
+
+                        if (mask & SD_BUS_CREDS_PID_STARTTIME && item->creds.starttime > 0) {
+                                c->pid_starttime = item->creds.starttime;
+                                c->mask |= SD_BUS_CREDS_PID_STARTTIME;
+                        }
+
                         break;
 
                 case KDBUS_ITEM_PID_COMM:
