@@ -14,6 +14,7 @@ Conflicts=shutdown.target
 After=systemd-readahead-collect.service systemd-readahead-replay.service local-fs.target
 Before=sysinit.target shutdown.target
 ConditionDirectoryNotEmpty=|/usr/lib/tmpfiles.d
+ConditionDirectoryNotEmpty=|/lib/tmpfiles.d
 ConditionDirectoryNotEmpty=|/usr/local/lib/tmpfiles.d
 ConditionDirectoryNotEmpty=|/etc/tmpfiles.d
 ConditionDirectoryNotEmpty=|/run/tmpfiles.d
