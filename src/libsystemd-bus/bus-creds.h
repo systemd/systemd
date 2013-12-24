@@ -62,6 +62,8 @@ struct sd_bus_creds {
         char *unique_name;
 
         char **well_known_names;
+
+        char *cgroup_root;
 };
 
 sd_bus_creds* bus_creds_new(void);

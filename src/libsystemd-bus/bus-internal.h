@@ -264,6 +264,8 @@ struct sd_bus {
 
         struct kdbus_creds fake_creds;
         char *fake_label;
+
+        char *cgroup_root;
 };
 
 #define BUS_DEFAULT_TIMEOUT ((usec_t) (25 * USEC_PER_SEC))

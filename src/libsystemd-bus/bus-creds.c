@@ -91,6 +91,7 @@ _public_ sd_bus_creds *sd_bus_creds_unref(sd_bus_creds *c) {
                         free(c->capability);
                         free(c->label);
                         free(c->unique_name);
+                        free(c->cgroup_root);
                         free(c);
                 }
         } else {
@@ -283,7 +284,13 @@ _public_ int sd_bus_creds_get_unit(sd_bus_creds *c, const char **ret) {
         assert(c->cgroup);
 
         if (!c->unit) {
-                r = cg_path_get_unit(c->cgroup, (char**) &c->unit);
+                const char *shifted;
+
+                r = cg_shift_path(c->cgroup, c->cgroup_root, &shifted);
+                if (r < 0)
+                        return r;
+
+                r = cg_path_get_unit(shifted, (char**) &c->unit);
                 if (r < 0)
                         return r;
         }
@@ -304,7 +311,13 @@ _public_ int sd_bus_creds_get_user_unit(sd_bus_creds *c, const char **ret) {
         assert(c->cgroup);
 
         if (!c->user_unit) {
-                r = cg_path_get_user_unit(c->cgroup, (char**) &c->user_unit);
+                const char *shifted;
+
+                r = cg_shift_path(c->cgroup, c->cgroup_root, &shifted);
+                if (r < 0)
+                        return r;
+
+                r = cg_path_get_user_unit(shifted, (char**) &c->user_unit);
                 if (r < 0)
                         return r;
         }
@@ -325,7 +338,13 @@ _public_ int sd_bus_creds_get_slice(sd_bus_creds *c, const char **ret) {
         assert(c->cgroup);
 
         if (!c->slice) {
-                r = cg_path_get_slice(c->cgroup, (char**) &c->slice);
+                const char *shifted;
+
+                r = cg_shift_path(c->cgroup, c->cgroup_root, &shifted);
+                if (r < 0)
+                        return r;
+
+                r = cg_path_get_slice(shifted, (char**) &c->slice);
                 if (r < 0)
                         return r;
         }
@@ -346,7 +365,13 @@ _public_ int sd_bus_creds_get_session(sd_bus_creds *c, const char **ret) {
         assert(c->cgroup);
 
         if (!c->session) {
-                r = cg_path_get_session(c->cgroup, (char**) &c->session);
+                const char *shifted;
+
+                r = cg_shift_path(c->cgroup, c->cgroup_root, &shifted);
+                if (r < 0)
+                        return r;
+
+                r = cg_path_get_session(shifted, (char**) &c->session);
                 if (r < 0)
                         return r;
         }
@@ -356,6 +381,9 @@ _public_ int sd_bus_creds_get_session(sd_bus_creds *c, const char **ret) {
 }
 
 _public_ int sd_bus_creds_get_owner_uid(sd_bus_creds *c, uid_t *uid) {
+        const char *shifted;
+        int r;
+
         assert_return(c, -EINVAL);
         assert_return(uid, -EINVAL);
 
@@ -364,7 +392,11 @@ _public_ int sd_bus_creds_get_owner_uid(sd_bus_creds *c, uid_t *uid) {
 
         assert(c->cgroup);
 
-        return cg_path_get_owner_uid(c->cgroup, uid);
+        r = cg_shift_path(c->cgroup, c->cgroup_root, &shifted);
+        if (r < 0)
+                return r;
+
+        return cg_path_get_owner_uid(shifted, uid);
 }
 
 _public_ int sd_bus_creds_get_cmdline(sd_bus_creds *c, char ***cmdline) {
@@ -711,6 +743,10 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
                 if (r < 0)
                         return r;
 
+                r = cg_get_root_path(&c->cgroup_root);
+                if (r < 0)
+                        return r;
+
                 c->mask |= missing & (SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID);
         }
 
@@ -814,6 +850,10 @@ int bus_creds_extend_by_pid(sd_bus_creds *c, uint64_t mask, sd_bus_creds **ret) 
         if (c->mask & mask & (SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_OWNER_UID)) {
                 n->cgroup = strdup(c->cgroup);
                 if (!n->cgroup)
+                        return -ENOMEM;
+
+                n->cgroup_root = strdup(c->cgroup_root);
+                if (!n->cgroup_root)
                         return -ENOMEM;
 
                 n->mask |= mask & (SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_OWNER_UID);

@@ -33,6 +33,7 @@
 #include "bus-control.h"
 #include "bus-bloom.h"
 #include "bus-util.h"
+#include "cgroup-util.h"
 
 _public_ int sd_bus_get_unique_name(sd_bus *bus, const char **unique) {
         int r;
@@ -485,6 +486,18 @@ static int bus_get_owner_kdbus(
                         if (m) {
                                 c->cgroup = strdup(item->str);
                                 if (!c->cgroup) {
+                                        r = -ENOMEM;
+                                        goto fail;
+                                }
+
+                                if (!bus->cgroup_root) {
+                                        r = cg_get_root_path(&bus->cgroup_root);
+                                        if (r < 0)
+                                                goto fail;
+                                }
+
+                                c->cgroup_root = strdup(bus->cgroup_root);
+                                if (!c->cgroup_root) {
                                         r = -ENOMEM;
                                         goto fail;
                                 }

@@ -35,6 +35,7 @@
 #include "bus-kernel.h"
 #include "bus-bloom.h"
 #include "bus-util.h"
+#include "cgroup-util.h"
 
 #define UNIQUE_NAME_MAX (3+DECIMAL_STR_MAX(uint64_t))
 
@@ -845,6 +846,15 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
                 case KDBUS_ITEM_CGROUP:
                         m->creds.cgroup = d->str;
                         m->creds.mask |= (SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID) & bus->creds_mask;
+
+                        if (!bus->cgroup_root) {
+                                r = cg_get_root_path(&bus->cgroup_root);
+                                if (r < 0)
+                                        goto fail;
+                        }
+
+                        m->creds.cgroup_root = bus->cgroup_root;
+
                         break;
 
                 case KDBUS_ITEM_AUDIT:

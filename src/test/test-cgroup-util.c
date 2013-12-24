@@ -246,6 +246,21 @@ static void test_slice_to_path(void) {
         test_slice_to_path_one("a-b-c-d-e.slice", "a.slice/a-b.slice/a-b-c.slice/a-b-c-d.slice/a-b-c-d-e.slice", 0);
 }
 
+static void test_shift_path_one(const char *raw, const char *root, const char *shifted) {
+        const char *s = NULL;
+
+        assert_se(cg_shift_path(raw, root, &s) >= 0);
+        assert_se(streq(s, shifted));
+}
+
+static void test_shift_path(void) {
+
+        test_shift_path_one("/foobar/waldo", "/", "/foobar/waldo");
+        test_shift_path_one("/foobar/waldo", "", "/foobar/waldo");
+        test_shift_path_one("/foobar/waldo", "/foobar", "/waldo");
+        test_shift_path_one("/foobar/waldo", "/fuckfuck", "/foobar/waldo");
+}
+
 int main(void) {
         test_path_decode_unit();
         test_path_get_unit();
@@ -258,6 +273,7 @@ int main(void) {
         TEST_REQ_RUNNING_SYSTEMD(test_escape());
         test_controller_is_valid();
         test_slice_to_path();
+        test_shift_path();
 
         return 0;
 }

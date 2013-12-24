@@ -1082,42 +1082,62 @@ int cg_get_root_path(char **path) {
         return 0;
 }
 
-int cg_pid_get_path_shifted(pid_t pid, const char *root, char **cgroup) {
-        _cleanup_free_ char *cg_root = NULL;
-        char *cg_process, *p;
+int cg_shift_path(const char *cgroup, const char *root, const char **shifted) {
+        _cleanup_free_ char *rt = NULL;
+        char *p;
         int r;
 
-        assert(pid >= 0);
         assert(cgroup);
+        assert(shifted);
 
         if (!root) {
                 /* If the root was specified let's use that, otherwise
                  * let's determine it from PID 1 */
 
-                r = cg_get_root_path(&cg_root);
+                r = cg_get_root_path(&rt);
                 if (r < 0)
                         return r;
 
-                root = cg_root;
+                root = rt;
         }
 
-        r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &cg_process);
+        p = path_startswith(cgroup, root);
+        if (p)
+                *shifted = p - 1;
+        else
+                *shifted = cgroup;
+
+        return 0;
+}
+
+int cg_pid_get_path_shifted(pid_t pid, const char *root, char **cgroup) {
+        _cleanup_free_ char *raw = NULL;
+        const char *c;
+        int r;
+
+        assert(pid >= 0);
+        assert(cgroup);
+
+        r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &raw);
         if (r < 0)
                 return r;
 
-        p = path_startswith(cg_process, root);
-        if (p) {
-                char *c;
+        r = cg_shift_path(raw, root, &c);
+        if (r < 0)
+                return r;
 
-                c = strdup(p - 1);
-                free(cg_process);
+        if (c == raw) {
+                *cgroup = raw;
+                raw = NULL;
+        } else {
+                char *n;
 
-                if (!c)
+                n = strdup(c);
+                if (!n)
                         return -ENOMEM;
 
-                *cgroup = c;
-        } else
-                *cgroup = cg_process;
+                *cgroup = n;
+        }
 
         return 0;
 }
