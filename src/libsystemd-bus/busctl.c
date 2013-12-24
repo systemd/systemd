@@ -35,8 +35,10 @@
 
 static bool arg_no_pager = false;
 static char *arg_address = NULL;
-static bool arg_no_unique = false;
-static bool arg_no_machine = false;
+static bool arg_unique = false;
+static bool arg_acquired = false;
+static bool arg_activatable = false;
+static bool arg_show_machine = false;
 static char **arg_matches = NULL;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static char *arg_host = NULL;
@@ -65,7 +67,7 @@ static int list_bus_names(sd_bus *bus, char **argv) {
 
         assert(bus);
 
-        r = sd_bus_list_names(bus, &acquired, &activatable);
+        r = sd_bus_list_names(bus, (arg_acquired || arg_unique) ? &acquired : NULL, arg_activatable ? &activatable : NULL);
         if (r < 0) {
                 log_error("Failed to list names: %s", strerror(-r));
                 return r;
@@ -104,10 +106,10 @@ static int list_bus_names(sd_bus *bus, char **argv) {
         merged[n] = NULL;
         strv_sort(merged);
 
-        printf("%-*s %*s %-*s %-*s %-*s",
-               (int) max_i, "NAME", 10, "PID", 15, "PROCESS", 16, "USER", 20, "CONNECTION");
+        printf("%-*s %*s %-*s %-*s %-*s %-*s %-*s",
+               (int) max_i, "NAME", 10, "PID", 15, "PROCESS", 16, "USER", 13, "CONNECTION", 25, "UNIT", 10, "SESSION");
 
-        if (!arg_no_machine)
+        if (arg_show_machine)
                 puts(" MACHINE");
         else
                 putchar('\n');
@@ -120,23 +122,26 @@ static int list_bus_names(sd_bus *bus, char **argv) {
                         /* Activatable */
 
                         printf("%-*s", (int) max_i, *i);
-                        printf("          - -               -                (activation)        ");
-                        if (arg_no_machine)
-                                putchar('\n');
-                        else
+                        printf("          - -               -                (activatable) -                         -         ");
+                        if (arg_show_machine)
                                 puts(" -");
+                        else
+                                putchar('\n');
                         continue;
 
                 }
 
-                if (arg_no_unique && (*i)[0] == ':')
+                if (!arg_unique && (*i)[0] == ':')
+                        continue;
+
+                if (!arg_acquired && (*i)[0] != ':')
                         continue;
 
                 printf("%-*s", (int) max_i, *i);
 
-                r = sd_bus_get_owner(bus, *i, SD_BUS_CREDS_UID|SD_BUS_CREDS_PID|SD_BUS_CREDS_COMM|SD_BUS_CREDS_UNIQUE_NAME, &creds);
+                r = sd_bus_get_owner(bus, *i, SD_BUS_CREDS_UID|SD_BUS_CREDS_PID|SD_BUS_CREDS_COMM|SD_BUS_CREDS_UNIQUE_NAME|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_SESSION, &creds);
                 if (r >= 0) {
-                        const char *unique;
+                        const char *unique, *session, *unit;
                         pid_t pid;
                         uid_t uid;
 
@@ -167,23 +172,40 @@ static int list_bus_names(sd_bus *bus, char **argv) {
 
                         r = sd_bus_creds_get_unique_name(creds, &unique);
                         if (r >= 0)
-                                printf(" %-20s", unique);
+                                printf(" %-13s", unique);
                         else
-                                fputs(" -                   ", stdout);
+                                fputs(" -            ", stdout);
+
+                        r = sd_bus_creds_get_unit(creds, &unit);
+                        if (r >= 0) {
+                                _cleanup_free_ char *e;
+
+                                e = ellipsize(unit, 25, 100);
+                                if (!e)
+                                        return log_oom();
+
+                                printf(" %-25s", e);
+                        } else
+                                fputs(" -                        ", stdout);
+
+                        r = sd_bus_creds_get_session(creds, &session);
+                        if (r >= 0)
+                                printf(" %-10s", session);
+                        else
+                                fputs(" -         ", stdout);
 
                 } else
-                        printf("          - -               -                -                   ");
+                        printf("          - -               -                -             -                         -         ");
 
-                if (arg_no_machine)
-                        putchar('\n');
-                else {
+                if (arg_show_machine) {
                         r = sd_bus_get_owner_machine_id(bus, *i, &mid);
                         if (r >= 0) {
                                 char m[SD_ID128_STRING_MAX];
                                 printf(" %s\n", sd_id128_to_string(mid, m));
                         } else
                                 puts(" -");
-                }
+                } else
+                        putchar('\n');
         }
 
         return 0;
@@ -297,13 +319,15 @@ static int help(void) {
                "  -H --host=[USER@]HOST   Operate on remote host\n"
                "  -M --machine=CONTAINER  Operate on local container\n"
                "     --address=ADDRESS    Connect to bus specified by address\n"
-               "     --no-unique          Only show well-known names\n"
-               "     --no-machine         Don't show machine ID column in list\n"
+               "     --show-machine       Show machine ID column in list\n"
+               "     --unique             Only show unique names\n"
+               "     --acquired           Only show acquired names\n"
+               "     --activatable        Only show activatable names\n"
                "     --match=MATCH        Only show matching messages\n\n"
                "Commands:\n"
                "  list                    List bus names\n"
                "  monitor [SERVICE...]    Show bus traffic\n"
-               "  status ENDPOINT         Show endpoint status\n"
+               "  status NAME             Show name status\n"
                "  help                    Show this help\n",
                program_invocation_short_name);
 
@@ -319,22 +343,26 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_USER,
                 ARG_ADDRESS,
                 ARG_MATCH,
-                ARG_NO_UNIQUE,
-                ARG_NO_MACHINE,
+                ARG_SHOW_MACHINE,
+                ARG_UNIQUE,
+                ARG_ACQUIRED,
+                ARG_ACTIVATABLE
         };
 
         static const struct option options[] = {
-                { "help",       no_argument,       NULL, 'h'            },
-                { "version",    no_argument,       NULL, ARG_VERSION    },
-                { "no-pager",   no_argument,       NULL, ARG_NO_PAGER   },
-                { "system",     no_argument,       NULL, ARG_SYSTEM     },
-                { "user",       no_argument,       NULL, ARG_USER       },
-                { "address",    required_argument, NULL, ARG_ADDRESS    },
-                { "no-unique",  no_argument,       NULL, ARG_NO_UNIQUE  },
-                { "no-machine", no_argument,       NULL, ARG_NO_MACHINE },
-                { "match",      required_argument, NULL, ARG_MATCH      },
-                { "host",       required_argument, NULL, 'H'            },
-                { "machine",    required_argument, NULL, 'M'            },
+                { "help",         no_argument,       NULL, 'h'              },
+                { "version",      no_argument,       NULL, ARG_VERSION      },
+                { "no-pager",     no_argument,       NULL, ARG_NO_PAGER     },
+                { "system",       no_argument,       NULL, ARG_SYSTEM       },
+                { "user",         no_argument,       NULL, ARG_USER         },
+                { "address",      required_argument, NULL, ARG_ADDRESS      },
+                { "show-machine", no_argument,       NULL, ARG_SHOW_MACHINE },
+                { "unique",       no_argument,       NULL, ARG_UNIQUE       },
+                { "acquired",     no_argument,       NULL, ARG_ACQUIRED     },
+                { "activatable",  no_argument,       NULL, ARG_ACTIVATABLE  },
+                { "match",        required_argument, NULL, ARG_MATCH        },
+                { "host",         required_argument, NULL, 'H'              },
+                { "machine",      required_argument, NULL, 'M'              },
                 {},
         };
 
@@ -371,12 +399,20 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_address = optarg;
                         break;
 
-                case ARG_NO_UNIQUE:
-                        arg_no_unique = true;
+                case ARG_SHOW_MACHINE:
+                        arg_show_machine = true;
                         break;
 
-                case ARG_NO_MACHINE:
-                        arg_no_machine = true;
+                case ARG_UNIQUE:
+                        arg_unique = true;
+                        break;
+
+                case ARG_ACQUIRED:
+                        arg_acquired = true;
+                        break;
+
+                case ARG_ACTIVATABLE:
+                        arg_activatable = true;
                         break;
 
                 case ARG_MATCH:
@@ -401,6 +437,9 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
         }
+
+        if (!arg_unique && !arg_acquired && !arg_activatable)
+                arg_unique = arg_acquired = arg_activatable = true;
 
         return 1;
 }
