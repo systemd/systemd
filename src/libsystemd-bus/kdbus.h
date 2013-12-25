@@ -314,8 +314,9 @@ struct kdbus_item {
 /**
  * enum kdbus_msg_flags - type of message
  * @KDBUS_MSG_FLAGS_EXPECT_REPLY:	Expect a reply message, used for method
- * 					calls. The cookie identifies the
- * 					message and the respective reply
+ * 					calls. The userspace-supplied cookie identifies
+ * 					the message and the respective reply
+ * 					carries the cookie in cookie_reply
  * @KDBUS_MSG_FLAGS_NO_AUTO_START:	Do not start a service, if the addressed
  * 					name is not currently active
  */
@@ -341,9 +342,11 @@ enum kdbus_payload_type {
  * @dst_id:		64-bit ID of the destination connection
  * @src_id:		64-bit ID of the source connection
  * @payload_type:	Payload type (KDBUS_PAYLOAD_*)
- * @cookie:		Userspace-supplied cookie
- * @cookie_reply:	For kernel-generated messages, this is the cookie
- * 			the message is a reply to
+ * @cookie:		Userspace-supplied cookie to uniquely identify a
+ * 			message, unsually all messages carry this
+ * @cookie_reply:	A reply to the message with the same cookie. The
+ * 			reply itself has its own unique cookie, @cookie_reply
+ * 			connects the reply to the request message.
  * @timeout_ns:		For non-kernel-generated messages, this denotes the
  * 			message timeout in nanoseconds. A message has to be
  * 			received with KDBUS_CMD_MSG_RECV by the destination
@@ -365,10 +368,8 @@ struct kdbus_msg {
 	__u64 src_id;
 	__u64 payload_type;
 	__u64 cookie;
-	union {
-		__u64 cookie_reply;
-		__u64 timeout_ns;
-	};
+	__u64 cookie_reply;
+	__u64 timeout_ns;
 	struct kdbus_item items[0];
 } __attribute__((aligned(8)));
 
@@ -528,8 +529,9 @@ enum kdbus_name_flags {
  * struct kdbus_cmd_name - struct to describe a well-known name
  * @size:		The total size of the struct
  * @flags:		Flags for a name entry (KDBUS_NAME_*)
- * @owner_id:		Privileged users may use this field to (de)register
- * 			names on behalf of other peers.
+ * @owner_id:		The current owner of the name. For requests,
+ * 			privileged users may set this field to
+ * 			(de)register names on behalf of other connections.
  * @conn_flags:		The flags of the owning connection (KDBUS_HELLO_*)
  * @name:		The well-known name
  *
@@ -630,9 +632,9 @@ struct kdbus_conn_info {
  * struct kdbus_cmd_match - struct to add or remove matches
  * @size:		The total size of the struct
  * @owner_id:		Privileged users may (de)register matches on behalf
- * 			of other peers. In other cases, set to 0.
+ * 			of other peers
  * @cookie:		Userspace supplied cookie. When removing, the cookie
- * 			identifies the match to remove.
+ * 			identifies the match to remove
  * @items:		A list of items for additional information
  *
  * This structure is used with the KDBUS_CMD_ADD_MATCH and
