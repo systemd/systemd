@@ -5013,4 +5013,4 @@ tests += \
 	test-libudev-sym
 
 cppcheck:
-	cppcheck --enable=all $(top_srcdir)
+	cppcheck --enable=all -q $(top_srcdir)

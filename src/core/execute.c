@@ -1974,7 +1974,7 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 fprintf(f, "%sCPUAffinity:", prefix);
                 for (i = 0; i < c->cpuset_ncpus; i++)
                         if (CPU_ISSET_S(i, CPU_ALLOC_SIZE(c->cpuset_ncpus), c->cpuset))
-                                fprintf(f, " %i", i);
+                                fprintf(f, " %u", i);
                 fputs("\n", f);
         }
 

@@ -484,6 +484,8 @@ int bus_cgroup_set_property(
 
                         n++;
                 }
+                if (r < 0)
+                        return r;
 
                 if (mode != UNIT_CHECK) {
                         _cleanup_free_ char *buf = NULL;

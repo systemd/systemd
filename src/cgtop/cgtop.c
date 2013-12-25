@@ -563,7 +563,7 @@ static int help(void) {
                "  -d --delay=DELAY    Delay between updates\n"
                "  -n --iterations=N   Run for N iterations before exiting\n"
                "  -b --batch          Run in batch mode, accepting no input\n"
-               "     --depth=DEPTH    Maximum traversal depth (default: %d)\n",
+               "     --depth=DEPTH    Maximum traversal depth (default: %u)\n",
                program_invocation_short_name, arg_depth);
 
         return 0;
