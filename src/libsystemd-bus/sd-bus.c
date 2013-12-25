@@ -1362,14 +1362,33 @@ int bus_seal_synthetic_message(sd_bus *b, sd_bus_message *m) {
         return bus_message_seal(m, 0xFFFFFFFFULL, 0);
 }
 
-static int bus_write_message(sd_bus *bus, sd_bus_message *message, size_t *idx) {
+static int bus_write_message(sd_bus *bus, sd_bus_message *m, size_t *idx) {
+        int r;
+
         assert(bus);
-        assert(message);
+        assert(m);
 
         if (bus->is_kernel)
-                return bus_kernel_write_message(bus, message);
+                r = bus_kernel_write_message(bus, m);
         else
-                return bus_socket_write_message(bus, message, idx);
+                r = bus_socket_write_message(bus, m, idx);
+
+        if (r <= 0)
+                return r;
+
+        if (bus->is_kernel || bus->windex >= BUS_MESSAGE_SIZE(m))
+                log_debug("Sent message type=%s sender=%s destination=%s object=%s interface=%s member=%s serial=%lu reply_serial=%lu error=%s",
+                          bus_message_type_to_string(m->header->type),
+                          strna(sd_bus_message_get_sender(m)),
+                          strna(sd_bus_message_get_destination(m)),
+                          strna(sd_bus_message_get_path(m)),
+                          strna(sd_bus_message_get_interface(m)),
+                          strna(sd_bus_message_get_member(m)),
+                          (unsigned long) m->header->serial,
+                          (unsigned long) m->reply_serial,
+                          strna(m->error.message));
+
+        return r;
 }
 
 static int dispatch_wqueue(sd_bus *bus) {
