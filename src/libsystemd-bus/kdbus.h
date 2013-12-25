@@ -345,21 +345,13 @@ enum kdbus_payload_type {
  * @payload_type:	Payload type (KDBUS_PAYLOAD_*)
  * @cookie:		Userspace-supplied cookie, for the connection
  * 			to identify its messages
- * @cookie_reply:	A reply to the message with the same cookie. The
- * 			reply itself has its own cookie, @cookie_reply
- * 			corresponds to the cookie of the request message
- * @timeout_ns:		For non-kernel-generated messages, this denotes the
- * 			message timeout in nanoseconds. A message has to be
- * 			received with KDBUS_CMD_MSG_RECV by the destination
- * 			connection within this time frame. For messages that
- * 			have KDBUS_MSG_FLAGS_EXPECT_REPLY set in @flags,
- * 			this value also denotes the timeout for the reply to
- * 			this message. If there is no reply, or the message is
- * 			not received in time by the other side, a
- * 			kernel-generated message with an attached
- * 			KDBUS_ITEM_REPLY_TIMEOUT item is sent to @src_id.
- * 			A 0-value is only valid if KDBUS_MSG_FLAGS_EXPECT_REPLY
- * 			is unset in @flags.
+ * @cookie_reply:	A reply to the requesting message with the same
+ * 			cookie. The requesting connection can match its
+ * 			request and the reply with this value
+ * @timeout_ns:		The time to wait for a message reply from the peer.
+ * 			If there is no reply, a kernel-generated message
+ * 			with an attached KDBUS_ITEM_REPLY_TIMEOUT item
+ * 			is sent to @src_id.
  * @items:		A list of kdbus_items containing the message payload
  */
 struct kdbus_msg {
@@ -369,8 +361,10 @@ struct kdbus_msg {
 	__u64 src_id;
 	__u64 payload_type;
 	__u64 cookie;
-	__u64 cookie_reply;
-	__u64 timeout_ns;
+	union {
+		__u64 cookie_reply;
+		__u64 timeout_ns;
+	};
 	struct kdbus_item items[0];
 } __attribute__((aligned(8)));
 
