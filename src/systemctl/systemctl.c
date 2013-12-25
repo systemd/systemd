@@ -2146,9 +2146,10 @@ static enum action verb_to_action(const char *verb) {
 static int start_unit(sd_bus *bus, char **args) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_set_free_free_ Set *s = NULL;
-        const char *method, *mode, *one_name;
+        const char *method, *mode;
         char **name;
-        int r;
+        int r = 0;
+        char **names, *strv[] = {NULL, NULL}; /* at most one name */
 
         assert(bus);
 
@@ -2176,7 +2177,7 @@ static int start_unit(sd_bus *bus, char **args) {
                 mode = streq(args[0], "isolate") ? "isolate" :
                        action_table[action].mode ?: arg_job_mode;
 
-                one_name = action_table[action].target;
+                strv[0] = (char*) action_table[action].target;
         } else {
                 assert(arg_action < ELEMENTSOF(action_table));
                 assert(action_table[arg_action].target);
@@ -2184,8 +2185,13 @@ static int start_unit(sd_bus *bus, char **args) {
                 method = "StartUnit";
 
                 mode = action_table[arg_action].mode;
-                one_name = action_table[arg_action].target;
+                strv[0] = (char*) action_table[arg_action].target;
         }
+
+        if (strv[0])
+                names = strv;
+        else
+                names = args + 1;
 
         if (!arg_no_block) {
                 r = enable_wait_for_jobs(bus);
@@ -2199,21 +2205,13 @@ static int start_unit(sd_bus *bus, char **args) {
                         return log_oom();
         }
 
-        if (one_name) {
-                r = start_unit_one(bus, method, one_name, mode, &error, s);
-                if (r < 0)
-                        r = translate_bus_error_to_exit_status(r, &error);
-        } else {
-                r = 0;
+        STRV_FOREACH(name, names) {
+                int q;
 
-                STRV_FOREACH(name, args+1) {
-                        int q;
-
-                        q = start_unit_one(bus, method, *name, mode, &error, s);
-                        if (q < 0) {
-                                r = translate_bus_error_to_exit_status(q, &error);
-                                sd_bus_error_free(&error);
-                        }
+                q = start_unit_one(bus, method, *name, mode, &error, s);
+                if (r == 0 && q < 0) {
+                        r = translate_bus_error_to_exit_status(q, &error);
+                        sd_bus_error_free(&error);
                 }
         }
 
@@ -2226,13 +2224,9 @@ static int start_unit(sd_bus *bus, char **args) {
 
                 /* When stopping units, warn if they can still be triggered by
                  * another active unit (socket, path, timer) */
-                if (!arg_quiet && streq(method, "StopUnit")) {
-                        if (one_name)
-                                check_triggering_units(bus, one_name);
-                        else
-                                STRV_FOREACH(name, args+1)
-                                        check_triggering_units(bus, *name);
-                }
+                if (!arg_quiet && streq(method, "StopUnit"))
+                        STRV_FOREACH(name, names)
+                                check_triggering_units(bus, *name);
         }
 
         return r;

@@ -73,7 +73,8 @@ static void start_target(const char *target) {
 }
 
 static int parse_proc_cmdline(void) {
-        char *line, *w, *state;
+        _cleanup_free_ char *line = NULL;
+        char *w, *state;
         size_t l;
         int r;
 
@@ -104,7 +105,6 @@ static int parse_proc_cmdline(void) {
 #endif
         }
 
-        free(line);
         return 0;
 }
 
