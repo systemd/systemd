@@ -978,7 +978,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
                   <row>
                     <entry><literal>static</literal></entry>
                     <entry>Unit is not enabled, but has no provisions for enabling in [Install] section</entry>
-                    <entry>1</entry>
+                    <entry>0</entry>
                   </row>
                   <row>
                     <entry><literal>disabled</literal></entry>
