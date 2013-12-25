@@ -313,10 +313,11 @@ struct kdbus_item {
 
 /**
  * enum kdbus_msg_flags - type of message
- * @KDBUS_MSG_FLAGS_EXPECT_REPLY:	Expect a reply message, used for method
- * 					calls. The userspace-supplied cookie identifies
- * 					the message and the respective reply
- * 					carries the cookie in cookie_reply
+ * @KDBUS_MSG_FLAGS_EXPECT_REPLY:	Expect a reply message, used for
+ * 					method calls. The userspace-supplied
+ * 					cookie identifies the message and the
+ * 					respective reply carries the cookie
+ * 					in cookie_reply
  * @KDBUS_MSG_FLAGS_NO_AUTO_START:	Do not start a service, if the addressed
  * 					name is not currently active
  */
@@ -328,7 +329,7 @@ enum kdbus_msg_flags {
 /**
  * enum kdbus_payload_type - type of payload carried by message
  * @KDBUS_PAYLOAD_KERNEL:	Kernel-generated simple message
- * @KDBUS_PAYLOAD_DBUS:	        D-Bus marshalling
+ * @KDBUS_PAYLOAD_DBUS:		D-Bus marshalling
  */
 enum kdbus_payload_type {
 	KDBUS_PAYLOAD_KERNEL,
@@ -342,11 +343,11 @@ enum kdbus_payload_type {
  * @dst_id:		64-bit ID of the destination connection
  * @src_id:		64-bit ID of the source connection
  * @payload_type:	Payload type (KDBUS_PAYLOAD_*)
- * @cookie:		Userspace-supplied cookie to uniquely identify a
- * 			message, unsually all messages carry this
+ * @cookie:		Userspace-supplied cookie, for the connection
+ * 			to identify its messages
  * @cookie_reply:	A reply to the message with the same cookie. The
- * 			reply itself has its own unique cookie, @cookie_reply
- * 			connects the reply to the request message.
+ * 			reply itself has its own cookie, @cookie_reply
+ * 			corresponds to the cookie of the request message
  * @timeout_ns:		For non-kernel-generated messages, this denotes the
  * 			message timeout in nanoseconds. A message has to be
  * 			received with KDBUS_CMD_MSG_RECV by the destination
