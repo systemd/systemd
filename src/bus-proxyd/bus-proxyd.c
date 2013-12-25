@@ -182,6 +182,9 @@ static int rename_service(sd_bus *b) {
                         memset(arg_command_line_buffer + w, 0, m - w);
         }
 
+        log_debug("Running on behalf of PID %lu (%s), UID %lu (%s).",
+                   (unsigned long) pid, p,
+                   (unsigned long) uid, name);
         return 0;
 }
 

@@ -2103,11 +2103,16 @@ static int process_message(sd_bus *bus, sd_bus_message *m) {
         bus->current = m;
         bus->iteration_counter++;
 
-        log_debug("Got message sender=%s object=%s interface=%s member=%s",
+        log_debug("Got message type=%s sender=%s destination=%s object=%s interface=%s member=%s serial=%lu reply_serial=%lu error=%s",
+                  bus_message_type_to_string(m->header->type),
                   strna(sd_bus_message_get_sender(m)),
+                  strna(sd_bus_message_get_destination(m)),
                   strna(sd_bus_message_get_path(m)),
                   strna(sd_bus_message_get_interface(m)),
-                  strna(sd_bus_message_get_member(m)));
+                  strna(sd_bus_message_get_member(m)),
+                  (unsigned long) m->header->serial,
+                  (unsigned long) m->reply_serial,
+                  strna(m->error.message));
 
         r = process_hello(bus, m);
         if (r != 0)
