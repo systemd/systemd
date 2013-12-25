@@ -383,7 +383,7 @@ static int bus_send_hello(sd_bus *bus) {
         if (r < 0)
                 return r;
 
-        return sd_bus_call_async(bus, m, hello_callback, NULL, 0, &bus->hello_serial);
+        return sd_bus_call_async(bus, m, hello_callback, NULL, 0, &bus->hello_cookie);
 }
 
 int bus_start_running(sd_bus *bus) {
@@ -1323,16 +1323,16 @@ static int bus_seal_message(sd_bus *b, sd_bus_message *m, usec_t timeout) {
 
         if (m->sealed) {
                 /* If we copy the same message to multiple
-                 * destinations, avoid using the same serial
+                 * destinations, avoid using the same cookie
                  * numbers. */
-                b->serial = MAX(b->serial, BUS_MESSAGE_SERIAL(m));
+                b->cookie = MAX(b->cookie, BUS_MESSAGE_COOKIE(m));
                 return 0;
         }
 
         if (timeout == 0)
                 timeout = BUS_DEFAULT_TIMEOUT;
 
-        return bus_message_seal(m, ++b->serial, timeout);
+        return bus_message_seal(m, ++b->cookie, timeout);
 }
 
 static int bus_remarshal_message(sd_bus *b, sd_bus_message **m) {
@@ -1377,15 +1377,15 @@ static int bus_write_message(sd_bus *bus, sd_bus_message *m, size_t *idx) {
                 return r;
 
         if (bus->is_kernel || bus->windex >= BUS_MESSAGE_SIZE(m))
-                log_debug("Sent message type=%s sender=%s destination=%s object=%s interface=%s member=%s serial=%lu reply_serial=%lu error=%s",
+                log_debug("Sent message type=%s sender=%s destination=%s object=%s interface=%s member=%s cookie=%lu reply_cookie=%lu error=%s",
                           bus_message_type_to_string(m->header->type),
                           strna(sd_bus_message_get_sender(m)),
                           strna(sd_bus_message_get_destination(m)),
                           strna(sd_bus_message_get_path(m)),
                           strna(sd_bus_message_get_interface(m)),
                           strna(sd_bus_message_get_member(m)),
-                          (unsigned long) m->header->serial,
-                          (unsigned long) m->reply_serial,
+                          (unsigned long) BUS_MESSAGE_COOKIE(m),
+                          (unsigned long) m->reply_cookie,
                           strna(m->error.message));
 
         return r;
@@ -1477,7 +1477,7 @@ static int dispatch_rqueue(sd_bus *bus, sd_bus_message **m) {
         }
 }
 
-_public_ int sd_bus_send(sd_bus *bus, sd_bus_message *_m, uint64_t *serial) {
+_public_ int sd_bus_send(sd_bus *bus, sd_bus_message *_m, uint64_t *cookie) {
         _cleanup_bus_message_unref_ sd_bus_message *m = sd_bus_message_ref(_m);
         int r;
 
@@ -1494,9 +1494,9 @@ _public_ int sd_bus_send(sd_bus *bus, sd_bus_message *_m, uint64_t *serial) {
                         return -ENOTSUP;
         }
 
-        /* If the serial number isn't kept, then we know that no reply
+        /* If the cookie number isn't kept, then we know that no reply
          * is expected */
-        if (!serial && !m->sealed)
+        if (!cookie && !m->sealed)
                 m->header->flags |= BUS_MESSAGE_NO_REPLY_EXPECTED;
 
         r = bus_seal_message(bus, m, 0);
@@ -1511,7 +1511,7 @@ _public_ int sd_bus_send(sd_bus *bus, sd_bus_message *_m, uint64_t *serial) {
 
         /* If this is a reply and no reply was requested, then let's
          * suppress this, if we can */
-        if (m->dont_send && !serial)
+        if (m->dont_send && !cookie)
                 return 1;
 
         if ((bus->state == BUS_RUNNING || bus->state == BUS_HELLO) && bus->wqueue_size <= 0) {
@@ -1545,13 +1545,13 @@ _public_ int sd_bus_send(sd_bus *bus, sd_bus_message *_m, uint64_t *serial) {
                 bus->wqueue[bus->wqueue_size ++] = sd_bus_message_ref(m);
         }
 
-        if (serial)
-                *serial = BUS_MESSAGE_SERIAL(m);
+        if (cookie)
+                *cookie = BUS_MESSAGE_COOKIE(m);
 
         return 1;
 }
 
-_public_ int sd_bus_send_to(sd_bus *bus, sd_bus_message *m, const char *destination, uint64_t *serial) {
+_public_ int sd_bus_send_to(sd_bus *bus, sd_bus_message *m, const char *destination, uint64_t *cookie) {
         int r;
 
         assert_return(bus, -EINVAL);
@@ -1569,7 +1569,7 @@ _public_ int sd_bus_send_to(sd_bus *bus, sd_bus_message *m, const char *destinat
                         return r;
         }
 
-        return sd_bus_send(bus, m, serial);
+        return sd_bus_send(bus, m, cookie);
 }
 
 static usec_t calc_elapse(uint64_t usec) {
@@ -1603,7 +1603,7 @@ _public_ int sd_bus_call_async(
                 sd_bus_message_handler_t callback,
                 void *userdata,
                 uint64_t usec,
-                uint64_t *serial) {
+                uint64_t *cookie) {
 
         _cleanup_bus_message_unref_ sd_bus_message *m = sd_bus_message_ref(_m);
         struct reply_callback *c;
@@ -1639,10 +1639,10 @@ _public_ int sd_bus_call_async(
 
         c->callback = callback;
         c->userdata = userdata;
-        c->serial = BUS_MESSAGE_SERIAL(m);
+        c->cookie = BUS_MESSAGE_COOKIE(m);
         c->timeout = calc_elapse(m->timeout);
 
-        r = hashmap_put(bus->reply_callbacks, &c->serial, c);
+        r = hashmap_put(bus->reply_callbacks, &c->cookie, c);
         if (r < 0) {
                 free(c);
                 return r;
@@ -1652,28 +1652,28 @@ _public_ int sd_bus_call_async(
                 r = prioq_put(bus->reply_callbacks_prioq, c, &c->prioq_idx);
                 if (r < 0) {
                         c->timeout = 0;
-                        sd_bus_call_async_cancel(bus, c->serial);
+                        sd_bus_call_async_cancel(bus, c->cookie);
                         return r;
                 }
         }
 
-        r = sd_bus_send(bus, m, serial);
+        r = sd_bus_send(bus, m, cookie);
         if (r < 0) {
-                sd_bus_call_async_cancel(bus, c->serial);
+                sd_bus_call_async_cancel(bus, c->cookie);
                 return r;
         }
 
         return r;
 }
 
-_public_ int sd_bus_call_async_cancel(sd_bus *bus, uint64_t serial) {
+_public_ int sd_bus_call_async_cancel(sd_bus *bus, uint64_t cookie) {
         struct reply_callback *c;
 
         assert_return(bus, -EINVAL);
-        assert_return(serial != 0, -EINVAL);
+        assert_return(cookie != 0, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
-        c = hashmap_remove(bus->reply_callbacks, &serial);
+        c = hashmap_remove(bus->reply_callbacks, &cookie);
         if (!c)
                 return 0;
 
@@ -1718,7 +1718,7 @@ _public_ int sd_bus_call(
 
         _cleanup_bus_message_unref_ sd_bus_message *m = sd_bus_message_ref(_m);
         usec_t timeout;
-        uint64_t serial;
+        uint64_t cookie;
         unsigned i;
         int r;
 
@@ -1744,7 +1744,7 @@ _public_ int sd_bus_call(
         if (r < 0)
                 return r;
 
-        r = sd_bus_send(bus, m, &serial);
+        r = sd_bus_send(bus, m, &cookie);
         if (r < 0)
                 return r;
 
@@ -1758,7 +1758,7 @@ _public_ int sd_bus_call(
 
                         incoming = bus->rqueue[i];
 
-                        if (incoming->reply_serial == serial) {
+                        if (incoming->reply_cookie == cookie) {
                                 /* Found a match! */
 
                                 memmove(bus->rqueue + i, bus->rqueue + i + 1, sizeof(sd_bus_message*) * (bus->rqueue_size - i - 1));
@@ -1780,7 +1780,7 @@ _public_ int sd_bus_call(
                                 sd_bus_message_unref(incoming);
                                 return r;
 
-                        } else if (incoming->header->serial == serial &&
+                        } else if (BUS_MESSAGE_COOKIE(incoming) == cookie &&
                                    bus->unique_name &&
                                    incoming->sender &&
                                    streq(bus->unique_name, incoming->sender)) {
@@ -1930,7 +1930,7 @@ static int process_timeout(sd_bus *bus) {
 
         r = bus_message_new_synthetic_error(
                         bus,
-                        c->serial,
+                        c->cookie,
                         &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_NO_REPLY, "Method call timed out"),
                         &m);
         if (r < 0)
@@ -1943,7 +1943,7 @@ static int process_timeout(sd_bus *bus) {
                 return r;
 
         assert_se(prioq_pop(bus->reply_callbacks_prioq) == c);
-        hashmap_remove(bus->reply_callbacks, &c->serial);
+        hashmap_remove(bus->reply_callbacks, &c->cookie);
 
         bus->current = m;
         bus->iteration_counter ++;
@@ -1973,7 +1973,7 @@ static int process_hello(sd_bus *bus, sd_bus_message *m) {
             m->header->type != SD_BUS_MESSAGE_METHOD_ERROR)
                 return -EIO;
 
-        if (m->reply_serial != bus->hello_serial)
+        if (m->reply_cookie != bus->hello_cookie)
                 return -EIO;
 
         return 0;
@@ -1991,7 +1991,7 @@ static int process_reply(sd_bus *bus, sd_bus_message *m) {
             m->header->type != SD_BUS_MESSAGE_METHOD_ERROR)
                 return 0;
 
-        c = hashmap_remove(bus->reply_callbacks, &m->reply_serial);
+        c = hashmap_remove(bus->reply_callbacks, &m->reply_cookie);
         if (!c)
                 return 0;
 
@@ -2122,15 +2122,15 @@ static int process_message(sd_bus *bus, sd_bus_message *m) {
         bus->current = m;
         bus->iteration_counter++;
 
-        log_debug("Got message type=%s sender=%s destination=%s object=%s interface=%s member=%s serial=%lu reply_serial=%lu error=%s",
+        log_debug("Got message type=%s sender=%s destination=%s object=%s interface=%s member=%s cookie=%lu reply_cookie=%lu error=%s",
                   bus_message_type_to_string(m->header->type),
                   strna(sd_bus_message_get_sender(m)),
                   strna(sd_bus_message_get_destination(m)),
                   strna(sd_bus_message_get_path(m)),
                   strna(sd_bus_message_get_interface(m)),
                   strna(sd_bus_message_get_member(m)),
-                  (unsigned long) m->header->serial,
-                  (unsigned long) m->reply_serial,
+                  (unsigned long) BUS_MESSAGE_COOKIE(m),
+                  (unsigned long) m->reply_cookie,
                   strna(m->error.message));
 
         r = process_hello(bus, m);
@@ -2235,7 +2235,7 @@ static int process_closing(sd_bus *bus, sd_bus_message **ret) {
                 /* First, fail all outstanding method calls */
                 r = bus_message_new_synthetic_error(
                                 bus,
-                                c->serial,
+                                c->cookie,
                                 &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_NO_REPLY, "Connection terminated"),
                                 &m);
                 if (r < 0)
@@ -2248,7 +2248,7 @@ static int process_closing(sd_bus *bus, sd_bus_message **ret) {
                 if (c->timeout != 0)
                         prioq_remove(bus->reply_callbacks_prioq, c, &c->prioq_idx);
 
-                hashmap_remove(bus->reply_callbacks, &c->serial);
+                hashmap_remove(bus->reply_callbacks, &c->cookie);
 
                 bus->current = m;
                 bus->iteration_counter++;

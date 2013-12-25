@@ -175,10 +175,10 @@ static int bus_message_setup_bloom(sd_bus_message *m, void *bloom) {
 
                 e = stpcpy(buf, "arg");
                 if (i < 10)
-                        *(e++) = '0' + i;
+                        *(e++) = '0' + (char) i;
                 else {
-                        *(e++) = '0' + (i / 10);
-                        *(e++) = '0' + (i % 10);
+                        *(e++) = '0' + (char) (i / 10);
+                        *(e++) = '0' + (char) (i % 10);
                 }
 
                 *e = 0;
@@ -259,7 +259,7 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
         m->kdbus->cookie = m->header->serial;
 
         if (m->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED)
-                m->kdbus->cookie_reply = m->reply_serial;
+                m->kdbus->cookie_reply = m->reply_cookie;
         else
                 m->kdbus->timeout_ns = m->timeout * NSEC_PER_USEC;
 
@@ -470,7 +470,7 @@ int bus_kernel_write_message(sd_bus *bus, sd_bus_message *m) {
 
                 r = bus_message_new_synthetic_error(
                                 bus,
-                                BUS_MESSAGE_SERIAL(m),
+                                BUS_MESSAGE_COOKIE(m),
                                 &error,
                                 &reply);
 
@@ -798,9 +798,9 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
 
                 case KDBUS_ITEM_CREDS:
                         /* UID/GID/PID are always valid */
-                        m->creds.uid = d->creds.uid;
-                        m->creds.gid = d->creds.gid;
-                        m->creds.pid = d->creds.pid;
+                        m->creds.uid = (uid_t) d->creds.uid;
+                        m->creds.gid = (gid_t) d->creds.gid;
+                        m->creds.pid = (pid_t) d->creds.pid;
                         m->creds.mask |= (SD_BUS_CREDS_UID|SD_BUS_CREDS_GID|SD_BUS_CREDS_PID) & bus->creds_mask;
 
                         /* The PID starttime/TID might be missing
@@ -815,7 +815,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
                         }
 
                         if (d->creds.tid > 0) {
-                                m->creds.tid = d->creds.tid;
+                                m->creds.tid = (pid_t) d->creds.tid;
                                 m->creds.mask |= SD_BUS_CREDS_TID & bus->creds_mask;
                         }
                         break;
@@ -861,8 +861,8 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
                         break;
 
                 case KDBUS_ITEM_AUDIT:
-                        m->creds.audit_session_id = d->audit.sessionid;
-                        m->creds.audit_login_uid = d->audit.loginuid;
+                        m->creds.audit_session_id = (uint32_t) d->audit.sessionid;
+                        m->creds.audit_login_uid = (uid_t) d->audit.loginuid;
                         m->creds.mask |= (SD_BUS_CREDS_AUDIT_SESSION_ID|SD_BUS_CREDS_AUDIT_LOGIN_UID) & bus->creds_mask;
                         break;
 

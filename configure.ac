@@ -127,6 +127,9 @@ CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -Winit-self \
         -Wdeclaration-after-statement \
         -Wfloat-equal \
+        -Wsuggest-attribute=pure \
+        -Wsuggest-attribute=const \
+        -Wsuggest-attribute=noreturn \
         -Wmissing-prototypes \
         -Wstrict-prototypes \
         -Wredundant-decls \
@@ -144,6 +147,7 @@ CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -Wno-unused-result \
         -Werror=overflow \
         -Wdate-time \
+        -Wnested-externs \
         -ffast-math \
         -fno-common \
         -fdiagnostics-show-option \

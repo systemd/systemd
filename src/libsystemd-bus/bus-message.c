@@ -615,9 +615,9 @@ static int message_new_reply(
                 return -ENOMEM;
 
         t->header->flags |= BUS_MESSAGE_NO_REPLY_EXPECTED;
-        t->reply_serial = BUS_MESSAGE_SERIAL(call);
+        t->reply_cookie = BUS_MESSAGE_COOKIE(call);
 
-        r = message_append_field_uint32(t, BUS_MESSAGE_HEADER_REPLY_SERIAL, t->reply_serial);
+        r = message_append_field_uint32(t, BUS_MESSAGE_HEADER_REPLY_SERIAL, t->reply_cookie);
         if (r < 0)
                 goto fail;
 
@@ -735,7 +735,7 @@ _public_ int sd_bus_message_new_method_errnof(
 
 int bus_message_new_synthetic_error(
                 sd_bus *bus,
-                uint64_t serial,
+                uint64_t cookie,
                 const sd_bus_error *e,
                 sd_bus_message **m) {
 
@@ -750,9 +750,9 @@ int bus_message_new_synthetic_error(
                 return -ENOMEM;
 
         t->header->flags |= BUS_MESSAGE_NO_REPLY_EXPECTED;
-        t->reply_serial = serial;
+        t->reply_cookie = cookie;
 
-        r = message_append_field_uint32(t, BUS_MESSAGE_HEADER_REPLY_SERIAL, t->reply_serial);
+        r = message_append_field_uint32(t, BUS_MESSAGE_HEADER_REPLY_SERIAL, t->reply_cookie);
         if (r < 0)
                 goto fail;
 
@@ -813,21 +813,21 @@ _public_ int sd_bus_message_get_type(sd_bus_message *m, uint8_t *type) {
         return 0;
 }
 
-_public_ int sd_bus_message_get_serial(sd_bus_message *m, uint64_t *serial) {
+_public_ int sd_bus_message_get_cookie(sd_bus_message *m, uint64_t *cookie) {
         assert_return(m, -EINVAL);
-        assert_return(serial, -EINVAL);
+        assert_return(cookie, -EINVAL);
         assert_return(m->header->serial != 0, -ENOENT);
 
-        *serial = BUS_MESSAGE_SERIAL(m);
+        *cookie = BUS_MESSAGE_COOKIE(m);
         return 0;
 }
 
-_public_ int sd_bus_message_get_reply_serial(sd_bus_message *m, uint64_t *serial) {
+_public_ int sd_bus_message_get_reply_cookie(sd_bus_message *m, uint64_t *cookie) {
         assert_return(m, -EINVAL);
-        assert_return(serial, -EINVAL);
-        assert_return(m->reply_serial != 0, -ENOENT);
+        assert_return(cookie, -EINVAL);
+        assert_return(m->reply_cookie != 0, -ENOENT);
 
-        *serial = m->reply_serial;
+        *cookie = m->reply_cookie;
         return 0;
 }
 
@@ -2707,7 +2707,7 @@ static int bus_message_close_header(sd_bus_message *m) {
         return 0;
 }
 
-int bus_message_seal(sd_bus_message *m, uint64_t serial, usec_t timeout) {
+int bus_message_seal(sd_bus_message *m, uint64_t cookie, usec_t timeout) {
         struct bus_body_part *part;
         size_t l, a;
         unsigned i;
@@ -2753,7 +2753,7 @@ int bus_message_seal(sd_bus_message *m, uint64_t serial, usec_t timeout) {
         if (r < 0)
                 return r;
 
-        m->header->serial = serial;
+        m->header->serial = (uint32_t) cookie;
         m->timeout = m->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED ? 0 : timeout;
 
         /* Add padding at the end of the fields part, since we know
@@ -5060,17 +5060,17 @@ int bus_message_parse_fields(sd_bus_message *m) {
                 }
 
                 case BUS_MESSAGE_HEADER_REPLY_SERIAL:
-                        if (m->reply_serial != 0)
+                        if (m->reply_cookie != 0)
                                 return -EBADMSG;
 
                         if (!streq(signature, "u"))
                                 return -EBADMSG;
 
-                        r = message_peek_field_uint32(m, &ri, item_size, &m->reply_serial);
+                        r = message_peek_field_uint32(m, &ri, item_size, &m->reply_cookie);
                         if (r < 0)
                                 return r;
 
-                        if (m->reply_serial == 0)
+                        if (m->reply_cookie == 0)
                                 return -EBADMSG;
 
                         break;
@@ -5121,13 +5121,13 @@ int bus_message_parse_fields(sd_bus_message *m) {
 
         case SD_BUS_MESSAGE_METHOD_RETURN:
 
-                if (m->reply_serial == 0)
+                if (m->reply_cookie == 0)
                         return -EBADMSG;
                 break;
 
         case SD_BUS_MESSAGE_METHOD_ERROR:
 
-                if (m->reply_serial == 0 || !m->error.name)
+                if (m->reply_cookie == 0 || !m->error.name)
                         return -EBADMSG;
                 break;
         }
@@ -5472,8 +5472,8 @@ int bus_message_remarshal(sd_bus *bus, sd_bus_message **m) {
                 if (!n)
                         return -ENOMEM;
 
-                n->reply_serial = (*m)->reply_serial;
-                r = message_append_field_uint32(n, BUS_MESSAGE_HEADER_REPLY_SERIAL, n->reply_serial);
+                n->reply_cookie = (*m)->reply_cookie;
+                r = message_append_field_uint32(n, BUS_MESSAGE_HEADER_REPLY_SERIAL, n->reply_cookie);
                 if (r < 0)
                         return r;
 
@@ -5513,7 +5513,7 @@ int bus_message_remarshal(sd_bus *bus, sd_bus_message **m) {
         if (timeout == 0 && !((*m)->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED))
                 timeout = BUS_DEFAULT_TIMEOUT;
 
-        r = bus_message_seal(n, (*m)->header->serial, timeout);
+        r = bus_message_seal(n, BUS_MESSAGE_COOKIE(*m), timeout);
         if (r < 0)
                 return r;
 

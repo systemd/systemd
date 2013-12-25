@@ -137,7 +137,7 @@ int capability_bounding_set_drop(uint64_t drop, bool right_now) {
                                 r = -errno;
                                 goto finish;
                         }
-                        v = i;
+                        v = (cap_value_t) i;
 
                         /* Also drop it from the inheritable set, so
                          * that anything we exec() loses the

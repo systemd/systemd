@@ -712,7 +712,7 @@ static inline void _reset_umask_(struct _umask_struct_ *s) {
              _saved_umask_.quit = true)
 
 static inline unsigned u64log2(uint64_t n) {
-        return (n > 1) ? __builtin_clzll(n) ^ 63U : 0;
+        return (n > 1) ? (unsigned) __builtin_clzll(n) ^ 63U : 0;
 }
 
 static inline bool logind_running(void) {

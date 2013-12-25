@@ -42,7 +42,7 @@ struct reply_callback {
         sd_bus_message_handler_t callback;
         void *userdata;
         usec_t timeout;
-        uint64_t serial;
+        uint64_t cookie;
         unsigned prioq_idx;
 };
 
@@ -178,7 +178,7 @@ struct sd_bus {
         size_t windex;
         size_t wqueue_allocated;
 
-        uint64_t serial;
+        uint64_t cookie;
 
         char *unique_name;
         uint64_t unique_id;
@@ -228,7 +228,7 @@ struct sd_bus {
         char *exec_path;
         char **exec_argv;
 
-        uint64_t hello_serial;
+        uint64_t hello_cookie;
         unsigned iteration_counter;
 
         void *kdbus_buffer;

@@ -67,13 +67,13 @@ int bus_message_dump(sd_bus_message *m, FILE *f, bool with_header) {
 
                 /* Display synthetic message serial number in a more readable
                  * format than (uint32_t) -1 */
-                if (BUS_MESSAGE_SERIAL(m) == 0xFFFFFFFFULL)
-                        fprintf(f, " Serial=-1");
+                if (BUS_MESSAGE_COOKIE(m) == 0xFFFFFFFFULL)
+                        fprintf(f, " Cookie=-1");
                 else
-                        fprintf(f, " Serial=%u", BUS_MESSAGE_SERIAL(m));
+                        fprintf(f, " Cookie=%lu", (unsigned long) BUS_MESSAGE_COOKIE(m));
 
-                if (m->reply_serial != 0)
-                        fprintf(f, "  ReplySerial=%u", m->reply_serial);
+                if (m->reply_cookie != 0)
+                        fprintf(f, "  ReplyCookie=%lu", (unsigned long) m->reply_cookie);
 
                 fputs("\n", f);
 

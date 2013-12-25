@@ -58,6 +58,10 @@ struct bus_header {
         uint8_t flags;
         uint8_t version;
         uint32_t body_size;
+
+        /* Note that what the bus spec calls "serial" we'll call
+        "cookie" instead, because we don't want to imply that the
+        cookie was in any way monotonically increasing. */
         uint32_t serial;
         uint32_t fields_size;
 } _packed_;
@@ -80,7 +84,7 @@ struct sd_bus_message {
 
         sd_bus *bus;
 
-        uint32_t reply_serial;
+        uint32_t reply_cookie;
 
         const char *path;
         const char *interface;
@@ -156,7 +160,7 @@ static inline uint64_t BUS_MESSAGE_BSWAP64(sd_bus_message *m, uint64_t u) {
         return BUS_MESSAGE_NEED_BSWAP(m) ? bswap_64(u) : u;
 }
 
-static inline uint32_t BUS_MESSAGE_SERIAL(sd_bus_message *m) {
+static inline uint32_t BUS_MESSAGE_COOKIE(sd_bus_message *m) {
         return BUS_MESSAGE_BSWAP32(m, m->header->serial);
 }
 

@@ -1020,9 +1020,9 @@ static int unit_file_load(
                 return r;
 
         return
-                strv_length(info->aliases) +
-                strv_length(info->wanted_by) +
-                strv_length(info->required_by);
+                (int) strv_length(info->aliases) +
+                (int) strv_length(info->wanted_by) +
+                (int) strv_length(info->required_by);
 }
 
 static int unit_file_search(
@@ -1132,9 +1132,9 @@ static int unit_file_can_install(
 
         if (r >= 0)
                 r =
-                        strv_length(i->aliases) +
-                        strv_length(i->wanted_by) +
-                        strv_length(i->required_by);
+                        (int) strv_length(i->aliases) +
+                        (int) strv_length(i->wanted_by) +
+                        (int) strv_length(i->required_by);
 
         return r;
 }

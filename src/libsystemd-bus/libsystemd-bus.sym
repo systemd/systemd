@@ -80,8 +80,8 @@ global:
         sd_bus_message_unref;
         sd_bus_message_get_bus;
         sd_bus_message_get_type;
-        sd_bus_message_get_serial;
-        sd_bus_message_get_reply_serial;
+        sd_bus_message_get_cookie;
+        sd_bus_message_get_reply_cookie;
         sd_bus_message_get_no_reply;
         sd_bus_message_get_no_auto_start;
         sd_bus_message_get_signature;

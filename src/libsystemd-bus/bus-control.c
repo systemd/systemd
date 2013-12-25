@@ -411,14 +411,14 @@ static int bus_get_owner_kdbus(
                         m = (SD_BUS_CREDS_UID | SD_BUS_CREDS_GID | SD_BUS_CREDS_PID) & mask;
 
                         if (m) {
-                                c->uid = item->creds.uid;
-                                c->pid = item->creds.pid;
-                                c->gid = item->creds.gid;
+                                c->uid = (uid_t) item->creds.uid;
+                                c->pid = (pid_t) item->creds.pid;
+                                c->gid = (gid_t) item->creds.gid;
                                 c->mask |= m;
                         }
 
                         if (mask & SD_BUS_CREDS_TID && item->creds.tid > 0) {
-                                c->tid = item->creds.tid;
+                                c->tid = (pid_t) item->creds.tid;
                                 c->mask |= SD_BUS_CREDS_TID;
                         }
 

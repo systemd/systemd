@@ -126,11 +126,11 @@ int sd_bus_can_send(sd_bus *bus, char type);
 int sd_bus_get_server_id(sd_bus *bus, sd_id128_t *peer);
 int sd_bus_get_peer_creds(sd_bus *bus, uint64_t creds_mask, sd_bus_creds **ret);
 
-int sd_bus_send(sd_bus *bus, sd_bus_message *m, uint64_t *serial);
-int sd_bus_send_to(sd_bus *bus, sd_bus_message *m, const char *destination, uint64_t *serial);
+int sd_bus_send(sd_bus *bus, sd_bus_message *m, uint64_t *cookie);
+int sd_bus_send_to(sd_bus *bus, sd_bus_message *m, const char *destination, uint64_t *cookie);
 int sd_bus_call(sd_bus *bus, sd_bus_message *m, uint64_t usec, sd_bus_error *ret_error, sd_bus_message **reply);
-int sd_bus_call_async(sd_bus *bus, sd_bus_message *m, sd_bus_message_handler_t callback, void *userdata, uint64_t usec, uint64_t *serial);
-int sd_bus_call_async_cancel(sd_bus *bus, uint64_t serial);
+int sd_bus_call_async(sd_bus *bus, sd_bus_message *m, sd_bus_message_handler_t callback, void *userdata, uint64_t usec, uint64_t *cookie);
+int sd_bus_call_async_cancel(sd_bus *bus, uint64_t cookie);
 
 int sd_bus_get_fd(sd_bus *bus);
 int sd_bus_get_events(sd_bus *bus);
@@ -186,8 +186,8 @@ sd_bus_message* sd_bus_message_unref(sd_bus_message *m);
 sd_bus* sd_bus_message_get_bus(sd_bus_message *m);
 
 int sd_bus_message_get_type(sd_bus_message *m, uint8_t *type);
-int sd_bus_message_get_serial(sd_bus_message *m, uint64_t *serial);
-int sd_bus_message_get_reply_serial(sd_bus_message *m, uint64_t *serial);
+int sd_bus_message_get_cookie(sd_bus_message *m, uint64_t *cookie);
+int sd_bus_message_get_reply_cookie(sd_bus_message *m, uint64_t *cookie);
 int sd_bus_message_get_no_reply(sd_bus_message *m);
 int sd_bus_message_get_no_auto_start(sd_bus_message *m);
 
