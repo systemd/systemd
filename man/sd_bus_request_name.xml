@@ -208,7 +208,7 @@
                 <title>Notes</title>
 
                 <para>The <function>sd_bus_acquire_name()</function>
-                and <function>sd_bus_release_bame()</function>
+                and <function>sd_bus_release_name()</function>
                 interfaces are available as shared library, which can
                 be compiled and linked to with the
                 <constant>libsystemd-bus</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>

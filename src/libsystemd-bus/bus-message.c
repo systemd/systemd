@@ -816,7 +816,7 @@ _public_ int sd_bus_message_get_type(sd_bus_message *m, uint8_t *type) {
 _public_ int sd_bus_message_get_cookie(sd_bus_message *m, uint64_t *cookie) {
         assert_return(m, -EINVAL);
         assert_return(cookie, -EINVAL);
-        assert_return(m->header->serial != 0, -ENOENT);
+        assert_return(m->header->serial != 0, -ENODATA);
 
         *cookie = BUS_MESSAGE_COOKIE(m);
         return 0;
@@ -825,7 +825,7 @@ _public_ int sd_bus_message_get_cookie(sd_bus_message *m, uint64_t *cookie) {
 _public_ int sd_bus_message_get_reply_cookie(sd_bus_message *m, uint64_t *cookie) {
         assert_return(m, -EINVAL);
         assert_return(cookie, -EINVAL);
-        assert_return(m->reply_cookie != 0, -ENOENT);
+        assert_return(m->reply_cookie != 0, -ENODATA);
 
         *cookie = m->reply_cookie;
         return 0;
