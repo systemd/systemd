@@ -127,8 +127,6 @@ CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -Winit-self \
         -Wdeclaration-after-statement \
         -Wfloat-equal \
-        -Wsuggest-attribute=pure \
-        -Wsuggest-attribute=const \
         -Wsuggest-attribute=noreturn \
         -Wmissing-prototypes \
         -Wstrict-prototypes \

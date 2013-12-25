@@ -59,6 +59,9 @@ if [ "x$1" = "xc" ]; then
 elif [ "x$1" = "xg" ]; then
         ./configure CFLAGS='-g -Og -ftrapv' --enable-kdbus $args
         make clean
+elif [ "x$1" = "xa" ]; then
+        ./configure CFLAGS='-g -O0 -Wsuggest-attribute=pure -Wsuggest-attribute=const -ftrapv' --enable-kdbus $args
+        make clean
 else
         echo
         echo "----------------------------------------------------------------"
