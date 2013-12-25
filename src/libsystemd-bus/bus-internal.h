@@ -286,20 +286,20 @@ struct sd_bus {
 
 #define BUS_EXEC_ARGV_MAX 256
 
-bool interface_name_is_valid(const char *p);
-bool service_name_is_valid(const char *p);
-bool member_name_is_valid(const char *p);
-bool object_path_is_valid(const char *p);
-char *object_path_startswith(const char *a, const char *b);
+bool interface_name_is_valid(const char *p) _pure_;
+bool service_name_is_valid(const char *p) _pure_;
+bool member_name_is_valid(const char *p) _pure_;
+bool object_path_is_valid(const char *p) _pure_;
+char *object_path_startswith(const char *a, const char *b) _pure_;
 
-bool namespace_complex_pattern(const char *pattern, const char *value);
-bool path_complex_pattern(const char *pattern, const char *value);
+bool namespace_complex_pattern(const char *pattern, const char *value) _pure_;
+bool path_complex_pattern(const char *pattern, const char *value) _pure_;
 
-bool namespace_simple_pattern(const char *pattern, const char *value);
-bool path_simple_pattern(const char *pattern, const char *value);
+bool namespace_simple_pattern(const char *pattern, const char *value) _pure_;
+bool path_simple_pattern(const char *pattern, const char *value) _pure_;
 
-int bus_message_type_from_string(const char *s, uint8_t *u);
-const char *bus_message_type_to_string(uint8_t u);
+int bus_message_type_from_string(const char *s, uint8_t *u) _pure_;
+const char *bus_message_type_to_string(uint8_t u) _pure_;
 
 #define error_name_is_valid interface_name_is_valid
 
