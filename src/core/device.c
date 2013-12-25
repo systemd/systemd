@@ -268,7 +268,7 @@ static int device_update_unit(Manager *m, struct udev_device *dev, const char *p
                                 memcpy(e, w, l);
                                 e[l] = 0;
 
-                                n = unit_name_mangle(e);
+                                n = unit_name_mangle(e, false);
                                 if (!n) {
                                         r = -ENOMEM;
                                         goto fail;

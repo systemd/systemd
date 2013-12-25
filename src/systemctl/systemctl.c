@@ -421,12 +421,10 @@ static void output_units_list(const UnitInfo *unit_infos, unsigned c) {
                 const char *on, *off;
 
                 if (n_shown) {
-                        printf("\nLOAD   = Reflects whether the unit definition was properly loaded.\n"
-                               "ACTIVE = The high-level unit activation state, i.e. generalization of SUB.\n"
-                               "SUB    = The low-level unit activation state, values depend on unit type.\n");
-                        if (job_count)
-                                printf("JOB    = Pending job for the unit.\n");
-                        puts("");
+                        puts("\nLOAD   = Reflects whether the unit definition was properly loaded.\n"
+                             "ACTIVE = The high-level unit activation state, i.e. generalization of SUB.\n"
+                             "SUB    = The low-level unit activation state, values depend on unit type.");
+                        puts(job_count ? "JOB    = Pending job for the unit.\n" : "");
                         on = ansi_highlight();
                         off = ansi_highlight_off();
                 } else {
@@ -1377,7 +1375,7 @@ static int list_dependencies(sd_bus *bus, char **args) {
         assert(bus);
 
         if (args[1]) {
-                unit = unit_name_mangle(args[1]);
+                unit = unit_name_mangle(args[1], false);
                 if (!unit)
                         return log_oom();
                 u = unit;
@@ -1477,7 +1475,7 @@ static int set_default(sd_bus *bus, char **args) {
         unsigned n_changes = 0;
         int r;
 
-        unit = unit_name_mangle_with_suffix(args[1], ".target");
+        unit = unit_name_mangle_with_suffix(args[1], false, ".target");
         if (!unit)
                 return log_oom();
 
@@ -1706,16 +1704,11 @@ static int cancel_job(sd_bus *bus, char **args) {
 
 static int need_daemon_reload(sd_bus *bus, const char *unit) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        _cleanup_free_ char *n = NULL;
         const char *path;
         int b, r;
 
         /* We ignore all errors here, since this is used to show a
          * warning only */
-
-        n = unit_name_mangle(unit);
-        if (!n)
-                return -ENOMEM;
 
         /* We don't use unit_dbus_path_from_name() directly since we
          * don't want to load the unit if it isn't loaded. */
@@ -1728,7 +1721,7 @@ static int need_daemon_reload(sd_bus *bus, const char *unit) {
                         "GetUnit",
                         NULL,
                         &reply,
-                        "s", n);
+                        "s", unit);
         if (r < 0)
                 return r;
 
@@ -1894,8 +1887,10 @@ static int wait_for_jobs(sd_bus *bus, Set *s) {
 
         while (!set_isempty(s)) {
                 q = bus_process_wait(bus);
-                if (q < 0)
+                if (q < 0) {
+                        log_error("Failed to wait for response: %s", strerror(-r));
                         return q;
+                }
 
                 if (d.result) {
                         q = check_wait_response(&d);
@@ -1903,6 +1898,8 @@ static int wait_for_jobs(sd_bus *bus, Set *s) {
                          * meaningful. */
                         if (q < 0 && r == 0)
                                 r = q;
+                        log_debug("Got result %s/%s for job %s",
+                                  strna(d.result), strerror(-q), strna(d.name));
                 }
 
                 free(d.name);
@@ -1927,7 +1924,7 @@ static int check_one_unit(sd_bus *bus, const char *name, const char *good_states
 
         assert(name);
 
-        n = unit_name_mangle(name);
+        n = unit_name_mangle(name, false);
         if (!n)
                 return log_oom();
 
@@ -1984,7 +1981,7 @@ static int check_triggering_units(
         char **i;
         int r;
 
-        n = unit_name_mangle(name);
+        n = unit_name_mangle(name, false);
         if (!n)
                 return log_oom();
 
@@ -2051,7 +2048,6 @@ static int start_unit_one(
                 Set *s) {
 
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        _cleanup_free_ char *n;
         const char *path;
         int r;
 
@@ -2060,10 +2056,7 @@ static int start_unit_one(
         assert(mode);
         assert(error);
 
-        n = unit_name_mangle(name);
-        if (!n)
-                return log_oom();
-
+        log_debug("Calling manager for %s on %s, %s", method, name, mode);
         r = sd_bus_call_method(
                         bus,
                         "org.freedesktop.systemd1",
@@ -2072,14 +2065,14 @@ static int start_unit_one(
                         method,
                         error,
                         &reply,
-                        "ss", n, mode);
+                        "ss", name, mode);
         if (r < 0) {
                 if (r == -ENOENT && arg_action != ACTION_SYSTEMCTL)
                         /* There's always a fallback possible for
                          * legacy actions. */
                         return -EADDRNOTAVAIL;
 
-                log_error("Failed to start %s: %s", name, bus_error_message(error, r));
+                log_error("Failed to %s %s: %s", method, name, bus_error_message(error, r));
                 return r;
         }
 
@@ -2087,9 +2080,9 @@ static int start_unit_one(
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        if (need_daemon_reload(bus, n) > 0)
+        if (need_daemon_reload(bus, name) > 0)
                 log_warning("Warning: Unit file of %s changed on disk, 'systemctl%s daemon-reload' recommended.",
-                            n, arg_scope == UNIT_FILE_SYSTEM ? "" : " --user");
+                            name, arg_scope == UNIT_FILE_SYSTEM ? "" : " --user");
 
         if (s) {
                 char *p;
@@ -2098,11 +2091,58 @@ static int start_unit_one(
                 if (!p)
                         return log_oom();
 
+                log_debug("Adding %s to the set", p);
                 r = set_consume(s, p);
                 if (r < 0)
                         return log_oom();
         }
 
+        return 0;
+}
+
+static int expand_names(sd_bus *bus, char **names, const char* suffix, char ***ret) {
+
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_strv_free_ char **mangled = NULL, **globs = NULL;
+        char **name;
+        int r = 0, i;
+
+        STRV_FOREACH(name, names) {
+                char *t;
+
+                if (suffix)
+                        t = unit_name_mangle_with_suffix(*name, true, suffix);
+                else
+                        t = unit_name_mangle(*name, true);
+                if (!t)
+                        return log_oom();
+
+                if (string_is_glob(t))
+                        r = strv_push(&globs, t);
+                else
+                        r = strv_push(&mangled, t);
+                if (r < 0) {
+                        free(t);
+                        return log_oom();
+                }
+        }
+
+        /* Query the manager only if any of the names are a glob, since
+         * this is fairly expensive */
+        if (!strv_isempty(globs)) {
+                _cleanup_free_ UnitInfo *unit_infos = NULL;
+
+                r = get_unit_list(bus, &reply, &unit_infos, globs);
+                if (r < 0)
+                        return r;
+
+                for (i = 0; i < r; i++)
+                        if (strv_extend(&mangled, unit_infos[i].id) < 0)
+                                return log_oom();
+        }
+
+        *ret = mangled;
+        mangled = NULL; /* do not free */
         return 0;
 }
 
@@ -2139,12 +2179,11 @@ static enum action verb_to_action(const char *verb) {
 }
 
 static int start_unit(sd_bus *bus, char **args) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_set_free_free_ Set *s = NULL;
-        const char *method, *mode;
+        _cleanup_strv_free_ char **names = NULL;
+        const char *method, *mode, *one_name;
         char **name;
         int r = 0;
-        char **names, *strv[] = {NULL, NULL}; /* at most one name */
 
         assert(bus);
 
@@ -2172,7 +2211,7 @@ static int start_unit(sd_bus *bus, char **args) {
                 mode = streq(args[0], "isolate") ? "isolate" :
                        action_table[action].mode ?: arg_job_mode;
 
-                strv[0] = (char*) action_table[action].target;
+                one_name = action_table[action].target;
         } else {
                 assert(arg_action < ELEMENTSOF(action_table));
                 assert(action_table[arg_action].target);
@@ -2180,13 +2219,16 @@ static int start_unit(sd_bus *bus, char **args) {
                 method = "StartUnit";
 
                 mode = action_table[arg_action].mode;
-                strv[0] = (char*) action_table[arg_action].target;
+                one_name = action_table[arg_action].target;
         }
 
-        if (strv[0])
-                names = strv;
-        else
-                names = args + 1;
+        if (one_name)
+                names = strv_new(one_name, NULL);
+        else {
+                r = expand_names(bus, args + 1, NULL, &names);
+                if (r < 0)
+                        log_error("Failed to expand names: %s", strerror(-r));
+        }
 
         if (!arg_no_block) {
                 r = enable_wait_for_jobs(bus);
@@ -2201,13 +2243,12 @@ static int start_unit(sd_bus *bus, char **args) {
         }
 
         STRV_FOREACH(name, names) {
+                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
                 int q;
 
                 q = start_unit_one(bus, method, *name, mode, &error, s);
-                if (r == 0 && q < 0) {
+                if (r >= 0 && q < 0)
                         r = translate_bus_error_to_exit_status(q, &error);
-                        sd_bus_error_free(&error);
-                }
         }
 
         if (!arg_no_block) {
@@ -2444,17 +2485,23 @@ static int start_special(sd_bus *bus, char **args) {
         return r;
 }
 
-static int check_unit_active(sd_bus *bus, char **args) {
+static int check_unit_generic(sd_bus *bus, int code, const char *good_states, char **args) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_strv_free_ char **names = NULL;
         char **name;
-        int r = 3; /* According to LSB: "program is not running" */
+        int r = code;
 
         assert(bus);
         assert(args);
 
-        STRV_FOREACH(name, args+1) {
+        r = expand_names(bus, args, NULL, &names);
+        if (r < 0)
+                log_error("Failed to expand names: %s", strerror(-r));
+
+        STRV_FOREACH(name, names) {
                 int state;
 
-                state = check_one_unit(bus, *name, "active\0reloading\0", arg_quiet);
+                state = check_one_unit(bus, *name, good_states, arg_quiet);
                 if (state < 0)
                         return state;
                 if (state > 0)
@@ -2464,30 +2511,20 @@ static int check_unit_active(sd_bus *bus, char **args) {
         return r;
 }
 
+static int check_unit_active(sd_bus *bus, char **args) {
+        /* According to LSB: 3, "program is not running" */
+        return check_unit_generic(bus, 3, "active\0reloading\0", args + 1);
+}
+
 static int check_unit_failed(sd_bus *bus, char **args) {
-        char **name;
-        int r = 1;
-
-        assert(bus);
-        assert(args);
-
-        STRV_FOREACH(name, args+1) {
-                int state;
-
-                state = check_one_unit(bus, *name, "failed\0", arg_quiet);
-                if (state < 0)
-                        return state;
-                if (state > 0)
-                        r = 0;
-        }
-
-        return r;
+        return check_unit_generic(bus, 1, "failed\0", args + 1);
 }
 
 static int kill_unit(sd_bus *bus, char **args) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_strv_free_ char **names = NULL;
         char **name;
-        int r = 0;
+        int r, q;
 
         assert(bus);
         assert(args);
@@ -2495,14 +2532,12 @@ static int kill_unit(sd_bus *bus, char **args) {
         if (!arg_kill_who)
                 arg_kill_who = "all";
 
-        STRV_FOREACH(name, args+1) {
-                _cleanup_free_ char *n = NULL;
+        r = expand_names(bus, args + 1, NULL, &names);
+        if (r < 0)
+                log_error("Failed to expand names: %s", strerror(-r));
 
-                n = unit_name_mangle(*name);
-                if (!n)
-                        return log_oom();
-
-                r = sd_bus_call_method(
+        STRV_FOREACH(name, names) {
+                q = sd_bus_call_method(
                                 bus,
                                 "org.freedesktop.systemd1",
                                 "/org/freedesktop/systemd1",
@@ -2510,14 +2545,16 @@ static int kill_unit(sd_bus *bus, char **args) {
                                 "KillUnit",
                                 &error,
                                 NULL,
-                                "ssi", n, arg_kill_who, arg_signal);
-                if (r < 0) {
-                        log_error("Failed to kill unit %s: %s", n, bus_error_message(&error, r));
-                        return r;
+                                "ssi", *names, arg_kill_who, arg_signal);
+                if (q < 0) {
+                        log_error("Failed to kill unit %s: %s",
+                                  *names, bus_error_message(&error, r));
+                        if (r == 0)
+                                r = q;
                 }
         }
 
-        return 0;
+        return r;
 }
 
 typedef struct ExecStatusInfo {
@@ -3563,6 +3600,8 @@ static int show_one(
         assert(path);
         assert(new_line);
 
+        log_debug("Showing one %s", path);
+
         r = sd_bus_call_method(
                         bus,
                         "org.freedesktop.systemd1",
@@ -3735,33 +3774,34 @@ static int show_all(
 }
 
 static int cat(sd_bus *bus, char **args) {
-        _cleanup_free_ char *unit = NULL, *n = NULL;
-        int r = 0;
+        _cleanup_free_ char *unit = NULL;
+        _cleanup_strv_free_ char **names = NULL;
         char **name;
         bool first = true;
+        int r = 0;
 
         assert(bus);
         assert(args);
 
+        r = expand_names(bus, args + 1, NULL, &names);
+        if (r < 0)
+                log_error("Failed to expand names: %s", strerror(-r));
+
         pager_open_if_enabled();
 
-        STRV_FOREACH(name, args+1) {
+        STRV_FOREACH(name, names) {
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_strv_free_ char **dropin_paths = NULL;
                 _cleanup_free_ char *fragment_path = NULL;
                 char **path;
 
-                n = unit_name_mangle(*name);
-                if (!n)
-                        return log_oom();
-
-                unit = unit_dbus_path_from_name(n);
+                unit = unit_dbus_path_from_name(*name);
                 if (!unit)
                         return log_oom();
 
-                if (need_daemon_reload(bus, n) > 0)
+                if (need_daemon_reload(bus, *name) > 0)
                         log_warning("Unit file of %s changed on disk. Run 'systemctl%s daemon-reload'.",
-                                    n, arg_scope == UNIT_FILE_SYSTEM ? "" : " --user");
+                                    *name, arg_scope == UNIT_FILE_SYSTEM ? "" : " --user");
 
                 r = sd_bus_get_property_string(
                                 bus,
@@ -3828,10 +3868,9 @@ static int cat(sd_bus *bus, char **args) {
 }
 
 static int show(sd_bus *bus, char **args) {
-        int r, ret = 0;
         bool show_properties, show_status, new_line = false;
-        char **name;
         bool ellipsized = false;
+        int r, ret = 0;
 
         assert(bus);
         assert(args);
@@ -3849,23 +3888,19 @@ static int show(sd_bus *bus, char **args) {
 
         if (show_status && strv_length(args) <= 1)
                 ret = show_all(args[0], bus, false, &new_line, &ellipsized);
-        else
-                STRV_FOREACH(name, args+1) {
+        else {
+                _cleanup_free_ char **patterns = NULL;
+                char **name;
+
+                STRV_FOREACH(name, args + 1) {
                         _cleanup_free_ char *unit = NULL;
                         uint32_t id;
 
                         if (safe_atou32(*name, &id) < 0) {
-                                _cleanup_free_ char *n = NULL;
-                                /* Interpret as unit name */
-
-                                n = unit_name_mangle(*name);
-                                if (!n)
+                                if (strv_push(&patterns, *name) < 0)
                                         return log_oom();
 
-                                unit = unit_dbus_path_from_name(n);
-                                if (!unit)
-                                        return log_oom();
-
+                                continue;
                         } else if (show_properties) {
                                 /* Interpret as job id */
                                 if (asprintf(&unit, "/org/freedesktop/systemd1/job/%u", id) < 0)
@@ -3882,6 +3917,25 @@ static int show(sd_bus *bus, char **args) {
 
                         show_one(args[0], bus, unit, show_properties, &new_line, &ellipsized);
                 }
+
+                if (!strv_isempty(patterns)) {
+                        _cleanup_strv_free_ char **names = NULL;
+
+                        r = expand_names(bus, patterns, NULL, &names);
+                        if (r < 0)
+                                log_error("Failed to expand names: %s", strerror(-r));
+
+                        STRV_FOREACH(name, names) {
+                                _cleanup_free_ char *unit;
+
+                                unit = unit_dbus_path_from_name(*name);
+                                if (!unit)
+                                        return log_oom();
+
+                                show_one(args[0], bus, unit, show_properties, &new_line, &ellipsized);
+                        }
+                }
+        }
 
         if (ellipsized && !arg_quiet)
                 printf("Hint: Some lines were ellipsized, use -l to show in full.\n");
@@ -4063,7 +4117,7 @@ static int set_property(sd_bus *bus, char **args) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        n = unit_name_mangle(args[1]);
+        n = unit_name_mangle(args[1], false);
         if (!n)
                 return log_oom();
 
@@ -4110,7 +4164,7 @@ static int snapshot(sd_bus *bus, char **args) {
         int r;
 
         if (strv_length(args) > 1)
-                n = unit_name_mangle_with_suffix(args[1], ".snapshot");
+                n = unit_name_mangle_with_suffix(args[1], false, ".snapshot");
         else
                 n = strdup("");
         if (!n)
@@ -4155,19 +4209,18 @@ static int snapshot(sd_bus *bus, char **args) {
 
 static int delete_snapshot(sd_bus *bus, char **args) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_strv_free_ char **names = NULL;
         char **name;
-        int r;
+        int r, q;
 
         assert(args);
 
-        STRV_FOREACH(name, args+1) {
-                _cleanup_free_ char *n = NULL;
+        r = expand_names(bus, args + 1, ".snapshot", &names);
+        if (r < 0)
+                log_error("Failed to expand names: %s", strerror(-r));
 
-                n = unit_name_mangle_with_suffix(*name, ".snapshot");
-                if (!n)
-                        return log_oom();
-
-                r = sd_bus_call_method(
+        STRV_FOREACH(name, names) {
+                q = sd_bus_call_method(
                                 bus,
                                 "org.freedesktop.systemd1",
                                 "/org/freedesktop/systemd1",
@@ -4175,14 +4228,16 @@ static int delete_snapshot(sd_bus *bus, char **args) {
                                 "RemoveSnapshot",
                                 &error,
                                 NULL,
-                                "s", n);
-                if (r < 0) {
-                        log_error("Failed to remove snapshot %s: %s", n, bus_error_message(&error, r));
-                        return r;
+                                "s", *name);
+                if (q < 0) {
+                        log_error("Failed to remove snapshot %s: %s",
+                                  *name, bus_error_message(&error, r));
+                        if (r == 0)
+                                r = q;
                 }
         }
 
-        return 0;
+        return r;
 }
 
 static int daemon_reload(sd_bus *bus, char **args) {
@@ -4236,20 +4291,19 @@ static int daemon_reload(sd_bus *bus, char **args) {
 
 static int reset_failed(sd_bus *bus, char **args) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_strv_free_ char **names = NULL;
         char **name;
-        int r;
+        int r, q;
 
         if (strv_length(args) <= 1)
                 return daemon_reload(bus, args);
 
-        STRV_FOREACH(name, args+1) {
-                _cleanup_free_ char *n;
+        r = expand_names(bus, args + 1, NULL, &names);
+        if (r < 0)
+                log_error("Failed to expand names: %s", strerror(-r));
 
-                n = unit_name_mangle(*name);
-                if (!n)
-                        return log_oom();
-
-                r = sd_bus_call_method(
+        STRV_FOREACH(name, names) {
+                q = sd_bus_call_method(
                                 bus,
                                 "org.freedesktop.systemd1",
                                 "/org/freedesktop/systemd1",
@@ -4257,14 +4311,16 @@ static int reset_failed(sd_bus *bus, char **args) {
                                 "ResetFailedUnit",
                                 &error,
                                 NULL,
-                                "s", n);
-                if (r < 0) {
-                        log_error("Failed to reset failed state of unit %s: %s", n, bus_error_message(&error, r));
-                        return r;
+                                "s", *name);
+                if (q < 0) {
+                        log_error("Failed to reset failed state of unit %s: %s",
+                                  *name, bus_error_message(&error, r));
+                        if (r == 0)
+                                r = q;
                 }
         }
 
-        return 0;
+        return r;
 }
 
 static int show_environment(sd_bus *bus, char **args) {
@@ -4563,7 +4619,7 @@ static int mangle_names(char **original_names, char ***mangled_names) {
                 if (is_path(*name))
                         *i = strdup(*name);
                 else
-                        *i = unit_name_mangle(*name);
+                        *i = unit_name_mangle(*name, false);
 
                 if (!*i) {
                         strv_free(l);
@@ -4580,7 +4636,7 @@ static int mangle_names(char **original_names, char ***mangled_names) {
 }
 
 static int enable_unit(sd_bus *bus, char **args) {
-        _cleanup_strv_free_ char **mangled_names = NULL;
+        _cleanup_strv_free_ char **names = NULL;
         const char *verb = args[0];
         UnitFileChange *changes = NULL;
         unsigned n_changes = 0;
@@ -4590,32 +4646,32 @@ static int enable_unit(sd_bus *bus, char **args) {
         if (!args[1])
                 return 0;
 
-        r = mangle_names(args+1, &mangled_names);
+        r = mangle_names(args+1, &names);
         if (r < 0)
                 return r;
 
-        r = enable_sysv_units(verb, mangled_names);
+        r = enable_sysv_units(verb, names);
         if (r < 0)
                 return r;
 
         if (!bus || avoid_bus()) {
                 if (streq(verb, "enable")) {
-                        r = unit_file_enable(arg_scope, arg_runtime, arg_root, mangled_names, arg_force, &changes, &n_changes);
+                        r = unit_file_enable(arg_scope, arg_runtime, arg_root, names, arg_force, &changes, &n_changes);
                         carries_install_info = r;
                 } else if (streq(verb, "disable"))
-                        r = unit_file_disable(arg_scope, arg_runtime, arg_root, mangled_names, &changes, &n_changes);
+                        r = unit_file_disable(arg_scope, arg_runtime, arg_root, names, &changes, &n_changes);
                 else if (streq(verb, "reenable")) {
-                        r = unit_file_reenable(arg_scope, arg_runtime, arg_root, mangled_names, arg_force, &changes, &n_changes);
+                        r = unit_file_reenable(arg_scope, arg_runtime, arg_root, names, arg_force, &changes, &n_changes);
                         carries_install_info = r;
                 } else if (streq(verb, "link"))
-                        r = unit_file_link(arg_scope, arg_runtime, arg_root, mangled_names, arg_force, &changes, &n_changes);
+                        r = unit_file_link(arg_scope, arg_runtime, arg_root, names, arg_force, &changes, &n_changes);
                 else if (streq(verb, "preset")) {
-                        r = unit_file_preset(arg_scope, arg_runtime, arg_root, mangled_names, arg_force, &changes, &n_changes);
+                        r = unit_file_preset(arg_scope, arg_runtime, arg_root, names, arg_force, &changes, &n_changes);
                         carries_install_info = r;
                 } else if (streq(verb, "mask"))
-                        r = unit_file_mask(arg_scope, arg_runtime, arg_root, mangled_names, arg_force, &changes, &n_changes);
+                        r = unit_file_mask(arg_scope, arg_runtime, arg_root, names, arg_force, &changes, &n_changes);
                 else if (streq(verb, "unmask"))
-                        r = unit_file_unmask(arg_scope, arg_runtime, arg_root, mangled_names, &changes, &n_changes);
+                        r = unit_file_unmask(arg_scope, arg_runtime, arg_root, names, &changes, &n_changes);
                 else
                         assert_not_reached("Unknown verb");
 
@@ -4667,7 +4723,7 @@ static int enable_unit(sd_bus *bus, char **args) {
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_append_strv(m, mangled_names);
+                r = sd_bus_message_append_strv(m, names);
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -4724,16 +4780,16 @@ finish:
 static int unit_is_enabled(sd_bus *bus, char **args) {
 
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_strv_free_ char **mangled_names = NULL;
+        _cleanup_strv_free_ char **names = NULL;
         bool enabled;
         char **name;
         int r;
 
-        r = mangle_names(args+1, &mangled_names);
+        r = mangle_names(args+1, &names);
         if (r < 0)
                 return r;
 
-        r = enable_sysv_units(args[0], mangled_names);
+        r = enable_sysv_units(args[0], names);
         if (r < 0)
                 return r;
 
@@ -4741,7 +4797,7 @@ static int unit_is_enabled(sd_bus *bus, char **args) {
 
         if (!bus || avoid_bus()) {
 
-                STRV_FOREACH(name, mangled_names) {
+                STRV_FOREACH(name, names) {
                         UnitFileState state;
 
                         state = unit_file_get_state(arg_scope, arg_root, *name);
@@ -4760,7 +4816,7 @@ static int unit_is_enabled(sd_bus *bus, char **args) {
                 }
 
         } else {
-                STRV_FOREACH(name, mangled_names) {
+                STRV_FOREACH(name, names) {
                         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
                         const char *s;
 

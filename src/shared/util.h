@@ -47,9 +47,10 @@
 
 /* What is interpreted as whitespace? */
 #define WHITESPACE " \t\n\r"
-#define NEWLINE "\n\r"
-#define QUOTES "\"\'"
-#define COMMENTS "#;"
+#define NEWLINE    "\n\r"
+#define QUOTES     "\"\'"
+#define COMMENTS   "#;"
+#define GLOB_CHARS "*?["
 
 #define FORMAT_BYTES_MAX 8
 
@@ -626,6 +627,13 @@ bool filename_is_safe(const char *p) _pure_;
 bool path_is_safe(const char *p) _pure_;
 bool string_is_safe(const char *p) _pure_;
 bool string_has_cc(const char *p) _pure_;
+
+/**
+ * Check if a string contains any glob patterns.
+ */
+_pure_ static inline bool string_is_glob(const char *p) {
+        return !!strpbrk(p, GLOB_CHARS);
+}
 
 void *xbsearch_r(const void *key, const void *base, size_t nmemb, size_t size,
                  int (*compar) (const void *, const void *, void *),

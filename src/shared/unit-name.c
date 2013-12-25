@@ -481,14 +481,17 @@ int unit_name_from_dbus_path(const char *path, char **name) {
         return 0;
 }
 
-char *unit_name_mangle(const char *name) {
+
+/**
+ *  Try to turn a string that might not be a unit name into a
+ *  sensible unit name.
+ */
+char *unit_name_mangle(const char *name, bool allow_globs) {
         char *r, *t;
         const char *f;
+        const char* valid_chars = allow_globs ? "@" VALID_CHARS "[]!-*?" : "@" VALID_CHARS;
 
         assert(name);
-
-        /* Try to turn a string that might not be a unit name into a
-         * sensible unit name. */
 
         if (is_device_path(name))
                 return unit_name_from_path(name, ".device");
@@ -506,7 +509,7 @@ char *unit_name_mangle(const char *name) {
         for (f = name, t = r; *f; f++) {
                 if (*f == '/')
                         *(t++) = '-';
-                else if (!strchr("@" VALID_CHARS, *f))
+                else if (!strchr(valid_chars, *f))
                         t = do_escape_char(*f, t);
                 else
                         *(t++) = *f;
@@ -520,16 +523,18 @@ char *unit_name_mangle(const char *name) {
         return r;
 }
 
-char *unit_name_mangle_with_suffix(const char *name, const char *suffix) {
+
+/**
+ *  Similar to unit_name_mangle(), but is called when we know
+ *  that this is about a specific unit type.
+ */
+char *unit_name_mangle_with_suffix(const char *name, bool allow_globs, const char *suffix) {
         char *r, *t;
         const char *f;
 
         assert(name);
         assert(suffix);
         assert(suffix[0] == '.');
-
-        /* Similar to unit_name_mangle(), but is called when we know
-         * that this is about snapshot units. */
 
         r = new(char, strlen(name) * 4 + strlen(suffix) + 1);
         if (!r)

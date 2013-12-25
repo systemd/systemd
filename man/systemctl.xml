@@ -580,15 +580,24 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
         </varlistentry>
 
         <varlistentry>
-          <term><command>start <replaceable>NAME</replaceable>...</command></term>
+          <term><command>start <replaceable>PATTERN</replaceable>...</command></term>
 
           <listitem>
             <para>Start (activate) one or more units specified on the
             command line.</para>
+
+            <para>Note that glob patterns operate on a list of currently
+            loaded units. Units which are not active and are not in a
+            failed state usually are not loaded, and would not be
+            matched by any pattern. In addition, in case of
+            instantiated units, systemd is often unaware of the
+            instance name until the instance has been started. Therefore
+            using glob patterns with <command>start</command>
+            has limited usefulness.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><command>stop <replaceable>NAME</replaceable>...</command></term>
+          <term><command>stop <replaceable>PATTERN</replaceable>...</command></term>
 
           <listitem>
             <para>Stop (deactivate) one or more units specified on the
@@ -596,7 +605,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><command>reload <replaceable>NAME</replaceable>...</command></term>
+          <term><command>reload <replaceable>PATTERN</replaceable>...</command></term>
 
           <listitem>
             <para>Asks all units listed on the command line to reload
@@ -617,7 +626,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
 
         </varlistentry>
         <varlistentry>
-          <term><command>restart <replaceable>NAME</replaceable>...</command></term>
+          <term><command>restart <replaceable>PATTERN</replaceable>...</command></term>
 
           <listitem>
             <para>Restart one or more units specified on the command
@@ -626,7 +635,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><command>try-restart <replaceable>NAME</replaceable>...</command></term>
+          <term><command>try-restart <replaceable>PATTERN</replaceable>...</command></term>
 
           <listitem>
             <para>Restart one or more units specified on the command
@@ -637,7 +646,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><command>reload-or-restart <replaceable>NAME</replaceable>...</command></term>
+          <term><command>reload-or-restart <replaceable>PATTERN</replaceable>...</command></term>
 
           <listitem>
             <para>Reload one or more units if they support it. If not,
@@ -646,7 +655,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><command>reload-or-try-restart <replaceable>NAME</replaceable>...</command></term>
+          <term><command>reload-or-try-restart <replaceable>PATTERN</replaceable>...</command></term>
 
           <listitem>
             <para>Reload one or more units if they support it. If not,
@@ -676,7 +685,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><command>kill <replaceable>NAME</replaceable>...</command></term>
+          <term><command>kill <replaceable>PATTERN</replaceable>...</command></term>
 
           <listitem>
             <para>Send a signal to one or more processes of the
@@ -687,7 +696,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><command>is-active <replaceable>NAME</replaceable>...</command></term>
+          <term><command>is-active <replaceable>PATTERN</replaceable>...</command></term>
 
           <listitem>
             <para>Check whether any of the specified units are active
@@ -698,7 +707,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><command>is-failed <replaceable>NAME</replaceable>...</command></term>
+          <term><command>is-failed <replaceable>PATTERN</replaceable>...</command></term>
 
           <listitem>
             <para>Check whether any of the specified units are in a "failed" state.
@@ -709,7 +718,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><command>status</command> <optional><replaceable>NAME</replaceable>...|<replaceable>PID</replaceable>...]</optional></term>
+          <term><command>status</command> <optional><replaceable>PATTERN</replaceable>...|<replaceable>PID</replaceable>...]</optional></term>
 
           <listitem>
             <para>Show terse runtime status information about one or
@@ -735,7 +744,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><command>show</command> <optional><replaceable>NAME</replaceable>...|<replaceable>JOB</replaceable>...</optional></term>
+          <term><command>show</command> <optional><replaceable>PATTERN</replaceable>...|<replaceable>JOB</replaceable>...</optional></term>
 
           <listitem>
             <para>Show properties of one or more units, jobs, or the
@@ -752,7 +761,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><command>cat <replaceable>NAME</replaceable>...</command></term>
+          <term><command>cat <replaceable>PATTERN</replaceable>...</command></term>
 
           <listitem>
             <para>Show backing files of one or more units. Prints the
@@ -788,7 +797,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
         </varlistentry>
 
         <varlistentry>
-          <term><command>help <replaceable>NAME</replaceable>...|<replaceable>PID</replaceable>...</command></term>
+          <term><command>help <replaceable>PATTERN</replaceable>...|<replaceable>PID</replaceable>...</command></term>
 
           <listitem>
             <para>Show manual pages for one or more units, if
@@ -798,7 +807,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
         </varlistentry>
 
         <varlistentry>
-          <term><command>reset-failed [<replaceable>NAME</replaceable>...]</command></term>
+          <term><command>reset-failed [<replaceable>PATTERN</replaceable>...]</command></term>
 
           <listitem>
             <para>Reset the <literal>failed</literal> state of the
@@ -1137,7 +1146,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><command>delete <replaceable>NAME</replaceable>...</command></term>
+          <term><command>delete <replaceable>PATTERN</replaceable>...</command></term>
 
           <listitem>
             <para>Remove a snapshot previously created with
@@ -1383,23 +1392,55 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
     <refsect2>
       <title>Parameter Syntax</title>
 
-    <para>For unit commands, the specified
-    <replaceable>NAME</replaceable> should be the full name of the
-    unit, or an abbreviated name which is automatically extended with
-    the <literal>.service</literal> suffix.
-    <programlisting># systemctl start foo.service</programlisting> is equivalent to:
-    <programlisting># systemctl start foo</programlisting>
-    Note that (absolute) paths to device nodes are automatically converted to device unit names, and other (absolute) paths to mount unit names.
-    <programlisting># systemctl status /dev/sda
-# systemctl status /home</programlisting> is equivalent to:
-    <programlisting># systemctl status dev-sda.device
-# systemctl status home.mount</programlisting></para>
+      <para>Unit ommands listed above take either a single unit name
+      (designated as <replaceable>NAME</replaceable>), or multiple
+      unit specifications (designated as
+      <replaceable>PATTERN</replaceable>...). In the first case, the
+      unit name with or without a suffix must be given. If the suffix
+      is not specified, systemctl will append a suitable suffix,
+      <literal>.service</literal> by default, and a type-specific
+      suffix in case of commands which operate only on specific unit
+      types. For example,
+      <programlisting># systemctl start sshd</programlisting> and
+      <programlisting># systemctl start sshd.service</programlisting>
+      are equivalent, as are
+      <programlisting># systemctl isolate snapshot-11</programlisting>
+      and
+      <programlisting># systemctl isolate snapshot-11.snapshot</programlisting>
+      Note that (absolute) paths to device nodes are automatically
+      converted to device unit names, and other (absolute) paths to
+      mount unit names.
+      <programlisting># systemctl status /dev/sda
+# systemctl status /home</programlisting>
+      are equivalent to:
+      <programlisting># systemctl status dev-sda.device
+# systemctl status home.mount</programlisting>
+      In the second case, shell-style globs will be matched against
+      currently loaded units, and literal unit names, with or without
+      a suffix, will be treated as in the first case. This means that
+      literal unit names always refer to exactly one unit, but globs
+      may match zero units and this is not considered an error.</para>
 
-    <para>For unit file commands, the
-    specified <replaceable>NAME</replaceable> should be the full name
-    of the unit file, or the absolute path to the unit file.
-    <programlisting># systemctl link /path/to/foo.service</programlisting>
-    </para>
+      <para>Glob patterns use
+      <citerefentry><refentrytitle>fnmatch</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      so normal shell-style globbing rules are used, and
+      <literal>*</literal>, <literal>?</literal>,
+      <literal>[]</literal> may be used. See
+      <citerefentry><refentrytitle>glob</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+      for more details. The patterns are matched against the names of
+      currently loaded units, and patterns which don't match anything
+      are silently skipped. For example:
+      <programlisting># systemctl stop sshd@*.service</programlisting>
+      will stop all <filename>sshd@.service</filename> instances.
+      </para>
+
+      <para>For unit file commands, the specified
+      <replaceable>NAME</replaceable> should be the full name of the
+      unit file, or the absolute path to the unit file:
+      <programlisting># systemctl enable foo.service</programlisting>
+      or
+      <programlisting># systemctl link /path/to/foo.service</programlisting>
+      </para>
     </refsect2>
 
   </refsect1>
@@ -1441,6 +1482,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
       <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>wall</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.preset</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>glob</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     </para>
   </refsect1>
 

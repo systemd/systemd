@@ -92,8 +92,8 @@ static void test_replacements(void) {
 #define expect(pattern)                                                 \
         {                                                               \
                 _cleanup_free_ char *k, *t;                             \
-                assert_se(t = unit_name_mangle(pattern));               \
-                assert_se(k = unit_name_mangle(t));                     \
+                assert_se(t = unit_name_mangle(pattern, false));        \
+                assert_se(k = unit_name_mangle(t, false));              \
                 puts(t);                                                \
                 assert_se(streq(t, k));                                 \
         }

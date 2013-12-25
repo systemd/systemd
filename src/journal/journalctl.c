@@ -991,7 +991,7 @@ static int add_units(sd_journal *j) {
         assert(j);
 
         STRV_FOREACH(i, arg_system_units) {
-                u = unit_name_mangle(*i);
+                u = unit_name_mangle(*i, false);
                 if (!u)
                         return log_oom();
                 r = add_matches_for_unit(j, u);
@@ -1003,7 +1003,7 @@ static int add_units(sd_journal *j) {
         }
 
         STRV_FOREACH(i, arg_user_units) {
-                u = unit_name_mangle(*i);
+                u = unit_name_mangle(*i, false);
                 if (!u)
                         return log_oom();
 

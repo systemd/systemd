@@ -961,7 +961,7 @@ static int rule_add_key(struct rule_tmp *rule_tmp, enum token_type type,
                 int has_glob;
 
                 has_split = (strchr(value, '|') != NULL);
-                has_glob = (strchr(value, '*') != NULL || strchr(value, '?') != NULL || strchr(value, '[') != NULL);
+                has_glob = string_is_glob(value);
                 if (has_split && has_glob) {
                         glob = GL_SPLIT_GLOB;
                 } else if (has_split) {
