@@ -311,7 +311,7 @@ static bool output_show_unit(const UnitInfo *u, char **patterns) {
                               || u->following[0]) || u->job_id > 0);
 }
 
-static void output_units_list(const UnitInfo *unit_infos, unsigned c, char** patterns) {
+static void output_units_list(const UnitInfo *unit_infos, unsigned c) {
         unsigned id_len, max_id_len, load_len, active_len, sub_len, job_len, desc_len;
         const UnitInfo *u;
         unsigned n_shown = 0;
@@ -325,9 +325,6 @@ static void output_units_list(const UnitInfo *unit_infos, unsigned c, char** pat
         desc_len = 0;
 
         for (u = unit_infos; u < unit_infos + c; u++) {
-                if (!output_show_unit(u, patterns))
-                        continue;
-
                 max_id_len = MAX(max_id_len, strlen(u->id));
                 load_len = MAX(load_len, strlen(u->load_state));
                 active_len = MAX(active_len, strlen(u->active_state));
@@ -373,9 +370,6 @@ static void output_units_list(const UnitInfo *unit_infos, unsigned c, char** pat
                 _cleanup_free_ char *e = NULL;
                 const char *on_loaded, *off_loaded, *on = "";
                 const char *on_active, *off_active, *off = "";
-
-                if (!output_show_unit(u, patterns))
-                        continue;
 
                 if (!n_shown && !arg_no_legend) {
                         printf("%-*s %-*s %-*s %-*s ",
@@ -454,7 +448,8 @@ static void output_units_list(const UnitInfo *unit_infos, unsigned c, char** pat
 static int get_unit_list(
                 sd_bus *bus,
                 sd_bus_message **_reply,
-                UnitInfo **_unit_infos) {
+                UnitInfo **_unit_infos,
+                char **patterns) {
 
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
@@ -486,6 +481,8 @@ static int get_unit_list(
                 return bus_log_parse_error(r);
 
         while ((r = bus_parse_unit_info(reply, &u)) > 0) {
+                if (!output_show_unit(&u, patterns))
+                        continue;
 
                 if (!GREEDY_REALLOC(unit_infos, size, c+1))
                         return log_oom();
@@ -515,12 +512,12 @@ static int list_units(sd_bus *bus, char **args) {
 
         pager_open_if_enabled();
 
-        r = get_unit_list(bus, &reply, &unit_infos);
+        r = get_unit_list(bus, &reply, &unit_infos, strv_skip_first(args));
         if (r < 0)
                 return r;
 
         qsort_safe(unit_infos, r, sizeof(UnitInfo), compare_unit_info);
-        output_units_list(unit_infos, r, strv_skip_first(args));
+        output_units_list(unit_infos, r);
 
         return 0;
 }
@@ -692,7 +689,7 @@ static int output_sockets_list(struct socket_info *socket_infos, unsigned cs) {
 static int list_sockets(sd_bus *bus, char **args) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_free_ UnitInfo *unit_infos = NULL;
-        struct socket_info *socket_infos = NULL;
+        _cleanup_free_ struct socket_info *socket_infos = NULL;
         const UnitInfo *u;
         struct socket_info *s;
         unsigned cs = 0;
@@ -701,16 +698,13 @@ static int list_sockets(sd_bus *bus, char **args) {
 
         pager_open_if_enabled();
 
-        n = get_unit_list(bus, &reply, &unit_infos);
+        n = get_unit_list(bus, &reply, &unit_infos, strv_skip_first(args));
         if (n < 0)
                 return n;
 
         for (u = unit_infos; u < unit_infos + n; u++) {
                 _cleanup_strv_free_ char **listening = NULL, **triggered = NULL;
                 int i, c;
-
-                if (!output_show_unit(u, strv_skip_first(args)))
-                        continue;
 
                 if (!endswith(u->id, ".socket"))
                         continue;
@@ -758,7 +752,6 @@ static int list_sockets(sd_bus *bus, char **args) {
                 if (s->own_triggered)
                         strv_free(s->triggered);
         }
-        free(socket_infos);
 
         return r;
 }
@@ -915,7 +908,7 @@ static int list_timers(sd_bus *bus, char **args) {
 
         pager_open_if_enabled();
 
-        n = get_unit_list(bus, &reply, &unit_infos);
+        n = get_unit_list(bus, &reply, &unit_infos, strv_skip_first(args));
         if (n < 0)
                 return n;
 
@@ -925,9 +918,6 @@ static int list_timers(sd_bus *bus, char **args) {
                 _cleanup_strv_free_ char **triggered = NULL;
                 dual_timestamp next;
                 usec_t m;
-
-                if (!output_show_unit(u, strv_skip_first(args)))
-                        continue;
 
                 if (!endswith(u->id, ".timer"))
                         continue;
@@ -1014,7 +1004,7 @@ static bool output_show_unit_file(const UnitFileList *u, char **patterns) {
         return !arg_types || ((dot = strrchr(u->path, '.')) && strv_find(arg_types, dot+1));
 }
 
-static void output_unit_file_list(const UnitFileList *units, unsigned c, char **patterns) {
+static void output_unit_file_list(const UnitFileList *units, unsigned c) {
         unsigned max_id_len, id_cols, state_cols, n_shown = 0;
         const UnitFileList *u;
 
@@ -1022,9 +1012,6 @@ static void output_unit_file_list(const UnitFileList *units, unsigned c, char **
         state_cols = sizeof("STATE")-1;
 
         for (u = units; u < units + c; u++) {
-                if (!output_show_unit_file(u, patterns))
-                        continue;
-
                 max_id_len = MAX(max_id_len, strlen(basename(u->path)));
                 state_cols = MAX(state_cols, strlen(unit_file_state_to_string(u->state)));
         }
@@ -1048,9 +1035,6 @@ static void output_unit_file_list(const UnitFileList *units, unsigned c, char **
                 _cleanup_free_ char *e = NULL;
                 const char *on, *off;
                 const char *id;
-
-                if (!output_show_unit_file(u, patterns))
-                        continue;
 
                 n_shown++;
 
@@ -1083,6 +1067,8 @@ static int list_unit_files(sd_bus *bus, char **args) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ UnitFileList *units = NULL;
+        UnitFileList *unit;
+        size_t size = 0;
         unsigned c = 0;
         const char *state;
         char *path;
@@ -1115,15 +1101,16 @@ static int list_unit_files(sd_bus *bus, char **args) {
                 }
 
                 HASHMAP_FOREACH(u, h, i) {
-                        memcpy(units + c++, u, sizeof(UnitFileList));
+                        if (!output_show_unit_file(u, strv_skip_first(args)))
+                                continue;
+
+                        units[c++] = *u;
                         free(u);
                 }
 
-                assert(c == n_units);
+                assert(c <= n_units);
                 hashmap_free(h);
         } else {
-                size_t size = 0;
-
                 r = sd_bus_call_method(
                                 bus,
                                 "org.freedesktop.systemd1",
@@ -1147,10 +1134,14 @@ static int list_unit_files(sd_bus *bus, char **args) {
                         if (!GREEDY_REALLOC(units, size, c + 1))
                                 return log_oom();
 
-                        units[c++] = (struct UnitFileList) {
+                        units[c] = (struct UnitFileList) {
                                 path,
                                 unit_file_state_from_string(state)
                         };
+
+                        if (output_show_unit_file(&units[c], strv_skip_first(args)))
+                                c ++;
+
                 }
                 if (r < 0)
                         return bus_log_parse_error(r);
@@ -1162,8 +1153,12 @@ static int list_unit_files(sd_bus *bus, char **args) {
 
         if (c > 0) {
                 qsort(units, c, sizeof(UnitFileList), compare_unit_file_list);
-                output_unit_file_list(units, c, strv_skip_first(args));
+                output_unit_file_list(units, c);
         }
+
+        if (avoid_bus())
+                for (unit = units; unit < units + c; unit++)
+                        free(unit->path);
 
         return 0;
 }
@@ -3714,7 +3709,7 @@ static int show_all(
         unsigned c;
         int r;
 
-        r = get_unit_list(bus, &reply, &unit_infos);
+        r = get_unit_list(bus, &reply, &unit_infos, NULL);
         if (r < 0)
                 return r;
 
@@ -3726,9 +3721,6 @@ static int show_all(
 
         for (u = unit_infos; u < unit_infos + c; u++) {
                 _cleanup_free_ char *p = NULL;
-
-                if (!output_show_unit(u, NULL))
-                        continue;
 
                 p = unit_dbus_path_from_name(u->id);
                 if (!p)
