@@ -371,7 +371,18 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'b':
                         arg_boot = true;
-                        arg_boot_descriptor = optarg;
+
+                        if (optarg)
+                                arg_boot_descriptor = optarg;
+                        else if (optind < argc) {
+                                int boot;
+
+                                if (argv[optind][0] != '-' ||
+                                    safe_atoi(argv[optind], &boot) >= 0) {
+                                        arg_boot_descriptor = argv[optind];
+                                        optind++;
+                                }
+                        }
 
                         break;
 
