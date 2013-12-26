@@ -1375,7 +1375,7 @@ static int list_dependencies(sd_bus *bus, char **args) {
         assert(bus);
 
         if (args[1]) {
-                unit = unit_name_mangle(args[1], false);
+                unit = unit_name_mangle(args[1], MANGLE_NOGLOB);
                 if (!unit)
                         return log_oom();
                 u = unit;
@@ -1475,7 +1475,7 @@ static int set_default(sd_bus *bus, char **args) {
         unsigned n_changes = 0;
         int r;
 
-        unit = unit_name_mangle_with_suffix(args[1], false, ".target");
+        unit = unit_name_mangle_with_suffix(args[1], MANGLE_NOGLOB, ".target");
         if (!unit)
                 return log_oom();
 
@@ -1924,7 +1924,7 @@ static int check_one_unit(sd_bus *bus, const char *name, const char *good_states
 
         assert(name);
 
-        n = unit_name_mangle(name, false);
+        n = unit_name_mangle(name, MANGLE_NOGLOB);
         if (!n)
                 return log_oom();
 
@@ -1981,7 +1981,7 @@ static int check_triggering_units(
         char **i;
         int r;
 
-        n = unit_name_mangle(name, false);
+        n = unit_name_mangle(name, MANGLE_NOGLOB);
         if (!n)
                 return log_oom();
 
@@ -2111,9 +2111,9 @@ static int expand_names(sd_bus *bus, char **names, const char* suffix, char ***r
                 char *t;
 
                 if (suffix)
-                        t = unit_name_mangle_with_suffix(*name, true, suffix);
+                        t = unit_name_mangle_with_suffix(*name, MANGLE_GLOB, suffix);
                 else
-                        t = unit_name_mangle(*name, true);
+                        t = unit_name_mangle(*name, MANGLE_GLOB);
                 if (!t)
                         return log_oom();
 
@@ -4117,7 +4117,7 @@ static int set_property(sd_bus *bus, char **args) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        n = unit_name_mangle(args[1], false);
+        n = unit_name_mangle(args[1], MANGLE_NOGLOB);
         if (!n)
                 return log_oom();
 
@@ -4164,7 +4164,7 @@ static int snapshot(sd_bus *bus, char **args) {
         int r;
 
         if (strv_length(args) > 1)
-                n = unit_name_mangle_with_suffix(args[1], false, ".snapshot");
+                n = unit_name_mangle_with_suffix(args[1], MANGLE_NOGLOB, ".snapshot");
         else
                 n = strdup("");
         if (!n)
@@ -4619,7 +4619,7 @@ static int mangle_names(char **original_names, char ***mangled_names) {
                 if (is_path(*name))
                         *i = strdup(*name);
                 else
-                        *i = unit_name_mangle(*name, false);
+                        *i = unit_name_mangle(*name, MANGLE_NOGLOB);
 
                 if (!*i) {
                         strv_free(l);

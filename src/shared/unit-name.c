@@ -62,7 +62,7 @@ static const char* const unit_load_state_table[_UNIT_LOAD_STATE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(unit_load_state, UnitLoadState);
 
-bool unit_name_is_valid(const char *n, bool template_ok) {
+bool unit_name_is_valid(const char *n, enum template_valid template_ok) {
         const char *e, *i, *at;
 
         /* Valid formats:
@@ -72,6 +72,7 @@ bool unit_name_is_valid(const char *n, bool template_ok) {
          */
 
         assert(n);
+        assert(IN_SET(template_ok, TEMPLATE_VALID, TEMPLATE_INVALID));
 
         if (strlen(n) >= UNIT_NAME_MAX)
                 return false;
@@ -96,7 +97,7 @@ bool unit_name_is_valid(const char *n, bool template_ok) {
                 if (at == n)
                         return false;
 
-                if (!template_ok && at+1 == e)
+                if (!template_ok == TEMPLATE_VALID && at+1 == e)
                         return false;
         }
 
@@ -186,7 +187,7 @@ char *unit_name_change_suffix(const char *n, const char *suffix) {
         size_t a, b;
 
         assert(n);
-        assert(unit_name_is_valid(n, true));
+        assert(unit_name_is_valid(n, TEMPLATE_VALID));
         assert(suffix);
         assert(suffix[0] == '.');
 
@@ -486,12 +487,13 @@ int unit_name_from_dbus_path(const char *path, char **name) {
  *  Try to turn a string that might not be a unit name into a
  *  sensible unit name.
  */
-char *unit_name_mangle(const char *name, bool allow_globs) {
+char *unit_name_mangle(const char *name, enum unit_name_mangle allow_globs) {
         char *r, *t;
         const char *f;
-        const char* valid_chars = allow_globs ? "@" VALID_CHARS "[]!-*?" : "@" VALID_CHARS;
+        const char* valid_chars = allow_globs == MANGLE_GLOB ? "@" VALID_CHARS "[]!-*?" : "@" VALID_CHARS;
 
         assert(name);
+        assert(IN_SET(allow_globs, MANGLE_GLOB, MANGLE_NOGLOB));
 
         if (is_device_path(name))
                 return unit_name_from_path(name, ".device");
@@ -528,7 +530,7 @@ char *unit_name_mangle(const char *name, bool allow_globs) {
  *  Similar to unit_name_mangle(), but is called when we know
  *  that this is about a specific unit type.
  */
-char *unit_name_mangle_with_suffix(const char *name, bool allow_globs, const char *suffix) {
+char *unit_name_mangle_with_suffix(const char *name, enum unit_name_mangle allow_globs, const char *suffix) {
         char *r, *t;
         const char *f;
 

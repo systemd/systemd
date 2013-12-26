@@ -119,7 +119,7 @@ int unit_add_name(Unit *u, const char *text) {
         if (!s)
                 return -ENOMEM;
 
-        if (!unit_name_is_valid(s, false)) {
+        if (!unit_name_is_valid(s, TEMPLATE_INVALID)) {
                 r = -EINVAL;
                 goto fail;
         }

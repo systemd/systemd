@@ -2433,7 +2433,7 @@ static int open_follow(char **filename, FILE **_f, Set *names, char **_final) {
                  * unit name. */
                 name = basename(*filename);
 
-                if (unit_name_is_valid(name, true)) {
+                if (unit_name_is_valid(name, TEMPLATE_VALID)) {
 
                         id = set_get(names, name);
                         if (!id) {

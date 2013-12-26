@@ -575,7 +575,7 @@ int unit_file_mask(
         STRV_FOREACH(i, files) {
                 _cleanup_free_ char *path = NULL;
 
-                if (!unit_name_is_valid(*i, true)) {
+                if (!unit_name_is_valid(*i, TEMPLATE_VALID)) {
                         if (r == 0)
                                 r = -EINVAL;
                         continue;
@@ -643,7 +643,7 @@ int unit_file_unmask(
         STRV_FOREACH(i, files) {
                 char *path;
 
-                if (!unit_name_is_valid(*i, true)) {
+                if (!unit_name_is_valid(*i, TEMPLATE_VALID)) {
                         if (r == 0)
                                 r = -EINVAL;
                         continue;
@@ -719,7 +719,7 @@ int unit_file_link(
                 fn = basename(*i);
 
                 if (!path_is_absolute(*i) ||
-                    !unit_name_is_valid(fn, true)) {
+                    !unit_name_is_valid(fn, TEMPLATE_VALID)) {
                         if (r == 0)
                                 r = -EINVAL;
                         continue;
@@ -861,7 +861,7 @@ static int install_info_add(
         if (!name)
                 name = basename(path);
 
-        if (!unit_name_is_valid(name, true))
+        if (!unit_name_is_valid(name, TEMPLATE_VALID))
                 return -EINVAL;
 
         if (hashmap_get(c->have_installed, name) ||
@@ -1235,7 +1235,7 @@ static int install_info_symlink_wants(
                 if (q < 0)
                         return q;
 
-                if (!unit_name_is_valid(dst, true)) {
+                if (!unit_name_is_valid(dst, TEMPLATE_VALID)) {
                         r = -EINVAL;
                         continue;
                 }
@@ -1272,7 +1272,7 @@ static int install_info_symlink_requires(
                 if (q < 0)
                         return q;
 
-                if (!unit_name_is_valid(dst, true)) {
+                if (!unit_name_is_valid(dst, TEMPLATE_VALID)) {
                         r = -EINVAL;
                         continue;
                 }
@@ -1675,7 +1675,7 @@ UnitFileState unit_file_get_state(
         if (root_dir && scope != UNIT_FILE_SYSTEM)
                 return -EINVAL;
 
-        if (!unit_name_is_valid(name, true))
+        if (!unit_name_is_valid(name, TEMPLATE_VALID))
                 return -EINVAL;
 
         r = lookup_paths_init_from_scope(&paths, scope);
@@ -1845,7 +1845,7 @@ int unit_file_preset(
 
         STRV_FOREACH(i, files) {
 
-                if (!unit_name_is_valid(*i, true))
+                if (!unit_name_is_valid(*i, TEMPLATE_VALID))
                         return -EINVAL;
 
                 r = unit_file_query_preset(scope, *i);
@@ -1949,7 +1949,7 @@ int unit_file_get_list(
                         if (ignore_file(de->d_name))
                                 continue;
 
-                        if (!unit_name_is_valid(de->d_name, true))
+                        if (!unit_name_is_valid(de->d_name, TEMPLATE_VALID))
                                 continue;
 
                         if (hashmap_get(h, de->d_name))

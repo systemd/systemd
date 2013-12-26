@@ -208,7 +208,7 @@ static int message_start_transient_unit_new(sd_bus *bus, const char *name, sd_bu
         if (!isempty(arg_slice)) {
                 _cleanup_free_ char *slice;
 
-                slice = unit_name_mangle_with_suffix(arg_slice, false, ".slice");
+                slice = unit_name_mangle_with_suffix(arg_slice, MANGLE_NOGLOB, ".slice");
                 if (!slice)
                         return -ENOMEM;
 
@@ -255,7 +255,7 @@ static int start_transient_service(
         int r;
 
         if (arg_unit)
-                name = unit_name_mangle_with_suffix(arg_unit, false, ".service");
+                name = unit_name_mangle_with_suffix(arg_unit, MANGLE_NOGLOB, ".service");
         else
                 asprintf(&name, "run-%lu.service", (unsigned long) getpid());
         if (!name)
@@ -342,7 +342,7 @@ static int start_transient_scope(
         assert(bus);
 
         if (arg_unit)
-                name = unit_name_mangle_with_suffix(arg_unit, false, ".scope");
+                name = unit_name_mangle_with_suffix(arg_unit, MANGLE_NOGLOB, ".scope");
         else
                 asprintf(&name, "run-%lu.scope", (unsigned long) getpid());
         if (!name)

@@ -63,7 +63,7 @@ static void test_replacements(void) {
                 puts(t);                                           \
                 k = unit_name_to_path(t);                          \
                 puts(k);                                           \
-                assert(streq(k, expected ? expected : path));     \
+                assert(streq(k, expected ? expected : path));      \
         }
 
         expect("/waldo", ".mount", NULL);
@@ -74,12 +74,12 @@ static void test_replacements(void) {
 
         puts("-------------------------------------------------");
 #undef expect
-#define expect(pattern, path, suffix, expected)                         \
-        {                                                               \
-                _cleanup_free_ char *t =                                \
+#define expect(pattern, path, suffix, expected)                              \
+        {                                                                    \
+                _cleanup_free_ char *t =                                     \
                         unit_name_from_path_instance(pattern, path, suffix); \
-                puts(t);                                                \
-                assert(streq(t, expected));                             \
+                puts(t);                                                     \
+                assert(streq(t, expected));                                  \
         }
 
         expect("waldo", "/waldo", ".mount", "waldo@waldo.mount");
@@ -89,13 +89,13 @@ static void test_replacements(void) {
 
         puts("-------------------------------------------------");
 #undef expect
-#define expect(pattern)                                                 \
-        {                                                               \
-                _cleanup_free_ char *k, *t;                             \
-                assert_se(t = unit_name_mangle(pattern, false));        \
-                assert_se(k = unit_name_mangle(t, false));              \
-                puts(t);                                                \
-                assert_se(streq(t, k));                                 \
+#define expect(pattern)                                                     \
+        {                                                                   \
+                _cleanup_free_ char *k, *t;                                 \
+                assert_se(t = unit_name_mangle(pattern, MANGLE_NOGLOB));    \
+                assert_se(k = unit_name_mangle(t, MANGLE_NOGLOB));          \
+                puts(t);                                                    \
+                assert_se(streq(t, k));                                     \
         }
 
         expect("/home");

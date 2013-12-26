@@ -1152,7 +1152,7 @@ int cg_path_decode_unit(const char *cgroup, char **unit){
         c = strndupa(cgroup, e - cgroup);
         c = cg_unescape(c);
 
-        if (!unit_name_is_valid(c, false))
+        if (!unit_name_is_valid(c, TEMPLATE_INVALID))
                 return -EINVAL;
 
         s = strdup(c);
@@ -1566,7 +1566,7 @@ int cg_slice_to_path(const char *unit, char **ret) {
         assert(unit);
         assert(ret);
 
-        if (!unit_name_is_valid(unit, false))
+        if (!unit_name_is_valid(unit, TEMPLATE_INVALID))
                 return -EINVAL;
 
         if (!endswith(unit, ".slice"))
@@ -1583,7 +1583,7 @@ int cg_slice_to_path(const char *unit, char **ret) {
 
                 strcpy(stpncpy(n, p, dash - p), ".slice");
 
-                if (!unit_name_is_valid(n, false))
+                if (!unit_name_is_valid(n, TEMPLATE_INVALID))
                         return -EINVAL;
 
                 escaped = cg_escape(n);

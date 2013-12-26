@@ -190,7 +190,7 @@ static int add_dbus(const char *path, const char *fname, const char *type) {
         }
 
         if (service) {
-                if (!unit_name_is_valid(service, false)) {
+                if (!unit_name_is_valid(service, TEMPLATE_INVALID)) {
                         log_warning("Unit name %s is not valid, ignoring.", service);
                         return 0;
                 }
