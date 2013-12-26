@@ -193,6 +193,8 @@ struct kdbus_policy {
 
 /**
  * enum kdbus_item_type - item types to chain data in a list
+ * @_KDBUS_ITEM_NULL:		Uninitialized/invalid
+ * @_KDBUS_ITEM_USER_BASE:	Start of user items
  * @KDBUS_ITEM_PAYLOAD_VEC:	Vector to data
  * @KDBUS_ITEM_PAYLOAD_OFF:	Data at returned offset to message head
  * @KDBUS_ITEM_PAYLOAD_MEMFD:	Data as sealed memfd
@@ -200,10 +202,11 @@ struct kdbus_policy {
  * @KDBUS_ITEM_BLOOM:		For broadcasts, carries bloom filter
  * @KDBUS_ITEM_BLOOM_SIZE:	Desired bloom size, used by KDBUS_CMD_BUS_MAKE
  * @KDBUS_ITEM_DST_NAME:	Destination's well-known name
- * @KDBUS_ITEM_PRIORITY:	Queue priority for message
  * @KDBUS_ITEM_MAKE_NAME:	Name of namespace, bus, endpoint
+ * @_KDBUS_ITEM_POLICY_BASE:	Start of policy items
  * @KDBUS_ITEM_POLICY_NAME:	Policy in struct kdbus_policy
  * @KDBUS_ITEM_POLICY_ACCESS:	Policy in struct kdbus_policy
+ * @_KDBUS_ITEM_ATTACH_BASE:	Start of metadata attach items
  * @KDBUS_ITEM_NAME:		Well-know name with flags
  * @KDBUS_ITEM_ID:		Connection ID
  * @KDBUS_ITEM_TIMESTAMP:	Timestamp
@@ -216,6 +219,7 @@ struct kdbus_policy {
  * @KDBUS_ITEM_CAPS:		The process capabilities
  * @KDBUS_ITEM_SECLABEL:	The security label
  * @KDBUS_ITEM_AUDIT:		The audit IDs
+ * @_KDBUS_ITEM_KERNEL_BASE:	Start of kernel-generated message items
  * @KDBUS_ITEM_NAME_ADD:	Notify in struct kdbus_notify_name_change
  * @KDBUS_ITEM_NAME_REMOVE:	Notify in struct kdbus_notify_name_change
  * @KDBUS_ITEM_NAME_CHANGE:	Notify in struct kdbus_notify_name_change
@@ -234,7 +238,6 @@ enum kdbus_item_type {
 	KDBUS_ITEM_BLOOM,
 	KDBUS_ITEM_BLOOM_SIZE,
 	KDBUS_ITEM_DST_NAME,
-	KDBUS_ITEM_PRIORITY,
 	KDBUS_ITEM_MAKE_NAME,
 
 	_KDBUS_ITEM_POLICY_BASE	= 0x400,
@@ -329,11 +332,11 @@ enum kdbus_msg_flags {
 /**
  * enum kdbus_payload_type - type of payload carried by message
  * @KDBUS_PAYLOAD_KERNEL:	Kernel-generated simple message
- * @KDBUS_PAYLOAD_DBUS:		D-Bus marshalling
+ * @KDBUS_PAYLOAD_DBUS:		D-Bus marshalling "DBusDBus"
  */
 enum kdbus_payload_type {
 	KDBUS_PAYLOAD_KERNEL,
-	KDBUS_PAYLOAD_DBUS	= 0x4442757344427573ULL, /* 'DBusDBus' */
+	KDBUS_PAYLOAD_DBUS	= 0x4442757344427573ULL,
 };
 
 /**
@@ -370,6 +373,7 @@ struct kdbus_msg {
 
 /**
  * enum kdbus_policy_access_type - permissions of a policy record
+ * @_KDBUS_POLICY_ACCESS_NULL:	Uninitialized/invalid
  * @KDBUS_POLICY_ACCESS_USER:	Grant access to a uid
  * @KDBUS_POLICY_ACCESS_GROUP:	Grant access to gid
  * @KDBUS_POLICY_ACCESS_WORLD:	World-accessible
