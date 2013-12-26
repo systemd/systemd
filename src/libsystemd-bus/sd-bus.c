@@ -1376,7 +1376,7 @@ static int bus_write_message(sd_bus *bus, sd_bus_message *m, size_t *idx) {
         if (r <= 0)
                 return r;
 
-        if (bus->is_kernel || bus->windex >= BUS_MESSAGE_SIZE(m))
+        if (bus->is_kernel || *idx >= BUS_MESSAGE_SIZE(m))
                 log_debug("Sent message type=%s sender=%s destination=%s object=%s interface=%s member=%s cookie=%lu reply_cookie=%lu error=%s",
                           bus_message_type_to_string(m->header->type),
                           strna(sd_bus_message_get_sender(m)),
