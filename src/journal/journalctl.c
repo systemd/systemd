@@ -71,7 +71,8 @@ static bool arg_no_tail = false;
 static bool arg_quiet = false;
 static bool arg_merge = false;
 static bool arg_boot = false;
-static char *arg_boot_descriptor = NULL;
+static sd_id128_t arg_boot_id = {};
+static int arg_boot_offset = 0;
 static bool arg_dmesg = false;
 static const char *arg_cursor = NULL;
 static const char *arg_after_cursor = NULL;
@@ -120,6 +121,41 @@ static void pager_open_if_enabled(void) {
                 return;
 
         pager_open(arg_pager_end);
+}
+
+static int parse_boot_descriptor(const char *x, sd_id128_t *boot_id, int *offset) {
+        sd_id128_t id = SD_ID128_NULL;
+        int off = 0, r;
+
+        if (strlen(x) >= 32) {
+                char *t;
+
+                t = strndupa(x, 32);
+                r = sd_id128_from_string(t, &id);
+                if (r >= 0)
+                        x += 32;
+
+                if (*x != '-' && *x != '+' && *x != 0)
+                        return -EINVAL;
+
+                if (*x != 0) {
+                        r = safe_atoi(x, &off);
+                        if (r < 0)
+                                return r;
+                }
+        } else {
+                r = safe_atoi(x, &off);
+                if (r < 0)
+                        return r;
+        }
+
+        if (boot_id)
+                *boot_id = id;
+
+        if (offset)
+                *offset = off;
+
+        return 0;
 }
 
 static int help(void) {
@@ -372,16 +408,23 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'b':
                         arg_boot = true;
 
-                        if (optarg)
-                                arg_boot_descriptor = optarg;
-                        else if (optind < argc) {
-                                int boot;
-
-                                if (argv[optind][0] != '-' ||
-                                    safe_atoi(argv[optind], &boot) >= 0) {
-                                        arg_boot_descriptor = argv[optind];
-                                        optind++;
+                        if (optarg) {
+                                r =  parse_boot_descriptor(optarg, &arg_boot_id, &arg_boot_offset);
+                                if (r < 0) {
+                                        log_error("Failed to parse boot descriptor '%s'", optarg);
+                                        return -EINVAL;
                                 }
+                        } else {
+
+                                /* Hmm, no argument? Maybe the next
+                                 * word on the command line is
+                                 * supposed to be the argument? Let's
+                                 * see if there is one and is parsable
+                                 * as a boot descriptor... */
+
+                                if (optind < argc &&
+                                    parse_boot_descriptor(argv[optind], &arg_boot_id, &arg_boot_offset) >= 0)
+                                        optind++;
                         }
 
                         break;
@@ -819,9 +862,6 @@ static int get_relative_boot_id(sd_journal *j, sd_id128_t *boot_id, int relative
         assert(j);
         assert(boot_id);
 
-        if (relative == 0 && !sd_id128_equal(*boot_id, SD_ID128_NULL))
-                return 0;
-
         r = sd_journal_query_unique(j, "_BOOT_ID");
         if (r < 0)
                 return r;
@@ -888,58 +928,27 @@ static int get_relative_boot_id(sd_journal *j, sd_id128_t *boot_id, int relative
 
 static int add_boot(sd_journal *j) {
         char match[9+32+1] = "_BOOT_ID=";
-        char *offset;
-        sd_id128_t boot_id = SD_ID128_NULL;
-        int r, relative = 0;
+        int r;
 
         assert(j);
 
         if (!arg_boot)
                 return 0;
 
-        if (!arg_boot_descriptor)
+        if (arg_boot_offset == 0 && sd_id128_equal(arg_boot_id, SD_ID128_NULL))
                 return add_match_this_boot(j, arg_machine);
 
-        if (strlen(arg_boot_descriptor) >= 32) {
-                char tmp = arg_boot_descriptor[32];
-                arg_boot_descriptor[32] = '\0';
-                r = sd_id128_from_string(arg_boot_descriptor, &boot_id);
-                arg_boot_descriptor[32] = tmp;
-
-                if (r < 0) {
-                        log_error("Failed to parse boot ID '%.32s': %s",
-                                  arg_boot_descriptor, strerror(-r));
-                        return r;
-                }
-
-                offset = arg_boot_descriptor + 32;
-
-                if (*offset && *offset != '-' && *offset != '+') {
-                        log_error("Relative boot ID offset must start with a '+' or a '-', found '%s' ", offset);
-                        return -EINVAL;
-                }
-        } else
-                offset = arg_boot_descriptor;
-
-        if (*offset) {
-                r = safe_atoi(offset, &relative);
-                if (r < 0) {
-                        log_error("Failed to parse relative boot ID number '%s'", offset);
-                        return -EINVAL;
-                }
-        }
-
-        r = get_relative_boot_id(j, &boot_id, relative);
+        r = get_relative_boot_id(j, &arg_boot_id, arg_boot_offset);
         if (r < 0) {
-                if (sd_id128_equal(boot_id, SD_ID128_NULL))
-                        log_error("Failed to look up boot %+d: %s", relative, strerror(-r));
+                if (sd_id128_equal(arg_boot_id, SD_ID128_NULL))
+                        log_error("Failed to look up boot %+i: %s", arg_boot_offset, strerror(-r));
                 else
-                        log_error("Failed to look up boot ID "SD_ID128_FORMAT_STR"%+d: %s",
-                                  SD_ID128_FORMAT_VAL(boot_id), relative, strerror(-r));
+                        log_error("Failed to look up boot ID "SD_ID128_FORMAT_STR"%+i: %s",
+                                  SD_ID128_FORMAT_VAL(arg_boot_id), arg_boot_offset, strerror(-r));
                 return r;
         }
 
-        sd_id128_to_string(boot_id, match + 9);
+        sd_id128_to_string(arg_boot_id, match + 9);
 
         r = sd_journal_add_match(j, match, sizeof(match) - 1);
         if (r < 0) {
