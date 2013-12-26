@@ -139,7 +139,7 @@
 
                                 <para>If set to
                                 <option>simple</option> (the default
-                                value if <varname>BusName=</varname>
+                                value if <varname>Type=</varname>
                                 is not specified), it is expected that
                                 the process configured with
                                 <varname>ExecStart=</varname> is the
