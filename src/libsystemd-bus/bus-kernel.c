@@ -873,10 +873,16 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
                         break;
 
                 case KDBUS_ITEM_DST_NAME:
+                        if (!service_name_is_valid(d->str))
+                                return -EBADMSG;
+
                         destination = d->str;
                         break;
 
                 case KDBUS_ITEM_NAME:
+                        if (!service_name_is_valid(d->name.name))
+                                return -EBADMSG;
+
                         r = strv_extend(&m->creds.well_known_names, d->name.name);
                         if (r < 0)
                                 goto fail;
