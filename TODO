@@ -84,8 +84,8 @@ Features:
 
 * refuse boot if /etc/os-release is missing or /etc/machine-id cannot be set up
 
-* given that logind/machined now let PID 1 do all nasty work, we can
-  probably reduce the capability set they retain substantially.
+* given that logind now lets PID 1 do all nasty work, we can
+  probably reduce the capability set it retains substantially.
 
 * btrfs raid assembly: some .device jobs stay stuck in the queue
 
@@ -292,7 +292,6 @@ Features:
   - journal: sanely deal with entries which are larger than the individual file size, but where the components would fit
   - Replace utmp, wtmp, btmp, and lastlog completely with journal
   - journalctl: instead --after-cursor= maybe have a --cursor=XYZ+1 syntax?
-  - journalctl: support -M to read journal of containers and determine journal directory from root directory of container
   - tmpfiles: when applying ownership to /run/log/journal, also do this for the journal fails contained in it
   - when a kernel driver logs in a tight loop, we should ratelimit that too.
   - journald: optionally, log debug messages to /run but everything else to /var
@@ -306,11 +305,9 @@ Features:
     hence doing this via signals is not going to work.
 
 * document:
-  - document that deps in [Unit] sections ignore Alias= fileds in
+  - document that deps in [Unit] sections ignore Alias= fields in
     [Install] units of other units, unless those units are disabled
   - man: clarify that time-sync.target is not only sysv compat but also useful otherwise. Same for similar targets
-  - Document word splitting syntax for ExecStart= and friends
-  - document that units from /etc override those from /usr and /run
   - document the exit codes when services fail before they are exec()ed
   - document that service reload may be implemented as service reexec
   - document in wiki how to map ical recurrence events to systemd timer unit calendar specifications
@@ -340,7 +337,7 @@ Features:
   - rework wait filter to not require match callback
   - better error message if you run systemctl without systemd running
   - systemctl status output should should include list of triggering units and their status
-  - in systemctl list-timers show time trggering units ran last
+  - in systemctl list-timers show time triggering units ran last
 
 * unit install:
   - "systemctl mask" should find all names by which a unit is accessible
@@ -517,8 +514,6 @@ Features:
   - move to LGPL
   - kill scsi_id
   - add trigger --subsystem-match=usb/usb_device device
-
-* cleanup syslog 'priority' vs. 'level' wording
 
 * when a service has the same env var set twice we actually store it twice and return that in systemctl show -p... We should only show the last setting
 
