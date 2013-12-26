@@ -65,7 +65,7 @@
                 file system. The root file system check is performed
                 before the other file systems. Either service is enabled
                 at boot if passno in <filename>/etc/fstab</filename> for
-                the filesystem is set to a value greater than zero.</para>
+                the file system is set to a value greater than zero.</para>
 
                 <para><filename>systemd-fsck</filename> will
                 forward file system checking progress to the

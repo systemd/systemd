@@ -101,8 +101,6 @@ Features:
   Maybe take a BSD lock at the disk device node and teach udev to
   check for that and suppress event handling.
 
-* document logic of auto/noauto and fail/nofail in fstab in systemd.mount or systemd-fstab-generator man page
-
 * something pulls in pcre as shared object dependency into our daemons such as hostnamed.
 
 * allow implementation of InaccessibleDirectories=/ plus

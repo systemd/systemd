@@ -132,7 +132,10 @@
                 for details). Mounts listed in
                 <filename>/etc/fstab</filename> will be converted into
                 native units dynamically at boot and when the
-                configuration of the system manager is reloaded. See
+                configuration of the system manager is reloaded. In
+                general, configuring mount points through
+                <filename>/etc/fstab</filename> is the preferred
+                approach. See
                 <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                 for details about the conversion.</para>
 
@@ -158,6 +161,21 @@
                 seconds or explicitly specify a unit as
                 <literal>s</literal>, <literal>min</literal>,
                 <literal>h</literal>, <literal>ms</literal>.</para>
+
+                <para>If <option>nofail</option> is given, this mount
+                will be only wanted, not required, by the
+                <filename>local-fs.target</filename>. This means that
+                the boot will continue even if this mount point is not
+                mounted successfully. Option <option>fail</option> has
+                the opposite meaning and is the default.</para>
+
+                <para>If <option>noauto</option> is given, this mount
+                will not be added as a dependency for
+                <filename>local-fs.target</filename>. This means that
+                it will not be mounted automatically during boot,
+                unless it is pulled in by some other unit. Option
+                <option>auto</option> has the opposite meaning and is
+                the default.</para>
 
                 <para>If a mount point is configured in both
                 <filename>/etc/fstab</filename> and a unit file that

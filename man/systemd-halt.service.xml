@@ -86,7 +86,7 @@
                 <para>It is necessary to have this code in a separate binary
                 because otherwise rebooting after an upgrade might be broken —
                 the running PID 1 could still depend on libraries which are not
-                available any more, thus keeping the filesystem busy, which
+                available any more, thus keeping the file system busy, which
                 then cannot be re-mounted read-only.</para>
 
                 <para>Immediately before executing the actual system

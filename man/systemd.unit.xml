@@ -232,7 +232,7 @@
                 multiple units from a single configuration file. If
                 systemd looks for a unit configuration file, it will
                 first search for the literal unit name in the
-                filesystem. If that yields no success and the unit
+                file system. If that yields no success and the unit
                 name contains an <literal>@</literal> character, systemd will look for a
                 unit template that shares the same name but with the
                 instance string (i.e. the part between the <literal>@</literal> character

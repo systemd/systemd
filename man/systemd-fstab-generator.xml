@@ -61,10 +61,11 @@
                 reloaded. This will instantiate mount and swap units
                 as necessary.</para>
 
-                <para>The <varname>passno</varname> field
-                is treated like a simple boolean, and the ordering information
-                is discarded. However, the root filesystem is checked
-                before all the other filesystems.</para>
+                <para>The <varname>passno</varname> field is treated
+                like a simple boolean, and the ordering information is
+                discarded. However, if the root file system is
+                checked, it is checked before all the other
+                file systems.</para>
 
                 <para>See
                 <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
