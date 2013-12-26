@@ -123,7 +123,7 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static int rename_service(sd_bus *b) {
+static int rename_service(sd_bus *a, sd_bus *b) {
         _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
         _cleanup_free_ char *p = NULL, *name = NULL;
         const char *comm;
@@ -132,6 +132,7 @@ static int rename_service(sd_bus *b) {
         pid_t pid;
         int r;
 
+        assert(a);
         assert(b);
 
         r = sd_bus_get_peer_creds(b, SD_BUS_CREDS_UID|SD_BUS_CREDS_PID|SD_BUS_CREDS_CMDLINE|SD_BUS_CREDS_COMM, &creds);
@@ -182,9 +183,11 @@ static int rename_service(sd_bus *b) {
                         memset(arg_command_line_buffer + w, 0, m - w);
         }
 
-        log_debug("Running on behalf of PID %lu (%s), UID %lu (%s).",
-                   (unsigned long) pid, p,
-                   (unsigned long) uid, name);
+        log_debug("Running on behalf of PID %lu (%s), UID %lu (%s), %s",
+                  (unsigned long) pid, p,
+                  (unsigned long) uid, name,
+                  a->unique_name);
+                ;
         return 0;
 }
 
@@ -430,6 +433,8 @@ int main(int argc, char *argv[]) {
                 peersec = NULL;
         }
 
+        a->manual_peer_interface = true;
+
         r = sd_bus_start(a);
         if (r < 0) {
                 log_error("Failed to start bus client: %s", strerror(-r));
@@ -472,13 +477,15 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
+        b->manual_peer_interface = true;
+
         r = sd_bus_start(b);
         if (r < 0) {
                 log_error("Failed to start bus client: %s", strerror(-r));
                 goto finish;
         }
 
-        r = rename_service(b);
+        r = rename_service(a, b);
         if (r < 0)
                 log_debug("Failed to rename process: %s", strerror(-r));
 

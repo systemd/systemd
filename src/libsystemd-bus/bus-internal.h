@@ -163,6 +163,7 @@ struct sd_bus {
         bool nodes_modified:1;
         bool trusted:1;
         bool fake_creds_valid:1;
+        bool manual_peer_interface:1;
 
         int use_memfd;
 

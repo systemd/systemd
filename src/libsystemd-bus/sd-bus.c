@@ -2072,6 +2072,9 @@ static int process_builtin(sd_bus *bus, sd_bus_message *m) {
         assert(bus);
         assert(m);
 
+        if (bus->manual_peer_interface)
+                return 0;
+
         if (m->header->type != SD_BUS_MESSAGE_METHOD_CALL)
                 return 0;
 
