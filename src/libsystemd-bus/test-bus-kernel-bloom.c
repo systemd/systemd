@@ -42,7 +42,7 @@ static void test_one(
         sd_bus *a, *b;
         int r;
 
-        bus_ref = bus_kernel_create_bus("deine-mutter", &bus_name);
+        bus_ref = bus_kernel_create_bus("deine-mutter", false, &bus_name);
         if (bus_ref == -ENOENT)
                 exit(EXIT_TEST_SKIP);
 

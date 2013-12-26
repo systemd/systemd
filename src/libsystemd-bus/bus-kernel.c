@@ -1131,7 +1131,7 @@ int kdbus_translate_attach_flags(uint64_t mask, uint64_t *kdbus_mask) {
         return 0;
 }
 
-int bus_kernel_create_bus(const char *name, char **s) {
+int bus_kernel_create_bus(const char *name, bool world, char **s) {
         struct kdbus_cmd_make *make;
         struct kdbus_item *n;
         int fd;
@@ -1163,7 +1163,7 @@ int bus_kernel_create_bus(const char *name, char **s) {
         n->type = KDBUS_ITEM_MAKE_NAME;
         make->size += ALIGN8(n->size);
 
-        make->flags = KDBUS_MAKE_POLICY_OPEN;
+        make->flags = KDBUS_MAKE_POLICY_OPEN | (world ? KDBUS_MAKE_ACCESS_WORLD : 0);
 
         if (ioctl(fd, KDBUS_CMD_BUS_MAKE, make) < 0) {
                 close_nointr_nofail(fd);

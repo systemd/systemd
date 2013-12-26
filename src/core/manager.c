@@ -542,7 +542,7 @@ static int manager_setup_kdbus(Manager *m) {
         if (m->running_as == SYSTEMD_USER && getenv("DBUS_SESSION_BUS_ADDRESS"))
                 return 0;
 
-        m->kdbus_fd = bus_kernel_create_bus(m->running_as == SYSTEMD_SYSTEM ? "system" : "user", &p);
+        m->kdbus_fd = bus_kernel_create_bus(m->running_as == SYSTEMD_SYSTEM ? "system" : "user", m->running_as == SYSTEMD_SYSTEM, &p);
         if (m->kdbus_fd < 0) {
                 log_debug("Failed to set up kdbus: %s", strerror(-m->kdbus_fd));
                 return m->kdbus_fd;

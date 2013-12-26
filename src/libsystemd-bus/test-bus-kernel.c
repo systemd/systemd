@@ -42,7 +42,7 @@ int main(int argc, char *argv[]) {
 
         log_set_max_level(LOG_DEBUG);
 
-        bus_ref = bus_kernel_create_bus("deine-mutter", &bus_name);
+        bus_ref = bus_kernel_create_bus("deine-mutter", false, &bus_name);
         if (bus_ref == -ENOENT)
                 return EXIT_TEST_SKIP;
 
