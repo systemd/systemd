@@ -124,6 +124,8 @@ Features:
        - NameLost/NameAcquired obsolete
        - GVariant
        - "const" properties (posted)
+  - port exit-on-idle logic to byebye ioctl
+  - make use of "drop" ioctl in pid 1 bus activation
 
 * sd-event
   - allow multiple signal handlers per signal?

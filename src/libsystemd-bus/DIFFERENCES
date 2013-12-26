@@ -24,3 +24,5 @@ Known differences between dbus1 and kdbus:
 
 - NameOwnerChanged is a synthetic message, generated locally and not
   by the driver.
+
+- There's no standard per-session bus anymore. Only a per-user bus.
