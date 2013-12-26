@@ -164,7 +164,7 @@
                 <function>sd_seat_can_multi_session()</function>,
                 <function>sd_seat_can_tty()</function> and
                 <function>sd_seat_can_grapical()</function> interfaces
-                are available as shared library, which can be compiled
+                are available as a shared library, which can be compiled
                 and linked to with the
                 <constant>libsystemd-login</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>

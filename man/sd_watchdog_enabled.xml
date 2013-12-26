@@ -73,7 +73,7 @@
                 <function>sd_watchdog_enabled()</function> will unset
                 the <varname>$WATCHDOG_USEC</varname> and
                 <varname>$WATCHDOG_PID</varname> environment variables
-                before returning (regardless whether the function call
+                before returning (regardless of whether the function call
                 itself succeeded or not). Further calls to
                 <function>sd_watchdog_enabled()</function> will then
                 return with zero, but the variable is no longer
@@ -142,7 +142,7 @@
                 implemented in the reference implementation's
                 <filename>sd-daemon.c</filename> and
                 <filename>sd-daemon.h</filename> files. These
-                interfaces are available as shared library, which can
+                interfaces are available as a shared library, which can
                 be compiled and linked to with the
                 <constant>libsystemd-daemon</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file. Alternatively, applications consuming these APIs

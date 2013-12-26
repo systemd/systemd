@@ -155,7 +155,7 @@
                                 into the system journal. If
                                 <literal>uid</literal>, any user ID
                                 will get his own journal files
-                                regardless whether it belongs to a
+                                regardless of whether it belongs to a
                                 system service or refers to a real
                                 logged in user. If
                                 <literal>none</literal>, journal files

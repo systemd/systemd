@@ -79,7 +79,7 @@
                 <para>If the <parameter>unset_environment</parameter>
                 parameter is non-zero, <function>sd_notify()</function>
                 will unset the <varname>$NOTIFY_SOCKET</varname>
-                environment variable before returning (regardless
+                environment variable before returning (regardless of
                 whether the function call itself succeeded or
                 not). Further calls to
                 <function>sd_notify()</function> will then fail, but
@@ -240,7 +240,7 @@
                 the reference implementation's
                 <filename>sd-daemon.c</filename> and
                 <filename>sd-daemon.h</filename> files. These
-                interfaces are available as shared library, which can
+                interfaces are available as a shared library, which can
                 be compiled and linked to with the
                 <constant>libsystemd-daemon</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file. Alternatively, applications consuming these APIs

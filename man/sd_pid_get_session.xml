@@ -186,7 +186,7 @@
                 <function>sd_pid_get_owner_uid()</function>,
                 <function>sd_pid_get_machine_name()</function> and
                 <function>sd_pid_get_slice()</function> interfaces are
-                available as shared library, which can be compiled and
+                available as a shared library, which can be compiled and
                 linked to with the
                 <constant>libsystemd-login</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>

@@ -94,7 +94,7 @@
                 seeks to the beginning of the journal, i.e. the oldest
                 available entry.</para>
 
-                <para>Similar,
+                <para>Similarly,
                 <function>sd_journal_seek_tail()</function> may be
                 used to seek to the end of the journal, i.e. the most
                 recent available entry.</para>
@@ -156,7 +156,7 @@
                 <function>sd_journal_seek_monotonic_usec()</function>,
                 <function>sd_journal_seek_realtime_usec()</function>,
                 and <function>sd_journal_seek_cursor()</function>
-                interfaces are available as shared library, which can
+                interfaces are available as a shared library, which can
                 be compiled and linked to with the
                 <constant>libsystemd-journal</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>

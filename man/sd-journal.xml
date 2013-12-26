@@ -98,7 +98,7 @@
         <refsect1>
                 <title>Notes</title>
 
-                <para>These APIs are implemented as shared library,
+                <para>These APIs are implemented as a shared library,
                 which can be compiled and linked to with the
                 <constant>libsystemd-journal</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>

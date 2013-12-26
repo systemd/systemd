@@ -102,7 +102,7 @@
                 functions such as
                 <citerefentry><refentrytitle>sd_journal_get_data</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
 
-                <para>Similar, <function>sd_journal_previous()</function> sets
+                <para>Similarly, <function>sd_journal_previous()</function> sets
                 the read pointer back one entry.</para>
 
                 <para><function>sd_journal_next_skip()</function> and
@@ -129,7 +129,7 @@
                 <citerefentry><refentrytitle>sd_journal_seek_head</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 and <function>sd_journal_next()</function> in order to
                 make iterating through the journal easier. See below
-                for an example. Similar,
+                for an example. Similarly,
                 <function>SD_JOURNAL_FOREACH_BACKWARDS()</function>
                 may be used for iterating the journal in reverse
                 order.</para>
@@ -156,7 +156,7 @@
                 <para>The <function>sd_journal_next()</function>, <function>sd_journal_previous()</function>,
                 <function>sd_journal_next_skip()</function> and
                 <function>sd_journal_previous_skip()</function> interfaces are
-                available as shared library, which can be compiled and
+                available as a shared library, which can be compiled and
                 linked to with the
                 <constant>libsystemd-journal</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>

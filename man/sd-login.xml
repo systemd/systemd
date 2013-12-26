@@ -99,7 +99,7 @@
                 caller with the libc
                 <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 call after use, including the strings referenced
-                therein. Similar, individual strings returned need to
+                therein. Similarly, individual strings returned need to
                 be freed, as well.</para>
 
                 <para>As a special exception, instead of an empty
@@ -120,7 +120,7 @@
         <refsect1>
                 <title>Notes</title>
 
-                <para>These APIs are implemented as shared library,
+                <para>These APIs are implemented as a shared library,
                 which can be compiled and linked to with the
                 <constant>libsystemd-login</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>

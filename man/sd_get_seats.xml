@@ -90,13 +90,13 @@
                 <constant>NULL</constant> may be returned and should be considered
                 equivalent to an empty array.</para>
 
-                <para>Similar, <function>sd_get_sessions()</function> may
+                <para>Similarly, <function>sd_get_sessions()</function> may
                 be used to determine all current login sessions.</para>
 
-                <para>Similar, <function>sd_get_uids()</function> may
+                <para>Similarly, <function>sd_get_uids()</function> may
                 be used to determine all Unix users who currently have login sessions.</para>
 
-                <para>Similar,
+                <para>Similarly,
                 <function>sd_get_machine_names()</function> may be
                 used to determine all current virtual machines and
                 containers on the system.</para>
@@ -122,7 +122,7 @@
                 <function>sd_get_sessions()</function>,
                 <function>sd_get_uids()</function> and
                 <function>sd_get_machine_names()</function> interfaces
-                are available as shared library, which can be compiled
+                are available as a shared library, which can be compiled
                 and linked to with the
                 <constant>libsystemd-login</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>

@@ -299,7 +299,7 @@
                 <function>sd_session_get_remote_host()</function>,
                 <function>sd_session_get_remote_user()</function> and
                 <function>sd_session_get_tty()</function>
-                interfaces are available as shared library, which can
+                interfaces are available as a shared library, which can
                 be compiled and linked to with the
                 <constant>libsystemd-login</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>

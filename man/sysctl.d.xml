@@ -89,8 +89,8 @@
                 administrator, who may use this logic to override the
                 configuration files installed by vendor packages. All
                 configuration files are sorted by their filename in
-                lexicographic order, regardless in which of the
-                directories they reside. If multiple files specify the
+                lexicographic order, regardless of which of the
+                directories they reside in. If multiple files specify the
                 same variable name, the entry in the file with the
                 lexicographically latest name will be applied. It is
                 recommended to prefix all filenames with a two-digit

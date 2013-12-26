@@ -712,7 +712,7 @@ ExecStart=/bin/echo $ONE $TWO ${TWO}
                                 timeout for the service expires.
                                 If set to
                                 <option>always</option>, the service
-                                will be restarted regardless whether
+                                will be restarted regardless of whether
                                 it exited cleanly or not, got
                                 terminated abnormally by a signal or
                                 hit a timeout.</para>

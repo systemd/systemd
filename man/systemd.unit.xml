@@ -634,7 +634,7 @@
                                 dependency on another unit is shut
                                 down while the latter is started up,
                                 the shut down is ordered before the
-                                start-up regardless whether the
+                                start-up regardless of whether the
                                 ordering dependency is actually of
                                 type <varname>After=</varname> or
                                 <varname>Before=</varname>. If two
@@ -979,7 +979,7 @@
                                 exists, is a regular file and marked
                                 executable.</para>
 
-                                <para>Similar,
+                                <para>Similarly,
                                 <varname>ConditionKernelCommandLine=</varname>
                                 may be used to check whether a
                                 specific kernel command line option is

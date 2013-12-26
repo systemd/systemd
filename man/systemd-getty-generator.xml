@@ -68,8 +68,8 @@
                 requested by the container manager (see <ulink
                 url="http://www.freedesktop.org/wiki/Software/systemd/ContainerInterface/"><filename>Container Interface</filename></ulink>). This
                 should ensure that the user is shown a login prompt at
-                the right place, regardless in which environment the
-                system is started. For example, it is sufficient to
+                the right place, regardless of which environment the
+                system is started in. For example, it is sufficient to
                 redirect the kernel console with a kernel command line
                 argument such as <varname>console=</varname> to get
                 both kernel messages and a getty prompt on a serial

@@ -80,7 +80,7 @@
                 UUID passed is sufficiently unique and is different
                 for every booted instanced of the VM.</para>
 
-                <para>Similar, if run inside a Linux container
+                <para>Similarly, if run inside a Linux container
                 environment and a UUID is set for the container this
                 is used to initialize the machine ID. For details see
                 the documentation of the <ulink

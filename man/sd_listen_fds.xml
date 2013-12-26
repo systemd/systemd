@@ -73,7 +73,7 @@
                 parameter is non-zero,
                 <function>sd_listen_fds()</function> will unset the
                 <varname>$LISTEN_FDS</varname>/<varname>$LISTEN_PID</varname>
-                environment variables before returning (regardless
+                environment variables before returning (regardless of
                 whether the function call itself succeeded or
                 not). Further calls to
                 <function>sd_listen_fds()</function> will then fail,
@@ -149,7 +149,7 @@
                 implemented in the reference implementation's
                 <filename>sd-daemon.c</filename> and
                 <filename>sd-daemon.h</filename> files. These
-                interfaces are available as shared library, which can
+                interfaces are available as a shared library, which can
                 be compiled and linked to with the
                 <constant>libsystemd-daemon</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file. Alternatively, applications consuming these APIs

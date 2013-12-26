@@ -253,7 +253,7 @@ else {
                 <function>sd_journal_reliable_fd()</function>,
                 <function>sd_journal_process()</function> and
                 <function>sd_journal_wait()</function> interfaces are
-                available as shared library, which can be compiled and
+                available as a shared library, which can be compiled and
                 linked to with the
                 <constant>libsystemd-journal</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>

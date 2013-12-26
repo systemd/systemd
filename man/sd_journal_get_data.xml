@@ -203,7 +203,7 @@
                 <function>sd_journal_set_data_threshold()</function>
                 and
                 <function>sd_journal_get_data_threshold()</function>
-                interfaces are available as shared library, which can
+                interfaces are available as a shared library, which can
                 be compiled and linked to with the
                 <constant>libsystemd-journal</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>

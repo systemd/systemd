@@ -126,8 +126,8 @@
                 administrator, who may use this logic to override the
                 preset files installed by vendor packages. All preset
                 files are sorted by their filename in lexicographic
-                order, regardless in which of the directories they
-                reside. If multiple files specify the same unit name,
+                order, regardless of which of the directories they
+                reside in. If multiple files specify the same unit name,
                 the entry in the file with the lexicographically earliest
                 name will be applied. It is recommended to prefix all
                 filenames with a two-digit number and a dash, to simplify

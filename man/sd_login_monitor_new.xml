@@ -224,7 +224,7 @@ else {
                 <function>sd_login_monitor_get_fd()</function>,
                 <function>sd_login_monitor_get_events()</function> and
                 <function>sd_login_monitor_get_timeout()</function>
-                interfaces are available as shared library, which can
+                interfaces are available as a shared library, which can
                 be compiled and linked to with the
                 <constant>libsystemd-login</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>

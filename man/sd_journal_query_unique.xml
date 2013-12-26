@@ -156,7 +156,7 @@
                 <para>The <function>sd_journal_query_unique()</function>,
                 <function>sd_journal_enumerate_unique()</function> and
                 <function>sd_journal_restart_unique()</function>
-                interfaces are available as shared library, which can
+                interfaces are available as a shared library, which can
                 be compiled and linked to with the
                 <constant>libsystemd-journal</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>

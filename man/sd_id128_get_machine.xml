@@ -116,7 +116,7 @@
 
                 <para>The <function>sd_id128_get_machine()</function>
                 and <function>sd_id128_get_boot()</function>
-                interfaces are available as shared library, which can
+                interfaces are available as a shared library, which can
                 be compiled and linked to with the
                 <literal>libsystemd-id128</literal> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>

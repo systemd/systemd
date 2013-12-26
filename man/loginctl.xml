@@ -155,7 +155,7 @@
 
                                 <listitem><para>When showing
                                 session/user/seat properties, show all
-                                properties regardless whether they are
+                                properties regardless of whether they are
                                 set or not.</para></listitem>
                         </varlistentry>
 

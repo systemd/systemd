@@ -65,7 +65,7 @@
                 <para><filename>systemd-halt.service</filename> is a
                 system service that is pulled in by
                 <filename>halt.target</filename> and is responsible
-                for the actual system halt. Similar,
+                for the actual system halt. Similarly,
                 <filename>systemd-poweroff.service</filename> is
                 pulled in by <filename>poweroff.target</filename>,
                 <filename>systemd-reboot.service</filename> by
