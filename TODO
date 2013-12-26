@@ -120,6 +120,7 @@ Features:
   - longer term:
     * priority queues
     * priority inheritance
+  - check sender of response messages
   - dbus spec updates:
        - kdbus mapping
        - NameLost/NameAcquired obsolete
