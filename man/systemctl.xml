@@ -238,7 +238,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         applications.</para>
 
         <para><literal>ignore-requirements</literal> is similar to
-        <literal>ignore-dependencies</literal> but only causes the
+        <literal>ignore-dependencies</literal>, but only causes the
         requirement dependencies to be ignored, the ordering
         dependencies will still be honoured.</para>
         </listitem>
@@ -1383,7 +1383,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
     <refsect2>
       <title>Parameter Syntax</title>
 
-    <para>For unit commands the specified
+    <para>For unit commands, the specified
     <replaceable>NAME</replaceable> should be the full name of the
     unit, or an abbreviated name which is automatically extended with
     the <literal>.service</literal> suffix.
@@ -1395,7 +1395,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
     <programlisting># systemctl status dev-sda.device
 # systemctl status home.mount</programlisting></para>
 
-    <para>For unit file commands the
+    <para>For unit file commands, the
     specified <replaceable>NAME</replaceable> should be the full name
     of the unit file, or the absolute path to the unit file.
     <programlisting># systemctl link /path/to/foo.service</programlisting>

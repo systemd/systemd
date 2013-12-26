@@ -80,7 +80,7 @@
                 inherited by child processes.</para>
 
                 <para>If the <parameter>usec</parameter> parameter is
-                non-NULL <function>sd_watchdog_enabled()</function>
+                non-NULL, <function>sd_watchdog_enabled()</function>
                 will return the timeout in µs for the watchdog
                 logic. The service manager will usually terminate a
                 service when it did not get a notification message
@@ -94,7 +94,7 @@
                 <literal>WATCHDOG=1</literal>.</para>
 
                 <para>To enable service supervision with the watchdog
-                logic use <varname>WatchdogSec=</varname> in service
+                logic, use <varname>WatchdogSec=</varname> in service
                 files. See
                 <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 for details.</para>
@@ -107,7 +107,7 @@
                 errno-style error code. If the service manager expects
                 watchdog keep-alive notification messages to be sent,
                 &gt; 0 is returned, otherwise 0 is returned. Only if
-                the return value is &gt; 0 the
+                the return value is &gt; 0, the
                 <parameter>usec</parameter> parameter is valid after
                 the call.</para>
         </refsect1>
@@ -129,10 +129,10 @@
                 variable. The call will ignore these variables if
                 <varname>$WATCHDOG_PID</varname> does containe the PID
                 of the current process, under the assumption that in
-                that case the variables were set for a different
+                that case, the variables were set for a different
                 process further up the process tree.</para>
 
-                <para>For details about the algorithm check the
+                <para>For details about the algorithm, check the
                 liberally licensed reference implementation sources:
                 <ulink url="http://cgit.freedesktop.org/systemd/systemd/plain/src/libsystemd-daemon/sd-daemon.c"/>
                 and <ulink
@@ -148,7 +148,7 @@
                 file. Alternatively, applications consuming these APIs
                 may copy the implementation into their source
                 tree. For more details about the reference
-                implementation see
+                implementation, see
                 <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
 
                 <para>If the reference implementation is used as

@@ -78,7 +78,7 @@
                 <para><function>sd_bus_message_get_reply_cookie()</function>
                 returns the transaction cookie of the message the
                 specified message is a response to. When a reply
-                message is generated for a method call message its
+                message is generated for a method call message, its
                 cookie is copied over into this field. Note that while
                 every message that is transferred is identified by a
                 cookie, only response messages carry a reply cookie
@@ -96,7 +96,7 @@
                 integer. On failure, these calls return a negative
                 errno-style error code.</para>
 
-                <para>On success the cookie/reply cookie is returned
+                <para>On success, the cookie/reply cookie is returned
                 in the specified 64bit unsigned integer variable.</para>
         </refsect1>
 

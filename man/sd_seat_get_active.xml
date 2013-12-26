@@ -143,9 +143,9 @@
         <refsect1>
                 <title>Return Value</title>
 
-                <para> On success
+                <para> On success,
                 <function>sd_seat_get_active()</function>
-                returns 0 or a positive integer. On success
+                returns 0 or a positive integer. On success,
                 <function>sd_seat_get_sessions()</function> returns
                 the number of entries in the session identifier
                 array. If the test succeeds,

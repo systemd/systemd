@@ -141,7 +141,7 @@
                                 also include time units. Example:
                                 "OnBootSec=5h 30min" means 5 hours and
                                 30 minutes after boot-up. For details
-                                about the syntax of time spans see
+                                about the syntax of time spans, see
                                 <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
                                 <para>If a timer configured with
@@ -182,7 +182,7 @@
                                 event expressions. See
                                 <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                                 for more information on the syntax of
-                                calendar event expressions. Otherwise
+                                calendar event expressions. Otherwise,
                                 the semantics are similar to
                                 <varname>OnActiveSec=</varname> and
                                 related settings.</para>
@@ -211,7 +211,7 @@
                                 <varname>OnUnitInactiveSec=</varname>
                                 and ending the time configured with
                                 <varname>AccuracySec=</varname>
-                                later. Within this time window the
+                                later. Within this time window, the
                                 expiry time will be placed at a
                                 host-specific, randomized but stable
                                 position, that is synchronized between
@@ -220,7 +220,7 @@
                                 in networked installations, as well as
                                 optimizing power consumption to
                                 suppress unnecessary CPU wake-ups. To
-                                get best accuracy set this option to
+                                get best accuracy, set this option to
                                 1us. Note that the timer is still
                                 subject to the timer slack configured
                                 via
@@ -229,7 +229,7 @@
                                 setting. See
                                 <citerefentry><refentrytitle>prctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>
                                 for details. To optimize power
-                                consumption make sure to set this
+                                consumption, make sure to set this
                                 value as high as possible and as low
                                 as necessary.</para></listitem>
                         </varlistentry>

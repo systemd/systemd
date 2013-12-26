@@ -691,7 +691,7 @@
                                 matching <replaceable>GLOB</replaceable>
                                 instead of the default runtime and
                                 system journal paths. May be specified
-                                multiple times, in which case, files will
+                                multiple times, in which case files will
                                 be suitably interleaved.</para></listitem>
                         </varlistentry>
 

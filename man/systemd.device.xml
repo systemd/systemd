@@ -75,7 +75,7 @@
                 udev tag (by default all block and network devices,
                 and a few others). This may be used to define
                 dependencies between devices and other units. To tag a
-                udev device use <literal>TAG+="systemd"</literal> in
+                udev device, use <literal>TAG+="systemd"</literal> in
                 the udev rules file, see
                 <citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                 for details.</para>

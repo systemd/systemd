@@ -480,7 +480,7 @@
                 <filename>/proc</filename>.</para>
 
                 <para>For more information about the concepts and
-                ideas behind systemd please refer to the <ulink
+                ideas behind systemd, please refer to the <ulink
                 url="http://0pointer.de/blog/projects/systemd.html">Original
                 Design Document</ulink>.</para>
 

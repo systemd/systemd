@@ -198,13 +198,13 @@ else {
         <refsect1>
                 <title>Return Value</title>
 
-                <para>On success
+                <para>On success,
                 <function>sd_login_monitor_new()</function>,
                 <function>sd_login_monitor_flush()</function> and
                 <function>sd_login_monitor_get_timeout()</function>
-                return 0 or a positive integer. On success
+                return 0 or a positive integer. On success,
                 <function>sd_login_monitor_get_fd()</function> returns
-                a Unix file descriptor. On success
+                a Unix file descriptor. On success,
                 <function>sd_login_monitor_get_events()</function>
                 returns a combination of <constant>POLLIN</constant>,
                 <constant>POLLOUT</constant> and suchlike. On failure,

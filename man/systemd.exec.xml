@@ -847,7 +847,7 @@
                                 processes and mounts private
                                 <filename>/tmp</filename> and
                                 <filename>/var/tmp</filename>
-                                directories inside it, that are not
+                                directories inside it that are not
                                 shared by processes outside of the
                                 namespace. This is useful to secure
                                 access to temporary files of the

@@ -996,7 +996,7 @@
                 <filename>smartcard.target</filename>,
                 <filename>sound.target</filename>.</para>
 
-                <para>In addition the following special unit is
+                <para>In addition, the following special unit is
                 understood only when systemd runs as service instance:</para>
 
                 <variablelist>

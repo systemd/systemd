@@ -83,7 +83,7 @@
                 <citerefentry><refentrytitle>sd_booted</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                 <citerefentry><refentrytitle>sd_is_fifo</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 for more information about the functions
-                implemented. In addition to these functions a couple
+                implemented. In addition to these functions, a couple
                 of logging prefixes are defined as macros:</para>
 
                 <programlisting>#define SD_EMERG   "&lt;0&gt;"  /* system is unusable */
@@ -135,7 +135,7 @@
                 implementation. See the respective function man pages
                 for details.</para>
 
-                <para>In addition, for details about the algorithms
+                <para>In addition, for details about the algorithms,
                 check the liberally licensed reference implementation
                 sources:
                 <ulink url="http://cgit.freedesktop.org/systemd/systemd/plain/src/libsystemd-daemon/sd-daemon.c"/>

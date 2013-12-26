@@ -403,7 +403,7 @@
                                 what the unit's purpose is, followed
                                 by how it is configured, followed by
                                 any other related documentation. This
-                                option may be specified more than once
+                                option may be specified more than once,
                                 in which case the specified list of
                                 URIs is merged. If the empty string is
                                 assigned to this option, the list is
@@ -492,7 +492,7 @@
                                 <varname>Requires=</varname> and
                                 <varname>RequiresOverridable=</varname>,
                                 respectively. However, if the units
-                                listed here are not started already
+                                listed here are not started already,
                                 they will not be started and the
                                 transaction will fail immediately.
                                 </para></listitem>
@@ -506,7 +506,7 @@
                                 listed in this option will be started
                                 if the configuring unit is. However,
                                 if the listed units fail to start
-                                or cannot be added to the transaction
+                                or cannot be added to the transaction,
                                 this has no impact on the validity of
                                 the transaction as a whole. This is
                                 the recommended way to hook start-up
@@ -519,7 +519,7 @@
                                 symlinks to a
                                 <filename>.wants/</filename> directory
                                 accompanying the unit file. For
-                                details see above.</para></listitem>
+                                details, see above.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -528,7 +528,7 @@
                                 <listitem><para>Configures requirement
                                 dependencies, very similar in style to
                                 <varname>Requires=</varname>, however
-                                in addition to this behavior it also
+                                in addition to this behavior, it also
                                 declares that this unit is stopped
                                 when any of the units listed suddenly
                                 disappears. Units can suddenly,
@@ -577,9 +577,9 @@
                                 be modified to be fixed (in case one
                                 or both jobs are not a required part
                                 of the transaction). In the latter
-                                case the job that is not the required
+                                case, the job that is not the required
                                 will be removed, or in case both are
-                                not required the unit that conflicts
+                                not required, the unit that conflicts
                                 will be started and the unit that is
                                 conflicted is
                                 stopped.</para></listitem>
@@ -606,7 +606,7 @@
                                 a common pattern to include a unit
                                 name in both the
                                 <varname>After=</varname> and
-                                <varname>Requires=</varname> option in
+                                <varname>Requires=</varname> option, in
                                 which case the unit listed will be
                                 started before the unit that is
                                 configured with these options. This
@@ -686,13 +686,13 @@
                                 directives (see
                                 <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                                 for details). If a unit that has this
-                                setting set is started its processes
+                                setting set is started, its processes
                                 will see the same
                                 <filename>/tmp</filename>,
                                 <filename>/tmp/var</filename> and
                                 network namespace as one listed unit
                                 that is started. If multiple listed
-                                units are already started it is not
+                                units are already started, it is not
                                 defined which namespace is
                                 joined. Note that this setting only
                                 has an effect if
@@ -1270,7 +1270,7 @@
                       <row>
                         <entry><literal>%p</literal></entry>
                         <entry>Prefix name</entry>
-                        <entry>For instantiated units this refers to the string before the <literal>@</literal> character of the unit name. For non-instantiated units this refers to the name of the unit with the type suffix removed.</entry>
+                        <entry>For instantiated units, this refers to the string before the <literal>@</literal> character of the unit name. For non-instantiated units, this refers to the name of the unit with the type suffix removed.</entry>
                       </row>
                       <row>
                         <entry><literal>%P</literal></entry>
@@ -1325,12 +1325,12 @@
                       <row>
                         <entry><literal>%h</literal></entry>
                         <entry>User home directory</entry>
-                        <entry>This is the home directory of the configured user of the unit, or (if none is set) the user running the systemd user instance. Similar to <literal>%U</literal> this specifier is not available for units run by the systemd system instance, unless the configured user is the root user.</entry>
+                        <entry>This is the home directory of the configured user of the unit, or (if none is set) the user running the systemd user instance. Similar to <literal>%U</literal>, this specifier is not available for units run by the systemd system instance, unless the configured user is the root user.</entry>
                       </row>
                       <row>
                         <entry><literal>%s</literal></entry>
                         <entry>User shell</entry>
-                        <entry>This is the shell of the configured user of the unit, or (if none is set) the user running the systemd user instance. Similar to <literal>%U</literal> this specifier is not available for units run by the systemd system instance, unless the configured user is the root user.</entry>
+                        <entry>This is the shell of the configured user of the unit, or (if none is set) the user running the systemd user instance. Similar to <literal>%U</literal>, this specifier is not available for units run by the systemd system instance, unless the configured user is the root user.</entry>
                       </row>
                       <row>
                         <entry><literal>%m</literal></entry>

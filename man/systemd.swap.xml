@@ -85,7 +85,7 @@
                 <filename noindex='true'>/dev/sda5</filename> must be configured in a
                 unit file <filename>dev-sda5.swap</filename>. For
                 details about the escaping logic used to convert a
-                file system path to a unit name see
+                file system path to a unit name, see
                 <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
                 <para>All swap units automatically get the appropriate

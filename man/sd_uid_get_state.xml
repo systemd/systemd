@@ -152,11 +152,11 @@
         <refsect1>
                 <title>Return Value</title>
 
-                <para>On success
+                <para>On success,
                 <function>sd_uid_get_state()</function> returns 0 or a
                 positive integer. If the test succeeds,
                 <function>sd_uid_is_on_seat()</function> returns a
-                positive integer, if it fails
+                positive integer; if it fails,
                 0. <function>sd_uid_get_sessions()</function> and
                 <function>sd_uid_get_seats()</function> return the
                 number of entries in the returned arrays. On failure,

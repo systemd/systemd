@@ -139,7 +139,7 @@
                 <filename>sd-readahead.h</filename> files. It is
                 recommended that applications consuming this API copy
                 the implementation into their source tree. For more
-                details about the reference implementation see
+                details about the reference implementation, see
                 <citerefentry><refentrytitle>sd-readahead</refentrytitle><manvolnum>3</manvolnum></citerefentry></para>
 
                 <para>If -DDISABLE_SYSTEMD is set during compilation,

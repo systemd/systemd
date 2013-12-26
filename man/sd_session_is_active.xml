@@ -270,7 +270,7 @@
                 <para>If the test succeeds,
                 <function>sd_session_is_active()</function> and
                 <function>sd_session_is_remote()</function> return a
-                positive integer, if it fails 0.  On success
+                positive integer; if it fails, 0.  On success,
                 <function>sd_session_get_state()</function>,
                 <function>sd_session_get_uid()</function>,
                 <function>sd_session_get_seat()</function>,

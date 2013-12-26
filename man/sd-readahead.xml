@@ -83,7 +83,7 @@
                 reference implementation. See the respective function
                 man pages for details.</para>
 
-                <para>In addition, for details about the algorithms
+                <para>In addition, for details about the algorithms,
                 check the liberally licensed reference implementation
                 sources:
                 <ulink url="http://cgit.freedesktop.org/systemd/systemd/plain/src/readahead/sd-readahead.c"/>

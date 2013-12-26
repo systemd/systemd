@@ -155,7 +155,7 @@
                 file. Alternatively, applications consuming these APIs
                 may copy the implementation into their source
                 tree. For more details about the reference
-                implementation see
+                implementation, see
                 <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
 
                 <para>If the reference implementation is used as

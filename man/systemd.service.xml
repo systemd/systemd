@@ -441,7 +441,7 @@
                                 <literal>one</literal> and
                                 <literal>two two</literal>,
                                 respectively. Since two commands are
-                                specified
+                                specified,
                                 <varname>Type=oneshot</varname> must
                                 be used.</para>
 
