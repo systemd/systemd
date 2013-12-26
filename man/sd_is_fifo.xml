@@ -165,7 +165,7 @@
                 called to check whether the specified file descriptor
                 refers to a special file. If the
                 <parameter>path</parameter> parameter is not
-                <constant>NULL</constant>, it is checked whether file
+                <constant>NULL</constant>, it is checked whether the file
                 descriptor is bound to the specified file
                 name. Special files in this context are character
                 device nodes and files in <filename>/proc</filename>

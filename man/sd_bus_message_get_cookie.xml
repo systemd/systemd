@@ -85,7 +85,7 @@
                 field.</para>
 
                 <para>Both functions take a message object as first
-                parameter and a place to store the 64bit cookie
+                parameter and a place to store the 64-bit cookie
                 in.</para>
         </refsect1>
 
@@ -97,7 +97,7 @@
                 errno-style error code.</para>
 
                 <para>On success, the cookie/reply cookie is returned
-                in the specified 64bit unsigned integer variable.</para>
+                in the specified 64-bit unsigned integer variable.</para>
         </refsect1>
 
         <refsect1>
@@ -122,7 +122,7 @@
                                 been sent yet and hence has no cookie
                                 assigned, or that the message is not a
                                 method response message and hence
-                                carries to reply cookie
+                                carries a reply cookie
                                 field.</para></listitem>
                         </varlistentry>
                 </variablelist>

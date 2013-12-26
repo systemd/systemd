@@ -149,7 +149,7 @@
                                 even if it shows up in the udev
                                 tree. If this property is unset or set
                                 to 1, the device will be considered
-                                plugged if it visible in the
+                                plugged if it is visible in the
                                 udev tree. This property has no
                                 influence on the behavior when a
                                 device disappears from the udev

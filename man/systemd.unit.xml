@@ -548,7 +548,7 @@
                                 of units. When systemd stops or restarts
                                 the units listed here, the action is
                                 propagated to this unit.
-                                Note that this is a one way dependency —
+                                Note that this is a one-way dependency —
                                 changes to this unit do not affect the
                                 listed units.
                                 </para></listitem>

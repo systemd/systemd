@@ -81,7 +81,7 @@
                                 <term><varname>SD_BUS_NAME_ALLOW_REPLACEMENT</varname></term>
 
                                 <listitem><para>After acquiring the
-                                name successuflly, permit other peers
+                                name successfully, permit other peers
                                 to take over the name when they try to
                                 acquire it with the
                                 <varname>SD_BUS_NAME_REPLACE_EXISTING</varname>
@@ -95,10 +95,10 @@
                         <varlistentry>
                                 <term><varname>SD_BUS_NAME_REPLACE_EXISTING</varname></term>
 
-                                <listitem><para>Take over a the name
-                                if it is already acquired by a another
-                                peer, and that other peer permitted
-                                taking it over by setting
+                                <listitem><para>Take over the name
+                                if it is already acquired by another
+                                peer, and that other peer has permitted
+                                takeover by setting
                                 <varname>SD_BUS_NAME_ALLOW_REPLACEMENT</varname>
                                 while acquiring it.</para></listitem>
                         </varlistentry>
@@ -106,8 +106,8 @@
                         <varlistentry>
                                 <term><varname>SD_BUS_NAME_QUEUE</varname></term>
 
-                                <listitem><para>Queue name
-                                acquisition when the name is already
+                                <listitem><para>Queue the acquisition
+                                of the name when the name is already
                                 taken.</para></listitem>
                         </varlistentry>
                 </variablelist>
@@ -165,7 +165,7 @@
                         <varlistentry>
                                 <term><varname>-ESRCH</varname></term>
 
-                                <listitem><para>It was attemted to
+                                <listitem><para>It was attempted to
                                 release a name that is currently not
                                 registered on the
                                 bus.</para></listitem>
@@ -174,7 +174,7 @@
                         <varlistentry>
                                 <term><varname>-EADDRINUSE</varname></term>
 
-                                <listitem><para>It was attemted to
+                                <listitem><para>It was attempted to
                                 release a name that is owned by a
                                 different peer on the
                                 bus.</para></listitem>
@@ -199,7 +199,7 @@
 
                                 <listitem><para>The bus connection has
                                 been created in a different process
-                                than the current.</para></listitem>
+                                than the current one.</para></listitem>
                         </varlistentry>
                 </variablelist>
         </refsect1>

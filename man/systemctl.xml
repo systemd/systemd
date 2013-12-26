@@ -194,8 +194,8 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <term><option>--job-mode=</option></term>
 
         <listitem>
-        <para>When queuing a new job, control how to deal with already
-        queued jobs. Takes one of <literal>fail</literal>,
+        <para>When queuing a new job, this option controls how to deal with
+        already queued jobs. It takes one of <literal>fail</literal>,
         <literal>replace</literal>,
         <literal>replace-irreversibly</literal>,
         <literal>isolate</literal>,
@@ -543,7 +543,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           <term><command>list-sockets <optional><replaceable>PATTERN</replaceable>...</optional></command></term>
 
           <listitem>
-            <para>List socket units ordered by the listening address.
+            <para>List socket units ordered by listening address.
             If one or more <replaceable>PATTERN</replaceable>s are
             specified, only socket units matching one of them are
             shown. Produces output similar to
@@ -692,7 +692,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           <listitem>
             <para>Check whether any of the specified units are active
             (i.e. running). Returns an exit code 0 if at least one is
-            active, non-zero otherwise. Unless <option>--quiet</option>
+            active, or non-zero otherwise. Unless <option>--quiet</option>
             is specified, this will also print the current unit state to
             STDOUT.</para>
           </listitem>

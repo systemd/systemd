@@ -847,7 +847,7 @@
                                 processes and mounts private
                                 <filename>/tmp</filename> and
                                 <filename>/var/tmp</filename>
-                                directories inside it that are not
+                                directories inside it that is not
                                 shared by processes outside of the
                                 namespace. This is useful to secure
                                 access to temporary files of the
@@ -857,7 +857,7 @@
                                 <filename>/var/tmp</filename>
                                 impossible. All temporary data created
                                 by service will be removed after
-                                service is stopped. Defaults to
+                                the service is stopped. Defaults to
                                 false. Note that it is possible to run
                                 two or more units within the same
                                 private <filename>/tmp</filename> and

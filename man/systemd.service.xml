@@ -427,7 +427,7 @@
                                 <programlisting>ExecStart=/bin/sh -c 'dmesg | tac'
                                 </programlisting>
 
-                                <para>Only select environment variables
+                                <para>Only select environment variables that
                                 are set for executed commands. See
                                 <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
                                 </para>

@@ -119,7 +119,7 @@
                 <para>When outputing to a tty, lines are colored
                 according to priority: lines of level ERROR and higher
                 are colored red; lines of level NOTICE and higher are
-                highlighted; and other lines are displayed normally.
+                highlighted; other lines are displayed normally.
                 </para>
         </refsect1>
 
@@ -232,7 +232,7 @@
                                 <term><option>-r</option></term>
                                 <term><option>--reverse</option></term>
 
-                                <listitem><para>Reverse output so the newest
+                                <listitem><para>Reverse output so that the newest
                                 entries are displayed first.</para></listitem>
                         </varlistentry>
 

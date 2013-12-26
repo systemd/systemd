@@ -64,8 +64,8 @@
                 <para>Network configurations applied before networkd is started
                 are not removed, and configuration applied by networkd are not
                 removed when networkd exits. This ensures restarting networkd
-                does not cut the network connection, and in particular that it
-                is safe to transition between the initrd and the real root,
+                does not cut the network connection, and, in particular, that
+                it is safe to transition between the initrd and the real root,
                 and back.</para>
         </refsect1>
 
@@ -80,10 +80,10 @@
                 identical filenames replace each other. Files in
                 <filename>/etc</filename> have the highest priority, files in
                 <filename>/run</filename> take precedence over files with the same
-                name in <filename>/lib</filename>. This can be used to override a
+                name in <filename>/usr/lib</filename>. This can be used to override a
                 system-supplied configuration file with a local file if needed; a symlink in
                 <filename>/etc</filename> with the same name as a configuration file in
-                <filename>/lib</filename>, pointing to <filename>/dev/null</filename>,
+                <filename>/usr/lib</filename>, pointing to <filename>/dev/null</filename>,
                 disables the configuration file entirely.</para>
 
                 <refsect2><title>Virtual Network Devices</title>

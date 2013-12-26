@@ -408,7 +408,7 @@
                         description files.</para>
 
                         <para>In systemd, if the developer or
-                        administrator wants to make sure a service or
+                        administrator wants to make sure that a service or
                         other unit is activated automatically on boot,
                         it is recommended to place a symlink to the
                         unit file in the <filename>.wants/</filename>
