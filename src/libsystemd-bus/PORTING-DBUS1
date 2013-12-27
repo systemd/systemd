@@ -459,11 +459,6 @@ name. The ioctl will return an offset into the memory pool. After
 reading all the data you need you need to release this via the
 KDBUS_CMD_FREE ioctl(), similar how you release a received message.
 
-Note that the kernel does not know anything about properly formatted
-dbus bus names. It is hence essential that you verify the validity of
-all bus names returned by the kernel (for example in message meta data
-or when listing acquired names), and ignore invalid entries.
-
 CREDENTIALS
 
 kdbus can optionally attach all kinds of metadata about the sender at
