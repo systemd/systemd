@@ -427,7 +427,7 @@ bluetooth:v008B*
  ID_VENDOR_FROM_DATABASE=Topcorn Positioning Systems, LLC
 
 bluetooth:v008C*
- ID_VENDOR_FROM_DATABASE=Qualcomm Labs, Inc.
+ ID_VENDOR_FROM_DATABASE=Qualcomm Retail Solutions, Inc. (formerly Qualcomm Labs, Inc.)
 
 bluetooth:v008D*
  ID_VENDOR_FROM_DATABASE=Zscan Software
@@ -839,3 +839,15 @@ bluetooth:v0115*
 
 bluetooth:v0116*
  ID_VENDOR_FROM_DATABASE=1OAK Technologies
+
+bluetooth:v0117*
+ ID_VENDOR_FROM_DATABASE=Wimoto Technologies Inc
+
+bluetooth:v0118*
+ ID_VENDOR_FROM_DATABASE=Radius Networks, Inc.
+
+bluetooth:v0119*
+ ID_VENDOR_FROM_DATABASE=Wize Technology Co., Ltd.
+
+bluetooth:v011A*
+ ID_VENDOR_FROM_DATABASE=Qualcomm Labs, Inc.
