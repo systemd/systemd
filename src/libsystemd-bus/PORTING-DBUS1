@@ -3,19 +3,19 @@ A few hints on supporting kdbus as backend in your favorite D-Bus library.
 ~~~
 
 Before you read this, have a look at the DIFFERENCES and
-GVARIANT_SERIALIZATION texts, you find in the same directory where you
+GVARIANT_SERIALIZATION texts you find in the same directory where you
 found this.
 
 We invite you to port your favorite D-Bus protocol implementation
 over to kdbus. However, there are a couple of complexities
 involved. On kdbus we only speak GVariant marshaling, kdbus clients
 ignore traffic in dbus1 marshaling. Thus, you need to add a second,
-GVariant compatible marshaler to your libary first.
+GVariant compatible marshaler to your library first.
 
 After you have done that: here's the basic principle how kdbus works:
 
 You connect to a bus by opening its bus node in /dev/kdbus/. All
-buses have a device node there, that starts with a numeric UID of the
+buses have a device node there, it starts with a numeric UID of the
 owner of the bus, followed by a dash and a string identifying the
 bus. The system bus is thus called /dev/kdbus/0-system, and for user
 buses the device node is /dev/kdbus/1000-user (if 1000 is your user
@@ -27,13 +27,13 @@ is a rough overview to help you grok things.)
 
 CONNECTING
 
-To connect to a bus, simply open() its device node, and issue the
+To connect to a bus, simply open() its device node and issue the
 KDBUS_CMD_HELLO call. That's it. Now you are connected. Do not send
 Hello messages or so (as you would on dbus1), that does not exist for
 kdbus.
 
 The structure you pass to the ioctl will contain a couple of
-parameters that you need to know to operate on the bus.
+parameters that you need to know, to operate on the bus.
 
 There are two flags fields, one indicating features of the kdbus
 kernel side ("conn_flags"), the other one ("bus_flags") indicating
@@ -54,7 +54,7 @@ communicating with the bus, however a client that does not support an
 "incompatible" feature must not proceed with the connection.
 
 The hello structure also contains another flags field "attach_flags"
-which indicates meta data that is optionally attached to all incoming
+which indicates metadata that is optionally attached to all incoming
 messages. You probably want to set KDBUS_ATTACH_NAMES unconditionally
 in it. This has the effect that all well-known names of a sender are
 attached to all incoming messages. You need this information to
@@ -71,12 +71,10 @@ broadcast bloom filter (see below).
 
 The kernel will also return the bus ID of the bus in an 128bit field.
 
-The pool size field specifies the size of the memory mapped buffer,
-where received messages are placed by the kernel.
-
+The pool size field specifies the size of the memory mapped buffer.
 After the calling the hello ioctl, you should memory map the kdbus
-fd. Use the pool size returned by the hello ioctl as map size. In this
-memory mapped region the kernel will place all your incoming messages.
+fd. In this memory mapped region, the kernel will place all your incoming
+messages.
 
 SENDING MESSAGES
 
@@ -200,7 +198,7 @@ not used. Instead, you will only find PAYLOAD_OFF and PAYLOAD_MEMFD
 items. The former contain an offset and size into your memory mapped
 pool where you find the payload.
 
-If during the HELLO ioctl you asked for getting meta data attached to
+If during the HELLO ioctl you asked for getting metadata attached to
 your message, you will find additional KDBUS_ITEM_CREDS,
 KDBUS_ITEM_PID_COMM, KDBUS_ITEM_TID_COMM, KDBUS_ITEM_TIMESTAMP,
 KDBUS_ITEM_EXE, KDBUS_ITEM_CMDLINE, KDBUS_ITEM_CGROUP,
@@ -237,7 +235,7 @@ The bloom filter that needs to be included has the parameters m=512
 (bits in the filter), k=8 (nr of hash functions). The underlying hash
 function is SipHash-2-4. We calculate two hash values for an input
 strings, one with the hash key b9660bf0467047c18875c49c54b9bd15 (this
-is supposed to be read as a series of 16 hexadecimially formatted
+is supposed to be read as a series of 16 hexadecimal formatted
 bytes), and one with the hash key
 aaa154a2e0714b39bfe1dd2e9fc54a3b. This results in two 64bit hash
 values, A and B. The 8 hash functions for the bloom filter require a 9
@@ -431,7 +429,7 @@ More specifically:
 
    When a method call fails because the peer terminated the connection
    before responding, a KDBUS_ITEM_REPLY_DEAD message is
-   generated. Simiarly, it should be synthesized into a method error
+   generated. Similarly, it should be synthesized into a method error
    reply message.
 
 For synthesized messages we recommend setting the cookie field to
