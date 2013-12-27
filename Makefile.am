@@ -489,7 +489,7 @@ EXTRA_DIST += \
 	units/user/systemd-exit.service.in \
 	units/systemd-fsck@.service.in \
 	units/systemd-fsck-root.service.in \
-	units/user@.service.in \
+	units/user@.service.m4.in \
 	units/systemd-udevd.service \
 	units/systemd-udev-trigger.service \
 	units/systemd-udev-settle.service \
@@ -508,7 +508,8 @@ CLEANFILES += \
 	units/console-shell.service.m4 \
 	units/console-getty.service.m4 \
 	units/container-getty@.service.m4 \
-	units/rescue.service.m4
+	units/rescue.service.m4 \
+	units/user@.service.m4
 
 if HAVE_SYSV_COMPAT
 nodist_systemunit_DATA += \
@@ -4612,11 +4613,11 @@ src/%: src/%.m4
 	$(AM_V_M4)$(M4) -P $(M4_DEFINES) < $< > $@
 
 units/%: units/%.m4
-	$(AM_V_M4)$(MKDIR_P) $(dir $@)
+	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_M4)$(M4) -P $(M4_DEFINES) -DFOR_SYSTEM=1 < $< > $@
 
 units/user/%: units/%.m4
-	$(AM_V_M4)$(MKDIR_P) $(dir $@)
+	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_M4)$(M4) -P $(M4_DEFINES) -DFOR_USER=1 < $< > $@
 
 if ENABLE_POLKIT

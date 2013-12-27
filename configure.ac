@@ -76,6 +76,8 @@ AC_PATH_PROG([KMOD], [kmod], [/usr/bin/kmod])
 
 AC_PATH_PROG([KEXEC], [kexec], [/usr/sbin/kexec])
 
+M4_DEFINES=
+
 # gtkdocize greps for '^GTK_DOC_CHECK', so it needs to be on its own line
 m4_ifdef([GTK_DOC_CHECK], [
 GTK_DOC_CHECK([1.18],[--flavour no-tmpl])],
@@ -808,6 +810,7 @@ AC_ARG_ENABLE(kdbus, AS_HELP_STRING([--enable-kdbus], [do connect to kdbus by de
 if test "x$enable_kdbus" == "xyes"; then
         AC_DEFINE(ENABLE_KDBUS, 1, [Define if kdbus support is to be enabled])
         have_kdbus=yes
+        M4_DEFINES="$M4_DEFINES -DENABLE_KDBUS"
 fi
 AM_CONDITIONAL(ENABLE_KDBUS, [test "$have_kdbus" = "yes"])
 
@@ -923,7 +926,6 @@ AM_CONDITIONAL(ENABLE_MANPAGES, [test "x$have_manpages" = "xyes"])
 # Location of the init scripts as mandated by LSB
 SYSTEM_SYSVINIT_PATH=/etc/init.d
 SYSTEM_SYSVRCND_PATH=/etc/rc.d
-M4_DEFINES=
 
 AC_ARG_WITH([sysvinit-path],
         [AS_HELP_STRING([--with-sysvinit-path=PATH],
