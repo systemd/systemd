@@ -139,9 +139,11 @@
 
                                 <para>If set to
                                 <option>simple</option> (the default
-                                value if <varname>Type=</varname>
-                                is not specified), it is expected that
-                                the process configured with
+                                value if neither
+                                <varname>Type=</varname> nor
+                                <varname>BusName=</varname> are
+                                specified), it is expected that the
+                                process configured with
                                 <varname>ExecStart=</varname> is the
                                 main process of the service. In this
                                 mode, if the process offers
