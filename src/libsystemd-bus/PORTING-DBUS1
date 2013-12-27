@@ -527,6 +527,21 @@ following the XDG basedir spec.
 Of course the $DBUS_SYSTEM_BUS_ADDRESS and $DBUS_SESSION_BUS_ADDRESS
 variables should still take precedence.
 
+DBUS SERVICE FILES
+
+Activatable services for kdbus may not use classic dbus1 service
+activation files. Instead, programs should drop in native systemd
+.service and .busname unit files, so that they are treated uniformly
+with other types of units and activation of the system.
+
+Note that this results in a major difference to classic dbus1:
+activatable bus names can be established at any time in the boot. This
+is unlike dbus1 where activatable names are unconditionally available
+as long as dbus-daemon is running. Being able to control when
+activatable names are established is essential to allow usage of kdbus
+during early boot and in initrds, without the risk of triggering
+services too early.
+
 DISCLAIMER
 
 This all is just the status quo. We are putting this together, because
