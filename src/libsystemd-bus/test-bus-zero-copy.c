@@ -38,7 +38,7 @@
 #define STRING_SIZE 123
 
 int main(int argc, char *argv[]) {
-        _cleanup_free_ char *bus_name = NULL, *address = NULL;
+        _cleanup_free_ char *name = NULL, *bus_name = NULL, *address = NULL;
         uint8_t *p;
         sd_bus *a, *b;
         int r, bus_ref;
@@ -51,7 +51,9 @@ int main(int argc, char *argv[]) {
 
         log_set_max_level(LOG_DEBUG);
 
-        bus_ref = bus_kernel_create_bus("deine-mutter", false, &bus_name);
+        assert_se(asprintf(&name, "deine-mutter-%u", (unsigned) getpid()) >= 0);
+
+        bus_ref = bus_kernel_create_bus(name, false, &bus_name);
         if (bus_ref == -ENOENT)
                 return EXIT_TEST_SKIP;
 

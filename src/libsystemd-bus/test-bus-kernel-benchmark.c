@@ -220,7 +220,7 @@ int main(int argc, char *argv[]) {
                 MODE_CHART,
         } mode = MODE_BISECT;
         int i;
-        _cleanup_free_ char *bus_name = NULL, *address = NULL;
+        _cleanup_free_ char *name = NULL, *bus_name = NULL, *address = NULL;
         _cleanup_close_ int bus_ref = -1;
         cpu_set_t cpuset;
         size_t result;
@@ -239,7 +239,9 @@ int main(int argc, char *argv[]) {
 
         assert_se(arg_loop_usec > 0);
 
-        bus_ref = bus_kernel_create_bus("deine-mutter", false, &bus_name);
+        assert_se(asprintf(&name, "deine-mutter-%u", (unsigned) getpid()) >= 0);
+
+        bus_ref = bus_kernel_create_bus(name, false, &bus_name);
         if (bus_ref == -ENOENT)
                 exit(EXIT_TEST_SKIP);
 

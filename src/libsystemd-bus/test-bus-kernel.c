@@ -33,7 +33,7 @@
 
 int main(int argc, char *argv[]) {
         _cleanup_close_ int bus_ref = -1;
-        _cleanup_free_ char *bus_name = NULL, *address = NULL;
+        _cleanup_free_ char *name = NULL, *bus_name = NULL, *address = NULL;
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *ua = NULL, *ub = NULL, *the_string = NULL;
@@ -42,7 +42,9 @@ int main(int argc, char *argv[]) {
 
         log_set_max_level(LOG_DEBUG);
 
-        bus_ref = bus_kernel_create_bus("deine-mutter", false, &bus_name);
+        assert_se(asprintf(&name, "deine-mutter-%u", (unsigned) getpid()) >= 0);
+
+        bus_ref = bus_kernel_create_bus(name, false, &bus_name);
         if (bus_ref == -ENOENT)
                 return EXIT_TEST_SKIP;
 
