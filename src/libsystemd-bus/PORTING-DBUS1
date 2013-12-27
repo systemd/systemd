@@ -516,7 +516,7 @@ connecting to the system bus:
 This will ensure that kdbus is preferred over the legacy AF_UNIX
 socket, but compatibility is kept. For the user bus use:
 
-   kernel:path=/dev/kdbus/$UID-system/bus;unix:path=$XDG_RUNTIME_DIR/bus
+   kernel:path=/dev/kdbus/$UID-user/bus;unix:path=$XDG_RUNTIME_DIR/bus
 
 With $UID replaced by the callers numer user ID, and $XDG_RUNTIME_DIR
 following the XDG basedir spec.
