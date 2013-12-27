@@ -734,22 +734,33 @@ ExecStart=/bin/echo $ONE $TWO ${TWO}
                                 considered successful termination, in
                                 addition to the normal successful exit
                                 code 0 and the signals <constant>SIGHUP</constant>, <constant>SIGINT</constant>,
-                                <constant>SIGTERM</constant> and <constant>SIGPIPE</constant>. Exit status
+                                <constant>SIGTERM</constant>, and <constant>SIGPIPE</constant>. Exit status
                                 definitions can either be numeric exit
                                 codes or termination signal names,
-                                separated by spaces. Example:
-                                <literal>SuccessExitStatus=1 2 8
-                                <constant>SIGKILL</constant></literal>, ensures that exit
-                                codes 1, 2, 8 and the termination
-                                signal <constant>SIGKILL</constant> are considered clean
-                                service terminations. This option may
-                                appear more than once in which case
-                                the list of successful exit statuses
-                                is merged. If the empty string is
-                                assigned to this option, the list is
-                                reset, all prior assignments of this
-                                option will have no
-                                effect.</para></listitem>
+                                separated by spaces. For example:
+				<programlisting>SuccessExitStatus=1 2 8 <constant>SIGKILL</constant></programlisting>
+				ensures that exit codes 1, 2, 8 and
+				the termination signal
+				<constant>SIGKILL</constant> are
+				considered clean service terminations.
+			        </para>
+
+				<para>Note that if a process has a
+				signal handler installed and exits by
+				calling
+				<citerefentry><refentrytitle>_exit</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+				in response to a signal, the
+				information about the signal is lost.
+				Programs should instead perform cleanup and kill themselves with the same signal instead. See
+				<ulink url="http://www.cons.org/cracauer/sigint.html">Proper handling of SIGINT/SIGQUIT — How to be a proper program</ulink>.</para>
+
+				<para>This option may appear more than once
+				in which case the list of successful
+				exit statuses is merged. If the empty
+				string is assigned to this option, the
+				list is reset, all prior assignments
+				of this option will have no
+				effect.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
