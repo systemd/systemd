@@ -556,7 +556,7 @@ int unit_file_mask(
                 UnitFileScope scope,
                 bool runtime,
                 const char *root_dir,
-                char *files[],
+                char **files,
                 bool force,
                 UnitFileChange **changes,
                 unsigned *n_changes) {
@@ -625,7 +625,7 @@ int unit_file_unmask(
                 UnitFileScope scope,
                 bool runtime,
                 const char *root_dir,
-                char *files[],
+                char **files,
                 UnitFileChange **changes,
                 unsigned *n_changes) {
 
@@ -690,7 +690,7 @@ int unit_file_link(
                 UnitFileScope scope,
                 bool runtime,
                 const char *root_dir,
-                char *files[],
+                char **files,
                 bool force,
                 UnitFileChange **changes,
                 unsigned *n_changes) {
@@ -1462,7 +1462,7 @@ int unit_file_enable(
                 UnitFileScope scope,
                 bool runtime,
                 const char *root_dir,
-                char *files[],
+                char **files,
                 bool force,
                 UnitFileChange **changes,
                 unsigned *n_changes) {
@@ -1502,7 +1502,7 @@ int unit_file_disable(
                 UnitFileScope scope,
                 bool runtime,
                 const char *root_dir,
-                char *files[],
+                char **files,
                 UnitFileChange **changes,
                 unsigned *n_changes) {
 
@@ -1543,7 +1543,7 @@ int unit_file_reenable(
                 UnitFileScope scope,
                 bool runtime,
                 const char *root_dir,
-                char *files[],
+                char **files,
                 bool force,
                 UnitFileChange **changes,
                 unsigned *n_changes) {
@@ -1820,7 +1820,7 @@ int unit_file_preset(
                 UnitFileScope scope,
                 bool runtime,
                 const char *root_dir,
-                char *files[],
+                char **files,
                 bool force,
                 UnitFileChange **changes,
                 unsigned *n_changes) {
