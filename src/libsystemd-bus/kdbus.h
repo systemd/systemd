@@ -467,7 +467,8 @@ enum kdbus_attach_flags {
  * @id:			The ID of this connection (kernel → userspace)
  * @bloom_size:		The bloom filter size chosen by the owner
  * 			(kernel → userspace)
- * @pool_size:		Maximum size of the pool buffer (kernel → userspace)
+ * @pool_size:		Size of the connection's buffer where the received
+ * 			messages are placed
  * @id128:		Unique 128-bit ID of the bus (kernel → userspace)
  * @items:		A list of items
  *

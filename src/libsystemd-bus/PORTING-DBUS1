@@ -42,7 +42,7 @@ in width.
 
 When calling into the ioctl, you need to place your own supported
 feature bits into these fields. This tells the kernel about the
-features you support. When the ioctl returns it will contain the
+features you support. When the ioctl returns, it will contain the
 features the kernel supports.
 
 If any of the higher 32bit are set on the two flags fields and your
@@ -54,12 +54,12 @@ communicating with the bus, however a client that does not support an
 "incompatible" feature must not proceed with the connection.
 
 The hello structure also contains another flags field "attach_flags"
-which indicate meta data that is optionally attached to all incoming
+which indicates meta data that is optionally attached to all incoming
 messages. You probably want to set KDBUS_ATTACH_NAMES unconditionally
 in it. This has the effect that all well-known names of a sender are
 attached to all incoming messages. You need this information to
 implement matches that match on a message sender name correctly. Of
-course, you should only request attachment of as little metadata
+course, you should only request the attachment of as little metadata
 fields as you need.
 
 The kernel will return in the "id" field your unique id. This is a
@@ -71,7 +71,7 @@ broadcast bloom filter (see below).
 
 The kernel will also return the bus ID of the bus in an 128bit field.
 
-The pool size field specifies the size of the memory mapped buffer
+The pool size field specifies the size of the memory mapped buffer,
 where received messages are placed by the kernel.
 
 After the calling the hello ioctl, you should memory map the kdbus
@@ -152,7 +152,7 @@ multiple items. Some restrictions apply however:
    PAYLOAD_VEC item.
 
    You may only split your message up right in front of each GVariant
-   contained in the payload as well is immediately before framing of a
+   contained in the payload, as well is immediately before framing of a
    Gvariant, as well after as any padding bytes if there are any. The
    padding bytes must be wholly contained in the preceding
    PAYLOAD_VEC/PAYLOAD_MEMFD item. You may not split up simple types
@@ -166,7 +166,7 @@ multiple items. Some restrictions apply however:
    element and the array in a single uninterrupted item, however the
    various strings might end up in different items.
 
-Note again that splitting up messages into separate items is up to the
+Note again, that splitting up messages into separate items is up to the
 implementation. Also note that the kdbus kernel side might merge
 separate items if it deems this to be useful. However, the order in
 which items are contained in the message is left untouched.
@@ -196,25 +196,25 @@ the message originally sent. However, certain changes have been
 made. In the header the src_id field will be filled in.
 
 The payload items might have gotten merged and PAYLOAD_VEC items are
-not used. Instead you will only find PAYLOAD_OFF and PAYLOAD_MEMFD
+not used. Instead, you will only find PAYLOAD_OFF and PAYLOAD_MEMFD
 items. The former contain an offset and size into your memory mapped
 pool where you find the payload.
 
 If during the HELLO ioctl you asked for getting meta data attached to
-your message you will find additional KDBUS_ITEM_CREDS,
+your message, you will find additional KDBUS_ITEM_CREDS,
 KDBUS_ITEM_PID_COMM, KDBUS_ITEM_TID_COMM, KDBUS_ITEM_TIMESTAMP,
 KDBUS_ITEM_EXE, KDBUS_ITEM_CMDLINE, KDBUS_ITEM_CGROUP,
 KDBUS_ITEM_CAPS, KDBUS_ITEM_SECLABEL, KDBUS_ITEM_AUDIT items that
-contain this metadata. This metadata will be for the sender at the
-point in time it sent the message. This information is hence uncached,
-and since it is appended by the kernel trustable. The
-KDBUS_ITEM_SECLABEL item usually contains the SELinux security label
+contain this metadata. This metadata will be gathered from the sender
+at the point in time it sends the message. This information is
+uncached, and since it is appended by the kernel, trustable. The
+KDBUS_ITEM_SECLABEL item usually contains the SELinux security label,
 if it is used.
 
 After processing the message you need to call the KDBUS_CMD_FREE
 ioctl, which releases the message from the pool, and allows the kernel
 to store another message there. Note that the memory used by the pool
-is normal anonymous, swappable memory that is backed by tmpfs. Hence
+is ordinary anonymous, swappable memory that is backed by tmpfs. Hence
 there is no need to copy the message out of it quickly, instead you
 can just leave it there as long as you need it and release it via the
 FREE ioctl only after that's done.
@@ -225,7 +225,7 @@ The kernel does not understand dbus marshaling, it will not look into
 the message payload. To allow clients to subscribe to specific subsets
 of the broadcast matches we employ bloom filters.
 
-When broadcasting messages a bloom filter needs to be attached to the
+When broadcasting messages, a bloom filter needs to be attached to the
 message in a KDBUS_ITEM_BLOOM item (and only for broadcasting
 messages!). If you don't know what bloom filters are, read up now on
 Wikipedia. In short: they are a very efficient way how to
@@ -248,11 +248,11 @@ so on.
 
 For each message to send across the bus we populate the bloom filter
 with all possible matchable strings. If a client then wants to
-subscribe to messages of this type it simply tells the kernel to test
+subscribe to messages of this type, it simply tells the kernel to test
 its own calculated bit mask against the bloom filter of each message.
 
-More specifically the following strings are added to the bloom filter
-of each message that is broadcast:
+More specifically, the following strings are added to the bloom filter
+of each message that is broadcasted:
 
   The string "interface:" suffixed by the interface name
 
@@ -282,14 +282,14 @@ of each message that is broadcast:
 
   Similar for all further arguments that are strings up to 63, for the
   arguments and their "dot" and "slash" prefixes. On the first
-  argument that is not a string addition to the bloom filter should be
+  argument that is not a string, addition to the bloom filter should be
   stopped however.
 
-(Note that the bloom filter does not container sender nor receiver
+(Note that the bloom filter does not contain sender nor receiver
 names!)
 
 When a client wants to subscribe to messages matching a certain
-expression it should calculate the bloom mask following the same
+expression, it should calculate the bloom mask following the same
 algorithm. The kernel will then simply test the mask against the
 attached bloom filters.
 
@@ -298,14 +298,14 @@ might get messages they did not expect. Your bus protocol
 implementation must be capable of dealing with these unexpected
 messages (which it needs to anyway, given that transfers are
 relatively unrestricted on kdbus and people can send you all kinds of
-non-sense.).
+non-sense).
 
 INSTALLING MATCHES
 
-To install matches for broadcast messages use the KDBUS_CMD_ADD_MATCH
+To install matches for broadcast messages, use the KDBUS_CMD_ADD_MATCH
 ioctl. It takes a structure that contains an encoded match expression,
 and that is followed by one or more items, which are combined in an
-AND way. (Meaning: a messages is matched exactly when all items
+AND way. (Meaning: a message is matched exactly when all items
 attached to the original ioctl struct match).
 
 To match against other user messages add a KDBUS_ITEM_BLOOM item in
@@ -330,9 +330,9 @@ translate into one KDBUS_ITEM_BLOOM ioctl, one KDBUS_ITEM_NAME_ADD,
 one KDBUS_ITEM_NAME_CHANGE, one KDBUS_ITEM_NAME_REMOVE, one
 KDBUS_ITEM_ID_ADD and one KDBUS_ITEM_ID_REMOVE.
 
-When creating a match you may attach a "cookie" value to them, which
-is used for deleting a match again. The cookie can be selected freely
-be the client. When issuing KDBUS_CMD_REMOVE_MATCH simply pass the
+When creating a match, you may attach a "cookie" value to them, which
+is used for deleting this match again. The cookie can be selected freely
+by the client. When issuing KDBUS_CMD_REMOVE_MATCH, simply pass the
 same cookie as before and all matches matching the same "cookie" value
 will be removed. This is particularly handy for the case where multiple
 ioctl()s are added for a single match strings.
@@ -351,32 +351,36 @@ may be sealed (they may also be unsealed in that case).
 
 The concept of "sealing" makes memfds useful for using them as
 transport for kdbus messages: only when the receiver knows that the
-message it received cannot change while looking at it can safely parse
-it without having to copy it to a safe memory error. memfds can also
+message it has received cannot change while looking at, it can safely
+parse it without having to copy it to a safe memory area. memfds can also
 be reused in multiple messages. A sender may send the same memfd to
-multiple peers, and since it is sealed in can rely that the received
+multiple peers, and since it is sealed, it can be sure that the receiver
 will not be able to modify it. "Sealing" hence provides both sides of
 a transaction with the guarantee that the data stays constant and is
 reusable.
 
 memfds are a generic concept that can be used outside of the immediate
 kdbus usecase. You can send them across AF_UNIX sockets too, sealed or
-unsealed. In kdbus themselves they can be used to send zero-copy
+unsealed. In kdbus themselves, they can be used to send zero-copy
 payloads, but may also be sent as normal fds.
 
-memfds are allocated KDBUS_CMD_MEMFD_NEW ioctl. After allocation
-simply memory map them and write to them. To set their size use
+memfds are allocated with the KDBUS_CMD_MEMFD_NEW ioctl. After allocation,
+simply memory map them and write to them. To set their size, use
 KDBUS_CMD_MEMFD_SIZE_SET. Note that memfds will be increased in size
 automatically if you touch previously unallocated pages. However, the
 size will only be increased in multiples of the page size in that
 case. Thus, in almost all cases, an explicitl KDBUS_CMD_MEMFD_SIZE_SET
 is necessary, since it allows setting memfd sizes in finer
 granularity. To seal a memfd use the KDBUS_CMD_MEMFD_SEAL_SET ioctl
-call. It will only succeeds if the caller has the only fd reference to
+call. It will only succeed if the caller has the only fd reference to
 the memfd open, and if the memfd is currently unmapped.
 
+If memfds are shared, keep in mind that the file pointer used by
+write/read/seek is shared too, only pread/pwrite are safe to use
+in that case.
+
 memfds may be sent across kdbus via KDBUS_ITEM_PAYLOAD_MEMFD items
-attached to messages. If this is done the data included in the memfd
+attached to messages. If this is done, the data included in the memfd
 is considered part of the payload stream of a message, and are treated
 the same way as KDBUS_ITEM_PAYLOAD_VEC by the receiving side. It is
 possible to interleave KDBUS_ITEM_PAYLOAD_MEMFD and
@@ -391,18 +395,18 @@ Note that sealed memfds may be unsealed again if they are not mapped
 you have the only fd reference to them.
 
 Alternatively to sending memfds as KDBUS_ITEM_PAYLOAD_MEMFD items
-(where they just form part of the payload stream of a message) you can
-also simply attach their fds to a message using
-KDBUS_ITEM_PAYLOAD_FDS. In this case the memfd contents is not
+(where they are just a part of the payload stream of a message) you can
+also simply attach any memfd to a message using
+KDBUS_ITEM_PAYLOAD_FDS. In this case, the memfd contents is not
 considered part of the payload stream of the message, but simply fds
-like any other that happen to be attached to the message.
+like any other, that happen to be attached to the message.
 
 MESSAGES FROM THE KERNEL
 
 A couple of messages previously generated by the dbus1 bus driver are
 now generated by the kernel. Since the kernel does not understand the
-payload marshalling they are shipped in a different format
-though. This is indicated with a the "payload type" field of the
+payload marshaling, they are generated by the kernel  in a different
+format. This is indicated with a the "payload type" field of the
 messages set to 0. Library implementations should take these messages
 and synthesize traditional driver messages for them on reception.
 
@@ -412,21 +416,21 @@ More specifically:
    there are kernel messages containing KDBUS_ITEM_NAME_ADD,
    KDBUS_ITEM_NAME_REMOVE, KDBUS_ITEM_NAME_CHANGE, KDBUS_ITEM_ID_ADD,
    KDBUS_ITEM_ID_REMOVE items are generated (each message will contain
-   exactly one of these items). Note that in In libsystemd-bus we have
+   exactly one of these items). Note that in libsystemd-bus we have
    obsoleted NameLost/NameAcquired messages, since they are entirely
    redundant to NameOwnerChanged. This library will hence only
    synthesize NameOwnerChanged messages from these kernel messages,
-   and never generate NameLost/NameAcquired. If you library needs to
+   and never generate NameLost/NameAcquired. If your library needs to
    stay compatible to the old dbus1 userspace, you possibly might need
    to synthesize both a NameOwnerChanged and NameLost/NameAcquired
    message from the same kernel message.
 
-   When a method call times out KDBUS_ITEM_REPLY_TIMEOUT message is
+   When a method call times out, a KDBUS_ITEM_REPLY_TIMEOUT message is
    generated. This should be synthesized into a method error reply
    message to the original call.
 
    When a method call fails because the peer terminated the connection
-   before responding a KDBUS_ITEM_REPLY_DEAD message is
+   before responding, a KDBUS_ITEM_REPLY_DEAD message is
    generated. Simiarly, it should be synthesized into a method error
    reply message.
 
@@ -445,7 +449,7 @@ activatable.
 
 NAME REGISTRY
 
-To acquire names on the bus use the KDBUS_CMD_NAME_ACQUIRE ioctl(). It
+To acquire names on the bus, use the KDBUS_CMD_NAME_ACQUIRE ioctl(). It
 takes a flags field similar to dbus1's RequestName() bus driver call,
 however the NO_QUEUE flag got inverted into a QUEUE flag instead.
 
@@ -456,12 +460,12 @@ To list acquired names use the KDBUS_CMD_CONN_INFO ioctl. It may be
 used to list unique names, well known names as well as activatable
 names and clients currently queuing for ownership of a well-known
 name. The ioctl will return an offset into the memory pool. After
-reading all the data you need you need to release this via the
+reading all the data you need, you need to release this via the
 KDBUS_CMD_FREE ioctl(), similar how you release a received message.
 
 CREDENTIALS
 
-kdbus can optionally attach all kinds of metadata about the sender at
+kdbus can optionally attach various kinds of metadata about the sender at
 the point of time of sending ("credentials") to messages, on request
 of the receiver. This is both supported on directed and undirected
 (broadcast) messages. The metadata to attach is selected at time of
@@ -470,15 +474,15 @@ that clients must be able to handle that messages contain more
 metadata than they asked for themselves, to simplify implementation of
 broadcasting in the kernel. The receiver should not rely on this data
 to be around though, even though it will be correct if it happens to
-be attached. In order to avoid programming errors in application we'd
+be attached. In order to avoid programming errors in applications, we
 recommend though not to pass this data on to clients that did not
 explicitly ask for it.
 
 Credentials may also be queried for a well-known or unique name. Use
 the KDBUS_CMD_CONN_INFO for this. It will return an offset to the pool
 area again, which will contain the same credential items as messages
-have attached. Note that when issuing the ioctl you can select a
-different set of credentials to gather than was originally requested
+have attached. Note that when issuing the ioctl, you can select a
+different set of credentials to gather, than what was originally requested
 for being attached to incoming messages.
 
 Credentials are always specific to the sender namespace that was
@@ -498,7 +502,7 @@ any more complex checks. However, libraries should make simple static
 policy decisions regarding privileged/unprivileged method calls
 easy. We recommend doing this by enabling KDBUS_ATTACH_CAPS and
 KDBUS_ATTACH_CREDS for incoming messages, and then discerning client
-access by some capability of if sender and receiver UIDs match.
+access by some capability, or if sender and receiver UIDs match.
 
 BUS ADDRESSES
 
@@ -530,8 +534,8 @@ activation files. Instead, programs should drop in native systemd
 with other types of units and activation of the system.
 
 Note that this results in a major difference to classic dbus1:
-activatable bus names can be established at any time in the boot. This
-is unlike dbus1 where activatable names are unconditionally available
+activatable bus names can be established at any time in the boot process.
+This is unlike dbus1 where activatable names are unconditionally available
 as long as dbus-daemon is running. Being able to control when
 activatable names are established is essential to allow usage of kdbus
 during early boot and in initrds, without the risk of triggering
@@ -539,7 +543,7 @@ services too early.
 
 DISCLAIMER
 
-This all is just the status quo. We are putting this together, because
+This all is so far just the status quo. We are putting this together, because
 we are quite confident that further API changes will be smaller, but
 to make this very clear: this is all subject to change, still!
 
