@@ -2551,11 +2551,15 @@ static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *us
 
 static int service_dispatch_watchdog(sd_event_source *source, usec_t usec, void *userdata) {
         Service *s = SERVICE(userdata);
+        char t[FORMAT_TIMESPAN_MAX];
 
         assert(s);
         assert(source == s->watchdog_event_source);
 
-        log_error_unit(UNIT(s)->id, "%s watchdog timeout!", UNIT(s)->id);
+        log_error_unit(UNIT(s)->id,
+                       "%s watchdog timeout (limit %s)!",
+                       UNIT(s)->id,
+                       format_timespan(t, sizeof(t), s->watchdog_usec, 1));
         service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_FAILURE_WATCHDOG);
 
         return 0;
