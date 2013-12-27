@@ -2486,7 +2486,6 @@ static int start_special(sd_bus *bus, char **args) {
 }
 
 static int check_unit_generic(sd_bus *bus, int code, const char *good_states, char **args) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_strv_free_ char **names = NULL;
         char **name;
         int r = code;
