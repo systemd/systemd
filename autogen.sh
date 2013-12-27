@@ -65,6 +65,9 @@ elif [ "x$1" = "xa" ]; then
 elif [ "x$1" = "xl" ]; then
         ./configure CC=clang CFLAGS='-g -O0 -ftrapv -Wno-cast-align -Wno-gnu' --enable-kdbus $args
         make clean
+elif [ "x$1" = "xs" ]; then
+        scan-build ./configure CFLAGS='-g -O0 -ftrapv' --enable-kdbus $args
+        scan-build make
 else
         echo
         echo "----------------------------------------------------------------"
