@@ -186,6 +186,7 @@
 /test-utf8
 /test-util
 /test-watchdog
+/test-xml
 /timedatectl
 /udevadm
 /undefined

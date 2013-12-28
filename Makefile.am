@@ -779,7 +779,9 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/syscall-list.c \
 	src/shared/syscall-list.h \
 	src/shared/audit.c \
-	src/shared/audit.h
+	src/shared/audit.h \
+	src/shared/xml.c \
+	src/shared/xml.h
 
 nodist_libsystemd_shared_la_SOURCES = \
 	src/shared/errno-from-name.h \
@@ -1156,7 +1158,8 @@ tests += \
 	test-hashmap \
 	test-list \
 	test-tables \
-	test-device-nodes
+	test-device-nodes \
+	test-xml
 
 EXTRA_DIST += \
 	test/sched_idle_bad.service \
@@ -1257,6 +1260,12 @@ test_hashmap_SOURCES = \
 
 test_hashmap_LDADD = \
 	libsystemd-core.la
+
+test_xml_SOURCES = \
+	src/test/test-xml.c
+
+test_xml_LDADD = \
+	libsystemd-shared.la
 
 test_list_SOURCES = \
 	src/test/test-list.c
