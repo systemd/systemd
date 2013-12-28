@@ -90,10 +90,10 @@ static void match_free(Match *m) {
                 Match *first;
 
                 first = hashmap_get(m->client->matches, m->match);
-                LIST_REMOVE(matches, first, m);
-                if (first)
+                if (first) {
+                        LIST_REMOVE(matches, first, m);
                         assert_se(hashmap_replace(m->client->matches, m->match, first) >= 0);
-                else
+                } else
                         hashmap_remove(m->client->matches, m->match);
 
                 m->client->n_matches--;
