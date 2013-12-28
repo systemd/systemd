@@ -66,3 +66,4 @@
 /systemd-user-sessions.service
 /systemd-vconsole-setup.service
 /user@.service.m4
+/user@.service
