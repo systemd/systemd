@@ -547,7 +547,7 @@ static int method_start_transient_unit(sd_bus *bus, sd_bus_message *message, voi
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid unit type.");
 
         if (!unit_vtable[t]->can_transient)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unit type %s does not support transient units.");
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unit type %s does not support transient units.", unit_type_to_string(t));
 
         mode = job_mode_from_string(smode);
         if (mode < 0)

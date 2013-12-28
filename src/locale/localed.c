@@ -948,7 +948,7 @@ static int method_set_vc_keyboard(sd_bus *bus, sd_bus_message *m, void *userdata
 
                 if ((keymap && (!filename_is_safe(keymap) || !string_is_safe(keymap))) ||
                     (keymap_toggle && (!filename_is_safe(keymap_toggle) || !string_is_safe(keymap_toggle))))
-                        return sd_bus_error_set_errnof(error, r, "Received invalid keymap data: %s", -EINVAL);
+                        return sd_bus_error_set_errnof(error, -EINVAL, "Received invalid keymap data");
 
                 r = bus_verify_polkit_async(bus, &c->polkit_registry, m,
                                 "org.freedesktop.locale1.set-keyboard",
@@ -1020,7 +1020,7 @@ static int method_set_x11_keyboard(sd_bus *bus, sd_bus_message *m, void *userdat
                     (model && !string_is_safe(model)) ||
                     (variant && !string_is_safe(variant)) ||
                     (options && !string_is_safe(options)))
-                        return sd_bus_error_set_errnof(error, r, "Received invalid keyboard data: %s", -EINVAL);
+                        return sd_bus_error_set_errnof(error, -EINVAL, "Received invalid keyboard data");
 
                 r = bus_verify_polkit_async(bus, &c->polkit_registry, m,
                                 "org.freedesktop.locale1.set-keyboard",

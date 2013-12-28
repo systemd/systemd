@@ -495,7 +495,7 @@ static int method_create_session(sd_bus *bus, sd_bus_message *message, void *use
         else {
                 seat = hashmap_get(m->seats, cseat);
                 if (!seat)
-                        return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_SEAT, "No seat '%s' known", seat);
+                        return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_SEAT, "No seat '%s' known", cseat);
         }
 
         if (tty_is_vc(tty)) {
@@ -504,7 +504,7 @@ static int method_create_session(sd_bus *bus, sd_bus_message *message, void *use
                 if (!seat)
                         seat = m->seat0;
                 else if (seat != m->seat0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "TTY %s is virtual console but seat %s is not seat0", tty, seat);
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "TTY %s is virtual console but seat %s is not seat0", tty, seat->id);
 
                 v = vtnr_from_tty(tty);
                 if (v <= 0)
