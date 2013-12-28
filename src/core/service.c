@@ -3181,19 +3181,21 @@ static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *us
         case SERVICE_START_PRE:
         case SERVICE_START:
                 log_warning_unit(UNIT(s)->id,
-                                 "%s operation timed out. Terminating.", UNIT(s)->id);
+                                 "%s %s operation timed out. Terminating.",
+                                 UNIT(s)->id,
+                                 s->state == SERVICE_START ? "start" : "start-pre");
                 service_enter_signal(s, SERVICE_FINAL_SIGTERM, SERVICE_FAILURE_TIMEOUT);
                 break;
 
         case SERVICE_START_POST:
                 log_warning_unit(UNIT(s)->id,
-                                 "%s operation timed out. Stopping.", UNIT(s)->id);
+                                 "%s start-post operation timed out. Stopping.", UNIT(s)->id);
                 service_enter_stop(s, SERVICE_FAILURE_TIMEOUT);
                 break;
 
         case SERVICE_RELOAD:
                 log_warning_unit(UNIT(s)->id,
-                                 "%s operation timed out. Stopping.", UNIT(s)->id);
+                                 "%s reload operation timed out. Stopping.", UNIT(s)->id);
                 s->reload_result = SERVICE_FAILURE_TIMEOUT;
                 service_enter_running(s, SERVICE_SUCCESS);
                 break;
@@ -3207,11 +3209,11 @@ static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *us
         case SERVICE_STOP_SIGTERM:
                 if (s->kill_context.send_sigkill) {
                         log_warning_unit(UNIT(s)->id,
-                                         "%s stopping timed out. Killing.", UNIT(s)->id);
+                                         "%s stop-sigterm timed out. Killing.", UNIT(s)->id);
                         service_enter_signal(s, SERVICE_STOP_SIGKILL, SERVICE_FAILURE_TIMEOUT);
                 } else {
                         log_warning_unit(UNIT(s)->id,
-                                         "%s stopping timed out. Skipping SIGKILL.", UNIT(s)->id);
+                                         "%s stop-sigterm timed out. Skipping SIGKILL.", UNIT(s)->id);
                         service_enter_stop_post(s, SERVICE_FAILURE_TIMEOUT);
                 }
 
@@ -3229,18 +3231,18 @@ static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *us
 
         case SERVICE_STOP_POST:
                 log_warning_unit(UNIT(s)->id,
-                                 "%s stopping timed out (2). Terminating.", UNIT(s)->id);
+                                 "%s stop-post timed out. Terminating.", UNIT(s)->id);
                 service_enter_signal(s, SERVICE_FINAL_SIGTERM, SERVICE_FAILURE_TIMEOUT);
                 break;
 
         case SERVICE_FINAL_SIGTERM:
                 if (s->kill_context.send_sigkill) {
                         log_warning_unit(UNIT(s)->id,
-                                         "%s stopping timed out (2). Killing.", UNIT(s)->id);
+                                         "%s stop-final-sigterm timed out. Killing.", UNIT(s)->id);
                         service_enter_signal(s, SERVICE_FINAL_SIGKILL, SERVICE_FAILURE_TIMEOUT);
                 } else {
                         log_warning_unit(UNIT(s)->id,
-                                         "%s stopping timed out (2). Skipping SIGKILL. Entering failed mode.",
+                                         "%s stop-final-sigterm timed out. Skipping SIGKILL. Entering failed mode.",
                                          UNIT(s)->id);
                         service_enter_dead(s, SERVICE_FAILURE_TIMEOUT, false);
                 }
@@ -3249,7 +3251,7 @@ static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *us
 
         case SERVICE_FINAL_SIGKILL:
                 log_warning_unit(UNIT(s)->id,
-                                 "%s still around after SIGKILL (2). Entering failed mode.", UNIT(s)->id);
+                                 "%s still around after final SIGKILL. Entering failed mode.", UNIT(s)->id);
                 service_enter_dead(s, SERVICE_FAILURE_TIMEOUT, true);
                 break;
 
