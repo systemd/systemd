@@ -346,7 +346,7 @@ static int driver_remove_match(sd_bus *bus, sd_bus_message *message, void *userd
 
         m = hashmap_get(c->matches, normalized);
         if (!m) {
-                r = sd_bus_error_setf(error, SD_BUS_ERROR_MATCH_RULE_NOT_FOUND, "Match rule \"%s\" not found.");
+                r = sd_bus_error_setf(error, SD_BUS_ERROR_MATCH_RULE_NOT_FOUND, "Match rule \"%s\" not found.", normalized);
                 goto finish;
         }
 
