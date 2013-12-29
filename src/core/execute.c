@@ -2282,7 +2282,7 @@ static int exec_runtime_allocate(ExecRuntime **rt) {
                 return 0;
 
         *rt = new0(ExecRuntime, 1);
-        if (!rt)
+        if (!*rt)
                 return -ENOMEM;
 
         (*rt)->n_ref = 1;
