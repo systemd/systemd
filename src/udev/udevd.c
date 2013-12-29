@@ -635,7 +635,7 @@ static struct udev_ctrl_connection *handle_ctrl_msg(struct udev_ctrl *uctrl)
 
         i = udev_ctrl_get_set_log_level(ctrl_msg);
         if (i >= 0) {
-                log_debug("udevd message (SET_LOG_PRIORITY) received, log_priority=%i", i);
+                log_debug("udevd message (SET_LOG_LEVEL) received, log_priority=%i", i);
                 log_set_max_level(i);
                 udev_set_log_priority(udev, i);
                 worker_kill(udev);
