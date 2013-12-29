@@ -21,6 +21,7 @@
 
 #include <locale.h>
 #include <fcntl.h>
+#include <fnmatch.h>
 #include <errno.h>
 #include <stddef.h>
 #include <string.h>
@@ -49,6 +50,7 @@
 #include "build.h"
 #include "pager.h"
 #include "strv.h"
+#include "set.h"
 #include "journal-internal.h"
 #include "journal-def.h"
 #include "journal-verify.h"
@@ -983,39 +985,176 @@ static int add_dmesg(sd_journal *j) {
         return 0;
 }
 
-static int add_units(sd_journal *j) {
-        _cleanup_free_ char *u = NULL;
+static int get_possible_units(sd_journal *j,
+                              const char *fields,
+                              char **patterns,
+                              Set **units) {
+        _cleanup_set_free_free_ Set *found;
+        const char *field;
         int r;
+
+        found = set_new(string_hash_func, string_compare_func);
+        if (!found)
+                return log_oom();
+
+        NULSTR_FOREACH(field, fields) {
+                const void *data;
+                size_t size;
+
+                r = sd_journal_query_unique(j, field);
+                if (r < 0)
+                        return r;
+
+                SD_JOURNAL_FOREACH_UNIQUE(j, data, size) {
+                        char **pattern, *eq;
+                        size_t prefix;
+                        _cleanup_free_ char *u = NULL;
+
+                        eq = memchr(data, '=', size);
+                        if (eq)
+                                prefix = eq - (char*) data + 1;
+                        else
+                                prefix = 0;
+
+                        u = strndup((char*) data + prefix, size - prefix);
+                        if (!u)
+                                return log_oom();
+
+                        STRV_FOREACH(pattern, patterns)
+                                if (fnmatch(*pattern, u, FNM_NOESCAPE) == 0) {
+                                        log_debug("Matched %s with pattern %s=%s", u, field, *pattern);
+
+                                        r = set_consume(found, u);
+                                        u = NULL;
+                                        if (r < 0 && r != -EEXIST)
+                                                return r;
+
+                                        break;
+                                }
+                }
+        }
+
+        *units = found;
+        found = NULL;
+        return 0;
+}
+
+/* This list is supposed to return the superset of unit names
+ * possibly matched by rules added with add_matches_for_unit... */
+#define SYSTEM_UNITS                 \
+        "_SYSTEMD_UNIT\0"            \
+        "COREDUMP_UNIT\0"            \
+        "UNIT\0"                     \
+        "OBJECT_SYSTEMD_UNIT\0"      \
+        "_SYSTEMD_SLICE\0"
+
+/* ... and add_matches_for_user_unit */
+#define USER_UNITS                   \
+        "_SYSTEMD_USER_UNIT\0"       \
+        "USER_UNIT\0"                \
+        "COREDUMP_USER_UNIT\0"       \
+        "OBJECT_SYSTEMD_USER_UNIT\0"
+
+static int add_units(sd_journal *j) {
+        _cleanup_strv_free_ char **patterns = NULL;
+        int r, count = 0;
         char **i;
 
         assert(j);
 
         STRV_FOREACH(i, arg_system_units) {
-                u = unit_name_mangle(*i, MANGLE_NOGLOB);
+                _cleanup_free_ char *u = NULL;
+
+                u = unit_name_mangle(*i, MANGLE_GLOB);
                 if (!u)
                         return log_oom();
-                r = add_matches_for_unit(j, u);
-                if (r < 0)
-                        return r;
-                r = sd_journal_add_disjunction(j);
-                if (r < 0)
-                        return r;
+
+                if (string_is_glob(u)) {
+                        r = strv_push(&patterns, u);
+                        if (r < 0)
+                                return r;
+                        u = NULL;
+                } else {
+                        r = add_matches_for_unit(j, u);
+                        if (r < 0)
+                                return r;
+                        r = sd_journal_add_disjunction(j);
+                        if (r < 0)
+                                return r;
+                        count ++;
+                }
         }
+
+        if (!strv_isempty(patterns)) {
+                _cleanup_set_free_free_ Set *units = NULL;
+                Iterator it;
+                char *u;
+
+                r = get_possible_units(j, SYSTEM_UNITS, patterns, &units);
+                if (r < 0)
+                        return r;
+
+                SET_FOREACH(u, units, it) {
+                        r = add_matches_for_unit(j, u);
+                        if (r < 0)
+                                return r;
+                        r = sd_journal_add_disjunction(j);
+                        if (r < 0)
+                                return r;
+                        count ++;
+                }
+        }
+
+        strv_free(patterns);
+        patterns = NULL;
 
         STRV_FOREACH(i, arg_user_units) {
-                u = unit_name_mangle(*i, MANGLE_NOGLOB);
+                _cleanup_free_ char *u = NULL;
+
+                u = unit_name_mangle(*i, MANGLE_GLOB);
                 if (!u)
                         return log_oom();
 
-                r = add_matches_for_user_unit(j, u, getuid());
-                if (r < 0)
-                        return r;
-
-                r = sd_journal_add_disjunction(j);
-                if (r < 0)
-                        return r;
-
+                if (string_is_glob(u)) {
+                        r = strv_push(&patterns, u);
+                        if (r < 0)
+                                return r;
+                        u = NULL;
+                } else {
+                        r = add_matches_for_user_unit(j, u, getuid());
+                        if (r < 0)
+                                return r;
+                        r = sd_journal_add_disjunction(j);
+                        if (r < 0)
+                                return r;
+                        count ++;
+                }
         }
+
+        if (!strv_isempty(patterns)) {
+                _cleanup_set_free_free_ Set *units = NULL;
+                Iterator it;
+                char *u;
+
+                r = get_possible_units(j, USER_UNITS, patterns, &units);
+                if (r < 0)
+                        return r;
+
+                SET_FOREACH(u, units, it) {
+                        r = add_matches_for_user_unit(j, u, getuid());
+                        if (r < 0)
+                                return r;
+                        r = sd_journal_add_disjunction(j);
+                        if (r < 0)
+                                return r;
+                        count ++;
+                }
+        }
+
+        /* Complain if the user request matches but nothing whatsoever was
+         * found, since otherwise everything would be matched. */
+        if (!(strv_isempty(arg_system_units) && strv_isempty(arg_user_units)) && count == 0)
+                return -ENODATA;
 
         r = sd_journal_add_conjunction(j);
         if (r < 0)
@@ -1543,16 +1682,22 @@ int main(int argc, char *argv[]) {
         strv_free(arg_system_units);
         strv_free(arg_user_units);
 
-        if (r < 0)
+        if (r < 0) {
+                log_error("Failed to add filter for units: %s", strerror(-r));
                 return EXIT_FAILURE;
+        }
 
         r = add_priorities(j);
-        if (r < 0)
+        if (r < 0) {
+                log_error("Failed to add filter for priorities: %s", strerror(-r));
                 return EXIT_FAILURE;
+        }
 
         r = add_matches(j, argv + optind);
-        if (r < 0)
+        if (r < 0) {
+                log_error("Failed to add filters: %s", strerror(-r));
                 return EXIT_FAILURE;
+        }
 
         if (_unlikely_(log_get_max_level() >= LOG_PRI(LOG_DEBUG))) {
                 _cleanup_free_ char *filter;
