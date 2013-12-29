@@ -34,10 +34,6 @@
 #include "compress.h"
 #include "fsprg.h"
 
-/* Use six characters to cover the offsets common in smallish journal
- * files without adding to many zeros. */
-#define OFSfmt "%06"PRIx64
-
 static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o) {
         uint64_t i;
 

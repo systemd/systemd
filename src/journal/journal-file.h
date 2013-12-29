@@ -127,6 +127,10 @@ int journal_file_open_reliably(
 #define ALIGN64(x) (((x) + 7ULL) & ~7ULL)
 #define VALID64(x) (((x) & 7ULL) == 0ULL)
 
+/* Use six characters to cover the offsets common in smallish journal
+ * files without adding too many zeros. */
+#define OFSfmt "%06"PRIx64
+
 static inline bool VALID_REALTIME(uint64_t u) {
         /* This considers timestamps until the year 3112 valid. That should be plenty room... */
         return u > 0 && u < (1ULL << 55);
@@ -196,3 +200,23 @@ int journal_file_get_cutoff_realtime_usec(JournalFile *f, usec_t *from, usec_t *
 int journal_file_get_cutoff_monotonic_usec(JournalFile *f, sd_id128_t boot, usec_t *from, usec_t *to);
 
 bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec);
+
+
+static unsigned type_to_context(int type) {
+        /* One context for each type, plus one catch-all for the rest */
+        return type > 0 && type < _OBJECT_TYPE_MAX ? type : 0;
+}
+
+static inline int journal_file_object_keep(JournalFile *f, Object *o, uint64_t offset) {
+        unsigned context = type_to_context(o->object.type);
+
+        return mmap_cache_get(f->mmap, f->fd, f->prot, context, true,
+                              offset, o->object.size, &f->last_stat, NULL);
+}
+
+static inline int journal_file_object_release(JournalFile *f, Object *o, uint64_t offset) {
+        unsigned context = type_to_context(o->object.type);
+
+        return mmap_cache_release(f->mmap, f->fd, f->prot, context,
+                                  offset, o->object.size);
+}

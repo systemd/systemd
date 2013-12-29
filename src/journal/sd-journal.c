@@ -2481,9 +2481,7 @@ _public_ int sd_journal_query_unique(sd_journal *j, const char *field) {
 }
 
 _public_ int sd_journal_enumerate_unique(sd_journal *j, const void **data, size_t *l) {
-        Object *o;
         size_t k;
-        int r;
 
         assert_return(j, -EINVAL);
         assert_return(!journal_pid_changed(j), -ECHILD);
@@ -2503,9 +2501,11 @@ _public_ int sd_journal_enumerate_unique(sd_journal *j, const void **data, size_
         for (;;) {
                 JournalFile *of;
                 Iterator i;
+                Object *o;
                 const void *odata;
                 size_t ol;
                 bool found;
+                int r;
 
                 /* Proceed to next data object in the field's linked list */
                 if (j->unique_offset == 0) {
@@ -2542,8 +2542,16 @@ _public_ int sd_journal_enumerate_unique(sd_journal *j, const void **data, size_
                         return r;
 
                 /* Let's do the type check by hand, since we used 0 context above. */
-                if (o->object.type != OBJECT_DATA)
+                if (o->object.type != OBJECT_DATA) {
+                        log_error("%s:offset " OFSfmt ": object has type %d, expected %d",
+                                  j->unique_file->path, j->unique_offset,
+                                  o->object.type, OBJECT_DATA);
                         return -EBADMSG;
+                }
+
+                r = journal_file_object_keep(j->unique_file, o, j->unique_offset);
+                if (r < 0)
+                        return r;
 
                 r = return_data(j, j->unique_file, o, &odata, &ol);
                 if (r < 0)
@@ -2576,6 +2584,10 @@ _public_ int sd_journal_enumerate_unique(sd_journal *j, const void **data, size_
 
                 if (found)
                         continue;
+
+                r = journal_file_object_release(j->unique_file, o, j->unique_offset);
+                if (r < 0)
+                        return r;
 
                 r = return_data(j, j->unique_file, o, data, l);
                 if (r < 0)

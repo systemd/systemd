@@ -419,7 +419,6 @@ int journal_file_move_to_object(JournalFile *f, int type, uint64_t offset, Objec
         void *t;
         Object *o;
         uint64_t s;
-        unsigned context;
 
         assert(f);
         assert(ret);
@@ -428,10 +427,8 @@ int journal_file_move_to_object(JournalFile *f, int type, uint64_t offset, Objec
         if (!VALID64(offset))
                 return -EFAULT;
 
-        /* One context for each type, plus one catch-all for the rest */
-        context = type > 0 && type < _OBJECT_TYPE_MAX ? type : 0;
 
-        r = journal_file_move_to(f, context, false, offset, sizeof(ObjectHeader), &t);
+        r = journal_file_move_to(f, type_to_context(type), false, offset, sizeof(ObjectHeader), &t);
         if (r < 0)
                 return r;
 
