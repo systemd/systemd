@@ -38,7 +38,7 @@
 static char** arg_listen = NULL;
 static bool arg_accept = false;
 static char** arg_args = NULL;
-static char** arg_environ = NULL;
+static char** arg_setenv = NULL;
 
 static int add_epoll(int epoll_fd, int fd) {
         struct epoll_event ev = {
@@ -162,14 +162,14 @@ static int launch(char* name, char **argv, char **env, int fds) {
         char **s;
         unsigned i;
 
-        length = strv_length(arg_environ);
+        length = strv_length(arg_setenv);
 
         /* PATH, TERM, HOME, USER, LISTEN_FDS, LISTEN_PID, NULL */
         envp = new0(char *, length + 7);
         if (!envp)
                 return log_oom();
 
-        STRV_FOREACH(s, arg_environ) {
+        STRV_FOREACH(s, arg_setenv) {
                 if (strchr(*s, '='))
                         envp[n_env++] = *s;
                 else {
@@ -302,12 +302,11 @@ static int help(void) {
         printf("%s [OPTIONS...]\n\n"
                "Listen on sockets and launch child on connection.\n\n"
                "Options:\n"
-               "  -l --listen=ADDR     Listen for raw connections at ADDR\n"
-               "  -a --accept          Spawn separate child for each connection\n"
-               "  -h --help            Show this help and exit\n"
-               "  -E --environment=NAME[=VALUE]\n"
-               "                       Pass an environment variable to children\n"
-               "  --version            Print version string and exit\n"
+               "  -l --listen=ADDR         Listen for raw connections at ADDR\n"
+               "  -a --accept              Spawn separate child for each connection\n"
+               "  -h --help                Show this help and exit\n"
+               "  -E --setenv=NAME[=VALUE] Pass an environment variable to children\n"
+               "  --version                Print version string and exit\n"
                "\n"
                "Note: file descriptors from sd_listen_fds() will be passed through.\n"
                , program_invocation_short_name
@@ -322,11 +321,12 @@ static int parse_argv(int argc, char *argv[]) {
         };
 
         static const struct option options[] = {
-                { "help",         no_argument,       NULL, 'h'           },
-                { "version",      no_argument,       NULL, ARG_VERSION   },
-                { "listen",       required_argument, NULL, 'l'           },
-                { "accept",       no_argument,       NULL, 'a'           },
-                { "environment",  required_argument, NULL, 'E'           },
+                { "help",        no_argument,       NULL, 'h'           },
+                { "version",     no_argument,       NULL, ARG_VERSION   },
+                { "listen",      required_argument, NULL, 'l'           },
+                { "accept",      no_argument,       NULL, 'a'           },
+                { "setenv",      required_argument, NULL, 'E'           },
+                { "environment", required_argument, NULL, 'E'           }, /* alias */
                 {}
         };
 
@@ -358,7 +358,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'E': {
-                        int r = strv_extend(&arg_environ, optarg);
+                        int r = strv_extend(&arg_setenv, optarg);
                         if (r < 0)
                                 return r;
 

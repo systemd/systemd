@@ -119,7 +119,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
       <varlistentry>
         <term><option>-E <replaceable>VAR</replaceable><optional>=<replaceable>VALUE</replaceable></optional></option></term>
-        <term><option>--environment=<replaceable>VAR</replaceable><optional>=<replaceable>VALUE</replaceable></optional></option></term>
+        <term><option>--setenv=<replaceable>VAR</replaceable><optional>=<replaceable>VALUE</replaceable></optional></option></term>
 
         <listitem><para>Add this variable to the environment of the
         launched process. If <replaceable>VAR</replaceable> is
