@@ -345,7 +345,7 @@ schedstat_next:
                         while ((parent->next_ps && parent->pid != ps->ppid))
                                 parent = parent->next_ps;
 
-                        if ((!parent) || (parent->pid != ps->ppid)) {
+                        if (parent->pid != ps->ppid) {
                                 /* orphan */
                                 ps->ppid = 1;
                                 parent = ps_first->next_ps;
