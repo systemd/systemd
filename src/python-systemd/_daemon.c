@@ -114,7 +114,7 @@ static PyObject* listen_fds(PyObject *self, PyObject *args, PyObject *keywds) {
 #else
         PyObject *obj = NULL;
         if (!PyArg_ParseTupleAndKeywords(args, keywds, "|O:_listen_fds",
-                                         (char**) kwlist, &unset, &obj))
+                                         (char**) kwlist, &obj))
                 return NULL;
         if (obj != NULL)
                 unset = PyObject_IsTrue(obj);
