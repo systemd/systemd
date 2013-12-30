@@ -1904,7 +1904,7 @@ systemd_bus_proxyd_LDADD = \
 	libsystemd-shared.la
 
 bus-proxyd-install-hook:
-	$(AM_V_LN)$(LN_S) -f ../../lib/systemd/systemd-bus-proxyd $(DESTDIR)$(bindir)/systemd-stdio-bridge
+	$(AM_V_LN)$(LN_S) -f ../lib/systemd/systemd-bus-proxyd $(DESTDIR)$(bindir)/systemd-stdio-bridge
 
 bus-proxyd-uninstall-hook:
 	rm -f $(DESTDIR)$(bindir)/systemd-stdio-bridge
