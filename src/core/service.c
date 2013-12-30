@@ -3343,6 +3343,9 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags) {
 
         assert(u);
 
+        log_debug_unit(u->id, "%s: Got notification message from PID %lu (%s...)",
+                       u->id, (unsigned long) pid, tags && *tags ? tags[0] : "(empty)");
+
         if (s->notify_access == NOTIFY_NONE) {
                 log_warning_unit(u->id,
                                  "%s: Got notification message from PID %lu, but reception is disabled.",
@@ -3350,14 +3353,12 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags) {
                 return;
         }
 
-        if (s->notify_access == NOTIFY_MAIN && pid != s->main_pid) {
+        if (s->notify_access == NOTIFY_MAIN && s->main_pid != 0 && pid != s->main_pid) {
                 log_warning_unit(u->id,
                                  "%s: Got notification message from PID %lu, but reception only permitted for PID %lu",
                                  u->id, (unsigned long) pid, (unsigned long) s->main_pid);
                 return;
         }
-
-        log_debug_unit(u->id, "%s: Got message", u->id);
 
         /* Interpret MAINPID= */
         if ((e = strv_find_prefix(tags, "MAINPID=")) &&
