@@ -202,8 +202,7 @@ PyDoc_STRVAR(Reader_reliable_fd__doc__,
              "See man:sd_journal_reliable_fd(3).");
 static PyObject* Reader_reliable_fd(Reader *self, PyObject *args) {
     int r = sd_journal_reliable_fd(self->j);
-    set_error(r, NULL, NULL);
-    if (r < 0)
+    if (set_error(r, NULL, NULL) < 0)
         return NULL;
     return PyBool_FromLong(r);
 }
@@ -216,8 +215,7 @@ PyDoc_STRVAR(Reader_get_events__doc__,
              "See man:sd_journal_get_events(3) for further discussion.");
 static PyObject* Reader_get_events(Reader *self, PyObject *args) {
     int r = sd_journal_get_events(self->j);
-    set_error(r, NULL, NULL);
-    if (r < 0)
+    if (set_error(r, NULL, NULL) < 0)
         return NULL;
     return long_FromLong(r);
 }
@@ -236,8 +234,7 @@ static PyObject* Reader_get_timeout(Reader *self, PyObject *args) {
     uint64_t t;
 
     r = sd_journal_get_timeout(self->j, &t);
-    set_error(r, NULL, NULL);
-    if (r < 0)
+    if (set_error(r, NULL, NULL) < 0)
         return NULL;
 
     if (t == (uint64_t) -1)
@@ -258,8 +255,7 @@ static PyObject* Reader_get_timeout_ms(Reader *self, PyObject *args) {
     uint64_t t;
 
     r = sd_journal_get_timeout(self->j, &t);
-    set_error(r, NULL, NULL);
-    if (r < 0)
+    if (set_error(r, NULL, NULL) < 0)
         return NULL;
 
     return absolute_timeout(t);
@@ -295,7 +291,7 @@ static PyObject* Reader_get_usage(Reader *self, PyObject *args) {
     uint64_t bytes;
 
     r = sd_journal_get_usage(self->j, &bytes);
-    if (set_error(r, NULL, NULL))
+    if (set_error(r, NULL, NULL) < 0)
         return NULL;
 
     assert_cc(sizeof(unsigned long long) == sizeof(bytes));
@@ -354,8 +350,7 @@ static PyObject* Reader_next(Reader *self, PyObject *args) {
         assert_not_reached("should not be here");
     Py_END_ALLOW_THREADS
 
-    set_error(r, NULL, NULL);
-    if (r < 0)
+    if (set_error(r, NULL, NULL) < 0)
         return NULL;
     return PyBool_FromLong(r);
 }
@@ -431,7 +426,8 @@ static PyObject* Reader_get(Reader *self, PyObject *args) {
     if (r == -ENOENT) {
         PyErr_SetString(PyExc_KeyError, field);
         return NULL;
-    } else if (set_error(r, NULL, "field name is not valid"))
+    }
+    if (set_error(r, NULL, "field name is not valid") < 0)
         return NULL;
 
     r = extract(msg, msg_len, NULL, &value);
@@ -514,7 +510,7 @@ static PyObject* Reader_get_realtime(Reader *self, PyObject *args) {
     assert(!args);
 
     r = sd_journal_get_realtime_usec(self->j, &timestamp);
-    if (set_error(r, NULL, NULL))
+    if (set_error(r, NULL, NULL) < 0)
         return NULL;
 
     assert_cc(sizeof(unsigned long long) == sizeof(timestamp));
@@ -538,7 +534,7 @@ static PyObject* Reader_get_monotonic(Reader *self, PyObject *args) {
     assert(!args);
 
     r = sd_journal_get_monotonic_usec(self->j, &timestamp, &id);
-    if (set_error(r, NULL, NULL))
+    if (set_error(r, NULL, NULL) < 0)
         return NULL;
 
     assert_cc(sizeof(unsigned long long) == sizeof(timestamp));
@@ -580,8 +576,7 @@ static PyObject* Reader_add_match(Reader *self, PyObject *args, PyObject *keywds
         return NULL;
 
     r = sd_journal_add_match(self->j, match, match_len);
-    set_error(r, NULL, "Invalid match");
-    if (r < 0)
+    if (set_error(r, NULL, "Invalid match") < 0)
             return NULL;
 
     Py_RETURN_NONE;
@@ -597,8 +592,7 @@ PyDoc_STRVAR(Reader_add_disjunction__doc__,
 static PyObject* Reader_add_disjunction(Reader *self, PyObject *args) {
     int r;
     r = sd_journal_add_disjunction(self->j);
-    set_error(r, NULL, NULL);
-    if (r < 0)
+    if (set_error(r, NULL, NULL) < 0)
         return NULL;
     Py_RETURN_NONE;
 }
@@ -613,8 +607,7 @@ PyDoc_STRVAR(Reader_add_conjunction__doc__,
 static PyObject* Reader_add_conjunction(Reader *self, PyObject *args) {
     int r;
     r = sd_journal_add_conjunction(self->j);
-    set_error(r, NULL, NULL);
-    if (r < 0)
+    if (set_error(r, NULL, NULL) < 0)
         return NULL;
     Py_RETURN_NONE;
 }
@@ -639,7 +632,7 @@ static PyObject* Reader_seek_head(Reader *self, PyObject *args) {
     Py_BEGIN_ALLOW_THREADS
     r = sd_journal_seek_head(self->j);
     Py_END_ALLOW_THREADS
-    if (set_error(r, NULL, NULL))
+    if (set_error(r, NULL, NULL) < 0)
         return NULL;
     Py_RETURN_NONE;
 }
@@ -655,7 +648,7 @@ static PyObject* Reader_seek_tail(Reader *self, PyObject *args) {
     Py_BEGIN_ALLOW_THREADS
     r = sd_journal_seek_tail(self->j);
     Py_END_ALLOW_THREADS
-    if (set_error(r, NULL, NULL))
+    if (set_error(r, NULL, NULL) < 0)
         return NULL;
     Py_RETURN_NONE;
 }
@@ -675,7 +668,7 @@ static PyObject* Reader_seek_realtime(Reader *self, PyObject *args) {
     Py_BEGIN_ALLOW_THREADS
     r = sd_journal_seek_realtime_usec(self->j, timestamp);
     Py_END_ALLOW_THREADS
-    if (set_error(r, NULL, NULL))
+    if (set_error(r, NULL, NULL) < 0)
         return NULL;
     Py_RETURN_NONE;
 }
@@ -698,20 +691,20 @@ static PyObject* Reader_seek_monotonic(Reader *self, PyObject *args) {
 
     if (bootid) {
         r = sd_id128_from_string(bootid, &id);
-        if (set_error(r, NULL, "Invalid bootid"))
+        if (set_error(r, NULL, "Invalid bootid") < 0)
             return NULL;
     } else {
         Py_BEGIN_ALLOW_THREADS
         r = sd_id128_get_boot(&id);
         Py_END_ALLOW_THREADS
-        if (set_error(r, NULL, NULL))
+        if (set_error(r, NULL, NULL) < 0)
             return NULL;
     }
 
     Py_BEGIN_ALLOW_THREADS
     r = sd_journal_seek_monotonic_usec(self->j, id, timestamp);
     Py_END_ALLOW_THREADS
-    if (set_error(r, NULL, NULL))
+    if (set_error(r, NULL, NULL) < 0)
         return NULL;
 
     Py_RETURN_NONE;
@@ -781,7 +774,7 @@ static PyObject* Reader_seek_cursor(Reader *self, PyObject *args) {
     Py_BEGIN_ALLOW_THREADS
     r = sd_journal_seek_cursor(self->j, cursor);
     Py_END_ALLOW_THREADS
-    if (set_error(r, NULL, "Invalid cursor"))
+    if (set_error(r, NULL, "Invalid cursor") < 0)
         return NULL;
     Py_RETURN_NONE;
 }
@@ -799,7 +792,7 @@ static PyObject* Reader_get_cursor(Reader *self, PyObject *args) {
     assert(!args);
 
     r = sd_journal_get_cursor(self->j, &cursor);
-    if (set_error(r, NULL, NULL))
+    if (set_error(r, NULL, NULL) < 0)
         return NULL;
 
     return unicode_FromString(cursor);
@@ -821,8 +814,7 @@ static PyObject* Reader_test_cursor(Reader *self, PyObject *args) {
         return NULL;
 
     r = sd_journal_test_cursor(self->j, cursor);
-    set_error(r, NULL, NULL);
-    if (r < 0)
+    if (set_error(r, NULL, NULL) < 0)
         return NULL;
 
     return PyBool_FromLong(r);
@@ -845,7 +837,7 @@ static PyObject* Reader_query_unique(Reader *self, PyObject *args) {
     Py_BEGIN_ALLOW_THREADS
     r = sd_journal_query_unique(self->j, query);
     Py_END_ALLOW_THREADS
-    if (set_error(r, NULL, "Invalid field name"))
+    if (set_error(r, NULL, "Invalid field name") < 0)
         return NULL;
 
     value_set = PySet_New(0);
@@ -898,7 +890,8 @@ static PyObject* Reader_get_catalog(Reader *self, PyObject *args) {
         else
             set_error(r, NULL, NULL);
         return NULL;
-    } else if (set_error(r, NULL, NULL))
+    }
+    if (set_error(r, NULL, NULL) < 0)
         return NULL;
 
     return unicode_FromString(msg);
@@ -922,13 +915,13 @@ static PyObject* get_catalog(PyObject *self, PyObject *args) {
         return NULL;
 
     r = sd_id128_from_string(id_, &id);
-    if (set_error(r, NULL, "Invalid id128"))
+    if (set_error(r, NULL, "Invalid id128") < 0)
         return NULL;
 
     Py_BEGIN_ALLOW_THREADS
     r = sd_journal_get_catalog_for_message_id(id, &msg);
     Py_END_ALLOW_THREADS
-    if (set_error(r, NULL, NULL))
+    if (set_error(r, NULL, NULL) < 0)
         return NULL;
 
     return unicode_FromString(msg);
@@ -945,7 +938,7 @@ static PyObject* Reader_get_data_threshold(Reader *self, void *closure) {
     int r;
 
     r = sd_journal_get_data_threshold(self->j, &cvalue);
-    if (set_error(r, NULL, NULL))
+    if (set_error(r, NULL, NULL) < 0)
         return NULL;
 
     return long_FromSize_t(cvalue);

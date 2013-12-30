@@ -88,7 +88,7 @@ static PyObject* notify(PyObject *self, PyObject *args, PyObject *keywds) {
 #endif
 
         r = sd_notify(unset, msg);
-        if (set_error(r, NULL, NULL))
+        if (set_error(r, NULL, NULL) < 0)
                 return NULL;
 
         return PyBool_FromLong(r);
@@ -123,7 +123,7 @@ static PyObject* listen_fds(PyObject *self, PyObject *args, PyObject *keywds) {
 #endif
 
         r = sd_listen_fds(unset);
-        if (set_error(r, NULL, NULL))
+        if (set_error(r, NULL, NULL) < 0)
                 return NULL;
 
         return long_FromLong(r);
@@ -151,7 +151,7 @@ static PyObject* is_fifo(PyObject *self, PyObject *args) {
 #endif
 
         r = sd_is_fifo(fd, path);
-        if (set_error(r, path, NULL))
+        if (set_error(r, path, NULL) < 0)
                 return NULL;
 
         return PyBool_FromLong(r);
@@ -179,7 +179,7 @@ static PyObject* is_mq(PyObject *self, PyObject *args) {
 #endif
 
         r = sd_is_mq(fd, path);
-        if (set_error(r, path, NULL))
+        if (set_error(r, path, NULL) < 0)
                 return NULL;
 
         return PyBool_FromLong(r);
@@ -203,7 +203,7 @@ static PyObject* is_socket(PyObject *self, PyObject *args) {
                 return NULL;
 
         r = sd_is_socket(fd, family, type, listening);
-        if (set_error(r, NULL, NULL))
+        if (set_error(r, NULL, NULL) < 0)
                 return NULL;
 
         return PyBool_FromLong(r);
@@ -230,7 +230,7 @@ static PyObject* is_socket_inet(PyObject *self, PyObject *args) {
         }
 
         r = sd_is_socket_inet(fd, family, type, listening, (uint16_t) port);
-        if (set_error(r, NULL, NULL))
+        if (set_error(r, NULL, NULL) < 0)
                 return NULL;
 
         return PyBool_FromLong(r);
@@ -265,7 +265,7 @@ static PyObject* is_socket_unix(PyObject *self, PyObject *args) {
 #endif
 
         r = sd_is_socket_unix(fd, type, listening, path, length);
-        if (set_error(r, path, NULL))
+        if (set_error(r, path, NULL) < 0)
                 return NULL;
 
         return PyBool_FromLong(r);
