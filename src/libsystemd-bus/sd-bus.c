@@ -34,6 +34,7 @@
 #include "strv.h"
 #include "set.h"
 #include "missing.h"
+#include "def.h"
 
 #include "sd-bus.h"
 #include "bus-internal.h"
@@ -1047,12 +1048,7 @@ _public_ int sd_bus_open_system(sd_bus **ret) {
         if (e)
                 r = sd_bus_set_address(b, e);
         else
-#ifdef ENABLE_KDBUS
-                r = sd_bus_set_address(b, "kernel:path=/dev/kdbus/0-system/bus;unix:path=/run/dbus/system_bus_socket");
-#else
-                r = sd_bus_set_address(b, "unix:path=/run/dbus/system_bus_socket");
-#endif
-
+                r = sd_bus_set_address(b, DEFAULT_SYSTEM_BUS_PATH);
         if (r < 0)
                 goto fail;
 
@@ -1103,13 +1099,13 @@ _public_ int sd_bus_open_user(sd_bus **ret) {
                         }
 
 #ifdef ENABLE_KDBUS
-                        asprintf(&b->address, "kernel:path=/dev/kdbus/%lu-user/bus;unix:path=%s/bus", (unsigned long) getuid(), ee);
+                        asprintf(&b->address, KERNEL_USER_BUS_FMT ";" UNIX_USER_BUS_FMT, (unsigned long) getuid(), ee);
 #else
-                        b->address = strjoin("unix:path=", ee, "/bus", NULL);
+                        asprintf(&b->address, UNIX_USER_BUS_FMT, (unsigned long) getuid());
 #endif
                 } else {
 #ifdef ENABLE_KDBUS
-                        asprintf(&b->address, "kernel:path=/dev/kdbus/%lu-user/bus", (unsigned long) getuid());
+                        asprintf(&b->address, KERNEL_USER_BUS_FMT, (unsigned long) getuid());
 #else
                         return -ECONNREFUSED;
 #endif

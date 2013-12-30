@@ -483,7 +483,7 @@ int bus_open_system_systemd(sd_bus **_bus) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_set_address(bus, "kernel:path=/dev/kdbus/0-system/bus");
+        r = sd_bus_set_address(bus, KERNEL_SYSTEM_BUS_PATH);
         if (r < 0)
                 return r;
 
@@ -536,7 +536,7 @@ int bus_open_user_systemd(sd_bus **_bus) {
         if (r < 0)
                 return r;
 
-        if (asprintf(&bus->address, "kernel:path=/dev/kdbus/%lu-user/bus", (unsigned long) getuid()) < 0)
+        if (asprintf(&bus->address, KERNEL_USER_BUS_FMT, (unsigned long) getuid()) < 0)
                 return -ENOMEM;
 
         bus->bus_client = true;

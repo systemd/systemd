@@ -59,3 +59,15 @@
         "/usr/share/kbd/keymaps/\0"             \
         "/usr/lib/kbd/keymaps/\0"
 #endif
+
+#define UNIX_SYSTEM_BUS_PATH "unix:path=/run/dbus/system_bus_socket"
+#define KERNEL_SYSTEM_BUS_PATH "kernel:path=/dev/kdbus/0-system/bus"
+
+#ifdef ENABLE_KDBUS
+#  define DEFAULT_SYSTEM_BUS_PATH KERNEL_SYSTEM_BUS_PATH ";" UNIX_SYSTEM_BUS_PATH
+#else
+#  define DEFAULT_SYSTEM_BUS_PATH UNIX_SYSTEM_BUS_PATH
+#endif
+
+#define UNIX_USER_BUS_FMT "unix:path=%s/bus"
+#define KERNEL_USER_BUS_FMT "kernel:path=/dev/kdbus/%lu-user/bus"
