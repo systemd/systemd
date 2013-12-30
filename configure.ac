@@ -178,6 +178,9 @@ CC_CHECK_FLAGS_APPEND([with_ldflags], [LDFLAGS], [\
         -Wl,-z,now])
 AC_SUBST([OUR_LDFLAGS], "$with_ldflags $address_sanitizer_ldflags")
 
+AC_CHECK_SIZEOF(pid_t)
+AC_CHECK_SIZEOF(uid_t)
+
 # ------------------------------------------------------------------------------
 # we use python to build the man page index, and for systemd-python
 have_python=no

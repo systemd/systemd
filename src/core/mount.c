@@ -750,8 +750,8 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
 
         if (m->control_pid > 0)
                 fprintf(f,
-                        "%sControl PID: %lu\n",
-                        prefix, (unsigned long) m->control_pid);
+                        "%sControl PID: "PID_FMT"\n",
+                        prefix, m->control_pid);
 
         exec_context_dump(&m->exec_context, f, prefix);
         kill_context_dump(&m->kill_context, f, prefix);
@@ -1093,7 +1093,7 @@ static int mount_serialize(Unit *u, FILE *f, FDSet *fds) {
         unit_serialize_item(u, f, "reload-result", mount_result_to_string(m->reload_result));
 
         if (m->control_pid > 0)
-                unit_serialize_item_format(u, f, "control-pid", "%lu", (unsigned long) m->control_pid);
+                unit_serialize_item_format(u, f, "control-pid", PID_FMT, m->control_pid);
 
         if (m->control_command_id >= 0)
                 unit_serialize_item(u, f, "control-command", mount_exec_command_to_string(m->control_command_id));

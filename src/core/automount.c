@@ -774,8 +774,8 @@ static int automount_dispatch_io(sd_event_source *s, int fd, uint32_t events, vo
 
                         get_process_comm(packet.v5_packet.pid, &p);
                         log_info_unit(UNIT(a)->id,
-                                       "Got automount request for %s, triggered by %lu (%s)",
-                                       a->where, (unsigned long) packet.v5_packet.pid, strna(p));
+                                       "Got automount request for %s, triggered by "PID_FMT" (%s)",
+                                       a->where, packet.v5_packet.pid, strna(p));
                 } else
                         log_debug_unit(UNIT(a)->id, "Got direct mount request on %s", a->where);
 

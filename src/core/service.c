@@ -210,8 +210,8 @@ static int service_set_main_pid(Service *s, pid_t pid) {
 
         if (get_parent_of_pid(pid, &ppid) >= 0 && ppid != getpid()) {
                 log_warning_unit(UNIT(s)->id,
-                                 "%s: Supervising process %lu which is not our child. We'll most likely not notice when it exits.",
-                                 UNIT(s)->id, (unsigned long) pid);
+                                 "%s: Supervising process "PID_FMT" which is not our child. We'll most likely not notice when it exits.",
+                                 UNIT(s)->id, pid);
 
                 s->main_pid_alien = true;
         } else
@@ -1309,15 +1309,15 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
 
         if (s->control_pid > 0)
                 fprintf(f,
-                        "%sControl PID: %lu\n",
-                        prefix, (unsigned long) s->control_pid);
+                        "%sControl PID: "PID_FMT"\n",
+                        prefix, s->control_pid);
 
         if (s->main_pid > 0)
                 fprintf(f,
-                        "%sMain PID: %lu\n"
+                        "%sMain PID: "PID_FMT"\n"
                         "%sMain PID Known: %s\n"
                         "%sMain PID Alien: %s\n",
-                        prefix, (unsigned long) s->main_pid,
+                        prefix, s->main_pid,
                         prefix, yes_no(s->main_pid_known),
                         prefix, yes_no(s->main_pid_alien));
 
@@ -1401,8 +1401,8 @@ static int service_load_pid_file(Service *s, bool may_warn) {
         if (kill(pid, 0) < 0 && errno != EPERM) {
                 if (may_warn)
                         log_info_unit(UNIT(s)->id,
-                                      "PID %lu read from file %s does not exist.",
-                                      (unsigned long) pid, s->pid_file);
+                                      "PID "PID_FMT" read from file %s does not exist.",
+                                      pid, s->pid_file);
                 return -ESRCH;
         }
 
@@ -1411,13 +1411,13 @@ static int service_load_pid_file(Service *s, bool may_warn) {
                         return 0;
 
                 log_debug_unit(UNIT(s)->id,
-                               "Main PID changing: %lu -> %lu",
-                               (unsigned long) s->main_pid, (unsigned long) pid);
+                               "Main PID changing: "PID_FMT" -> "PID_FMT,
+                               s->main_pid, pid);
                 service_unwatch_main_pid(s);
                 s->main_pid_known = false;
         } else
                 log_debug_unit(UNIT(s)->id,
-                               "Main PID loaded: %lu", (unsigned long) pid);
+                               "Main PID loaded: "PID_FMT, pid);
 
         r = service_set_main_pid(s, pid);
         if (r < 0)
@@ -1427,8 +1427,8 @@ static int service_load_pid_file(Service *s, bool may_warn) {
         if (r < 0) {
                 /* FIXME: we need to do something here */
                 log_warning_unit(UNIT(s)->id,
-                                 "Failed to watch PID %lu from service %s",
-                                 (unsigned long) pid, UNIT(s)->id);
+                                 "Failed to watch PID "PID_FMT" from service %s",
+                                 pid, UNIT(s)->id);
                 return r;
         }
 
@@ -1456,7 +1456,7 @@ static int service_search_main_pid(Service *s) {
                 return -ENOENT;
 
         log_debug_unit(UNIT(s)->id,
-                       "Main PID guessed: %lu", (unsigned long) pid);
+                       "Main PID guessed: "PID_FMT, pid);
         r = service_set_main_pid(s, pid);
         if (r < 0)
                 return r;
@@ -1465,8 +1465,8 @@ static int service_search_main_pid(Service *s) {
         if (r < 0)
                 /* FIXME: we need to do something here */
                 log_warning_unit(UNIT(s)->id,
-                                 "Failed to watch PID %lu from service %s",
-                                 (unsigned long) pid, UNIT(s)->id);
+                                 "Failed to watch PID "PID_FMT" from service %s",
+                                 pid, UNIT(s)->id);
                 return r;
 
         return 0;
@@ -1763,13 +1763,13 @@ static int service_spawn(
                 }
 
         if (s->main_pid > 0)
-                if (asprintf(our_env + n_env++, "MAINPID=%lu", (unsigned long) s->main_pid) < 0) {
+                if (asprintf(our_env + n_env++, "MAINPID="PID_FMT, s->main_pid) < 0) {
                         r = -ENOMEM;
                         goto fail;
                 }
 
         if (UNIT(s)->manager->running_as != SYSTEMD_SYSTEM)
-                if (asprintf(our_env + n_env++, "MANAGERPID=%lu", (unsigned long) getpid()) < 0) {
+                if (asprintf(our_env + n_env++, "MANAGERPID="PID_FMT, getpid()) < 0) {
                         r = -ENOMEM;
                         goto fail;
                 }
@@ -2562,11 +2562,11 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
         unit_serialize_item(u, f, "reload-result", service_result_to_string(s->reload_result));
 
         if (s->control_pid > 0)
-                unit_serialize_item_format(u, f, "control-pid", "%lu",
-                                           (unsigned long) s->control_pid);
+                unit_serialize_item_format(u, f, "control-pid", PID_FMT,
+                                           s->control_pid);
 
         if (s->main_pid_known && s->main_pid > 0)
-                unit_serialize_item_format(u, f, "main-pid", "%lu", (unsigned long) s->main_pid);
+                unit_serialize_item_format(u, f, "main-pid", PID_FMT, s->main_pid);
 
         unit_serialize_item(u, f, "main-pid-known", yes_no(s->main_pid_known));
 
@@ -2590,8 +2590,8 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
         }
 
         if (s->main_exec_status.pid > 0) {
-                unit_serialize_item_format(u, f, "main-exec-status-pid", "%lu",
-                                           (unsigned long) s->main_exec_status.pid);
+                unit_serialize_item_format(u, f, "main-exec-status-pid", PID_FMT,
+                                           s->main_exec_status.pid);
                 dual_timestamp_serialize(f, "main-exec-status-start",
                                          &s->main_exec_status.start_timestamp);
                 dual_timestamp_serialize(f, "main-exec-status-exit",
@@ -3343,20 +3343,20 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags) {
 
         assert(u);
 
-        log_debug_unit(u->id, "%s: Got notification message from PID %lu (%s...)",
-                       u->id, (unsigned long) pid, tags && *tags ? tags[0] : "(empty)");
+        log_debug_unit(u->id, "%s: Got notification message from PID "PID_FMT" (%s...)",
+                       u->id, pid, tags && *tags ? tags[0] : "(empty)");
 
         if (s->notify_access == NOTIFY_NONE) {
                 log_warning_unit(u->id,
-                                 "%s: Got notification message from PID %lu, but reception is disabled.",
-                                 u->id, (unsigned long) pid);
+                                 "%s: Got notification message from PID "PID_FMT", but reception is disabled.",
+                                 u->id, pid);
                 return;
         }
 
         if (s->notify_access == NOTIFY_MAIN && s->main_pid != 0 && pid != s->main_pid) {
                 log_warning_unit(u->id,
-                                 "%s: Got notification message from PID %lu, but reception only permitted for PID %lu",
-                                 u->id, (unsigned long) pid, (unsigned long) s->main_pid);
+                                 "%s: Got notification message from PID "PID_FMT", but reception only permitted for PID "PID_FMT,
+                                 u->id, pid, s->main_pid);
                 return;
         }
 

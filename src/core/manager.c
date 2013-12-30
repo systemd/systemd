@@ -1334,7 +1334,7 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
                 if (!u) {
                         u = manager_get_unit_by_pid(m, ucred->pid);
                         if (!u) {
-                                log_warning("Cannot find unit for notify message of PID %lu.", (unsigned long) ucred->pid);
+                                log_warning("Cannot find unit for notify message of PID "PID_FMT".", ucred->pid);
                                 continue;
                         }
                 }
@@ -1382,7 +1382,7 @@ static int manager_dispatch_sigchld(Manager *m) {
                         _cleanup_free_ char *name = NULL;
 
                         get_process_comm(si.si_pid, &name);
-                        log_debug("Got SIGCHLD for process %lu (%s)", (unsigned long) si.si_pid, strna(name));
+                        log_debug("Got SIGCHLD for process "PID_FMT" (%s)", si.si_pid, strna(name));
                 }
 
                 /* And now figure out the unit this belongs to */
@@ -1470,9 +1470,9 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                         log_full(sfsi.ssi_signo == SIGCHLD ||
                                  (sfsi.ssi_signo == SIGTERM && m->running_as == SYSTEMD_USER)
                                  ? LOG_DEBUG : LOG_INFO,
-                                 "Received SIG%s from PID %lu (%s).",
+                                 "Received SIG%s from PID "PID_FMT" (%s).",
                                  signal_to_string(sfsi.ssi_signo),
-                                 (unsigned long) sfsi.ssi_pid, strna(p));
+                                 sfsi.ssi_pid, strna(p));
                 } else
                         log_full(sfsi.ssi_signo == SIGCHLD ||
                                  (sfsi.ssi_signo == SIGTERM && m->running_as == SYSTEMD_USER)
@@ -1974,9 +1974,9 @@ int manager_open_serialization(Manager *m, FILE **_f) {
         assert(_f);
 
         if (m->running_as == SYSTEMD_SYSTEM)
-                asprintf(&path, "/run/systemd/dump-%lu-XXXXXX", (unsigned long) getpid());
+                asprintf(&path, "/run/systemd/dump-"PID_FMT"-XXXXXX", getpid());
         else
-                asprintf(&path, "/tmp/systemd-dump-%lu-XXXXXX", (unsigned long) getpid());
+                asprintf(&path, "/tmp/systemd-dump-"PID_FMT"-XXXXXX", getpid());
 
         if (!path)
                 return -ENOMEM;
@@ -2454,9 +2454,9 @@ void manager_check_finished(Manager *m) {
                         if (!log_on_console())
                                 log_struct(LOG_INFO,
                                            MESSAGE_ID(SD_MESSAGE_STARTUP_FINISHED),
-                                           "KERNEL_USEC=%llu", (unsigned long long) kernel_usec,
-                                           "INITRD_USEC=%llu", (unsigned long long) initrd_usec,
-                                           "USERSPACE_USEC=%llu", (unsigned long long) userspace_usec,
+                                           "KERNEL_USEC="USEC_FMT, kernel_usec,
+                                           "INITRD_USEC="USEC_FMT, initrd_usec,
+                                           "USERSPACE_USEC="USEC_FMT, userspace_usec,
                                            "MESSAGE=Startup finished in %s (kernel) + %s (initrd) + %s (userspace) = %s.",
                                            format_timespan(kernel, sizeof(kernel), kernel_usec, USEC_PER_MSEC),
                                            format_timespan(initrd, sizeof(initrd), initrd_usec, USEC_PER_MSEC),
@@ -2470,8 +2470,8 @@ void manager_check_finished(Manager *m) {
                         if (!log_on_console())
                                 log_struct(LOG_INFO,
                                            MESSAGE_ID(SD_MESSAGE_STARTUP_FINISHED),
-                                           "KERNEL_USEC=%llu", (unsigned long long) kernel_usec,
-                                           "USERSPACE_USEC=%llu", (unsigned long long) userspace_usec,
+                                           "KERNEL_USEC="USEC_FMT, kernel_usec,
+                                           "USERSPACE_USEC="USEC_FMT, userspace_usec,
                                            "MESSAGE=Startup finished in %s (kernel) + %s (userspace) = %s.",
                                            format_timespan(kernel, sizeof(kernel), kernel_usec, USEC_PER_MSEC),
                                            format_timespan(userspace, sizeof(userspace), userspace_usec, USEC_PER_MSEC),
@@ -2485,7 +2485,7 @@ void manager_check_finished(Manager *m) {
                 if (!log_on_console())
                         log_struct(LOG_INFO,
                                    MESSAGE_ID(SD_MESSAGE_STARTUP_FINISHED),
-                                   "USERSPACE_USEC=%llu", (unsigned long long) userspace_usec,
+                                   "USERSPACE_USEC="USEC_FMT, userspace_usec,
                                    "MESSAGE=Startup finished in %s.",
                                    format_timespan(sum, sizeof(sum), total_usec, USEC_PER_MSEC),
                                    NULL);

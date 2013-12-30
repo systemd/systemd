@@ -170,12 +170,12 @@ static int killall(int sig, Set *pids, bool send_sighup) {
                         _cleanup_free_ char *s;
 
                         get_process_comm(pid, &s);
-                        log_notice("Sending SIGKILL to PID %lu (%s).", (unsigned long) pid, strna(s));
+                        log_notice("Sending SIGKILL to PID "PID_FMT" (%s).", pid, strna(s));
                 }
 
                 if (kill(pid, sig) >= 0) {
                         if (pids)
-                                set_put(pids, ULONG_TO_PTR((unsigned long) pid));
+                                set_put(pids, ULONG_TO_PTR(pid));
                 } else if (errno != ENOENT)
                         log_warning("Could not kill %d: %m", pid);
 

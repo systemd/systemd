@@ -321,10 +321,9 @@ int bus_cgroup_set_property(
                 if (r < 0)
                         return r;
 
-                while (( r = sd_bus_message_read(message, "(st)", &path, &u64)) > 0) {
-                        unsigned long ul;
+                while ((r = sd_bus_message_read(message, "(st)", &path, &u64)) > 0) {
+                        unsigned long ul = u64;
 
-                        ul = (unsigned long) u64;
                         if (ul < 10 || ul > 1000)
                                 return sd_bus_error_set_errnof(error, EINVAL, "BlockIODeviceWeight out of range");
 

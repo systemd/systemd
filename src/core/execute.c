@@ -1038,7 +1038,7 @@ static int build_environment(
                 return -ENOMEM;
 
         if (n_fds > 0) {
-                if (asprintf(&x, "LISTEN_PID=%lu", (unsigned long) getpid()) < 0)
+                if (asprintf(&x, "LISTEN_PID="PID_FMT, getpid()) < 0)
                         return -ENOMEM;
                 our_env[n_env++] = x;
 
@@ -1048,7 +1048,7 @@ static int build_environment(
         }
 
         if (watchdog_usec > 0) {
-                if (asprintf(&x, "WATCHDOG_PID=%lu", (unsigned long) getpid()) < 0)
+                if (asprintf(&x, "WATCHDOG_PID="PID_FMT, getpid()) < 0)
                         return -ENOMEM;
                 our_env[n_env++] = x;
 
@@ -1636,8 +1636,8 @@ int exec_spawn(ExecCommand *command,
 
         log_struct_unit(LOG_DEBUG,
                         unit_id,
-                        "MESSAGE=Forked %s as %lu",
-                        command->path, (unsigned long) pid,
+                        "MESSAGE=Forked %s as "PID_FMT,
+                        command->path, pid,
                         NULL);
 
         /* We add the new process to the cgroup both in the child (so
@@ -1979,7 +1979,7 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
         }
 
         if (c->timer_slack_nsec != (nsec_t) -1)
-                fprintf(f, "%sTimerSlackNSec: %lu\n", prefix, (unsigned long)c->timer_slack_nsec);
+                fprintf(f, "%sTimerSlackNSec: "NSEC_FMT "\n", prefix, c->timer_slack_nsec);
 
         fprintf(f,
                 "%sStandardInput: %s\n"
@@ -2139,8 +2139,8 @@ void exec_status_dump(ExecStatus *s, FILE *f, const char *prefix) {
                 return;
 
         fprintf(f,
-                "%sPID: %lu\n",
-                prefix, (unsigned long) s->pid);
+                "%sPID: "PID_FMT"\n",
+                prefix, s->pid);
 
         if (s->start_timestamp.realtime > 0)
                 fprintf(f,

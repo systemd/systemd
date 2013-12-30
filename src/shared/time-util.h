@@ -27,6 +27,9 @@
 typedef uint64_t usec_t;
 typedef uint64_t nsec_t;
 
+#define NSEC_FMT "%" PRIu64
+#define USEC_FMT "%" PRIu64
+
 #include "macro.h"
 
 typedef struct dual_timestamp {

@@ -157,9 +157,9 @@ static int rename_service(sd_bus *a, sd_bus *b) {
 
         /* The status string gets the full command line ... */
         sd_notifyf(false,
-                   "STATUS=Processing requests from client PID %lu (%s); UID %lu (%s)",
-                   (unsigned long) pid, p,
-                   (unsigned long) uid, name);
+                   "STATUS=Processing requests from client PID "PID_FMT" (%s); UID "UID_FMT" (%s)",
+                   pid, p,
+                   uid, name);
 
         /* ... and the argv line only the short comm */
         if (arg_command_line_buffer) {
@@ -167,17 +167,17 @@ static int rename_service(sd_bus *a, sd_bus *b) {
 
                 m = strlen(arg_command_line_buffer);
                 w = snprintf(arg_command_line_buffer, m,
-                             "[PID %lu/%s; UID %lu/%s]",
-                             (unsigned long) pid, comm,
-                             (unsigned long) uid, name);
+                             "[PID "PID_FMT"/%s; UID "UID_FMT"/%s]",
+                             pid, comm,
+                             uid, name);
 
                 if (m > w)
                         memset(arg_command_line_buffer + w, 0, m - w);
         }
 
-        log_debug("Running on behalf of PID %lu (%s), UID %lu (%s), %s",
-                  (unsigned long) pid, p,
-                  (unsigned long) uid, name,
+        log_debug("Running on behalf of PID "PID_FMT" (%s), UID "UID_FMT" (%s), %s",
+                  pid, p,
+                  uid, name,
                   a->unique_name);
                 ;
         return 0;

@@ -166,7 +166,7 @@ noreturn static void crash(int sig) {
                         else if (status.si_code != CLD_DUMPED)
                                 log_error("Caught <%s>, core dump failed.", signal_to_string(sig));
                         else
-                                log_error("Caught <%s>, dumped core as pid %lu.", signal_to_string(sig), (unsigned long) pid);
+                                log_error("Caught <%s>, dumped core as pid "PID_FMT".", signal_to_string(sig), pid);
                 }
         }
 
@@ -197,7 +197,7 @@ noreturn static void crash(int sig) {
                         _exit(1);
                 }
 
-                log_info("Successfully spawned crash shell as pid %lu.", (unsigned long) pid);
+                log_info("Successfully spawned crash shell as pid "PID_FMT".", pid);
         }
 
         log_info("Freezing execution.");
@@ -1865,7 +1865,7 @@ finish:
                         watchdog_close(false);
 
                         /* Tell the binary how often to ping */
-                        snprintf(e, sizeof(e), "WATCHDOG_USEC=%llu", (unsigned long long) arg_shutdown_watchdog);
+                        snprintf(e, sizeof(e), "WATCHDOG_USEC="USEC_FMT, arg_shutdown_watchdog);
                         char_array_0(e);
 
                         env_block = strv_append(environ, e);

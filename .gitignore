@@ -112,6 +112,7 @@
 /test-bus-creds
 /test-bus-error
 /test-bus-gvariant
+/test-bus-cleanup
 /test-bus-introspect
 /test-bus-kernel
 /test-bus-kernel-benchmark

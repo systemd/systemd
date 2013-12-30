@@ -906,7 +906,7 @@ char *job_dbus_path(Job *j) {
 
         assert(j);
 
-        if (asprintf(&p, "/org/freedesktop/systemd1/job/%lu", (unsigned long) j->id) < 0)
+        if (asprintf(&p, "/org/freedesktop/systemd1/job/%"PRIu32, j->id) < 0)
                 return NULL;
 
         return p;
@@ -922,7 +922,7 @@ int job_serialize(Job *j, FILE *f, FDSet *fds) {
         fprintf(f, "job-ignore-order=%s\n", yes_no(j->ignore_order));
 
         if (j->begin_usec > 0)
-                fprintf(f, "job-begin=%llu\n", (unsigned long long) j->begin_usec);
+                fprintf(f, "job-begin="USEC_FMT"\n", j->begin_usec);
 
         bus_client_track_serialize(j->manager, f, j->subscribed);
 

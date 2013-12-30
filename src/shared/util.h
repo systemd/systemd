@@ -42,6 +42,22 @@
 #include <mntent.h>
 #include <sys/socket.h>
 
+#if SIZEOF_PID_T == 4
+#  define PID_FMT "%" PRIu32
+#elif SIZEOF_PID_T == 2
+#  define PID_FMT "%" PRIu16
+#else
+#  error Unknown pid_t size
+#endif
+
+#if SIZEOF_UID_T == 4
+#  define UID_FMT "%" PRIu32
+#elif SIZEOF_UID_T == 2
+#  define UID_FMT "%" PRIu16
+#else
+#  error Unknown uid_t size
+#endif
+
 #include "macro.h"
 #include "time-util.h"
 
@@ -763,7 +779,7 @@ int unlink_noerrno(const char *path);
                 pid_t _pid_ = (pid);                                    \
                 char *_r_;                                              \
                 _r_ = alloca(sizeof("/proc/") -1 + DECIMAL_STR_MAX(pid_t) + 1 + sizeof(field)); \
-                sprintf(_r_, "/proc/%lu/" field, (unsigned long) _pid_); \
+                sprintf(_r_, "/proc/"PID_FMT"/" field, _pid_); \
                 _r_;                                                    \
         })
 
