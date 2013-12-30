@@ -94,7 +94,7 @@ int parse_sleep_config(const char *verb, char ***modes, char ***states) {
         } else
                 assert_not_reached("what verb");
 
-        if (!modes || !states) {
+        if (!*modes || !*states) {
                 strv_free(*modes);
                 strv_free(*states);
                 return log_oom();
