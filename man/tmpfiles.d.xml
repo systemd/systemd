@@ -273,7 +273,7 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
                         execute at any time, e.g. on package upgrades.
                         <command>systemd-tmpfiles</command> will
                         execute line with an exclamation mark only if
-                        option <option>--unsafe</option> is given.
+                        option <option>--boot</option> is given.
                         </para>
 
                         <para>For example:
@@ -286,7 +286,7 @@ r! /tmp/.X[0-9]*-lock
                         </programlisting>
                         The second line in contrast to the first one
                         would break a running system, and will only be
-                        executed with <option>--unsafe</option>.</para>
+                        executed with <option>--boot</option>.</para>
                 </refsect2>
 
                 <refsect2>

@@ -107,7 +107,7 @@ static Set *unix_sockets = NULL;
 static bool arg_create = false;
 static bool arg_clean = false;
 static bool arg_remove = false;
-static bool arg_unsafe = false;
+static bool arg_boot = false;
 
 static char **include_prefixes = NULL;
 static char **exclude_prefixes = NULL;
@@ -1104,7 +1104,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         if (strlen(action) > 2 || (strlen(action) > 1 && action[1] != '!')) {
                 log_error("[%s:%u] Unknown modifier '%s'", fname, line, action);
                 return -EINVAL;
-        } else if (strlen(action) > 1 && !arg_unsafe)
+        } else if (strlen(action) > 1 && !arg_boot)
                 return 0;
 
         type = action[0];
@@ -1280,7 +1280,7 @@ static int help(void) {
                "     --create               Create marked files/directories\n"
                "     --clean                Clean up marked directories\n"
                "     --remove               Remove marked files/directories\n"
-               "     --unsafe               Execute actions only safe at boot\n"
+               "     --boot                 Execute actions only safe at boot\n"
                "     --prefix=PATH          Only apply rules that apply to paths with the specified prefix\n"
                "     --exclude-prefix=PATH  Ignore rules that apply to paths with the specified prefix\n",
                program_invocation_short_name);
@@ -1295,7 +1295,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_CREATE,
                 ARG_CLEAN,
                 ARG_REMOVE,
-                ARG_UNSAFE,
+                ARG_BOOT,
                 ARG_PREFIX,
                 ARG_EXCLUDE_PREFIX,
         };
@@ -1306,7 +1306,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "create",         no_argument,         NULL, ARG_CREATE         },
                 { "clean",          no_argument,         NULL, ARG_CLEAN          },
                 { "remove",         no_argument,         NULL, ARG_REMOVE         },
-                { "unsafe",         no_argument,         NULL, ARG_UNSAFE         },
+                { "boot",           no_argument,         NULL, ARG_BOOT           },
                 { "prefix",         required_argument,   NULL, ARG_PREFIX         },
                 { "exclude-prefix", required_argument,   NULL, ARG_EXCLUDE_PREFIX },
                 {}
@@ -1341,8 +1341,8 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_remove = true;
                         break;
 
-                case ARG_UNSAFE:
-                        arg_unsafe = true;
+                case ARG_BOOT:
+                        arg_boot = true;
                         break;
 
                 case ARG_PREFIX:

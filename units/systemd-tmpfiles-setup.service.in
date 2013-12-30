@@ -24,4 +24,4 @@ RefuseManualStop=yes
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=@rootbindir@/systemd-tmpfiles --create --remove --unsafe --exclude-prefix=/dev
+ExecStart=@rootbindir@/systemd-tmpfiles --create --remove --boot --exclude-prefix=/dev
