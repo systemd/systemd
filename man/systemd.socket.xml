@@ -85,21 +85,26 @@
                 processes of the socket.</para>
 
                 <para>For each socket file a matching service file
-                (see
+                must exist, describing the service to start on
+                incoming traffic on the socket (see
                 <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                for details) must exist, describing the service to
-                start on incoming traffic on the socket. Depending on
-                the setting of <option>Accept=</option> (see below),
-                this must either be named like the socket unit, but
-                with the suffix replaced; or it must be a template
-                file named the same way. Example: a socket file
+                for more information about .service files). The name
+                of the .service unit is by default the same as the
+                name of the .socket unit, but can be altered with
+                <option>Service=</option> option described below.
+                Depending on the setting of <option>Accept=</option>
+                option described below, this .service unit must either
+                be named like the .socket unit, but with the suffix
+                replaced, unless overridden with
+                <option>Service=</option>; or it must be a template
+                unit named the same way. Example: a socket file
                 <filename>foo.socket</filename> needs a matching
                 service <filename>foo.service</filename> if
                 <option>Accept=false</option> is set. If
-                <option>Accept=true</option> is set, a service template
-                file <filename>foo@.service</filename> must exist from
-                which services are instantiated for each incoming
-                connection.</para>
+                <option>Accept=true</option> is set, a service
+                template file <filename>foo@.service</filename> must
+                exist from which services are instantiated for each
+                incoming connection.</para>
 
                 <para>Unless <varname>DefaultDependencies=</varname>
                 is set to <option>false</option>, socket units will
@@ -116,9 +121,21 @@
                 boot or late system shutdown should disable this
                 option.</para>
 
+		<para>Socket units will have a
+		<varname>Before=</varname> dependency on the service
+		which they trigger added implicitly. No implicit
+		<varname>WantedBy=</varname> or
+		<varname>RequiredBy=</varname> dependency from the
+		socket to the service is added. This means that the
+		service may be started without the socket, in which
+		case it must be able to open sockets by itself. To
+		prevent this, an explicit <varname>Requires=</varname>
+		dependency may be added.</para>
+
                 <para>Socket units may be used to implement on-demand
                 starting of services, as well as parallelized starting
-                of services.</para>
+                of services. See the blog stories linked at the end
+                for introduction.</para>
 
                 <para>Note that the daemon software configured for
                 socket activation with socket units needs to be able
@@ -221,12 +238,23 @@
                                 of any of these options will have no
                                 effect.</para>
 
+                                <para>It is also possible to have more
+                                than one socket unit for the same
+                                service when using
+                                <varname>Service=</varname>, and the
+                                service will receive all the sockets
+                                configured in all the socket units.
+                                Sockets configured in one unit are
+                                passed in the order of configuration,
+                                but no ordering between socket units
+                                is specified.</para>
+
                                 <para>If an IP address is used here,
                                 it is often desirable to listen on it
                                 before the interface it is configured
                                 on is up and running, and even
                                 regardless of whether it will be up and
-                                running ever at all. To deal with this
+                                running at any point. To deal with this
                                 it is recommended to set the
                                 <varname>FreeBind=</varname> option
                                 described below.</para></listitem>
@@ -687,11 +715,14 @@
                                 <term><varname>Service=</varname></term>
                                 <listitem><para>Specifies the service
                                 unit name to activate on incoming
-                                traffic. This defaults to the service
-                                that bears the same name as the socket
-                                (ignoring the different suffixes). In
-                                most cases it should not be necessary
-                                to use this option.</para></listitem>
+                                traffic. This setting is only allowed
+                                for sockets with
+                                <varname>Accept=no</varname>. It
+                                defaults to the service that bears the
+                                same name as the socket (with the
+                                suffix replaced). In most cases it
+                                should not be necessary to use this
+                                option.</para></listitem>
                         </varlistentry>
 
                 </variablelist>
