@@ -95,7 +95,7 @@ static int find_active_entry(struct boot_info *info) {
         void *buf;
         size_t l;
         size_t i;
-        int err = -ENOENT;
+        int err;
 
         err = efi_get_variable(EFI_VENDOR_GLOBAL, "BootCurrent", NULL, &buf, &l);
         if (err < 0)
