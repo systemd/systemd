@@ -3926,8 +3926,8 @@ noinst_LTLIBRARIES += \
 	libsystemd-dhcp.la
 
 libsystemd_dhcp_la_LIBADD = \
-	libsystemd-shared.la \
-	libsystemd-bus.la
+	libsystemd-bus-internal.la \
+	libsystemd-shared.la
 
 test_dhcp_option_SOURCES = \
 	src/libsystemd-dhcp/dhcp-protocol.h \
@@ -3945,9 +3945,11 @@ test_dhcp_client_SOURCES = \
 	src/libsystemd-dhcp/test-dhcp-client.c
 
 test_dhcp_client_LDADD = \
+	libsystemd-bus-internal.la \
+	libsystemd-daemon-internal.la \
+	libsystemd-id128-internal.la \
 	libsystemd-dhcp.la \
-	libsystemd-shared.la \
-	libsystemd-bus.la
+	libsystemd-shared.la
 
 tests += \
 	test-dhcp-option \
