@@ -242,6 +242,7 @@ int config_parse_destination(const char *unit, const char *filename, unsigned li
 int address_new(Network *network, unsigned section, Address **ret);
 void address_free(Address *address);
 int address_configure(Address *address, Link *link, sd_rtnl_message_handler_t callback);
+int address_drop(Address *address, Link *link, sd_rtnl_message_handler_t callback);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Address*, address_free);
 #define _cleanup_address_free_ _cleanup_(address_freep)

@@ -74,6 +74,45 @@ void address_free(Address *address) {
         free(address);
 }
 
+int address_drop(Address *address, Link *link,
+                 sd_rtnl_message_handler_t callback) {
+        _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *req = NULL;
+        int r;
+
+        assert(address);
+        assert(address->family == AF_INET || address->family == AF_INET6);
+        assert(link);
+        assert(link->ifindex > 0);
+        assert(link->manager);
+        assert(link->manager->rtnl);
+
+        r = sd_rtnl_message_addr_new(RTM_DELADDR, link->ifindex,
+                        address->family, address->prefixlen, 0, 0, &req);
+        if (r < 0) {
+                log_error("Could not allocate RTM_DELADDR message: %s",
+                          strerror(-r));
+                return r;
+        }
+
+        if (address->family == AF_INET)
+                r = sd_rtnl_message_append_in_addr(req, IFA_LOCAL, &address->in_addr.in);
+        else if (address->family == AF_INET6)
+                r = sd_rtnl_message_append_in6_addr(req, IFA_LOCAL, &address->in_addr.in6);
+        if (r < 0) {
+                log_error("Could not append IFA_LOCAL attribute: %s",
+                          strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_call_async(link->manager->rtnl, req, callback, link, 0, NULL);
+        if (r < 0) {
+                log_error("Could not send rtnetlink message: %s", strerror(-r));
+                return r;
+        }
+
+        return 0;
+}
+
 int address_configure(Address *address, Link *link,
                       sd_rtnl_message_handler_t callback) {
         _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *req = NULL;
