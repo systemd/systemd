@@ -249,12 +249,12 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
                 }
 
                 for (i = 0; i < journal_file_entry_array_n_items(o); i++)
-                        if (o->entry_array.items[i] != 0 &&
-                            !VALID64(o->entry_array.items[i])) {
+                        if (le64toh(o->entry_array.items[i]) != 0 &&
+                            !VALID64(le64toh(o->entry_array.items[i]))) {
                                 log_error(OFSfmt": invalid object entry array item (%"PRIu64"/%"PRIu64"): "OFSfmt,
                                           offset,
                                           i, journal_file_entry_array_n_items(o),
-                                          o->entry_array.items[i]);
+                                          le64toh(o->entry_array.items[i]));
                                 return -EBADMSG;
                         }
 

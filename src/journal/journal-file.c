@@ -1452,7 +1452,7 @@ static int generic_array_get(
 
 found:
         /* Let's cache this item for the next invocation */
-        chain_cache_put(f->chain_cache, ci, first, a, o->entry_array.items[0], t, i);
+        chain_cache_put(f->chain_cache, ci, first, a, le64toh(o->entry_array.items[0]), t, i);
 
         r = journal_file_move_to_object(f, OBJECT_ENTRY, p, &o);
         if (r < 0)
@@ -1685,7 +1685,7 @@ found:
                 return 0;
 
         /* Let's cache this item for the next invocation */
-        chain_cache_put(f->chain_cache, ci, first, a, array->entry_array.items[0], t, subtract_one ? (i > 0 ? i-1 : (uint64_t) -1) : i);
+        chain_cache_put(f->chain_cache, ci, first, a, le64toh(array->entry_array.items[0]), t, subtract_one ? (i > 0 ? i-1 : (uint64_t) -1) : i);
 
         if (subtract_one && i == 0)
                 p = last_p;
