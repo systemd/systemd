@@ -4900,8 +4900,9 @@ install-tree: all
 # exclude the one perl script we have in there
 valgrind-tests: $(TESTS)
 	$(AM_V_GEN)for f in $(filter-out %.pl, $^); do \
-		echo "Running $$f"; \
+		echo -e "$${x}Running $$f"; \
 	        libtool --mode=execute valgrind -q --leak-check=full --max-stackframe=4194400 --error-exitcode=55 $(builddir)/$$f ; \
+		x="\n\n"; \
 	done
 
 exported-%: %

@@ -262,8 +262,8 @@ int main(int argc, char *argv[]) {
         fflush(ms);
         assert_se(!ferror(ms));
 
-        printf("<%.*s>", (int) first_size, first);
-        printf("<%.*s>", (int) third_size, third);
+        printf("<%.*s>\n", (int) first_size, first);
+        printf("<%.*s>\n", (int) third_size, third);
 
         assert_se(first_size == third_size);
         assert_se(memcmp(first, third, third_size) == 0);
