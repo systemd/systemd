@@ -54,6 +54,7 @@ struct sd_dhcp_client {
         union sockaddr_union link;
         sd_event_source *receive_message;
         uint8_t *req_opts;
+        size_t req_opts_allocated;
         size_t req_opts_size;
         be32_t last_addr;
         struct ether_addr mac_addr;
@@ -115,11 +116,11 @@ int sd_dhcp_client_set_request_option(sd_dhcp_client *client, uint8_t option)
                 if (client->req_opts[i] == option)
                         return -EEXIST;
 
-        if (!GREEDY_REALLOC(client->req_opts, client->req_opts_size,
+        if (!GREEDY_REALLOC(client->req_opts, client->req_opts_allocated,
                             client->req_opts_size + 1))
                 return -ENOMEM;
 
-        client->req_opts[client->req_opts_size - 1] = option;
+        client->req_opts[client->req_opts_size++] = option;
 
         return 0;
 }

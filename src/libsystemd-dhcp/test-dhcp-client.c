@@ -85,6 +85,7 @@ static void test_request_basic(sd_event *e)
         assert(sd_dhcp_client_set_request_option(client, 33) == 0);
         assert(sd_dhcp_client_set_request_option(client, 33) == -EEXIST);
         assert(sd_dhcp_client_set_request_option(client, 44) == 0);
+        assert(sd_dhcp_client_set_request_option(client, 33) == -EEXIST);
 }
 
 static uint16_t client_checksum(void *buf, int len)
