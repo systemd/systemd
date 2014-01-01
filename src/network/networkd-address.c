@@ -28,7 +28,7 @@
 #include "conf-parser.h"
 #include "net-util.h"
 
-int address_new(Network *network, unsigned section, Address **ret) {
+int address_new_static(Network *network, unsigned section, Address **ret) {
         _cleanup_address_free_ Address *address = NULL;
 
         if (section) {
@@ -48,7 +48,7 @@ int address_new(Network *network, unsigned section, Address **ret) {
 
         address->network = network;
 
-        LIST_PREPEND(addresses, network->addresses, address);
+        LIST_PREPEND(static_addresses, network->static_addresses, address);
 
         if (section) {
                 address->section = section;
@@ -61,15 +61,30 @@ int address_new(Network *network, unsigned section, Address **ret) {
         return 0;
 }
 
+int address_new_dynamic(Address **ret) {
+        _cleanup_address_free_ Address *address = NULL;
+
+        address = new0(Address, 1);
+        if (!address)
+                return -ENOMEM;
+
+        *ret = address;
+        address = NULL;
+
+        return 0;
+}
+
 void address_free(Address *address) {
         if (!address)
                 return;
 
-        LIST_REMOVE(addresses, address->network->addresses, address);
+        if (address->network) {
+                LIST_REMOVE(static_addresses, address->network->static_addresses, address);
 
-        if (address->section)
-                hashmap_remove(address->network->addresses_by_section,
-                               &address->section);
+                if (address->section)
+                        hashmap_remove(address->network->addresses_by_section,
+                                       &address->section);
+        }
 
         free(address);
 }
@@ -203,7 +218,7 @@ int config_parse_address(const char *unit,
                 section_line = 0;
         }
 
-        r = address_new(network, section_line, &n);
+        r = address_new_static(network, section_line, &n);
         if (r < 0)
                 return r;
 
@@ -266,7 +281,7 @@ int config_parse_label(const char *unit,
         assert(rvalue);
         assert(data);
 
-        r = address_new(network, section_line, &n);
+        r = address_new_static(network, section_line, &n);
         if (r < 0)
                 return r;
 

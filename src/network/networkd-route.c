@@ -28,7 +28,7 @@
 #include "conf-parser.h"
 #include "net-util.h"
 
-int route_new(Network *network, unsigned section, Route **ret) {
+int route_new_static(Network *network, unsigned section, Route **ret) {
         _cleanup_route_free_ Route *route = NULL;
 
         if (section) {
@@ -49,7 +49,7 @@ int route_new(Network *network, unsigned section, Route **ret) {
 
         route->network = network;
 
-        LIST_PREPEND(routes, network->routes, route);
+        LIST_PREPEND(static_routes, network->static_routes, route);
 
         if (section) {
                 route->section = section;
@@ -62,15 +62,30 @@ int route_new(Network *network, unsigned section, Route **ret) {
         return 0;
 }
 
+int route_new_dynamic(Route **ret) {
+        _cleanup_route_free_ Route *route = NULL;
+
+        route = new0(Route, 1);
+        if (!route)
+                return -ENOMEM;
+
+        *ret = route;
+        route = NULL;
+
+        return 0;
+}
+
 void route_free(Route *route) {
         if (!route)
                 return;
 
-        LIST_REMOVE(routes, route->network->routes, route);
+        if (route->network) {
+                LIST_REMOVE(static_routes, route->network->static_routes, route);
 
-        if (route->section)
-                hashmap_remove(route->network->routes_by_section,
-                               &route->section);
+                if (route->section)
+                        hashmap_remove(route->network->routes_by_section,
+                                       &route->section);
+        }
 
         free(route);
 }
@@ -160,7 +175,7 @@ int config_parse_gateway(const char *unit,
                 section_line = 0;
         }
 
-        r = route_new(network, section_line, &n);
+        r = route_new_static(network, section_line, &n);
         if (r < 0)
                 return r;
 
@@ -198,7 +213,7 @@ int config_parse_destination(const char *unit,
         assert(rvalue);
         assert(data);
 
-        r = route_new(network, section_line, &n);
+        r = route_new_static(network, section_line, &n);
         if (r < 0)
                 return r;
 

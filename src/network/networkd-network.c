@@ -47,8 +47,8 @@ static int network_load_one(Manager *manager, const char *filename) {
 
         network->manager = manager;
 
-        LIST_HEAD_INIT(network->addresses);
-        LIST_HEAD_INIT(network->routes);
+        LIST_HEAD_INIT(network->static_addresses);
+        LIST_HEAD_INIT(network->static_routes);
 
         network->addresses_by_section = hashmap_new(uint64_hash_func, uint64_compare_func);
         if (!network->addresses_by_section)
@@ -120,10 +120,10 @@ void network_free(Network *network) {
 
         free(network->description);
 
-        while ((route = network->routes))
+        while ((route = network->static_routes))
                 route_free(route);
 
-        while ((address = network->addresses))
+        while ((address = network->static_addresses))
                 address_free(address);
 
         hashmap_free(network->addresses_by_section);

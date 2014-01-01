@@ -172,10 +172,10 @@ static int link_enter_set_routes(Link *link) {
 
         link->state = LINK_STATE_SETTING_ROUTES;
 
-        if (!link->network->routes)
+        if (!link->network->static_routes)
                 return link_enter_configured(link);
 
-        LIST_FOREACH(routes, route, link->network->routes) {
+        LIST_FOREACH(static_routes, route, link->network->static_routes) {
                 r = route_configure(route, link, &route_handler);
                 if (r < 0) {
                         log_warning("Could not set routes for link '%s'", link->ifname);
@@ -225,10 +225,10 @@ static int link_enter_set_addresses(Link *link) {
 
         link->state = LINK_STATE_SETTING_ADDRESSES;
 
-        if (!link->network->addresses)
+        if (!link->network->static_addresses)
                 return link_enter_set_routes(link);
 
-        LIST_FOREACH(addresses, address, link->network->addresses) {
+        LIST_FOREACH(static_addresses, address, link->network->static_addresses) {
                 r = address_configure(address, link, &address_handler);
                 if (r < 0) {
                         log_warning("Could not set addresses for link '%s'", link->ifname);

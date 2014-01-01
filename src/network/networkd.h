@@ -85,8 +85,8 @@ struct Network {
         char *description;
         Bridge *bridge;
 
-        LIST_HEAD(Address, addresses);
-        LIST_HEAD(Route, routes);
+        LIST_HEAD(Address, static_addresses);
+        LIST_HEAD(Route, static_routes);
 
         Hashmap *addresses_by_section;
         Hashmap *routes_by_section;
@@ -109,7 +109,7 @@ struct Address {
                 struct in6_addr in6;
         } in_addr;
 
-        LIST_FIELDS(Address, addresses);
+        LIST_FIELDS(Address, static_addresses);
 };
 
 struct Route {
@@ -129,7 +129,7 @@ struct Route {
                 struct in6_addr in6;
         } dst_addr;
 
-        LIST_FIELDS(Route, routes);
+        LIST_FIELDS(Route, static_routes);
 };
 
 typedef enum LinkState {
@@ -223,7 +223,8 @@ int config_parse_bridge(const char *unit, const char *filename, unsigned line,
 const struct ConfigPerfItem* network_gperf_lookup(const char *key, unsigned length);
 
 /* Route */
-int route_new(Network *network, unsigned section, Route **ret);
+int route_new_static(Network *network, unsigned section, Route **ret);
+int route_new_dynamic(Route **ret);
 void route_free(Route *route);
 int route_configure(Route *route, Link *link, sd_rtnl_message_handler_t callback);
 
@@ -239,7 +240,8 @@ int config_parse_destination(const char *unit, const char *filename, unsigned li
                              int ltype, const char *rvalue, void *data, void *userdata);
 
 /* Address */
-int address_new(Network *network, unsigned section, Address **ret);
+int address_new_static(Network *network, unsigned section, Address **ret);
+int address_new_dynamic(Address **ret);
 void address_free(Address *address);
 int address_configure(Address *address, Link *link, sd_rtnl_message_handler_t callback);
 int address_drop(Address *address, Link *link, sd_rtnl_message_handler_t callback);
