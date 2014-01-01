@@ -4902,8 +4902,10 @@ install-tree: all
 # exclude the one perl script we have in there
 valgrind-tests: $(TESTS)
 	$(AM_V_GEN)for f in $(filter-out %.pl, $^); do \
+		if file $$f | grep -q shell; then \
+		echo -e "$${x}Skipping non-binary $$f"; else \
 		echo -e "$${x}Running $$f"; \
-	        libtool --mode=execute valgrind -q --leak-check=full --max-stackframe=4194400 --error-exitcode=55 $(builddir)/$$f ; \
+	        libtool --mode=execute valgrind -q --leak-check=full --max-stackframe=4194400 --error-exitcode=55 $(builddir)/$$f ; fi; \
 		x="\n\n"; \
 	done
 
