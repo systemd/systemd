@@ -140,7 +140,7 @@ _public_ int sd_bus_creds_new_from_pid(pid_t pid, uint64_t mask, sd_bus_creds **
 
         r = bus_creds_add_more(c, mask, pid, 0);
         if (r < 0) {
-                free(c);
+                sd_bus_creds_unref(c);
                 return r;
         }
 
