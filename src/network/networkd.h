@@ -26,6 +26,7 @@
 
 #include "sd-event.h"
 #include "sd-rtnl.h"
+#include "sd-dhcp-client.h"
 #include "udev.h"
 
 #include "rtnl-util.h"
@@ -84,6 +85,7 @@ struct Network {
 
         char *description;
         Bridge *bridge;
+        bool dhcp;
 
         LIST_HEAD(Address, static_addresses);
         LIST_HEAD(Route, static_routes);
@@ -153,9 +155,15 @@ struct Link {
 
         Network *network;
 
+        Route *dhcp_route;
+        Address *dhcp_address;
+
         LinkState state;
 
-        unsigned rtnl_messages;
+        unsigned addr_messages;
+        unsigned route_messages;
+
+        sd_dhcp_client *dhcp;
 };
 
 struct Manager {

@@ -4056,6 +4056,7 @@ systemd_networkd_LDADD = \
 	libsystemd-bus-internal.la \
 	libsystemd-id128-internal.la \
 	libsystemd-rtnl.la \
+	libsystemd-dhcp.la \
 	libsystemd-shared.la
 
 nodist_systemunit_DATA += \
@@ -4081,6 +4082,7 @@ test_network_LDADD = \
 	libsystemd-id128-internal.la \
 	libsystemd-daemon-internal.la \
 	libsystemd-rtnl.la \
+	libsystemd-dhcp.la \
 	libsystemd-shared.la
 
 tests += \
