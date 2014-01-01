@@ -247,8 +247,14 @@ AC_CHECK_DECLS([gettid, pivot_root, name_to_handle_at], [], [], [[#include <sys/
 m4_pattern_forbid([^_?PKG_[A-Z_]+$],[*** pkg.m4 missing, please install pkg-config])
 
 # ------------------------------------------------------------------------------
-PKG_CHECK_MODULES(DBUS, [dbus-1 >= 1.3.2], have_dbus=yes, have_dbus=no])
-AS_IF([test "$have_dbus" = "yes"], [ AC_DEFINE(HAVE_DBUS, [1], [Define if dbus-1 is available]) ])
+have_dbus=no
+AC_ARG_ENABLE(dbus, AS_HELP_STRING([--disable-dbus], [disable usage of dbus-1 in tests]))
+AS_IF(["x$enable_dbus" != "xno"], [
+        PKG_CHECK_MODULES(DBUS, [dbus-1 >= 1.3.2],
+                [AC_DEFINE(HAVE_DBUS, 1, [Define if dbus-1 library is available]) have_dbus=yes],
+                [have_dbus=no])
+        AS_IF([test "x$have_dbus" = "xno" -a "x$enable_dbus" = "xyes"],
+                [AC_MSG_ERROR([*** dbus-1 support requested but libraries not found])])])
 AM_CONDITIONAL(HAVE_DBUS, [test "$have_dbus" = "yes"])
 
 # ------------------------------------------------------------------------------
@@ -1097,6 +1103,7 @@ AC_MSG_RESULT([
         efi:                     ${have_efi}
         kmod:                    ${have_kmod}
         blkid:                   ${have_blkid}
+        dbus:                    ${have_dbus}
         nss-myhostname:          ${have_myhostname}
         gudev:                   ${enable_gudev}
         gintrospection:          ${enable_introspection}
