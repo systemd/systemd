@@ -29,6 +29,7 @@
 #include "fileio.h"
 #include "execute.h"
 #include "dbus-execute.h"
+#include "capability.h"
 
 BUS_DEFINE_PROPERTY_GET_ENUM(bus_property_get_exec_output, exec_output, ExecOutput);
 
@@ -319,9 +320,8 @@ static int property_get_capabilities(
                 sd_bus_error *error) {
 
         ExecContext *c = userdata;
-        char *t = NULL;
+        _cleanup_cap_free_charp_ char *t = NULL;
         const char *s;
-        int r;
 
         assert(bus);
         assert(reply);
@@ -335,12 +335,7 @@ static int property_get_capabilities(
         if (!s)
                 return -ENOMEM;
 
-        r = sd_bus_message_append(reply, "s", s);
-
-        if (t)
-                cap_free(t);
-
-        return r;
+        return sd_bus_message_append(reply, "s", s);
 }
 
 static int property_get_syscall_filter(

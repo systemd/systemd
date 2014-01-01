@@ -650,14 +650,13 @@ static int enforce_groups(const ExecContext *context, const char *username, gid_
 }
 
 static int enforce_user(const ExecContext *context, uid_t uid) {
-        int r;
         assert(context);
 
         /* Sets (but doesn't lookup) the uid and make sure we keep the
          * capabilities while doing so. */
 
         if (context->capabilities) {
-                cap_t d;
+                _cleanup_cap_free_ cap_t d = NULL;
                 static const cap_value_t bits[] = {
                         CAP_SETUID,   /* Necessary so that we can run setresuid() below */
                         CAP_SETPCAP   /* Necessary so that we can set PR_SET_SECUREBITS later on */
@@ -677,23 +676,16 @@ static int enforce_user(const ExecContext *context, uid_t uid) {
                 /* Second step: set the capabilities. This will reduce
                  * the capabilities to the minimum we need. */
 
-                if (!(d = cap_dup(context->capabilities)))
+                d = cap_dup(context->capabilities);
+                if (!d)
                         return -errno;
 
                 if (cap_set_flag(d, CAP_EFFECTIVE, ELEMENTSOF(bits), bits, CAP_SET) < 0 ||
-                    cap_set_flag(d, CAP_PERMITTED, ELEMENTSOF(bits), bits, CAP_SET) < 0) {
-                        r = -errno;
-                        cap_free(d);
-                        return r;
-                }
+                    cap_set_flag(d, CAP_PERMITTED, ELEMENTSOF(bits), bits, CAP_SET) < 0)
+                        return -errno;
 
-                if (cap_set_proc(d) < 0) {
-                        r = -errno;
-                        cap_free(d);
-                        return r;
-                }
-
-                cap_free(d);
+                if (cap_set_proc(d) < 0)
+                        return -errno;
         }
 
         /* Third step: actually set the uids */
@@ -2000,37 +1992,37 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                         prefix, yes_no(c->tty_vhangup),
                         prefix, yes_no(c->tty_vt_disallocate));
 
-        if (c->std_output == EXEC_OUTPUT_SYSLOG || c->std_output == EXEC_OUTPUT_KMSG || c->std_output == EXEC_OUTPUT_JOURNAL ||
-            c->std_output == EXEC_OUTPUT_SYSLOG_AND_CONSOLE || c->std_output == EXEC_OUTPUT_KMSG_AND_CONSOLE || c->std_output == EXEC_OUTPUT_JOURNAL_AND_CONSOLE ||
-            c->std_error == EXEC_OUTPUT_SYSLOG || c->std_error == EXEC_OUTPUT_KMSG || c->std_error == EXEC_OUTPUT_JOURNAL ||
-            c->std_error == EXEC_OUTPUT_SYSLOG_AND_CONSOLE || c->std_error == EXEC_OUTPUT_KMSG_AND_CONSOLE || c->std_error == EXEC_OUTPUT_JOURNAL_AND_CONSOLE) {
-                char *fac_str, *lvl_str;
-                int r;
+        if (c->std_output == EXEC_OUTPUT_SYSLOG ||
+            c->std_output == EXEC_OUTPUT_KMSG ||
+            c->std_output == EXEC_OUTPUT_JOURNAL ||
+            c->std_output == EXEC_OUTPUT_SYSLOG_AND_CONSOLE ||
+            c->std_output == EXEC_OUTPUT_KMSG_AND_CONSOLE ||
+            c->std_output == EXEC_OUTPUT_JOURNAL_AND_CONSOLE ||
+            c->std_error == EXEC_OUTPUT_SYSLOG ||
+            c->std_error == EXEC_OUTPUT_KMSG ||
+            c->std_error == EXEC_OUTPUT_JOURNAL ||
+            c->std_error == EXEC_OUTPUT_SYSLOG_AND_CONSOLE ||
+            c->std_error == EXEC_OUTPUT_KMSG_AND_CONSOLE ||
+            c->std_error == EXEC_OUTPUT_JOURNAL_AND_CONSOLE) {
 
-                r = log_facility_unshifted_to_string_alloc(c->syslog_priority >> 3, &fac_str);
-                if (r < 0)
-                        fac_str = NULL;
+                _cleanup_free_ char *fac_str = NULL, *lvl_str = NULL;
 
-                r = log_level_to_string_alloc(LOG_PRI(c->syslog_priority), &lvl_str);
-                if (r < 0)
-                        lvl_str = NULL;
+                log_facility_unshifted_to_string_alloc(c->syslog_priority >> 3, &fac_str);
+                log_level_to_string_alloc(LOG_PRI(c->syslog_priority), &lvl_str);
 
                 fprintf(f,
                         "%sSyslogFacility: %s\n"
                         "%sSyslogLevel: %s\n",
                         prefix, strna(fac_str),
                         prefix, strna(lvl_str));
-                free(lvl_str);
-                free(fac_str);
         }
 
         if (c->capabilities) {
-                char *t;
-                if ((t = cap_to_text(c->capabilities, NULL))) {
-                        fprintf(f, "%sCapabilities: %s\n",
-                                prefix, t);
-                        cap_free(t);
-                }
+                _cleanup_cap_free_charp_ char *t;
+
+                t = cap_to_text(c->capabilities, NULL);
+                if (t)
+                        fprintf(f, "%sCapabilities: %s\n", prefix, t);
         }
 
         if (c->secure_bits)
@@ -2049,12 +2041,11 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
 
                 for (l = 0; l <= cap_last_cap(); l++)
                         if (!(c->capability_bounding_set_drop & ((uint64_t) 1ULL << (uint64_t) l))) {
-                                char *t;
+                                _cleanup_cap_free_charp_ char *t;
 
-                                if ((t = cap_to_name(l))) {
+                                t = cap_to_name(l);
+                                if (t)
                                         fprintf(f, " %s", t);
-                                        cap_free(t);
-                                }
                         }
 
                 fputs("\n", f);

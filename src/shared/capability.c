@@ -37,21 +37,17 @@
 #include "fileio.h"
 
 int have_effective_cap(int value) {
-        cap_t cap;
+        _cleanup_cap_free_ cap_t cap;
         cap_flag_value_t fv;
-        int r;
 
         cap = cap_get_proc();
         if (!cap)
                 return -errno;
 
         if (cap_get_flag(cap, value, CAP_EFFECTIVE, &fv) < 0)
-                r = -errno;
+                return -errno;
         else
-                r = fv == CAP_SET;
-
-        cap_free(cap);
-        return r;
+                return fv == CAP_SET;
 }
 
 unsigned long cap_last_cap(void) {
@@ -89,7 +85,7 @@ unsigned long cap_last_cap(void) {
 
 int capability_bounding_set_drop(uint64_t drop, bool right_now) {
         unsigned long i;
-        cap_t after_cap = NULL, temp_cap = NULL;
+        _cleanup_cap_free_ cap_t after_cap = NULL, temp_cap = NULL;
         cap_flag_value_t fv;
         int r;
 
@@ -102,10 +98,8 @@ int capability_bounding_set_drop(uint64_t drop, bool right_now) {
         if (!after_cap)
                 return -errno;
 
-        if (cap_get_flag(after_cap, CAP_SETPCAP, CAP_EFFECTIVE, &fv) < 0) {
-                cap_free(after_cap);
+        if (cap_get_flag(after_cap, CAP_SETPCAP, CAP_EFFECTIVE, &fv) < 0)
                 return -errno;
-        }
 
         if (fv != CAP_SET) {
                 static const cap_value_t v = CAP_SETPCAP;
@@ -162,13 +156,7 @@ int capability_bounding_set_drop(uint64_t drop, bool right_now) {
         r = 0;
 
 finish:
-        if (temp_cap)
-                cap_free(temp_cap);
-
-        if (after_cap) {
-                cap_set_proc(after_cap);
-                cap_free(after_cap);
-        }
+        cap_set_proc(after_cap);
 
         return r;
 }

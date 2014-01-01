@@ -19,8 +19,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/capability.h>
-
 #include "util.h"
 #include "capability.h"
 #include "strv.h"
@@ -281,12 +279,15 @@ static void dump_capabilities(
 
         for (;;) {
                 if (r > 0) {
+                        _cleanup_cap_free_charp_ char *t;
+
                         if (n > 0)
                                 fputc(' ', f);
                         if (n % 4 == 3)
                                 fputs("\n          ", f);
 
-                        fputs(cap_to_name(i), f);
+                        t = cap_to_name(i);
+                        fprintf(f, "%s", t);
                         n++;
                 }
 
