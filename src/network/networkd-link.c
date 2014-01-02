@@ -513,13 +513,17 @@ static void dhcp_handler(sd_dhcp_client *client, int event, void *userdata) {
 
         if (event == DHCP_EVENT_IP_CHANGE || event == DHCP_EVENT_EXPIRED ||
             event == DHCP_EVENT_STOP) {
-                address_drop(link->dhcp_address, link, address_drop_handler);
+                if (link->dhcp_address) {
+                        address_drop(link->dhcp_address, link, address_drop_handler);
 
-                address_free(link->dhcp_address);
-                link->dhcp_address = NULL;
+                        address_free(link->dhcp_address);
+                        link->dhcp_address = NULL;
+                }
 
-                route_free(link->dhcp_route);
-                link->dhcp_route = NULL;
+                if (link->dhcp_route) {
+                        route_free(link->dhcp_route);
+                        link->dhcp_route = NULL;
+                }
         }
 
         r = sd_dhcp_client_get_address(client, &address);
