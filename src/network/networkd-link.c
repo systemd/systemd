@@ -633,7 +633,7 @@ int link_update(Link *link, sd_rtnl_message *m) {
         } else if (!(link->flags & IFF_LOWER_UP) && flags & IFF_LOWER_UP) {
                 log_info("Interface '%s' is connected", link->ifname);
 
-                if (link->network->dhcp) {
+                if (link->network && link->network->dhcp) {
                         r = link_acquire_conf(link);
                         if (r < 0) {
                                 link_enter_failed(link);
