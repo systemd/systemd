@@ -308,6 +308,28 @@ static int dir_is_mount_point(DIR *d, const char *subdir) {
         return r;
 }
 
+static DIR* xopendirat_nomod(int dirfd, const char *path) {
+        DIR *dir;
+
+        dir = xopendirat(dirfd, path, O_NOFOLLOW|O_NOATIME);
+        if (!dir) {
+                log_debug_errno(errno, "Cannot open %sdirectory \"%s\": %m",
+                                dirfd == AT_FDCWD ? "" : "sub", path);
+                if (errno == EPERM) {
+                        dir = xopendirat(dirfd, path, O_NOFOLLOW);
+                        if (!dir)
+                                log_debug_errno(errno, "Cannot open %sdirectory \"%s\": %m",
+                                                dirfd == AT_FDCWD ? "" : "sub", path);
+                }
+        }
+
+        return dir;
+}
+
+static DIR* opendir_nomod(const char *path) {
+        return xopendirat_nomod(AT_FDCWD, path);
+}
+
 static int dir_cleanup(
                 Item *i,
                 const char *p,
@@ -398,7 +420,7 @@ static int dir_cleanup(
                                 _cleanup_closedir_ DIR *sub_dir;
                                 int q;
 
-                                sub_dir = xopendirat(dirfd(d), dent->d_name, O_NOFOLLOW|O_NOATIME);
+                                sub_dir = xopendirat_nomod(dirfd(d), dent->d_name);
                                 if (!sub_dir) {
                                         if (errno != ENOENT)
                                                 r = log_error_errno(errno, "opendir(%s) failed: %m", sub_path);
@@ -817,11 +839,9 @@ static int item_do_children(Item *i, const char *path, action_t action) {
         /* This returns the first error we run into, but nevertheless
          * tries to go on */
 
-        d = opendir(path);
-        if (!d) {
-                log_debug_errno(errno, "Cannot open directory \"%s\": %m", path);
+        d = opendir_nomod(path);
+        if (!d)
                 return errno == ENOENT || errno == ENOTDIR ? 0 : -errno;
-        }
 
         for (;;) {
                 _cleanup_free_ char *p = NULL;
@@ -859,12 +879,22 @@ static int item_do_children(Item *i, const char *path, action_t action) {
 }
 
 static int glob_item(Item *i, action_t action, bool recursive) {
-        _cleanup_globfree_ glob_t g = {};
+DISABLE_WARNING_INCOMPATIBLE_POINTER_TYPES
+DISABLE_WARNING_DECLARATION_AFTER_STATEMENT
+        _cleanup_globfree_ glob_t g = {
+                .gl_closedir = closedir,
+                .gl_readdir = readdir,
+                .gl_opendir = opendir_nomod,
+                .gl_lstat = lstat,
+                .gl_stat = stat,
+        };
+REENABLE_WARNING
+REENABLE_WARNING
         int r = 0, k;
         char **fn;
 
         errno = 0;
-        k = glob(i->path, GLOB_NOSORT|GLOB_BRACE, NULL, &g);
+        k = glob(i->path, GLOB_NOSORT|GLOB_BRACE|GLOB_ALTDIRFUNC, NULL, &g);
         if (k != 0 && k != GLOB_NOMATCH)
                 return log_error_errno(errno ?: EIO, "glob(%s) failed: %m", i->path);
 
@@ -1248,7 +1278,7 @@ static int clean_item_instance(Item *i, const char* instance) {
 
         cutoff = n - i->age;
 
-        d = opendir(instance);
+        d = opendir_nomod(instance);
         if (!d) {
                 if (errno == ENOENT || errno == ENOTDIR) {
                         log_debug_errno(errno, "Directory \"%s\": %m", instance);

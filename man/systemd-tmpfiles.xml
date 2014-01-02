@@ -185,6 +185,19 @@
         </refsect1>
 
         <refsect1>
+                <title>Unprivileged --cleanup operation</title>
+
+                <para><command>systemd-tmpfiles</command> tries to
+                avoid changing the access and modification times on
+                the directories it accesses, which requires
+                <constant>CAP_ADMIN</constant> privileges. When
+                running as non-root, directories which are checked for
+                files to clean up will have their access time bumped,
+                which might prevent their cleanup.
+                </para>
+        </refsect1>
+
+        <refsect1>
                 <title>Exit status</title>
 
                 <para>On success, 0 is returned, a non-zero failure
