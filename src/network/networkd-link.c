@@ -288,12 +288,19 @@ static int link_up_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
         Link *link = userdata;
         int r;
 
+        assert(link);
+
+        if (link->state == LINK_STATE_FAILED)
+                return 1;
+
         r = sd_rtnl_message_get_errno(m);
         if (r < 0) {
                 log_warning("%s: could not bring up interface: %s",
                             link->ifname, strerror(-r));
                 link_enter_failed(link);
         }
+
+        log_debug("%s: brought up interface", link->ifname);
 
         return 1;
 }
@@ -342,12 +349,8 @@ static int link_bridge_joined(Link *link) {
                 return r;
         }
 
-        if (!link->network->dhcp) {
-                r = link_enter_set_addresses(link);
-                if (r < 0)
-                        link_enter_failed(link);
-                        return r;
-        }
+        if (!link->network->dhcp)
+                return link_enter_set_addresses(link);
 
         return 0;
 }
@@ -356,6 +359,7 @@ static int bridge_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
         Link *link = userdata;
         int r;
 
+        assert(link);
         assert(link->state == LINK_STATE_JOINING_BRIDGE || link->state == LINK_STATE_FAILED);
         assert(link->network);
 
@@ -406,12 +410,19 @@ static int link_get_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
         Link *link = userdata;
         int r;
 
+        assert(link);
+
+        if (link->state == LINK_STATE_FAILED)
+                return 1;
+
         r = sd_rtnl_message_get_errno(m);
         if (r < 0) {
                 log_warning("%s: could not get state: %s",
                             link->ifname, strerror(-r));
                 link_enter_failed(link);
         }
+
+        log_debug("%s: got link state", link->ifname);
 
         link_update(link, m);
 
@@ -456,11 +467,7 @@ int link_configure(Link *link) {
                 return r;
         }
 
-        r = link_enter_join_bridge(link);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return link_enter_join_bridge(link);
 }
 
 static int address_drop_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
@@ -489,6 +496,8 @@ static void dhcp_handler(sd_dhcp_client *client, int event, void *userdata) {
         struct in_addr gateway;
         int prefixlen;
         int r;
+
+        assert(link);
 
         if (link->state == LINK_STATE_FAILED)
                 return;
@@ -622,6 +631,9 @@ int link_update(Link *link, sd_rtnl_message *m) {
         assert(link->network);
         assert(m);
 
+        if (link->state == LINK_STATE_FAILED)
+                return 0;
+
         r = sd_rtnl_message_link_get_flags(m, &flags);
         if (r < 0) {
                 log_warning("%s: could not get link flags", link->ifname);
@@ -657,7 +669,7 @@ int link_update(Link *link, sd_rtnl_message *m) {
 
         link->flags = flags;
 
-        log_debug("%s: updated state", link->ifname);
+        log_debug("%s: updated link state", link->ifname);
 
         return 0;
 }
