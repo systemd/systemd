@@ -247,9 +247,12 @@ static int manager_rtnl_process_link(sd_rtnl *rtnl, sd_rtnl_message *message, vo
         if (!link)
                 return 0;
 
-        r = link_update(link, message);
-        if (r < 0)
-                return 0;
+        /* only track the status of links we want to manage */
+        if (link->network) {
+                r = link_update(link, message);
+                if (r < 0)
+                        return 0;
+        }
 
         return 1;
 }
