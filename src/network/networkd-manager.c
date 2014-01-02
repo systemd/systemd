@@ -134,7 +134,7 @@ static int manager_process_link(Manager *m, struct udev_device *device) {
         if (streq_ptr(udev_device_get_action(device), "remove")) {
                 uint64_t ifindex;
 
-                log_debug("Link removed: %s", udev_device_get_sysname(device));
+                log_debug("%s: link removed", udev_device_get_sysname(device));
 
                 ifindex = udev_device_get_ifindex(device);
                 link = hashmap_get(m->links, &ifindex);
@@ -143,7 +143,7 @@ static int manager_process_link(Manager *m, struct udev_device *device) {
 
                 link_free(link);
         } else {
-                log_debug("New link: %s", udev_device_get_sysname(device));
+                log_debug("%s: link added", udev_device_get_sysname(device));
 
                 r = link_add(m, device);
                 if (r < 0) {

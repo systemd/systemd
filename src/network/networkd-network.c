@@ -67,8 +67,7 @@ static int network_load_one(Manager *manager, const char *filename) {
         if (r < 0) {
                 log_warning("Could not parse config file %s: %s", filename, strerror(-r));
                 return r;
-        } else
-                log_debug("Parsed configuration file %s", filename);
+        }
 
         LIST_PREPEND(networks, manager->networks, network);
         network = NULL;
@@ -88,7 +87,7 @@ int network_load(Manager *manager) {
 
         r = conf_files_list_strv(&files, ".network", NULL, (const char **)manager->network_dirs);
         if (r < 0) {
-                log_error("failed to enumerate network files: %s", strerror(-r));
+                log_error("Failed to enumerate network files: %s", strerror(-r));
                 return r;
         }
 
@@ -153,9 +152,9 @@ int network_get(Manager *manager, struct udev_device *device, Network **ret) {
                                         udev_device_get_driver(device),
                                         udev_device_get_devtype(device),
                                         udev_device_get_sysname(device))) {
-                        log_debug("Network file %s applies to link %s",
-                                        network->filename,
-                                        udev_device_get_sysname(device));
+                        log_debug("%s: found matching network '%s'",
+                                        udev_device_get_sysname(device),
+                                        network->filename);
                         *ret = network;
                         return 0;
                 }
@@ -168,9 +167,6 @@ int network_get(Manager *manager, struct udev_device *device, Network **ret) {
 
 int network_apply(Manager *manager, Network *network, Link *link) {
         int r;
-
-        log_info("Network '%s' being applied to link '%s'",
-                        network->description, link->ifname);
 
         link->network = network;
 

@@ -40,45 +40,20 @@ bool net_match_config(const struct ether_addr *match_mac,
                       const char *dev_type,
                       const char *dev_name) {
 
-        if (match_mac) {
-                if (!dev_mac || memcmp(match_mac, ether_aton(dev_mac), ETH_ALEN)) {
-                        log_debug("Interface MAC address (%s) did not match MACAddress=%s",
-                                  dev_mac, ether_ntoa(match_mac));
-                        return 0;
-                }
-        }
+        if (match_mac && (!dev_mac || memcmp(match_mac, ether_aton(dev_mac), ETH_ALEN)))
+                return 0;
 
-        if (match_path) {
-                if (!streq_ptr(match_path, dev_path)) {
-                        log_debug("Interface persistent path (%s) did not match Path=%s",
-                                  dev_path, match_path);
-                        return 0;
-                }
-        }
+        if (match_path && !streq_ptr(match_path, dev_path))
+                return 0;
 
-        if (match_driver) {
-                if (!streq_ptr(match_driver, dev_driver)) {
-                        log_debug("Interface device driver (%s) did not match Driver=%s",
-                                  dev_driver, match_driver);
-                        return 0;
-                }
-        }
+        if (match_driver && !streq_ptr(match_driver, dev_driver))
+                return 0;
 
-        if (match_type) {
-                if (!streq_ptr(match_type, dev_type)) {
-                        log_debug("Interface type (%s) did not match Type=%s",
-                                  dev_type, match_type);
-                        return 0;
-                }
-        }
+        if (match_type && !streq_ptr(match_type, dev_type))
+                return 0;
 
-        if (match_name) {
-                if (!streq_ptr(match_name, dev_name)) {
-                        log_debug("Interface name (%s) did not match Name=%s",
-                                  dev_name, match_name);
-                        return 0;
-                }
-        }
+        if (match_name && !streq_ptr(match_name, dev_name))
+                return 0;
 
         return 1;
 }

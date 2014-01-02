@@ -112,7 +112,7 @@ static int bridge_enter_ready(Bridge *bridge) {
 
         bridge->state = BRIDGE_STATE_READY;
 
-        log_info("Bridge '%s' ready", bridge->name);
+        log_info("%s: bridge ready", bridge->name);
 
         LIST_FOREACH(callbacks, callback, bridge->callbacks) {
                 /* join the links that were attempted to be joined befor the
@@ -131,7 +131,7 @@ static int bridge_create_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userda
 
         r = sd_rtnl_message_get_errno(m);
         if (r < 0) {
-                log_warning("Bridge '%s' failed: %s", bridge->name, strerror(-r));
+                log_warning("%s: bridge failed: %s", bridge->name, strerror(-r));
                 bridge_enter_failed(bridge);
 
                 return 1;
@@ -196,7 +196,7 @@ static int bridge_create(Bridge *bridge) {
                 return r;
         }
 
-        log_info("Creating bridge '%s'", bridge->name);
+        log_debug("%s: creating bridge", bridge->name);
 
         bridge->state = BRIDGE_STATE_CREATING;
 
@@ -269,8 +269,7 @@ static int bridge_load_one(Manager *manager, const char *filename) {
         if (r < 0) {
                 log_warning("Could not parse config file %s: %s", filename, strerror(-r));
                 return r;
-        } else
-                log_debug("Parsed configuration file %s", filename);
+        }
 
         if (!bridge->name) {
                 log_warning("Bridge without Name configured in %s. Ignoring", filename);
