@@ -403,6 +403,8 @@ static int link_get_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
                 link_enter_failed(link);
         }
 
+        link_update(link, m);
+
         return 1;
 }
 
