@@ -284,6 +284,204 @@ static int link_enter_set_addresses(Link *link) {
         return 0;
 }
 
+static int address_drop_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
+        Link *link = userdata;
+        int r;
+
+        assert(m);
+        assert(link);
+        assert(link->ifname);
+
+        if (link->state == LINK_STATE_FAILED)
+                return 1;
+
+        r = sd_rtnl_message_get_errno(m);
+        if (r < 0 && r != -EEXIST)
+                log_warning("%s: could not drop address: %s",
+                            link->ifname, strerror(-r));
+
+        return 1;
+}
+
+static void dhcp_handler(sd_dhcp_client *client, int event, void *userdata) {
+        Link *link = userdata;
+        struct in_addr address;
+        struct in_addr netmask;
+        struct in_addr gateway;
+        int prefixlen;
+        int r;
+
+        assert(link);
+
+        if (link->state == LINK_STATE_FAILED)
+                return;
+
+        if (event < 0) {
+                log_warning("%s: DHCP error: %s", link->ifname, strerror(-event));
+                link_enter_failed(link);
+                return;
+        }
+
+        if (event == DHCP_EVENT_NO_LEASE)
+                log_debug("%s: IP address in use.", link->ifname);
+
+        if (event == DHCP_EVENT_IP_CHANGE || event == DHCP_EVENT_EXPIRED ||
+            event == DHCP_EVENT_STOP) {
+                if (link->dhcp_address) {
+                        address_drop(link->dhcp_address, link, address_drop_handler);
+
+                        address_free(link->dhcp_address);
+                        link->dhcp_address = NULL;
+                }
+
+                if (link->dhcp_route) {
+                        route_free(link->dhcp_route);
+                        link->dhcp_route = NULL;
+                }
+        }
+
+        r = sd_dhcp_client_get_address(client, &address);
+        if (r < 0) {
+                log_warning("%s: DHCP error: no address", link->ifname);
+                link_enter_failed(link);
+                return;
+        }
+
+        r = sd_dhcp_client_get_netmask(client, &netmask);
+        if (r < 0) {
+                log_warning("%s: DHCP error: no netmask", link->ifname);
+                link_enter_failed(link);
+                return;
+        }
+
+        prefixlen = sd_dhcp_client_prefixlen(&netmask);
+        if (prefixlen < 0) {
+                log_warning("%s: DHCP error: no prefixlen", link->ifname);
+                link_enter_failed(link);
+                return;
+        }
+
+        r = sd_dhcp_client_get_router(client, &gateway);
+        if (r < 0) {
+                log_warning("%s: DHCP error: no router", link->ifname);
+                link_enter_failed(link);
+                return;
+        }
+
+        if (event == DHCP_EVENT_IP_CHANGE || event == DHCP_EVENT_IP_ACQUIRE) {
+                _cleanup_address_free_ Address *addr = NULL;
+                _cleanup_route_free_ Route *rt = NULL;
+
+                log_info("%s: received config over DHCPv4", link->ifname);
+
+                r = address_new_dynamic(&addr);
+                if (r < 0) {
+                        log_error("Could not allocate address");
+                        link_enter_failed(link);
+                        return;
+                }
+
+                addr->family = AF_INET;
+                addr->in_addr.in = address;
+                addr->prefixlen = prefixlen;
+                addr->netmask = netmask;
+
+                r = route_new_dynamic(&rt);
+                if (r < 0) {
+                        log_error("Could not allocate route");
+                        link_enter_failed(link);
+                        return;
+                }
+
+                rt->family = AF_INET;
+                rt->in_addr.in = gateway;
+
+                link->dhcp_address = addr;
+                link->dhcp_route = rt;
+                addr = NULL;
+                rt = NULL;
+
+                link_enter_set_addresses(link);
+        }
+
+        return;
+}
+
+static int link_acquire_conf(Link *link) {
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(link->network->dhcp);
+        assert(link->manager);
+        assert(link->manager->event);
+
+        if (!link->dhcp) {
+                link->dhcp = sd_dhcp_client_new(link->manager->event);
+                if (!link->dhcp)
+                        return -ENOMEM;
+
+                r = sd_dhcp_client_set_index(link->dhcp, link->ifindex);
+                if (r < 0)
+                        return r;
+
+                r = sd_dhcp_client_set_mac(link->dhcp, &link->mac);
+                if (r < 0)
+                        return r;
+
+                r = sd_dhcp_client_set_callback(link->dhcp, dhcp_handler, link);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_dhcp_client_start(link->dhcp);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static int link_update_flags(Link *link, unsigned flags) {
+        int r;
+
+        assert(link);
+        assert(link->network);
+
+        if (link->state == LINK_STATE_FAILED)
+                return 0;
+
+        if (link->flags & IFF_UP && !(flags & IFF_UP))
+                log_info("%s: interface is down", link->ifname);
+        else if (!(link->flags & IFF_UP) && flags & IFF_UP)
+                log_info("%s: interface is up", link->ifname);
+
+        if (link->flags & IFF_LOWER_UP && !(flags & IFF_LOWER_UP)) {
+                log_info("%s: disconnected", link->ifname);
+
+                if (link->network->dhcp) {
+                        r = sd_dhcp_client_stop(link->dhcp);
+                        if (r < 0) {
+                                link_enter_failed(link);
+                                return r;
+                        }
+                }
+        } else if (!(link->flags & IFF_LOWER_UP) && flags & IFF_LOWER_UP) {
+                log_info("%s: connected", link->ifname);
+
+                if (link->network->dhcp) {
+                        r = link_acquire_conf(link);
+                        if (r < 0) {
+                                link_enter_failed(link);
+                                return r;
+                        }
+                }
+        }
+
+        link->flags = flags;
+
+        return 0;
+}
+
 static int link_up_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
         Link *link = userdata;
         int r;
@@ -300,7 +498,7 @@ static int link_up_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
                 link_enter_failed(link);
         }
 
-        log_debug("%s: brought up interface", link->ifname);
+        link_update_flags(link, link->flags | IFF_UP);
 
         return 1;
 }
@@ -470,169 +668,11 @@ int link_configure(Link *link) {
         return link_enter_join_bridge(link);
 }
 
-static int address_drop_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
-        Link *link = userdata;
-        int r;
-
-        assert(m);
-        assert(link);
-        assert(link->ifname);
-
-        if (link->state == LINK_STATE_FAILED)
-                return 1;
-
-        r = sd_rtnl_message_get_errno(m);
-        if (r < 0 && r != -EEXIST)
-                log_warning("%s: could not drop address: %s",
-                            link->ifname, strerror(-r));
-
-        return 1;
-}
-
-static void dhcp_handler(sd_dhcp_client *client, int event, void *userdata) {
-        Link *link = userdata;
-        struct in_addr address;
-        struct in_addr netmask;
-        struct in_addr gateway;
-        int prefixlen;
-        int r;
-
-        assert(link);
-
-        if (link->state == LINK_STATE_FAILED)
-                return;
-
-        if (event < 0) {
-                log_warning("%s: DHCP error: %s", link->ifname, strerror(-event));
-                link_enter_failed(link);
-                return;
-        }
-
-        if (event == DHCP_EVENT_NO_LEASE)
-                log_debug("%s: IP address in use.", link->ifname);
-
-        if (event == DHCP_EVENT_IP_CHANGE || event == DHCP_EVENT_EXPIRED ||
-            event == DHCP_EVENT_STOP) {
-                if (link->dhcp_address) {
-                        address_drop(link->dhcp_address, link, address_drop_handler);
-
-                        address_free(link->dhcp_address);
-                        link->dhcp_address = NULL;
-                }
-
-                if (link->dhcp_route) {
-                        route_free(link->dhcp_route);
-                        link->dhcp_route = NULL;
-                }
-        }
-
-        r = sd_dhcp_client_get_address(client, &address);
-        if (r < 0) {
-                log_warning("%s: DHCP error: no address", link->ifname);
-                link_enter_failed(link);
-                return;
-        }
-
-        r = sd_dhcp_client_get_netmask(client, &netmask);
-        if (r < 0) {
-                log_warning("%s: DHCP error: no netmask", link->ifname);
-                link_enter_failed(link);
-                return;
-        }
-
-        prefixlen = sd_dhcp_client_prefixlen(&netmask);
-        if (prefixlen < 0) {
-                log_warning("%s: DHCP error: no prefixlen", link->ifname);
-                link_enter_failed(link);
-                return;
-        }
-
-        r = sd_dhcp_client_get_router(client, &gateway);
-        if (r < 0) {
-                log_warning("%s: DHCP error: no router", link->ifname);
-                link_enter_failed(link);
-                return;
-        }
-
-        if (event == DHCP_EVENT_IP_CHANGE || event == DHCP_EVENT_IP_ACQUIRE) {
-                _cleanup_address_free_ Address *addr = NULL;
-                _cleanup_route_free_ Route *rt = NULL;
-
-                log_info("%s: received config over DHCPv4", link->ifname);
-
-                r = address_new_dynamic(&addr);
-                if (r < 0) {
-                        log_error("Could not allocate address");
-                        link_enter_failed(link);
-                        return;
-                }
-
-                addr->family = AF_INET;
-                addr->in_addr.in = address;
-                addr->prefixlen = prefixlen;
-                addr->netmask = netmask;
-
-                r = route_new_dynamic(&rt);
-                if (r < 0) {
-                        log_error("Could not allocate route");
-                        link_enter_failed(link);
-                        return;
-                }
-
-                rt->family = AF_INET;
-                rt->in_addr.in = gateway;
-
-                link->dhcp_address = addr;
-                link->dhcp_route = rt;
-                addr = NULL;
-                rt = NULL;
-
-                link_enter_set_addresses(link);
-        }
-
-        return;
-}
-
-static int link_acquire_conf(Link *link) {
-        int r;
-
-        assert(link);
-        assert(link->network);
-        assert(link->network->dhcp);
-        assert(link->manager);
-        assert(link->manager->event);
-
-        if (!link->dhcp) {
-                link->dhcp = sd_dhcp_client_new(link->manager->event);
-                if (!link->dhcp)
-                        return -ENOMEM;
-
-                r = sd_dhcp_client_set_index(link->dhcp, link->ifindex);
-                if (r < 0)
-                        return r;
-
-                r = sd_dhcp_client_set_mac(link->dhcp, &link->mac);
-                if (r < 0)
-                        return r;
-
-                r = sd_dhcp_client_set_callback(link->dhcp, dhcp_handler, link);
-                if (r < 0)
-                        return r;
-        }
-
-        r = sd_dhcp_client_start(link->dhcp);
-        if (r < 0)
-                return r;
-
-        return 0;
-}
-
 int link_update(Link *link, sd_rtnl_message *m) {
         unsigned flags;
         int r;
 
         assert(link);
-        assert(link->network);
         assert(m);
 
         if (link->state == LINK_STATE_FAILED)
@@ -644,36 +684,5 @@ int link_update(Link *link, sd_rtnl_message *m) {
                 return r;
         }
 
-        if (link->flags & IFF_UP && !(flags & IFF_UP))
-                log_info("%s: interface is down", link->ifname);
-        else if (!(link->flags & IFF_UP) && flags & IFF_UP)
-                log_info("%s: interface is up", link->ifname);
-
-        if (link->flags & IFF_LOWER_UP && !(flags & IFF_LOWER_UP)) {
-                log_info("%s: disconnected", link->ifname);
-
-                if (link->network->dhcp) {
-                        r = sd_dhcp_client_stop(link->dhcp);
-                        if (r < 0) {
-                                link_enter_failed(link);
-                                return r;
-                        }
-                }
-        } else if (!(link->flags & IFF_LOWER_UP) && flags & IFF_LOWER_UP) {
-                log_info("%s: connected", link->ifname);
-
-                if (link->network->dhcp) {
-                        r = link_acquire_conf(link);
-                        if (r < 0) {
-                                link_enter_failed(link);
-                                return r;
-                        }
-                }
-        }
-
-        link->flags = flags;
-
-        log_debug("%s: updated link state", link->ifname);
-
-        return 0;
+        return link_update_flags(link, flags);
 }
