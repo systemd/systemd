@@ -241,6 +241,7 @@ int manager_udev_listen(Manager *m) {
 static int manager_rtnl_process_link(sd_rtnl *rtnl, sd_rtnl_message *message, void *userdata) {
         Manager *m = userdata;
         Link *link;
+        uint64_t ifindex_64;
         int r, ifindex;
 
         r = sd_rtnl_message_link_get_ifindex(message, &ifindex);
@@ -249,9 +250,10 @@ static int manager_rtnl_process_link(sd_rtnl *rtnl, sd_rtnl_message *message, vo
                 return 0;
         }
 
-        link = hashmap_get(m->links, &ifindex);
+        ifindex_64 = ifindex;
+        link = hashmap_get(m->links, &ifindex_64);
         if (!link) {
-                log_debug("received RTM_NEWLINK message for ifindex we are not tracking (%d)", ifindex);
+                log_debug("received RTM_NEWLINK message for untracked ifindex %d", ifindex);
                 return 0;
         }
 
@@ -261,7 +263,7 @@ static int manager_rtnl_process_link(sd_rtnl *rtnl, sd_rtnl_message *message, vo
                 if (r < 0)
                         return 0;
         } else
-                log_debug("received RTM_NEWLINK message for link we are not managing (%d)", ifindex);
+                log_debug("%s: received RTM_NEWLINK message for unmanaged link", link->ifname);
 
         return 1;
 }
