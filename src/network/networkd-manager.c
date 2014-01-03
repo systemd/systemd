@@ -240,19 +240,24 @@ static int manager_rtnl_process_link(sd_rtnl *rtnl, sd_rtnl_message *message, vo
         int r, ifindex;
 
         r = sd_rtnl_message_link_get_ifindex(message, &ifindex);
-        if (r < 0)
+        if (r < 0) {
+                log_debug("received RTM_NEWLINK message without valid ifindex");
                 return 0;
+        }
 
         link = hashmap_get(m->links, &ifindex);
-        if (!link)
+        if (!link) {
+                log_debug("received RTM_NEWLINK message for ifindex we are not tracking (%d)", ifindex);
                 return 0;
+        }
 
         /* only track the status of links we want to manage */
         if (link->network) {
                 r = link_update(link, message);
                 if (r < 0)
                         return 0;
-        }
+        } else
+                log_debug("received RTM_NEWLINK message for link we are not managing (%d)", ifindex);
 
         return 1;
 }
