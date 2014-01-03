@@ -109,6 +109,8 @@ void network_free(Network *network) {
         if (!network)
                 return;
 
+        assert(network->manager);
+
         free(network->filename);
 
         free(network->match_mac);
@@ -128,7 +130,8 @@ void network_free(Network *network) {
         hashmap_free(network->addresses_by_section);
         hashmap_free(network->routes_by_section);
 
-        LIST_REMOVE(networks, network->manager->networks, network);
+        if (network->manager->networks)
+                LIST_REMOVE(networks, network->manager->networks, network);
 
         free(network);
 }
