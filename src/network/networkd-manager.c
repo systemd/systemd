@@ -143,14 +143,17 @@ static int manager_process_link(Manager *m, struct udev_device *device) {
 
                 link_free(link);
         } else {
-                log_debug("%s: link added", udev_device_get_sysname(device));
-
                 r = link_add(m, device);
                 if (r < 0) {
-                        log_error("Could not handle link %s: %s",
-                                        udev_device_get_sysname(device),
-                                        strerror(-r));
-                }
+                        if (r == -EEXIST)
+                                log_debug("%s: link already exists, ignoring",
+                                          udev_device_get_sysname(device));
+                        else
+                                log_error("%s: could not handle link: %s",
+                                          udev_device_get_sysname(device),
+                                          strerror(-r));
+                } else
+                        log_debug("%s: link added", udev_device_get_sysname(device));
         }
 
         return 0;

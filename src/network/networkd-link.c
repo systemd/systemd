@@ -102,13 +102,11 @@ int link_add(Manager *m, struct udev_device *device) {
         ifindex = udev_device_get_ifindex(device);
         link = hashmap_get(m->links, &ifindex);
         if (link)
-                return 0;
+                return -EEXIST;
 
         r = link_new(m, device, &link);
-        if (r < 0) {
-                log_error("Could not create link: %s", strerror(-r));
+        if (r < 0)
                 return r;
-        }
 
         devtype = udev_device_get_devtype(device);
         if (streq_ptr(devtype, "bridge")) {
