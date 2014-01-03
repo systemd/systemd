@@ -793,7 +793,8 @@
         <varlistentry>
           <term><varname>Type</varname></term>
           <listitem>
-            <para>The device type, as exposed by the udev property <literal>DEVTYPE</literal>.</para>
+            <para>The device type, as exposed by the udev property <literal>DEVTYPE</literal>, or
+            <literal>ethernet</literal> to match a device without a <literal>DEVTYPE</literal>.</para>
           </listitem>
         </varlistentry>
       </variablelist>
