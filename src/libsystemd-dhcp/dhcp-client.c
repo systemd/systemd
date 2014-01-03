@@ -260,8 +260,6 @@ static int client_notify(sd_dhcp_client *client, int event)
 static int client_stop(sd_dhcp_client *client, int error)
 {
         assert_return(client, -EINVAL);
-        assert_return(client->state != DHCP_STATE_INIT &&
-                      client->state != DHCP_STATE_INIT_REBOOT, -EALREADY);
 
         client->receive_message =
                 sd_event_source_unref(client->receive_message);
