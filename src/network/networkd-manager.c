@@ -143,17 +143,18 @@ static int manager_process_link(Manager *m, struct udev_device *device) {
 
                 link_free(link);
         } else {
-                r = link_add(m, device);
+                r = link_add(m, device, &link);
                 if (r < 0) {
                         if (r == -EEXIST)
                                 log_debug("%s: link already exists, ignoring",
-                                          udev_device_get_sysname(device));
+                                          link->ifname);
                         else
                                 log_error("%s: could not handle link: %s",
                                           udev_device_get_sysname(device),
                                           strerror(-r));
                 } else
-                        log_debug("%s: link added", udev_device_get_sysname(device));
+                        log_debug("%s: link (with ifindex %" PRIu64") added",
+                                  link->ifname, link->ifindex);
         }
 
         return 0;

@@ -89,7 +89,7 @@ void link_free(Link *link) {
         free(link);
 }
 
-int link_add(Manager *m, struct udev_device *device) {
+int link_add(Manager *m, struct udev_device *device, Link **ret) {
         Link *link;
         Network *network;
         int r;
@@ -101,18 +101,22 @@ int link_add(Manager *m, struct udev_device *device) {
 
         ifindex = udev_device_get_ifindex(device);
         link = hashmap_get(m->links, &ifindex);
-        if (link)
+        if (link) {
+                *ret = link;
                 return -EEXIST;
+        }
 
         r = link_new(m, device, &link);
         if (r < 0)
                 return r;
 
+        *ret = link;
+
         devtype = udev_device_get_devtype(device);
         if (streq_ptr(devtype, "bridge")) {
                 r = bridge_set_link(m, link);
-                if (r < 0)
-                        return r == -ENOENT ? 0 : r;
+                if (r < 0 && r != -ENOENT)
+                        return r;
         }
 
         r = network_get(m, device, &network);
