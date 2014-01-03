@@ -24,6 +24,7 @@
 #include "path-util.h"
 #include "conf-files.h"
 #include "conf-parser.h"
+#include "util.h"
 
 static int network_load_one(Manager *manager, const char *filename) {
         _cleanup_network_free_ Network *network = NULL;
@@ -77,7 +78,8 @@ static int network_load_one(Manager *manager, const char *filename) {
 
 int network_load(Manager *manager) {
         Network *network;
-        char **files, **f;
+        _cleanup_strv_free_ char **files = NULL;
+        char **f;
         int r;
 
         assert(manager);
@@ -96,8 +98,6 @@ int network_load(Manager *manager) {
                 if (r < 0)
                         return r;
         }
-
-        strv_free(files);
 
         return 0;
 }
