@@ -1405,7 +1405,9 @@ static int method_enable_unit_files_generic(
                 sd_bus_error *error) {
 
         _cleanup_strv_free_ char **l = NULL;
+#ifdef HAVE_SELINUX
         char **i;
+#endif
         UnitFileChange *changes = NULL;
         unsigned n_changes = 0;
         UnitFileScope scope;
