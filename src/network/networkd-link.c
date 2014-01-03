@@ -450,32 +450,43 @@ static int link_update_flags(Link *link, unsigned flags) {
         if (link->state == LINK_STATE_FAILED)
                 return 0;
 
-        if (link->flags & IFF_UP && !(flags & IFF_UP))
-                log_info("%s: interface is down", link->ifname);
-        else if (!(link->flags & IFF_UP) && flags & IFF_UP)
-                log_info("%s: interface is up", link->ifname);
+        if (link->flags == flags) {
+                log_debug("%s: link status unchanged: %#x", link->ifname, flags);
+                return 0;
+        }
 
-        if (link->flags & IFF_LOWER_UP && !(flags & IFF_LOWER_UP)) {
-                log_info("%s: disconnected", link->ifname);
+        if ((link->flags & IFF_UP) != (flags & IFF_UP)) {
+                if (flags & IFF_UP)
+                        log_info("%s: power on", link->ifname);
+                else
+                        log_info("%s: power off", link->ifname);
+        }
 
-                if (link->network->dhcp) {
-                        r = sd_dhcp_client_stop(link->dhcp);
-                        if (r < 0) {
-                                link_enter_failed(link);
-                                return r;
+        if ((link->flags & IFF_LOWER_UP) != (flags & IFF_LOWER_UP)) {
+                if (flags & IFF_LOWER_UP) {
+                        log_info("%s: carrier on", link->ifname);
+
+                        if (link->network->dhcp) {
+                                r = link_acquire_conf(link);
+                                if (r < 0) {
+                                        link_enter_failed(link);
+                                        return r;
+                                }
                         }
-                }
-        } else if (!(link->flags & IFF_LOWER_UP) && flags & IFF_LOWER_UP) {
-                log_info("%s: connected", link->ifname);
+                } else {
+                        log_info("%s: carrier off", link->ifname);
 
-                if (link->network->dhcp) {
-                        r = link_acquire_conf(link);
-                        if (r < 0) {
-                                link_enter_failed(link);
-                                return r;
+                        if (link->network->dhcp) {
+                                r = sd_dhcp_client_stop(link->dhcp);
+                                if (r < 0) {
+                                        link_enter_failed(link);
+                                        return r;
+                                }
                         }
                 }
         }
+
+        log_debug("%s: link status updated: %#x -> %#x", link->ifname, link->flags, flags);
 
         link->flags = flags;
 
