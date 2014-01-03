@@ -135,6 +135,22 @@ static char *arg_host = NULL;
 static unsigned arg_lines = 10;
 static OutputMode arg_output = OUTPUT_SHORT;
 static bool arg_plain = false;
+static const struct {
+        const char *verb;
+        const char *method;
+} unit_actions[] = {
+        { "start",                 "StartUnit" },
+        { "stop",                  "StopUnit" },
+        { "condstop",              "StopUnit" },
+        { "reload",                "ReloadUnit" },
+        { "restart",               "RestartUnit" },
+        { "try-restart",           "TryRestartUnit" },
+        { "condrestart",           "TryRestartUnit" },
+        { "reload-or-restart",     "ReloadOrRestartUnit" },
+        { "reload-or-try-restart", "ReloadOrTryRestartUnit" },
+        { "condreload",            "ReloadOrTryRestartUnit" },
+        { "force-reload",          "ReloadOrTryRestartUnit" }
+};
 
 static int daemon_reload(sd_bus *bus, char **args);
 static int halt_now(enum action a);
@@ -2039,6 +2055,26 @@ static int check_triggering_units(
         return 0;
 }
 
+static const char *verb_to_method(const char *verb) {
+       uint i;
+
+       for (i = 0; i < ELEMENTSOF(unit_actions); i++)
+                if (streq_ptr(unit_actions[i].verb, verb))
+                        return unit_actions[i].method;
+
+       return "StartUnit";
+}
+
+static const char *method_to_verb(const char *method) {
+       uint i;
+
+       for (i = 0; i < ELEMENTSOF(unit_actions); i++)
+                if (streq_ptr(unit_actions[i].method, method))
+                        return unit_actions[i].verb;
+
+       return "n/a";
+}
+
 static int start_unit_one(
                 sd_bus *bus,
                 const char *method,
@@ -2067,12 +2103,16 @@ static int start_unit_one(
                         &reply,
                         "ss", name, mode);
         if (r < 0) {
+                const char *verb;
+
                 if (r == -ENOENT && arg_action != ACTION_SYSTEMCTL)
                         /* There's always a fallback possible for
                          * legacy actions. */
                         return -EADDRNOTAVAIL;
 
-                log_error("Failed to %s %s: %s", method, name, bus_error_message(error, r));
+                verb = method_to_verb(method);
+
+                log_error("Failed to %s %s: %s", verb, name, bus_error_message(error, r));
                 return r;
         }
 
@@ -2191,21 +2231,7 @@ static int start_unit(sd_bus *bus, char **args) {
 
         if (arg_action == ACTION_SYSTEMCTL) {
                 enum action action;
-                method =
-                        streq(args[0], "stop") ||
-                        streq(args[0], "condstop")              ? "StopUnit" :
-                        streq(args[0], "reload")                ? "ReloadUnit" :
-                        streq(args[0], "restart")               ? "RestartUnit" :
-
-                        streq(args[0], "try-restart")           ||
-                        streq(args[0], "condrestart")           ? "TryRestartUnit" :
-
-                        streq(args[0], "reload-or-restart")     ? "ReloadOrRestartUnit" :
-
-                        streq(args[0], "reload-or-try-restart") ||
-                        streq(args[0], "condreload")            ||
-                        streq(args[0], "force-reload")          ? "ReloadOrTryRestartUnit" :
-                                                                  "StartUnit";
+                method = verb_to_method(args[0]);
                 action = verb_to_action(args[0]);
 
                 mode = streq(args[0], "isolate") ? "isolate" :
