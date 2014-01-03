@@ -999,10 +999,7 @@ static void swap_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         case SWAP_DEACTIVATING_SIGKILL:
         case SWAP_DEACTIVATING_SIGTERM:
 
-                if (f == SWAP_SUCCESS)
-                        swap_enter_dead(s, f);
-                else
-                        swap_enter_dead(s, f);
+                swap_enter_dead(s, f);
                 break;
 
         default:
