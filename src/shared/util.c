@@ -440,8 +440,7 @@ char *split_quoted(const char *c, size_t *l, char **state) {
 
 int get_parent_of_pid(pid_t pid, pid_t *_ppid) {
         int r;
-        _cleanup_fclose_ FILE *f = NULL;
-        char line[LINE_MAX];
+        _cleanup_free_ char *line = NULL;
         long unsigned ppid;
         const char *p;
 
@@ -454,14 +453,9 @@ int get_parent_of_pid(pid_t pid, pid_t *_ppid) {
         }
 
         p = procfs_file_alloca(pid, "stat");
-        f = fopen(p, "re");
-        if (!f)
-                return -errno;
-
-        if (!fgets(line, sizeof(line), f)) {
-                r = feof(f) ? -EIO : -errno;
+        r = read_one_line_file(p, &line);
+        if (r < 0)
                 return r;
-        }
 
         /* Let's skip the pid and comm fields. The latter is enclosed
          * in () but does not escape any () in its value, so let's
@@ -488,25 +482,17 @@ int get_parent_of_pid(pid_t pid, pid_t *_ppid) {
 }
 
 int get_starttime_of_pid(pid_t pid, unsigned long long *st) {
-        _cleanup_fclose_ FILE *f = NULL;
-        char line[LINE_MAX];
+        int r;
+        _cleanup_free_ char *line = NULL;
         const char *p;
 
         assert(pid >= 0);
         assert(st);
 
         p = procfs_file_alloca(pid, "stat");
-
-        f = fopen(p, "re");
-        if (!f)
-                return errno == ENOENT ? -ESRCH : -errno;
-
-        if (!fgets(line, sizeof(line), f)) {
-                if (ferror(f))
-                        return -errno;
-
-                return -EIO;
-        }
+        r = read_one_line_file(p, &line);
+        if (r < 0)
+                return r;
 
         /* Let's skip the pid and comm fields. The latter is enclosed
          * in () but does not escape any () in its value, so let's
@@ -2527,21 +2513,17 @@ int getttyname_harder(int fd, char **r) {
 }
 
 int get_ctty_devnr(pid_t pid, dev_t *d) {
-        _cleanup_fclose_ FILE *f = NULL;
-        char line[LINE_MAX], *p;
+        int r;
+        _cleanup_free_ char *line = NULL;
+        const char *p;
         unsigned long ttynr;
-        const char *fn;
 
         assert(pid >= 0);
 
-        fn = procfs_file_alloca(pid, "stat");
-
-        f = fopen(fn, "re");
-        if (!f)
-                return -errno;
-
-        if (!fgets(line, sizeof(line), f))
-                return feof(f) ? -EIO : -errno;
+        p = procfs_file_alloca(pid, "stat");
+        r = read_one_line_file(p, &line);
+        if (r < 0)
+                return r;
 
         p = strrchr(line, ')');
         if (!p)
