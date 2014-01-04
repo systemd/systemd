@@ -222,7 +222,7 @@
                 <para>In the date and time specifications, any
                 component may be specified as <literal>*</literal> in
                 which case any value will match. Alternatively, each
-                component can be specified as list of values separated
+                component can be specified as a list of values separated
                 by commas. Values may also be suffixed with
                 <literal>/</literal> and a repetition value, which
                 indicates that the value and all values plus multiples
