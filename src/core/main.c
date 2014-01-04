@@ -601,15 +601,12 @@ static int config_parse_join_controllers(const char *unit,
                                 if (strv_overlap(*a, l)) {
                                         char **c;
 
-                                        c = strv_merge(*a, l);
-                                        if (!c) {
+                                        if (strv_extend_strv(&l, *a) < 0) {
                                                 strv_free(l);
                                                 strv_free_free(t);
                                                 return log_oom();
                                         }
 
-                                        strv_free(l);
-                                        l = c;
                                 } else {
                                         char **c;
 
@@ -1853,10 +1850,11 @@ finish:
                         shutdown_verb,
                         NULL
                 };
-                char **env_block;
+                _cleanup_strv_free_ char **env_block = NULL;
+                env_block = strv_copy(environ);
 
                 if (arm_reboot_watchdog && arg_shutdown_watchdog > 0) {
-                        char e[32];
+                        char *e;
 
                         /* If we reboot let's set the shutdown
                          * watchdog and tell the shutdown binary to
@@ -1864,15 +1862,11 @@ finish:
                         watchdog_set_timeout(&arg_shutdown_watchdog);
                         watchdog_close(false);
 
-                        /* Tell the binary how often to ping */
-                        snprintf(e, sizeof(e), "WATCHDOG_USEC="USEC_FMT, arg_shutdown_watchdog);
-                        char_array_0(e);
-
-                        env_block = strv_append(environ, e);
-                } else {
-                        env_block = strv_copy(environ);
+                        /* Tell the binary how often to ping, ignore failure */
+                        if (asprintf(&e, "WATCHDOG_USEC="USEC_FMT, arg_shutdown_watchdog) > 0)
+                                strv_push(&env_block, e);
+                } else
                         watchdog_close(true);
-                }
 
                 /* Avoid the creation of new processes forked by the
                  * kernel; at this point, we will not listen to the
@@ -1881,7 +1875,6 @@ finish:
                         cg_uninstall_release_agent(SYSTEMD_CGROUP_CONTROLLER);
 
                 execve(SYSTEMD_SHUTDOWN_BINARY_PATH, (char **) command_line, env_block);
-                free(env_block);
                 log_error("Failed to execute shutdown binary, freezing: %m");
         }
 

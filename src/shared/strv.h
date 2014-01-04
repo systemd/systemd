@@ -36,14 +36,12 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(char**, strv_free);
 char **strv_copy(char * const *l);
 unsigned strv_length(char * const *l) _pure_;
 
-char **strv_merge(char **a, char **b);
-char **strv_merge_concat(char **a, char **b, const char *suffix);
-char **strv_append(char **l, const char *s);
+int strv_extend_strv(char ***a, char **b);
+int strv_extend_strv_concat(char ***a, char **b, const char *suffix);
 int strv_extend(char ***l, const char *value);
 int strv_push(char ***l, char *value);
 
 char **strv_remove(char **l, const char *s);
-char **strv_remove_prefix(char **l, const char *s);
 char **strv_uniq(char **l);
 
 #define strv_contains(l, s) (!!strv_find((l), (s)))

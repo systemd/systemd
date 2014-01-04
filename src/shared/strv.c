@@ -166,72 +166,38 @@ char **strv_new(const char *x, ...) {
         return r;
 }
 
-char **strv_merge(char **a, char **b) {
-        char **r, **k;
+int strv_extend_strv(char ***a, char **b) {
+        int r;
+        char **s;
 
-        if (!a)
-                return strv_copy(b);
-
-        if (!b)
-                return strv_copy(a);
-
-        r = new(char*, strv_length(a) + strv_length(b) + 1);
-        if (!r)
-                return NULL;
-
-        for (k = r; *a; k++, a++) {
-                *k = strdup(*a);
-                if (!*k)
-                        goto fail;
+        STRV_FOREACH(s, b) {
+                r = strv_extend(a, *s);
+                if (r < 0)
+                        return r;
         }
 
-        for (; *b; k++, b++) {
-                *k = strdup(*b);
-                if (!*k)
-                        goto fail;
-        }
-
-        *k = NULL;
-        return r;
-
-fail:
-        strv_free(r);
-        return NULL;
+        return 0;
 }
 
-char **strv_merge_concat(char **a, char **b, const char *suffix) {
-        char **r, **k;
+int strv_extend_strv_concat(char ***a, char **b, const char *suffix) {
+        int r;
+        char **s;
 
-        /* Like strv_merge(), but appends suffix to all strings in b, before adding */
+        STRV_FOREACH(s, b) {
+                char *v;
 
-        if (!b)
-                return strv_copy(a);
+                v = strappend(*s, suffix);
+                if (!v)
+                        return -ENOMEM;
 
-        r = new(char*, strv_length(a) + strv_length(b) + 1);
-        if (!r)
-                return NULL;
-
-        k = r;
-        if (a)
-                for (; *a; k++, a++) {
-                        *k = strdup(*a);
-                        if (!*k)
-                                goto fail;
+                r = strv_push(a, v);
+                if (r < 0) {
+                        free(v);
+                        return r;
                 }
-
-        for (; *b; k++, b++) {
-                *k = strappend(*b, suffix);
-                if (!*k)
-                        goto fail;
         }
 
-        *k = NULL;
-        return r;
-
-fail:
-        strv_free(r);
-        return NULL;
-
+        return 0;
 }
 
 char **strv_split(const char *s, const char *separator) {
@@ -393,37 +359,6 @@ char *strv_join_quoted(char **l) {
         return NULL;
 }
 
-char **strv_append(char **l, const char *s) {
-        char **r, **k;
-
-        if (!l)
-                return strv_new(s, NULL);
-
-        if (!s)
-                return strv_copy(l);
-
-        r = new(char*, strv_length(l)+2);
-        if (!r)
-                return NULL;
-
-        for (k = r; *l; k++, l++) {
-                *k = strdup(*l);
-                if (!*k)
-                        goto fail;
-        }
-
-        k[0] = strdup(s);
-        if (!k[0])
-                goto fail;
-
-        k[1] = NULL;
-        return r;
-
-fail:
-        strv_free(r);
-        return NULL;
-}
-
 int strv_push(char ***l, char *value) {
         char **c;
         unsigned n;
@@ -484,40 +419,11 @@ char **strv_remove(char **l, const char *s) {
         /* Drops every occurrence of s in the string list, edits
          * in-place. */
 
-        for (f = t = l; *f; f++) {
-
-                if (streq(*f, s)) {
+        for (f = t = l; *f; f++)
+                if (streq(*f, s))
                         free(*f);
-                        continue;
-                }
-
-                *(t++) = *f;
-        }
-
-        *t = NULL;
-        return l;
-}
-
-char **strv_remove_prefix(char **l, const char *s) {
-        char **f, **t;
-
-        if (!l)
-                return NULL;
-
-        assert(s);
-
-        /* Drops every occurrence of a string prefixed with s in the
-         * string list, edits in-place. */
-
-        for (f = t = l; *f; f++) {
-
-                if (startswith(*f, s)) {
-                        free(*f);
-                        continue;
-                }
-
-                *(t++) = *f;
-        }
+                else
+                        *(t++) = *f;
 
         *t = NULL;
         return l;
@@ -586,14 +492,11 @@ char **strv_split_nulstr(const char *s) {
 }
 
 bool strv_overlap(char **a, char **b) {
-        char **i, **j;
+        char **i;
 
-        STRV_FOREACH(i, a) {
-                STRV_FOREACH(j, b) {
-                        if (streq(*i, *j))
-                                return true;
-                }
-        }
+        STRV_FOREACH(i, a)
+                if (strv_contains(b, *i))
+                        return true;
 
         return false;
 }
@@ -615,9 +518,6 @@ char **strv_sort(char **l) {
 
 void strv_print(char **l) {
         char **s;
-
-        if (!l)
-                return;
 
         STRV_FOREACH(s, l)
                 puts(*s);

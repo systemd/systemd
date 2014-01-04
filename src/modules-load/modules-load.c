@@ -64,12 +64,8 @@ static int add_modules(const char *p) {
         if (!k)
                 return log_oom();
 
-        t = strv_merge(arg_proc_cmdline_modules, k);
-        if (!t)
+        if (strv_extend_strv(&arg_proc_cmdline_modules, k) < 0)
                 return log_oom();
-
-        strv_free(arg_proc_cmdline_modules);
-        arg_proc_cmdline_modules = t;
 
         return 0;
 }

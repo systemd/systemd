@@ -214,22 +214,6 @@ static void test_strv_split_nulstr(void) {
         assert_se(streq(l[3], "str3"));
 }
 
-static void test_strv_remove_prefix(void) {
-        unsigned i = 0;
-        char **s;
-        _cleanup_strv_free_ char **l = NULL;
-
-        l = strv_new("_one", "_two", "_three", NULL);
-        assert(l);
-
-        l = strv_remove_prefix(l, "_");
-        assert(l);
-
-        STRV_FOREACH(s, l) {
-                assert_se(streq(*s, input_table_multiple[i++]));
-        }
-}
-
 static void test_strv_parse_nulstr(void) {
         _cleanup_strv_free_ char **l = NULL;
         const char nulstr[] = "fuck\0fuck2\0fuck3\0\0fuck5\0\0xxx";
@@ -289,58 +273,54 @@ static void test_strv_sort(void) {
         assert_se(streq(input_table[4], "durian"));
 }
 
-static void test_strv_merge_concat(void) {
-         _cleanup_strv_free_ char **a = NULL, **b = NULL, **c = NULL;
+static void test_strv_extend_strv_concat(void) {
+         _cleanup_strv_free_ char **a = NULL, **b = NULL;
 
         a = strv_new("without", "suffix", NULL);
         b = strv_new("with", "suffix", NULL);
         assert_se(a);
         assert_se(b);
 
-        c = strv_merge_concat(a, b, "_suffix");
-        assert_se(c);
+        assert_se(strv_extend_strv_concat(&a, b, "_suffix") >= 0);
 
-        assert_se(streq(c[0], "without"));
-        assert_se(streq(c[1], "suffix"));
-        assert_se(streq(c[2], "with_suffix"));
-        assert_se(streq(c[3], "suffix_suffix"));
+        assert_se(streq(a[0], "without"));
+        assert_se(streq(a[1], "suffix"));
+        assert_se(streq(a[2], "with_suffix"));
+        assert_se(streq(a[3], "suffix_suffix"));
 }
 
-static void test_strv_merge(void) {
-         _cleanup_strv_free_ char **a = NULL, **b = NULL, **c = NULL;
+static void test_strv_extend_strv(void) {
+         _cleanup_strv_free_ char **a = NULL, **b = NULL;
 
         a = strv_new("abc", "def", "ghi", NULL);
         b = strv_new("jkl", "mno", "pqr", NULL);
         assert_se(a);
         assert_se(b);
 
-        c = strv_merge(a, b);
-        assert_se(c);
+        assert_se(strv_extend_strv(&a, b) >= 0);
 
-        assert_se(streq(c[0], "abc"));
-        assert_se(streq(c[1], "def"));
-        assert_se(streq(c[2], "ghi"));
-        assert_se(streq(c[3], "jkl"));
-        assert_se(streq(c[4], "mno"));
-        assert_se(streq(c[5], "pqr"));
+        assert_se(streq(a[0], "abc"));
+        assert_se(streq(a[1], "def"));
+        assert_se(streq(a[2], "ghi"));
+        assert_se(streq(a[3], "jkl"));
+        assert_se(streq(a[4], "mno"));
+        assert_se(streq(a[5], "pqr"));
 
-        assert_se(strv_length(c) == 6);
+        assert_se(strv_length(a) == 6);
 }
 
-static void test_strv_append(void) {
-        _cleanup_strv_free_ char **a = NULL, **b = NULL, **c = NULL;
+static void test_strv_extend(void) {
+        _cleanup_strv_free_ char **a = NULL, **b = NULL;
 
         a = strv_new("test", "test1", NULL);
         assert_se(a);
-        b = strv_append(a, "test2");
-        c = strv_append(NULL, "test3");
-        assert_se(b);
-        assert_se(c);
+        assert_se(strv_extend(&a, "test2") >= 0);
+        assert_se(strv_extend(&b, "test3") >= 0);
 
-        assert_se(streq(b[0], "test"));
-        assert_se(streq(b[1], "test1"));
-        assert_se(streq(b[2], "test2"));
-        assert_se(streq(c[0], "test3"));
+        assert_se(streq(a[0], "test"));
+        assert_se(streq(a[1], "test1"));
+        assert_se(streq(a[2], "test2"));
+        assert_se(streq(b[0], "test3"));
 }
 
 static void test_strv_foreach(void) {
@@ -436,12 +416,11 @@ int main(int argc, char *argv[]) {
         test_strv_split_newlines();
         test_strv_split_nulstr();
         test_strv_parse_nulstr();
-        test_strv_remove_prefix();
         test_strv_overlap();
         test_strv_sort();
-        test_strv_merge();
-        test_strv_merge_concat();
-        test_strv_append();
+        test_strv_extend_strv();
+        test_strv_extend_strv_concat();
+        test_strv_extend();
         test_strv_from_stdarg_alloca();
 
         return 0;

@@ -251,12 +251,8 @@ static int parse_argv(int argc, char *argv[]) {
                                 if (*p == '.')
                                         *p = '/';
 
-                        l = strv_append(arg_prefixes, optarg);
-                        if (!l)
+                        if (strv_extend(&arg_prefixes, optarg) < 0)
                                 return log_oom();
-
-                        strv_free(arg_prefixes);
-                        arg_prefixes = l;
 
                         break;
                 }

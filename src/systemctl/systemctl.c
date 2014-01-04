@@ -1327,7 +1327,7 @@ static int list_dependencies_one(
                 char ***units,
                 unsigned int branches) {
 
-        _cleanup_strv_free_ char **deps = NULL, **u;
+        _cleanup_strv_free_ char **deps = NULL;
         char **c;
         int r = 0;
 
@@ -1335,8 +1335,8 @@ static int list_dependencies_one(
         assert(name);
         assert(units);
 
-        u = strv_append(*units, name);
-        if (!u)
+        r = strv_extend(units, name);
+        if (r < 0)
                 return log_oom();
 
         r = list_dependencies_get_dependencies(bus, name, &deps);
@@ -1348,7 +1348,7 @@ static int list_dependencies_one(
         STRV_FOREACH(c, deps) {
                 int state;
 
-                if (strv_contains(u, *c)) {
+                if (strv_contains(*units, *c)) {
                         if (!arg_plain) {
                                 r = list_dependencies_print("...", level + 1, (branches << 1) | (c[1] == NULL ? 0 : 1), 1);
                                 if (r < 0)
@@ -1368,17 +1368,14 @@ static int list_dependencies_one(
                         return r;
 
                 if (arg_all || unit_name_to_type(*c) == UNIT_TARGET) {
-                       r = list_dependencies_one(bus, *c, level + 1, &u, (branches << 1) | (c[1] == NULL ? 0 : 1));
+                       r = list_dependencies_one(bus, *c, level + 1, units, (branches << 1) | (c[1] == NULL ? 0 : 1));
                        if (r < 0)
                                return r;
                 }
         }
 
-        if (arg_plain) {
-                strv_free(*units);
-                *units = u;
-                u = NULL;
-        }
+        if (!arg_plain)
+                strv_remove(*units, name);
 
         return 0;
 }
