@@ -254,6 +254,7 @@ global:
         sd_event_source_get_userdata;
         sd_event_source_set_userdata;
         sd_event_source_get_io_fd;
+        sd_event_source_set_io_fd;
         sd_event_source_get_io_events;
         sd_event_source_set_io_events;
         sd_event_source_get_io_revents;
