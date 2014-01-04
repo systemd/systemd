@@ -46,10 +46,7 @@ int audit_session_from_pid(pid_t pid, uint32_t *id) {
         if (detect_container(NULL) > 0)
                 return -ENOTSUP;
 
-        if (pid == 0)
-                p = "/proc/self/sessionid";
-        else
-                p = procfs_file_alloca(pid, "sessionid");
+        p = procfs_file_alloca(pid, "sessionid");
 
         r = read_one_line_file(p, &s);
         if (r < 0)
@@ -78,10 +75,7 @@ int audit_loginuid_from_pid(pid_t pid, uid_t *uid) {
         if (detect_container(NULL) > 0)
                 return -ENOTSUP;
 
-        if (pid == 0)
-                p = "/proc/self/loginuid";
-        else
-                p = procfs_file_alloca(pid, "loginuid");
+        p = procfs_file_alloca(pid, "loginuid");
 
         r = read_one_line_file(p, &s);
         if (r < 0)

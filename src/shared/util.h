@@ -777,9 +777,13 @@ int unlink_noerrno(const char *path);
 #define procfs_file_alloca(pid, field)                                  \
         ({                                                              \
                 pid_t _pid_ = (pid);                                    \
-                char *_r_;                                              \
-                _r_ = alloca(sizeof("/proc/") -1 + DECIMAL_STR_MAX(pid_t) + 1 + sizeof(field)); \
-                sprintf(_r_, "/proc/"PID_FMT"/" field, _pid_); \
+                const char *_r_;                                        \
+                if (_pid_ == 0) {                                       \
+                        _r_ = ("/proc/self/" field);                    \
+                } else {                                                \
+                        _r_ = alloca(strlen("/proc/") + DECIMAL_STR_MAX(pid_t) + 1 + sizeof(field)); \
+                        sprintf((char*) _r_, "/proc/"PID_FMT"/" field, _pid_);                       \
+                }                                                       \
                 _r_;                                                    \
         })
 

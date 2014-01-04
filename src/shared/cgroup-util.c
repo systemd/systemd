@@ -746,10 +746,7 @@ int cg_pid_get_path(const char *controller, pid_t pid, char **path) {
         } else
                 controller = SYSTEMD_CGROUP_CONTROLLER;
 
-        if (pid == 0)
-                fs = "/proc/self/cgroup";
-        else
-                fs = procfs_file_alloca(pid, "cgroup");
+        fs = procfs_file_alloca(pid, "cgroup");
 
         f = fopen(fs, "re");
         if (!f)

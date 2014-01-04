@@ -495,10 +495,7 @@ int get_starttime_of_pid(pid_t pid, unsigned long long *st) {
         assert(pid >= 0);
         assert(st);
 
-        if (pid == 0)
-                p = "/proc/self/stat";
-        else
-                p = procfs_file_alloca(pid, "stat");
+        p = procfs_file_alloca(pid, "stat");
 
         f = fopen(p, "re");
         if (!f)
@@ -573,10 +570,7 @@ int get_process_comm(pid_t pid, char **name) {
         assert(name);
         assert(pid >= 0);
 
-        if (pid == 0)
-                p = "/proc/self/comm";
-        else
-                p = procfs_file_alloca(pid, "comm");
+        p = procfs_file_alloca(pid, "comm");
 
         r = read_one_line_file(p, name);
         if (r == -ENOENT)
@@ -594,10 +588,7 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
         assert(line);
         assert(pid >= 0);
 
-        if (pid == 0)
-                p = "/proc/self/cmdline";
-        else
-                p = procfs_file_alloca(pid, "cmdline");
+        p = procfs_file_alloca(pid, "cmdline");
 
         f = fopen(p, "re");
         if (!f)
@@ -716,10 +707,7 @@ int get_process_capeff(pid_t pid, char **capeff) {
         assert(capeff);
         assert(pid >= 0);
 
-        if (pid == 0)
-                p = "/proc/self/status";
-        else
-                p = procfs_file_alloca(pid, "status");
+        p = procfs_file_alloca(pid, "status");
 
         return get_status_field(p, "\nCapEff:", capeff);
 }
@@ -732,10 +720,7 @@ int get_process_exe(pid_t pid, char **name) {
         assert(pid >= 0);
         assert(name);
 
-        if (pid == 0)
-                p = "/proc/self/exe";
-        else
-                p = procfs_file_alloca(pid, "exe");
+        p = procfs_file_alloca(pid, "exe");
 
         r = readlink_malloc(p, name);
         if (r < 0)
@@ -2549,10 +2534,7 @@ int get_ctty_devnr(pid_t pid, dev_t *d) {
 
         assert(pid >= 0);
 
-        if (pid == 0)
-                fn = "/proc/self/stat";
-        else
-                fn = procfs_file_alloca(pid, "stat");
+        fn = procfs_file_alloca(pid, "stat");
 
         f = fopen(fn, "re");
         if (!f)
@@ -5095,10 +5077,7 @@ int getenv_for_pid(pid_t pid, const char *field, char **_value) {
         assert(field);
         assert(_value);
 
-        if (pid == 0)
-                path = "/proc/self/environ";
-        else
-                path = procfs_file_alloca(pid, "environ");
+        path = procfs_file_alloca(pid, "environ");
 
         f = fopen(path, "re");
         if (!f)

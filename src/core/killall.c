@@ -33,7 +33,8 @@
 
 static bool ignore_proc(pid_t pid) {
         _cleanup_fclose_ FILE *f = NULL;
-        char c, *p;
+        char c;
+        const char *p;
         size_t count;
         uid_t uid;
         int r;
