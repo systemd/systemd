@@ -553,7 +553,7 @@ int bus_open_user_systemd(sd_bus **_bus) {
 
         e = secure_getenv("XDG_RUNTIME_DIR");
         if (!e)
-                return sd_bus_open_system(_bus);
+                return sd_bus_open_user(_bus);
 
         ee = bus_address_escape(e);
         if (!ee)
@@ -569,7 +569,7 @@ int bus_open_user_systemd(sd_bus **_bus) {
 
         r = sd_bus_start(bus);
         if (r < 0)
-                return sd_bus_open_system(_bus);
+                return sd_bus_open_user(_bus);
 
         r = bus_check_peercred(bus);
         if (r < 0)
