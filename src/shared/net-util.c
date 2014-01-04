@@ -49,7 +49,7 @@ bool net_match_config(const struct ether_addr *match_mac,
         if (match_driver && !streq_ptr(match_driver, dev_driver))
                 return 0;
 
-        if (match_type && !streq_ptr(match_type, dev_type) && !(streq(match_type, "ethernet") && !dev_type))
+        if (match_type && !streq_ptr(match_type, dev_type))
                 return 0;
 
         if (match_name && !streq_ptr(match_name, dev_name))

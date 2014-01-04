@@ -146,8 +146,7 @@
                                         <term><varname>Type</varname></term>
                                         <listitem>
                                                 <para>The device type, as exposed by the udev property
-                                                <literal>DEVTYPE</literal>, or <literal>ethernet</literal>
-                                                to match devices without a <literal>DEVTYPE</literal>.</para>
+                                                <literal>DEVTYPE</literal>.</para>
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
