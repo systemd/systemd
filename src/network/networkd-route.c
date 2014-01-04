@@ -231,7 +231,7 @@ int config_parse_destination(const char *unit,
                         return log_oom();
         }
 
-        r = net_parse_inaddr(address, &n->family, &n->dst_addr);
+        r = net_parse_inaddr(address, &n->dst_family, &n->dst_addr);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, EINVAL,
                            "Destination is invalid, ignoring assignment: %s", address);
@@ -252,7 +252,7 @@ int config_parse_destination(const char *unit,
 
                 n->dst_prefixlen = (unsigned char) i;
         } else {
-                switch (n->family) {
+                switch (n->dst_family) {
                         case AF_INET:
                                 n->dst_prefixlen = 32;
                                 break;

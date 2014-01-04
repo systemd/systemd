@@ -206,7 +206,7 @@
                                 <varlistentry>
                                         <term><varname>Address</varname></term>
                                         <listitem>
-                                                <para>As in the <literal>[Network]</literal> section.</para>
+                                                <para>As in the <literal>[Network]</literal> section. This key is mandatory.</para>
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
@@ -223,7 +223,7 @@
                                 <varlistentry>
                                         <term><varname>Gateway</varname></term>
                                         <listitem>
-                                                <para>As in the <literal>[Network]</literal> section.</para>
+                                                <para>As in the <literal>[Network]</literal> section. This key is mandatory.</para>
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>

@@ -29,6 +29,8 @@
 static int network_load_one(Manager *manager, const char *filename) {
         _cleanup_network_free_ Network *network = NULL;
         _cleanup_fclose_ FILE *file = NULL;
+        Route *route;
+        Address *address;
         int r;
 
         assert(manager);
@@ -71,6 +73,29 @@ static int network_load_one(Manager *manager, const char *filename) {
         }
 
         LIST_PREPEND(networks, manager->networks, network);
+
+        LIST_FOREACH(static_routes, route, network->static_routes) {
+                if (!route->family) {
+                        log_warning("Route section without Gateway field configured in %s. "
+                                    "Ignoring", filename);
+                        return 0;
+                }
+
+                if (route->dst_family && route->family != route->dst_family) {
+                        log_warning("Route section with conflicting Gateway and Destination address "
+                                    "family configured in %s. Ignoring", filename);
+                        return 0;
+                }
+        }
+
+        LIST_FOREACH(static_addresses, address, network->static_addresses) {
+                if (!address->family) {
+                        log_warning("Address section without Address field configured in %s. "
+                                    "Ignoring", filename);
+                        return 0;
+                }
+        }
+
         network = NULL;
 
         return 0;
@@ -109,8 +134,6 @@ void network_free(Network *network) {
         if (!network)
                 return;
 
-        assert(network->manager);
-
         free(network->filename);
 
         free(network->match_mac);
@@ -130,7 +153,7 @@ void network_free(Network *network) {
         hashmap_free(network->addresses_by_section);
         hashmap_free(network->routes_by_section);
 
-        if (network->manager->networks)
+        if (network->manager && network->manager->networks)
                 LIST_REMOVE(networks, network->manager->networks, network);
 
         free(network);
