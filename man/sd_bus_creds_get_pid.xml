@@ -1,0 +1,445 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+This file is part of systemd.
+
+Copyright 2014 Zbigniew Jędrzejewski-Szmek
+
+systemd is free software; you can redistribute it and/or modify it
+under the terms of the GNU Lesser General Public License as published by
+the Free Software Foundation; either version 2.1 of the License, or
+(at your option) any later version.
+
+systemd is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public License
+along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="sd_bus_creds_get_pid">
+
+  <refentryinfo>
+    <title>sd_bus_creds_get_pid</title>
+    <productname>systemd</productname>
+
+    <authorgroup>
+      <author>
+        <contrib>A monkey with a typewriter</contrib>
+        <firstname>Zbigniew</firstname>
+        <surname>Jędrzejewski-Szmek</surname>
+        <email>zbyszek@in.waw.pl</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_bus_creds_get_pid</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_bus_creds_get_pid</refname>
+    <refname>sd_bus_creds_get_pid_starttime</refname>
+    <refname>sd_bus_creds_get_tid</refname>
+    <refname>sd_bus_creds_get_uid</refname>
+    <refname>sd_bus_creds_get_gid</refname>
+    <refname>sd_bus_creds_get_comm</refname>
+    <refname>sd_bus_creds_get_tid_comm</refname>
+    <refname>sd_bus_creds_get_exe</refname>
+    <refname>sd_bus_creds_get_cmdline</refname>
+    <refname>sd_bus_creds_get_cgroup</refname>
+    <refname>sd_bus_creds_get_unit</refname>
+    <refname>sd_bus_creds_get_user_unit</refname>
+    <refname>sd_bus_creds_get_slice</refname>
+    <refname>sd_bus_creds_get_session</refname>
+    <refname>sd_bus_creds_get_owner_uid</refname>
+    <refname>sd_bus_creds_has_effective_cap</refname>
+    <refname>sd_bus_creds_has_permitted_cap</refname>
+    <refname>sd_bus_creds_has_inheritable_cap</refname>
+    <refname>sd_bus_creds_has_bounding_cap</refname>
+    <refname>sd_bus_creds_get_selinux_context</refname>
+    <refname>sd_bus_creds_get_audit_session_id</refname>
+    <refname>sd_bus_creds_get_audit_login_uid</refname>
+    <refname>sd_bus_creds_get_unique_name</refname>
+    <refname>sd_bus_creds_get_well_known_names</refname>
+
+    <refpurpose>Retrieve fields from a credentials object</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_creds_get_pid</function></funcdef>
+        <paramdef>sd_bus_creds* <parameter>c</parameter></paramdef>
+        <paramdef>pid_t *<parameter>pid</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_creds_get_pid_starttime</function></funcdef>
+        <paramdef>sd_bus_creds* <parameter>c</parameter></paramdef>
+        <paramdef>uint64_t *<parameter>usec</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_creds_get_tid</function></funcdef>
+        <paramdef>sd_bus_creds* <parameter>c</parameter></paramdef>
+        <paramdef>pid_t *<parameter>tid</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_creds_get_pid</function></funcdef>
+        <paramdef>sd_bus_creds* <parameter>c</parameter></paramdef>
+        <paramdef>uid_t *<parameter>uid</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_creds_get_gid</function></funcdef>
+        <paramdef>sd_bus_creds* <parameter>c</parameter></paramdef>
+        <paramdef>gid_t *<parameter>gid</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_creds_get_comm</function></funcdef>
+        <paramdef>sd_bus_creds* <parameter>c</parameter></paramdef>
+        <paramdef>const char **<parameter>comm</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_creds_get_tid_comm</function></funcdef>
+        <paramdef>sd_bus_creds* <parameter>c</parameter></paramdef>
+        <paramdef>const char **<parameter>comm</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_creds_get_exe</function></funcdef>
+        <paramdef>sd_bus_creds* <parameter>c</parameter></paramdef>
+        <paramdef>const char **<parameter>exe</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_creds_get_cmdline</function></funcdef>
+        <paramdef>sd_bus_creds* <parameter>c</parameter></paramdef>
+        <paramdef>char ***<parameter>cmdline</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_creds_get_cgroup</function></funcdef>
+        <paramdef>sd_bus_creds* <parameter>c</parameter></paramdef>
+        <paramdef>const char **<parameter>cgroup</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_creds_get_unit</function></funcdef>
+        <paramdef>sd_bus_creds* <parameter>c</parameter></paramdef>
+        <paramdef>const char **<parameter>unit</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_creds_get_user_unit</function></funcdef>
+        <paramdef>sd_bus_creds* <parameter>c</parameter></paramdef>
+        <paramdef>const char **<parameter>unit</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_creds_get_slice</function></funcdef>
+        <paramdef>sd_bus_creds* <parameter>c</parameter></paramdef>
+        <paramdef>const char **<parameter>slice</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_creds_get_session</function></funcdef>
+        <paramdef>sd_bus_creds* <parameter>c</parameter></paramdef>
+        <paramdef>const char **<parameter>slice</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_creds_get_owner_uid</function></funcdef>
+        <paramdef>sd_bus_creds* <parameter>c</parameter></paramdef>
+        <paramdef>uid_t *<parameter>uid</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_creds_has_effective_cap</function></funcdef>
+        <paramdef>sd_bus_creds* <parameter>c</parameter></paramdef>
+        <paramdef>int <parameter>capability</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_creds_has_permitted_cap</function></funcdef>
+        <paramdef>sd_bus_creds* <parameter>c</parameter></paramdef>
+        <paramdef>int <parameter>capability</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_creds_has_inheritable_cap</function></funcdef>
+        <paramdef>sd_bus_creds* <parameter>c</parameter></paramdef>
+        <paramdef>int <parameter>capability</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_creds_has_bounding_cap</function></funcdef>
+        <paramdef>sd_bus_creds* <parameter>c</parameter></paramdef>
+        <paramdef>int <parameter>capability</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_creds_get_selinux_context</function></funcdef>
+        <paramdef>sd_bus_creds* <parameter>c</parameter></paramdef>
+        <paramdef>const char **<parameter>context</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_creds_get_audit_session_id</function></funcdef>
+        <paramdef>sd_bus_creds* <parameter>c</parameter></paramdef>
+        <paramdef>uint32_t *<parameter>sessionid</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_creds_get_audit_login_uid</function></funcdef>
+        <paramdef>sd_bus_creds* <parameter>c</parameter></paramdef>
+        <paramdef>uid_t *<parameter>loginuid</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_creds_get_unique_name</function></funcdef>
+        <paramdef>sd_bus_creds* <parameter>c</parameter></paramdef>
+        <paramdef>const char **<parameter>name</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_creds_get_well_known_names</function></funcdef>
+        <paramdef>sd_bus_creds* <parameter>c</parameter></paramdef>
+        <paramdef>char ***<parameter>name</parameter></paramdef>
+      </funcprototype>
+
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>Those functions return information from an
+    <parameter>sd_bus_creds</parameter> object. It may be created with
+    <citerefentry><refentrytitle>sd_bus_creds_new_from_pid</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    in which case it will describe the specified process, or it may be
+    created by
+    <citerefentry><refentrytitle>sd_bus_get_peer_creds</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    in which case it will describe the process at the other endpoint
+    of a connection.
+    </para>
+
+    <para><function>sd_bus_creds_get_pid</function> will retrieve the
+    PID (process identifier).</para>
+
+    <para><function>sd_bus_creds_get_pid_starttime</function> will
+    retrieve the time since the start of the epoch in microseconds
+    since the process was started.</para>
+
+    <para><function>sd_bus_creds_get_tid</function> will retrieve the
+    TID (thread identifier).</para>
+
+    <para><function>sd_bus_creds_get_uid</function> will retrieve the
+    UID (user identifier).</para>
+
+    <para><function>sd_bus_creds_get_gid</function> will retrieve the
+    GID (group identifier).</para>
+
+    <para><function>sd_bus_creds_get_comm</function> will retrieve the
+    comm field (name of the executable, as stored in
+    <filename>/proc/<replaceable>pid</replaceable>/comm</filename>).
+    </para>
+
+    <para><function>sd_bus_creds_get_tid_comm</function> will retrieve
+    the comm field of the thread (as stored in
+    <filename>/proc/<replaceable>pid</replaceable>/task/<replaceable>tid</replaceable>/comm</filename>).
+    </para>
+
+    <para><function>sd_bus_creds_get_exe</function> will retrieve the
+    path to the program (as stored in the
+    <filename>/proc/<replaceable>pid</replaceable>/exe</filename>
+    link, but with <literal> (deleted)</literal> suffix removed).
+    </para>
+
+    <para><function>sd_bus_creds_get_cmdline</function> will retrieve
+    an array of command-line arguments (as stored in
+    <filename>/proc/<replaceable>pid</replaceable>/cmdline</filename>).
+    </para>
+
+    <para><function>sd_bus_creds_get_cgroup</function> will retrieve
+    the cgroup path. See <ulink
+    url="https://www.kernel.org/doc/Documentation/cgroups/cgroups.txt">cgroups.txt</ulink>.
+    </para>
+
+    <para><function>sd_bus_creds_get_unit</function> will retrieve the
+    systemd unit name (in the system instance of systemd) that the
+    process is part of. See
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    </para>
+
+    <para><function>sd_bus_creds_get_user_unit</function> will
+    retrieve the systemd unit name (in the user instance of systemd)
+    that the process is part of. See
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    </para>
+
+    <para><function>sd_bus_creds_get_slice</function> will retrieve
+    the systemd slice (a unit in the system instance of systemd) that
+    the process is part of. See
+    <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    </para>
+
+    <para><function>sd_bus_creds_get_session</function> will retrieve
+    the logind session that the process is part of. See
+    <citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+    </para>
+
+    <para><function>sd_bus_creds_get_owner_uid</function> will retrieve
+    the UID (user identifier) of the user who owns the slice
+    that the process is part of. See
+    <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    <!-- and
+    <citerefentry><refentrytitle>systemd-user-sessions.service</refentrytitle><manvolnum>8</manvolnum></citerefentry> -->.
+    </para>
+
+    <para><function>sd_bus_creds_has_effective_cap</function> will
+    check whether all of the capabilities specified by
+    <parameter>capability</parameter> were set in the effective
+    capabilities mask. A positive return value means that they were
+    set, zero means that they were not set, and a negative return
+    value signifies an error. See
+    <citerefentry><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    and <varname>Capabilities=</varname> and
+    <varname>CapabilityBoundingSet=</varname> settings in
+    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    </para>
+
+    <para><function>sd_bus_creds_has_permitted_cap</function> is
+    similar to <function>sd_bus_creds_has_effective_cap</function>,
+    but will check the permitted capabilities mask.</para>
+
+    <para><function>sd_bus_creds_has_inheritable_cap</function> is
+    similar to <function>sd_bus_creds_has_effective_cap</function>,
+    but will check the inheritable capabilities mask.</para>
+
+    <para><function>sd_bus_creds_has_bounding_cap</function> is
+    similar to <function>sd_bus_creds_has_effective_cap</function>,
+    but will check the bounding capabilities mask.</para>
+
+    <para><function>sd_bus_creds_get_selinux_context</function> will
+    retrieve the SELinux context of the process.</para>
+
+    <para><function>sd_bus_creds_get_audit_session_id</function> will
+    retrieve the audit session identifier of the process.</para>
+
+    <para><function>sd_bus_creds_get_audit_login_uid</function> will
+    retrieve the audit user login identifier (the identifier of the
+    user who is "responsible" for the session).</para>
+
+    <para><function>sd_bus_creds_get_unique_name</function> will
+    retrieve the D-Bus unique name. See <ulink
+    url="http://dbus.freedesktop.org/doc/dbus-specification.html#message-protocol-names-bus">The
+    D-Bus specification</ulink>.</para>
+
+    <para><function>sd_bus_creds_get_well_known_names</function> will
+    retrieve the set of D-Bus well-known names. See <ulink
+    url="http://dbus.freedesktop.org/doc/dbus-specification.html#message-protocol-names-bus">The
+    D-Bus specification</ulink>.</para>
+
+    <para>All functions that take a <parameter>const
+    char**</parameter> parameter will store the answer there as an
+    address of a NUL-terminated string. It will be valid as long as
+    <parameter>c</parameter> remains valid, and should not be freed or
+    modified by the caller.</para>
+
+    <para>All functions that take a <parameter>char***</parameter>
+    parameter will store the answer there as an address of a an array
+    of strings. Each invidividual string is NUL-terminated, and the
+    array is NULL-terminated as a whole. It will be valid as long as
+    <parameter>c</parameter> remains valid, and should not be freed or
+    modified by the caller.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, these calls return 0 or a positive integer. On
+    failure, these calls return a negative errno-style error code.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Errors</title>
+
+    <para>Returned errors may indicate the following problems:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><varname>-ENODATA</varname></term>
+
+        <listitem><para>Given field is not available in
+        <parameter>c</parameter>.</para>
+	</listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>-ENOENT</varname></term>
+
+        <listitem><para>Given field is not specified for the sender.
+        This will be returned by <function>sd_bus_get_unit</function>,
+        <function>sd_bus_get_user_unit</function>,
+        <function>sd_bus_get_slice</function>,
+        <function>sd_bus_get_session</function>, and
+        <function>sd_bus_get_owner_uid</function> if the sender is not
+        part of a systemd system unit, systemd user unit, systemd
+        slice, logind session, or a systemd user session.</para>
+	</listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>-EINVAL</varname></term>
+
+        <listitem><para>Specified pointer parameter is <constant>NULL</constant>.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>-ENOMEM</varname></term>
+
+        <listitem><para>Memory allocation failed.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Notes</title>
+
+    <para><function>sd_bus_open_user()</function> and other functions
+    described here are available as a shared library, which can be
+    compiled and linked to with the
+    <constant>libsystemd-bus</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    file.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>credentials</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>fork</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>execve</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>proc</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.journald-fields</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>

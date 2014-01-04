@@ -20,7 +20,10 @@ MANPAGES += \
 	man/sd-id128.3 \
 	man/sd-journal.3 \
 	man/sd_booted.3 \
+	man/sd_bus_creds_get_pid.3 \
 	man/sd_bus_message_get_cookie.3 \
+	man/sd_bus_new.3 \
+	man/sd_bus_open_user.3 \
 	man/sd_bus_request_name.3 \
 	man/sd_id128_get_machine.3 \
 	man/sd_id128_randomize.3 \
@@ -135,8 +138,38 @@ MANPAGES_ALIAS += \
 	man/init.1 \
 	man/poweroff.8 \
 	man/reboot.8 \
+	man/sd_bus_creds_get_audit_login_uid.3 \
+	man/sd_bus_creds_get_audit_session_id.3 \
+	man/sd_bus_creds_get_cgroup.3 \
+	man/sd_bus_creds_get_cmdline.3 \
+	man/sd_bus_creds_get_comm.3 \
+	man/sd_bus_creds_get_exe.3 \
+	man/sd_bus_creds_get_gid.3 \
+	man/sd_bus_creds_get_owner_uid.3 \
+	man/sd_bus_creds_get_pid_starttime.3 \
+	man/sd_bus_creds_get_selinux_context.3 \
+	man/sd_bus_creds_get_session.3 \
+	man/sd_bus_creds_get_slice.3 \
+	man/sd_bus_creds_get_tid.3 \
+	man/sd_bus_creds_get_tid_comm.3 \
+	man/sd_bus_creds_get_uid.3 \
+	man/sd_bus_creds_get_unique_name.3 \
+	man/sd_bus_creds_get_unit.3 \
+	man/sd_bus_creds_get_user_unit.3 \
+	man/sd_bus_creds_get_well_known_names.3 \
+	man/sd_bus_creds_has_bounding_cap.3 \
+	man/sd_bus_creds_has_effective_cap.3 \
+	man/sd_bus_creds_has_inheritable_cap.3 \
+	man/sd_bus_creds_has_permitted_cap.3 \
+	man/sd_bus_default_system.3 \
+	man/sd_bus_default_user.3 \
 	man/sd_bus_message_get_reply_cookie.3 \
+	man/sd_bus_open_system.3 \
+	man/sd_bus_open_system_container.3 \
+	man/sd_bus_open_system_remote.3 \
+	man/sd_bus_ref.3 \
 	man/sd_bus_release_name.3 \
+	man/sd_bus_unref.3 \
 	man/sd_id128_equal.3 \
 	man/sd_id128_from_string.3 \
 	man/sd_id128_get_boot.3 \
@@ -239,8 +272,38 @@ man/SD_WARNING.3: man/sd-daemon.3
 man/init.1: man/systemd.1
 man/poweroff.8: man/halt.8
 man/reboot.8: man/halt.8
+man/sd_bus_creds_get_audit_login_uid.3: man/sd_bus_creds_get_pid.3
+man/sd_bus_creds_get_audit_session_id.3: man/sd_bus_creds_get_pid.3
+man/sd_bus_creds_get_cgroup.3: man/sd_bus_creds_get_pid.3
+man/sd_bus_creds_get_cmdline.3: man/sd_bus_creds_get_pid.3
+man/sd_bus_creds_get_comm.3: man/sd_bus_creds_get_pid.3
+man/sd_bus_creds_get_exe.3: man/sd_bus_creds_get_pid.3
+man/sd_bus_creds_get_gid.3: man/sd_bus_creds_get_pid.3
+man/sd_bus_creds_get_owner_uid.3: man/sd_bus_creds_get_pid.3
+man/sd_bus_creds_get_pid_starttime.3: man/sd_bus_creds_get_pid.3
+man/sd_bus_creds_get_selinux_context.3: man/sd_bus_creds_get_pid.3
+man/sd_bus_creds_get_session.3: man/sd_bus_creds_get_pid.3
+man/sd_bus_creds_get_slice.3: man/sd_bus_creds_get_pid.3
+man/sd_bus_creds_get_tid.3: man/sd_bus_creds_get_pid.3
+man/sd_bus_creds_get_tid_comm.3: man/sd_bus_creds_get_pid.3
+man/sd_bus_creds_get_uid.3: man/sd_bus_creds_get_pid.3
+man/sd_bus_creds_get_unique_name.3: man/sd_bus_creds_get_pid.3
+man/sd_bus_creds_get_unit.3: man/sd_bus_creds_get_pid.3
+man/sd_bus_creds_get_user_unit.3: man/sd_bus_creds_get_pid.3
+man/sd_bus_creds_get_well_known_names.3: man/sd_bus_creds_get_pid.3
+man/sd_bus_creds_has_bounding_cap.3: man/sd_bus_creds_get_pid.3
+man/sd_bus_creds_has_effective_cap.3: man/sd_bus_creds_get_pid.3
+man/sd_bus_creds_has_inheritable_cap.3: man/sd_bus_creds_get_pid.3
+man/sd_bus_creds_has_permitted_cap.3: man/sd_bus_creds_get_pid.3
+man/sd_bus_default_system.3: man/sd_bus_open_user.3
+man/sd_bus_default_user.3: man/sd_bus_open_user.3
 man/sd_bus_message_get_reply_cookie.3: man/sd_bus_message_get_cookie.3
+man/sd_bus_open_system.3: man/sd_bus_open_user.3
+man/sd_bus_open_system_container.3: man/sd_bus_open_user.3
+man/sd_bus_open_system_remote.3: man/sd_bus_open_user.3
+man/sd_bus_ref.3: man/sd_bus_new.3
 man/sd_bus_release_name.3: man/sd_bus_request_name.3
+man/sd_bus_unref.3: man/sd_bus_new.3
 man/sd_id128_equal.3: man/sd-id128.3
 man/sd_id128_from_string.3: man/sd_id128_to_string.3
 man/sd_id128_get_boot.3: man/sd_id128_get_machine.3
@@ -399,10 +462,100 @@ man/poweroff.html: man/halt.html
 man/reboot.html: man/halt.html
 	$(html-alias)
 
+man/sd_bus_creds_get_audit_login_uid.html: man/sd_bus_creds_get_pid.html
+	$(html-alias)
+
+man/sd_bus_creds_get_audit_session_id.html: man/sd_bus_creds_get_pid.html
+	$(html-alias)
+
+man/sd_bus_creds_get_cgroup.html: man/sd_bus_creds_get_pid.html
+	$(html-alias)
+
+man/sd_bus_creds_get_cmdline.html: man/sd_bus_creds_get_pid.html
+	$(html-alias)
+
+man/sd_bus_creds_get_comm.html: man/sd_bus_creds_get_pid.html
+	$(html-alias)
+
+man/sd_bus_creds_get_exe.html: man/sd_bus_creds_get_pid.html
+	$(html-alias)
+
+man/sd_bus_creds_get_gid.html: man/sd_bus_creds_get_pid.html
+	$(html-alias)
+
+man/sd_bus_creds_get_owner_uid.html: man/sd_bus_creds_get_pid.html
+	$(html-alias)
+
+man/sd_bus_creds_get_pid_starttime.html: man/sd_bus_creds_get_pid.html
+	$(html-alias)
+
+man/sd_bus_creds_get_selinux_context.html: man/sd_bus_creds_get_pid.html
+	$(html-alias)
+
+man/sd_bus_creds_get_session.html: man/sd_bus_creds_get_pid.html
+	$(html-alias)
+
+man/sd_bus_creds_get_slice.html: man/sd_bus_creds_get_pid.html
+	$(html-alias)
+
+man/sd_bus_creds_get_tid.html: man/sd_bus_creds_get_pid.html
+	$(html-alias)
+
+man/sd_bus_creds_get_tid_comm.html: man/sd_bus_creds_get_pid.html
+	$(html-alias)
+
+man/sd_bus_creds_get_uid.html: man/sd_bus_creds_get_pid.html
+	$(html-alias)
+
+man/sd_bus_creds_get_unique_name.html: man/sd_bus_creds_get_pid.html
+	$(html-alias)
+
+man/sd_bus_creds_get_unit.html: man/sd_bus_creds_get_pid.html
+	$(html-alias)
+
+man/sd_bus_creds_get_user_unit.html: man/sd_bus_creds_get_pid.html
+	$(html-alias)
+
+man/sd_bus_creds_get_well_known_names.html: man/sd_bus_creds_get_pid.html
+	$(html-alias)
+
+man/sd_bus_creds_has_bounding_cap.html: man/sd_bus_creds_get_pid.html
+	$(html-alias)
+
+man/sd_bus_creds_has_effective_cap.html: man/sd_bus_creds_get_pid.html
+	$(html-alias)
+
+man/sd_bus_creds_has_inheritable_cap.html: man/sd_bus_creds_get_pid.html
+	$(html-alias)
+
+man/sd_bus_creds_has_permitted_cap.html: man/sd_bus_creds_get_pid.html
+	$(html-alias)
+
+man/sd_bus_default_system.html: man/sd_bus_open_user.html
+	$(html-alias)
+
+man/sd_bus_default_user.html: man/sd_bus_open_user.html
+	$(html-alias)
+
 man/sd_bus_message_get_reply_cookie.html: man/sd_bus_message_get_cookie.html
 	$(html-alias)
 
+man/sd_bus_open_system.html: man/sd_bus_open_user.html
+	$(html-alias)
+
+man/sd_bus_open_system_container.html: man/sd_bus_open_user.html
+	$(html-alias)
+
+man/sd_bus_open_system_remote.html: man/sd_bus_open_user.html
+	$(html-alias)
+
+man/sd_bus_ref.html: man/sd_bus_new.html
+	$(html-alias)
+
 man/sd_bus_release_name.html: man/sd_bus_request_name.html
+	$(html-alias)
+
+man/sd_bus_unref.html: man/sd_bus_new.html
 	$(html-alias)
 
 man/sd_id128_equal.html: man/sd-id128.html
@@ -1112,7 +1265,10 @@ EXTRA_DIST += \
 	man/sd-login.xml \
 	man/sd-readahead.xml \
 	man/sd_booted.xml \
+	man/sd_bus_creds_get_pid.xml \
 	man/sd_bus_message_get_cookie.xml \
+	man/sd_bus_new.xml \
+	man/sd_bus_open_user.xml \
 	man/sd_bus_request_name.xml \
 	man/sd_get_seats.xml \
 	man/sd_id128_get_machine.xml \
