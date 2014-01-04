@@ -101,6 +101,7 @@ enum netname_type{
         NET_PCI,
         NET_USB,
         NET_BCMA,
+        NET_VIRTIO,
 };
 
 struct netnames {
@@ -118,6 +119,8 @@ struct netnames {
         char usb_ports[IFNAMSIZ];
 
         char bcma_core[IFNAMSIZ];
+
+        char virtio_core[IFNAMSIZ];
 };
 
 /* retrieve on-board index number and label from firmware */
@@ -344,6 +347,25 @@ static int names_bcma(struct udev_device *dev, struct netnames *names) {
         return 0;
 }
 
+static int names_virtio(struct udev_device *dev, struct netnames *names) {
+        struct udev_device *virtdev;
+        unsigned int core;
+
+        virtdev = udev_device_get_parent_with_subsystem_devtype(dev, "virtio", NULL);
+        if (!virtdev)
+                return -ENOENT;
+
+        /* core num */
+        if (sscanf(udev_device_get_sysname(virtdev), "virtio%u", &core) != 1)
+                return -EINVAL;
+        /* suppress the common core == 0 */
+        if (core > 0)
+                snprintf(names->virtio_core, sizeof(names->virtio_core), "v%u", core);
+
+        names->type = NET_VIRTIO;
+        return 0;
+}
+
 static int names_mac(struct udev_device *dev, struct netnames *names) {
         const char *s;
         unsigned int i;
@@ -493,6 +515,21 @@ static int builtin_net_id(struct udev_device *dev, int argc, char *argv[], bool 
 
                 if (names.pci_slot[0])
                         if (snprintf(str, sizeof(str), "%s%s%s", prefix, names.pci_slot, names.bcma_core) < (int)sizeof(str))
+                                udev_builtin_add_property(dev, test, "ID_NET_NAME_SLOT", str);
+                goto out;
+        }
+
+        /* virtio bus */
+        err = names_virtio(dev, &names);
+        if (err >= 0 && names.type == NET_VIRTIO) {
+                char str[IFNAMSIZ];
+
+                if (names.pci_path[0])
+                        if (snprintf(str, sizeof(str), "%s%s%s", prefix, names.pci_path, names.virtio_core) < (int)sizeof(str))
+                                udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
+
+                if (names.pci_slot[0])
+                        if (snprintf(str, sizeof(str), "%s%s%s", prefix, names.pci_slot, names.virtio_core) < (int)sizeof(str))
                                 udev_builtin_add_property(dev, test, "ID_NET_NAME_SLOT", str);
                 goto out;
         }
