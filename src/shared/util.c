@@ -359,8 +359,23 @@ int safe_atod(const char *s, double *ret_d) {
         return 0;
 }
 
+static size_t strcspn_escaped(const char *s, const char *reject) {
+        bool escaped = false;
+        size_t n;
+
+        for (n=0; s[n]; n++) {
+                if (escaped)
+                        escaped = false;
+                else if (s[n] == '\\')
+                        escaped = true;
+                else if (strchr(reject, s[n]))
+                        return n;
+        }
+        return n;
+}
+
 /* Split a string into words. */
-char *split(const char *c, size_t *l, const char *separator, char **state) {
+char *split(const char *c, size_t *l, const char *separator, bool quoted, char **state) {
         char *current;
 
         current = *state ? *state : (char*) c;
@@ -369,70 +384,19 @@ char *split(const char *c, size_t *l, const char *separator, char **state) {
                 return NULL;
 
         current += strspn(current, separator);
-        *l = strcspn(current, separator);
-        *state = current+*l;
-
-        return (char*) current;
-}
-
-/* Split a string into words, but consider strings enclosed in '' and
- * "" as words even if they include spaces. */
-char *split_quoted(const char *c, size_t *l, char **state) {
-        const char *current, *e;
-        bool escaped = false;
-
-        assert(c);
-        assert(l);
-        assert(state);
-
-        current = *state ? *state : c;
-
-        current += strspn(current, WHITESPACE);
-
-        if (*current == 0)
+        if (!*current)
                 return NULL;
 
-        else if (*current == '\'') {
-                current ++;
-
-                for (e = current; *e; e++) {
-                        if (escaped)
-                                escaped = false;
-                        else if (*e == '\\')
-                                escaped = true;
-                        else if (*e == '\'')
-                                break;
-                }
-
-                *l = e-current;
-                *state = (char*) (*e == 0 ? e : e+1);
-
-        } else if (*current == '\"') {
-                current ++;
-
-                for (e = current; *e; e++) {
-                        if (escaped)
-                                escaped = false;
-                        else if (*e == '\\')
-                                escaped = true;
-                        else if (*e == '\"')
-                                break;
-                }
-
-                *l = e-current;
-                *state = (char*) (*e == 0 ? e : e+1);
-
+        if (quoted && strchr("\'\"", *current)) {
+                char quotechar = *(current++);
+                *l = strcspn_escaped(current, (char[]){quotechar, '\0'});
+                *state = current+*l+1;
+        } else if (quoted) {
+                *l = strcspn_escaped(current, separator);
+                *state = current+*l;
         } else {
-                for (e = current; *e; e++) {
-                        if (escaped)
-                                escaped = false;
-                        else if (*e == '\\')
-                                escaped = true;
-                        else if (strchr(WHITESPACE, *e))
-                                break;
-                }
-                *l = e-current;
-                *state = (char*) e;
+                *l = strcspn(current, separator);
+                *state = current+*l;
         }
 
         return (char*) current;

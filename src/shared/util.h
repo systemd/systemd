@@ -198,17 +198,22 @@ static inline int safe_atoi64(const char *s, int64_t *ret_i) {
         return safe_atolli(s, (long long int*) ret_i);
 }
 
-char *split(const char *c, size_t *l, const char *separator, char **state);
-char *split_quoted(const char *c, size_t *l, char **state);
+char *split(const char *c, size_t *l, const char *separator, bool quoted, char **state);
 
 #define FOREACH_WORD(word, length, s, state)                            \
-        for ((state) = NULL, (word) = split((s), &(length), WHITESPACE, &(state)); (word); (word) = split((s), &(length), WHITESPACE, &(state)))
+        _FOREACH_WORD(word, length, s, WHITESPACE, false, state)
 
 #define FOREACH_WORD_SEPARATOR(word, length, s, separator, state)       \
-        for ((state) = NULL, (word) = split((s), &(length), (separator), &(state)); (word); (word) = split((s), &(length), (separator), &(state)))
+        _FOREACH_WORD(word, length, s, separator, false, state)
 
 #define FOREACH_WORD_QUOTED(word, length, s, state)                     \
-        for ((state) = NULL, (word) = split_quoted((s), &(length), &(state)); (word); (word) = split_quoted((s), &(length), &(state)))
+        _FOREACH_WORD(word, length, s, WHITESPACE, true, state)
+
+#define FOREACH_WORD_SEPARATOR_QUOTED(word, length, s, separator, state)       \
+        _FOREACH_WORD(word, length, s, separator, true, state)
+
+#define _FOREACH_WORD(word, length, s, separator, quoted, state)        \
+        for ((state) = NULL, (word) = split((s), &(length), (separator), (quoted), &(state)); (word); (word) = split((s), &(length), (separator), (quoted), &(state)))
 
 pid_t get_parent_of_pid(pid_t pid, pid_t *ppid);
 int get_starttime_of_pid(pid_t pid, unsigned long long *st);
