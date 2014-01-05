@@ -86,6 +86,7 @@ Features:
 
 * given that logind now lets PID 1 do all nasty work, we can
   probably reduce the capability set it retains substantially.
+  (we need CAP_SYS_ADMIN for drmSetMaster(), so maybe not worth it)
 
 * btrfs raid assembly: some .device jobs stay stuck in the queue
 
