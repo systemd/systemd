@@ -1101,7 +1101,7 @@ _public_ int sd_bus_open_user(sd_bus **ret) {
 #ifdef ENABLE_KDBUS
                         asprintf(&b->address, KERNEL_USER_BUS_FMT ";" UNIX_USER_BUS_FMT, (unsigned long) getuid(), ee);
 #else
-                        asprintf(&b->address, UNIX_USER_BUS_FMT, (unsigned long) getuid());
+                        asprintf(&b->address, UNIX_USER_BUS_FMT, ee);
 #endif
                 } else {
 #ifdef ENABLE_KDBUS
