@@ -46055,6 +46055,12 @@ usb:v1B5A*
 usb:v1B65*
  ID_VENDOR_FROM_DATABASE=The Hong Kong Standards and Testing Centre Ltd.
 
+usb:v1B71*
+ ID_VENDOR_FROM_DATABASE=Fushicai
+
+usb:v1B71p3002*
+ ID_MODEL_FROM_DATABASE=USBTV007 Video Grabber [EasyCAP]
+
 usb:v1B72*
  ID_VENDOR_FROM_DATABASE=ATERGI TECHNOLOGY CO., LTD.
 
