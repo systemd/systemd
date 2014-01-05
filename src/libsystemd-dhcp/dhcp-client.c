@@ -41,6 +41,7 @@ struct DHCPLease {
         be32_t server_address;
         be32_t subnet_mask;
         be32_t router;
+        be32_t dns;
 };
 
 typedef struct DHCPLease DHCPLease;
@@ -202,6 +203,33 @@ int sd_dhcp_client_get_netmask(sd_dhcp_client *client, struct in_addr *addr)
         case DHCP_STATE_RENEWING:
         case DHCP_STATE_REBINDING:
                 addr->s_addr = client->lease->subnet_mask;
+
+                break;
+        }
+
+        return 0;
+}
+
+int sd_dhcp_client_get_dns(sd_dhcp_client *client, struct in_addr *addr)
+{
+        assert_return(client, -EINVAL);
+        assert_return(addr, -EINVAL);
+
+        switch (client->state) {
+        case DHCP_STATE_INIT:
+        case DHCP_STATE_SELECTING:
+        case DHCP_STATE_INIT_REBOOT:
+        case DHCP_STATE_REBOOTING:
+        case DHCP_STATE_REQUESTING:
+                return -EADDRNOTAVAIL;
+
+        case DHCP_STATE_BOUND:
+        case DHCP_STATE_RENEWING:
+        case DHCP_STATE_REBINDING:
+                if (client->lease->dns)
+                        addr->s_addr = client->lease->dns;
+                else
+                        return -ENOENT;
 
                 break;
         }
@@ -724,6 +752,12 @@ static int client_parse_offer(uint8_t code, uint8_t len, const uint8_t *option,
         case DHCP_OPTION_ROUTER:
                 if (len >= 4)
                         memcpy(&lease->router, option, 4);
+
+                break;
+
+        case DHCP_OPTION_DOMAIN_NAME_SERVER:
+                if (len >= 4)
+                        memcpy(&lease->dns, option, 4);
 
                 break;
 
