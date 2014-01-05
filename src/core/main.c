@@ -599,8 +599,6 @@ static int config_parse_join_controllers(const char *unit,
                         for (a = arg_join_controllers; *a; a++) {
 
                                 if (strv_overlap(*a, l)) {
-                                        char **c;
-
                                         if (strv_extend_strv(&l, *a) < 0) {
                                                 strv_free(l);
                                                 strv_free_free(t);

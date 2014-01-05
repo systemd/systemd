@@ -57,7 +57,6 @@ static void systemd_kmod_log(void *data, int priority, const char *file, int lin
 #pragma GCC diagnostic pop
 
 static int add_modules(const char *p) {
-        char **t;
         _cleanup_strv_free_ char **k = NULL;
 
         k = strv_split(p, ",");

@@ -245,7 +245,6 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_PREFIX: {
                         char *p;
-                        char **l;
 
                         for (p = optarg; *p; p++)
                                 if (*p == '.')
