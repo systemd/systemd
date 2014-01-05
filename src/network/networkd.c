@@ -60,6 +60,13 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 goto out;
 
+
+        /* write out empty resolv.conf to avoid a
+         * dangling symlink */
+        r = manager_update_resolv_conf(m);
+        if (r < 0)
+                goto out;
+
         sd_notify(false,
                   "READY=1\n"
                   "STATUS=Processing requests...");

@@ -19,10 +19,13 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
  ***/
 
+#include <resolv.h>
+
 #include "path-util.h"
 #include "networkd.h"
 #include "libudev-private.h"
 #include "udev-util.h"
+#include "mkdir.h"
 
 const char* const network_dirs[] = {
         "/etc/systemd/network",
@@ -273,6 +276,78 @@ int manager_rtnl_listen(Manager *m) {
         r = sd_rtnl_add_match(m->rtnl, RTM_NEWLINK, &manager_rtnl_process_link, m);
         if (r < 0)
                 return r;
+
+        return 0;
+}
+
+static void append_dns(FILE *f, struct in_addr *dns, unsigned char family, unsigned *count) {
+        char buf[INET6_ADDRSTRLEN];
+        const char *address;
+
+        address = inet_ntop(family, dns, buf, INET6_ADDRSTRLEN);
+        if (!address) {
+                log_warning("Invalid DNS address. Ignoring.");
+                return;
+        }
+
+        if (*count == MAXNS)
+                fputs("# Too many dynamic name servers configured, the "
+                      "following entries will be ignored\n", f);
+
+        fprintf(f, "nameserver %s\n", address);
+
+        (*count) ++;
+}
+
+int manager_update_resolv_conf(Manager *m) {
+        _cleanup_free_ char *temp_path = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        Link *link;
+        Iterator i;
+        unsigned count = 0;
+        int r;
+
+        assert(m);
+
+        r = mkdir_safe_label("/run/systemd/network", 0755, 0, 0);
+        if (r < 0)
+                return r;
+
+        r = fopen_temporary("/run/systemd/network/resolv.conf", &f, &temp_path);
+        if (r < 0)
+                return r;
+
+        fchmod(fileno(f), 0644);
+
+        fputs("# This file is managed by systemd-networkd(8). Do not edit.\n", f);
+
+        HASHMAP_FOREACH(link, m->links, i) {
+                if (link->dhcp) {
+                        struct in_addr **nameservers;
+
+                        r = sd_dhcp_client_get_dns(link->dhcp, &nameservers);
+                        if (r >= 0) {
+                                unsigned j;
+
+                                for (j = 0; nameservers[j]; j++)
+                                        append_dns(f, nameservers[j], AF_INET, &count);
+                        }
+                }
+        }
+
+        HASHMAP_FOREACH(link, m->links, i)
+                if (link->network && link->network->dns)
+                        append_dns(f, &link->network->dns->in_addr.in,
+                                   link->network->dns->family, &count);
+
+        fflush(f);
+
+        if (ferror(f) || rename(temp_path, "/run/systemd/network/resolv.conf") < 0) {
+                r = -errno;
+                unlink("/run/systemd/network/resolv.conf");
+                unlink(temp_path);
+                return r;
+        }
 
         return 0;
 }

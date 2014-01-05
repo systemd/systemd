@@ -88,6 +88,7 @@ struct Network {
 
         LIST_HEAD(Address, static_addresses);
         LIST_HEAD(Route, static_routes);
+        Address *dns;
 
         Hashmap *addresses_by_section;
         Hashmap *routes_by_section;
@@ -157,6 +158,7 @@ struct Link {
 
         Route *dhcp_route;
         Address *dhcp_address;
+        Address *dns;
 
         LinkState state;
 
@@ -194,6 +196,8 @@ int manager_udev_enumerate_links(Manager *m);
 int manager_udev_listen(Manager *m);
 
 int manager_rtnl_listen(Manager *m);
+
+int manager_update_resolv_conf(Manager *m);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 #define _cleanup_manager_free_ _cleanup_(manager_freep)
@@ -257,6 +261,10 @@ int address_drop(Address *address, Link *link, sd_rtnl_message_handler_t callbac
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Address*, address_free);
 #define _cleanup_address_free_ _cleanup_(address_freep)
+
+int config_parse_dns(const char *unit, const char *filename, unsigned line,
+                     const char *section, unsigned section_line, const char *lvalue,
+                     int ltype, const char *rvalue, void *data, void *userdata);
 
 int config_parse_address(const char *unit, const char *filename, unsigned line,
                          const char *section, unsigned section_line, const char *lvalue,

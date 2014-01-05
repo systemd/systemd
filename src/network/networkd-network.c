@@ -144,6 +144,8 @@ void network_free(Network *network) {
 
         free(network->description);
 
+        address_free(network->dns);
+
         while ((route = network->static_routes))
                 route_free(route);
 
@@ -196,6 +198,12 @@ int network_apply(Manager *manager, Network *network, Link *link) {
         r = link_configure(link);
         if (r < 0)
                 return r;
+
+        if (network->dns) {
+                r = manager_update_resolv_conf(manager);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }

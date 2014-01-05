@@ -190,6 +190,43 @@ int address_configure(Address *address, Link *link,
         return 0;
 }
 
+int config_parse_dns(const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        Address **dns = data;
+        _cleanup_address_free_ Address *n = NULL;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = address_new_dynamic(&n);
+        if (r < 0)
+                return r;
+
+        r = net_parse_inaddr(rvalue, &n->family, &n->in_addr);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "DNS address is invalid, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        *dns = n;
+        n = NULL;
+
+        return 0;
+}
+
 int config_parse_address(const char *unit,
                 const char *filename,
                 unsigned line,
