@@ -403,6 +403,14 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       </varlistentry>
 
       <varlistentry>
+        <term><varname>-ENXIO</varname></term>
+
+        <listitem><para>An error occured in parsing cgroup paths.
+        <filename>libsystemd-bus</filename> might be out of sync with
+        the running systemd version.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>-EINVAL</varname></term>
 
         <listitem><para>Specified pointer parameter is <constant>NULL</constant>.

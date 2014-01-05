@@ -1,0 +1,275 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+This file is part of systemd.
+
+Copyright 2014 Zbigniew Jędrzejewski-Szmek
+
+systemd is free software; you can redistribute it and/or modify it
+under the terms of the GNU Lesser General Public License as published by
+the Free Software Foundation; either version 2.1 of the License, or
+(at your option) any later version.
+
+systemd is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public License
+along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="sd_bus_creds_new_from_pid">
+
+  <refentryinfo>
+    <title>sd_bus_creds_new_from_pid</title>
+    <productname>systemd</productname>
+
+    <authorgroup>
+      <author>
+        <contrib>A monkey with a typewriter</contrib>
+        <firstname>Zbigniew</firstname>
+        <surname>Jędrzejewski-Szmek</surname>
+        <email>zbyszek@in.waw.pl</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_bus_creds_new_from_pid</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_bus_creds_new_from_pid</refname>
+    <refname>sd_bus_creds_get_mask</refname>
+    <refname>sd_bus_creds_ref</refname>
+    <refname>sd_bus_creds_unref</refname>
+
+    <refpurpose>Retrieve credentials object for the specified PID</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_creds_new_from_pid</function></funcdef>
+        <paramdef>pid_t <parameter>pid</parameter></paramdef>
+        <paramdef>uint64_t <parameter>creds_mask</parameter></paramdef>
+        <paramdef>sd_bus_creds** <parameter>ret</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>uint64_t <function>sd_bus_creds_get_mask</function></funcdef>
+        <paramdef>const sd_bus_creds* <parameter>c</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>sd_bus_creds* <function>sd_bus_creds_ref</function></funcdef>
+        <paramdef>sd_bus_creds* <parameter>c</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>sd_bus_creds* <function>sd_bus_creds_unref</function></funcdef>
+        <paramdef>sd_bus_creds* <parameter>c</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+
+    <para>
+      <constant>SD_BUS_CREDS_PID</constant>,
+      <constant>SD_BUS_CREDS_PID_STARTTIME</constant>,
+      <constant>SD_BUS_CREDS_TID</constant>,
+      <constant>SD_BUS_CREDS_UID</constant>,
+      <constant>SD_BUS_CREDS_GID</constant>,
+      <constant>SD_BUS_CREDS_COMM</constant>,
+      <constant>SD_BUS_CREDS_TID_COMM</constant>,
+      <constant>SD_BUS_CREDS_EXE</constant>,
+      <constant>SD_BUS_CREDS_CMDLINE</constant>,
+      <constant>SD_BUS_CREDS_CGROUP</constant>,
+      <constant>SD_BUS_CREDS_UNIT</constant>,
+      <constant>SD_BUS_CREDS_USER_UNIT</constant>,
+      <constant>SD_BUS_CREDS_SLICE</constant>,
+      <constant>SD_BUS_CREDS_SESSION</constant>,
+      <constant>SD_BUS_CREDS_OWNER_UID</constant>,
+      <constant>SD_BUS_CREDS_EFFECTIVE_CAPS</constant>,
+      <constant>SD_BUS_CREDS_PERMITTED_CAPS</constant>,
+      <constant>SD_BUS_CREDS_INHERITABLE_CAPS</constant>,
+      <constant>SD_BUS_CREDS_BOUNDING_CAPS</constant>,
+      <constant>SD_BUS_CREDS_SELINUX_CONTEXT</constant>,
+      <constant>SD_BUS_CREDS_AUDIT_SESSION_ID</constant>,
+      <constant>SD_BUS_CREDS_AUDIT_LOGIN_UID</constant>,
+      <constant>SD_BUS_CREDS_UNIQUE_NAME</constant>,
+      <constant>SD_BUS_CREDS_WELL_KNOWN_NAMES</constant>,
+      <constant>_SD_BUS_CREDS_ALL</constant>
+    </para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_bus_creds_new_from_pid()</function> creates a new
+    credentials object and fills it with information about the process
+    <parameter>pid</parameter>. This pointer to this object will
+    be stored in <parameter>ret</parameter> pointer.</para>
+
+    <para>The information that will be stored is determined by
+    <parameter>creds_mask</parameter>. It may contain a subset of ORed
+    constants <constant>SD_BUS_CREDS_PID</constant>,
+    <constant>SD_BUS_CREDS_PID_STARTTIME</constant>,
+    <constant>SD_BUS_CREDS_TID</constant>,
+    <constant>SD_BUS_CREDS_UID</constant>,
+    <constant>SD_BUS_CREDS_GID</constant>,
+    <constant>SD_BUS_CREDS_COMM</constant>,
+    <constant>SD_BUS_CREDS_TID_COMM</constant>,
+    <constant>SD_BUS_CREDS_EXE</constant>,
+    <constant>SD_BUS_CREDS_CMDLINE</constant>,
+    <constant>SD_BUS_CREDS_CGROUP</constant>,
+    <constant>SD_BUS_CREDS_UNIT</constant>,
+    <constant>SD_BUS_CREDS_USER_UNIT</constant>,
+    <constant>SD_BUS_CREDS_SLICE</constant>,
+    <constant>SD_BUS_CREDS_SESSION</constant>,
+    <constant>SD_BUS_CREDS_OWNER_UID</constant>,
+    <constant>SD_BUS_CREDS_EFFECTIVE_CAPS</constant>,
+    <constant>SD_BUS_CREDS_PERMITTED_CAPS</constant>,
+    <constant>SD_BUS_CREDS_INHERITABLE_CAPS</constant>,
+    <constant>SD_BUS_CREDS_BOUNDING_CAPS</constant>,
+    <constant>SD_BUS_CREDS_SELINUX_CONTEXT</constant>,
+    <constant>SD_BUS_CREDS_AUDIT_SESSION_ID</constant>,
+    <constant>SD_BUS_CREDS_AUDIT_LOGIN_UID</constant>,
+    <constant>SD_BUS_CREDS_UNIQUE_NAME</constant>,
+    <constant>SD_BUS_CREDS_WELL_KNOWN_NAMES</constant>,
+    or <constant>_SD_BUS_CREDS_ALL</constant> to indicate
+    all known fields.</para>
+
+    <para>Fields can be retrieved from the credentials object using
+    <citerefentry><refentrytitle>sd_bus_creds_get_pid</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    and other functions which correspond directly to the constants
+    listed above.</para>
+
+    <para>A mask of fields which were actually sucessfully set
+    (acquired from <filename>/proc</filename>, etc.) can be retrieved
+    with <function>sd_bus_creds_get_mask()</function>. If the
+    credentials object was created with
+    <function>sd_bus_creds_new_from_pid()</function>, this will be a
+    subset of fields requested in <parameter>creds_mask</parameter>.
+    </para>
+
+    <para><function>sd_bus_creds_ref</function> creates a new
+    reference to the credentials object <parameter>c</parameter>. This
+    object will not be destroyed until
+    <function>sd_bus_creds_unref</function> has been called as many
+    times plus once more. Once the reference count has dropped to zero,
+    <parameter>c</parameter> cannot be used anymore, so futher
+    calls to <function>sd_bus_creds_ref(c)</function> or
+    <function>sd_bus_creds_unref(c)</function> are illegal.</para>
+
+    <para><function>sd_bus_creds_unref</function> destroys a reference
+    to <parameter>c</parameter>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, <function>sd_bus_creds_new_from_pid()</function>
+    returns 0 or a positive integer. On failure, it returns a negative
+    errno-style error code.</para>
+
+    <para><function>sd_bus_creds_get_mask()</function> returns the
+    mask of successfully acquired fields.</para>
+
+    <para><function>sd_bus_creds_ref</function> always returns the
+    argument.</para>
+
+    <para><function>sd_bus_creds_unref</function> always returns
+    <constant>NULL</constant>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Reference ownership</title>
+
+    <para>Function <function>sd_bus_creds_new_from_pid()</function>
+    creates a new object and the caller owns the sole reference. When
+    not needed anymore, this reference should be destroyed with
+    <citerefentry><refentrytitle>sd_bus_creds_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Errors</title>
+
+    <para>Returned errors may indicate the following problems:</para>
+
+    <variablelist>
+
+      <varlistentry>
+        <term><varname>-ESRCH</varname></term>
+
+        <listitem><para>Specified <parameter>pid</parameter> could not
+        be found.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>-EINVAL</varname></term>
+
+        <listitem><para>Specified parameter is invalid
+        (<constant>NULL</constant> in case of output
+        parameters).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>-ENOMEM</varname></term>
+
+        <listitem><para>Memory allocation failed.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Notes</title>
+
+    <para><function>sd_bus_creds_new_from_pid()</function> is
+    available as a shared library, which can be compiled and linked to
+    with the
+    <constant>libsystemd-bus</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    file.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_creds_ref</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_creds_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_creds_get_pid</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_creds_get_pid_starttime</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_creds_get_tid</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_creds_get_uid</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_creds_get_gid</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_creds_get_comm</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_creds_get_tid_comm</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_creds_get_exe</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_creds_get_cmdline</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_creds_get_cgroup</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_creds_get_unit</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_creds_get_user_unit</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_creds_get_slice</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_creds_get_session</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_creds_get_owner_uid</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_creds_has_effective_cap</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_creds_has_permitted_cap</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_creds_has_inheritable_cap</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_creds_has_bounding_cap</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_creds_get_selinux_context</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_creds_get_audit_session_id</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_creds_get_audit_login_uid</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_creds_get_unique_name</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_creds_get_well_known_names</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>

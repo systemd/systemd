@@ -87,7 +87,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     further calls to <function>sd_bus_ref()</function> or
     <function>sd_bus_unref()</function> are illegal.</para>
 
-    <para><function>sd_bus_unref()</function> destroyes a reference to
+    <para><function>sd_bus_unref()</function> destroys a reference to
     <parameter>bus</parameter>.</para>
   </refsect1>
 

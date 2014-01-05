@@ -105,7 +105,7 @@ _public_ sd_bus_creds *sd_bus_creds_unref(sd_bus_creds *c) {
         return NULL;
 }
 
-_public_ uint64_t sd_bus_creds_get_mask(sd_bus_creds *c) {
+_public_ uint64_t sd_bus_creds_get_mask(const sd_bus_creds *c) {
         assert_return(c, 0);
 
         return c->mask;

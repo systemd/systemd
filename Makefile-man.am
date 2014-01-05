@@ -21,6 +21,7 @@ MANPAGES += \
 	man/sd-journal.3 \
 	man/sd_booted.3 \
 	man/sd_bus_creds_get_pid.3 \
+	man/sd_bus_creds_new_from_pid.3 \
 	man/sd_bus_message_get_cookie.3 \
 	man/sd_bus_new.3 \
 	man/sd_bus_open_user.3 \
@@ -145,6 +146,7 @@ MANPAGES_ALIAS += \
 	man/sd_bus_creds_get_comm.3 \
 	man/sd_bus_creds_get_exe.3 \
 	man/sd_bus_creds_get_gid.3 \
+	man/sd_bus_creds_get_mask.3 \
 	man/sd_bus_creds_get_owner_uid.3 \
 	man/sd_bus_creds_get_pid_starttime.3 \
 	man/sd_bus_creds_get_selinux_context.3 \
@@ -161,6 +163,8 @@ MANPAGES_ALIAS += \
 	man/sd_bus_creds_has_effective_cap.3 \
 	man/sd_bus_creds_has_inheritable_cap.3 \
 	man/sd_bus_creds_has_permitted_cap.3 \
+	man/sd_bus_creds_ref.3 \
+	man/sd_bus_creds_unref.3 \
 	man/sd_bus_default_system.3 \
 	man/sd_bus_default_user.3 \
 	man/sd_bus_message_get_reply_cookie.3 \
@@ -279,6 +283,7 @@ man/sd_bus_creds_get_cmdline.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_comm.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_exe.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_gid.3: man/sd_bus_creds_get_pid.3
+man/sd_bus_creds_get_mask.3: man/sd_bus_creds_new_from_pid.3
 man/sd_bus_creds_get_owner_uid.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_pid_starttime.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_selinux_context.3: man/sd_bus_creds_get_pid.3
@@ -295,6 +300,8 @@ man/sd_bus_creds_has_bounding_cap.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_has_effective_cap.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_has_inheritable_cap.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_has_permitted_cap.3: man/sd_bus_creds_get_pid.3
+man/sd_bus_creds_ref.3: man/sd_bus_creds_new_from_pid.3
+man/sd_bus_creds_unref.3: man/sd_bus_creds_new_from_pid.3
 man/sd_bus_default_system.3: man/sd_bus_open_user.3
 man/sd_bus_default_user.3: man/sd_bus_open_user.3
 man/sd_bus_message_get_reply_cookie.3: man/sd_bus_message_get_cookie.3
@@ -483,6 +490,9 @@ man/sd_bus_creds_get_exe.html: man/sd_bus_creds_get_pid.html
 man/sd_bus_creds_get_gid.html: man/sd_bus_creds_get_pid.html
 	$(html-alias)
 
+man/sd_bus_creds_get_mask.html: man/sd_bus_creds_new_from_pid.html
+	$(html-alias)
+
 man/sd_bus_creds_get_owner_uid.html: man/sd_bus_creds_get_pid.html
 	$(html-alias)
 
@@ -529,6 +539,12 @@ man/sd_bus_creds_has_inheritable_cap.html: man/sd_bus_creds_get_pid.html
 	$(html-alias)
 
 man/sd_bus_creds_has_permitted_cap.html: man/sd_bus_creds_get_pid.html
+	$(html-alias)
+
+man/sd_bus_creds_ref.html: man/sd_bus_creds_new_from_pid.html
+	$(html-alias)
+
+man/sd_bus_creds_unref.html: man/sd_bus_creds_new_from_pid.html
 	$(html-alias)
 
 man/sd_bus_default_system.html: man/sd_bus_open_user.html
@@ -1266,6 +1282,7 @@ EXTRA_DIST += \
 	man/sd-readahead.xml \
 	man/sd_booted.xml \
 	man/sd_bus_creds_get_pid.xml \
+	man/sd_bus_creds_new_from_pid.xml \
 	man/sd_bus_message_get_cookie.xml \
 	man/sd_bus_new.xml \
 	man/sd_bus_open_user.xml \
