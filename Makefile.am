@@ -1921,10 +1921,8 @@ dist_systemunit_DATA += \
 	units/systemd-bus-proxyd.socket
 
 dist_userunit_DATA += \
-	units/user/systemd-bus-proxyd.socket
-
-USER_UNIT_ALIASES += \
-	$(systemunitdir)/systemd-bus-proxyd@.service systemd-bus-proxyd@.service
+	units/user/systemd-bus-proxyd.socket \
+	units/user/systemd-bus-proxyd@.service
 endif
 
 EXTRA_DIST += \
