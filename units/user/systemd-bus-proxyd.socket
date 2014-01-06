@@ -10,3 +10,4 @@ Description=Legacy D-Bus Protocol Compatibility Socket
 
 [Socket]
 ListenStream=%t/bus
+Accept=yes
