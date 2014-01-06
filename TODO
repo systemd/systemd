@@ -127,6 +127,8 @@ Features:
        - "const" properties (posted)
   - port exit-on-idle logic to byebye ioctl
   - make use of "drop" ioctl in pid 1 bus activation
+  - bus proxy: override unique id sender for messages from driver to match the well-known name
+  - bus driver: GetNameOwner() for "org.freedesktop.DBus" should return "org.freedesktop.DBus"
 
 * sd-event
   - allow multiple signal handlers per signal?
