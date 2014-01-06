@@ -41,7 +41,7 @@ struct DHCPLease {
         be32_t server_address;
         be32_t subnet_mask;
         be32_t router;
-        be32_t dns;
+        struct in_addr **dns;
 };
 
 typedef struct DHCPLease DHCPLease;
@@ -210,7 +210,7 @@ int sd_dhcp_client_get_netmask(sd_dhcp_client *client, struct in_addr *addr)
         return 0;
 }
 
-int sd_dhcp_client_get_dns(sd_dhcp_client *client, struct in_addr *addr)
+int sd_dhcp_client_get_dns(sd_dhcp_client *client, struct in_addr ***addr)
 {
         assert_return(client, -EINVAL);
         assert_return(addr, -EINVAL);
@@ -227,7 +227,7 @@ int sd_dhcp_client_get_dns(sd_dhcp_client *client, struct in_addr *addr)
         case DHCP_STATE_RENEWING:
         case DHCP_STATE_REBINDING:
                 if (client->lease->dns)
-                        addr->s_addr = client->lease->dns;
+                        *addr = client->lease->dns;
                 else
                         return -ENOENT;
 
@@ -285,6 +285,18 @@ static int client_notify(sd_dhcp_client *client, int event)
         return 0;
 }
 
+static void in_addrs_free(struct in_addr **addrs) {
+        unsigned i;
+
+        if (!addrs)
+                return;
+
+        for (i = 0; addrs[i]; i++)
+                free(addrs[i]);
+
+        free(addrs);
+}
+
 static int client_stop(sd_dhcp_client *client, int error)
 {
         assert_return(client, -EINVAL);
@@ -326,6 +338,7 @@ static int client_stop(sd_dhcp_client *client, int error)
         }
 
         if (client->lease) {
+                in_addrs_free(client->lease->dns);
                 free(client->lease);
                 client->lease = NULL;
         }
@@ -756,8 +769,22 @@ static int client_parse_offer(uint8_t code, uint8_t len, const uint8_t *option,
                 break;
 
         case DHCP_OPTION_DOMAIN_NAME_SERVER:
-                if (len >= 4)
-                        memcpy(&lease->dns, option, 4);
+                if (len >= 4) {
+                        unsigned i;
+
+                        in_addrs_free(lease->dns);
+
+                        lease->dns = new0(struct in_addr*, len / 4 + 1);
+                        if (!lease->dns)
+                                return -ENOMEM;
+
+                        for (i = 0; i < len / 4; i++) {
+                                lease->dns[i] = new0(struct in_addr, 1);
+                                memcpy(&lease->dns[i]->s_addr, option + 4 * i, 4);
+                        }
+
+                        lease->dns[i + 1] = NULL;
+                }
 
                 break;
 
