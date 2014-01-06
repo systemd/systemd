@@ -1378,12 +1378,13 @@ static int mount_add_one(
                 const char *options,
                 const char *fstype,
                 bool set_flags) {
-        int r;
-        Unit *u;
-        bool delete;
-        char *e, *w = NULL, *o = NULL, *f = NULL;
-        MountParameters *p;
+
+        _cleanup_free_ char *e = NULL, *w = NULL, *o = NULL, *f = NULL;
         bool load_extras = false;
+        MountParameters *p;
+        bool delete;
+        Unit *u;
+        int r;
 
         assert(m);
         assert(what);
@@ -1409,20 +1410,13 @@ static int mount_add_one(
 
         u = manager_get_unit(m, e);
         if (!u) {
-                const char* const target =
-                        fstype_is_network(fstype) ? SPECIAL_REMOTE_FS_TARGET : SPECIAL_LOCAL_FS_TARGET;
-
                 delete = true;
 
                 u = unit_new(m, sizeof(Mount));
-                if (!u) {
-                        free(e);
+                if (!u)
                         return -ENOMEM;
-                }
 
                 r = unit_add_name(u, e);
-                free(e);
-
                 if (r < 0)
                         goto fail;
 
@@ -1438,20 +1432,26 @@ static int mount_add_one(
                         goto fail;
                 }
 
-                r = unit_add_dependency_by_name(u, UNIT_BEFORE, target, NULL, true);
-                if (r < 0)
-                        goto fail;
 
-                if (should_umount(MOUNT(u))) {
-                        r = unit_add_dependency_by_name(u, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true);
+                if (m->running_as == SYSTEMD_SYSTEM) {
+                        const char* target;
+
+                        target = fstype_is_network(fstype) ? SPECIAL_REMOTE_FS_TARGET : SPECIAL_LOCAL_FS_TARGET;
+
+                        r = unit_add_dependency_by_name(u, UNIT_BEFORE, target, NULL, true);
                         if (r < 0)
                                 goto fail;
+
+                        if (should_umount(MOUNT(u))) {
+                                r = unit_add_dependency_by_name(u, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true);
+                                if (r < 0)
+                                        goto fail;
+                        }
                 }
 
                 unit_add_to_load_queue(u);
         } else {
                 delete = false;
-                free(e);
 
                 if (!MOUNT(u)->where) {
                         MOUNT(u)->where = strdup(where);
@@ -1489,12 +1489,15 @@ static int mount_add_one(
 
         free(p->what);
         p->what = w;
+        w = NULL;
 
         free(p->options);
         p->options = o;
+        o = NULL;
 
         free(p->fstype);
         p->fstype = f;
+        f = NULL;
 
         if (load_extras) {
                 r = mount_add_extras(MOUNT(u));
@@ -1507,10 +1510,6 @@ static int mount_add_one(
         return 0;
 
 fail:
-        free(w);
-        free(o);
-        free(f);
-
         if (delete && u)
                 unit_free(u);
 
