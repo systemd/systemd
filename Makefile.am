@@ -667,6 +667,35 @@ tests += \
 
 # ------------------------------------------------------------------------------
 noinst_LTLIBRARIES += \
+	libsystemd-dns.la
+
+libsystemd_dns_la_SOURCES = \
+	src/systemd/sd-dns.h \
+	src/libsystemd-bus/sd-dns.c \
+	src/libsystemd-bus/dns-util.h
+
+libsystemd_dns_la_LIBADD = \
+	libsystemd-shared.la
+
+libsystemd_dns_la_CFLAGS = \
+	-pthread
+
+test_dns_SOURCES = \
+	src/libsystemd-bus/test-dns.c \
+	src/systemd/sd-dns.h
+
+test_dns_LDADD = \
+	libsystemd-dns.la
+
+test_dns_LDFLAGS = \
+	-lresolv \
+	-pthread
+
+tests += \
+	 test-dns
+
+# ------------------------------------------------------------------------------
+noinst_LTLIBRARIES += \
 	libsystemd-shared.la
 
 libsystemd_shared_la_SOURCES = \
