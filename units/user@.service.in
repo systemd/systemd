@@ -6,17 +6,12 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=User Manager for %I
+Description=User Manager for %i
 After=systemd-user-sessions.service
 
 [Service]
-User=%I
+User=%i
 PAMName=systemd-user
 Type=notify
 ExecStart=-@rootlibexecdir@/systemd --user
-m4_ifdef(`ENABLE_KDBUS',
-Environment=DBUS_SESSION_BUS_ADDRESS=kernel:path=/dev/kdbus/%I-user/bus;unix:path=/run/user/%I/bus
-,m4_dnl
-Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/%I/bus
-)m4_dnl
 Slice=user-%i.slice
