@@ -6,8 +6,8 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Default
+Description=Basic System
 Documentation=man:systemd.special(7)
-Requires=basic.target
-After=basic.target
-AllowIsolate=yes
+Wants=sockets.target timers.target paths.target
+After=sockets.target timers.target paths.target
+RefuseManualStart=yes

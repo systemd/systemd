@@ -1138,28 +1138,10 @@ static int service_add_default_dependencies(Service *s) {
          * majority of services. */
 
         /* First, pull in base system */
-        if (UNIT(s)->manager->running_as == SYSTEMD_SYSTEM) {
-                r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_AFTER, UNIT_REQUIRES,
-                                                      SPECIAL_BASIC_TARGET, NULL, true);
-                if (r < 0)
-                        return r;
-
-        } else if (UNIT(s)->manager->running_as == SYSTEMD_USER) {
-                r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_AFTER, UNIT_REQUIRES,
-                                                      SPECIAL_SOCKETS_TARGET, NULL, true);
-                if (r < 0)
-                        return r;
-
-                r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_AFTER, UNIT_REQUIRES,
-                                                      SPECIAL_TIMERS_TARGET, NULL, true);
-                if (r < 0)
-                        return r;
-
-                r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_AFTER, UNIT_REQUIRES,
-                                                      SPECIAL_PATHS_TARGET, NULL, true);
-                if (r < 0)
-                        return r;
-        }
+        r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_AFTER, UNIT_REQUIRES,
+                                              SPECIAL_BASIC_TARGET, NULL, true);
+        if (r < 0)
+                return r;
 
         /* Second, activate normal shutdown */
         r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS,

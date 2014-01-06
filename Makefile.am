@@ -460,6 +460,7 @@ nodist_systemunit_DATA = \
 	units/systemd-nspawn@.service
 
 dist_userunit_DATA = \
+	units/user/basic.target \
 	units/user/default.target \
 	units/user/exit.target
 
