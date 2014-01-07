@@ -90,7 +90,7 @@ static int execute(char **modes, char **states) {
         const char* note = strappenda("SLEEP=", arg_verb);
 
         /* This file is opened first, so that if we hit an error,
-         * we can abort before modyfing any state. */
+         * we can abort before modifying any state. */
         f = fopen("/sys/power/state", "we");
         if (!f) {
                 log_error("Failed to open /sys/power/state: %m");
