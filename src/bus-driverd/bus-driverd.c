@@ -51,6 +51,7 @@
 #include "def.h"
 #include "unit-name.h"
 #include "bus-control.h"
+#include "cgroup-util.h"
 
 #define CLIENTS_MAX 1024
 #define MATCHES_MAX 1024
@@ -748,7 +749,11 @@ static int connect_bus(Context *c) {
 
         assert(c);
 
-        r = sd_bus_default_system(&c->bus);
+        r = cg_pid_get_owner_uid(0, NULL);
+        if (r < 0)
+                r = sd_bus_default_system(&c->bus);
+        else
+                r = sd_bus_default_user(&c->bus);
         if (r < 0) {
                 log_error("Failed to create bus: %s", strerror(-r));
                 return r;
@@ -828,5 +833,4 @@ finish:
         sd_event_unref(context.event);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
-
 }

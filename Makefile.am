@@ -221,6 +221,8 @@ SYSINIT_TARGET_WANTS =
 SOCKETS_TARGET_WANTS =
 BUSNAMES_TARGET_WANTS =
 TIMERS_TARGET_WANTS =
+USER_SOCKETS_TARGET_WANTS =
+USER_BUSNAMES_TARGET_WANTS =
 
 SYSTEM_UNIT_ALIASES =
 USER_UNIT_ALIASES =
@@ -228,23 +230,25 @@ USER_UNIT_ALIASES =
 GENERAL_ALIASES =
 
 install-target-wants-hook:
-	what="$(RUNLEVEL1_TARGET_WANTS)" && wants=runlevel1.target && $(add-wants)
-	what="$(RUNLEVEL2_TARGET_WANTS)" && wants=runlevel2.target && $(add-wants)
-	what="$(RUNLEVEL3_TARGET_WANTS)" && wants=runlevel3.target && $(add-wants)
-	what="$(RUNLEVEL4_TARGET_WANTS)" && wants=runlevel4.target && $(add-wants)
-	what="$(RUNLEVEL5_TARGET_WANTS)" && wants=runlevel5.target && $(add-wants)
-	what="$(SHUTDOWN_TARGET_WANTS)" && wants=shutdown.target && $(add-wants)
-	what="$(LOCAL_FS_TARGET_WANTS)" && wants=local-fs.target && $(add-wants)
-	what="$(MULTI_USER_TARGET_WANTS)" && wants=multi-user.target && $(add-wants)
-	what="$(SYSINIT_TARGET_WANTS)" && wants=sysinit.target && $(add-wants)
-	what="$(SOCKETS_TARGET_WANTS)" && wants=sockets.target && $(add-wants)
-	what="$(BUSNAMES_TARGET_WANTS)" && wants=busnames.target && $(add-wants)
-	what="$(TIMERS_TARGET_WANTS)" && wants=timers.target && $(add-wants)
-	what="$(SLICES_TARGET_WANTS)" && wants=slices.target && $(add-wants)
+	what="$(RUNLEVEL1_TARGET_WANTS)" && wants=runlevel1.target && dir=$(systemunitdir) && $(add-wants)
+	what="$(RUNLEVEL2_TARGET_WANTS)" && wants=runlevel2.target && dir=$(systemunitdir) && $(add-wants)
+	what="$(RUNLEVEL3_TARGET_WANTS)" && wants=runlevel3.target && dir=$(systemunitdir) && $(add-wants)
+	what="$(RUNLEVEL4_TARGET_WANTS)" && wants=runlevel4.target && dir=$(systemunitdir) && $(add-wants)
+	what="$(RUNLEVEL5_TARGET_WANTS)" && wants=runlevel5.target && dir=$(systemunitdir) && $(add-wants)
+	what="$(SHUTDOWN_TARGET_WANTS)" && wants=shutdown.target && dir=$(systemunitdir) && $(add-wants)
+	what="$(LOCAL_FS_TARGET_WANTS)" && wants=local-fs.target && dir=$(systemunitdir) && $(add-wants)
+	what="$(MULTI_USER_TARGET_WANTS)" && wants=multi-user.target && dir=$(systemunitdir) && $(add-wants)
+	what="$(SYSINIT_TARGET_WANTS)" && wants=sysinit.target && dir=$(systemunitdir) && $(add-wants)
+	what="$(SOCKETS_TARGET_WANTS)" && wants=sockets.target && dir=$(systemunitdir) && $(add-wants)
+	what="$(BUSNAMES_TARGET_WANTS)" && wants=busnames.target && dir=$(systemunitdir) && $(add-wants)
+	what="$(TIMERS_TARGET_WANTS)" && wants=timers.target && dir=$(systemunitdir) && $(add-wants)
+	what="$(SLICES_TARGET_WANTS)" && wants=slices.target && dir=$(systemunitdir) && $(add-wants)
+	what="$(USER_SOCKETS_TARGET_WANTS)" && wants=sockets.target && dir=$(userunitdir) && $(add-wants)
+	what="$(USER_BUSNAMES_TARGET_WANTS)" && wants=busnames.target && dir=$(userunitdir) && $(add-wants)
 
 define add-wants
 	[ -z "$$what" ] || ( \
-	  dir=$(DESTDIR)$(systemunitdir)/$$wants.wants && \
+	  dir=$(DESTDIR)$$dir/$$wants.wants && \
 	  $(MKDIR_P) -m 0755 $$dir && \
 	  cd $$dir && \
 	  rm -f $$what && \
@@ -3752,6 +3756,14 @@ dist_systemunit_DATA += \
 BUSNAMES_TARGET_WANTS += \
 	org.freedesktop.DBus.busname
 
+nodist_userunit_DATA += \
+	units/user/systemd-bus-driverd.service
+
+USER_BUSNAMES_TARGET_WANTS += \
+	org.freedesktop.DBus.busname
+
+USER_UNIT_ALIASES += \
+	$(systemunitdir)/org.freedesktop.DBus.busname org.freedesktop.DBus.busname
 endif
 
 EXTRA_DIST += \
