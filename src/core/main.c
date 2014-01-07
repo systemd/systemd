@@ -50,6 +50,7 @@
 #include "conf-parser.h"
 #include "missing.h"
 #include "label.h"
+#include "pager.h"
 #include "build.h"
 #include "strv.h"
 #include "def.h"
@@ -94,6 +95,7 @@ static int arg_crash_chvt = -1;
 static bool arg_confirm_spawn = false;
 static ShowStatus arg_show_status = _SHOW_STATUS_UNSET;
 static bool arg_switched_root = false;
+static int arg_no_pager = -1;
 static char ***arg_join_controllers = NULL;
 static ExecOutput arg_default_std_output = EXEC_OUTPUT_JOURNAL;
 static ExecOutput arg_default_std_error = EXEC_OUTPUT_INHERIT;
@@ -116,6 +118,14 @@ static bool arg_default_blockio_accounting = false;
 static bool arg_default_memory_accounting = false;
 
 static void nop_handler(int sig) {}
+
+static void pager_open_if_enabled(void) {
+
+        if (arg_no_pager <= 0)
+                return;
+
+        pager_open(false);
+}
 
 noreturn static void crash(int sig) {
 
@@ -704,6 +714,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SYSTEM,
                 ARG_USER,
                 ARG_TEST,
+                ARG_NO_PAGER,
                 ARG_VERSION,
                 ARG_DUMP_CONFIGURATION_ITEMS,
                 ARG_DUMP_CORE,
@@ -725,6 +736,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "system",                   no_argument,       NULL, ARG_SYSTEM                   },
                 { "user",                     no_argument,       NULL, ARG_USER                     },
                 { "test",                     no_argument,       NULL, ARG_TEST                     },
+                { "no-pager",                 no_argument,       NULL, ARG_NO_PAGER                 },
                 { "help",                     no_argument,       NULL, 'h'                          },
                 { "version",                  no_argument,       NULL, ARG_VERSION                  },
                 { "dump-configuration-items", no_argument,       NULL, ARG_DUMP_CONFIGURATION_ITEMS },
@@ -832,6 +844,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_TEST:
                         arg_action = ACTION_TEST;
+                        if (arg_no_pager < 0)
+                                arg_no_pager = true;
+                        break;
+
+                case ARG_NO_PAGER:
+                        arg_no_pager = true;
                         break;
 
                 case ARG_VERSION:
@@ -912,6 +930,8 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'h':
                         arg_action = ACTION_HELP;
+                        if (arg_no_pager < 0)
+                                arg_no_pager = true;
                         break;
 
                 case 'D':
@@ -984,6 +1004,7 @@ static int help(void) {
                "Starts up and maintains the system or user services.\n\n"
                "  -h --help                      Show this help\n"
                "     --test                      Determine startup sequence, dump it and exit\n"
+               "     --no-pager                  Do not pipe output into a pager\n"
                "     --dump-configuration-items  Dump understood unit configuration items\n"
                "     --unit=UNIT                 Set default unit\n"
                "     --system                    Run a system instance, even if PID != 1\n"
@@ -1452,6 +1473,8 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
+        pager_open_if_enabled();
+
         if (arg_action == ACTION_HELP) {
                 retval = help();
                 goto finish;
@@ -1798,6 +1821,8 @@ int main(int argc, char *argv[]) {
         }
 
 finish:
+        pager_close();
+
         if (m) {
                 manager_free(m);
                 m = NULL;
