@@ -32,13 +32,6 @@
 #include "path-util.h"
 #include "path-lookup.h"
 
-static const char* const systemd_running_as_table[_SYSTEMD_RUNNING_AS_MAX] = {
-        [SYSTEMD_SYSTEM] = "system",
-        [SYSTEMD_USER] = "user"
-};
-
-DEFINE_STRING_TABLE_LOOKUP(systemd_running_as, SystemdRunningAs);
-
 int user_config_home(char **config_home) {
         const char *e;
         char *r;

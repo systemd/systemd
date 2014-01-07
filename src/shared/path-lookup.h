@@ -40,9 +40,6 @@ typedef enum SystemdRunningAs {
 
 #define _cleanup_lookup_paths_free_ _cleanup_(lookup_paths_free)
 
-const char* systemd_running_as_to_string(SystemdRunningAs i) _const_;
-SystemdRunningAs systemd_running_as_from_string(const char *s) _pure_;
-
 int user_config_home(char **config_home);
 
 int lookup_paths_init(LookupPaths *p,

@@ -104,7 +104,6 @@ int main(int argc, char **argv) {
         test_table(swap_exec_command, SWAP_EXEC_COMMAND);
         test_table(swap_result, SWAP_RESULT);
         test_table(swap_state, SWAP_STATE);
-        test_table(systemd_running_as, SYSTEMD_RUNNING_AS);
         test_table(target_state, TARGET_STATE);
         test_table(timer_base, TIMER_BASE);
         test_table(timer_result, TIMER_RESULT);
