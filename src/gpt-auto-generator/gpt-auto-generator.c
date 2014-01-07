@@ -297,6 +297,9 @@ static int enumerate_partitions(struct udev *udev, dev_t dev) {
 
                 r = verify_gpt_partition(node, &type_id, &nr, &fstype);
                 if (r < 0) {
+                        /* skip child devices which are not detected properly */
+                        if (r == -ENODEV)
+                                continue;
                         log_error("Failed to verify GPT partition %s: %s",
                                   node, strerror(-r));
                         return r;
