@@ -921,11 +921,6 @@ keyboard:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*SX20S*:pvr*
  KEYBOARD_KEY_77=f22                                    # Touchpad on
  KEYBOARD_KEY_79=f23                                    # Touchpad off
 
-keyboard:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*700Z*:pvr*
- KEYBOARD_KEY_ba=ejectcd
- KEYBOARD_KEY_96=keyboardbrightnessup
- KEYBOARD_KEY_97=keyboardbrightnessdown
-
 keyboard:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*700T*:pvr*
  KEYBOARD_KEY_ad=leftmeta
 
