@@ -25,15 +25,26 @@
 #include <unistd.h>
 
 #include "manager.h"
+#include "bus-util.h"
 
 int main(int argc, char *argv[]) {
+        _cleanup_bus_error_free_ sd_bus_error err = SD_BUS_ERROR_NULL;
         Manager *m = NULL;
         Unit *a = NULL, *b = NULL, *c = NULL, *d = NULL, *e = NULL, *g = NULL, *h = NULL;
+        FILE *serial = NULL;
+        FDSet *fdset = NULL;
         Job *j;
+        int r;
 
-        assert_se(set_unit_path("test") >= 0);
-
-        assert_se(manager_new(SYSTEMD_SYSTEM, &m) >= 0);
+        /* prepare the test */
+        assert_se(set_unit_path(TEST_DIR) >= 0);
+        r = manager_new(SYSTEMD_USER, true, &m);
+        if (r == -EPERM || r == -EACCES || r == -EADDRINUSE || r == -EHOSTDOWN) {
+                printf("Skipping test: manager_new: %s", strerror(-r));
+                return EXIT_TEST_SKIP;
+        }
+        assert(r >= 0);
+        assert_se(manager_startup(m, serial, fdset) >= 0);
 
         printf("Load1:\n");
         assert_se(manager_load_unit(m, "a.service", NULL, NULL, &a) >= 0);
@@ -42,7 +53,10 @@ int main(int argc, char *argv[]) {
         manager_dump_units(m, stdout, "\t");
 
         printf("Test1: (Trivial)\n");
-        assert_se(manager_add_job(m, JOB_START, c, JOB_REPLACE, false, NULL, &j) == 0);
+        r = manager_add_job(m, JOB_START, c, JOB_REPLACE, false, &err, &j);
+        if (sd_bus_error_is_set(&err))
+                log_error("error: %s: %s", err.name, err.message);
+        assert(r == 0);
         manager_dump_jobs(m, stdout, "\t");
 
         printf("Load2:\n");

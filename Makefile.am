@@ -189,6 +189,7 @@ AM_CPPFLAGS = \
 	-DKEXEC=\"$(KEXEC)\" \
 	-DLIBDIR=\"$(libdir)\" \
 	-DROOTLIBDIR=\"$(rootlibdir)\" \
+	-DTEST_DIR=\"$(abs_top_srcdir)/test\" \
 	-I $(top_srcdir)/src \
 	-I $(top_builddir)/src/shared \
 	-I $(top_srcdir)/src/shared \
@@ -1224,7 +1225,6 @@ CLEANFILES += \
 
 # ------------------------------------------------------------------------------
 manual_tests += \
-	test-engine \
 	test-ns \
 	test-loopback \
 	test-hostname \
@@ -1242,6 +1242,7 @@ manual_tests += \
 endif
 
 tests += \
+	test-engine \
 	test-job-type \
 	test-env-replace \
 	test-strbuf \

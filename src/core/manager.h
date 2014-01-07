@@ -230,6 +230,8 @@ struct Manager {
         bool taint_usr:1;
         bool first_boot:1;
 
+        bool test_run:1;
+
         ShowStatus show_status;
         bool confirm_spawn;
         bool no_console_output;
@@ -276,7 +278,7 @@ struct Manager {
         int kdbus_fd;
 };
 
-int manager_new(SystemdRunningAs running_as, Manager **m);
+int manager_new(SystemdRunningAs running_as, bool test_run, Manager **m);
 void manager_free(Manager *m);
 
 int manager_enumerate(Manager *m);

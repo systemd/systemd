@@ -832,7 +832,6 @@ pid_t unit_search_main_pid(Unit *u) {
 
 int manager_setup_cgroup(Manager *m) {
         _cleanup_free_ char *path = NULL;
-        char *e;
         int r;
 
         assert(m);
@@ -851,6 +850,8 @@ int manager_setup_cgroup(Manager *m) {
          * off. This is to support live upgrades from older systemd
          * versions where PID 1 was moved there. */
         if (m->running_as == SYSTEMD_SYSTEM) {
+                char *e;
+
                 e = endswith(m->cgroup_root, "/" SPECIAL_SYSTEM_SLICE);
                 if (!e)
                         e = endswith(m->cgroup_root, "/system");
@@ -872,39 +873,41 @@ int manager_setup_cgroup(Manager *m) {
         }
 
         log_debug("Using cgroup controller " SYSTEMD_CGROUP_CONTROLLER ". File system hierarchy is at %s.", path);
+        if (!m->test_run) {
 
-        /* 3. Install agent */
-        if (m->running_as == SYSTEMD_SYSTEM) {
-                r = cg_install_release_agent(SYSTEMD_CGROUP_CONTROLLER, SYSTEMD_CGROUP_AGENT_PATH);
-                if (r < 0)
-                        log_warning("Failed to install release agent, ignoring: %s", strerror(-r));
-                else if (r > 0)
-                        log_debug("Installed release agent.");
-                else
-                        log_debug("Release agent already installed.");
+                /* 3. Install agent */
+                if (m->running_as == SYSTEMD_SYSTEM) {
+                        r = cg_install_release_agent(SYSTEMD_CGROUP_CONTROLLER, SYSTEMD_CGROUP_AGENT_PATH);
+                        if (r < 0)
+                                log_warning("Failed to install release agent, ignoring: %s", strerror(-r));
+                        else if (r > 0)
+                                log_debug("Installed release agent.");
+                        else
+                                log_debug("Release agent already installed.");
+                }
+
+                /* 4. Make sure we are in the root cgroup */
+                r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_root, 0);
+                if (r < 0) {
+                        log_error("Failed to create root cgroup hierarchy: %s", strerror(-r));
+                        return r;
+                }
+
+                /* 5. And pin it, so that it cannot be unmounted */
+                safe_close(m->pin_cgroupfs_fd);
+
+                m->pin_cgroupfs_fd = open(path, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY|O_NONBLOCK);
+                if (m->pin_cgroupfs_fd < 0) {
+                        log_error("Failed to open pin file: %m");
+                        return -errno;
+                }
+
+                /* 6.  Always enable hierarchial support if it exists... */
+                cg_set_attribute("memory", "/", "memory.use_hierarchy", "1");
         }
 
-        /* 4. Make sure we are in the root cgroup */
-        r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_root, 0);
-        if (r < 0) {
-                log_error("Failed to create root cgroup hierarchy: %s", strerror(-r));
-                return r;
-        }
-
-        /* 5. And pin it, so that it cannot be unmounted */
-        safe_close(m->pin_cgroupfs_fd);
-
-        m->pin_cgroupfs_fd = open(path, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY|O_NONBLOCK);
-        if (m->pin_cgroupfs_fd < 0) {
-                log_error("Failed to open pin file: %m");
-                return -errno;
-        }
-
-        /* 6. Figure out which controllers are supported */
+        /* 7. Figure out which controllers are supported */
         m->cgroup_supported = cg_mask_supported();
-
-        /* 7.  Always enable hierarchial support if it exists... */
-        cg_set_attribute("memory", "/", "memory.use_hierarchy", "1");
 
         return 0;
 }
