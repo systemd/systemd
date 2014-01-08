@@ -715,6 +715,61 @@ static int driver_start_service_by_name(sd_bus *bus, sd_bus_message *m, void *us
         return sd_bus_reply_method_return(m, "u", BUS_START_REPLY_SUCCESS);
 }
 
+static int driver_update_environment(sd_bus*bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        _cleanup_bus_message_unref_ sd_bus_message *msg = NULL;
+        _cleanup_strv_free_ char **args = NULL;
+        int r;
+
+        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "{ss}");
+        if (r < 0)
+                return r;
+
+       while ((r = sd_bus_message_enter_container(m, SD_BUS_TYPE_DICT_ENTRY, "ss")) > 0) {
+                _cleanup_free_ char *s = NULL;
+                const char *key;
+                const char *value;
+
+                r = sd_bus_message_read(m, "ss", &key, &value);
+                if (r < 0)
+                        return r;
+
+                s = strjoin(key, "=", value, NULL);
+                if (!s)
+                        return ENOMEM;
+
+                r  = strv_extend(&args, s);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_exit_container(m);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_bus_message_exit_container(m);
+        if (r < 0)
+                return r;
+
+        if (!args)
+                return -EINVAL;
+
+        r = sd_bus_message_new_method_call(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "SetEnvironment",
+                        &msg);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append_strv(msg, args);
+        if (r < 0)
+                return r;
+
+        return sd_bus_call(bus, msg, 0, NULL, NULL);
+}
+
 static int driver_unsupported(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
         return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "%s() is not supported", sd_bus_message_get_member(m));
 }
@@ -737,7 +792,7 @@ static const sd_bus_vtable driver_vtable[] = {
         SD_BUS_METHOD("RemoveMatch", "s", NULL, driver_remove_match, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("RequestName", "su", "u", driver_request_name, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("StartServiceByName", "su", "u", driver_start_service_by_name, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("UpdateActivationEnvironment", "a{ss}", NULL, driver_unsupported, SD_BUS_VTABLE_DEPRECATED),
+        SD_BUS_METHOD("UpdateActivationEnvironment", "a{ss}", NULL, driver_update_environment, 0),
         SD_BUS_SIGNAL("NameAcquired", "s", SD_BUS_VTABLE_DEPRECATED),
         SD_BUS_SIGNAL("NameLost", "s", SD_BUS_VTABLE_DEPRECATED),
         SD_BUS_SIGNAL("NameOwnerChanged", "sss", 0),
