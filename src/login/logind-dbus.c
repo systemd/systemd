@@ -1971,6 +1971,20 @@ int match_job_removed(sd_bus *bus, sd_bus_message *message, void *userdata, sd_b
                         user->slice_job = NULL;
                 }
 
+                LIST_FOREACH(sessions_by_user, session, user->sessions) {
+                        if (!session->started)
+                                continue;
+
+                        if (streq(result, "done"))
+                                session_send_create_reply(session, NULL);
+                        else {
+                                _cleanup_bus_error_free_ sd_bus_error e = SD_BUS_ERROR_NULL;
+
+                                sd_bus_error_setf(&e, BUS_ERROR_JOB_FAILED, "Start job for unit %s failed with '%s'", unit, result);
+                                session_send_create_reply(session, &e);
+                        }
+                }
+
                 user_save(user);
                 user_add_to_gc_queue(user);
         }

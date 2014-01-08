@@ -647,11 +647,14 @@ int session_send_create_reply(Session *s, sd_bus_error *error) {
 
         assert(s);
 
-        /* This is called after the session scope was successfully
-         * created, and finishes where bus_manager_create_session()
-         * left off. */
+        /* This is called after the session scope and the user service
+         * were successfully created, and finishes where
+         * bus_manager_create_session() left off. */
 
         if (!s->create_message)
+                return 0;
+
+        if (!sd_bus_error_is_set(error) && (s->scope_job || s->user->service_job))
                 return 0;
 
         c = s->create_message;
