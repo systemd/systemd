@@ -23,6 +23,7 @@ MANPAGES += \
 	man/sd_bus_creds_get_pid.3 \
 	man/sd_bus_creds_new_from_pid.3 \
 	man/sd_bus_error.3 \
+	man/sd_bus_label_escape.3 \
 	man/sd_bus_message_get_cookie.3 \
 	man/sd_bus_new.3 \
 	man/sd_bus_open_user.3 \
@@ -177,6 +178,7 @@ MANPAGES_ALIAS += \
 	man/sd_bus_error_set_const.3 \
 	man/sd_bus_error_set_errno.3 \
 	man/sd_bus_error_set_errnof.3 \
+	man/sd_bus_label_unescape.3 \
 	man/sd_bus_message_get_reply_cookie.3 \
 	man/sd_bus_open_system.3 \
 	man/sd_bus_open_system_container.3 \
@@ -323,6 +325,7 @@ man/sd_bus_error_set.3: man/sd_bus_error.3
 man/sd_bus_error_set_const.3: man/sd_bus_error.3
 man/sd_bus_error_set_errno.3: man/sd_bus_error.3
 man/sd_bus_error_set_errnof.3: man/sd_bus_error.3
+man/sd_bus_label_unescape.3: man/sd_bus_label_escape.3
 man/sd_bus_message_get_reply_cookie.3: man/sd_bus_message_get_cookie.3
 man/sd_bus_open_system.3: man/sd_bus_open_user.3
 man/sd_bus_open_system_container.3: man/sd_bus_open_user.3
@@ -597,6 +600,9 @@ man/sd_bus_error_set_errno.html: man/sd_bus_error.html
 	$(html-alias)
 
 man/sd_bus_error_set_errnof.html: man/sd_bus_error.html
+	$(html-alias)
+
+man/sd_bus_label_unescape.html: man/sd_bus_label_escape.html
 	$(html-alias)
 
 man/sd_bus_message_get_reply_cookie.html: man/sd_bus_message_get_cookie.html
@@ -1330,6 +1336,7 @@ EXTRA_DIST += \
 	man/sd_bus_creds_get_pid.xml \
 	man/sd_bus_creds_new_from_pid.xml \
 	man/sd_bus_error.xml \
+	man/sd_bus_label_escape.xml \
 	man/sd_bus_message_get_cookie.xml \
 	man/sd_bus_new.xml \
 	man/sd_bus_open_user.xml \
