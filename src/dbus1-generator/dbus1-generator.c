@@ -279,7 +279,7 @@ static int link_compatibility(const char *units) {
         t = strappenda(arg_dest, "/" SPECIAL_SOCKETS_TARGET ".wants/systemd-bus-proxyd.socket");
         mkdir_parents_label(t, 0755);
         if (symlink(f, t) < 0) {
-                log_error("Failed to mask %s: %m", t);
+                log_error("Failed to create symlink %s: %m", t);
                 return -errno;
         }
 
