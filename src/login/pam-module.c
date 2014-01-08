@@ -173,7 +173,7 @@ static int export_legacy_dbus_address(
         _cleanup_free_ char *s = NULL;
         int r;
 
-        if (asprintf(&s, "kernel:path=/dev/kdbus/%lu-user/bus;unix:path=%s/bus",
+        if (asprintf(&s, KERNEL_USER_BUS_FMT ";" UNIX_USER_BUS_FMT,
                      (unsigned long) uid, runtime) < 0) {
                 pam_syslog(handle, LOG_ERR, "Failed to set bus variable.");
                 return PAM_BUF_ERR;
