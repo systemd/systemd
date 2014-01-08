@@ -1782,6 +1782,15 @@ systemd_dbus1_generator_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-bus-internal.la
 
+dbus1-generator-install-hook:
+	$(AM_V_LN)$(LN_S) -f $(systemgeneratordir)/systemd-dbus1-generator $(DESTDIR)$(usergeneratordir)/systemd-dbus1-generator
+
+dbus1-generator-uninstall-hook:
+	rm -f $(DESTDIR)$(usergeneratordir)/systemd-dbus1-generator
+
+INSTALL_EXEC_HOOKS += dbus1-generator-install-hook
+UNINSTALL_EXEC_HOOKS += dbus1-generator-uninstall-hook
+
 # ------------------------------------------------------------------------------
 systemd_rc_local_generator_SOURCES = \
 	src/rc-local-generator/rc-local-generator.c
