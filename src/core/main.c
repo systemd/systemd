@@ -1475,8 +1475,11 @@ int main(int argc, char *argv[]) {
                 if (in_initrd())
                         log_info("Running in initial RAM disk.");
 
-        } else
-                log_debug(PACKAGE_STRING " running in user mode. (" SYSTEMD_FEATURES ")");
+        } else {
+                _cleanup_free_ char *t = uid_to_name(getuid());
+                log_debug(PACKAGE_STRING " running in user mode for user "PID_FMT"/%s. (" SYSTEMD_FEATURES ")",
+                          getuid(), t);
+        }
 
         if (arg_running_as == SYSTEMD_SYSTEM && !skip_setup) {
                 if (arg_show_status || plymouth_running())

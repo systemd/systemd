@@ -6,7 +6,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=User Manager for %i
+Description=User Manager for UID %i
 After=systemd-user-sessions.service
 
 [Service]
