@@ -130,7 +130,10 @@ static int match_new(Client *c, struct bus_match_component *components, unsigned
         first = hashmap_get(c->matches, m->match);
         LIST_PREPEND(matches, first, m);
         r = hashmap_replace(c->matches, m->match, first);
-        if (r < 0) {
+        if (r == 0) {
+                log_debug("Match '%s' already installed, ignoring request.", m->match);
+                LIST_REMOVE(matches, first, m);
+        } else if (r < 0) {
                 LIST_REMOVE(matches, first, m);
                 goto fail;
         }
