@@ -107,7 +107,7 @@ int main(int argc, char *argv[]) {
         assert_se(match_add(&root, "path_namespace='/foo/quux'", 11) >= 0);
         assert_se(match_add(&root, "arg1='two'", 12) >= 0);
         assert_se(match_add(&root, "member='waldo',arg2path='/prefix/'", 13) >= 0);
-        assert_se(match_add(&root, "member='waldo',path='/foo/bar',arg3namespace='prefix'", 14) >= 0);
+        assert_se(match_add(&root, "member=waldo,path='/foo/bar',arg3namespace='prefix'", 14) >= 0);
 
         bus_match_dump(&root, 0);
 

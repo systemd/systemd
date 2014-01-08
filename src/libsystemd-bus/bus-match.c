@@ -726,25 +726,31 @@ int bus_match_parse(
                 enum bus_match_node_type t;
                 unsigned j = 0;
                 size_t value_allocated = 0;
-                bool escaped = false;
+                bool escaped = false, quoted;
                 uint8_t u;
 
                 eq = strchr(p, '=');
                 if (!eq)
                         return -EINVAL;
 
-                if (eq[1] != '\'')
-                        return -EINVAL;
-
                 t = bus_match_node_type_from_string(p, eq - p);
                 if (t < 0)
                         return -EINVAL;
 
-                for (q = eq + 2;; q++) {
+                quoted = eq[1] == '\'';
+
+                for (q = eq + 1 + quoted;; q++) {
 
                         if (*q == 0) {
-                                r = -EINVAL;
-                                goto fail;
+
+                                if (quoted) {
+                                        r = -EINVAL;
+                                        goto fail;
+                                } else {
+                                        if (value)
+                                                value[j] = 0;
+                                        break;
+                                }
                         }
 
                         if (!escaped) {
@@ -752,10 +758,20 @@ int bus_match_parse(
                                         escaped = true;
                                         continue;
                                 }
-                                if (*q == '\'') {
-                                        if (value)
-                                                value[j] = 0;
-                                        break;
+
+                                if (quoted) {
+                                        if (*q == '\'') {
+                                                if (value)
+                                                        value[j] = 0;
+                                                break;
+                                        }
+                                } else {
+                                        if (*q == ',') {
+                                                if (value)
+                                                        value[j] = 0;
+
+                                                break;
+                                        }
                                 }
                         }
 
@@ -801,12 +817,12 @@ int bus_match_parse(
                 if (q[1] == 0)
                         break;
 
-                if (q[1] != ',') {
+                if (q[quoted] != ',') {
                         r = -EINVAL;
                         goto fail;
                 }
 
-                p = q + 2;
+                p = q + 1 + quoted;
         }
 
         /* Order the whole thing, so that we always generate the same tree */
