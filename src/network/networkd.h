@@ -178,9 +178,10 @@ struct Manager {
         Hashmap *bridges;
         LIST_HEAD(Network, networks);
 
-        char **network_dirs;
         usec_t network_dirs_ts_usec;
 };
+
+extern const char* const network_dirs[];
 
 /* Manager */
 

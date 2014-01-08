@@ -24,6 +24,15 @@
 #include "libudev-private.h"
 #include "udev-util.h"
 
+const char* const network_dirs[] = {
+        "/etc/systemd/network",
+        "/run/systemd/network",
+        "/usr/lib/systemd/network",
+#ifdef HAVE_SPLIT_USER
+        "/lib/systemd/network",
+#endif
+        NULL};
+
 int manager_new(Manager **ret) {
         _cleanup_manager_free_ Manager *m = NULL;
         int r;
@@ -60,19 +69,6 @@ int manager_new(Manager **ret) {
 
         LIST_HEAD_INIT(m->networks);
 
-        m->network_dirs = strv_new("/etc/systemd/network/",
-                        "/run/systemd/network/",
-                        "/usr/lib/systemd/network",
-#ifdef HAVE_SPLIT_USER
-                        "/lib/systemd/network",
-#endif
-                        NULL);
-        if (!m->network_dirs)
-                return -ENOMEM;
-
-        if (!path_strv_canonicalize_uniq(m->network_dirs))
-                return -ENOMEM;
-
         *ret = m;
         m = NULL;
 
@@ -100,7 +96,6 @@ void manager_free(Manager *m) {
                 bridge_free(bridge);
         hashmap_free(m->bridges);
 
-        strv_free(m->network_dirs);
         sd_rtnl_unref(m->rtnl);
 
         free(m);
@@ -110,7 +105,7 @@ int manager_load_config(Manager *m) {
         int r;
 
         /* update timestamp */
-        paths_check_timestamp(m->network_dirs, &m->network_dirs_ts_usec, true);
+        paths_check_timestamp(network_dirs, &m->network_dirs_ts_usec, true);
 
         r = bridge_load(m);
         if (r < 0)
@@ -124,7 +119,7 @@ int manager_load_config(Manager *m) {
 }
 
 bool manager_should_reload(Manager *m) {
-        return paths_check_timestamp(m->network_dirs, &m->network_dirs_ts_usec, false);
+        return paths_check_timestamp(network_dirs, &m->network_dirs_ts_usec, false);
 }
 
 static int manager_process_link(Manager *m, struct udev_device *device) {

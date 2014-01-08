@@ -305,7 +305,7 @@ int bridge_load(Manager *manager) {
         while ((bridge = hashmap_first(manager->bridges)))
                 bridge_free(bridge);
 
-        r = conf_files_list_strv(&files, ".netdev", NULL, (const char **)manager->network_dirs);
+        r = conf_files_list_strv(&files, ".netdev", NULL, network_dirs);
         if (r < 0) {
                 log_error("Failed to enumerate netdev files: %s", strerror(-r));
                 return r;

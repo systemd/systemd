@@ -50,9 +50,17 @@ struct link_config_ctx {
 
         sd_rtnl *rtnl;
 
-        char **link_dirs;
         usec_t link_dirs_ts_usec;
 };
+
+static const char* const link_dirs[] = {
+        "/etc/systemd/network",
+        "/run/systemd/network",
+        "/usr/lib/systemd/network",
+#ifdef HAVE_SPLIT_USR
+        "/lib/systemd/network",
+#endif
+        NULL};
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(link_config_ctx*, link_config_ctx_free);
 #define _cleanup_link_config_ctx_free_ _cleanup_(link_config_ctx_freep)
@@ -72,23 +80,6 @@ int link_config_ctx_new(link_config_ctx **ret) {
         ctx->ethtool_fd = -1;
 
         ctx->enable_name_policy = true;
-
-        ctx->link_dirs = strv_new("/etc/systemd/network",
-                                  "/run/systemd/network",
-                                  "/usr/lib/systemd/network",
-#ifdef HAVE_SPLIT_USR
-                                  "/lib/systemd/network",
-#endif
-                                  NULL);
-        if (!ctx->link_dirs) {
-                log_error("failed to build link config directory array");
-                return -ENOMEM;
-        }
-
-        if (!path_strv_canonicalize_uniq(ctx->link_dirs)) {
-                log_error("failed to canonicalize link config directories");
-                return -ENOMEM;
-        }
 
         *ret = ctx;
         ctx = NULL;
@@ -140,7 +131,6 @@ void link_config_ctx_free(link_config_ctx *ctx) {
 
         sd_rtnl_unref(ctx->rtnl);
 
-        strv_free(ctx->link_dirs);
         link_configs_free(ctx);
 
         free(ctx);
@@ -224,9 +214,9 @@ int link_config_load(link_config_ctx *ctx) {
         }
 
         /* update timestamp */
-        paths_check_timestamp(ctx->link_dirs, &ctx->link_dirs_ts_usec, true);
+        paths_check_timestamp(link_dirs, &ctx->link_dirs_ts_usec, true);
 
-        r = conf_files_list_strv(&files, ".link", NULL, (const char **)ctx->link_dirs);
+        r = conf_files_list_strv(&files, ".link", NULL, link_dirs);
         if (r < 0) {
                 log_error("failed to enumerate link files: %s", strerror(-r));
                 return r;
@@ -242,7 +232,7 @@ int link_config_load(link_config_ctx *ctx) {
 }
 
 bool link_config_should_reload(link_config_ctx *ctx) {
-        return paths_check_timestamp(ctx->link_dirs, &ctx->link_dirs_ts_usec, false);
+        return paths_check_timestamp(link_dirs, &ctx->link_dirs_ts_usec, false);
 }
 
 int link_config_get(link_config_ctx *ctx, struct udev_device *device, link_config **ret) {

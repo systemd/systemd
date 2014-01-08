@@ -46,9 +46,14 @@ struct uid_gid {
         };
 };
 
+static const char* const rules_dirs[] = {
+        "/etc/udev/rules.d",
+        "/run/udev/rules.d",
+        UDEVLIBEXECDIR "/rules.d",
+        NULL};
+
 struct udev_rules {
         struct udev *udev;
-        char **dirs;
         usec_t dirs_ts_usec;
         int resolve_names;
 
@@ -1629,23 +1634,9 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
         if (!rules->strbuf)
                 return udev_rules_unref(rules);
 
-        rules->dirs = strv_new("/etc/udev/rules.d",
-                               "/run/udev/rules.d",
-                               UDEVLIBEXECDIR "/rules.d",
-                               NULL);
-        if (!rules->dirs) {
-                log_error("failed to build config directory array");
-                return udev_rules_unref(rules);
-        }
-        if (!path_strv_canonicalize(rules->dirs)) {
-                log_error("failed to canonicalize config directories");
-                return udev_rules_unref(rules);
-        }
-        strv_uniq(rules->dirs);
-
         udev_rules_check_timestamp(rules);
 
-        r = conf_files_list_strv(&files, ".rules", NULL, (const char **)rules->dirs);
+        r = conf_files_list_strv(&files, ".rules", NULL, rules_dirs);
         if (r < 0) {
                 log_error("failed to enumerate rules files: %s", strerror(-r));
                 return udev_rules_unref(rules);
@@ -1697,7 +1688,6 @@ struct udev_rules *udev_rules_unref(struct udev_rules *rules)
         strbuf_cleanup(rules->strbuf);
         free(rules->uids);
         free(rules->gids);
-        strv_free(rules->dirs);
         free(rules);
         return NULL;
 }
@@ -1707,7 +1697,7 @@ bool udev_rules_check_timestamp(struct udev_rules *rules)
         if (!rules)
                 return false;
 
-        return paths_check_timestamp(rules->dirs, &rules->dirs_ts_usec, true);
+        return paths_check_timestamp(rules_dirs, &rules->dirs_ts_usec, true);
 }
 
 static int match_key(struct udev_rules *rules, struct token *token, const char *val)

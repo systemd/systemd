@@ -112,7 +112,7 @@ int network_load(Manager *manager) {
         while ((network = manager->networks))
                 network_free(network);
 
-        r = conf_files_list_strv(&files, ".network", NULL, (const char **)manager->network_dirs);
+        r = conf_files_list_strv(&files, ".network", NULL, network_dirs);
         if (r < 0) {
                 log_error("Failed to enumerate network files: %s", strerror(-r));
                 return r;

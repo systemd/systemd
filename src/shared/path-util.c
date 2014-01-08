@@ -464,9 +464,9 @@ int find_binary(const char *name, char **filename) {
         }
 }
 
-bool paths_check_timestamp(char **paths, usec_t *timestamp, bool update) {
+bool paths_check_timestamp(const char* const* paths, usec_t *timestamp, bool update) {
         bool changed = false;
-        char **i;
+        const char* const* i;
 
         assert(timestamp);
 
