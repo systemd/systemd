@@ -767,7 +767,11 @@ static int driver_update_environment(sd_bus*bus, sd_bus_message *m, void *userda
         if (r < 0)
                 return r;
 
-        return sd_bus_call(bus, msg, 0, NULL, NULL);
+        r = sd_bus_call(bus, msg, 0, NULL, NULL);
+        if (r < 0)
+                return r;
+
+        return sd_bus_reply_method_return(m, NULL);
 }
 
 static int driver_unsupported(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
