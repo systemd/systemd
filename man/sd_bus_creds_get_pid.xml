@@ -309,10 +309,10 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     </para>
 
     <para><function>sd_bus_creds_has_effective_cap</function> will
-    check whether all of the capabilities specified by
-    <parameter>capability</parameter> were set in the effective
-    capabilities mask. A positive return value means that they were
-    set, zero means that they were not set, and a negative return
+    check whether the capability specified by
+    <parameter>capability</parameter> was set in the effective
+    capabilities mask. A positive return value means that is were
+    set, zero means that it was not set, and a negative return
     value signifies an error. See
     <citerefentry><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     and <varname>Capabilities=</varname> and
