@@ -32,6 +32,8 @@ External:
 
 Features:
 
+* machinectl bash completion is missing
+
 * Introduce PrivateDevices=yes/no which works like PrivateTmp= but for /dev setting up a tmpfs for it that only includes /dev/null, /dev/zero, /dev/random, /dev/urandom, but nothing else.
 
 * libsystemd-journal returns the object created as first param in sd_journal_new(), sd_bus_new() and suchlike as last...

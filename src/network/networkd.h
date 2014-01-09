@@ -278,3 +278,41 @@ int link_update(Link *link, sd_rtnl_message *message);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_free);
 #define _cleanup_link_free_ _cleanup_(link_freep)
+
+/* Macros which append INTERFACE= to the message */
+
+#define log_full_link(level, link, fmt, ...) log_meta_object(level, __FILE__, __LINE__, __func__, "INTERFACE=", link->ifname, "%s: " fmt, link->ifname, __VA_ARGS__)
+#define log_debug_link(link, ...)       log_full_link(LOG_DEBUG, link, __VA_ARGS__)
+#define log_info_link(link, ...)        log_full_link(LOG_INFO, link, __VA_ARGS__)
+#define log_notice_link(link, ...)      log_full_link(LOG_NOTICE, link, __VA_ARGS__)
+#define log_warning_link(link, ...)     log_full_link(LOG_WARNING, link, __VA_ARGS__)
+#define log_error_link(link, ...)       log_full_link(LOG_ERR, link, __VA_ARGS__)
+
+#define log_link_full(level, link, message) log_meta_object(level, __FILE__, __LINE__, __func__, "INTERFACE=", link->ifname, "%s: " message, link->ifname)
+#define log_link_debug(link, ...)       log_link_full(LOG_DEBUG, link, __VA_ARGS__)
+#define log_link_info(link, ...)        log_link_full(LOG_INFO, link, __VA_ARGS__)
+#define log_link_notice(link, ...)      log_link_full(LOG_NOTICE, link, __VA_ARGS__)
+#define log_link_warning(link, ...)     log_link_full(LOG_WARNING, link, __VA_ARGS__)
+#define log_link_error(link, ...)       log_link_full(LOG_ERR, link, __VA_ARGS__)
+
+#define log_struct_link(level, link, ...) log_struct(level, "INTERFACE=%s", link->ifname, __VA_ARGS__)
+
+/* More macros which append INTERFACE= to the message */
+
+#define log_full_bridge(level, bridge, fmt, ...) log_meta_object(level, __FILE__, __LINE__, __func__, "INTERFACE=", bridge->name, "%s: " fmt, bridge->name, __VA_ARGS__)
+#define log_debug_bridge(bridge, ...)       log_full_bridge(LOG_DEBUG, bridge, __VA_ARGS__)
+#define log_info_bridge(bridge, ...)        log_full_bridge(LOG_INFO, bridge, __VA_ARGS__)
+#define log_notice_bridge(bridge, ...)      log_full_bridge(LOG_NOTICE, bridge, __VA_ARGS__)
+#define log_warning_bridge(bridge, ...)     log_full_bridge(LOG_WARNING, bridge, __VA_ARGS__)
+#define log_error_bridge(bridge, ...)       log_full_bridge(LOG_ERR, bridge, __VA_ARGS__)
+
+#define log_bridge_full(level, bridge, message) log_meta_object(level, __FILE__, __LINE__, __func__, "INTERFACE=", bridge->name, "%s: " message, bridge->name)
+#define log_bridge_debug(bridge, ...)       log_bridge_full(LOG_DEBUG, bridge, __VA_ARGS__)
+#define log_bridge_info(bridge, ...)        log_bridge_full(LOG_INFO, bridge, __VA_ARGS__)
+#define log_bridge_notice(bridge, ...)      log_bridge_full(LOG_NOTICE, bridge, __VA_ARGS__)
+#define log_bridge_warning(bridge, ...)     log_bridge_full(LOG_WARNING, bridge, __VA_ARGS__)
+#define log_bridge_error(bridge, ...)       log_bridge_full(LOG_ERR, bridge, __VA_ARGS__)
+
+#define log_struct_bridge(level, bridge, ...) log_struct(level, "INTERFACE=%s", bridge->name, __VA_ARGS__)
+
+#define BRIDGE(bridge) "INTERFACE=%s", bridge->name

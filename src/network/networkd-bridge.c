@@ -86,21 +86,25 @@ static int bridge_join_ready(Bridge *bridge, Link* link, sd_rtnl_message_handler
 
         r = sd_rtnl_message_link_new(RTM_SETLINK, link->ifindex, &req);
         if (r < 0) {
-                log_error("Could not allocate RTM_SETLINK message: %s",
-                          strerror(-r));
+                log_error_bridge(bridge,
+                                 "Could not allocate RTM_SETLINK message: %s",
+                                 strerror(-r));
                 return r;
         }
 
         r = sd_rtnl_message_append_u32(req, IFLA_MASTER, bridge->link->ifindex);
         if (r < 0) {
-                log_error("Could not append IFLA_MASTER attribute: %s",
-                          strerror(-r));
+                log_error_bridge(bridge,
+                                 "Could not append IFLA_MASTER attribute: %s",
+                                 strerror(-r));
                 return r;
         }
 
         r = sd_rtnl_call_async(bridge->manager->rtnl, req, callback, link, 0, NULL);
         if (r < 0) {
-                log_error("Could not send rtnetlink message: %s", strerror(-r));
+                log_error_bridge(bridge,
+                                 "Could not send rtnetlink message: %s",
+                                 strerror(-r));
                 return r;
         }
 
@@ -112,7 +116,7 @@ static int bridge_enter_ready(Bridge *bridge) {
 
         bridge->state = BRIDGE_STATE_READY;
 
-        log_info("%s: bridge ready", bridge->name);
+        log_bridge_info(bridge, "bridge ready");
 
         LIST_FOREACH(callbacks, callback, bridge->callbacks) {
                 /* join the links that were attempted to be joined befor the
@@ -131,7 +135,7 @@ static int bridge_create_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userda
 
         r = sd_rtnl_message_get_errno(m);
         if (r < 0) {
-                log_warning("%s: bridge failed: %s", bridge->name, strerror(-r));
+                log_warning_bridge(bridge, "bridge failed: %s", strerror(-r));
                 bridge_enter_failed(bridge);
 
                 return 1;
@@ -157,46 +161,52 @@ static int bridge_create(Bridge *bridge) {
 
         r = sd_rtnl_message_link_new(RTM_NEWLINK, 0, &req);
         if (r < 0) {
-                log_error("Could not allocate RTM_NEWLINK message: %s",
-                          strerror(-r));
+                log_error_bridge(bridge,
+                                 "Could not allocate RTM_NEWLINK message: %s",
+                                 strerror(-r));
                 return r;
         }
 
         r = sd_rtnl_message_append_string(req, IFLA_IFNAME, bridge->name);
         if (r < 0) {
-                log_error("Could not append IFLA_IFNAME attribute: %s",
-                          strerror(-r));
+                log_error_bridge(bridge,
+                                 "Could not append IFLA_IFNAME attribute: %s",
+                                 strerror(-r));
                 return r;
         }
 
         r = sd_rtnl_message_open_container(req, IFLA_LINKINFO);
         if (r < 0) {
-                log_error("Colud not open IFLA_LINKINFO container: %s",
-                          strerror(-r));
+                log_error_bridge(bridge,
+                                 "Could not open IFLA_LINKINFO container: %s",
+                                 strerror(-r));
                 return r;
         }
 
         r = sd_rtnl_message_append_string(req, IFLA_INFO_KIND, "bridge");
         if (r < 0) {
-                log_error("Could not append IFLA_INFO_KIND attribute: %s",
-                          strerror(-r));
+                log_error_bridge(bridge,
+                                 "Could not append IFLA_INFO_KIND attribute: %s",
+                                 strerror(-r));
                 return r;
         }
 
         r = sd_rtnl_message_close_container(req);
         if (r < 0) {
-                log_error("Could not close IFLA_LINKINFO container %s",
-                          strerror(-r));
+                log_error_bridge(bridge,
+                                 "Could not close IFLA_LINKINFO container %s",
+                                 strerror(-r));
                 return r;
         }
 
         r = sd_rtnl_call_async(bridge->manager->rtnl, req, &bridge_create_handler, bridge, 0, NULL);
         if (r < 0) {
-                log_error("Could not send rtnetlink message: %s", strerror(-r));
+                log_error_bridge(bridge,
+                                 "Could not send rtnetlink message: %s", strerror(-r));
                 return r;
         }
 
-        log_debug("%s: creating bridge", bridge->name);
+        log_bridge_debug(bridge, "creating bridge");
 
         bridge->state = BRIDGE_STATE_CREATING;
 

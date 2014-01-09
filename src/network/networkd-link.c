@@ -134,7 +134,7 @@ static int link_enter_configured(Link *link) {
         assert(link);
         assert(link->state == LINK_STATE_SETTING_ROUTES);
 
-        log_info("%s: link configured", link->ifname);
+        log_link_info(link, "link configured");
 
         link->state = LINK_STATE_CONFIGURED;
 
@@ -144,7 +144,7 @@ static int link_enter_configured(Link *link) {
 static void link_enter_failed(Link *link) {
         assert(link);
 
-        log_warning("%s: failed", link->ifname);
+        log_link_warning(link, "failed");
 
         link->state = LINK_STATE_FAILED;
 }
@@ -165,13 +165,12 @@ static int route_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 
         r = sd_rtnl_message_get_errno(m);
         if (r < 0 && r != -EEXIST)
-                log_warning("%s: could not set route: %s",
-                            link->ifname, strerror(-r));
+                log_warning_link(link, "could not set route: %s", strerror(-r));
 
         /* we might have received an old reply after moving back to SETTING_ADDRESSES,
          * ignore it */
         if (link->route_messages == 0 && link->state == LINK_STATE_SETTING_ROUTES) {
-                log_debug("%s: routes set", link->ifname);
+                log_link_debug(link, "routes set");
                 link_enter_configured(link);
         }
 
@@ -191,12 +190,13 @@ static int link_enter_set_routes(Link *link) {
         if (!link->network->static_routes && !link->dhcp_route)
                 return link_enter_configured(link);
 
-        log_debug("%s: setting routes", link->ifname);
+        log_link_debug(link, "setting routes");
 
         LIST_FOREACH(static_routes, route, link->network->static_routes) {
                 r = route_configure(route, link, &route_handler);
                 if (r < 0) {
-                        log_warning("%s: could not set routes", link->ifname);
+                        log_warning_link(link,
+                                         "could not set routes: %s", strerror(-r));
                         link_enter_failed(link);
                         return r;
                 }
@@ -207,7 +207,8 @@ static int link_enter_set_routes(Link *link) {
         if (link->dhcp_route) {
                 r = route_configure(link->dhcp_route, link, &route_handler);
                 if (r < 0) {
-                        log_warning("%s: could not set routes", link->ifname);
+                        log_warning_link(link,
+                                         "could not set routes: %s", strerror(-r));
                         link_enter_failed(link);
                         return r;
                 }
@@ -235,11 +236,14 @@ static int address_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 
         r = sd_rtnl_message_get_errno(m);
         if (r < 0 && r != -EEXIST)
-                log_warning("%s: could not set address: %s",
-                            link->ifname, strerror(-r));
+                log_struct_link(LOG_ERR, link,
+                                "MESSAGE=%s: could not set address: %s",
+                                link->ifname, strerror(-r),
+                                "ERRNO=%d", -r,
+                                NULL);
 
         if (link->addr_messages == 0) {
-                log_debug("%s: addresses set", link->ifname);
+                log_link_debug(link, "addresses set");
                 link_enter_set_routes(link);
         }
 
@@ -259,12 +263,13 @@ static int link_enter_set_addresses(Link *link) {
         if (!link->network->static_addresses && !link->dhcp_address)
                 return link_enter_set_routes(link);
 
-        log_debug("%s: setting addresses", link->ifname);
+        log_link_debug(link, "setting addresses");
 
         LIST_FOREACH(static_addresses, address, link->network->static_addresses) {
                 r = address_configure(address, link, &address_handler);
                 if (r < 0) {
-                        log_warning("%s: could not set addresses", link->ifname);
+                        log_warning_link(link,
+                                         "could not set addresses: %s", strerror(-r));
                         link_enter_failed(link);
                         return r;
                 }
@@ -275,7 +280,8 @@ static int link_enter_set_addresses(Link *link) {
         if (link->dhcp_address) {
                 r = address_configure(link->dhcp_address, link, &address_handler);
                 if (r < 0) {
-                        log_warning("%s: could not set addresses", link->ifname);
+                        log_warning_link(link,
+                                         "could not set addresses: %s", strerror(-r));
                         link_enter_failed(link);
                         return r;
                 }
@@ -299,8 +305,7 @@ static int address_drop_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdat
 
         r = sd_rtnl_message_get_errno(m);
         if (r < 0 && r != -EEXIST)
-                log_warning("%s: could not drop address: %s",
-                            link->ifname, strerror(-r));
+                log_warning_link(link, "could not drop address: %s", strerror(-r));
 
         return 1;
 }
@@ -319,13 +324,13 @@ static void dhcp_handler(sd_dhcp_client *client, int event, void *userdata) {
                 return;
 
         if (event < 0) {
-                log_warning("%s: DHCP error: %s", link->ifname, strerror(-event));
+                log_warning_link(link, "DHCP error: %s", strerror(-event));
                 link_enter_failed(link);
                 return;
         }
 
         if (event == DHCP_EVENT_NO_LEASE)
-                log_debug("%s: IP address in use.", link->ifname);
+                log_link_debug(link, "IP address in use.");
 
         if (event == DHCP_EVENT_IP_CHANGE || event == DHCP_EVENT_EXPIRED ||
             event == DHCP_EVENT_STOP) {
@@ -344,28 +349,28 @@ static void dhcp_handler(sd_dhcp_client *client, int event, void *userdata) {
 
         r = sd_dhcp_client_get_address(client, &address);
         if (r < 0) {
-                log_warning("%s: DHCP error: no address", link->ifname);
+                log_link_warning(link, "DHCP error: no address");
                 link_enter_failed(link);
                 return;
         }
 
         r = sd_dhcp_client_get_netmask(client, &netmask);
         if (r < 0) {
-                log_warning("%s: DHCP error: no netmask", link->ifname);
+                log_link_warning(link, "DHCP error: no netmask");
                 link_enter_failed(link);
                 return;
         }
 
         prefixlen = sd_dhcp_client_prefixlen(&netmask);
         if (prefixlen < 0) {
-                log_warning("%s: DHCP error: no prefixlen", link->ifname);
+                log_link_warning(link, "DHCP error: no prefixlen");
                 link_enter_failed(link);
                 return;
         }
 
         r = sd_dhcp_client_get_router(client, &gateway);
         if (r < 0) {
-                log_warning("%s: DHCP error: no router", link->ifname);
+                log_link_warning(link, "DHCP error: no router");
                 link_enter_failed(link);
                 return;
         }
@@ -374,11 +379,11 @@ static void dhcp_handler(sd_dhcp_client *client, int event, void *userdata) {
                 _cleanup_address_free_ Address *addr = NULL;
                 _cleanup_route_free_ Route *rt = NULL;
 
-                log_info("%s: received config over DHCPv4", link->ifname);
+                log_link_info(link, "received config over DHCPv4");
 
                 r = address_new_dynamic(&addr);
                 if (r < 0) {
-                        log_error("Could not allocate address");
+                        log_link_error(link, "Could not allocate address");
                         link_enter_failed(link);
                         return;
                 }
@@ -390,7 +395,7 @@ static void dhcp_handler(sd_dhcp_client *client, int event, void *userdata) {
 
                 r = route_new_dynamic(&rt);
                 if (r < 0) {
-                        log_error("Could not allocate route");
+                        log_link_error(link, "Could not allocate route");
                         link_enter_failed(link);
                         return;
                 }
@@ -453,20 +458,17 @@ static int link_update_flags(Link *link, unsigned flags) {
                 return 0;
 
         if (link->flags == flags) {
-                log_debug("%s: link status unchanged: %#x", link->ifname, flags);
+                log_debug_link(link, "link status unchanged: %#x", flags);
                 return 0;
         }
 
-        if ((link->flags & IFF_UP) != (flags & IFF_UP)) {
-                if (flags & IFF_UP)
-                        log_info("%s: power on", link->ifname);
-                else
-                        log_info("%s: power off", link->ifname);
-        }
+        if ((link->flags & IFF_UP) != (flags & IFF_UP))
+                log_info_link(link,
+                              "power %s", flags & IFF_UP ? "on": "off");
 
         if ((link->flags & IFF_LOWER_UP) != (flags & IFF_LOWER_UP)) {
                 if (flags & IFF_LOWER_UP) {
-                        log_info("%s: carrier on", link->ifname);
+                        log_link_info(link, "carrier on");
 
                         if (link->network->dhcp) {
                                 r = link_acquire_conf(link);
@@ -476,7 +478,7 @@ static int link_update_flags(Link *link, unsigned flags) {
                                 }
                         }
                 } else {
-                        log_info("%s: carrier off", link->ifname);
+                        log_link_info(link, "carrier off");
 
                         if (link->network->dhcp) {
                                 r = sd_dhcp_client_stop(link->dhcp);
@@ -488,7 +490,8 @@ static int link_update_flags(Link *link, unsigned flags) {
                 }
         }
 
-        log_debug("%s: link status updated: %#x -> %#x", link->ifname, link->flags, flags);
+        log_debug_link(link,
+                       "link status updated: %#x -> %#x", link->flags, flags);
 
         link->flags = flags;
 
@@ -506,8 +509,8 @@ static int link_up_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 
         r = sd_rtnl_message_get_errno(m);
         if (r < 0) {
-                log_warning("%s: could not bring up interface: %s",
-                            link->ifname, strerror(-r));
+                log_warning_link(link,
+                                 "could not bring up interface: %s", strerror(-r));
                 link_enter_failed(link);
         }
 
@@ -524,23 +527,24 @@ static int link_up(Link *link) {
         assert(link->manager);
         assert(link->manager->rtnl);
 
-        log_debug("%s: bringing up link", link->ifname);
+        log_link_debug(link, "bringing link up");
 
         r = sd_rtnl_message_link_new(RTM_SETLINK, link->ifindex, &req);
         if (r < 0) {
-                log_error("Could not allocate RTM_SETLINK message");
+                log_link_error(link, "Could not allocate RTM_SETLINK message");
                 return r;
         }
 
         r = sd_rtnl_message_link_set_flags(req, IFF_UP);
         if (r < 0) {
-                log_error("Could not set link flags");
+                log_error_link(link, "Could not set link flags: %s", strerror(-r));
                 return r;
         }
 
         r = sd_rtnl_call_async(link->manager->rtnl, req, link_up_handler, link, 0, NULL);
         if (r < 0) {
-                log_error("Could not send rtnetlink message: %s", strerror(-r));
+                log_error_link(link,
+                               "Could not send rtnetlink message: %s", strerror(-r));
                 return r;
         }
 
@@ -579,14 +583,20 @@ static int bridge_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 
         r = sd_rtnl_message_get_errno(m);
         if (r < 0) {
-                log_warning("%s: could not join bridge '%s': %s",
-                            link->ifname, link->network->bridge->name, strerror(-r));
+                log_struct_link(LOG_ERR, link,
+                                "MESSAGE=%s: could not join bridge '%s': %s",
+                                link->ifname, link->network->bridge->name, strerror(-r),
+                                BRIDGE(link->network->bridge),
+                                NULL);
                 link_enter_failed(link);
                 return 1;
-        } else
-                log_debug("%s: joined bridge '%s'",
-                            link->ifname, link->network->bridge->name);
+        }
 
+        log_struct_link(LOG_DEBUG, link,
+                        "MESSAGE=%s: joined bridge '%s'",
+                        link->network->bridge->name,
+                        BRIDGE(link->network->bridge),
+                        NULL);
         link_bridge_joined(link);
 
         return 1;
@@ -604,12 +614,20 @@ static int link_enter_join_bridge(Link *link) {
         if (!link->network->bridge)
                 return link_bridge_joined(link);
 
-        log_debug("%s: joining bridge", link->ifname);
+        log_struct_link(LOG_DEBUG, link,
+                        "MESSAGE=%s: joining bridge '%s'",
+                        link->network->bridge->name,
+                        BRIDGE(link->network->bridge),
+                        NULL);
+        log_link_debug(link, "joining bridge");
 
         r = bridge_join(link->network->bridge, link, &bridge_handler);
         if (r < 0) {
-                log_warning("%s: could not join bridge '%s'", link->ifname,
-                            link->network->bridge->name);
+                log_struct_link(LOG_WARNING, link,
+                                "MESSAGE=%s: could not join bridge '%s': %s",
+                                link->network->bridge->name, strerror(-r),
+                                BRIDGE(link->network->bridge),
+                                NULL);
                 link_enter_failed(link);
                 return r;
         }
@@ -628,12 +646,11 @@ static int link_get_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 
         r = sd_rtnl_message_get_errno(m);
         if (r < 0) {
-                log_warning("%s: could not get state: %s",
-                            link->ifname, strerror(-r));
+                log_warning_link(link, "could not get state: %s", strerror(-r));
                 link_enter_failed(link);
         }
 
-        log_debug("%s: got link state", link->ifname);
+        log_link_debug(link, "got link state");
 
         link_update(link, m);
 
@@ -648,17 +665,18 @@ static int link_get(Link *link) {
         assert(link->manager);
         assert(link->manager->rtnl);
 
-        log_debug("%s: requesting link status", link->ifname);
+        log_link_debug(link, "requesting link status");
 
         r = sd_rtnl_message_link_new(RTM_GETLINK, link->ifindex, &req);
         if (r < 0) {
-                log_error("Could not allocate RTM_GETLINK message");
+                log_link_error(link, "Could not allocate RTM_GETLINK message");
                 return r;
         }
 
         r = sd_rtnl_call_async(link->manager->rtnl, req, link_get_handler, link, 0, NULL);
         if (r < 0) {
-                log_error("Could not send rtnetlink message: %s", strerror(-r));
+                log_error_link(link,
+                               "Could not send rtnetlink message: %s", strerror(-r));
                 return r;
         }
 
@@ -693,7 +711,7 @@ int link_update(Link *link, sd_rtnl_message *m) {
 
         r = sd_rtnl_message_link_get_flags(m, &flags);
         if (r < 0) {
-                log_warning("%s: could not get link flags", link->ifname);
+                log_link_warning(link, "could not get link flags");
                 return r;
         }
 
