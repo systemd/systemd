@@ -3776,7 +3776,8 @@ USER_UNIT_ALIASES += \
 endif
 
 EXTRA_DIST += \
-	units/systemd-bus-driverd.service.in
+	units/systemd-bus-driverd.service.in \
+	units/user/systemd-bus-driverd.service.in
 
 # ------------------------------------------------------------------------------
 if ENABLE_LOCALED
