@@ -28,6 +28,7 @@
  *
  * Two character prefixes based on the type of interface:
  *   en -- ethernet
+ *   sl -- serial line IP (slip)
  *   wl -- wlan
  *   ww -- wwan
  *
@@ -102,6 +103,7 @@ enum netname_type{
         NET_USB,
         NET_BCMA,
         NET_VIRTIO,
+        NET_CCWGROUP,
 };
 
 struct netnames {
@@ -121,6 +123,8 @@ struct netnames {
         char bcma_core[IFNAMSIZ];
 
         char virtio_core[IFNAMSIZ];
+
+        char ccw_core[IFNAMSIZ];
 };
 
 /* retrieve on-board index number and label from firmware */
@@ -366,6 +370,44 @@ static int names_virtio(struct udev_device *dev, struct netnames *names) {
         return 0;
 }
 
+static int names_ccw(struct  udev_device *dev, struct netnames *names) {
+        struct udev_device *cdev;
+        const char *bus_id;
+        size_t bus_id_len;
+        int rc;
+
+        /* Retrieve the associated CCW device */
+        cdev = udev_device_get_parent(dev);
+        if (!cdev)
+                return -ENOENT;
+
+        /* Network devices are always grouped CCW devices */
+        if (!streq_ptr("ccwgroup", udev_device_get_subsystem(cdev)))
+                return -ENOENT;
+
+        /* Retrieve bus-ID of the grouped CCW device.  The bus-ID uniquely
+         * identifies the network device on the Linux on System z channel
+         * subsystem.  Note that the bus-ID contains lowercase characters.
+         */
+        bus_id = udev_device_get_sysname(cdev);
+        if (!bus_id)
+                return -ENOENT;
+
+        /* Check the length of the bus-ID.  Rely on that the kernel provides
+         * a correct bus-ID; alternatively, improve this check and parse and
+         * verify each bus-ID part...
+         */
+        bus_id_len = strlen(bus_id);
+        if (!bus_id_len || bus_id_len < 8 || bus_id_len > 9)
+                return -EINVAL;
+
+        /* Store the CCW bus-ID for use as network device name */
+        rc = snprintf(names->ccw_core, sizeof(names->ccw_core), "ccw%s", bus_id);
+        if (rc >= 0 && rc < (int)sizeof(names->ccw_core))
+                names->type = NET_CCWGROUP;
+        return 0;
+}
+
 static int names_mac(struct udev_device *dev, struct netnames *names) {
         const char *s;
         unsigned int i;
@@ -424,13 +466,21 @@ static int builtin_net_id(struct udev_device *dev, int argc, char *argv[], bool 
         struct netnames names = {};
         int err;
 
-        /* handle only ARPHRD_ETHER devices */
+        /* handle only ARPHRD_ETHER and ARPHRD_SLIP devices */
         s = udev_device_get_sysattr_value(dev, "type");
         if (!s)
                 return EXIT_FAILURE;
         i = strtoul(s, NULL, 0);
-        if (i != 1)
+        switch (i) {
+        case 1: /* ARPHRD_ETHER */
+                prefix = "en";
+                break;
+        case 256: /* ARPHRD_SLIP */
+                prefix = "sl";
+                break;
+        default:
                 return 0;
+        }
 
         /* skip stacked devices, like VLANs, ... */
         s = udev_device_get_sysattr_value(dev, "ifindex");
@@ -460,6 +510,16 @@ static int builtin_net_id(struct udev_device *dev, int argc, char *argv[], bool 
                 udev_builtin_add_property(dev, test, "ID_NET_NAME_MAC", str);
 
                 ieee_oui(dev, &names, test);
+        }
+
+        /* get path names for Linux on System z network devices */
+        err = names_ccw(dev, &names);
+        if (err >= 0 && names.type == NET_CCWGROUP) {
+                char str[IFNAMSIZ];
+
+                if (snprintf(str, sizeof(str), "%s%s", prefix, names.ccw_core) < (int)sizeof(str))
+                        udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
+                goto out;
         }
 
         /* get PCI based path names, we compose only PCI based paths */
