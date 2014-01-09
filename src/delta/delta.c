@@ -316,6 +316,8 @@ static int enumerate_dir(Hashmap *top, Hashmap *bottom, Hashmap *drops, const ch
                 if (!de)
                         return -errno;
 
+                dirent_ensure_type(d, de);
+
                 if (dropins && de->d_type == DT_DIR && endswith(de->d_name, ".d"))
                         enumerate_dir_d(top, bottom, drops, path, de->d_name);
 
