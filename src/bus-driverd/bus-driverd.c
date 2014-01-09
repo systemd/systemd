@@ -803,6 +803,45 @@ static const sd_bus_vtable driver_vtable[] = {
         SD_BUS_VTABLE_END
 };
 
+static int find_object(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                void *userdata,
+                void **ret_found,
+                sd_bus_error *ret_error) {
+
+        /* We support the driver interface on exactly two different
+         * paths: the root and the entry point object. This is a bit
+         * different from the original dbus-daemon which supported it
+         * on any path. */
+
+        if (streq_ptr(path, "/"))
+                return 1;
+
+        if (streq_ptr(path, "/org/freedesktop/DBus"))
+                return 1;
+
+        return 0;
+}
+
+static int node_enumerator(
+                sd_bus *bus,
+                const char *path,
+                void *userdata,
+                char ***ret_nodes,
+                sd_bus_error *ret_error) {
+
+        char **l;
+
+        l = strv_new("/", "/org/freedesktop/DBus", NULL);
+        if (!l)
+                return -ENOMEM;
+
+        *ret_nodes = l;
+        return 0;
+}
+
 static int connect_bus(Context *c) {
         int r;
 
@@ -823,9 +862,15 @@ static int connect_bus(Context *c) {
                 return -EPERM;
         }
 
-        r = sd_bus_add_object_vtable(c->bus, "/org/freedesktop/DBus", "org.freedesktop.DBus", driver_vtable, c);
+        r = sd_bus_add_fallback_vtable(c->bus, "/", "org.freedesktop.DBus", driver_vtable, find_object, c);
         if (r < 0) {
                 log_error("Failed to add manager object vtable: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_bus_add_node_enumerator(c->bus, "/", node_enumerator, c);
+        if (r < 0) {
+                log_error("Failed to add node enumerator: %s", strerror(-r));
                 return r;
         }
 
