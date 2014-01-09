@@ -379,7 +379,19 @@ static void dhcp_handler(sd_dhcp_client *client, int event, void *userdata) {
                 _cleanup_address_free_ Address *addr = NULL;
                 _cleanup_route_free_ Route *rt = NULL;
 
-                log_link_info(link, "received config over DHCPv4");
+                log_struct_link(LOG_INFO, link,
+                                "MESSAGE=%s: DHCPv4 address %u.%u.%u.%u/%u via %u.%u.%u.%u",
+                                link->ifname,
+                                ADDRESS_FMT_VAL(address),
+                                prefixlen,
+                                ADDRESS_FMT_VAL(gateway),
+                                "ADDRESS=%u.%u.%u.%u",
+                                ADDRESS_FMT_VAL(address),
+                                "PREFIXLEN=%u",
+                                prefixlen,
+                                "GATEWAY=%u.%u.%u.%u",
+                                ADDRESS_FMT_VAL(gateway),
+                                NULL);
 
                 r = address_new_dynamic(&addr);
                 if (r < 0) {

@@ -316,3 +316,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_free);
 #define log_struct_bridge(level, bridge, ...) log_struct(level, "INTERFACE=%s", bridge->name, __VA_ARGS__)
 
 #define BRIDGE(bridge) "INTERFACE=%s", bridge->name
+#define ADDRESS_FMT_VAL(address)            \
+        (address).s_addr & 0xFF,            \
+        ((address).s_addr >> 8) & 0xFF,     \
+        ((address).s_addr >> 16) & 0xFF,    \
+        (address).s_addr >> 24
