@@ -40,6 +40,7 @@
 #include <sys/un.h>
 #include <sys/socket.h>
 #include <linux/netlink.h>
+#include <sys/eventfd.h>
 
 #include "sd-daemon.h"
 #include "sd-bus.h"
@@ -996,7 +997,7 @@ static int drop_capabilities(void) {
         return capability_bounding_set_drop(~arg_retain, false);
 }
 
-static int register_machine(void) {
+static int register_machine(pid_t pid) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_bus_unref_ sd_bus *bus = NULL;
         int r;
@@ -1020,7 +1021,7 @@ static int register_machine(void) {
                         SD_BUS_MESSAGE_APPEND_ID128(arg_uuid),
                         "nspawn",
                         "container",
-                        (uint32_t) 0,
+                        (uint32_t) pid,
                         strempty(arg_directory),
                         !isempty(arg_slice), "Slice", "s", arg_slice);
         if (r < 0) {
@@ -1097,7 +1098,7 @@ static bool audit_enabled(void) {
 int main(int argc, char *argv[]) {
         pid_t pid = 0;
         int r = EXIT_FAILURE, k;
-        _cleanup_close_ int master = -1, kdbus_fd = -1;
+        _cleanup_close_ int master = -1, kdbus_fd = -1, sync_fd = -1;
         int n_fd_passed;
         const char *console = NULL;
         sigset_t mask;
@@ -1213,7 +1214,13 @@ int main(int argc, char *argv[]) {
                 log_debug("Successfully created kdbus namespace as %s", kdbus_namespace);
 
         if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, kmsg_socket_pair) < 0) {
-                log_error("Failed to create kmsg socket pair.");
+                log_error("Failed to create kmsg socket pair: %m");
+                goto finish;
+        }
+
+        sync_fd = eventfd(0, EFD_CLOEXEC);
+        if (sync_fd < 0) {
+                log_error("Failed to create event fd: %m");
                 goto finish;
         }
 
@@ -1255,6 +1262,7 @@ int main(int argc, char *argv[]) {
                                 NULL
                         };
                         char **env_use;
+                        eventfd_t x;
 
                         envp[n_env] = strv_find_prefix(environ, "TERM=");
                         if (envp[n_env])
@@ -1301,10 +1309,6 @@ int main(int argc, char *argv[]) {
                                 log_error("PR_SET_PDEATHSIG failed: %m");
                                 goto child_fail;
                         }
-
-                        r = register_machine();
-                        if (r < 0)
-                                goto finish;
 
                         /* Mark everything as slave, so that we still
                          * receive mounts from the real root, but don't
@@ -1482,6 +1486,10 @@ int main(int argc, char *argv[]) {
 
                         setup_hostname();
 
+                        eventfd_read(sync_fd, &x);
+                        close_nointr_nofail(sync_fd);
+                        sync_fd = -1;
+
                         if (!strv_isempty(arg_setenv)) {
                                 char **n;
 
@@ -1528,6 +1536,14 @@ int main(int argc, char *argv[]) {
 
                 fdset_free(fds);
                 fds = NULL;
+
+                r = register_machine(pid);
+                if (r < 0)
+                        goto finish;
+
+                eventfd_write(sync_fd, 1);
+                close_nointr_nofail(sync_fd);
+                sync_fd = -1;
 
                 k = process_pty(master, &mask, arg_boot ? pid : 0, SIGRTMIN+3);
                 if (k < 0) {
