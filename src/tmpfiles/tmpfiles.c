@@ -436,8 +436,6 @@ finish:
 }
 
 static int item_set_perms_full(Item *i, const char *path, bool ignore_enoent) {
-        int r;
-
         /* not using i->path directly because it may be a glob */
         if (i->mode_set)
                 if (chmod(path, i->mode) < 0) {
@@ -458,8 +456,7 @@ static int item_set_perms_full(Item *i, const char *path, bool ignore_enoent) {
                         }
                 }
 
-        r = label_fix(path, false, false);
-        return r == -ENOENT && ignore_enoent ? 0 : r;
+        return label_fix(path, ignore_enoent, false);
 }
 
 static int item_set_perms(Item *i, const char *path) {
