@@ -295,9 +295,11 @@
                                 for the assignment.</para>
 
                                 <para>Example:
-                                <programlisting>Environment="VAR1=word1 word2" VAR2=word3 "VAR3=word 5 6"</programlisting>
+                                <programlisting>Environment="VAR1=word1 word2" VAR2=word3 "VAR3=$word 5 6"</programlisting>
                                 gives three variables <literal>VAR1</literal>,
-                                <literal>VAR2</literal>, <literal>VAR3</literal>.
+                                <literal>VAR2</literal>, <literal>VAR3</literal>
+                                with the values <literal>word1 word2</literal>,
+                                <literal>word3</literal>, <literal>$word 5 6</literal>.
                                 </para>
 
                                 <para>

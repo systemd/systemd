@@ -392,16 +392,32 @@
                                 replaced by the value of the
                                 environment variable including all
                                 whitespace it contains, resulting in a
-                                single argument.  Use
+                                single argument. Use
                                 <literal>$FOO</literal> as a separate
                                 word on the command line, in which
                                 case it will be replaced by the value
-                                of the environment variable split up
-                                at whitespace, resulting in zero or
-                                more arguments. To pass a literal dollar sign,
-                                use <literal>$$</literal>. Note that the first
-                                argument (i.e. the program to execute)
-                                may not be a variable.</para>
+                                of the environment variable split at
+                                whitespace, resulting in zero or more
+                                arguments. To pass a literal dollar
+                                sign, use <literal>$$</literal>.
+                                Variables whose value is not known at
+                                expansion time are treated as empty
+                                strings. Note that the first argument
+                                (i.e. the program to execute) may not
+                                be a variable.</para>
+
+                                <para>Variables to be used in this
+                                fashion may be defined through
+                                <varname>Environment=</varname> and
+                                <varname>EnvironmentFile=</varname>.
+                                In addition, variables listed in
+                                section "Environment variables in
+                                spawned processes" in
+                                <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                which are considered "static
+                                configuration" may used (this includes
+                                e.g. <varname>$USER</varname>, but not
+                                <varname>$TERM</varname>).</para>
 
                                 <para>Optionally, if the absolute file
                                 name is prefixed with
@@ -428,11 +444,6 @@
                                 of some kind. Example:</para>
                                 <programlisting>ExecStart=/bin/sh -c 'dmesg | tac'
                                 </programlisting>
-
-                                <para>Only select environment variables that
-                                are set for executed commands. See
-                                <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-                                </para>
 
                                 <para>Example:</para>
                                 <programlisting>ExecStart=/bin/echo one ; /bin/echo "two two"
