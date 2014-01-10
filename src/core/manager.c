@@ -2344,6 +2344,11 @@ int manager_reload(Manager *m) {
         fclose(f);
         f = NULL;
 
+        /* Re-register notify_fd as event source */
+        q = manager_setup_notify(m);
+        if (q < 0)
+                r = q;
+
         /* Third, fire things up! */
         q = manager_coldplug(m);
         if (q < 0)
