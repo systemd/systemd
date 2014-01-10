@@ -285,6 +285,9 @@ _public_ int sd_bus_error_get_errno(const sd_bus_error* e) {
         if (!e)
                 return 0;
 
+        if (!e->name)
+                return 0;
+
         return bus_error_name_to_errno(e->name);
 }
 
