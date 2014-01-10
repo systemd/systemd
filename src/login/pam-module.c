@@ -169,28 +169,22 @@ static int export_legacy_dbus_address(
                 uid_t uid,
                 const char *runtime) {
 
+#ifdef ENABLE_KDBUS
         _cleanup_free_ char *s = NULL;
         int r;
 
-#ifdef ENABLE_KDBUS
         if (asprintf(&s, KERNEL_USER_BUS_FMT ";" UNIX_USER_BUS_FMT,
                      (unsigned long) uid, runtime) < 0) {
                 pam_syslog(handle, LOG_ERR, "Failed to set bus variable.");
                 return PAM_BUF_ERR;
         }
-#else
-        if (asprintf(&s, UNIX_USER_BUS_FMT, runtime) < 0) {
-                pam_syslog(handle, LOG_ERR, "Failed to set bus variable.");
-                return PAM_BUF_ERR;
-        }
-#endif
 
         r = pam_misc_setenv(handle, "DBUS_SESSION_BUS_ADDRESS", s, 0);
         if (r != PAM_SUCCESS) {
                 pam_syslog(handle, LOG_ERR, "Failed to set bus variable.");
                 return r;
         }
-
+#endif
         return PAM_SUCCESS;
 }
 
