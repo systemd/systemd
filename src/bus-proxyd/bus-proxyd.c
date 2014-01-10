@@ -644,6 +644,7 @@ int main(int argc, char *argv[]) {
                         k = process_hello(a, b, m, &got_hello);
                         if (k < 0) {
                                 r = k;
+                                log_error("Failed to process HELLO: %s", strerror(-r));
                                 goto finish;
                         }
 
@@ -653,6 +654,7 @@ int main(int argc, char *argv[]) {
                                 k = process_policy(a, b, m);
                                 if (k < 0) {
                                         r = k;
+                                        log_error("Failed to process policy: %s", strerror(-r));
                                         goto finish;
                                 }
 
