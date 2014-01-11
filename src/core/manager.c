@@ -530,11 +530,13 @@ static int manager_setup_notify(Manager *m) {
 }
 
 static int manager_setup_kdbus(Manager *m) {
+#ifdef ENABLE_KDBUS
         _cleanup_free_ char *p = NULL;
-
-        assert(m);
+#endif
 
 #ifdef ENABLE_KDBUS
+        assert(m);
+
         if (m->kdbus_fd >= 0)
                 return 0;
 
