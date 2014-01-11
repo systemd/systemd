@@ -1,31 +1,34 @@
-#ifndef fooasyncnshfoo
-#define fooasyncnshfoo
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
+
+#ifndef foosddnshfoo
+#define foosddnshfoo
 
 /***
-  This file is part of libasyncns.
+  This file is part of systemd.
 
   Copyright 2005-2008 Lennart Poettering
 
-  libasyncns is free software; you can redistribute it and/or modify
-  it under the terms of the GNU Lesser General Public License as
-  published by the Free Software Foundation, either version 2.1 of the
-  License, or (at your option) any later version.
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
 
-  libasyncns is distributed in the hope that it will be useful, but
+  systemd is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
   Lesser General Public License for more details.
 
-  You should have received a copy of the GNU Lesser General Public
-  License along with libasyncns. If not, see
-  <http://www.gnu.org/licenses/>.
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
-#include "macro.h"
-#include "util.h"
+#include "_sd-common.h"
+
+_SD_BEGIN_DECLARATIONS;
+
 /** \mainpage
  *
  * \section moo Method of operation
@@ -40,9 +43,6 @@
  * Since libasyncns may fork off new processes you have to make sure that
  * your program is not irritated by spurious SIGCHLD signals.
  */
-
-/** \example asyncns-test.c
- * An example program */
 
 /** An opaque libasyncns session structure */
 typedef struct asyncns asyncns_t;
@@ -152,5 +152,7 @@ void asyncns_setuserdata(asyncns_t *asyncns, asyncns_query_t *q, void *userdata)
  * asyncns_setuserdata() to set this data. If no data has been set
  * prior to this call it returns NULL. */
 void* asyncns_getuserdata(asyncns_t *asyncns, asyncns_query_t *q);
+
+_SD_END_DECLARATIONS;
 
 #endif

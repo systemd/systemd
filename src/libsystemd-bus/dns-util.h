@@ -1,5 +1,7 @@
 #pragma once
 
+#include "util.h"
+
 DEFINE_TRIVIAL_CLEANUP_FUNC(asyncns_t*, asyncns_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(unsigned char *, asyncns_freeanswer);
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct addrinfo*, asyncns_freeaddrinfo);
