@@ -55,9 +55,6 @@ int bridge_get(Manager *manager, const char *name, Bridge **ret) {
         assert(name);
         assert(ret);
 
-        if (manager_should_reload(manager))
-                manager_load_config(manager);
-
         bridge = hashmap_get(manager->bridges, name);
         if (!bridge) {
                 *ret = NULL;

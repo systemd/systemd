@@ -166,9 +166,6 @@ int network_get(Manager *manager, struct udev_device *device, Network **ret) {
         assert(device);
         assert(ret);
 
-        if (manager_should_reload(manager))
-                manager_load_config(manager);
-
         LIST_FOREACH(networks, network, manager->networks) {
                 if (net_match_config(network->match_mac, network->match_path,
                                         network->match_driver, network->match_type,
