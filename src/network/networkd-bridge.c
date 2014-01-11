@@ -116,7 +116,7 @@ static int bridge_enter_ready(Bridge *bridge) {
 
         bridge->state = BRIDGE_STATE_READY;
 
-        log_bridge_info(bridge, "bridge ready");
+        log_info_bridge(bridge, "bridge ready");
 
         LIST_FOREACH(callbacks, callback, bridge->callbacks) {
                 /* join the links that were attempted to be joined befor the
@@ -206,7 +206,7 @@ static int bridge_create(Bridge *bridge) {
                 return r;
         }
 
-        log_bridge_debug(bridge, "creating bridge");
+        log_debug_bridge(bridge, "creating bridge");
 
         bridge->state = BRIDGE_STATE_CREATING;
 
