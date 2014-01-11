@@ -173,6 +173,10 @@ static int export_legacy_dbus_address(
         _cleanup_free_ char *s = NULL;
         int r;
 
+        /* skip export if kdbus is not active */
+        if (access("/dev/kdbus", F_OK) < 0)
+                return PAM_SUCCESS;
+
         if (asprintf(&s, KERNEL_USER_BUS_FMT ";" UNIX_USER_BUS_FMT,
                      (unsigned long) uid, runtime) < 0) {
                 pam_syslog(handle, LOG_ERR, "Failed to set bus variable.");
