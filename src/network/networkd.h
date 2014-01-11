@@ -52,7 +52,6 @@ struct bridge_join_callback {
 typedef enum BridgeState {
         BRIDGE_STATE_FAILED,
         BRIDGE_STATE_CREATING,
-        BRIDGE_STATE_CREATED,
         BRIDGE_STATE_READY,
         _BRIDGE_STATE_MAX,
         _BRIDGE_STATE_INVALID = -1,

@@ -113,6 +113,9 @@ static int bridge_join_ready(Bridge *bridge, Link* link, sd_rtnl_message_handler
 static int bridge_enter_ready(Bridge *bridge) {
         bridge_join_callback *callback;
 
+        assert(bridge);
+        assert(bridge->name);
+
         bridge->state = BRIDGE_STATE_READY;
 
         log_info_bridge(bridge, "bridge ready");
@@ -130,7 +133,7 @@ static int bridge_create_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userda
         Bridge *bridge = userdata;
         int r;
 
-        assert(bridge->state == BRIDGE_STATE_CREATING);
+        assert(bridge->state != _BRIDGE_STATE_INVALID);
 
         r = sd_rtnl_message_get_errno(m);
         if (r < 0) {
@@ -139,11 +142,6 @@ static int bridge_create_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userda
 
                 return 1;
         }
-
-        if (bridge->link)
-                bridge_enter_ready(bridge);
-        else
-                bridge->state = BRIDGE_STATE_CREATED;
 
         return 1;
 }
@@ -234,18 +232,18 @@ int bridge_join(Bridge *bridge, Link *link, sd_rtnl_message_handler_t callback) 
 
 int bridge_set_link(Manager *m, Link *link) {
         Bridge *bridge;
+        int r;
 
-        bridge = hashmap_get(m->bridges, link->ifname);
-        if (!bridge)
-                return -ENOENT;
+        r = bridge_get(m, link->ifname, &bridge);
+        if (r < 0)
+                return r;
 
         if (bridge->link && bridge->link != link)
                 return -EEXIST;
 
         bridge->link = link;
 
-        if (bridge->state == BRIDGE_STATE_CREATED)
-                bridge_enter_ready(bridge);
+        bridge_enter_ready(bridge);
 
         return 0;
 }
