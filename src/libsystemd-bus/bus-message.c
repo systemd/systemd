@@ -1433,7 +1433,7 @@ int message_append_basic(sd_bus_message *m, char type, const void *p, const void
                                 *stored = (const uint8_t*) a + 4;
 
                 } else if (type == SD_BUS_TYPE_SIGNATURE) {
-                        *(uint8_t*) a = sz - 1;
+                        *(uint8_t*) a = sz - 2;
                         memcpy((uint8_t*) a + 1, p, sz - 1);
 
                         if (stored)
