@@ -19,10 +19,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#ifdef HAVE_CONFIG_H
-#include <config.h>
-#endif
-
 #include <assert.h>
 #include <fcntl.h>
 #include <signal.h>
@@ -43,10 +39,7 @@
 #include <sys/resource.h>
 #include <stdint.h>
 #include <pthread.h>
-
-#ifdef HAVE_SYS_PRCTL_H
 #include <sys/prctl.h>
-#endif
 
 #include "sd-dns.h"
 #include "util.h"
