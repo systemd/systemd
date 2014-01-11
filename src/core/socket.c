@@ -179,7 +179,8 @@ static int socket_arm_timer(Socket *s) {
 }
 
 static int socket_instantiate_service(Socket *s) {
-        char *prefix, *name;
+        _cleanup_free_ char *prefix = NULL;
+        _cleanup_free_ char *name = NULL;
         int r;
         Unit *u;
 
@@ -199,13 +200,11 @@ static int socket_instantiate_service(Socket *s) {
                 return -ENOMEM;
 
         r = asprintf(&name, "%s@%u.service", prefix, s->n_accepted);
-        free(prefix);
 
         if (r < 0)
                 return -ENOMEM;
 
         r = manager_load_unit(UNIT(s)->manager, name, NULL, NULL, &u);
-        free(name);
 
         if (r < 0)
                 return r;
