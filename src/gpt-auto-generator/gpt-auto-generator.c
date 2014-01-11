@@ -74,10 +74,8 @@ static int verify_gpt_partition(const char *node, sd_id128_t *type, unsigned *nr
 
         errno = 0;
         r = blkid_do_safeprobe(b);
-        if (r == -2)
-                return -ENODEV;
-        else if (r == 1)
-                return -ENODEV;
+        if (r == -2 || r == 1) /* no result or uncertain */
+                return -EBADSLT;
         else if (r != 0)
                 return errno ? -errno : -EIO;
 
@@ -298,7 +296,7 @@ static int enumerate_partitions(struct udev *udev, dev_t dev) {
                 r = verify_gpt_partition(node, &type_id, &nr, &fstype);
                 if (r < 0) {
                         /* skip child devices which are not detected properly */
-                        if (r == -ENODEV)
+                        if (r == -EBADSLT)
                                 continue;
                         log_error("Failed to verify GPT partition %s: %s",
                                   node, strerror(-r));
