@@ -1,0 +1,239 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+This file is part of systemd.
+
+Copyright 2014 Zbigniew Jędrzejewski-Szmek
+
+systemd is free software; you can redistribute it and/or modify it
+under the terms of the GNU Lesser General Public License as published by
+the Free Software Foundation; either version 2.1 of the License, or
+(at your option) any later version.
+
+systemd is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public License
+along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="busctl">
+
+  <refentryinfo>
+    <title>busctl</title>
+    <productname>systemd</productname>
+
+    <authorgroup>
+      <author>
+        <contrib>A monkey with a typewriter</contrib>
+        <firstname>Zbigniew</firstname>
+        <surname>Jędrzejewski-Szmek</surname>
+        <email>zbyszek@in.waw.pl</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>busctl</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>busctl</refname>
+    <refpurpose>Introspect the bus</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>busctl</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="opt">COMMAND</arg>
+      <arg choice="opt" rep="repeat"><replaceable>NAME</replaceable></arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>busctl</command> may be used to
+    introspect and monitor the D-Bus bus.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>-h</option></term>
+        <term><option>--help</option></term>
+
+        <listitem><para>Print a short help text and exit.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--version</option></term>
+
+        <listitem>
+          <para>Print a short version string and exit.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--no-pager</option></term>
+
+        <listitem>
+          <para>Do not pipe output into a pager.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--system</option></term>
+
+        <listitem>
+          <para>Talk to the systemd system manager (the
+          default).</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--user</option></term>
+
+        <listitem>
+          <para>Talk to the systemd manager of the calling
+          user.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-H</option></term>
+        <term><option>--host</option></term>
+
+        <listitem>
+          <para>Execute the operation remotely. Specify a hostname, or
+          username and hostname separated by <literal>@</literal>, to
+          connect to. This will use SSH to talk to the remote systemd
+          instance.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+          <term><option>-M</option></term>
+          <term><option>--machine=</option></term>
+
+          <listitem><para>Execute the operation on a local container.
+          Specify a container name to connect to.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+          <term><option>--address=<replaceable>ADDRESS</replaceable></option></term>
+
+          <listitem><para>Connect to the bus specified by
+          <replaceable>ADDRESS</replaceable> instead of using suitable
+          defaults for either the system or user bus (see
+          <option>--system</option> and <option>--user</option>
+          options).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+          <term><option>--show-machine</option></term>
+
+          <listitem><para>When showing the list of endpoints, show a
+          column containing the names of containers they belong to.
+          See
+          <citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+          </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+          <term><option>--unique</option></term>
+
+          <listitem><para>When showing the list of endpoints, show
+          only "unique" names (of the form
+          <literal>:<replaceable>number</replaceable>.<replaceable>number</replaceable></literal>).
+          </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+          <term><option>--acquired</option></term>
+
+          <listitem><para>The opposite of <option>--unique</option> —
+          only "well-known" names will be shown.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+          <term><option>--activatable</option></term>
+
+          <listitem><para>When showing the list of endpoints, show
+          only endpoints which haven't actually been activated yet,
+          but may be started automatically if accessed.</para>
+          </listitem>
+      </varlistentry>
+
+      <varlistentry>
+          <term><option>--match=<replaceable>MATCH</replaceable></option></term>
+
+          <listitem><para>When showing messages being exchanged, show only the
+          subset matching <replaceable>MATCH</replaceable>.</para></listitem>
+          <!-- TODO: link to sd_bus_add_match when it is written? -->
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Commands</title>
+
+    <para>The following commands are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><command>list</command></term>
+
+        <listitem><para>Show endpoints attached to the bus. This is
+        the default if no command is specified.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>monitor</command>  <arg choice="opt" rep="repeat"><replaceable>NAME</replaceable></arg></term>
+
+        <listitem><para>Dump messages being exchanged. If
+        <replaceable>NAME</replaceable> is specified, show messages
+        to or from this endpoint. Otherwsise, show all messages on the
+        bus.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>status</command>  <arg choice="plain"><replaceable>NAME</replaceable></arg></term>
+
+        <listitem><para>Show process information and credentials of a
+        bus endpoint.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>help</command></term>
+
+        <listitem><para>Show command syntax help.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>dbus-daemon</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <ulink url="http://freedesktop.org/wiki/Software/dbus">D-Bus</ulink>,
+      <ulink url="https://code.google.com/p/d-bus/">kdbus</ulink>,
+      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-bus-proxyd</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+</refentry>
