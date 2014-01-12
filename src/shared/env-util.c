@@ -310,11 +310,48 @@ char **strv_env_unset(char **l, const char *p) {
         assert(p);
 
         /* Drops every occurrence of the env var setting p in the
-         * string list. edits in-place. */
+         * string list. Edits in-place. */
 
         for (f = t = l; *f; f++) {
 
                 if (env_match(*f, p)) {
+                        free(*f);
+                        continue;
+                }
+
+                *(t++) = *f;
+        }
+
+        *t = NULL;
+        return l;
+}
+
+char **strv_env_unset_many(char **l, ...) {
+
+        char **f, **t;
+
+        if (!l)
+                return NULL;
+
+        /* Like strv_env_unset() but applies many at once. Edits in-place. */
+
+        for (f = t = l; *f; f++) {
+                bool found = false;
+                const char *p;
+                va_list ap;
+
+                va_start(ap, l);
+
+                while ((p = va_arg(ap, const char*))) {
+                        if (env_match(*f, p)) {
+                                found = true;
+                                break;
+                        }
+                }
+
+                va_end(ap);
+
+                if (found) {
                         free(*f);
                         continue;
                 }

@@ -348,10 +348,24 @@ static int manager_default_environment(Manager *m) {
 
                 /* Import locale variables LC_*= from configuration */
                 locale_setup(&m->environment);
-        } else
+        } else {
                 /* The user manager passes its own environment
                  * along to its children. */
                 m->environment = strv_copy(environ);
+
+                /* Let's remove some environment variables that we
+                 * need ourselves to communicate with our clients */
+                strv_env_unset_many(
+                                m->environment,
+                                "NOTIFY_SOCKET",
+                                "MAINPID",
+                                "MANAGERPID",
+                                "LISTEN_PID",
+                                "LISTEN_FDS",
+                                "WATCHDOG_PID",
+                                "WATCHDOG_USEC",
+                                NULL);
+        }
 
         if (!m->environment)
                 return -ENOMEM;
