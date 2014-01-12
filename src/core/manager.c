@@ -1916,7 +1916,7 @@ int manager_get_job_from_dbus_path(Manager *m, const char *s, Job **_j) {
 void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
 
 #ifdef HAVE_AUDIT
-        char *p;
+        _cleanup_free_ char *p = NULL;
         int audit_fd;
 
         audit_fd = get_audit_fd();
@@ -1949,17 +1949,19 @@ void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
                 } else
                         log_warning("Failed to send audit message: %m");
         }
-
-        free(p);
 #endif
 
 }
 
 void manager_send_unit_plymouth(Manager *m, Unit *u) {
-        int fd = -1;
-        union sockaddr_union sa;
+        union sockaddr_union sa = {
+                .sa.sa_family = AF_UNIX,
+                .un.sun_path = "\0/org/freedesktop/plymouthd",
+        };
+
         int n = 0;
-        char *message = NULL;
+        _cleanup_free_ char *message = NULL;
+        _cleanup_close_ int fd = -1;
 
         /* Don't generate plymouth events if the service was already
          * started and we're just deserializing */
@@ -1985,46 +1987,22 @@ void manager_send_unit_plymouth(Manager *m, Unit *u) {
                 return;
         }
 
-        zero(sa);
-        sa.sa.sa_family = AF_UNIX;
-        strncpy(sa.un.sun_path+1, "/org/freedesktop/plymouthd", sizeof(sa.un.sun_path)-1);
         if (connect(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + 1 + strlen(sa.un.sun_path+1)) < 0) {
 
-                if (errno != EPIPE &&
-                    errno != EAGAIN &&
-                    errno != ENOENT &&
-                    errno != ECONNREFUSED &&
-                    errno != ECONNRESET &&
-                    errno != ECONNABORTED)
+                if (!IN_SET(errno, EPIPE, EAGAIN, ENOENT, ECONNREFUSED, ECONNRESET, ECONNABORTED))
                         log_error("connect() failed: %m");
-
-                goto finish;
+                return;
         }
 
         if (asprintf(&message, "U\002%c%s%n", (int) (strlen(u->id) + 1), u->id, &n) < 0) {
                 log_oom();
-                goto finish;
+                return;
         }
 
         errno = 0;
-        if (write(fd, message, n + 1) != n + 1) {
-
-                if (errno != EPIPE &&
-                    errno != EAGAIN &&
-                    errno != ENOENT &&
-                    errno != ECONNREFUSED &&
-                    errno != ECONNRESET &&
-                    errno != ECONNABORTED)
+        if (write(fd, message, n + 1) != n + 1)
+                if (!IN_SET(errno, EPIPE, EAGAIN, ENOENT, ECONNREFUSED, ECONNRESET, ECONNABORTED))
                         log_error("Failed to write Plymouth message: %m");
-
-                goto finish;
-        }
-
-finish:
-        if (fd >= 0)
-                close_nointr_nofail(fd);
-
-        free(message);
 }
 
 void manager_dispatch_bus_name_owner_changed(
