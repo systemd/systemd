@@ -32,6 +32,13 @@ External:
 
 Features:
 
+* introduce bus call FreezeUnit(s, b), as well as "systemctl freeze
+  $UNIT" and "systemctl thaw $UNIT" as wrappers around this. The calls
+  should SIGSTOP all unit processes in a loop until all processes of
+  it are fully stopped. This can later be used for app management by
+  desktop UIs such as gnome-shell to freeze apps that are not visible
+  on screen, not unlike how job control works on the shell
+
 * machinectl bash completion is missing
 * busctl bash and zsh completions are outdated
 
