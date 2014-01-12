@@ -229,7 +229,8 @@ static int send_addrinfo_reply(int out_fd, unsigned id, int ret, struct addrinfo
                 struct addrinfo *k;
 
                 for (k = ai; k; k = k->ai_next) {
-                        if (!(p = serialize_addrinfo(p, k, &resp->header.length, (char*) data + BUFSIZE - (char*) p))) {
+                        p = serialize_addrinfo(p, k, &resp->header.length, (char*) data + BUFSIZE - (char*) p);
+                        if (!p) {
                                 resp->ret = EAI_MEMORY;
                                 break;
                         }
@@ -457,8 +458,8 @@ asyncns_t* asyncns_new(unsigned n_proc) {
 
         for (asyncns->valid_workers = 0; asyncns->valid_workers < n_proc; asyncns->valid_workers++) {
                 int r;
-
-                if ((r = pthread_create(&asyncns->workers[asyncns->valid_workers], NULL, thread_worker, asyncns)) != 0) {
+                r = pthread_create(&asyncns->workers[asyncns->valid_workers], NULL, thread_worker, asyncns);
+                if (r) {
                         errno = r;
                         goto fail;
                 }
@@ -532,7 +533,8 @@ static asyncns_query_t *lookup_query(asyncns_t *asyncns, unsigned id) {
         asyncns_query_t *q;
         assert(asyncns);
 
-        if ((q = asyncns->queries[id % MAX_QUERIES]))
+        q = asyncns->queries[id % MAX_QUERIES];
+        if (q)
                 if (q->id == id)
                         return q;
 
@@ -572,7 +574,8 @@ static const void *unserialize_addrinfo(const void *p, struct addrinfo **ret_ai,
         if (*length < l)
                 return NULL;
 
-        if (!(ai = malloc(sizeof(struct addrinfo))))
+        ai = malloc(sizeof(struct addrinfo));
+        if (!ai)
                 goto fail;
 
         ai->ai_addr = NULL;
@@ -626,7 +629,8 @@ static int handle_response(asyncns_t *asyncns, const packet_t *packet, size_t le
                 return 0;
         }
 
-        if (!(q = lookup_query(asyncns, resp->id)))
+        q = lookup_query(asyncns, resp->id);
+        if (!q)
                 return 0;
 
         switch (resp->type) {
@@ -730,7 +734,8 @@ int asyncns_wait(asyncns_t *asyncns, int block) {
                         return -1;
                 }
 
-                if (((l = recv(asyncns->fds[RESPONSE_RECV_FD], buf, sizeof(buf), 0)) < 0)) {
+                l = recv(asyncns->fds[RESPONSE_RECV_FD], buf, sizeof(buf), 0);
+                if (l < 0) {
                         fd_set fds;
 
                         if (errno != EAGAIN)
@@ -765,7 +770,6 @@ static asyncns_query_t *alloc_query(asyncns_t *asyncns) {
         }
 
         while (asyncns->queries[asyncns->current_index]) {
-
                 asyncns->current_index++;
                 asyncns->current_id++;
 
@@ -773,7 +777,8 @@ static asyncns_query_t *alloc_query(asyncns_t *asyncns) {
                         asyncns->current_index -= MAX_QUERIES;
         }
 
-        if (!(q = asyncns->queries[asyncns->current_index] = malloc(sizeof(asyncns_query_t)))) {
+        q = asyncns->queries[asyncns->current_index] = malloc(sizeof(asyncns_query_t));
+        if (!q) {
                 errno = ENOMEM;
                 return NULL;
         }
@@ -806,9 +811,9 @@ asyncns_query_t* asyncns_getaddrinfo(asyncns_t *asyncns, const char *node, const
                 return NULL;
         }
 
-        if (!(q = alloc_query(asyncns)))
+        q = alloc_query(asyncns);
+        if (!q)
                 return NULL;
-
 
         req->node_len = node ? strlen(node)+1 : 0;
         req->service_len = service ? strlen(service)+1 : 0;
@@ -892,9 +897,9 @@ asyncns_query_t* asyncns_getnameinfo(asyncns_t *asyncns, const struct sockaddr *
                 return NULL;
         }
 
-        if (!(q = alloc_query(asyncns)))
+        q = alloc_query(asyncns);
+        if (!q)
                 return NULL;
-
 
         req->header.id = q->id;
         req->header.type = q->type = REQUEST_NAMEINFO;
@@ -977,7 +982,8 @@ static asyncns_query_t * asyncns_res(asyncns_t *asyncns, query_type_t qtype, con
                 return NULL;
         }
 
-        if (!(q = alloc_query(asyncns)))
+        q = alloc_query(asyncns);
+        if (!q)
                 return NULL;
 
         req->dname_len = strlen(dname) + 1;
