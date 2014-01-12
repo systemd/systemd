@@ -608,8 +608,13 @@ int main(int argc, char *argv[]) {
 
                                 k = sd_bus_send(b, m, NULL);
                                 if (k < 0) {
-                                        r = k;
-                                        log_error("Failed to send message: %s", strerror(-r));
+                                        if (k == -ECONNRESET)
+                                                r = 0;
+                                        else {
+                                                r = k;
+                                                log_error("Failed to send message: %s", strerror(-r));
+                                        }
+
                                         goto finish;
                                 }
                         }
@@ -653,8 +658,13 @@ int main(int argc, char *argv[]) {
 
                                 k = sd_bus_send(a, m, NULL);
                                 if (k < 0) {
-                                        r = k;
-                                        log_error("Failed to send message: %s", strerror(-r));
+                                        if (r == -ECONNRESET)
+                                                r = 0;
+                                        else {
+                                                r = k;
+                                                log_error("Failed to send message: %s", strerror(-r));
+                                        }
+
                                         goto finish;
                                 }
                         }

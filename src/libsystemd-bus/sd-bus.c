@@ -1499,7 +1499,7 @@ _public_ int sd_bus_send(sd_bus *bus, sd_bus_message *_m, uint64_t *cookie) {
         if (r < 0)
                 return r;
 
-        /* Remarshall if we have to. This will possible unref the
+        /* Remarshall if we have to. This will possibly unref the
          * message and place a replacement in m */
         r = bus_remarshal_message(bus, &m);
         if (r < 0)
@@ -1515,8 +1515,10 @@ _public_ int sd_bus_send(sd_bus *bus, sd_bus_message *_m, uint64_t *cookie) {
 
                 r = bus_write_message(bus, m, &idx);
                 if (r < 0) {
-                        if (r == -EPIPE || r == -ENOTCONN || r == -ESHUTDOWN)
+                        if (r == -ENOTCONN || r == -ECONNRESET || r == -EPIPE || r == -ESHUTDOWN) {
                                 bus_enter_closing(bus);
+                                return -ECONNRESET;
+                        }
 
                         return r;
                 } else if (!bus->is_kernel && idx < BUS_MESSAGE_SIZE(m))  {
@@ -1799,8 +1801,10 @@ _public_ int sd_bus_call(
 
                 r = bus_read_message(bus);
                 if (r < 0) {
-                        if (r == -EPIPE || r == -ENOTCONN || r == -ESHUTDOWN)
+                        if (r == -ENOTCONN || r == -ECONNRESET || r == -EPIPE || r == -ESHUTDOWN) {
                                 bus_enter_closing(bus);
+                                return -ECONNRESET;
+                        }
 
                         return r;
                 }
@@ -1826,8 +1830,10 @@ _public_ int sd_bus_call(
 
                 r = dispatch_wqueue(bus);
                 if (r < 0) {
-                        if (r == -EPIPE || r == -ENOTCONN || r == -ESHUTDOWN)
+                        if (r == -ENOTCONN || r == -ECONNRESET || r == -EPIPE || r == -ESHUTDOWN) {
                                 bus_enter_closing(bus);
+                                return -ECONNRESET;
+                        }
 
                         return r;
                 }
@@ -2325,7 +2331,7 @@ _public_ int sd_bus_process(sd_bus *bus, sd_bus_message **ret) {
 
         case BUS_OPENING:
                 r = bus_socket_process_opening(bus);
-                if (r == -ECONNRESET || r == -EPIPE || r == -ESHUTDOWN) {
+                if (r == -ENOTCONN || r == -ECONNRESET || r == -EPIPE || r == -ESHUTDOWN) {
                         bus_enter_closing(bus);
                         r = 1;
                 } else if (r < 0)
@@ -2336,7 +2342,7 @@ _public_ int sd_bus_process(sd_bus *bus, sd_bus_message **ret) {
 
         case BUS_AUTHENTICATING:
                 r = bus_socket_process_authenticating(bus);
-                if (r == -ECONNRESET || r == -EPIPE || r == -ESHUTDOWN) {
+                if (r == -ENOTCONN || r == -ECONNRESET || r == -EPIPE || r == -ESHUTDOWN) {
                         bus_enter_closing(bus);
                         r = 1;
                 } else if (r < 0)
@@ -2350,7 +2356,7 @@ _public_ int sd_bus_process(sd_bus *bus, sd_bus_message **ret) {
         case BUS_RUNNING:
         case BUS_HELLO:
                 r = process_running(bus, ret);
-                if (r == -ECONNRESET || r == -EPIPE || r == -ESHUTDOWN) {
+                if (r == -ENOTCONN || r == -ECONNRESET || r == -EPIPE || r == -ESHUTDOWN) {
                         bus_enter_closing(bus);
                         r = 1;
 
@@ -2462,8 +2468,10 @@ _public_ int sd_bus_flush(sd_bus *bus) {
         for (;;) {
                 r = dispatch_wqueue(bus);
                 if (r < 0) {
-                        if (r == -EPIPE || r == -ENOTCONN || r == -ESHUTDOWN)
+                        if (r == -ENOTCONN || r == -ECONNRESET || r == -EPIPE || r == -ESHUTDOWN) {
                                 bus_enter_closing(bus);
+                                return -ECONNRESET;
+                        }
 
                         return r;
                 }
