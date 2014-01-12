@@ -65,7 +65,7 @@ static void test_bus_label_escape(void) {
 int main(int argc, char *argv[]) {
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *copy = NULL;
         int r, boolean;
-        const char *x, *x2, *y, *z, *a, *b, *c, *d;
+        const char *x, *x2, *y, *z, *a, *b, *c, *d, *a_signature;
         uint8_t u, v;
         void *buffer = NULL;
         size_t sz;
@@ -85,7 +85,7 @@ int main(int argc, char *argv[]) {
         r = sd_bus_message_append(m, "s", NULL);
         assert_se(r >= 0);
 
-        r = sd_bus_message_append(m, "as", 2, "string #1", "string #2");
+        r = sd_bus_message_append(m, "asg", 2, "string #1", "string #2", "sba(tt)ss");
         assert_se(r >= 0);
 
         r = sd_bus_message_append(m, "sass", "foobar", 5, "foo", "bar", "waldo", "piep", "pap", "after");
@@ -187,12 +187,13 @@ int main(int argc, char *argv[]) {
 
         assert_se(sd_bus_message_rewind(m, true) >= 0);
 
-        r = sd_bus_message_read(m, "ssas", &x, &x2, 2, &y, &z);
+        r = sd_bus_message_read(m, "ssasg", &x, &x2, 2, &y, &z, &a_signature);
         assert_se(r > 0);
         assert_se(streq(x, "a string"));
         assert_se(streq(x2, ""));
         assert_se(streq(y, "string #1"));
         assert_se(streq(z, "string #2"));
+        assert_se(streq(a_signature, "sba(tt)ss"));
 
         r = sd_bus_message_read(m, "sass", &x, 5, &y, &z, &a, &b, &c, &d);
         assert_se(r > 0);
@@ -273,7 +274,7 @@ int main(int argc, char *argv[]) {
 
         assert_se(sd_bus_message_verify_type(m, 's', NULL) > 0);
 
-        r = sd_bus_message_skip(m, "ssas");
+        r = sd_bus_message_skip(m, "ssasg");
         assert_se(r > 0);
 
         assert_se(sd_bus_message_verify_type(m, 's', NULL) > 0);
