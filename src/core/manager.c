@@ -332,6 +332,23 @@ static int manager_setup_signals(Manager *m) {
         return 0;
 }
 
+static void manager_clean_environment(Manager *m) {
+        assert(m);
+
+        /* Let's remove some environment variables that we
+         * need ourselves to communicate with our clients */
+        strv_env_unset_many(
+                        m->environment,
+                        "NOTIFY_SOCKET",
+                        "MAINPID",
+                        "MANAGERPID",
+                        "LISTEN_PID",
+                        "LISTEN_FDS",
+                        "WATCHDOG_PID",
+                        "WATCHDOG_USEC",
+                        NULL);
+}
+
 static int manager_default_environment(Manager *m) {
         assert(m);
 
@@ -352,24 +369,12 @@ static int manager_default_environment(Manager *m) {
                 /* The user manager passes its own environment
                  * along to its children. */
                 m->environment = strv_copy(environ);
-
-                /* Let's remove some environment variables that we
-                 * need ourselves to communicate with our clients */
-                strv_env_unset_many(
-                                m->environment,
-                                "NOTIFY_SOCKET",
-                                "MAINPID",
-                                "MANAGERPID",
-                                "LISTEN_PID",
-                                "LISTEN_FDS",
-                                "WATCHDOG_PID",
-                                "WATCHDOG_USEC",
-                                NULL);
         }
 
         if (!m->environment)
                 return -ENOMEM;
 
+        manager_clean_environment(m);
         strv_sort(m->environment);
 
         return 0;
@@ -2689,7 +2694,10 @@ int manager_environment_add(Manager *m, char **minus, char **plus) {
         if (b != l)
                 strv_free(b);
 
-        m->environment = strv_sort(l);
+        m->environment = l;
+        manager_clean_environment(m);
+        strv_sort(m->environment);
+
         return 0;
 }
 
