@@ -108,6 +108,8 @@ static int bridge_join_ready(Bridge *bridge, Link* link, sd_rtnl_message_handler
                 return r;
         }
 
+        log_debug_bridge(bridge, "joining link %s to bridge", link->ifname);
+
         return 0;
 }
 

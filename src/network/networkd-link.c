@@ -453,6 +453,8 @@ static int link_acquire_conf(Link *link) {
                         return r;
         }
 
+        log_debug_link(link, "acquiring DHCPv4 lease");
+
         r = sd_dhcp_client_start(link->dhcp);
         if (r < 0)
                 return r;
@@ -470,7 +472,7 @@ static int link_update_flags(Link *link, unsigned flags) {
                 return 0;
 
         if (link->flags == flags) {
-                log_debug_link(link, "link status unchanged: %#x", flags);
+                log_debug_link(link, "link status unchanged: %#.8x", flags);
                 return 0;
         }
 
@@ -503,7 +505,7 @@ static int link_update_flags(Link *link, unsigned flags) {
         }
 
         log_debug_link(link,
-                       "link status updated: %#x -> %#x", link->flags, flags);
+                       "link status updated: %#.8x -> %#.8x", link->flags, flags);
 
         link->flags = flags;
 
@@ -609,6 +611,7 @@ static int bridge_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
                         link->network->bridge->name,
                         BRIDGE(link->network->bridge),
                         NULL);
+
         link_bridge_joined(link);
 
         return 1;
