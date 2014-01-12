@@ -291,8 +291,8 @@ static void append_dns(FILE *f, struct in_addr *dns, unsigned char family, unsig
         }
 
         if (*count == MAXNS)
-                fputs("# Too many dynamic name servers configured, the "
-                      "following entries will be ignored\n", f);
+                fputs("# Too many DNS servers configured, the following entries "
+                      "will be ignored\n", f);
 
         fprintf(f, "nameserver %s\n", address);
 
