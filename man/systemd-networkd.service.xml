@@ -260,6 +260,13 @@
                                                 from the DHCP server will be used on the current link.</para>
                                         </listitem>
                                 </varlistentry>
+                                <varlistentry>
+                                        <term><varname>UseHostname</varname></term>
+                                        <listitem>
+                                                <para>When true (the default) the hostname received from the DHCP server
+                                                will be used as the transient hostname.</para>
+                                        </listitem>
+                                </varlistentry>
                        </variablelist>
 
                 </refsect2>

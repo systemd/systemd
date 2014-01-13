@@ -26,6 +26,7 @@
 
 #include "sd-event.h"
 #include "sd-rtnl.h"
+#include "sd-bus.h"
 #include "sd-dhcp-client.h"
 #include "udev.h"
 
@@ -87,6 +88,7 @@ struct Network {
         bool dhcp;
         bool dhcp_dns;
         bool dhcp_mtu;
+        bool dhcp_hostname;
 
         LIST_HEAD(Address, static_addresses);
         LIST_HEAD(Route, static_routes);
@@ -174,6 +176,7 @@ struct Link {
 struct Manager {
         sd_rtnl *rtnl;
         sd_event *event;
+        sd_bus *bus;
         struct udev *udev;
         struct udev_monitor *udev_monitor;
         sd_event_source *udev_event_source;
@@ -199,6 +202,7 @@ int manager_udev_enumerate_links(Manager *m);
 int manager_udev_listen(Manager *m);
 
 int manager_rtnl_listen(Manager *m);
+int manager_bus_listen(Manager *m);
 
 int manager_update_resolv_conf(Manager *m);
 

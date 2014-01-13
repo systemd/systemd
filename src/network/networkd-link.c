@@ -25,6 +25,7 @@
 #include "networkd.h"
 #include "libudev-private.h"
 #include "util.h"
+#include "bus-util.h"
 
 int link_new(Manager *manager, struct udev_device *device, Link **ret) {
         _cleanup_link_free_ Link *link = NULL;
@@ -310,6 +311,46 @@ static int address_drop_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdat
         return 1;
 }
 
+static int set_hostname_handler(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+        int r;
+
+        r = sd_bus_message_get_errno(m);
+        if (r < 0)
+                log_warning("Could not set hostname: %s", strerror(-r));
+
+        return 1;
+}
+
+static int set_hostname(sd_bus *bus, const char *hostname) {
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        int r = 0;
+
+        assert(bus);
+        assert(hostname);
+
+        log_debug("Setting transient hostname: '%s'", hostname);
+
+        r = sd_bus_message_new_method_call(
+                        bus,
+                        "org.freedesktop.hostname1",
+                        "/org/freedesktop/hostname1",
+                        "org.freedesktop.hostname1",
+                        "SetHostname",
+                        &m);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(m, "sb", hostname, false);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_call_async(bus, m, set_hostname_handler, NULL, 0, NULL);
+        if (r < 0)
+                log_error("Could not set transient hostname: %s", strerror(-r));
+
+        return r;
+}
+
 static int set_mtu_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
         Link *link = userdata;
         int r;
@@ -370,6 +411,7 @@ static void dhcp_handler(sd_dhcp_client *client, int event, void *userdata) {
 
         assert(link);
         assert(link->network);
+        assert(link->manager);
 
         if (link->state == LINK_STATE_FAILED)
                 return;
@@ -409,6 +451,12 @@ static void dhcp_handler(sd_dhcp_client *client, int event, void *userdata) {
                                         return;
                                 }
                         }
+                }
+
+                if (link->network->dhcp_hostname) {
+                        r = set_hostname(link->manager->bus, "");
+                        if (r < 0)
+                                log_error("Failed to reset transient hostname");
                 }
         }
 
@@ -504,6 +552,18 @@ static void dhcp_handler(sd_dhcp_client *client, int event, void *userdata) {
                                 if (r < 0)
                                         log_error_link(link, "Failed to set MTU "
                                                              "to %" PRIu16, mtu);
+                        }
+                }
+
+                if (link->network->dhcp_hostname) {
+                        const char *hostname;
+
+                        r = sd_dhcp_client_get_hostname(client, &hostname);
+                        if (r >= 0) {
+                                r = set_hostname(link->manager->bus, hostname);
+                                if (r < 0)
+                                        log_error("Failed to set transient hostname "
+                                                  "to '%s'", hostname);
                         }
                 }
 

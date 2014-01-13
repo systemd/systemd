@@ -70,6 +70,12 @@ int main(int argc, char *argv[]) {
                 goto out;
         }
 
+        r = manager_bus_listen(m);
+        if (r < 0) {
+                log_error("Could not connect to system bus: %s", strerror(-r));
+                goto out;
+        }
+
         /* write out empty resolv.conf to avoid a
          * dangling symlink */
         r = manager_update_resolv_conf(m);

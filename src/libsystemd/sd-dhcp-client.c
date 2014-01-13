@@ -43,6 +43,7 @@ struct DHCPLease {
         be32_t router;
         struct in_addr **dns;
         uint16_t mtu;
+        char *hostname;
 };
 
 typedef struct DHCPLease DHCPLease;
@@ -232,6 +233,33 @@ int sd_dhcp_client_get_dns(sd_dhcp_client *client, struct in_addr ***addr)
         case DHCP_STATE_REBINDING:
                 if (client->lease->dns)
                         *addr = client->lease->dns;
+                else
+                        return -ENOENT;
+
+                break;
+        }
+
+        return 0;
+}
+
+int sd_dhcp_client_get_hostname(sd_dhcp_client *client, const char **hostname)
+{
+        assert_return(client, -EINVAL);
+        assert_return(hostname, -EINVAL);
+
+        switch (client->state) {
+        case DHCP_STATE_INIT:
+        case DHCP_STATE_SELECTING:
+        case DHCP_STATE_INIT_REBOOT:
+        case DHCP_STATE_REBOOTING:
+        case DHCP_STATE_REQUESTING:
+                return -EADDRNOTAVAIL;
+
+        case DHCP_STATE_BOUND:
+        case DHCP_STATE_RENEWING:
+        case DHCP_STATE_REBINDING:
+                if (client->lease->hostname)
+                        *hostname = client->lease->hostname;
                 else
                         return -ENOENT;
 
@@ -825,6 +853,14 @@ static int client_parse_offer(uint8_t code, uint8_t len, const uint8_t *option,
 
                         if (lease->mtu < 68)
                                 lease->mtu = 0;
+                }
+
+                break;
+
+        case DHCP_OPTION_HOST_NAME:
+                if (len >= 1) {
+                        free(lease->hostname);
+                        lease->hostname = strndup((const char *)option, len);
                 }
 
                 break;

@@ -54,6 +54,10 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
+        r = sd_bus_default_system(&m->bus);
+        if (r < 0)
+                return r;
+
         m->udev = udev_new();
         if (!m->udev)
                 return -ENOMEM;
@@ -85,6 +89,7 @@ void manager_free(Manager *m) {
 
         udev_monitor_unref(m->udev_monitor);
         udev_unref(m->udev);
+        sd_bus_unref(m->bus);
         sd_event_source_unref(m->udev_event_source);
         sd_event_unref(m->event);
 
@@ -274,6 +279,16 @@ int manager_rtnl_listen(Manager *m) {
                 return r;
 
         r = sd_rtnl_add_match(m->rtnl, RTM_NEWLINK, &manager_rtnl_process_link, m);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+int manager_bus_listen(Manager *m) {
+        int r;
+
+        r = sd_bus_attach_event(m->bus, m->event, 0);
         if (r < 0)
                 return r;
 
