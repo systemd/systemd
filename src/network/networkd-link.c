@@ -319,6 +319,7 @@ static void dhcp_handler(sd_dhcp_client *client, int event, void *userdata) {
         int r;
 
         assert(link);
+        assert(link->network);
 
         if (link->state == LINK_STATE_FAILED)
                 return;
@@ -421,11 +422,13 @@ static void dhcp_handler(sd_dhcp_client *client, int event, void *userdata) {
                 addr = NULL;
                 rt = NULL;
 
-                r = sd_dhcp_client_get_dns(client, &nameservers);
-                if (r >= 0) {
-                        r = manager_update_resolv_conf(link->manager);
-                        if (r < 0)
-                                log_error("Failed to update resolv.conf");
+                if (link->network->dhcp_dns) {
+                        r = sd_dhcp_client_get_dns(client, &nameservers);
+                        if (r >= 0) {
+                                r = manager_update_resolv_conf(link->manager);
+                                if (r < 0)
+                                        log_error("Failed to update resolv.conf");
+                        }
                 }
 
                 link_enter_set_addresses(link);

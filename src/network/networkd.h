@@ -85,6 +85,7 @@ struct Network {
         char *description;
         Bridge *bridge;
         bool dhcp;
+        bool dhcp_dns;
 
         LIST_HEAD(Address, static_addresses);
         LIST_HEAD(Route, static_routes);
