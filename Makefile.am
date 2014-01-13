@@ -190,7 +190,6 @@ AM_CPPFLAGS = \
 	-I $(top_srcdir)/src/udev/net \
 	-I $(top_builddir)/src/udev \
 	-I $(top_srcdir)/src/libsystemd \
-	-I $(top_srcdir)/src/libsystemd-rtnl \
 	$(OUR_CPPFLAGS)
 
 AM_CFLAGS = $(OUR_CFLAGS)
@@ -642,31 +641,6 @@ EXTRA_DIST += \
 
 # ------------------------------------------------------------------------------
 noinst_LTLIBRARIES += \
-	libsystemd-rtnl.la
-
-libsystemd_rtnl_la_SOURCES = \
-	src/systemd/sd-rtnl.h \
-	src/libsystemd-rtnl/sd-rtnl.c \
-	src/libsystemd-rtnl/rtnl-internal.h \
-	src/libsystemd-rtnl/rtnl-message.c \
-	src/libsystemd-rtnl/rtnl-util.h \
-	src/libsystemd-rtnl/rtnl-util.c
-
-test_rtnl_SOURCES = \
-	src/libsystemd-rtnl/test-rtnl.c
-
-test_rtnl_LDADD = \
-	libsystemd-rtnl.la \
-	libsystemd-internal.la \
-	libsystemd-daemon-internal.la \
-	libsystemd-id128-internal.la \
-	libsystemd-shared.la
-
-tests += \
-	test-rtnl
-
-# ------------------------------------------------------------------------------
-noinst_LTLIBRARIES += \
 	libsystemd-dns.la
 
 libsystemd_dns_la_SOURCES = \
@@ -1056,7 +1030,6 @@ libsystemd_core_la_LIBADD = \
 	libsystemd-daemon-internal.la \
 	libudev-internal.la \
 	libsystemd-shared.la \
-	libsystemd-rtnl.la \
 	libsystemd-internal.la \
 	$(LIBWRAP_LIBS) \
 	$(PAM_LIBS) \
@@ -1921,8 +1894,7 @@ systemd_nspawn_LDADD = \
 	libsystemd-internal.la \
 	libsystemd-id128-internal.la \
 	libsystemd-daemon-internal.la \
-	libsystemd-shared.la \
-	libsystemd-rtnl.la
+	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
 systemd_run_SOURCES = \
@@ -2038,6 +2010,7 @@ libsystemd_la_SOURCES = \
 	src/systemd/sd-utf8.h \
 	src/systemd/sd-event.h \
 	src/systemd/sd-dhcp-client.h \
+	src/systemd/sd-rtnl.h \
 	src/libsystemd/sd-bus.c \
 	src/libsystemd/bus-control.c \
 	src/libsystemd/bus-control.h \
@@ -2082,7 +2055,12 @@ libsystemd_la_SOURCES = \
 	src/libsystemd/dhcp-network.c \
 	src/libsystemd/dhcp-option.c \
 	src/libsystemd/dhcp-internal.h \
-	src/libsystemd/dhcp-protocol.h
+	src/libsystemd/dhcp-protocol.h \
+	src/libsystemd/sd-rtnl.c \
+	src/libsystemd/rtnl-internal.h \
+	src/libsystemd/rtnl-message.c \
+	src/libsystemd/rtnl-util.h \
+	src/libsystemd/rtnl-util.c
 
 nodist_libsystemd_la_SOURCES = \
 	src/libsystemd/bus-error-mapping.c
@@ -2157,7 +2135,8 @@ tests += \
 	test-bus-gvariant \
 	test-event \
 	test-dhcp-option \
-	test-dhcp-client
+	test-dhcp-client \
+	test-rtnl
 
 bin_PROGRAMS += \
 	busctl
@@ -2368,6 +2347,15 @@ test_dhcp_client_SOURCES = \
 	src/libsystemd/test-dhcp-client.c
 
 test_dhcp_client_LDADD = \
+	libsystemd-internal.la \
+	libsystemd-daemon-internal.la \
+	libsystemd-id128-internal.la \
+	libsystemd-shared.la
+
+test_rtnl_SOURCES = \
+	src/libsystemd/test-rtnl.c
+
+test_rtnl_LDADD = \
 	libsystemd-internal.la \
 	libsystemd-daemon-internal.la \
 	libsystemd-id128-internal.la \
@@ -2613,7 +2601,7 @@ libudev_core_la_LIBADD = \
 	libudev-internal.la \
 	libsystemd-label.la \
 	libsystemd-daemon-internal.la \
-	libsystemd-rtnl.la \
+	libsystemd-internal.la \
 	libsystemd-id128-internal.la \
 	libsystemd-shared.la \
 	$(BLKID_LIBS) \
@@ -4092,7 +4080,6 @@ systemd_networkd_LDADD = \
 	libsystemd-daemon-internal.la \
 	libsystemd-internal.la \
 	libsystemd-id128-internal.la \
-	libsystemd-rtnl.la \
 	libsystemd-label.la \
 	libsystemd-shared.la
 
@@ -4118,7 +4105,6 @@ test_network_LDADD = \
 	libsystemd-internal.la \
 	libsystemd-id128-internal.la \
 	libsystemd-daemon-internal.la \
-	libsystemd-rtnl.la \
 	libsystemd-label.la \
 	libsystemd-shared.la
 
