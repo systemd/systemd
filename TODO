@@ -121,7 +121,7 @@ Features:
 * allow implementation of InaccessibleDirectories=/ plus
   ReadOnlyDirectories=... for whitelisting files for a service.
 
-* libsystemd-bus:
+* sd-bus:
   - let the activator peek the peer connection with KDBUS_CMD_MSG_SRC and log it
   - when kdbus doesn't take our message without memfds, try again with memfds
   - implement monitor logic

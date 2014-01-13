@@ -11,9 +11,9 @@ libdir=@libdir@
 includedir=@includedir@
 
 Name: systemd
-Description: systemd Bus and Event Loop Library
+Description: systemd Library
 URL: @PACKAGE_URL@
 Version: @PACKAGE_VERSION@
 Requires: libsystemd-id128 = @PACKAGE_VERSION@
-Libs: -L${libdir} -lsystemd-bus
+Libs: -L${libdir} -lsystemd
 Cflags: -I${includedir}

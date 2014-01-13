@@ -21,7 +21,7 @@ bus. The system bus is thus called /dev/kdbus/0-system, and for user
 buses the device node is /dev/kdbus/1000-user (if 1000 is your user
 id).
 
-(Before we proceed, please always keep a copy of libsystemd-bus next
+(Before we proceed, please always keep a copy of libsystemd next
 to you, ultimately that's where the details are, this document simply
 is a rough overview to help you grok things.)
 
@@ -414,7 +414,7 @@ More specifically:
    there are kernel messages containing KDBUS_ITEM_NAME_ADD,
    KDBUS_ITEM_NAME_REMOVE, KDBUS_ITEM_NAME_CHANGE, KDBUS_ITEM_ID_ADD,
    KDBUS_ITEM_ID_REMOVE items are generated (each message will contain
-   exactly one of these items). Note that in libsystemd-bus we have
+   exactly one of these items). Note that in libsystemd we have
    obsoleted NameLost/NameAcquired messages, since they are entirely
    redundant to NameOwnerChanged. This library will hence only
    synthesize NameOwnerChanged messages from these kernel messages,

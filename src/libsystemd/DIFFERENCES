@@ -1,8 +1,8 @@
 Known differences between dbus1 and kdbus:
 
 - NameAcquired/NameLost is gone entirely on kdbus backends if
-  libsystemd-bus is used. It is still added in by systemd-bus-proxyd
-  for old dbus1 clients, and it is available if libsystemd-bus is used
+  libsystemd is used. It is still added in by systemd-bus-proxyd
+  for old dbus1 clients, and it is available if libsystemd is used
   against the classic dbus1 daemon. If you want to write compatible
   code with libsystem-bus you need to explicitly subscribe to
   NameOwnerChanged signals and just ignore NameAcquired/NameLost

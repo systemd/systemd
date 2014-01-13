@@ -54,7 +54,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <refname>sd_bus_error_is_set</refname>
     <refname>sd_bus_error_has_name</refname>
 
-    <refpurpose>libsystemd-bus error handling</refpurpose>
+    <refpurpose>sd-bus error handling</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -232,7 +232,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <title>Description</title>
 
     <para><structname>sd_bus_error</structname> structure carries
-    information for a <filename>libsystemd-bus</filename> error.
+    information for a <filename>sd-bus</filename> error.
     Functions described below can be used to set and query fields in
     this structure. Field <structfield>name</structfield> contains a
     short identifier of an error. It should follow the rules for error
@@ -397,7 +397,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <para><function>sd_bus_set_error()</function> and other functions
     described here are available as a shared library, which can be
     compiled and linked to with the
-    <constant>libsystemd-bus</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    <constant>libsystemd</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     file.</para>
   </refsect1>
 
