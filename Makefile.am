@@ -641,35 +641,6 @@ EXTRA_DIST += \
 
 # ------------------------------------------------------------------------------
 noinst_LTLIBRARIES += \
-	libsystemd-dns.la
-
-libsystemd_dns_la_SOURCES = \
-	src/systemd/sd-dns.h \
-	src/libsystemd/sd-dns.c \
-	src/libsystemd/dns-util.h
-
-libsystemd_dns_la_LIBADD = \
-	libsystemd-shared.la
-
-libsystemd_dns_la_CFLAGS = \
-	-pthread
-
-test_dns_SOURCES = \
-	src/libsystemd/test-dns.c \
-	src/systemd/sd-dns.h
-
-test_dns_LDADD = \
-	libsystemd-dns.la
-
-test_dns_LDFLAGS = \
-	-lresolv \
-	-pthread
-
-tests += \
-	 test-dns
-
-# ------------------------------------------------------------------------------
-noinst_LTLIBRARIES += \
 	libsystemd-shared.la
 
 libsystemd_shared_la_SOURCES = \
@@ -2011,6 +1982,7 @@ libsystemd_la_SOURCES = \
 	src/systemd/sd-event.h \
 	src/systemd/sd-dhcp-client.h \
 	src/systemd/sd-rtnl.h \
+	src/systemd/sd-resolv.h \
 	src/libsystemd/sd-bus.c \
 	src/libsystemd/bus-control.c \
 	src/libsystemd/bus-control.h \
@@ -2060,7 +2032,9 @@ libsystemd_la_SOURCES = \
 	src/libsystemd/rtnl-internal.h \
 	src/libsystemd/rtnl-message.c \
 	src/libsystemd/rtnl-util.h \
-	src/libsystemd/rtnl-util.c
+	src/libsystemd/rtnl-util.c \
+	src/libsystemd/sd-resolv.c \
+	src/libsystemd/resolv-util.h
 
 nodist_libsystemd_la_SOURCES = \
 	src/libsystemd/bus-error-mapping.c
@@ -2072,7 +2046,8 @@ libsystemd_la_LIBADD = \
 
 libsystemd_la_CFLAGS = \
 	$(AM_CFLAGS) \
-	-pthread
+	-pthread \
+	-lresolv
 
 libsystemd_la_LDFLAGS = \
 	$(AM_LDFLAGS) \
@@ -2136,7 +2111,8 @@ tests += \
 	test-event \
 	test-dhcp-option \
 	test-dhcp-client \
-	test-rtnl
+	test-rtnl \
+	test-resolv
 
 bin_PROGRAMS += \
 	busctl
@@ -2360,6 +2336,18 @@ test_rtnl_LDADD = \
 	libsystemd-daemon-internal.la \
 	libsystemd-id128-internal.la \
 	libsystemd-shared.la
+
+test_resolv_SOURCES = \
+	src/systemd/sd-resolv.h \
+	src/libsystemd/test-resolv.c
+
+test_resolv_LDADD = \
+	libsystemd-internal.la \
+	libsystemd-shared.la
+
+test_resolv_CFLAGS = \
+	$(AM_CFLAGS) \
+	-pthread
 
 busctl_SOURCES = \
 	src/libsystemd/busctl.c

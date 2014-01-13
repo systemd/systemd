@@ -31,8 +31,8 @@
 #include <signal.h>
 #include <errno.h>
 
-#include "sd-dns.h"
-#include "dns-util.h"
+#include "sd-resolv.h"
+#include "resolv-util.h"
 #include "macro.h"
 
 int main(int argc, char *argv[]) {

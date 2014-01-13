@@ -134,7 +134,7 @@
 /test-device-nodes
 /test-dhcp-client
 /test-dhcp-option
-/test-dns
+/test-resolv
 /test-ellipsize
 /test-engine
 /test-env-replace

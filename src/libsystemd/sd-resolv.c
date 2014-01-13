@@ -41,7 +41,7 @@
 #include <pthread.h>
 #include <sys/prctl.h>
 
-#include "sd-dns.h"
+#include "sd-resolv.h"
 #include "util.h"
 
 #define MAX_WORKERS 16
