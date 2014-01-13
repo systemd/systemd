@@ -253,6 +253,13 @@
                                                 be used, and take precedence over any statically configured ones.</para>
                                         </listitem>
                                 </varlistentry>
+                                <varlistentry>
+                                        <term><varname>UseMTU</varname></term>
+                                        <listitem>
+                                                <para>When true (the default) the interface maximum transmission unit
+                                                from the DHCP server will be used on the current link.</para>
+                                        </listitem>
+                                </varlistentry>
                        </variablelist>
 
                 </refsect2>

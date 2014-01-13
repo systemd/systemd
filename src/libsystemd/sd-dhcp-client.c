@@ -42,6 +42,7 @@ struct DHCPLease {
         be32_t subnet_mask;
         be32_t router;
         struct in_addr **dns;
+        uint16_t mtu;
 };
 
 typedef struct DHCPLease DHCPLease;
@@ -186,10 +187,10 @@ int sd_dhcp_client_get_address(sd_dhcp_client *client, struct in_addr *addr)
         return 0;
 }
 
-int sd_dhcp_client_get_netmask(sd_dhcp_client *client, struct in_addr *addr)
+int sd_dhcp_client_get_mtu(sd_dhcp_client *client, uint16_t *mtu)
 {
         assert_return(client, -EINVAL);
-        assert_return(addr, -EINVAL);
+        assert_return(mtu, -EINVAL);
 
         switch (client->state) {
         case DHCP_STATE_INIT:
@@ -202,7 +203,10 @@ int sd_dhcp_client_get_netmask(sd_dhcp_client *client, struct in_addr *addr)
         case DHCP_STATE_BOUND:
         case DHCP_STATE_RENEWING:
         case DHCP_STATE_REBINDING:
-                addr->s_addr = client->lease->subnet_mask;
+                if (client->lease->mtu)
+                        *mtu = client->lease->mtu;
+                else
+                        return -ENOENT;
 
                 break;
         }
@@ -270,6 +274,30 @@ int sd_dhcp_client_get_router(sd_dhcp_client *client, struct in_addr *addr)
         case DHCP_STATE_RENEWING:
         case DHCP_STATE_REBINDING:
                 addr->s_addr = client->lease->router;
+
+                break;
+        }
+
+        return 0;
+}
+
+int sd_dhcp_client_get_netmask(sd_dhcp_client *client, struct in_addr *addr)
+{
+        assert_return(client, -EINVAL);
+        assert_return(addr, -EINVAL);
+
+        switch (client->state) {
+        case DHCP_STATE_INIT:
+        case DHCP_STATE_SELECTING:
+        case DHCP_STATE_INIT_REBOOT:
+        case DHCP_STATE_REBOOTING:
+        case DHCP_STATE_REQUESTING:
+                return -EADDRNOTAVAIL;
+
+        case DHCP_STATE_BOUND:
+        case DHCP_STATE_RENEWING:
+        case DHCP_STATE_REBINDING:
+                addr->s_addr = client->lease->subnet_mask;
 
                 break;
         }
@@ -784,6 +812,19 @@ static int client_parse_offer(uint8_t code, uint8_t len, const uint8_t *option,
                         }
 
                         lease->dns[len / 4] = NULL;
+                }
+
+                break;
+
+        case DHCP_OPTION_INTERFACE_MTU:
+                if (len >= 2) {
+                        be16_t mtu;
+
+                        memcpy(&mtu, option, 2);
+                        lease->mtu = be16toh(mtu);
+
+                        if (lease->mtu < 68)
+                                lease->mtu = 0;
                 }
 
                 break;

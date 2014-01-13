@@ -31,5 +31,6 @@ Address.Label,           config_parse_label,            0,       0
 Route.Gateway,           config_parse_gateway,          0,       0
 Route.Destination,       config_parse_destination,      0,       0
 DHCPv4.UseDNS,           config_parse_bool,             0,       offsetof(Network, dhcp_dns)
+DHCPv4.UseMTU,           config_parse_bool,             0,       offsetof(Network, dhcp_mtu)
 Bridge.Description,      config_parse_string,           0,       offsetof(Bridge, description)
 Bridge.Name,             config_parse_ifname,           0,       offsetof(Bridge, name)

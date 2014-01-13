@@ -310,6 +310,56 @@ static int address_drop_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdat
         return 1;
 }
 
+static int set_mtu_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
+        Link *link = userdata;
+        int r;
+
+        assert(m);
+        assert(link);
+        assert(link->ifname);
+
+        if (link->state == LINK_STATE_FAILED)
+                return 1;
+
+        r = sd_rtnl_message_get_errno(m);
+        if (r < 0 && r != -EEXIST)
+                log_warning_link(link, "Could not set MTU: %s", strerror(-r));
+
+        return 1;
+}
+
+static int link_set_mtu(Link *link, uint32_t mtu) {
+        _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *req = NULL;
+        int r;
+
+        assert(link);
+        assert(link->manager);
+        assert(link->manager->rtnl);
+
+        log_debug_link(link, "setting MTU: %" PRIu32, mtu);
+
+        r = sd_rtnl_message_link_new(RTM_SETLINK, link->ifindex, &req);
+        if (r < 0) {
+                log_error_link(link, "Could not allocate RTM_SETLINK message");
+                return r;
+        }
+
+        r = sd_rtnl_message_append_u32(req, IFLA_MTU, mtu);
+        if (r < 0) {
+                log_error_link(link, "Could not append MTU: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_call_async(link->manager->rtnl, req, set_mtu_handler, link, 0, NULL);
+        if (r < 0) {
+                log_error_link(link,
+                               "Could not send rtnetlink message: %s", strerror(-r));
+                return r;
+        }
+
+        return 0;
+}
+
 static void dhcp_handler(sd_dhcp_client *client, int event, void *userdata) {
         Link *link = userdata;
         struct in_addr address;
@@ -345,6 +395,20 @@ static void dhcp_handler(sd_dhcp_client *client, int event, void *userdata) {
                 if (link->dhcp_route) {
                         route_free(link->dhcp_route);
                         link->dhcp_route = NULL;
+                }
+
+                if (link->network->dhcp_mtu) {
+                        uint16_t mtu;
+
+                        r = sd_dhcp_client_get_mtu(client, &mtu);
+                        if (r >= 0 && link->original_mtu != mtu) {
+                                r = link_set_mtu(link, link->original_mtu);
+                                if (r < 0) {
+                                        log_warning_link(link, "DHCP error: could not reset MTU");
+                                        link_enter_failed(link);
+                                        return;
+                                }
+                        }
                 }
         }
 
@@ -431,6 +495,18 @@ static void dhcp_handler(sd_dhcp_client *client, int event, void *userdata) {
                         }
                 }
 
+                if (link->network->dhcp_mtu) {
+                        uint16_t mtu;
+
+                        r = sd_dhcp_client_get_mtu(client, &mtu);
+                        if (r >= 0) {
+                                r = link_set_mtu(link, mtu);
+                                if (r < 0)
+                                        log_error_link(link, "Failed to set MTU "
+                                                             "to %" PRIu16, mtu);
+                        }
+                }
+
                 link_enter_set_addresses(link);
         }
 
@@ -465,6 +541,12 @@ static int link_acquire_conf(Link *link) {
         }
 
         log_debug_link(link, "acquiring DHCPv4 lease");
+
+        if (link->network->dhcp_mtu) {
+                r = sd_dhcp_client_set_request_option(link->dhcp, 26);
+                if (r < 0)
+                        return r;
+        }
 
         r = sd_dhcp_client_start(link->dhcp);
         if (r < 0)
@@ -727,6 +809,8 @@ int link_configure(Link *link) {
 
 int link_update(Link *link, sd_rtnl_message *m) {
         unsigned flags;
+        void *data;
+        uint16_t type;
         int r;
 
         assert(link);
@@ -737,8 +821,15 @@ int link_update(Link *link, sd_rtnl_message *m) {
 
         r = sd_rtnl_message_link_get_flags(m, &flags);
         if (r < 0) {
-                log_warning_link(link, "could not get link flags");
+                log_warning_link(link, "Could not get link flags");
                 return r;
+        }
+
+        while (sd_rtnl_message_read(m, &type, &data) > 0) {
+                if (type == IFLA_MTU && link->network->dhcp_mtu && !link->original_mtu) {
+                        link->original_mtu = *(uint16_t *) data;
+                        log_debug_link(link, "saved original MTU: %" PRIu16, link->original_mtu);
+                }
         }
 
         return link_update_flags(link, flags);

@@ -86,6 +86,7 @@ struct Network {
         Bridge *bridge;
         bool dhcp;
         bool dhcp_dns;
+        bool dhcp_mtu;
 
         LIST_HEAD(Address, static_addresses);
         LIST_HEAD(Route, static_routes);
@@ -160,6 +161,7 @@ struct Link {
         Route *dhcp_route;
         Address *dhcp_address;
         Address *dns;
+        uint16_t original_mtu;
 
         LinkState state;
 

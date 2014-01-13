@@ -66,6 +66,7 @@ static int network_load_one(Manager *manager, const char *filename) {
                 return log_oom();
 
         network->dhcp_dns = true;
+        network->dhcp_mtu = true;
 
         r = config_parse(NULL, filename, file, "Match\0Network\0Address\0Route\0DHCPv4\0", config_item_perf_lookup,
                         (void*) network_gperf_lookup, false, false, network);
