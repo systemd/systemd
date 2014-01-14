@@ -137,7 +137,7 @@ struct kdbus_vec {
  * struct kdbus_memfd - a kdbus memfd
  * @size:		The memfd's size
  * @fd:			The file descriptor number
- * @__pad:		Padding to make the struct aligned
+ * @__pad:		Padding to ensure proper alignement and size
  *
  * Attached to:
  *   KDBUS_ITEM_PAYLOAD_MEMFD
@@ -205,6 +205,7 @@ struct kdbus_policy {
  * @KDBUS_ITEM_BLOOM_SIZE:	Desired bloom size, used by KDBUS_CMD_BUS_MAKE
  * @KDBUS_ITEM_DST_NAME:	Destination's well-known name
  * @KDBUS_ITEM_MAKE_NAME:	Name of namespace, bus, endpoint
+ * @KDBUS_ITEM_MEMFD_NAME:	The human readable name of a memfd (debugging)
  * @_KDBUS_ITEM_POLICY_BASE:	Start of policy items
  * @KDBUS_ITEM_POLICY_NAME:	Policy in struct kdbus_policy
  * @KDBUS_ITEM_POLICY_ACCESS:	Policy in struct kdbus_policy
@@ -221,6 +222,7 @@ struct kdbus_policy {
  * @KDBUS_ITEM_CAPS:		The process capabilities
  * @KDBUS_ITEM_SECLABEL:	The security label
  * @KDBUS_ITEM_AUDIT:		The audit IDs
+ * @KDBUS_ITEM_CONN_NAME:	The connection's human-readable name (debugging)
  * @_KDBUS_ITEM_KERNEL_BASE:	Start of kernel-generated message items
  * @KDBUS_ITEM_NAME_ADD:	Notify in struct kdbus_notify_name_change
  * @KDBUS_ITEM_NAME_REMOVE:	Notify in struct kdbus_notify_name_change
@@ -241,12 +243,13 @@ enum kdbus_item_type {
 	KDBUS_ITEM_BLOOM_SIZE,
 	KDBUS_ITEM_DST_NAME,
 	KDBUS_ITEM_MAKE_NAME,
+	KDBUS_ITEM_MEMFD_NAME,
 
-	_KDBUS_ITEM_POLICY_BASE	= 0x400,
+	_KDBUS_ITEM_POLICY_BASE	= 0x1000,
 	KDBUS_ITEM_POLICY_NAME = _KDBUS_ITEM_POLICY_BASE,
 	KDBUS_ITEM_POLICY_ACCESS,
 
-	_KDBUS_ITEM_ATTACH_BASE	= 0x600,
+	_KDBUS_ITEM_ATTACH_BASE	= 0x2000,
 	KDBUS_ITEM_NAME		= _KDBUS_ITEM_ATTACH_BASE,
 	KDBUS_ITEM_ID,
 	KDBUS_ITEM_TIMESTAMP,
@@ -259,8 +262,9 @@ enum kdbus_item_type {
 	KDBUS_ITEM_CAPS,
 	KDBUS_ITEM_SECLABEL,
 	KDBUS_ITEM_AUDIT,
+	KDBUS_ITEM_CONN_NAME,
 
-	_KDBUS_ITEM_KERNEL_BASE	= 0x800,
+	_KDBUS_ITEM_KERNEL_BASE	= 0x3000,
 	KDBUS_ITEM_NAME_ADD	= _KDBUS_ITEM_KERNEL_BASE,
 	KDBUS_ITEM_NAME_REMOVE,
 	KDBUS_ITEM_NAME_CHANGE,
@@ -350,13 +354,13 @@ enum kdbus_payload_type {
  * @payload_type:	Payload type (KDBUS_PAYLOAD_*)
  * @cookie:		Userspace-supplied cookie, for the connection
  *			to identify its messages
- * @cookie_reply:	A reply to the requesting message with the same
- *			cookie. The requesting connection can match its
- *			request and the reply with this value
  * @timeout_ns:		The time to wait for a message reply from the peer.
  *			If there is no reply, a kernel-generated message
  *			with an attached KDBUS_ITEM_REPLY_TIMEOUT item
  *			is sent to @src_id.
+ * @cookie_reply:	A reply to the requesting message with the same
+ *			cookie. The requesting connection can match its
+ *			request and the reply with this value
  * @items:		A list of kdbus_items containing the message payload
  */
 struct kdbus_msg {
@@ -367,8 +371,8 @@ struct kdbus_msg {
 	__u64 payload_type;
 	__u64 cookie;
 	union {
-		__u64 cookie_reply;
 		__u64 timeout_ns;
+		__u64 cookie_reply;
 	};
 	struct kdbus_item items[0];
 } __attribute__((aligned(8)));
@@ -441,6 +445,7 @@ enum kdbus_hello_flags {
  * @KDBUS_ATTACH_CAPS:		The process capabilities
  * @KDBUS_ATTACH_SECLABEL:	The security label
  * @KDBUS_ATTACH_AUDIT:		The audit IDs
+ * @KDBUS_ATTACH_CONN_NAME:	The human-readable connection name
  */
 enum kdbus_attach_flags {
 	KDBUS_ATTACH_TIMESTAMP		=  1 <<  0,
@@ -453,6 +458,7 @@ enum kdbus_attach_flags {
 	KDBUS_ATTACH_CAPS		=  1 <<  7,
 	KDBUS_ATTACH_SECLABEL		=  1 <<  8,
 	KDBUS_ATTACH_AUDIT		=  1 <<  9,
+	KDBUS_ATTACH_CONN_NAME		=  1 << 10,
 };
 
 /**
@@ -650,6 +656,24 @@ struct kdbus_cmd_match {
 } __attribute__((aligned(8)));
 
 /**
+ * struct kdbus_cmd_memfd_make - create a kdbus memfd
+ * @size:		The total size of the struct
+ * @file_size:		The initial file size
+ * @fd:			The returned file descriptor number
+ * @__pad:		Padding to ensure proper alignement
+ * @items:		A list of items for additional information
+ *
+ * This structure is used with the KDBUS_CMD_MEMFD_NEW ioctl.
+ */
+struct kdbus_cmd_memfd_make {
+	__u64 size;
+	__u64 file_size;
+	int fd;
+	__u32 __pad;
+	struct kdbus_item items[0];
+} __attribute__((aligned(8)));
+
+/**
  * enum kdbus_ioctl_type - Ioctl API
  * @KDBUS_CMD_BUS_MAKE:		After opening the "control" device node, this
  *				command creates a new bus with the specified
@@ -678,8 +702,9 @@ struct kdbus_cmd_match {
  *				pool.
  * @KDBUS_CMD_DROP:		Drop and free the next queued message and all
  *				its ressources without actually receiveing it.
- * @KDBUS_CMD_SRC:		Return the sender's connection ID of the next
- *				queued message.
+ * @KDBUS_CMD_SRC:		Query the sender's connection ID of the next
+ *				queued message, used to determine the activating
+ *				connection of a bus name.
  * @KDBUS_CMD_NAME_ACQUIRE:	Request a well-known bus name to associate with
  *				the connection. Well-known names are used to
  *				address a peer on the bus.
@@ -750,11 +775,11 @@ enum kdbus_ioctl_type {
 
 	KDBUS_CMD_EP_POLICY_SET =	_IOW (KDBUS_IOC_MAGIC, 0x80, struct kdbus_cmd_policy),
 
-	KDBUS_CMD_MEMFD_NEW =		_IOR (KDBUS_IOC_MAGIC, 0x90, int *),
-	KDBUS_CMD_MEMFD_SIZE_GET =	_IOR (KDBUS_IOC_MAGIC, 0x91, __u64 *),
-	KDBUS_CMD_MEMFD_SIZE_SET =	_IOW (KDBUS_IOC_MAGIC, 0x92, __u64 *),
-	KDBUS_CMD_MEMFD_SEAL_GET =	_IOR (KDBUS_IOC_MAGIC, 0x93, int *),
-	KDBUS_CMD_MEMFD_SEAL_SET =	_IO  (KDBUS_IOC_MAGIC, 0x94),
+	KDBUS_CMD_MEMFD_NEW =		_IOWR(KDBUS_IOC_MAGIC, 0xc0, struct kdbus_cmd_memfd_make),
+	KDBUS_CMD_MEMFD_SIZE_GET =	_IOR (KDBUS_IOC_MAGIC, 0xc1, __u64 *),
+	KDBUS_CMD_MEMFD_SIZE_SET =	_IOW (KDBUS_IOC_MAGIC, 0xc2, __u64 *),
+	KDBUS_CMD_MEMFD_SEAL_GET =	_IOR (KDBUS_IOC_MAGIC, 0xc3, int *),
+	KDBUS_CMD_MEMFD_SEAL_SET =	_IO  (KDBUS_IOC_MAGIC, 0xc4),
 };
 
 /*

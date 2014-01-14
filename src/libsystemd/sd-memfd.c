@@ -35,9 +35,11 @@ struct sd_memfd {
 };
 
 _public_ int sd_memfd_new(sd_memfd **m) {
+        struct kdbus_cmd_memfd_make cmd = {
+                .size = sizeof(struct kdbus_cmd_memfd_make),
+        };
         _cleanup_close_ int kdbus = -1;
         sd_memfd *n;
-        int fd;
 
         assert_return(m, -EINVAL);
 
@@ -45,14 +47,16 @@ _public_ int sd_memfd_new(sd_memfd **m) {
         if (kdbus < 0)
                 return -errno;
 
-        if (ioctl(kdbus, KDBUS_CMD_MEMFD_NEW, &fd) < 0)
+        if (ioctl(kdbus, KDBUS_CMD_MEMFD_NEW, &cmd) < 0)
                 return -errno;
 
         n = new0(struct sd_memfd, 1);
-        if (!n)
+        if (!n) {
+                close_nointr_nofail(cmd.fd);
                 return -ENOMEM;
+        }
 
-        n->fd = fd;
+        n->fd = cmd.fd;
         *m = n;
         return 0;
 }

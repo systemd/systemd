@@ -1000,18 +1000,21 @@ int bus_kernel_pop_memfd(sd_bus *bus, void **address, size_t *mapped, size_t *al
         assert_se(pthread_mutex_lock(&bus->memfd_cache_mutex) >= 0);
 
         if (bus->n_memfd_cache <= 0) {
+                struct kdbus_cmd_memfd_make cmd = {
+                        .size = sizeof(struct kdbus_cmd_memfd_make),
+                };
                 int r;
 
                 assert_se(pthread_mutex_unlock(&bus->memfd_cache_mutex) >= 0);
 
-                r = ioctl(bus->input_fd, KDBUS_CMD_MEMFD_NEW, &fd);
+                r = ioctl(bus->input_fd, KDBUS_CMD_MEMFD_NEW, &cmd);
                 if (r < 0)
                         return -errno;
 
                 *address = NULL;
                 *mapped = 0;
                 *allocated = 0;
-                return fd;
+                return cmd.fd;
         }
 
         c = &bus->memfd_cache[--bus->n_memfd_cache];
