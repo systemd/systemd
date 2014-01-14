@@ -63,7 +63,7 @@ REQUIREMENTS:
         Some udev rules and virtualization detection relies on it:
           CONFIG_DMIID
 
-        Mount and bind mount handling might require it:
+        Mount and bind mount handling requires it:
           CONFIG_FHANDLE
 
         Support for some SCSI devices serial number retrieval, to
