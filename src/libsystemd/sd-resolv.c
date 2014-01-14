@@ -415,8 +415,8 @@ static void* thread_worker(void *p) {
 }
 
 sd_resolv_t* sd_resolv_new(unsigned n_proc) {
-        int i;
         sd_resolv_t *resolv = NULL;
+        int i, r;
 
         assert(n_proc >= 1);
 
@@ -437,27 +437,15 @@ sd_resolv_t* sd_resolv_new(unsigned n_proc) {
 
         memset(resolv->queries, 0, sizeof(resolv->queries));
 
-#ifdef SOCK_CLOEXEC
-        if (socketpair(PF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, resolv->fds) < 0 ||
-                        socketpair(PF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, resolv->fds+2) < 0) {
+        r = socketpair(PF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, resolv->fds);
+        if (r < 0)
+                goto fail;
 
-                /* Try again, without SOCK_CLOEXEC */
-                if (errno == EINVAL) {
-#endif
-                        if (socketpair(PF_UNIX, SOCK_DGRAM, 0, resolv->fds) < 0 ||
-                                        socketpair(PF_UNIX, SOCK_DGRAM, 0, resolv->fds+2) < 0)
-                                goto fail;
-#ifdef SOCK_CLOEXEC
-                } else
-                        goto fail;
-        }
-#endif
-
-        for (i = 0; i < MESSAGE_FD_MAX; i++)
-                fd_cloexec(resolv->fds[i], true);
+        r = socketpair(PF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, resolv->fds+2);
+        if (r < 0)
+                goto fail;
 
         for (resolv->valid_workers = 0; resolv->valid_workers < n_proc; resolv->valid_workers++) {
-                int r;
                 r = pthread_create(&resolv->workers[resolv->valid_workers], NULL, thread_worker, resolv);
                 if (r) {
                         errno = r;
