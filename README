@@ -47,6 +47,7 @@ REQUIREMENTS:
           CONFIG_NET
           CONFIG_SYSFS
           CONFIG_PROC_FS
+          CONFIG_FHANDLE (mount and bind mount handling)
 
         Linux kernel >= 3.8 for Smack support
 
@@ -62,9 +63,6 @@ REQUIREMENTS:
 
         Some udev rules and virtualization detection relies on it:
           CONFIG_DMIID
-
-        Mount and bind mount handling requires it:
-          CONFIG_FHANDLE
 
         Support for some SCSI devices serial number retrieval, to
         create additional symlinks in /dev/disk/ and /dev/tape:
