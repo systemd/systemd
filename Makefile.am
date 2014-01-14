@@ -1982,7 +1982,7 @@ libsystemd_la_SOURCES = \
 	src/systemd/sd-event.h \
 	src/systemd/sd-dhcp-client.h \
 	src/systemd/sd-rtnl.h \
-	src/systemd/sd-resolv.h \
+	src/systemd/sd-resolve.h \
 	src/libsystemd/sd-bus.c \
 	src/libsystemd/bus-control.c \
 	src/libsystemd/bus-control.h \
@@ -2033,8 +2033,8 @@ libsystemd_la_SOURCES = \
 	src/libsystemd/rtnl-message.c \
 	src/libsystemd/rtnl-util.h \
 	src/libsystemd/rtnl-util.c \
-	src/libsystemd/sd-resolv.c \
-	src/libsystemd/resolv-util.h
+	src/libsystemd/sd-resolve.c \
+	src/libsystemd/resolve-util.h
 
 nodist_libsystemd_la_SOURCES = \
 	src/libsystemd/bus-error-mapping.c
@@ -2112,7 +2112,7 @@ tests += \
 	test-dhcp-option \
 	test-dhcp-client \
 	test-rtnl \
-	test-resolv
+	test-resolve
 
 bin_PROGRAMS += \
 	busctl
@@ -2337,15 +2337,15 @@ test_rtnl_LDADD = \
 	libsystemd-id128-internal.la \
 	libsystemd-shared.la
 
-test_resolv_SOURCES = \
-	src/systemd/sd-resolv.h \
-	src/libsystemd/test-resolv.c
+test_resolve_SOURCES = \
+	src/systemd/sd-resolve.h \
+	src/libsystemd/test-resolve.c
 
-test_resolv_LDADD = \
+test_resolve_LDADD = \
 	libsystemd-internal.la \
 	libsystemd-shared.la
 
-test_resolv_CFLAGS = \
+test_resolve_CFLAGS = \
 	$(AM_CFLAGS) \
 	-pthread
 

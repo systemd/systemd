@@ -41,7 +41,7 @@
 #include <pthread.h>
 #include <sys/prctl.h>
 
-#include "sd-resolv.h"
+#include "sd-resolve.h"
 #include "util.h"
 
 #define MAX_WORKERS 16
@@ -68,27 +68,27 @@ enum {
         MESSAGE_FD_MAX = 4
 };
 
-struct sd_resolv {
+struct sd_resolve {
         int fds[MESSAGE_FD_MAX];
 
         pthread_t workers[MAX_WORKERS];
         unsigned valid_workers;
 
         unsigned current_id, current_index;
-        sd_resolv_query_t* queries[MAX_QUERIES];
+        sd_resolve_query_t* queries[MAX_QUERIES];
 
-        sd_resolv_query_t *done_head, *done_tail;
+        sd_resolve_query_t *done_head, *done_tail;
 
         int n_queries;
         int dead;
 };
 
-struct sd_resolv_query {
-        sd_resolv_t *resolv;
+struct sd_resolve_query {
+        sd_resolve_t *resolve;
         int done;
         unsigned id;
         query_type_t type;
-        sd_resolv_query_t *done_next, *done_prev;
+        sd_resolve_query_t *done_next, *done_prev;
         int ret;
         int _errno;
         int _h_errno;
@@ -383,18 +383,18 @@ static int handle_request(int out_fd, const packet_t *packet, size_t length) {
 }
 
 static void* thread_worker(void *p) {
-        sd_resolv_t *resolv = p;
+        sd_resolve_t *resolve = p;
         sigset_t fullset;
 
         /* No signals in this thread please */
         sigfillset(&fullset);
         pthread_sigmask(SIG_BLOCK, &fullset, NULL);
 
-        while (!resolv->dead) {
+        while (!resolve->dead) {
                 packet_t buf[BUFSIZE/sizeof(packet_t) + 1];
                 ssize_t length;
 
-                length = recv(resolv->fds[REQUEST_RECV_FD], buf, sizeof(buf), 0);
+                length = recv(resolve->fds[REQUEST_RECV_FD], buf, sizeof(buf), 0);
 
                 if (length <= 0) {
                         if (length < 0 && (errno == EAGAIN || errno == EINTR))
@@ -402,20 +402,20 @@ static void* thread_worker(void *p) {
                         break;
                 }
 
-                if (resolv->dead)
+                if (resolve->dead)
                         break;
 
-                if (handle_request(resolv->fds[RESPONSE_SEND_FD], buf, (size_t) length) < 0)
+                if (handle_request(resolve->fds[RESPONSE_SEND_FD], buf, (size_t) length) < 0)
                         break;
         }
 
-        send_died(resolv->fds[RESPONSE_SEND_FD]);
+        send_died(resolve->fds[RESPONSE_SEND_FD]);
 
         return NULL;
 }
 
-sd_resolv_t* sd_resolv_new(unsigned n_proc) {
-        sd_resolv_t *resolv = NULL;
+sd_resolve_t* sd_resolve_new(unsigned n_proc) {
+        sd_resolve_t *resolve = NULL;
         int i, r;
 
         assert(n_proc >= 1);
@@ -423,61 +423,61 @@ sd_resolv_t* sd_resolv_new(unsigned n_proc) {
         if (n_proc > MAX_WORKERS)
                 n_proc = MAX_WORKERS;
 
-        resolv = malloc(sizeof(sd_resolv_t));
-        if (!resolv) {
+        resolve = malloc(sizeof(sd_resolve_t));
+        if (!resolve) {
                 errno = ENOMEM;
                 goto fail;
         }
 
-        resolv->dead = 0;
-        resolv->valid_workers = 0;
+        resolve->dead = 0;
+        resolve->valid_workers = 0;
 
         for (i = 0; i < MESSAGE_FD_MAX; i++)
-                resolv->fds[i] = -1;
+                resolve->fds[i] = -1;
 
-        memset(resolv->queries, 0, sizeof(resolv->queries));
+        memset(resolve->queries, 0, sizeof(resolve->queries));
 
-        r = socketpair(PF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, resolv->fds);
+        r = socketpair(PF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, resolve->fds);
         if (r < 0)
                 goto fail;
 
-        r = socketpair(PF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, resolv->fds+2);
+        r = socketpair(PF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, resolve->fds+2);
         if (r < 0)
                 goto fail;
 
-        for (resolv->valid_workers = 0; resolv->valid_workers < n_proc; resolv->valid_workers++) {
-                r = pthread_create(&resolv->workers[resolv->valid_workers], NULL, thread_worker, resolv);
+        for (resolve->valid_workers = 0; resolve->valid_workers < n_proc; resolve->valid_workers++) {
+                r = pthread_create(&resolve->workers[resolve->valid_workers], NULL, thread_worker, resolve);
                 if (r) {
                         errno = r;
                         goto fail;
                 }
         }
 
-        resolv->current_index = resolv->current_id = 0;
-        resolv->done_head = resolv->done_tail = NULL;
-        resolv->n_queries = 0;
+        resolve->current_index = resolve->current_id = 0;
+        resolve->done_head = resolve->done_tail = NULL;
+        resolve->n_queries = 0;
 
-        fd_nonblock(resolv->fds[RESPONSE_RECV_FD], true);
+        fd_nonblock(resolve->fds[RESPONSE_RECV_FD], true);
 
-        return resolv;
+        return resolve;
 
 fail:
-        if (resolv)
-                sd_resolv_free(resolv);
+        if (resolve)
+                sd_resolve_free(resolve);
 
         return NULL;
 }
 
-void sd_resolv_free(sd_resolv_t *resolv) {
+void sd_resolve_free(sd_resolve_t *resolve) {
         int i;
         int saved_errno = errno;
         unsigned p;
 
-        assert(resolv);
+        assert(resolve);
 
-        resolv->dead = 1;
+        resolve->dead = 1;
 
-        if (resolv->fds[REQUEST_SEND_FD] >= 0) {
+        if (resolve->fds[REQUEST_SEND_FD] >= 0) {
                 rheader_t req = {};
 
                 req.type = REQUEST_TERMINATE;
@@ -485,43 +485,43 @@ void sd_resolv_free(sd_resolv_t *resolv) {
                 req.id = 0;
 
                 /* Send one termination packet for each worker */
-                for (p = 0; p < resolv->valid_workers; p++)
-                        send(resolv->fds[REQUEST_SEND_FD], &req, req.length, MSG_NOSIGNAL);
+                for (p = 0; p < resolve->valid_workers; p++)
+                        send(resolve->fds[REQUEST_SEND_FD], &req, req.length, MSG_NOSIGNAL);
         }
 
         /* Now terminate them and wait until they are gone. */
-        for (p = 0; p < resolv->valid_workers; p++) {
+        for (p = 0; p < resolve->valid_workers; p++) {
                 for (;;) {
-                        if (pthread_join(resolv->workers[p], NULL) != EINTR)
+                        if (pthread_join(resolve->workers[p], NULL) != EINTR)
                                 break;
                 }
         }
 
         /* Close all communication channels */
         for (i = 0; i < MESSAGE_FD_MAX; i++)
-                if (resolv->fds[i] >= 0)
-                        close(resolv->fds[i]);
+                if (resolve->fds[i] >= 0)
+                        close(resolve->fds[i]);
 
         for (p = 0; p < MAX_QUERIES; p++)
-                if (resolv->queries[p])
-                        sd_resolv_cancel(resolv, resolv->queries[p]);
+                if (resolve->queries[p])
+                        sd_resolve_cancel(resolve, resolve->queries[p]);
 
-        free(resolv);
+        free(resolve);
 
         errno = saved_errno;
 }
 
-int sd_resolv_fd(sd_resolv_t *resolv) {
-        assert(resolv);
+int sd_resolve_fd(sd_resolve_t *resolve) {
+        assert(resolve);
 
-        return resolv->fds[RESPONSE_RECV_FD];
+        return resolve->fds[RESPONSE_RECV_FD];
 }
 
-static sd_resolv_query_t *lookup_query(sd_resolv_t *resolv, unsigned id) {
-        sd_resolv_query_t *q;
-        assert(resolv);
+static sd_resolve_query_t *lookup_query(sd_resolve_t *resolve, unsigned id) {
+        sd_resolve_query_t *q;
+        assert(resolve);
 
-        q = resolv->queries[id % MAX_QUERIES];
+        q = resolve->queries[id % MAX_QUERIES];
         if (q)
                 if (q->id == id)
                         return q;
@@ -529,19 +529,19 @@ static sd_resolv_query_t *lookup_query(sd_resolv_t *resolv, unsigned id) {
         return NULL;
 }
 
-static void complete_query(sd_resolv_t *resolv, sd_resolv_query_t *q) {
-        assert(resolv);
+static void complete_query(sd_resolve_t *resolve, sd_resolve_query_t *q) {
+        assert(resolve);
         assert(q);
         assert(!q->done);
 
         q->done = 1;
 
-        if ((q->done_prev = resolv->done_tail))
-                resolv->done_tail->done_next = q;
+        if ((q->done_prev = resolve->done_tail))
+                resolve->done_tail->done_next = q;
         else
-                resolv->done_head = q;
+                resolve->done_head = q;
 
-        resolv->done_tail = q;
+        resolve->done_tail = q;
         q->done_next = NULL;
 }
 
@@ -596,16 +596,16 @@ static const void *unserialize_addrinfo(const void *p, struct addrinfo **ret_ai,
 
 fail:
         if (ai)
-                sd_resolv_freeaddrinfo(ai);
+                sd_resolve_freeaddrinfo(ai);
 
         return NULL;
 }
 
-static int handle_response(sd_resolv_t *resolv, const packet_t *packet, size_t length) {
+static int handle_response(sd_resolve_t *resolve, const packet_t *packet, size_t length) {
         const rheader_t *resp;
-        sd_resolv_query_t *q;
+        sd_resolve_query_t *q;
 
-        assert(resolv);
+        assert(resolve);
 
         resp = &packet->rheader;
         assert(resp);
@@ -613,11 +613,11 @@ static int handle_response(sd_resolv_t *resolv, const packet_t *packet, size_t l
         assert(length == resp->length);
 
         if (resp->type == RESPONSE_DIED) {
-                resolv->dead = 1;
+                resolve->dead = 1;
                 return 0;
         }
 
-        q = lookup_query(resolv, resp->id);
+        q = lookup_query(resolve, resp->id);
         if (!q)
                 return 0;
 
@@ -654,7 +654,7 @@ static int handle_response(sd_resolv_t *resolv, const packet_t *packet, size_t l
                         prev = ai;
                 }
 
-                complete_query(resolv, q);
+                complete_query(resolve, q);
                 break;
         }
 
@@ -676,7 +676,7 @@ static int handle_response(sd_resolv_t *resolv, const packet_t *packet, size_t l
                         if (!(q->serv = strndup((const char*) ni_resp + sizeof(nameinfo_response_t) + ni_resp->hostlen, ni_resp->servlen-1)))
                                 q->ret = EAI_MEMORY;
 
-                complete_query(resolv, q);
+                complete_query(resolve, q);
                 break;
         }
 
@@ -698,7 +698,7 @@ static int handle_response(sd_resolv_t *resolv, const packet_t *packet, size_t l
                                 memcpy(q->serv, (const char *)resp + sizeof(res_response_t), res_resp->ret);
                 }
 
-                complete_query(resolv, q);
+                complete_query(resolve, q);
                 break;
         }
 
@@ -709,20 +709,20 @@ static int handle_response(sd_resolv_t *resolv, const packet_t *packet, size_t l
         return 0;
 }
 
-int sd_resolv_wait(sd_resolv_t *resolv, int block) {
+int sd_resolve_wait(sd_resolve_t *resolve, int block) {
         int handled = 0;
-        assert(resolv);
+        assert(resolve);
 
         for (;;) {
                 packet_t buf[BUFSIZE/sizeof(packet_t) + 1];
                 ssize_t l;
 
-                if (resolv->dead) {
+                if (resolve->dead) {
                         errno = ECHILD;
                         return -1;
                 }
 
-                l = recv(resolv->fds[RESPONSE_RECV_FD], buf, sizeof(buf), 0);
+                l = recv(resolve->fds[RESPONSE_RECV_FD], buf, sizeof(buf), 0);
                 if (l < 0) {
                         fd_set fds;
 
@@ -733,49 +733,49 @@ int sd_resolv_wait(sd_resolv_t *resolv, int block) {
                                 return 0;
 
                         FD_ZERO(&fds);
-                        FD_SET(resolv->fds[RESPONSE_RECV_FD], &fds);
+                        FD_SET(resolve->fds[RESPONSE_RECV_FD], &fds);
 
-                        if (select(resolv->fds[RESPONSE_RECV_FD]+1, &fds, NULL, NULL, NULL) < 0)
+                        if (select(resolve->fds[RESPONSE_RECV_FD]+1, &fds, NULL, NULL, NULL) < 0)
                                 return -1;
 
                         continue;
                 }
 
-                if (handle_response(resolv, buf, (size_t) l) < 0)
+                if (handle_response(resolve, buf, (size_t) l) < 0)
                         return -1;
 
                 handled = 1;
         }
 }
 
-static sd_resolv_query_t *alloc_query(sd_resolv_t *resolv) {
-        sd_resolv_query_t *q;
-        assert(resolv);
+static sd_resolve_query_t *alloc_query(sd_resolve_t *resolve) {
+        sd_resolve_query_t *q;
+        assert(resolve);
 
-        if (resolv->n_queries >= MAX_QUERIES) {
+        if (resolve->n_queries >= MAX_QUERIES) {
                 errno = ENOMEM;
                 return NULL;
         }
 
-        while (resolv->queries[resolv->current_index]) {
-                resolv->current_index++;
-                resolv->current_id++;
+        while (resolve->queries[resolve->current_index]) {
+                resolve->current_index++;
+                resolve->current_id++;
 
-                while (resolv->current_index >= MAX_QUERIES)
-                        resolv->current_index -= MAX_QUERIES;
+                while (resolve->current_index >= MAX_QUERIES)
+                        resolve->current_index -= MAX_QUERIES;
         }
 
-        q = resolv->queries[resolv->current_index] = malloc(sizeof(sd_resolv_query_t));
+        q = resolve->queries[resolve->current_index] = malloc(sizeof(sd_resolve_query_t));
         if (!q) {
                 errno = ENOMEM;
                 return NULL;
         }
 
-        resolv->n_queries++;
+        resolve->n_queries++;
 
-        q->resolv = resolv;
+        q->resolve = resolve;
         q->done = 0;
-        q->id = resolv->current_id;
+        q->id = resolve->current_id;
         q->done_next = q->done_prev = NULL;
         q->ret = 0;
         q->_errno = 0;
@@ -787,19 +787,19 @@ static sd_resolv_query_t *alloc_query(sd_resolv_t *resolv) {
         return q;
 }
 
-sd_resolv_query_t* sd_resolv_getaddrinfo(sd_resolv_t *resolv, const char *node, const char *service, const struct addrinfo *hints) {
+sd_resolve_query_t* sd_resolve_getaddrinfo(sd_resolve_t *resolve, const char *node, const char *service, const struct addrinfo *hints) {
         addrinfo_request_t data[BUFSIZE/sizeof(addrinfo_request_t) + 1] = {};
         addrinfo_request_t *req = data;
-        sd_resolv_query_t *q;
-        assert(resolv);
+        sd_resolve_query_t *q;
+        assert(resolve);
         assert(node || service);
 
-        if (resolv->dead) {
+        if (resolve->dead) {
                 errno = ECHILD;
                 return NULL;
         }
 
-        q = alloc_query(resolv);
+        q = alloc_query(resolve);
         if (!q)
                 return NULL;
 
@@ -828,26 +828,26 @@ sd_resolv_query_t* sd_resolv_getaddrinfo(sd_resolv_t *resolv, const char *node, 
         if (service)
                 strcpy((char*) req + sizeof(addrinfo_request_t) + req->node_len, service);
 
-        if (send(resolv->fds[REQUEST_SEND_FD], req, req->header.length, MSG_NOSIGNAL) < 0)
+        if (send(resolve->fds[REQUEST_SEND_FD], req, req->header.length, MSG_NOSIGNAL) < 0)
                 goto fail;
 
         return q;
 
 fail:
         if (q)
-                sd_resolv_cancel(resolv, q);
+                sd_resolve_cancel(resolve, q);
 
         return NULL;
 }
 
-int sd_resolv_getaddrinfo_done(sd_resolv_t *resolv, sd_resolv_query_t* q, struct addrinfo **ret_res) {
+int sd_resolve_getaddrinfo_done(sd_resolve_t *resolve, sd_resolve_query_t* q, struct addrinfo **ret_res) {
         int ret;
-        assert(resolv);
+        assert(resolve);
         assert(q);
-        assert(q->resolv == resolv);
+        assert(q->resolve == resolve);
         assert(q->type == REQUEST_ADDRINFO);
 
-        if (resolv->dead) {
+        if (resolve->dead) {
                 errno = ECHILD;
                 return EAI_SYSTEM;
         }
@@ -866,26 +866,26 @@ int sd_resolv_getaddrinfo_done(sd_resolv_t *resolv, sd_resolv_query_t* q, struct
         if (ret != 0)
                 h_errno = q->_h_errno;
 
-        sd_resolv_cancel(resolv, q);
+        sd_resolve_cancel(resolve, q);
 
         return ret;
 }
 
-sd_resolv_query_t* sd_resolv_getnameinfo(sd_resolv_t *resolv, const struct sockaddr *sa, socklen_t salen, int flags, int gethost, int getserv) {
+sd_resolve_query_t* sd_resolve_getnameinfo(sd_resolve_t *resolve, const struct sockaddr *sa, socklen_t salen, int flags, int gethost, int getserv) {
         nameinfo_request_t data[BUFSIZE/sizeof(nameinfo_request_t) + 1] = {};
         nameinfo_request_t *req = data;
-        sd_resolv_query_t *q;
+        sd_resolve_query_t *q;
 
-        assert(resolv);
+        assert(resolve);
         assert(sa);
         assert(salen > 0);
 
-        if (resolv->dead) {
+        if (resolve->dead) {
                 errno = ECHILD;
                 return NULL;
         }
 
-        q = alloc_query(resolv);
+        q = alloc_query(resolve);
         if (!q)
                 return NULL;
 
@@ -905,28 +905,28 @@ sd_resolv_query_t* sd_resolv_getnameinfo(sd_resolv_t *resolv, const struct socka
 
         memcpy((uint8_t*) req + sizeof(nameinfo_request_t), sa, salen);
 
-        if (send(resolv->fds[REQUEST_SEND_FD], req, req->header.length, MSG_NOSIGNAL) < 0)
+        if (send(resolve->fds[REQUEST_SEND_FD], req, req->header.length, MSG_NOSIGNAL) < 0)
                 goto fail;
 
         return q;
 
 fail:
         if (q)
-                sd_resolv_cancel(resolv, q);
+                sd_resolve_cancel(resolve, q);
 
         return NULL;
 }
 
-int sd_resolv_getnameinfo_done(sd_resolv_t *resolv, sd_resolv_query_t* q, char *ret_host, size_t hostlen, char *ret_serv, size_t servlen) {
+int sd_resolve_getnameinfo_done(sd_resolve_t *resolve, sd_resolve_query_t* q, char *ret_host, size_t hostlen, char *ret_serv, size_t servlen) {
         int ret;
-        assert(resolv);
+        assert(resolve);
         assert(q);
-        assert(q->resolv == resolv);
+        assert(q->resolve == resolve);
         assert(q->type == REQUEST_NAMEINFO);
         assert(!ret_host || hostlen);
         assert(!ret_serv || servlen);
 
-        if (resolv->dead) {
+        if (resolve->dead) {
                 errno = ECHILD;
                 return EAI_SYSTEM;
         }
@@ -952,25 +952,25 @@ int sd_resolv_getnameinfo_done(sd_resolv_t *resolv, sd_resolv_query_t* q, char *
         if (ret != 0)
                 h_errno = q->_h_errno;
 
-        sd_resolv_cancel(resolv, q);
+        sd_resolve_cancel(resolve, q);
 
         return ret;
 }
 
-static sd_resolv_query_t * resolv_res(sd_resolv_t *resolv, query_type_t qtype, const char *dname, int class, int type) {
+static sd_resolve_query_t * resolve_res(sd_resolve_t *resolve, query_type_t qtype, const char *dname, int class, int type) {
         res_request_t data[BUFSIZE/sizeof(res_request_t) + 1];
         res_request_t *req = data;
-        sd_resolv_query_t *q;
+        sd_resolve_query_t *q;
 
-        assert(resolv);
+        assert(resolve);
         assert(dname);
 
-        if (resolv->dead) {
+        if (resolve->dead) {
                 errno = ECHILD;
                 return NULL;
         }
 
-        q = alloc_query(resolv);
+        q = alloc_query(resolve);
         if (!q)
                 return NULL;
 
@@ -990,35 +990,35 @@ static sd_resolv_query_t * resolv_res(sd_resolv_t *resolv, query_type_t qtype, c
 
         strcpy((char*) req + sizeof(res_request_t), dname);
 
-        if (send(resolv->fds[REQUEST_SEND_FD], req, req->header.length, MSG_NOSIGNAL) < 0)
+        if (send(resolve->fds[REQUEST_SEND_FD], req, req->header.length, MSG_NOSIGNAL) < 0)
                 goto fail;
 
         return q;
 
 fail:
         if (q)
-                sd_resolv_cancel(resolv, q);
+                sd_resolve_cancel(resolve, q);
 
         return NULL;
 }
 
-sd_resolv_query_t* sd_resolv_res_query(sd_resolv_t *resolv, const char *dname, int class, int type) {
-        return resolv_res(resolv, REQUEST_RES_QUERY, dname, class, type);
+sd_resolve_query_t* sd_resolve_res_query(sd_resolve_t *resolve, const char *dname, int class, int type) {
+        return resolve_res(resolve, REQUEST_RES_QUERY, dname, class, type);
 }
 
-sd_resolv_query_t* sd_resolv_res_search(sd_resolv_t *resolv, const char *dname, int class, int type) {
-        return resolv_res(resolv, REQUEST_RES_SEARCH, dname, class, type);
+sd_resolve_query_t* sd_resolve_res_search(sd_resolve_t *resolve, const char *dname, int class, int type) {
+        return resolve_res(resolve, REQUEST_RES_SEARCH, dname, class, type);
 }
 
-int sd_resolv_res_done(sd_resolv_t *resolv, sd_resolv_query_t* q, unsigned char **answer) {
+int sd_resolve_res_done(sd_resolve_t *resolve, sd_resolve_query_t* q, unsigned char **answer) {
         int ret;
-        assert(resolv);
+        assert(resolve);
         assert(q);
-        assert(q->resolv == resolv);
+        assert(q->resolve == resolve);
         assert(q->type == REQUEST_RES_QUERY || q->type == REQUEST_RES_SEARCH);
         assert(answer);
 
-        if (resolv->dead) {
+        if (resolve->dead) {
                 errno = ECHILD;
                 return -ECHILD;
         }
@@ -1038,58 +1038,58 @@ int sd_resolv_res_done(sd_resolv_t *resolv, sd_resolv_query_t* q, unsigned char 
                 h_errno = q->_h_errno;
         }
 
-        sd_resolv_cancel(resolv, q);
+        sd_resolve_cancel(resolve, q);
 
         return ret < 0 ? -errno : ret;
 }
 
-sd_resolv_query_t* sd_resolv_getnext(sd_resolv_t *resolv) {
-        assert(resolv);
-        return resolv->done_head;
+sd_resolve_query_t* sd_resolve_getnext(sd_resolve_t *resolve) {
+        assert(resolve);
+        return resolve->done_head;
 }
 
-int sd_resolv_getnqueries(sd_resolv_t *resolv) {
-        assert(resolv);
-        return resolv->n_queries;
+int sd_resolve_getnqueries(sd_resolve_t *resolve) {
+        assert(resolve);
+        return resolve->n_queries;
 }
 
-void sd_resolv_cancel(sd_resolv_t *resolv, sd_resolv_query_t* q) {
+void sd_resolve_cancel(sd_resolve_t *resolve, sd_resolve_query_t* q) {
         int i;
         int saved_errno = errno;
 
-        assert(resolv);
+        assert(resolve);
         assert(q);
-        assert(q->resolv == resolv);
-        assert(resolv->n_queries > 0);
+        assert(q->resolve == resolve);
+        assert(resolve->n_queries > 0);
 
         if (q->done) {
 
                 if (q->done_prev)
                         q->done_prev->done_next = q->done_next;
                 else
-                        resolv->done_head = q->done_next;
+                        resolve->done_head = q->done_next;
 
                 if (q->done_next)
                         q->done_next->done_prev = q->done_prev;
                 else
-                        resolv->done_tail = q->done_prev;
+                        resolve->done_tail = q->done_prev;
         }
 
         i = q->id % MAX_QUERIES;
-        assert(resolv->queries[i] == q);
-        resolv->queries[i] = NULL;
+        assert(resolve->queries[i] == q);
+        resolve->queries[i] = NULL;
 
-        sd_resolv_freeaddrinfo(q->addrinfo);
+        sd_resolve_freeaddrinfo(q->addrinfo);
         free(q->host);
         free(q->serv);
 
-        resolv->n_queries--;
+        resolve->n_queries--;
         free(q);
 
         errno = saved_errno;
 }
 
-void sd_resolv_freeaddrinfo(struct addrinfo *ai) {
+void sd_resolve_freeaddrinfo(struct addrinfo *ai) {
         int saved_errno = errno;
 
         while (ai) {
@@ -1105,7 +1105,7 @@ void sd_resolv_freeaddrinfo(struct addrinfo *ai) {
         errno = saved_errno;
 }
 
-void sd_resolv_freeanswer(unsigned char *answer) {
+void sd_resolve_freeanswer(unsigned char *answer) {
         int saved_errno = errno;
 
         if (!answer)
@@ -1116,26 +1116,26 @@ void sd_resolv_freeanswer(unsigned char *answer) {
         errno = saved_errno;
 }
 
-int sd_resolv_isdone(sd_resolv_t *resolv, sd_resolv_query_t*q) {
-        assert(resolv);
+int sd_resolve_isdone(sd_resolve_t *resolve, sd_resolve_query_t*q) {
+        assert(resolve);
         assert(q);
-        assert(q->resolv == resolv);
+        assert(q->resolve == resolve);
 
         return q->done;
 }
 
-void sd_resolv_setuserdata(sd_resolv_t *resolv, sd_resolv_query_t *q, void *userdata) {
+void sd_resolve_setuserdata(sd_resolve_t *resolve, sd_resolve_query_t *q, void *userdata) {
         assert(q);
-        assert(resolv);
-        assert(q->resolv = resolv);
+        assert(resolve);
+        assert(q->resolve = resolve);
 
         q->userdata = userdata;
 }
 
-void* sd_resolv_getuserdata(sd_resolv_t *resolv, sd_resolv_query_t *q) {
+void* sd_resolve_getuserdata(sd_resolve_t *resolve, sd_resolve_query_t *q) {
         assert(q);
-        assert(resolv);
-        assert(q->resolv = resolv);
+        assert(resolve);
+        assert(q->resolve = resolve);
 
         return q->userdata;
 }
