@@ -2096,6 +2096,7 @@ tests += \
 	test-bus-marshal \
 	test-bus-signature \
 	test-bus-chat \
+	test-bus-cleanup \
 	test-bus-server \
 	test-bus-match \
 	test-bus-kernel \
@@ -2152,6 +2153,15 @@ test_bus_chat_CFLAGS = \
 	-pthread
 
 test_bus_chat_LDADD = \
+	libsystemd-internal.la \
+	libsystemd-id128-internal.la \
+	libsystemd-daemon-internal.la \
+	libsystemd-shared.la
+
+test_bus_cleanup_SOURCES = \
+	src/libsystemd/test-bus-cleanup.c
+
+test_bus_cleanup_LDADD = \
 	libsystemd-internal.la \
 	libsystemd-id128-internal.la \
 	libsystemd-daemon-internal.la \

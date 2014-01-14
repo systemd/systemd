@@ -1259,12 +1259,25 @@ _public_ sd_bus *sd_bus_ref(sd_bus *bus) {
 }
 
 _public_ sd_bus *sd_bus_unref(sd_bus *bus) {
+        unsigned i;
 
         if (!bus)
                 return NULL;
 
-        if (REFCNT_DEC(bus->n_ref) <= 0)
-                bus_free(bus);
+        i = REFCNT_DEC(bus->n_ref);
+        if (i != bus->rqueue_size + bus->wqueue_size)
+                return NULL;
+
+        for (i = 0; i < bus->rqueue_size; i++)
+                if (bus->rqueue[i]->n_ref > 1)
+                        return NULL;
+
+        for (i = 0; i < bus->wqueue_size; i++)
+                if (bus->wqueue[i]->n_ref > 1)
+                        return NULL;
+
+        /* we are the only holders on the messages */
+        bus_free(bus);
 
         return NULL;
 }
