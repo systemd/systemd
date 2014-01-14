@@ -126,10 +126,11 @@ static int add_match(Set *set, const char *match) {
                 goto fail;
 
         log_debug("Adding pattern: %s", pattern);
-        r = set_consume(set, pattern);
+        r = set_put(set, pattern);
         if (r < 0) {
                 log_error("Failed to add pattern '%s': %s",
                           pattern, strerror(-r));
+                free(pattern);
                 goto fail;
         }
 
