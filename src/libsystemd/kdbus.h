@@ -102,6 +102,7 @@ struct kdbus_audit {
 
 /**
  * struct kdbus_timestamp
+ * @seqnum:		Global per-namespace message sequence number
  * @monotonic_ns:	Monotonic timestamp, in nanoseconds
  * @realtime_ns:	Realtime timestamp, in nanoseconds
  *
@@ -109,6 +110,7 @@ struct kdbus_audit {
  *   KDBUS_ITEM_TIMESTAMP
  */
 struct kdbus_timestamp {
+	__u64 seqnum;
 	__u64 monotonic_ns;
 	__u64 realtime_ns;
 };
@@ -118,7 +120,7 @@ struct kdbus_timestamp {
  * @size:		The size of the vector
  * @address:		Memory address for memory addresses
  * @offset:		Offset in the in-message payload memory,
- * 			relative to the message head
+ *			relative to the message head
  *
  * Attached to:
  *   KDBUS_ITEM_PAYLOAD_VEC
@@ -164,7 +166,7 @@ struct kdbus_name {
  * @type:		One of KDBUS_POLICY_ACCESS_* types
  * @bits:		Access to grant. One of KDBUS_POLICY_*
  * @id:			For KDBUS_POLICY_ACCESS_USER, the uid
- * 			For KDBUS_POLICY_ACCESS_GROUP, the gid
+ *			For KDBUS_POLICY_ACCESS_GROUP, the gid
  *
  * Embedded in:
  *   struct kdbus_policy
@@ -284,12 +286,12 @@ enum kdbus_item_type {
  * @name:		KDBUS_ITEM_NAME
  * @memfd:		KDBUS_ITEM_PAYLOAD_MEMFD
  * @name_change:	KDBUS_ITEM_NAME_ADD
- * 			KDBUS_ITEM_NAME_REMOVE
- * 			KDBUS_ITEM_NAME_CHANGE
+ *			KDBUS_ITEM_NAME_REMOVE
+ *			KDBUS_ITEM_NAME_CHANGE
  * @id_change:		KDBUS_ITEM_ID_ADD
- * 			KDBUS_ITEM_ID_REMOVE
+ *			KDBUS_ITEM_ID_REMOVE
  * @policy:		KDBUS_ITEM_POLICY_NAME
- * 			KDBUS_ITEM_POLICY_ACCESS
+ *			KDBUS_ITEM_POLICY_ACCESS
  */
 struct kdbus_item {
 	__u64 size;
@@ -317,12 +319,12 @@ struct kdbus_item {
 /**
  * enum kdbus_msg_flags - type of message
  * @KDBUS_MSG_FLAGS_EXPECT_REPLY:	Expect a reply message, used for
- * 					method calls. The userspace-supplied
- * 					cookie identifies the message and the
- * 					respective reply carries the cookie
- * 					in cookie_reply
+ *					method calls. The userspace-supplied
+ *					cookie identifies the message and the
+ *					respective reply carries the cookie
+ *					in cookie_reply
  * @KDBUS_MSG_FLAGS_NO_AUTO_START:	Do not start a service, if the addressed
- * 					name is not currently active
+ *					name is not currently active
  */
 enum kdbus_msg_flags {
 	KDBUS_MSG_FLAGS_EXPECT_REPLY	= 1 << 0,
@@ -347,14 +349,14 @@ enum kdbus_payload_type {
  * @src_id:		64-bit ID of the source connection
  * @payload_type:	Payload type (KDBUS_PAYLOAD_*)
  * @cookie:		Userspace-supplied cookie, for the connection
- * 			to identify its messages
+ *			to identify its messages
  * @cookie_reply:	A reply to the requesting message with the same
- * 			cookie. The requesting connection can match its
- * 			request and the reply with this value
+ *			cookie. The requesting connection can match its
+ *			request and the reply with this value
  * @timeout_ns:		The time to wait for a message reply from the peer.
- * 			If there is no reply, a kernel-generated message
- * 			with an attached KDBUS_ITEM_REPLY_TIMEOUT item
- * 			is sent to @src_id.
+ *			If there is no reply, a kernel-generated message
+ *			with an attached KDBUS_ITEM_REPLY_TIMEOUT item
+ *			is sent to @src_id.
  * @items:		A list of kdbus_items containing the message payload
  */
 struct kdbus_msg {
@@ -414,12 +416,12 @@ struct kdbus_cmd_policy {
 /**
  * enum kdbus_hello_flags - flags for struct kdbus_cmd_hello
  * @KDBUS_HELLO_ACCEPT_FD:	The connection allows the receiving of
- * 				any passed file descriptors
+ *				any passed file descriptors
  * @KDBUS_HELLO_ACTIVATOR:	Special-purpose connection which registers
- * 				a well-know name for a process to be started
- * 				when traffic arrives
+ *				a well-know name for a process to be started
+ *				when traffic arrives
  * @KDBUS_HELLO_MONITOR:	Special-purpose connection to monitor
- * 				bus traffic
+ *				bus traffic
  */
 enum kdbus_hello_flags {
 	KDBUS_HELLO_ACCEPT_FD		=  1 <<  0,
@@ -457,18 +459,18 @@ enum kdbus_attach_flags {
  * struct kdbus_cmd_hello - struct to say hello to kdbus
  * @size:		The total size of the structure
  * @conn_flags:		Connection flags (KDBUS_HELLO_*). The kernel will
- * 			return its capabilities in that field.
+ *			return its capabilities in that field.
  * @attach_flags:	Mask of metadata to attach to each message sent
- * 			(KDBUS_ATTACH_*)
+ *			(KDBUS_ATTACH_*)
  * @bus_flags:		The flags field copied verbatim from the original
- * 			KDBUS_CMD_BUS_MAKE ioctl. It's intended to be useful
+ *			KDBUS_CMD_BUS_MAKE ioctl. It's intended to be useful
  *			to do negotiation of features of the payload that is
  *			transferred (kernel → userspace)
  * @id:			The ID of this connection (kernel → userspace)
  * @bloom_size:		The bloom filter size chosen by the owner
- * 			(kernel → userspace)
+ *			(kernel → userspace)
  * @pool_size:		Size of the connection's buffer where the received
- * 			messages are placed
+ *			messages are placed
  * @id128:		Unique 128-bit ID of the bus (kernel → userspace)
  * @items:		A list of items
  *
@@ -530,8 +532,8 @@ enum kdbus_name_flags {
  * @size:		The total size of the struct
  * @flags:		Flags for a name entry (KDBUS_NAME_*)
  * @owner_id:		The current owner of the name. For requests,
- * 			privileged users may set this field to
- * 			(de)register names on behalf of other connections.
+ *			privileged users may set this field to
+ *			(de)register names on behalf of other connections.
  * @conn_flags:		The flags of the owning connection (KDBUS_HELLO_*)
  * @name:		The well-known name
  *
@@ -591,13 +593,13 @@ struct kdbus_name_list {
  * @size:		The total size of the struct
  * @flags:		KDBUS_ATTACH_* flags
  * @id:			The 64-bit ID of the connection. If set to zero, passing
- * 			@name is required. kdbus will look up the name to determine
- * 			the ID in this case.
+ *			@name is required. kdbus will look up the name to
+ *			determine the ID in this case.
  * @offset:		Returned offset in the caller's pool buffer where the
- * 			kdbus_conn_info struct result is stored. The user must
- * 			use KDBUS_CMD_FREE to free the allocated memory.
+ *			kdbus_conn_info struct result is stored. The user must
+ *			use KDBUS_CMD_FREE to free the allocated memory.
  * @name:		The optional well-known name to look up. Only needed in
- * 			case @id is zero.
+ *			case @id is zero.
  *
  * On success, the KDBUS_CMD_CONN_INFO ioctl will return 0 and @offset will
  * tell the user the offset in the connection pool buffer at which to find the
@@ -632,9 +634,9 @@ struct kdbus_conn_info {
  * struct kdbus_cmd_match - struct to add or remove matches
  * @size:		The total size of the struct
  * @owner_id:		Privileged users may (de)register matches on behalf
- * 			of other peers
+ *			of other peers
  * @cookie:		Userspace supplied cookie. When removing, the cookie
- * 			identifies the match to remove
+ *			identifies the match to remove
  * @items:		A list of items for additional information
  *
  * This structure is used with the KDBUS_CMD_ADD_MATCH and
@@ -650,78 +652,78 @@ struct kdbus_cmd_match {
 /**
  * enum kdbus_ioctl_type - Ioctl API
  * @KDBUS_CMD_BUS_MAKE:		After opening the "control" device node, this
- * 				command creates a new bus with the specified
- * 				name. The bus is immediately shut down and
- * 				cleaned up when the opened "control" device node
- * 				is closed.
+ *				command creates a new bus with the specified
+ *				name. The bus is immediately shut down and
+ *				cleaned up when the opened "control" device node
+ *				is closed.
  * @KDBUS_CMD_NS_MAKE:		Similar to KDBUS_CMD_BUS_MAKE, but it creates a
- * 				new kdbus namespace.
+ *				new kdbus namespace.
  * @KDBUS_CMD_EP_MAKE:		Creates a new named special endpoint to talk to
- * 				the bus. Such endpoints usually carry a more
- * 				restrictive policy and grant restricted access
- * 				to specific applications.
+ *				the bus. Such endpoints usually carry a more
+ *				restrictive policy and grant restricted access
+ *				to specific applications.
  * @KDBUS_CMD_HELLO:		By opening the bus device node a connection is
- * 				created. After a HELLO the opened connection
- * 				becomes an active peer on the bus.
+ *				created. After a HELLO the opened connection
+ *				becomes an active peer on the bus.
  * @KDBUS_CMD_BYEBYE:		Disconnect a connection. If the connection's
- * 				message list is empty, the calls succeeds, and
- * 				the handle is rendered unusable. Otherwise,
- * 				-EAGAIN is returned without any further side-
- * 				effects.
+ *				message list is empty, the calls succeeds, and
+ *				the handle is rendered unusable. Otherwise,
+ *				-EAGAIN is returned without any further side-
+ *				effects.
  * @KDBUS_CMD_MSG_SEND:		Send a message and pass data from userspace to
- * 				the kernel.
+ *				the kernel.
  * @KDBUS_CMD_MSG_RECV:		Receive a message from the kernel which is
- * 				placed in the receiver's pool.
+ *				placed in the receiver's pool.
  * @KDBUS_CMD_FREE:		Release the allocated memory in the receiver's
- * 				pool.
+ *				pool.
  * @KDBUS_CMD_DROP:		Drop and free the next queued message and all
- * 				its ressources without actually receiveing it.
+ *				its ressources without actually receiveing it.
  * @KDBUS_CMD_SRC:		Return the sender's connection ID of the next
- * 				queued message.
+ *				queued message.
  * @KDBUS_CMD_NAME_ACQUIRE:	Request a well-known bus name to associate with
- * 				the connection. Well-known names are used to
- * 				address a peer on the bus.
+ *				the connection. Well-known names are used to
+ *				address a peer on the bus.
  * @KDBUS_CMD_NAME_RELEASE:	Release a well-known name the connection
- * 				currently owns.
+ *				currently owns.
  * @KDBUS_CMD_NAME_LIST:	Retrieve the list of all currently registered
- * 				well-known and unique names.
+ *				well-known and unique names.
  * @KDBUS_CMD_CONN_INFO:	Retrieve credentials and properties of the
- * 				initial creator of the connection. The data was
- * 				stored at registration time and does not
- * 				necessarily represent the connected process or
- * 				the actual state of the process.
+ *				initial creator of the connection. The data was
+ *				stored at registration time and does not
+ *				necessarily represent the connected process or
+ *				the actual state of the process.
  * @KDBUS_CMD_MATCH_ADD:	Install a match which broadcast messages should
- * 				be delivered to the connection.
+ *				be delivered to the connection.
  * @KDBUS_CMD_MATCH_REMOVE:	Remove a current match for broadcast messages.
  * @KDBUS_CMD_EP_POLICY_SET:	Set the policy of an endpoint. It is used to
- * 				restrict the access for endpoints created with
- * 				KDBUS_CMD_EP_MAKE.
+ *				restrict the access for endpoints created with
+ *				KDBUS_CMD_EP_MAKE.
  * @KDBUS_CMD_MEMFD_NEW:	Return a new file descriptor which provides an
- * 				anonymous shared memory file and which can be
- * 				used to pass around larger chunks of data.
- * 				Kdbus memfd files can be sealed, which allows
- * 				the receiver to trust the data it has received.
- * 				Kdbus memfd files expose only very limited
- * 				operations, they can be mmap()ed, seek()ed,
- * 				(p)read(v)() and (p)write(v)(); most other
- * 				common file operations are not implemented.
- * 				Special caution needs to be taken with
- * 				read(v)()/write(v)() on a shared file; the
- * 				underlying file position is always shared
- * 				between all users of the file and race against
- * 				each other, pread(v)()/pwrite(v)() avoid these
- * 				issues.
+ *				anonymous shared memory file and which can be
+ *				used to pass around larger chunks of data.
+ *				Kdbus memfd files can be sealed, which allows
+ *				the receiver to trust the data it has received.
+ *				Kdbus memfd files expose only very limited
+ *				operations, they can be mmap()ed, seek()ed,
+ *				(p)read(v)() and (p)write(v)(); most other
+ *				common file operations are not implemented.
+ *				Special caution needs to be taken with
+ *				read(v)()/write(v)() on a shared file; the
+ *				underlying file position is always shared
+ *				between all users of the file and race against
+ *				each other, pread(v)()/pwrite(v)() avoid these
+ *				issues.
  * @KDBUS_CMD_MEMFD_SIZE_GET:	Return the size of the underlying file, which
- * 				changes with write().
+ *				changes with write().
  * @KDBUS_CMD_MEMFD_SIZE_SET:	Truncate the underlying file to the specified
- * 				size.
+ *				size.
  * @KDBUS_CMD_MEMFD_SEAL_GET:	Return the state of the file sealing.
  * @KDBUS_CMD_MEMFD_SEAL_SET:	Seal or break a seal of the file. Only files
- * 				which are not shared with other processes and
- * 				which are currently not mapped can be sealed.
- * 				The current process needs to be the one and
- * 				single owner of the file, the sealing cannot
- * 				be changed as long as the file is shared.
+ *				which are not shared with other processes and
+ *				which are currently not mapped can be sealed.
+ *				The current process needs to be the one and
+ *				single owner of the file, the sealing cannot
+ *				be changed as long as the file is shared.
  */
 enum kdbus_ioctl_type {
 	KDBUS_CMD_BUS_MAKE =		_IOW (KDBUS_IOC_MAGIC, 0x00, struct kdbus_cmd_make),
@@ -759,64 +761,65 @@ enum kdbus_ioctl_type {
  * errno - api error codes
  * @E2BIG:		A message contains too many records or items.
  * @EADDRINUSE:		A well-known bus name is already taken by another
- * 			connection.
+ *			connection.
  * @EADDRNOTAVAIL:	A message flagged not to activate a service, addressed
- * 			a service which is not currently running.
+ *			a service which is not currently running.
  * @EAGAIN:		No messages are queued at the moment.
  * @EBADF:		File descriptors passed with the message are not valid.
  * @EBADFD:		A bus connection is in a corrupted state.
  * @EBADMSG:		Passed data contains a combination of conflicting or
- * 			inconsistent types.
+ *			inconsistent types.
  * @EBUSY:		The user tried to say BYEBYE to a connection, but the
- * 			connection had a non-empty message list.
+ *			connection had a non-empty message list.
  * @ECONNRESET:		A connection is shut down, no further operations are
- * 			possible.
+ *			possible.
  * @ECOMM:		A peer does not accept the file descriptors addressed
- * 			to it.
+ *			to it.
  * @EDESTADDRREQ:	The well-known bus name is required but missing.
  * @EDOM:		The size of data does not match the expectations. Used
- * 			for the size of the bloom filter bit field.
+ *			for the size of the bloom filter bit field.
  * @EEXIST:		A requested namespace, bus or endpoint with the same
- * 			name already exists.  A specific data type, which is
- * 			only expected once, is provided multiple times.
+ *			name already exists.  A specific data type, which is
+ *			only expected once, is provided multiple times.
  * @EFAULT:		The supplied memory could not be accessed, or the data
- * 			is not properly aligned.
+ *			is not properly aligned.
  * @EINVAL:		The provided data does not match its type or other
- * 			expectations, like a string which is not NUL terminated,
- * 			or a string length that points behind the first
- * 			\0-byte in the string.
+ *			expectations, like a string which is not NUL terminated,
+ *			or a string length that points behind the first
+ *			\0-byte in the string.
  * @EMEDIUMTYPE:	A file descriptor which is not a kdbus memfd was
- * 			refused to send as KDBUS_MSG_PAYLOAD_MEMFD.
+ *			refused to send as KDBUS_MSG_PAYLOAD_MEMFD.
  * @EMFILE:		Too many file descriptors have been supplied with a
- * 			message.
+ *			message.
+ * @EMLINK:		Too many requests from this connection to other peers
+ *			are queued and waiting for a reply
  * @EMSGSIZE:		The supplied data is larger than the allowed maximum
- * 			size.
+ *			size.
  * @ENAMETOOLONG:	The requested name is larger than the allowed maximum
- * 			size.
+ *			size.
  * @ENOBUFS:		There is no space left for the submitted data to fit
- * 			into the receiver's pool.
+ *			into the receiver's pool.
  * @ENOENT:		The name to query information about is currently not on
  *			the bus.
  * @ENOMEM:		Out of memory.
  * @ENOSYS:		The requested functionality is not available.
- * @ENOTCONN:		The addressed peer is not an active connection.
  * @ENOTSUPP:		The feature negotiation failed, a not supported feature
- * 			was requested, or an unknown item type was received.
+ *			was requested, or an unknown item type was received.
  * @ENOTTY:		An unknown ioctl command was received.
  * @ENOTUNIQ:		A specific data type was addressed to a broadcast
- * 			address, but only direct addresses support this kind of
- * 			data.
+ *			address, but only direct addresses support this kind of
+ *			data.
  * @ENXIO:		A unique address does not exist, or an offset in the
- * 			receiver's pool does not represent a queued message.
+ *			receiver's pool does not represent a queued message.
  * @EPERM:		The policy prevented an operation. The requested
- * 			resource is owned by another entity.
+ *			resource is owned by another entity.
  * @ESHUTDOWN:		A namespace or endpoint is currently shutting down;
- * 			no further operations will be possible.
+ *			no further operations will be possible.
  * @ESRCH:		A requested well-known bus name is not found.
  * @ETXTBSY:		A kdbus memfd file cannot be sealed or the seal removed,
- * 			because it is shared with other processes or still
- * 			mmap()ed.
+ *			because it is shared with other processes or still
+ *			mmap()ed.
  * @EXFULL:		The size limits in the pool are reached, no data of
- * 			the size tried to submit can be queued.
+ *			the size tried to submit can be queued.
  */
 #endif
