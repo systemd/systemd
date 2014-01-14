@@ -23,9 +23,9 @@
 
 #include "util.h"
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(asyncns_t*, asyncns_free);
-DEFINE_TRIVIAL_CLEANUP_FUNC(unsigned char *, asyncns_freeanswer);
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct addrinfo*, asyncns_freeaddrinfo);
-#define _cleanup_asyncns_free_ _cleanup_(asyncns_freep)
-#define _cleanup_asyncns_answer_free_ _cleanup_(asyncns_freeanswerp)
-#define _cleanup_asyncns_addrinfo_free_ _cleanup_(asyncns_freeaddrinfop)
+DEFINE_TRIVIAL_CLEANUP_FUNC(sd_resolv_t*, sd_resolv_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(unsigned char *, sd_resolv_freeanswer);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct addrinfo*, sd_resolv_freeaddrinfo);
+#define _cleanup_resolv_free_ _cleanup_(sd_resolv_freep)
+#define _cleanup_resolv_answer_free_ _cleanup_(sd_resolv_freeanswerp)
+#define _cleanup_resolv_addrinfo_free_ _cleanup_(sd_resolv_freeaddrinfop)

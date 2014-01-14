@@ -37,17 +37,17 @@
 
 int main(int argc, char *argv[]) {
         int r = 1, ret;
-        _cleanup_asyncns_free_ asyncns_t *asyncns = NULL;
-        _cleanup_asyncns_addrinfo_free_ struct addrinfo *ai = NULL;
-        _cleanup_asyncns_answer_free_ unsigned char *srv = NULL;
-        asyncns_query_t *q1, *q2, *q3;
+        _cleanup_resolv_free_ sd_resolv_t *asyncns = NULL;
+        _cleanup_resolv_addrinfo_free_ struct addrinfo *ai = NULL;
+        _cleanup_resolv_answer_free_ unsigned char *srv = NULL;
+        sd_resolv_query_t *q1, *q2, *q3;
         struct addrinfo hints = {};
         struct sockaddr_in sa = {};
         char host[NI_MAXHOST] = "", serv[NI_MAXSERV] = "";
 
         signal(SIGCHLD, SIG_IGN);
 
-        asyncns = asyncns_new(2);
+        asyncns = sd_resolv_new(2);
         if (!asyncns)
                 log_oom();
 
@@ -55,34 +55,34 @@ int main(int argc, char *argv[]) {
         hints.ai_family = PF_UNSPEC;
         hints.ai_socktype = SOCK_STREAM;
 
-        q1 = asyncns_getaddrinfo(asyncns, argc >= 2 ? argv[1] : "www.heise.de", NULL, &hints);
+        q1 = sd_resolv_getaddrinfo(asyncns, argc >= 2 ? argv[1] : "www.heise.de", NULL, &hints);
         if (!q1)
-                fprintf(stderr, "asyncns_getaddrinfo(): %s\n", strerror(errno));
+                fprintf(stderr, "sd_resolv_getaddrinfo(): %s\n", strerror(errno));
 
         /* Make an address -> name query */
         sa.sin_family = AF_INET;
         sa.sin_addr.s_addr = inet_addr(argc >= 3 ? argv[2] : "193.99.144.71");
         sa.sin_port = htons(80);
 
-        q2 = asyncns_getnameinfo(asyncns, (struct sockaddr*) &sa, sizeof(sa), 0, 1, 1);
+        q2 = sd_resolv_getnameinfo(asyncns, (struct sockaddr*) &sa, sizeof(sa), 0, 1, 1);
         if (!q2)
-                fprintf(stderr, "asyncns_getnameinfo(): %s\n", strerror(errno));
+                fprintf(stderr, "sd_resolv_getnameinfo(): %s\n", strerror(errno));
 
         /* Make a res_query() call */
-        q3 = asyncns_res_query(asyncns, "_xmpp-client._tcp.gmail.com", C_IN, T_SRV);
+        q3 = sd_resolv_res_query(asyncns, "_xmpp-client._tcp.gmail.com", C_IN, T_SRV);
         if (!q3)
-                fprintf(stderr, "asyncns_res_query(): %s\n", strerror(errno));
+                fprintf(stderr, "sd_resolv_res_query(): %s\n", strerror(errno));
 
         /* Wait until the three queries are completed */
-        while (!asyncns_isdone(asyncns, q1) ||
-               !asyncns_isdone(asyncns, q2) ||
-               !asyncns_isdone(asyncns, q3)) {
-                if (asyncns_wait(asyncns, 1) < 0)
-                        fprintf(stderr, "asyncns_wait(): %s\n", strerror(errno));
+        while (!sd_resolv_isdone(asyncns, q1) ||
+               !sd_resolv_isdone(asyncns, q2) ||
+               !sd_resolv_isdone(asyncns, q3)) {
+                if (sd_resolv_wait(asyncns, 1) < 0)
+                        fprintf(stderr, "sd_resolv_wait(): %s\n", strerror(errno));
         }
 
         /* Interpret the result of the name -> addr query */
-        ret = asyncns_getaddrinfo_done(asyncns, q1, &ai);
+        ret = sd_resolv_getaddrinfo_done(asyncns, q1, &ai);
         if (ret)
                 fprintf(stderr, "error: %s %i\n", gai_strerror(ret), ret);
         else {
@@ -102,14 +102,14 @@ int main(int argc, char *argv[]) {
         }
 
         /* Interpret the result of the addr -> name query */
-        ret = asyncns_getnameinfo_done(asyncns, q2, host, sizeof(host), serv, sizeof(serv));
+        ret = sd_resolv_getnameinfo_done(asyncns, q2, host, sizeof(host), serv, sizeof(serv));
         if (ret)
                 fprintf(stderr, "error: %s %i\n", gai_strerror(ret), ret);
         else
                 printf("%s -- %s\n", host, serv);
 
         /* Interpret the result of the SRV lookup */
-        ret = asyncns_res_done(asyncns, q3, &srv);
+        ret = sd_resolv_res_done(asyncns, q3, &srv);
         if (ret < 0) {
                 fprintf(stderr, "error: %s %i\n", strerror(errno), ret);
         } else if (ret == 0) {

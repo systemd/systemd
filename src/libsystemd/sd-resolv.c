@@ -68,27 +68,27 @@ enum {
         MESSAGE_FD_MAX = 4
 };
 
-struct asyncns {
+struct sd_resolv {
         int fds[MESSAGE_FD_MAX];
 
         pthread_t workers[MAX_WORKERS];
         unsigned valid_workers;
 
         unsigned current_id, current_index;
-        asyncns_query_t* queries[MAX_QUERIES];
+        sd_resolv_query_t* queries[MAX_QUERIES];
 
-        asyncns_query_t *done_head, *done_tail;
+        sd_resolv_query_t *done_head, *done_tail;
 
         int n_queries;
         int dead;
 };
 
-struct asyncns_query {
-        asyncns_t *asyncns;
+struct sd_resolv_query {
+        sd_resolv_t *asyncns;
         int done;
         unsigned id;
         query_type_t type;
-        asyncns_query_t *done_next, *done_prev;
+        sd_resolv_query_t *done_next, *done_prev;
         int ret;
         int _errno;
         int _h_errno;
@@ -383,7 +383,7 @@ static int handle_request(int out_fd, const packet_t *packet, size_t length) {
 }
 
 static void* thread_worker(void *p) {
-        asyncns_t *asyncns = p;
+        sd_resolv_t *asyncns = p;
         sigset_t fullset;
 
         /* No signals in this thread please */
@@ -414,16 +414,16 @@ static void* thread_worker(void *p) {
         return NULL;
 }
 
-asyncns_t* asyncns_new(unsigned n_proc) {
+sd_resolv_t* sd_resolv_new(unsigned n_proc) {
         int i;
-        asyncns_t *asyncns = NULL;
+        sd_resolv_t *asyncns = NULL;
 
         assert(n_proc >= 1);
 
         if (n_proc > MAX_WORKERS)
                 n_proc = MAX_WORKERS;
 
-        asyncns = malloc(sizeof(asyncns_t));
+        asyncns = malloc(sizeof(sd_resolv_t));
         if (!asyncns) {
                 errno = ENOMEM;
                 goto fail;
@@ -475,12 +475,12 @@ asyncns_t* asyncns_new(unsigned n_proc) {
 
 fail:
         if (asyncns)
-                asyncns_free(asyncns);
+                sd_resolv_free(asyncns);
 
         return NULL;
 }
 
-void asyncns_free(asyncns_t *asyncns) {
+void sd_resolv_free(sd_resolv_t *asyncns) {
         int i;
         int saved_errno = errno;
         unsigned p;
@@ -516,21 +516,21 @@ void asyncns_free(asyncns_t *asyncns) {
 
         for (p = 0; p < MAX_QUERIES; p++)
                 if (asyncns->queries[p])
-                        asyncns_cancel(asyncns, asyncns->queries[p]);
+                        sd_resolv_cancel(asyncns, asyncns->queries[p]);
 
         free(asyncns);
 
         errno = saved_errno;
 }
 
-int asyncns_fd(asyncns_t *asyncns) {
+int sd_resolv_fd(sd_resolv_t *asyncns) {
         assert(asyncns);
 
         return asyncns->fds[RESPONSE_RECV_FD];
 }
 
-static asyncns_query_t *lookup_query(asyncns_t *asyncns, unsigned id) {
-        asyncns_query_t *q;
+static sd_resolv_query_t *lookup_query(sd_resolv_t *asyncns, unsigned id) {
+        sd_resolv_query_t *q;
         assert(asyncns);
 
         q = asyncns->queries[id % MAX_QUERIES];
@@ -541,7 +541,7 @@ static asyncns_query_t *lookup_query(asyncns_t *asyncns, unsigned id) {
         return NULL;
 }
 
-static void complete_query(asyncns_t *asyncns, asyncns_query_t *q) {
+static void complete_query(sd_resolv_t *asyncns, sd_resolv_query_t *q) {
         assert(asyncns);
         assert(q);
         assert(!q->done);
@@ -608,14 +608,14 @@ static const void *unserialize_addrinfo(const void *p, struct addrinfo **ret_ai,
 
 fail:
         if (ai)
-                asyncns_freeaddrinfo(ai);
+                sd_resolv_freeaddrinfo(ai);
 
         return NULL;
 }
 
-static int handle_response(asyncns_t *asyncns, const packet_t *packet, size_t length) {
+static int handle_response(sd_resolv_t *asyncns, const packet_t *packet, size_t length) {
         const rheader_t *resp;
-        asyncns_query_t *q;
+        sd_resolv_query_t *q;
 
         assert(asyncns);
 
@@ -721,7 +721,7 @@ static int handle_response(asyncns_t *asyncns, const packet_t *packet, size_t le
         return 0;
 }
 
-int asyncns_wait(asyncns_t *asyncns, int block) {
+int sd_resolv_wait(sd_resolv_t *asyncns, int block) {
         int handled = 0;
         assert(asyncns);
 
@@ -760,8 +760,8 @@ int asyncns_wait(asyncns_t *asyncns, int block) {
         }
 }
 
-static asyncns_query_t *alloc_query(asyncns_t *asyncns) {
-        asyncns_query_t *q;
+static sd_resolv_query_t *alloc_query(sd_resolv_t *asyncns) {
+        sd_resolv_query_t *q;
         assert(asyncns);
 
         if (asyncns->n_queries >= MAX_QUERIES) {
@@ -777,7 +777,7 @@ static asyncns_query_t *alloc_query(asyncns_t *asyncns) {
                         asyncns->current_index -= MAX_QUERIES;
         }
 
-        q = asyncns->queries[asyncns->current_index] = malloc(sizeof(asyncns_query_t));
+        q = asyncns->queries[asyncns->current_index] = malloc(sizeof(sd_resolv_query_t));
         if (!q) {
                 errno = ENOMEM;
                 return NULL;
@@ -799,10 +799,10 @@ static asyncns_query_t *alloc_query(asyncns_t *asyncns) {
         return q;
 }
 
-asyncns_query_t* asyncns_getaddrinfo(asyncns_t *asyncns, const char *node, const char *service, const struct addrinfo *hints) {
+sd_resolv_query_t* sd_resolv_getaddrinfo(sd_resolv_t *asyncns, const char *node, const char *service, const struct addrinfo *hints) {
         addrinfo_request_t data[BUFSIZE/sizeof(addrinfo_request_t) + 1] = {};
         addrinfo_request_t *req = data;
-        asyncns_query_t *q;
+        sd_resolv_query_t *q;
         assert(asyncns);
         assert(node || service);
 
@@ -847,12 +847,12 @@ asyncns_query_t* asyncns_getaddrinfo(asyncns_t *asyncns, const char *node, const
 
 fail:
         if (q)
-                asyncns_cancel(asyncns, q);
+                sd_resolv_cancel(asyncns, q);
 
         return NULL;
 }
 
-int asyncns_getaddrinfo_done(asyncns_t *asyncns, asyncns_query_t* q, struct addrinfo **ret_res) {
+int sd_resolv_getaddrinfo_done(sd_resolv_t *asyncns, sd_resolv_query_t* q, struct addrinfo **ret_res) {
         int ret;
         assert(asyncns);
         assert(q);
@@ -878,15 +878,15 @@ int asyncns_getaddrinfo_done(asyncns_t *asyncns, asyncns_query_t* q, struct addr
         if (ret != 0)
                 h_errno = q->_h_errno;
 
-        asyncns_cancel(asyncns, q);
+        sd_resolv_cancel(asyncns, q);
 
         return ret;
 }
 
-asyncns_query_t* asyncns_getnameinfo(asyncns_t *asyncns, const struct sockaddr *sa, socklen_t salen, int flags, int gethost, int getserv) {
+sd_resolv_query_t* sd_resolv_getnameinfo(sd_resolv_t *asyncns, const struct sockaddr *sa, socklen_t salen, int flags, int gethost, int getserv) {
         nameinfo_request_t data[BUFSIZE/sizeof(nameinfo_request_t) + 1] = {};
         nameinfo_request_t *req = data;
-        asyncns_query_t *q;
+        sd_resolv_query_t *q;
 
         assert(asyncns);
         assert(sa);
@@ -924,12 +924,12 @@ asyncns_query_t* asyncns_getnameinfo(asyncns_t *asyncns, const struct sockaddr *
 
 fail:
         if (q)
-                asyncns_cancel(asyncns, q);
+                sd_resolv_cancel(asyncns, q);
 
         return NULL;
 }
 
-int asyncns_getnameinfo_done(asyncns_t *asyncns, asyncns_query_t* q, char *ret_host, size_t hostlen, char *ret_serv, size_t servlen) {
+int sd_resolv_getnameinfo_done(sd_resolv_t *asyncns, sd_resolv_query_t* q, char *ret_host, size_t hostlen, char *ret_serv, size_t servlen) {
         int ret;
         assert(asyncns);
         assert(q);
@@ -964,15 +964,15 @@ int asyncns_getnameinfo_done(asyncns_t *asyncns, asyncns_query_t* q, char *ret_h
         if (ret != 0)
                 h_errno = q->_h_errno;
 
-        asyncns_cancel(asyncns, q);
+        sd_resolv_cancel(asyncns, q);
 
         return ret;
 }
 
-static asyncns_query_t * asyncns_res(asyncns_t *asyncns, query_type_t qtype, const char *dname, int class, int type) {
+static sd_resolv_query_t * asyncns_res(sd_resolv_t *asyncns, query_type_t qtype, const char *dname, int class, int type) {
         res_request_t data[BUFSIZE/sizeof(res_request_t) + 1];
         res_request_t *req = data;
-        asyncns_query_t *q;
+        sd_resolv_query_t *q;
 
         assert(asyncns);
         assert(dname);
@@ -1009,20 +1009,20 @@ static asyncns_query_t * asyncns_res(asyncns_t *asyncns, query_type_t qtype, con
 
 fail:
         if (q)
-                asyncns_cancel(asyncns, q);
+                sd_resolv_cancel(asyncns, q);
 
         return NULL;
 }
 
-asyncns_query_t* asyncns_res_query(asyncns_t *asyncns, const char *dname, int class, int type) {
+sd_resolv_query_t* sd_resolv_res_query(sd_resolv_t *asyncns, const char *dname, int class, int type) {
         return asyncns_res(asyncns, REQUEST_RES_QUERY, dname, class, type);
 }
 
-asyncns_query_t* asyncns_res_search(asyncns_t *asyncns, const char *dname, int class, int type) {
+sd_resolv_query_t* sd_resolv_res_search(sd_resolv_t *asyncns, const char *dname, int class, int type) {
         return asyncns_res(asyncns, REQUEST_RES_SEARCH, dname, class, type);
 }
 
-int asyncns_res_done(asyncns_t *asyncns, asyncns_query_t* q, unsigned char **answer) {
+int sd_resolv_res_done(sd_resolv_t *asyncns, sd_resolv_query_t* q, unsigned char **answer) {
         int ret;
         assert(asyncns);
         assert(q);
@@ -1050,22 +1050,22 @@ int asyncns_res_done(asyncns_t *asyncns, asyncns_query_t* q, unsigned char **ans
                 h_errno = q->_h_errno;
         }
 
-        asyncns_cancel(asyncns, q);
+        sd_resolv_cancel(asyncns, q);
 
         return ret < 0 ? -errno : ret;
 }
 
-asyncns_query_t* asyncns_getnext(asyncns_t *asyncns) {
+sd_resolv_query_t* sd_resolv_getnext(sd_resolv_t *asyncns) {
         assert(asyncns);
         return asyncns->done_head;
 }
 
-int asyncns_getnqueries(asyncns_t *asyncns) {
+int sd_resolv_getnqueries(sd_resolv_t *asyncns) {
         assert(asyncns);
         return asyncns->n_queries;
 }
 
-void asyncns_cancel(asyncns_t *asyncns, asyncns_query_t* q) {
+void sd_resolv_cancel(sd_resolv_t *asyncns, sd_resolv_query_t* q) {
         int i;
         int saved_errno = errno;
 
@@ -1091,7 +1091,7 @@ void asyncns_cancel(asyncns_t *asyncns, asyncns_query_t* q) {
         assert(asyncns->queries[i] == q);
         asyncns->queries[i] = NULL;
 
-        asyncns_freeaddrinfo(q->addrinfo);
+        sd_resolv_freeaddrinfo(q->addrinfo);
         free(q->host);
         free(q->serv);
 
@@ -1101,7 +1101,7 @@ void asyncns_cancel(asyncns_t *asyncns, asyncns_query_t* q) {
         errno = saved_errno;
 }
 
-void asyncns_freeaddrinfo(struct addrinfo *ai) {
+void sd_resolv_freeaddrinfo(struct addrinfo *ai) {
         int saved_errno = errno;
 
         while (ai) {
@@ -1117,7 +1117,7 @@ void asyncns_freeaddrinfo(struct addrinfo *ai) {
         errno = saved_errno;
 }
 
-void asyncns_freeanswer(unsigned char *answer) {
+void sd_resolv_freeanswer(unsigned char *answer) {
         int saved_errno = errno;
 
         if (!answer)
@@ -1133,7 +1133,7 @@ void asyncns_freeanswer(unsigned char *answer) {
         errno = saved_errno;
 }
 
-int asyncns_isdone(asyncns_t *asyncns, asyncns_query_t*q) {
+int sd_resolv_isdone(sd_resolv_t *asyncns, sd_resolv_query_t*q) {
         assert(asyncns);
         assert(q);
         assert(q->asyncns == asyncns);
@@ -1141,7 +1141,7 @@ int asyncns_isdone(asyncns_t *asyncns, asyncns_query_t*q) {
         return q->done;
 }
 
-void asyncns_setuserdata(asyncns_t *asyncns, asyncns_query_t *q, void *userdata) {
+void sd_resolv_setuserdata(sd_resolv_t *asyncns, sd_resolv_query_t *q, void *userdata) {
         assert(q);
         assert(asyncns);
         assert(q->asyncns = asyncns);
@@ -1149,7 +1149,7 @@ void asyncns_setuserdata(asyncns_t *asyncns, asyncns_query_t *q, void *userdata)
         q->userdata = userdata;
 }
 
-void* asyncns_getuserdata(asyncns_t *asyncns, asyncns_query_t *q) {
+void* sd_resolv_getuserdata(sd_resolv_t *asyncns, sd_resolv_query_t *q) {
         assert(q);
         assert(asyncns);
         assert(q->asyncns = asyncns);
