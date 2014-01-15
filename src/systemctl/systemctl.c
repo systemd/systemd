@@ -68,6 +68,7 @@
 #include "logs-show.h"
 #include "socket-util.h"
 #include "fileio.h"
+#include "env-util.h"
 #include "bus-util.h"
 #include "bus-message.h"
 #include "bus-error.h"
@@ -4467,6 +4468,69 @@ static int set_environment(sd_bus *bus, char **args) {
         return 0;
 }
 
+static int import_environment(sd_bus *bus, char **args) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        int r;
+
+        assert(bus);
+        assert(args);
+
+        r = sd_bus_message_new_method_call(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "SetEnvironment",
+                        &m);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        if (strv_isempty(args + 1))
+                r = sd_bus_message_append_strv(m, environ);
+        else {
+                char **a, **b;
+
+                r = sd_bus_message_open_container(m, 'a', "s");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                STRV_FOREACH(a, args + 1) {
+
+                        if (!env_name_is_valid(*a)) {
+                                log_error("Not a valid environment variable name: %s", *a);
+                                return -EINVAL;
+                        }
+
+                        STRV_FOREACH(b, environ) {
+                                const char *eq;
+
+                                eq = startswith(*b, *a);
+                                if (eq && *eq == '=') {
+
+                                        r = sd_bus_message_append(m, "s", *b);
+                                        if (r < 0)
+                                                return bus_log_create_error(r);
+
+                                        break;
+                                }
+                        }
+                }
+
+                r = sd_bus_message_close_container(m);
+        }
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_call(bus, m, 0, &error, NULL);
+        if (r < 0) {
+                log_error("Failed to import environment: %s", bus_error_message(&error, r));
+                return r;
+        }
+
+        return 0;
+}
+
 static int enable_sysv_units(const char *verb, char **args) {
         int r = 0;
 
@@ -4971,7 +5035,8 @@ static int systemctl_help(void) {
                "Environment Commands:\n"
                "  show-environment                Dump environment\n"
                "  set-environment NAME=VALUE...   Set one or more environment variables\n"
-               "  unset-environment NAME...       Unset one or more environment variables\n\n"
+               "  unset-environment NAME...       Unset one or more environment variables\n"
+               "  import-environment NAME...      Import all, one or more environment variables\n\n"
                "Manager Lifecycle Commands:\n"
                "  daemon-reload                   Reload systemd manager configuration\n"
                "  daemon-reexec                   Reexecute systemd manager\n\n"
@@ -5937,6 +6002,7 @@ static int systemctl_main(sd_bus *bus, int argc, char *argv[], int bus_error) {
                 { "show-environment",      EQUAL, 1, show_environment  },
                 { "set-environment",       MORE,  2, set_environment   },
                 { "unset-environment",     MORE,  2, set_environment   },
+                { "import-environment",    MORE,  1, import_environment},
                 { "halt",                  EQUAL, 1, start_special,    FORCE },
                 { "poweroff",              EQUAL, 1, start_special,    FORCE },
                 { "reboot",                EQUAL, 1, start_special,    FORCE },

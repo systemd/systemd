@@ -1190,6 +1190,19 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             specified value.</para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><command>import-environment <replaceable>VARIABLE</replaceable>...</command></term>
+
+          <listitem>
+            <para>Import all, one or more environment variables set on
+            the client into the systemd manager environment block. If
+            no arguments are passed the entire environment block is
+            imported. Otherwise a list of one or more environment
+            variable names should be passed, whose client side values
+            are then imported into the manager's environment
+            block.</para>
+          </listitem>
+        </varlistentry>
       </variablelist>
     </refsect2>
 
