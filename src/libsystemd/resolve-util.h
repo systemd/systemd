@@ -23,7 +23,7 @@
 
 #include "util.h"
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(sd_resolve_t*, sd_resolve_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(sd_resolve*, sd_resolve_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(unsigned char *, sd_resolve_freeanswer);
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct addrinfo*, sd_resolve_freeaddrinfo);
 #define _cleanup_resolve_free_ _cleanup_(sd_resolve_freep)

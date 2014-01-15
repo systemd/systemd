@@ -37,10 +37,10 @@
 
 int main(int argc, char *argv[]) {
         int r = 1, ret;
-        _cleanup_resolve_free_ sd_resolve_t *resolve = NULL;
+        _cleanup_resolve_free_ sd_resolve *resolve = NULL;
         _cleanup_resolve_addrinfo_free_ struct addrinfo *ai = NULL;
         _cleanup_resolve_answer_free_ unsigned char *srv = NULL;
-        sd_resolve_query_t *q1, *q2, *q3;
+        sd_resolve_query *q1, *q2, *q3;
         struct addrinfo hints = {};
         struct sockaddr_in sa = {};
         char host[NI_MAXHOST] = "", serv[NI_MAXSERV] = "";
