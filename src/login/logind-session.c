@@ -444,72 +444,6 @@ int session_activate(Session *s) {
         return 0;
 }
 
-static int session_link_x11_socket(Session *s) {
-        _cleanup_free_ char *t = NULL, *f = NULL;
-        char *c;
-        size_t k;
-
-        assert(s);
-        assert(s->user);
-        assert(s->user->runtime_path);
-
-        if (s->user->display)
-                return 0;
-
-        if (!s->display || !display_is_local(s->display))
-                return 0;
-
-        k = strspn(s->display+1, "0123456789");
-        f = new(char, sizeof("/tmp/.X11-unix/X") + k);
-        if (!f)
-                return log_oom();
-
-        c = stpcpy(f, "/tmp/.X11-unix/X");
-        memcpy(c, s->display+1, k);
-        c[k] = 0;
-
-        if (access(f, F_OK) < 0) {
-                log_warning("Session %s has display %s with non-existing socket %s.", s->id, s->display, f);
-                return -ENOENT;
-        }
-
-        /* Note that this cannot be in a subdir to avoid
-         * vulnerabilities since we are privileged but the runtime
-         * path is owned by the user */
-
-        t = strappend(s->user->runtime_path, "/X11-display");
-        if (!t)
-                return log_oom();
-
-        if (link(f, t) < 0) {
-                if (errno == EEXIST) {
-                        unlink(t);
-
-                        if (link(f, t) >= 0)
-                                goto done;
-                }
-
-                if (symlink(f, t) < 0) {
-
-                        if (errno == EEXIST) {
-                                unlink(t);
-
-                                if (symlink(f, t) >= 0)
-                                        goto done;
-                        }
-
-                        log_error("Failed to link %s to %s: %m", f, t);
-                        return -errno;
-                }
-        }
-
-done:
-        log_info("Linked %s to %s.", f, t);
-        s->user->display = s;
-
-        return 0;
-}
-
 static int session_start_scope(Session *s) {
         int r;
 
@@ -581,9 +515,6 @@ int session_start(Session *s) {
                    "MESSAGE=New session %s of user %s.", s->id, s->user->name,
                    NULL);
 
-        /* Create X11 symlink */
-        session_link_x11_socket(s);
-
         if (!dual_timestamp_is_set(&s->timestamp))
                 dual_timestamp_get(&s->timestamp);
 
@@ -634,26 +565,6 @@ static int session_stop_scope(Session *s) {
         return 0;
 }
 
-static int session_unlink_x11_socket(Session *s) {
-        _cleanup_free_ char *t = NULL;
-        int r;
-
-        assert(s);
-        assert(s->user);
-
-        if (s->user->display != s)
-                return 0;
-
-        s->user->display = NULL;
-
-        t = strappend(s->user->runtime_path, "/X11-display");
-        if (!t)
-                return log_oom();
-
-        r = unlink(t);
-        return r < 0 ? -errno : 0;
-}
-
 int session_stop(Session *s) {
         int r;
 
@@ -692,9 +603,6 @@ int session_finalize(Session *s) {
         /* Kill session devices */
         while ((sd = hashmap_first(s->devices)))
                 session_device_free(sd);
-
-        /* Remove X11 symlink */
-        session_unlink_x11_socket(s);
 
         unlink(s->state_file);
         session_add_to_gc_queue(s);
