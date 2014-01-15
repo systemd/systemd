@@ -61,7 +61,7 @@ struct sd_event_source {
         bool pending:1;
         bool dispatching:1;
 
-        int priority;
+        int64_t priority;
         unsigned pending_index;
         unsigned prepare_index;
         unsigned pending_iteration;
@@ -1145,14 +1145,14 @@ _public_ int sd_event_source_get_signal(sd_event_source *s) {
         return s->signal.sig;
 }
 
-_public_ int sd_event_source_get_priority(sd_event_source *s, int *priority) {
+_public_ int sd_event_source_get_priority(sd_event_source *s, int64_t *priority) {
         assert_return(s, -EINVAL);
         assert_return(!event_pid_changed(s->event), -ECHILD);
 
         return s->priority;
 }
 
-_public_ int sd_event_source_set_priority(sd_event_source *s, int priority) {
+_public_ int sd_event_source_set_priority(sd_event_source *s, int64_t priority) {
         assert_return(s, -EINVAL);
         assert_return(s->event->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_pid_changed(s->event), -ECHILD);

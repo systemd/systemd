@@ -101,8 +101,8 @@ sd_event_source* sd_event_source_unref(sd_event_source *s);
 
 int sd_event_source_set_prepare(sd_event_source *s, sd_event_handler_t callback);
 int sd_event_source_get_pending(sd_event_source *s);
-int sd_event_source_get_priority(sd_event_source *s, int *priority);
-int sd_event_source_set_priority(sd_event_source *s, int priority);
+int sd_event_source_get_priority(sd_event_source *s, int64_t *priority);
+int sd_event_source_set_priority(sd_event_source *s, int64_t priority);
 int sd_event_source_get_enabled(sd_event_source *s, int *enabled);
 int sd_event_source_set_enabled(sd_event_source *s, int enabled);
 void* sd_event_source_get_userdata(sd_event_source *s);
