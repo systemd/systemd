@@ -26,7 +26,6 @@
     "show:Show properties of one or more units/jobs or the manager"
     "cat:Show the source unit files and drop-ins"
     "reset-failed:Reset failed state for all, one, or more units"
-    "load:Load one or more units"
     "list-unit-files:List installed unit files"
     "enable:Enable one or more unit files"
     "disable:Disable one or more unit files"
@@ -268,7 +267,7 @@ done
 #    [STANDALONE]='daemon-reexec daemon-reload default
 #                  emergency exit halt kexec list-jobs list-units
 #                  list-unit-files poweroff reboot rescue show-environment'
-#         [NAME]='snapshot load'
+#         [NAME]='snapshot'
 
 _systemctl_caching_policy()
 {
