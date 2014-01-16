@@ -41,39 +41,52 @@ int main(int argc, char *argv[]) {
         }
 
         r = manager_new(&m);
-        if (r < 0)
+        if (r < 0) {
+                log_error("Could not create manager: %s", strerror(-r));
                 goto out;
+        }
 
         r = manager_load_config(m);
-        if (r < 0)
-                return EXIT_FAILURE;
+        if (r < 0) {
+                log_error("Could not load configuration files: %s", strerror(-r));
+                goto out;
+        }
 
         r = manager_udev_listen(m);
-        if (r < 0)
+        if (r < 0) {
+                log_error("Could not connect to udev: %s", strerror(-r));
                 goto out;
+        }
 
         r = manager_udev_enumerate_links(m);
-        if (r < 0)
+        if (r < 0) {
+                log_error("Could not enumerate links: %s", strerror(-r));
                 goto out;
+        }
 
         r = manager_rtnl_listen(m);
-        if (r < 0)
+        if (r < 0) {
+                log_error("Could not connect to rtnl: %s", strerror(-r));
                 goto out;
-
+        }
 
         /* write out empty resolv.conf to avoid a
          * dangling symlink */
         r = manager_update_resolv_conf(m);
-        if (r < 0)
+        if (r < 0) {
+                log_error("Could not create resolv.conf: %s", strerror(-r));
                 goto out;
+        }
 
         sd_notify(false,
                   "READY=1\n"
                   "STATUS=Processing requests...");
 
         r = sd_event_loop(m->event);
-        if (r < 0)
+        if (r < 0) {
+                log_error("Event loop failed: %s", strerror(-r));
                 goto out;
+        }
 
 out:
         sd_notify(false,

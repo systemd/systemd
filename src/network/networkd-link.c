@@ -580,6 +580,7 @@ static int link_update_flags(Link *link, unsigned flags) {
                         if (link->network->dhcp) {
                                 r = link_acquire_conf(link);
                                 if (r < 0) {
+                                        log_warning_link(link, "Could not acquire DHCPv4 lease: %s", strerror(-r));
                                         link_enter_failed(link);
                                         return r;
                                 }
@@ -590,6 +591,7 @@ static int link_update_flags(Link *link, unsigned flags) {
                         if (link->network->dhcp) {
                                 r = sd_dhcp_client_stop(link->dhcp);
                                 if (r < 0) {
+                                        log_warning_link(link, "Could not stop DHCPv4 client: %s", strerror(-r));
                                         link_enter_failed(link);
                                         return r;
                                 }
