@@ -828,9 +828,11 @@ int link_update(Link *link, sd_rtnl_message *m) {
         }
 
         while (sd_rtnl_message_read(m, &type, &data) > 0) {
-                if (type == IFLA_MTU && link->network->dhcp_mtu && !link->original_mtu) {
+                if (type == IFLA_MTU && link->network->dhcp &&
+                    link->network->dhcp_mtu && !link->original_mtu) {
                         link->original_mtu = *(uint16_t *) data;
-                        log_debug_link(link, "saved original MTU: %" PRIu16, link->original_mtu);
+                        log_debug_link(link, "saved original MTU: %" PRIu16,
+                                       link->original_mtu);
                 }
         }
 
