@@ -1425,8 +1425,8 @@ static int dispatch_wqueue(sd_bus *bus) {
                          * it got full, then all bets are off
                          * anyway. */
 
-                        sd_bus_message_unref(bus->wqueue[0]);
                         bus->wqueue_size --;
+                        sd_bus_message_unref(bus->wqueue[0]);
                         memmove(bus->wqueue, bus->wqueue + 1, sizeof(sd_bus_message*) * bus->wqueue_size);
                         bus->windex = 0;
 
