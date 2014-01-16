@@ -538,15 +538,15 @@ static int link_acquire_conf(Link *link) {
                 r = sd_dhcp_client_set_callback(link->dhcp, dhcp_handler, link);
                 if (r < 0)
                         return r;
+
+                if (link->network->dhcp_mtu) {
+                        r = sd_dhcp_client_set_request_option(link->dhcp, 26);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         log_debug_link(link, "acquiring DHCPv4 lease");
-
-        if (link->network->dhcp_mtu) {
-                r = sd_dhcp_client_set_request_option(link->dhcp, 26);
-                if (r < 0)
-                        return r;
-        }
 
         r = sd_dhcp_client_start(link->dhcp);
         if (r < 0)
