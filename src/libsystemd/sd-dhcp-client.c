@@ -783,7 +783,7 @@ static int client_parse_offer(uint8_t code, uint8_t len, const uint8_t *option,
                                 memcpy(&lease->dns[i]->s_addr, option + 4 * i, 4);
                         }
 
-                        lease->dns[i + 1] = NULL;
+                        lease->dns[len / 4] = NULL;
                 }
 
                 break;
