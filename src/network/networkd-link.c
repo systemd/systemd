@@ -491,7 +491,8 @@ static void dhcp_handler(sd_dhcp_client *client, int event, void *userdata) {
         if (event == DHCP_EVENT_IP_CHANGE || event == DHCP_EVENT_IP_ACQUIRE) {
                 _cleanup_address_free_ Address *addr = NULL;
                 _cleanup_route_free_ Route *rt = NULL;
-                struct in_addr **nameservers;
+                struct in_addr *nameservers;
+                size_t nameservers_size;
 
                 log_struct_link(LOG_INFO, link,
                                 "MESSAGE=%s: DHCPv4 address %u.%u.%u.%u/%u via %u.%u.%u.%u",
@@ -535,7 +536,7 @@ static void dhcp_handler(sd_dhcp_client *client, int event, void *userdata) {
                 rt = NULL;
 
                 if (link->network->dhcp_dns) {
-                        r = sd_dhcp_client_get_dns(client, &nameservers);
+                        r = sd_dhcp_client_get_dns(client, &nameservers, &nameservers_size);
                         if (r >= 0) {
                                 r = manager_update_resolv_conf(link->manager);
                                 if (r < 0)

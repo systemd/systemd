@@ -338,14 +338,15 @@ int manager_update_resolv_conf(Manager *m) {
 
         HASHMAP_FOREACH(link, m->links, i) {
                 if (link->dhcp) {
-                        struct in_addr **nameservers;
+                        struct in_addr *nameservers;
+                        size_t nameservers_size;
 
-                        r = sd_dhcp_client_get_dns(link->dhcp, &nameservers);
+                        r = sd_dhcp_client_get_dns(link->dhcp, &nameservers, &nameservers_size);
                         if (r >= 0) {
                                 unsigned j;
 
-                                for (j = 0; nameservers[j]; j++)
-                                        append_dns(f, nameservers[j], AF_INET, &count);
+                                for (j = 0; j < nameservers_size; j++)
+                                        append_dns(f, &nameservers[j], AF_INET, &count);
                         }
                 }
         }

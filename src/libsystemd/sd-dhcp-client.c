@@ -41,7 +41,8 @@ struct DHCPLease {
         be32_t server_address;
         be32_t subnet_mask;
         be32_t router;
-        struct in_addr **dns;
+        struct in_addr *dns;
+        size_t dns_size;
         uint16_t mtu;
         char *hostname;
 };
@@ -215,10 +216,11 @@ int sd_dhcp_client_get_mtu(sd_dhcp_client *client, uint16_t *mtu)
         return 0;
 }
 
-int sd_dhcp_client_get_dns(sd_dhcp_client *client, struct in_addr ***addr)
+int sd_dhcp_client_get_dns(sd_dhcp_client *client, struct in_addr **addr, size_t *addr_size)
 {
         assert_return(client, -EINVAL);
         assert_return(addr, -EINVAL);
+        assert_return(addr_size, -EINVAL);
 
         switch (client->state) {
         case DHCP_STATE_INIT:
@@ -231,9 +233,10 @@ int sd_dhcp_client_get_dns(sd_dhcp_client *client, struct in_addr ***addr)
         case DHCP_STATE_BOUND:
         case DHCP_STATE_RENEWING:
         case DHCP_STATE_REBINDING:
-                if (client->lease->dns)
+                if (client->lease->dns_size) {
+                        *addr_size = client->lease->dns_size;
                         *addr = client->lease->dns;
-                else
+                } else
                         return -ENOENT;
 
                 break;
@@ -341,18 +344,6 @@ static int client_notify(sd_dhcp_client *client, int event)
         return 0;
 }
 
-static void in_addrs_free(struct in_addr **addrs) {
-        unsigned i;
-
-        if (!addrs)
-                return;
-
-        for (i = 0; addrs[i]; i++)
-                free(addrs[i]);
-
-        free(addrs);
-}
-
 static int client_stop(sd_dhcp_client *client, int error)
 {
         assert_return(client, -EINVAL);
@@ -394,7 +385,7 @@ static int client_stop(sd_dhcp_client *client, int error)
         }
 
         if (client->lease) {
-                in_addrs_free(client->lease->dns);
+                free(client->lease->dns);
                 free(client->lease);
                 client->lease = NULL;
         }
@@ -828,18 +819,16 @@ static int client_parse_offer(uint8_t code, uint8_t len, const uint8_t *option,
                 if (len >= 4) {
                         unsigned i;
 
-                        in_addrs_free(lease->dns);
+                        lease->dns_size = len / 4;
 
-                        lease->dns = new0(struct in_addr*, len / 4 + 1);
+                        free(lease->dns);
+                        lease->dns = new0(struct in_addr, lease->dns_size);
                         if (!lease->dns)
                                 return -ENOMEM;
 
-                        for (i = 0; i < len / 4; i++) {
-                                lease->dns[i] = new0(struct in_addr, 1);
-                                memcpy(&lease->dns[i]->s_addr, option + 4 * i, 4);
+                        for (i = 0; i < lease->dns_size; i++) {
+                                memcpy(&lease->dns[i].s_addr, option + 4 * i, 4);
                         }
-
-                        lease->dns[len / 4] = NULL;
                 }
 
                 break;

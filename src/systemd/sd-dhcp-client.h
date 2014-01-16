@@ -54,7 +54,7 @@ int sd_dhcp_client_get_address(sd_dhcp_client *client, struct in_addr *addr);
 int sd_dhcp_client_get_netmask(sd_dhcp_client *client, struct in_addr *addr);
 int sd_dhcp_client_prefixlen(const struct in_addr *addr);
 int sd_dhcp_client_get_router(sd_dhcp_client *client, struct in_addr *addr);
-int sd_dhcp_client_get_dns(sd_dhcp_client *client, struct in_addr ***addr);
+int sd_dhcp_client_get_dns(sd_dhcp_client *client, struct in_addr **addr, size_t *addr_size);
 int sd_dhcp_client_get_mtu(sd_dhcp_client *client, uint16_t *mtu);
 int sd_dhcp_client_get_hostname(sd_dhcp_client *client, const char **hostname);
 
