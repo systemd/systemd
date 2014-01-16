@@ -173,6 +173,7 @@ int sd_rtnl_message_link_set_flags(sd_rtnl_message *m, unsigned flags) {
         ifi = NLMSG_DATA(m->hdr);
 
         ifi->ifi_flags = flags;
+        ifi->ifi_change = 0xffffffff;
 
         return 0;
 }
@@ -208,7 +209,6 @@ int sd_rtnl_message_link_new(uint16_t nlmsg_type, int index, sd_rtnl_message **r
 
         ifi->ifi_family = AF_UNSPEC;
         ifi->ifi_index = index;
-        ifi->ifi_change = 0xffffffff;
 
         UPDATE_RTA(*ret, IFLA_RTA(ifi));
 
