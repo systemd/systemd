@@ -13,6 +13,3 @@ After=multi-user.target
 Conflicts=rescue.target
 Wants=display-manager.service
 AllowIsolate=yes
-
-[Install]
-Alias=default.target
