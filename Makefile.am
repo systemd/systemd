@@ -1744,6 +1744,7 @@ systemd_gpt_auto_generator_CFLAGS = \
 endif
 
 # ------------------------------------------------------------------------------
+if ENABLE_KDBUS
 systemgenerator_PROGRAMS +=  \
 	systemd-dbus1-generator
 
@@ -1763,6 +1764,7 @@ dbus1-generator-uninstall-hook:
 
 INSTALL_EXEC_HOOKS += dbus1-generator-install-hook
 UNINSTALL_EXEC_HOOKS += dbus1-generator-uninstall-hook
+endif
 
 # ------------------------------------------------------------------------------
 systemd_rc_local_generator_SOURCES = \
