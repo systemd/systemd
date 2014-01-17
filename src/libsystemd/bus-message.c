@@ -1935,7 +1935,7 @@ static size_t read_word_le(void *p, size_t sz) {
                 return le16toh(x.u16);
         else if (sz == 4)
                 return le32toh(x.u32);
-        else if (sz == 4)
+        else if (sz == 8)
                 return le64toh(x.u64);
 
         assert_not_reached("unknown word width");
