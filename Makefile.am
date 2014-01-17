@@ -59,9 +59,9 @@ LIBSYSTEMD_JOURNAL_CURRENT=11
 LIBSYSTEMD_JOURNAL_REVISION=3
 LIBSYSTEMD_JOURNAL_AGE=11
 
-LIBSYSTEMD_BUS_CURRENT=0
-LIBSYSTEMD_BUS_REVISION=0
-LIBSYSTEMD_BUS_AGE=0
+LIBSYSTEMD_CURRENT=0
+LIBSYSTEMD_REVISION=0
+LIBSYSTEMD_AGE=0
 
 # Dirs of external packages
 dbuspolicydir=@dbuspolicydir@
@@ -2051,7 +2051,7 @@ libsystemd_la_CFLAGS = \
 
 libsystemd_la_LDFLAGS = \
 	$(AM_LDFLAGS) \
-	-version-info $(LIBSYSTEMD_BUS_CURRENT):$(LIBSYSTEMD_BUS_REVISION):$(LIBSYSTEMD_BUS_AGE) \
+	-version-info $(LIBSYSTEMD_CURRENT):$(LIBSYSTEMD_REVISION):$(LIBSYSTEMD_AGE) \
 	-Wl,--version-script=$(top_srcdir)/src/libsystemd/libsystemd.sym
 
 pkgconfiglib_DATA += \
