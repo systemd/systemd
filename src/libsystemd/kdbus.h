@@ -349,6 +349,7 @@ enum kdbus_payload_type {
  * struct kdbus_msg - the representation of a kdbus message
  * @size:		Total size of the message
  * @flags:		Message flags (KDBUS_MSG_FLAGS_*)
+ * @priority:		Message queue priority value
  * @dst_id:		64-bit ID of the destination connection
  * @src_id:		64-bit ID of the source connection
  * @payload_type:	Payload type (KDBUS_PAYLOAD_*)
@@ -366,6 +367,7 @@ enum kdbus_payload_type {
 struct kdbus_msg {
 	__u64 size;
 	__u64 flags;
+	__s64 priority;
 	__u64 dst_id;
 	__u64 src_id;
 	__u64 payload_type;
@@ -375,6 +377,42 @@ struct kdbus_msg {
 		__u64 cookie_reply;
 	};
 	struct kdbus_item items[0];
+} __attribute__((aligned(8)));
+
+/**
+ * enum kdbus_recv_flags - flags for de-queuing messages
+ * @KDBUS_RECV_PEEK:		Return the next queued message without
+ *				actually de-queuing it, and without installing
+ *				any file descriptors or other resources. It is
+ *				usually used to determine the activating
+ *				connection of a bus name.
+ * @KDBUS_RECV_DROP:		Drop and free the next queued message and all
+ *				its resources without actually receiving it.
+ * @KDBUS_RECV_USE_PRIORITY:	Only de-queue messages with the specified or
+ * 				higher priority (lowest values); if not set,
+ * 				the priority value is ignored.
+ */
+enum kdbus_recv_flags {
+	KDBUS_RECV_PEEK		= 1 <<  0,
+	KDBUS_RECV_DROP		= 1 <<  1,
+	KDBUS_RECV_USE_PRIORITY	= 1 <<  2,
+};
+
+/**
+ * kdbus_cmd_recv - struct to de-queue a buffered message
+ * @flags:		KDBUS_RECV_* flags
+ * @priority:		Minimum priority of the messages to de-queue. Lowest
+ *			values have the highest priority.
+ * @offset:		Returned offset in the pool where the message is
+ * 			stored. The user must use KDBUS_CMD_FREE to free
+ * 			the allocated memory.
+ *
+ * This struct is used with the KDBUS_CMD_MSG_RECV ioctl.
+ */
+struct kdbus_cmd_recv {
+	__u64 flags;
+	__s64 priority;
+	__u64 offset;
 } __attribute__((aligned(8)));
 
 /**
@@ -480,8 +518,7 @@ enum kdbus_attach_flags {
  * @id128:		Unique 128-bit ID of the bus (kernel → userspace)
  * @items:		A list of items
  *
- * This struct is used with the KDBUS_CMD_HELLO ioctl. See the ioctl
- * documentation for more information.
+ * This struct is used with the KDBUS_CMD_HELLO ioctl.
  */
 struct kdbus_cmd_hello {
 	__u64 size;
@@ -700,11 +737,6 @@ struct kdbus_cmd_memfd_make {
  *				placed in the receiver's pool.
  * @KDBUS_CMD_FREE:		Release the allocated memory in the receiver's
  *				pool.
- * @KDBUS_CMD_DROP:		Drop and free the next queued message and all
- *				its ressources without actually receiveing it.
- * @KDBUS_CMD_SRC:		Query the sender's connection ID of the next
- *				queued message, used to determine the activating
- *				connection of a bus name.
  * @KDBUS_CMD_NAME_ACQUIRE:	Request a well-known bus name to associate with
  *				the connection. Well-known names are used to
  *				address a peer on the bus.
@@ -759,10 +791,8 @@ enum kdbus_ioctl_type {
 	KDBUS_CMD_BYEBYE =		_IO  (KDBUS_IOC_MAGIC, 0x31),
 
 	KDBUS_CMD_MSG_SEND =		_IOW (KDBUS_IOC_MAGIC, 0x40, struct kdbus_msg),
-	KDBUS_CMD_MSG_RECV =		_IOR (KDBUS_IOC_MAGIC, 0x41, __u64 *),
+	KDBUS_CMD_MSG_RECV =		_IOWR(KDBUS_IOC_MAGIC, 0x41, struct kdbus_cmd_recv),
 	KDBUS_CMD_FREE =		_IOW (KDBUS_IOC_MAGIC, 0x42, __u64 *),
-	KDBUS_CMD_MSG_DROP =		_IO  (KDBUS_IOC_MAGIC, 0x43),
-	KDBUS_CMD_MSG_SRC =		_IOR (KDBUS_IOC_MAGIC, 0x44, __u64 *),
 
 	KDBUS_CMD_NAME_ACQUIRE =	_IOWR(KDBUS_IOC_MAGIC, 0x50, struct kdbus_cmd_name),
 	KDBUS_CMD_NAME_RELEASE =	_IOW (KDBUS_IOC_MAGIC, 0x51, struct kdbus_cmd_name),
@@ -827,6 +857,8 @@ enum kdbus_ioctl_type {
  * @ENOENT:		The name to query information about is currently not on
  *			the bus.
  * @ENOMEM:		Out of memory.
+ * @ENOMSG:		The queue is not empty, but no message with a matching
+ * 			priority is currently queued.
  * @ENOSYS:		The requested functionality is not available.
  * @ENOTSUPP:		The feature negotiation failed, a not supported feature
  *			was requested, or an unknown item type was received.

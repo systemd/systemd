@@ -947,8 +947,8 @@ fail:
 }
 
 int bus_kernel_read_message(sd_bus *bus) {
+        struct kdbus_cmd_recv recv = {};
         struct kdbus_msg *k;
-        uint64_t off;
         int r;
 
         assert(bus);
@@ -957,14 +957,14 @@ int bus_kernel_read_message(sd_bus *bus) {
         if (r < 0)
                 return r;
 
-        r = ioctl(bus->input_fd, KDBUS_CMD_MSG_RECV, &off);
+        r = ioctl(bus->input_fd, KDBUS_CMD_MSG_RECV, &recv);
         if (r < 0) {
                 if (errno == EAGAIN)
                         return 0;
 
                 return -errno;
         }
-        k = (struct kdbus_msg *)((uint8_t *)bus->kdbus_buffer + off);
+        k = (struct kdbus_msg *)((uint8_t *)bus->kdbus_buffer + recv.offset);
 
         if (k->payload_type == KDBUS_PAYLOAD_DBUS) {
                 r = bus_kernel_make_message(bus, k);
