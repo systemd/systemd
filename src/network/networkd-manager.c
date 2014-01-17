@@ -334,11 +334,11 @@ int manager_update_resolv_conf(Manager *m) {
 
         fchmod(fileno(f), 0644);
 
-        fputs("# This file is managed by systemd-networkd(8). Do not edit.\n#\n", f);
-        fputs("# Third party programs must not access this file directly, but\n", f);
-        fputs("# only through the symlink at /etc/resolv.conf. To manage your\n", f);
-        fputs("# own static resolv.conf(5), replace the symlink by a static\n", f);
-        fputs("# file at /etc/resolv.conf.\n\n", f);
+        fputs("# This file is managed by systemd-networkd(8). Do not edit.\n#\n"
+              "# Third party programs must not access this file directly, but\n"
+              "# only through the symlink at /etc/resolv.conf. To manage\n"
+              "# resolv.conf(5) in a different way, replace the symlink by a\n"
+              "# static file or a different symlink.\n\n", f);
 
         HASHMAP_FOREACH(link, m->links, i) {
                 if (link->dhcp) {
