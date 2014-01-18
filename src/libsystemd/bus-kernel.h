@@ -62,6 +62,7 @@ int bus_kernel_take_fd(sd_bus *b);
 
 int bus_kernel_write_message(sd_bus *bus, sd_bus_message *m);
 int bus_kernel_read_message(sd_bus *bus);
+int bus_call_kernel(sd_bus *bus, sd_bus_message *m, uint64_t usec, sd_bus_error *error, sd_bus_message **reply);
 
 int bus_kernel_create_bus(const char *name, bool world, char **s);
 int bus_kernel_create_namespace(const char *name, char **s);

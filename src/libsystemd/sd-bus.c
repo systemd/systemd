@@ -1720,41 +1720,19 @@ int bus_ensure_running(sd_bus *bus) {
         }
 }
 
-_public_ int sd_bus_call(
+static int bus_call_dbus1(
                 sd_bus *bus,
-                sd_bus_message *_m,
+                sd_bus_message *m,
                 uint64_t usec,
                 sd_bus_error *error,
                 sd_bus_message **reply) {
 
-        _cleanup_bus_message_unref_ sd_bus_message *m = sd_bus_message_ref(_m);
         usec_t timeout;
         uint64_t cookie;
         unsigned i;
         int r;
 
-        assert_return(bus, -EINVAL);
-        assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
-        assert_return(m, -EINVAL);
-        assert_return(m->header->type == SD_BUS_MESSAGE_METHOD_CALL, -EINVAL);
-        assert_return(!(m->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED), -EINVAL);
-        assert_return(!bus_error_is_dirty(error), -EINVAL);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
-
-        r = bus_ensure_running(bus);
-        if (r < 0)
-                return r;
-
         i = bus->rqueue_size;
-
-        r = bus_seal_message(bus, m, usec);
-        if (r < 0)
-                return r;
-
-        r = bus_remarshal_message(bus, &m);
-        if (r < 0)
-                return r;
-
         r = sd_bus_send(bus, m, &cookie);
         if (r < 0)
                 return r;
@@ -1851,6 +1829,42 @@ _public_ int sd_bus_call(
                         return r;
                 }
         }
+}
+
+_public_ int sd_bus_call(
+                sd_bus *bus,
+                sd_bus_message *_m,
+                uint64_t usec,
+                sd_bus_error *error,
+                sd_bus_message **reply) {
+
+        _cleanup_bus_message_unref_ sd_bus_message *m = sd_bus_message_ref(_m);
+        int r;
+
+        assert_return(bus, -EINVAL);
+        assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
+        assert_return(m, -EINVAL);
+        assert_return(m->header->type == SD_BUS_MESSAGE_METHOD_CALL, -EINVAL);
+        assert_return(!(m->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED), -EINVAL);
+        assert_return(!bus_error_is_dirty(error), -EINVAL);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
+
+        r = bus_ensure_running(bus);
+        if (r < 0)
+                return r;
+
+        r = bus_seal_message(bus, m, usec);
+        if (r < 0)
+                return r;
+
+        r = bus_remarshal_message(bus, &m);
+        if (r < 0)
+                return r;
+
+        if (bus->is_kernel)
+                return bus_call_kernel(bus, m, usec, error, reply);
+        else
+                return bus_call_dbus1(bus, m, usec, error, reply);
 }
 
 _public_ int sd_bus_get_fd(sd_bus *bus) {
