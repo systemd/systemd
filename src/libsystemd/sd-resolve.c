@@ -1105,17 +1105,6 @@ void sd_resolve_freeaddrinfo(struct addrinfo *ai) {
         errno = saved_errno;
 }
 
-void sd_resolve_freeanswer(unsigned char *answer) {
-        int saved_errno = errno;
-
-        if (!answer)
-                return;
-
-        free(answer);
-
-        errno = saved_errno;
-}
-
 int sd_resolve_isdone(sd_resolve *resolve, sd_resolve_query*q) {
         assert(resolve);
         assert(q);
