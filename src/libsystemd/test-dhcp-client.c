@@ -42,11 +42,17 @@ static int test_fd[2];
 
 static void test_request_basic(sd_event *e)
 {
+        int r;
+
         sd_dhcp_client *client;
 
-        client = sd_dhcp_client_new(e);
+        r = sd_dhcp_client_new(&client);
 
+        assert(r >= 0);
         assert(client);
+
+        r = sd_dhcp_client_attach_event(client, e, 0);
+        assert(r >= 0);
 
         assert(sd_dhcp_client_set_request_option(NULL, 0) == -EINVAL);
         assert(sd_dhcp_client_set_request_address(NULL, NULL) == -EINVAL);
@@ -199,10 +205,14 @@ int dhcp_network_send_udp_socket(int s, be32_t server_address,
 static void test_discover_message(sd_event *e)
 {
         sd_dhcp_client *client;
-        int res;
+        int res, r;
 
-        client = sd_dhcp_client_new(e);
+        r = sd_dhcp_client_new(&client);
+        assert(r >= 0);
         assert(client);
+
+        r = sd_dhcp_client_attach_event(client, e, 0);
+        assert(r >= 0);
 
         assert(sd_dhcp_client_set_index(client, 42) >= 0);
         assert(sd_dhcp_client_set_mac(client, &mac_addr) >= 0);

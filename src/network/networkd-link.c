@@ -588,9 +588,13 @@ static int link_acquire_conf(Link *link) {
         assert(link->manager->event);
 
         if (!link->dhcp) {
-                link->dhcp = sd_dhcp_client_new(link->manager->event);
-                if (!link->dhcp)
-                        return -ENOMEM;
+                r = sd_dhcp_client_new(&link->dhcp);
+                if (r < 0)
+                        return r;
+
+                r = sd_dhcp_client_attach_event(link->dhcp, NULL, 0);
+                if (r < 0)
+                        return r;
 
                 r = sd_dhcp_client_set_index(link->dhcp, link->ifindex);
                 if (r < 0)
