@@ -55,7 +55,7 @@ int manager_new(Manager **ret) {
                 return r;
 
         r = sd_bus_default_system(&m->bus);
-        if (r < 0)
+        if (r < 0 && r != -ENOENT) /* TODO: drop when we can rely on kdbus */
                 return r;
 
         m->udev = udev_new();
@@ -287,6 +287,11 @@ int manager_rtnl_listen(Manager *m) {
 
 int manager_bus_listen(Manager *m) {
         int r;
+
+        assert(m->event);
+
+        if (!m->bus) /* TODO: drop when we can rely on kdbus */
+                return 0;
 
         r = sd_bus_attach_event(m->bus, m->event, 0);
         if (r < 0)

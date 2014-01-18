@@ -325,10 +325,14 @@ static int set_hostname(sd_bus *bus, const char *hostname) {
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         int r = 0;
 
-        assert(bus);
         assert(hostname);
 
         log_debug("Setting transient hostname: '%s'", hostname);
+
+        if (!bus) { /* TODO: replace by assert when we can rely on kdbus */
+                log_info("Not connected to system bus, ignoring transient hostname.");
+                return 0;
+        }
 
         r = sd_bus_message_new_method_call(
                         bus,
