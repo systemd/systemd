@@ -1043,12 +1043,12 @@ int sd_resolve_res_done(sd_resolve *resolve, sd_resolve_query* q, unsigned char 
         return ret < 0 ? -errno : ret;
 }
 
-sd_resolve_query* sd_resolve_getnext(sd_resolve *resolve) {
+sd_resolve_query* sd_resolve_get_next(sd_resolve *resolve) {
         assert(resolve);
         return resolve->done_head;
 }
 
-int sd_resolve_getnqueries(sd_resolve *resolve) {
+int sd_resolve_get_n_queries(sd_resolve *resolve) {
         assert(resolve);
         return resolve->n_queries;
 }

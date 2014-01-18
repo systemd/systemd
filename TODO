@@ -38,7 +38,6 @@ Features:
   - maybe simplify function calls that take a sd_resolve_query object, to not also require the matching sd_resolve?
   - maybe drop the "n_proc" parameter to sd_resolve_new()?
   - change all functions to return "int" and negative errno errors
-  - getnext and getnqueries should be renamed to get_next() and get_n_queries(), i.e. functions that are not modelled directly after the libc counterparts don't need to be a single word...
 
 * New service property: maximum CPU and wallclock runtime for a service
 

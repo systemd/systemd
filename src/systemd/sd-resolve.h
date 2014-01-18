@@ -63,7 +63,7 @@ void sd_resolve_free(sd_resolve *resolve);
 int sd_resolve_fd(sd_resolve *resolve);
 
 /** Process pending responses. After this function is called you can
- * get the next completed query object(s) using sd_resolve_getnext(). If
+ * get the next completed query object(s) using sd_resolve_get_next(). If
  * block is non-zero wait until at least one response has been
  * processed. If block is zero, process all pending responses and
  * return. */
@@ -124,11 +124,11 @@ int sd_resolve_res_done(sd_resolve *resolve, sd_resolve_query* q, unsigned char 
 /** Return the next completed query object. If no query has been
  * completed yet, return NULL. Please note that you need to run
  * sd_resolve_wait() before this function will return sensible data.  */
-sd_resolve_query* sd_resolve_getnext(sd_resolve *resolve);
+sd_resolve_query* sd_resolve_get_next(sd_resolve *resolve);
 
 /** Return the number of query objects (completed or not) attached to
  * this session */
-int sd_resolve_getnqueries(sd_resolve *resolve);
+int sd_resolve_get_n_queries(sd_resolve *resolve);
 
 /** Cancel a currently running query. q is is destroyed by this call
  * and may not be used any futher. */
@@ -138,9 +138,6 @@ void sd_resolve_cancel(sd_resolve *resolve, sd_resolve_query* q);
  * sd_resolve_getaddrinfo_done(). Make sure to use this functions instead
  * of the libc's freeaddrinfo()! */
 void sd_resolve_freeaddrinfo(struct addrinfo *ai);
-
-/** Free the answer data as returned by sd_resolve_res_done().*/
-void sd_resolve_freeanswer(unsigned char *answer);
 
 /** Returns non-zero when the query operation specified by q has been completed */
 int sd_resolve_isdone(sd_resolve *resolve, sd_resolve_query*q);
