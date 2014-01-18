@@ -50,11 +50,28 @@ static void test_utf8_encoded_valid_unichar(void) {
 
 }
 
+static void test_utf8_escaping(void) {
+        _cleanup_free_ char *p1, *p2, *p3;
+
+        p1 = utf8_escape_invalid("goo goo goo");
+        puts(p1);
+        assert_se(utf8_is_valid(p1));
+
+        p2 = utf8_escape_invalid("\341\204\341\204");
+        puts(p2);
+        assert_se(utf8_is_valid(p2));
+
+        p3 = utf8_escape_invalid("\341\204");
+        puts(p3);
+        assert_se(utf8_is_valid(p3));
+}
+
 int main(int argc, char *argv[]) {
         test_utf8_is_valid();
         test_utf8_is_printable();
         test_ascii_is_valid();
         test_utf8_encoded_valid_unichar();
+        test_utf8_escaping();
 
         return 0;
 }

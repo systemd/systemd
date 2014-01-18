@@ -25,8 +25,11 @@
 
 #include "macro.h"
 
+#define UTF8_REPLACEMENT_CHARACTER "\xef\xbf\xbd"
+
 const char *utf8_is_valid(const char *s) _pure_;
 char *ascii_is_valid(const char *s) _pure_;
+char *utf8_escape_invalid(const char *s);
 
 bool utf8_is_printable(const char* str, size_t length) _pure_;
 

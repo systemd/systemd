@@ -539,15 +539,18 @@ static int parse_env_file_push(const char *filename, unsigned line,
         va_list aq, *ap = userdata;
 
         if (!utf8_is_valid(key)) {
-                log_error("%s:%u: invalid UTF-8 for key '%s', ignoring.",
-                          filename, line, key);
+                _cleanup_free_ char *p = utf8_escape_invalid(key);
+
+                log_error("%s:%u: invalid UTF-8 in key '%s', ignoring.",
+                          filename, line, p);
                 return -EINVAL;
         }
 
         if (value && !utf8_is_valid(value)) {
-                /* FIXME: filter UTF-8 */
+                _cleanup_free_ char *p = utf8_escape_invalid(value);
+
                 log_error("%s:%u: invalid UTF-8 value for key %s: '%s', ignoring.",
-                          filename, line, key, value);
+                          filename, line, key, p);
                 return -EINVAL;
         }
 
