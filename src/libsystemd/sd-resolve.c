@@ -414,7 +414,7 @@ static void* thread_worker(void *p) {
         return NULL;
 }
 
-sd_resolve* sd_resolve_new(unsigned n_proc) {
+_public_ sd_resolve* sd_resolve_new(unsigned n_proc) {
         sd_resolve *resolve = NULL;
         int i, r;
 
@@ -468,7 +468,7 @@ fail:
         return NULL;
 }
 
-void sd_resolve_free(sd_resolve *resolve) {
+_public_ void sd_resolve_free(sd_resolve *resolve) {
         int i;
         int saved_errno = errno;
         unsigned p;
@@ -511,7 +511,7 @@ void sd_resolve_free(sd_resolve *resolve) {
         errno = saved_errno;
 }
 
-int sd_resolve_fd(sd_resolve *resolve) {
+_public_ int sd_resolve_fd(sd_resolve *resolve) {
         assert(resolve);
 
         return resolve->fds[RESPONSE_RECV_FD];
@@ -709,7 +709,7 @@ static int handle_response(sd_resolve *resolve, const Packet *packet, size_t len
         return 0;
 }
 
-int sd_resolve_wait(sd_resolve *resolve, int block) {
+_public_ int sd_resolve_wait(sd_resolve *resolve, int block) {
         int handled = 0;
         assert(resolve);
 
@@ -787,7 +787,7 @@ static sd_resolve_query *alloc_query(sd_resolve *resolve) {
         return q;
 }
 
-sd_resolve_query* sd_resolve_getaddrinfo(sd_resolve *resolve, const char *node, const char *service, const struct addrinfo *hints) {
+_public_ sd_resolve_query* sd_resolve_getaddrinfo(sd_resolve *resolve, const char *node, const char *service, const struct addrinfo *hints) {
         AddrInfoRequest data[BUFSIZE/sizeof(AddrInfoRequest) + 1] = {};
         AddrInfoRequest *req = data;
         sd_resolve_query *q;
@@ -840,7 +840,7 @@ fail:
         return NULL;
 }
 
-int sd_resolve_getaddrinfo_done(sd_resolve *resolve, sd_resolve_query* q, struct addrinfo **ret_res) {
+_public_ int sd_resolve_getaddrinfo_done(sd_resolve *resolve, sd_resolve_query* q, struct addrinfo **ret_res) {
         int ret;
         assert(resolve);
         assert(q);
@@ -871,7 +871,7 @@ int sd_resolve_getaddrinfo_done(sd_resolve *resolve, sd_resolve_query* q, struct
         return ret;
 }
 
-sd_resolve_query* sd_resolve_getnameinfo(sd_resolve *resolve, const struct sockaddr *sa, socklen_t salen, int flags, int gethost, int getserv) {
+_public_ sd_resolve_query* sd_resolve_getnameinfo(sd_resolve *resolve, const struct sockaddr *sa, socklen_t salen, int flags, int gethost, int getserv) {
         NameInfoRequest data[BUFSIZE/sizeof(NameInfoRequest) + 1] = {};
         NameInfoRequest *req = data;
         sd_resolve_query *q;
@@ -917,7 +917,7 @@ fail:
         return NULL;
 }
 
-int sd_resolve_getnameinfo_done(sd_resolve *resolve, sd_resolve_query* q, char *ret_host, size_t hostlen, char *ret_serv, size_t servlen) {
+_public_ int sd_resolve_getnameinfo_done(sd_resolve *resolve, sd_resolve_query* q, char *ret_host, size_t hostlen, char *ret_serv, size_t servlen) {
         int ret;
         assert(resolve);
         assert(q);
@@ -1002,15 +1002,15 @@ fail:
         return NULL;
 }
 
-sd_resolve_query* sd_resolve_res_query(sd_resolve *resolve, const char *dname, int class, int type) {
+_public_ sd_resolve_query* sd_resolve_res_query(sd_resolve *resolve, const char *dname, int class, int type) {
         return resolve_res(resolve, REQUEST_RES_QUERY, dname, class, type);
 }
 
-sd_resolve_query* sd_resolve_res_search(sd_resolve *resolve, const char *dname, int class, int type) {
+_public_ sd_resolve_query* sd_resolve_res_search(sd_resolve *resolve, const char *dname, int class, int type) {
         return resolve_res(resolve, REQUEST_RES_SEARCH, dname, class, type);
 }
 
-int sd_resolve_res_done(sd_resolve *resolve, sd_resolve_query* q, unsigned char **answer) {
+_public_ int sd_resolve_res_done(sd_resolve *resolve, sd_resolve_query* q, unsigned char **answer) {
         int ret;
         assert(resolve);
         assert(q);
@@ -1043,17 +1043,17 @@ int sd_resolve_res_done(sd_resolve *resolve, sd_resolve_query* q, unsigned char 
         return ret < 0 ? -errno : ret;
 }
 
-sd_resolve_query* sd_resolve_get_next(sd_resolve *resolve) {
+_public_ sd_resolve_query* sd_resolve_get_next(sd_resolve *resolve) {
         assert(resolve);
         return resolve->done_head;
 }
 
-int sd_resolve_get_n_queries(sd_resolve *resolve) {
+_public_ int sd_resolve_get_n_queries(sd_resolve *resolve) {
         assert(resolve);
         return resolve->n_queries;
 }
 
-void sd_resolve_cancel(sd_resolve *resolve, sd_resolve_query* q) {
+_public_ void sd_resolve_cancel(sd_resolve *resolve, sd_resolve_query* q) {
         int i;
         int saved_errno = errno;
 
@@ -1089,7 +1089,7 @@ void sd_resolve_cancel(sd_resolve *resolve, sd_resolve_query* q) {
         errno = saved_errno;
 }
 
-void sd_resolve_freeaddrinfo(struct addrinfo *ai) {
+_public_ void sd_resolve_freeaddrinfo(struct addrinfo *ai) {
         int saved_errno = errno;
 
         while (ai) {
@@ -1105,7 +1105,7 @@ void sd_resolve_freeaddrinfo(struct addrinfo *ai) {
         errno = saved_errno;
 }
 
-int sd_resolve_isdone(sd_resolve *resolve, sd_resolve_query*q) {
+_public_ int sd_resolve_isdone(sd_resolve *resolve, sd_resolve_query*q) {
         assert(resolve);
         assert(q);
         assert(q->resolve == resolve);
@@ -1113,7 +1113,7 @@ int sd_resolve_isdone(sd_resolve *resolve, sd_resolve_query*q) {
         return q->done;
 }
 
-void sd_resolve_setuserdata(sd_resolve *resolve, sd_resolve_query *q, void *userdata) {
+_public_ void sd_resolve_setuserdata(sd_resolve *resolve, sd_resolve_query *q, void *userdata) {
         assert(q);
         assert(resolve);
         assert(q->resolve = resolve);
@@ -1121,7 +1121,7 @@ void sd_resolve_setuserdata(sd_resolve *resolve, sd_resolve_query *q, void *user
         q->userdata = userdata;
 }
 
-void* sd_resolve_getuserdata(sd_resolve *resolve, sd_resolve_query *q) {
+_public_ void* sd_resolve_getuserdata(sd_resolve *resolve, sd_resolve_query *q) {
         assert(q);
         assert(resolve);
         assert(q->resolve = resolve);
