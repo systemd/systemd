@@ -66,7 +66,6 @@ static int network_load_one(Manager *manager, const char *filename) {
                 return log_oom();
 
         network->dhcp_dns = true;
-        network->dhcp_mtu = true;
         network->dhcp_hostname = true;
         network->dhcp_domainname = true;
 
