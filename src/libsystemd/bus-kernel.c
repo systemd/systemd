@@ -320,6 +320,308 @@ fail:
         return r;
 }
 
+static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
+        sd_bus_message *m = NULL;
+        struct kdbus_item *d;
+        unsigned n_fds = 0;
+        _cleanup_free_ int *fds = NULL;
+        struct bus_header *h = NULL;
+        size_t total, n_bytes = 0, idx = 0;
+        const char *destination = NULL, *seclabel = NULL;
+        int r;
+
+        assert(bus);
+        assert(k);
+        assert(k->payload_type == KDBUS_PAYLOAD_DBUS);
+
+        KDBUS_ITEM_FOREACH(d, k, items) {
+                size_t l;
+
+                l = d->size - offsetof(struct kdbus_item, data);
+
+                switch (d->type) {
+
+                case KDBUS_ITEM_PAYLOAD_OFF:
+                        if (!h) {
+                                h = (struct bus_header *)((uint8_t *)k + d->vec.offset);
+
+                                if (!bus_header_is_complete(h, d->vec.size))
+                                        return -EBADMSG;
+                        }
+
+                        n_bytes += d->vec.size;
+                        break;
+
+                case KDBUS_ITEM_PAYLOAD_MEMFD:
+                        if (!h)
+                                return -EBADMSG;
+
+                        n_bytes += d->memfd.size;
+                        break;
+
+                case KDBUS_ITEM_FDS: {
+                        int *f;
+                        unsigned j;
+
+                        j = l / sizeof(int);
+                        f = realloc(fds, sizeof(int) * (n_fds + j));
+                        if (!f)
+                                return -ENOMEM;
+
+                        fds = f;
+                        memcpy(fds + n_fds, d->fds, sizeof(int) * j);
+                        n_fds += j;
+                        break;
+                }
+
+                case KDBUS_ITEM_SECLABEL:
+                        seclabel = d->str;
+                        break;
+                }
+        }
+
+        if (!h)
+                return -EBADMSG;
+
+        r = bus_header_message_size(h, &total);
+        if (r < 0)
+                return r;
+
+        if (n_bytes != total)
+                return -EBADMSG;
+
+        /* on kdbus we only speak native endian gvariant, never dbus1
+         * marshalling or reverse endian */
+        if (h->version != 2 ||
+            h->endian != BUS_NATIVE_ENDIAN)
+                return -EPROTOTYPE;
+
+        r = bus_message_from_header(bus, h, sizeof(struct bus_header), fds, n_fds, NULL, seclabel, 0, &m);
+        if (r < 0)
+                return r;
+
+        /* The well-known names list is different from the other
+        credentials. If we asked for it, but nothing is there, this
+        means that the list of well-known names is simply empty, not
+        that we lack any data */
+
+        m->creds.mask |= (SD_BUS_CREDS_UNIQUE_NAME|SD_BUS_CREDS_WELL_KNOWN_NAMES) & bus->creds_mask;
+
+        KDBUS_ITEM_FOREACH(d, k, items) {
+                size_t l;
+
+                l = d->size - offsetof(struct kdbus_item, data);
+
+                switch (d->type) {
+
+                case KDBUS_ITEM_PAYLOAD_OFF: {
+                        size_t begin_body;
+
+                        begin_body = BUS_MESSAGE_BODY_BEGIN(m);
+
+                        if (idx + d->vec.size > begin_body) {
+                                struct bus_body_part *part;
+
+                                /* Contains body material */
+
+                                part = message_append_part(m);
+                                if (!part) {
+                                        r = -ENOMEM;
+                                        goto fail;
+                                }
+
+                                /* A -1 offset is NUL padding. */
+                                part->is_zero = d->vec.offset == ~0ULL;
+
+                                if (idx >= begin_body) {
+                                        if (!part->is_zero)
+                                                part->data = (uint8_t *)k + d->vec.offset;
+                                        part->size = d->vec.size;
+                                } else {
+                                        if (!part->is_zero)
+                                                part->data = (uint8_t *)k + d->vec.offset + (begin_body - idx);
+                                        part->size = d->vec.size - (begin_body - idx);
+                                }
+
+                                part->sealed = true;
+                        }
+
+                        idx += d->vec.size;
+                        break;
+                }
+
+                case KDBUS_ITEM_PAYLOAD_MEMFD: {
+                        struct bus_body_part *part;
+
+                        if (idx < BUS_MESSAGE_BODY_BEGIN(m)) {
+                                r = -EBADMSG;
+                                goto fail;
+                        }
+
+                        part = message_append_part(m);
+                        if (!part) {
+                                r = -ENOMEM;
+                                goto fail;
+                        }
+
+                        part->memfd = d->memfd.fd;
+                        part->size = d->memfd.size;
+                        part->sealed = true;
+
+                        idx += d->memfd.size;
+                        break;
+                }
+
+                case KDBUS_ITEM_CREDS:
+                        /* UID/GID/PID are always valid */
+                        m->creds.uid = (uid_t) d->creds.uid;
+                        m->creds.gid = (gid_t) d->creds.gid;
+                        m->creds.pid = (pid_t) d->creds.pid;
+                        m->creds.mask |= (SD_BUS_CREDS_UID|SD_BUS_CREDS_GID|SD_BUS_CREDS_PID) & bus->creds_mask;
+
+                        /* The PID starttime/TID might be missing
+                         * however, when the data is faked by some
+                         * data bus proxy and it lacks that
+                         * information about the real client since
+                         * SO_PEERCRED is used for that */
+
+                        if (d->creds.starttime > 0) {
+                                m->creds.pid_starttime = d->creds.starttime / NSEC_PER_USEC;
+                                m->creds.mask |= SD_BUS_CREDS_PID_STARTTIME & bus->creds_mask;
+                        }
+
+                        if (d->creds.tid > 0) {
+                                m->creds.tid = (pid_t) d->creds.tid;
+                                m->creds.mask |= SD_BUS_CREDS_TID & bus->creds_mask;
+                        }
+                        break;
+
+                case KDBUS_ITEM_TIMESTAMP:
+                        m->realtime = d->timestamp.realtime_ns / NSEC_PER_USEC;
+                        m->monotonic = d->timestamp.monotonic_ns / NSEC_PER_USEC;
+                        break;
+
+                case KDBUS_ITEM_PID_COMM:
+                        m->creds.comm = d->str;
+                        m->creds.mask |= SD_BUS_CREDS_COMM & bus->creds_mask;
+                        break;
+
+                case KDBUS_ITEM_TID_COMM:
+                        m->creds.tid_comm = d->str;
+                        m->creds.mask |= SD_BUS_CREDS_TID_COMM & bus->creds_mask;
+                        break;
+
+                case KDBUS_ITEM_EXE:
+                        m->creds.exe = d->str;
+                        m->creds.mask |= SD_BUS_CREDS_EXE & bus->creds_mask;
+                        break;
+
+                case KDBUS_ITEM_CMDLINE:
+                        m->creds.cmdline = d->str;
+                        m->creds.cmdline_size = l;
+                        m->creds.mask |= SD_BUS_CREDS_CMDLINE & bus->creds_mask;
+                        break;
+
+                case KDBUS_ITEM_CGROUP:
+                        m->creds.cgroup = d->str;
+                        m->creds.mask |= (SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID) & bus->creds_mask;
+
+                        if (!bus->cgroup_root) {
+                                r = cg_get_root_path(&bus->cgroup_root);
+                                if (r < 0)
+                                        goto fail;
+                        }
+
+                        m->creds.cgroup_root = bus->cgroup_root;
+
+                        break;
+
+                case KDBUS_ITEM_AUDIT:
+                        m->creds.audit_session_id = (uint32_t) d->audit.sessionid;
+                        m->creds.audit_login_uid = (uid_t) d->audit.loginuid;
+                        m->creds.mask |= (SD_BUS_CREDS_AUDIT_SESSION_ID|SD_BUS_CREDS_AUDIT_LOGIN_UID) & bus->creds_mask;
+                        break;
+
+                case KDBUS_ITEM_CAPS:
+                        m->creds.capability = d->data;
+                        m->creds.capability_size = l;
+                        m->creds.mask |= (SD_BUS_CREDS_EFFECTIVE_CAPS|SD_BUS_CREDS_PERMITTED_CAPS|SD_BUS_CREDS_INHERITABLE_CAPS|SD_BUS_CREDS_BOUNDING_CAPS) & bus->creds_mask;
+                        break;
+
+                case KDBUS_ITEM_DST_NAME:
+                        if (!service_name_is_valid(d->str))
+                                return -EBADMSG;
+
+                        destination = d->str;
+                        break;
+
+                case KDBUS_ITEM_NAME:
+                        if (!service_name_is_valid(d->name.name))
+                                return -EBADMSG;
+
+                        r = strv_extend(&m->creds.well_known_names, d->name.name);
+                        if (r < 0)
+                                goto fail;
+                        break;
+
+                case KDBUS_ITEM_FDS:
+                case KDBUS_ITEM_SECLABEL:
+                        break;
+
+                default:
+                        log_debug("Got unknown field from kernel %llu", d->type);
+                }
+        }
+
+        r = bus_message_parse_fields(m);
+        if (r < 0)
+                goto fail;
+
+        /* Override information from the user header with data from the kernel */
+        if (k->src_id == KDBUS_SRC_ID_KERNEL)
+                m->sender = m->creds.unique_name = (char*) "org.freedesktop.DBus";
+        else {
+                snprintf(m->sender_buffer, sizeof(m->sender_buffer), ":1.%llu", (unsigned long long) k->src_id);
+                m->sender = m->creds.unique_name = m->sender_buffer;
+        }
+
+        if (destination)
+                m->destination = destination;
+        else if (k->dst_id == KDBUS_DST_ID_BROADCAST)
+                m->destination = NULL;
+        else if (k->dst_id == KDBUS_DST_ID_NAME)
+                m->destination = bus->unique_name; /* fill in unique name if the well-known name is missing */
+        else {
+                snprintf(m->destination_buffer, sizeof(m->destination_buffer), ":1.%llu", (unsigned long long) k->dst_id);
+                m->destination = m->destination_buffer;
+        }
+
+        /* We take possession of the kmsg struct now */
+        m->kdbus = k;
+        m->release_kdbus = true;
+        m->free_fds = true;
+        fds = NULL;
+
+        bus->rqueue[bus->rqueue_size++] = m;
+
+        return 1;
+
+fail:
+        if (m) {
+                struct bus_body_part *part;
+                unsigned i;
+
+                /* Make sure the memfds are not freed twice */
+                MESSAGE_FOREACH_PART(part, i, m)
+                        if (part->memfd >= 0)
+                                part->memfd = -1;
+
+                sd_bus_message_unref(m);
+        }
+
+        return r;
+}
+
 int bus_kernel_take_fd(sd_bus *b) {
         struct kdbus_cmd_hello *hello;
         struct kdbus_item *item;
@@ -642,308 +944,6 @@ static int bus_kernel_translate_message(sd_bus *bus, struct kdbus_msg *k) {
         }
 
         return translate[found->type - _KDBUS_ITEM_KERNEL_BASE](bus, k, found);
-}
-
-static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
-        sd_bus_message *m = NULL;
-        struct kdbus_item *d;
-        unsigned n_fds = 0;
-        _cleanup_free_ int *fds = NULL;
-        struct bus_header *h = NULL;
-        size_t total, n_bytes = 0, idx = 0;
-        const char *destination = NULL, *seclabel = NULL;
-        int r;
-
-        assert(bus);
-        assert(k);
-        assert(k->payload_type == KDBUS_PAYLOAD_DBUS);
-
-        KDBUS_ITEM_FOREACH(d, k, items) {
-                size_t l;
-
-                l = d->size - offsetof(struct kdbus_item, data);
-
-                switch (d->type) {
-
-                case KDBUS_ITEM_PAYLOAD_OFF:
-                        if (!h) {
-                                h = (struct bus_header *)((uint8_t *)k + d->vec.offset);
-
-                                if (!bus_header_is_complete(h, d->vec.size))
-                                        return -EBADMSG;
-                        }
-
-                        n_bytes += d->vec.size;
-                        break;
-
-                case KDBUS_ITEM_PAYLOAD_MEMFD:
-                        if (!h)
-                                return -EBADMSG;
-
-                        n_bytes += d->memfd.size;
-                        break;
-
-                case KDBUS_ITEM_FDS: {
-                        int *f;
-                        unsigned j;
-
-                        j = l / sizeof(int);
-                        f = realloc(fds, sizeof(int) * (n_fds + j));
-                        if (!f)
-                                return -ENOMEM;
-
-                        fds = f;
-                        memcpy(fds + n_fds, d->fds, sizeof(int) * j);
-                        n_fds += j;
-                        break;
-                }
-
-                case KDBUS_ITEM_SECLABEL:
-                        seclabel = d->str;
-                        break;
-                }
-        }
-
-        if (!h)
-                return -EBADMSG;
-
-        r = bus_header_message_size(h, &total);
-        if (r < 0)
-                return r;
-
-        if (n_bytes != total)
-                return -EBADMSG;
-
-        /* on kdbus we only speak native endian gvariant, never dbus1
-         * marshalling or reverse endian */
-        if (h->version != 2 ||
-            h->endian != BUS_NATIVE_ENDIAN)
-                return -EPROTOTYPE;
-
-        r = bus_message_from_header(bus, h, sizeof(struct bus_header), fds, n_fds, NULL, seclabel, 0, &m);
-        if (r < 0)
-                return r;
-
-        /* The well-known names list is different from the other
-        credentials. If we asked for it, but nothing is there, this
-        means that the list of well-known names is simply empty, not
-        that we lack any data */
-
-        m->creds.mask |= (SD_BUS_CREDS_UNIQUE_NAME|SD_BUS_CREDS_WELL_KNOWN_NAMES) & bus->creds_mask;
-
-        KDBUS_ITEM_FOREACH(d, k, items) {
-                size_t l;
-
-                l = d->size - offsetof(struct kdbus_item, data);
-
-                switch (d->type) {
-
-                case KDBUS_ITEM_PAYLOAD_OFF: {
-                        size_t begin_body;
-
-                        begin_body = BUS_MESSAGE_BODY_BEGIN(m);
-
-                        if (idx + d->vec.size > begin_body) {
-                                struct bus_body_part *part;
-
-                                /* Contains body material */
-
-                                part = message_append_part(m);
-                                if (!part) {
-                                        r = -ENOMEM;
-                                        goto fail;
-                                }
-
-                                /* A -1 offset is NUL padding. */
-                                part->is_zero = d->vec.offset == ~0ULL;
-
-                                if (idx >= begin_body) {
-                                        if (!part->is_zero)
-                                                part->data = (uint8_t *)k + d->vec.offset;
-                                        part->size = d->vec.size;
-                                } else {
-                                        if (!part->is_zero)
-                                                part->data = (uint8_t *)k + d->vec.offset + (begin_body - idx);
-                                        part->size = d->vec.size - (begin_body - idx);
-                                }
-
-                                part->sealed = true;
-                        }
-
-                        idx += d->vec.size;
-                        break;
-                }
-
-                case KDBUS_ITEM_PAYLOAD_MEMFD: {
-                        struct bus_body_part *part;
-
-                        if (idx < BUS_MESSAGE_BODY_BEGIN(m)) {
-                                r = -EBADMSG;
-                                goto fail;
-                        }
-
-                        part = message_append_part(m);
-                        if (!part) {
-                                r = -ENOMEM;
-                                goto fail;
-                        }
-
-                        part->memfd = d->memfd.fd;
-                        part->size = d->memfd.size;
-                        part->sealed = true;
-
-                        idx += d->memfd.size;
-                        break;
-                }
-
-                case KDBUS_ITEM_CREDS:
-                        /* UID/GID/PID are always valid */
-                        m->creds.uid = (uid_t) d->creds.uid;
-                        m->creds.gid = (gid_t) d->creds.gid;
-                        m->creds.pid = (pid_t) d->creds.pid;
-                        m->creds.mask |= (SD_BUS_CREDS_UID|SD_BUS_CREDS_GID|SD_BUS_CREDS_PID) & bus->creds_mask;
-
-                        /* The PID starttime/TID might be missing
-                         * however, when the data is faked by some
-                         * data bus proxy and it lacks that
-                         * information about the real client since
-                         * SO_PEERCRED is used for that */
-
-                        if (d->creds.starttime > 0) {
-                                m->creds.pid_starttime = d->creds.starttime / NSEC_PER_USEC;
-                                m->creds.mask |= SD_BUS_CREDS_PID_STARTTIME & bus->creds_mask;
-                        }
-
-                        if (d->creds.tid > 0) {
-                                m->creds.tid = (pid_t) d->creds.tid;
-                                m->creds.mask |= SD_BUS_CREDS_TID & bus->creds_mask;
-                        }
-                        break;
-
-                case KDBUS_ITEM_TIMESTAMP:
-                        m->realtime = d->timestamp.realtime_ns / NSEC_PER_USEC;
-                        m->monotonic = d->timestamp.monotonic_ns / NSEC_PER_USEC;
-                        break;
-
-                case KDBUS_ITEM_PID_COMM:
-                        m->creds.comm = d->str;
-                        m->creds.mask |= SD_BUS_CREDS_COMM & bus->creds_mask;
-                        break;
-
-                case KDBUS_ITEM_TID_COMM:
-                        m->creds.tid_comm = d->str;
-                        m->creds.mask |= SD_BUS_CREDS_TID_COMM & bus->creds_mask;
-                        break;
-
-                case KDBUS_ITEM_EXE:
-                        m->creds.exe = d->str;
-                        m->creds.mask |= SD_BUS_CREDS_EXE & bus->creds_mask;
-                        break;
-
-                case KDBUS_ITEM_CMDLINE:
-                        m->creds.cmdline = d->str;
-                        m->creds.cmdline_size = l;
-                        m->creds.mask |= SD_BUS_CREDS_CMDLINE & bus->creds_mask;
-                        break;
-
-                case KDBUS_ITEM_CGROUP:
-                        m->creds.cgroup = d->str;
-                        m->creds.mask |= (SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID) & bus->creds_mask;
-
-                        if (!bus->cgroup_root) {
-                                r = cg_get_root_path(&bus->cgroup_root);
-                                if (r < 0)
-                                        goto fail;
-                        }
-
-                        m->creds.cgroup_root = bus->cgroup_root;
-
-                        break;
-
-                case KDBUS_ITEM_AUDIT:
-                        m->creds.audit_session_id = (uint32_t) d->audit.sessionid;
-                        m->creds.audit_login_uid = (uid_t) d->audit.loginuid;
-                        m->creds.mask |= (SD_BUS_CREDS_AUDIT_SESSION_ID|SD_BUS_CREDS_AUDIT_LOGIN_UID) & bus->creds_mask;
-                        break;
-
-                case KDBUS_ITEM_CAPS:
-                        m->creds.capability = d->data;
-                        m->creds.capability_size = l;
-                        m->creds.mask |= (SD_BUS_CREDS_EFFECTIVE_CAPS|SD_BUS_CREDS_PERMITTED_CAPS|SD_BUS_CREDS_INHERITABLE_CAPS|SD_BUS_CREDS_BOUNDING_CAPS) & bus->creds_mask;
-                        break;
-
-                case KDBUS_ITEM_DST_NAME:
-                        if (!service_name_is_valid(d->str))
-                                return -EBADMSG;
-
-                        destination = d->str;
-                        break;
-
-                case KDBUS_ITEM_NAME:
-                        if (!service_name_is_valid(d->name.name))
-                                return -EBADMSG;
-
-                        r = strv_extend(&m->creds.well_known_names, d->name.name);
-                        if (r < 0)
-                                goto fail;
-                        break;
-
-                case KDBUS_ITEM_FDS:
-                case KDBUS_ITEM_SECLABEL:
-                        break;
-
-                default:
-                        log_debug("Got unknown field from kernel %llu", d->type);
-                }
-        }
-
-        r = bus_message_parse_fields(m);
-        if (r < 0)
-                goto fail;
-
-        /* Override information from the user header with data from the kernel */
-        if (k->src_id == KDBUS_SRC_ID_KERNEL)
-                m->sender = m->creds.unique_name = (char*) "org.freedesktop.DBus";
-        else {
-                snprintf(m->sender_buffer, sizeof(m->sender_buffer), ":1.%llu", (unsigned long long) k->src_id);
-                m->sender = m->creds.unique_name = m->sender_buffer;
-        }
-
-        if (destination)
-                m->destination = destination;
-        else if (k->dst_id == KDBUS_DST_ID_BROADCAST)
-                m->destination = NULL;
-        else if (k->dst_id == KDBUS_DST_ID_NAME)
-                m->destination = bus->unique_name; /* fill in unique name if the well-known name is missing */
-        else {
-                snprintf(m->destination_buffer, sizeof(m->destination_buffer), ":1.%llu", (unsigned long long) k->dst_id);
-                m->destination = m->destination_buffer;
-        }
-
-        /* We take possession of the kmsg struct now */
-        m->kdbus = k;
-        m->release_kdbus = true;
-        m->free_fds = true;
-        fds = NULL;
-
-        bus->rqueue[bus->rqueue_size++] = m;
-
-        return 1;
-
-fail:
-        if (m) {
-                struct bus_body_part *part;
-                unsigned i;
-
-                /* Make sure the memfds are not freed twice */
-                MESSAGE_FOREACH_PART(part, i, m)
-                        if (part->memfd >= 0)
-                                part->memfd = -1;
-
-                sd_bus_message_unref(m);
-        }
-
-        return r;
 }
 
 int bus_kernel_read_message(sd_bus *bus) {
