@@ -423,7 +423,7 @@ sd_resolve* sd_resolve_new(unsigned n_proc) {
         if (n_proc > MAX_WORKERS)
                 n_proc = MAX_WORKERS;
 
-        resolve = malloc(sizeof(sd_resolve));
+        resolve = new(sd_resolve, 1);
         if (!resolve) {
                 errno = ENOMEM;
                 goto fail;
@@ -562,7 +562,7 @@ static const void *unserialize_addrinfo(const void *p, struct addrinfo **ret_ai,
         if (*length < l)
                 return NULL;
 
-        ai = malloc(sizeof(struct addrinfo));
+        ai = new(struct addrinfo, 1);
         if (!ai)
                 goto fail;
 
@@ -765,7 +765,7 @@ static sd_resolve_query *alloc_query(sd_resolve *resolve) {
                         resolve->current_index -= MAX_QUERIES;
         }
 
-        q = resolve->queries[resolve->current_index] = malloc(sizeof(sd_resolve_query));
+        q = resolve->queries[resolve->current_index] = new(sd_resolve_query, 1);
         if (!q) {
                 errno = ENOMEM;
                 return NULL;
