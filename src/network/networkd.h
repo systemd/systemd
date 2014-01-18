@@ -89,6 +89,7 @@ struct Network {
         bool dhcp_dns;
         bool dhcp_mtu;
         bool dhcp_hostname;
+        bool dhcp_domainname;
 
         LIST_HEAD(Address, static_addresses);
         LIST_HEAD(Route, static_routes);

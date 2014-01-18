@@ -325,6 +325,7 @@ int manager_update_resolv_conf(Manager *m) {
         Link *link;
         Iterator i;
         unsigned count = 0;
+        const char *domainname = NULL;
         int r;
 
         assert(m);
@@ -350,12 +351,20 @@ int manager_update_resolv_conf(Manager *m) {
                         struct in_addr *nameservers;
                         size_t nameservers_size;
 
-                        r = sd_dhcp_client_get_dns(link->dhcp, &nameservers, &nameservers_size);
-                        if (r >= 0) {
-                                unsigned j;
+                        if (link->network->dhcp_dns) {
+                                r = sd_dhcp_client_get_dns(link->dhcp, &nameservers, &nameservers_size);
+                                if (r >= 0) {
+                                        unsigned j;
 
-                                for (j = 0; j < nameservers_size; j++)
-                                        append_dns(f, &nameservers[j], AF_INET, &count);
+                                        for (j = 0; j < nameservers_size; j++)
+                                                append_dns(f, &nameservers[j], AF_INET, &count);
+                                }
+                        }
+
+                        if (link->network->dhcp_domainname && !domainname) {
+                                r = sd_dhcp_client_get_domainname(link->dhcp, &domainname);
+                                if (r >= 0)
+                                       fprintf(f, "domain %s\n", domainname);
                         }
                 }
         }
