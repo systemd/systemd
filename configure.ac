@@ -259,6 +259,17 @@ AS_IF([test "x$enable_dbus" != "xno"], [
 AM_CONDITIONAL(HAVE_DBUS, [test "$have_dbus" = "yes"])
 
 # ------------------------------------------------------------------------------
+have_compat_libs=no
+AC_ARG_ENABLE([compat_libs], AS_HELP_STRING([--enable-compat-libs],[Enable creation of compatibility libraries]),
+                [case "${enableval}" in
+                        yes) have_compat_libs=yes ;;
+                        no) have_compat_libs=no ;;
+                        *) AC_MSG_ERROR(bad value ${enableval} for --enable-compat-libs) ;;
+                esac],
+                [have_compat_libs=no])
+AM_CONDITIONAL([ENABLE_COMPAT_LIBS], [test "$have_compat_libs" = "yes"])
+
+# ------------------------------------------------------------------------------
 have_coverage=no
 AC_ARG_ENABLE(coverage, AS_HELP_STRING([--enable-coverage], [enable test coverage]))
 if test "x$enable_coverage" = "xyes" ; then
@@ -1117,6 +1128,7 @@ AC_MSG_RESULT([
         test coverage:           ${have_coverage}
         Split /usr:              ${enable_split_usr}
         SysV compatibility:      ${SYSTEM_SYSV_COMPAT}
+        compatibility libraries: ${have_compat_libs}
 
         prefix:                  ${prefix}
         rootprefix:              ${with_rootprefix}

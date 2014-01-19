@@ -4364,7 +4364,7 @@ polkitpolicy_in_files += \
 
 EXTRA_DIST += \
 	src/login/logind-gperf.gperf \
-	src/login/libsystemd-login.pc.in \
+	src/compat-libs/libsystemd-login.pc.in \
 	src/login/71-seat.rules.in \
 	src/login/73-seat-late.rules.in \
 	units/systemd-logind.service.in \
@@ -4527,24 +4527,27 @@ clean-python:
 	-rm -f _daemon.la id128.la _journal.la login.la _reader.la
 
 # ------------------------------------------------------------------------------
+if ENABLE_COMPAT_LIBS
+
 define generate-fake-lib
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
-	$(AM_V_GEN)sed -r -n 's/^ +(sd_.*);/void new_\1(void);\n__asm__(".symver new_\1,\1@LIBSYSTEMD_209");\nstatic void (*resolve_\1(void)) (void) {\n\treturn new_\1;\n}\nvoid \1(void) __attribute__((ifunc("resolve_\1")));\n/p' <$< >$@
+	$(AM_V_GEN)sed -r -n 's/^ +(sd_.*);/void new_\1(void);\n__asm__(".symver new_\1,\1@LIBSYSTEMD_209");\nstatic void (*resolve_\1(void)) (void) {\n\treturn new_\1;\n}\nvoid \1(void) __attribute__((ifunc("resolve_\1")));\nobsolete_lib(\1,$(notdir $(basename $<)));\n/p' <$< >$@
 endef
 
 libsystemd_login_la_SOURCES = \
 	libsystemd-login.c \
-	src/login/libsystemd-login.sym
+	src/compat-libs/libsystemd-login.sym
 
 libsystemd_login_la_CFLAGS = \
 	$(AM_CFLAGS) \
 	-fvisibility=default \
+	-imacros $(top_srcdir)/src/compat-libs/linkwarning.h \
 	-fno-lto
 
 libsystemd_login_la_LDFLAGS = \
 	$(AM_LDFLAGS) \
 	-version-info $(LIBSYSTEMD_LOGIN_CURRENT):$(LIBSYSTEMD_LOGIN_REVISION):$(LIBSYSTEMD_LOGIN_AGE) \
-	-Wl,--version-script=$(top_srcdir)/src/login/libsystemd-login.sym
+	-Wl,--version-script=$(top_srcdir)/src/compat-libs/libsystemd-login.sym
 
 libsystemd_login_la_LIBADD = \
 	libsystemd.la
@@ -4552,14 +4555,14 @@ libsystemd_login_la_LIBADD = \
 BUILT_SOURCES += \
 	libsystemd-login.c
 
-libsystemd-login.c: src/login/libsystemd-login.sym
+libsystemd-login.c: src/compat-libs/libsystemd-login.sym
 	$(generate-fake-lib)
 
 lib_LTLIBRARIES += \
 	libsystemd-login.la
 
 pkgconfiglib_DATA += \
-	src/login/libsystemd-login.pc
+	src/compat-libs/libsystemd-login.pc
 
 # move lib from $(libdir) to $(rootlibdir) and update devel link, if needed
 libsystemd-login-install-hook:
@@ -4570,6 +4573,8 @@ libsystemd-login-uninstall-hook:
 
 INSTALL_EXEC_HOOKS += libsystemd-login-install-hook
 UNINSTALL_EXEC_HOOKS += libsystemd-login-uninstall-hook
+
+endif
 
 # ------------------------------------------------------------------------------
 substitutions = \
@@ -5007,7 +5012,7 @@ test-libsystemd-journal-sym.c: \
 	$(generate-sym-test)
 
 test-libsystemd-login-sym.c: \
-	src/login/libsystemd-login.sym \
+	src/compat-libs/libsystemd-login.sym \
 	src/systemd/sd-login.h
 	$(generate-sym-test)
 
@@ -5059,8 +5064,12 @@ tests += \
 	test-libsystemd-daemon-sym \
 	test-libsystemd-id128-sym \
 	test-libsystemd-journal-sym \
-	test-libsystemd-login-sym \
 	test-libudev-sym
+
+if ENABLE_COMPAT_LIBS
+tests += \
+	test-libsystemd-login-sym
+endif
 
 cppcheck:
 	cppcheck --enable=all -q $(top_srcdir)
