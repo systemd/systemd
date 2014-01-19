@@ -640,7 +640,7 @@ static int link_update_flags(Link *link, unsigned flags) {
 
         if ((link->flags & IFF_UP) != (flags & IFF_UP))
                 log_info_link(link,
-                              "power %s", flags & IFF_UP ? "on": "off");
+                              "link is %s", flags & IFF_UP ? "up": "down");
 
         if ((link->flags & IFF_LOWER_UP) != (flags & IFF_LOWER_UP)) {
                 if (flags & IFF_LOWER_UP) {
