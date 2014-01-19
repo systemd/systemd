@@ -9,6 +9,67 @@
 
 LIBSYSTEMD_209 {
 global:
+
+        /* originally LIBSYSTEMD_LOGIN_31 */
+        sd_get_seats;
+        sd_get_sessions;
+        sd_get_uids;
+        sd_login_monitor_flush;
+        sd_login_monitor_get_fd;
+        sd_login_monitor_new;
+        sd_login_monitor_unref;
+        sd_pid_get_owner_uid;
+        sd_pid_get_session;
+        sd_seat_can_multi_session;
+        sd_seat_get_active;
+        sd_seat_get_sessions;
+        sd_session_get_seat;
+        sd_session_get_uid;
+        sd_session_is_active;
+        sd_uid_get_seats;
+        sd_uid_get_sessions;
+        sd_uid_get_state;
+        sd_uid_is_on_seat;
+
+        /* originally LIBSYSTEMD_LOGIN_38 */
+        sd_pid_get_unit;
+        sd_session_get_service;
+
+        /* originally LIBSYSTEMD_LOGIN_43 */
+        sd_session_get_type;
+        sd_session_get_class;
+        sd_session_get_display;
+
+        /* originally LIBSYSTEMD_LOGIN_186 */
+        sd_session_get_state;
+        sd_seat_can_tty;
+        sd_seat_can_graphical;
+
+        /* originally LIBSYSTEMD_LOGIN_198 */
+        sd_session_get_tty;
+
+        /* originally LIBSYSTEMD_LOGIN_201 */
+        sd_login_monitor_get_events;
+        sd_login_monitor_get_timeout;
+
+        /* originally LIBSYSTEMD_LOGIN_202 */
+        sd_pid_get_user_unit;
+        sd_pid_get_machine_name;
+
+        /* originally LIBSYSTEMD_LOGIN_203 */
+        sd_get_machine_names;
+
+        /* originally LIBSYSTEMD_LOGIN_205 */
+        sd_pid_get_slice;
+
+        /* originally LIBSYSTEMD_LOGIN_207 */
+        sd_session_get_vt;
+
+        /* new in LIBSYSTEMD_LOGIN_209 */
+        sd_session_is_remote;
+        sd_session_get_remote_user;
+        sd_session_get_remote_host;
+
         /* Same order as in sd-bus.h should be used */
 
         /* Connections */

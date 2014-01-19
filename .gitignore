@@ -33,6 +33,7 @@
 /hostnamectl
 /install-tree
 /journalctl
+/libsystemd-login.c
 /libtool
 /localectl
 /loginctl

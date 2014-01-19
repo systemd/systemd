@@ -44,7 +44,7 @@ LIBGUDEV_REVISION=3
 LIBGUDEV_AGE=1
 
 LIBSYSTEMD_LOGIN_CURRENT=9
-LIBSYSTEMD_LOGIN_REVISION=1
+LIBSYSTEMD_LOGIN_REVISION=2
 LIBSYSTEMD_LOGIN_AGE=9
 
 LIBSYSTEMD_DAEMON_CURRENT=0
@@ -1804,14 +1804,7 @@ systemctl_LDADD = \
 	libsystemd-units.la \
 	libsystemd-label.la \
 	libsystemd-internal.la \
-	libsystemd-logs.la
-
-if ENABLE_LOGIND
-systemctl_LDADD += \
-	libsystemd-login-internal.la
-endif
-
-systemctl_LDADD += \
+	libsystemd-logs.la \
 	libsystemd-journal-internal.la \
 	libsystemd-id128-internal.la \
 	libsystemd-daemon-internal.la \
@@ -1986,6 +1979,7 @@ libsystemd_la_SOURCES = \
 	src/systemd/sd-event.h \
 	src/systemd/sd-rtnl.h \
 	src/systemd/sd-resolve.h \
+	src/systemd/sd-login.h \
 	src/libsystemd/sd-bus/sd-bus.c \
 	src/libsystemd/sd-bus/bus-control.c \
 	src/libsystemd/sd-bus/bus-control.h \
@@ -2032,7 +2026,10 @@ libsystemd_la_SOURCES = \
 	src/libsystemd/sd-rtnl/rtnl-util.h \
 	src/libsystemd/sd-rtnl/rtnl-util.c \
 	src/libsystemd/sd-resolve/sd-resolve.c \
-	src/libsystemd/sd-resolve/resolve-util.h
+	src/libsystemd/sd-resolve/resolve-util.h \
+	src/login/sd-login.c \
+	src/login/login-shared.c \
+	src/login/login-shared.h
 
 nodist_libsystemd_la_SOURCES = \
 	src/libsystemd/sd-bus/bus-error-mapping.c
@@ -3272,11 +3269,6 @@ libsystemd_journal_core_la_LIBADD = \
 	libsystemd-id128-internal.la \
 	libsystemd-shared.la
 
-if ENABLE_LOGIND
-libsystemd_journal_core_la_LIBADD += \
-	libsystemd-login-internal.la
-endif
-
 if HAVE_ACL
 libsystemd_journal_core_la_LIBADD += \
 	libsystemd-acl.la
@@ -3474,12 +3466,8 @@ systemd_coredump_SOURCES = \
 systemd_coredump_LDADD = \
 	libsystemd-journal-internal.la \
 	libsystemd-label.la \
-	libsystemd-shared.la
-
-if ENABLE_LOGIND
-systemd_coredump_LDADD += \
-	libsystemd-login-internal.la
-endif
+	libsystemd-shared.la \
+	libsystemd-internal.la
 
 rootlibexec_PROGRAMS += \
 	systemd-coredump
@@ -4242,14 +4230,14 @@ test_login_SOURCES = \
 	src/login/test-login.c
 
 test_login_LDADD = \
-	libsystemd-login-internal.la \
+	libsystemd-internal.la \
 	libsystemd-shared.la
 
 test_login_shared_SOURCES = \
 	src/login/test-login-shared.c
 
 test_login_shared_LDADD = \
-	libsystemd-login-internal.la \
+	libsystemd-internal.la \
 	libsystemd-shared.la
 
 test_inhibit_SOURCES = \
@@ -4274,29 +4262,6 @@ manual_tests += \
 tests += \
 	test-login-tables \
 	test-login-shared
-
-libsystemd_login_la_SOURCES = \
-	src/login/libsystemd-login.sym \
-	src/login/sd-login.c \
-	src/systemd/sd-login.h \
-	src/login/login-shared.c \
-	src/login/login-shared.h
-
-libsystemd_login_la_CFLAGS = \
-	$(AM_CFLAGS) \
-	-fvisibility=hidden
-
-libsystemd_login_la_LDFLAGS = \
-	$(AM_LDFLAGS) \
-	-version-info $(LIBSYSTEMD_LOGIN_CURRENT):$(LIBSYSTEMD_LOGIN_REVISION):$(LIBSYSTEMD_LOGIN_AGE) \
-	-Wl,--version-script=$(top_srcdir)/src/login/libsystemd-login.sym
-
-libsystemd_login_la_LIBADD = \
-	libsystemd-daemon-internal.la \
-	libsystemd-shared.la
-
-libsystemd_login_internal_la_SOURCES = \
-	$(libsystemd_login_la_SOURCES)
 
 if HAVE_PAM
 pam_systemd_la_SOURCES = \
@@ -4330,16 +4295,6 @@ dist_pamconf_DATA = \
 	src/login/systemd-user
 endif
 
-# move lib from $(libdir) to $(rootlibdir) and update devel link, if needed
-libsystemd-login-install-hook:
-	libname=libsystemd-login.so && $(move-to-rootlibdir)
-
-libsystemd-login-uninstall-hook:
-	rm -f $(DESTDIR)$(rootlibdir)/libsystemd-login.so*
-
-INSTALL_EXEC_HOOKS += libsystemd-login-install-hook
-UNINSTALL_EXEC_HOOKS += libsystemd-login-uninstall-hook
-
 nodist_systemunit_DATA += \
 	units/systemd-logind.service \
 	units/systemd-user-sessions.service
@@ -4359,15 +4314,6 @@ dist_pkgsysconf_DATA += \
 
 pkginclude_HEADERS += \
 	src/systemd/sd-login.h
-
-lib_LTLIBRARIES += \
-	libsystemd-login.la
-
-noinst_LTLIBRARIES += \
-	libsystemd-login-internal.la
-
-pkgconfiglib_DATA += \
-	src/login/libsystemd-login.pc
 
 polkitpolicy_files += \
 	src/login/org.freedesktop.login1.policy
@@ -4536,7 +4482,7 @@ login_la_LDFLAGS = \
 login_la_LIBADD = \
 	$(PYTHON_DEVEL_LIBS) \
 	libsystemd-journal.la \
-	libsystemd-login.la \
+	libsystemd.la \
 	libsystemd-daemon-internal.la \
 	libsystemd-shared.la
 
@@ -4579,6 +4525,50 @@ clean-sphinx:
 clean-python:
 	-rm -rf src/python-systemd/.libs src/python-systemd/*.l[ao]
 	-rm -f _daemon.la id128.la _journal.la login.la _reader.la
+
+# ------------------------------------------------------------------------------
+define generate-fake-lib
+	$(AM_V_at)$(MKDIR_P) $(dir $@)
+	$(AM_V_GEN)sed -r -n 's/^ +(sd_.*);/void new_\1(void);\n__asm__(".symver new_\1,\1@LIBSYSTEMD_209");\nstatic void (*resolve_\1(void)) (void) {\n\treturn new_\1;\n}\nvoid \1(void) __attribute__((ifunc("resolve_\1")));\n/p' <$< >$@
+endef
+
+libsystemd_login_la_SOURCES = \
+	libsystemd-login.c \
+	src/login/libsystemd-login.sym
+
+libsystemd_login_la_CFLAGS = \
+	$(AM_CFLAGS) \
+	-fvisibility=default
+
+libsystemd_login_la_LDFLAGS = \
+	$(AM_LDFLAGS) \
+	-version-info $(LIBSYSTEMD_LOGIN_CURRENT):$(LIBSYSTEMD_LOGIN_REVISION):$(LIBSYSTEMD_LOGIN_AGE) \
+	-Wl,--version-script=$(top_srcdir)/src/login/libsystemd-login.sym
+
+libsystemd_login_la_LIBADD = \
+	libsystemd.la
+
+BUILT_SOURCES += \
+	libsystemd-login.c
+
+libsystemd-login.c: src/login/libsystemd-login.sym
+	$(generate-fake-lib)
+
+lib_LTLIBRARIES += \
+	libsystemd-login.la
+
+pkgconfiglib_DATA += \
+	src/login/libsystemd-login.pc
+
+# move lib from $(libdir) to $(rootlibdir) and update devel link, if needed
+libsystemd-login-install-hook:
+	libname=libsystemd-login.so && $(move-to-rootlibdir)
+
+libsystemd-login-uninstall-hook:
+	rm -f $(DESTDIR)$(rootlibdir)/libsystemd-login.so*
+
+INSTALL_EXEC_HOOKS += libsystemd-login-install-hook
+UNINSTALL_EXEC_HOOKS += libsystemd-login-uninstall-hook
 
 # ------------------------------------------------------------------------------
 substitutions = \
@@ -4996,7 +4986,8 @@ endef
 test-libsystemd-sym.c: \
 	src/libsystemd/libsystemd.sym \
 	src/systemd/sd-bus.h \
-	src/systemd/sd-utf8.h
+	src/systemd/sd-utf8.h \
+	src/systemd/sd-login.h
 	$(generate-sym-test)
 
 test-libsystemd-daemon-sym.c: \
