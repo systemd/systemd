@@ -32,6 +32,12 @@ External:
 
 Features:
 
+* socket units: support creating sockets in different namespace,
+  opening it up for JoinsNamespaceOf=. This would require to fork off
+  a tiny process that joins the namespace and creates/binds the socket
+  and passes this back to PID1 via SCM_RIGHTS. This also could be used
+  to allow Chown/chgrp on sockets without requiring NSS in PID 1.
+
 * sd-resolve:
   - make sure event loop integration works similar to event loop integration in other libs
   - maybe drop _free() call, introduce _unref() instead
