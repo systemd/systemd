@@ -251,8 +251,7 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
 
         m->kdbus->flags =
                 ((m->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED) ? 0 : KDBUS_MSG_FLAGS_EXPECT_REPLY) |
-                ((m->header->flags & BUS_MESSAGE_NO_AUTO_START) ? KDBUS_MSG_FLAGS_NO_AUTO_START : 0) |
-                (m->reply_sync ? KDBUS_MSG_FLAGS_SYNC_REPLY : 0);
+                ((m->header->flags & BUS_MESSAGE_NO_AUTO_START) ? KDBUS_MSG_FLAGS_NO_AUTO_START : 0);
         m->kdbus->dst_id =
                 well_known ? 0 :
                 m->destination ? unique : KDBUS_DST_ID_BROADCAST;
@@ -787,39 +786,6 @@ int bus_kernel_write_message(sd_bus *bus, sd_bus_message *m) {
                 bus->rqueue[bus->rqueue_size++] = reply;
 
                 return 0;
-        }
-
-        if (m->reply_sync) {
-                struct kdbus_msg *k;
-
-                k = (struct kdbus_msg *)((uint8_t *)bus->kdbus_buffer + m->kdbus->offset_reply);
-                r = bus_kernel_make_message(bus, k);
-                if (r < 0)
-                        return r;
-        }
-
-        return 1;
-}
-
-int bus_call_kernel(
-                sd_bus *bus,
-                sd_bus_message *m,
-                uint64_t usec,
-                sd_bus_error *error,
-                sd_bus_message **reply) {
-
-        int r;
-        uint64_t cookie;
-
-        m->reply_sync = !!reply;
-
-        r = sd_bus_send(bus, m, &cookie);
-        if (r < 0)
-                return r;
-
-        if (reply) {
-                assert(bus->rqueue_size > 0);
-                *reply = bus->rqueue[--bus->rqueue_size];
         }
 
         return 1;

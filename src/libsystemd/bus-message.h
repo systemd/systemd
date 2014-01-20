@@ -107,7 +107,6 @@ struct sd_bus_message {
         bool free_fds:1;
         bool release_kdbus:1;
         bool poisoned:1;
-        bool reply_sync:1;
 
         struct bus_header *header;
         struct bus_body_part body;
