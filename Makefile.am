@@ -1982,7 +1982,6 @@ libsystemd_la_SOURCES = \
 	src/systemd/sd-memfd.h \
 	src/systemd/sd-utf8.h \
 	src/systemd/sd-event.h \
-	src/systemd/sd-dhcp-client.h \
 	src/systemd/sd-rtnl.h \
 	src/systemd/sd-resolve.h \
 	src/libsystemd/sd-bus.c \
@@ -2025,11 +2024,6 @@ libsystemd_la_SOURCES = \
 	src/libsystemd/sd-event.c \
 	src/libsystemd/event-util.h \
 	src/libsystemd/bus-protocol.h \
-	src/libsystemd/sd-dhcp-client.c \
-	src/libsystemd/dhcp-network.c \
-	src/libsystemd/dhcp-option.c \
-	src/libsystemd/dhcp-internal.h \
-	src/libsystemd/dhcp-protocol.h \
 	src/libsystemd/sd-rtnl.c \
 	src/libsystemd/rtnl-internal.h \
 	src/libsystemd/rtnl-message.c \
@@ -2112,8 +2106,6 @@ tests += \
 	test-bus-creds \
 	test-bus-gvariant \
 	test-event \
-	test-dhcp-option \
-	test-dhcp-client \
 	test-rtnl \
 	test-resolve
 
@@ -2319,27 +2311,6 @@ test_event_LDADD = \
 	libsystemd-daemon-internal.la \
 	libsystemd-shared.la
 
-test_dhcp_option_SOURCES = \
-	src/libsystemd/dhcp-protocol.h \
-	src/libsystemd/dhcp-internal.h \
-	src/libsystemd/test-dhcp-option.c
-
-test_dhcp_option_LDADD = \
-	libsystemd-internal.la \
-	libsystemd-shared.la
-
-test_dhcp_client_SOURCES = \
-	src/systemd/sd-dhcp-client.h \
-	src/libsystemd/dhcp-protocol.h \
-	src/libsystemd/dhcp-internal.h \
-	src/libsystemd/test-dhcp-client.c
-
-test_dhcp_client_LDADD = \
-	libsystemd-internal.la \
-	libsystemd-daemon-internal.la \
-	libsystemd-id128-internal.la \
-	libsystemd-shared.la
-
 test_rtnl_SOURCES = \
 	src/libsystemd/test-rtnl.c
 
@@ -2376,6 +2347,49 @@ busctl_LDADD = \
 busctl_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(CAP_CFLAGS)
+
+# ------------------------------------------------------------------------------
+noinst_LTLIBRARIES += \
+	libsystemd-dhcp.la
+
+libsystemd_dhcp_la_SOURCES = \
+	src/systemd/sd-dhcp-client.h \
+	src/libsystemd-dhcp/sd-dhcp-client.c \
+	src/libsystemd-dhcp/dhcp-network.c \
+	src/libsystemd-dhcp/dhcp-option.c \
+	src/libsystemd-dhcp/dhcp-internal.h \
+	src/libsystemd-dhcp/dhcp-protocol.h
+
+libsystemd_dhcp_la_LIBADD = \
+	libsystemd-internal.la \
+	libsystemd-shared.la
+
+test_dhcp_option_SOURCES = \
+	src/libsystemd-dhcp/dhcp-protocol.h \
+	src/libsystemd-dhcp/dhcp-internal.h \
+	src/libsystemd-dhcp/test-dhcp-option.c
+
+test_dhcp_option_LDADD = \
+	libsystemd-dhcp.la \
+	libsystemd-internal.la \
+	libsystemd-shared.la
+
+test_dhcp_client_SOURCES = \
+	src/systemd/sd-dhcp-client.h \
+	src/libsystemd-dhcp/dhcp-protocol.h \
+	src/libsystemd-dhcp/dhcp-internal.h \
+	src/libsystemd-dhcp/test-dhcp-client.c
+
+test_dhcp_client_LDADD = \
+	libsystemd-dhcp.la \
+	libsystemd-internal.la \
+	libsystemd-daemon-internal.la \
+	libsystemd-id128-internal.la \
+	libsystemd-shared.la
+
+tests += \
+	test-dhcp-option \
+	test-dhcp-client
 
 # ------------------------------------------------------------------------------
 if ENABLE_GTK_DOC
@@ -4079,6 +4093,7 @@ systemd_networkd_LDADD = \
 	libudev-internal.la \
 	libsystemd-daemon-internal.la \
 	libsystemd-internal.la \
+	libsystemd-dhcp.la \
 	libsystemd-id128-internal.la \
 	libsystemd-label.la \
 	libsystemd-shared.la
@@ -4103,6 +4118,7 @@ test_network_SOURCES = \
 test_network_LDADD = \
 	libudev-internal.la \
 	libsystemd-internal.la \
+	libsystemd-dhcp.la \
 	libsystemd-id128-internal.la \
 	libsystemd-daemon-internal.la \
 	libsystemd-label.la \
