@@ -43,10 +43,7 @@
 #include "virt.h"
 #include "efivars.h"
 #include "smack-util.h"
-
-#ifndef TTY_GID
-#define TTY_GID 5
-#endif
+#include "def.h"
 
 typedef enum MountMode {
         MNT_NONE  =        0,

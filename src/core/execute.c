@@ -1427,7 +1427,8 @@ int exec_spawn(ExecCommand *command,
                     !strv_isempty(context->read_only_dirs) ||
                     !strv_isempty(context->inaccessible_dirs) ||
                     context->mount_flags != 0 ||
-                    (context->private_tmp && runtime && (runtime->tmp_dir || runtime->var_tmp_dir))) {
+                    (context->private_tmp && runtime && (runtime->tmp_dir || runtime->var_tmp_dir)) ||
+                    context->private_devices) {
 
                         char *tmp = NULL, *var = NULL;
 
@@ -1450,6 +1451,7 @@ int exec_spawn(ExecCommand *command,
                                         context->inaccessible_dirs,
                                         tmp,
                                         var,
+                                        context->private_devices,
                                         context->mount_flags);
 
                         if (err < 0) {
@@ -1896,6 +1898,7 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 "%sNonBlocking: %s\n"
                 "%sPrivateTmp: %s\n"
                 "%sPrivateNetwork: %s\n"
+                "%sPrivateDevices: %s\n"
                 "%sIgnoreSIGPIPE: %s\n",
                 prefix, c->umask,
                 prefix, c->working_directory ? c->working_directory : "/",
@@ -1903,6 +1906,7 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 prefix, yes_no(c->non_blocking),
                 prefix, yes_no(c->private_tmp),
                 prefix, yes_no(c->private_network),
+                prefix, yes_no(c->private_devices),
                 prefix, yes_no(c->ignore_sigpipe));
 
         STRV_FOREACH(e, c->environment)

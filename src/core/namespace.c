@@ -39,6 +39,9 @@
 #include "missing.h"
 #include "execute.h"
 #include "loopback-setup.h"
+#include "mkdir.h"
+#include "dev-setup.h"
+#include "def.h"
 
 typedef enum MountMode {
         /* This is ordered by priority! */
@@ -46,6 +49,7 @@ typedef enum MountMode {
         READONLY,
         PRIVATE_TMP,
         PRIVATE_VAR_TMP,
+        PRIVATE_DEV,
         READWRITE
 } MountMode;
 
@@ -129,6 +133,77 @@ static void drop_duplicates(BindMount *m, unsigned *n) {
         *n = t - m;
 }
 
+static int mount_dev(BindMount *m) {
+        static const char devnodes[] =
+                "/dev/null\0"
+                "/dev/zero\0"
+                "/dev/full\0"
+                "/dev/random\0"
+                "/dev/urandom\0"
+                "/dev/tty\0";
+
+        struct stat devnodes_stat[6] = {};
+        const char *d;
+        unsigned n = 0;
+        _cleanup_umask_ mode_t u;
+        int r;
+
+        assert(m);
+
+        u = umask(0000);
+
+        /* First: record device mode_t and dev_t */
+        NULSTR_FOREACH(d, devnodes) {
+                r = stat(d, &devnodes_stat[n]);
+                if (r < 0) {
+                        if (errno != ENOENT)
+                                return -errno;
+                } else {
+                        if (!S_ISBLK(devnodes_stat[n].st_mode) &&
+                            !S_ISCHR(devnodes_stat[n].st_mode))
+                                return -EINVAL;
+                }
+
+                n++;
+        }
+
+        assert(n == ELEMENTSOF(devnodes_stat));
+
+        r = mount("tmpfs", "/dev", "tmpfs", MS_NOSUID|MS_STRICTATIME, "mode=755");
+        if (r < 0)
+                return m->ignore ? 0 : -errno;
+
+
+        mkdir_p("/dev/pts", 0755);
+
+        r = mount("devpts", "/dev/pts", "devpts", MS_NOSUID|MS_NOEXEC, "newinstance,ptmxmode=0666,mode=620,gid=" STRINGIFY(TTY_GID));
+        if (r < 0)
+                return m->ignore ? 0 : -errno;
+
+        mkdir_p("/dev/shm", 0755);
+
+        r = mount("tmpfs", "/dev/shm", "tmpfs", MS_NOSUID|MS_NODEV|MS_STRICTATIME, "mode=1777");
+        if (r < 0)
+                return m->ignore ? 0 : -errno;
+
+        /* Second: actually create it */
+        n = 0;
+        NULSTR_FOREACH(d, devnodes) {
+                if (devnodes_stat[n].st_rdev == 0)
+                        continue;
+
+                r = mknod(d, devnodes_stat[n].st_mode, devnodes_stat[n].st_rdev);
+                if (r < 0)
+                        return m->ignore ? 0 : -errno;
+
+                n++;
+        }
+
+        dev_setup(NULL);
+
+        return 0;
+}
+
 static int apply_mount(
                 BindMount *m,
                 const char *tmp_dir,
@@ -140,6 +215,9 @@ static int apply_mount(
         assert(m);
 
         switch (m->mode) {
+
+        case PRIVATE_DEV:
+                return mount_dev(m);
 
         case INACCESSIBLE:
                 what = "/run/systemd/inaccessible";
@@ -194,6 +272,7 @@ int setup_namespace(
                 char** inaccessible_dirs,
                 char* tmp_dir,
                 char* var_tmp_dir,
+                bool private_dev,
                 unsigned mount_flags) {
 
         BindMount *m, *mounts = NULL;
@@ -209,7 +288,8 @@ int setup_namespace(
         n = !!tmp_dir + !!var_tmp_dir +
                 strv_length(read_write_dirs) +
                 strv_length(read_only_dirs) +
-                strv_length(inaccessible_dirs);
+                strv_length(inaccessible_dirs) +
+                private_dev;
 
         if (n > 0) {
                 m = mounts = (BindMount *) alloca(n * sizeof(BindMount));
@@ -234,6 +314,12 @@ int setup_namespace(
                 if (var_tmp_dir) {
                         m->path = "/var/tmp";
                         m->mode = PRIVATE_VAR_TMP;
+                        m++;
+                }
+
+                if (private_dev) {
+                        m->path = "/dev";
+                        m->mode = PRIVATE_DEV;
                         m++;
                 }
 

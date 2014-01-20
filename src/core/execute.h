@@ -149,6 +149,7 @@ struct ExecContext {
         bool non_blocking;
         bool private_tmp;
         bool private_network;
+        bool private_devices;
 
         bool no_new_privileges;
 

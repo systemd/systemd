@@ -64,10 +64,7 @@
 #include "ptyfwd.h"
 #include "bus-kernel.h"
 #include "env-util.h"
-
-#ifndef TTY_GID
-#define TTY_GID 5
-#endif
+#include "def.h"
 
 typedef enum LinkJournal {
         LINK_NO,
@@ -110,7 +107,8 @@ static uint64_t arg_retain =
         (1ULL << CAP_SYS_RESOURCE) |
         (1ULL << CAP_SYS_BOOT) |
         (1ULL << CAP_AUDIT_WRITE) |
-        (1ULL << CAP_AUDIT_CONTROL);
+        (1ULL << CAP_AUDIT_CONTROL) |
+        (1ULL << CAP_MKNOD);
 static char **arg_bind = NULL;
 static char **arg_bind_ro = NULL;
 static char **arg_setenv = NULL;
@@ -639,40 +637,30 @@ static int copy_devnodes(const char *dest) {
         u = umask(0000);
 
         NULSTR_FOREACH(d, devnodes) {
-                struct stat st;
                 _cleanup_free_ char *from = NULL, *to = NULL;
+                struct stat st;
 
-                asprintf(&from, "/dev/%s", d);
-                asprintf(&to, "%s/dev/%s", dest, d);
-
-                if (!from || !to) {
-                        log_oom();
-
-                        if (r == 0)
-                                r = -ENOMEM;
-
-                        break;
-                }
+                from = strappend("/dev/", d);
+                to = strjoin(dest, "/dev/", d, NULL);
+                if (!from || !to)
+                        return log_oom();
 
                 if (stat(from, &st) < 0) {
 
                         if (errno != ENOENT) {
                                 log_error("Failed to stat %s: %m", from);
-                                if (r == 0)
-                                        r = -errno;
+                                return -errno;
                         }
 
                 } else if (!S_ISCHR(st.st_mode) && !S_ISBLK(st.st_mode)) {
 
                         log_error("%s is not a char or block device, cannot copy", from);
-                        if (r == 0)
-                                r = -EIO;
+                        return -EIO;
 
                 } else if (mknod(to, st.st_mode, st.st_rdev) < 0) {
 
                         log_error("mknod(%s) failed: %m", dest);
-                        if (r == 0)
-                                r = -errno;
+                        return  -errno;
                 }
         }
 

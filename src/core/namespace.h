@@ -28,6 +28,7 @@ int setup_namespace(char **read_write_dirs,
                     char **inaccessible_dirs,
                     char *tmp_dir,
                     char *var_tmp_dir,
+                    bool private_dev,
                     unsigned mount_flags);
 
 int setup_tmp_dirs(const char *id,

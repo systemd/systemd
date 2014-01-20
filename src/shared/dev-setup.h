@@ -21,4 +21,4 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-void dev_setup(const char *pathprefix);
+int dev_setup(const char *pathprefix);
