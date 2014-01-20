@@ -32,6 +32,8 @@ External:
 
 Features:
 
+* hookup nspawn and PrivateNetwork=yes with "ip netns"
+
 * socket units: support creating sockets in different namespace,
   opening it up for JoinsNamespaceOf=. This would require to fork off
   a tiny process that joins the namespace and creates/binds the socket
