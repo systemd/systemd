@@ -33,6 +33,15 @@
 
 #define DHCP_CLIENT_MIN_OPTIONS_SIZE            312
 
+#define client_state_machine_check(s, r)                                \
+        do {                                                            \
+                if (s != DHCP_STATE_BOUND &&                            \
+                    s != DHCP_STATE_RENEWING &&                         \
+                    s != DHCP_STATE_REBINDING) {                        \
+                        return (r);                                     \
+                }                                                       \
+        } while (false)
+
 struct DHCPLease {
         uint32_t t1;
         uint32_t t2;
@@ -166,21 +175,9 @@ int sd_dhcp_client_get_address(sd_dhcp_client *client, struct in_addr *addr) {
         assert_return(client, -EINVAL);
         assert_return(addr, -EINVAL);
 
-        switch (client->state) {
-        case DHCP_STATE_INIT:
-        case DHCP_STATE_SELECTING:
-        case DHCP_STATE_INIT_REBOOT:
-        case DHCP_STATE_REBOOTING:
-        case DHCP_STATE_REQUESTING:
-                return -EADDRNOTAVAIL;
+        client_state_machine_check (client->state, -EADDRNOTAVAIL);
 
-        case DHCP_STATE_BOUND:
-        case DHCP_STATE_RENEWING:
-        case DHCP_STATE_REBINDING:
-                addr->s_addr = client->lease->address;
-
-                break;
-        }
+        addr->s_addr = client->lease->address;
 
         return 0;
 }
@@ -189,24 +186,12 @@ int sd_dhcp_client_get_mtu(sd_dhcp_client *client, uint16_t *mtu) {
         assert_return(client, -EINVAL);
         assert_return(mtu, -EINVAL);
 
-        switch (client->state) {
-        case DHCP_STATE_INIT:
-        case DHCP_STATE_SELECTING:
-        case DHCP_STATE_INIT_REBOOT:
-        case DHCP_STATE_REBOOTING:
-        case DHCP_STATE_REQUESTING:
-                return -EADDRNOTAVAIL;
+        client_state_machine_check (client->state, -EADDRNOTAVAIL);
 
-        case DHCP_STATE_BOUND:
-        case DHCP_STATE_RENEWING:
-        case DHCP_STATE_REBINDING:
-                if (client->lease->mtu)
-                        *mtu = client->lease->mtu;
-                else
-                        return -ENOENT;
-
-                break;
-        }
+        if (client->lease->mtu)
+                *mtu = client->lease->mtu;
+        else
+                return -ENOENT;
 
         return 0;
 }
@@ -216,25 +201,13 @@ int sd_dhcp_client_get_dns(sd_dhcp_client *client, struct in_addr **addr, size_t
         assert_return(addr, -EINVAL);
         assert_return(addr_size, -EINVAL);
 
-        switch (client->state) {
-        case DHCP_STATE_INIT:
-        case DHCP_STATE_SELECTING:
-        case DHCP_STATE_INIT_REBOOT:
-        case DHCP_STATE_REBOOTING:
-        case DHCP_STATE_REQUESTING:
-                return -EADDRNOTAVAIL;
+        client_state_machine_check (client->state, -EADDRNOTAVAIL);
 
-        case DHCP_STATE_BOUND:
-        case DHCP_STATE_RENEWING:
-        case DHCP_STATE_REBINDING:
-                if (client->lease->dns_size) {
-                        *addr_size = client->lease->dns_size;
-                        *addr = client->lease->dns;
-                } else
-                        return -ENOENT;
-
-                break;
-        }
+        if (client->lease->dns_size) {
+                *addr_size = client->lease->dns_size;
+                *addr = client->lease->dns;
+        } else
+                return -ENOENT;
 
         return 0;
 }
@@ -243,24 +216,12 @@ int sd_dhcp_client_get_domainname(sd_dhcp_client *client, const char **domainnam
         assert_return(client, -EINVAL);
         assert_return(domainname, -EINVAL);
 
-        switch (client->state) {
-        case DHCP_STATE_INIT:
-        case DHCP_STATE_SELECTING:
-        case DHCP_STATE_INIT_REBOOT:
-        case DHCP_STATE_REBOOTING:
-        case DHCP_STATE_REQUESTING:
-                return -EADDRNOTAVAIL;
+        client_state_machine_check (client->state, -EADDRNOTAVAIL);
 
-        case DHCP_STATE_BOUND:
-        case DHCP_STATE_RENEWING:
-        case DHCP_STATE_REBINDING:
-                if (client->lease->domainname)
-                        *domainname = client->lease->domainname;
-                else
-                        return -ENOENT;
-
-                break;
-        }
+        if (client->lease->domainname)
+                *domainname = client->lease->domainname;
+        else
+                return -ENOENT;
 
         return 0;
 }
@@ -269,24 +230,12 @@ int sd_dhcp_client_get_hostname(sd_dhcp_client *client, const char **hostname) {
         assert_return(client, -EINVAL);
         assert_return(hostname, -EINVAL);
 
-        switch (client->state) {
-        case DHCP_STATE_INIT:
-        case DHCP_STATE_SELECTING:
-        case DHCP_STATE_INIT_REBOOT:
-        case DHCP_STATE_REBOOTING:
-        case DHCP_STATE_REQUESTING:
-                return -EADDRNOTAVAIL;
+        client_state_machine_check (client->state, -EADDRNOTAVAIL);
 
-        case DHCP_STATE_BOUND:
-        case DHCP_STATE_RENEWING:
-        case DHCP_STATE_REBINDING:
-                if (client->lease->hostname)
-                        *hostname = client->lease->hostname;
-                else
-                        return -ENOENT;
-
-                break;
-        }
+        if (client->lease->hostname)
+                *hostname = client->lease->hostname;
+        else
+                return -ENOENT;
 
         return 0;
 }
@@ -310,21 +259,9 @@ int sd_dhcp_client_get_router(sd_dhcp_client *client, struct in_addr *addr) {
         assert_return(client, -EINVAL);
         assert_return(addr, -EINVAL);
 
-        switch (client->state) {
-        case DHCP_STATE_INIT:
-        case DHCP_STATE_SELECTING:
-        case DHCP_STATE_INIT_REBOOT:
-        case DHCP_STATE_REBOOTING:
-        case DHCP_STATE_REQUESTING:
-                return -EADDRNOTAVAIL;
+        client_state_machine_check (client->state, -EADDRNOTAVAIL);
 
-        case DHCP_STATE_BOUND:
-        case DHCP_STATE_RENEWING:
-        case DHCP_STATE_REBINDING:
-                addr->s_addr = client->lease->router;
-
-                break;
-        }
+        addr->s_addr = client->lease->router;
 
         return 0;
 }
@@ -333,21 +270,9 @@ int sd_dhcp_client_get_netmask(sd_dhcp_client *client, struct in_addr *addr) {
         assert_return(client, -EINVAL);
         assert_return(addr, -EINVAL);
 
-        switch (client->state) {
-        case DHCP_STATE_INIT:
-        case DHCP_STATE_SELECTING:
-        case DHCP_STATE_INIT_REBOOT:
-        case DHCP_STATE_REBOOTING:
-        case DHCP_STATE_REQUESTING:
-                return -EADDRNOTAVAIL;
+        client_state_machine_check (client->state, -EADDRNOTAVAIL);
 
-        case DHCP_STATE_BOUND:
-        case DHCP_STATE_RENEWING:
-        case DHCP_STATE_REBINDING:
-                addr->s_addr = client->lease->subnet_mask;
-
-                break;
-        }
+        addr->s_addr = client->lease->subnet_mask;
 
         return 0;
 }
