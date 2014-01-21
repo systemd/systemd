@@ -295,7 +295,8 @@ static inline uint32_t random_u32(void) {
         }                                                               \
         scope type name##_from_string(const char *s) {                  \
                 type i;                                                 \
-                assert(s);                                              \
+                if (!s)                                                 \
+                        return (type) -1;                               \
                 for (i = 0; i < (type)ELEMENTSOF(name##_table); i++)    \
                         if (name##_table[i] &&                          \
                             streq(name##_table[i], s))                  \
