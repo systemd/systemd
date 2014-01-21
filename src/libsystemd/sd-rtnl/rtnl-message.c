@@ -129,7 +129,15 @@ bool message_type_is_addr(uint16_t type) {
 int sd_rtnl_message_route_set_dst_prefixlen(sd_rtnl_message *m, unsigned char prefixlen) {
         struct rtmsg *rtm;
 
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(message_type_is_route(m->hdr->nlmsg_type), -EINVAL);
+
         rtm = NLMSG_DATA(m->hdr);
+
+        if ((rtm->rtm_family == AF_INET && prefixlen > 32) ||
+            (rtm->rtm_family == AF_INET6 && prefixlen > 128))
+                return -ERANGE;
 
         rtm->rtm_dst_len = prefixlen;
 
@@ -170,6 +178,10 @@ int sd_rtnl_message_route_new(uint16_t nlmsg_type, unsigned char rtm_family,
 int sd_rtnl_message_link_set_flags(sd_rtnl_message *m, unsigned flags, unsigned change) {
         struct ifinfomsg *ifi;
 
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(message_type_is_link(m->hdr->nlmsg_type), -EINVAL);
+
         ifi = NLMSG_DATA(m->hdr);
 
         ifi->ifi_flags = flags;
@@ -183,6 +195,10 @@ int sd_rtnl_message_link_set_flags(sd_rtnl_message *m, unsigned flags, unsigned 
 
 int sd_rtnl_message_link_set_type(sd_rtnl_message *m, unsigned type) {
         struct ifinfomsg *ifi;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(message_type_is_link(m->hdr->nlmsg_type), -EINVAL);
 
         ifi = NLMSG_DATA(m->hdr);
 
@@ -218,12 +234,60 @@ int sd_rtnl_message_link_new(uint16_t nlmsg_type, int index, sd_rtnl_message **r
         return 0;
 }
 
-int sd_rtnl_message_addr_new(uint16_t nlmsg_type, int index, unsigned char family, unsigned char prefixlen, unsigned char flags, unsigned char scope, sd_rtnl_message **ret) {
+int sd_rtnl_message_addr_set_prefixlen(sd_rtnl_message *m, unsigned char prefixlen) {
+        struct ifaddrmsg *ifa;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(message_type_is_addr(m->hdr->nlmsg_type), -EINVAL);
+
+        ifa = NLMSG_DATA(m->hdr);
+
+        if ((ifa->ifa_family == AF_INET && prefixlen > 32) ||
+            (ifa->ifa_family == AF_INET6 && prefixlen > 128))
+                return -ERANGE;
+
+        ifa->ifa_prefixlen = prefixlen;
+
+        return 0;
+}
+
+int sd_rtnl_message_addr_set_flags(sd_rtnl_message *m, unsigned char flags) {
+        struct ifaddrmsg *ifa;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(message_type_is_addr(m->hdr->nlmsg_type), -EINVAL);
+
+        ifa = NLMSG_DATA(m->hdr);
+
+        ifa->ifa_flags = flags;
+
+        return 0;
+}
+
+int sd_rtnl_message_addr_set_scope(sd_rtnl_message *m, unsigned char scope) {
+        struct ifaddrmsg *ifa;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(message_type_is_addr(m->hdr->nlmsg_type), -EINVAL);
+
+        ifa = NLMSG_DATA(m->hdr);
+
+        ifa->ifa_scope = scope;
+
+        return 0;
+}
+
+int sd_rtnl_message_addr_new(uint16_t nlmsg_type, int index, unsigned char family,
+                             sd_rtnl_message **ret) {
         struct ifaddrmsg *ifa;
         int r;
 
         assert_return(message_type_is_addr(nlmsg_type), -EINVAL);
         assert_return(index > 0, -EINVAL);
+        assert_return(family == AF_INET || family == AF_INET6, -EINVAL);
         assert_return(ret, -EINVAL);
 
         r = message_new(ret, NLMSG_SPACE(sizeof(struct ifaddrmsg)));
@@ -235,11 +299,12 @@ int sd_rtnl_message_addr_new(uint16_t nlmsg_type, int index, unsigned char famil
 
         ifa = NLMSG_DATA((*ret)->hdr);
 
-        ifa->ifa_family = family;
-        ifa->ifa_prefixlen = prefixlen;
-        ifa->ifa_flags = flags;
-        ifa->ifa_scope = scope;
         ifa->ifa_index = index;
+        ifa->ifa_family = family;
+        if (family == AF_INET)
+                ifa->ifa_prefixlen = 32;
+        else if (family == AF_INET6)
+                ifa->ifa_prefixlen = 128;
 
         UPDATE_RTA(*ret, IFA_RTA(ifa));
 

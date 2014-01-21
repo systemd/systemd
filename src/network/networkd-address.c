@@ -101,11 +101,16 @@ int address_drop(Address *address, Link *link,
         assert(link->manager);
         assert(link->manager->rtnl);
 
-        r = sd_rtnl_message_addr_new(RTM_DELADDR, link->ifindex,
-                        address->family, address->prefixlen, 0, 0, &req);
+        r = sd_rtnl_message_addr_new(RTM_DELADDR, link->ifindex, address->family, &req);
         if (r < 0) {
                 log_error("Could not allocate RTM_DELADDR message: %s",
                           strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_addr_set_prefixlen(req, address->prefixlen);
+        if (r < 0) {
+                log_error("Could not set prefixlen: %s", strerror(-r));
                 return r;
         }
 
@@ -141,11 +146,28 @@ int address_configure(Address *address, Link *link,
         assert(link->manager->rtnl);
 
         r = sd_rtnl_message_addr_new(RTM_NEWADDR, link->ifindex,
-                        address->family, address->prefixlen,
-                        IFA_F_PERMANENT, RT_SCOPE_UNIVERSE, &req);
+                        address->family, &req);
         if (r < 0) {
                 log_error("Could not allocate RTM_NEWADDR message: %s",
                           strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_addr_set_prefixlen(req, address->prefixlen);
+        if (r < 0) {
+                log_error("Could not set prefixlen: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_addr_set_flags(req, IFA_F_PERMANENT);
+        if (r < 0) {
+                log_error("Could not set flags: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_addr_set_scope(req, RT_SCOPE_UNIVERSE);
+        if (r < 0) {
+                log_error("Could not set scope: %s", strerror(-r));
                 return r;
         }
 
