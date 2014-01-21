@@ -167,13 +167,16 @@ int sd_rtnl_message_route_new(uint16_t nlmsg_type, unsigned char rtm_family,
         return 0;
 }
 
-int sd_rtnl_message_link_set_flags(sd_rtnl_message *m, unsigned flags) {
+int sd_rtnl_message_link_set_flags(sd_rtnl_message *m, unsigned flags, unsigned change) {
         struct ifinfomsg *ifi;
 
         ifi = NLMSG_DATA(m->hdr);
 
         ifi->ifi_flags = flags;
-        ifi->ifi_change = 0xffffffff;
+        if (change)
+                ifi->ifi_change = change;
+        else
+                ifi->ifi_change = 0xffffffff;
 
         return 0;
 }

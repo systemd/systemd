@@ -95,7 +95,7 @@ static int start_interface(sd_rtnl *rtnl, int if_loopback, struct in_addr *ipv4_
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_message_link_set_flags(req, IFF_UP);
+        r = sd_rtnl_message_link_set_flags(req, IFF_UP, IFF_UP);
         if (r < 0)
                 return r;
 

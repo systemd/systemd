@@ -713,7 +713,7 @@ static int link_up(Link *link) {
                 return r;
         }
 
-        r = sd_rtnl_message_link_set_flags(req, IFF_UP);
+        r = sd_rtnl_message_link_set_flags(req, IFF_UP, IFF_UP);
         if (r < 0) {
                 log_error_link(link, "Could not set link flags: %s", strerror(-r));
                 return r;
