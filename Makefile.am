@@ -189,7 +189,9 @@ AM_CPPFLAGS = \
 	-I $(top_srcdir)/src/udev \
 	-I $(top_srcdir)/src/udev/net \
 	-I $(top_builddir)/src/udev \
-	-I $(top_srcdir)/src/libsystemd \
+	-I $(top_srcdir)/src/libsystemd/sd-bus \
+	-I $(top_srcdir)/src/libsystemd/sd-event \
+	-I $(top_srcdir)/src/libsystemd/sd-rtnl \
 	$(OUR_CPPFLAGS)
 
 AM_CFLAGS = $(OUR_CFLAGS)
@@ -1984,56 +1986,56 @@ libsystemd_la_SOURCES = \
 	src/systemd/sd-event.h \
 	src/systemd/sd-rtnl.h \
 	src/systemd/sd-resolve.h \
-	src/libsystemd/sd-bus.c \
-	src/libsystemd/bus-control.c \
-	src/libsystemd/bus-control.h \
-	src/libsystemd/bus-error.c \
-	src/libsystemd/bus-error.h \
-	src/libsystemd/bus-internal.c \
-	src/libsystemd/bus-internal.h \
-	src/libsystemd/bus-socket.c \
-	src/libsystemd/bus-socket.h \
-	src/libsystemd/bus-kernel.c \
-	src/libsystemd/bus-kernel.h \
-	src/libsystemd/bus-container.c \
-	src/libsystemd/bus-container.h \
-	src/libsystemd/bus-message.c \
-	src/libsystemd/bus-message.h \
-	src/libsystemd/bus-creds.c \
-	src/libsystemd/bus-creds.h \
-	src/libsystemd/bus-signature.c \
-	src/libsystemd/bus-signature.h \
-	src/libsystemd/bus-type.c \
-	src/libsystemd/bus-type.h \
-	src/libsystemd/bus-match.c \
-	src/libsystemd/bus-match.h \
-	src/libsystemd/bus-bloom.c \
-	src/libsystemd/bus-bloom.h \
-	src/libsystemd/bus-introspect.c \
-	src/libsystemd/bus-introspect.h \
-	src/libsystemd/bus-objects.c \
-	src/libsystemd/bus-objects.h \
-	src/libsystemd/bus-gvariant.c \
-	src/libsystemd/bus-gvariant.h \
-	src/libsystemd/bus-convenience.c \
-	src/libsystemd/kdbus.h \
-	src/libsystemd/sd-memfd.c \
-	src/libsystemd/bus-util.c \
-	src/libsystemd/bus-util.h \
-	src/libsystemd/sd-utf8.c \
-	src/libsystemd/sd-event.c \
-	src/libsystemd/event-util.h \
-	src/libsystemd/bus-protocol.h \
-	src/libsystemd/sd-rtnl.c \
-	src/libsystemd/rtnl-internal.h \
-	src/libsystemd/rtnl-message.c \
-	src/libsystemd/rtnl-util.h \
-	src/libsystemd/rtnl-util.c \
-	src/libsystemd/sd-resolve.c \
-	src/libsystemd/resolve-util.h
+	src/libsystemd/sd-bus/sd-bus.c \
+	src/libsystemd/sd-bus/bus-control.c \
+	src/libsystemd/sd-bus/bus-control.h \
+	src/libsystemd/sd-bus/bus-error.c \
+	src/libsystemd/sd-bus/bus-error.h \
+	src/libsystemd/sd-bus/bus-internal.c \
+	src/libsystemd/sd-bus/bus-internal.h \
+	src/libsystemd/sd-bus/bus-socket.c \
+	src/libsystemd/sd-bus/bus-socket.h \
+	src/libsystemd/sd-bus/bus-kernel.c \
+	src/libsystemd/sd-bus/bus-kernel.h \
+	src/libsystemd/sd-bus/bus-container.c \
+	src/libsystemd/sd-bus/bus-container.h \
+	src/libsystemd/sd-bus/bus-message.c \
+	src/libsystemd/sd-bus/bus-message.h \
+	src/libsystemd/sd-bus/bus-creds.c \
+	src/libsystemd/sd-bus/bus-creds.h \
+	src/libsystemd/sd-bus/bus-signature.c \
+	src/libsystemd/sd-bus/bus-signature.h \
+	src/libsystemd/sd-bus/bus-type.c \
+	src/libsystemd/sd-bus/bus-type.h \
+	src/libsystemd/sd-bus/bus-match.c \
+	src/libsystemd/sd-bus/bus-match.h \
+	src/libsystemd/sd-bus/bus-bloom.c \
+	src/libsystemd/sd-bus/bus-bloom.h \
+	src/libsystemd/sd-bus/bus-introspect.c \
+	src/libsystemd/sd-bus/bus-introspect.h \
+	src/libsystemd/sd-bus/bus-objects.c \
+	src/libsystemd/sd-bus/bus-objects.h \
+	src/libsystemd/sd-bus/bus-gvariant.c \
+	src/libsystemd/sd-bus/bus-gvariant.h \
+	src/libsystemd/sd-bus/bus-convenience.c \
+	src/libsystemd/sd-bus/bus-util.c \
+	src/libsystemd/sd-bus/bus-util.h \
+	src/libsystemd/sd-bus/bus-protocol.h \
+	src/libsystemd/sd-bus/kdbus.h \
+	src/libsystemd/sd-bus/sd-memfd.c \
+	src/libsystemd/sd-utf8/sd-utf8.c \
+	src/libsystemd/sd-event/sd-event.c \
+	src/libsystemd/sd-event/event-util.h \
+	src/libsystemd/sd-rtnl/sd-rtnl.c \
+	src/libsystemd/sd-rtnl/rtnl-internal.h \
+	src/libsystemd/sd-rtnl/rtnl-message.c \
+	src/libsystemd/sd-rtnl/rtnl-util.h \
+	src/libsystemd/sd-rtnl/rtnl-util.c \
+	src/libsystemd/sd-resolve/sd-resolve.c \
+	src/libsystemd/sd-resolve/resolve-util.h
 
 nodist_libsystemd_la_SOURCES = \
-	src/libsystemd/bus-error-mapping.c
+	src/libsystemd/sd-bus/bus-error-mapping.c
 
 libsystemd_la_LIBADD = \
 	libsystemd-id128-internal.la \
@@ -2054,13 +2056,13 @@ pkgconfiglib_DATA += \
 	src/libsystemd/libsystemd.pc
 
 EXTRA_DIST += \
-	src/libsystemd/bus-error-mapping.gperf \
-	src/libsystemd/libsystemd.pc.in \
-	src/libsystemd/DIFFERENCES \
-	src/libsystemd/GVARIANT-SERIALIZATION
+	src/libsystemd/sd-bus/bus-error-mapping.gperf \
+	src/libsystemd/sd-bus/DIFFERENCES \
+	src/libsystemd/sd-bus/GVARIANT-SERIALIZATION \
+	src/libsystemd/libsystemd.pc.in
 
 CLEANFILES += \
-	src/libsystemd/bus-error-mapping.c
+	src/libsystemd/sd-bus/bus-error-mapping.c
 
 lib_LTLIBRARIES += \
 	libsystemd.la
@@ -2078,8 +2080,8 @@ noinst_LTLIBRARIES += \
 	libsystemd-internal.la
 
 libsystemd_dump_la_SOURCES = \
-	src/libsystemd/bus-dump.c \
-	src/libsystemd/bus-dump.h
+	src/libsystemd/sd-bus/bus-dump.c \
+	src/libsystemd/sd-bus/bus-dump.h
 
 libsystemd_dump_la_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -2113,7 +2115,7 @@ bin_PROGRAMS += \
 	busctl
 
 test_bus_marshal_SOURCES = \
-	src/libsystemd/test-bus-marshal.c
+	src/libsystemd/sd-bus/test-bus-marshal.c
 
 test_bus_marshal_LDADD = \
 	libsystemd-internal.la \
@@ -2133,14 +2135,14 @@ test_bus_marshal_CFLAGS = \
 	$(CAP_CFLAGS)
 
 test_bus_signature_SOURCES = \
-	src/libsystemd/test-bus-signature.c
+	src/libsystemd/sd-bus/test-bus-signature.c
 
 test_bus_signature_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-internal.la
 
 test_bus_chat_SOURCES = \
-	src/libsystemd/test-bus-chat.c
+	src/libsystemd/sd-bus/test-bus-chat.c
 
 test_bus_chat_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -2153,7 +2155,7 @@ test_bus_chat_LDADD = \
 	libsystemd-shared.la
 
 test_bus_cleanup_SOURCES = \
-	src/libsystemd/test-bus-cleanup.c
+	src/libsystemd/sd-bus/test-bus-cleanup.c
 
 test_bus_cleanup_LDADD = \
 	libsystemd-internal.la \
@@ -2162,7 +2164,7 @@ test_bus_cleanup_LDADD = \
 	libsystemd-shared.la
 
 test_bus_server_SOURCES = \
-	src/libsystemd/test-bus-server.c
+	src/libsystemd/sd-bus/test-bus-server.c
 
 test_bus_server_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -2175,7 +2177,7 @@ test_bus_server_LDADD = \
 	libsystemd-shared.la
 
 test_bus_objects_SOURCES = \
-	src/libsystemd/test-bus-objects.c
+	src/libsystemd/sd-bus/test-bus-objects.c
 
 test_bus_objects_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -2192,7 +2194,7 @@ test_bus_objects_LDADD = \
 	$(CAP_LIBS)
 
 test_bus_error_SOURCES = \
-	src/libsystemd/test-bus-error.c
+	src/libsystemd/sd-bus/test-bus-error.c
 
 test_bus_error_LDADD = \
 	libsystemd-internal.la \
@@ -2201,7 +2203,7 @@ test_bus_error_LDADD = \
 	libsystemd-shared.la
 
 test_bus_gvariant_SOURCES = \
-	src/libsystemd/test-bus-gvariant.c
+	src/libsystemd/sd-bus/test-bus-gvariant.c
 
 test_bus_gvariant_LDADD = \
 	libsystemd-internal.la \
@@ -2219,7 +2221,7 @@ test_bus_gvariant_CFLAGS = \
 	$(CAP_CFLAGS)
 
 test_bus_creds_SOURCES = \
-	src/libsystemd/test-bus-creds.c
+	src/libsystemd/sd-bus/test-bus-creds.c
 
 test_bus_creds_LDADD = \
 	libsystemd-internal.la \
@@ -2230,7 +2232,7 @@ test_bus_creds_LDADD = \
 	libsystemd-capability.la
 
 test_bus_match_SOURCES = \
-	src/libsystemd/test-bus-match.c
+	src/libsystemd/sd-bus/test-bus-match.c
 
 test_bus_match_LDADD = \
 	libsystemd-internal.la \
@@ -2239,7 +2241,7 @@ test_bus_match_LDADD = \
 	libsystemd-shared.la
 
 test_bus_kernel_SOURCES = \
-	src/libsystemd/test-bus-kernel.c
+	src/libsystemd/sd-bus/test-bus-kernel.c
 
 test_bus_kernel_LDADD = \
 	libsystemd-internal.la \
@@ -2255,7 +2257,7 @@ test_bus_kernel_CFLAGS = \
 	$(CAP_CFLAGS)
 
 test_bus_kernel_bloom_SOURCES = \
-	src/libsystemd/test-bus-kernel-bloom.c
+	src/libsystemd/sd-bus/test-bus-kernel-bloom.c
 
 test_bus_kernel_bloom_LDADD = \
 	libsystemd-internal.la \
@@ -2264,7 +2266,7 @@ test_bus_kernel_bloom_LDADD = \
 	libsystemd-shared.la
 
 test_bus_kernel_benchmark_SOURCES = \
-	src/libsystemd/test-bus-kernel-benchmark.c
+	src/libsystemd/sd-bus/test-bus-kernel-benchmark.c
 
 test_bus_kernel_benchmark_LDADD = \
 	libsystemd-internal.la \
@@ -2273,14 +2275,14 @@ test_bus_kernel_benchmark_LDADD = \
 	libsystemd-shared.la
 
 test_bus_memfd_SOURCES = \
-	src/libsystemd/test-bus-memfd.c
+	src/libsystemd/sd-bus/test-bus-memfd.c
 
 test_bus_memfd_LDADD = \
 	libsystemd-internal.la \
 	libsystemd-shared.la
 
 test_bus_zero_copy_SOURCES = \
-	src/libsystemd/test-bus-zero-copy.c
+	src/libsystemd/sd-bus/test-bus-zero-copy.c
 
 test_bus_zero_copy_LDADD = \
 	libsystemd-internal.la \
@@ -2296,14 +2298,14 @@ test_bus_zero_copy_CFLAGS = \
 	$(CAP_CFLAGS)
 
 test_bus_introspect_SOURCES = \
-	src/libsystemd/test-bus-introspect.c
+	src/libsystemd/sd-bus/test-bus-introspect.c
 
 test_bus_introspect_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-internal.la
 
 test_event_SOURCES = \
-	src/libsystemd/test-event.c
+	src/libsystemd/sd-event/test-event.c
 
 test_event_LDADD = \
 	libsystemd-internal.la \
@@ -2312,7 +2314,7 @@ test_event_LDADD = \
 	libsystemd-shared.la
 
 test_rtnl_SOURCES = \
-	src/libsystemd/test-rtnl.c
+	src/libsystemd/sd-rtnl/test-rtnl.c
 
 test_rtnl_LDADD = \
 	libsystemd-internal.la \
@@ -2322,7 +2324,7 @@ test_rtnl_LDADD = \
 
 test_resolve_SOURCES = \
 	src/systemd/sd-resolve.h \
-	src/libsystemd/test-resolve.c
+	src/libsystemd/sd-resolve/test-resolve.c
 
 test_resolve_LDADD = \
 	libsystemd-internal.la \
@@ -2333,7 +2335,7 @@ test_resolve_CFLAGS = \
 	-pthread
 
 busctl_SOURCES = \
-	src/libsystemd/busctl.c
+	src/libsystemd/sd-bus/busctl.c
 
 busctl_LDADD = \
 	libsystemd-internal.la \
