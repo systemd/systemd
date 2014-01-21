@@ -851,3 +851,21 @@ bluetooth:v0119*
 
 bluetooth:v011A*
  ID_VENDOR_FROM_DATABASE=Qualcomm Labs, Inc.
+
+bluetooth:v011B*
+ ID_VENDOR_FROM_DATABASE=Aruba Networks
+
+bluetooth:v011C*
+ ID_VENDOR_FROM_DATABASE=Baidu
+
+bluetooth:v011D*
+ ID_VENDOR_FROM_DATABASE=Arendi AG
+
+bluetooth:v011E*
+ ID_VENDOR_FROM_DATABASE=Skoda Auto a.s.
+
+bluetooth:v011F*
+ ID_VENDOR_FROM_DATABASE=Volkswagon AG
+
+bluetooth:v0120*
+ ID_VENDOR_FROM_DATABASE=Porsche AG
