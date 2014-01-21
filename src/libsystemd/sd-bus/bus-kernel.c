@@ -206,6 +206,8 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
         assert(m);
         assert(m->sealed);
 
+        /* We put this together only once, if this message is reused
+         * we reuse the earlier-built version */
         if (m->kdbus)
                 return 0;
 
@@ -722,7 +724,26 @@ int bus_kernel_connect(sd_bus *b) {
         return bus_kernel_take_fd(b);
 }
 
-int bus_kernel_write_message(sd_bus *bus, sd_bus_message *m) {
+static void close_kdbus_msg(sd_bus *bus, struct kdbus_msg *k) {
+        uint64_t off;
+        struct kdbus_item *d;
+
+        assert(bus);
+        assert(k);
+
+        off = (uint8_t *)k - (uint8_t *)bus->kdbus_buffer;
+        ioctl(bus->input_fd, KDBUS_CMD_FREE, &off);
+
+        KDBUS_ITEM_FOREACH(d, k, items) {
+
+                if (d->type == KDBUS_ITEM_FDS)
+                        close_many(d->fds, (d->size - offsetof(struct kdbus_item, fds)) / sizeof(int));
+                else if (d->type == KDBUS_ITEM_PAYLOAD_MEMFD)
+                        close_nointr_nofail(d->memfd.fd);
+        }
+}
+
+int bus_kernel_write_message(sd_bus *bus, sd_bus_message *m, bool hint_sync_call) {
         int r;
 
         assert(bus);
@@ -737,6 +758,14 @@ int bus_kernel_write_message(sd_bus *bus, sd_bus_message *m) {
         r = bus_message_setup_kmsg(bus, m);
         if (r < 0)
                 return r;
+
+        /* If this is a synchronous method call, then let's tell the
+         * kernel, so that it can pass CPU time/scheduling to the
+         * destination for the time, if it wants to. If we
+         * synchronously wait for the result anyway, we won't need CPU
+         * anyway. */
+        if (hint_sync_call)
+                m->kdbus->flags |= KDBUS_MSG_FLAGS_EXPECT_REPLY|KDBUS_MSG_FLAGS_SYNC_REPLY;
 
         r = ioctl(bus->output_fd, KDBUS_CMD_MSG_SEND, m->kdbus);
         if (r < 0) {
@@ -785,29 +814,31 @@ int bus_kernel_write_message(sd_bus *bus, sd_bus_message *m) {
 
                 bus->rqueue[bus->rqueue_size++] = reply;
 
-                return 0;
+        } else if (hint_sync_call) {
+                struct kdbus_msg *k;
+
+                k = (struct kdbus_msg *)((uint8_t *)bus->kdbus_buffer + m->kdbus->offset_reply);
+                assert(k);
+
+                if (k->payload_type == KDBUS_PAYLOAD_DBUS) {
+
+                        r = bus_kernel_make_message(bus, k);
+                        if (r < 0) {
+                                close_kdbus_msg(bus, k);
+
+                                /* Anybody can send us invalid messages, let's just drop them. */
+                                if (r == -EBADMSG || r == -EPROTOTYPE)
+                                        log_debug("Ignoring invalid message: %s", strerror(-r));
+                                else
+                                        return r;
+                        }
+                } else {
+                        log_debug("Ignoring message with unknown payload type %llu.", (unsigned long long) k->payload_type);
+                        close_kdbus_msg(bus, k);
+                }
         }
 
         return 1;
-}
-
-static void close_kdbus_msg(sd_bus *bus, struct kdbus_msg *k) {
-        uint64_t off;
-        struct kdbus_item *d;
-
-        assert(bus);
-        assert(k);
-
-        off = (uint8_t *)k - (uint8_t *)bus->kdbus_buffer;
-        ioctl(bus->input_fd, KDBUS_CMD_FREE, &off);
-
-        KDBUS_ITEM_FOREACH(d, k, items) {
-
-                if (d->type == KDBUS_ITEM_FDS)
-                        close_many(d->fds, (d->size - offsetof(struct kdbus_item, fds)) / sizeof(int));
-                else if (d->type == KDBUS_ITEM_PAYLOAD_MEMFD)
-                        close_nointr_nofail(d->memfd.fd);
-        }
 }
 
 static int push_name_owner_changed(sd_bus *bus, const char *name, const char *old_owner, const char *new_owner) {
@@ -964,8 +995,8 @@ int bus_kernel_read_message(sd_bus *bus) {
 
                 return -errno;
         }
-        k = (struct kdbus_msg *)((uint8_t *)bus->kdbus_buffer + recv.offset);
 
+        k = (struct kdbus_msg *)((uint8_t *)bus->kdbus_buffer + recv.offset);
         if (k->payload_type == KDBUS_PAYLOAD_DBUS) {
                 r = bus_kernel_make_message(bus, k);
 
@@ -977,8 +1008,10 @@ int bus_kernel_read_message(sd_bus *bus) {
 
         } else if (k->payload_type == KDBUS_PAYLOAD_KERNEL)
                 r = bus_kernel_translate_message(bus, k);
-        else
+        else {
+                log_debug("Ignoring message with unknown payload type %llu.", (unsigned long long) k->payload_type);
                 r = 0;
+        }
 
         if (r <= 0)
                 close_kdbus_msg(bus, k);

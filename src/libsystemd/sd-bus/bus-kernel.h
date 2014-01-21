@@ -60,7 +60,7 @@ struct memfd_cache {
 int bus_kernel_connect(sd_bus *b);
 int bus_kernel_take_fd(sd_bus *b);
 
-int bus_kernel_write_message(sd_bus *bus, sd_bus_message *m);
+int bus_kernel_write_message(sd_bus *bus, sd_bus_message *m, bool hint_sync_call);
 int bus_kernel_read_message(sd_bus *bus);
 
 int bus_kernel_create_bus(const char *name, bool world, char **s);
