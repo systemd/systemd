@@ -70,8 +70,8 @@ int manager_new(Manager **ret) {
         if (!m->links)
                 return -ENOMEM;
 
-        m->bridges = hashmap_new(string_hash_func, string_compare_func);
-        if (!m->bridges)
+        m->netdevs = hashmap_new(string_hash_func, string_compare_func);
+        if (!m->netdevs)
                 return -ENOMEM;
 
         LIST_HEAD_INIT(m->networks);
@@ -84,7 +84,7 @@ int manager_new(Manager **ret) {
 
 void manager_free(Manager *m) {
         Network *network;
-        Bridge *bridge;
+        Netdev *netdev;
         Link *link;
 
         udev_monitor_unref(m->udev_monitor);
@@ -100,9 +100,9 @@ void manager_free(Manager *m) {
                 link_free(link);
         hashmap_free(m->links);
 
-        while ((bridge = hashmap_first(m->bridges)))
-                bridge_free(bridge);
-        hashmap_free(m->bridges);
+        while ((netdev = hashmap_first(m->netdevs)))
+                netdev_free(netdev);
+        hashmap_free(m->netdevs);
 
         sd_rtnl_unref(m->rtnl);
 
@@ -115,7 +115,7 @@ int manager_load_config(Manager *m) {
         /* update timestamp */
         paths_check_timestamp(network_dirs, &m->network_dirs_ts_usec, true);
 
-        r = bridge_load(m);
+        r = netdev_load(m);
         if (r < 0)
                 return r;
 

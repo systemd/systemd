@@ -34,42 +34,50 @@
 #include "hashmap.h"
 #include "list.h"
 
-typedef struct Bridge Bridge;
+typedef struct Netdev Netdev;
 typedef struct Network Network;
 typedef struct Link Link;
 typedef struct Address Address;
 typedef struct Route Route;
 typedef struct Manager Manager;
 
-typedef struct bridge_join_callback bridge_join_callback;
+typedef struct netdev_enslave_callback netdev_enslave_callback;
 
-struct bridge_join_callback {
+struct netdev_enslave_callback {
         sd_rtnl_message_handler_t callback;
         Link *link;
 
-        LIST_FIELDS(bridge_join_callback, callbacks);
+        LIST_FIELDS(netdev_enslave_callback, callbacks);
 };
 
-typedef enum BridgeState {
-        BRIDGE_STATE_FAILED,
-        BRIDGE_STATE_CREATING,
-        BRIDGE_STATE_READY,
-        _BRIDGE_STATE_MAX,
-        _BRIDGE_STATE_INVALID = -1,
-} BridgeState;
+typedef enum NetdevKind {
+        NETDEV_KIND_BRIDGE,
+        NETDEV_KIND_BOND,
+        _NETDEV_KIND_MAX,
+        _NETDEV_KIND_INVALID = -1
+} NetdevKind;
 
-struct Bridge {
+typedef enum NetdevState {
+        NETDEV_STATE_FAILED,
+        NETDEV_STATE_CREATING,
+        NETDEV_STATE_READY,
+        _NETDEV_STATE_MAX,
+        _NETDEV_STATE_INVALID = -1,
+} NetdevState;
+
+struct Netdev {
         Manager *manager;
 
         char *filename;
 
         char *description;
         char *name;
+        NetdevKind kind;
 
         Link *link;
-        BridgeState state;
+        NetdevState state;
 
-        LIST_HEAD(bridge_join_callback, callbacks);
+        LIST_HEAD(netdev_enslave_callback, callbacks);
 };
 
 struct Network {
@@ -84,7 +92,8 @@ struct Network {
         char *match_name;
 
         char *description;
-        Bridge *bridge;
+        Netdev *bridge;
+        Netdev *bond;
         bool dhcp;
         bool dhcp_dns;
         bool dhcp_mtu;
@@ -141,7 +150,7 @@ struct Route {
 };
 
 typedef enum LinkState {
-        LINK_STATE_JOINING_BRIDGE,
+        LINK_STATE_ENSLAVING,
         LINK_STATE_SETTING_ADDRESSES,
         LINK_STATE_SETTING_ROUTES,
         LINK_STATE_CONFIGURED,
@@ -170,6 +179,7 @@ struct Link {
 
         unsigned addr_messages;
         unsigned route_messages;
+        unsigned enslaving;
 
         sd_dhcp_client *dhcp;
 };
@@ -183,7 +193,7 @@ struct Manager {
         sd_event_source *udev_event_source;
 
         Hashmap *links;
-        Hashmap *bridges;
+        Hashmap *netdevs;
         LIST_HEAD(Network, networks);
 
         usec_t network_dirs_ts_usec;
@@ -210,18 +220,23 @@ int manager_update_resolv_conf(Manager *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 #define _cleanup_manager_free_ _cleanup_(manager_freep)
 
-/* Bridge */
+/* Netdev */
 
-int bridge_load(Manager *manager);
+int netdev_load(Manager *manager);
 
-void bridge_free(Bridge *bridge);
+void netdev_free(Netdev *netdev);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(Bridge*, bridge_free);
-#define _cleanup_bridge_free_ _cleanup_(bridge_freep)
+DEFINE_TRIVIAL_CLEANUP_FUNC(Netdev*, netdev_free);
+#define _cleanup_netdev_free_ _cleanup_(netdev_freep)
 
-int bridge_get(Manager *manager, const char *name, Bridge **ret);
-int bridge_set_link(Manager *m, Link *link);
-int bridge_join(Bridge *bridge, Link *link, sd_rtnl_message_handler_t cb);
+int netdev_get(Manager *manager, const char *name, Netdev **ret);
+int netdev_set_link(Manager *m, NetdevKind kind, Link *link);
+int netdev_enslave(Netdev *netdev, Link *link, sd_rtnl_message_handler_t cb);
+
+const char *netdev_kind_to_string(NetdevKind d) _const_;
+NetdevKind netdev_kind_from_string(const char *d) _pure_;
+
+int config_parse_netdev_kind(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 
 /* Network */
 
@@ -238,6 +253,10 @@ int network_apply(Manager *manager, Network *network, Link *link);
 int config_parse_bridge(const char *unit, const char *filename, unsigned line,
                         const char *section, unsigned section_line, const char *lvalue,
                         int ltype, const char *rvalue, void *data, void *userdata);
+
+int config_parse_bond(const char *unit, const char *filename, unsigned line,
+                      const char *section, unsigned section_line, const char *lvalue,
+                      int ltype, const char *rvalue, void *data, void *userdata);
 
 /* gperf */
 
@@ -307,16 +326,16 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_free);
 
 /* More macros which append INTERFACE= to the message */
 
-#define log_full_bridge(level, bridge, fmt, ...) log_meta_object(level, __FILE__, __LINE__, __func__, "INTERFACE=", bridge->name, "%s: " fmt, bridge->name, ##__VA_ARGS__)
-#define log_debug_bridge(bridge, ...)       log_full_bridge(LOG_DEBUG, bridge, ##__VA_ARGS__)
-#define log_info_bridge(bridge, ...)        log_full_bridge(LOG_INFO, bridge, ##__VA_ARGS__)
-#define log_notice_bridge(bridge, ...)      log_full_bridge(LOG_NOTICE, bridge, ##__VA_ARGS__)
-#define log_warning_bridge(bridge, ...)     log_full_bridge(LOG_WARNING, bridge,## __VA_ARGS__)
-#define log_error_bridge(bridge, ...)       log_full_bridge(LOG_ERR, bridge, ##__VA_ARGS__)
+#define log_full_netdev(level, netdev, fmt, ...) log_meta_object(level, __FILE__, __LINE__, __func__, "INTERFACE=", netdev->name, "%s: " fmt, netdev->name, ##__VA_ARGS__)
+#define log_debug_netdev(netdev, ...)       log_full_netdev(LOG_DEBUG, netdev, ##__VA_ARGS__)
+#define log_info_netdev(netdev, ...)        log_full_netdev(LOG_INFO, netdev, ##__VA_ARGS__)
+#define log_notice_netdev(netdev, ...)      log_full_netdev(LOG_NOTICE, netdev, ##__VA_ARGS__)
+#define log_warning_netdev(netdev, ...)     log_full_netdev(LOG_WARNING, netdev,## __VA_ARGS__)
+#define log_error_netdev(netdev, ...)       log_full_netdev(LOG_ERR, netdev, ##__VA_ARGS__)
 
-#define log_struct_bridge(level, bridge, ...) log_struct(level, "INTERFACE=%s", bridge->name, __VA_ARGS__)
+#define log_struct_netdev(level, netdev, ...) log_struct(level, "INTERFACE=%s", netdev->name, __VA_ARGS__)
 
-#define BRIDGE(bridge) "INTERFACE=%s", bridge->name
+#define NETDEV(netdev) "INTERFACE=%s", netdev->name
 #define ADDRESS_FMT_VAL(address)            \
         (address).s_addr & 0xFF,            \
         ((address).s_addr >> 8) & 0xFF,     \

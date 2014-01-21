@@ -91,7 +91,7 @@
                         other extensions are ignored. Virtual network devices are created as soon
                         as networkd is started.</para>
 
-                        <para>The <literal>[Bridge]</literal> section accepts the following
+                        <para>The <literal>[Netdev]</literal> section accepts the following
                         keys:</para>
 
                         <variablelist class='network-directives'>
@@ -100,6 +100,13 @@
                                         <listitem>
                                                 <para>The interface name used when creating the
                                                 bridge. This option is compulsory.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>Kind</varname></term>
+                                        <listitem>
+                                                <para>The netdev kind. Currently, 'bridge' and 'bond' are
+                                                supported. This option is compulsory.</para>
                                         </listitem>
                                 </varlistentry>
                         </variablelist>
@@ -204,6 +211,12 @@
                                         <term><varname>Bridge</varname></term>
                                         <listitem>
                                                 <para>The name of the bridge to add the configured link to.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>Bond</varname></term>
+                                        <listitem>
+                                                <para>The name of the bond to add the configured link to.</para>
                                         </listitem>
                                 </varlistentry>
                         </variablelist>

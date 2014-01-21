@@ -95,7 +95,7 @@ int link_add(Manager *m, struct udev_device *device, Link **ret) {
         Network *network;
         int r;
         uint64_t ifindex;
-        const char *devtype;
+        NetdevKind kind;
 
         assert(m);
         assert(device);
@@ -113,9 +113,9 @@ int link_add(Manager *m, struct udev_device *device, Link **ret) {
 
         *ret = link;
 
-        devtype = udev_device_get_devtype(device);
-        if (streq_ptr(devtype, "bridge")) {
-                r = bridge_set_link(m, link);
+        kind = netdev_kind_from_string(udev_device_get_devtype(device));
+        if (kind != _NETDEV_KIND_INVALID) {
+                r = netdev_set_link(m, kind, link);
                 if (r < 0 && r != -ENOENT)
                         return r;
         }
@@ -729,11 +729,11 @@ static int link_up(Link *link) {
         return 0;
 }
 
-static int link_bridge_joined(Link *link) {
+static int link_enslaved(Link *link) {
         int r;
 
         assert(link);
-        assert(link->state == LINK_STATE_JOINING_BRIDGE);
+        assert(link->state == LINK_STATE_ENSLAVING);
         assert(link->network);
 
         r = link_up(link);
@@ -748,67 +748,87 @@ static int link_bridge_joined(Link *link) {
         return 0;
 }
 
-static int bridge_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
+static int enslave_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
         Link *link = userdata;
         int r;
 
         assert(link);
-        assert(link->state == LINK_STATE_JOINING_BRIDGE || link->state == LINK_STATE_FAILED);
+        assert(link->state == LINK_STATE_ENSLAVING || link->state == LINK_STATE_FAILED);
         assert(link->network);
+
+        link->enslaving --;
 
         if (link->state == LINK_STATE_FAILED)
                 return 1;
 
         r = sd_rtnl_message_get_errno(m);
         if (r < 0) {
-                log_struct_link(LOG_ERR, link,
-                                "MESSAGE=%s: could not join bridge '%s': %s",
-                                link->ifname, link->network->bridge->name, strerror(-r),
-                                BRIDGE(link->network->bridge),
-                                NULL);
+                log_error_link(link, "could not enslave: %s",
+                               strerror(-r));
                 link_enter_failed(link);
                 return 1;
         }
 
-        log_struct_link(LOG_DEBUG, link,
-                        "MESSAGE=%s: joined bridge '%s'",
-                        link->network->bridge->name,
-                        BRIDGE(link->network->bridge),
-                        NULL);
+        log_debug_link(link, "enslaved");
 
-        link_bridge_joined(link);
+        if (link->enslaving == 0)
+                link_enslaved(link);
 
         return 1;
 }
 
-static int link_enter_join_bridge(Link *link) {
+static int link_enter_enslave(Link *link) {
         int r;
 
         assert(link);
         assert(link->network);
         assert(link->state == _LINK_STATE_INVALID);
 
-        link->state = LINK_STATE_JOINING_BRIDGE;
+        link->state = LINK_STATE_ENSLAVING;
 
-        if (!link->network->bridge)
-                return link_bridge_joined(link);
+        if (!link->network->bridge && !link->network->bond)
+                return link_enslaved(link);
 
-        log_struct_link(LOG_DEBUG, link,
-                        "MESSAGE=%s: joining bridge '%s'",
-                        link->network->bridge->name,
-                        BRIDGE(link->network->bridge),
-                        NULL);
-        log_debug_link(link, "joining bridge");
-
-        r = bridge_join(link->network->bridge, link, &bridge_handler);
-        if (r < 0) {
-                log_struct_link(LOG_WARNING, link,
-                                "MESSAGE=%s: could not join bridge '%s': %s",
-                                link->network->bridge->name, strerror(-r),
-                                BRIDGE(link->network->bridge),
+        if (link->network->bridge) {
+                log_struct_link(LOG_DEBUG, link,
+                                "MESSAGE=%s: enslaving by '%s'",
+                                link->network->bridge->name,
+                                NETDEV(link->network->bridge),
                                 NULL);
-                link_enter_failed(link);
-                return r;
+
+                r = netdev_enslave(link->network->bridge, link, &enslave_handler);
+                if (r < 0) {
+                        log_struct_link(LOG_WARNING, link,
+                                        "MESSAGE=%s: could not enslave by '%s': %s",
+                                        link->network->bridge->name, strerror(-r),
+                                        NETDEV(link->network->bridge),
+                                        NULL);
+                        link_enter_failed(link);
+                        return r;
+                }
+
+                link->enslaving ++;
+        }
+
+        if (link->network->bond) {
+                log_struct_link(LOG_DEBUG, link,
+                                "MESSAGE=%s: enslaving by '%s'",
+                                link->network->bond->name,
+                                NETDEV(link->network->bond),
+                                NULL);
+
+                r = netdev_enslave(link->network->bond, link, &enslave_handler);
+                if (r < 0) {
+                        log_struct_link(LOG_WARNING, link,
+                                        "MESSAGE=%s: could not enslave by '%s': %s",
+                                        link->network->bond->name, strerror(-r),
+                                        NETDEV(link->network->bond),
+                                        NULL);
+                        link_enter_failed(link);
+                        return r;
+                }
+
+                link->enslaving ++;
         }
 
         return 0;
@@ -875,7 +895,7 @@ int link_configure(Link *link) {
                 return r;
         }
 
-        return link_enter_join_bridge(link);
+        return link_enter_enslave(link);
 }
 
 int link_update(Link *link, sd_rtnl_message *m) {

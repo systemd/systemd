@@ -223,7 +223,7 @@ int config_parse_bridge(const char *unit,
                 void *data,
                 void *userdata) {
         Network *network = userdata;
-        Bridge *bridge;
+        Netdev *netdev;
         int r;
 
         assert(filename);
@@ -231,14 +231,57 @@ int config_parse_bridge(const char *unit,
         assert(rvalue);
         assert(data);
 
-        r = bridge_get(network->manager, rvalue, &bridge);
+        r = netdev_get(network->manager, rvalue, &netdev);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, EINVAL,
                            "Bridge is invalid, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
-        network->bridge = bridge;
+        if (netdev->kind != NETDEV_KIND_BRIDGE) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Netdev is not a bridge, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        network->bridge = netdev;
+
+        return 0;
+}
+
+int config_parse_bond(const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        Network *network = userdata;
+        Netdev *netdev;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = netdev_get(network->manager, rvalue, &netdev);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Bond is invalid, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        if (netdev->kind != NETDEV_KIND_BOND) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Netdev is not a bond, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        network->bond = netdev;
 
         return 0;
 }
