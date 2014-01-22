@@ -5008,6 +5008,7 @@ tests += \
 	test-libsystemd-id128-sym
 endif
 
+.PHONY: cppcheck
 cppcheck:
 	cppcheck --enable=all -q $(top_srcdir)
 
