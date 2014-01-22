@@ -880,19 +880,23 @@ _public_ const sd_bus_error *sd_bus_message_get_error(sd_bus_message *m) {
         return &m->error;
 }
 
-_public_ int sd_bus_message_get_monotonic_timestamp(sd_bus_message *m, uint64_t *usec) {
+_public_ int sd_bus_message_get_monotonic_usec(sd_bus_message *m, uint64_t *usec) {
         assert_return(m, -EINVAL);
         assert_return(usec, -EINVAL);
-        assert_return(m->monotonic > 0, -ENODATA);
+
+        if (m->monotonic <= 0)
+                return -ENODATA;
 
         *usec = m->monotonic;
         return 0;
 }
 
-_public_ int sd_bus_message_get_realtime_timestamp(sd_bus_message *m, uint64_t *usec) {
+_public_ int sd_bus_message_get_realtime_usec(sd_bus_message *m, uint64_t *usec) {
         assert_return(m, -EINVAL);
         assert_return(usec, -EINVAL);
-        assert_return(m->realtime > 0, -ENODATA);
+
+        if (m->realtime <= 0)
+                return -ENODATA;
 
         *usec = m->realtime;
         return 0;
@@ -901,7 +905,9 @@ _public_ int sd_bus_message_get_realtime_timestamp(sd_bus_message *m, uint64_t *
 _public_ int sd_bus_message_get_seqnum(sd_bus_message *m, uint64_t *seqnum) {
         assert_return(m, -EINVAL);
         assert_return(seqnum, -EINVAL);
-        assert_return(m->seqnum > 0, -ENODATA);
+
+        if (m->seqnum <= 0)
+                return -ENODATA;
 
         *seqnum = m->seqnum;
         return 0;
