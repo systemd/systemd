@@ -100,8 +100,10 @@ int bus_message_dump(sd_bus_message *m, FILE *f, bool with_header) {
                         fprintf(f, "  Monotonic=%llu", (unsigned long long) m->monotonic);
                 if (m->realtime != 0)
                         fprintf(f, "  Realtime=%llu", (unsigned long long) m->realtime);
+                if (m->seqnum != 0)
+                        fprintf(f, "  SequenceNumber=%llu", (unsigned long long) m->seqnum);
 
-                if (m->monotonic != 0 || m->realtime != 0)
+                if (m->monotonic != 0 || m->realtime != 0 || m->seqnum != 0)
                         fputs("\n", f);
 
                 bus_creds_dump(&m->creds, f);

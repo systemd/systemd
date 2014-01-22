@@ -501,6 +501,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
                 case KDBUS_ITEM_TIMESTAMP:
                         m->realtime = d->timestamp.realtime_ns / NSEC_PER_USEC;
                         m->monotonic = d->timestamp.monotonic_ns / NSEC_PER_USEC;
+                        m->seqnum = d->timestamp.seqnum;
                         break;
 
                 case KDBUS_ITEM_PID_COMM:
