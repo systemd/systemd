@@ -108,6 +108,8 @@ REQUIREMENTS:
         libpython (optional)
         make, gcc, and similar tools
 
+        To sucessfully use --compat-libs, gcc >= 4.8 seems necessary.
+
         During runtime, you need the following additional
         dependencies:
 

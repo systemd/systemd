@@ -175,7 +175,8 @@ CC_CHECK_FLAGS_APPEND([with_ldflags], [LDFLAGS], [\
         -Wl,--no-undefined \
         -Wl,--gc-sections \
         -Wl,-z,relro \
-        -Wl,-z,now])
+        -Wl,-z,now \
+        -Wl,-fuse-ld=gold])
 AC_SUBST([OUR_LDFLAGS], "$with_ldflags $address_sanitizer_ldflags")
 
 AC_CHECK_SIZEOF(pid_t)
