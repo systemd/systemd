@@ -900,6 +900,7 @@ static int rule_add_key(struct rule_tmp *rule_tmp, enum token_type type,
         case TK_A_GOTO:
         case TK_M_TAG:
         case TK_A_TAG:
+        case TK_A_STATIC_NODE:
                 token->key.value_off = rules_add_string(rule_tmp->rules, value);
                 break;
         case TK_M_IMPORT_BUILTIN:
@@ -942,9 +943,6 @@ static int rule_add_key(struct rule_tmp *rule_tmp, enum token_type type,
                 break;
         case TK_A_MODE_ID:
                 token->key.mode = *(mode_t *)data;
-                break;
-        case TK_A_STATIC_NODE:
-                token->key.value_off = rules_add_string(rule_tmp->rules, value);
                 break;
         case TK_M_EVENT_TIMEOUT:
                 token->key.event_timeout = *(int *)data;
@@ -993,7 +991,7 @@ static int rule_add_key(struct rule_tmp *rule_tmp, enum token_type type,
         }
 
         if (attr != NULL) {
-                /* check if property/attribut name has substitution chars */
+                /* check if property/attribute name has substitution chars */
                 if (attr[0] == '[')
                         token->key.attrsubst = SB_SUBSYS;
                 else if (strchr(attr, '%') != NULL || strchr(attr, '$') != NULL)
@@ -2561,15 +2559,11 @@ int udev_rules_apply_static_dev_perms(struct udev_rules *rules)
                         /* we assure, that the permissions tokens are sorted before the static token */
                         if (mode == 0 && uid == 0 && gid == 0 && tags == NULL)
                                 goto next;
+
                         strscpyl(device_node, sizeof(device_node), "/dev/", rules_str(rules, cur->key.value_off), NULL);
-                        if (stat(device_node, &stats) != 0)
-                                goto next;
-                        if (!S_ISBLK(stats.st_mode) && !S_ISCHR(stats.st_mode))
-                                goto next;
 
+                        /* export the tags to a directory as symlinks, allowing otherwise dead nodes to be tagged */
                         if (tags) {
-                                /* Export the tags to a directory as symlinks, allowing otherwise dead nodes to be tagged */
-
                                 STRV_FOREACH(t, tags) {
                                         _cleanup_free_ char *unescaped_filename = NULL;
 
@@ -2594,7 +2588,12 @@ int udev_rules_apply_static_dev_perms(struct udev_rules *rules)
 
                         /* don't touch the permissions if only the tags were set */
                         if (mode == 0 && uid == 0 && gid == 0)
-                                goto next;
+                                break;
+
+                        if (stat(device_node, &stats) != 0)
+                                break;
+                        if (!S_ISBLK(stats.st_mode) && !S_ISCHR(stats.st_mode))
+                                break;
 
                         if (mode == 0) {
                                 if (gid > 0)
