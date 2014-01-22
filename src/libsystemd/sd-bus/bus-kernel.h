@@ -79,3 +79,5 @@ int kdbus_translate_request_name_flags(uint64_t sd_bus_flags, uint64_t *kdbus_fl
 int kdbus_translate_attach_flags(uint64_t sd_bus_flags, uint64_t *kdbus_flags);
 
 int bus_kernel_try_close(sd_bus *bus);
+
+int bus_kernel_drop_one(int fd);

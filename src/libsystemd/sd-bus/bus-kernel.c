@@ -1476,3 +1476,16 @@ int bus_kernel_try_close(sd_bus *bus) {
 
         return 0;
 }
+
+int bus_kernel_drop_one(int fd) {
+        struct kdbus_cmd_recv recv = {
+                .flags = KDBUS_RECV_DROP
+        };
+
+        assert(fd >= 0);
+
+        if (ioctl(fd, KDBUS_CMD_MSG_RECV, &recv) < 0)
+                return -errno;
+
+        return 0;
+}

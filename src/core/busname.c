@@ -337,8 +337,8 @@ static void busname_enter_running(BusName *n) {
                 log_debug_unit(UNIT(n)->id, "Suppressing activation request on %s since unit stop is scheduled.", UNIT(n)->id);
 
                 /* Flush all queued activation reqeuest by closing and reopening the connection */
+                bus_kernel_drop_one(n->starter_fd);
 
-                busname_close_fd(n);
                 busname_enter_listening(n);
                 return;
         }
