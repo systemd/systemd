@@ -831,16 +831,17 @@ _public_ int sd_bus_message_get_reply_cookie(sd_bus_message *m, uint64_t *cookie
         return 0;
 }
 
-_public_ int sd_bus_message_get_no_reply(sd_bus_message *m) {
+_public_ int sd_bus_message_get_expect_reply(sd_bus_message *m) {
         assert_return(m, -EINVAL);
 
-        return m->header->type == SD_BUS_MESSAGE_METHOD_CALL ? !!(m->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED) : 0;
+        return m->header->type == SD_BUS_MESSAGE_METHOD_CALL &&
+                !(m->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED);
 }
 
-_public_ int sd_bus_message_get_no_auto_start(sd_bus_message *m) {
+_public_ int sd_bus_message_get_auto_start(sd_bus_message *m) {
         assert_return(m, -EINVAL);
 
-        return !!(m->header->flags & BUS_MESSAGE_NO_AUTO_START);
+        return !(m->header->flags & BUS_MESSAGE_NO_AUTO_START);
 }
 
 _public_ const char *sd_bus_message_get_path(sd_bus_message *m) {
@@ -968,27 +969,27 @@ _public_ int sd_bus_message_is_method_error(sd_bus_message *m, const char *name)
         return 1;
 }
 
-_public_ int sd_bus_message_set_no_reply(sd_bus_message *m, int b) {
+_public_ int sd_bus_message_set_expect_reply(sd_bus_message *m, int b) {
         assert_return(m, -EINVAL);
         assert_return(!m->sealed, -EPERM);
         assert_return(m->header->type == SD_BUS_MESSAGE_METHOD_CALL, -EPERM);
 
         if (b)
-                m->header->flags |= BUS_MESSAGE_NO_REPLY_EXPECTED;
-        else
                 m->header->flags &= ~BUS_MESSAGE_NO_REPLY_EXPECTED;
+        else
+                m->header->flags |= BUS_MESSAGE_NO_REPLY_EXPECTED;
 
         return 0;
 }
 
-_public_ int sd_bus_message_set_no_auto_start(sd_bus_message *m, int b) {
+_public_ int sd_bus_message_set_auto_start(sd_bus_message *m, int b) {
         assert_return(m, -EINVAL);
         assert_return(!m->sealed, -EPERM);
 
         if (b)
-                m->header->flags |= BUS_MESSAGE_NO_AUTO_START;
-        else
                 m->header->flags &= ~BUS_MESSAGE_NO_AUTO_START;
+        else
+                m->header->flags |= BUS_MESSAGE_NO_AUTO_START;
 
         return 0;
 }

@@ -192,8 +192,8 @@ sd_bus* sd_bus_message_get_bus(sd_bus_message *m);
 int sd_bus_message_get_type(sd_bus_message *m, uint8_t *type);
 int sd_bus_message_get_cookie(sd_bus_message *m, uint64_t *cookie);
 int sd_bus_message_get_reply_cookie(sd_bus_message *m, uint64_t *cookie);
-int sd_bus_message_get_no_reply(sd_bus_message *m);
-int sd_bus_message_get_no_auto_start(sd_bus_message *m);
+int sd_bus_message_get_expect_reply(sd_bus_message *m);
+int sd_bus_message_get_auto_start(sd_bus_message *m);
 int sd_bus_message_get_priority(sd_bus_message *m, int64_t *priority);
 
 const char *sd_bus_message_get_signature(sd_bus_message *m, int complete);
@@ -215,8 +215,8 @@ int sd_bus_message_is_signal(sd_bus_message *m, const char *interface, const cha
 int sd_bus_message_is_method_call(sd_bus_message *m, const char *interface, const char *member);
 int sd_bus_message_is_method_error(sd_bus_message *m, const char *name);
 
-int sd_bus_message_set_no_reply(sd_bus_message *m, int b);
-int sd_bus_message_set_no_auto_start(sd_bus_message *m, int b);
+int sd_bus_message_set_expect_reply(sd_bus_message *m, int b);
+int sd_bus_message_set_auto_start(sd_bus_message *m, int b);
 int sd_bus_message_set_destination(sd_bus_message *m, const char *destination);
 int sd_bus_message_set_priority(sd_bus_message *m, int64_t priority);
 

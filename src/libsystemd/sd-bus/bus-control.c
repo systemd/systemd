@@ -1214,7 +1214,7 @@ _public_ int sd_bus_get_owner_machine_id(sd_bus *bus, const char *name, sd_id128
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_set_no_auto_start(m, true);
+        r = sd_bus_message_set_auto_start(m, false);
         if (r < 0)
                 return r;
 
