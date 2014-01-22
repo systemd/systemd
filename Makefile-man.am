@@ -26,6 +26,7 @@ MANPAGES += \
 	man/sd_bus_error.3 \
 	man/sd_bus_label_escape.3 \
 	man/sd_bus_message_get_cookie.3 \
+	man/sd_bus_message_get_monotonic_usec.3 \
 	man/sd_bus_new.3 \
 	man/sd_bus_open_user.3 \
 	man/sd_bus_request_name.3 \
@@ -180,7 +181,9 @@ MANPAGES_ALIAS += \
 	man/sd_bus_error_set_errno.3 \
 	man/sd_bus_error_set_errnof.3 \
 	man/sd_bus_label_unescape.3 \
+	man/sd_bus_message_get_realtime_usec.3 \
 	man/sd_bus_message_get_reply_cookie.3 \
+	man/sd_bus_message_get_seqnum.3 \
 	man/sd_bus_open_system.3 \
 	man/sd_bus_open_system_container.3 \
 	man/sd_bus_open_system_remote.3 \
@@ -327,7 +330,9 @@ man/sd_bus_error_set_const.3: man/sd_bus_error.3
 man/sd_bus_error_set_errno.3: man/sd_bus_error.3
 man/sd_bus_error_set_errnof.3: man/sd_bus_error.3
 man/sd_bus_label_unescape.3: man/sd_bus_label_escape.3
+man/sd_bus_message_get_realtime_usec.3: man/sd_bus_message_get_monotonic_usec.3
 man/sd_bus_message_get_reply_cookie.3: man/sd_bus_message_get_cookie.3
+man/sd_bus_message_get_seqnum.3: man/sd_bus_message_get_monotonic_usec.3
 man/sd_bus_open_system.3: man/sd_bus_open_user.3
 man/sd_bus_open_system_container.3: man/sd_bus_open_user.3
 man/sd_bus_open_system_remote.3: man/sd_bus_open_user.3
@@ -606,7 +611,13 @@ man/sd_bus_error_set_errnof.html: man/sd_bus_error.html
 man/sd_bus_label_unescape.html: man/sd_bus_label_escape.html
 	$(html-alias)
 
+man/sd_bus_message_get_realtime_usec.html: man/sd_bus_message_get_monotonic_usec.html
+	$(html-alias)
+
 man/sd_bus_message_get_reply_cookie.html: man/sd_bus_message_get_cookie.html
+	$(html-alias)
+
+man/sd_bus_message_get_seqnum.html: man/sd_bus_message_get_monotonic_usec.html
 	$(html-alias)
 
 man/sd_bus_open_system.html: man/sd_bus_open_user.html
@@ -1340,6 +1351,7 @@ EXTRA_DIST += \
 	man/sd_bus_error.xml \
 	man/sd_bus_label_escape.xml \
 	man/sd_bus_message_get_cookie.xml \
+	man/sd_bus_message_get_monotonic_usec.xml \
 	man/sd_bus_new.xml \
 	man/sd_bus_open_user.xml \
 	man/sd_bus_request_name.xml \
