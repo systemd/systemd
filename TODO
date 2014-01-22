@@ -147,7 +147,6 @@ Features:
   ReadOnlyDirectories=... for whitelisting files for a service.
 
 * sd-bus:
-  - let the activator peek the peer connection with KDBUS_CMD_MSG_SRC and log it
   - when kdbus doesn't take our message without memfds, try again with memfds
   - implement monitor logic
   - see if we can drop more message validation on the sending side
@@ -155,9 +154,7 @@ Features:
   - systemd-bus-proxyd needs to enforce good old XML policy
   - upload minimal kdbus policy into the kernel at boot
   - kdbus: matches against source or destination pids for an "strace -p"-like feel. Problem: The PID info needs to be available in userspace too...
-  - longer term:
-    * priority queues
-    * priority inheritance
+  - longer term: priority inheritance
   - check sender of response messages
   - dbus spec updates:
        - kdbus mapping
@@ -165,11 +162,14 @@ Features:
        - GVariant
        - "const" properties (posted)
   - port exit-on-idle logic to byebye ioctl
-  - make use of "drop" ioctl in pid 1 bus activation
   - bus proxy: override unique id sender for messages from driver to match the well-known name
   - bus driver: GetNameOwner() for "org.freedesktop.DBus" should return "org.freedesktop.DBus"
   - update systemd.special(7) to mention that dbus.socket is only about the compatibility socket now
   - bus proxy should fake seclabel when connecting to kdbus
+  - sd_bus_message_set_no_reply() → sd_bus_message_set_expect_reply() and similar for no_auto_start
+  - allow updating attach flags during runtime
+  - pid1: peek into activating message when activating a service
+  - when service activation failed, drop one message from the activator queue
 
 * sd-event
   - allow multiple signal handlers per signal?
