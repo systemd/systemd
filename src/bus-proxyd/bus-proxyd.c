@@ -465,10 +465,11 @@ int main(int argc, char *argv[]) {
                 a->fake_creds_valid = true;
         }
 
-        if (peersec) {
-                a->fake_label = peersec;
-                peersec = NULL;
-        }
+        /* FIXME: faking security labels is broken in kdbus right now */
+        /* if (peersec) { */
+        /*         a->fake_label = peersec; */
+        /*         peersec = NULL; */
+        /* } */
 
         a->manual_peer_interface = true;
 

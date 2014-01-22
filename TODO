@@ -152,7 +152,6 @@ Features:
   - implement monitor logic
   - see if we can drop more message validation on the sending side
   - add API to clone sd_bus_message objects
-  - SD_BUS_COMMENT() macro for inclusion in vtables, syntax inspired by gdbus
   - systemd-bus-proxyd needs to enforce good old XML policy
   - upload minimal kdbus policy into the kernel at boot
   - kdbus: matches against source or destination pids for an "strace -p"-like feel. Problem: The PID info needs to be available in userspace too...
@@ -170,6 +169,7 @@ Features:
   - bus proxy: override unique id sender for messages from driver to match the well-known name
   - bus driver: GetNameOwner() for "org.freedesktop.DBus" should return "org.freedesktop.DBus"
   - update systemd.special(7) to mention that dbus.socket is only about the compatibility socket now
+  - bus proxy should fake seclabel when connecting to kdbus
 
 * sd-event
   - allow multiple signal handlers per signal?
