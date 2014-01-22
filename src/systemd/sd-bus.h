@@ -139,6 +139,7 @@ int sd_bus_get_fd(sd_bus *bus);
 int sd_bus_get_events(sd_bus *bus);
 int sd_bus_get_timeout(sd_bus *bus, uint64_t *timeout_usec);
 int sd_bus_process(sd_bus *bus, sd_bus_message **r);
+int sd_bus_process_priority(sd_bus *bus, int64_t max_priority, sd_bus_message **r);
 int sd_bus_wait(sd_bus *bus, uint64_t timeout_usec);
 int sd_bus_flush(sd_bus *bus);
 

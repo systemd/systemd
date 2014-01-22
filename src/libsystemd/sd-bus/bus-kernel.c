@@ -1039,7 +1039,7 @@ static int bus_kernel_translate_message(sd_bus *bus, struct kdbus_msg *k) {
         return translate[found->type - _KDBUS_ITEM_KERNEL_BASE](bus, k, found);
 }
 
-int bus_kernel_read_message(sd_bus *bus) {
+int bus_kernel_read_message(sd_bus *bus, bool hint_priority, int64_t priority) {
         struct kdbus_cmd_recv recv = {};
         struct kdbus_msg *k;
         int r;
@@ -1049,6 +1049,11 @@ int bus_kernel_read_message(sd_bus *bus) {
         r = bus_rqueue_make_room(bus);
         if (r < 0)
                 return r;
+
+        if (hint_priority) {
+                recv.flags |= KDBUS_RECV_USE_PRIORITY;
+                recv.priority = priority;
+        }
 
         r = ioctl(bus->input_fd, KDBUS_CMD_MSG_RECV, &recv);
         if (r < 0) {

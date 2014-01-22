@@ -110,6 +110,9 @@ int main(int argc, char *argv[]) {
         r = sd_bus_try_close(b);
         assert_se(r == -EBUSY);
 
+        r = sd_bus_process_priority(b, -10, &m);
+        assert_se(r == -ENOMSG);
+
         r = sd_bus_process(b, &m);
         assert_se(r > 0);
         assert_se(m);
