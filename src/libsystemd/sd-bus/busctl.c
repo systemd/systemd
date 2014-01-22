@@ -106,8 +106,8 @@ static int list_bus_names(sd_bus *bus, char **argv) {
         merged[n] = NULL;
         strv_sort(merged);
 
-        printf("%-*s %*s %-*s %-*s %-*s %-*s %-*s",
-               (int) max_i, "NAME", 10, "PID", 15, "PROCESS", 16, "USER", 13, "CONNECTION", 25, "UNIT", 10, "SESSION");
+        printf("%-*s %*s %-*s %-*s %-*s %-*s %-*s %-*s",
+               (int) max_i, "NAME", 10, "PID", 15, "PROCESS", 16, "USER", 13, "CONNECTION", 25, "UNIT", 10, "SESSION", 19, "CONNECTION-NAME");
 
         if (arg_show_machine)
                 puts(" MACHINE");
@@ -139,9 +139,12 @@ static int list_bus_names(sd_bus *bus, char **argv) {
 
                 printf("%-*s", (int) max_i, *i);
 
-                r = sd_bus_get_owner(bus, *i, SD_BUS_CREDS_UID|SD_BUS_CREDS_PID|SD_BUS_CREDS_COMM|SD_BUS_CREDS_UNIQUE_NAME|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_SESSION, &creds);
+                r = sd_bus_get_owner(bus, *i,
+                                     SD_BUS_CREDS_UID|SD_BUS_CREDS_PID|SD_BUS_CREDS_COMM|
+                                     SD_BUS_CREDS_UNIQUE_NAME|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_SESSION|
+                                     SD_BUS_CREDS_CONNECTION_NAME, &creds);
                 if (r >= 0) {
-                        const char *unique, *session, *unit;
+                        const char *unique, *session, *unit, *cn;
                         pid_t pid;
                         uid_t uid;
 
@@ -194,8 +197,14 @@ static int list_bus_names(sd_bus *bus, char **argv) {
                         else
                                 fputs(" -         ", stdout);
 
+                        r = sd_bus_creds_get_connection_name(creds, &cn);
+                        if (r >= 0)
+                                printf(" %-19s", cn);
+                        else
+                                fputs(" -                  ", stdout);
+
                 } else
-                        printf("          - -               -                -             -                         -         ");
+                        printf("          - -               -                -             -                         -          -                  ");
 
                 if (arg_show_machine) {
                         r = sd_bus_get_owner_machine_id(bus, *i, &mid);

@@ -340,12 +340,16 @@ int bus_creds_dump(sd_bus_creds *c, FILE *f) {
                 fprintf(f, "  Comm=%s", c->comm);
         if (c->mask & SD_BUS_CREDS_TID_COMM)
                 fprintf(f, "  TIDComm=%s", c->tid_comm);
+
+        if (c->mask & (SD_BUS_CREDS_EXE|SD_BUS_CREDS_COMM|SD_BUS_CREDS_TID_COMM))
+                fputs("\n", f);
+
         if (c->mask & SD_BUS_CREDS_SELINUX_CONTEXT)
                 fprintf(f, "  Label=%s", c->label);
         if (c->mask & SD_BUS_CREDS_CONNECTION_NAME)
                 fprintf(f, "  ConnectionName=%s", c->conn_name);
 
-        if (c->mask & (SD_BUS_CREDS_EXE|SD_BUS_CREDS_COMM|SD_BUS_CREDS_TID_COMM|SD_BUS_CREDS_SELINUX_CONTEXT|SD_BUS_CREDS_CONNECTION_NAME))
+        if (c->mask & (SD_BUS_CREDS_SELINUX_CONTEXT|SD_BUS_CREDS_CONNECTION_NAME))
                 fputs("\n", f);
 
         if (sd_bus_creds_get_cmdline(c, &cmdline) >= 0) {
