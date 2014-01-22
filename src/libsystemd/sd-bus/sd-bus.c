@@ -144,6 +144,7 @@ static void bus_free(sd_bus *b) {
         free(b->machine);
         free(b->fake_label);
         free(b->cgroup_root);
+        free(b->connection_name);
 
         free(b->exec_path);
         strv_free(b->exec_argv);
@@ -331,6 +332,24 @@ _public_ int sd_bus_set_trusted(sd_bus *bus, int b) {
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
         bus->trusted = !!b;
+        return 0;
+}
+
+_public_ int sd_bus_set_name(sd_bus *bus, const char *name) {
+        char *n;
+
+        assert_return(bus, -EINVAL);
+        assert_return(name, -EINVAL);
+        assert_return(bus->state == BUS_UNSET, -EPERM);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
+
+        n = strdup(name);
+        if (!n)
+                return -ENOMEM;
+
+        free(bus->connection_name);
+        bus->connection_name = n;
+
         return 0;
 }
 
@@ -1053,6 +1072,7 @@ _public_ int sd_bus_open_system(sd_bus **ret) {
                 goto fail;
 
         b->bus_client = true;
+        b->is_system = true;
 
         /* Let's do per-method access control on the system bus. We
          * need the caller's UID and capability set for that. */
@@ -1118,6 +1138,7 @@ _public_ int sd_bus_open_user(sd_bus **ret) {
         }
 
         b->bus_client = true;
+        b->is_user = true;
 
         /* We don't do any per-method access control on the user
          * bus. */
@@ -3032,5 +3053,14 @@ _public_ int sd_bus_try_close(sd_bus *bus) {
                 return r;
 
         sd_bus_close(bus);
+        return 0;
+}
+
+_public_ int sd_bus_get_name(sd_bus *bus, const char **name) {
+        assert_return(bus, -EINVAL);
+        assert_return(name, -EINVAL);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
+
+        *name = bus->connection_name;
         return 0;
 }

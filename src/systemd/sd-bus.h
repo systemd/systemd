@@ -110,6 +110,7 @@ int sd_bus_set_bus_client(sd_bus *bus, int b);
 int sd_bus_set_server(sd_bus *bus, int b, sd_id128_t server_id);
 int sd_bus_set_anonymous(sd_bus *bus, int b);
 int sd_bus_set_trusted(sd_bus *bus, int b);
+int sd_bus_set_name(sd_bus *bus, const char *name);
 int sd_bus_negotiate_fds(sd_bus *bus, int b);
 int sd_bus_negotiate_timestamp(sd_bus *bus, int b);
 int sd_bus_negotiate_creds(sd_bus *bus, uint64_t creds_mask);
@@ -125,6 +126,7 @@ int sd_bus_is_open(sd_bus *bus);
 int sd_bus_can_send(sd_bus *bus, char type);
 int sd_bus_get_server_id(sd_bus *bus, sd_id128_t *peer);
 int sd_bus_get_peer_creds(sd_bus *bus, uint64_t creds_mask, sd_bus_creds **ret);
+int sd_bus_get_name(sd_bus *bus, const char **name);
 
 int sd_bus_send(sd_bus *bus, sd_bus_message *m, uint64_t *cookie);
 int sd_bus_send_to(sd_bus *bus, sd_bus_message *m, const char *destination, uint64_t *cookie);

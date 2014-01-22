@@ -164,6 +164,8 @@ struct sd_bus {
         bool trusted:1;
         bool fake_creds_valid:1;
         bool manual_peer_interface:1;
+        bool is_system:1;
+        bool is_user:1;
 
         int use_memfd;
 
@@ -267,6 +269,8 @@ struct sd_bus {
         char *fake_label;
 
         char *cgroup_root;
+
+        char *connection_name;
 };
 
 #define BUS_DEFAULT_TIMEOUT ((usec_t) (25 * USEC_PER_SEC))

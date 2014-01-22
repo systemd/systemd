@@ -26,6 +26,7 @@
 #include <fcntl.h>
 #include <malloc.h>
 #include <sys/mman.h>
+#include <sys/prctl.h>
 
 #include "util.h"
 #include "strv.h"
@@ -628,7 +629,9 @@ fail:
 int bus_kernel_take_fd(sd_bus *b) {
         struct kdbus_cmd_hello *hello;
         struct kdbus_item *item;
-        size_t l = 0, sz;
+        _cleanup_free_ char *g = NULL;
+        const char *name;
+        size_t l = 0, m = 0, sz;
         int r;
 
         assert(b);
@@ -638,10 +641,52 @@ int bus_kernel_take_fd(sd_bus *b) {
 
         b->use_memfd = 1;
 
-        sz = ALIGN8(offsetof(struct kdbus_cmd_hello, items));
+        if (b->connection_name) {
+                g = sd_bus_label_escape(b->connection_name);
+                if (!g)
+                        return -ENOMEM;
+
+                name = g;
+        } else {
+                char pr[17] = {};
+
+                /* If no name is explicitly set, we'll include a hint
+                 * indicating the library implementation, a hint which
+                 * kind of bus this is and the thread name */
+
+                assert_se(prctl(PR_GET_NAME, (unsigned long) pr) >= 0);
+
+                if (isempty(pr)) {
+                        name = b->is_system ? "sd-system" :
+                                b->is_user ? "sd-user" : "sd";
+                } else {
+                        _cleanup_free_ char *e = NULL;
+
+                        e = sd_bus_label_escape(pr);
+                        if (!e)
+                                return -ENOMEM;
+
+                        g = strappend(b->is_system ? "sd-system-" :
+                                      b->is_user ? "sd-user-" : "sd-",
+                                      e);
+                        if (!g)
+                                return -ENOMEM;
+
+                        name = g;
+                }
+
+                b->connection_name = sd_bus_label_unescape(name);
+                if (!b->connection_name)
+                        return -ENOMEM;
+        }
+
+        m = strlen(name);
+
+        sz = ALIGN8(offsetof(struct kdbus_cmd_hello, items)) +
+                ALIGN8(offsetof(struct kdbus_item, str) + m + 1);
 
         if (b->fake_creds_valid)
-                sz += ALIGN8(offsetof(struct kdbus_item, creds)) + sizeof(struct kdbus_creds);
+                sz += ALIGN8(offsetof(struct kdbus_item, creds) + sizeof(struct kdbus_creds));
 
         if (b->fake_label) {
                 l = strlen(b->fake_label);
@@ -656,6 +701,11 @@ int bus_kernel_take_fd(sd_bus *b) {
 
         item = hello->items;
 
+        item->size = offsetof(struct kdbus_item, str) + m + 1;
+        item->type = KDBUS_ITEM_CONN_NAME;
+        memcpy(item->str, name, m + 1);
+        item = KDBUS_ITEM_NEXT(item);
+
         if (b->fake_creds_valid) {
                 item->size = offsetof(struct kdbus_item, creds) + sizeof(struct kdbus_creds);
                 item->type = KDBUS_ITEM_CREDS;
@@ -666,6 +716,7 @@ int bus_kernel_take_fd(sd_bus *b) {
 
         if (b->fake_label) {
                 item->size = offsetof(struct kdbus_item, str) + l + 1;
+                item->type = KDBUS_ITEM_SECLABEL;
                 memcpy(item->str, b->fake_label, l+1);
         }
 

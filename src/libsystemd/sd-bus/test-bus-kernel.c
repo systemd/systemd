@@ -39,6 +39,7 @@ int main(int argc, char *argv[]) {
         const char *ua = NULL, *ub = NULL, *the_string = NULL;
         sd_bus *a, *b;
         int r, pipe_fds[2];
+        const char *nn;
 
         log_set_max_level(LOG_DEBUG);
 
@@ -57,6 +58,9 @@ int main(int argc, char *argv[]) {
         assert_se(r >= 0);
 
         r = sd_bus_new(&b);
+        assert_se(r >= 0);
+
+        r = sd_bus_set_name(a, "a");
         assert_se(r >= 0);
 
         r = sd_bus_set_address(a, address);
@@ -79,13 +83,19 @@ int main(int argc, char *argv[]) {
 
         r = sd_bus_get_unique_name(a, &ua);
         assert_se(r >= 0);
-
         printf("unique a: %s\n", ua);
+
+        r = sd_bus_get_name(a, &nn);
+        assert_se(r >= 0);
+        printf("name of a: %s\n", nn);
 
         r = sd_bus_get_unique_name(b, &ub);
         assert_se(r >= 0);
-
         printf("unique b: %s\n", ub);
+
+        r = sd_bus_get_name(b, &nn);
+        assert_se(r >= 0);
+        printf("name of b: %s\n", nn);
 
         r = sd_bus_call_method(a, "this.doesnt.exist", "/foo", "meh.mah", "muh", &error, NULL, "s", "yayayay");
         assert_se(sd_bus_error_has_name(&error, SD_BUS_ERROR_SERVICE_UNKNOWN));
