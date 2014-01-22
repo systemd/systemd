@@ -1085,21 +1085,40 @@ int bus_kernel_pop_memfd(sd_bus *bus, void **address, size_t *mapped, size_t *al
         assert_se(pthread_mutex_lock(&bus->memfd_cache_mutex) >= 0);
 
         if (bus->n_memfd_cache <= 0) {
-                struct kdbus_cmd_memfd_make cmd = {
-                        .size = sizeof(struct kdbus_cmd_memfd_make),
-                };
+                _cleanup_free_ char *g = NULL;
+                struct kdbus_cmd_memfd_make *cmd;
+                struct kdbus_item *item;
+                size_t l, sz;
                 int r;
 
                 assert_se(pthread_mutex_unlock(&bus->memfd_cache_mutex) >= 0);
 
-                r = ioctl(bus->input_fd, KDBUS_CMD_MEMFD_NEW, &cmd);
+                assert(bus->connection_name);
+
+                g = sd_bus_label_escape(bus->connection_name);
+                if (!g)
+                        return -ENOMEM;
+
+                l = strlen(g);
+                sz = ALIGN8(offsetof(struct kdbus_cmd_memfd_make, items)) +
+                        ALIGN8(offsetof(struct kdbus_item, str)) +
+                        l + 1;
+                cmd = alloca0(sz);
+                cmd->size = sz;
+
+                item = cmd->items;
+                item->size = ALIGN8(offsetof(struct kdbus_item, str)) + l + 1;
+                item->type = KDBUS_ITEM_MEMFD_NAME;
+                memcpy(item->str, g, l + 1);
+
+                r = ioctl(bus->input_fd, KDBUS_CMD_MEMFD_NEW, cmd);
                 if (r < 0)
                         return -errno;
 
                 *address = NULL;
                 *mapped = 0;
                 *allocated = 0;
-                return cmd.fd;
+                return cmd->fd;
         }
 
         c = &bus->memfd_cache[--bus->n_memfd_cache];

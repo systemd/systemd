@@ -92,8 +92,10 @@ _public_ int sd_memfd_new(const char *name, sd_memfd **m) {
         sz = ALIGN8(offsetof(struct kdbus_cmd_memfd_make, items)) +
                 ALIGN8(offsetof(struct kdbus_item, str)) +
                 l + 1;
+
         cmd = alloca0(sz);
         cmd->size = sz;
+
         item = cmd->items;
         item->size = ALIGN8(offsetof(struct kdbus_item, str)) + l + 1;
         item->type = KDBUS_ITEM_MEMFD_NAME;
