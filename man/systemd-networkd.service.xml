@@ -105,11 +105,24 @@
                                 <varlistentry>
                                         <term><varname>Kind</varname></term>
                                         <listitem>
-                                                <para>The netdev kind. Currently, 'bridge' and 'bond' are
-                                                supported. This option is compulsory.</para>
+                                                <para>The netdev kind. Currently, 'bridge', 'bond' and 'vlan'
+                                                are supported. This option is compulsory.</para>
                                         </listitem>
                                 </varlistentry>
                         </variablelist>
+
+                        <para>The <literal>[VLAN]</literal> section only applies for netdevs of kind 'vlan',
+                        and accepts the following keys:</para>
+
+                        <variablelist class='network-directives'>
+                                <varlistentry>
+                                        <term><varname>Id</varname></term>
+                                        <listitem>
+                                                <para>The VLAN ID to use. This option is compulsory.</para>
+                                        </listitem>
+                                </varlistentry>
+                        </variablelist>
+
                 </refsect2>
 
                 <refsect2><title>Networks</title>

@@ -28,7 +28,8 @@
 
 static const char* const netdev_kind_table[] = {
         [NETDEV_KIND_BRIDGE] = "bridge",
-        [NETDEV_KIND_BOND] = "bond"
+        [NETDEV_KIND_BOND] = "bond",
+        [NETDEV_KIND_VLAN] = "vlan",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(netdev_kind, NetdevKind);
@@ -154,13 +155,13 @@ static int netdev_create_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userda
         return 1;
 }
 
-static int netdev_create(Netdev *netdev) {
+static int netdev_create(Netdev *netdev, Link *link, sd_rtnl_message_handler_t callback) {
         _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *req = NULL;
         const char *kind;
         int r;
 
         assert(netdev);
-        assert(netdev->state == _NETDEV_STATE_INVALID);
+        assert(!(netdev->kind == NETDEV_KIND_VLAN) || (link && callback && netdev->vlanid >= 0));
         assert(netdev->name);
         assert(netdev->manager);
         assert(netdev->manager->rtnl);
@@ -171,6 +172,16 @@ static int netdev_create(Netdev *netdev) {
                                  "Could not allocate RTM_NEWLINK message: %s",
                                  strerror(-r));
                 return r;
+        }
+
+        if (link) {
+                r = sd_rtnl_message_append_u32(req, IFLA_LINK, link->ifindex);
+                if (r < 0) {
+                        log_error_netdev(netdev,
+                                         "Could not append IFLA_LINK attribute: %s",
+                                         strerror(-r));
+                        return r;
+                }
         }
 
         r = sd_rtnl_message_append_string(req, IFLA_IFNAME, netdev->name);
@@ -203,6 +214,32 @@ static int netdev_create(Netdev *netdev) {
                 return r;
         }
 
+        if (netdev->vlanid >= 0) {
+                r = sd_rtnl_message_open_container(req, IFLA_INFO_DATA);
+                if (r < 0) {
+                        log_error_netdev(netdev,
+                                         "Could not open IFLA_INFO_DATA container: %s",
+                                         strerror(-r));
+                        return r;
+                }
+
+                r = sd_rtnl_message_append_u16(req, IFLA_VLAN_ID, netdev->vlanid);
+                if (r < 0) {
+                        log_error_netdev(netdev,
+                                         "Could not append IFLA_VLAN_ID attribute: %s",
+                                         strerror(-r));
+                        return r;
+                }
+
+                r = sd_rtnl_message_close_container(req);
+                if (r < 0) {
+                        log_error_netdev(netdev,
+                                         "Could not close IFLA_INFO_DATA container %s",
+                                         strerror(-r));
+                        return r;
+                }
+        }
+
         r = sd_rtnl_message_close_container(req);
         if (r < 0) {
                 log_error_netdev(netdev,
@@ -211,7 +248,10 @@ static int netdev_create(Netdev *netdev) {
                 return r;
         }
 
-        r = sd_rtnl_call_async(netdev->manager->rtnl, req, &netdev_create_handler, netdev, 0, NULL);
+        if (link)
+                r = sd_rtnl_call_async(netdev->manager->rtnl, req, callback, link, 0, NULL);
+        else
+                r = sd_rtnl_call_async(netdev->manager->rtnl, req, &netdev_create_handler, netdev, 0, NULL);
         if (r < 0) {
                 log_error_netdev(netdev,
                                  "Could not send rtnetlink message: %s", strerror(-r));
@@ -226,6 +266,9 @@ static int netdev_create(Netdev *netdev) {
 }
 
 int netdev_enslave(Netdev *netdev, Link *link, sd_rtnl_message_handler_t callback) {
+        if (netdev->kind == NETDEV_KIND_VLAN)
+                return netdev_create(netdev, link, callback);
+
         if (netdev->state == NETDEV_STATE_READY) {
                 netdev_enslave_ready(netdev, link, callback);
         } else {
@@ -289,8 +332,9 @@ static int netdev_load_one(Manager *manager, const char *filename) {
         netdev->manager = manager;
         netdev->state = _NETDEV_STATE_INVALID;
         netdev->kind = _NETDEV_KIND_INVALID;
+        netdev->vlanid = -1;
 
-        r = config_parse(NULL, filename, file, "Netdev\0", config_item_perf_lookup,
+        r = config_parse(NULL, filename, file, "Netdev\0VLAN\0", config_item_perf_lookup,
                         (void*) network_gperf_lookup, false, false, netdev);
         if (r < 0) {
                 log_warning("Could not parse config file %s: %s", filename, strerror(-r));
@@ -307,6 +351,11 @@ static int netdev_load_one(Manager *manager, const char *filename) {
                 return 0;
         }
 
+        if (netdev->kind == NETDEV_KIND_VLAN && netdev->vlanid < 0) {
+                log_warning("VLAN without Id configured in %s. Ignoring", filename);
+                return 0;
+        }
+
         netdev->filename = strdup(filename);
         if (!netdev->filename)
                 return log_oom();
@@ -317,9 +366,11 @@ static int netdev_load_one(Manager *manager, const char *filename) {
 
         LIST_HEAD_INIT(netdev->callbacks);
 
-        r = netdev_create(netdev);
-        if (r < 0)
-                return r;
+        if (netdev->kind != NETDEV_KIND_VLAN) {
+                r = netdev_create(netdev, NULL, NULL);
+                if (r < 0)
+                        return r;
+        }
 
         netdev = NULL;
 

@@ -53,6 +53,7 @@ struct netdev_enslave_callback {
 typedef enum NetdevKind {
         NETDEV_KIND_BRIDGE,
         NETDEV_KIND_BOND,
+        NETDEV_KIND_VLAN,
         _NETDEV_KIND_MAX,
         _NETDEV_KIND_INVALID = -1
 } NetdevKind;
@@ -74,6 +75,8 @@ struct Netdev {
         char *name;
         NetdevKind kind;
 
+        int vlanid;
+
         Link *link;
         NetdevState state;
 
@@ -94,6 +97,7 @@ struct Network {
         char *description;
         Netdev *bridge;
         Netdev *bond;
+        Netdev *vlan;
         bool dhcp;
         bool dhcp_dns;
         bool dhcp_mtu;
@@ -255,6 +259,10 @@ int config_parse_bridge(const char *unit, const char *filename, unsigned line,
                         int ltype, const char *rvalue, void *data, void *userdata);
 
 int config_parse_bond(const char *unit, const char *filename, unsigned line,
+                      const char *section, unsigned section_line, const char *lvalue,
+                      int ltype, const char *rvalue, void *data, void *userdata);
+
+int config_parse_vlan(const char *unit, const char *filename, unsigned line,
                       const char *section, unsigned section_line, const char *lvalue,
                       int ltype, const char *rvalue, void *data, void *userdata);
 

@@ -285,3 +285,40 @@ int config_parse_bond(const char *unit,
 
         return 0;
 }
+
+int config_parse_vlan(const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        Network *network = userdata;
+        Netdev *netdev;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = netdev_get(network->manager, rvalue, &netdev);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "VLAN is invalid, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        if (netdev->kind != NETDEV_KIND_VLAN) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Netdev is not a VLAN, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        network->vlan = netdev;
+
+        return 0;
+}

@@ -786,7 +786,7 @@ static int link_enter_enslave(Link *link) {
 
         link->state = LINK_STATE_ENSLAVING;
 
-        if (!link->network->bridge && !link->network->bond)
+        if (!link->network->bridge && !link->network->bond && !link->network->vlan)
                 return link_enslaved(link);
 
         if (link->network->bridge) {
@@ -810,19 +810,19 @@ static int link_enter_enslave(Link *link) {
                 link->enslaving ++;
         }
 
-        if (link->network->bond) {
+        if (link->network->vlan) {
                 log_struct_link(LOG_DEBUG, link,
                                 "MESSAGE=%s: enslaving by '%s'",
-                                link->network->bond->name,
-                                NETDEV(link->network->bond),
+                                link->network->vlan->name,
+                                NETDEV(link->network->vlan),
                                 NULL);
 
-                r = netdev_enslave(link->network->bond, link, &enslave_handler);
+                r = netdev_enslave(link->network->vlan, link, &enslave_handler);
                 if (r < 0) {
                         log_struct_link(LOG_WARNING, link,
                                         "MESSAGE=%s: could not enslave by '%s': %s",
-                                        link->network->bond->name, strerror(-r),
-                                        NETDEV(link->network->bond),
+                                        link->network->vlan->name, strerror(-r),
+                                        NETDEV(link->network->vlan),
                                         NULL);
                         link_enter_failed(link);
                         return r;
