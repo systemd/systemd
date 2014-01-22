@@ -48,6 +48,7 @@ void bus_creds_done(sd_bus_creds *c) {
         free(c->unit);
         free(c->user_unit);
         free(c->slice);
+        free(c->unescaped_conn_name);
 
         strv_free(c->cmdline_array);
         strv_free(c->well_known_names);
@@ -471,7 +472,14 @@ _public_ int sd_bus_creds_get_connection_name(sd_bus_creds *c, const char **ret)
                 return -ENODATA;
 
         assert(c->conn_name);
-        *ret = c->conn_name;
+
+        if (!c->unescaped_conn_name) {
+                c->unescaped_conn_name = sd_bus_label_unescape(c->conn_name);
+                if (!c->unescaped_conn_name)
+                        return -ENOMEM;
+        }
+
+        *ret = c->unescaped_conn_name;
         return 0;
 }
 
