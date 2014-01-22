@@ -99,6 +99,7 @@ struct sd_bus_message {
         usec_t monotonic;
         usec_t realtime;
         uint64_t seqnum;
+        int64_t priority;
 
         bool sealed:1;
         bool dont_send:1;

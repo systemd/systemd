@@ -5548,3 +5548,19 @@ int bus_message_append_sender(sd_bus_message *m, const char *sender) {
 
         return message_append_field_string(m, BUS_MESSAGE_HEADER_SENDER, SD_BUS_TYPE_STRING, sender, &m->sender);
 }
+
+_public_ int sd_bus_message_get_priority(sd_bus_message *m, int64_t *priority) {
+        assert_return(m, -EINVAL);
+        assert_return(priority, -EINVAL);
+
+        *priority = m->priority;
+        return 0;
+}
+
+_public_ int sd_bus_message_set_priority(sd_bus_message *m, int64_t priority) {
+        assert_return(m, -EINVAL);
+        assert_return(!m->sealed, -EPERM);
+
+        m->priority = priority;
+        return 0;
+}

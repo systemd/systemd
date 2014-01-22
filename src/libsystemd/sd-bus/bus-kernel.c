@@ -260,6 +260,7 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
                 m->destination ? unique : KDBUS_DST_ID_BROADCAST;
         m->kdbus->payload_type = KDBUS_PAYLOAD_DBUS;
         m->kdbus->cookie = m->header->serial;
+        m->kdbus->priority = m->priority;
 
         if (m->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED)
                 m->kdbus->cookie_reply = m->reply_cookie;
