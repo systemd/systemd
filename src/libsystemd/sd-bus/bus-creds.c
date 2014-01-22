@@ -92,6 +92,7 @@ _public_ sd_bus_creds *sd_bus_creds_unref(sd_bus_creds *c) {
                         free(c->label);
                         free(c->unique_name);
                         free(c->cgroup_root);
+                        free(c->conn_name);
                         free(c);
                 }
         } else {
@@ -459,6 +460,18 @@ _public_ int sd_bus_creds_get_well_known_names(sd_bus_creds *c, char ***well_kno
                 return -ENODATA;
 
         *well_known_names = c->well_known_names;
+        return 0;
+}
+
+_public_ int sd_bus_creds_get_connection_name(sd_bus_creds *c, const char **ret) {
+        assert_return(c, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        if (!(c->mask & SD_BUS_CREDS_CONNECTION_NAME))
+                return -ENODATA;
+
+        assert(c->conn_name);
+        *ret = c->conn_name;
         return 0;
 }
 

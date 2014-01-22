@@ -379,9 +379,10 @@ static int bus_get_owner_kdbus(
                 cmd = alloca0(size);
                 strcpy(cmd->name, name);
         }
-        cmd->flags = KDBUS_ATTACH_NAMES;
 
         cmd->size = size;
+        kdbus_translate_attach_flags(mask, (uint64_t*) &cmd->flags);
+
         r = ioctl(bus->input_fd, KDBUS_CMD_CONN_INFO, cmd);
         if (r < 0)
                 return -errno;
@@ -551,6 +552,18 @@ static int bus_get_owner_kdbus(
                                         goto fail;
 
                                 c->mask |= SD_BUS_CREDS_WELL_KNOWN_NAMES;
+                        }
+                        break;
+
+                case KDBUS_ITEM_CONN_NAME:
+                        if ((mask & SD_BUS_CREDS_CONNECTION_NAME)) {
+                                c->conn_name = strdup(item->str);
+                                if (!c->conn_name) {
+                                        r = -ENOMEM;
+                                        goto fail;
+                                }
+
+                                c->mask |= SD_BUS_CREDS_CONNECTION_NAME;
                         }
                         break;
                 }

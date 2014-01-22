@@ -72,7 +72,8 @@ enum {
         SD_BUS_CREDS_AUDIT_LOGIN_UID  = 1ULL << 21,
         SD_BUS_CREDS_UNIQUE_NAME      = 1ULL << 22,
         SD_BUS_CREDS_WELL_KNOWN_NAMES = 1ULL << 23,
-        _SD_BUS_CREDS_ALL             = (1ULL << 24) -1,
+        SD_BUS_CREDS_CONNECTION_NAME  = 1ULL << 24,
+        _SD_BUS_CREDS_ALL             = (1ULL << 25) -1,
 };
 
 enum {
@@ -309,6 +310,7 @@ int sd_bus_creds_get_audit_session_id(sd_bus_creds *c, uint32_t *sessionid);
 int sd_bus_creds_get_audit_login_uid(sd_bus_creds *c, uid_t *loginuid);
 int sd_bus_creds_get_unique_name(sd_bus_creds *c, const char **name);
 int sd_bus_creds_get_well_known_names(sd_bus_creds *c, char ***names);
+int sd_bus_creds_get_connection_name(sd_bus_creds *c, const char **name);
 
 /* Error structures */
 

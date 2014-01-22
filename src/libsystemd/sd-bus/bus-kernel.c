@@ -568,6 +568,11 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
                                 goto fail;
                         break;
 
+                case KDBUS_ITEM_CONN_NAME:
+                        m->creds.conn_name = d->str;
+                        m->creds.mask |= SD_BUS_CREDS_CONNECTION_NAME & bus->creds_mask;
+                        break;
+
                 case KDBUS_ITEM_FDS:
                 case KDBUS_ITEM_SECLABEL:
                         break;
@@ -1239,6 +1244,9 @@ int kdbus_translate_attach_flags(uint64_t mask, uint64_t *kdbus_mask) {
 
         if (mask & SD_BUS_CREDS_WELL_KNOWN_NAMES)
                 m |= KDBUS_ATTACH_NAMES;
+
+        if (mask & SD_BUS_CREDS_CONNECTION_NAME)
+                m |= KDBUS_ATTACH_CONN_NAME;
 
         *kdbus_mask = m;
         return 0;
