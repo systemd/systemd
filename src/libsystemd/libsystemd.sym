@@ -215,6 +215,7 @@ global:
         sd_memfd_get_sealed;
         sd_memfd_get_size;
         sd_memfd_set_size;
+        sd_memfd_get_name;
 
         /* sd-event functions */
         sd_event_default;

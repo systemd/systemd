@@ -23,22 +23,26 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
+#include <sys/prctl.h>
 
 #include "util.h"
 #include "kdbus.h"
 
 #include "sd-memfd.h"
+#include "sd-bus.h"
 
 struct sd_memfd {
         int fd;
         FILE *f;
 };
 
-_public_ int sd_memfd_new(sd_memfd **m) {
-        struct kdbus_cmd_memfd_make cmd = {
-                .size = sizeof(struct kdbus_cmd_memfd_make),
-        };
+_public_ int sd_memfd_new(const char *name, sd_memfd **m) {
+
+        struct kdbus_cmd_memfd_make *cmd;
+        struct kdbus_item *item;
         _cleanup_close_ int kdbus = -1;
+        _cleanup_free_ char *g = NULL;
+        size_t sz, l;
         sd_memfd *n;
 
         assert_return(m, -EINVAL);
@@ -47,16 +51,64 @@ _public_ int sd_memfd_new(sd_memfd **m) {
         if (kdbus < 0)
                 return -errno;
 
-        if (ioctl(kdbus, KDBUS_CMD_MEMFD_NEW, &cmd) < 0)
+        if (name) {
+                /* The kernel side is pretty picky about the character
+                 * set here, let's do the usual bus escaping to deal
+                 * with that. */
+
+                g = sd_bus_label_escape(name);
+                if (!g)
+                        return -ENOMEM;
+
+                name = g;
+
+        } else {
+                char pr[17] = {};
+
+                /* If no name is specified we generate one. We include
+                 * a hint indicating our library implementation, and
+                 * add the thread name to it */
+
+                assert_se(prctl(PR_GET_NAME, (unsigned long) pr) >= 0);
+
+                if (isempty(pr))
+                        name = "sd";
+                else {
+                        _cleanup_free_ char *e = NULL;
+
+                        e = sd_bus_label_escape(pr);
+                        if (!e)
+                                return -ENOMEM;
+
+                        g = strappend("sd-", e);
+                        if (!g)
+                                return -ENOMEM;
+
+                        name = g;
+                }
+        }
+
+        l = strlen(name);
+        sz = ALIGN8(offsetof(struct kdbus_cmd_memfd_make, items)) +
+                ALIGN8(offsetof(struct kdbus_item, str)) +
+                l + 1;
+        cmd = alloca0(sz);
+        cmd->size = sz;
+        item = cmd->items;
+        item->size = ALIGN8(offsetof(struct kdbus_item, str)) + l + 1;
+        item->type = KDBUS_ITEM_MEMFD_NAME;
+        memcpy(item->str, name, l + 1);
+
+        if (ioctl(kdbus, KDBUS_CMD_MEMFD_NEW, cmd) < 0)
                 return -errno;
 
         n = new0(struct sd_memfd, 1);
         if (!n) {
-                close_nointr_nofail(cmd.fd);
+                close_nointr_nofail(cmd->fd);
                 return -ENOMEM;
         }
 
-        n->fd = cmd.fd;
+        n->fd = cmd->fd;
         *m = n;
         return 0;
 }
@@ -195,11 +247,11 @@ _public_ int sd_memfd_set_size(sd_memfd *m, uint64_t sz) {
         return r;
 }
 
-_public_ int sd_memfd_new_and_map(sd_memfd **m, size_t sz, void **p) {
+_public_ int sd_memfd_new_and_map(const char *name, sd_memfd **m, size_t sz, void **p) {
         sd_memfd *n;
         int r;
 
-        r = sd_memfd_new(&n);
+        r = sd_memfd_new(name, &n);
         if (r < 0)
                 return r;
 
@@ -216,5 +268,52 @@ _public_ int sd_memfd_new_and_map(sd_memfd **m, size_t sz, void **p) {
         }
 
         *m = n;
+        return 0;
+}
+
+_public_ int sd_memfd_get_name(sd_memfd *m, char **name) {
+        char path[sizeof("/proc/self/fd/") + DECIMAL_STR_MAX(int)], buf[FILENAME_MAX+1], *e;
+        const char *delim, *end;
+        _cleanup_free_ char *n = NULL;
+        ssize_t k;
+
+        assert_return(m, -EINVAL);
+        assert_return(name, -EINVAL);
+
+        sprintf(path, "/proc/self/fd/%i", m->fd);
+
+        k = readlink(path, buf, sizeof(buf));
+        if (k < 0)
+                return -errno;
+
+        if ((size_t) k >= sizeof(buf))
+                return -E2BIG;
+
+        buf[k] = 0;
+
+        delim = strstr(buf, ":[");
+        if (!delim)
+                return -EIO;
+
+        delim = strchr(delim + 2, ':');
+        if (!delim)
+                return -EIO;
+
+        delim++;
+
+        end = strchr(delim, ']');
+        if (!end)
+                return -EIO;
+
+        n = strndup(delim, end - delim);
+        if (!n)
+                return -ENOMEM;
+
+        e = sd_bus_label_unescape(n);
+        if (!e)
+                return -ENOMEM;
+
+        *name = e;
+
         return 0;
 }

@@ -30,7 +30,7 @@
 
 int main(int argc, char *argv[]) {
         sd_memfd *m;
-        char *s;
+        char *s, *name;
         uint64_t sz;
         int r, fd;
         FILE *f;
@@ -40,9 +40,15 @@ int main(int argc, char *argv[]) {
 
         log_set_max_level(LOG_DEBUG);
 
-        r = sd_memfd_new(&m);
+        r = sd_memfd_new(NULL, &m);
         if (r == -ENOENT)
                 return EXIT_TEST_SKIP;
+
+        assert_se(r >= 0);
+
+        assert_se(sd_memfd_get_name(m, &name) >= 0);
+        log_info("name: %s", name);
+        free(name);
 
         r = sd_memfd_map(m, 0, 12, (void**) &s);
         assert_se(r >= 0);

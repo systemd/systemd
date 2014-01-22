@@ -32,16 +32,15 @@ _SD_BEGIN_DECLARATIONS;
 
 typedef struct sd_memfd sd_memfd;
 
-int sd_memfd_new(sd_memfd **m);
+int sd_memfd_new(const char *name, sd_memfd **m);
+int sd_memfd_new_and_map(const char *name, sd_memfd **m, size_t sz, void **p);
 int sd_memfd_make(int fd, sd_memfd **m);
-
-int sd_memfd_new_and_map(sd_memfd **m, size_t sz, void **p);
 
 void sd_memfd_free(sd_memfd *m);
 
 int sd_memfd_get_fd(sd_memfd *m);
-int sd_memfd_get_file(sd_memfd *m, FILE **f);
 int sd_memfd_dup_fd(sd_memfd *n);
+int sd_memfd_get_file(sd_memfd *m, FILE **f);
 
 int sd_memfd_map(sd_memfd *m, uint64_t offset, size_t size, void **p);
 
@@ -50,6 +49,8 @@ int sd_memfd_get_sealed(sd_memfd *m);
 
 int sd_memfd_get_size(sd_memfd *m, uint64_t *sz);
 int sd_memfd_set_size(sd_memfd *m, uint64_t sz);
+
+int sd_memfd_get_name(sd_memfd *m, char **name);
 
 _SD_END_DECLARATIONS;
 

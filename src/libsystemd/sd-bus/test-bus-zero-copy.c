@@ -93,7 +93,7 @@ int main(int argc, char *argv[]) {
         memset(p+1, 'L', FIRST_ARRAY-2);
         p[FIRST_ARRAY-1] = '>';
 
-        r = sd_memfd_new_and_map(&f, STRING_SIZE, (void**) &s);
+        r = sd_memfd_new_and_map(NULL, &f, STRING_SIZE, (void**) &s);
         assert_se(r >= 0);
 
         s[0] = '<';
@@ -112,7 +112,7 @@ int main(int argc, char *argv[]) {
 
         sd_memfd_free(f);
 
-        r = sd_memfd_new_and_map(&f, SECOND_ARRAY, (void**) &p);
+        r = sd_memfd_new_and_map(NULL, &f, SECOND_ARRAY, (void**) &p);
         assert_se(r >= 0);
 
         p[0] = '<';
