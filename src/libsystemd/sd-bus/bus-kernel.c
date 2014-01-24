@@ -101,20 +101,21 @@ static void append_destination(struct kdbus_item **d, const char *s, size_t leng
         *d = (struct kdbus_item *) ((uint8_t*) *d + (*d)->size);
 }
 
-static void* append_bloom(struct kdbus_item **d, size_t length) {
-        void *r;
+static struct kdbus_bloom_filter *append_bloom(struct kdbus_item **d, size_t length) {
+        struct kdbus_item *i;
 
         assert(d);
 
-        *d = ALIGN8_PTR(*d);
+        i = ALIGN8_PTR(*d);
 
-        (*d)->size = offsetof(struct kdbus_item, data) + length;
-        (*d)->type = KDBUS_ITEM_BLOOM;
-        r = (*d)->data;
+        i->size = offsetof(struct kdbus_item, bloom_filter) +
+                  offsetof(struct kdbus_bloom_filter, data) +
+                  length;
+        i->type = KDBUS_ITEM_BLOOM_FILTER;
 
-        *d = (struct kdbus_item *) ((uint8_t*) *d + (*d)->size);
+        *d = (struct kdbus_item *) ((uint8_t*) i + i->size);
 
-        return r;
+        return &i->bloom_filter;
 }
 
 static void append_fds(struct kdbus_item **d, const int fds[], unsigned n_fds) {
@@ -130,25 +131,28 @@ static void append_fds(struct kdbus_item **d, const int fds[], unsigned n_fds) {
         *d = (struct kdbus_item *) ((uint8_t*) *d + (*d)->size);
 }
 
-static int bus_message_setup_bloom(sd_bus_message *m, void *bloom) {
+static int bus_message_setup_bloom(sd_bus_message *m, struct kdbus_bloom_filter *bloom) {
+        void *data;
         unsigned i;
         int r;
 
         assert(m);
         assert(bloom);
 
-        memset(bloom, 0, BLOOM_SIZE);
+        data = bloom->data;
+        memset(data, 0, BLOOM_SIZE);
+        bloom->generation = 0;
 
-        bloom_add_pair(bloom, "message-type", bus_message_type_to_string(m->header->type));
+        bloom_add_pair(data, "message-type", bus_message_type_to_string(m->header->type));
 
         if (m->interface)
-                bloom_add_pair(bloom, "interface", m->interface);
+                bloom_add_pair(data, "interface", m->interface);
         if (m->member)
-                bloom_add_pair(bloom, "member", m->member);
+                bloom_add_pair(data, "member", m->member);
         if (m->path) {
-                bloom_add_pair(bloom, "path", m->path);
-                bloom_add_pair(bloom, "path-slash-prefix", m->path);
-                bloom_add_prefixes(bloom, "path-slash-prefix", m->path, '/');
+                bloom_add_pair(data, "path", m->path);
+                bloom_add_pair(data, "path-slash-prefix", m->path);
+                bloom_add_prefixes(data, "path-slash-prefix", m->path, '/');
         }
 
         r = sd_bus_message_rewind(m, true);
@@ -183,12 +187,12 @@ static int bus_message_setup_bloom(sd_bus_message *m, void *bloom) {
                 }
 
                 *e = 0;
-                bloom_add_pair(bloom, buf, t);
+                bloom_add_pair(data, buf, t);
 
                 strcpy(e, "-dot-prefix");
-                bloom_add_prefixes(bloom, buf, t, '.');
+                bloom_add_prefixes(data, buf, t, '.');
                 strcpy(e, "-slash-prefix");
-                bloom_add_prefixes(bloom, buf, t, '/');
+                bloom_add_prefixes(data, buf, t, '/');
         }
 
         return 0;
@@ -231,7 +235,9 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
                 ALIGN8(offsetof(struct kdbus_item, vec) + sizeof(struct kdbus_vec));
 
         /* Add space for bloom filter */
-        sz += ALIGN8(offsetof(struct kdbus_item, data) + BLOOM_SIZE);
+        sz += ALIGN8(offsetof(struct kdbus_item, bloom_filter) +
+                     offsetof(struct kdbus_bloom_filter, data) +
+                     BLOOM_SIZE);
 
         /* Add in well-known destination header */
         if (well_known) {
@@ -303,10 +309,10 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
         }
 
         if (m->kdbus->dst_id == KDBUS_DST_ID_BROADCAST) {
-                void *p;
+                struct kdbus_bloom_filter *bloom;
 
-                p = append_bloom(&d, BLOOM_SIZE);
-                r = bus_message_setup_bloom(m, p);
+                bloom = append_bloom(&d, BLOOM_SIZE);
+                r = bus_message_setup_bloom(m, bloom);
                 if (r < 0)
                         goto fail;
         }
@@ -748,7 +754,7 @@ int bus_kernel_take_fd(sd_bus *b) {
             hello->conn_flags > 0xFFFFFFFFULL)
                 return -ENOTSUP;
 
-        if (hello->bloom_size != BLOOM_SIZE)
+        if (hello->bloom.size != BLOOM_SIZE)
                 return -ENOTSUP;
 
         if (asprintf(&b->unique_name, ":1.%llu", (unsigned long long) hello->id) < 0)
@@ -1282,9 +1288,11 @@ int bus_kernel_create_bus(const char *name, bool world, char **s) {
         make->size = offsetof(struct kdbus_cmd_make, items);
 
         n = make->items;
-        n->size = offsetof(struct kdbus_item, data64) + sizeof(uint64_t);
-        n->type = KDBUS_ITEM_BLOOM_SIZE;
-        n->data64[0] = BLOOM_SIZE;
+        n->size = offsetof(struct kdbus_item, bloom_parameter) +
+                  sizeof(struct kdbus_bloom_parameter);
+        n->type = KDBUS_ITEM_BLOOM_PARAMETER;
+        n->bloom_parameter.size = BLOOM_SIZE;
+        n->bloom_parameter.n_hash = 1;
         assert_cc(BLOOM_SIZE % 8 == 0);
         make->size += ALIGN8(n->size);
 
@@ -1365,7 +1373,7 @@ int bus_kernel_create_starter(const char *bus, const char *name) {
                 return -ENOTSUP;
         }
 
-        if (hello->bloom_size != BLOOM_SIZE) {
+        if (hello->bloom.size != BLOOM_SIZE) {
                 close_nointr_nofail(fd);
                 return -ENOTSUP;
         }

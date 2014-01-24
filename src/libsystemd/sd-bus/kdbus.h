@@ -137,6 +137,26 @@ struct kdbus_vec {
 };
 
 /**
+ * struct kdbus_bloom_parameter - bus-wide bloom parameters
+ * @size:		Size of the bit field in bytes (m / 8)
+ * @n_hash:		Number of hash functions used (k)
+ */
+struct kdbus_bloom_parameter {
+	__u64 size;
+	__u64 n_hash;
+};
+
+/**
+ * struct kdbus_bloom_filter - bloom filter containing n elements
+ * @generation:		Generation of the element set in the filter
+ * @data:		Bit field, multiple of 8 bytes
+ */
+struct kdbus_bloom_filter {
+	__u64 generation;
+	__u64 data[0];
+};
+
+/**
  * struct kdbus_memfd - a kdbus memfd
  * @size:		The memfd's size
  * @fd:			The file descriptor number
@@ -204,14 +224,19 @@ struct kdbus_policy {
  * @KDBUS_ITEM_PAYLOAD_OFF:	Data at returned offset to message head
  * @KDBUS_ITEM_PAYLOAD_MEMFD:	Data as sealed memfd
  * @KDBUS_ITEM_FDS:		Attached file descriptors
- * @KDBUS_ITEM_BLOOM:		For broadcasts, carries bloom filter
- * @KDBUS_ITEM_BLOOM_SIZE:	Desired bloom size, used by KDBUS_CMD_BUS_MAKE
+ * @KDBUS_ITEM_BLOOM_PARAMETER:	Bus-wide bloom parameters, used with
+ *				KDBUS_CMD_BUS_MAKE, carries a
+ *				struct kdbus_bloom_parameter
+ * @KDBUS_ITEM_BLOOM_FILTER:	Bloom filter carried with a message, used to
+ *				match against a bloom mask of a connection,
+ *				carries a struct kdbus_bloom_filter
+ * @KDBUS_ITEM_BLOOM_MASK:	Bloom mask used to match against a message's
+ *				bloom filter
  * @KDBUS_ITEM_DST_NAME:	Destination's well-known name
  * @KDBUS_ITEM_MAKE_NAME:	Name of namespace, bus, endpoint
  * @KDBUS_ITEM_MEMFD_NAME:	The human readable name of a memfd (debugging)
- * @_KDBUS_ITEM_POLICY_BASE:	Start of policy items
- * @KDBUS_ITEM_POLICY_NAME:	Policy in struct kdbus_policy
- * @KDBUS_ITEM_POLICY_ACCESS:	Policy in struct kdbus_policy
+ * @KDBUS_ITEM_ATTACH_FLAGS:	Attach-flags, used for updating which metadata
+ *				a connection subscribes to
  * @_KDBUS_ITEM_ATTACH_BASE:	Start of metadata attach items
  * @KDBUS_ITEM_NAME:		Well-know name with flags
  * @KDBUS_ITEM_ID:		Connection ID
@@ -226,6 +251,9 @@ struct kdbus_policy {
  * @KDBUS_ITEM_SECLABEL:	The security label
  * @KDBUS_ITEM_AUDIT:		The audit IDs
  * @KDBUS_ITEM_CONN_NAME:	The connection's human-readable name (debugging)
+ * @_KDBUS_ITEM_POLICY_BASE:	Start of policy items
+ * @KDBUS_ITEM_POLICY_NAME:	Policy in struct kdbus_policy
+ * @KDBUS_ITEM_POLICY_ACCESS:	Policy in struct kdbus_policy
  * @_KDBUS_ITEM_KERNEL_BASE:	Start of kernel-generated message items
  * @KDBUS_ITEM_NAME_ADD:	Notify in struct kdbus_notify_name_change
  * @KDBUS_ITEM_NAME_REMOVE:	Notify in struct kdbus_notify_name_change
@@ -242,17 +270,15 @@ enum kdbus_item_type {
 	KDBUS_ITEM_PAYLOAD_OFF,
 	KDBUS_ITEM_PAYLOAD_MEMFD,
 	KDBUS_ITEM_FDS,
-	KDBUS_ITEM_BLOOM,
-	KDBUS_ITEM_BLOOM_SIZE,
+	KDBUS_ITEM_BLOOM_PARAMETER,
+	KDBUS_ITEM_BLOOM_FILTER,
+	KDBUS_ITEM_BLOOM_MASK,
 	KDBUS_ITEM_DST_NAME,
 	KDBUS_ITEM_MAKE_NAME,
 	KDBUS_ITEM_MEMFD_NAME,
+	KDBUS_ITEM_ATTACH_FLAGS,
 
-	_KDBUS_ITEM_POLICY_BASE	= 0x1000,
-	KDBUS_ITEM_POLICY_NAME = _KDBUS_ITEM_POLICY_BASE,
-	KDBUS_ITEM_POLICY_ACCESS,
-
-	_KDBUS_ITEM_ATTACH_BASE	= 0x2000,
+	_KDBUS_ITEM_ATTACH_BASE	= 0x1000,
 	KDBUS_ITEM_NAME		= _KDBUS_ITEM_ATTACH_BASE,
 	KDBUS_ITEM_ID,
 	KDBUS_ITEM_TIMESTAMP,
@@ -267,7 +293,11 @@ enum kdbus_item_type {
 	KDBUS_ITEM_AUDIT,
 	KDBUS_ITEM_CONN_NAME,
 
-	_KDBUS_ITEM_KERNEL_BASE	= 0x3000,
+	_KDBUS_ITEM_POLICY_BASE	= 0x2000,
+	KDBUS_ITEM_POLICY_NAME = _KDBUS_ITEM_POLICY_BASE,
+	KDBUS_ITEM_POLICY_ACCESS,
+
+	_KDBUS_ITEM_KERNEL_BASE	= 0x8000,
 	KDBUS_ITEM_NAME_ADD	= _KDBUS_ITEM_KERNEL_BASE,
 	KDBUS_ITEM_NAME_REMOVE,
 	KDBUS_ITEM_NAME_CHANGE,
@@ -291,6 +321,8 @@ enum kdbus_item_type {
  * @audit:		KDBUS_ITEM_AUDIT
  * @timestamp:		KDBUS_ITEM_TIMESTAMP
  * @name:		KDBUS_ITEM_NAME
+ * @bloom_parameter:	KDBUS_ITEM_BLOOM_PARAMETER
+ * @bloom_filter:	KDBUS_ITEM_BLOOM_FILTER
  * @memfd:		KDBUS_ITEM_PAYLOAD_MEMFD
  * @name_change:	KDBUS_ITEM_NAME_ADD
  *			KDBUS_ITEM_NAME_REMOVE
@@ -315,6 +347,8 @@ struct kdbus_item {
 		struct kdbus_audit audit;
 		struct kdbus_timestamp timestamp;
 		struct kdbus_name name;
+		struct kdbus_bloom_parameter bloom_parameter;
+		struct kdbus_bloom_filter bloom_filter;
 		struct kdbus_memfd memfd;
 		int fds[0];
 		struct kdbus_notify_name_change name_change;
@@ -529,10 +563,10 @@ enum kdbus_attach_flags {
  *			to do negotiation of features of the payload that is
  *			transferred (kernel → userspace)
  * @id:			The ID of this connection (kernel → userspace)
- * @bloom_size:		The bloom filter size chosen by the owner
- *			(kernel → userspace)
  * @pool_size:		Size of the connection's buffer where the received
  *			messages are placed
+ * @bloom:		The bloom properties of the bus, specified
+ *			by the bus creator (kernel → userspace)
  * @id128:		Unique 128-bit ID of the bus (kernel → userspace)
  * @items:		A list of items
  *
@@ -544,8 +578,8 @@ struct kdbus_cmd_hello {
 	__u64 attach_flags;
 	__u64 bus_flags;
 	__u64 id;
-	__u64 bloom_size;
 	__u64 pool_size;
+	struct kdbus_bloom_parameter bloom;
 	__u8 id128[16];
 	struct kdbus_item items[0];
 } __attribute__((aligned(8)));
@@ -692,6 +726,18 @@ struct kdbus_conn_info {
 };
 
 /**
+ * struct kdbus_cmd_conn_update - update flags of a connection
+ * @size:		The total size of the struct
+ * @items:		A list of struct kdbus_item
+ *
+ * This struct is used with the KDBUS_CMD_CONN_UPDATE ioctl.
+ */
+struct kdbus_cmd_conn_update {
+	__u64 size;
+	struct kdbus_item items[0];
+} __attribute__((aligned(8)));
+
+/**
  * struct kdbus_cmd_match - struct to add or remove matches
  * @size:		The total size of the struct
  * @owner_id:		Privileged users may (de)register matches on behalf
@@ -753,6 +799,9 @@ struct kdbus_cmd_memfd_make {
  *				the kernel.
  * @KDBUS_CMD_MSG_RECV:		Receive a message from the kernel which is
  *				placed in the receiver's pool.
+ * @KDBUS_CMD_MSG_CANCEL:	Cancel a pending request of a message that
+ * 				blocks while waiting for a reply. The parameter
+ * 				denotes the cookie of the message in flight.
  * @KDBUS_CMD_FREE:		Release the allocated memory in the receiver's
  *				pool.
  * @KDBUS_CMD_NAME_ACQUIRE:	Request a well-known bus name to associate with
@@ -767,6 +816,8 @@ struct kdbus_cmd_memfd_make {
  *				stored at registration time and does not
  *				necessarily represent the connected process or
  *				the actual state of the process.
+ * @KDBUS_CMD_CONN_UPDATE:	Update the properties of a connection. Used to
+ *				update the metadata subscription.
  * @KDBUS_CMD_MATCH_ADD:	Install a match which broadcast messages should
  *				be delivered to the connection.
  * @KDBUS_CMD_MATCH_REMOVE:	Remove a current match for broadcast messages.
@@ -810,6 +861,7 @@ enum kdbus_ioctl_type {
 
 	KDBUS_CMD_MSG_SEND =		_IOW (KDBUS_IOC_MAGIC, 0x40, struct kdbus_msg),
 	KDBUS_CMD_MSG_RECV =		_IOWR(KDBUS_IOC_MAGIC, 0x41, struct kdbus_cmd_recv),
+	KDBUS_CMD_MSG_CANCEL =		_IOW (KDBUS_IOC_MAGIC, 0x43, __u64 *),
 	KDBUS_CMD_FREE =		_IOW (KDBUS_IOC_MAGIC, 0x42, __u64 *),
 
 	KDBUS_CMD_NAME_ACQUIRE =	_IOWR(KDBUS_IOC_MAGIC, 0x50, struct kdbus_cmd_name),
@@ -817,6 +869,7 @@ enum kdbus_ioctl_type {
 	KDBUS_CMD_NAME_LIST =		_IOWR(KDBUS_IOC_MAGIC, 0x52, struct kdbus_cmd_name_list),
 
 	KDBUS_CMD_CONN_INFO =		_IOWR(KDBUS_IOC_MAGIC, 0x60, struct kdbus_cmd_conn_info),
+	KDBUS_CMD_CONN_UPDATE =		_IOW (KDBUS_IOC_MAGIC, 0x61, struct kdbus_cmd_conn_update),
 
 	KDBUS_CMD_MATCH_ADD =		_IOW (KDBUS_IOC_MAGIC, 0x70, struct kdbus_cmd_match),
 	KDBUS_CMD_MATCH_REMOVE =	_IOW (KDBUS_IOC_MAGIC, 0x71, struct kdbus_cmd_match),
@@ -844,13 +897,14 @@ enum kdbus_ioctl_type {
  *			inconsistent types.
  * @EBUSY:		The user tried to say BYEBYE to a connection, but the
  *			connection had a non-empty message list.
+ * @ECANCELED:		A syncronous message sending was cancelled.
  * @ECONNRESET:		A connection is shut down, no further operations are
  *			possible.
  * @ECOMM:		A peer does not accept the file descriptors addressed
  *			to it.
  * @EDESTADDRREQ:	The well-known bus name is required but missing.
  * @EDOM:		The size of data does not match the expectations. Used
- *			for the size of the bloom filter bit field.
+ *			for bloom bit field sizes.
  * @EEXIST:		A requested namespace, bus or endpoint with the same
  *			name already exists.  A specific data type, which is
  *			only expected once, is provided multiple times.
@@ -864,6 +918,8 @@ enum kdbus_ioctl_type {
  *			refused to send as KDBUS_MSG_PAYLOAD_MEMFD.
  * @EMFILE:		Too many file descriptors have been supplied with a
  *			message.
+ *			Too many connections or buses are created for a given
+ *			user.
  * @EMLINK:		Too many requests from this connection to other peers
  *			are queued and waiting for a reply
  * @EMSGSIZE:		The supplied data is larger than the allowed maximum
@@ -888,9 +944,14 @@ enum kdbus_ioctl_type {
  *			receiver's pool does not represent a queued message.
  * @EPERM:		The policy prevented an operation. The requested
  *			resource is owned by another entity.
+ * @EPIPE:		When sending a message, a synchronous reply from the
+ *			receiving connection was expected but the connection
+ *			died before answering.
  * @ESHUTDOWN:		A namespace or endpoint is currently shutting down;
  *			no further operations will be possible.
  * @ESRCH:		A requested well-known bus name is not found.
+ * @ETIMEDOUT:		A synchronous wait for a message reply did not arrive
+ *			within the specified time frame.
  * @ETXTBSY:		A kdbus memfd file cannot be sealed or the seal removed,
  *			because it is shared with other processes or still
  *			mmap()ed.

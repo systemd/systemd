@@ -1070,7 +1070,7 @@ int bus_add_match_internal_kernel(
 
         if (using_bloom) {
                 item->size = offsetof(struct kdbus_item, data64) + BLOOM_SIZE;
-                item->type = KDBUS_ITEM_BLOOM;
+                item->type = KDBUS_ITEM_BLOOM_MASK;
                 memcpy(item->data64, bloom, BLOOM_SIZE);
                 item = KDBUS_ITEM_NEXT(item);
         }
