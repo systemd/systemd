@@ -172,15 +172,15 @@ which items are contained in the message is left untouched.
 PAYLOAD_MEMFD items allow zero-copy data transfer (see below regarding
 the memfd concept). Note however that the overhead of mapping these
 makes them relatively expensive, and only worth the trouble for memory
-blocks > 128K (this value appears to be quite universal across
+blocks > 512K (this value appears to be quite universal across
 architectures, as we tested). Thus we recommend sending PAYLOAD_VEC
 items over for small messages and restore to PAYLOAD_MEMFD items for
-messages > 128K. Since while building up the message you might not
+messages > 512K. Since while building up the message you might not
 know yet whether it will grow beyond this boundary a good approach is
 to simply build the message unconditionally in a memfd
 object. However, when the message is sealed to be sent away check for
-the size limit. If the size of the message is < 128K, then simply send
-the data as PAYLOAD_VEC and reuse the memfd. If it is >= 128K, seal
+the size limit. If the size of the message is < 512K, then simply send
+the data as PAYLOAD_VEC and reuse the memfd. If it is >= 512K, seal
 the memfd and send it as PAYLOAD_MEMFD, and allocate a new memfd for
 the next message.
 

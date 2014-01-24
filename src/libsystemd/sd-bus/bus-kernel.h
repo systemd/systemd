@@ -44,7 +44,7 @@
 
 /* This determines at which minimum size we prefer sending memfds over
  * sending vectors */
-#define MEMFD_MIN_SIZE (128*1024)
+#define MEMFD_MIN_SIZE (512*1024)
 
 /* The size of the per-connection memory pool that we set up and where
  * the kernel places our incoming messages */
