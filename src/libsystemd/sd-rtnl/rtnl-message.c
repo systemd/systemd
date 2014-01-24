@@ -35,13 +35,14 @@ struct sd_rtnl_message {
         RefCount n_ref;
 
         struct nlmsghdr *hdr;
-        size_t container_offset; /* offset from hdr to container start */
+        size_t container_offsets[RTNL_CONTAINER_DEPTH]; /* offset from hdr to each container's start */
+        unsigned n_containers; /* number of containers */
         size_t next_rta_offset; /* offset from hdr to next rta */
 
         bool sealed:1;
 };
 
-#define CURRENT_CONTAINER(m) ((m)->container_offset ? (struct rtattr*)((uint8_t*)(m)->hdr + (m)->container_offset) : NULL)
+#define GET_CONTAINER(m, i) (i < (m)->n_containers ? (struct rtattr*)((uint8_t*)(m)->hdr + (m)->container_offsets[i]) : NULL)
 #define NEXT_RTA(m) ((struct rtattr*)((uint8_t*)(m)->hdr + (m)->next_rta_offset))
 #define UPDATE_RTA(m, new) (m)->next_rta_offset = (uint8_t*)(new) - (uint8_t*)(m)->hdr;
 
@@ -373,11 +374,13 @@ static int add_rtattr(sd_rtnl_message *m, unsigned short type, const void *data,
         struct nlmsghdr *new_hdr;
         struct rtattr *rta;
         char *padding;
+        unsigned i;
 
         assert(m);
         assert(m->hdr);
         assert(NLMSG_ALIGN(m->hdr->nlmsg_len) == m->hdr->nlmsg_len);
         assert(!data || data_length > 0);
+        assert(data || m->n_containers < RTNL_CONTAINER_DEPTH);
 
         /* get the size of the new rta attribute (with padding at the end) */
         rta_length = RTA_LENGTH(data_length);
@@ -394,16 +397,16 @@ static int add_rtattr(sd_rtnl_message *m, unsigned short type, const void *data,
         /* get pointer to the attribute we are about to add */
         rta = (struct rtattr *) ((uint8_t *) m->hdr + m->hdr->nlmsg_len);
 
-        /* if we are inside a container, extend it */
-        if (CURRENT_CONTAINER(m))
-                CURRENT_CONTAINER(m)->rta_len += message_length - m->hdr->nlmsg_len;
+        /* if we are inside containers, extend them */
+        for (i = 0; i < m->n_containers; i++)
+                GET_CONTAINER(m, i)->rta_len += message_length - m->hdr->nlmsg_len;
 
         /* fill in the attribute */
         rta->rta_type = type;
         rta->rta_len = rta_length;
         if (!data) {
                 /* this is the start of a new container */
-                m->container_offset = m->hdr->nlmsg_len;
+                m->container_offsets[m->n_containers ++] = m->hdr->nlmsg_len;
         } else {
                 /* we don't deal with the case where the user lies about the type
                  * and gives us too little data (so don't do that)
@@ -437,8 +440,8 @@ int sd_rtnl_message_append_string(sd_rtnl_message *m, unsigned short type, const
                 case RTM_SETLINK:
                 case RTM_GETLINK:
                 case RTM_DELLINK:
-                        if (CURRENT_CONTAINER(m)) {
-                                if (CURRENT_CONTAINER(m)->rta_type != IFLA_LINKINFO ||
+                        if (m->n_containers == 1) {
+                                if (GET_CONTAINER(m, 0)->rta_type != IFLA_LINKINFO ||
                                     type != IFLA_INFO_KIND)
                                         return -ENOTSUP;
                         } else {
@@ -485,12 +488,13 @@ int sd_rtnl_message_append_u16(sd_rtnl_message *m, unsigned short type, uint16_t
                 case RTM_SETLINK:
                 case RTM_GETLINK:
                 case RTM_DELLINK:
-                        switch (type) {
-                                case IFLA_VLAN_ID:
-                                        break;
-                                default:
-                                        return -ENOTSUP;
-                        }
+                        if (m->n_containers == 2 &&
+                            GET_CONTAINER(m, 0)->rta_type == IFLA_LINKINFO &&
+                            GET_CONTAINER(m, 1)->rta_type == IFLA_INFO_DATA &&
+                            type == IFLA_VLAN_ID)
+                                break;
+                        else
+                                return -ENOTSUP;
                         break;
                 default:
                         return -ENOTSUP;
@@ -710,12 +714,13 @@ int sd_rtnl_message_open_container(sd_rtnl_message *m, unsigned short type) {
         uint16_t rtm_type;
 
         assert_return(m, -EINVAL);
-        assert_return(!CURRENT_CONTAINER(m), -EINVAL);
 
         sd_rtnl_message_get_type(m, &rtm_type);
 
         if (message_type_is_link(rtm_type)) {
-                if (type == IFLA_LINKINFO)
+                if ((type == IFLA_LINKINFO && m->n_containers == 0) ||
+                    (type == IFLA_INFO_DATA && m->n_containers == 1 &&
+                     GET_CONTAINER(m, 0)->rta_type == IFLA_LINKINFO))
                         return add_rtattr(m, type, NULL, 0);
                 else
                         return -ENOTSUP;
@@ -727,9 +732,9 @@ int sd_rtnl_message_open_container(sd_rtnl_message *m, unsigned short type) {
 
 int sd_rtnl_message_close_container(sd_rtnl_message *m) {
         assert_return(m, -EINVAL);
-        assert_return(CURRENT_CONTAINER(m), -EINVAL);
+        assert_return(m->n_containers > 0, -EINVAL);
 
-        m->container_offset = 0;
+        m->n_containers --;
 
         return 0;
 }

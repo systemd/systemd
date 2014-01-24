@@ -83,6 +83,8 @@ struct sd_rtnl {
 #define RTNL_WQUEUE_MAX 1024
 #define RTNL_RQUEUE_MAX 64*1024
 
+#define RTNL_CONTAINER_DEPTH 32
+
 int message_new_synthetic_error(int error, uint32_t serial, sd_rtnl_message **ret);
 uint32_t message_get_serial(sd_rtnl_message *m);
 int message_seal(sd_rtnl *nl, sd_rtnl_message *m);
