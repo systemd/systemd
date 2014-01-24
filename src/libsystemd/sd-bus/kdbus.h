@@ -861,8 +861,8 @@ enum kdbus_ioctl_type {
 
 	KDBUS_CMD_MSG_SEND =		_IOW (KDBUS_IOC_MAGIC, 0x40, struct kdbus_msg),
 	KDBUS_CMD_MSG_RECV =		_IOWR(KDBUS_IOC_MAGIC, 0x41, struct kdbus_cmd_recv),
-	KDBUS_CMD_MSG_CANCEL =		_IOW (KDBUS_IOC_MAGIC, 0x43, __u64 *),
-	KDBUS_CMD_FREE =		_IOW (KDBUS_IOC_MAGIC, 0x42, __u64 *),
+	KDBUS_CMD_MSG_CANCEL =		_IOW (KDBUS_IOC_MAGIC, 0x42, __u64 *),
+	KDBUS_CMD_FREE =		_IOW (KDBUS_IOC_MAGIC, 0x43, __u64 *),
 
 	KDBUS_CMD_NAME_ACQUIRE =	_IOWR(KDBUS_IOC_MAGIC, 0x50, struct kdbus_cmd_name),
 	KDBUS_CMD_NAME_RELEASE =	_IOW (KDBUS_IOC_MAGIC, 0x51, struct kdbus_cmd_name),
