@@ -27,8 +27,6 @@ Bugfixes:
 
 External:
 
-* ps should gain colums for slice
-
 * Fedora: when installing fedora with yum --installroot /var/run is a directory, not a symlink
    https://bugzilla.redhat.com/show_bug.cgi?id=975864
 
