@@ -45,6 +45,7 @@ struct sd_rtnl_message {
 #define GET_CONTAINER(m, i) (i < (m)->n_containers ? (struct rtattr*)((uint8_t*)(m)->hdr + (m)->container_offsets[i]) : NULL)
 #define NEXT_RTA(m) ((struct rtattr*)((uint8_t*)(m)->hdr + (m)->next_rta_offset))
 #define UPDATE_RTA(m, new) (m)->next_rta_offset = (uint8_t*)(new) - (uint8_t*)(m)->hdr;
+#define PUSH_CONTAINER(m, new) (m)->container_offsets[(m)->n_containers ++] = (uint8_t*)(new) - (uint8_t*)(m)->hdr;
 
 static int message_new(sd_rtnl_message **ret, size_t initial_size) {
         sd_rtnl_message *m;
@@ -378,6 +379,7 @@ static int add_rtattr(sd_rtnl_message *m, unsigned short type, const void *data,
 
         assert(m);
         assert(m->hdr);
+        assert(!m->sealed);
         assert(NLMSG_ALIGN(m->hdr->nlmsg_len) == m->hdr->nlmsg_len);
         assert(!data || data_length > 0);
         assert(data || m->n_containers < RTNL_CONTAINER_DEPTH);
@@ -428,6 +430,7 @@ int sd_rtnl_message_append_string(sd_rtnl_message *m, unsigned short type, const
         int r;
 
         assert_return(m, -EINVAL);
+        assert_return(!m->sealed, -EPERM);
         assert_return(data, -EINVAL);
 
         r = sd_rtnl_message_get_type(m, &rtm_type);
@@ -477,6 +480,7 @@ int sd_rtnl_message_append_u16(sd_rtnl_message *m, unsigned short type, uint16_t
         int r;
 
         assert_return(m, -EINVAL);
+        assert_return(!m->sealed, -EPERM);
 
         r = sd_rtnl_message_get_type(m, &rtm_type);
         if (r < 0)
@@ -512,6 +516,7 @@ int sd_rtnl_message_append_u32(sd_rtnl_message *m, unsigned short type, uint32_t
         int r;
 
         assert_return(m, -EINVAL);
+        assert_return(!m->sealed, -EPERM);
 
         r = sd_rtnl_message_get_type(m, &rtm_type);
         if (r < 0)
@@ -563,6 +568,7 @@ int sd_rtnl_message_append_in_addr(sd_rtnl_message *m, unsigned short type, cons
         int r;
 
         assert_return(m, -EINVAL);
+        assert_return(!m->sealed, -EPERM);
         assert_return(data, -EINVAL);
 
         r = sd_rtnl_message_get_type(m, &rtm_type);
@@ -624,6 +630,7 @@ int sd_rtnl_message_append_in6_addr(sd_rtnl_message *m, unsigned short type, con
         int r;
 
         assert_return(m, -EINVAL);
+        assert_return(!m->sealed, -EPERM);
         assert_return(data, -EINVAL);
 
         r = sd_rtnl_message_get_type(m, &rtm_type);
@@ -682,6 +689,7 @@ int sd_rtnl_message_append_ether_addr(sd_rtnl_message *m, unsigned short type, c
         int r;
 
         assert_return(m, -EINVAL);
+        assert_return(!m->sealed, -EPERM);
         assert_return(data, -EINVAL);
 
         sd_rtnl_message_get_type(m, &rtm_type);
@@ -714,6 +722,7 @@ int sd_rtnl_message_open_container(sd_rtnl_message *m, unsigned short type) {
         uint16_t rtm_type;
 
         assert_return(m, -EINVAL);
+        assert_return(!m->sealed, -EPERM);
 
         sd_rtnl_message_get_type(m, &rtm_type);
 
@@ -732,6 +741,7 @@ int sd_rtnl_message_open_container(sd_rtnl_message *m, unsigned short type) {
 
 int sd_rtnl_message_close_container(sd_rtnl_message *m) {
         assert_return(m, -EINVAL);
+        assert_return(!m->sealed, -EPERM);
         assert_return(m->n_containers > 0, -EINVAL);
 
         m->n_containers --;
@@ -744,32 +754,55 @@ int sd_rtnl_message_read(sd_rtnl_message *m, unsigned short *type, void **data) 
         uint16_t rtm_type;
         int r;
 
-        assert(m);
-        assert(m->next_rta_offset);
-        assert(type);
-        assert(data);
+        assert_return(m, -EINVAL);
+        assert_return(m->sealed, -EPERM);
+        assert_return(m->next_rta_offset, -EINVAL);
+        assert_return(type, -EINVAL);
+        assert_return(data, -EINVAL);
 
-        remaining_size = m->hdr->nlmsg_len - m->next_rta_offset;
+        /* only read until the end of the current container */
+        if (m->n_containers)
+                remaining_size = GET_CONTAINER(m, m->n_containers - 1)->rta_len -
+                                 (m->next_rta_offset -
+                                  m->container_offsets[m->n_containers - 1]);
+        else
+                remaining_size = m->hdr->nlmsg_len - m->next_rta_offset;
 
         if (!RTA_OK(NEXT_RTA(m), remaining_size))
                 return 0;
 
-        /* make sure we don't try to read a container
-         * TODO: add support for entering containers for reading */
+        /* if we read a container, enter it and return its type */
         r = sd_rtnl_message_get_type(m, &rtm_type);
         if (r < 0)
                 return r;
 
-        if (message_type_is_link(rtm_type) &&
-            NEXT_RTA(m)->rta_type == IFLA_LINKINFO)
-               return -EINVAL;
-
-        *data = RTA_DATA(NEXT_RTA(m));
         *type = NEXT_RTA(m)->rta_type;
 
-        UPDATE_RTA(m, RTA_NEXT(NEXT_RTA(m), remaining_size));
+        if (message_type_is_link(rtm_type) &&
+            ((m->n_containers == 0 &&
+              NEXT_RTA(m)->rta_type == IFLA_LINKINFO) ||
+             (m->n_containers == 1 &&
+              GET_CONTAINER(m, 0)->rta_type == IFLA_LINKINFO &&
+              NEXT_RTA(m)->rta_type == IFLA_INFO_DATA))) {
+                *data = NULL;
+                PUSH_CONTAINER(m, NEXT_RTA(m));
+                UPDATE_RTA(m, RTA_DATA(NEXT_RTA(m)));
+        } else {
+                *data = RTA_DATA(NEXT_RTA(m));
+                UPDATE_RTA(m, RTA_NEXT(NEXT_RTA(m), remaining_size));
+        }
 
         return 1;
+}
+
+int sd_rtnl_message_exit_container(sd_rtnl_message *m) {
+        assert_return(m, -EINVAL);
+        assert_return(m->sealed, -EINVAL);
+        assert_return(m->n_containers > 0, -EINVAL);
+
+        m->n_containers --;
+
+        return 0;
 }
 
 uint32_t message_get_serial(sd_rtnl_message *m) {
@@ -794,15 +827,22 @@ int sd_rtnl_message_get_errno(sd_rtnl_message *m) {
 }
 
 int message_seal(sd_rtnl *nl, sd_rtnl_message *m) {
-        assert(nl);
+        int r;
+
         assert(m);
         assert(m->hdr);
 
         if (m->sealed)
                 return -EPERM;
 
-        m->hdr->nlmsg_seq = nl->serial++;
+        if (nl)
+                m->hdr->nlmsg_seq = nl->serial++;
+
         m->sealed = true;
+
+        r = sd_rtnl_message_rewind(m);
+        if (r < 0)
+                return r;
 
         return 0;
 }
@@ -875,6 +915,9 @@ int socket_read_message(sd_rtnl *nl, sd_rtnl_message **ret) {
         r = message_new(&m, need);
         if (r < 0)
                 return r;
+
+        /* don't allow sealing/appending to received messages */
+        m->sealed = true;
 
         addr_len = sizeof(addr);
 
@@ -961,6 +1004,7 @@ int sd_rtnl_message_rewind(sd_rtnl_message *m) {
         struct rtmsg *rtm;
 
         assert_return(m, -EINVAL);
+        assert_return(m->sealed, -EPERM);
         assert_return(m->hdr, -EINVAL);
 
         switch(m->hdr->nlmsg_type) {
@@ -989,6 +1033,8 @@ int sd_rtnl_message_rewind(sd_rtnl_message *m) {
                 default:
                         return -ENOTSUP;
         }
+
+        m->n_containers = 0;
 
         return 0;
 }

@@ -27,6 +27,7 @@
 #include "sd-rtnl.h"
 #include "socket-util.h"
 #include "rtnl-util.h"
+#include "rtnl-internal.h"
 #include "event-util.h"
 
 static void test_link_configure(sd_rtnl *rtnl, int ifindex) {
@@ -42,6 +43,8 @@ static void test_link_configure(sd_rtnl *rtnl, int ifindex) {
         assert(sd_rtnl_message_append_ether_addr(message, IFLA_ADDRESS, ether_aton(mac)) >= 0);
         assert(sd_rtnl_message_append_u32(message, IFLA_MTU, mtu) >= 0);
 
+        assert(sd_rtnl_call(rtnl, message, 0, NULL) == 1);
+
         assert(sd_rtnl_message_read(message, &type, &data) > 0);
         assert(type == IFLA_IFNAME);
         assert(streq(name, (char *) data));
@@ -53,8 +56,6 @@ static void test_link_configure(sd_rtnl *rtnl, int ifindex) {
         assert(sd_rtnl_message_read(message, &type, &data) > 0);
         assert(type == IFLA_MTU);
         assert(mtu == *(unsigned int *) data);
-
-        assert(sd_rtnl_call(rtnl, message, 0, NULL) == 1);
 }
 
 static void test_route(void) {
@@ -84,6 +85,8 @@ static void test_route(void) {
                 log_error("Could not append RTA_OIF attribute: %s", strerror(-r));
                 return;
         }
+
+        assert(message_seal(NULL, req) >= 0);
 
         assert(sd_rtnl_message_read(req, &type, &data) > 0);
         assert(type == RTA_GATEWAY);
@@ -224,15 +227,26 @@ static void test_container(void) {
         assert(sd_rtnl_message_close_container(m) >= 0);
         assert(sd_rtnl_message_close_container(m) == -EINVAL);
 
-        assert(sd_rtnl_message_read(m, &type, &data) == -EINVAL);
+        assert(message_seal(NULL, m) >= 0);
 
-/* TODO: add support for entering containers
-        assert(sd_rtnl_message_read(m, &type, &data) > 0);
+        assert(sd_rtnl_message_read(m, &type, &data) >= 0);
+        assert(type == IFLA_LINKINFO);
+        assert(data == NULL);
+        assert(sd_rtnl_message_read(m, &type, &data) >= 0);
         assert(type == IFLA_INFO_KIND);
-        assert(streq("kind", (char *) data));
-
-        assert(sd_rtnl_message_read(m, &type, &data) == 0);
-*/
+        assert(streq("kind", (char *)data));
+        assert(sd_rtnl_message_read(m, &type, &data) >= 0);
+        assert(type == IFLA_INFO_DATA);
+        assert(data == NULL);
+        assert(sd_rtnl_message_read(m, &type, &data) >= 0);
+        assert(type == IFLA_VLAN_ID);
+        assert(*(uint16_t *)data == 100);
+        assert(sd_rtnl_message_exit_container(m) >= 0);
+        assert(sd_rtnl_message_read(m, &type, &data) >= 0);
+        assert(type == IFLA_INFO_KIND);
+        assert(streq("kind", (char *)data));
+        assert(sd_rtnl_message_exit_container(m) >= 0);
+        assert(sd_rtnl_message_exit_container(m) == -EINVAL);
 }
 
 static void test_match(void) {
@@ -286,7 +300,7 @@ int main(void) {
         assert(sd_rtnl_message_get_type(m, &type) >= 0);
         assert(type == RTM_GETLINK);
 
-        assert(sd_rtnl_message_read(m, &type, &data) == 0);
+        assert(sd_rtnl_message_read(m, &type, &data) == -EPERM);
 
         assert(sd_rtnl_call(rtnl, m, 0, &r) == 1);
         assert(sd_rtnl_message_get_type(r, &type) >= 0);
@@ -303,6 +317,8 @@ int main(void) {
         assert(m);
 
         assert(sd_rtnl_message_append_u32(m, IFLA_MTU, mtu) >= 0);
+        assert(sd_rtnl_message_read(m, &type, (void **) &mtu_reply) == -EPERM);
+        assert(sd_rtnl_call(rtnl, m, -1, &r) == 1);
         assert(sd_rtnl_message_read(m, &type, (void **) &mtu_reply) == 1);
 
         assert(type == IFLA_MTU);
@@ -310,7 +326,6 @@ int main(void) {
 
         assert(sd_rtnl_message_read(m, &type, &data) == 0);
 
-        assert(sd_rtnl_call(rtnl, m, -1, &r) == 1);
         while (sd_rtnl_message_read(r, &type, &data) > 0) {
                 switch (type) {
 //                        case IFLA_MTU:
