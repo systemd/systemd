@@ -241,10 +241,12 @@ static void test_container(void) {
         assert(sd_rtnl_message_read(m, &type, &data) >= 0);
         assert(type == IFLA_VLAN_ID);
         assert(*(uint16_t *)data == 100);
+        assert(sd_rtnl_message_read(m, &type, &data) == 0);
         assert(sd_rtnl_message_exit_container(m) >= 0);
         assert(sd_rtnl_message_read(m, &type, &data) >= 0);
         assert(type == IFLA_INFO_KIND);
         assert(streq("kind", (char *)data));
+        assert(sd_rtnl_message_read(m, &type, &data) == 0);
         assert(sd_rtnl_message_exit_container(m) >= 0);
         assert(sd_rtnl_message_exit_container(m) == -EINVAL);
 }
