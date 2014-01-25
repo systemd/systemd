@@ -166,7 +166,11 @@ static int route_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 
         r = sd_rtnl_message_get_errno(m);
         if (r < 0 && r != -EEXIST)
-                log_warning_link(link, "could not set route: %s", strerror(-r));
+                log_struct_link(LOG_WARNING, link,
+                                "MESSAGE=%s: could not set route: %s",
+                                link->ifname, strerror(-r),
+                                "ERRNO=%d", -r,
+                                NULL);
 
         /* we might have received an old reply after moving back to SETTING_ADDRESSES,
          * ignore it */
@@ -237,7 +241,7 @@ static int address_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 
         r = sd_rtnl_message_get_errno(m);
         if (r < 0 && r != -EEXIST)
-                log_struct_link(LOG_ERR, link,
+                log_struct_link(LOG_WARNING, link,
                                 "MESSAGE=%s: could not set address: %s",
                                 link->ifname, strerror(-r),
                                 "ERRNO=%d", -r,
@@ -305,8 +309,12 @@ static int address_drop_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdat
                 return 1;
 
         r = sd_rtnl_message_get_errno(m);
-        if (r < 0 && r != -EEXIST)
-                log_warning_link(link, "could not drop address: %s", strerror(-r));
+        if (r < 0 && r != -ENOENT)
+                log_struct_link(LOG_WARNING, link,
+                                "MESSAGE=%s: could not drop address: %s",
+                                link->ifname, strerror(-r),
+                                "ERRNO=%d", -r,
+                                NULL);
 
         return 1;
 }
@@ -367,8 +375,12 @@ static int set_mtu_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
                 return 1;
 
         r = sd_rtnl_message_get_errno(m);
-        if (r < 0 && r != -EEXIST)
-                log_warning_link(link, "Could not set MTU: %s", strerror(-r));
+        if (r < 0)
+                log_struct_link(LOG_WARNING, link,
+                                "MESSAGE=%s: could not set MTU: %s",
+                                link->ifname, strerror(-r),
+                                "ERRNO=%d", -r,
+                                NULL);
 
         return 1;
 }
@@ -687,9 +699,13 @@ static int link_up_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 
         r = sd_rtnl_message_get_errno(m);
         if (r < 0) {
-                log_warning_link(link,
-                                 "could not bring up interface: %s", strerror(-r));
+                log_struct_link(LOG_ERR, link,
+                                "MESSAGE=%s: could not bring up interface: %s",
+                                link->ifname, strerror(-r),
+                                "ERRNO=%d", -r,
+                                NULL);
                 link_enter_failed(link);
+                return 1;
         }
 
         link_update_flags(link, link->flags | IFF_UP);
@@ -763,8 +779,11 @@ static int enslave_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 
         r = sd_rtnl_message_get_errno(m);
         if (r < 0) {
-                log_error_link(link, "could not enslave: %s",
-                               strerror(-r));
+                log_struct_link(LOG_ERR, link,
+                                "MESSAGE=%s: could not enslave: %s",
+                                link->ifname, strerror(-r),
+                                "ERRNO=%d", -r,
+                                NULL);
                 link_enter_failed(link);
                 return 1;
         }
@@ -792,7 +811,7 @@ static int link_enter_enslave(Link *link) {
         if (link->network->bridge) {
                 log_struct_link(LOG_DEBUG, link,
                                 "MESSAGE=%s: enslaving by '%s'",
-                                link->network->bridge->name,
+                                link->ifname, link->network->bridge->name,
                                 NETDEV(link->network->bridge),
                                 NULL);
 
@@ -800,7 +819,7 @@ static int link_enter_enslave(Link *link) {
                 if (r < 0) {
                         log_struct_link(LOG_WARNING, link,
                                         "MESSAGE=%s: could not enslave by '%s': %s",
-                                        link->network->bridge->name, strerror(-r),
+                                        link->ifname, link->network->bridge->name, strerror(-r),
                                         NETDEV(link->network->bridge),
                                         NULL);
                         link_enter_failed(link);
@@ -813,7 +832,7 @@ static int link_enter_enslave(Link *link) {
         if (link->network->vlan) {
                 log_struct_link(LOG_DEBUG, link,
                                 "MESSAGE=%s: enslaving by '%s'",
-                                link->network->vlan->name,
+                                link->ifname, link->network->vlan->name,
                                 NETDEV(link->network->vlan),
                                 NULL);
 
@@ -821,8 +840,8 @@ static int link_enter_enslave(Link *link) {
                 if (r < 0) {
                         log_struct_link(LOG_WARNING, link,
                                         "MESSAGE=%s: could not enslave by '%s': %s",
-                                        link->network->vlan->name, strerror(-r),
-                                        NETDEV(link->network->vlan),
+                                        link->ifname, link->network->vlan->name,
+                                        strerror(-r), NETDEV(link->network->vlan),
                                         NULL);
                         link_enter_failed(link);
                         return r;
@@ -845,8 +864,13 @@ static int link_get_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 
         r = sd_rtnl_message_get_errno(m);
         if (r < 0) {
-                log_warning_link(link, "could not get state: %s", strerror(-r));
+                log_struct_link(LOG_ERR, link,
+                                "MESSAGE=%s: could not get state: %s",
+                                link->ifname, strerror(-r),
+                                "ERRNO=%d", -r,
+                                NULL);
                 link_enter_failed(link);
+                return 1;
         }
 
         log_debug_link(link, "got link state");
