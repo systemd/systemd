@@ -4538,7 +4538,8 @@ libsystemd_login_la_SOURCES = \
 
 libsystemd_login_la_CFLAGS = \
 	$(AM_CFLAGS) \
-	-fvisibility=default
+	-fvisibility=default \
+	-fno-lto
 
 libsystemd_login_la_LDFLAGS = \
 	$(AM_LDFLAGS) \
