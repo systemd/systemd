@@ -11,8 +11,8 @@ libdir=@libdir@
 includedir=@includedir@
 
 Name: systemd
-Description: systemd 128 Bit ID Utility Library
+Description: systemd 128 Bit ID Utility Library - deprecated
 URL: @PACKAGE_URL@
 Version: @PACKAGE_VERSION@
-Libs: -L${libdir} -lsystemd-id128
+Libs: -L${libdir} -lsystemd
 Cflags: -I${includedir}

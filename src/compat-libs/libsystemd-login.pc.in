@@ -11,7 +11,7 @@ libdir=@libdir@
 includedir=@includedir@
 
 Name: systemd
-Description: systemd Login Utility Library deprecated compatibility library
+Description: systemd Login Utility Library - deprecated
 URL: @PACKAGE_URL@
 Version: @PACKAGE_VERSION@
 Libs: -L${libdir} -lsystemd
