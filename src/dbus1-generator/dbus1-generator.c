@@ -84,9 +84,10 @@ static int create_dbus_files(
                         fprintf(f, "Environment=DBUS_STARTER_BUS_TYPE=%s\n", type);
 
                         if (streq(type, "system"))
-                                fprintf(f, "Environment=DBUS_STARTER_ADDRESS=kernel:/dev/kdbus/0-system\n");
+                                fprintf(f, "Environment=DBUS_STARTER_ADDRESS=kernel:path=/dev/kdbus/0-system\n");
                         else if (streq(type, "session"))
-                                fprintf(f, "Environment=DBUS_STARTER_ADDRESS=kernel:/dev/kdbus/%lu-user\n", (unsigned long) getuid());
+                                fprintf(f, "Environment=DBUS_STARTER_ADDRESS=kernel:path=/dev/kdbus/%lu-user;unix:path=/run/user/%lu/bus\n",
+                                        (unsigned long) getuid(), (unsigned long) getuid());
                 }
 
                 fflush(f);
