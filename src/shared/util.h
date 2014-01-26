@@ -849,3 +849,5 @@ bool pid_valid(pid_t pid);
 
 int getpeercred(int fd, struct ucred *ucred);
 int getpeersec(int fd, char **ret);
+
+int open_tmpfile(const char *path, int flags);

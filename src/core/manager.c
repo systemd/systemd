@@ -2005,28 +2005,17 @@ void manager_dispatch_bus_name_owner_changed(
 }
 
 int manager_open_serialization(Manager *m, FILE **_f) {
-        _cleanup_free_ char *path = NULL;
+        const char *path;
         int fd = -1;
         FILE *f;
 
         assert(_f);
 
-        if (m->running_as == SYSTEMD_SYSTEM)
-                asprintf(&path, "/run/systemd/dump-"PID_FMT"-XXXXXX", getpid());
-        else
-                asprintf(&path, "/tmp/systemd-dump-"PID_FMT"-XXXXXX", getpid());
-
-        if (!path)
-                return -ENOMEM;
-
-        RUN_WITH_UMASK(0077) {
-                fd = mkostemp(path, O_RDWR|O_CLOEXEC);
-        }
-
+        path = m->running_as == SYSTEMD_SYSTEM ? "/run/systemd" : "/tmp";
+        fd = open_tmpfile(path, O_RDWR|O_CLOEXEC);
         if (fd < 0)
                 return -errno;
 
-        unlink(path);
         log_debug("Serializing state to %s", path);
 
         f = fdopen(fd, "w+");

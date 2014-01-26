@@ -216,10 +216,6 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
                 uint8_t buf[CMSG_SPACE(sizeof(int))];
         } control;
         struct cmsghdr *cmsg;
-        /* We use /dev/shm instead of /tmp here, since we want this to
-         * be a tmpfs, and one that is available from early boot on
-         * and where unprivileged users can create files. */
-        char path[] = "/dev/shm/journal.XXXXXX";
         bool have_syslog_identifier = false;
 
         assert_return(iov, -EINVAL);
@@ -309,16 +305,14 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
 
         /* Message doesn't fit... Let's dump the data in a temporary
          * file and just pass a file descriptor of it to the other
-         * side */
-
-        buffer_fd = mkostemp(path, O_CLOEXEC|O_RDWR);
+         * side.
+         *
+         * We use /dev/shm instead of /tmp here, since we want this to
+         * be a tmpfs, and one that is available from early boot on
+         * and where unprivileged users can create files. */
+        buffer_fd = open_tmpfile("/dev/shm", O_RDWR | O_CLOEXEC);
         if (buffer_fd < 0)
-                return -errno;
-
-        if (unlink(path) < 0) {
-                close_nointr_nofail(buffer_fd);
-                return -errno;
-        }
+                return buffer_fd;
 
         n = writev(buffer_fd, w, j);
         if (n < 0) {

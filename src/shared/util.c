@@ -6108,3 +6108,25 @@ int getpeersec(int fd, char **ret) {
         *ret = s;
         return 0;
 }
+
+int open_tmpfile(const char *path, int flags) {
+        int fd;
+        char *p;
+
+#ifdef O_TMPFILE
+        fd = open(path, flags|O_TMPFILE, S_IRUSR|S_IWUSR);
+        if (fd >= 0)
+                return fd;
+#endif
+        p = strappenda(path, "/systemd-tmp-XXXXXX");
+
+        RUN_WITH_UMASK(0077) {
+                fd = mkostemp(p, O_RDWR|O_CLOEXEC);
+        }
+
+        if (fd < 0)
+                return -errno;
+
+        unlink(p);
+        return fd;
+}
