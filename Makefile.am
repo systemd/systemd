@@ -145,6 +145,10 @@ TESTS =
 endif
 udevlibexec_PROGRAMS =
 
+.PHONY: $(INSTALL_EXEC_HOOKS) $(UNINSTALL_EXEC_HOOKS) \
+	$(INSTALL_DATA_HOOKS) $(UNINSTALL_DATA_HOOKS) \
+	$(DISTCLEAN_LOCAL_HOOKS) $(CLEAN_LOCAL_HOOKS)
+
 AM_CPPFLAGS = \
 	-include $(top_builddir)/config.h \
 	-DPKGSYSCONFDIR=\"$(pkgsysconfdir)\" \
@@ -558,7 +562,7 @@ MANPAGES_ALIAS =
 
 include Makefile-man.am
 
-.PHONY: man
+.PHONY: man update-man-list
 man: $(MANPAGES) $(MANPAGES_ALIAS) $(HTML_FILES) $(HTML_ALIAS)
 
 XML_FILES = \
@@ -1415,7 +1419,7 @@ test_sched_prio_LDADD = \
 
 # ------------------------------------------------------------------------------
 ## .PHONY so it always rebuilds it
-.PHONY: coverage lcov-run lcov-report
+.PHONY: coverage lcov-run lcov-report coverage-sync
 
 # run lcov from scratch, always
 coverage:
@@ -3797,7 +3801,7 @@ dist_noinst_SCRIPT = \
 	src/locale/generate-kbd-model-map
 
 update-kbd-model-map: src/locale/generate-kbd-model-map
-	$PYTHON $< > src/locale/kbd-model-map
+	$PYTHON $< >src/locale/kbd-model-map
 
 localectl_SOURCES = \
 	src/locale/localectl.c
@@ -3817,6 +3821,8 @@ dist_zshcompletion_DATA += \
 	shell-completion/zsh/_localectl
 
 endif
+
+.PHONY: update-kbd-model-map
 
 polkitpolicy_in_files += \
 	src/locale/org.freedesktop.locale1.policy.in
@@ -4427,6 +4433,8 @@ endif
 
 CLEAN_LOCAL_HOOKS += clean-sphinx
 
+.PHONY: python-shell destdir-sphinx clean-sphinx clean-python
+
 clean-sphinx:
 	-rm -rf docs/html/python-systemd/
 
@@ -4836,6 +4844,7 @@ DISTCHECK_CONFIGURE_FLAGS += \
 	--enable-gtk-doc
 endif
 
+.PHONY: hwdb-update
 hwdb-update:
 	( cd $(top_srcdir)/hwdb && \
 	wget -N http://www.linux-usb.org/usb.ids \
@@ -4844,16 +4853,19 @@ hwdb-update:
 	        http://standards.ieee.org/develop/regauth/iab/iab.txt && \
 	./ids-update.pl )
 
+.PHONY: kdbus-update
 kdbus-update:
 	( cd $(top_srcdir)/src/libsystemd/ && \
 	wget -N https://d-bus.googlecode.com/git/kdbus.h )
 
+.PHONY: upload
 upload: all distcheck
 	cp -v systemd-$(VERSION).tar.xz /home/lennart/git.fedora/systemd/
 	scp systemd-$(VERSION).tar.xz fdo:/srv/www.freedesktop.org/www/software/systemd/
 	scp man/*.html tango:public/systemd-man/
 
 www_target = www.freedesktop.org:/srv/www.freedesktop.org/www/software/systemd
+.PHONY: doc-sync
 doc-sync: all destdir-sphinx
 	gtkdoc-rebase --html-dir=docs/libudev/html --online
 	rsync -rlv --delete docs/libudev/html/ --omit-dir-times $(www_target)/libudev/
@@ -4862,9 +4874,11 @@ doc-sync: all destdir-sphinx
 	rsync -rlv --delete-excluded --include="*.html" --exclude="*" --omit-dir-times man/ $(www_target)/man/
 	rsync -rlv --delete --omit-dir-times docs/html/python-systemd/ $(www_target)/python-systemd/
 
+.PHONY: git-tag
 git-tag:
 	git tag "v$(VERSION)" -m "systemd $(VERSION)"
 
+.PHONY: install-tree
 install-tree: all
 	rm -rf $(abs_srcdir)/install-tree
 	$(MAKE) install DESTDIR=$(abs_srcdir)/install-tree
@@ -4872,6 +4886,7 @@ install-tree: all
 
 # Let's run all tests of the test suite, but under valgrind. Let's
 # exclude the one perl script we have in there
+.PHONY: valgrind-tests
 valgrind-tests: $(TESTS)
 	$(AM_V_GEN)for f in $(filter-out %.pl, $^); do \
 		if file $$f | grep -q shell; then \
@@ -4887,6 +4902,7 @@ exported-%: %
 exported: $(addprefix exported-, $(lib_LTLIBRARIES))
 	$(AM_V_GEN)cat $^ > $@
 
+.PHONY: check-api-docs
 check-api-docs: exported man
 	$(AM_V_GEN)for symbol in `cat exported` ; do \
 		if test -f $(builddir)/man/$$symbol.html ; then \
@@ -4908,6 +4924,7 @@ CLEANFILES += \
 	defined \
 	undefined
 
+.PHONY: check-api-unused
 check-api-unused: defined undefined exported
 	( cat exported undefined ) | sort -u  | diff -u - defined | grep ^+ | grep -v ^+++ | cut -c2-
 
