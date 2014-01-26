@@ -84,10 +84,19 @@ static int create_dbus_files(
                         fprintf(f, "Environment=DBUS_STARTER_BUS_TYPE=%s\n", type);
 
                         if (streq(type, "system"))
-                                fprintf(f, "Environment=DBUS_STARTER_ADDRESS=kernel:path=/dev/kdbus/0-system\n");
-                        else if (streq(type, "session"))
-                                fprintf(f, "Environment=DBUS_STARTER_ADDRESS=kernel:path=/dev/kdbus/%lu-user;unix:path=/run/user/%lu/bus\n",
-                                        (unsigned long) getuid(), (unsigned long) getuid());
+                                fprintf(f, "Environment=DBUS_STARTER_ADDRESS=" DEFAULT_SYSTEM_BUS_PATH "\n");
+                        else if (streq(type, "session")) {
+                                char *run;
+
+                                run = getenv("XDG_RUNTIME_DIR");
+                                if (!run) {
+                                        log_error("XDG_RUNTIME_DIR not set.");
+                                        return -EINVAL;
+                                }
+
+                                fprintf(f, "Environment=DBUS_STARTER_ADDRESS="KERNEL_USER_BUS_FMT ";" UNIX_USER_BUS_FMT "\n",
+                                        (unsigned long) getuid(), run);
+                        }
                 }
 
                 fflush(f);
