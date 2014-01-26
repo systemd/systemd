@@ -301,25 +301,29 @@ static inline int name_to_handle_at(int fd, const char *name, struct file_handle
 #endif
 
 #ifndef CIFS_MAGIC_NUMBER
-#define CIFS_MAGIC_NUMBER 0xFF534D42
+#  define CIFS_MAGIC_NUMBER 0xFF534D42
 #endif
 
 #ifndef TFD_TIMER_CANCEL_ON_SET
-#define TFD_TIMER_CANCEL_ON_SET (1 << 1)
+#  define TFD_TIMER_CANCEL_ON_SET (1 << 1)
 #endif
 
 #ifndef SO_REUSEPORT
-#define SO_REUSEPORT 15
+#  define SO_REUSEPORT 15
 #endif
 
 #ifndef EVIOCREVOKE
-#define EVIOCREVOKE _IOW('E', 0x91, int)
+#  define EVIOCREVOKE _IOW('E', 0x91, int)
 #endif
 
 #ifndef DRM_IOCTL_SET_MASTER
-#define DRM_IOCTL_SET_MASTER _IO('d', 0x1e)
+#  define DRM_IOCTL_SET_MASTER _IO('d', 0x1e)
 #endif
 
 #ifndef DRM_IOCTL_DROP_MASTER
-#define DRM_IOCTL_DROP_MASTER _IO('d', 0x1f)
+#  define DRM_IOCTL_DROP_MASTER _IO('d', 0x1f)
+#endif
+
+#ifndef TMP_MAX
+# define TMP_MAX 238328
 #endif

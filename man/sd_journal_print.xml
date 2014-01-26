@@ -153,8 +153,8 @@
                 for details) instead of the format string. Each
                 structure should reference one field of the entry to
                 submit. The second argument specifies the number of
-                structures in the
-                array. <function>sd_journal_sendv()</function> is
+                structures in the array.
+                <function>sd_journal_sendv()</function> is
                 particularly useful to submit binary objects to the
                 journal where that is necessary.</para>
 
@@ -221,6 +221,19 @@ sd_journal_send("MESSAGE=Hello World, this is PID %lu!", (unsigned long) getpid(
         </refsect1>
 
         <refsect1>
+                <title>Async signal safety</title>
+                <para><function>sd_journal_sendv()</function> is "async signal
+                safe" in the meaning of <citerefentry><refentrytitle>signal</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+                </para>
+
+                <para><function>sd_journal_print</function>,
+                <function>sd_journal_printv</function>,
+                <function>sd_journal_send</function>, and
+                <function>sd_journal_perror</function> are
+                not async signal safe.</para>
+        </refsect1>
+
+        <refsect1>
                 <title>Notes</title>
 
                 <para>The <function>sd_journal_print()</function>,
@@ -234,6 +247,16 @@ sd_journal_send("MESSAGE=Hello World, this is PID %lu!", (unsigned long) getpid(
         </refsect1>
 
         <refsect1>
+                <title>History</title>
+
+                <para><function>sd_journal_sendv()</function> was
+                modified to guarantee async-signal-safety in
+                systemd-209. Before that, it would behave safely only
+                when entry size was small enough to fit in one (large)
+                datagram.</para>
+        </refsect1>
+
+        <refsect1>
                 <title>See Also</title>
 
                 <para>
@@ -243,7 +266,9 @@ sd_journal_send("MESSAGE=Hello World, this is PID %lu!", (unsigned long) getpid(
                         <citerefentry><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>perror</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>errno</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>signal</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                 </para>
         </refsect1>
 

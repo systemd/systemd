@@ -314,7 +314,7 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
         if (buffer_fd < 0)
                 return buffer_fd;
 
-        n = writev(buffer_fd, w, j);
+        n = writev_safe(buffer_fd, w, j);
         if (n < 0) {
                 close_nointr_nofail(buffer_fd);
                 return -errno;

@@ -33,7 +33,7 @@
 /hostnamectl
 /install-tree
 /journalctl
-/libsystemd-login.c
+/libsystemd-*.c
 /libtool
 /localectl
 /loginctl
@@ -184,6 +184,7 @@
 /test-strxcpyx
 /test-tables
 /test-time
+/test-tmpfiles
 /test-udev
 /test-unit-file
 /test-unit-name

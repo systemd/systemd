@@ -28,6 +28,8 @@
 
 #include "util.h"
 #include "strv.h"
+#include "def.h"
+#include "fileio.h"
 
 static void test_streq_ptr(void) {
         assert_se(streq_ptr(NULL, NULL));
@@ -578,6 +580,29 @@ static void test_in_set(void) {
         assert_se(!IN_SET(0, 1, 2, 3, 4));
 }
 
+static void test_writev_safe(void) {
+        char name[] = "/tmp/test-writev_safe.XXXXXX";
+        _cleanup_free_ char *contents;
+        size_t size;
+        int fd, r;
+
+        struct iovec iov[3];
+        IOVEC_SET_STRING(iov[0], "abc\n");
+        IOVEC_SET_STRING(iov[1], ALPHANUMERICAL "\n");
+        IOVEC_SET_STRING(iov[2], "");
+
+        fd = mkstemp(name);
+        printf("test_writev_safe: %s", name);
+
+        r = writev_safe(fd, iov, 3);
+        assert(r == 0);
+
+        r = read_full_file(name, &contents, &size);
+        assert(r == 0);
+        printf("contents: %s", contents);
+        assert(streq(contents, "abc\n" ALPHANUMERICAL "\n"));
+}
+
 int main(int argc, char *argv[]) {
         test_streq_ptr();
         test_first_word();
@@ -615,6 +640,7 @@ int main(int argc, char *argv[]) {
         test_fstab_node_to_udev_node();
         test_get_files_in_directory();
         test_in_set();
+        test_writev_safe();
 
         return 0;
 }

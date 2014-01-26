@@ -6109,6 +6109,53 @@ int getpeersec(int fd, char **ret) {
         return 0;
 }
 
+int writev_safe(int fd, const struct iovec *w, int j) {
+        for (int i = 0; i < j; i++) {
+                size_t written = 0;
+
+                while (written < w[i].iov_len) {
+                        ssize_t r;
+
+                        r = write(fd, (char*) w[i].iov_base + written, w[i].iov_len - written);
+                        if (r < 0 && errno != -EINTR)
+                                return -errno;
+
+                        written += r;
+                }
+        }
+
+        return 0;
+}
+
+int mkostemp_safe(char *pattern, int flags) {
+        char *s = pattern + strlen(pattern) - 6;
+        uint64_t tries = TMP_MAX;
+        int randfd, fd, i;
+
+        assert(streq(s, "XXXXXX"));
+
+        randfd = open("/dev/urandom", O_RDONLY);
+        if (randfd < 0)
+                return -ENOSYS;
+
+        while (tries--) {
+                fd = read(randfd, s, 6);
+                if (fd == 0)
+                        return -ENOSYS;
+
+                for (i = 0; i < 6; i++)
+                        s[i] = ALPHANUMERICAL[(unsigned) s[i] % strlen(ALPHANUMERICAL)];
+
+                fd = open(pattern, flags|O_EXCL|O_CREAT, S_IRUSR|S_IWUSR);
+                if (fd >= 0)
+                        return fd;
+                if (!IN_SET(errno, EEXIST, EINTR))
+                        return -errno;
+        }
+
+        return -EEXIST;
+}
+
 int open_tmpfile(const char *path, int flags) {
         int fd;
         char *p;
@@ -6120,12 +6167,9 @@ int open_tmpfile(const char *path, int flags) {
 #endif
         p = strappenda(path, "/systemd-tmp-XXXXXX");
 
-        RUN_WITH_UMASK(0077) {
-                fd = mkostemp(p, O_RDWR|O_CLOEXEC);
-        }
-
+        fd = mkostemp_safe(p, O_RDWR|O_CLOEXEC);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         unlink(p);
         return fd;

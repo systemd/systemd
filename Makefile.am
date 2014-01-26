@@ -1126,6 +1126,7 @@ tests += \
 	test-utf8 \
 	test-ellipsize \
 	test-util \
+	test-tmpfiles \
 	test-namespace \
 	test-date \
 	test-sleep \
@@ -1231,6 +1232,12 @@ test_util_SOURCES = \
 
 test_util_LDADD = \
 	libsystemd-core.la
+
+test_tmpfiles_SOURCES = \
+	src/test/test-tmpfiles.c
+
+test_tmpfiles_LDADD = \
+	libsystemd-shared.la
 
 test_namespace_SOURCES = \
 	src/test/test-namespace.c

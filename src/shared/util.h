@@ -850,4 +850,7 @@ bool pid_valid(pid_t pid);
 int getpeercred(int fd, struct ucred *ucred);
 int getpeersec(int fd, char **ret);
 
+int writev_safe(int fd, const struct iovec *w, int j);
+
+int mkostemp_safe(char *pattern, int flags);
 int open_tmpfile(const char *path, int flags);
