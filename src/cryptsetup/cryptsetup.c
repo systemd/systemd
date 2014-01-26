@@ -39,6 +39,7 @@
 static const char *opt_type = NULL; /* CRYPT_LUKS1, CRYPT_TCRYPT or CRYPT_PLAIN */
 static char *opt_cipher = NULL;
 static unsigned opt_key_size = 0;
+static int opt_key_slot = CRYPT_ANY_SLOT;
 static unsigned opt_keyfile_size = 0;
 static unsigned opt_keyfile_offset = 0;
 static char *opt_hash = NULL;
@@ -84,6 +85,14 @@ static int parse_one_option(const char *option) {
 
                 if (safe_atou(option+5, &opt_key_size) < 0) {
                         log_error("size= parse failure, ignoring.");
+                        return 0;
+                }
+
+        } else if (startswith(option, "key-slot=")) {
+
+                opt_type = CRYPT_LUKS1;
+                if (safe_atoi(option+9, &opt_key_slot) < 0) {
+                        log_error("key-slot= parse failure, ignoring.");
                         return 0;
                 }
 
@@ -425,7 +434,7 @@ static int attach_luks_or_plain(struct crypt_device *cd,
                  crypt_get_device_name(cd));
 
         if (key_file) {
-                r = crypt_activate_by_keyfile_offset(cd, name, CRYPT_ANY_SLOT,
+                r = crypt_activate_by_keyfile_offset(cd, name, opt_key_slot,
                                                      key_file, opt_keyfile_size,
                                                      opt_keyfile_offset, flags);
                 if (r < 0) {
@@ -439,7 +448,7 @@ static int attach_luks_or_plain(struct crypt_device *cd,
                         if (pass_volume_key)
                                 r = crypt_activate_by_volume_key(cd, name, *p, opt_key_size, flags);
                         else
-                                r = crypt_activate_by_passphrase(cd, name, CRYPT_ANY_SLOT, *p, strlen(*p), flags);
+                                r = crypt_activate_by_passphrase(cd, name, opt_key_slot, *p, strlen(*p), flags);
 
                         if (r >= 0)
                                 break;

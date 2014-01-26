@@ -164,6 +164,20 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>key-slot=</varname></term>
+
+                                <listitem><para>Specifies the key slot to
+                                compare the passphrase or key against.
+                                If the key slot does not match the given
+                                passphrase or key, but another would, the
+                                setup of the device will fail regardless.
+                                This implies <varname>luks</varname>. See
+                                <citerefentry><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                                for possible values. The default is to try
+                                all key slots in sequential order.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>luks</varname></term>
 
                                 <listitem><para>Force LUKS mode. When this mode
