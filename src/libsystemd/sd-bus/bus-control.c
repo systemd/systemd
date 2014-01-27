@@ -926,7 +926,7 @@ int bus_add_match_internal_kernel(
 
         struct kdbus_cmd_match *m;
         struct kdbus_item *item;
-        uint64_t bloom[BLOOM_SIZE/8];
+        uint64_t *bloom;
         size_t sz;
         const char *sender = NULL;
         size_t sender_length = 0;
@@ -939,7 +939,7 @@ int bus_add_match_internal_kernel(
 
         assert(bus);
 
-        zero(bloom);
+        bloom = alloca0(bus->bloom_size);
 
         sz = ALIGN8(offsetof(struct kdbus_cmd_match, items));
 
@@ -969,7 +969,7 @@ int bus_add_match_internal_kernel(
                         if (c->value_u8 != SD_BUS_MESSAGE_SIGNAL)
                                 matches_name_change = false;
 
-                        bloom_add_pair(bloom, "message-type", bus_message_type_to_string(c->value_u8));
+                        bloom_add_pair(bloom, bus->bloom_size, bus->bloom_n_hash, "message-type", bus_message_type_to_string(c->value_u8));
                         using_bloom = true;
                         break;
 
@@ -977,7 +977,7 @@ int bus_add_match_internal_kernel(
                         if (!streq(c->value_str, "org.freedesktop.DBus"))
                                 matches_name_change = false;
 
-                        bloom_add_pair(bloom, "interface", c->value_str);
+                        bloom_add_pair(bloom, bus->bloom_size, bus->bloom_n_hash, "interface", c->value_str);
                         using_bloom = true;
                         break;
 
@@ -985,7 +985,7 @@ int bus_add_match_internal_kernel(
                         if (!streq(c->value_str, "NameOwnerChanged"))
                                 matches_name_change = false;
 
-                        bloom_add_pair(bloom, "member", c->value_str);
+                        bloom_add_pair(bloom, bus->bloom_size, bus->bloom_n_hash, "member", c->value_str);
                         using_bloom = true;
                         break;
 
@@ -993,13 +993,13 @@ int bus_add_match_internal_kernel(
                         if (!streq(c->value_str, "/org/freedesktop/DBus"))
                                 matches_name_change = false;
 
-                        bloom_add_pair(bloom, "path", c->value_str);
+                        bloom_add_pair(bloom, bus->bloom_size, bus->bloom_n_hash, "path", c->value_str);
                         using_bloom = true;
                         break;
 
                 case BUS_MATCH_PATH_NAMESPACE:
                         if (!streq(c->value_str, "/")) {
-                                bloom_add_pair(bloom, "path-slash-prefix", c->value_str);
+                                bloom_add_pair(bloom, bus->bloom_size, bus->bloom_n_hash, "path-slash-prefix", c->value_str);
                                 using_bloom = true;
                         }
                         break;
@@ -1011,7 +1011,7 @@ int bus_add_match_internal_kernel(
                                 name_change_arg[c->type - BUS_MATCH_ARG] = c->value_str;
 
                         snprintf(buf, sizeof(buf), "arg%u", c->type - BUS_MATCH_ARG);
-                        bloom_add_pair(bloom, buf, c->value_str);
+                        bloom_add_pair(bloom, bus->bloom_size, bus->bloom_n_hash, buf, c->value_str);
                         using_bloom = true;
                         break;
                 }
@@ -1020,7 +1020,7 @@ int bus_add_match_internal_kernel(
                         char buf[sizeof("arg")-1 + 2 + sizeof("-slash-prefix")];
 
                         snprintf(buf, sizeof(buf), "arg%u-slash-prefix", c->type - BUS_MATCH_ARG_PATH);
-                        bloom_add_pair(bloom, buf, c->value_str);
+                        bloom_add_pair(bloom, bus->bloom_size, bus->bloom_n_hash, buf, c->value_str);
                         using_bloom = true;
                         break;
                 }
@@ -1029,7 +1029,7 @@ int bus_add_match_internal_kernel(
                         char buf[sizeof("arg")-1 + 2 + sizeof("-dot-prefix")];
 
                         snprintf(buf, sizeof(buf), "arg%u-dot-prefix", c->type - BUS_MATCH_ARG_NAMESPACE);
-                        bloom_add_pair(bloom, buf, c->value_str);
+                        bloom_add_pair(bloom, bus->bloom_size, bus->bloom_n_hash, buf, c->value_str);
                         using_bloom = true;
                         break;
                 }
@@ -1052,7 +1052,7 @@ int bus_add_match_internal_kernel(
         }
 
         if (using_bloom)
-                sz += ALIGN8(offsetof(struct kdbus_item, data64) + BLOOM_SIZE);
+                sz += ALIGN8(offsetof(struct kdbus_item, data64) + bus->bloom_size);
 
         m = alloca0(sz);
         m->size = sz;
@@ -1069,9 +1069,9 @@ int bus_add_match_internal_kernel(
         }
 
         if (using_bloom) {
-                item->size = offsetof(struct kdbus_item, data64) + BLOOM_SIZE;
+                item->size = offsetof(struct kdbus_item, data64) + bus->bloom_size;
                 item->type = KDBUS_ITEM_BLOOM_MASK;
-                memcpy(item->data64, bloom, BLOOM_SIZE);
+                memcpy(item->data64, bloom, bus->bloom_size);
                 item = KDBUS_ITEM_NEXT(item);
         }
 

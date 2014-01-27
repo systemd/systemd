@@ -271,6 +271,9 @@ struct sd_bus {
         char *cgroup_root;
 
         char *connection_name;
+
+        size_t bloom_size;
+        unsigned bloom_n_hash;
 };
 
 #define BUS_DEFAULT_TIMEOUT ((usec_t) (25 * USEC_PER_SEC))

@@ -231,18 +231,34 @@ probabilistically check whether a certain word is contained in a
 vocabulary. It knows no false negatives, but it does know false
 positives.
 
-The bloom filter that needs to be included has the parameters m=512
-(bits in the filter), k=8 (nr of hash functions). The underlying hash
-function is SipHash-2-4. We calculate two hash values for an input
-strings, one with the hash key b9660bf0467047c18875c49c54b9bd15 (this
-is supposed to be read as a series of 16 hexadecimal formatted
-bytes), and one with the hash key
-aaa154a2e0714b39bfe1dd2e9fc54a3b. This results in two 64bit hash
-values, A and B. The 8 hash functions for the bloom filter require a 9
-bit output each (since m=512=2^9), to generate these we XOR combine
-the first 8 bit of A shifted to the left by 1, with the first 8 bit of
-B. Then, for the next hash function we use the second 8 bit pair, and
-so on.
+The parameters for the bloom filters that need to be included in
+broadcast message is communicated to userspace as part of the hello
+response structure. By default it has the parameters m=512 (bits in
+the filter), k=8 (nr of hash functions). Note however, that this is
+subject to change later on, and userspace implementations must be
+capable of handling m values between at least m=8 and m=2^32, and k
+values between at least k=1 and k=32. The underlying hash function is
+SipHash-2-4. It is used with a number of constant (yet originally
+randomly generated) 128bit hash keys, more specifically:
+
+   b9,66,0b,f0,46,70,47,c1,88,75,c4,9c,54,b9,bd,15,
+   aa,a1,54,a2,e0,71,4b,39,bf,e1,dd,2e,9f,c5,4a,3b,
+   63,fd,ae,be,cd,82,48,12,a1,6e,41,26,cb,fa,a0,c8,
+   23,be,45,29,32,d2,46,2d,82,03,52,28,fe,37,17,f5,
+   56,3b,bf,ee,5a,4f,43,39,af,aa,94,08,df,f0,fc,10,
+   31,80,c8,73,c7,ea,46,d3,aa,25,75,0f,9e,4c,09,29,
+   7d,f7,18,4b,7b,a4,44,d5,85,3c,06,e0,65,53,96,6d,
+   f2,77,e9,6f,93,b5,4e,71,9a,0c,34,88,39,25,bf,35
+
+When calculating the first bit index into the bloom filter, the
+SipHash-2-4 hash value is calculated for the input data and the first
+16 bytes of the array above as hash key. Of the resulting 8 bytes of
+output, as many full bytes are taken for the index as necessary,
+starting from the output's first byte. For the second bit index the
+same hash value is used, continuing with the next unused output byte,
+and so on. Each time the bytes returned by the hash function are
+depleted it is recalculated with the next 16 byte hash key from the
+array above and the same input data.
 
 For each message to send across the bus we populate the bloom filter
 with all possible matchable strings. If a client then wants to

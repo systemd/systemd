@@ -140,19 +140,19 @@ static int bus_message_setup_bloom(sd_bus_message *m, struct kdbus_bloom_filter 
         assert(bloom);
 
         data = bloom->data;
-        memset(data, 0, BLOOM_SIZE);
+        memset(data, 0, m->bus->bloom_size);
         bloom->generation = 0;
 
-        bloom_add_pair(data, "message-type", bus_message_type_to_string(m->header->type));
+        bloom_add_pair(data, m->bus->bloom_size, m->bus->bloom_n_hash, "message-type", bus_message_type_to_string(m->header->type));
 
         if (m->interface)
-                bloom_add_pair(data, "interface", m->interface);
+                bloom_add_pair(data, m->bus->bloom_size, m->bus->bloom_n_hash, "interface", m->interface);
         if (m->member)
-                bloom_add_pair(data, "member", m->member);
+                bloom_add_pair(data, m->bus->bloom_size, m->bus->bloom_n_hash, "member", m->member);
         if (m->path) {
-                bloom_add_pair(data, "path", m->path);
-                bloom_add_pair(data, "path-slash-prefix", m->path);
-                bloom_add_prefixes(data, "path-slash-prefix", m->path, '/');
+                bloom_add_pair(data, m->bus->bloom_size, m->bus->bloom_n_hash, "path", m->path);
+                bloom_add_pair(data, m->bus->bloom_size, m->bus->bloom_n_hash, "path-slash-prefix", m->path);
+                bloom_add_prefixes(data, m->bus->bloom_size, m->bus->bloom_n_hash, "path-slash-prefix", m->path, '/');
         }
 
         r = sd_bus_message_rewind(m, true);
@@ -187,12 +187,12 @@ static int bus_message_setup_bloom(sd_bus_message *m, struct kdbus_bloom_filter 
                 }
 
                 *e = 0;
-                bloom_add_pair(data, buf, t);
+                bloom_add_pair(data, m->bus->bloom_size, m->bus->bloom_n_hash, buf, t);
 
                 strcpy(e, "-dot-prefix");
-                bloom_add_prefixes(data, buf, t, '.');
+                bloom_add_prefixes(data, m->bus->bloom_size, m->bus->bloom_n_hash, buf, t, '.');
                 strcpy(e, "-slash-prefix");
-                bloom_add_prefixes(data, buf, t, '/');
+                bloom_add_prefixes(data, m->bus->bloom_size, m->bus->bloom_n_hash, buf, t, '/');
         }
 
         return 0;
@@ -237,7 +237,7 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
         /* Add space for bloom filter */
         sz += ALIGN8(offsetof(struct kdbus_item, bloom_filter) +
                      offsetof(struct kdbus_bloom_filter, data) +
-                     BLOOM_SIZE);
+                     m->bus->bloom_size);
 
         /* Add in well-known destination header */
         if (well_known) {
@@ -311,7 +311,7 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
         if (m->kdbus->dst_id == KDBUS_DST_ID_BROADCAST) {
                 struct kdbus_bloom_filter *bloom;
 
-                bloom = append_bloom(&d, BLOOM_SIZE);
+                bloom = append_bloom(&d, m->bus->bloom_size);
                 r = bus_message_setup_bloom(m, bloom);
                 if (r < 0)
                         goto fail;
@@ -754,8 +754,11 @@ int bus_kernel_take_fd(sd_bus *b) {
             hello->conn_flags > 0xFFFFFFFFULL)
                 return -ENOTSUP;
 
-        if (hello->bloom.size != BLOOM_SIZE)
+        if (!bloom_validate_parameters((size_t) hello->bloom.size, (unsigned) hello->bloom.n_hash))
                 return -ENOTSUP;
+
+        b->bloom_size = (size_t) hello->bloom.size;
+        b->bloom_n_hash = (unsigned) hello->bloom.n_hash;
 
         if (asprintf(&b->unique_name, ":1.%llu", (unsigned long long) hello->id) < 0)
                 return -ENOMEM;
@@ -1291,9 +1294,13 @@ int bus_kernel_create_bus(const char *name, bool world, char **s) {
         n->size = offsetof(struct kdbus_item, bloom_parameter) +
                   sizeof(struct kdbus_bloom_parameter);
         n->type = KDBUS_ITEM_BLOOM_PARAMETER;
-        n->bloom_parameter.size = BLOOM_SIZE;
-        n->bloom_parameter.n_hash = 1;
-        assert_cc(BLOOM_SIZE % 8 == 0);
+
+        n->bloom_parameter.size = DEFAULT_BLOOM_SIZE;
+        n->bloom_parameter.n_hash = DEFAULT_BLOOM_N_HASH;
+
+        assert_cc(DEFAULT_BLOOM_SIZE > 0);
+        assert_cc(DEFAULT_BLOOM_N_HASH > 0);
+
         make->size += ALIGN8(n->size);
 
         n = KDBUS_ITEM_NEXT(n);
@@ -1373,7 +1380,7 @@ int bus_kernel_create_starter(const char *bus, const char *name) {
                 return -ENOTSUP;
         }
 
-        if (hello->bloom.size != BLOOM_SIZE) {
+        if (!bloom_validate_parameters((size_t) hello->bloom.size, (unsigned) hello->bloom.n_hash)) {
                 close_nointr_nofail(fd);
                 return -ENOTSUP;
         }

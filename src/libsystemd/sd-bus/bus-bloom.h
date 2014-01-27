@@ -23,7 +23,21 @@
 
 #include <sys/types.h>
 
-#define BLOOM_SIZE 64
+/*
+ * Our default bloom filter has the following parameters:
+ *
+ * m=512   (bits in the filter)
+ * k=8     (hash functions)
+ *
+ * We use SipHash24 as hash function with a number of (originally
+ * randomized) but fixed hash keys.
+ *
+ */
 
-void bloom_add_pair(uint64_t filter[BLOOM_SIZE/8], const char *a, const char *b);
-void bloom_add_prefixes(uint64_t filter[BLOOM_SIZE/8], const char *a, const char *b, char sep);
+#define DEFAULT_BLOOM_SIZE (512/8) /* m: filter size */
+#define DEFAULT_BLOOM_N_HASH 8     /* k: number of hash functions */
+
+void bloom_add_pair(uint64_t filter[], size_t size, unsigned n_hash, const char *a, const char *b);
+void bloom_add_prefixes(uint64_t filter[], size_t size, unsigned n_hash, const char *a, const char *b, char sep);
+
+bool bloom_validate_parameters(size_t size, unsigned n_hash);
