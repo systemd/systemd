@@ -1086,6 +1086,37 @@ void job_shutdown_magic(Job *j) {
         asynchronous_sync();
 }
 
+int job_get_timeout(Job *j, uint64_t *timeout) {
+        Unit *u = j->unit;
+        uint64_t x = -1, y = -1;
+        int r = 0, q = 0;
+
+        assert(u);
+
+        if (j->timer_event_source) {
+                r = sd_event_source_get_time(j->timer_event_source, &x);
+                if (r < 0)
+                        return r;
+                r = 1;
+        }
+
+        if (UNIT_VTABLE(u)->get_timeout) {
+                q = UNIT_VTABLE(u)->get_timeout(u, &y);
+                if (q < 0)
+                        return q;
+        }
+
+        if (r == 0 && q == 0)
+                return 0;
+
+        *timeout = MIN(x, y);
+
+        log_info("job_get_timeout %s %d/%"PRIu64" %d/%"PRIu64" -> 1/%"PRIu64,
+                 j->unit->id, r, x, q, y, *timeout);
+
+        return 1;
+}
+
 static const char* const job_state_table[_JOB_STATE_MAX] = {
         [JOB_WAITING] = "waiting",
         [JOB_RUNNING] = "running"

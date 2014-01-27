@@ -222,3 +222,5 @@ JobMode job_mode_from_string(const char *s) _pure_;
 
 const char* job_result_to_string(JobResult t) _const_;
 JobResult job_result_from_string(const char *s) _pure_;
+
+int job_get_timeout(Job *j, uint64_t *timeout) _pure_;

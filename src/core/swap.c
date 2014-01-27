@@ -1367,6 +1367,20 @@ static int swap_kill(Unit *u, KillWho who, int signo, sd_bus_error *error) {
         return unit_kill_common(u, who, signo, -1, SWAP(u)->control_pid, error);
 }
 
+static int swap_get_timeout(Unit *u, uint64_t *timeout) {
+        Swap *s = SWAP(u);
+        int r;
+
+        if (!s->timer_event_source)
+                return 0;
+
+        r = sd_event_source_get_time(s->timer_event_source, timeout);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
 static const char* const swap_state_table[_SWAP_STATE_MAX] = {
         [SWAP_DEAD] = "dead",
         [SWAP_ACTIVATING] = "activating",
@@ -1428,6 +1442,8 @@ const UnitVTable swap_vtable = {
         .stop = swap_stop,
 
         .kill = swap_kill,
+
+        .get_timeout = swap_get_timeout,
 
         .serialize = swap_serialize,
         .deserialize_item = swap_deserialize_item,

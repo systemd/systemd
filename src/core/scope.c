@@ -318,6 +318,20 @@ static int scope_kill(Unit *u, KillWho who, int signo, sd_bus_error *error) {
         return unit_kill_common(u, who, signo, -1, -1, error);
 }
 
+static int scope_get_timeout(Unit *u, uint64_t *timeout) {
+        Scope *s = SCOPE(u);
+        int r;
+
+        if (!s->timer_event_source)
+                return 0;
+
+        r = sd_event_source_get_time(s->timer_event_source, timeout);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
 static int scope_serialize(Unit *u, FILE *f, FDSet *fds) {
         Scope *s = SCOPE(u);
 
@@ -477,6 +491,8 @@ const UnitVTable scope_vtable = {
         .stop = scope_stop,
 
         .kill = scope_kill,
+
+        .get_timeout = scope_get_timeout,
 
         .serialize = scope_serialize,
         .deserialize_item = scope_deserialize_item,

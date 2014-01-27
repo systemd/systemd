@@ -1583,6 +1583,20 @@ static void mount_shutdown(Manager *m) {
         }
 }
 
+static int mount_get_timeout(Unit *u, uint64_t *timeout) {
+        Mount *m = MOUNT(u);
+        int r;
+
+        if (!m->timer_event_source)
+                return 0;
+
+        r = sd_event_source_get_time(m->timer_event_source, timeout);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
 static int mount_enumerate(Manager *m) {
         int r;
         assert(m);
@@ -1795,6 +1809,8 @@ const UnitVTable mount_vtable = {
         .bus_vtable = bus_mount_vtable,
         .bus_set_property = bus_mount_set_property,
         .bus_commit_properties = bus_mount_commit_properties,
+
+        .get_timeout = mount_get_timeout,
 
         .enumerate = mount_enumerate,
         .shutdown = mount_shutdown,

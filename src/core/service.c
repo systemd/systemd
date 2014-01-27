@@ -3401,6 +3401,20 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags) {
                 unit_add_to_dbus_queue(u);
 }
 
+static int service_get_timeout(Unit *u, uint64_t *timeout) {
+        Service *s = SERVICE(u);
+        int r;
+
+        if (!s->timer_event_source)
+                return 0;
+
+        r = sd_event_source_get_time(s->timer_event_source, timeout);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
 #ifdef HAVE_SYSV_COMPAT
 
 static int service_enumerate(Manager *m) {
@@ -3831,6 +3845,8 @@ const UnitVTable service_vtable = {
         .bus_vtable = bus_service_vtable,
         .bus_set_property = bus_service_set_property,
         .bus_commit_properties = bus_service_commit_properties,
+
+        .get_timeout = service_get_timeout,
 
 #ifdef HAVE_SYSV_COMPAT
         .enumerate = service_enumerate,

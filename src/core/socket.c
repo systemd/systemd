@@ -2344,6 +2344,20 @@ static int socket_kill(Unit *u, KillWho who, int signo, sd_bus_error *error) {
         return unit_kill_common(u, who, signo, -1, SOCKET(u)->control_pid, error);
 }
 
+static int socket_get_timeout(Unit *u, uint64_t *timeout) {
+        Socket *s = SOCKET(u);
+        int r;
+
+        if (!s->timer_event_source)
+                return 0;
+
+        r = sd_event_source_get_time(s->timer_event_source, timeout);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
 static const char* const socket_state_table[_SOCKET_STATE_MAX] = {
         [SOCKET_DEAD] = "dead",
         [SOCKET_START_PRE] = "start-pre",
@@ -2407,6 +2421,8 @@ const UnitVTable socket_vtable = {
         .stop = socket_stop,
 
         .kill = socket_kill,
+
+        .get_timeout = socket_get_timeout,
 
         .serialize = socket_serialize,
         .deserialize_item = socket_deserialize_item,

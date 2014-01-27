@@ -410,6 +410,8 @@ struct UnitVTable {
         /* Called whenever CLOCK_REALTIME made a jump */
         void (*time_change)(Unit *u);
 
+        int (*get_timeout)(Unit *u, uint64_t *timeout);
+
         /* This is called for each unit type and should be used to
          * enumerate existing devices and load them. However,
          * everything that is loaded here should still stay in
