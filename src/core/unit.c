@@ -671,6 +671,18 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
         assert(u);
         assert(c);
 
+        if (c->working_directory) {
+                r = unit_require_mounts_for(u, c->working_directory);
+                if (r < 0)
+                        return r;
+        }
+
+        if (c->root_directory) {
+                r = unit_require_mounts_for(u, c->root_directory);
+                if (r < 0)
+                        return r;
+        }
+
         if (c->std_output != EXEC_OUTPUT_KMSG &&
             c->std_output != EXEC_OUTPUT_SYSLOG &&
             c->std_output != EXEC_OUTPUT_JOURNAL &&
