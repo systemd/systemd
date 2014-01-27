@@ -80,8 +80,8 @@
 #define GC_QUEUE_USEC_MAX (10*USEC_PER_SEC)
 
 /* Initial delay and the interval for printing status messages about running jobs */
-#define JOBS_IN_PROGRESS_WAIT_SEC 5
-#define JOBS_IN_PROGRESS_PERIOD_SEC 1
+#define JOBS_IN_PROGRESS_WAIT_USEC (5*USEC_PER_SEC)
+#define JOBS_IN_PROGRESS_PERIOD_USEC (USEC_PER_SEC / 3)
 #define JOBS_IN_PROGRESS_PERIOD_DIVISOR 3
 
 /* Where clients shall send notification messages to */
@@ -102,7 +102,7 @@ static int manager_watch_jobs_in_progress(Manager *m) {
         if (m->jobs_in_progress_event_source)
                 return 0;
 
-        return sd_event_add_monotonic(m->event, JOBS_IN_PROGRESS_WAIT_SEC, 0, manager_dispatch_jobs_in_progress, m, &m->jobs_in_progress_event_source);
+        return sd_event_add_monotonic(m->event, JOBS_IN_PROGRESS_WAIT_USEC, 0, manager_dispatch_jobs_in_progress, m, &m->jobs_in_progress_event_source);
 }
 
 #define CYLON_BUFFER_EXTRA (2*(sizeof(ANSI_RED_ON)-1) + sizeof(ANSI_HIGHLIGHT_RED_ON)-1 + 2*(sizeof(ANSI_HIGHLIGHT_OFF)-1))
@@ -1741,11 +1741,20 @@ static int manager_dispatch_idle_pipe_fd(sd_event_source *source, int fd, uint32
 
 static int manager_dispatch_jobs_in_progress(sd_event_source *source, usec_t usec, void *userdata) {
         Manager *m = userdata;
+        int r;
+        uint64_t next;
 
         assert(m);
+        assert(source);
 
         manager_print_jobs_in_progress(m);
-        return 0;
+
+        next = now(CLOCK_MONOTONIC) + JOBS_IN_PROGRESS_PERIOD_USEC;
+        r = sd_event_source_set_time(source, next);
+        if (r < 0)
+                return r;
+
+        return sd_event_source_set_enabled(source, SD_EVENT_ONESHOT);
 }
 
 int manager_loop(Manager *m) {
@@ -2451,8 +2460,10 @@ void manager_check_finished(Manager *m) {
                 m->jobs_in_progress_event_source = sd_event_source_unref(m->jobs_in_progress_event_source);
 
         if (hashmap_size(m->jobs) > 0) {
-                if (m->jobs_in_progress_event_source)
-                        sd_event_source_set_time(m->jobs_in_progress_event_source, JOBS_IN_PROGRESS_PERIOD_SEC);
+                if (m->jobs_in_progress_event_source) {
+                        uint64_t next = now(CLOCK_MONOTONIC) + JOBS_IN_PROGRESS_PERIOD_USEC;
+                        sd_event_source_set_time(m->jobs_in_progress_event_source, next);
+                }
                 return;
         }
 
