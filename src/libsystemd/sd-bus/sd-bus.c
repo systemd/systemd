@@ -35,6 +35,7 @@
 #include "set.h"
 #include "missing.h"
 #include "def.h"
+#include "cgroup-util.h"
 
 #include "sd-bus.h"
 #include "bus-internal.h"
@@ -1050,6 +1051,60 @@ _public_ int sd_bus_start(sd_bus *bus) {
                 return r;
 
         return bus_send_hello(bus);
+}
+
+_public_ int sd_bus_open(sd_bus **ret) {
+        const char *e;
+        sd_bus *b;
+        int r;
+
+        assert_return(ret, -EINVAL);
+
+        /* Let's connect to the starter bus if it is set, and
+         * otherwise to the bus that is appropropriate for the scope
+         * we are running in */
+
+        e = secure_getenv("DBUS_STARTER_BUS_TYPE");
+        if (e) {
+                if (streq(e, "system"))
+                        return sd_bus_open_system(ret);
+                else if (streq(e, "session") || streq(e, "user"))
+                        return sd_bus_open_user(ret);
+        }
+
+        e = secure_getenv("DBUS_STARTER_ADDRESS");
+        if (!e) {
+                if (cg_pid_get_owner_uid(0, NULL) >= 0)
+                        return sd_bus_open_user(ret);
+                else
+                        return sd_bus_open_system(ret);
+        }
+
+        r = sd_bus_new(&b);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_set_address(b, e);
+        if (r < 0)
+                goto fail;
+
+        b->bus_client = true;
+
+        /* We don't know whether the bus is trusted or not, so better
+         * be safe, and authenticate everything */
+        b->trusted = false;
+        b->attach_flags |= KDBUS_ATTACH_CAPS | KDBUS_ATTACH_CREDS;
+
+        r = sd_bus_start(b);
+        if (r < 0)
+                goto fail;
+
+        *ret = b;
+        return 0;
+
+fail:
+        bus_free(b);
+        return r;
 }
 
 _public_ int sd_bus_open_system(sd_bus **ret) {
@@ -2911,6 +2966,43 @@ _public_ int sd_bus_default_user(sd_bus **ret) {
         static thread_local sd_bus *default_user_bus = NULL;
 
         return bus_default(sd_bus_open_user, &default_user_bus, ret);
+}
+
+_public_ int sd_bus_default(sd_bus **ret) {
+
+        const char *e;
+
+        /* Let's try our best to reuse another cached connection. If
+         * the starter bus type is set, connect via our normal
+         * connection logic, ignoring $DBUS_STARTER_ADDRESS, so that
+         * we can share the connection with the user/system default
+         * bus. */
+
+        e = secure_getenv("DBUS_STARTER_BUS_TYPE");
+        if (e) {
+                if (streq(e, "system"))
+                        return sd_bus_default_system(ret);
+                else if (streq(e, "user") || streq(e, "session"))
+                        return sd_bus_default_user(ret);
+        }
+
+        /* No type is specified, so we have not other option than to
+         * use the starter address if it is set. */
+
+        e = secure_getenv("DBUS_STARTER_ADDRESS");
+        if (e) {
+                static thread_local sd_bus *default_starter_bus = NULL;
+
+                return bus_default(sd_bus_open, &default_starter_bus, ret);
+        }
+
+        /* Finally, if nothing is set use the cached connection for
+         * the right scope */
+
+        if (cg_pid_get_owner_uid(0, NULL) >= 0)
+                return sd_bus_default_user(ret);
+        else
+                return sd_bus_default_system(ret);
 }
 
 _public_ int sd_bus_get_tid(sd_bus *b, pid_t *tid) {

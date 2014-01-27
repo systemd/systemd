@@ -97,7 +97,9 @@ typedef int (*sd_bus_node_enumerator_t) (sd_bus *bus, const char *path, void *us
 
 int sd_bus_default_user(sd_bus **ret);
 int sd_bus_default_system(sd_bus **ret);
+int sd_bus_default(sd_bus **ret);
 
+int sd_bus_open(sd_bus **ret);
 int sd_bus_open_user(sd_bus **ret);
 int sd_bus_open_system(sd_bus **ret);
 int sd_bus_open_system_remote(const char *host, sd_bus **ret);

@@ -847,11 +847,7 @@ static int connect_bus(Context *c) {
 
         assert(c);
 
-        r = cg_pid_get_owner_uid(0, NULL);
-        if (r < 0)
-                r = sd_bus_default_system(&c->bus);
-        else
-                r = sd_bus_default_user(&c->bus);
+        r = sd_bus_default(&c->bus);
         if (r < 0) {
                 log_error("Failed to create bus: %s", strerror(-r));
                 return r;

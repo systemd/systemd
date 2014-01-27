@@ -1332,11 +1332,10 @@ int cg_pid_get_machine_name(pid_t pid, char **machine) {
 
 int cg_path_get_session(const char *path, char **session) {
         const char *e, *n, *x;
-        char *s, *r;
+        char *s;
         size_t l;
 
         assert(path);
-        assert(session);
 
         /* Skip slices, if there are any */
         e = skip_slices(path);
@@ -1358,19 +1357,22 @@ int cg_path_get_session(const char *path, char **session) {
         if (l <= 6)
                 return -ENOENT;
 
-        r = strndup(x, l - 6);
-        if (!r)
-                return -ENOMEM;
+        if (session) {
+                char *r;
 
-        *session = r;
+                r = strndup(x, l - 6);
+                if (!r)
+                        return -ENOMEM;
+
+                *session = r;
+        }
+
         return 0;
 }
 
 int cg_pid_get_session(pid_t pid, char **session) {
         _cleanup_free_ char *cgroup = NULL;
         int r;
-
-        assert(session);
 
         r = cg_pid_get_path_shifted(pid, NULL, &cgroup);
         if (r < 0)

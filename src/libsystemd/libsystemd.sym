@@ -80,8 +80,10 @@ global:
         /* Same order as in sd-bus.h should be used */
 
         /* Connections */
+        sd_bus_default;
         sd_bus_default_user;
         sd_bus_default_system;
+        sd_bus_open;
         sd_bus_open_user;
         sd_bus_open_system;
         sd_bus_open_system_remote;
