@@ -3869,13 +3869,16 @@ int pipe_eof(int fd) {
 }
 
 int fd_wait_for_event(int fd, int event, usec_t t) {
-        int r;
+
         struct pollfd pollfd = {
                 .fd = fd,
                 .events = event,
         };
 
-        r = poll(&pollfd, 1, t == (usec_t) -1 ? -1 : (int) (t / USEC_PER_MSEC));
+        struct timespec ts;
+        int r;
+
+        r = ppoll(&pollfd, 1, t == (usec_t) -1 ? NULL : timespec_store(&ts, t), NULL);
         if (r < 0)
                 return -errno;
 

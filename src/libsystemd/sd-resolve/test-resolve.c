@@ -36,55 +36,56 @@
 #include "macro.h"
 
 int main(int argc, char *argv[]) {
-        int r = 1, ret;
-        _cleanup_resolve_free_ sd_resolve *resolve = NULL;
+        int r = 1;
+        _cleanup_resolve_unref_ sd_resolve *resolve = NULL;
         _cleanup_resolve_addrinfo_free_ struct addrinfo *ai = NULL;
         _cleanup_free_ unsigned char *srv = NULL;
-        sd_resolve_query *q1, *q2, *q3;
+        sd_resolve_query *q1 = NULL, *q2 = NULL, *q3 = NULL;
         struct addrinfo hints = {};
         struct sockaddr_in sa = {};
-        char host[NI_MAXHOST] = "", serv[NI_MAXSERV] = "";
+        _cleanup_free_ char *host = NULL, *serv = NULL;
 
-        signal(SIGCHLD, SIG_IGN);
-
-        resolve = sd_resolve_new(2);
-        if (!resolve)
-                log_oom();
+        assert_se(sd_resolve_new(&resolve) >= 0);
 
         /* Make a name -> address query */
         hints.ai_family = PF_UNSPEC;
         hints.ai_socktype = SOCK_STREAM;
+        hints.ai_flags = AI_CANONNAME;
 
-        q1 = sd_resolve_getaddrinfo(resolve, argc >= 2 ? argv[1] : "www.heise.de", NULL, &hints);
-        if (!q1)
-                fprintf(stderr, "sd_resolve_getaddrinfo(): %s\n", strerror(errno));
+        r = sd_resolve_getaddrinfo(resolve, argc >= 2 ? argv[1] : "www.heise.de", NULL, &hints, &q1);
+        if (r < 0)
+                log_error("sd_resolve_getaddrinfo(): %s\n", strerror(-r));
 
         /* Make an address -> name query */
         sa.sin_family = AF_INET;
         sa.sin_addr.s_addr = inet_addr(argc >= 3 ? argv[2] : "193.99.144.71");
         sa.sin_port = htons(80);
 
-        q2 = sd_resolve_getnameinfo(resolve, (struct sockaddr*) &sa, sizeof(sa), 0, 1, 1);
-        if (!q2)
-                fprintf(stderr, "sd_resolve_getnameinfo(): %s\n", strerror(errno));
+        r = sd_resolve_getnameinfo(resolve, (struct sockaddr*) &sa, sizeof(sa), 0, true, true, &q2);
+        if (r < 0)
+                log_error("sd_resolve_getnameinfo(): %s\n", strerror(-r));
 
         /* Make a res_query() call */
-        q3 = sd_resolve_res_query(resolve, "_xmpp-client._tcp.gmail.com", C_IN, T_SRV);
-        if (!q3)
-                fprintf(stderr, "sd_resolve_res_query(): %s\n", strerror(errno));
+        r = sd_resolve_res_query(resolve, "_xmpp-client._tcp.gmail.com", C_IN, T_SRV, &q3);
+        if (r < 0)
+                log_error("sd_resolve_res_query(): %s\n", strerror(-r));
 
         /* Wait until the three queries are completed */
-        while (!sd_resolve_isdone(resolve, q1) ||
-               !sd_resolve_isdone(resolve, q2) ||
-               !sd_resolve_isdone(resolve, q3)) {
-                if (sd_resolve_wait(resolve, 1) < 0)
-                        fprintf(stderr, "sd_resolve_wait(): %s\n", strerror(errno));
+        while (sd_resolve_is_done(q1) == 0 ||
+               sd_resolve_is_done(q2) == 0 ||
+               sd_resolve_is_done(q3) == 0) {
+
+                r = sd_resolve_wait(resolve, (uint64_t) -1);
+                if (r < 0) {
+                        log_error("sd_resolve_wait(): %s\n", strerror(-r));
+                        assert_not_reached("sd_resolve_wait() failed");
+                }
         }
 
         /* Interpret the result of the name -> addr query */
-        ret = sd_resolve_getaddrinfo_done(resolve, q1, &ai);
-        if (ret)
-                fprintf(stderr, "error: %s %i\n", gai_strerror(ret), ret);
+        r = sd_resolve_getaddrinfo_done(q1, &ai);
+        if (r != 0)
+                log_error("error: %s %i\n", gai_strerror(r), r);
         else {
                 struct addrinfo *i;
 
@@ -99,27 +100,29 @@ int main(int argc, char *argv[]) {
 
                         printf("%s\n", p);
                 }
+
+                printf("canonical name: %s\n", strna(ai->ai_canonname));
         }
 
         /* Interpret the result of the addr -> name query */
-        ret = sd_resolve_getnameinfo_done(resolve, q2, host, sizeof(host), serv, sizeof(serv));
-        if (ret)
-                fprintf(stderr, "error: %s %i\n", gai_strerror(ret), ret);
+        r = sd_resolve_getnameinfo_done(q2, &host, &serv);
+        if (r)
+                log_error("error: %s %i\n", gai_strerror(r), r);
         else
                 printf("%s -- %s\n", host, serv);
 
         /* Interpret the result of the SRV lookup */
-        ret = sd_resolve_res_done(resolve, q3, &srv);
-        if (ret < 0) {
-                fprintf(stderr, "error: %s %i\n", strerror(errno), ret);
-        } else if (ret == 0) {
-                fprintf(stderr, "No reply for SRV lookup\n");
-        } else {
+        r = sd_resolve_res_done(q3, &srv);
+        if (r < 0)
+                log_error("error: %s %i\n", strerror(-r), r);
+        else if (r == 0)
+                log_error("No reply for SRV lookup\n");
+        else {
                 int qdcount;
                 int ancount;
                 int len;
                 const unsigned char *pos = srv + sizeof(HEADER);
-                unsigned char *end = srv + ret;
+                unsigned char *end = srv + r;
                 HEADER *head = (HEADER *)srv;
                 char name[256];
 
