@@ -2997,16 +2997,14 @@ int unit_require_mounts_for(Unit *u, const char *path) {
          * units can easily determine which units to make themselves a
          * dependency of. */
 
+        if (!path_is_absolute(path))
+                return -EINVAL;
+
         p = strdup(path);
         if (!p)
                 return -ENOMEM;
 
         path_kill_slashes(p);
-
-        if (!path_is_absolute(p)) {
-                free(p);
-                return -EINVAL;
-        }
 
         if (!path_is_safe(p)) {
                 free(p);
