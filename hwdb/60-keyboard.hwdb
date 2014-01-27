@@ -417,6 +417,22 @@ keyboard:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHDX9494NR:pvr*
  KEYBOARD_KEY_d8=!f23                                   # touchpad off
  KEYBOARD_KEY_d9=!f22                                   # touchpad on
 
+# Chromebook 14
+# Top row keys (between ESC and power button)
+keyboard:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnFalco:pvr*
+ KEYBOARD_KEY_3b=back
+ KEYBOARD_KEY_3c=forward
+ KEYBOARD_KEY_3d=refresh
+ KEYBOARD_KEY_3f=switchvideomode
+ KEYBOARD_KEY_40=brightnessdown
+ KEYBOARD_KEY_41=brightnessup
+ KEYBOARD_KEY_42=mute
+ KEYBOARD_KEY_43=volumedown
+ KEYBOARD_KEY_44=volumeup
+ KEYBOARD_KEY_db=search # Same position as caps lock key on most keyboards
+# KEYBOARD_KEY_3e=fullscreen, no defined key sym
+
+
 ###########################################################
 # IBM
 ###########################################################
