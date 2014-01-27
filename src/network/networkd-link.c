@@ -443,6 +443,12 @@ static void dhcp_handler(sd_dhcp_client *client, int event, void *userdata) {
 
         if (event == DHCP_EVENT_IP_CHANGE || event == DHCP_EVENT_EXPIRED ||
             event == DHCP_EVENT_STOP) {
+                if (link->network->dhcp_critical) {
+                        log_warning_link(link, "DHCPv4 connection considered system critical, "
+                                         "ignoring request to reconfigure it down.");
+                        return;
+                }
+
                 if (link->dhcp_address) {
                         address_drop(link->dhcp_address, link, address_drop_handler);
 

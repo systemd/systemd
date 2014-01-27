@@ -293,6 +293,14 @@
                                                 will be used as the transient hostname.</para>
                                         </listitem>
                                 </varlistentry>
+                                <varlistentry>
+                                        <term><varname>CriticalConnection</varname></term>
+                                        <listitem>
+                                                <para>When true the connection will never be torn down even if the DHCP lease
+                                                expires. This is contrary to the DHCP specification, but may be the best choice
+                                                if, say, the root filesystem relies on this connection. Defaults to false.</para>
+                                        </listitem>
+                                </varlistentry>
                        </variablelist>
 
                 </refsect2>

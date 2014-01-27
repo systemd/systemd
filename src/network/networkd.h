@@ -103,6 +103,7 @@ struct Network {
         bool dhcp_mtu;
         bool dhcp_hostname;
         bool dhcp_domainname;
+        bool dhcp_critical;
 
         LIST_HEAD(Address, static_addresses);
         LIST_HEAD(Route, static_routes);
