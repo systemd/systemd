@@ -159,6 +159,7 @@ Features:
   - bus proxy should fake seclabel when connecting to kdbus
   - allow updating attach flags during runtime
   - pid1: peek into activating message when activating a service
+  - test bloom filter generation indexes
 
 * sd-event
   - allow multiple signal handlers per signal?

@@ -95,9 +95,9 @@ typedef int (*sd_bus_node_enumerator_t) (sd_bus *bus, const char *path, void *us
 
 /* Connections */
 
+int sd_bus_default(sd_bus **ret);
 int sd_bus_default_user(sd_bus **ret);
 int sd_bus_default_system(sd_bus **ret);
-int sd_bus_default(sd_bus **ret);
 
 int sd_bus_open(sd_bus **ret);
 int sd_bus_open_user(sd_bus **ret);
@@ -130,6 +130,7 @@ int sd_bus_can_send(sd_bus *bus, char type);
 int sd_bus_get_server_id(sd_bus *bus, sd_id128_t *peer);
 int sd_bus_get_peer_creds(sd_bus *bus, uint64_t creds_mask, sd_bus_creds **ret);
 int sd_bus_get_name(sd_bus *bus, const char **name);
+int sd_bus_get_tid(sd_bus *bus, pid_t *tid);
 
 int sd_bus_send(sd_bus *bus, sd_bus_message *m, uint64_t *cookie);
 int sd_bus_send_to(sd_bus *bus, sd_bus_message *m, const char *destination, uint64_t *cookie);
@@ -144,9 +145,7 @@ int sd_bus_process(sd_bus *bus, sd_bus_message **r);
 int sd_bus_process_priority(sd_bus *bus, int64_t max_priority, sd_bus_message **r);
 int sd_bus_wait(sd_bus *bus, uint64_t timeout_usec);
 int sd_bus_flush(sd_bus *bus);
-
 sd_bus_message* sd_bus_get_current(sd_bus *bus);
-int sd_bus_get_tid(sd_bus *bus, pid_t *tid);
 
 int sd_bus_attach_event(sd_bus *bus, sd_event *e, int priority);
 int sd_bus_detach_event(sd_bus *bus);
@@ -189,8 +188,6 @@ int sd_bus_message_new_method_errnof(sd_bus_message *call, sd_bus_message **m, i
 sd_bus_message* sd_bus_message_ref(sd_bus_message *m);
 sd_bus_message* sd_bus_message_unref(sd_bus_message *m);
 
-sd_bus* sd_bus_message_get_bus(sd_bus_message *m);
-
 int sd_bus_message_get_type(sd_bus_message *m, uint8_t *type);
 int sd_bus_message_get_cookie(sd_bus_message *m, uint64_t *cookie);
 int sd_bus_message_get_reply_cookie(sd_bus_message *m, uint64_t *cookie);
@@ -211,6 +208,7 @@ int sd_bus_message_get_monotonic_usec(sd_bus_message *m, uint64_t *usec);
 int sd_bus_message_get_realtime_usec(sd_bus_message *m, uint64_t *usec);
 int sd_bus_message_get_seqnum(sd_bus_message *m, uint64_t* seqnum);
 
+sd_bus* sd_bus_message_get_bus(sd_bus_message *m);
 sd_bus_creds *sd_bus_message_get_creds(sd_bus_message *m); /* do not unref the result */
 
 int sd_bus_message_is_signal(sd_bus_message *m, const char *interface, const char *member);
