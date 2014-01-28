@@ -118,6 +118,9 @@ keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnTravelMate*6593:*
 keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnAspire*1640:*
  KEYBOARD_KEY_ee=screenlock
 
+keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnAOA*:pvr*
+ KEYBOARD_KEY_a9=!switchvideomode                       # Fn+F5
+
 ###########################################################
 # Alienware
 ###########################################################
