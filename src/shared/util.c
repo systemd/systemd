@@ -2037,45 +2037,31 @@ int close_pipe(int p[]) {
 }
 
 ssize_t loop_read(int fd, void *buf, size_t nbytes, bool do_poll) {
-        uint8_t *p;
+        uint8_t *p = buf;
         ssize_t n = 0;
 
         assert(fd >= 0);
         assert(buf);
 
-        p = buf;
-
         while (nbytes > 0) {
                 ssize_t k;
 
-                if ((k = read(fd, p, nbytes)) <= 0) {
+                k = read(fd, p, nbytes);
+                if (k < 0 && errno == EINTR)
+                        continue;
 
-                        if (k < 0 && errno == EINTR)
-                                continue;
+                if (k < 0 && errno == EAGAIN && do_poll) {
 
-                        if (k < 0 && errno == EAGAIN && do_poll) {
-                                struct pollfd pollfd = {
-                                        .fd = fd,
-                                        .events = POLLIN,
-                                };
+                        /* We knowingly ignore any return value here,
+                         * and expect that any error/EOF is reported
+                         * via read() */
 
-                                if (poll(&pollfd, 1, -1) < 0) {
-                                        if (errno == EINTR)
-                                                continue;
-
-                                        return n > 0 ? n : -errno;
-                                }
-
-                                /* We knowingly ignore the revents value here,
-                                 * and expect that any error/EOF is reported
-                                 * via read()/write()
-                                 */
-
-                                continue;
-                        }
-
-                        return n > 0 ? n : (k < 0 ? -errno : 0);
+                        fd_wait_for_event(fd, POLLIN, (usec_t) -1);
+                        continue;
                 }
+
+                if (k <= 0)
+                        return n > 0 ? n : (k < 0 ? -errno : 0);
 
                 p += k;
                 nbytes -= k;
@@ -2086,46 +2072,31 @@ ssize_t loop_read(int fd, void *buf, size_t nbytes, bool do_poll) {
 }
 
 ssize_t loop_write(int fd, const void *buf, size_t nbytes, bool do_poll) {
-        const uint8_t *p;
+        const uint8_t *p = buf;
         ssize_t n = 0;
 
         assert(fd >= 0);
         assert(buf);
 
-        p = buf;
-
         while (nbytes > 0) {
                 ssize_t k;
 
                 k = write(fd, p, nbytes);
-                if (k <= 0) {
+                if (k < 0 && errno == EINTR)
+                        continue;
 
-                        if (k < 0 && errno == EINTR)
-                                continue;
+                if (k < 0 && errno == EAGAIN && do_poll) {
 
-                        if (k < 0 && errno == EAGAIN && do_poll) {
-                                struct pollfd pollfd = {
-                                        .fd = fd,
-                                        .events = POLLOUT,
-                                };
+                        /* We knowingly ignore any return value here,
+                         * and expect that any error/EOF is reported
+                         * via write() */
 
-                                if (poll(&pollfd, 1, -1) < 0) {
-                                        if (errno == EINTR)
-                                                continue;
-
-                                        return n > 0 ? n : -errno;
-                                }
-
-                                /* We knowingly ignore the revents value here,
-                                 * and expect that any error/EOF is reported
-                                 * via read()/write()
-                                 */
-
-                                continue;
-                        }
-
-                        return n > 0 ? n : (k < 0 ? -errno : 0);
+                        fd_wait_for_event(fd, POLLOUT, (usec_t) -1);
+                        continue;
                 }
+
+                if (k <= 0)
+                        return n > 0 ? n : (k < 0 ? -errno : 0);
 
                 p += k;
                 nbytes -= k;
