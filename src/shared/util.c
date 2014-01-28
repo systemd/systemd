@@ -6093,24 +6093,6 @@ int getpeersec(int fd, char **ret) {
         return 0;
 }
 
-int writev_safe(int fd, const struct iovec *w, int j) {
-        for (int i = 0; i < j; i++) {
-                size_t written = 0;
-
-                while (written < w[i].iov_len) {
-                        ssize_t r;
-
-                        r = write(fd, (char*) w[i].iov_base + written, w[i].iov_len - written);
-                        if (r < 0 && errno != -EINTR)
-                                return -errno;
-
-                        written += r;
-                }
-        }
-
-        return 0;
-}
-
 int mkostemp_safe(char *pattern, int flags) {
         unsigned long tries = TMP_MAX;
         char *s;

@@ -580,8 +580,8 @@ static void test_in_set(void) {
         assert_se(!IN_SET(0, 1, 2, 3, 4));
 }
 
-static void test_writev_safe(void) {
-        char name[] = "/tmp/test-writev_safe.XXXXXX";
+static void test_writing_tmpfile(void) {
+        char name[] = "/tmp/test-systemd_writing_tmpfile.XXXXXX";
         _cleanup_free_ char *contents;
         size_t size;
         int fd, r;
@@ -592,10 +592,10 @@ static void test_writev_safe(void) {
         IOVEC_SET_STRING(iov[2], "");
 
         fd = mkostemp_safe(name, O_RDWR|O_CLOEXEC);
-        printf("test_writev_safe: %s", name);
+        printf("tmpfile: %s", name);
 
-        r = writev_safe(fd, iov, 3);
-        assert(r == 0);
+        r = writev(fd, iov, 3);
+        assert(r >= 0);
 
         r = read_full_file(name, &contents, &size);
         assert(r == 0);
@@ -640,7 +640,7 @@ int main(int argc, char *argv[]) {
         test_fstab_node_to_udev_node();
         test_get_files_in_directory();
         test_in_set();
-        test_writev_safe();
+        test_writing_tmpfile();
 
         return 0;
 }
