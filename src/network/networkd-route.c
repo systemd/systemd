@@ -47,6 +47,8 @@ int route_new_static(Network *network, unsigned section, Route **ret) {
         if (!route)
                 return -ENOMEM;
 
+        route->family = AF_UNSPEC;
+
         route->network = network;
 
         LIST_PREPEND(static_routes, network->static_routes, route);
@@ -68,6 +70,8 @@ int route_new_dynamic(Route **ret) {
         route = new0(Route, 1);
         if (!route)
                 return -ENOMEM;
+
+        route->family = AF_UNSPEC;
 
         *ret = route;
         route = NULL;
@@ -231,7 +235,7 @@ int config_parse_destination(const char *unit,
                         return log_oom();
         }
 
-        r = net_parse_inaddr(address, &n->dst_family, &n->dst_addr);
+        r = net_parse_inaddr(address, &n->family, &n->dst_addr);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, EINVAL,
                            "Destination is invalid, ignoring assignment: %s", address);
@@ -252,7 +256,7 @@ int config_parse_destination(const char *unit,
 
                 n->dst_prefixlen = (unsigned char) i;
         } else {
-                switch (n->dst_family) {
+                switch (n->family) {
                         case AF_INET:
                                 n->dst_prefixlen = 32;
                                 break;

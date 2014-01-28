@@ -84,12 +84,6 @@ static int network_load_one(Manager *manager, const char *filename) {
                                     "Ignoring", filename);
                         return 0;
                 }
-
-                if (route->dst_family && route->family != route->dst_family) {
-                        log_warning("Route section with conflicting Gateway and Destination address "
-                                    "family configured in %s. Ignoring", filename);
-                        return 0;
-                }
         }
 
         LIST_FOREACH(static_addresses, address, network->static_addresses) {

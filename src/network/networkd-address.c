@@ -46,6 +46,8 @@ int address_new_static(Network *network, unsigned section, Address **ret) {
         if (!address)
                 return -ENOMEM;
 
+        address->family = AF_UNSPEC;
+
         address->network = network;
 
         LIST_PREPEND(static_addresses, network->static_addresses, address);
@@ -67,6 +69,8 @@ int address_new_dynamic(Address **ret) {
         address = new0(Address, 1);
         if (!address)
                 return -ENOMEM;
+
+        address->family = AF_UNSPEC;
 
         *ret = address;
         address = NULL;

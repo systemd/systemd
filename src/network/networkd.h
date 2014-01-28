@@ -138,7 +138,6 @@ struct Route {
         uint64_t section;
 
         unsigned char family;
-        unsigned char dst_family;
         unsigned char dst_prefixlen;
 
         union {

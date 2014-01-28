@@ -192,16 +192,24 @@ int net_parse_inaddr(const char *address, unsigned char *family, void *dst) {
 
         /* IPv4 */
         r = inet_pton(AF_INET, address, dst);
-        if (r > 0)
-                *family = AF_INET; /* successfully parsed IPv4 address */
-        else  if (r < 0)
+        if (r > 0) {
+                /* succsefully parsed IPv4 address */
+                if (*family == AF_UNSPEC)
+                        *family = AF_INET;
+                else if (*family != AF_INET)
+                        return -EINVAL;
+        } else  if (r < 0)
                 return -errno;
         else {
                 /* not an IPv4 address, so let's try IPv6 */
                 r = inet_pton(AF_INET6, address, dst);
-                if (r > 0)
-                        *family = AF_INET6; /* successfully parsed IPv6 address */
-                else if (r < 0)
+                if (r > 0) {
+                        /* successfully parsed IPv6 address */
+                        if (*family == AF_UNSPEC)
+                                *family = AF_INET6;
+                        else if (*family != AF_INET6)
+                                return -EINVAL;
+                } else if (r < 0)
                         return -errno;
                 else
                         return -EINVAL;
