@@ -22,6 +22,7 @@
 #pragma once
 
 #include <netinet/ether.h>
+#include <netinet/in.h>
 #include <stdbool.h>
 
 bool net_match_config(const struct ether_addr *match_mac,
@@ -34,6 +35,8 @@ bool net_match_config(const struct ether_addr *match_mac,
                       const char *dev_driver,
                       const char *dev_type,
                       const char *dev_name);
+
+unsigned net_netmask_to_prefixlen(const struct in_addr *netmask);
 
 int config_parse_hwaddr(const char *unit, const char *filename, unsigned line,
                         const char *section, unsigned section_line, const char *lvalue,

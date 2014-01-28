@@ -26,6 +26,7 @@
 #include "libudev-private.h"
 #include "util.h"
 #include "bus-util.h"
+#include "net-util.h"
 
 int link_new(Manager *manager, struct udev_device *device, Link **ret) {
         _cleanup_link_free_ Link *link = NULL;
@@ -422,7 +423,7 @@ static void dhcp_handler(sd_dhcp_client *client, int event, void *userdata) {
         struct in_addr address;
         struct in_addr netmask;
         struct in_addr gateway;
-        int prefixlen;
+        unsigned prefixlen;
         int r;
 
         assert(link);
@@ -496,12 +497,7 @@ static void dhcp_handler(sd_dhcp_client *client, int event, void *userdata) {
                 return;
         }
 
-        prefixlen = sd_dhcp_client_prefixlen(&netmask);
-        if (prefixlen < 0) {
-                log_warning_link(link, "DHCP error: no prefixlen");
-                link_enter_failed(link);
-                return;
-        }
+        prefixlen = net_netmask_to_prefixlen(&netmask);
 
         r = sd_dhcp_client_get_router(client, &gateway);
         if (r < 0) {

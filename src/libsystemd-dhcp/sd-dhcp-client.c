@@ -240,21 +240,6 @@ int sd_dhcp_client_get_hostname(sd_dhcp_client *client, const char **hostname) {
         return 0;
 }
 
-int sd_dhcp_client_prefixlen(const struct in_addr *addr) {
-        int len = 0;
-        uint32_t mask;
-
-        assert_return(addr, -EADDRNOTAVAIL);
-
-        mask = be32toh(addr->s_addr);
-        while (mask) {
-                len++;
-                mask = mask << 1;
-        }
-
-        return len;
-}
-
 int sd_dhcp_client_get_router(sd_dhcp_client *client, struct in_addr *addr) {
         assert_return(client, -EINVAL);
         assert_return(addr, -EINVAL);
