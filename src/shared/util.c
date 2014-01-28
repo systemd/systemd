@@ -2255,25 +2255,37 @@ char* dirname_malloc(const char *path) {
         return dir;
 }
 
-void random_bytes(void *p, size_t n) {
-        static bool srand_called = false;
+int dev_urandom(void *p, size_t n) {
         _cleanup_close_ int fd;
         ssize_t k;
-        uint8_t *q;
 
         fd = open("/dev/urandom", O_RDONLY|O_CLOEXEC|O_NOCTTY);
         if (fd < 0)
-                goto fallback;
+                return errno == ENOENT ? -ENOSYS : -errno;
 
         k = loop_read(fd, p, n, true);
-        if (k < 0 || (size_t) k != n)
-                goto fallback;
+        if (k < 0)
+                return (int) k;
+        if ((size_t) k != n)
+                return -EIO;
 
-        return;
+        return 0;
+}
 
-fallback:
+void random_bytes(void *p, size_t n) {
+        static bool srand_called = false;
+        uint8_t *q;
+        int r;
+
+        r = dev_urandom(p, n);
+        if (r >= 0)
+                return;
+
+        /* If some idiot made /dev/urandom unavailable to us, he'll
+         * get a PRNG instead. */
 
         if (!srand_called) {
+                unsigned x = 0;
 
 #ifdef HAVE_SYS_AUXV_H
                 /* The kernel provides us with a bit of entropy in
@@ -2285,16 +2297,16 @@ fallback:
 
                 auxv = (void*) getauxval(AT_RANDOM);
                 if (auxv)
-                        srand(*(unsigned*) auxv);
-                else
+                        x ^= *(unsigned*) auxv;
 #endif
-                        srand(time(NULL) + gettid());
 
+                x ^= (unsigned) now(CLOCK_REALTIME);
+                x ^= (unsigned) gettid();
+
+                srand(x);
                 srand_called = true;
         }
 
-        /* If some idiot made /dev/urandom unavailable to us, he'll
-         * get a PRNG instead. */
         for (q = p; q < (uint8_t*) p + n; q ++)
                 *q = rand();
 }

@@ -272,6 +272,7 @@ int make_stdio(int fd);
 int make_null_stdio(void);
 int make_console_stdio(void);
 
+int dev_urandom(void *p, size_t n);
 void random_bytes(void *p, size_t n);
 
 static inline uint64_t random_u64(void) {
