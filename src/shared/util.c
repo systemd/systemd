@@ -6147,17 +6147,19 @@ int mkostemp_safe(char *pattern, int flags) {
 }
 
 int open_tmpfile(const char *path, int flags) {
-        int fd;
         char *p;
+        int fd;
+
+        assert(path);
 
 #ifdef O_TMPFILE
-        fd = open(path, flags|O_TMPFILE, S_IRUSR|S_IWUSR);
+        fd = open(path, flags|O_TMPFILE|O_NOCTTY, S_IRUSR|S_IWUSR);
         if (fd >= 0)
                 return fd;
 #endif
         p = strappenda(path, "/systemd-tmp-XXXXXX");
 
-        fd = mkostemp_safe(p, O_RDWR|O_CLOEXEC);
+        fd = mkostemp_safe(p, flags);
         if (fd < 0)
                 return fd;
 
