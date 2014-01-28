@@ -136,6 +136,16 @@ static void draw_cylon(char buffer[], size_t buflen, unsigned width, unsigned po
         }
 }
 
+void manager_flip_auto_status(Manager *m, bool enable) {
+        if (enable) {
+                if (m->show_status == SHOW_STATUS_AUTO)
+                        manager_set_show_status(m, SHOW_STATUS_TEMPORARY);
+        } else {
+                if (m->show_status == SHOW_STATUS_TEMPORARY)
+                        manager_set_show_status(m, SHOW_STATUS_AUTO);
+        }
+}
+
 static void manager_print_jobs_in_progress(Manager *m) {
         _cleanup_free_ char *job_of_n = NULL;
         Iterator i;
@@ -148,8 +158,7 @@ static void manager_print_jobs_in_progress(Manager *m) {
 
         assert(m);
 
-        if (m->show_status == SHOW_STATUS_AUTO)
-                manager_set_show_status(m, SHOW_STATUS_TEMPORARY);
+        manager_flip_auto_status(m, true);
 
         print_nr = (m->jobs_in_progress_iteration / JOBS_IN_PROGRESS_PERIOD_DIVISOR) % m->n_running_jobs;
 
@@ -2459,8 +2468,7 @@ void manager_check_finished(Manager *m) {
                 return;
         }
 
-        if (m->show_status == SHOW_STATUS_TEMPORARY)
-                manager_set_show_status(m, SHOW_STATUS_AUTO);
+        manager_flip_auto_status(m, false);
 
         /* Notify Type=idle units that we are done now */
         m->idle_pipe_event_source = sd_event_source_unref(m->idle_pipe_event_source);

@@ -632,15 +632,18 @@ static void job_print_status_message(Unit *u, JobType t, JobResult result) {
                         break;
 
                 case JOB_FAILED:
+                        manager_flip_auto_status(u->manager, true);
                         unit_status_printf(u, ANSI_HIGHLIGHT_RED_ON "FAILED" ANSI_HIGHLIGHT_OFF, format);
                         manager_status_printf(u->manager, false, NULL, "See 'systemctl status %s' for details.", u->id);
                         break;
 
                 case JOB_DEPENDENCY:
+                        manager_flip_auto_status(u->manager, true);
                         unit_status_printf(u, ANSI_HIGHLIGHT_YELLOW_ON "DEPEND" ANSI_HIGHLIGHT_OFF, format);
                         break;
 
                 case JOB_TIMEOUT:
+                        manager_flip_auto_status(u->manager, true);
                         unit_status_printf(u, ANSI_HIGHLIGHT_RED_ON " TIME " ANSI_HIGHLIGHT_OFF, format);
                         break;
 
@@ -657,6 +660,7 @@ static void job_print_status_message(Unit *u, JobType t, JobResult result) {
                 switch (result) {
 
                 case JOB_TIMEOUT:
+                        manager_flip_auto_status(u->manager, true);
                         unit_status_printf(u, ANSI_HIGHLIGHT_RED_ON " TIME " ANSI_HIGHLIGHT_OFF, format);
                         break;
 
