@@ -3835,11 +3835,12 @@ char* hostname_cleanup(char *s, bool lowercase) {
 }
 
 int pipe_eof(int fd) {
-        int r;
         struct pollfd pollfd = {
                 .fd = fd,
                 .events = POLLIN|POLLHUP,
         };
+
+        int r;
 
         r = poll(&pollfd, 1, 0);
         if (r < 0)
@@ -6111,23 +6112,29 @@ int writev_safe(int fd, const struct iovec *w, int j) {
 }
 
 int mkostemp_safe(char *pattern, int flags) {
-        char *s = pattern + strlen(pattern) - 6;
-        uint64_t tries = TMP_MAX;
-        int randfd, fd, i;
+        unsigned long tries = TMP_MAX;
+        char *s;
+        int r;
 
-        assert(streq(s, "XXXXXX"));
+        assert(pattern);
 
-        randfd = open("/dev/urandom", O_RDONLY);
-        if (randfd < 0)
-                return -ENOSYS;
+        /* This is much like like mkostemp() but avoids using any
+         * static variables, thus is async signal safe */
+
+        s = endswith(pattern, "XXXXXX");
+        if (!s)
+                return -EINVAL;
 
         while (tries--) {
-                fd = read(randfd, s, 6);
-                if (fd == 0)
-                        return -ENOSYS;
+                unsigned i;
+                int fd;
+
+                r = dev_urandom(s, 6);
+                if (r < 0)
+                        return r;
 
                 for (i = 0; i < 6; i++)
-                        s[i] = ALPHANUMERICAL[(unsigned) s[i] % strlen(ALPHANUMERICAL)];
+                        s[i] = ALPHANUMERICAL[(unsigned) s[i] % (sizeof(ALPHANUMERICAL)-1)];
 
                 fd = open(pattern, flags|O_EXCL|O_CREAT, S_IRUSR|S_IWUSR);
                 if (fd >= 0)
