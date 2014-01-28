@@ -864,13 +864,10 @@ static int job_dispatch_timer(sd_event_source *s, uint64_t monotonic, void *user
 int job_start_timer(Job *j) {
         int r;
 
-        if (j->timer_event_source)
+        if (j->unit->job_timeout <= 0 || j->timer_event_source)
                 return 0;
 
         j->begin_usec = now(CLOCK_MONOTONIC);
-
-        if (j->unit->job_timeout <= 0)
-                return 0;
 
         r = sd_event_add_monotonic(j->manager->event, j->begin_usec + j->unit->job_timeout, 0, job_dispatch_timer, j, &j->timer_event_source);
         if (r < 0)

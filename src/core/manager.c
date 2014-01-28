@@ -153,8 +153,6 @@ static void manager_print_jobs_in_progress(Manager *m) {
         unsigned counter = 0, print_nr;
         char cylon[6 + CYLON_BUFFER_EXTRA + 1];
         unsigned cylon_pos;
-        char time[FORMAT_TIMESPAN_MAX], limit[FORMAT_TIMESPAN_MAX] = "no limit";
-        uint64_t x;
 
         assert(m);
 
@@ -176,23 +174,14 @@ static void manager_print_jobs_in_progress(Manager *m) {
                 cylon_pos = 14 - cylon_pos;
         draw_cylon(cylon, sizeof(cylon), 6, cylon_pos);
 
-        m->jobs_in_progress_iteration++;
-
         if (m->n_running_jobs > 1)
                 if (asprintf(&job_of_n, "(%u of %u) ", counter, m->n_running_jobs) < 0)
                         job_of_n = NULL;
 
-        format_timespan(time, sizeof(time), now(CLOCK_MONOTONIC) - j->begin_usec, 1*USEC_PER_SEC);
-        if (job_get_timeout(j, &x) > 0)
-                format_timespan(limit, sizeof(limit), x - j->begin_usec, 1*USEC_PER_SEC);
+        manager_status_printf(m, true, cylon, "%sA %s job is running for %s",
+                              strempty(job_of_n), job_type_to_string(j->type), unit_description(j->unit));
 
-        manager_status_printf(m, true, cylon,
-                              "%sA %s job is running for %s (%s / %s)",
-                              strempty(job_of_n),
-                              job_type_to_string(j->type),
-                              unit_description(j->unit),
-                              time, limit);
-
+        m->jobs_in_progress_iteration++;
 }
 
 static int manager_watch_idle_pipe(Manager *m) {
