@@ -984,6 +984,9 @@ keyboard:name:Sony Vaio Keys:dmi:bvn*:bvr*:bd*:svnSony*:pnVGN-Z21*:pvr*
  KEYBOARD_KEY_17=prog1
  KEYBOARD_KEY_20=media
 
+keyboard:name:Sony Vaio Keys:dmi:bvn*:bvr*:bd*:svnSony*:pnVGN-FW250*:pvr*
+ KEYBOARD_KEY_10=suspend                                # Fn+F12
+
 keyboard:name:Sony Vaio Keys:dmi:bvn*:bvr*:bd*:svnSony*:pnVPC*:pvr*
  KEYBOARD_KEY_05=f21                                    # Fn+F1 -> KEY_F21 (The actual touchpad toggle)
  KEYBOARD_KEY_0d=zoomout                                # Fn+F9
