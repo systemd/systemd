@@ -540,7 +540,7 @@ static void dhcp_handler(sd_dhcp_client *client, int event, void *userdata) {
                 addr->family = AF_INET;
                 addr->in_addr.in = address;
                 addr->prefixlen = prefixlen;
-                addr->netmask = netmask;
+                addr->broadcast.s_addr = address.s_addr | ~netmask.s_addr;
 
                 r = route_new_dynamic(&rt);
                 if (r < 0) {

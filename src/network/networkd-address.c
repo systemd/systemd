@@ -186,11 +186,7 @@ int address_configure(Address *address, Link *link,
         }
 
         if (address->family == AF_INET) {
-                struct in_addr broadcast;
-
-                broadcast.s_addr = address->in_addr.in.s_addr | address->netmask.s_addr;
-
-                r = sd_rtnl_message_append_in_addr(req, IFA_BROADCAST, &broadcast);
+                r = sd_rtnl_message_append_in_addr(req, IFA_BROADCAST, &address->broadcast);
                 if (r < 0) {
                         log_error("Could not append IFA_BROADCAST attribute: %s",
                                   strerror(-r));
@@ -253,6 +249,43 @@ int config_parse_dns(const char *unit,
         return 0;
 }
 
+int config_parse_broadcast(const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        Network *network = userdata;
+        _cleanup_address_free_ Address *n = NULL;
+        _cleanup_free_ char *address = NULL;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = address_new_static(network, section_line, &n);
+        if (r < 0)
+                return r;
+
+        r = net_parse_inaddr(address, &n->family, &n->broadcast);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Broadcast is invalid, ignoring assignment: %s", address);
+                return 0;
+        }
+
+        n = NULL;
+
+        return 0;
+}
+
 int config_parse_address(const char *unit,
                 const char *filename,
                 unsigned line,
@@ -300,7 +333,6 @@ int config_parse_address(const char *unit,
                 }
 
                 n->prefixlen = (unsigned char) i;
-                n->netmask.s_addr = htonl(0xfffffffflu >> n->prefixlen);
 
                 address = strndup(rvalue, e - rvalue);
                 if (!address)
@@ -317,6 +349,10 @@ int config_parse_address(const char *unit,
                            "Address is invalid, ignoring assignment: %s", address);
                 return 0;
         }
+
+        if (n->family == AF_INET && !n->broadcast.s_addr)
+                n->broadcast.s_addr = n->in_addr.in.s_addr |
+                                      htonl(0xfffffffflu >> n->prefixlen);
 
         n = NULL;
 

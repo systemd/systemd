@@ -123,7 +123,7 @@ struct Address {
         unsigned char prefixlen;
         char *label;
 
-        struct in_addr netmask;
+        struct in_addr broadcast;
 
         union {
                 struct in_addr in;
@@ -304,6 +304,10 @@ int config_parse_dns(const char *unit, const char *filename, unsigned line,
 int config_parse_address(const char *unit, const char *filename, unsigned line,
                          const char *section, unsigned section_line, const char *lvalue,
                          int ltype, const char *rvalue, void *data, void *userdata);
+
+int config_parse_broadcast(const char *unit, const char *filename, unsigned line,
+                           const char *section, unsigned section_line, const char *lvalue,
+                           int ltype, const char *rvalue, void *data, void *userdata);
 
 int config_parse_label(const char *unit, const char *filename, unsigned line,
                        const char *section, unsigned section_line, const char *lvalue,
