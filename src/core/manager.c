@@ -97,12 +97,16 @@ static int manager_dispatch_jobs_in_progress(sd_event_source *source, usec_t use
 static int manager_dispatch_run_queue(sd_event_source *source, void *userdata);
 
 static int manager_watch_jobs_in_progress(Manager *m) {
+        usec_t next;
+
         assert(m);
 
         if (m->jobs_in_progress_event_source)
                 return 0;
 
-        return sd_event_add_monotonic(m->event, now(CLOCK_MONOTONIC) + JOBS_IN_PROGRESS_WAIT_USEC, 0, manager_dispatch_jobs_in_progress, m, &m->jobs_in_progress_event_source);
+        next = now(CLOCK_MONOTONIC) + JOBS_IN_PROGRESS_WAIT_USEC;
+        log_debug("queuing for "USEC_FMT, next);
+        return sd_event_add_monotonic(m->event, next, 0, manager_dispatch_jobs_in_progress, m, &m->jobs_in_progress_event_source);
 }
 
 #define CYLON_BUFFER_EXTRA (2*(sizeof(ANSI_RED_ON)-1) + sizeof(ANSI_HIGHLIGHT_RED_ON)-1 + 2*(sizeof(ANSI_HIGHLIGHT_OFF)-1))
@@ -186,7 +190,7 @@ static void manager_print_jobs_in_progress(Manager *m) {
         if (job_get_timeout(j, &x) > 0)
                 format_timespan(limit, sizeof(limit), x - j->begin_usec, 1*USEC_PER_SEC);
 
-        manager_status_printf(m, true, cylon,
+        manager_status_printf(m, false, cylon,
                               "%sA %s job is running for %s (%s / %s)",
                               strempty(job_of_n),
                               job_type_to_string(j->type),
@@ -1762,6 +1766,7 @@ static int manager_dispatch_jobs_in_progress(sd_event_source *source, usec_t use
         manager_print_jobs_in_progress(m);
 
         next = now(CLOCK_MONOTONIC) + JOBS_IN_PROGRESS_PERIOD_USEC;
+        log_debug("requeuing for "USEC_FMT, next);
         r = sd_event_source_set_time(source, next);
         if (r < 0)
                 return r;
@@ -2462,7 +2467,8 @@ void manager_check_finished(Manager *m) {
 
         if (hashmap_size(m->jobs) > 0) {
                 if (m->jobs_in_progress_event_source) {
-                        uint64_t next = now(CLOCK_MONOTONIC) + JOBS_IN_PROGRESS_PERIOD_USEC;
+                        uint64_t next = now(CLOCK_MONOTONIC) + JOBS_IN_PROGRESS_WAIT_USEC;
+                        log_debug("requeuing for "USEC_FMT, next);
                         sd_event_source_set_time(m->jobs_in_progress_event_source, next);
                 }
                 return;
