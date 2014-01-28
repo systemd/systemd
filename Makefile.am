@@ -4481,9 +4481,7 @@ libsystemd_id128_la_SOURCES = \
 	src/compat-libs/libsystemd-id128.sym
 
 libsystemd_id128_la_CFLAGS = \
-	$(AM_CFLAGS) \
-	-fvisibility=default \
-	-imacros $(top_srcdir)/src/compat-libs/linkwarning.h
+	$(libsystemd_login_la_CFLAGS)
 
 libsystemd_id128_la_LDFLAGS = \
 	$(AM_LDFLAGS) \
