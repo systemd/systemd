@@ -6093,43 +6093,20 @@ int getpeersec(int fd, char **ret) {
         return 0;
 }
 
+/* This is much like like mkostemp() but is subject to umask(). */
 int mkostemp_safe(char *pattern, int flags) {
-        unsigned long tries = TMP_MAX;
-        char *s;
-        int r;
         _cleanup_umask_ mode_t u;
+        int fd;
 
         assert(pattern);
 
         u = umask(077);
 
-        /* This is much like like mkostemp() but avoids using any
-         * static variables, thus is async signal safe. Also, it's not
-         * subject to umask(). */
+        fd = mkostemp(pattern, flags);
+        if (fd < 0)
+                return -errno;
 
-        s = endswith(pattern, "XXXXXX");
-        if (!s)
-                return -EINVAL;
-
-        while (tries--) {
-                unsigned i;
-                int fd;
-
-                r = dev_urandom(s, 6);
-                if (r < 0)
-                        return r;
-
-                for (i = 0; i < 6; i++)
-                        s[i] = ALPHANUMERICAL[(unsigned) s[i] % (sizeof(ALPHANUMERICAL)-1)];
-
-                fd = open(pattern, flags|O_EXCL|O_CREAT|O_NOCTTY|O_NOFOLLOW, S_IRUSR|S_IWUSR);
-                if (fd >= 0)
-                        return fd;
-                if (!IN_SET(errno, EEXIST, EINTR))
-                        return -errno;
-        }
-
-        return -EEXIST;
+        return fd;
 }
 
 int open_tmpfile(const char *path, int flags) {

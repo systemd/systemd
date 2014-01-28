@@ -324,10 +324,6 @@ static inline int name_to_handle_at(int fd, const char *name, struct file_handle
 #  define DRM_IOCTL_DROP_MASTER _IO('d', 0x1f)
 #endif
 
-#ifndef TMP_MAX
-# define TMP_MAX 238328
-#endif
-
 #if defined(__i386__) || defined(__x86_64__)
 
 /* The precise definition of __O_TMPFILE is arch specific, so let's
