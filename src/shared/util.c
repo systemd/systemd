@@ -3893,7 +3893,7 @@ int fopen_temporary(const char *path, FILE **_f, char **_temp_path) {
         t[k] = '.';
         stpcpy(stpcpy(t+k+1, fn), "XXXXXX");
 
-        fd = mkostemp(t, O_WRONLY|O_CLOEXEC);
+        fd = mkostemp_safe(t, O_WRONLY|O_CLOEXEC);
         if (fd < 0) {
                 free(t);
                 return -errno;
@@ -6115,11 +6115,15 @@ int mkostemp_safe(char *pattern, int flags) {
         unsigned long tries = TMP_MAX;
         char *s;
         int r;
+        _cleanup_umask_ mode_t u;
 
         assert(pattern);
 
+        u = umask(077);
+
         /* This is much like like mkostemp() but avoids using any
-         * static variables, thus is async signal safe */
+         * static variables, thus is async signal safe. Also, it's not
+         * subject to umask(). */
 
         s = endswith(pattern, "XXXXXX");
         if (!s)

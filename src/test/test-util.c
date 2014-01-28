@@ -56,9 +56,9 @@ static void test_close_many(void) {
         char name1[] = "/tmp/test-close-many.XXXXXX";
         char name2[] = "/tmp/test-close-many.XXXXXX";
 
-        fds[0] = mkstemp(name0);
-        fds[1] = mkstemp(name1);
-        fds[2] = mkstemp(name2);
+        fds[0] = mkostemp_safe(name0, O_RDWR|O_CLOEXEC);
+        fds[1] = mkostemp_safe(name1, O_RDWR|O_CLOEXEC);
+        fds[2] = mkostemp_safe(name2, O_RDWR|O_CLOEXEC);
 
         close_many(fds, 2);
 
@@ -591,7 +591,7 @@ static void test_writev_safe(void) {
         IOVEC_SET_STRING(iov[1], ALPHANUMERICAL "\n");
         IOVEC_SET_STRING(iov[2], "");
 
-        fd = mkstemp(name);
+        fd = mkostemp_safe(name, O_RDWR|O_CLOEXEC);
         printf("test_writev_safe: %s", name);
 
         r = writev_safe(fd, iov, 3);

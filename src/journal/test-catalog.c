@@ -24,6 +24,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
+#include <fcntl.h>
 
 #include "util.h"
 #include "log.h"
@@ -45,7 +46,9 @@ static void test_import(Hashmap *h, struct strbuf *sb,
                         const char* contents, ssize_t size, int code) {
         int r;
         char name[] = "/tmp/test-catalog.XXXXXX";
-        _cleanup_close_ int fd = mkstemp(name);
+        _cleanup_close_ int fd;
+
+        fd = mkostemp_safe(name, O_RDWR|O_CLOEXEC);
         assert(fd >= 0);
         assert_se(write(fd, contents, size) == size);
 
@@ -98,10 +101,10 @@ static void test_catalog_importing(void) {
 static const char* database = NULL;
 
 static void test_catalog_update(void) {
+        static char name[] = "/tmp/test-catalog.XXXXXX";
         int r;
 
-        static char name[] = "/tmp/test-catalog.XXXXXX";
-        r = mkstemp(name);
+        r = mkostemp_safe(name, O_RDWR|O_CLOEXEC);
         assert(r >= 0);
 
         database = name;

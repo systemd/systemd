@@ -25,6 +25,7 @@
 #include <stddef.h>
 #include <string.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 #include "install.h"
 #include "install-printf.h"
@@ -221,7 +222,9 @@ static void test_load_env_file_1(void) {
         int r;
 
         char name[] = "/tmp/test-load-env-file.XXXXXX";
-        _cleanup_close_ int fd = mkstemp(name);
+        _cleanup_close_ int fd;
+
+        fd = mkostemp_safe(name, O_RDWR|O_CLOEXEC);
         assert(fd >= 0);
         assert_se(write(fd, env_file_1, sizeof(env_file_1)) == sizeof(env_file_1));
 
@@ -242,7 +245,9 @@ static void test_load_env_file_2(void) {
         int r;
 
         char name[] = "/tmp/test-load-env-file.XXXXXX";
-        _cleanup_close_ int fd = mkstemp(name);
+        _cleanup_close_ int fd;
+
+        fd = mkostemp_safe(name, O_RDWR|O_CLOEXEC);
         assert(fd >= 0);
         assert_se(write(fd, env_file_2, sizeof(env_file_2)) == sizeof(env_file_2));
 
@@ -258,7 +263,9 @@ static void test_load_env_file_3(void) {
         int r;
 
         char name[] = "/tmp/test-load-env-file.XXXXXX";
-        _cleanup_close_ int fd = mkstemp(name);
+        _cleanup_close_ int fd;
+
+        fd = mkostemp_safe(name, O_RDWR|O_CLOEXEC);
         assert(fd >= 0);
         assert_se(write(fd, env_file_3, sizeof(env_file_3)) == sizeof(env_file_3));
 
@@ -270,10 +277,11 @@ static void test_load_env_file_3(void) {
 
 static void test_load_env_file_4(void) {
         _cleanup_strv_free_ char **data = NULL;
+        char name[] = "/tmp/test-load-env-file.XXXXXX";
+        _cleanup_close_ int fd;
         int r;
 
-        char name[] = "/tmp/test-load-env-file.XXXXXX";
-        _cleanup_close_ int fd = mkstemp(name);
+        fd = mkostemp_safe(name, O_RDWR|O_CLOEXEC);
         assert(fd >= 0);
         assert_se(write(fd, env_file_4, sizeof(env_file_4)) == sizeof(env_file_4));
 

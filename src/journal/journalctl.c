@@ -1286,7 +1286,7 @@ static int setup_keys(void) {
         n /= arg_interval;
 
         close_nointr_nofail(fd);
-        fd = mkostemp(k, O_WRONLY|O_CLOEXEC|O_NOCTTY);
+        fd = mkostemp_safe(k, O_WRONLY|O_CLOEXEC);
         if (fd < 0) {
                 log_error("Failed to open %s: %m", k);
                 r = -errno;

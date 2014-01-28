@@ -325,10 +325,7 @@ int ask_password_agent(
 
         mkdir_p_label("/run/systemd/ask-password", 0755);
 
-        RUN_WITH_UMASK(0022) {
-                fd = mkostemp(temp, O_CLOEXEC|O_CREAT|O_WRONLY);
-        }
-
+        fd = mkostemp_safe(temp, O_WRONLY|O_CLOEXEC);
         if (fd < 0) {
                 log_error("Failed to create password file: %m");
                 r = -errno;

@@ -41,11 +41,11 @@ static void test_parse_env_file(void) {
         char **i;
         unsigned k;
 
-        fd = mkstemp(p);
+        fd = mkostemp_safe(p, O_RDWR|O_CLOEXEC);
         assert_se(fd >= 0);
         close(fd);
 
-        fd = mkostemp(t, O_CLOEXEC);
+        fd = mkostemp_safe(t, O_RDWR|O_CLOEXEC);
         assert_se(fd >= 0);
 
         f = fdopen(fd, "w");
@@ -154,11 +154,11 @@ static void test_parse_multiline_env_file(void) {
         _cleanup_strv_free_ char **a = NULL, **b = NULL;
         char **i;
 
-        fd = mkstemp(p);
+        fd = mkostemp_safe(p, O_RDWR|O_CLOEXEC);
         assert_se(fd >= 0);
         close(fd);
 
-        fd = mkostemp(t, O_CLOEXEC);
+        fd = mkostemp_safe(t, O_RDWR|O_CLOEXEC);
         assert_se(fd >= 0);
 
         f = fdopen(fd, "w");
@@ -207,7 +207,7 @@ static void test_executable_is_script(void) {
         FILE *f;
         char *command;
 
-        fd = mkostemp(t, O_CLOEXEC);
+        fd = mkostemp_safe(t, O_RDWR|O_CLOEXEC);
         assert_se(fd >= 0);
 
         f = fdopen(fd, "w");
