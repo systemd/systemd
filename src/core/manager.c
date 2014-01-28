@@ -102,7 +102,7 @@ static int manager_watch_jobs_in_progress(Manager *m) {
         if (m->jobs_in_progress_event_source)
                 return 0;
 
-        return sd_event_add_monotonic(m->event, JOBS_IN_PROGRESS_WAIT_USEC, 0, manager_dispatch_jobs_in_progress, m, &m->jobs_in_progress_event_source);
+        return sd_event_add_monotonic(m->event, now(CLOCK_MONOTONIC) + JOBS_IN_PROGRESS_WAIT_USEC, 0, manager_dispatch_jobs_in_progress, m, &m->jobs_in_progress_event_source);
 }
 
 #define CYLON_BUFFER_EXTRA (2*(sizeof(ANSI_RED_ON)-1) + sizeof(ANSI_HIGHLIGHT_RED_ON)-1 + 2*(sizeof(ANSI_HIGHLIGHT_OFF)-1))
@@ -147,6 +147,9 @@ static void manager_print_jobs_in_progress(Manager *m) {
         uint64_t x;
 
         assert(m);
+
+        if (m->show_status == SHOW_STATUS_AUTO)
+                manager_set_show_status(m, SHOW_STATUS_TEMPORARY);
 
         print_nr = (m->jobs_in_progress_iteration / JOBS_IN_PROGRESS_PERIOD_DIVISOR) % m->n_running_jobs;
 
@@ -1637,12 +1640,12 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
 
                         case 20:
                                 log_debug("Enabling showing of status.");
-                                manager_set_show_status(m, true);
+                                manager_set_show_status(m, SHOW_STATUS_YES);
                                 break;
 
                         case 21:
                                 log_debug("Disabling showing of status.");
-                                manager_set_show_status(m, false);
+                                manager_set_show_status(m, SHOW_STATUS_NO);
                                 break;
 
                         case 22:
@@ -2456,6 +2459,9 @@ void manager_check_finished(Manager *m) {
                 return;
         }
 
+        if (m->show_status == SHOW_STATUS_TEMPORARY)
+                manager_set_show_status(m, SHOW_STATUS_AUTO);
+
         /* Notify Type=idle units that we are done now */
         m->idle_pipe_event_source = sd_event_source_unref(m->idle_pipe_event_source);
         manager_close_idle_pipe(m);
@@ -2754,15 +2760,16 @@ void manager_recheck_journal(Manager *m) {
         log_open();
 }
 
-void manager_set_show_status(Manager *m, bool b) {
+void manager_set_show_status(Manager *m, ShowStatus mode) {
         assert(m);
+        assert(IN_SET(mode, SHOW_STATUS_AUTO, SHOW_STATUS_NO, SHOW_STATUS_YES, SHOW_STATUS_TEMPORARY));
 
         if (m->running_as != SYSTEMD_SYSTEM)
                 return;
 
-        m->show_status = b;
+        m->show_status = mode;
 
-        if (b)
+        if (mode > 0)
                 touch("/run/systemd/show-status");
         else
                 unlink("/run/systemd/show-status");
@@ -2777,7 +2784,7 @@ static bool manager_get_show_status(Manager *m) {
         if (m->no_console_output)
                 return false;
 
-        if (m->show_status)
+        if (m->show_status > 0)
                 return true;
 
         /* If Plymouth is running make sure we show the status, so

@@ -1061,14 +1061,20 @@
                                 <term><varname>systemd.show_status=</varname></term>
 
                                 <listitem><para>Takes a boolean
-                                argument. If <option>true</option>,
-                                shows terse service status updates on
-                                the console during bootup. Defaults to
+                                argument or the constant
+                                <constant>auto</constant>. If
+                                <option>true</option>, shows terse
+                                service status updates on the console
+                                during bootup.
+                                <constant>auto</constant> behaves like
+                                <option>false</option> until a service
+                                fails or there is a significant delay
+                                in boot. Defaults to
                                 <option>true</option>, unless
                                 <option>quiet</option> is passed as
                                 kernel command line option in which
                                 case it defaults to
-                                <option>false</option>.</para></listitem>
+                                <constant>auto</constant>.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

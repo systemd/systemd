@@ -90,7 +90,7 @@ static bool arg_dump_core = true;
 static bool arg_crash_shell = false;
 static int arg_crash_chvt = -1;
 static bool arg_confirm_spawn = false;
-static bool arg_show_status = true;
+static ShowStatus arg_show_status = SHOW_STATUS_UNSET;
 static bool arg_switched_root = false;
 static char ***arg_join_controllers = NULL;
 static ExecOutput arg_default_std_output = EXEC_OUTPUT_JOURNAL;
@@ -338,10 +338,9 @@ static int parse_proc_cmdline_word(const char *word) {
         } else if (startswith(word, "systemd.show_status=")) {
                 int r;
 
-                if ((r = parse_boolean(word + 20)) < 0)
+                r = parse_show_status(word + 20, &arg_show_status);
+                if (r < 0)
                         log_warning("Failed to parse show status switch %s. Ignoring.", word + 20);
-                else
-                        arg_show_status = r;
         } else if (startswith(word, "systemd.default_standard_output=")) {
                 int r;
 
@@ -396,7 +395,7 @@ static int parse_proc_cmdline_word(const char *word) {
                                  "systemd.crash_shell=0|1                  Run shell on crash\n"
                                  "systemd.crash_chvt=N                     Change to VT #N on crash\n"
                                  "systemd.confirm_spawn=0|1                Confirm every process spawn\n"
-                                 "systemd.show_status=0|1                  Show status updates on the console during bootup\n"
+                                 "systemd.show_status=0|1|auto             Show status updates on the console during bootup\n"
                                  "systemd.log_target=console|kmsg|journal|journal-or-kmsg|syslog|syslog-or-kmsg|null\n"
                                  "                                         Log target\n"
                                  "systemd.log_level=LEVEL                  Log level\n"
@@ -409,9 +408,10 @@ static int parse_proc_cmdline_word(const char *word) {
                                  "systemd.setenv=ASSIGNMENT                Set an environment variable for all spawned processes\n");
                 }
 
-        } else if (streq(word, "quiet"))
-                arg_show_status = false;
-        else if (streq(word, "debug")) {
+        } else if (streq(word, "quiet")) {
+                if (arg_show_status == SHOW_STATUS_UNSET)
+                        arg_show_status = SHOW_STATUS_AUTO;
+        } else if (streq(word, "debug")) {
                 /* Log to kmsg, the journal socket will fill up before the
                  * journal is started and tools running during that time
                  * will block with every log message for for 60 seconds,
@@ -638,7 +638,7 @@ static int parse_config_file(void) {
                 { "Manager", "LogLocation",           config_parse_location,     0, NULL                     },
                 { "Manager", "DumpCore",              config_parse_bool,         0, &arg_dump_core           },
                 { "Manager", "CrashShell",            config_parse_bool,         0, &arg_crash_shell         },
-                { "Manager", "ShowStatus",            config_parse_bool,         0, &arg_show_status         },
+                { "Manager", "ShowStatus",            config_parse_show_status,  0, &arg_show_status         },
                 { "Manager", "CrashChVT",             config_parse_int,          0, &arg_crash_chvt          },
                 { "Manager", "CPUAffinity",           config_parse_cpu_affinity2, 0, NULL                    },
                 { "Manager", "DefaultStandardOutput", config_parse_output,       0, &arg_default_std_output  },
@@ -897,12 +897,14 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_SHOW_STATUS:
-                        r = optarg ? parse_boolean(optarg) : 1;
-                        if (r < 0) {
-                                log_error("Failed to parse show status boolean %s.", optarg);
-                                return r;
-                        }
-                        arg_show_status = r;
+                        if (optarg) {
+                                r = parse_show_status(optarg, &arg_show_status);
+                                if (r < 0) {
+                                        log_error("Failed to parse show status boolean %s.", optarg);
+                                        return r;
+                                }
+                        } else
+                                arg_show_status = SHOW_STATUS_YES;
                         break;
 
                 case ARG_DESERIALIZE: {
@@ -1482,7 +1484,7 @@ int main(int argc, char *argv[]) {
         }
 
         if (arg_running_as == SYSTEMD_SYSTEM && !skip_setup) {
-                if (arg_show_status || plymouth_running())
+                if (arg_show_status > 0 || plymouth_running())
                         status_welcome();
 
 #ifdef HAVE_KMOD
@@ -1557,6 +1559,8 @@ int main(int argc, char *argv[]) {
         if (arg_default_environment)
                 manager_environment_add(m, NULL, arg_default_environment);
 
+        if (arg_show_status == SHOW_STATUS_UNSET)
+                arg_show_status = SHOW_STATUS_YES;
         manager_set_show_status(m, arg_show_status);
 
         /* Remember whether we should queue the default job */

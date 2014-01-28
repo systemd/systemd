@@ -57,6 +57,7 @@ typedef enum ManagerExitCode {
 #include "path-lookup.h"
 #include "execute.h"
 #include "unit-name.h"
+#include "exit-status.h"
 
 struct Manager {
         /* Note that the set of units we know of is allowed to be
@@ -198,7 +199,7 @@ struct Manager {
 
         bool taint_usr:1;
 
-        bool show_status;
+        ShowStatus show_status;
         bool confirm_spawn;
         bool no_console_output;
 
@@ -296,7 +297,7 @@ void manager_undo_generators(Manager *m);
 
 void manager_recheck_journal(Manager *m);
 
-void manager_set_show_status(Manager *m, bool b);
+void manager_set_show_status(Manager *m, ShowStatus mode);
 void manager_status_printf(Manager *m, bool ephemeral, const char *status, const char *format, ...) _printf_(4,5);
 
 Set *manager_get_units_requiring_mounts_for(Manager *m, const char *path);
