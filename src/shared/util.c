@@ -6136,7 +6136,7 @@ int mkostemp_safe(char *pattern, int flags) {
                 for (i = 0; i < 6; i++)
                         s[i] = ALPHANUMERICAL[(unsigned) s[i] % (sizeof(ALPHANUMERICAL)-1)];
 
-                fd = open(pattern, flags|O_EXCL|O_CREAT, S_IRUSR|S_IWUSR);
+                fd = open(pattern, flags|O_EXCL|O_CREAT|O_NOCTTY|O_NOFOLLOW, S_IRUSR|S_IWUSR);
                 if (fd >= 0)
                         return fd;
                 if (!IN_SET(errno, EEXIST, EINTR))
@@ -6153,10 +6153,13 @@ int open_tmpfile(const char *path, int flags) {
         assert(path);
 
 #ifdef O_TMPFILE
-        fd = open(path, flags|O_TMPFILE|O_NOCTTY, S_IRUSR|S_IWUSR);
+        /* Try O_TMPFILE first, if it is supported */
+        fd = open(path, flags|O_TMPFILE, S_IRUSR|S_IWUSR);
         if (fd >= 0)
                 return fd;
 #endif
+
+        /* Fall back to unguessable name + unlinking */
         p = strappenda(path, "/systemd-tmp-XXXXXX");
 
         fd = mkostemp_safe(p, flags);
