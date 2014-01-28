@@ -51,7 +51,9 @@ client does not know what they mean, it must disconnect. The upper
 system, the lower 32bit indicate "compatible" feature additions. A
 client that does not support a "compatible" feature addition can go on
 communicating with the bus, however a client that does not support an
-"incompatible" feature must not proceed with the connection.
+"incompatible" feature must not proceed with the connection. When a
+client encountes such an "incompatible" feature it should immediately
+try the next bus address configured in the bus address string.
 
 The hello structure also contains another flags field "attach_flags"
 which indicates metadata that is optionally attached to all incoming
@@ -66,8 +68,9 @@ The kernel will return in the "id" field your unique id. This is a
 simple numeric value. For compatibility with classic dbus1 simply
 format this as string and prefix ":0.".
 
-The kernel will also return the bloom filter size used for the signal
-broadcast bloom filter (see below).
+The kernel will also return the bloom filter size and bloom filter
+hash function number used for the signal broadcast bloom filter (see
+below).
 
 The kernel will also return the bus ID of the bus in a 128bit field.
 
@@ -233,13 +236,14 @@ positives.
 
 The parameters for the bloom filters that need to be included in
 broadcast message is communicated to userspace as part of the hello
-response structure. By default it has the parameters m=512 (bits in
-the filter), k=8 (nr of hash functions). Note however, that this is
-subject to change later on, and userspace implementations must be
-capable of handling m values between at least m=8 and m=2^32, and k
-values between at least k=1 and k=32. The underlying hash function is
-SipHash-2-4. It is used with a number of constant (yet originally
-randomly generated) 128bit hash keys, more specifically:
+response structure (see above). By default it has the parameters m=512
+(bits in the filter), k=8 (nr of hash functions). Note however, that
+this is subject to change in later versions, and userspace
+implementations must be capable of handling m values between at least
+m=8 and m=2^32, and k values between at least k=1 and k=32. The
+underlying hash function is SipHash-2-4. It is used with a number of
+constant (yet originally randomly generated) 128bit hash keys, more
+specifically:
 
    b9,66,0b,f0,46,70,47,c1,88,75,c4,9c,54,b9,bd,15,
    aa,a1,54,a2,e0,71,4b,39,bf,e1,dd,2e,9f,c5,4a,3b,
@@ -253,7 +257,7 @@ randomly generated) 128bit hash keys, more specifically:
 When calculating the first bit index into the bloom filter, the
 SipHash-2-4 hash value is calculated for the input data and the first
 16 bytes of the array above as hash key. Of the resulting 8 bytes of
-output, as many full bytes are taken for the index as necessary,
+output, as many full bytes are taken for the bit index as necessary,
 starting from the output's first byte. For the second bit index the
 same hash value is used, continuing with the next unused output byte,
 and so on. Each time the bytes returned by the hash function are
@@ -313,6 +317,11 @@ implementation must be capable of dealing with these unexpected
 messages (which it needs to anyway, given that transfers are
 relatively unrestricted on kdbus and people can send you all kinds of
 non-sense).
+
+If a client connects to a bus whose bloom filter metrics (i.e. filter
+size and number of hash functions) are outside of the range the client
+supports it must immediately disconnect and continue connection with
+the next bus address of the bus connection string.
 
 INSTALLING MATCHES
 
