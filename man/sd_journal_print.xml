@@ -247,16 +247,6 @@ sd_journal_send("MESSAGE=Hello World, this is PID %lu!", (unsigned long) getpid(
         </refsect1>
 
         <refsect1>
-                <title>History</title>
-
-                <para><function>sd_journal_sendv()</function> was
-                modified to guarantee async-signal-safety in
-                systemd-209. Before that, it would behave safely only
-                when entry size was small enough to fit in one (large)
-                datagram.</para>
-        </refsect1>
-
-        <refsect1>
                 <title>See Also</title>
 
                 <para>
