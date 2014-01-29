@@ -56,8 +56,6 @@ Features:
 * machinectl bash completion is missing
 * busctl bash and zsh completions are outdated
 
-* Introduce PrivateDevices=yes/no which works like PrivateTmp= but for /dev setting up a tmpfs for it that only includes /dev/null, /dev/zero, /dev/random, /dev/urandom, but nothing else.
-
 * libsystemd-journal returns the object created as first param in sd_journal_new(), sd_bus_new() and suchlike as last...
 
 * cgroups:
@@ -81,8 +79,6 @@ Features:
 * Automatically configure swap partition to use for hibernation by looking for largest swap partition on the root disk?
 
 * when we detect low battery and no AC on boot, show pretty splash and refuse boot
-
-* move libasyncns into systemd as libsystemd-asyncns
 
 * machined, localed: when we try to kill an empty cgroup, generate an ESRCH error over the bus
 
@@ -153,10 +149,7 @@ Features:
        - GVariant
        - "const" properties (posted)
   - port exit-on-idle logic to byebye ioctl
-  - bus proxy: override unique id sender for messages from driver to match the well-known name
-  - bus driver: GetNameOwner() for "org.freedesktop.DBus" should return "org.freedesktop.DBus"
   - update systemd.special(7) to mention that dbus.socket is only about the compatibility socket now
-  - bus proxy should fake seclabel when connecting to kdbus
   - allow updating attach flags during runtime
   - pid1: peek into activating message when activating a service
   - test bloom filter generation indexes
