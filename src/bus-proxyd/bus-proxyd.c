@@ -395,6 +395,36 @@ static int process_hello(sd_bus *a, sd_bus *b, sd_bus_message *m, bool *got_hell
         return 1;
 }
 
+static int patch_sender(sd_bus *a, sd_bus_message *m) {
+        char **well_known = NULL;
+        sd_bus_creds *c;
+        int r;
+
+        assert(a);
+        assert(m);
+
+        if (!a->is_kernel)
+                return 0;
+
+        /* We will change the sender of messages from the bus driver
+         * so that they originate from the bus driver. This is a
+         * speciality originating from dbus1, where the bus driver did
+         * not have a unique id, but only the well-known name. */
+
+        c = sd_bus_message_get_creds(m);
+        if (!c)
+                return 0;
+
+        r = sd_bus_creds_get_well_known_names(c, &well_known);
+        if (r < 0)
+                return r;
+
+        if (strv_contains(well_known, "org.freedesktop.DBus"))
+                m->sender = "org.freedesktop.DBus";
+
+        return 0;
+}
+
 int main(int argc, char *argv[]) {
 
         _cleanup_bus_unref_ sd_bus *a = NULL, *b = NULL;
@@ -611,6 +641,8 @@ int main(int argc, char *argv[]) {
                                         log_error("Failed to synthesize message: %s", strerror(-r));
                                         goto finish;
                                 }
+
+                                patch_sender(a, m);
 
                                 k = sd_bus_send(b, m, NULL);
                                 if (k < 0) {
