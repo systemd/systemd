@@ -50,6 +50,7 @@
 #include "bus-errors.h"
 #include "dbus.h"
 #include "execute.h"
+#include "virt.h"
 
 const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX] = {
         [UNIT_SERVICE] = &service_vtable,
@@ -2921,7 +2922,7 @@ int unit_kill_context(
                 pid_t control_pid,
                 bool main_pid_alien) {
 
-        int sig, wait_for_exit = 0, r;
+        int sig, wait_for_exit = false, r;
 
         assert(u);
         assert(c);
@@ -2940,7 +2941,8 @@ int unit_kill_context(
 
                         log_warning_unit(u->id, "Failed to kill main process " PID_FMT " (%s): %s", main_pid, strna(comm), strerror(-r));
                 } else {
-                        wait_for_exit = !main_pid_alien;
+                        if (!main_pid_alien)
+                                wait_for_exit = true;
 
                         if (c->send_sighup)
                                 kill(main_pid, SIGHUP);
@@ -2976,7 +2978,16 @@ int unit_kill_context(
                         if (r != -EAGAIN && r != -ESRCH && r != -ENOENT)
                                 log_warning_unit(u->id, "Failed to kill control group: %s", strerror(-r));
                 } else if (r > 0) {
-                        wait_for_exit = true;
+
+                        /* FIXME: Now, this is a terrible hack: in
+                         * containers cgroup empty notifications don't
+                         * work. Hence we'll not wait for them to run
+                         * empty for now, since there is no way to
+                         * detect when a service ends with no main PID
+                         * known... */
+
+                        if (detect_container(NULL) <= 0)
+                                wait_for_exit = true;
 
                         if (c->send_sighup) {
                                 set_free(pid_set);
