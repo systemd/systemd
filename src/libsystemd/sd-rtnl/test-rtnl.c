@@ -27,7 +27,6 @@
 #include "sd-rtnl.h"
 #include "socket-util.h"
 #include "rtnl-util.h"
-#include "rtnl-internal.h"
 #include "event-util.h"
 
 static void test_link_configure(sd_rtnl *rtnl, int ifindex) {
@@ -86,7 +85,7 @@ static void test_route(void) {
                 return;
         }
 
-        assert(message_seal(NULL, req) >= 0);
+        assert(rtnl_message_seal(NULL, req) >= 0);
 
         assert(sd_rtnl_message_read(req, &type, &data) > 0);
         assert(type == RTA_GATEWAY);
@@ -227,7 +226,7 @@ static void test_container(void) {
         assert(sd_rtnl_message_close_container(m) >= 0);
         assert(sd_rtnl_message_close_container(m) == -EINVAL);
 
-        assert(message_seal(NULL, m) >= 0);
+        assert(rtnl_message_seal(NULL, m) >= 0);
 
         assert(sd_rtnl_message_read(m, &type, &data) >= 0);
         assert(type == IFLA_LINKINFO);

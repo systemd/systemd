@@ -25,6 +25,7 @@
 #include "sd-rtnl.h"
 
 #include "rtnl-util.h"
+#include "rtnl-internal.h"
 
 int rtnl_set_link_name(sd_rtnl *rtnl, int ifindex, const char *name) {
         _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *message = NULL;
@@ -97,4 +98,75 @@ int rtnl_set_link_properties(sd_rtnl *rtnl, int ifindex, const char *alias,
         }
 
         return 0;
+}
+
+int rtnl_message_new_synthetic_error(int error, uint32_t serial, sd_rtnl_message **ret) {
+        struct nlmsgerr *err;
+        int r;
+
+        assert(error <= 0);
+
+        r = message_new(ret, NLMSG_SPACE(sizeof(struct nlmsgerr)));
+        if (r < 0)
+                return r;
+
+        (*ret)->hdr->nlmsg_len = NLMSG_LENGTH(sizeof(struct nlmsgerr));
+        (*ret)->hdr->nlmsg_type = NLMSG_ERROR;
+        (*ret)->hdr->nlmsg_seq = serial;
+
+        err = NLMSG_DATA((*ret)->hdr);
+
+        err->error = error;
+
+        return 0;
+}
+
+bool rtnl_message_type_is_route(uint16_t type) {
+        switch (type) {
+                case RTM_NEWROUTE:
+                case RTM_GETROUTE:
+                case RTM_DELROUTE:
+                        return true;
+                default:
+                        return false;
+        }
+}
+
+bool rtnl_message_type_is_link(uint16_t type) {
+        switch (type) {
+                case RTM_NEWLINK:
+                case RTM_SETLINK:
+                case RTM_GETLINK:
+                case RTM_DELLINK:
+                        return true;
+                default:
+                        return false;
+        }
+}
+
+bool rtnl_message_type_is_addr(uint16_t type) {
+        switch (type) {
+                case RTM_NEWADDR:
+                case RTM_GETADDR:
+                case RTM_DELADDR:
+                        return true;
+                default:
+                        return false;
+        }
+}
+
+int rtnl_message_link_get_ifname(sd_rtnl_message *message, const char **ret) {
+        unsigned short type;
+        void *name;
+
+        assert(rtnl_message_type_is_link(message->hdr->nlmsg_type));
+
+        while (sd_rtnl_message_read(message, &type, &name)) {
+                if (type == IFLA_IFNAME) {
+                        *ret = name;
+                        return 0;
+                }
+        }
+
+        return -ENOENT;
 }

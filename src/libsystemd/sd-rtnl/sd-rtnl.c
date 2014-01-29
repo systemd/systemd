@@ -150,7 +150,7 @@ int sd_rtnl_send(sd_rtnl *nl,
         assert_return(!rtnl_pid_changed(nl), -ECHILD);
         assert_return(message, -EINVAL);
 
-        r = message_seal(nl, message);
+        r = rtnl_message_seal(nl, message);
         if (r < 0)
                 return r;
 
@@ -181,7 +181,7 @@ int sd_rtnl_send(sd_rtnl *nl,
         }
 
         if (serial)
-                *serial = message_get_serial(message);
+                *serial = rtnl_message_get_serial(message);
 
         return 1;
 }
@@ -256,7 +256,7 @@ static int process_timeout(sd_rtnl *rtnl) {
         if (c->timeout > n)
                 return 0;
 
-        r = message_new_synthetic_error(-ETIMEDOUT, c->serial, &m);
+        r = rtnl_message_new_synthetic_error(-ETIMEDOUT, c->serial, &m);
         if (r < 0)
                 return r;
 
@@ -277,7 +277,7 @@ static int process_reply(sd_rtnl *rtnl, sd_rtnl_message *m) {
         assert(rtnl);
         assert(m);
 
-        serial = message_get_serial(m);
+        serial = rtnl_message_get_serial(m);
         c = hashmap_remove(rtnl->reply_callbacks, &serial);
         if (!c)
                 return 0;
@@ -580,7 +580,7 @@ int sd_rtnl_call(sd_rtnl *nl,
                 if (r < 0)
                         return r;
                 if (incoming) {
-                        uint32_t received_serial = message_get_serial(incoming);
+                        uint32_t received_serial = rtnl_message_get_serial(incoming);
 
                         if (received_serial == serial) {
                                 r = sd_rtnl_message_get_errno(incoming);
@@ -833,7 +833,9 @@ int sd_rtnl_add_match(sd_rtnl *rtnl,
         assert_return(rtnl, -EINVAL);
         assert_return(callback, -EINVAL);
         assert_return(!rtnl_pid_changed(rtnl), -ECHILD);
-        assert_return(message_type_is_link(type) || message_type_is_addr(type) || message_type_is_route(type), -ENOTSUP);
+        assert_return(rtnl_message_type_is_link(type) ||
+                      rtnl_message_type_is_addr(type) ||
+                      rtnl_message_type_is_route(type), -ENOTSUP);
 
         c = new0(struct match_callback, 1);
         if (!c)

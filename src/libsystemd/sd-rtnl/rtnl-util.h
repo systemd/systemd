@@ -26,8 +26,18 @@
 #include "util.h"
 #include "sd-rtnl.h"
 
+int rtnl_message_new_synthetic_error(int error, uint32_t serial, sd_rtnl_message **ret);
+uint32_t rtnl_message_get_serial(sd_rtnl_message *m);
+int rtnl_message_seal(sd_rtnl *nl, sd_rtnl_message *m);
+
+bool rtnl_message_type_is_link(uint16_t type);
+bool rtnl_message_type_is_addr(uint16_t type);
+bool rtnl_message_type_is_route(uint16_t type);
+
 int rtnl_set_link_name(sd_rtnl *rtnl, int ifindex, const char *name);
 int rtnl_set_link_properties(sd_rtnl *rtnl, int ifindex, const char *alias, const struct ether_addr *mac, unsigned mtu);
+
+int rtnl_message_link_get_ifname(sd_rtnl_message *m, const char **ret);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(sd_rtnl*, sd_rtnl_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(sd_rtnl_message*, sd_rtnl_message_unref);

@@ -29,6 +29,13 @@
 
 #include "sd-rtnl.h"
 
+#define RTNL_DEFAULT_TIMEOUT ((usec_t) (10 * USEC_PER_SEC))
+
+#define RTNL_WQUEUE_MAX 1024
+#define RTNL_RQUEUE_MAX 64*1024
+
+#define RTNL_CONTAINER_DEPTH 32
+
 struct reply_callback {
         sd_rtnl_message_handler_t callback;
         void *userdata;
@@ -78,20 +85,18 @@ struct sd_rtnl {
         sd_event *event;
 };
 
-#define RTNL_DEFAULT_TIMEOUT ((usec_t) (10 * USEC_PER_SEC))
+struct sd_rtnl_message {
+        RefCount n_ref;
 
-#define RTNL_WQUEUE_MAX 1024
-#define RTNL_RQUEUE_MAX 64*1024
+        struct nlmsghdr *hdr;
+        size_t container_offsets[RTNL_CONTAINER_DEPTH]; /* offset from hdr to each container's start */
+        unsigned n_containers; /* number of containers */
+        size_t next_rta_offset; /* offset from hdr to next rta */
 
-#define RTNL_CONTAINER_DEPTH 32
+        bool sealed:1;
+};
 
-int message_new_synthetic_error(int error, uint32_t serial, sd_rtnl_message **ret);
-uint32_t message_get_serial(sd_rtnl_message *m);
-int message_seal(sd_rtnl *nl, sd_rtnl_message *m);
-
-bool message_type_is_link(uint16_t type);
-bool message_type_is_addr(uint16_t type);
-bool message_type_is_route(uint16_t type);
+int message_new(sd_rtnl_message **ret, size_t initial_size);
 
 int socket_write_message(sd_rtnl *nl, sd_rtnl_message *m);
 int socket_read_message(sd_rtnl *nl, sd_rtnl_message **ret);
