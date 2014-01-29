@@ -1206,12 +1206,6 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        sync_fd = eventfd(0, EFD_CLOEXEC);
-        if (sync_fd < 0) {
-                log_error("Failed to create event fd: %m");
-                goto finish;
-        }
-
         sd_notify(0, "READY=1");
 
         assert_se(sigemptyset(&mask) == 0);
@@ -1220,6 +1214,12 @@ int main(int argc, char *argv[]) {
 
         for (;;) {
                 siginfo_t status;
+
+                sync_fd = eventfd(0, EFD_CLOEXEC);
+                if (sync_fd < 0) {
+                        log_error("Failed to create event fd: %m");
+                        goto finish;
+                }
 
                 pid = syscall(__NR_clone, SIGCHLD|CLONE_NEWIPC|CLONE_NEWNS|CLONE_NEWPID|CLONE_NEWUTS|(arg_private_network ? CLONE_NEWNET : 0), NULL);
                 if (pid < 0) {
