@@ -1913,10 +1913,9 @@ static void service_enter_stop_post(Service *s, ServiceResult f) {
                 if (r < 0)
                         goto fail;
 
-
                 service_set_state(s, SERVICE_STOP_POST);
         } else
-                service_enter_dead(s, SERVICE_SUCCESS, true);
+                service_enter_signal(s, SERVICE_FINAL_SIGTERM, SERVICE_SUCCESS);
 
         return;
 
@@ -1942,6 +1941,7 @@ static void service_enter_signal(Service *s, ServiceState state, ServiceResult f
                         s->main_pid,
                         s->control_pid,
                         s->main_pid_alien);
+
         if (r < 0)
                 goto fail;
 
@@ -1953,8 +1953,12 @@ static void service_enter_signal(Service *s, ServiceState state, ServiceResult f
                 }
 
                 service_set_state(s, state);
-        } else if (state == SERVICE_STOP_SIGTERM || state == SERVICE_STOP_SIGKILL)
+        } else if (state == SERVICE_STOP_SIGTERM)
+                service_enter_signal(s, SERVICE_STOP_SIGKILL, SERVICE_SUCCESS);
+        else if (state == SERVICE_STOP_SIGKILL)
                 service_enter_stop_post(s, SERVICE_SUCCESS);
+        else if (state == SERVICE_FINAL_SIGTERM)
+                service_enter_signal(s, SERVICE_FINAL_SIGKILL, SERVICE_SUCCESS);
         else
                 service_enter_dead(s, SERVICE_SUCCESS, true);
 

@@ -1344,8 +1344,12 @@ static void socket_enter_signal(Socket *s, SocketState state, SocketResult f) {
                         goto fail;
 
                 socket_set_state(s, state);
-        } else if (state == SOCKET_STOP_PRE_SIGTERM || state == SOCKET_STOP_PRE_SIGKILL)
+        } else if (state == SOCKET_STOP_PRE_SIGTERM)
+                socket_enter_signal(s, SOCKET_STOP_PRE_SIGKILL, SOCKET_SUCCESS);
+        else if (state == SOCKET_STOP_PRE_SIGKILL)
                 socket_enter_stop_post(s, SOCKET_SUCCESS);
+        else if (state == SOCKET_FINAL_SIGTERM)
+                socket_enter_signal(s, SOCKET_FINAL_SIGKILL, SOCKET_SUCCESS);
         else
                 socket_enter_dead(s, SOCKET_SUCCESS);
 

@@ -238,7 +238,9 @@ static void scope_enter_signal(Scope *s, ScopeState state, ScopeResult f) {
                         goto fail;
 
                 scope_set_state(s, state);
-        } else
+        } else if (state == SCOPE_STOP_SIGTERM)
+                scope_enter_signal(s, SCOPE_STOP_SIGKILL, SCOPE_SUCCESS);
+        else
                 scope_enter_dead(s, SCOPE_SUCCESS);
 
         return;

@@ -712,7 +712,11 @@ static void swap_enter_signal(Swap *s, SwapState state, SwapResult f) {
                         goto fail;
 
                 swap_set_state(s, state);
-        } else
+        } else if (state == SWAP_ACTIVATING_SIGTERM)
+                swap_enter_signal(s, SWAP_ACTIVATING_SIGKILL, SWAP_SUCCESS);
+        else if (state == SWAP_DEACTIVATING_SIGTERM)
+                swap_enter_signal(s, SWAP_DEACTIVATING_SIGKILL, SWAP_SUCCESS);
+        else
                 swap_enter_dead(s, SWAP_SUCCESS);
 
         return;

@@ -854,8 +854,14 @@ static void mount_enter_signal(Mount *m, MountState state, MountResult f) {
                         goto fail;
 
                 mount_set_state(m, state);
-        } else if (state == MOUNT_REMOUNTING_SIGTERM || state == MOUNT_REMOUNTING_SIGKILL)
+        } else if (state == MOUNT_REMOUNTING_SIGTERM)
+                mount_enter_signal(m, MOUNT_REMOUNTING_SIGKILL, MOUNT_SUCCESS);
+        else if (state == MOUNT_REMOUNTING_SIGKILL)
                 mount_enter_mounted(m, MOUNT_SUCCESS);
+        else if (state == MOUNT_MOUNTING_SIGTERM)
+                mount_enter_signal(m, MOUNT_MOUNTING_SIGKILL, MOUNT_SUCCESS);
+        else if (state == MOUNT_UNMOUNTING_SIGTERM)
+                mount_enter_signal(m, MOUNT_UNMOUNTING_SIGKILL, MOUNT_SUCCESS);
         else
                 mount_enter_dead(m, MOUNT_SUCCESS);
 
