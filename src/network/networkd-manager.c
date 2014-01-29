@@ -25,6 +25,7 @@
 #include "networkd.h"
 #include "libudev-private.h"
 #include "udev-util.h"
+#include "rtnl-util.h"
 #include "mkdir.h"
 
 const char* const network_dirs[] = {
@@ -244,13 +245,29 @@ int manager_udev_listen(Manager *m) {
 static int manager_rtnl_process_link(sd_rtnl *rtnl, sd_rtnl_message *message, void *userdata) {
         Manager *m = userdata;
         Link *link;
+        const char *name;
         uint64_t ifindex_64;
         int r, ifindex;
 
         r = sd_rtnl_message_link_get_ifindex(message, &ifindex);
-        if (r < 0) {
+        if (r < 0 || ifindex <= 0) {
                 log_debug("received RTM_NEWLINK message without valid ifindex");
                 return 0;
+        }
+
+        r = rtnl_message_link_get_ifname(message, &name);
+        if (r < 0)
+                log_debug("received RTM_NEWLINK message without valid IFLA_IFNAME");
+        else {
+                Netdev *netdev;
+
+                r = netdev_get(m, name, &netdev);
+                if (r >= 0) {
+                        r = netdev_set_ifindex(netdev, ifindex);
+                        if (r < 0)
+                                log_debug("could not set ifindex of netdev '%s' to %d: %s",
+                                          name, ifindex, strerror(-r));
+                }
         }
 
         ifindex_64 = ifindex;

@@ -96,7 +96,6 @@ int link_add(Manager *m, struct udev_device *device, Link **ret) {
         Network *network;
         int r;
         uint64_t ifindex;
-        NetdevKind kind;
 
         assert(m);
         assert(device);
@@ -113,13 +112,6 @@ int link_add(Manager *m, struct udev_device *device, Link **ret) {
                 return r;
 
         *ret = link;
-
-        kind = netdev_kind_from_string(udev_device_get_devtype(device));
-        if (kind != _NETDEV_KIND_INVALID) {
-                r = netdev_set_link(m, kind, link);
-                if (r < 0 && r != -ENOENT)
-                        return r;
-        }
 
         r = network_get(m, device, &network);
         if (r < 0)

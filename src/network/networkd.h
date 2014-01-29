@@ -77,7 +77,7 @@ struct Netdev {
 
         int vlanid;
 
-        Link *link;
+        int ifindex;
         NetdevState state;
 
         LIST_HEAD(netdev_enslave_callback, callbacks);
@@ -234,7 +234,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Netdev*, netdev_free);
 #define _cleanup_netdev_free_ _cleanup_(netdev_freep)
 
 int netdev_get(Manager *manager, const char *name, Netdev **ret);
-int netdev_set_link(Manager *m, NetdevKind kind, Link *link);
+int netdev_set_ifindex(Netdev *netdev, int ifindex);
 int netdev_enslave(Netdev *netdev, Link *link, sd_rtnl_message_handler_t cb);
 
 const char *netdev_kind_to_string(NetdevKind d) _const_;

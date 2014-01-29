@@ -98,7 +98,7 @@ static int netdev_enslave_ready(Netdev *netdev, Link* link, sd_rtnl_message_hand
                 return r;
         }
 
-        r = sd_rtnl_message_append_u32(req, IFLA_MASTER, netdev->link->ifindex);
+        r = sd_rtnl_message_append_u32(req, IFLA_MASTER, netdev->ifindex);
         if (r < 0) {
                 log_error_netdev(netdev,
                                  "Could not append IFLA_MASTER attribute: %s",
@@ -140,7 +140,7 @@ static int netdev_enter_ready(Netdev *netdev) {
 
 static int netdev_create_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
         Netdev *netdev = userdata;
-        int r;
+        int r, ifindex;
 
         assert(netdev->state != _NETDEV_STATE_INVALID);
 
@@ -150,6 +150,14 @@ static int netdev_create_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userda
                 netdev_enter_failed(netdev);
 
                 return 1;
+        }
+
+        r = sd_rtnl_message_link_get_ifindex(m, &ifindex);
+        if (r < 0)
+                log_warning_netdev(netdev, "created netdev with unknown ifindex: %s", strerror(-r));
+        else {
+                log_info_netdev(netdev, "created netdev with ifindex %d", ifindex);
+                netdev_set_ifindex(netdev, ifindex);
         }
 
         return 1;
@@ -288,21 +296,18 @@ int netdev_enslave(Netdev *netdev, Link *link, sd_rtnl_message_handler_t callbac
         return 0;
 }
 
-int netdev_set_link(Manager *m, NetdevKind kind, Link *link) {
-        Netdev *netdev;
-        int r;
+int netdev_set_ifindex(Netdev *netdev, int ifindex) {
+        assert(netdev);
+        assert(ifindex > 0);
 
-        r = netdev_get(m, link->ifname, &netdev);
-        if (r < 0)
-                return r;
+        if (netdev->ifindex > 0) {
+                if (netdev->ifindex == ifindex)
+                        return 0;
+                else
+                        return -EEXIST;
+        }
 
-        if (netdev->link && netdev->link != link)
-                return -EEXIST;
-
-        if (netdev->kind != kind)
-                return -EINVAL;
-
-        netdev->link = link;
+        netdev->ifindex = ifindex;
 
         netdev_enter_ready(netdev);
 
