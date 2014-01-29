@@ -2938,8 +2938,7 @@ int unit_kill_context(
                         _cleanup_free_ char *comm = NULL;
                         get_process_comm(main_pid, &comm);
 
-                        log_warning_unit(u->id, "Failed to kill main process %li (%s): %s",
-                                         (long) main_pid, strna(comm), strerror(-r));
+                        log_warning_unit(u->id, "Failed to kill main process " PID_FMT " (%s): %s", main_pid, strna(comm), strerror(-r));
                 } else {
                         wait_for_exit = !main_pid_alien;
 
@@ -2955,9 +2954,7 @@ int unit_kill_context(
                         _cleanup_free_ char *comm = NULL;
                         get_process_comm(control_pid, &comm);
 
-                        log_warning_unit(u->id,
-                                         "Failed to kill control process %li (%s): %s",
-                                         (long) control_pid, strna(comm), strerror(-r));
+                        log_warning_unit(u->id, "Failed to kill control process " PID_FMT " (%s): %s", control_pid, strna(comm), strerror(-r));
                 } else {
                         wait_for_exit = true;
 
