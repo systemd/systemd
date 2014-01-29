@@ -1092,37 +1092,31 @@ static int service_verify(Service *s) {
                 return 0;
 
         if (!s->exec_command[SERVICE_EXEC_START]) {
-                log_error_unit(UNIT(s)->id,
-                               "%s lacks ExecStart setting. Refusing.", UNIT(s)->id);
+                log_error_unit(UNIT(s)->id, "%s lacks ExecStart setting. Refusing.", UNIT(s)->id);
                 return -EINVAL;
         }
 
         if (s->type != SERVICE_ONESHOT &&
             s->exec_command[SERVICE_EXEC_START]->command_next) {
-                log_error_unit(UNIT(s)->id,
-                               "%s has more than one ExecStart setting, which is only allowed for Type=oneshot services. Refusing.", UNIT(s)->id);
+                log_error_unit(UNIT(s)->id, "%s has more than one ExecStart setting, which is only allowed for Type=oneshot services. Refusing.", UNIT(s)->id);
                 return -EINVAL;
         }
 
         if (s->type == SERVICE_ONESHOT && s->restart != SERVICE_RESTART_NO) {
-                log_error_unit(UNIT(s)->id,
-                                "%s has Restart setting other than no, which isn't allowed for Type=oneshot services. Refusing.", UNIT(s)->id);
+                log_error_unit(UNIT(s)->id, "%s has Restart setting other than no, which isn't allowed for Type=oneshot services. Refusing.", UNIT(s)->id);
                 return -EINVAL;
         }
 
         if (s->type == SERVICE_DBUS && !s->bus_name) {
-                log_error_unit(UNIT(s)->id,
-                               "%s is of type D-Bus but no D-Bus service name has been specified. Refusing.", UNIT(s)->id);
+                log_error_unit(UNIT(s)->id, "%s is of type D-Bus but no D-Bus service name has been specified. Refusing.", UNIT(s)->id);
                 return -EINVAL;
         }
 
         if (s->bus_name && s->type != SERVICE_DBUS)
-                log_warning_unit(UNIT(s)->id,
-                                 "%s has a D-Bus service name specified, but is not of type dbus. Ignoring.", UNIT(s)->id);
+                log_warning_unit(UNIT(s)->id, "%s has a D-Bus service name specified, but is not of type dbus. Ignoring.", UNIT(s)->id);
 
-        if (s->exec_context.pam_name && s->kill_context.kill_mode != KILL_CONTROL_GROUP) {
-                log_error_unit(UNIT(s)->id,
-                               "%s has PAM enabled. Kill mode must be set to 'control-group'. Refusing.", UNIT(s)->id);
+        if (s->exec_context.pam_name && !(s->kill_context.kill_mode == KILL_CONTROL_GROUP || s->kill_context.kill_mode == KILL_MIXED)) {
+                log_error_unit(UNIT(s)->id, "%s has PAM enabled. Kill mode must be set to 'control-group' or 'mixed'. Refusing.", UNIT(s)->id);
                 return -EINVAL;
         }
 
