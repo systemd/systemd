@@ -365,18 +365,13 @@ finish:
         return r;
 }
 
-static int get_creds(sd_bus *bus, sd_bus_message *m, uint64_t mask, sd_bus_creds **_creds, sd_bus_error *error) {
+static int get_creds_by_name(sd_bus *bus, const char *name, uint64_t mask, sd_bus_creds **_creds, sd_bus_error *error) {
         _cleanup_bus_creds_unref_ sd_bus_creds *c = NULL;
-        const char *name;
         int r;
 
         assert(bus);
-        assert(m);
+        assert(name);
         assert(_creds);
-
-        r = sd_bus_message_read(m, "s", &name);
-        if (r < 0)
-                return r;
 
         assert_return(service_name_is_valid(name), -EINVAL);
 
@@ -395,12 +390,28 @@ static int get_creds(sd_bus *bus, sd_bus_message *m, uint64_t mask, sd_bus_creds
         return 0;
 }
 
+
+static int get_creds_by_message(sd_bus *bus, sd_bus_message *m, uint64_t mask, sd_bus_creds **_creds, sd_bus_error *error) {
+        const char *name;
+        int r;
+
+        assert(bus);
+        assert(m);
+        assert(_creds);
+
+        r = sd_bus_message_read(m, "s", &name);
+        if (r < 0)
+                return r;
+
+        return get_creds_by_name(bus, name, mask, _creds, error);
+}
+
 static int driver_get_security_context(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
         int r;
 
-        r = get_creds(bus, m, SD_BUS_CREDS_SELINUX_CONTEXT, &creds, error);
+        r = get_creds_by_message(bus, m, SD_BUS_CREDS_SELINUX_CONTEXT, &creds, error);
         if (r < 0)
                 return r;
 
@@ -419,7 +430,7 @@ static int driver_get_pid(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus
         _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
         int r;
 
-        r = get_creds(bus, m, SD_BUS_CREDS_PID, &creds, error);
+        r = get_creds_by_message(bus, m, SD_BUS_CREDS_PID, &creds, error);
         if (r < 0)
                 return r;
 
@@ -430,7 +441,7 @@ static int driver_get_user(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bu
         _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
         int r;
 
-        r = get_creds(bus, m, SD_BUS_CREDS_UID, &creds, error);
+        r = get_creds_by_message(bus, m, SD_BUS_CREDS_UID, &creds, error);
         if (r < 0)
                 return r;
 
@@ -439,9 +450,20 @@ static int driver_get_user(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bu
 
 static int driver_get_name_owner(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
         _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+        const char *name;
         int r;
 
-        r = get_creds(bus, m, SD_BUS_CREDS_UNIQUE_NAME, &creds, error);
+        r = sd_bus_message_read(m, "s", &name);
+        if (r < 0)
+                return r;
+
+        /* Here's a special exception for compatibility with dbus1:
+         * the bus name of the driver is owned by itself, not by a
+         * unique ID. */
+        if (streq(name, "org.freedesktop.DBus"))
+                return sd_bus_reply_method_return(m, "s", "org.freedesktop.DBus");
+
+        r = get_creds_by_name(bus, name, SD_BUS_CREDS_UNIQUE_NAME, &creds, error);
         if (r < 0)
                 return r;
 
