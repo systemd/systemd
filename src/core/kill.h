@@ -32,6 +32,7 @@ typedef enum KillMode {
         /* The kill mode is a property of a unit. */
         KILL_CONTROL_GROUP = 0,
         KILL_PROCESS,
+        KILL_MIXED,
         KILL_NONE,
         _KILL_MODE_MAX,
         _KILL_MODE_INVALID = -1

@@ -52,6 +52,7 @@ void kill_context_dump(KillContext *c, FILE *f, const char *prefix) {
 static const char* const kill_mode_table[_KILL_MODE_MAX] = {
         [KILL_CONTROL_GROUP] = "control-group",
         [KILL_PROCESS] = "process",
+        [KILL_MIXED] = "mixed",
         [KILL_NONE] = "none"
 };
 

@@ -44,39 +44,44 @@
 
         <refnamediv>
                 <refname>systemd.kill</refname>
-                <refpurpose>Kill environment configuration</refpurpose>
+                <refpurpose>Process killing procedure
+                configuration</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
                 <para><filename><replaceable>service</replaceable>.service</filename>,
                 <filename><replaceable>socket</replaceable>.socket</filename>,
                 <filename><replaceable>mount</replaceable>.mount</filename>,
-                <filename><replaceable>swap</replaceable>.swap</filename></para>
+                <filename><replaceable>swap</replaceable>.swap</filename>,
+                <filename><replaceable>scope</replaceable>.scope</filename></para>
         </refsynopsisdiv>
 
         <refsect1>
                 <title>Description</title>
 
                 <para>Unit configuration files for services, sockets,
-                mount points and swap devices share a subset of
-                configuration options which define the process killing
-                parameters of spawned processes.</para>
+                mount points, swap devices and scopes share a subset
+                of configuration options which define the
+                killing procedure of processes belonging to the unit.</para>
 
                 <para>This man page lists the configuration options
-                shared by these four unit types. See
+                shared by these five unit types. See
                 <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                for the common options of all unit configuration
-                files, and
+                for the common options shared by all unit
+                configuration files, and
                 <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                 <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-                <citerefentry><refentrytitle>systemd.swap</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                and
+                <citerefentry><refentrytitle>systemd.swap</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                 <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                for more information on the specific unit
-                configuration files. The execution specific
+                and
+                <citerefentry><refentrytitle>systemd.scope</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                for more information on the configuration file options
+                specific to each unit type.</para>
+
+                <para>The kill procedure
                 configuration options are configured in the [Service],
-                [Socket], [Mount], or [Swap] section, depending on the unit
-                type.</para>
+                [Socket], [Mount] or [Swap] section, depending on the
+                unit type.</para>
         </refsect1>
 
         <refsect1>
@@ -87,32 +92,40 @@
                         <varlistentry>
                                 <term><varname>KillMode=</varname></term>
                                 <listitem><para>Specifies how
-                                processes of this service shall be
+                                processes of this unit shall be
                                 killed. One of
                                 <option>control-group</option>,
                                 <option>process</option>,
+                                <option>mixed</option>,
                                 <option>none</option>.</para>
 
                                 <para>If set to
                                 <option>control-group</option>, all
                                 remaining processes in the control
-                                group of this unit will be terminated
-                                on unit stop (for services: after the
+                                group of this unit will be killed on
+                                unit stop (for services: after the
                                 stop command is executed, as
                                 configured with
                                 <varname>ExecStop=</varname>). If set
                                 to <option>process</option>, only the
                                 main process itself is killed. If set
-                                to <option>none</option>, no process is
+                                to <option>mixed</option> the
+                                <constant>SIGTERM</constant> signal
+                                (see below) is sent to the main
+                                process while the subsequent
+                                <constant>SIGKILL</constant> signal
+                                (see below) is sent to all remaining
+                                processes of the unit's control
+                                group. If set to
+                                <option>none</option>, no process is
                                 killed. In this case only the stop
-                                command will be executed on unit
-                                stop, but no process be killed
+                                command will be executed on unit stop,
+                                but no process be killed
                                 otherwise. Processes remaining alive
                                 after stop are left in their control
                                 group and the control group continues
                                 to exist after stop unless it is
-                                empty. Defaults to
-                                <option>control-group</option>.</para>
+                                empty.</para>
 
                                 <para>Processes will first be
                                 terminated via
@@ -133,14 +146,24 @@
                                 option). See
                                 <citerefentry><refentrytitle>kill</refentrytitle><manvolnum>2</manvolnum></citerefentry>
                                 for more
-                                information.</para></listitem>
+                                information.</para>
+
+                                <para>Defaults to
+                                <option>control-group</option>.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
                                 <term><varname>KillSignal=</varname></term>
                                 <listitem><para>Specifies which signal
-                                to use when killing a
-                                service. Defaults to <constant>SIGTERM</constant>.
+                                to use when killing a service. This
+                                controls the signal that is sent as
+                                first step of shutting down a unit
+                                (see above), and is usually followed
+                                by <constant>SIGKILL</constant> (see
+                                above and below). For a list of valid
+                                signals, see
+                                <citerefentry><refentrytitle>signal</refentrytitle><manvolnum>7</manvolnum></citerefentry>. Defaults
+                                to <constant>SIGTERM</constant>.
                                 </para></listitem>
                         </varlistentry>
 
@@ -184,7 +207,9 @@
                           <citerefentry><refentrytitle>systemd.swap</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-                          <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                          <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>kill</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>signal</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                   </para>
         </refsect1>
 
