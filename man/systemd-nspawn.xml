@@ -249,6 +249,27 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>-L</option></term>
+                                <term><option>--file-label=</option></term>
+
+                                <listitem><para>Sets the mandatory
+                                access control (MAC) file label to be
+                                used by tmpfs file systems in the
+                                container.</para>
+                                </listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>-Z</option></term>
+                                <term><option>--process-label=</option></term>
+
+                                <listitem><para>Sets the mandatory
+                                access control (MAC) label to be used by
+                                processes in the container.</para>
+                                </listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>--uuid=</option></term>
 
                                 <listitem><para>Set the specified UUID
@@ -456,6 +477,14 @@
                 btrfs snapshot.</para>
         </refsect1>
 
+        <refsect1>
+                <title>Example 6</title>
+
+                <programlisting># chcon system_u:object_r:svirt_sandbox_file_t:s0:c0,c1 -R /srv/container
+# systemd-nspawn -L system_u:object_r:svirt_sandbox_file_t:s0:c0,c1 -Z system_u:system_r:svirt_lxc_net_t:s0:c0,c1 -D /srv/container /bin/sh</programlisting>
+
+                <para>This runs a container with SELinux sandbox labels.</para>
+        </refsect1>
 
         <refsect1>
                 <title>Exit status</title>

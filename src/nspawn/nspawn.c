@@ -41,6 +41,9 @@
 #include <sys/socket.h>
 #include <linux/netlink.h>
 #include <sys/eventfd.h>
+#if HAVE_SELINUX
+#include <selinux/selinux.h>
+#endif
 
 #include "sd-daemon.h"
 #include "sd-bus.h"
@@ -77,6 +80,8 @@ static char *arg_directory = NULL;
 static char *arg_user = NULL;
 static sd_id128_t arg_uuid = {};
 static char *arg_machine = NULL;
+static char *process_label = NULL;
+static char *file_label = NULL;
 static const char *arg_slice = NULL;
 static bool arg_private_network = false;
 static bool arg_read_only = false;
@@ -117,25 +122,27 @@ static int help(void) {
 
         printf("%s [OPTIONS...] [PATH] [ARGUMENTS...]\n\n"
                "Spawn a minimal namespace container for debugging, testing and building.\n\n"
-               "  -h --help                Show this help\n"
-               "     --version             Print version string\n"
-               "  -D --directory=NAME      Root directory for the container\n"
-               "  -b --boot                Boot up full system (i.e. invoke init)\n"
-               "  -u --user=USER           Run the command under specified user or uid\n"
-               "     --uuid=UUID           Set a specific machine UUID for the container\n"
-               "  -M --machine=NAME        Set the machine name for the container\n"
-               "  -S --slice=SLICE         Place the container in the specified slice\n"
-               "     --private-network     Disable network in container\n"
-               "     --read-only           Mount the root directory read-only\n"
-               "     --capability=CAP      In addition to the default, retain specified\n"
-               "                           capability\n"
-               "     --drop-capability=CAP Drop the specified capability from the default set\n"
-               "     --link-journal=MODE   Link up guest journal, one of no, auto, guest, host\n"
-               "  -j                       Equivalent to --link-journal=host\n"
-               "     --bind=PATH[:PATH]    Bind mount a file or directory from the host into\n"
-               "                           the container\n"
-               "     --bind-ro=PATH[:PATH] Similar, but creates a read-only bind mount\n"
-               "     --setenv=NAME=VALUE   Pass an environment variable to PID 1\n",
+               "  -h --help                 Show this help\n"
+               "     --version              Print version string\n"
+               "  -D --directory=NAME       Root directory for the container\n"
+               "  -b --boot                 Boot up full system (i.e. invoke init)\n"
+               "  -u --user=USER            Run the command under specified user or uid\n"
+               "     --uuid=UUID            Set a specific machine UUID for the container\n"
+               "  -M --machine=NAME         Set the machine name for the container\n"
+               "  -S --slice=SLICE          Place the container in the specified slice\n"
+               "  -L --file-label=LABEL     Set the MAC file label to be used by tmpfs file systems in container\n"
+               "  -Z --process-label=LABEL  Set the MAC label to be used by processes in container\n"
+               "     --private-network      Disable network in container\n"
+               "     --read-only            Mount the root directory read-only\n"
+               "     --capability=CAP       In addition to the default, retain specified\n"
+               "                            capability\n"
+               "     --drop-capability=CAP  Drop the specified capability from the default set\n"
+               "     --link-journal=MODE    Link up guest journal, one of no, auto, guest, host\n"
+               "  -j                        Equivalent to --link-journal=host\n"
+               "     --bind=PATH[:PATH]     Bind mount a file or directory from the host into\n"
+               "                            the container\n"
+               "     --bind-ro=PATH[:PATH]  Similar, but creates a read-only bind mount\n"
+               "     --setenv=NAME=VALUE    Pass an environment variable to PID 1\n",
                program_invocation_short_name);
 
         return 0;
@@ -173,6 +180,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "machine",         required_argument, NULL, 'M'                 },
                 { "slice",           required_argument, NULL, 'S'                 },
                 { "setenv",          required_argument, NULL, ARG_SETENV          },
+                { "process-label",   required_argument, NULL, 'Z'                 },
+                { "file-label",      required_argument, NULL, 'L'                 },
                 {}
         };
 
@@ -181,7 +190,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "+hD:u:bM:jS:", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "+hD:u:bL:M:jS:Z:", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -243,6 +252,20 @@ static int parse_argv(int argc, char *argv[]) {
                         free(arg_machine);
                         arg_machine = strdup(optarg);
                         if (!arg_machine)
+                                return log_oom();
+
+                        break;
+
+                case 'L':
+                        file_label = strdup(optarg);
+                        if (!file_label)
+                                return log_oom();
+
+                        break;
+
+                case 'Z':
+                        process_label = strdup(optarg);
+                        if (!process_label)
                                 return log_oom();
 
                         break;
@@ -396,6 +419,7 @@ static int mount_all(const char *dest) {
 
         for (k = 0; k < ELEMENTSOF(mount_table); k++) {
                 _cleanup_free_ char *where = NULL;
+                _cleanup_free_ char *options = NULL;
                 int t;
 
                 where = strjoin(dest, "/", mount_table[k].where, NULL);
@@ -418,11 +442,22 @@ static int mount_all(const char *dest) {
 
                 mkdir_p(where, 0755);
 
+#ifdef HAVE_SELINUX
+                if (file_label && (streq_ptr(mount_table[k].what, "tmpfs") ||
+                              streq_ptr(mount_table[k].what, "devpts")))
+                        options = strjoin(mount_table[k].options, ",context=\"", file_label, "\"", NULL);
+                else
+#endif
+                        options = strjoin(mount_table[k].options, NULL);
+
+                if (!options)
+                        return log_oom();
+
                 if (mount(mount_table[k].what,
                           where,
                           mount_table[k].type,
                           mount_table[k].flags,
-                          mount_table[k].options) < 0 &&
+                          options) < 0 &&
                     mount_table[k].fatal) {
 
                         log_error("mount(%s) failed: %m", where);
@@ -1491,6 +1526,11 @@ int main(int argc, char *argv[]) {
                         } else
                                 env_use = (char**) envp;
 
+#if HAVE_SELINUX
+                        if (process_label)
+                                if (setexeccon(process_label) < 0)
+                                        log_error("setexeccon(\"%s\") failed: %m", process_label);
+#endif
                         if (arg_boot) {
                                 char **a;
                                 size_t l;
