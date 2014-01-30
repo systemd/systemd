@@ -14,6 +14,6 @@ Name: systemd
 Description: systemd Journal Utility Library
 URL: @PACKAGE_URL@
 Version: @PACKAGE_VERSION@
-Requires: libsystemd-id128 = @PACKAGE_VERSION@
+Requires: libsystemd = @PACKAGE_VERSION@
 Libs: -L${libdir} -lsystemd-journal
 Cflags: -I${includedir}
