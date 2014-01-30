@@ -677,7 +677,7 @@ Features:
    - Check if Driver= is broken, or just my driver (bcma)
 
 * sd-rtnl:
-   - improve container support, and add support for entering containers when reading
+   - add support for exiting containers without reading them fully first
    - add support for more attribute types
 
 * networkd:
