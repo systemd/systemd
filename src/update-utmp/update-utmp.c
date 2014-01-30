@@ -38,6 +38,7 @@
 #include "utmp-wtmp.h"
 #include "bus-util.h"
 #include "bus-error.h"
+#include "unit-name.h"
 
 typedef struct Context {
         sd_bus *bus;
@@ -93,27 +94,11 @@ static int get_current_runlevel(Context *c) {
         assert(c);
 
         for (i = 0; i < ELEMENTSOF(table); i++) {
-                _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-                _cleanup_free_ char *state = NULL;
-                const char *path = NULL;
+                _cleanup_free_ char *state = NULL, *path = NULL;
 
-                r = sd_bus_call_method(
-                                c->bus,
-                                "org.freedesktop.systemd1",
-                                "/org/freedesktop/systemd1",
-                                "org.freedesktop.systemd1.Manager",
-                                "LoadUnit",
-                                &error,
-                                &reply,
-                                "s", table[i].special);
-                if (r < 0) {
-                        log_warning("Failed to get runlevel: %s", bus_error_message(&error, -r));
-                        continue;
-                }
-
-                r = sd_bus_message_read(reply, "o", &path);
-                if (r < 0)
-                        return bus_log_parse_error(r);
+                path = unit_dbus_path_from_name(table[i].special);
+                if (!path)
+                        return log_oom();
 
                 r = sd_bus_get_property_string(
                                 c->bus,
@@ -202,21 +187,19 @@ static int on_runlevel(Context *c) {
 
         /* First, get last runlevel */
         q = utmp_get_runlevel(&previous, NULL);
-        if (q < 0) {
 
+        if (q < 0) {
                 if (q != -ESRCH && q != -ENOENT) {
                         log_error("Failed to get current runlevel: %s", strerror(-q));
                         return q;
                 }
 
-                /* Hmm, we didn't find any runlevel, that means we
-                 * have been rebooted */
-                r = on_reboot(c);
                 previous = 0;
         }
 
         /* Secondly, get new runlevel */
         runlevel = get_current_runlevel(c);
+
         if (runlevel < 0)
                 return runlevel;
 
