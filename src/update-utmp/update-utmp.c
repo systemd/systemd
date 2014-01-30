@@ -157,7 +157,8 @@ static int on_reboot(Context *c) {
          * utmp_put_reboot() will then fix to the current time */
         t = get_startup_time(c);
 
-        if ((q = utmp_put_reboot(t)) < 0) {
+        q = utmp_put_reboot(t);
+        if (q < 0) {
                 log_error("Failed to write utmp record: %s", strerror(-q));
                 r = q;
         }
@@ -182,7 +183,8 @@ static int on_shutdown(Context *c) {
                 }
 #endif
 
-        if ((q = utmp_put_shutdown()) < 0) {
+        q = utmp_put_shutdown();
+        if (q < 0) {
                 log_error("Failed to write utmp record: %s", strerror(-q));
                 r = q;
         }
@@ -199,7 +201,8 @@ static int on_runlevel(Context *c) {
          * utmp record and send the audit msg */
 
         /* First, get last runlevel */
-        if ((q = utmp_get_runlevel(&previous, NULL)) < 0) {
+        q = utmp_get_runlevel(&previous, NULL);
+        if (q < 0) {
 
                 if (q != -ESRCH && q != -ENOENT) {
                         log_error("Failed to get current runlevel: %s", strerror(-q));
@@ -213,7 +216,8 @@ static int on_runlevel(Context *c) {
         }
 
         /* Secondly, get new runlevel */
-        if ((runlevel = get_current_runlevel(c)) < 0)
+        runlevel = get_current_runlevel(c);
+        if (runlevel < 0)
                 return runlevel;
 
         if (previous == runlevel)
@@ -221,40 +225,37 @@ static int on_runlevel(Context *c) {
 
 #ifdef HAVE_AUDIT
         if (c->audit_fd >= 0) {
-                char *s = NULL;
+                _cleanup_free_ char *s = NULL;
 
                 if (asprintf(&s, "old-level=%c new-level=%c",
                              previous > 0 ? previous : 'N',
                              runlevel > 0 ? runlevel : 'N') < 0)
-                        return -ENOMEM;
+                        return log_oom();
 
                 if (audit_log_user_message(c->audit_fd, AUDIT_SYSTEM_RUNLEVEL, s, NULL, NULL, NULL, 1) < 0 &&
                     errno != EPERM) {
                         log_error("Failed to send audit message: %m");
                         r = -errno;
                 }
-
-                free(s);
         }
 #endif
 
-        if ((q = utmp_put_runlevel(runlevel, previous)) < 0) {
-                if (q != -ESRCH && q != -ENOENT) {
-                        log_error("Failed to write utmp record: %s", strerror(-q));
-                        r = q;
-                }
+        q = utmp_put_runlevel(runlevel, previous);
+        if (q < 0 && q != -ESRCH && q != -ENOENT) {
+                log_error("Failed to write utmp record: %s", strerror(-q));
+                r = q;
         }
 
         return r;
 }
 
 int main(int argc, char *argv[]) {
-        int r;
-        Context c = {};
-
+        Context c = {
 #ifdef HAVE_AUDIT
-        c.audit_fd = -1;
+                .audit_fd = -1
 #endif
+        };
+        int r;
 
         if (getppid() != 1) {
                 log_error("This program should be invoked by init only.");
@@ -273,10 +274,10 @@ int main(int argc, char *argv[]) {
         umask(0022);
 
 #ifdef HAVE_AUDIT
-        if ((c.audit_fd = audit_open()) < 0 &&
-            /* If the kernel lacks netlink or audit support,
-             * don't worry about it. */
-            errno != EAFNOSUPPORT && errno != EPROTONOSUPPORT)
+        /* If the kernel lacks netlink or audit support,
+         * don't worry about it. */
+        c.audit_fd = audit_open();
+        if (c.audit_fd < 0 && errno != EAFNOSUPPORT && errno != EPROTONOSUPPORT)
                 log_error("Failed to connect to audit log: %m");
 #endif
         r = bus_open_system_systemd(&c.bus);
