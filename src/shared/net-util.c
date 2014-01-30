@@ -59,18 +59,9 @@ bool net_match_config(const struct ether_addr *match_mac,
 }
 
 unsigned net_netmask_to_prefixlen(const struct in_addr *addr) {
-        unsigned len = 0;
-        uint32_t mask;
-
         assert(addr);
 
-        mask = be32toh(addr->s_addr);
-        while (mask) {
-                len++;
-                mask = mask << 1;
-        }
-
-        return len;
+        return 32 - u32ctz(be32toh(addr->s_addr));
 }
 
 int config_parse_ifname(const char *unit,
