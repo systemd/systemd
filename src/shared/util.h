@@ -743,7 +743,19 @@ static inline void _reset_umask_(struct _umask_struct_ *s) {
              _saved_umask_.quit = true)
 
 static inline unsigned u64log2(uint64_t n) {
+#if __SIZEOF_LONG_LONG__ == 8
         return (n > 1) ? (unsigned) __builtin_clzll(n) ^ 63U : 0;
+#else
+#error "Wut?"
+#endif
+}
+
+static inline unsigned u32ctz(uint32_t n) {
+#if __SIZEOF_INT__ == 4
+        return __builtin_ctz(n);
+#else
+#error "Wut?"
+#endif
 }
 
 static inline bool logind_running(void) {
