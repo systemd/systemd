@@ -838,12 +838,17 @@ static int client_verify_headers(sd_dhcp_client *client, DHCPPacket *message,
                                                            hdrlen))
                 return -EINVAL;
 
-        message->ip.check = message->udp.len;
-        message->ip.ttl = 0;
-
-        if (hdrlen + be16toh(message->udp.len) > len ||
-            client_checksum(&message->ip.ttl, be16toh(message->udp.len) + 12))
+        if (hdrlen + be16toh(message->udp.len) > len)
                 return -EINVAL;
+
+        if (message->udp.check) {
+                message->ip.check = message->udp.len;
+                message->ip.ttl = 0;
+
+                if (client_checksum(&message->ip.ttl,
+                                    be16toh(message->udp.len) + 12))
+                        return -EINVAL;
+        }
 
         if (be16toh(message->udp.source) != DHCP_PORT_SERVER ||
             be16toh(message->udp.dest) != DHCP_PORT_CLIENT)
