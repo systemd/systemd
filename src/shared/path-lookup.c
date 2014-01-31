@@ -275,7 +275,7 @@ int lookup_paths_init(
                 }
         }
 
-        if (!path_strv_canonicalize(p->unit_path))
+        if (!path_strv_canonicalize_absolute(p->unit_path, NULL))
                 return -ENOMEM;
 
         strv_uniq(p->unit_path);
@@ -331,10 +331,10 @@ int lookup_paths_init(
                                 return -ENOMEM;
                 }
 
-                if (!path_strv_canonicalize(p->sysvinit_path))
+                if (!path_strv_canonicalize_absolute(p->sysvinit_path, NULL))
                         return -ENOMEM;
 
-                if (!path_strv_canonicalize(p->sysvrcnd_path))
+                if (!path_strv_canonicalize_absolute(p->sysvrcnd_path, NULL))
                         return -ENOMEM;
 
                 strv_uniq(p->sysvinit_path);

@@ -5613,7 +5613,7 @@ static int search_and_fopen_internal(const char *path, const char *mode, char **
         assert(mode);
         assert(_f);
 
-        if (!path_strv_canonicalize_uniq(search))
+        if (!path_strv_canonicalize_absolute_uniq(search, NULL))
                 return -ENOMEM;
 
         STRV_FOREACH(i, search) {
