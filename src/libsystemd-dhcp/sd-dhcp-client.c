@@ -302,24 +302,8 @@ static int client_stop(sd_dhcp_client *client, int error) {
 
         client_notify(client, error);
 
-        switch (client->state) {
-
-        case DHCP_STATE_INIT:
-        case DHCP_STATE_SELECTING:
-        case DHCP_STATE_REQUESTING:
-        case DHCP_STATE_BOUND:
-
-                client->start_time = 0;
-                client->state = DHCP_STATE_INIT;
-                break;
-
-        case DHCP_STATE_INIT_REBOOT:
-        case DHCP_STATE_REBOOTING:
-        case DHCP_STATE_RENEWING:
-        case DHCP_STATE_REBINDING:
-
-                break;
-        }
+        client->start_time = 0;
+        client->state = DHCP_STATE_INIT;
 
         if (client->lease) {
                 lease_free(client->lease);
