@@ -41,8 +41,7 @@ static PyObject *journal_sendv(PyObject *self, PyObject *args) {
 
         /* Allocate an array for the argument strings */
         argc = PyTuple_Size(args);
-        encoded = alloca(argc * sizeof(PyObject*));
-        memzero(encoded, argc * sizeof(PyObject*));
+        encoded = alloca0(argc * sizeof(PyObject*));
 
         /* Allocate sufficient iovector space for the arguments. */
         iov = alloca(argc * sizeof(struct iovec));
