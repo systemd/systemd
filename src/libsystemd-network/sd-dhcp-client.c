@@ -338,7 +338,17 @@ static int client_send_request(sd_dhcp_client *client, uint16_t secs) {
         if (err < 0)
                 return err;
 
-        if (client->state == DHCP_STATE_REQUESTING) {
+        switch (client->state) {
+
+        case DHCP_STATE_INIT_REBOOT:
+                err = dhcp_option_append(&opt, &optlen,
+                                         DHCP_OPTION_REQUESTED_IP_ADDRESS,
+                                         4, &client->last_addr);
+                if (err < 0)
+                        return err;
+                break;
+
+        case DHCP_STATE_REQUESTING:
                 err = dhcp_option_append(&opt, &optlen,
                                          DHCP_OPTION_REQUESTED_IP_ADDRESS,
                                          4, &client->lease->address);
@@ -350,6 +360,16 @@ static int client_send_request(sd_dhcp_client *client, uint16_t secs) {
                                          4, &client->lease->server_address);
                 if (err < 0)
                         return err;
+                break;
+
+        case DHCP_STATE_INIT:
+        case DHCP_STATE_SELECTING:
+        case DHCP_STATE_REBOOTING:
+        case DHCP_STATE_BOUND:
+        case DHCP_STATE_RENEWING:
+        case DHCP_STATE_REBINDING:
+
+                break;
         }
 
         err = dhcp_option_append(&opt, &optlen, DHCP_OPTION_END, 0, NULL);
@@ -416,9 +436,15 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec,
                 next_timeout = time_now + time_left * USEC_PER_SEC;
                 break;
 
+        case DHCP_STATE_REBOOTING:
+                /* start over as we did not receive a timely ack or nak */
+                client->state = DHCP_STATE_INIT;
+                client->attempt = 1;
+                client->xid = random_u32();
+
+                /* fall through */
         case DHCP_STATE_INIT:
         case DHCP_STATE_INIT_REBOOT:
-        case DHCP_STATE_REBOOTING:
         case DHCP_STATE_SELECTING:
         case DHCP_STATE_REQUESTING:
         case DHCP_STATE_BOUND:
@@ -473,6 +499,7 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec,
 
                 break;
 
+        case DHCP_STATE_INIT_REBOOT:
         case DHCP_STATE_REQUESTING:
         case DHCP_STATE_RENEWING:
         case DHCP_STATE_REBINDING:
@@ -480,11 +507,13 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec,
                 if (r < 0 && client->attempt >= 64)
                          goto error;
 
+                if (client->state == DHCP_STATE_INIT_REBOOT)
+                        client->state = DHCP_STATE_REBOOTING;
+
                 client->request_sent = time_now;
 
                 break;
 
-        case DHCP_STATE_INIT_REBOOT:
         case DHCP_STATE_REBOOTING:
         case DHCP_STATE_BOUND:
 
@@ -853,20 +882,37 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message,
 
                 break;
 
+        case DHCP_STATE_REBOOTING:
         case DHCP_STATE_REQUESTING:
         case DHCP_STATE_RENEWING:
         case DHCP_STATE_REBINDING:
 
                 r = client_handle_ack(client, message, len);
 
-                if (r == DHCP_EVENT_NO_LEASE)
+                if (r == DHCP_EVENT_NO_LEASE) {
+
+                        client->timeout_resend =
+                                sd_event_source_unref(client->timeout_resend);
+
+                        if (client->state == DHCP_STATE_REBOOTING) {
+                                r = client_initialize(client);
+                                if (r < 0)
+                                        goto error;
+
+                                r = client_start(client);
+                                if (r < 0)
+                                        goto error;
+                        }
+
                         goto error;
+                }
 
                 if (r >= 0) {
                         client->timeout_resend =
                                 sd_event_source_unref(client->timeout_resend);
 
-                        if (client->state == DHCP_STATE_REQUESTING)
+                        if (IN_SET(client->state, DHCP_STATE_REQUESTING,
+                                   DHCP_STATE_REBOOTING))
                                 notify_event = DHCP_EVENT_IP_ACQUIRE;
                         else if (r != DHCP_EVENT_IP_ACQUIRE)
                                 notify_event = r;
@@ -894,7 +940,6 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message,
 
         case DHCP_STATE_INIT:
         case DHCP_STATE_INIT_REBOOT:
-        case DHCP_STATE_REBOOTING:
         case DHCP_STATE_BOUND:
 
                 break;
