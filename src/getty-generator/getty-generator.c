@@ -97,7 +97,9 @@ int main(int argc, char *argv[]) {
         static const char virtualization_consoles[] =
                 "hvc0\0"
                 "xvc0\0"
-                "hvsi0\0";
+                "hvsi0\0"
+                "sclp_line0\0"
+                "ttysclp0\0";
 
         _cleanup_free_ char *active = NULL;
         const char *j;
