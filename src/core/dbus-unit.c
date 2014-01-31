@@ -627,7 +627,7 @@ static int send_changed_signal(sd_bus *bus, const char *destination, void *userd
         assert(u);
 
         p = unit_dbus_path(u);
-        if (!u)
+        if (!p)
                 return -ENOMEM;
 
         /* Send a properties changed signal. First for the specific
