@@ -760,7 +760,7 @@ static int client_parse_offer(uint8_t code, uint8_t len, const uint8_t *option,
                 break;
 
         case DHCP_OPTION_DOMAIN_NAME_SERVER:
-                if (len >= 4) {
+                if (len && !(len % 4)) {
                         unsigned i;
 
                         lease->dns_size = len / 4;
