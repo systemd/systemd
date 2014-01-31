@@ -75,6 +75,7 @@ struct sd_dhcp_client {
         struct ether_addr mac_addr;
         uint32_t xid;
         usec_t start_time;
+        uint16_t secs;
         unsigned int attempt;
         usec_t request_sent;
         sd_event_source *timeout_t1;
@@ -303,6 +304,7 @@ static int client_stop(sd_dhcp_client *client, int error) {
         client_notify(client, error);
 
         client->start_time = 0;
+        client->secs = 0;
         client->state = DHCP_STATE_INIT;
 
         if (client->lease) {
@@ -515,12 +517,18 @@ static int client_send_request(sd_dhcp_client *client, uint16_t secs) {
         return err;
 }
 
+static uint16_t client_update_secs(sd_dhcp_client *client, usec_t time_now)
+{
+        client->secs = (time_now - client->start_time) / USEC_PER_SEC;
+
+        return client->secs;
+}
+
 static int client_timeout_resend(sd_event_source *s, uint64_t usec,
                                  void *userdata) {
         sd_dhcp_client *client = userdata;
         usec_t next_timeout = 0;
         uint32_t time_left;
-        uint16_t secs;
         int r = 0;
 
         assert(s);
@@ -575,11 +583,12 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec,
         if (r < 0)
                 goto error;
 
-        secs = (usec - client->start_time) / USEC_PER_SEC;
-
         switch (client->state) {
         case DHCP_STATE_INIT:
-                r = client_send_discover(client, secs);
+
+                client_update_secs(client, usec);
+
+                r = client_send_discover(client, client->secs);
                 if (r >= 0) {
                         client->state = DHCP_STATE_SELECTING;
                         client->attempt = 1;
@@ -591,7 +600,9 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec,
                 break;
 
         case DHCP_STATE_SELECTING:
-                r = client_send_discover(client, secs);
+                client_update_secs(client, usec);
+
+                r = client_send_discover(client, client->secs);
                 if (r < 0 && client->attempt >= 64)
                         goto error;
 
@@ -600,7 +611,7 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec,
         case DHCP_STATE_REQUESTING:
         case DHCP_STATE_RENEWING:
         case DHCP_STATE_REBINDING:
-                r = client_send_request(client, secs);
+                r = client_send_request(client, client->secs);
                 if (r < 0 && client->attempt >= 64)
                          goto error;
 
@@ -1145,6 +1156,7 @@ int sd_dhcp_client_start(sd_dhcp_client *client) {
 
         client->fd = r;
         client->start_time = now(CLOCK_MONOTONIC);
+        client->secs = 0;
 
         return client_initialize_events(client, client->start_time);
 }
