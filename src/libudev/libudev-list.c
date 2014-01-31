@@ -95,7 +95,7 @@ static inline struct udev_list_entry *list_node_to_entry(struct udev_list_node *
 
 void udev_list_init(struct udev *udev, struct udev_list *list, bool unique)
 {
-        memset(list, 0x00, sizeof(struct udev_list));
+        memzero(list, sizeof(struct udev_list));
         list->udev = udev;
         list->unique = unique;
         udev_list_node_init(&list->node);

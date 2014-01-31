@@ -59,7 +59,7 @@ static void get_cap_mask(struct udev_device *dev,
         snprintf(text, sizeof(text), "%s", udev_device_get_sysattr_value(pdev, attr));
         log_debug("%s raw kernel attribute: %s", attr, text);
 
-        memset (bitmask, 0, bitmask_size);
+        memzero(bitmask, bitmask_size);
         i = 0;
         while ((word = strrchr(text, ' ')) != NULL) {
                 val = strtoul (word+1, NULL, 16);

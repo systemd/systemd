@@ -247,12 +247,12 @@ static void worker_new(struct event *event)
                         goto out;
                 }
 
-                memset(&ep_signal, 0, sizeof(struct epoll_event));
+                memzero(&ep_signal, sizeof(struct epoll_event));
                 ep_signal.events = EPOLLIN;
                 ep_signal.data.fd = fd_signal;
 
                 fd_monitor = udev_monitor_get_fd(worker_monitor);
-                memset(&ep_monitor, 0, sizeof(struct epoll_event));
+                memzero(&ep_monitor, sizeof(struct epoll_event));
                 ep_monitor.events = EPOLLIN;
                 ep_monitor.data.fd = fd_monitor;
 
@@ -303,7 +303,7 @@ static void worker_new(struct event *event)
                         udev_monitor_send_device(worker_monitor, NULL, dev);
 
                         /* send udevd the result of the event execution */
-                        memset(&msg, 0, sizeof(struct worker_message));
+                        memzero(&msg, sizeof(struct worker_message));
                         if (err != 0)
                                 msg.exitcode = err;
                         msg.pid = getpid();
@@ -1159,23 +1159,23 @@ int main(int argc, char *argv[])
                 goto exit;
         }
 
-        memset(&ep_ctrl, 0, sizeof(struct epoll_event));
+        memzero(&ep_ctrl, sizeof(struct epoll_event));
         ep_ctrl.events = EPOLLIN;
         ep_ctrl.data.fd = fd_ctrl;
 
-        memset(&ep_inotify, 0, sizeof(struct epoll_event));
+        memzero(&ep_inotify, sizeof(struct epoll_event));
         ep_inotify.events = EPOLLIN;
         ep_inotify.data.fd = fd_inotify;
 
-        memset(&ep_signal, 0, sizeof(struct epoll_event));
+        memzero(&ep_signal, sizeof(struct epoll_event));
         ep_signal.events = EPOLLIN;
         ep_signal.data.fd = fd_signal;
 
-        memset(&ep_netlink, 0, sizeof(struct epoll_event));
+        memzero(&ep_netlink, sizeof(struct epoll_event));
         ep_netlink.events = EPOLLIN;
         ep_netlink.data.fd = fd_netlink;
 
-        memset(&ep_worker, 0, sizeof(struct epoll_event));
+        memzero(&ep_worker, sizeof(struct epoll_event));
         ep_worker.events = EPOLLIN;
         ep_worker.data.fd = fd_worker;
 

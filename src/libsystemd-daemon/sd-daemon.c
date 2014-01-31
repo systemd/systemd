@@ -47,6 +47,7 @@
 #  include <mqueue.h>
 #endif
 
+#include "util.h"
 #include "sd-daemon.h"
 
 #if (__GNUC__ >= 4)
@@ -441,18 +442,18 @@ _sd_export_ int sd_notify(int unset_environment, const char *state) {
                 goto finish;
         }
 
-        memset(&sockaddr, 0, sizeof(sockaddr));
+        memzero(&sockaddr, sizeof(sockaddr));
         sockaddr.sa.sa_family = AF_UNIX;
         strncpy(sockaddr.un.sun_path, e, sizeof(sockaddr.un.sun_path));
 
         if (sockaddr.un.sun_path[0] == '@')
                 sockaddr.un.sun_path[0] = 0;
 
-        memset(&iovec, 0, sizeof(iovec));
+        memzero(&iovec, sizeof(iovec));
         iovec.iov_base = (char*) state;
         iovec.iov_len = strlen(state);
 
-        memset(&msghdr, 0, sizeof(msghdr));
+        memzero(&msghdr, sizeof(msghdr));
         msghdr.msg_name = &sockaddr;
         msghdr.msg_namelen = offsetof(struct sockaddr_un, sun_path) + strlen(e);
 

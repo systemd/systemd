@@ -140,7 +140,7 @@ static int bus_message_setup_bloom(sd_bus_message *m, struct kdbus_bloom_filter 
         assert(bloom);
 
         data = bloom->data;
-        memset(data, 0, m->bus->bloom_size);
+        memzero(data, m->bus->bloom_size);
         bloom->generation = 0;
 
         bloom_add_pair(data, m->bus->bloom_size, m->bus->bloom_n_hash, "message-type", bus_message_type_to_string(m->header->type));
@@ -256,7 +256,7 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
         }
 
         m->free_kdbus = true;
-        memset(m->kdbus, 0, sz);
+        memzero(m->kdbus, sz);
 
         m->kdbus->flags =
                 ((m->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED) ? 0 : KDBUS_MSG_FLAGS_EXPECT_REPLY) |

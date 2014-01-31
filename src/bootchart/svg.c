@@ -1248,7 +1248,7 @@ static void svg_top_ten_pss(void) {
 void svg_do(const char *build) {
         struct ps_struct *ps;
 
-        memset(&str, 0, sizeof(str));
+        memzero(&str, sizeof(str));
 
         ps = ps_first;
 

@@ -291,7 +291,7 @@ _public_ int udev_monitor_filter_update(struct udev_monitor *udev_monitor)
             udev_list_get_entry(&udev_monitor->filter_tag_list) == NULL)
                 return 0;
 
-        memset(ins, 0x00, sizeof(ins));
+        memzero(ins, sizeof(ins));
         i = 0;
 
         /* load magic in A */
@@ -371,7 +371,7 @@ _public_ int udev_monitor_filter_update(struct udev_monitor *udev_monitor)
         bpf_stmt(ins, &i, BPF_RET|BPF_K, 0xffffffff);
 
         /* install filter */
-        memset(&filter, 0x00, sizeof(filter));
+        memzero(&filter, sizeof(filter));
         filter.len = i;
         filter.filter = ins;
         err = setsockopt(udev_monitor->sock, SOL_SOCKET, SO_ATTACH_FILTER, &filter, sizeof(filter));
@@ -599,7 +599,7 @@ retry:
                 return NULL;
         iov.iov_base = &buf;
         iov.iov_len = sizeof(buf);
-        memset (&smsg, 0x00, sizeof(struct msghdr));
+        memzero(&smsg, sizeof(struct msghdr));
         smsg.msg_iov = &iov;
         smsg.msg_iovlen = 1;
         smsg.msg_control = cred_msg;
@@ -744,7 +744,7 @@ int udev_monitor_send_device(struct udev_monitor *udev_monitor,
                 return -EINVAL;
 
         /* add versioned header */
-        memset(&nlh, 0x00, sizeof(struct udev_monitor_netlink_header));
+        memzero(&nlh, sizeof(struct udev_monitor_netlink_header));
         memcpy(nlh.prefix, "libudev", 8);
         nlh.magic = htonl(UDEV_MONITOR_MAGIC);
         nlh.header_size = sizeof(struct udev_monitor_netlink_header);
@@ -771,7 +771,7 @@ int udev_monitor_send_device(struct udev_monitor *udev_monitor,
         iov[1].iov_base = (char *)buf;
         iov[1].iov_len = blen;
 
-        memset(&smsg, 0x00, sizeof(struct msghdr));
+        memzero(&smsg, sizeof(struct msghdr));
         smsg.msg_iov = iov;
         smsg.msg_iovlen = 2;
         /*

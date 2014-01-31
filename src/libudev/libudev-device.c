@@ -810,7 +810,7 @@ _public_ struct udev_device *udev_device_new_from_device_id(struct udev *udev, c
                 sk = socket(PF_INET, SOCK_DGRAM, 0);
                 if (sk < 0)
                         return NULL;
-                memset(&ifr, 0x00, sizeof(struct ifreq));
+                memzero(&ifr, sizeof(struct ifreq));
                 ifr.ifr_ifindex = ifindex;
                 if (ioctl(sk, SIOCGIFNAME, &ifr) != 0) {
                         close(sk);

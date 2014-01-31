@@ -194,7 +194,7 @@ static int adm_monitor(struct udev *udev, int argc, char *argv[])
                         return 2;
                 }
 
-                memset(&ep_udev, 0, sizeof(struct epoll_event));
+                memzero(&ep_udev, sizeof(struct epoll_event));
                 ep_udev.events = EPOLLIN;
                 ep_udev.data.fd = fd_udev;
                 if (epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_udev, &ep_udev) < 0) {
@@ -228,7 +228,7 @@ static int adm_monitor(struct udev *udev, int argc, char *argv[])
                         return 4;
                 }
 
-                memset(&ep_kernel, 0, sizeof(struct epoll_event));
+                memzero(&ep_kernel, sizeof(struct epoll_event));
                 ep_kernel.events = EPOLLIN;
                 ep_kernel.data.fd = fd_kernel;
                 if (epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_kernel, &ep_kernel) < 0) {

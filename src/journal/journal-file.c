@@ -560,7 +560,7 @@ static int journal_file_setup_data_hash_table(JournalFile *f) {
         if (r < 0)
                 return r;
 
-        memset(o->hash_table.items, 0, s);
+        memzero(o->hash_table.items, s);
 
         f->header->data_hash_table_offset = htole64(p + offsetof(Object, hash_table.items));
         f->header->data_hash_table_size = htole64(s);
@@ -586,7 +586,7 @@ static int journal_file_setup_field_hash_table(JournalFile *f) {
         if (r < 0)
                 return r;
 
-        memset(o->hash_table.items, 0, s);
+        memzero(o->hash_table.items, s);
 
         f->header->field_hash_table_offset = htole64(p + offsetof(Object, hash_table.items));
         f->header->field_hash_table_size = htole64(s);

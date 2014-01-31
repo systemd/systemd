@@ -331,7 +331,7 @@ static int scsi_inquiry(struct udev *udev,
 
 resend:
         if (dev_scsi->use_sg == 4) {
-                memset(&io_v4, 0, sizeof(struct sg_io_v4));
+                memzero(&io_v4, sizeof(struct sg_io_v4));
                 io_v4.guard = 'Q';
                 io_v4.protocol = BSG_PROTOCOL_SCSI;
                 io_v4.subprotocol = BSG_SUB_PROTOCOL_SCSI_CMD;
@@ -343,7 +343,7 @@ resend:
                 io_v4.din_xferp = (uintptr_t)buf;
                 io_buf = (void *)&io_v4;
         } else {
-                memset(&io_hdr, 0, sizeof(struct sg_io_hdr));
+                memzero(&io_hdr, sizeof(struct sg_io_hdr));
                 io_hdr.interface_id = 'S';
                 io_hdr.cmd_len = sizeof(inq_cmd);
                 io_hdr.mx_sb_len = sizeof(sense);
@@ -410,7 +410,7 @@ static int do_scsi_page0_inquiry(struct udev *udev,
 {
         int retval;
 
-        memset(buffer, 0, len);
+        memzero(buffer, len);
         retval = scsi_inquiry(udev, dev_scsi, fd, 1, 0x0, buffer, len);
         if (retval < 0)
                 return 1;
@@ -622,7 +622,7 @@ static int do_scsi_page83_inquiry(struct udev *udev,
         /* also pick up the page 80 serial number */
         do_scsi_page80_inquiry(udev, dev_scsi, fd, NULL, unit_serial_number, MAX_SERIAL_LEN);
 
-        memset(page_83, 0, SCSI_INQ_BUFF_LEN);
+        memzero(page_83, SCSI_INQ_BUFF_LEN);
         retval = scsi_inquiry(udev, dev_scsi, fd, 1, PAGE_83, page_83,
                               SCSI_INQ_BUFF_LEN);
         if (retval < 0)
@@ -709,7 +709,7 @@ static int do_scsi_page83_prespc3_inquiry(struct udev *udev,
         int i, j;
         unsigned char page_83[SCSI_INQ_BUFF_LEN];
 
-        memset(page_83, 0, SCSI_INQ_BUFF_LEN);
+        memzero(page_83, SCSI_INQ_BUFF_LEN);
         retval = scsi_inquiry(udev, dev_scsi, fd, 1, PAGE_83, page_83, SCSI_INQ_BUFF_LEN);
         if (retval < 0)
                 return 1;
@@ -773,7 +773,7 @@ static int do_scsi_page80_inquiry(struct udev *udev,
         int len;
         unsigned char buf[SCSI_INQ_BUFF_LEN];
 
-        memset(buf, 0, SCSI_INQ_BUFF_LEN);
+        memzero(buf, SCSI_INQ_BUFF_LEN);
         retval = scsi_inquiry(udev, dev_scsi, fd, 1, PAGE_80, buf, SCSI_INQ_BUFF_LEN);
         if (retval < 0)
                 return retval;
@@ -832,7 +832,7 @@ int scsi_std_inquiry(struct udev *udev,
         sprintf(dev_scsi->kernel,"%d:%d", major(statbuf.st_rdev),
                 minor(statbuf.st_rdev));
 
-        memset(buf, 0, SCSI_INQ_BUFF_LEN);
+        memzero(buf, SCSI_INQ_BUFF_LEN);
         err = scsi_inquiry(udev, dev_scsi, fd, 0, 0, buf, SCSI_INQ_BUFF_LEN);
         if (err < 0)
                 goto out;
@@ -861,7 +861,7 @@ int scsi_get_serial(struct udev *udev,
         int ind;
         int retval;
 
-        memset(dev_scsi->serial, 0, len);
+        memzero(dev_scsi->serial, len);
         srand((unsigned int)getpid());
         for (cnt = 20; cnt > 0; cnt--) {
                 struct timespec duration;

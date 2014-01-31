@@ -194,7 +194,7 @@ static void *message_extend_fields(sd_bus_message *m, size_t align, size_t sz, b
 
         /* Zero out padding */
         if (start > old_size)
-                memset((uint8_t*) np + old_size, 0, start - old_size);
+                memzero((uint8_t*) np + old_size, start - old_size);
 
         op = m->header;
         m->header = np;
@@ -252,7 +252,7 @@ static int message_append_field_string(
                         return -ENOMEM;
 
                 p[0] = h;
-                memset(p+1, 0, 7);
+                memzero(p+1, 7);
                 memcpy(p+8, s, l);
                 p[8+l] = 0;
                 p[8+l+1] = 0;
@@ -337,7 +337,7 @@ static int message_append_field_uint32(sd_bus_message *m, uint8_t h, uint32_t x)
                         return -ENOMEM;
 
                 p[0] = h;
-                memset(p+1, 0, 7);
+                memzero(p+1, 7);
                 *((uint32_t*) (p + 8)) = x;
                 p[12] = 0;
                 p[13] = 'u';
@@ -1228,7 +1228,7 @@ static void *message_extend_body(sd_bus_message *m, size_t align, size_t sz, boo
                                 return NULL;
 
                         if (padding > 0) {
-                                memset(p, 0, padding);
+                                memzero(p, padding);
                                 p = (uint8_t*) p + padding;
                         }
 
@@ -2514,7 +2514,7 @@ _public_ int sd_bus_message_append_array_iovec(
                 if (iov[i].iov_base)
                         memcpy(p, iov[i].iov_base, iov[i].iov_len);
                 else
-                        memset(p, 0, iov[i].iov_len);
+                        memzero(p, iov[i].iov_len);
 
                 p = (uint8_t*) p + iov[i].iov_len;
         }
@@ -2779,7 +2779,7 @@ int bus_message_seal(sd_bus_message *m, uint64_t cookie, usec_t timeout) {
         l = BUS_MESSAGE_FIELDS_SIZE(m);
         a = ALIGN8(l) - l;
         if (a > 0)
-                memset((uint8_t*) BUS_MESSAGE_FIELDS(m) + l, 0, a);
+                memzero((uint8_t*) BUS_MESSAGE_FIELDS(m) + l, a);
 
         /* If this is something we can send as memfd, then let's seal
         the memfd now. Note that we can send memfds as payload only

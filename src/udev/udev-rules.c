@@ -870,7 +870,7 @@ static int rule_add_key(struct rule_tmp *rule_tmp, enum token_type type,
         struct token *token = &rule_tmp->token[rule_tmp->token_cur];
         const char *attr = NULL;
 
-        memset(token, 0x00, sizeof(struct token));
+        memzero(token, sizeof(struct token));
 
         switch (type) {
         case TK_M_ACTION:
@@ -1052,7 +1052,7 @@ static int add_rule(struct udev_rules *rules, char *line,
         const char *attr;
         struct rule_tmp rule_tmp;
 
-        memset(&rule_tmp, 0x00, sizeof(struct rule_tmp));
+        memzero(&rule_tmp, sizeof(struct rule_tmp));
         rule_tmp.rules = rules;
         rule_tmp.rule.type = TK_RULE;
         /* the offset in the rule is limited to unsigned short */
@@ -1652,7 +1652,7 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
 
         strv_free(files);
 
-        memset(&end_token, 0x00, sizeof(struct token));
+        memzero(&end_token, sizeof(struct token));
         end_token.type = TK_END;
         add_token(rules, &end_token);
         log_debug("rules contain %zu bytes tokens (%u * %zu bytes), %zu bytes strings",

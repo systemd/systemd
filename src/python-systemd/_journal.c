@@ -22,6 +22,7 @@
 #include <Python.h>
 
 #include <alloca.h>
+#include "util.h"
 
 #define SD_JOURNAL_SUPPRESS_LOCATION
 #include <systemd/sd-journal.h>
@@ -41,7 +42,7 @@ static PyObject *journal_sendv(PyObject *self, PyObject *args) {
         /* Allocate an array for the argument strings */
         argc = PyTuple_Size(args);
         encoded = alloca(argc * sizeof(PyObject*));
-        memset(encoded, 0, argc * sizeof(PyObject*));
+        memzero(encoded, argc * sizeof(PyObject*));
 
         /* Allocate sufficient iovector space for the arguments. */
         iov = alloca(argc * sizeof(struct iovec));

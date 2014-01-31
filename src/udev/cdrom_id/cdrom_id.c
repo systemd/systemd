@@ -155,7 +155,7 @@ struct scsi_cmd {
 
 static void scsi_cmd_init(struct udev *udev, struct scsi_cmd *cmd)
 {
-        memset(cmd, 0x00, sizeof(struct scsi_cmd));
+        memzero(cmd, sizeof(struct scsi_cmd));
         cmd->cgc.quiet = 1;
         cmd->cgc.sense = &cmd->_sense.s;
         cmd->sg_io.interface_id = 'S';

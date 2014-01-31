@@ -172,7 +172,7 @@ static int rename_service(sd_bus *a, sd_bus *b) {
                              uid, name);
 
                 if (m > w)
-                        memset(arg_command_line_buffer + w, 0, m - w);
+                        memzero(arg_command_line_buffer + w, m - w);
         }
 
         log_debug("Running on behalf of PID "PID_FMT" (%s), UID "UID_FMT" (%s), %s",

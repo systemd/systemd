@@ -2337,7 +2337,7 @@ void rename_process(const char name[8]) {
                         if (!saved_argv[i])
                                 break;
 
-                        memset(saved_argv[i], 0, strlen(saved_argv[i]));
+                        memzero(saved_argv[i], strlen(saved_argv[i]));
                 }
         }
 }
@@ -5792,7 +5792,7 @@ void* greedy_realloc0(void **p, size_t *allocated, size_t need) {
                 return NULL;
 
         if (*allocated > prev)
-                memset(&q[prev], 0, *allocated - prev);
+                memzero(&q[prev], *allocated - prev);
 
         return q;
 }

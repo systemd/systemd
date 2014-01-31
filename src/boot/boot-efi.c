@@ -69,7 +69,7 @@ static int get_boot_entries(struct boot_info *info) {
                 info->fw_entries = e;
 
                 e = &info->fw_entries[info->fw_entries_count];
-                memset(e, 0, sizeof(struct boot_info_entry));
+                memzero(e, sizeof(struct boot_info_entry));
                 e->order = -1;
 
                 err = efi_get_boot_option(list[i], &e->title, &e->part_uuid, &e->path);

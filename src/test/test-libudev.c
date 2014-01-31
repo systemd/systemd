@@ -253,7 +253,7 @@ static int test_monitor(struct udev *udev) {
                 goto out;
         }
 
-        memset(&ep_udev, 0, sizeof(struct epoll_event));
+        memzero(&ep_udev, sizeof(struct epoll_event));
         ep_udev.events = EPOLLIN;
         ep_udev.data.fd = fd_udev;
         if (epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_udev, &ep_udev) < 0) {
@@ -261,7 +261,7 @@ static int test_monitor(struct udev *udev) {
                 goto out;
         }
 
-        memset(&ep_stdin, 0, sizeof(struct epoll_event));
+        memzero(&ep_stdin, sizeof(struct epoll_event));
         ep_stdin.events = EPOLLIN;
         ep_stdin.data.fd = STDIN_FILENO;
         if (epoll_ctl(fd_ep, EPOLL_CTL_ADD, STDIN_FILENO, &ep_stdin) < 0) {
