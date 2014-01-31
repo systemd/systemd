@@ -410,12 +410,166 @@ static int link_set_mtu(Link *link, uint32_t mtu) {
         return 0;
 }
 
-static void dhcp_handler(sd_dhcp_client *client, int event, void *userdata) {
-        Link *link = userdata;
+static int dhcp_lease_lost(sd_dhcp_client *client, Link *link) {
+        int r;
+
+        assert(client);
+        assert(link);
+
+        if (link->dhcp_address) {
+                address_drop(link->dhcp_address, link, address_drop_handler);
+
+                address_free(link->dhcp_address);
+                link->dhcp_address = NULL;
+        }
+
+        if (link->dhcp_route) {
+                route_free(link->dhcp_route);
+                link->dhcp_route = NULL;
+        }
+
+        if (link->network->dhcp_mtu) {
+                uint16_t mtu;
+
+                r = sd_dhcp_client_get_mtu(client, &mtu);
+                if (r >= 0 && link->original_mtu != mtu) {
+                        r = link_set_mtu(link, link->original_mtu);
+                        if (r < 0) {
+                                log_warning_link(link, "DHCP error: could not reset MTU");
+                                link_enter_failed(link);
+                                return r;
+                        }
+                }
+        }
+
+        if (link->network->dhcp_hostname) {
+                r = set_hostname(link->manager->bus, "");
+                if (r < 0)
+                        log_error("Failed to reset transient hostname");
+        }
+
+        return 0;
+}
+
+static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
         struct in_addr address;
         struct in_addr netmask;
         struct in_addr gateway;
         unsigned prefixlen;
+        _cleanup_address_free_ Address *addr = NULL;
+        _cleanup_route_free_ Route *rt = NULL;
+        struct in_addr *nameservers;
+        size_t nameservers_size;
+        int r;
+
+        assert(client);
+        assert(link);
+
+        r = sd_dhcp_client_get_address(client, &address);
+        if (r < 0) {
+                log_warning_link(link, "DHCP error: no address: %s",
+                                 strerror(-r));
+                return r;
+        }
+
+        r = sd_dhcp_client_get_netmask(client, &netmask);
+        if (r < 0) {
+                log_warning_link(link, "DHCP error: no netmask: %s",
+                                 strerror(-r));
+                return r;
+        }
+
+        prefixlen = net_netmask_to_prefixlen(&netmask);
+
+        r = sd_dhcp_client_get_router(client, &gateway);
+        if (r < 0) {
+                log_warning_link(link, "DHCP error: no router: %s",
+                                 strerror(-r));
+                return r;
+        }
+
+
+        log_struct_link(LOG_INFO, link,
+                        "MESSAGE=%s: DHCPv4 address %u.%u.%u.%u/%u via %u.%u.%u.%u",
+                         link->ifname,
+                         ADDRESS_FMT_VAL(address),
+                         prefixlen,
+                         ADDRESS_FMT_VAL(gateway),
+                         "ADDRESS=%u.%u.%u.%u",
+                         ADDRESS_FMT_VAL(address),
+                         "PREFIXLEN=%u",
+                         prefixlen,
+                         "GATEWAY=%u.%u.%u.%u",
+                         ADDRESS_FMT_VAL(gateway),
+                         NULL);
+
+        r = address_new_dynamic(&addr);
+        if (r < 0) {
+                log_error_link(link, "Could not allocate address: %s",
+                               strerror(-r));
+                return r;
+        }
+
+        addr->family = AF_INET;
+        addr->in_addr.in = address;
+        addr->prefixlen = prefixlen;
+        addr->broadcast.s_addr = address.s_addr | ~netmask.s_addr;
+
+        r = route_new_dynamic(&rt);
+        if (r < 0) {
+                log_error_link(link, "Could not allocate route: %s",
+                               strerror(-r));
+                return r;
+        }
+
+        rt->family = AF_INET;
+        rt->in_addr.in = gateway;
+
+        link->dhcp_address = addr;
+        link->dhcp_route = rt;
+        addr = NULL;
+        rt = NULL;
+
+        if (link->network->dhcp_dns) {
+                r = sd_dhcp_client_get_dns(client, &nameservers, &nameservers_size);
+                if (r >= 0) {
+                        r = manager_update_resolv_conf(link->manager);
+                        if (r < 0)
+                                log_error("Failed to update resolv.conf");
+                }
+        }
+
+        if (link->network->dhcp_mtu) {
+                uint16_t mtu;
+
+                r = sd_dhcp_client_get_mtu(client, &mtu);
+                if (r >= 0) {
+                        r = link_set_mtu(link, mtu);
+                        if (r < 0)
+                                log_error_link(link, "Failed to set MTU "
+                                               "to %" PRIu16, mtu);
+                }
+        }
+
+        if (link->network->dhcp_hostname) {
+                const char *hostname;
+
+                r = sd_dhcp_client_get_hostname(client, &hostname);
+                if (r >= 0) {
+                        r = set_hostname(link->manager->bus, hostname);
+                        if (r < 0)
+                                log_error("Failed to set transient hostname "
+                                          "to '%s'", hostname);
+                }
+        }
+
+        link_enter_set_addresses(link);
+
+        return 0;
+}
+
+static void dhcp_handler(sd_dhcp_client *client, int event, void *userdata) {
+        Link *link = userdata;
         int r;
 
         assert(link);
@@ -425,160 +579,48 @@ static void dhcp_handler(sd_dhcp_client *client, int event, void *userdata) {
         if (link->state == LINK_STATE_FAILED)
                 return;
 
-        if (event < 0) {
-                log_warning_link(link, "DHCP error: %s", strerror(-event));
-                link_enter_failed(link);
-                return;
-        }
+        switch (event) {
+                case DHCP_EVENT_NO_LEASE:
+                        log_debug_link(link, "IP address in use.");
+                        break;
+                case DHCP_EVENT_EXPIRED:
+                case DHCP_EVENT_STOP:
+                case DHCP_EVENT_IP_CHANGE:
+                        if (link->network->dhcp_critical) {
+                                log_error_link(link, "DHCPv4 connection considered system critical, "
+                                               "ignoring request to reconfigure it.");
+                                return;
+                        }
 
-        if (event == DHCP_EVENT_NO_LEASE)
-                log_debug_link(link, "IP address in use.");
+                        r = dhcp_lease_lost(client, link);
+                        if (r < 0) {
+                                link_enter_failed(link);
+                                return;
+                        }
 
-        if (event == DHCP_EVENT_IP_CHANGE || event == DHCP_EVENT_EXPIRED ||
-            event == DHCP_EVENT_STOP) {
-                if (link->network->dhcp_critical) {
-                        log_warning_link(link, "DHCPv4 connection considered system critical, "
-                                         "ignoring request to reconfigure it down.");
-                        return;
-                }
-
-                if (link->dhcp_address) {
-                        address_drop(link->dhcp_address, link, address_drop_handler);
-
-                        address_free(link->dhcp_address);
-                        link->dhcp_address = NULL;
-                }
-
-                if (link->dhcp_route) {
-                        route_free(link->dhcp_route);
-                        link->dhcp_route = NULL;
-                }
-
-                if (link->network->dhcp_mtu) {
-                        uint16_t mtu;
-
-                        r = sd_dhcp_client_get_mtu(client, &mtu);
-                        if (r >= 0 && link->original_mtu != mtu) {
-                                r = link_set_mtu(link, link->original_mtu);
+                        if (event == DHCP_EVENT_IP_CHANGE) {
+                                r = dhcp_lease_acquired(client, link);
                                 if (r < 0) {
-                                        log_warning_link(link, "DHCP error: could not reset MTU");
                                         link_enter_failed(link);
                                         return;
                                 }
                         }
-                }
 
-                if (link->network->dhcp_hostname) {
-                        r = set_hostname(link->manager->bus, "");
-                        if (r < 0)
-                                log_error("Failed to reset transient hostname");
-                }
-        }
-
-        r = sd_dhcp_client_get_address(client, &address);
-        if (r < 0) {
-                log_warning_link(link, "DHCP error: no address");
-                link_enter_failed(link);
-                return;
-        }
-
-        r = sd_dhcp_client_get_netmask(client, &netmask);
-        if (r < 0) {
-                log_warning_link(link, "DHCP error: no netmask");
-                link_enter_failed(link);
-                return;
-        }
-
-        prefixlen = net_netmask_to_prefixlen(&netmask);
-
-        r = sd_dhcp_client_get_router(client, &gateway);
-        if (r < 0) {
-                log_warning_link(link, "DHCP error: no router");
-                link_enter_failed(link);
-                return;
-        }
-
-        if (event == DHCP_EVENT_IP_CHANGE || event == DHCP_EVENT_IP_ACQUIRE) {
-                _cleanup_address_free_ Address *addr = NULL;
-                _cleanup_route_free_ Route *rt = NULL;
-                struct in_addr *nameservers;
-                size_t nameservers_size;
-
-                log_struct_link(LOG_INFO, link,
-                                "MESSAGE=%s: DHCPv4 address %u.%u.%u.%u/%u via %u.%u.%u.%u",
-                                link->ifname,
-                                ADDRESS_FMT_VAL(address),
-                                prefixlen,
-                                ADDRESS_FMT_VAL(gateway),
-                                "ADDRESS=%u.%u.%u.%u",
-                                ADDRESS_FMT_VAL(address),
-                                "PREFIXLEN=%u",
-                                prefixlen,
-                                "GATEWAY=%u.%u.%u.%u",
-                                ADDRESS_FMT_VAL(gateway),
-                                NULL);
-
-                r = address_new_dynamic(&addr);
-                if (r < 0) {
-                        log_error_link(link, "Could not allocate address");
+                        break;
+                case DHCP_EVENT_IP_ACQUIRE:
+                        r = dhcp_lease_acquired(client, link);
+                        if (r < 0) {
+                                link_enter_failed(link);
+                                return;
+                        }
+                        break;
+                default:
+                        if (event < 0)
+                                log_warning_link(link, "DHCP error: %s", strerror(-event));
+                        else
+                                log_warning_link(link, "DHCP unknown event: %d", event);
                         link_enter_failed(link);
-                        return;
-                }
-
-                addr->family = AF_INET;
-                addr->in_addr.in = address;
-                addr->prefixlen = prefixlen;
-                addr->broadcast.s_addr = address.s_addr | ~netmask.s_addr;
-
-                r = route_new_dynamic(&rt);
-                if (r < 0) {
-                        log_error_link(link, "Could not allocate route");
-                        link_enter_failed(link);
-                        return;
-                }
-
-                rt->family = AF_INET;
-                rt->in_addr.in = gateway;
-
-                link->dhcp_address = addr;
-                link->dhcp_route = rt;
-                addr = NULL;
-                rt = NULL;
-
-                if (link->network->dhcp_dns) {
-                        r = sd_dhcp_client_get_dns(client, &nameservers, &nameservers_size);
-                        if (r >= 0) {
-                                r = manager_update_resolv_conf(link->manager);
-                                if (r < 0)
-                                        log_error("Failed to update resolv.conf");
-                        }
-                }
-
-                if (link->network->dhcp_mtu) {
-                        uint16_t mtu;
-
-                        r = sd_dhcp_client_get_mtu(client, &mtu);
-                        if (r >= 0) {
-                                r = link_set_mtu(link, mtu);
-                                if (r < 0)
-                                        log_error_link(link, "Failed to set MTU "
-                                                             "to %" PRIu16, mtu);
-                        }
-                }
-
-                if (link->network->dhcp_hostname) {
-                        const char *hostname;
-
-                        r = sd_dhcp_client_get_hostname(client, &hostname);
-                        if (r >= 0) {
-                                r = set_hostname(link->manager->bus, hostname);
-                                if (r < 0)
-                                        log_error("Failed to set transient hostname "
-                                                  "to '%s'", hostname);
-                        }
-                }
-
-                link_enter_set_addresses(link);
+                        break;
         }
 
         return;
