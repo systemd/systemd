@@ -55,6 +55,8 @@ struct Scope {
 
         usec_t timeout_stop_usec;
 
+        char *controller;
+
         Set *pids;
 
         sd_event_source *timer_event_source;

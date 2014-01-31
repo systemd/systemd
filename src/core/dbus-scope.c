@@ -26,13 +26,16 @@
 #include "dbus-kill.h"
 #include "dbus-scope.h"
 #include "bus-util.h"
+#include "bus-internal.h"
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_result, scope_result, ScopeResult);
 
 const sd_bus_vtable bus_scope_vtable[] = {
         SD_BUS_VTABLE_START(0),
+        SD_BUS_PROPERTY("Controller", "s", NULL, offsetof(Scope, controller), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("TimeoutStopUSec", "t", bus_property_get_usec, offsetof(Scope, timeout_stop_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Result", "s", property_get_result, offsetof(Scope, result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_SIGNAL("RequestStop", NULL, 0),
         SD_BUS_VTABLE_END
 };
 
@@ -83,6 +86,32 @@ static int bus_scope_set_transient_property(
 
                 if (n <= 0)
                         return -EINVAL;
+
+                return 1;
+
+        } else if (streq(name, "Controller")) {
+                const char *controller;
+                char *c;
+
+                r = sd_bus_message_read(message, "s", &controller);
+                if (r < 0)
+                        return r;
+
+                if (!isempty(controller) && !service_name_is_valid(controller))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Controller '%s' is not a valid bus name.", controller);
+
+                if (mode != UNIT_CHECK) {
+                        if (isempty(controller))
+                                c = NULL;
+                        else {
+                                c = strdup(controller);
+                                if (!c)
+                                        return -ENOMEM;
+                        }
+
+                        free(s->controller);
+                        s->controller = c;
+                }
 
                 return 1;
 
@@ -144,4 +173,30 @@ int bus_scope_commit_properties(Unit *u) {
 
         unit_realize_cgroup(u);
         return 0;
+}
+
+int bus_scope_send_request_stop(Scope *s) {
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        assert(s);
+
+        if (!s->controller)
+                return 0;
+
+        p = unit_dbus_path(UNIT(s));
+        if (!p)
+                return -ENOMEM;
+
+        r = sd_bus_message_new_signal(
+                        UNIT(s)->manager->api_bus,
+                        p,
+                        "org.freedesktop.systemd1.Scope",
+                        "RequestStop",
+                        &m);
+        if (r < 0)
+                return r;
+
+        return sd_bus_send_to(UNIT(s)->manager->api_bus, m, /* s->controller */ NULL, NULL);
 }

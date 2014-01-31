@@ -356,6 +356,14 @@ static int start_transient_scope(
         if (r < 0)
                 return r;
 
+        {
+                const char *unique_id;
+                sd_bus_get_unique_name(bus, &unique_id);
+                r = sd_bus_message_append(m, "(sv)", "Controller", "s", unique_id);
+                if (r < 0)
+                        return r;
+        }
+
         r = message_start_transient_unit_send(bus, m, error, NULL);
         if (r < 0)
                 return r;
