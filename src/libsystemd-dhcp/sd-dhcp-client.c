@@ -726,7 +726,7 @@ static int client_timeout_t1(sd_event_source *s, uint64_t usec, void *userdata) 
         return client_initialize_events(client, usec);
 }
 
-static int client_parse_offer(uint8_t code, uint8_t len, const uint8_t *option,
+static int client_parse_options(uint8_t code, uint8_t len, const uint8_t *option,
                               void *user_data) {
         DHCPLease *lease = user_data;
         be32_t val;
@@ -876,7 +876,7 @@ static int client_receive_offer(sd_dhcp_client *client, DHCPPacket *offer,
                 return -ENOMEM;
 
         len = len - DHCP_IP_UDP_SIZE;
-        r = dhcp_option_parse(&offer->dhcp, len, client_parse_offer,
+        r = dhcp_option_parse(&offer->dhcp, len, client_parse_options,
                               lease);
         if (r != DHCP_OFFER)
                 return -ENOMSG;
@@ -919,7 +919,7 @@ static int client_receive_ack(sd_dhcp_client *client, const uint8_t *buf,
         if (!lease)
                 return -ENOMEM;
 
-        r = dhcp_option_parse(dhcp, len, client_parse_offer, lease);
+        r = dhcp_option_parse(dhcp, len, client_parse_options, lease);
         if (r == DHCP_NAK)
                 return DHCP_EVENT_NO_LEASE;
 
