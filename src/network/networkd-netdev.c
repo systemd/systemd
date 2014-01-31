@@ -152,14 +152,6 @@ static int netdev_create_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userda
                 return 1;
         }
 
-        r = sd_rtnl_message_link_get_ifindex(m, &ifindex);
-        if (r < 0)
-                log_warning_netdev(netdev, "created netdev with unknown ifindex: %s", strerror(-r));
-        else {
-                log_info_netdev(netdev, "created netdev with ifindex %d", ifindex);
-                netdev_set_ifindex(netdev, ifindex);
-        }
-
         return 1;
 }
 
