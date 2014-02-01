@@ -140,7 +140,7 @@ static int netdev_enter_ready(Netdev *netdev) {
 
 static int netdev_create_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
         Netdev *netdev = userdata;
-        int r, ifindex;
+        int r;
 
         assert(netdev->state != _NETDEV_STATE_INVALID);
 
