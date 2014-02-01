@@ -619,7 +619,6 @@ static void dhcp_handler(sd_dhcp_client *client, int event, void *userdata) {
                                 log_warning_link(link, "DHCP error: %s", strerror(-event));
                         else
                                 log_warning_link(link, "DHCP unknown event: %d", event);
-                        link_enter_failed(link);
                         break;
         }
 
