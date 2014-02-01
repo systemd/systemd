@@ -599,7 +599,7 @@ static int manager_setup_kdbus(Manager *m) {
          * necessary to ensure that users cannot get access to busses
          * of virtualized users when no UID namespacing is used. */
         if (m->running_as == SYSTEMD_SYSTEM)
-                mkdir_p_label("/dev/kdbus/ns", 0700);
+                mkdir_p_label("/dev/kdbus/domain", 0700);
 #endif
 
         return 0;

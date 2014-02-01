@@ -974,7 +974,7 @@ static int setup_kdbus(const char *dest, const char *path) {
         }
 
         if (mount(path, p, "bind", MS_BIND, NULL) < 0) {
-                log_error("Failed to mount kdbus namespace path: %m");
+                log_error("Failed to mount kdbus domain path: %m");
                 return -errno;
         }
 
@@ -1092,7 +1092,7 @@ int main(int argc, char *argv[]) {
         sigset_t mask;
         _cleanup_close_pipe_ int kmsg_socket_pair[2] = { -1, -1 };
         _cleanup_fdset_free_ FDSet *fds = NULL;
-        _cleanup_free_ char *kdbus_namespace = NULL;
+        _cleanup_free_ char *kdbus_domain = NULL;
         const char *ns;
 
         log_parse_environment();
@@ -1195,11 +1195,11 @@ int main(int argc, char *argv[]) {
         }
 
         ns = strappenda("machine-", arg_machine);
-        kdbus_fd = bus_kernel_create_namespace(ns, &kdbus_namespace);
+        kdbus_fd = bus_kernel_create_domain(ns, &kdbus_domain);
         if (r < 0)
-                log_debug("Failed to create kdbus namespace: %s", strerror(-r));
+                log_debug("Failed to create kdbus domain: %s", strerror(-r));
         else
-                log_debug("Successfully created kdbus namespace as %s", kdbus_namespace);
+                log_debug("Successfully created kdbus domain as %s", kdbus_domain);
 
         if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, kmsg_socket_pair) < 0) {
                 log_error("Failed to create kmsg socket pair: %m");
@@ -1356,7 +1356,7 @@ int main(int argc, char *argv[]) {
                         if (mount_binds(arg_directory, arg_bind_ro, MS_RDONLY) < 0)
                                 goto child_fail;
 
-                        if (setup_kdbus(arg_directory, kdbus_namespace) < 0)
+                        if (setup_kdbus(arg_directory, kdbus_domain) < 0)
                                 goto child_fail;
 
                         if (chdir(arg_directory) < 0) {

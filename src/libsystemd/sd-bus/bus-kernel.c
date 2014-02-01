@@ -1388,7 +1388,7 @@ int bus_kernel_create_starter(const char *bus, const char *name) {
         return fd;
 }
 
-int bus_kernel_create_namespace(const char *name, char **s) {
+int bus_kernel_create_domain(const char *name, char **s) {
         struct kdbus_cmd_make *make;
         struct kdbus_item *n;
         int fd;
@@ -1412,7 +1412,7 @@ int bus_kernel_create_namespace(const char *name, char **s) {
         make->size = ALIGN8(offsetof(struct kdbus_cmd_make, items) + n->size);
         make->flags = KDBUS_MAKE_POLICY_OPEN | KDBUS_MAKE_ACCESS_WORLD;
 
-        if (ioctl(fd, KDBUS_CMD_NS_MAKE, make) < 0) {
+        if (ioctl(fd, KDBUS_CMD_DOMAIN_MAKE, make) < 0) {
                 close_nointr_nofail(fd);
                 return -errno;
         }
@@ -1427,7 +1427,7 @@ int bus_kernel_create_namespace(const char *name, char **s) {
         if (s) {
                 char *p;
 
-                p = strappend("/dev/kdbus/ns/", name);
+                p = strappend("/dev/kdbus/domain/", name);
                 if (!p) {
                         close_nointr_nofail(fd);
                         return -ENOMEM;

@@ -105,7 +105,7 @@ struct kdbus_audit {
 
 /**
  * struct kdbus_timestamp
- * @seqnum:		Global per-namespace message sequence number
+ * @seqnum:		Global per-domain message sequence number
  * @monotonic_ns:	Monotonic timestamp, in nanoseconds
  * @realtime_ns:	Realtime timestamp, in nanoseconds
  *
@@ -233,7 +233,7 @@ struct kdbus_policy {
  * @KDBUS_ITEM_BLOOM_MASK:	Bloom mask used to match against a message's
  *				bloom filter
  * @KDBUS_ITEM_DST_NAME:	Destination's well-known name
- * @KDBUS_ITEM_MAKE_NAME:	Name of namespace, bus, endpoint
+ * @KDBUS_ITEM_MAKE_NAME:	Name of domain, bus, endpoint
  * @KDBUS_ITEM_MEMFD_NAME:	The human readable name of a memfd (debugging)
  * @KDBUS_ITEM_ATTACH_FLAGS:	Attach-flags, used for updating which metadata
  *				a connection subscribes to
@@ -592,13 +592,13 @@ enum kdbus_make_flags {
 };
 
 /**
- * struct kdbus_cmd_make - struct to make a bus, an endpoint or a namespace
+ * struct kdbus_cmd_make - struct to make a bus, an endpoint or a domain
  * @size:		The total size of the struct
- * @flags:		Properties for the bus/ep/ns to create
+ * @flags:		Properties for the bus/ep/domain to create
  * @items:		Items describing details
  *
  * This structure is used with the KDBUS_CMD_BUS_MAKE, KDBUS_CMD_EP_MAKE and
- * KDBUS_CMD_NS_MAKE ioctls.
+ * KDBUS_CMD_DOMAIN_MAKE ioctls.
  */
 struct kdbus_cmd_make {
 	__u64 size;
@@ -781,8 +781,8 @@ struct kdbus_cmd_memfd_make {
  *				name. The bus is immediately shut down and
  *				cleaned up when the opened "control" device node
  *				is closed.
- * @KDBUS_CMD_NS_MAKE:		Similar to KDBUS_CMD_BUS_MAKE, but it creates a
- *				new kdbus namespace.
+ * @KDBUS_CMD_DOMAIN_MAKE:		Similar to KDBUS_CMD_BUS_MAKE, but it creates a
+ *				new kdbus domain.
  * @KDBUS_CMD_EP_MAKE:		Creates a new named special endpoint to talk to
  *				the bus. Such endpoints usually carry a more
  *				restrictive policy and grant restricted access
@@ -853,7 +853,7 @@ struct kdbus_cmd_memfd_make {
  */
 enum kdbus_ioctl_type {
 	KDBUS_CMD_BUS_MAKE =		_IOW (KDBUS_IOC_MAGIC, 0x00, struct kdbus_cmd_make),
-	KDBUS_CMD_NS_MAKE =		_IOW (KDBUS_IOC_MAGIC, 0x10, struct kdbus_cmd_make),
+	KDBUS_CMD_DOMAIN_MAKE =		_IOW (KDBUS_IOC_MAGIC, 0x10, struct kdbus_cmd_make),
 	KDBUS_CMD_EP_MAKE =		_IOW (KDBUS_IOC_MAGIC, 0x20, struct kdbus_cmd_make),
 
 	KDBUS_CMD_HELLO =		_IOWR(KDBUS_IOC_MAGIC, 0x30, struct kdbus_cmd_hello),
@@ -897,7 +897,7 @@ enum kdbus_ioctl_type {
  *			inconsistent types.
  * @EBUSY:		The user tried to say BYEBYE to a connection, but the
  *			connection had a non-empty message list.
- * @ECANCELED:		A syncronous message sending was cancelled.
+ * @ECANCELED:		A synchronous message sending was cancelled.
  * @ECONNRESET:		A connection is shut down, no further operations are
  *			possible.
  * @ECOMM:		A peer does not accept the file descriptors addressed
@@ -905,7 +905,7 @@ enum kdbus_ioctl_type {
  * @EDESTADDRREQ:	The well-known bus name is required but missing.
  * @EDOM:		The size of data does not match the expectations. Used
  *			for bloom bit field sizes.
- * @EEXIST:		A requested namespace, bus or endpoint with the same
+ * @EEXIST:		A requested domain, bus or endpoint with the same
  *			name already exists.  A specific data type, which is
  *			only expected once, is provided multiple times.
  * @EFAULT:		The supplied memory could not be accessed, or the data
@@ -947,7 +947,7 @@ enum kdbus_ioctl_type {
  * @EPIPE:		When sending a message, a synchronous reply from the
  *			receiving connection was expected but the connection
  *			died before answering.
- * @ESHUTDOWN:		A namespace or endpoint is currently shutting down;
+ * @ESHUTDOWN:		A domain or endpoint is currently shutting down;
  *			no further operations will be possible.
  * @ESRCH:		A requested well-known bus name is not found.
  * @ETIMEDOUT:		A synchronous wait for a message reply did not arrive

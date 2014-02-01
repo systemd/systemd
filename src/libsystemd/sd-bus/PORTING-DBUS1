@@ -508,7 +508,7 @@ have attached. Note that when issuing the ioctl, you can select a
 different set of credentials to gather, than what was originally requested
 for being attached to incoming messages.
 
-Credentials are always specific to the sender namespace that was
+Credentials are always specific to the sender's domain that was
 current at the time of sending, and of the process that opened the
 bus connection at the time of opening it. Note that this latter data
 is cached!
