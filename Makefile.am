@@ -2039,12 +2039,12 @@ nodist_libsystemd_la_SOURCES = \
 
 libsystemd_la_LIBADD = \
 	libsystemd-daemon-internal.la \
-	libsystemd-shared.la
+	libsystemd-shared.la \
+	-lresolv
 
 libsystemd_la_CFLAGS = \
 	$(AM_CFLAGS) \
-	-pthread \
-	-lresolv
+	-pthread
 
 libsystemd_la_LDFLAGS = \
 	$(AM_LDFLAGS) \
@@ -2316,7 +2316,8 @@ test_resolve_SOURCES = \
 
 test_resolve_LDADD = \
 	libsystemd-internal.la \
-	libsystemd-shared.la
+	libsystemd-shared.la \
+	-lresolv
 
 test_resolve_CFLAGS = \
 	$(AM_CFLAGS) \
