@@ -107,21 +107,21 @@ static void bus_node_destroy(sd_bus *b, struct node *n) {
 }
 
 static void bus_reset_queues(sd_bus *b) {
-        unsigned i;
-
         assert(b);
 
-        for (i = 0; i < b->rqueue_size; i++)
-                sd_bus_message_unref(b->rqueue[i]);
+        while (b->rqueue_size > 0)
+                sd_bus_message_unref(b->rqueue[--b->rqueue_size]);
+
         free(b->rqueue);
+        b->rqueue = NULL;
+        b->rqueue_allocated = 0;
 
-        for (i = 0; i < b->wqueue_size; i++)
-                sd_bus_message_unref(b->wqueue[i]);
+        while (b->wqueue_size > 0)
+                sd_bus_message_unref(b->wqueue[--b->wqueue_size]);
+
         free(b->wqueue);
-
-        b->rqueue = b->wqueue = NULL;
-        b->rqueue_allocated = b->wqueue_allocated = 0;
-        b->rqueue_size = b->wqueue_size = 0;
+        b->wqueue = NULL;
+        b->wqueue_allocated = 0;
 }
 
 static void bus_free(sd_bus *b) {
@@ -1340,21 +1340,36 @@ _public_ sd_bus *sd_bus_unref(sd_bus *bus) {
         if (!bus)
                 return NULL;
 
+        if (REFCNT_GET(bus->n_ref) == bus->rqueue_size + bus->wqueue_size + 1) {
+                bool q = true;
+
+                for (i = 0; i < bus->rqueue_size; i++)
+                        if (bus->rqueue[i]->n_ref > 1) {
+                                q = false;
+                                break;
+                        }
+
+                if (q) {
+                        for (i = 0; i < bus->wqueue_size; i++)
+                                if (bus->wqueue[i]->n_ref > 1) {
+                                        q = false;
+                                        break;
+                                }
+                }
+
+                /* We are the only holders on the messages, and the
+                 * messages are the only holders on us, so let's drop
+                 * the messages and thus implicitly also kill our own
+                 * last references */
+
+                bus_reset_queues(bus);
+        }
+
         i = REFCNT_DEC(bus->n_ref);
-        if (i != bus->rqueue_size + bus->wqueue_size)
+        if (i > 0)
                 return NULL;
 
-        for (i = 0; i < bus->rqueue_size; i++)
-                if (bus->rqueue[i]->n_ref > 1)
-                        return NULL;
-
-        for (i = 0; i < bus->wqueue_size; i++)
-                if (bus->wqueue[i]->n_ref > 1)
-                        return NULL;
-
-        /* we are the only holders on the messages */
         bus_free(bus);
-
         return NULL;
 }
 
