@@ -168,14 +168,12 @@ int seat_load(Seat *s) {
 }
 
 static int vt_allocate(unsigned int vtnr) {
-        _cleanup_free_ char *p = NULL;
+        char p[sizeof("/dev/tty") + DECIMAL_STR_MAX(unsigned int)];
         _cleanup_close_ int fd = -1;
 
         assert(vtnr >= 1);
 
-        if (asprintf(&p, "/dev/tty%u", vtnr) < 0)
-                return -ENOMEM;
-
+        snprintf(p, sizeof(p), "/dev/tty%u", vtnr);
         fd = open_terminal(p, O_RDWR|O_NOCTTY|O_CLOEXEC);
         if (fd < 0)
                 return -errno;
