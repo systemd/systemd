@@ -867,3 +867,5 @@ int writev_safe(int fd, const struct iovec *w, int j);
 
 int mkostemp_safe(char *pattern, int flags);
 int open_tmpfile(const char *path, int flags);
+
+int fd_warn_permissions(const char *path, int fd);

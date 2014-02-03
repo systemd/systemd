@@ -332,6 +332,8 @@ int config_parse(const char *unit,
                 }
         }
 
+        fd_warn_permissions(filename, fileno(f));
+
         while (!feof(f)) {
                 char l[LINE_MAX], *p, *c = NULL, *e;
                 bool escaped = false;
