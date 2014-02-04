@@ -139,8 +139,8 @@ int seat_save(Seat *s) {
                 fputs("UIDS=", f);
                 LIST_FOREACH(sessions_by_seat, i, s->sessions)
                         fprintf(f,
-                                "%lu%c",
-                                (unsigned long) i->user->uid,
+                                UID_FMT"%c",
+                                i->user->uid,
                                 i->sessions_by_seat_next ? ' ' : '\n');
         }
 
@@ -154,7 +154,7 @@ int seat_save(Seat *s) {
 
 finish:
         if (r < 0)
-                log_error("Failed to save seat data for %s: %s", s->id, strerror(-r));
+                log_error("Failed to save seat data %s: %s", s->state_file, strerror(-r));
 
         return r;
 }

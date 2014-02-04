@@ -139,17 +139,17 @@ int machine_save(Machine *m) {
                 fprintf(f, "ID=" SD_ID128_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(m->id));
 
         if (m->leader != 0)
-                fprintf(f, "LEADER=%lu\n", (unsigned long) m->leader);
+                fprintf(f, "LEADER="PID_FMT"\n", m->leader);
 
         if (m->class != _MACHINE_CLASS_INVALID)
                 fprintf(f, "CLASS=%s\n", machine_class_to_string(m->class));
 
         if (dual_timestamp_is_set(&m->timestamp))
                 fprintf(f,
-                        "REALTIME=%llu\n"
-                        "MONOTONIC=%llu\n",
-                        (unsigned long long) m->timestamp.realtime,
-                        (unsigned long long) m->timestamp.monotonic);
+                        "REALTIME="USEC_FMT"\n"
+                        "MONOTONIC="USEC_FMT"\n",
+                        m->timestamp.realtime,
+                        m->timestamp.monotonic);
 
         fflush(f);
 
@@ -161,7 +161,7 @@ int machine_save(Machine *m) {
 
 finish:
         if (r < 0)
-                log_error("Failed to save machine data for %s: %s", m->name, strerror(-r));
+                log_error("Failed to save machine data %s: %s", m->state_file, strerror(-r));
 
         return r;
 }

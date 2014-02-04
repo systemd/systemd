@@ -224,10 +224,10 @@ static int update_schedule_file(struct sd_shutdown_command *c) {
         fchmod(fileno(f), 0644);
 
         fprintf(f,
-                "USEC=%llu\n"
+                "USEC="USEC_FMT"\n"
                 "WARN_WALL=%i\n"
                 "MODE=%s\n",
-                (unsigned long long) c->usec,
+                c->usec,
                 c->warn_wall,
                 mode_to_string(c->mode));
 

@@ -145,10 +145,10 @@ int user_save(User *u) {
 
         if (dual_timestamp_is_set(&u->timestamp))
                 fprintf(f,
-                        "REALTIME=%llu\n"
-                        "MONOTONIC=%llu\n",
-                        (unsigned long long) u->timestamp.realtime,
-                        (unsigned long long) u->timestamp.monotonic);
+                        "REALTIME="USEC_FMT"\n"
+                        "MONOTONIC="USEC_FMT"\n",
+                        u->timestamp.realtime,
+                        u->timestamp.monotonic);
 
         if (u->sessions) {
                 Session *i;
@@ -247,7 +247,7 @@ int user_save(User *u) {
 
 finish:
         if (r < 0)
-                log_error("Failed to save user data for %s: %s", u->name, strerror(-r));
+                log_error("Failed to save user data %s: %s", u->state_file, strerror(-r));
 
         return r;
 }

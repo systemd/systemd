@@ -98,12 +98,12 @@ int inhibitor_save(Inhibitor *i) {
                 "# This is private data. Do not parse.\n"
                 "WHAT=%s\n"
                 "MODE=%s\n"
-                "UID=%lu\n"
-                "PID=%lu\n",
+                "UID="UID_FMT"\n"
+                "PID="PID_FMT"\n",
                 inhibit_what_to_string(i->what),
                 inhibit_mode_to_string(i->mode),
-                (unsigned long) i->uid,
-                (unsigned long) i->pid);
+                i->uid,
+                i->pid);
 
         if (i->who) {
                 _cleanup_free_ char *cc = NULL;
@@ -138,7 +138,7 @@ int inhibitor_save(Inhibitor *i) {
 
 finish:
         if (r < 0)
-                log_error("Failed to save inhibit data for %s: %s", i->id, strerror(-r));
+                log_error("Failed to save inhibit data %s: %s", i->state_file, strerror(-r));
 
         return r;
 }

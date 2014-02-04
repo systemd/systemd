@@ -390,16 +390,16 @@ static int trie_store(struct trie *trie, const char *filename) {
         }
 
         log_debug("=== trie on-disk ===");
-        log_debug("size:             %8llu bytes", (unsigned long long)size);
+        log_debug("size:             %8"PRIu64" bytes", size);
         log_debug("header:           %8zu bytes", sizeof(struct trie_header_f));
-        log_debug("nodes:            %8llu bytes (%8llu)",
-                  (unsigned long long)t.nodes_count * sizeof(struct trie_node_f), (unsigned long long)t.nodes_count);
-        log_debug("child pointers:   %8llu bytes (%8llu)",
-                  (unsigned long long)t.children_count * sizeof(struct trie_child_entry_f), (unsigned long long)t.children_count);
-        log_debug("value pointers:   %8llu bytes (%8llu)",
-                  (unsigned long long)t.values_count * sizeof(struct trie_value_entry_f), (unsigned long long)t.values_count);
-        log_debug("string store:     %8llu bytes", (unsigned long long)trie->strings->len);
-        log_debug("strings start:    %8llu", (unsigned long long) t.strings_off);
+        log_debug("nodes:            %8"PRIu64" bytes (%8"PRIu64")",
+                  t.nodes_count * sizeof(struct trie_node_f), t.nodes_count);
+        log_debug("child pointers:   %8"PRIu64" bytes (%8"PRIu64")",
+                  t.children_count * sizeof(struct trie_child_entry_f), t.children_count);
+        log_debug("value pointers:   %8"PRIu64" bytes (%8"PRIu64")",
+                  t.values_count * sizeof(struct trie_value_entry_f), t.values_count);
+        log_debug("string store:     %8zu bytes", trie->strings->len);
+        log_debug("strings start:    %8"PRIu64, t.strings_off);
 out:
         free(filename_tmp);
         return err;

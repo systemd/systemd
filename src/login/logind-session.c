@@ -186,12 +186,12 @@ int session_save(Session *s) {
 
         fprintf(f,
                 "# This is private data. Do not parse.\n"
-                "UID=%lu\n"
+                "UID="UID_FMT"\n"
                 "USER=%s\n"
                 "ACTIVE=%i\n"
                 "STATE=%s\n"
                 "REMOTE=%i\n",
-                (unsigned long) s->user->uid,
+                s->user->uid,
                 s->user->name,
                 session_is_active(s),
                 session_state_to_string(session_get_state(s)),
@@ -240,17 +240,17 @@ int session_save(Session *s) {
                 fprintf(f, "POS=%u\n", s->pos);
 
         if (s->leader > 0)
-                fprintf(f, "LEADER=%lu\n", (unsigned long) s->leader);
+                fprintf(f, "LEADER="PID_FMT"\n", s->leader);
 
         if (s->audit_id > 0)
                 fprintf(f, "AUDIT=%"PRIu32"\n", s->audit_id);
 
         if (dual_timestamp_is_set(&s->timestamp))
                 fprintf(f,
-                        "REALTIME=%llu\n"
-                        "MONOTONIC=%llu\n",
-                        (unsigned long long) s->timestamp.realtime,
-                        (unsigned long long) s->timestamp.monotonic);
+                        "REALTIME="USEC_FMT"\n"
+                        "MONOTONIC="USEC_FMT"\n",
+                        s->timestamp.realtime,
+                        s->timestamp.monotonic);
 
         if (s->controller)
                 fprintf(f, "CONTROLLER=%s\n", s->controller);
@@ -265,7 +265,7 @@ int session_save(Session *s) {
 
 finish:
         if (r < 0)
-                log_error("Failed to save session data for %s: %s", s->id, strerror(-r));
+                log_error("Failed to save session data %s: %s", s->state_file, strerror(-r));
 
         return r;
 }
