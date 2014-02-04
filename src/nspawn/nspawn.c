@@ -80,8 +80,8 @@ static char *arg_directory = NULL;
 static char *arg_user = NULL;
 static sd_id128_t arg_uuid = {};
 static char *arg_machine = NULL;
-static char *process_label = NULL;
-static char *file_label = NULL;
+static char *arg_process_label = NULL;
+static char *arg_file_label = NULL;
 static const char *arg_slice = NULL;
 static bool arg_private_network = false;
 static bool arg_read_only = false;
@@ -130,8 +130,10 @@ static int help(void) {
                "     --uuid=UUID            Set a specific machine UUID for the container\n"
                "  -M --machine=NAME         Set the machine name for the container\n"
                "  -S --slice=SLICE          Place the container in the specified slice\n"
-               "  -L --file-label=LABEL     Set the MAC file label to be used by tmpfs file systems in container\n"
-               "  -Z --process-label=LABEL  Set the MAC label to be used by processes in container\n"
+               "  -L --file-label=LABEL     Set the MAC file label to be used by tmpfs file\n"
+               "                            systems in the container\n"
+               "  -Z --process-label=LABEL  Set the MAC label to be used by processes in\n"
+               "                            the container\n"
                "     --private-network      Disable network in container\n"
                "     --read-only            Mount the root directory read-only\n"
                "     --capability=CAP       In addition to the default, retain specified\n"
@@ -257,17 +259,11 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'L':
-                        file_label = strdup(optarg);
-                        if (!file_label)
-                                return log_oom();
-
+                        arg_file_label = optarg;
                         break;
 
                 case 'Z':
-                        process_label = strdup(optarg);
-                        if (!process_label)
-                                return log_oom();
-
+                        arg_process_label = optarg;
                         break;
 
                 case ARG_READ_ONLY:
@@ -419,7 +415,10 @@ static int mount_all(const char *dest) {
 
         for (k = 0; k < ELEMENTSOF(mount_table); k++) {
                 _cleanup_free_ char *where = NULL;
+#ifdef HAVE_SELINUX
                 _cleanup_free_ char *options = NULL;
+#endif
+                const char *o;
                 int t;
 
                 where = strjoin(dest, "/", mount_table[k].where, NULL);
@@ -443,21 +442,22 @@ static int mount_all(const char *dest) {
                 mkdir_p(where, 0755);
 
 #ifdef HAVE_SELINUX
-                if (file_label && (streq_ptr(mount_table[k].what, "tmpfs") ||
-                              streq_ptr(mount_table[k].what, "devpts")))
-                        options = strjoin(mount_table[k].options, ",context=\"", file_label, "\"", NULL);
-                else
-#endif
-                        options = strjoin(mount_table[k].options, NULL);
+                if (arg_file_label && (streq_ptr(mount_table[k].what, "tmpfs") || streq_ptr(mount_table[k].what, "devpts"))) {
+                        options = strjoin(mount_table[k].options, ",context=\"", arg_file_label, "\"", NULL);
+                        if (!options)
+                                return log_oom();
 
-                if (!options)
-                        return log_oom();
+                        o = options;
+                } else
+#endif
+                        o = mount_table[k].options;
+
 
                 if (mount(mount_table[k].what,
                           where,
                           mount_table[k].type,
                           mount_table[k].flags,
-                          options) < 0 &&
+                          o) < 0 &&
                     mount_table[k].fatal) {
 
                         log_error("mount(%s) failed: %m", where);
@@ -1527,9 +1527,9 @@ int main(int argc, char *argv[]) {
                                 env_use = (char**) envp;
 
 #if HAVE_SELINUX
-                        if (process_label)
-                                if (setexeccon(process_label) < 0)
-                                        log_error("setexeccon(\"%s\") failed: %m", process_label);
+                        if (arg_process_label)
+                                if (setexeccon(arg_process_label) < 0)
+                                        log_error("setexeccon(\"%s\") failed: %m", arg_process_label);
 #endif
                         if (arg_boot) {
                                 char **a;

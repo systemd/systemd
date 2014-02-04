@@ -253,9 +253,9 @@
                                 <term><option>--file-label=</option></term>
 
                                 <listitem><para>Sets the mandatory
-                                access control (MAC) file label to be
-                                used by tmpfs file systems in the
-                                container.</para>
+                                access control (MAC/SELinux) file
+                                label to be used by virtual API file
+                                systems in the container.</para>
                                 </listitem>
                         </varlistentry>
 
@@ -264,7 +264,7 @@
                                 <term><option>--process-label=</option></term>
 
                                 <listitem><para>Sets the mandatory
-                                access control (MAC) label to be used by
+                                access control (MAC/SELinux) label to be used by
                                 processes in the container.</para>
                                 </listitem>
                         </varlistentry>
