@@ -174,18 +174,15 @@ struct Link {
 
         Network *network;
 
-        Route *dhcp_route;
-        Address *dhcp_address;
-        Address *dns;
-        uint16_t original_mtu;
-
         LinkState state;
 
         unsigned addr_messages;
         unsigned route_messages;
         unsigned enslaving;
 
-        sd_dhcp_client *dhcp;
+        sd_dhcp_client *dhcp_client;
+        sd_dhcp_lease *dhcp_lease;
+        uint16_t original_mtu;
 };
 
 struct Manager {

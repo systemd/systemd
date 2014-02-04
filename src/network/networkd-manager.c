@@ -364,12 +364,12 @@ int manager_update_resolv_conf(Manager *m) {
               "# static file or a different symlink.\n\n", f);
 
         HASHMAP_FOREACH(link, m->links, i) {
-                if (link->dhcp) {
+                if (link->dhcp_lease) {
                         struct in_addr *nameservers;
                         size_t nameservers_size;
 
                         if (link->network->dhcp_dns) {
-                                r = sd_dhcp_client_get_dns(link->dhcp, &nameservers, &nameservers_size);
+                                r = sd_dhcp_lease_get_dns(link->dhcp_lease, &nameservers, &nameservers_size);
                                 if (r >= 0) {
                                         unsigned j;
 
@@ -379,7 +379,7 @@ int manager_update_resolv_conf(Manager *m) {
                         }
 
                         if (link->network->dhcp_domainname && !domainname) {
-                                r = sd_dhcp_client_get_domainname(link->dhcp, &domainname);
+                                r = sd_dhcp_lease_get_domainname(link->dhcp_lease, &domainname);
                                 if (r >= 0)
                                        fprintf(f, "domain %s\n", domainname);
                         }

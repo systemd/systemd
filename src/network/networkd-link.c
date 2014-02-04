@@ -75,14 +75,8 @@ void link_free(Link *link) {
 
         assert(link->manager);
 
-        if (link->dhcp)
-                sd_dhcp_client_free(link->dhcp);
-
-        route_free(link->dhcp_route);
-        link->dhcp_route = NULL;
-
-        address_free(link->dhcp_address);
-        link->dhcp_address = NULL;
+        sd_dhcp_client_free(link->dhcp_client);
+        sd_dhcp_lease_unref(link->dhcp_lease);
 
         hashmap_remove(link->manager->links, &link->ifindex);
 
@@ -176,7 +170,7 @@ static int route_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 }
 
 static int link_enter_set_routes(Link *link) {
-        Route *route;
+        Route *rt;
         int r;
 
         assert(link);
@@ -185,13 +179,13 @@ static int link_enter_set_routes(Link *link) {
 
         link->state = LINK_STATE_SETTING_ROUTES;
 
-        if (!link->network->static_routes && !link->dhcp_route)
+        if (!link->network->static_routes && !link->dhcp_lease)
                 return link_enter_configured(link);
 
         log_debug_link(link, "setting routes");
 
-        LIST_FOREACH(static_routes, route, link->network->static_routes) {
-                r = route_configure(route, link, &route_handler);
+        LIST_FOREACH(static_routes, rt, link->network->static_routes) {
+                r = route_configure(rt, link, &route_handler);
                 if (r < 0) {
                         log_warning_link(link,
                                          "could not set routes: %s", strerror(-r));
@@ -202,8 +196,28 @@ static int link_enter_set_routes(Link *link) {
                 link->route_messages ++;
         }
 
-        if (link->dhcp_route) {
-                r = route_configure(link->dhcp_route, link, &route_handler);
+        if (link->dhcp_lease) {
+                _cleanup_route_free_ Route *route = NULL;
+                struct in_addr gateway;
+
+                r = sd_dhcp_lease_get_router(link->dhcp_lease, &gateway);
+                if (r < 0) {
+                        log_warning_link(link, "DHCP error: no router: %s",
+                                         strerror(-r));
+                        return r;
+                }
+
+                r = route_new_dynamic(&route);
+                if (r < 0) {
+                        log_error_link(link, "Could not allocate route: %s",
+                                       strerror(-r));
+                        return r;
+                }
+
+                route->family = AF_INET;
+                route->in_addr.in = gateway;
+
+                r = route_configure(route, link, &route_handler);
                 if (r < 0) {
                         log_warning_link(link,
                                          "could not set routes: %s", strerror(-r));
@@ -249,7 +263,7 @@ static int address_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 }
 
 static int link_enter_set_addresses(Link *link) {
-        Address *address;
+        Address *ad;
         int r;
 
         assert(link);
@@ -258,13 +272,13 @@ static int link_enter_set_addresses(Link *link) {
 
         link->state = LINK_STATE_SETTING_ADDRESSES;
 
-        if (!link->network->static_addresses && !link->dhcp_address)
+        if (!link->network->static_addresses && !link->dhcp_lease)
                 return link_enter_set_routes(link);
 
         log_debug_link(link, "setting addresses");
 
-        LIST_FOREACH(static_addresses, address, link->network->static_addresses) {
-                r = address_configure(address, link, &address_handler);
+        LIST_FOREACH(static_addresses, ad, link->network->static_addresses) {
+                r = address_configure(ad, link, &address_handler);
                 if (r < 0) {
                         log_warning_link(link,
                                          "could not set addresses: %s", strerror(-r));
@@ -275,8 +289,41 @@ static int link_enter_set_addresses(Link *link) {
                 link->addr_messages ++;
         }
 
-        if (link->dhcp_address) {
-                r = address_configure(link->dhcp_address, link, &address_handler);
+        if (link->dhcp_lease) {
+                _cleanup_address_free_ Address *address = NULL;
+                struct in_addr addr;
+                struct in_addr netmask;
+                unsigned prefixlen;
+
+                r = sd_dhcp_lease_get_address(link->dhcp_lease, &addr);
+                if (r < 0) {
+                        log_warning_link(link, "DHCP error: no address: %s",
+                                         strerror(-r));
+                        return r;
+                }
+
+                r = sd_dhcp_lease_get_netmask(link->dhcp_lease, &netmask);
+                if (r < 0) {
+                        log_warning_link(link, "DHCP error: no netmask: %s",
+                                         strerror(-r));
+                        return r;
+                }
+
+                prefixlen = net_netmask_to_prefixlen(&netmask);
+
+                r = address_new_dynamic(&address);
+                if (r < 0) {
+                        log_error_link(link, "Could not allocate address: %s",
+                                       strerror(-r));
+                        return r;
+                }
+
+                address->family = AF_INET;
+                address->in_addr.in = addr;
+                address->prefixlen = prefixlen;
+                address->broadcast.s_addr = addr.s_addr | ~netmask.s_addr;
+
+                r = address_configure(address, link, &address_handler);
                 if (r < 0) {
                         log_warning_link(link,
                                          "could not set addresses: %s", strerror(-r));
@@ -410,28 +457,33 @@ static int link_set_mtu(Link *link, uint32_t mtu) {
         return 0;
 }
 
-static int dhcp_lease_lost(sd_dhcp_client *client, Link *link) {
+static int dhcp_lease_lost(Link *link) {
+        _cleanup_address_free_ Address *address = NULL;
+        struct in_addr addr;
+        struct in_addr netmask;
+        unsigned prefixlen;
         int r;
 
-        assert(client);
         assert(link);
+        assert(link->dhcp_lease);
 
-        if (link->dhcp_address) {
-                address_drop(link->dhcp_address, link, address_drop_handler);
+        r = address_new_dynamic(&address);
+        if (r >= 0) {
+                sd_dhcp_lease_get_address(link->dhcp_lease, &addr);
+                sd_dhcp_lease_get_netmask(link->dhcp_lease, &netmask);
+                prefixlen = net_netmask_to_prefixlen(&netmask);
 
-                address_free(link->dhcp_address);
-                link->dhcp_address = NULL;
-        }
+                address->family = AF_INET;
+                address->in_addr.in = addr;
+                address->prefixlen = prefixlen;
 
-        if (link->dhcp_route) {
-                route_free(link->dhcp_route);
-                link->dhcp_route = NULL;
+                address_drop(address, link, address_drop_handler);
         }
 
         if (link->network->dhcp_mtu) {
                 uint16_t mtu;
 
-                r = sd_dhcp_client_get_mtu(client, &mtu);
+                r = sd_dhcp_lease_get_mtu(link->dhcp_lease, &mtu);
                 if (r >= 0 && link->original_mtu != mtu) {
                         r = link_set_mtu(link, link->original_mtu);
                         if (r < 0) {
@@ -448,10 +500,13 @@ static int dhcp_lease_lost(sd_dhcp_client *client, Link *link) {
                         log_error("Failed to reset transient hostname");
         }
 
+        link->dhcp_lease = sd_dhcp_lease_unref(link->dhcp_lease);
+
         return 0;
 }
 
 static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
+        sd_dhcp_lease *lease;
         struct in_addr address;
         struct in_addr netmask;
         struct in_addr gateway;
@@ -465,14 +520,21 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
         assert(client);
         assert(link);
 
-        r = sd_dhcp_client_get_address(client, &address);
+        r = sd_dhcp_client_get_lease(client, &lease);
+        if (r < 0) {
+                log_warning_link(link, "DHCP error: no lease: %s",
+                                 strerror(-r));
+                return r;
+        }
+
+        r = sd_dhcp_lease_get_address(lease, &address);
         if (r < 0) {
                 log_warning_link(link, "DHCP error: no address: %s",
                                  strerror(-r));
                 return r;
         }
 
-        r = sd_dhcp_client_get_netmask(client, &netmask);
+        r = sd_dhcp_lease_get_netmask(lease, &netmask);
         if (r < 0) {
                 log_warning_link(link, "DHCP error: no netmask: %s",
                                  strerror(-r));
@@ -481,13 +543,12 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
 
         prefixlen = net_netmask_to_prefixlen(&netmask);
 
-        r = sd_dhcp_client_get_router(client, &gateway);
+        r = sd_dhcp_lease_get_router(lease, &gateway);
         if (r < 0) {
                 log_warning_link(link, "DHCP error: no router: %s",
                                  strerror(-r));
                 return r;
         }
-
 
         log_struct_link(LOG_INFO, link,
                         "MESSAGE=%s: DHCPv4 address %u.%u.%u.%u/%u via %u.%u.%u.%u",
@@ -503,35 +564,8 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
                          ADDRESS_FMT_VAL(gateway),
                          NULL);
 
-        r = address_new_dynamic(&addr);
-        if (r < 0) {
-                log_error_link(link, "Could not allocate address: %s",
-                               strerror(-r));
-                return r;
-        }
-
-        addr->family = AF_INET;
-        addr->in_addr.in = address;
-        addr->prefixlen = prefixlen;
-        addr->broadcast.s_addr = address.s_addr | ~netmask.s_addr;
-
-        r = route_new_dynamic(&rt);
-        if (r < 0) {
-                log_error_link(link, "Could not allocate route: %s",
-                               strerror(-r));
-                return r;
-        }
-
-        rt->family = AF_INET;
-        rt->in_addr.in = gateway;
-
-        link->dhcp_address = addr;
-        link->dhcp_route = rt;
-        addr = NULL;
-        rt = NULL;
-
         if (link->network->dhcp_dns) {
-                r = sd_dhcp_client_get_dns(client, &nameservers, &nameservers_size);
+                r = sd_dhcp_lease_get_dns(lease, &nameservers, &nameservers_size);
                 if (r >= 0) {
                         r = manager_update_resolv_conf(link->manager);
                         if (r < 0)
@@ -542,7 +576,7 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
         if (link->network->dhcp_mtu) {
                 uint16_t mtu;
 
-                r = sd_dhcp_client_get_mtu(client, &mtu);
+                r = sd_dhcp_lease_get_mtu(lease, &mtu);
                 if (r >= 0) {
                         r = link_set_mtu(link, mtu);
                         if (r < 0)
@@ -554,7 +588,7 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
         if (link->network->dhcp_hostname) {
                 const char *hostname;
 
-                r = sd_dhcp_client_get_hostname(client, &hostname);
+                r = sd_dhcp_lease_get_hostname(lease, &hostname);
                 if (r >= 0) {
                         r = set_hostname(link->manager->bus, hostname);
                         if (r < 0)
@@ -562,6 +596,8 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
                                           "to '%s'", hostname);
                 }
         }
+
+        link->dhcp_lease = lease;
 
         link_enter_set_addresses(link);
 
@@ -592,7 +628,7 @@ static void dhcp_handler(sd_dhcp_client *client, int event, void *userdata) {
                                 return;
                         }
 
-                        r = dhcp_lease_lost(client, link);
+                        r = dhcp_lease_lost(link);
                         if (r < 0) {
                                 link_enter_failed(link);
                                 return;
@@ -634,29 +670,29 @@ static int link_acquire_conf(Link *link) {
         assert(link->manager);
         assert(link->manager->event);
 
-        if (!link->dhcp) {
-                r = sd_dhcp_client_new(&link->dhcp);
+        if (!link->dhcp_client) {
+                r = sd_dhcp_client_new(&link->dhcp_client);
                 if (r < 0)
                         return r;
 
-                r = sd_dhcp_client_attach_event(link->dhcp, NULL, 0);
+                r = sd_dhcp_client_attach_event(link->dhcp_client, NULL, 0);
                 if (r < 0)
                         return r;
 
-                r = sd_dhcp_client_set_index(link->dhcp, link->ifindex);
+                r = sd_dhcp_client_set_index(link->dhcp_client, link->ifindex);
                 if (r < 0)
                         return r;
 
-                r = sd_dhcp_client_set_mac(link->dhcp, &link->mac);
+                r = sd_dhcp_client_set_mac(link->dhcp_client, &link->mac);
                 if (r < 0)
                         return r;
 
-                r = sd_dhcp_client_set_callback(link->dhcp, dhcp_handler, link);
+                r = sd_dhcp_client_set_callback(link->dhcp_client, dhcp_handler, link);
                 if (r < 0)
                         return r;
 
                 if (link->network->dhcp_mtu) {
-                        r = sd_dhcp_client_set_request_option(link->dhcp, 26);
+                        r = sd_dhcp_client_set_request_option(link->dhcp_client, 26);
                         if (r < 0)
                                 return r;
                 }
@@ -664,7 +700,7 @@ static int link_acquire_conf(Link *link) {
 
         log_debug_link(link, "acquiring DHCPv4 lease");
 
-        r = sd_dhcp_client_start(link->dhcp);
+        r = sd_dhcp_client_start(link->dhcp_client);
         if (r < 0)
                 return r;
 
@@ -705,7 +741,7 @@ static int link_update_flags(Link *link, unsigned flags) {
                         log_info_link(link, "carrier off");
 
                         if (link->network->dhcp) {
-                                r = sd_dhcp_client_stop(link->dhcp);
+                                r = sd_dhcp_client_stop(link->dhcp_client);
                                 if (r < 0) {
                                         log_warning_link(link, "Could not stop DHCPv4 client: %s", strerror(-r));
                                         link_enter_failed(link);

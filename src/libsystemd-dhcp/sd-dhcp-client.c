@@ -28,36 +28,11 @@
 #include "list.h"
 
 #include "dhcp-protocol.h"
+#include "dhcp-lease.h"
 #include "dhcp-internal.h"
 #include "sd-dhcp-client.h"
 
 #define DHCP_CLIENT_MIN_OPTIONS_SIZE            312
-
-#define client_state_machine_check(s, r)                                \
-        do {                                                            \
-                if (s != DHCP_STATE_BOUND &&                            \
-                    s != DHCP_STATE_RENEWING &&                         \
-                    s != DHCP_STATE_REBINDING) {                        \
-                        return (r);                                     \
-                }                                                       \
-        } while (false)
-
-struct DHCPLease {
-        uint32_t t1;
-        uint32_t t2;
-        uint32_t lifetime;
-        be32_t address;
-        be32_t server_address;
-        be32_t subnet_mask;
-        be32_t router;
-        struct in_addr *dns;
-        size_t dns_size;
-        uint16_t mtu;
-        char *domainname;
-        char *hostname;
-};
-
-typedef struct DHCPLease DHCPLease;
 
 struct sd_dhcp_client {
         DHCPState state;
@@ -83,7 +58,7 @@ struct sd_dhcp_client {
         sd_event_source *timeout_expire;
         sd_dhcp_client_cb_t cb;
         void *userdata;
-        DHCPLease *lease;
+        sd_dhcp_lease *lease;
 };
 
 static const uint8_t default_req_opts[] = {
@@ -172,93 +147,16 @@ int sd_dhcp_client_set_mac(sd_dhcp_client *client,
         return 0;
 }
 
-int sd_dhcp_client_get_address(sd_dhcp_client *client, struct in_addr *addr) {
+int sd_dhcp_client_get_lease(sd_dhcp_client *client, sd_dhcp_lease **ret) {
         assert_return(client, -EINVAL);
-        assert_return(addr, -EINVAL);
+        assert_return(ret, -EINVAL);
 
-        client_state_machine_check (client->state, -EADDRNOTAVAIL);
+        if (client->state != DHCP_STATE_BOUND &&
+            client->state != DHCP_STATE_RENEWING &&
+            client->state != DHCP_STATE_REBINDING)
+                return -EADDRNOTAVAIL;
 
-        addr->s_addr = client->lease->address;
-
-        return 0;
-}
-
-int sd_dhcp_client_get_mtu(sd_dhcp_client *client, uint16_t *mtu) {
-        assert_return(client, -EINVAL);
-        assert_return(mtu, -EINVAL);
-
-        client_state_machine_check (client->state, -EADDRNOTAVAIL);
-
-        if (client->lease->mtu)
-                *mtu = client->lease->mtu;
-        else
-                return -ENOENT;
-
-        return 0;
-}
-
-int sd_dhcp_client_get_dns(sd_dhcp_client *client, struct in_addr **addr, size_t *addr_size) {
-        assert_return(client, -EINVAL);
-        assert_return(addr, -EINVAL);
-        assert_return(addr_size, -EINVAL);
-
-        client_state_machine_check (client->state, -EADDRNOTAVAIL);
-
-        if (client->lease->dns_size) {
-                *addr_size = client->lease->dns_size;
-                *addr = client->lease->dns;
-        } else
-                return -ENOENT;
-
-        return 0;
-}
-
-int sd_dhcp_client_get_domainname(sd_dhcp_client *client, const char **domainname) {
-        assert_return(client, -EINVAL);
-        assert_return(domainname, -EINVAL);
-
-        client_state_machine_check (client->state, -EADDRNOTAVAIL);
-
-        if (client->lease->domainname)
-                *domainname = client->lease->domainname;
-        else
-                return -ENOENT;
-
-        return 0;
-}
-
-int sd_dhcp_client_get_hostname(sd_dhcp_client *client, const char **hostname) {
-        assert_return(client, -EINVAL);
-        assert_return(hostname, -EINVAL);
-
-        client_state_machine_check (client->state, -EADDRNOTAVAIL);
-
-        if (client->lease->hostname)
-                *hostname = client->lease->hostname;
-        else
-                return -ENOENT;
-
-        return 0;
-}
-
-int sd_dhcp_client_get_router(sd_dhcp_client *client, struct in_addr *addr) {
-        assert_return(client, -EINVAL);
-        assert_return(addr, -EINVAL);
-
-        client_state_machine_check (client->state, -EADDRNOTAVAIL);
-
-        addr->s_addr = client->lease->router;
-
-        return 0;
-}
-
-int sd_dhcp_client_get_netmask(sd_dhcp_client *client, struct in_addr *addr) {
-        assert_return(client, -EINVAL);
-        assert_return(addr, -EINVAL);
-
-        client_state_machine_check (client->state, -EADDRNOTAVAIL);
-
-        addr->s_addr = client->lease->subnet_mask;
+        *ret = sd_dhcp_lease_ref(client->lease);
 
         return 0;
 }
@@ -269,19 +167,6 @@ static int client_notify(sd_dhcp_client *client, int event) {
 
         return 0;
 }
-
-static void lease_free(DHCPLease *lease) {
-        if (!lease)
-                return;
-
-        free(lease->hostname);
-        free(lease->domainname);
-        free(lease->dns);
-        free(lease);
-}
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(DHCPLease*, lease_free);
-#define _cleanup_lease_free_ _cleanup_(lease_freep)
 
 static int client_stop(sd_dhcp_client *client, int error) {
         assert_return(client, -EINVAL);
@@ -307,10 +192,8 @@ static int client_stop(sd_dhcp_client *client, int error) {
         client->secs = 0;
         client->state = DHCP_STATE_INIT;
 
-        if (client->lease) {
-                lease_free(client->lease);
-                client->lease = NULL;
-        }
+        if (client->lease)
+                client->lease = sd_dhcp_lease_unref(client->lease);
 
         return 0;
 }
@@ -721,106 +604,6 @@ static int client_timeout_t1(sd_event_source *s, uint64_t usec, void *userdata) 
         return client_initialize_events(client, usec);
 }
 
-static int client_parse_options(uint8_t code, uint8_t len, const uint8_t *option,
-                              void *user_data) {
-        DHCPLease *lease = user_data;
-        be32_t val;
-
-        switch(code) {
-
-        case DHCP_OPTION_IP_ADDRESS_LEASE_TIME:
-                if (len == 4) {
-                        memcpy(&val, option, 4);
-                        lease->lifetime = be32toh(val);
-                }
-
-                break;
-
-        case DHCP_OPTION_SERVER_IDENTIFIER:
-                if (len >= 4)
-                        memcpy(&lease->server_address, option, 4);
-
-                break;
-
-        case DHCP_OPTION_SUBNET_MASK:
-                if (len >= 4)
-                        memcpy(&lease->subnet_mask, option, 4);
-
-                break;
-
-        case DHCP_OPTION_ROUTER:
-                if (len >= 4)
-                        memcpy(&lease->router, option, 4);
-
-                break;
-
-        case DHCP_OPTION_DOMAIN_NAME_SERVER:
-                if (len && !(len % 4)) {
-                        unsigned i;
-
-                        lease->dns_size = len / 4;
-
-                        free(lease->dns);
-                        lease->dns = new0(struct in_addr, lease->dns_size);
-                        if (!lease->dns)
-                                return -ENOMEM;
-
-                        for (i = 0; i < lease->dns_size; i++) {
-                                memcpy(&lease->dns[i].s_addr, option + 4 * i, 4);
-                        }
-                }
-
-                break;
-
-        case DHCP_OPTION_INTERFACE_MTU:
-                if (len >= 2) {
-                        be16_t mtu;
-
-                        memcpy(&mtu, option, 2);
-                        lease->mtu = be16toh(mtu);
-
-                        if (lease->mtu < 68)
-                                lease->mtu = 0;
-                }
-
-                break;
-
-        case DHCP_OPTION_DOMAIN_NAME:
-                if (len >= 1) {
-                        free(lease->domainname);
-                        lease->domainname = strndup((const char *)option, len);
-                }
-
-                break;
-
-        case DHCP_OPTION_HOST_NAME:
-                if (len >= 1) {
-                        free(lease->hostname);
-                        lease->hostname = strndup((const char *)option, len);
-                }
-
-                break;
-
-        case DHCP_OPTION_RENEWAL_T1_TIME:
-                if (len == 4) {
-                        memcpy(&val, option, 4);
-                        lease->t1 = be32toh(val);
-                }
-
-                break;
-
-        case DHCP_OPTION_REBINDING_T2_TIME:
-                if (len == 4) {
-                        memcpy(&val, option, 4);
-                        lease->t2 = be32toh(val);
-                }
-
-                break;
-        }
-
-        return 0;
-}
-
 static int client_verify_headers(sd_dhcp_client *client, DHCPPacket *message,
                                  size_t len) {
         size_t hdrlen;
@@ -864,19 +647,19 @@ static int client_verify_headers(sd_dhcp_client *client, DHCPPacket *message,
 
 static int client_receive_offer(sd_dhcp_client *client, DHCPPacket *offer,
                                 size_t len) {
-        _cleanup_lease_free_ DHCPLease *lease = NULL;
+        _cleanup_dhcp_lease_unref_ sd_dhcp_lease *lease = NULL;
         int r;
 
         r = client_verify_headers(client, offer, len);
         if (r < 0)
                 return r;
 
-        lease = new0(DHCPLease, 1);
-        if (!lease)
-                return -ENOMEM;
+        r = dhcp_lease_new(&lease);
+        if (r < 0)
+                return r;
 
         len = len - DHCP_IP_UDP_SIZE;
-        r = dhcp_option_parse(&offer->dhcp, len, client_parse_options,
+        r = dhcp_option_parse(&offer->dhcp, len, dhcp_lease_parse_options,
                               lease);
         if (r != DHCP_OFFER)
                 return -ENOMSG;
@@ -899,7 +682,7 @@ static int client_receive_ack(sd_dhcp_client *client, const uint8_t *buf,
                               size_t len) {
         DHCPPacket *ack;
         DHCPMessage *dhcp;
-        _cleanup_lease_free_ DHCPLease *lease = NULL;
+        _cleanup_dhcp_lease_unref_ sd_dhcp_lease *lease = NULL;
         int r;
 
         if (client->state == DHCP_STATE_RENEWING) {
@@ -915,11 +698,11 @@ static int client_receive_ack(sd_dhcp_client *client, const uint8_t *buf,
                 len -= DHCP_IP_UDP_SIZE;
         }
 
-        lease = new0(DHCPLease, 1);
-        if (!lease)
-                return -ENOMEM;
+        r = dhcp_lease_new(&lease);
+        if (r < 0)
+                return r;
 
-        r = dhcp_option_parse(dhcp, len, client_parse_options, lease);
+        r = dhcp_option_parse(dhcp, len, dhcp_lease_parse_options, lease);
         if (r == DHCP_NAK)
                 return DHCP_EVENT_NO_LEASE;
 
@@ -941,7 +724,7 @@ static int client_receive_ack(sd_dhcp_client *client, const uint8_t *buf,
                         r = DHCP_EVENT_IP_CHANGE;
                 }
 
-                lease_free(client->lease);
+                client->lease = sd_dhcp_lease_unref(client->lease);
         }
 
         client->lease = lease;

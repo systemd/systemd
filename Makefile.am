@@ -2345,6 +2345,8 @@ noinst_LTLIBRARIES += \
 libsystemd_dhcp_la_SOURCES = \
 	src/systemd/sd-dhcp-client.h \
 	src/libsystemd-dhcp/sd-dhcp-client.c \
+	src/libsystemd-dhcp/dhcp-lease.h \
+	src/libsystemd-dhcp/dhcp-lease.c \
 	src/libsystemd-dhcp/dhcp-network.c \
 	src/libsystemd-dhcp/dhcp-option.c \
 	src/libsystemd-dhcp/dhcp-internal.h \
