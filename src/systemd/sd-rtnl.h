@@ -95,6 +95,7 @@ int sd_rtnl_message_link_get_flags(sd_rtnl_message *m, unsigned *flags);
 int sd_rtnl_message_route_set_dst_prefixlen(sd_rtnl_message *m, unsigned char prefixlen);
 
 int sd_rtnl_message_append_string(sd_rtnl_message *m, unsigned short type, const char *data);
+int sd_rtnl_message_append_u8(sd_rtnl_message *m, unsigned short type, uint8_t data);
 int sd_rtnl_message_append_u16(sd_rtnl_message *m, unsigned short type, uint16_t data);
 int sd_rtnl_message_append_u32(sd_rtnl_message *m, unsigned short type, uint32_t data);
 int sd_rtnl_message_append_in_addr(sd_rtnl_message *m, unsigned short type, const struct in_addr *data);

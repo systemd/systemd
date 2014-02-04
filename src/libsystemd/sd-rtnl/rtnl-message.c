@@ -410,6 +410,44 @@ int sd_rtnl_message_append_string(sd_rtnl_message *m, unsigned short type, const
         return 0;
 }
 
+int sd_rtnl_message_append_u8(sd_rtnl_message *m, unsigned short type, uint8_t data) {
+        uint16_t rtm_type;
+        int r;
+
+        assert_return(m, -EINVAL);
+        assert_return(!m->sealed, -EPERM);
+
+        r = sd_rtnl_message_get_type(m, &rtm_type);
+        if (r < 0)
+                return r;
+
+        switch (rtm_type) {
+                case RTM_NEWLINK:
+                case RTM_SETLINK:
+                case RTM_GETLINK:
+                case RTM_DELLINK:
+                        switch (type) {
+                                case IFLA_CARRIER:
+                                case IFLA_OPERSTATE:
+                                case IFLA_LINKMODE:
+                                break;
+                        default:
+                                return -ENOTSUP;
+                        }
+
+                        break;
+                default:
+                        return -ENOTSUP;
+        }
+
+        r = add_rtattr(m, type, &data, sizeof(uint8_t));
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+
 int sd_rtnl_message_append_u16(sd_rtnl_message *m, unsigned short type, uint16_t data) {
         uint16_t rtm_type;
         int r;
@@ -467,6 +505,10 @@ int sd_rtnl_message_append_u32(sd_rtnl_message *m, unsigned short type, uint32_t
                                 case IFLA_MASTER:
                                 case IFLA_MTU:
                                 case IFLA_LINK:
+                                case IFLA_GROUP:
+                                case IFLA_TXQLEN:
+                                case IFLA_NUM_TX_QUEUES:
+                                case IFLA_NUM_RX_QUEUES:
                                         break;
                                 default:
                                         return -ENOTSUP;
