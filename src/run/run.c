@@ -39,6 +39,12 @@ static bool arg_send_sighup = false;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static char *arg_host = NULL;
 static bool arg_user = false;
+static const char *arg_service_type = NULL;
+static const char *arg_exec_user = NULL;
+static const char *arg_exec_group = NULL;
+static int arg_nice = 0;
+static bool arg_nice_set = false;
+static char **arg_environment = NULL;
 
 static int help(void) {
 
@@ -54,7 +60,12 @@ static int help(void) {
                "     --description=TEXT   Description for unit\n"
                "     --slice=SLICE        Run in the specified slice\n"
                "  -r --remain-after-exit  Leave service around until explicitly stopped\n"
-               "     --send-sighup        Send SIGHUP when terminating\n",
+               "     --send-sighup        Send SIGHUP when terminating\n"
+               "     --service-type=TYPE  Service type\n"
+               "     --uid=USER           Run as system user\n"
+               "     --gid=GROUP          Run as system group\n"
+               "     --nice=NICE          Nice level\n"
+               "     --setenv=ENV         Set environment\n",
                program_invocation_short_name);
 
         return 0;
@@ -71,25 +82,35 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_DESCRIPTION,
                 ARG_SLICE,
                 ARG_SEND_SIGHUP,
+                ARG_EXEC_USER,
+                ARG_EXEC_GROUP,
+                ARG_SERVICE_TYPE,
+                ARG_NICE,
+                ARG_SETENV
         };
 
         static const struct option options[] = {
-                { "help",              no_argument,       NULL, 'h'             },
-                { "version",           no_argument,       NULL, ARG_VERSION     },
-                { "user",              no_argument,       NULL, ARG_USER        },
-                { "system",            no_argument,       NULL, ARG_SYSTEM      },
-                { "scope",             no_argument,       NULL, ARG_SCOPE       },
-                { "unit",              required_argument, NULL, ARG_UNIT        },
-                { "description",       required_argument, NULL, ARG_DESCRIPTION },
-                { "slice",             required_argument, NULL, ARG_SLICE       },
-                { "remain-after-exit", no_argument,       NULL, 'r'             },
-                { "send-sighup",       no_argument,       NULL, ARG_SEND_SIGHUP },
-                { "host",              required_argument, NULL, 'H'             },
-                { "machine",           required_argument, NULL, 'M'             },
+                { "help",              no_argument,       NULL, 'h'              },
+                { "version",           no_argument,       NULL, ARG_VERSION      },
+                { "user",              no_argument,       NULL, ARG_USER         },
+                { "system",            no_argument,       NULL, ARG_SYSTEM       },
+                { "scope",             no_argument,       NULL, ARG_SCOPE        },
+                { "unit",              required_argument, NULL, ARG_UNIT         },
+                { "description",       required_argument, NULL, ARG_DESCRIPTION  },
+                { "slice",             required_argument, NULL, ARG_SLICE        },
+                { "remain-after-exit", no_argument,       NULL, 'r'              },
+                { "send-sighup",       no_argument,       NULL, ARG_SEND_SIGHUP  },
+                { "host",              required_argument, NULL, 'H'              },
+                { "machine",           required_argument, NULL, 'M'              },
+                { "service-type",      required_argument, NULL, ARG_SERVICE_TYPE },
+                { "uid",               required_argument, NULL, ARG_EXEC_USER    },
+                { "gid",               required_argument, NULL, ARG_EXEC_GROUP   },
+                { "nice",              required_argument, NULL, ARG_NICE         },
+                { "setenv",            required_argument, NULL, ARG_SETENV       },
                 {},
         };
 
-        int c;
+        int r, c;
 
         assert(argc >= 0);
         assert(argv);
@@ -148,6 +169,35 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_host = optarg;
                         break;
 
+                case ARG_SERVICE_TYPE:
+                        arg_service_type = optarg;
+                        break;
+
+                case ARG_EXEC_USER:
+                        arg_exec_user = optarg;
+                        break;
+
+                case ARG_EXEC_GROUP:
+                        arg_exec_group = optarg;
+                        break;
+
+                case ARG_NICE:
+                        r = safe_atoi(optarg, &arg_nice);
+                        if (r < 0) {
+                                log_error("Failed to parse nice value");
+                                return -EINVAL;
+                        }
+
+                        arg_nice_set = true;
+                        break;
+
+                case ARG_SETENV:
+
+                        if (strv_extend(&arg_environment, optarg) < 0)
+                                return log_oom();
+
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -168,6 +218,11 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_scope && arg_transport != BUS_TRANSPORT_LOCAL) {
                 log_error("Scope execution is not supported on non-local systems.");
+                return -EINVAL;
+        }
+
+        if (arg_scope && (arg_remain_after_exit || arg_service_type || arg_exec_user || arg_exec_group || arg_nice_set || arg_environment)) {
+                log_error("--remain-after-exit, --service-type=, --user=, --group=, --nice= and --setenv= are not supported in --scope mode.");
                 return -EINVAL;
         }
 
@@ -251,7 +306,6 @@ static int start_transient_service(
 
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         _cleanup_free_ char *name = NULL;
-        char **i;
         int r;
 
         if (arg_unit)
@@ -268,6 +322,56 @@ static int start_transient_service(
         r = sd_bus_message_append(m, "(sv)", "RemainAfterExit", "b", arg_remain_after_exit);
         if (r < 0)
                 return r;
+
+        if (arg_service_type) {
+                r = sd_bus_message_append(m, "(sv)", "Type", "s", arg_service_type);
+                if (r < 0)
+                        return r;
+        }
+
+        if (arg_exec_user) {
+                r = sd_bus_message_append(m, "(sv)", "User", "s", arg_exec_user);
+                if (r < 0)
+                        return r;
+        }
+
+        if (arg_exec_group) {
+                r = sd_bus_message_append(m, "(sv)", "Group", "s", arg_exec_group);
+                if (r < 0)
+                        return r;
+        }
+
+        if (arg_nice_set) {
+                r = sd_bus_message_append(m, "(sv)", "Nice", "i", arg_nice);
+                if (r < 0)
+                        return r;
+        }
+
+        if (!strv_isempty(arg_environment)) {
+                r = sd_bus_message_open_container(m, 'r', "sv");
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_append(m, "s", "Environment");
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_open_container(m, 'v', "as");
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_append_strv(m, arg_environment);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        return r;
+        }
 
         r = sd_bus_message_open_container(m, 'r', "sv");
         if (r < 0)
@@ -293,17 +397,7 @@ static int start_transient_service(
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_open_container(m, 'a', "s");
-        if (r < 0)
-                return r;
-
-        STRV_FOREACH(i, argv) {
-                r = sd_bus_message_append(m, "s", *i);
-                if (r < 0)
-                        return r;
-        }
-
-        r = sd_bus_message_close_container(m);
+        r = sd_bus_message_append_strv(m, argv);
         if (r < 0)
                 return r;
 

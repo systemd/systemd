@@ -96,6 +96,25 @@ static int bus_service_set_transient_property(
 
                 return 1;
 
+        } else if (streq(name, "Type")) {
+                const char *t;
+                ServiceType k;
+
+                r = sd_bus_message_read(message, "s", &t);
+                if (r < 0)
+                        return r;
+
+                k = service_type_from_string(t);
+                if (k < 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid service type %s", t);
+
+                if (mode != UNIT_CHECK) {
+                        s->type = k;
+                        unit_write_drop_in_private_format(UNIT(s), mode, name, "Type=%s\n", service_type_to_string(s->type));
+                }
+
+                return 1;
+
         } else if (streq(name, "ExecStart")) {
                 unsigned n = 0;
 
@@ -151,6 +170,7 @@ static int bus_service_set_transient_property(
 
                         n++;
                 }
+
                 if (r < 0)
                         return r;
 
@@ -220,6 +240,10 @@ int bus_service_set_property(
                 /* This is a transient unit, let's load a little more */
 
                 r = bus_service_set_transient_property(s, name, message, mode, error);
+                if (r != 0)
+                        return r;
+
+                r = bus_exec_context_set_transient_property(u, &s->exec_context, name, message, mode, error);
                 if (r != 0)
                         return r;
 

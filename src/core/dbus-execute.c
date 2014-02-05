@@ -30,6 +30,7 @@
 #include "execute.h"
 #include "dbus-execute.h"
 #include "capability.h"
+#include "env-util.h"
 
 BUS_DEFINE_PROPERTY_GET_ENUM(bus_property_get_exec_output, exec_output, ExecOutput);
 
@@ -512,4 +513,127 @@ int bus_property_get_exec_command_list(
         }
 
         return sd_bus_message_close_container(reply);
+}
+
+int bus_exec_context_set_transient_property(
+                Unit *u,
+                ExecContext *c,
+                const char *name,
+                sd_bus_message *message,
+                UnitSetPropertiesMode mode,
+                sd_bus_error *error) {
+
+        int r;
+
+        assert(u);
+        assert(c);
+        assert(name);
+        assert(message);
+
+        if (streq(name, "User")) {
+                const char *uu;
+
+                r = sd_bus_message_read(message, "s", &uu);
+                if (r < 0)
+                        return r;
+
+                if (mode != UNIT_CHECK) {
+
+                        if (isempty(uu)) {
+                                free(c->user);
+                                c->user = NULL;
+                        } else {
+                                char *t;
+
+                                t = strdup(uu);
+                                if (!t)
+                                        return -ENOMEM;
+
+                                free(c->user);
+                                c->user = t;
+                        }
+
+                        unit_write_drop_in_private_format(u, mode, name, "User=%s\n", uu);
+                }
+
+                return 1;
+
+        } else if (streq(name, "Group")) {
+                const char *gg;
+
+                r = sd_bus_message_read(message, "s", &gg);
+                if (r < 0)
+                        return r;
+
+                if (mode != UNIT_CHECK) {
+
+                        if (isempty(gg)) {
+                                free(c->group);
+                                c->group = NULL;
+                        } else {
+                                char *t;
+
+                                t = strdup(gg);
+                                if (!t)
+                                        return -ENOMEM;
+
+                                free(c->group);
+                                c->group = t;
+                        }
+
+                        unit_write_drop_in_private_format(u, mode, name, "Group=%s\n", gg);
+                }
+
+                return 1;
+
+        } else if (streq(name, "Nice")) {
+                int n;
+
+                r = sd_bus_message_read(message, "i", &n);
+                if (r < 0)
+                        return r;
+
+                if (n < PRIO_MIN || n >= PRIO_MAX)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Nice value out of range");
+
+                if (mode != UNIT_CHECK) {
+                        c->nice = n;
+                        unit_write_drop_in_private_format(u, mode, name, "Nice=%i\n", n);
+                }
+
+                return 1;
+
+        } else if (streq(name, "Environment")) {
+
+                _cleanup_strv_free_ char **l = NULL;
+
+                r = sd_bus_message_read_strv(message, &l);
+                if (r < 0)
+                        return r;
+
+                if (!strv_env_is_valid(l))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid environment block.");
+
+                if (mode != UNIT_CHECK) {
+                        _cleanup_free_ char *joined;
+                        char **e;
+
+                        e = strv_env_merge(2, c->environment, l);
+                        if (!e)
+                                return -ENOMEM;
+
+                        strv_free(c->environment);
+                        c->environment = e;
+
+                        joined = strv_join(c->environment, " ");
+                        if (!joined)
+                                return -ENOMEM;
+
+                        unit_write_drop_in_private_format(u, mode, name, "Environment=%s\n", joined);
+                }
+
+                return 1;
+        }
+
+        return 0;
 }

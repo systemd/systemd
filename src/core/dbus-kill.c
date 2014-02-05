@@ -70,6 +70,24 @@ int bus_kill_context_set_transient_property(
 
                 return 1;
 
+        } else if (streq(name, "KillSignal")) {
+                int sig;
+
+                r = sd_bus_message_read(message, "i", &sig);
+                if (r < 0)
+                        return r;
+
+                if (sig <= 0 || sig >= _NSIG)
+                        return sd_bus_error_setf(error, "Signal %i out of range", sig);
+
+                if (mode != UNIT_CHECK) {
+                        c->kill_signal = sig;
+
+                        unit_write_drop_in_private_format(u, mode, name, "KillSignal=%s\n", signal_to_string(sig));
+                }
+
+                return 1;
+
         } else if (streq(name, "SendSIGHUP")) {
                 int b;
 
