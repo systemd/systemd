@@ -2979,15 +2979,17 @@ int unit_kill_context(
                                 log_warning_unit(u->id, "Failed to kill control group: %s", strerror(-r));
                 } else if (r > 0) {
 
-                        /* FIXME: Now, this is a terrible hack: in
-                         * containers cgroup empty notifications don't
-                         * work. Hence we'll not wait for them to run
-                         * empty for now, since there is no way to
-                         * detect when a service ends with no main PID
-                         * known... */
-
-                        if (detect_container(NULL) <= 0)
-                                wait_for_exit = true;
+                        /* FIXME: Now, we don't actually wait for any
+                         * of the processes that are neither control
+                         * nor main process. We should wait for them
+                         * of course, but that's hard since the cgroup
+                         * notification logic is so unreliable. It is
+                         * not available at all in containers, and on
+                         * the host it gets confused by
+                         * subgroups. Hence, for now, let's not wait
+                         * for these processes -- but when the kernel
+                         * gets fixed we really should correct
+                         * that. */
 
                         if (c->send_sighup) {
                                 set_free(pid_set);
