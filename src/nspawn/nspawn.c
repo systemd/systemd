@@ -41,7 +41,7 @@
 #include <sys/socket.h>
 #include <linux/netlink.h>
 #include <sys/eventfd.h>
-#if HAVE_SELINUX
+#ifdef HAVE_SELINUX
 #include <selinux/selinux.h>
 #endif
 
@@ -1534,7 +1534,7 @@ int main(int argc, char *argv[]) {
                         } else
                                 env_use = (char**) envp;
 
-#if HAVE_SELINUX
+#ifdef HAVE_SELINUX
                         if (arg_process_label)
                                 if (setexeccon(arg_process_label) < 0)
                                         log_error("setexeccon(\"%s\") failed: %m", arg_process_label);
