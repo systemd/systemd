@@ -127,7 +127,28 @@
                                 <listitem><para>Takes a string
                                 argument which sets the session class.
                                 The XDG_SESSION_CLASS environmental variable
-                                takes precedence.</para></listitem>
+                                takes precedence. One of
+                                <literal>user</literal>,
+                                <literal>greeter</literal>,
+                                <literal>lock-screen</literal> or
+                                <literal>background</literal>. See
+                                <citerefentry><refentrytitle>sd_session_get_class</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                                for details about the session class.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>type=</option></term>
+
+                                <listitem><para>Takes a string
+                                argument which sets the session type.
+                                The XDG_SESSION_TYPE environmental
+                                variable takes precedence. One of
+                                <literal>unspecified</literal>,
+                                <literal>tty</literal>,
+                                <literal>x11</literal> or
+                                <literal>wayland</literal>. See
+                                <citerefentry><refentrytitle>sd_session_get_type</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                                for details about the session type.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

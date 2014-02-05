@@ -46,6 +46,7 @@ static int parse_argv(
                 pam_handle_t *handle,
                 int argc, const char **argv,
                 const char **class,
+                const char **type,
                 bool *debug) {
 
         unsigned i;
@@ -53,10 +54,14 @@ static int parse_argv(
         assert(argc >= 0);
         assert(argc == 0 || argv);
 
-        for (i = 0; i < (unsigned) argc; i++)
+        for (i = 0; i < (unsigned) argc; i++) {
                 if (startswith(argv[i], "class=")) {
                         if (class)
                                 *class = argv[i] + 6;
+
+                } else if (startswith(argv[i], "type=")) {
+                        if (type)
+                                *type = argv[i] + 5;
 
                 } else if (streq(argv[i], "debug")) {
                         if (debug)
@@ -73,6 +78,7 @@ static int parse_argv(
 
                 } else
                         pam_syslog(handle, LOG_WARNING, "Unknown parameter '%s', ignoring", argv[i]);
+        }
 
         return 0;
 }
@@ -206,7 +212,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 *remote_user = NULL, *remote_host = NULL,
                 *seat = NULL,
                 *type = NULL, *class = NULL,
-                *class_pam = NULL, *cvtnr = NULL;
+                *class_pam = NULL, *type_pam = NULL, *cvtnr = NULL;
         _cleanup_bus_unref_ sd_bus *bus = NULL;
         int session_fd = -1, existing, r;
         bool debug = false, remote;
@@ -223,6 +229,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         if (parse_argv(handle,
                        argc, argv,
                        &class_pam,
+                       &type_pam,
                        &debug) < 0)
                 return PAM_SESSION_ERR;
 
@@ -284,6 +291,18 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         if (isempty(cvtnr))
                 cvtnr = getenv("XDG_VTNR");
 
+        type = pam_getenv(handle, "XDG_SESSION_TYPE");
+        if (isempty(type))
+                type = getenv("XDG_SESSION_TYPE");
+        if (isempty(type))
+                type = type_pam;
+
+        class = pam_getenv(handle, "XDG_SESSION_CLASS");
+        if (isempty(class))
+                class = getenv("XDG_SESSION_CLASS");
+        if (isempty(class))
+                class = class_pam;
+
         tty = strempty(tty);
         display = strempty(display);
 
@@ -300,14 +319,16 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 /* cron has been setting PAM_TTY to "cron" for a very
                  * long time and it probably shouldn't stop doing that
                  * for compatibility reasons. */
-                tty = "";
                 type = "unspecified";
+                class = "background";
+                tty = "";
         } else if (streq(tty, "ssh")) {
                 /* ssh has been setting PAM_TTY to "ssh" for a very
                  * long time and probably shouldn't stop doing that
                  * for compatibility reasons. */
-                tty = "";
                 type ="tty";
+                class = "user";
+                tty = "";
         }
 
         /* If this fails vtnr will be 0, that's intended */
@@ -321,21 +342,15 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                         get_seat_from_display(display, NULL, &vtnr);
         }
 
-        if (seat && !streq(seat, "seat0")) {
-                pam_syslog(handle, LOG_DEBUG,
-                      "Ignoring vtnr %d for %s which is not seat0", vtnr, seat);
+        if (seat && !streq(seat, "seat0") && vtnr != 0) {
+                pam_syslog(handle, LOG_DEBUG, "Ignoring vtnr %d for %s which is not seat0", vtnr, seat);
                 vtnr = 0;
         }
 
-        if (!type)
+        if (isempty(type))
                 type = !isempty(display) ? "x11" :
-                        !isempty(tty) ? "tty" : "unspecified";
+                           !isempty(tty) ? "tty" : "unspecified";
 
-        class = pam_getenv(handle, "XDG_SESSION_CLASS");
-        if (isempty(class))
-                class = getenv("XDG_SESSION_CLASS");
-        if (isempty(class))
-                class = class_pam;
         if (isempty(class))
                 class = streq(type, "unspecified") ? "background" : "user";
 
