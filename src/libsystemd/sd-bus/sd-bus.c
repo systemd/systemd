@@ -132,6 +132,9 @@ static void bus_free(sd_bus *b) {
 
         sd_bus_detach_event(b);
 
+        if (b->default_bus_ptr)
+                *b->default_bus_ptr = NULL;
+
         bus_close_fds(b);
 
         if (b->kdbus_buffer)
