@@ -1025,7 +1025,7 @@ static int register_machine(pid_t pid) {
         _cleanup_bus_unref_ sd_bus *bus = NULL;
         int r;
 
-        r = sd_bus_open_system(&bus);
+        r = sd_bus_default_system(&bus);
         if (r < 0) {
                 log_error("Failed to open system bus: %s", strerror(-r));
                 return r;
