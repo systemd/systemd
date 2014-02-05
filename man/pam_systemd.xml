@@ -222,6 +222,66 @@
                                 operating system
                                 provides.</para></listitem>
                         </varlistentry>
+
+                </variablelist>
+
+                <para>The following environment variables are read by
+                the module and may be used by the PAM service to pass
+                meta data to the module:</para>
+
+                <variablelist class='environment-variables'>
+                        <varlistentry>
+                                <term><varname>$XDG_SESSION_TYPE</varname></term>
+
+                                <listitem><para>The session type. This
+                                may be used instead of
+                                <option>session=</option> on the
+                                module parameter line, and is usually
+                                preferred.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>$XDG_SESSION_CLASS</varname></term>
+
+                                <listitem><para>The session class. This
+                                may be used instead of
+                                <option>class=</option> on the
+                                module parameter line, and is usually
+                                preferred.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>$XDG_SESSION_DESKTOP</varname></term>
+
+                                <listitem><para>The session
+                                deskop. This may be used to indicate
+                                the session desktop used, where this
+                                applies. This should be a short,
+                                lowercase string identifying the
+                                desktop environment used if this
+                                information is available. For example:
+                                <literal>gnome</literal>, or
+                                <literal>kde</literal>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>$XDG_SEAT</varname></term>
+
+                                <listitem><para>The seat name the session
+                                shall be registered for, if
+                                any.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>$XDG_VTNR</varname></term>
+
+                                <listitem><para>The VT number the
+                                session shall be registered for, if
+                                any. (Only applies to seats with a VT
+                                available, such as
+                                <literal>seat0</literal>)</para></listitem>
+                        </varlistentry>
+
                 </variablelist>
         </refsect1>
 

@@ -271,6 +271,7 @@ typedef struct SessionStatusInfo {
         const char *class;
         const char *state;
         const char *scope;
+        const char *desktop;
 } SessionStatusInfo;
 
 typedef struct UserStatusInfo {
@@ -363,6 +364,7 @@ static int print_session_status_info(sd_bus *bus, const char *path, bool *new_li
                 { "RemoteHost", "s", NULL, offsetof(SessionStatusInfo, remote_host) },
                 { "RemoteUser", "s", NULL, offsetof(SessionStatusInfo, remote_user) },
                 { "Service",    "s", NULL, offsetof(SessionStatusInfo, service) },
+                { "Desktop",    "s", NULL, offsetof(SessionStatusInfo, desktop) },
                 { "Type",       "s", NULL, offsetof(SessionStatusInfo, type) },
                 { "Class",      "s", NULL, offsetof(SessionStatusInfo, class) },
                 { "Scope",      "s", NULL, offsetof(SessionStatusInfo, scope) },
@@ -461,6 +463,9 @@ static int print_session_status_info(sd_bus *bus, const char *path, bool *new_li
                 printf("\n");
         } else if (i.class)
                 printf("\t   Class: %s\n", i.class);
+
+        if (!isempty(i.desktop))
+                printf("\t Desktop: %s\n", i.desktop);
 
         if (i.state)
                 printf("\t   State: %s\n", i.state);

@@ -450,7 +450,7 @@ static int method_list_inhibitors(sd_bus *bus, sd_bus_message *message, void *us
 }
 
 static int method_create_session(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        const char *service, *type, *class, *cseat, *tty, *display, *remote_user, *remote_host;
+        const char *service, *type, *class, *cseat, *tty, *display, *remote_user, *remote_host, *desktop;
         uint32_t uid, leader, audit_id = 0;
         _cleanup_free_ char *id = NULL;
         Session *session = NULL;
@@ -467,7 +467,7 @@ static int method_create_session(sd_bus *bus, sd_bus_message *message, void *use
         assert(message);
         assert(m);
 
-        r = sd_bus_message_read(message, "uussssussbss", &uid, &leader, &service, &type, &class, &cseat, &vtnr, &tty, &display, &remote, &remote_user, &remote_host);
+        r = sd_bus_message_read(message, "uusssssussbss", &uid, &leader, &service, &type, &class, &desktop, &cseat, &vtnr, &tty, &display, &remote, &remote_user, &remote_host);
         if (r < 0)
                 return r;
 
@@ -488,6 +488,13 @@ static int method_create_session(sd_bus *bus, sd_bus_message *message, void *use
                 c = session_class_from_string(class);
                 if (c < 0)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid session class %s", class);
+        }
+
+        if (isempty(desktop))
+                desktop = NULL;
+        else {
+                if (!string_is_safe(desktop))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid desktop string %s", desktop);
         }
 
         if (isempty(cseat))
@@ -550,10 +557,10 @@ static int method_create_session(sd_bus *bus, sd_bus_message *message, void *use
         }
 
         if (c == _SESSION_CLASS_INVALID) {
-                if (!isempty(display) || !isempty(tty))
-                        c = SESSION_USER;
-                else
+                if (t == SESSION_UNSPECIFIED)
                         c = SESSION_BACKGROUND;
+                else
+                        c = SESSION_USER;
         }
 
         if (leader <= 0) {
@@ -682,6 +689,14 @@ static int method_create_session(sd_bus *bus, sd_bus_message *message, void *use
         if (!isempty(service)) {
                 session->service = strdup(service);
                 if (!session->service) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+        }
+
+        if (!isempty(desktop)) {
+                session->desktop = strdup(desktop);
+                if (!session->desktop) {
                         r = -ENOMEM;
                         goto fail;
                 }
@@ -1864,7 +1879,7 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_METHOD("ListUsers", NULL, "a(uso)", method_list_users, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ListSeats", NULL, "a(so)", method_list_seats, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ListInhibitors", NULL, "a(ssssuu)", method_list_inhibitors, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("CreateSession", "uussssussbssa(sv)", "soshusub", method_create_session, 0),
+        SD_BUS_METHOD("CreateSession", "uusssssussbssa(sv)", "soshusub", method_create_session, 0),
         SD_BUS_METHOD("ReleaseSession", "s", NULL, method_release_session, 0),
         SD_BUS_METHOD("ActivateSession", "s", NULL, method_activate_session, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ActivateSessionOnSeat", "ss", NULL, method_activate_session_on_seat, SD_BUS_VTABLE_UNPRIVILEGED),

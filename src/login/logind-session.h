@@ -87,6 +87,7 @@ struct Session {
         char *remote_user;
         char *remote_host;
         char *service;
+        char *desktop;
 
         char *scope;
         char *scope_job;

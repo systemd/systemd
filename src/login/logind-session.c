@@ -143,6 +143,7 @@ void session_free(Session *s) {
         free(s->remote_host);
         free(s->remote_user);
         free(s->service);
+        free(s->desktop);
 
         hashmap_remove(s->manager->sessions, s->id);
 
@@ -229,6 +230,9 @@ int session_save(Session *s) {
         if (s->service)
                 fprintf(f, "SERVICE=%s\n", s->service);
 
+        if (s->desktop)
+                fprintf(f, "DESKTOP=%s\n", s->desktop);
+
         if (s->seat && seat_has_vts(s->seat))
                 fprintf(f, "VTNR=%u\n", s->vtnr);
 
@@ -294,6 +298,7 @@ int session_load(Session *s) {
                            "REMOTE_HOST",    &s->remote_host,
                            "REMOTE_USER",    &s->remote_user,
                            "SERVICE",        &s->service,
+                           "DESKTOP",        &s->desktop,
                            "VTNR",           &vtnr,
                            "POS",            &pos,
                            "LEADER",         &leader,

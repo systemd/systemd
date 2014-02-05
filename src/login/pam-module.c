@@ -212,7 +212,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 *remote_user = NULL, *remote_host = NULL,
                 *seat = NULL,
                 *type = NULL, *class = NULL,
-                *class_pam = NULL, *type_pam = NULL, *cvtnr = NULL;
+                *class_pam = NULL, *type_pam = NULL, *cvtnr = NULL, *desktop = NULL;
         _cleanup_bus_unref_ sd_bus *bus = NULL;
         int session_fd = -1, existing, r;
         bool debug = false, remote;
@@ -303,8 +303,11 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         if (isempty(class))
                 class = class_pam;
 
+        desktop = pam_getenv(handle, "XDG_SESSION_DESKTOP");
+        if (isempty(desktop))
+                desktop = getenv("XDG_SESSION_DESKTOP");
+
         tty = strempty(tty);
-        display = strempty(display);
 
         if (strchr(tty, ':')) {
                 /* A tty with a colon is usually an X11 display,
@@ -314,21 +317,21 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
                 if (isempty(display))
                         display = tty;
-                tty = "";
+                tty = NULL;
         } else if (streq(tty, "cron")) {
                 /* cron has been setting PAM_TTY to "cron" for a very
                  * long time and it probably shouldn't stop doing that
                  * for compatibility reasons. */
                 type = "unspecified";
                 class = "background";
-                tty = "";
+                tty = NULL;
         } else if (streq(tty, "ssh")) {
                 /* ssh has been setting PAM_TTY to "ssh" for a very
                  * long time and probably shouldn't stop doing that
                  * for compatibility reasons. */
                 type ="tty";
                 class = "user";
-                tty = "";
+                tty = NULL;
         }
 
         /* If this fails vtnr will be 0, that's intended */
@@ -368,11 +371,11 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
         if (debug)
                 pam_syslog(handle, LOG_DEBUG, "Asking logind to create session: "
-                           "uid=%u pid=%u service=%s type=%s class=%s seat=%s vtnr=%u tty=%s display=%s remote=%s remote_user=%s remote_host=%s",
+                           "uid=%u pid=%u service=%s type=%s class=%s desktop=%s seat=%s vtnr=%u tty=%s display=%s remote=%s remote_user=%s remote_host=%s",
                            pw->pw_uid, getpid(),
                            strempty(service),
-                           type, class,
-                           strempty(seat), vtnr, tty, strempty(display),
+                           type, class, desktop,
+                           strempty(seat), vtnr, strempty(tty), strempty(display),
                            yes_no(remote), strempty(remote_user), strempty(remote_host));
 
         r = sd_bus_call_method(bus,
@@ -382,19 +385,20 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                                "CreateSession",
                                &error,
                                &reply,
-                               "uussssussbssa(sv)",
+                               "uusssssussbssa(sv)",
                                (uint32_t) pw->pw_uid,
                                (uint32_t) getpid(),
-                               strempty(service),
+                               service,
                                type,
                                class,
-                               strempty(seat),
+                               desktop,
+                               seat,
                                vtnr,
                                tty,
-                               strempty(display),
+                               display,
                                remote,
-                               strempty(remote_user),
-                               strempty(remote_host),
+                               remote_user,
+                               remote_host,
                                0);
         if (r < 0) {
                 pam_syslog(handle, LOG_ERR, "Failed to create session: %s", bus_error_message(&error, r));
