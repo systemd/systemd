@@ -78,7 +78,7 @@ int bus_kill_context_set_transient_property(
                         return r;
 
                 if (sig <= 0 || sig >= _NSIG)
-                        return sd_bus_error_setf(error, "Signal %i out of range", sig);
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Signal %i out of range", sig);
 
                 if (mode != UNIT_CHECK) {
                         c->kill_signal = sig;
