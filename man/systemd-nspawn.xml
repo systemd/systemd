@@ -416,6 +416,18 @@
                                 more than once.</para></listitem>
                         </varlistentry>
 
+                        <varlistentry>
+                                <term><option>-q</option></term>
+                                <term><option>--quiet</option></term>
+
+                                <listitem><para>Turns off any status
+                                output by the tool itself. When this
+                                switch is used, then the only output
+                                by nspawn will be the console output
+                                of the container OS
+                                itself.</para></listitem>
+                        </varlistentry>
+
                 </variablelist>
 
         </refsect1>

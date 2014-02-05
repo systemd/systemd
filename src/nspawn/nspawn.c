@@ -117,6 +117,7 @@ static uint64_t arg_retain =
 static char **arg_bind = NULL;
 static char **arg_bind_ro = NULL;
 static char **arg_setenv = NULL;
+static bool arg_quiet = false;
 
 static int help(void) {
 
@@ -144,7 +145,8 @@ static int help(void) {
                "     --bind=PATH[:PATH]     Bind mount a file or directory from the host into\n"
                "                            the container\n"
                "     --bind-ro=PATH[:PATH]  Similar, but creates a read-only bind mount\n"
-               "     --setenv=NAME=VALUE    Pass an environment variable to PID 1\n",
+               "     --setenv=NAME=VALUE    Pass an environment variable to PID 1\n"
+               "  -q --quiet                Do not show status information\n",
                program_invocation_short_name);
 
         return 0;
@@ -184,6 +186,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "setenv",          required_argument, NULL, ARG_SETENV          },
                 { "process-label",   required_argument, NULL, 'Z'                 },
                 { "file-label",      required_argument, NULL, 'L'                 },
+                { "quiet",           no_argument,       NULL, 'q'                 },
                 {}
         };
 
@@ -192,7 +195,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "+hD:u:bL:M:jS:Z:", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "+hD:u:bL:M:jS:Z:q", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -372,6 +375,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_setenv = n;
                         break;
                 }
+
+                case 'q':
+                        arg_quiet = true;
+                        break;
 
                 case '?':
                         return -EINVAL;
@@ -1222,7 +1229,8 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        log_info("Spawning container %s on %s. Press ^] three times within 1s to abort execution.", arg_machine, arg_directory);
+        if (!arg_quiet)
+                log_info("Spawning container %s on %s. Press ^] three times within 1s to abort execution.", arg_machine, arg_directory);
 
         if (unlockpt(master) < 0) {
                 log_error("Failed to unlock tty: %m");
@@ -1579,7 +1587,8 @@ int main(int argc, char *argv[]) {
                         break;
                 }
 
-                putc('\n', stdout);
+                if (!arg_quiet)
+                        putc('\n', stdout);
 
                 /* Kill if it is not dead yet anyway */
                 terminate_machine(pid);
@@ -1602,16 +1611,21 @@ int main(int argc, char *argv[]) {
                                 break;
                         }
 
-                        log_debug("Container %s exited successfully.", arg_machine);
+                        if (!arg_quiet)
+                                log_debug("Container %s exited successfully.", arg_machine);
                         break;
                 } else if (status.si_code == CLD_KILLED &&
                            status.si_status == SIGINT) {
-                        log_info("Container %s has been shut down.", arg_machine);
+
+                        if (!arg_quiet)
+                                log_info("Container %s has been shut down.", arg_machine);
                         r = 0;
                         break;
                 } else if (status.si_code == CLD_KILLED &&
                            status.si_status == SIGHUP) {
-                        log_info("Container %s is being rebooted.", arg_machine);
+
+                        if (!arg_quiet)
+                                log_info("Container %s is being rebooted.", arg_machine);
                         continue;
                 } else if (status.si_code == CLD_KILLED ||
                            status.si_code == CLD_DUMPED) {

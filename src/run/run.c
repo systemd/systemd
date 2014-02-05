@@ -65,7 +65,7 @@ static int help(void) {
                "     --uid=USER           Run as system user\n"
                "     --gid=GROUP          Run as system group\n"
                "     --nice=NICE          Nice level\n"
-               "     --setenv=ENV         Set environment\n",
+               "     --setenv=NAME=VALUE  Set environment\n",
                program_invocation_short_name);
 
         return 0;
