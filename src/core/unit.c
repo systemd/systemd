@@ -2944,7 +2944,7 @@ int unit_kill_context(
                         if (!main_pid_alien)
                                 wait_for_exit = true;
 
-                        if (c->send_sighup)
+                        if (c->send_sighup && !sigkill)
                                 kill(main_pid, SIGHUP);
                 }
         }
@@ -2960,7 +2960,7 @@ int unit_kill_context(
                 } else {
                         wait_for_exit = true;
 
-                        if (c->send_sighup)
+                        if (c->send_sighup && !sigkill)
                                 kill(control_pid, SIGHUP);
                 }
         }
@@ -2991,7 +2991,7 @@ int unit_kill_context(
                          * gets fixed we really should correct
                          * that. */
 
-                        if (c->send_sighup) {
+                        if (c->send_sighup && !sigkill) {
                                 set_free(pid_set);
 
                                 pid_set = unit_pid_set(main_pid, control_pid);
