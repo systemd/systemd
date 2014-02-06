@@ -40,6 +40,10 @@
 #include "bus-error.h"
 #include "logind-session.h"
 
+#define RELEASE_USEC (20*USEC_PER_SEC)
+
+static void session_remove_fifo(Session *s);
+
 static unsigned long devt_hash_func(const void *p, const uint8_t hash_key[HASH_KEY_SIZE]) {
         uint64_t u = *(const dev_t*)p;
 
@@ -103,6 +107,8 @@ void session_free(Session *s) {
         if (s->in_gc_queue)
                 LIST_REMOVE(gc_queue, s->manager->session_gc_queue, s);
 
+        s->timer_event_source = sd_event_source_unref(s->timer_event_source);
+
         session_remove_fifo(s);
 
         session_drop_controller(s);
@@ -146,6 +152,8 @@ void session_free(Session *s) {
         free(s->desktop);
 
         hashmap_remove(s->manager->sessions, s->id);
+
+        s->vt_source = sd_event_source_unref(s->vt_source);
 
         free(s->state_file);
         free(s);
@@ -472,7 +480,6 @@ static int session_start_scope(Session *s) {
         if (!s->scope) {
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_free_ char *description = NULL;
-                const char *kill_mode;
                 char *scope, *job;
 
                 description = strjoin("Session ", s->id, " of user ", s->user->name, NULL);
@@ -483,9 +490,7 @@ static int session_start_scope(Session *s) {
                 if (!scope)
                         return log_oom();
 
-                kill_mode = manager_shall_kill(s->manager, s->user->name) ? "control-group" : "none";
-
-                r = manager_start_scope(s->manager, scope, s->leader, s->user->slice, description, "systemd-user-sessions.service", kill_mode, &error, &job);
+                r = manager_start_scope(s->manager, scope, s->leader, s->user->slice, description, "systemd-logind.service", &error, &job);
                 if (r < 0) {
                         log_error("Failed to start session scope %s: %s %s",
                                   scope, bus_error_message(&error, r), error.name);
@@ -541,22 +546,21 @@ int session_start(Session *s) {
 
         s->started = true;
 
-        /* Save session data */
+        /* Save data */
         session_save(s);
         user_save(s->user);
-
-        session_send_signal(s, true);
-
-        if (s->seat) {
+        if (s->seat)
                 seat_save(s->seat);
 
+        /* Send signals */
+        session_send_signal(s, true);
+        user_send_changed(s->user, "Sessions", NULL);
+        if (s->seat) {
                 if (s->seat->active == s)
                         seat_send_changed(s->seat, "Sessions", "ActiveSession", NULL);
                 else
                         seat_send_changed(s->seat, "Sessions", NULL);
         }
-
-        user_send_changed(s->user, "Sessions", NULL);
 
         return 0;
 }
@@ -571,14 +575,22 @@ static int session_stop_scope(Session *s) {
         if (!s->scope)
                 return 0;
 
-        r = manager_stop_unit(s->manager, s->scope, &error, &job);
-        if (r < 0) {
-                log_error("Failed to stop session scope: %s", bus_error_message(&error, r));
-                return r;
-        }
+        if (manager_shall_kill(s->manager, s->user->name)) {
+                r = manager_stop_unit(s->manager, s->scope, &error, &job);
+                if (r < 0) {
+                        log_error("Failed to stop session scope: %s", bus_error_message(&error, r));
+                        return r;
+                }
 
-        free(s->scope_job);
-        s->scope_job = job;
+                free(s->scope_job);
+                s->scope_job = job;
+        } else {
+                r = manager_abandon_scope(s->manager, s->scope, &error);
+                if (r < 0) {
+                        log_error("Failed to abandon session scope: %s", bus_error_message(&error, r));
+                        return r;
+                }
+        }
 
         return 0;
 }
@@ -591,8 +603,15 @@ int session_stop(Session *s) {
         if (!s->user)
                 return -ESTALE;
 
+        s->timer_event_source = sd_event_source_unref(s->timer_event_source);
+
+        /* We are going down, don't care about FIFOs anymore */
+        session_remove_fifo(s);
+
         /* Kill cgroup */
         r = session_stop_scope(s);
+
+        s->stopping = true;
 
         session_save(s);
         user_save(s->user);
@@ -618,6 +637,8 @@ int session_finalize(Session *s) {
                            "MESSAGE=Removed session %s.", s->id,
                            NULL);
 
+        s->timer_event_source = sd_event_source_unref(s->timer_event_source);
+
         /* Kill session devices */
         while ((sd = hashmap_first(s->devices)))
                 session_device_free(sd);
@@ -635,14 +656,34 @@ int session_finalize(Session *s) {
                 if (s->seat->active == s)
                         seat_set_active(s->seat, NULL);
 
-                seat_send_changed(s->seat, "Sessions", NULL);
                 seat_save(s->seat);
+                seat_send_changed(s->seat, "Sessions", NULL);
         }
 
-        user_send_changed(s->user, "Sessions", NULL);
         user_save(s->user);
+        user_send_changed(s->user, "Sessions", NULL);
 
         return r;
+}
+
+static int release_timeout_callback(sd_event_source *es, uint64_t usec, void *userdata) {
+        Session *s = userdata;
+
+        assert(es);
+        assert(s);
+
+        session_stop(s);
+        return 0;
+}
+
+void session_release(Session *s) {
+        assert(s);
+
+        if (!s->started || s->stopping)
+                return;
+
+        if (!s->timer_event_source)
+                sd_event_add_monotonic(s->manager->event, now(CLOCK_MONOTONIC) + RELEASE_USEC, 0, release_timeout_callback, s, &s->timer_event_source);
 }
 
 bool session_is_active(Session *s) {
@@ -820,7 +861,7 @@ int session_create_fifo(Session *s) {
         return r;
 }
 
-void session_remove_fifo(Session *s) {
+static void session_remove_fifo(Session *s) {
         assert(s);
 
         if (s->fifo_event_source)
@@ -839,8 +880,6 @@ void session_remove_fifo(Session *s) {
 }
 
 bool session_check_gc(Session *s, bool drop_not_started) {
-        int r;
-
         assert(s);
 
         if (drop_not_started && !s->started)
@@ -850,11 +889,7 @@ bool session_check_gc(Session *s, bool drop_not_started) {
                 return false;
 
         if (s->fifo_fd >= 0) {
-                r = pipe_eof(s->fifo_fd);
-                if (r < 0)
-                        return true;
-
-                if (r == 0)
+                if (pipe_eof(s->fifo_fd) <= 0)
                         return true;
         }
 
@@ -880,11 +915,11 @@ void session_add_to_gc_queue(Session *s) {
 SessionState session_get_state(Session *s) {
         assert(s);
 
+        if (s->stopping || s->timer_event_source)
+                return SESSION_CLOSING;
+
         if (s->scope_job)
                 return SESSION_OPENING;
-
-        if (s->fifo_fd < 0)
-                return SESSION_CLOSING;
 
         if (session_is_active(s))
                 return SESSION_ACTIVE;
@@ -902,7 +937,7 @@ int session_kill(Session *s, KillWho who, int signo) {
 }
 
 static int session_open_vt(Session *s) {
-        char path[128];
+        char path[sizeof("/dev/tty") + DECIMAL_STR_MAX(s->vtnr)];
 
         if (!s->vtnr)
                 return -1;
@@ -980,8 +1015,7 @@ void session_restore_vt(Session *s) {
         if (vt < 0)
                 return;
 
-        sd_event_source_unref(s->vt_source);
-        s->vt_source = NULL;
+        s->vt_source = sd_event_source_unref(s->vt_source);
 
         ioctl(vt, KDSETMODE, KD_TEXT);
 

@@ -110,8 +110,11 @@ struct Session {
 
         bool in_gc_queue:1;
         bool started:1;
+        bool stopping:1;
 
         sd_bus_message *create_message;
+
+        sd_event_source *timer_event_source;
 
         char *controller;
         Hashmap *devices;
@@ -132,10 +135,10 @@ bool session_is_active(Session *s);
 int session_get_idle_hint(Session *s, dual_timestamp *t);
 void session_set_idle_hint(Session *s, bool b);
 int session_create_fifo(Session *s);
-void session_remove_fifo(Session *s);
 int session_start(Session *s);
 int session_stop(Session *s);
 int session_finalize(Session *s);
+void session_release(Session *s);
 int session_save(Session *s);
 int session_load(Session *s);
 int session_kill(Session *s, KillWho who, int signo);

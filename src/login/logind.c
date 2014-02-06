@@ -871,8 +871,15 @@ void manager_gc(Manager *m, bool drop_not_started) {
                 LIST_REMOVE(gc_queue, m->session_gc_queue, session);
                 session->in_gc_queue = false;
 
-                if (!session_check_gc(session, drop_not_started)) {
+                /* First, if we are not closing yet, initiate stopping */
+                if (!session_check_gc(session, drop_not_started) &&
+                    session_get_state(session) != SESSION_CLOSING)
                         session_stop(session);
+
+                /* Normally, this should make the session busy again,
+                 * if it doesn't then let's get rid of it
+                 * immediately */
+                if (!session_check_gc(session, drop_not_started)) {
                         session_finalize(session);
                         session_free(session);
                 }
@@ -882,8 +889,11 @@ void manager_gc(Manager *m, bool drop_not_started) {
                 LIST_REMOVE(gc_queue, m->user_gc_queue, user);
                 user->in_gc_queue = false;
 
-                if (!user_check_gc(user, drop_not_started)) {
+                if (!user_check_gc(user, drop_not_started) &&
+                    user_get_state(user) != USER_CLOSING)
                         user_stop(user);
+
+                if (!user_check_gc(user, drop_not_started)) {
                         user_finalize(user);
                         user_free(user);
                 }

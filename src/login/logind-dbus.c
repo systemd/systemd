@@ -748,15 +748,7 @@ static int method_release_session(sd_bus *bus, sd_bus_message *message, void *us
         if (!session)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_SESSION, "No session '%s' known", name);
 
-        /* We use the FIFO to detect stray sessions where the process
-           invoking PAM dies abnormally. We need to make sure that
-           that process is not killed if at the clean end of the
-           session it closes the FIFO. Hence, with this call
-           explicitly turn off the FIFO logic, so that the PAM code
-           can finish clean up on its own */
-        session_remove_fifo(session);
-        session_save(session);
-        user_save(session->user);
+        session_release(session);
 
         return sd_bus_reply_method_return(message, NULL);
 }
@@ -2185,7 +2177,6 @@ int manager_start_scope(
                 const char *slice,
                 const char *description,
                 const char *after,
-                const char *kill_mode,
                 sd_bus_error *error,
                 char **job) {
 
@@ -2228,12 +2219,6 @@ int manager_start_scope(
 
         if (!isempty(description)) {
                 r = sd_bus_message_append(m, "(sv)", "After", "as", 1, after);
-                if (r < 0)
-                        return r;
-        }
-
-        if (!isempty(kill_mode)) {
-                r = sd_bus_message_append(m, "(sv)", "KillMode", "s", kill_mode);
                 if (r < 0)
                         return r;
         }
@@ -2367,6 +2352,40 @@ int manager_stop_unit(Manager *manager, const char *unit, sd_bus_error *error, c
                         return -ENOMEM;
 
                 *job = copy;
+        }
+
+        return 1;
+}
+
+int manager_abandon_scope(Manager *manager, const char *scope, sd_bus_error *error) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_free_ char *path = NULL;
+        int r;
+
+        assert(manager);
+        assert(scope);
+
+        path = unit_dbus_path_from_name(scope);
+        if (!path)
+                return -ENOMEM;
+
+        r = sd_bus_call_method(
+                        manager->bus,
+                        "org.freedesktop.systemd1",
+                        path,
+                        "org.freedesktop.systemd1.Scope",
+                        "Abandon",
+                        error,
+                        NULL,
+                        NULL);
+        if (r < 0) {
+                if (sd_bus_error_has_name(error, BUS_ERROR_NO_SUCH_UNIT) ||
+                    sd_bus_error_has_name(error, BUS_ERROR_LOAD_FAILED)) {
+                        sd_bus_error_free(error);
+                        return 0;
+                }
+
+                return r;
         }
 
         return 1;
