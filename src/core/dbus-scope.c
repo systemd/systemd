@@ -28,6 +28,16 @@
 #include "bus-util.h"
 #include "bus-internal.h"
 
+static int bus_scope_abandon(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Scope *s = userdata;
+
+        assert(bus);
+        assert(message);
+        assert(s);
+
+        return scope_abandon(s);
+}
+
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_result, scope_result, ScopeResult);
 
 const sd_bus_vtable bus_scope_vtable[] = {
@@ -36,6 +46,7 @@ const sd_bus_vtable bus_scope_vtable[] = {
         SD_BUS_PROPERTY("TimeoutStopUSec", "t", bus_property_get_usec, offsetof(Scope, timeout_stop_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Result", "s", property_get_result, offsetof(Scope, result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_SIGNAL("RequestStop", NULL, 0),
+        SD_BUS_METHOD("Abandon", NULL, NULL, bus_scope_abandon, 0),
         SD_BUS_VTABLE_END
 };
 
@@ -56,10 +67,6 @@ static int bus_scope_set_transient_property(
                 unsigned n = 0;
                 uint32_t pid;
 
-                r = set_ensure_allocated(&s->pids, trivial_hash_func, trivial_compare_func);
-                if (r < 0)
-                        return r;
-
                 r = sd_bus_message_enter_container(message, 'a', "u");
                 if (r < 0)
                         return r;
@@ -70,7 +77,7 @@ static int bus_scope_set_transient_property(
                                 return -EINVAL;
 
                         if (mode != UNIT_CHECK) {
-                                r = set_put(s->pids, LONG_TO_PTR(pid));
+                                r = unit_watch_pid(UNIT(s), pid);
                                 if (r < 0 && r != -EEXIST)
                                         return r;
                         }

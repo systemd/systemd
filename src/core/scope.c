@@ -35,6 +35,7 @@
 static const UnitActiveState state_translation_table[_SCOPE_STATE_MAX] = {
         [SCOPE_DEAD] = UNIT_INACTIVE,
         [SCOPE_RUNNING] = UNIT_ACTIVE,
+        [SCOPE_ABANDONED] = UNIT_ACTIVE,
         [SCOPE_STOP_SIGTERM] = UNIT_DEACTIVATING,
         [SCOPE_STOP_SIGKILL] = UNIT_DEACTIVATING,
         [SCOPE_FAILED] = UNIT_FAILED
@@ -65,9 +66,6 @@ static void scope_done(Unit *u) {
         cgroup_context_done(&s->cgroup_context);
 
         free(s->controller);
-
-        set_free(s->pids);
-        s->pids = NULL;
 
         s->timer_event_source = sd_event_source_unref(s->timer_event_source);
 }
@@ -100,15 +98,14 @@ static void scope_set_state(Scope *s, ScopeState state) {
         old_state = s->state;
         s->state = state;
 
-        if (state != SCOPE_STOP_SIGTERM &&
-            state != SCOPE_STOP_SIGKILL)
+        if (!IN_SET(state, SCOPE_STOP_SIGTERM, SCOPE_STOP_SIGKILL))
                 s->timer_event_source = sd_event_source_unref(s->timer_event_source);
 
+        if (IN_SET(state, SCOPE_DEAD, SCOPE_FAILED))
+                unit_unwatch_all_pids(UNIT(s));
+
         if (state != old_state)
-                log_debug("%s changed %s -> %s",
-                          UNIT(s)->id,
-                          scope_state_to_string(old_state),
-                          scope_state_to_string(state));
+                log_debug("%s changed %s -> %s", UNIT(s)->id, scope_state_to_string(old_state), scope_state_to_string(state));
 
         unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state], true);
 }
@@ -135,7 +132,7 @@ static int scope_verify(Scope *s) {
         if (UNIT(s)->load_state != UNIT_LOADED)
                 return 0;
 
-        if (set_size(s->pids) <= 0 && UNIT(s)->manager->n_reloading <= 0) {
+        if (set_isempty(UNIT(s)->pids) && UNIT(s)->manager->n_reloading <= 0) {
                 log_error_unit(UNIT(s)->id, "Scope %s has no PIDs. Refusing.", UNIT(s)->id);
                 return -EINVAL;
         }
@@ -181,11 +178,14 @@ static int scope_coldplug(Unit *u) {
 
         if (s->deserialized_state != s->state) {
 
-                if (s->deserialized_state == SCOPE_STOP_SIGKILL || s->deserialized_state == SCOPE_STOP_SIGTERM) {
+                if (IN_SET(s->deserialized_state, SCOPE_STOP_SIGKILL, SCOPE_STOP_SIGTERM)) {
                         r = scope_arm_timer(s);
                         if (r < 0)
                                 return r;
                 }
+
+                if (!IN_SET(s->deserialized_state, SCOPE_DEAD, SCOPE_FAILED))
+                        unit_watch_all_pids(UNIT(s));
 
                 scope_set_state(s, s->deserialized_state);
         }
@@ -226,6 +226,8 @@ static void scope_enter_signal(Scope *s, ScopeState state, ScopeResult f) {
 
         if (f != SCOPE_SUCCESS)
                 s->result = f;
+
+        unit_watch_all_pids(UNIT(s));
 
         /* If we have a controller set let's ask the controller nicely
          * to terminate the scope, instead of us going directly into
@@ -288,12 +290,9 @@ static int scope_start(Unit *u) {
                 return r;
         }
 
-        r = cg_attach_many_everywhere(u->manager->cgroup_supported, u->cgroup_path, s->pids);
+        r = cg_attach_many_everywhere(u->manager->cgroup_supported, u->cgroup_path, UNIT(s)->pids);
         if (r < 0)
                 return r;
-
-        set_free(s->pids);
-        s->pids = NULL;
 
         s->result = SCOPE_SUCCESS;
 
@@ -305,13 +304,13 @@ static int scope_stop(Unit *u) {
         Scope *s = SCOPE(u);
 
         assert(s);
-        assert(s->state == SCOPE_RUNNING);
 
         if (s->state == SCOPE_STOP_SIGTERM ||
             s->state == SCOPE_STOP_SIGKILL)
                 return 0;
 
-        assert(s->state == SCOPE_RUNNING);
+        assert(s->state == SCOPE_RUNNING ||
+               s->state == SCOPE_ABANDONED);
 
         scope_enter_signal(s, SCOPE_STOP_SIGTERM, SCOPE_SUCCESS);
         return 0;
@@ -389,13 +388,39 @@ static bool scope_check_gc(Unit *u) {
         /* Never clean up scopes that still have a process around,
          * even if the scope is formally dead. */
 
-        if (UNIT(s)->cgroup_path) {
-                r = cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, UNIT(s)->cgroup_path, true);
+        if (u->cgroup_path) {
+                r = cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, true);
                 if (r <= 0)
                         return true;
         }
 
         return false;
+}
+
+static void scope_notify_cgroup_empty_event(Unit *u) {
+        Scope *s = SCOPE(u);
+        assert(u);
+
+        log_debug_unit(u->id, "%s: cgroup is empty", u->id);
+
+        if (IN_SET(s->state, SCOPE_RUNNING, SCOPE_ABANDONED, SCOPE_STOP_SIGTERM, SCOPE_STOP_SIGKILL))
+                scope_enter_dead(s, SCOPE_SUCCESS);
+}
+
+static void scope_sigchld_event(Unit *u, pid_t pid, int code, int status) {
+
+        /* If we get a SIGCHLD event for one of the processes we were
+           interested in, then we look for others to watch, under the
+           assumption that we'll sooner or later get a SIGCHLD for
+           them, as the original process we watched was probably the
+           parent of them, and they are hence now our children. */
+
+        unit_tidy_watch_pids(u, 0, 0);
+        unit_watch_all_pids(u);
+
+        /* If the PID set is empty now, then let's finish this off */
+        if (set_isempty(u->pids))
+                scope_notify_cgroup_empty_event(u);
 }
 
 static int scope_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata) {
@@ -429,24 +454,30 @@ static int scope_dispatch_timer(sd_event_source *source, usec_t usec, void *user
         return 0;
 }
 
-static void scope_notify_cgroup_empty_event(Unit *u) {
-        Scope *s = SCOPE(u);
-        assert(u);
+int scope_abandon(Scope *s) {
+        assert(s);
 
-        log_debug_unit(u->id, "%s: cgroup is empty", u->id);
+        if (!IN_SET(s->state, SCOPE_RUNNING, SCOPE_ABANDONED))
+                return -ESTALE;
 
-        switch (s->state) {
+        free(s->controller);
+        s->controller = NULL;
 
-        case SCOPE_RUNNING:
-        case SCOPE_STOP_SIGTERM:
-        case SCOPE_STOP_SIGKILL:
-                scope_enter_dead(s, SCOPE_SUCCESS);
+        /* The client is no longer watching the remaining processes,
+         * so let's step in here, under the assumption that the
+         * remaining processes will be sooner or later reassigned to
+         * us as parent. */
 
-                break;
+        unit_tidy_watch_pids(UNIT(s), 0, 0);
+        unit_watch_all_pids(UNIT(s));
 
-        default:
-                ;
-        }
+        /* If the PID set is empty now, then let's finish this off */
+        if (set_isempty(UNIT(s)->pids))
+                scope_notify_cgroup_empty_event(UNIT(s));
+        else
+                scope_set_state(s, SCOPE_ABANDONED);
+
+        return 0;
 }
 
 _pure_ static UnitActiveState scope_active_state(Unit *u) {
@@ -464,6 +495,7 @@ _pure_ static const char *scope_sub_state_to_string(Unit *u) {
 static const char* const scope_state_table[_SCOPE_STATE_MAX] = {
         [SCOPE_DEAD] = "dead",
         [SCOPE_RUNNING] = "running",
+        [SCOPE_ABANDONED] = "abandoned",
         [SCOPE_STOP_SIGTERM] = "stop-sigterm",
         [SCOPE_STOP_SIGKILL] = "stop-sigkill",
         [SCOPE_FAILED] = "failed",
@@ -515,6 +547,8 @@ const UnitVTable scope_vtable = {
         .sub_state_to_string = scope_sub_state_to_string,
 
         .check_gc = scope_check_gc,
+
+        .sigchld_event = scope_sigchld_event,
 
         .reset_failed = scope_reset_failed,
 

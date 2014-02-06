@@ -1459,7 +1459,7 @@ static int manager_dispatch_sigchld(Manager *m) {
                 log_debug_unit(u->id,
                                "Child %lu belongs to %s", (long unsigned) si.si_pid, u->id);
 
-                hashmap_remove(m->watch_pids, LONG_TO_PTR(si.si_pid));
+                unit_unwatch_pid(u, si.si_pid);
                 UNIT_VTABLE(u)->sigchld_event(u, si.si_pid, si.si_code, si.si_status);
         }
 

@@ -482,6 +482,8 @@ void unit_free(Unit *u) {
 
         set_free_free(u->names);
 
+        unit_unwatch_all_pids(u);
+
         condition_free_list(u->conditions);
 
         unit_ref_unset(&u->slice);
@@ -1697,13 +1699,25 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 }
 
 int unit_watch_pid(Unit *u, pid_t pid) {
+        int q, r;
+
         assert(u);
         assert(pid >= 1);
+
+        r = set_ensure_allocated(&u->pids, trivial_hash_func, trivial_compare_func);
+        if (r < 0)
+                return r;
 
         /* Watch a specific PID. We only support one unit watching
          * each PID for now. */
 
-        return hashmap_put(u->manager->watch_pids, LONG_TO_PTR(pid), u);
+        r = set_put(u->pids, LONG_TO_PTR(pid));
+
+        q = hashmap_put(u->manager->watch_pids, LONG_TO_PTR(pid), u);
+        if (q < 0)
+                return q;
+
+        return r;
 }
 
 void unit_unwatch_pid(Unit *u, pid_t pid) {
@@ -1711,6 +1725,102 @@ void unit_unwatch_pid(Unit *u, pid_t pid) {
         assert(pid >= 1);
 
         hashmap_remove_value(u->manager->watch_pids, LONG_TO_PTR(pid), u);
+        set_remove(u->pids, LONG_TO_PTR(pid));
+}
+
+static int watch_pids_in_path(Unit *u, const char *path) {
+        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        int ret = 0, r;
+
+        assert(u);
+        assert(path);
+
+        /* Adds all PIDs from a specific cgroup path to the set of PIDs we watch. */
+
+        r = cg_enumerate_processes(SYSTEMD_CGROUP_CONTROLLER, path, &f);
+        if (r >= 0) {
+                pid_t pid;
+
+                while ((r = cg_read_pid(f, &pid)) > 0) {
+                        r = unit_watch_pid(u, pid);
+                        if (r < 0 && ret >= 0)
+                                ret = r;
+                }
+                if (r < 0 && ret >= 0)
+                        ret = r;
+
+        } else if (ret >= 0)
+                ret = r;
+
+        r = cg_enumerate_subgroups(SYSTEMD_CGROUP_CONTROLLER, path, &d);
+        if (r >= 0) {
+                char *fn;
+
+                while ((r = cg_read_subgroup(d, &fn)) > 0) {
+                        _cleanup_free_ char *p = NULL;
+
+                        p = strjoin(path, "/", fn, NULL);
+                        free(fn);
+
+                        if (!p)
+                                return -ENOMEM;
+
+                        r = watch_pids_in_path(u, p);
+                        if (r < 0 && ret >= 0)
+                                ret = r;
+                }
+                if (r < 0 && ret >= 0)
+                        ret = r;
+
+        } else if (ret >= 0)
+                ret = r;
+
+        return ret;
+}
+
+
+int unit_watch_all_pids(Unit *u) {
+        assert(u);
+
+        if (!u->cgroup_path)
+                return -ENOENT;
+
+        /* Adds all PIDs from our cgroup to the set of PIDs we watch */
+
+        return watch_pids_in_path(u, u->cgroup_path);
+}
+
+void unit_unwatch_all_pids(Unit *u) {
+        Iterator i;
+        void *e;
+
+        assert(u);
+
+        SET_FOREACH(e, u->pids, i)
+                hashmap_remove_value(u->manager->watch_pids, e, u);
+
+        set_free(u->pids);
+        u->pids = NULL;
+}
+
+void unit_tidy_watch_pids(Unit *u, pid_t except1, pid_t except2) {
+        Iterator i;
+        void *e;
+
+        assert(u);
+
+        /* Cleans dead PIDs from our list */
+
+        SET_FOREACH(e, u->pids, i) {
+                pid_t pid = PTR_TO_LONG(e);
+
+                if (pid == except1 || pid == except2)
+                        continue;
+
+                if (kill(pid, 0) < 0 && errno == ESRCH)
+                        set_remove(u->pids, e);
+        }
 }
 
 bool unit_job_is_applicable(Unit *u, JobType j) {
@@ -2979,17 +3089,7 @@ int unit_kill_context(
                                 log_warning_unit(u->id, "Failed to kill control group: %s", strerror(-r));
                 } else if (r > 0) {
 
-                        /* FIXME: Now, we don't actually wait for any
-                         * of the processes that are neither control
-                         * nor main process. We should wait for them
-                         * of course, but that's hard since the cgroup
-                         * notification logic is so unreliable. It is
-                         * not available at all in containers, and on
-                         * the host it gets confused by
-                         * subgroups. Hence, for now, let's not wait
-                         * for these processes -- but when the kernel
-                         * gets fixed we really should correct
-                         * that. */
+                        wait_for_exit = true;
 
                         if (c->send_sighup && !sigkill) {
                                 set_free(pid_set);

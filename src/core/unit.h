@@ -203,6 +203,11 @@ struct Unit {
         /* CGroup realize members queue */
         LIST_FIELDS(Unit, cgroup_queue);
 
+        /* PIDs we keep an eye on. Note that a unit might have many
+         * more, but these are the ones we care enough about to
+         * process SIGCHLD for */
+        Set *pids;
+
         /* Used during GC sweeps */
         unsigned gc_marker;
 
@@ -538,6 +543,10 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 
 int unit_watch_pid(Unit *u, pid_t pid);
 void unit_unwatch_pid(Unit *u, pid_t pid);
+int unit_watch_all_pids(Unit *u);
+void unit_unwatch_all_pids(Unit *u);
+
+void unit_tidy_watch_pids(Unit *u, pid_t except1, pid_t except2);
 
 int unit_watch_bus_name(Unit *u, const char *name);
 void unit_unwatch_bus_name(Unit *u, const char *name);

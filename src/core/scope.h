@@ -29,6 +29,7 @@ typedef struct Scope Scope;
 typedef enum ScopeState {
         SCOPE_DEAD,
         SCOPE_RUNNING,
+        SCOPE_ABANDONED,
         SCOPE_STOP_SIGTERM,
         SCOPE_STOP_SIGKILL,
         SCOPE_FAILED,
@@ -57,12 +58,12 @@ struct Scope {
 
         char *controller;
 
-        Set *pids;
-
         sd_event_source *timer_event_source;
 };
 
 extern const UnitVTable scope_vtable;
+
+int scope_abandon(Scope *s);
 
 const char* scope_state_to_string(ScopeState i) _const_;
 ScopeState scope_state_from_string(const char *s) _pure_;
