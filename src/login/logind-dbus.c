@@ -1911,6 +1911,27 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_VTABLE_END
 };
 
+static int session_jobs_reply(Session *s, const char *unit, const char *result) {
+        int r = 0;
+
+        assert(s);
+        assert(unit);
+
+        if (!s->started)
+                return r;
+
+        if (streq(result, "done"))
+                r = session_send_create_reply(s, NULL);
+        else {
+                _cleanup_bus_error_free_ sd_bus_error e = SD_BUS_ERROR_NULL;
+
+                sd_bus_error_setf(&e, BUS_ERROR_JOB_FAILED, "Start job for unit %s failed with '%s'", unit, result);
+                r = session_send_create_reply(s, &e);
+        }
+
+        return r;
+}
+
 int match_job_removed(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         const char *path, *result, *unit;
         Manager *m = userdata;
@@ -1950,18 +1971,9 @@ int match_job_removed(sd_bus *bus, sd_bus_message *message, void *userdata, sd_b
                         session->scope_job = NULL;
                 }
 
-                if (session->started) {
-                        if (streq(result, "done"))
-                                session_send_create_reply(session, NULL);
-                        else {
-                                _cleanup_bus_error_free_ sd_bus_error e = SD_BUS_ERROR_NULL;
+                session_jobs_reply(session, unit, result);
 
-                                sd_bus_error_setf(&e, BUS_ERROR_JOB_FAILED, "Start job for unit %s failed with '%s'", unit, result);
-                                session_send_create_reply(session, &e);
-                        }
-                } else
-                        session_save(session);
-
+                session_save(session);
                 session_add_to_gc_queue(session);
         }
 
@@ -1979,17 +1991,7 @@ int match_job_removed(sd_bus *bus, sd_bus_message *message, void *userdata, sd_b
                 }
 
                 LIST_FOREACH(sessions_by_user, session, user->sessions) {
-                        if (!session->started)
-                                continue;
-
-                        if (streq(result, "done"))
-                                session_send_create_reply(session, NULL);
-                        else {
-                                _cleanup_bus_error_free_ sd_bus_error e = SD_BUS_ERROR_NULL;
-
-                                sd_bus_error_setf(&e, BUS_ERROR_JOB_FAILED, "Start job for unit %s failed with '%s'", unit, result);
-                                session_send_create_reply(session, &e);
-                        }
+                        session_jobs_reply(session, unit, result);
                 }
 
                 user_save(user);
