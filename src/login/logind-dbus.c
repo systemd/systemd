@@ -2228,10 +2228,6 @@ int manager_start_scope(
          * stop timeout for sessions, so that we don't wait
          * forever. */
 
-        r = sd_bus_message_append(m, "(sv)", "TimeoutStopUSec", "t", 500 * USEC_PER_MSEC);
-        if (r < 0)
-                return r;
-
         /* Make sure that the session shells are terminated with
          * SIGHUP since bash and friends tend to ignore SIGTERM */
         r = sd_bus_message_append(m, "(sv)", "SendSIGHUP", "b", true);
