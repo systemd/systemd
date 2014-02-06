@@ -39,7 +39,7 @@ _systemd_analyze() {
 
         _init_completion || return
 
-        for ((i=0; i <= COMP_CWORD; i++)); do
+        for ((i=0; i < COMP_CWORD; i++)); do
                 if __contains_word "${COMP_WORDS[i]}" ${VERBS[*]} &&
                  ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
                         verb=${COMP_WORDS[i]}

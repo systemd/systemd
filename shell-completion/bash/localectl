@@ -52,7 +52,7 @@ _localectl() {
                       [X11]='set-x11-keymap'
         )
 
-        for ((i=0; i <= COMP_CWORD; i++)); do
+        for ((i=0; i < COMP_CWORD; i++)); do
                 if __contains_word "${COMP_WORDS[i]}" ${VERBS[*]}; then
                         verb=${COMP_WORDS[i]}
                         break

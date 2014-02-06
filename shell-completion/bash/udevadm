@@ -36,7 +36,7 @@ _udevadm() {
 
         local verbs=(info trigger settle control monitor hwdb test-builtin test)
 
-        for ((i=0; i <= COMP_CWORD; i++)); do
+        for ((i=0; i < COMP_CWORD; i++)); do
                 if __contains_word "${COMP_WORDS[i]}" "${verbs[@]}" &&
                  ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
                         verb=${COMP_WORDS[i]}
