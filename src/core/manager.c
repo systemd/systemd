@@ -105,7 +105,6 @@ static int manager_watch_jobs_in_progress(Manager *m) {
                 return 0;
 
         next = now(CLOCK_MONOTONIC) + JOBS_IN_PROGRESS_WAIT_USEC;
-        log_debug("queuing for "USEC_FMT, next);
         return sd_event_add_monotonic(m->event, next, 0, manager_dispatch_jobs_in_progress, m, &m->jobs_in_progress_event_source);
 }
 
@@ -1766,7 +1765,6 @@ static int manager_dispatch_jobs_in_progress(sd_event_source *source, usec_t use
         manager_print_jobs_in_progress(m);
 
         next = now(CLOCK_MONOTONIC) + JOBS_IN_PROGRESS_PERIOD_USEC;
-        log_debug("requeuing for "USEC_FMT, next);
         r = sd_event_source_set_time(source, next);
         if (r < 0)
                 return r;
@@ -2468,7 +2466,6 @@ void manager_check_finished(Manager *m) {
         if (hashmap_size(m->jobs) > 0) {
                 if (m->jobs_in_progress_event_source) {
                         uint64_t next = now(CLOCK_MONOTONIC) + JOBS_IN_PROGRESS_WAIT_USEC;
-                        log_debug("requeuing for "USEC_FMT, next);
                         sd_event_source_set_time(m->jobs_in_progress_event_source, next);
                 }
                 return;

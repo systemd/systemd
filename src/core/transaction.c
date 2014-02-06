@@ -223,7 +223,9 @@ static int delete_one_unmergeable_job(Transaction *tr, Job *j) {
 
                         /* Ok, we can drop one, so let's do so. */
                         log_debug_unit(d->unit->id,
-                                       "Fixing conflicting jobs by deleting job %s/%s",
+                                       "Fixing conflicting jobs %s/%s,%s/%s by deleting job %s/%s",
+                                       j->unit->id, job_type_to_string(j->type),
+                                       k->unit->id, job_type_to_string(k->type),
                                        d->unit->id, job_type_to_string(d->type));
                         transaction_delete_job(tr, d, true);
                         return 0;
