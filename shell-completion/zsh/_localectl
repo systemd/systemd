@@ -1,17 +1,22 @@
 #compdef localectl
 
 _localectl_set-locale() {
-    local -a _confs _locales
+    local -a _locales locale_fields
+    locale_fields=(LANG LANGUAGE LC_CTYPE LC_NUMERIC LC_TIME \
+                   LC_COLLATE LC_MONETARY LC_MESSAGES LC_PAPER \
+                   LC_NAME LC_ADDRESS LC_TELEPHONE \
+                   LC_MEASUREMENT LC_IDENTIFICATION)
+    # LC_ALL is omitted on purpose
+
     local expl suf
     _locales=( ${(f)"$(_call_program locales "$service" list-locales)"} )
-    _confs=( ${${(f)"$(_call_program confs "locale 2>/dev/null")"}%\=*} )
+    compset -P1 '*='
     if [[ -prefix 1 *\= ]]; then
         local conf=${PREFIX%%\=*}
-        compset -P1 '*='
         _wanted locales expl "locales configs" \
             _combination localeconfs  confs=$conf locales "$@" -
     else
-        compadd -S '='  $_confs
+        compadd -S '=' $locale_fields
     fi
 }
 
