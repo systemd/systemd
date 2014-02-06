@@ -951,6 +951,17 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>SELinuxContext=</varname></term>
+
+                                <listitem><para>Set the SELinux context of the
+                                executed process. If set, this will override the
+                                automated domain transition. However, the policy
+                                still need to autorize the transition. See
+                                <citerefentry><refentrytitle>setexeccon</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                                for details.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>IgnoreSIGPIPE=</varname></term>
 
                                 <listitem><para>Takes a boolean

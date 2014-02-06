@@ -133,6 +133,8 @@ struct ExecContext {
 
         char *utmp_id;
 
+        char *selinux_context;
+
         char **read_write_dirs, **read_only_dirs, **inaccessible_dirs;
         unsigned long mount_flags;
 
