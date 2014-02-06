@@ -534,35 +534,39 @@ fail:
 
 static int parse_env_file_push(const char *filename, unsigned line,
                                const char *key, char *value, void *userdata) {
-        assert(utf8_is_valid(key));
 
-        if (value && !utf8_is_valid(value))
-                /* FIXME: filter UTF-8 */
-                log_error("%s:%u: invalid UTF-8 for key %s: '%s', ignoring.",
-                          filename, line, key, value);
-        else {
-                const char *k;
-                va_list* ap = (va_list*) userdata;
-                va_list aq;
+        const char *k;
+        va_list aq, *ap = userdata;
 
-                va_copy(aq, *ap);
-
-                while ((k = va_arg(aq, const char *))) {
-                        char **v;
-
-                        v = va_arg(aq, char **);
-
-                        if (streq(key, k)) {
-                                va_end(aq);
-                                free(*v);
-                                *v = value;
-                                return 1;
-                        }
-                }
-
-                va_end(aq);
+        if (!utf8_is_valid(key)) {
+                log_error("%s:%u: invalid UTF-8 for key '%s', ignoring.",
+                          filename, line, key);
+                return -EINVAL;
         }
 
+        if (value && !utf8_is_valid(value)) {
+                /* FIXME: filter UTF-8 */
+                log_error("%s:%u: invalid UTF-8 value for key %s: '%s', ignoring.",
+                          filename, line, key, value);
+                return -EINVAL;
+        }
+
+        va_copy(aq, *ap);
+
+        while ((k = va_arg(aq, const char *))) {
+                char **v;
+
+                v = va_arg(aq, char **);
+
+                if (streq(key, k)) {
+                        va_end(aq);
+                        free(*v);
+                        *v = value;
+                        return 1;
+                }
+        }
+
+        va_end(aq);
         free(value);
         return 0;
 }
@@ -586,26 +590,31 @@ int parse_env_file(
 
 static int load_env_file_push(const char *filename, unsigned line,
                               const char *key, char *value, void *userdata) {
-        assert(utf8_is_valid(key));
+        char ***m = userdata;
+        char *p;
+        int r;
 
-        if (value && !utf8_is_valid(value))
+        if (!utf8_is_valid(key)) {
+                log_error("%s:%u: invalid UTF-8 for key '%s', ignoring.",
+                          filename, line, key);
+                return -EINVAL;
+        }
+
+        if (value && !utf8_is_valid(value)) {
                 /* FIXME: filter UTF-8 */
-                log_error("%s:%u: invalid UTF-8 for key %s: '%s', ignoring.",
+                log_error("%s:%u: invalid UTF-8 value for key %s: '%s', ignoring.",
                           filename, line, key, value);
-        else {
-                char ***m = userdata;
-                char *p;
-                int r;
+                return -EINVAL;
+        }
 
-                p = strjoin(key, "=", strempty(value), NULL);
-                if (!p)
-                        return -ENOMEM;
+        p = strjoin(key, "=", strempty(value), NULL);
+        if (!p)
+                return -ENOMEM;
 
-                r = strv_push(m, p);
-                if (r < 0) {
-                        free(p);
-                        return r;
-                }
+        r = strv_push(m, p);
+        if (r < 0) {
+                free(p);
+                return r;
         }
 
         free(value);
