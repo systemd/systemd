@@ -12,7 +12,7 @@ _kernels(){
     read _MACHINE_ID < /etc/machine-id
     _kernel=( /lib/modules/[0-9]* )
     if [[ "$cmd" == "remove" && -n "$_MACHINE_ID" ]]; then
-        _kernel=( /lib/modules/[0-9]* "/boot/$_MACHINE_ID"/[0-9]* )
+        _kernel=( "/boot/$_MACHINE_ID"/[0-9]* )
     fi
     _kernel=( ${_kernel##*/} )
     _describe "installed kernels" _kernel
