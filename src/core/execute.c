@@ -1569,7 +1569,7 @@ int exec_spawn(ExecCommand *command,
                                 }
                         }
 #ifdef HAVE_SELINUX
-                        if (context->selinux_context) {
+                        if (context->selinux_context && use_selinux()) {
                                 err = security_check_context(context->selinux_context);
                                 if (err < 0) {
                                         r = EXIT_SELINUX_CONTEXT;
