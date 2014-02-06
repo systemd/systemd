@@ -615,7 +615,7 @@ int bus_exec_context_set_transient_property(
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid environment block.");
 
                 if (mode != UNIT_CHECK) {
-                        _cleanup_free_ char *joined;
+                        _cleanup_free_ char *joined = NULL;
                         char **e;
 
                         e = strv_env_merge(2, c->environment, l);
