@@ -72,6 +72,7 @@
 #include "fileio.h"
 #include "unit.h"
 #include "async.h"
+#include "selinux-util.h"
 
 #define IDLE_TIMEOUT_USEC (5*USEC_PER_SEC)
 #define IDLE_TIMEOUT2_USEC (1*USEC_PER_SEC)
@@ -1570,13 +1571,18 @@ int exec_spawn(ExecCommand *command,
                         }
 #ifdef HAVE_SELINUX
                         if (context->selinux_context && use_selinux()) {
-                                err = security_check_context(context->selinux_context);
-                                if (err < 0) {
-                                        r = EXIT_SELINUX_CONTEXT;
-                                        goto fail_child;
-                                }
-                                err = setexeccon(context->selinux_context);
-                                if (err < 0) {
+                                bool ignore;
+                                char* c;
+
+                                c = context->selinux_context;
+                                if (c[0] == '-') {
+                                        c++;
+                                        ignore = true;
+                                } else
+                                        ignore = false;
+
+                                err = setexeccon(c);
+                                if (err < 0 && !ignore) {
                                         r = EXIT_SELINUX_CONTEXT;
                                         goto fail_child;
                                 }
