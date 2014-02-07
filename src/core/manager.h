@@ -96,7 +96,14 @@ struct Manager {
 
         sd_event *event;
 
-        Hashmap *watch_pids;  /* pid => Unit object n:1 */
+        /* We use two hash tables here, since the same PID might be
+         * watched by two different units: once the unit that forked
+         * it off, and possibly a different unit to which it was
+         * joined as cgroup member. Since we know that it is either
+         * one or two units for each PID we just use to hashmaps
+         * here. */
+        Hashmap *watch_pids1;  /* pid => Unit object n:1 */
+        Hashmap *watch_pids2;  /* pid => Unit object n:1 */
 
         sd_event_source *run_queue_event_source;
 

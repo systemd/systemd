@@ -447,10 +447,6 @@ int manager_new(SystemdRunningAs running_as, Manager **_m) {
         if (r < 0)
                 goto fail;
 
-        r = hashmap_ensure_allocated(&m->watch_pids, trivial_hash_func, trivial_compare_func);
-        if (r < 0)
-                goto fail;
-
         r = hashmap_ensure_allocated(&m->watch_bus, string_hash_func, string_compare_func);
         if (r < 0)
                 goto fail;
@@ -778,7 +774,8 @@ void manager_free(Manager *m) {
 
         hashmap_free(m->units);
         hashmap_free(m->jobs);
-        hashmap_free(m->watch_pids);
+        hashmap_free(m->watch_pids1);
+        hashmap_free(m->watch_pids2);
         hashmap_free(m->watch_bus);
 
         sd_event_source_unref(m->signal_event_source);
@@ -1319,6 +1316,26 @@ static unsigned manager_dispatch_dbus_queue(Manager *m) {
         return n;
 }
 
+static void manager_invoke_notify_message(Manager *m, Unit *u, pid_t pid, char *buf, size_t n) {
+        _cleanup_strv_free_ char **tags = NULL;
+
+        assert(m);
+        assert(u);
+        assert(buf);
+        assert(n > 0);
+
+        tags = strv_split(buf, "\n\r");
+        if (!tags) {
+                log_oom();
+                return;
+        }
+
+        log_debug_unit(u->id, "Got notification message for unit %s", u->id);
+
+        if (UNIT_VTABLE(u)->notify_message)
+                UNIT_VTABLE(u)->notify_message(u, pid, tags);
+}
+
 static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
         Manager *m = userdata;
         ssize_t n;
@@ -1337,6 +1354,7 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
                         .iov_base = buf,
                         .iov_len = sizeof(buf)-1,
                 };
+                bool found = false;
 
                 union {
                         struct cmsghdr cmsghdr;
@@ -1351,7 +1369,6 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
                 };
                 struct ucred *ucred;
                 Unit *u;
-                _cleanup_strv_free_ char **tags = NULL;
 
                 n = recvmsg(m->notify_fd, &msghdr, MSG_DONTWAIT);
                 if (n <= 0) {
@@ -1374,28 +1391,43 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
 
                 ucred = (struct ucred*) CMSG_DATA(&control.cmsghdr);
 
-                u = hashmap_get(m->watch_pids, LONG_TO_PTR(ucred->pid));
-                if (!u) {
-                        u = manager_get_unit_by_pid(m, ucred->pid);
-                        if (!u) {
-                                log_warning("Cannot find unit for notify message of PID "PID_FMT".", ucred->pid);
-                                continue;
-                        }
-                }
-
                 assert((size_t) n < sizeof(buf));
                 buf[n] = 0;
-                tags = strv_split(buf, "\n\r");
-                if (!tags)
-                        return log_oom();
 
-                log_debug_unit(u->id, "Got notification message for unit %s", u->id);
+                u = manager_get_unit_by_pid(m, ucred->pid);
+                if (u) {
+                        manager_invoke_notify_message(m, u, ucred->pid, buf, n);
+                        found = true;
+                }
 
-                if (UNIT_VTABLE(u)->notify_message)
-                        UNIT_VTABLE(u)->notify_message(u, ucred->pid, tags);
+                u = hashmap_get(m->watch_pids1, LONG_TO_PTR(ucred->pid));
+                if (u) {
+                        manager_invoke_notify_message(m, u, ucred->pid, buf, n);
+                        found = true;
+                }
+
+                u = hashmap_get(m->watch_pids2, LONG_TO_PTR(ucred->pid));
+                if (u) {
+                        manager_invoke_notify_message(m, u, ucred->pid, buf, n);
+                        found = true;
+                }
+
+                if (!found)
+                        log_warning("Cannot find unit for notify message of PID "PID_FMT".", ucred->pid);
         }
 
         return 0;
+}
+
+static void invoke_sigchld_event(Manager *m, Unit *u, siginfo_t *si) {
+        assert(m);
+        assert(u);
+        assert(si);
+
+        log_debug_unit(u->id, "Child "PID_FMT" belongs to %s", si->si_pid, u->id);
+
+        unit_unwatch_pid(u, si->si_pid);
+        UNIT_VTABLE(u)->sigchld_event(u, si->si_pid, si->si_code, si->si_status);
 }
 
 static int manager_dispatch_sigchld(Manager *m) {
@@ -1403,7 +1435,6 @@ static int manager_dispatch_sigchld(Manager *m) {
 
         for (;;) {
                 siginfo_t si = {};
-                Unit *u;
 
                 /* First we call waitd() for a PID and do not reap the
                  * zombie. That way we can still access /proc/$PID for
@@ -1424,15 +1455,30 @@ static int manager_dispatch_sigchld(Manager *m) {
 
                 if (si.si_code == CLD_EXITED || si.si_code == CLD_KILLED || si.si_code == CLD_DUMPED) {
                         _cleanup_free_ char *name = NULL;
+                        Unit *u;
 
                         get_process_comm(si.si_pid, &name);
-                        log_debug("Got SIGCHLD for process "PID_FMT" (%s)", si.si_pid, strna(name));
-                }
 
-                /* And now figure out the unit this belongs to */
-                u = hashmap_get(m->watch_pids, LONG_TO_PTR(si.si_pid));
-                if (!u)
+                        log_debug("Child "PID_FMT" (%s) died (code=%s, status=%i/%s)",
+                                  si.si_pid, strna(name),
+                                  sigchld_code_to_string(si.si_code),
+                                  si.si_status,
+                                  strna(si.si_code == CLD_EXITED
+                                        ? exit_status_to_string(si.si_status, EXIT_STATUS_FULL)
+                                        : signal_to_string(si.si_status)));
+
+                        /* And now figure out the unit this belongs
+                         * to, it might be multiple... */
                         u = manager_get_unit_by_pid(m, si.si_pid);
+                        if (u)
+                                invoke_sigchld_event(m, u, &si);
+                        u = hashmap_get(m->watch_pids1, LONG_TO_PTR(si.si_pid));
+                        if (u)
+                                invoke_sigchld_event(m, u, &si);
+                        u = hashmap_get(m->watch_pids2, LONG_TO_PTR(si.si_pid));
+                        if (u)
+                                invoke_sigchld_event(m, u, &si);
+                }
 
                 /* And now, we actually reap the zombie. */
                 if (waitid(P_PID, si.si_pid, &si, WEXITED) < 0) {
@@ -1441,26 +1487,6 @@ static int manager_dispatch_sigchld(Manager *m) {
 
                         return -errno;
                 }
-
-                if (si.si_code != CLD_EXITED && si.si_code != CLD_KILLED && si.si_code != CLD_DUMPED)
-                        continue;
-
-                log_debug("Child %lu died (code=%s, status=%i/%s)",
-                          (long unsigned) si.si_pid,
-                          sigchld_code_to_string(si.si_code),
-                          si.si_status,
-                          strna(si.si_code == CLD_EXITED
-                                ? exit_status_to_string(si.si_status, EXIT_STATUS_FULL)
-                                : signal_to_string(si.si_status)));
-
-                if (!u)
-                        continue;
-
-                log_debug_unit(u->id,
-                               "Child %lu belongs to %s", (long unsigned) si.si_pid, u->id);
-
-                unit_unwatch_pid(u, si.si_pid);
-                UNIT_VTABLE(u)->sigchld_event(u, si.si_pid, si.si_code, si.si_status);
         }
 
         return 0;
