@@ -518,14 +518,6 @@ int manager_start_scope(
                         return r;
         }
 
-        /* cgroup empty notification is not available in containers
-         * currently. To make this less problematic, let's shorten the
-         * stop timeout for machines, so that we don't wait
-         * forever. */
-        r = sd_bus_message_append(m, "(sv)", "TimeoutStopUSec", "t", 500 * USEC_PER_MSEC);
-        if (r < 0)
-                return r;
-
         r = sd_bus_message_append(m, "(sv)", "PIDs", "au", 1, pid);
         if (r < 0)
                 return r;
