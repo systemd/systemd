@@ -54,19 +54,19 @@ args="$args \
 fi
 
 if [ "x$1" = "xc" ]; then
-        ./configure CFLAGS='-g -O0 -ftrapv' --enable-kdbus $args
+        ./configure CFLAGS='-g -O0 -ftrapv' --enable-compat-libs --enable-kdbus $args
         make clean
 elif [ "x$1" = "xg" ]; then
-        ./configure CFLAGS='-g -Og -ftrapv' --enable-kdbus $args
+        ./configure CFLAGS='-g -Og -ftrapv' --enable-compat-libs --enable-kdbus $args
         make clean
 elif [ "x$1" = "xa" ]; then
-        ./configure CFLAGS='-g -O0 -Wsuggest-attribute=pure -Wsuggest-attribute=const -ftrapv' --enable-kdbus $args
+        ./configure CFLAGS='-g -O0 -Wsuggest-attribute=pure -Wsuggest-attribute=const -ftrapv' --enable-compat-libs --enable-kdbus $args
         make clean
 elif [ "x$1" = "xl" ]; then
-        ./configure CC=clang CFLAGS='-g -O0 -ftrapv -Wno-cast-align -Wno-gnu' --enable-kdbus $args
+        ./configure CC=clang CFLAGS='-g -O0 -ftrapv -Wno-cast-align -Wno-gnu' --enable-compat-libs --enable-kdbus $args
         make clean
 elif [ "x$1" = "xs" ]; then
-        scan-build ./configure CFLAGS='-g -O0 -ftrapv' --enable-kdbus $args
+        scan-build ./configure CFLAGS='-g -O0 -ftrapv' --enable-compat-libs --enable-kdbus $args
         scan-build make
 else
         echo
@@ -74,6 +74,6 @@ else
         echo "Initialized build system. For a common configuration please run:"
         echo "----------------------------------------------------------------"
         echo
-        echo "./configure CFLAGS='-g -O0 -ftrapv' --enable-kdbus $args"
+        echo "./configure CFLAGS='-g -O0 -ftrapv' --enable-compat-libs --enable-kdbus $args"
         echo
 fi
