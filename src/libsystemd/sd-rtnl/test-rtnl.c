@@ -57,6 +57,78 @@ static void test_link_configure(sd_rtnl *rtnl, int ifindex) {
         assert(mtu == *(unsigned int *) data);
 }
 
+
+static void test_link_get(sd_rtnl *rtnl, int ifindex) {
+        sd_rtnl_message *m;
+        sd_rtnl_message *r;
+        unsigned int mtu = 0;
+        unsigned int *mtu_reply;
+        void *data;
+        uint16_t type;
+
+        assert(sd_rtnl_message_link_new(RTM_GETLINK, ifindex, &m) >= 0);
+        assert(m);
+
+        /* u8 test cases  */
+        assert(sd_rtnl_message_append_u8(m, IFLA_CARRIER, 0) >= 0);
+        assert(sd_rtnl_message_append_u8(m, IFLA_OPERSTATE, 0) >= 0);
+        assert(sd_rtnl_message_append_u8(m, IFLA_LINKMODE, 0) >= 0);
+
+        /* u32 test cases */
+        assert(sd_rtnl_message_append_u32(m, IFLA_MTU, mtu) >= 0);
+        assert(sd_rtnl_message_append_u32(m, IFLA_GROUP, 0) >= 0);
+        assert(sd_rtnl_message_append_u32(m, IFLA_TXQLEN, 0) >= 0);
+        assert(sd_rtnl_message_append_u32(m, IFLA_NUM_TX_QUEUES, 0) >= 0);
+        assert(sd_rtnl_message_append_u32(m, IFLA_NUM_RX_QUEUES, 0) >= 0);
+
+        assert(sd_rtnl_call(rtnl, m, -1, &r) == 1);
+
+        /* u8 read back */
+        assert(sd_rtnl_message_read(m, &type, &data) == 1);
+        assert(type == IFLA_CARRIER);
+
+        assert(sd_rtnl_message_read(m, &type, &data) == 1);
+        assert(type == IFLA_OPERSTATE);
+
+        assert(sd_rtnl_message_read(m, &type, &data) == 1);
+        assert(type == IFLA_LINKMODE);
+
+        /* u32 read back */
+        assert(sd_rtnl_message_read(m, &type, (void **) &mtu_reply) == 1);
+        assert(type == IFLA_MTU);
+        assert(*mtu_reply == 0);
+
+        assert(sd_rtnl_message_read(m, &type, &data) == 1);
+        assert(type == IFLA_GROUP);
+
+        assert(sd_rtnl_message_read(m, &type, &data) == 1);
+        assert(type == IFLA_TXQLEN);
+
+        assert(sd_rtnl_message_read(m, &type, &data) == 1);
+        assert(type == IFLA_NUM_TX_QUEUES);
+
+        assert(sd_rtnl_message_read(m, &type, &data) == 1);
+        assert(type == IFLA_NUM_RX_QUEUES);
+
+        while (sd_rtnl_message_read(r, &type, &data) > 0) {
+                switch (type) {
+//                        case IFLA_MTU:
+//                                assert(*(unsigned int *) data == 65536);
+//                                break;
+//                        case IFLA_QDISC:
+//                                assert(streq((char *) data, "noqueue"));
+//                                break;
+                        case IFLA_IFNAME:
+                                assert(streq((char *) data, "lo"));
+                                break;
+                }
+        }
+
+        assert(sd_rtnl_flush(rtnl) >= 0);
+        assert((m = sd_rtnl_message_unref(m)) == NULL);
+
+}
+
 static void test_route(void) {
         _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *req;
         struct in_addr addr;
@@ -270,8 +342,6 @@ int main(void) {
         void *data;
         int if_loopback;
         uint16_t type;
-        unsigned int mtu = 0;
-        unsigned int *mtu_reply;
 
         test_match();
 
@@ -314,35 +384,9 @@ int main(void) {
         assert((m = sd_rtnl_message_unref(m)) == NULL);
         assert((r = sd_rtnl_message_unref(r)) == NULL);
 
-        assert(sd_rtnl_message_link_new(RTM_GETLINK, if_loopback, &m) >= 0);
-        assert(m);
-
-        assert(sd_rtnl_message_append_u32(m, IFLA_MTU, mtu) >= 0);
-        assert(sd_rtnl_message_read(m, &type, (void **) &mtu_reply) == -EPERM);
-        assert(sd_rtnl_call(rtnl, m, -1, &r) == 1);
-        assert(sd_rtnl_message_read(m, &type, (void **) &mtu_reply) == 1);
-
-        assert(type == IFLA_MTU);
-        assert(*mtu_reply == 0);
-
-        assert(sd_rtnl_message_read(m, &type, &data) == 0);
-
-        while (sd_rtnl_message_read(r, &type, &data) > 0) {
-                switch (type) {
-//                        case IFLA_MTU:
-//                                assert(*(unsigned int *) data == 65536);
-//                                break;
-//                        case IFLA_QDISC:
-//                                assert(streq((char *) data, "noqueue"));
-//                                break;
-                        case IFLA_IFNAME:
-                                assert(streq((char *) data, "lo"));
-                                break;
-                }
-        }
+        test_link_get(rtnl, if_loopback);
 
         assert(sd_rtnl_flush(rtnl) >= 0);
-
         assert((m = sd_rtnl_message_unref(m)) == NULL);
         assert((r = sd_rtnl_message_unref(r)) == NULL);
         assert((rtnl = sd_rtnl_unref(rtnl)) == NULL);
