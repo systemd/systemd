@@ -250,7 +250,7 @@
 
                         <varlistentry>
                                 <term><option>-L</option></term>
-                                <term><option>--file-label=</option></term>
+                                <term><option>--apifs-label=</option></term>
 
                                 <listitem><para>Sets the mandatory
                                 access control (MAC/SELinux) file

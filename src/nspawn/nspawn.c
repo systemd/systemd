@@ -81,7 +81,7 @@ static char *arg_user = NULL;
 static sd_id128_t arg_uuid = {};
 static char *arg_machine = NULL;
 static char *arg_process_label = NULL;
-static char *arg_file_label = NULL;
+static char *arg_apifs_label = NULL;
 static const char *arg_slice = NULL;
 static bool arg_private_network = false;
 static bool arg_read_only = false;
@@ -131,7 +131,7 @@ static int help(void) {
                "     --uuid=UUID            Set a specific machine UUID for the container\n"
                "  -M --machine=NAME         Set the machine name for the container\n"
                "  -S --slice=SLICE          Place the container in the specified slice\n"
-               "  -L --file-label=LABEL     Set the MAC file label to be used by tmpfs file\n"
+               "  -L --apifs-label=LABEL    Set the MAC file label to be used by API/tmpfs file\n"
                "                            systems in the container\n"
                "  -Z --process-label=LABEL  Set the MAC label to be used by processes in\n"
                "                            the container\n"
@@ -185,7 +185,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "slice",           required_argument, NULL, 'S'                 },
                 { "setenv",          required_argument, NULL, ARG_SETENV          },
                 { "process-label",   required_argument, NULL, 'Z'                 },
-                { "file-label",      required_argument, NULL, 'L'                 },
+                { "apifs-label",     required_argument, NULL, 'L'                 },
                 { "quiet",           no_argument,       NULL, 'q'                 },
                 {}
         };
@@ -262,7 +262,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'L':
-                        arg_file_label = optarg;
+                        arg_apifs_label = optarg;
                         break;
 
                 case 'Z':
@@ -449,8 +449,8 @@ static int mount_all(const char *dest) {
                 mkdir_p(where, 0755);
 
 #ifdef HAVE_SELINUX
-                if (arg_file_label && (streq_ptr(mount_table[k].what, "tmpfs") || streq_ptr(mount_table[k].what, "devpts"))) {
-                        options = strjoin(mount_table[k].options, ",context=\"", arg_file_label, "\"", NULL);
+                if (arg_apifs_label && (streq_ptr(mount_table[k].what, "tmpfs") || streq_ptr(mount_table[k].what, "devpts"))) {
+                        options = strjoin(mount_table[k].options, ",context=\"", arg_apifs_label, "\"", NULL);
                         if (!options)
                                 return log_oom();
 
