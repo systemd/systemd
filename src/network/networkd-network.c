@@ -217,7 +217,7 @@ int config_parse_bridge(const char *unit,
                 void *data,
                 void *userdata) {
         Network *network = userdata;
-        Netdev *netdev;
+        NetDev *netdev;
         int r;
 
         assert(filename);
@@ -234,7 +234,7 @@ int config_parse_bridge(const char *unit,
 
         if (netdev->kind != NETDEV_KIND_BRIDGE) {
                 log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Netdev is not a bridge, ignoring assignment: %s", rvalue);
+                           "NetDev is not a bridge, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
@@ -254,7 +254,7 @@ int config_parse_bond(const char *unit,
                 void *data,
                 void *userdata) {
         Network *network = userdata;
-        Netdev *netdev;
+        NetDev *netdev;
         int r;
 
         assert(filename);
@@ -271,7 +271,7 @@ int config_parse_bond(const char *unit,
 
         if (netdev->kind != NETDEV_KIND_BOND) {
                 log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Netdev is not a bond, ignoring assignment: %s", rvalue);
+                           "NetDev is not a bond, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
@@ -291,7 +291,7 @@ int config_parse_vlan(const char *unit,
                 void *data,
                 void *userdata) {
         Network *network = userdata;
-        Netdev *netdev;
+        NetDev *netdev;
         int r;
 
         assert(filename);
@@ -308,7 +308,7 @@ int config_parse_vlan(const char *unit,
 
         if (netdev->kind != NETDEV_KIND_VLAN) {
                 log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Netdev is not a VLAN, ignoring assignment: %s", rvalue);
+                           "NetDev is not a VLAN, ignoring assignment: %s", rvalue);
                 return 0;
         }
 

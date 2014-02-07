@@ -32,10 +32,10 @@ static const char* const netdev_kind_table[] = {
         [NETDEV_KIND_VLAN] = "vlan",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(netdev_kind, NetdevKind);
-DEFINE_CONFIG_PARSE_ENUM(config_parse_netdev_kind, netdev_kind, NetdevKind, "Failed to parse netdev kind");
+DEFINE_STRING_TABLE_LOOKUP(netdev_kind, NetDevKind);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_netdev_kind, netdev_kind, NetDevKind, "Failed to parse netdev kind");
 
-void netdev_free(Netdev *netdev) {
+void netdev_free(NetDev *netdev) {
         netdev_enslave_callback *callback;
 
         if (!netdev)
@@ -57,8 +57,8 @@ void netdev_free(Netdev *netdev) {
         free(netdev);
 }
 
-int netdev_get(Manager *manager, const char *name, Netdev **ret) {
-        Netdev *netdev;
+int netdev_get(Manager *manager, const char *name, NetDev **ret) {
+        NetDev *netdev;
 
         assert(manager);
         assert(name);
@@ -75,13 +75,13 @@ int netdev_get(Manager *manager, const char *name, Netdev **ret) {
         return 0;
 }
 
-static int netdev_enter_failed(Netdev *netdev) {
+static int netdev_enter_failed(NetDev *netdev) {
         netdev->state = NETDEV_STATE_FAILED;
 
         return 0;
 }
 
-static int netdev_enslave_ready(Netdev *netdev, Link* link, sd_rtnl_message_handler_t callback) {
+static int netdev_enslave_ready(NetDev *netdev, Link* link, sd_rtnl_message_handler_t callback) {
         _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *req = NULL;
         int r;
 
@@ -119,7 +119,7 @@ static int netdev_enslave_ready(Netdev *netdev, Link* link, sd_rtnl_message_hand
         return 0;
 }
 
-static int netdev_enter_ready(Netdev *netdev) {
+static int netdev_enter_ready(NetDev *netdev) {
         netdev_enslave_callback *callback;
 
         assert(netdev);
@@ -139,7 +139,7 @@ static int netdev_enter_ready(Netdev *netdev) {
 }
 
 static int netdev_create_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
-        Netdev *netdev = userdata;
+        NetDev *netdev = userdata;
         int r;
 
         assert(netdev->state != _NETDEV_STATE_INVALID);
@@ -155,7 +155,7 @@ static int netdev_create_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userda
         return 1;
 }
 
-static int netdev_create(Netdev *netdev, Link *link, sd_rtnl_message_handler_t callback) {
+static int netdev_create(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callback) {
         _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *req = NULL;
         const char *kind;
         int r;
@@ -265,7 +265,7 @@ static int netdev_create(Netdev *netdev, Link *link, sd_rtnl_message_handler_t c
         return 0;
 }
 
-int netdev_enslave(Netdev *netdev, Link *link, sd_rtnl_message_handler_t callback) {
+int netdev_enslave(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callback) {
         if (netdev->kind == NETDEV_KIND_VLAN)
                 return netdev_create(netdev, link, callback);
 
@@ -288,7 +288,7 @@ int netdev_enslave(Netdev *netdev, Link *link, sd_rtnl_message_handler_t callbac
         return 0;
 }
 
-int netdev_set_ifindex(Netdev *netdev, int ifindex) {
+int netdev_set_ifindex(NetDev *netdev, int ifindex) {
         assert(netdev);
         assert(ifindex > 0);
 
@@ -307,7 +307,7 @@ int netdev_set_ifindex(Netdev *netdev, int ifindex) {
 }
 
 static int netdev_load_one(Manager *manager, const char *filename) {
-        _cleanup_netdev_free_ Netdev *netdev = NULL;
+        _cleanup_netdev_free_ NetDev *netdev = NULL;
         _cleanup_fclose_ FILE *file = NULL;
         int r;
 
@@ -322,7 +322,7 @@ static int netdev_load_one(Manager *manager, const char *filename) {
                         return errno;
         }
 
-        netdev = new0(Netdev, 1);
+        netdev = new0(NetDev, 1);
         if (!netdev)
                 return log_oom();
 
@@ -331,7 +331,7 @@ static int netdev_load_one(Manager *manager, const char *filename) {
         netdev->kind = _NETDEV_KIND_INVALID;
         netdev->vlanid = -1;
 
-        r = config_parse(NULL, filename, file, "Netdev\0VLAN\0", config_item_perf_lookup,
+        r = config_parse(NULL, filename, file, "NetDev\0VLAN\0", config_item_perf_lookup,
                         (void*) network_gperf_lookup, false, false, netdev);
         if (r < 0) {
                 log_warning("Could not parse config file %s: %s", filename, strerror(-r));
@@ -339,12 +339,12 @@ static int netdev_load_one(Manager *manager, const char *filename) {
         }
 
         if (netdev->kind == _NETDEV_KIND_INVALID) {
-                log_warning("Netdev without Kind configured in %s. Ignoring", filename);
+                log_warning("NetDev without Kind configured in %s. Ignoring", filename);
                 return 0;
         }
 
         if (!netdev->name) {
-                log_warning("Netdev without Name configured in %s. Ignoring", filename);
+                log_warning("NetDev without Name configured in %s. Ignoring", filename);
                 return 0;
         }
 
@@ -375,7 +375,7 @@ static int netdev_load_one(Manager *manager, const char *filename) {
 }
 
 int netdev_load(Manager *manager) {
-        Netdev *netdev;
+        NetDev *netdev;
         char **files, **f;
         int r;
 

@@ -34,7 +34,7 @@
 #include "hashmap.h"
 #include "list.h"
 
-typedef struct Netdev Netdev;
+typedef struct NetDev NetDev;
 typedef struct Network Network;
 typedef struct Link Link;
 typedef struct Address Address;
@@ -50,35 +50,35 @@ struct netdev_enslave_callback {
         LIST_FIELDS(netdev_enslave_callback, callbacks);
 };
 
-typedef enum NetdevKind {
+typedef enum NetDevKind {
         NETDEV_KIND_BRIDGE,
         NETDEV_KIND_BOND,
         NETDEV_KIND_VLAN,
         _NETDEV_KIND_MAX,
         _NETDEV_KIND_INVALID = -1
-} NetdevKind;
+} NetDevKind;
 
-typedef enum NetdevState {
+typedef enum NetDevState {
         NETDEV_STATE_FAILED,
         NETDEV_STATE_CREATING,
         NETDEV_STATE_READY,
         _NETDEV_STATE_MAX,
         _NETDEV_STATE_INVALID = -1,
-} NetdevState;
+} NetDevState;
 
-struct Netdev {
+struct NetDev {
         Manager *manager;
 
         char *filename;
 
         char *description;
         char *name;
-        NetdevKind kind;
+        NetDevKind kind;
 
         int vlanid;
 
         int ifindex;
-        NetdevState state;
+        NetDevState state;
 
         LIST_HEAD(netdev_enslave_callback, callbacks);
 };
@@ -95,9 +95,9 @@ struct Network {
         char *match_name;
 
         char *description;
-        Netdev *bridge;
-        Netdev *bond;
-        Netdev *vlan;
+        NetDev *bridge;
+        NetDev *bond;
+        NetDev *vlan;
         bool dhcp;
         bool dhcp_dns;
         bool dhcp_mtu;
@@ -221,21 +221,21 @@ int manager_update_resolv_conf(Manager *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 #define _cleanup_manager_free_ _cleanup_(manager_freep)
 
-/* Netdev */
+/* NetDev */
 
 int netdev_load(Manager *manager);
 
-void netdev_free(Netdev *netdev);
+void netdev_free(NetDev *netdev);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(Netdev*, netdev_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(NetDev*, netdev_free);
 #define _cleanup_netdev_free_ _cleanup_(netdev_freep)
 
-int netdev_get(Manager *manager, const char *name, Netdev **ret);
-int netdev_set_ifindex(Netdev *netdev, int ifindex);
-int netdev_enslave(Netdev *netdev, Link *link, sd_rtnl_message_handler_t cb);
+int netdev_get(Manager *manager, const char *name, NetDev **ret);
+int netdev_set_ifindex(NetDev *netdev, int ifindex);
+int netdev_enslave(NetDev *netdev, Link *link, sd_rtnl_message_handler_t cb);
 
-const char *netdev_kind_to_string(NetdevKind d) _const_;
-NetdevKind netdev_kind_from_string(const char *d) _pure_;
+const char *netdev_kind_to_string(NetDevKind d) _const_;
+NetDevKind netdev_kind_from_string(const char *d) _pure_;
 
 int config_parse_netdev_kind(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 

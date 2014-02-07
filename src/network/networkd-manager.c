@@ -85,7 +85,7 @@ int manager_new(Manager **ret) {
 
 void manager_free(Manager *m) {
         Network *network;
-        Netdev *netdev;
+        NetDev *netdev;
         Link *link;
 
         udev_monitor_unref(m->udev_monitor);
@@ -259,7 +259,7 @@ static int manager_rtnl_process_link(sd_rtnl *rtnl, sd_rtnl_message *message, vo
         if (r < 0)
                 log_debug("received RTM_NEWLINK message without valid IFLA_IFNAME");
         else {
-                Netdev *netdev;
+                NetDev *netdev;
 
                 r = netdev_get(m, name, &netdev);
                 if (r >= 0) {

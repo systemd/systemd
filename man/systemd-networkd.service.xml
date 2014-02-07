@@ -87,11 +87,11 @@
                 disables the configuration file entirely.</para>
 
                 <refsect2><title>Virtual Network Devices</title>
-                        <para>Netdev files must have the extension <filename>.netdev</filename>;
-                        other extensions are ignored. Virtual network devices are created as soon
-                        as networkd is started.</para>
+                        <para>Virtual Network Device files must have the extension
+                        <filename>.netdev</filename>; other extensions are ignored. Virtual
+                        network devices are created as soon as networkd is started.</para>
 
-                        <para>The <literal>[Netdev]</literal> section accepts the following
+                        <para>The <literal>[NetDev]</literal> section accepts the following
                         keys:</para>
 
                         <variablelist class='network-directives'>
