@@ -511,8 +511,6 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
         struct in_addr netmask;
         struct in_addr gateway;
         unsigned prefixlen;
-        _cleanup_address_free_ Address *addr = NULL;
-        _cleanup_route_free_ Route *rt = NULL;
         struct in_addr *nameservers;
         size_t nameservers_size;
         int r;

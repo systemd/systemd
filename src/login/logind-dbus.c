@@ -2362,7 +2362,6 @@ int manager_stop_unit(Manager *manager, const char *unit, sd_bus_error *error, c
 }
 
 int manager_abandon_scope(Manager *manager, const char *scope, sd_bus_error *error) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_free_ char *path = NULL;
         int r;
 
