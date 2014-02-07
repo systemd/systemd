@@ -2384,7 +2384,8 @@ int manager_abandon_scope(Manager *manager, const char *scope, sd_bus_error *err
                         NULL);
         if (r < 0) {
                 if (sd_bus_error_has_name(error, BUS_ERROR_NO_SUCH_UNIT) ||
-                    sd_bus_error_has_name(error, BUS_ERROR_LOAD_FAILED)) {
+                    sd_bus_error_has_name(error, BUS_ERROR_LOAD_FAILED) ||
+                    sd_bus_error_has_name(error, BUS_ERROR_SCOPE_NOT_RUNNING)) {
                         sd_bus_error_free(error);
                         return 0;
                 }

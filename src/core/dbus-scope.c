@@ -27,15 +27,24 @@
 #include "dbus-scope.h"
 #include "bus-util.h"
 #include "bus-internal.h"
+#include "bus-errors.h"
 
 static int bus_scope_abandon(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Scope *s = userdata;
+        int r;
 
         assert(bus);
         assert(message);
         assert(s);
 
-        return scope_abandon(s);
+        r = scope_abandon(s);
+        if (sd_bus_error_is_set(error))
+                return r;
+
+        if (r == -ESTALE)
+                return sd_bus_error_setf(error, BUS_ERROR_SCOPE_NOT_RUNNING, "Scope %s is not running, cannot abandon.", UNIT(s)->id);
+
+        return sd_bus_reply_method_return(message, NULL);
 }
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_result, scope_result, ScopeResult);

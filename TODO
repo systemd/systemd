@@ -36,6 +36,8 @@ External:
 
 Features:
 
+* nspawn: rename --file-label to --apifs-label
+
 * hookup nspawn and PrivateNetwork=yes with "ip netns"
 
 * socket units: support creating sockets in different namespace,
