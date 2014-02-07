@@ -162,7 +162,7 @@ int manager_send_changed(Manager *manager, const char *property, ...) _sentinel_
 
 int manager_dispatch_delayed(Manager *manager);
 
-int manager_start_scope(Manager *manager, const char *scope, pid_t pid, const char *slice, const char *description, const char *after, sd_bus_error *error, char **job);
+int manager_start_scope(Manager *manager, const char *scope, pid_t pid, const char *slice, const char *description, const char *after, const char *after2, sd_bus_error *error, char **job);
 int manager_start_unit(Manager *manager, const char *unit, sd_bus_error *error, char **job);
 int manager_stop_unit(Manager *manager, const char *unit, sd_bus_error *error, char **job);
 int manager_abandon_scope(Manager *manager, const char *scope, sd_bus_error *error);
