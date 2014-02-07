@@ -3103,7 +3103,15 @@ int unit_kill_context(
                                 log_warning_unit(u->id, "Failed to kill control group: %s", strerror(-r));
                 } else if (r > 0) {
 
-                        wait_for_exit = true;
+                        /* FIXME: For now, we will not wait for the
+                         * cgroup members to die, simply because
+                         * cgroup notification is unreliable. It
+                         * doesn't work at all in containers, and
+                         * outside of containers it can be confused
+                         * easily by leaving directories in the
+                         * cgroup. */
+
+                        /* wait_for_exit = true; */
 
                         if (c->send_sighup && !sigkill) {
                                 set_free(pid_set);
