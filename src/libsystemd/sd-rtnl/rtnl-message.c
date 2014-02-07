@@ -507,6 +507,10 @@ int sd_rtnl_message_append_u32(sd_rtnl_message *m, unsigned short type, uint32_t
                                 case IFLA_LINK:
                                 case IFLA_GROUP:
                                 case IFLA_TXQLEN:
+                                case IFLA_WEIGHT:
+                                case IFLA_NET_NS_FD:
+                                case IFLA_NET_NS_PID:
+                                case IFLA_PROMISCUITY:
                                 case IFLA_NUM_TX_QUEUES:
                                 case IFLA_NUM_RX_QUEUES:
                                         break;
@@ -522,6 +526,7 @@ int sd_rtnl_message_append_u32(sd_rtnl_message *m, unsigned short type, uint32_t
                                 case RTA_PRIORITY:
                                 case RTA_IIF:
                                 case RTA_OIF:
+                                case RTA_MARK:
                                         break;
                                 default:
                                         return -ENOTSUP;
