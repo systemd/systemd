@@ -1955,7 +1955,7 @@ void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
 
 void manager_send_unit_plymouth(Manager *m, Unit *u) {
         union sockaddr_union sa = {
-                .sa.sa_family = AF_UNIX,
+                .un.sun_family = AF_UNIX,
                 .un.sun_path = "\0/org/freedesktop/plymouthd",
         };
 
