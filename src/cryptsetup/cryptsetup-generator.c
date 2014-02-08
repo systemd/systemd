@@ -130,11 +130,21 @@ static int create_disk(
                     streq(password, "/dev/random") ||
                     streq(password, "/dev/hw_random"))
                         fputs("After=systemd-random-seed.service\n", f);
-                else if (!streq(password, "-") &&
-                         !streq(password, "none"))
-                        fprintf(f,
-                                "RequiresMountsFor=%s\n",
-                                password);
+
+                else if (!streq(password, "-") && !streq(password, "none")) {
+                        _cleanup_free_ char *uu = fstab_node_to_udev_node(password);
+                        if (uu == NULL)
+                                return log_oom();
+
+                        if (is_device_path(uu)) {
+                                _cleanup_free_ char *dd = unit_name_from_path(uu, ".device");
+                                if (dd == NULL)
+                                        return log_oom();
+
+                                fprintf(f, "After=%1$s\nRequires=%1$s\n", dd);
+                        } else
+                                fprintf(f, "RequiresMountsFor=%s\n", password);
+                }
         }
 
         if (is_device_path(u))
