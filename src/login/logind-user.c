@@ -648,9 +648,12 @@ UserState user_get_state(User *u) {
                 bool all_closing = true;
 
                 LIST_FOREACH(sessions_by_user, i, u->sessions) {
-                        if (session_is_active(i))
+                        SessionState state;
+
+                        state = session_get_state(i);
+                        if (state == SESSION_ACTIVE)
                                 return USER_ACTIVE;
-                        if (session_get_state(i) != SESSION_CLOSING)
+                        if (state != SESSION_CLOSING)
                                 all_closing = false;
                 }
 
