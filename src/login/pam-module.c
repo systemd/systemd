@@ -374,7 +374,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                            "uid=%u pid=%u service=%s type=%s class=%s desktop=%s seat=%s vtnr=%u tty=%s display=%s remote=%s remote_user=%s remote_host=%s",
                            pw->pw_uid, getpid(),
                            strempty(service),
-                           type, class, desktop,
+                           type, class, strempty(desktop),
                            strempty(seat), vtnr, strempty(tty), strempty(display),
                            yes_no(remote), strempty(remote_user), strempty(remote_host));
 
