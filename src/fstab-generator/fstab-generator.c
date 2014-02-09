@@ -176,7 +176,7 @@ static int add_fsck(FILE *f, const char *what, const char *where, const char *ty
 
                 lnk = strappenda(arg_dest, "/" SPECIAL_LOCAL_FS_TARGET ".wants/systemd-fsck-root.service");
                 mkdir_parents_label(lnk, 0755);
-                if (symlink("systemd-fsck-root.service", lnk) < 0) {
+                if (symlink(SYSTEM_DATA_UNIT_PATH "/systemd-fsck-root.service", lnk) < 0) {
                         log_error("Failed to create symlink %s: %m", lnk);
                         return -errno;
                 }
