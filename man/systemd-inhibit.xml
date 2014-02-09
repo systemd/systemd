@@ -158,7 +158,7 @@
                                 time elapses, the lock is ignored and
                                 the operation executed. The time limit
                                 may be specified in
-                                <citerefentry><refentrytitle>systemd-logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>. Note
+                                <citerefentry><refentrytitle>logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>. Note
                                 that <literal>delay</literal> is only
                                 available for <literal>sleep</literal>
                                 and
