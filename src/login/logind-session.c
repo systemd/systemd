@@ -565,7 +565,7 @@ int session_start(Session *s) {
         return 0;
 }
 
-static int session_stop_scope(Session *s) {
+static int session_stop_scope(Session *s, bool force) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         char *job;
         int r;
@@ -575,7 +575,7 @@ static int session_stop_scope(Session *s) {
         if (!s->scope)
                 return 0;
 
-        if (manager_shall_kill(s->manager, s->user->name)) {
+        if (force || manager_shall_kill(s->manager, s->user->name)) {
                 r = manager_stop_unit(s->manager, s->scope, &error, &job);
                 if (r < 0) {
                         log_error("Failed to stop session scope: %s", bus_error_message(&error, r));
@@ -595,7 +595,7 @@ static int session_stop_scope(Session *s) {
         return 0;
 }
 
-int session_stop(Session *s) {
+int session_stop(Session *s, bool force) {
         int r;
 
         assert(s);
@@ -609,7 +609,7 @@ int session_stop(Session *s) {
         session_remove_fifo(s);
 
         /* Kill cgroup */
-        r = session_stop_scope(s);
+        r = session_stop_scope(s, force);
 
         s->stopping = true;
 
@@ -672,7 +672,7 @@ static int release_timeout_callback(sd_event_source *es, uint64_t usec, void *us
         assert(es);
         assert(s);
 
-        session_stop(s);
+        session_stop(s, false);
         return 0;
 }
 
@@ -812,7 +812,7 @@ static int session_dispatch_fifo(sd_event_source *es, int fd, uint32_t revents, 
         /* EOF on the FIFO means the session died abnormally. */
 
         session_remove_fifo(s);
-        session_stop(s);
+        session_stop(s, false);
 
         return 1;
 }

@@ -188,7 +188,7 @@ static int method_terminate(sd_bus *bus, sd_bus_message *message, void *userdata
         assert(message);
         assert(s);
 
-        r = session_stop(s);
+        r = session_stop(s, true);
         if (r < 0)
                 return r;
 

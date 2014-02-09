@@ -494,13 +494,13 @@ static int user_remove_runtime_path(User *u) {
         return r;
 }
 
-int user_stop(User *u) {
+int user_stop(User *u, bool force) {
         Session *s;
         int r = 0, k;
         assert(u);
 
         LIST_FOREACH(sessions_by_user, s, u->sessions) {
-                k = session_stop(s);
+                k = session_stop(s, force);
                 if (k < 0)
                         r = k;
         }

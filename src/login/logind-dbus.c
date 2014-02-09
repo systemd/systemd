@@ -939,7 +939,7 @@ static int method_terminate_session(sd_bus *bus, sd_bus_message *message, void *
         if (!session)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_SESSION, "No session '%s' known", name);
 
-        r = session_stop(session);
+        r = session_stop(session, true);
         if (r < 0)
                 return r;
 
@@ -964,7 +964,7 @@ static int method_terminate_user(sd_bus *bus, sd_bus_message *message, void *use
         if (!user)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_USER, "No user '%lu' known or logged in", (unsigned long) uid);
 
-        r = user_stop(user);
+        r = user_stop(user, true);
         if (r < 0)
                 return r;
 
@@ -989,7 +989,7 @@ static int method_terminate_seat(sd_bus *bus, sd_bus_message *message, void *use
         if (!seat)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_SEAT, "No seat '%s' known", name);
 
-        r = seat_stop_sessions(seat);
+        r = seat_stop_sessions(seat, true);
         if (r < 0)
                 return r;
 

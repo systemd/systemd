@@ -418,7 +418,7 @@ int seat_start(Seat *s) {
         return 0;
 }
 
-int seat_stop(Seat *s) {
+int seat_stop(Seat *s, bool force) {
         int r = 0;
 
         assert(s);
@@ -430,7 +430,7 @@ int seat_stop(Seat *s) {
                            "MESSAGE=Removed seat %s.", s->id,
                            NULL);
 
-        seat_stop_sessions(s);
+        seat_stop_sessions(s, force);
 
         unlink(s->state_file);
         seat_add_to_gc_queue(s);
@@ -443,14 +443,14 @@ int seat_stop(Seat *s) {
         return r;
 }
 
-int seat_stop_sessions(Seat *s) {
+int seat_stop_sessions(Seat *s, bool force) {
         Session *session;
         int r = 0, k;
 
         assert(s);
 
         LIST_FOREACH(sessions_by_seat, session, s->sessions) {
-                k = session_stop(session);
+                k = session_stop(session, force);
                 if (k < 0)
                         r = k;
         }

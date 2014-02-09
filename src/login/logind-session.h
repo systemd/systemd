@@ -136,7 +136,7 @@ int session_get_idle_hint(Session *s, dual_timestamp *t);
 void session_set_idle_hint(Session *s, bool b);
 int session_create_fifo(Session *s);
 int session_start(Session *s);
-int session_stop(Session *s);
+int session_stop(Session *s, bool force);
 int session_finalize(Session *s);
 void session_release(Session *s);
 int session_save(Session *s);

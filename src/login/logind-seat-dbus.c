@@ -201,7 +201,7 @@ static int method_terminate(sd_bus *bus, sd_bus_message *message, void *userdata
         assert(message);
         assert(s);
 
-        r = seat_stop_sessions(s);
+        r = seat_stop_sessions(s, true);
         if (r < 0)
                 return r;
 
