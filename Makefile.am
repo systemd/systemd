@@ -610,16 +610,16 @@ XML_GLOB = $(wildcard $(top_srcdir)/man/*.xml $(top_builddir)/man/*.xml)
 NON_INDEX_XML_FILES = $(filter-out man/systemd.index.xml,$(XML_FILES))
 SOURCE_XML_FILES = $(filter-out man/systemd.directives.xml,$(NON_INDEX_XML_FILES))
 
-update-man-list: make-man-rules.py $(XML_GLOB)
+update-man-list: $(top_srcdir)/tools/make-man-rules.py $(XML_GLOB)
 	$(AM_V_GEN)$(PYTHON) $^ > $(top_srcdir)/Makefile-man.tmp
 	$(AM_V_at)mv $(top_srcdir)/Makefile-man.tmp $(top_srcdir)/Makefile-man.am
 	@echo "Makefile-man.am has been regenerated"
 
-man/systemd.index.xml: make-man-index.py $(NON_INDEX_XML_FILES)
+man/systemd.index.xml: $(top_srcdir)/tools/make-man-index.py $(NON_INDEX_XML_FILES)
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_GEN)$(PYTHON) $< $@ $(filter-out $<,$^)
 
-man/systemd.directives.xml: make-directive-index.py $(SOURCE_XML_FILES)
+man/systemd.directives.xml: $(top_srcdir)/tools/make-directive-index.py $(SOURCE_XML_FILES)
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_GEN)$(PYTHON) $< $@ $(filter-out $<,$^)
 
@@ -641,9 +641,10 @@ EXTRA_DIST += \
 	$(HTML_FILES) \
 	$(HTML_ALIAS) \
 	$(man_MANS) \
-	make-man-index.py \
-	make-directive-index.py \
-	xml_helper.py
+	tools/make-man-index.py \
+	tools/make-directive-index.py \
+	tools/make-man-rules.py \
+	tools/xml_helper.py
 
 # ------------------------------------------------------------------------------
 noinst_LTLIBRARIES += \
