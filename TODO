@@ -1,10 +1,4 @@
 Bugfixes:
-* killing nspawn with ]]] results in:
-   machine-f20.scope stopping timed out. Killing.
-   Stopped Container f20.
-   Unit machine-f20.scope entered failed state.
-  and it cannot be started again
-
 * enabling an instance unit creates a pointless link, and
   the unit will be started with getty@getty.service:
     $ systemctl enable getty@.service
