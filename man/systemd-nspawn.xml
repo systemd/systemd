@@ -428,6 +428,27 @@
                                 itself.</para></listitem>
                         </varlistentry>
 
+                        <varlistentry>
+                                <term><option>--share-system</option></term>
+
+                                <listitem><para>Allows the container
+                                to share certain system facilities
+                                with the host. More specifically, this
+                                turns off PID namespacing, UTS
+                                namespacing and IPC namespacing, and
+                                thus allows the guest to see and
+                                interact more easily with processes
+                                outside of the container. Note that
+                                using this option makes it impossible
+                                to start up a full Operating System in the
+                                container, as an init system cannot
+                                operate in this mode. It is only
+                                useful to run specific programs or
+                                applications this way, without
+                                involving an init
+                                system in the container.</para></listitem>
+                        </varlistentry>
+
                 </variablelist>
 
         </refsect1>

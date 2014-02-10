@@ -118,6 +118,7 @@ static char **arg_bind = NULL;
 static char **arg_bind_ro = NULL;
 static char **arg_setenv = NULL;
 static bool arg_quiet = false;
+static bool arg_share_system = false;
 
 static int help(void) {
 
@@ -138,6 +139,7 @@ static int help(void) {
                "                            Set the SELinux security context to be used by\n"
                "                            API/tmpfs file systems in the container\n"
                "     --private-network      Disable network in container\n"
+               "     --share-system         Share system namespaces with host\n"
                "     --read-only            Mount the root directory read-only\n"
                "     --capability=CAP       In addition to the default, retain specified\n"
                "                            capability\n"
@@ -167,6 +169,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_BIND,
                 ARG_BIND_RO,
                 ARG_SETENV,
+                ARG_SHARE_SYSTEM
         };
 
         static const struct option options[] = {
@@ -189,6 +192,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "selinux-context",       required_argument, NULL, 'Z'                 },
                 { "selinux-apifs-context", required_argument, NULL, 'L'                 },
                 { "quiet",                 no_argument,       NULL, 'q'                 },
+                { "share-system",          no_argument,       NULL, ARG_SHARE_SYSTEM    },
                 {}
         };
 
@@ -380,6 +384,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'q':
                         arg_quiet = true;
+                        break;
+
+                case ARG_SHARE_SYSTEM:
+                        arg_share_system = true;
                         break;
 
                 case '?':
@@ -1267,7 +1275,10 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
 
-                pid = syscall(__NR_clone, SIGCHLD|CLONE_NEWIPC|CLONE_NEWNS|CLONE_NEWPID|CLONE_NEWUTS|(arg_private_network ? CLONE_NEWNET : 0), NULL);
+                pid = syscall(__NR_clone,
+                              SIGCHLD|CLONE_NEWNS|
+                              (arg_share_system ? 0 : CLONE_NEWIPC|CLONE_NEWPID|CLONE_NEWUTS)|
+                              (arg_private_network ? CLONE_NEWNET : 0), NULL);
                 if (pid < 0) {
                         if (errno == EINVAL)
                                 log_error("clone() failed, do you have namespace support enabled in your kernel? (You need UTS, IPC, PID and NET namespacing built in): %m");
