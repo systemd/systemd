@@ -61,7 +61,7 @@ static void test_link_configure(sd_rtnl *rtnl, int ifindex) {
 static void test_link_get(sd_rtnl *rtnl, int ifindex) {
         sd_rtnl_message *m;
         sd_rtnl_message *r;
-        unsigned int mtu = 0;
+        unsigned int mtu = 1500;
         unsigned int *mtu_reply;
         void *data;
         uint16_t type;
@@ -96,7 +96,7 @@ static void test_link_get(sd_rtnl *rtnl, int ifindex) {
         /* u32 read back */
         assert(sd_rtnl_message_read(m, &type, (void **) &mtu_reply) == 1);
         assert(type == IFLA_MTU);
-        assert(*mtu_reply == 0);
+        assert(*mtu_reply == mtu);
 
         assert(sd_rtnl_message_read(m, &type, &data) == 1);
         assert(type == IFLA_GROUP);
