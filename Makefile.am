@@ -4936,6 +4936,14 @@ CLEANFILES += \
 check-api-unused: defined undefined exported
 	( cat exported undefined ) | sort -u  | diff -u - defined | grep ^+ | grep -v ^+++ | cut -c2-
 
+.PHONY: check-includes
+check-includes: $(top_srcdir)/tools/check-includes.pl
+	$(AM_V_GEN) find * -name '*.[hcS]' -type f -print | sort -u \
+		| xargs $(top_srcdir)/tools/check-includes.pl
+
+EXTRA_DIST += \
+	$(top_srcdir)/tools/check-includes.pl
+
 # Stupid test that everything purported to be exported really is
 
 define generate-sym-test
