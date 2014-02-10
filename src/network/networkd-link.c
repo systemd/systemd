@@ -562,6 +562,8 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
                          ADDRESS_FMT_VAL(gateway),
                          NULL);
 
+        link->dhcp_lease = lease;
+
         if (link->network->dhcp_dns) {
                 r = sd_dhcp_lease_get_dns(lease, &nameservers, &nameservers_size);
                 if (r >= 0) {
@@ -594,8 +596,6 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
                                           "to '%s'", hostname);
                 }
         }
-
-        link->dhcp_lease = lease;
 
         link_enter_set_addresses(link);
 
