@@ -53,6 +53,10 @@ static int network_load_one(Manager *manager, const char *filename) {
         LIST_HEAD_INIT(network->static_addresses);
         LIST_HEAD_INIT(network->static_routes);
 
+        network->vlans = hashmap_new(uint64_hash_func, uint64_compare_func);
+        if (!network->vlans)
+                return log_oom();
+
         network->addresses_by_section = hashmap_new(uint64_hash_func, uint64_compare_func);
         if (!network->addresses_by_section)
                 return log_oom();
@@ -143,6 +147,8 @@ void network_free(Network *network) {
         free(network->description);
 
         address_free(network->dns);
+
+        hashmap_free(network->vlans);
 
         while ((route = network->static_routes))
                 route_free(route);
@@ -312,7 +318,12 @@ int config_parse_vlan(const char *unit,
                 return 0;
         }
 
-        network->vlan = netdev;
+        r = hashmap_put(network->vlans, &netdev->vlanid, netdev);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Can not add VLAN to network: %s", rvalue);
+                return 0;
+        }
 
         return 0;
 }

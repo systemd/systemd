@@ -23,7 +23,7 @@ Match.Name,                config_parse_ifname,           0,       offsetof(Netw
 Network.Description,       config_parse_string,           0,       offsetof(Network, description)
 Network.Bridge,            config_parse_bridge,           0,       offsetof(Network, bridge)
 Network.Bond,              config_parse_bond,             0,       offsetof(Network, bond)
-Network.VLAN,              config_parse_vlan,             0,       offsetof(Network, vlan)
+Network.VLAN,              config_parse_vlan,             0,       offsetof(Network, vlans)
 Network.DHCP,              config_parse_bool,             0,       offsetof(Network, dhcp)
 Network.Address,           config_parse_address,          0,       0
 Network.Gateway,           config_parse_gateway,          0,       0
@@ -41,4 +41,4 @@ DHCPv4.CriticalConnection, config_parse_bool,             0,       offsetof(Netw
 NetDev.Description,        config_parse_string,           0,       offsetof(NetDev, description)
 NetDev.Name,               config_parse_ifname,           0,       offsetof(NetDev, name)
 NetDev.Kind,               config_parse_netdev_kind,      0,       offsetof(NetDev, kind)
-VLAN.Id,                   config_parse_int,              0,       offsetof(NetDev, vlanid)
+VLAN.Id,                   config_parse_uint64,           0,       offsetof(NetDev, vlanid)

@@ -118,7 +118,8 @@
                                 <varlistentry>
                                         <term><varname>Id</varname></term>
                                         <listitem>
-                                                <para>The VLAN ID to use. This option is compulsory.</para>
+                                                <para>The VLAN ID to use. An integer in the range 0-4094.
+                                                This option is compulsory.</para>
                                         </listitem>
                                 </varlistentry>
                         </variablelist>
@@ -223,13 +224,20 @@
                                 <varlistentry>
                                         <term><varname>Bridge</varname></term>
                                         <listitem>
-                                                <para>The name of the bridge to add the configured link to.</para>
+                                                <para>The name of the bridge to add the link to.</para>
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
                                         <term><varname>Bond</varname></term>
                                         <listitem>
-                                                <para>The name of the bond to add the configured link to.</para>
+                                                <para>The name of the bond to add the link to.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>VLAN</varname></term>
+                                        <listitem>
+                                                <para>The name of a VLAN to create on the link. This option
+                                                may be specified more than once.</para>
                                         </listitem>
                                 </varlistentry>
                         </variablelist>

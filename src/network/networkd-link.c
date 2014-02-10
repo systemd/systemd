@@ -866,6 +866,8 @@ static int enslave_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 }
 
 static int link_enter_enslave(Link *link) {
+        NetDev *vlan;
+        Iterator i;
         int r;
 
         assert(link);
@@ -874,7 +876,7 @@ static int link_enter_enslave(Link *link) {
 
         link->state = LINK_STATE_ENSLAVING;
 
-        if (!link->network->bridge && !link->network->bond && !link->network->vlan)
+        if (!link->network->bridge && !link->network->bond && !link->network->vlans)
                 return link_enslaved(link);
 
         if (link->network->bridge) {
@@ -898,20 +900,17 @@ static int link_enter_enslave(Link *link) {
                 link->enslaving ++;
         }
 
-        if (link->network->vlan) {
+        HASHMAP_FOREACH(vlan, link->network->vlans, i) {
                 log_struct_link(LOG_DEBUG, link,
                                 "MESSAGE=%s: enslaving by '%s'",
-                                link->ifname, link->network->vlan->name,
-                                NETDEV(link->network->vlan),
-                                NULL);
+                                link->ifname, vlan->name, NETDEV(vlan), NULL);
 
-                r = netdev_enslave(link->network->vlan, link, &enslave_handler);
+                r = netdev_enslave(vlan, link, &enslave_handler);
                 if (r < 0) {
                         log_struct_link(LOG_WARNING, link,
                                         "MESSAGE=%s: could not enslave by '%s': %s",
-                                        link->ifname, link->network->vlan->name,
-                                        strerror(-r), NETDEV(link->network->vlan),
-                                        NULL);
+                                        link->ifname, vlan->name, strerror(-r),
+                                        NETDEV(vlan), NULL);
                         link_enter_failed(link);
                         return r;
                 }

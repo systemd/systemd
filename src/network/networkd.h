@@ -75,7 +75,7 @@ struct NetDev {
         char *name;
         NetDevKind kind;
 
-        int vlanid;
+        uint64_t vlanid;
 
         int ifindex;
         NetDevState state;
@@ -97,7 +97,7 @@ struct Network {
         char *description;
         NetDev *bridge;
         NetDev *bond;
-        NetDev *vlan;
+        Hashmap *vlans;
         bool dhcp;
         bool dhcp_dns;
         bool dhcp_mtu;

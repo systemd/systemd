@@ -26,6 +26,8 @@
 #include "conf-parser.h"
 #include "list.h"
 
+#define VLANID_MAX 4094
+
 static const char* const netdev_kind_table[] = {
         [NETDEV_KIND_BRIDGE] = "bridge",
         [NETDEV_KIND_BOND] = "bond",
@@ -161,7 +163,7 @@ static int netdev_create(NetDev *netdev, Link *link, sd_rtnl_message_handler_t c
         int r;
 
         assert(netdev);
-        assert(!(netdev->kind == NETDEV_KIND_VLAN) || (link && callback && netdev->vlanid >= 0));
+        assert(!(netdev->kind == NETDEV_KIND_VLAN) || (link && callback && netdev->vlanid <= VLANID_MAX));
         assert(netdev->name);
         assert(netdev->manager);
         assert(netdev->manager->rtnl);
@@ -214,7 +216,7 @@ static int netdev_create(NetDev *netdev, Link *link, sd_rtnl_message_handler_t c
                 return r;
         }
 
-        if (netdev->vlanid >= 0) {
+        if (netdev->vlanid <= VLANID_MAX) {
                 r = sd_rtnl_message_open_container(req, IFLA_INFO_DATA);
                 if (r < 0) {
                         log_error_netdev(netdev,
@@ -329,7 +331,7 @@ static int netdev_load_one(Manager *manager, const char *filename) {
         netdev->manager = manager;
         netdev->state = _NETDEV_STATE_INVALID;
         netdev->kind = _NETDEV_KIND_INVALID;
-        netdev->vlanid = -1;
+        netdev->vlanid = VLANID_MAX + 1;
 
         r = config_parse(NULL, filename, file, "NetDev\0VLAN\0", config_item_perf_lookup,
                         (void*) network_gperf_lookup, false, false, netdev);
@@ -348,8 +350,8 @@ static int netdev_load_one(Manager *manager, const char *filename) {
                 return 0;
         }
 
-        if (netdev->kind == NETDEV_KIND_VLAN && netdev->vlanid < 0) {
-                log_warning("VLAN without Id configured in %s. Ignoring", filename);
+        if (netdev->kind == NETDEV_KIND_VLAN && netdev->vlanid > VLANID_MAX) {
+                log_warning("VLAN without valid Id configured in %s. Ignoring", filename);
                 return 0;
         }
 
