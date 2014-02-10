@@ -2123,7 +2123,6 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 fprintf(f,
                         "%sSELinuxContext: %s\n",
                         prefix, c->selinux_context);
-
 }
 
 void exec_status_start(ExecStatus *s, pid_t pid) {

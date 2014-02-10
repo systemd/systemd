@@ -953,12 +953,16 @@
                         <varlistentry>
                                 <term><varname>SELinuxContext=</varname></term>
 
-                                <listitem><para>Set the SELinux context of the
-                                executed process. If set, this will override the
-                                automated domain transition. However, the policy
-                                still need to autorize the transition. This directive
-                                is ignored if SELinux is disabled. If prefixed by <literal>-</literal>,
-                                all errors will be ignored. See
+                                <listitem><para>Set the SELinux
+                                security context of the executed
+                                process. If set, this will override
+                                the automated domain
+                                transition. However, the policy still
+                                needs to autorize the transition. This
+                                directive is ignored if SELinux is
+                                disabled. If prefixed by
+                                <literal>-</literal>, all errors will
+                                be ignored. See
                                 <citerefentry><refentrytitle>setexeccon</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                                 for details.</para></listitem>
                         </varlistentry>

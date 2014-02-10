@@ -244,8 +244,8 @@
                                 <term><varname>_SELINUX_CONTEXT=</varname></term>
                                 <listitem>
                                         <para>The SELinux security
-                                        context of the process the
-                                        journal entry originates
+                                        context (label) of the process
+                                        the journal entry originates
                                         from.</para>
                                 </listitem>
                         </varlistentry>

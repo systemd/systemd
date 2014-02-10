@@ -174,7 +174,7 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
                                         adjust its access mode, group
                                         and user to the specified
                                         values and reset the SELinux
-                                        label. If it does not exist, do
+                                        security context. If it does not exist, do
                                         nothing.</para></listitem>
                                 </varlistentry>
 
@@ -242,7 +242,7 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
                                 <varlistentry>
                                         <term><varname>z</varname></term>
                                         <listitem><para>Restore
-                                        SELinux security context label
+                                        SELinux security context
                                         and set ownership and access
                                         mode of a file or directory if
                                         it exists.  Lines of this type
@@ -255,7 +255,7 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
                                         <term><varname>Z</varname></term>
                                         <listitem><para>Recursively
                                         restore SELinux security
-                                        context label and set
+                                        context and set
                                         ownership and access mode of a
                                         path and all its
                                         subdirectories (if it is a

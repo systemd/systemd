@@ -80,8 +80,8 @@ static char *arg_directory = NULL;
 static char *arg_user = NULL;
 static sd_id128_t arg_uuid = {};
 static char *arg_machine = NULL;
-static char *arg_process_label = NULL;
-static char *arg_apifs_label = NULL;
+static char *arg_selinux_context = NULL;
+static char *arg_selinux_apifs_context = NULL;
 static const char *arg_slice = NULL;
 static bool arg_private_network = false;
 static bool arg_read_only = false;
@@ -131,10 +131,12 @@ static int help(void) {
                "     --uuid=UUID            Set a specific machine UUID for the container\n"
                "  -M --machine=NAME         Set the machine name for the container\n"
                "  -S --slice=SLICE          Place the container in the specified slice\n"
-               "  -L --apifs-label=LABEL    Set the MAC file label to be used by API/tmpfs file\n"
-               "                            systems in the container\n"
-               "  -Z --process-label=LABEL  Set the MAC label to be used by processes in\n"
-               "                            the container\n"
+               "  -Z --selinux-context=SECLABEL\n"
+               "                            Set the SELinux security context to be used by\n"
+               "                            processes in the container\n"
+               "  -L --selinux-apifs-context=SECLABEL\n"
+               "                            Set the SELinux security context to be used by\n"
+               "                            API/tmpfs file systems in the container\n"
                "     --private-network      Disable network in container\n"
                "     --read-only            Mount the root directory read-only\n"
                "     --capability=CAP       In addition to the default, retain specified\n"
@@ -168,25 +170,25 @@ static int parse_argv(int argc, char *argv[]) {
         };
 
         static const struct option options[] = {
-                { "help",            no_argument,       NULL, 'h'                 },
-                { "version",         no_argument,       NULL, ARG_VERSION         },
-                { "directory",       required_argument, NULL, 'D'                 },
-                { "user",            required_argument, NULL, 'u'                 },
-                { "private-network", no_argument,       NULL, ARG_PRIVATE_NETWORK },
-                { "boot",            no_argument,       NULL, 'b'                 },
-                { "uuid",            required_argument, NULL, ARG_UUID            },
-                { "read-only",       no_argument,       NULL, ARG_READ_ONLY       },
-                { "capability",      required_argument, NULL, ARG_CAPABILITY      },
-                { "drop-capability", required_argument, NULL, ARG_DROP_CAPABILITY },
-                { "link-journal",    required_argument, NULL, ARG_LINK_JOURNAL    },
-                { "bind",            required_argument, NULL, ARG_BIND            },
-                { "bind-ro",         required_argument, NULL, ARG_BIND_RO         },
-                { "machine",         required_argument, NULL, 'M'                 },
-                { "slice",           required_argument, NULL, 'S'                 },
-                { "setenv",          required_argument, NULL, ARG_SETENV          },
-                { "process-label",   required_argument, NULL, 'Z'                 },
-                { "apifs-label",     required_argument, NULL, 'L'                 },
-                { "quiet",           no_argument,       NULL, 'q'                 },
+                { "help",                  no_argument,       NULL, 'h'                 },
+                { "version",               no_argument,       NULL, ARG_VERSION         },
+                { "directory",             required_argument, NULL, 'D'                 },
+                { "user",                  required_argument, NULL, 'u'                 },
+                { "private-network",       no_argument,       NULL, ARG_PRIVATE_NETWORK },
+                { "boot",                  no_argument,       NULL, 'b'                 },
+                { "uuid",                  required_argument, NULL, ARG_UUID            },
+                { "read-only",             no_argument,       NULL, ARG_READ_ONLY       },
+                { "capability",            required_argument, NULL, ARG_CAPABILITY      },
+                { "drop-capability",       required_argument, NULL, ARG_DROP_CAPABILITY },
+                { "link-journal",          required_argument, NULL, ARG_LINK_JOURNAL    },
+                { "bind",                  required_argument, NULL, ARG_BIND            },
+                { "bind-ro",               required_argument, NULL, ARG_BIND_RO         },
+                { "machine",               required_argument, NULL, 'M'                 },
+                { "slice",                 required_argument, NULL, 'S'                 },
+                { "setenv",                required_argument, NULL, ARG_SETENV          },
+                { "selinux-context",       required_argument, NULL, 'Z'                 },
+                { "selinux-apifs-context", required_argument, NULL, 'L'                 },
+                { "quiet",                 no_argument,       NULL, 'q'                 },
                 {}
         };
 
@@ -261,12 +263,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
-                case 'L':
-                        arg_apifs_label = optarg;
+                case 'Z':
+                        arg_selinux_context = optarg;
                         break;
 
-                case 'Z':
-                        arg_process_label = optarg;
+                case 'L':
+                        arg_selinux_apifs_context = optarg;
                         break;
 
                 case ARG_READ_ONLY:
@@ -449,8 +451,9 @@ static int mount_all(const char *dest) {
                 mkdir_p(where, 0755);
 
 #ifdef HAVE_SELINUX
-                if (arg_apifs_label && (streq_ptr(mount_table[k].what, "tmpfs") || streq_ptr(mount_table[k].what, "devpts"))) {
-                        options = strjoin(mount_table[k].options, ",context=\"", arg_apifs_label, "\"", NULL);
+                if (arg_selinux_apifs_context &&
+                    (streq_ptr(mount_table[k].what, "tmpfs") || streq_ptr(mount_table[k].what, "devpts"))) {
+                        options = strjoin(mount_table[k].options, ",context=\"", arg_selinux_apifs_context, "\"", NULL);
                         if (!options)
                                 return log_oom();
 
@@ -1535,9 +1538,9 @@ int main(int argc, char *argv[]) {
                                 env_use = (char**) envp;
 
 #ifdef HAVE_SELINUX
-                        if (arg_process_label)
-                                if (setexeccon(arg_process_label) < 0)
-                                        log_error("setexeccon(\"%s\") failed: %m", arg_process_label);
+                        if (arg_selinux_context)
+                                if (setexeccon(arg_selinux_context) < 0)
+                                        log_error("setexeccon(\"%s\") failed: %m", arg_selinux_context);
 #endif
                         if (arg_boot) {
                                 char **a;

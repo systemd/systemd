@@ -249,23 +249,23 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>-L</option></term>
-                                <term><option>--apifs-label=</option></term>
+                                <term><option>-Z</option></term>
+                                <term><option>--selinux-context=</option></term>
 
-                                <listitem><para>Sets the mandatory
-                                access control (MAC/SELinux) file
-                                label to be used by virtual API file
-                                systems in the container.</para>
+                                <listitem><para>Sets the SELinux
+                                security context to be used to label
+                                processes in the container.</para>
                                 </listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>-Z</option></term>
-                                <term><option>--process-label=</option></term>
+                                <term><option>-L</option></term>
+                                <term><option>--selinux-apifs-context=</option></term>
 
-                                <listitem><para>Sets the mandatory
-                                access control (MAC/SELinux) label to be used by
-                                processes in the container.</para>
+                                <listitem><para>Sets the SELinux security
+                                context to be used to label files in
+                                the virtual API file systems in the
+                                container.</para>
                                 </listitem>
                         </varlistentry>
 
@@ -495,7 +495,7 @@
                 <programlisting># chcon system_u:object_r:svirt_sandbox_file_t:s0:c0,c1 -R /srv/container
 # systemd-nspawn -L system_u:object_r:svirt_sandbox_file_t:s0:c0,c1 -Z system_u:system_r:svirt_lxc_net_t:s0:c0,c1 -D /srv/container /bin/sh</programlisting>
 
-                <para>This runs a container with SELinux sandbox labels.</para>
+                <para>This runs a container with SELinux sandbox security contexts.</para>
         </refsect1>
 
         <refsect1>
