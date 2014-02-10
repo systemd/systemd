@@ -234,7 +234,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 return PAM_SESSION_ERR;
 
         if (debug)
-                pam_syslog(handle, LOG_INFO, "pam-systemd initializing");
+                pam_syslog(handle, LOG_DEBUG, "pam-systemd initializing");
 
         r = get_user_data(handle, &username, &pw);
         if (r != PAM_SUCCESS) {
