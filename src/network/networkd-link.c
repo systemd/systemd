@@ -876,7 +876,8 @@ static int link_enter_enslave(Link *link) {
 
         link->state = LINK_STATE_ENSLAVING;
 
-        if (!link->network->bridge && !link->network->bond && !link->network->vlans)
+        if (!link->network->bridge && !link->network->bond &&
+            hashmap_isempty(link->network->vlans))
                 return link_enslaved(link);
 
         if (link->network->bridge) {
