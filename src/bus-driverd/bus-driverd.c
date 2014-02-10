@@ -29,7 +29,6 @@
 #include <sys/un.h>
 #include <sys/timex.h>
 #include <sys/utsname.h>
-#include <unistd.h>
 
 #include "kdbus.h"
 #include "sd-bus.h"

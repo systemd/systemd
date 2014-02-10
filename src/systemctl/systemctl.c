@@ -58,7 +58,6 @@
 #include "path-lookup.h"
 #include "conf-parser.h"
 #include "exit-status.h"
-#include "bus-errors.h"
 #include "build.h"
 #include "unit-name.h"
 #include "pager.h"
