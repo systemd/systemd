@@ -21,9 +21,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <syslog.h>
 #include <stdbool.h>
 #include <stdarg.h>
+#include <syslog.h>
+#include <sys/signalfd.h>
 #include <errno.h>
 
 #include "macro.h"
@@ -167,3 +168,5 @@ const char *log_target_to_string(LogTarget target) _const_;
 LogTarget log_target_from_string(const char *s) _pure_;
 
 #define MESSAGE_ID(x) "MESSAGE_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(x)
+
+void log_received_signal(int level, const struct signalfd_siginfo *si);

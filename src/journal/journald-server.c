@@ -1251,7 +1251,7 @@ static int dispatch_sigterm(sd_event_source *es, const struct signalfd_siginfo *
 
         assert(s);
 
-        log_info("Received SIG%s", signal_to_string(si->ssi_signo));
+        log_received_signal(LOG_INFO, si);
 
         sd_event_exit(s->event, 0);
         return 0;

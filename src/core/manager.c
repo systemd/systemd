@@ -1532,23 +1532,10 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                         return -errno;
                 }
 
-                if (sfsi.ssi_pid > 0) {
-                        _cleanup_free_ char *p = NULL;
-
-                        get_process_comm(sfsi.ssi_pid, &p);
-
-                        log_full(sfsi.ssi_signo == SIGCHLD ||
-                                 (sfsi.ssi_signo == SIGTERM && m->running_as == SYSTEMD_USER)
-                                 ? LOG_DEBUG : LOG_INFO,
-                                 "Received SIG%s from PID "PID_FMT" (%s).",
-                                 signal_to_string(sfsi.ssi_signo),
-                                 sfsi.ssi_pid, strna(p));
-                } else
-                        log_full(sfsi.ssi_signo == SIGCHLD ||
-                                 (sfsi.ssi_signo == SIGTERM && m->running_as == SYSTEMD_USER)
-                                 ? LOG_DEBUG : LOG_INFO,
-                                 "Received SIG%s.",
-                                 signal_to_string(sfsi.ssi_signo));
+                log_received_signal(sfsi.ssi_signo == SIGCHLD ||
+                                    (sfsi.ssi_signo == SIGTERM && m->running_as == SYSTEMD_USER)
+                                    ? LOG_DEBUG : LOG_INFO,
+                                    &sfsi);
 
                 switch (sfsi.ssi_signo) {
 

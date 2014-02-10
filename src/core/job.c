@@ -1118,9 +1118,6 @@ int job_get_timeout(Job *j, uint64_t *timeout) {
 
         *timeout = MIN(x, y);
 
-        log_info("job_get_timeout %s %d/%"PRIu64" %d/%"PRIu64" -> 1/%"PRIu64,
-                 j->unit->id, r, x, q, y, *timeout);
-
         return 1;
 }
 
