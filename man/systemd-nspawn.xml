@@ -204,9 +204,12 @@
                                 <listitem><para>Automatically search
                                 for an init binary and invoke it
                                 instead of a shell or a user supplied
-                                program. If this option is used, arguments
-                                specified on the command line are used
-                                as arguments for the init binary.
+                                program. If this option is used,
+                                arguments specified on the command
+                                line are used as arguments for the
+                                init binary. This option may not be
+                                combined with
+                                <option>--share-system</option>.
                                 </para></listitem>
                         </varlistentry>
 
@@ -424,8 +427,7 @@
                                 output by the tool itself. When this
                                 switch is used, then the only output
                                 by nspawn will be the console output
-                                of the container OS
-                                itself.</para></listitem>
+                                of the container OS itself.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -440,15 +442,42 @@
                                 interact more easily with processes
                                 outside of the container. Note that
                                 using this option makes it impossible
-                                to start up a full Operating System in the
-                                container, as an init system cannot
-                                operate in this mode. It is only
-                                useful to run specific programs or
-                                applications this way, without
-                                involving an init
-                                system in the container.</para></listitem>
+                                to start up a full Operating System in
+                                the container, as an init system
+                                cannot operate in this mode. It is
+                                only useful to run specific programs
+                                or applications this way, without
+                                involving an init system in the
+                                container. This option implies
+                                <option>--register=no</option>. This
+                                option may not be combined with
+                                <option>--boot</option>.</para></listitem>
                         </varlistentry>
 
+                        <varlistentry>
+                                <term><option>--register=</option></term>
+
+                                <listitem><para>Controls whether the
+                                container is registered with
+                                <citerefentry><refentrytitle>systemd-machined</refentrytitle><manvolnum>8</manvolnum></citerefentry>. Takes
+                                a boolean argument, defaults to
+                                <literal>yes</literal>. This option
+                                should be enabled when the container
+                                runs a full Operating System (more
+                                specifically: an init system), and is
+                                useful to ensure the container is
+                                accesible via
+                                <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                                and shown by tools such as
+                                <citerefentry><refentrytitle>ps</refentrytitle><manvolnum>1</manvolnum></citerefentry>. If
+                                the container does not run an init
+                                system it is recommended to set this
+                                option to <literal>no</literal>. Note
+                                that <option>--share-system</option>
+                                implies
+                                <option>--register=no</option>.
+                                </para></listitem>
+                        </varlistentry>
                 </variablelist>
 
         </refsect1>

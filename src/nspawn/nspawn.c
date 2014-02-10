@@ -119,6 +119,7 @@ static char **arg_bind_ro = NULL;
 static char **arg_setenv = NULL;
 static bool arg_quiet = false;
 static bool arg_share_system = false;
+static bool arg_register = true;
 
 static int help(void) {
 
@@ -150,6 +151,7 @@ static int help(void) {
                "                            the container\n"
                "     --bind-ro=PATH[:PATH]  Similar, but creates a read-only bind mount\n"
                "     --setenv=NAME=VALUE    Pass an environment variable to PID 1\n"
+               "     --register=BOOLEAN     Register container as machine\n"
                "  -q --quiet                Do not show status information\n",
                program_invocation_short_name);
 
@@ -169,7 +171,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_BIND,
                 ARG_BIND_RO,
                 ARG_SETENV,
-                ARG_SHARE_SYSTEM
+                ARG_SHARE_SYSTEM,
+                ARG_REGISTER
         };
 
         static const struct option options[] = {
@@ -193,6 +196,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "selinux-apifs-context", required_argument, NULL, 'L'                 },
                 { "quiet",                 no_argument,       NULL, 'q'                 },
                 { "share-system",          no_argument,       NULL, ARG_SHARE_SYSTEM    },
+                { "register",              required_argument, NULL, ARG_REGISTER        },
                 {}
         };
 
@@ -255,17 +259,23 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'M':
-                        if (!hostname_is_valid(optarg)) {
-                                log_error("Invalid machine name: %s", optarg);
-                                return -EINVAL;
+                        if (isempty(optarg)) {
+                                free(arg_machine);
+                                arg_machine = NULL;
+                        } else {
+
+                                if (!hostname_is_valid(optarg)) {
+                                        log_error("Invalid machine name: %s", optarg);
+                                        return -EINVAL;
+                                }
+
+                                free(arg_machine);
+                                arg_machine = strdup(optarg);
+                                if (!arg_machine)
+                                        return log_oom();
+
+                                break;
                         }
-
-                        free(arg_machine);
-                        arg_machine = strdup(optarg);
-                        if (!arg_machine)
-                                return log_oom();
-
-                        break;
 
                 case 'Z':
                         arg_selinux_context = optarg;
@@ -390,12 +400,30 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_share_system = true;
                         break;
 
+                case ARG_REGISTER:
+                        r = parse_boolean(optarg);
+                        if (r < 0) {
+                                log_error("Failed to parse --register= argument: %s", optarg);
+                                return r;
+                        }
+
+                        arg_register = r;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
                 default:
                         assert_not_reached("Unhandled option");
                 }
+        }
+
+        if (arg_share_system)
+                arg_register = false;
+
+        if (arg_boot && arg_share_system) {
+                log_error("--boot and --share-system may not be combined.");
+                return -EINVAL;
         }
 
         return 1;
@@ -636,6 +664,9 @@ static int setup_boot_id(const char *dest) {
 
         assert(dest);
 
+        if (arg_share_system)
+                return 0;
+
         /* Generate a new randomized boot ID, so that each boot-up of
          * the container gets a new one */
 
@@ -861,6 +892,9 @@ static int setup_kmsg(const char *dest, int kmsg_socket) {
 
 static int setup_hostname(void) {
 
+        if (arg_share_system)
+                return 0;
+
         if (sethostname(arg_machine, strlen(arg_machine)) < 0)
                 return -errno;
 
@@ -1043,6 +1077,9 @@ static int register_machine(pid_t pid) {
         _cleanup_bus_unref_ sd_bus *bus = NULL;
         int r;
 
+        if (!arg_register)
+                return 0;
+
         r = sd_bus_default_system(&bus);
         if (r < 0) {
                 log_error("Failed to open system bus: %s", strerror(-r));
@@ -1079,6 +1116,9 @@ static int terminate_machine(pid_t pid) {
         _cleanup_bus_unref_ sd_bus *bus = NULL;
         const char *path;
         int r;
+
+        if (!arg_register)
+                return 0;
 
         r = sd_bus_default_system(&bus);
         if (r < 0) {
@@ -1146,7 +1186,6 @@ int main(int argc, char *argv[]) {
         _cleanup_close_pipe_ int kmsg_socket_pair[2] = { -1, -1 };
         _cleanup_fdset_free_ FDSet *fds = NULL;
         _cleanup_free_ char *kdbus_domain = NULL;
-        const char *ns;
 
         log_parse_environment();
         log_open();
@@ -1248,12 +1287,26 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        ns = strappenda("machine-", arg_machine);
-        kdbus_fd = bus_kernel_create_domain(ns, &kdbus_domain);
-        if (r < 0)
-                log_debug("Failed to create kdbus domain: %s", strerror(-r));
-        else
-                log_debug("Successfully created kdbus domain as %s", kdbus_domain);
+
+        if (access("/dev/kdbus/control", F_OK) >= 0) {
+
+                if (arg_share_system) {
+                        kdbus_domain = strdup("/dev/kdbus");
+                        if (!kdbus_domain) {
+                                log_oom();
+                                goto finish;
+                        }
+                } else {
+                        const char *ns;
+
+                        ns = strappenda("machine-", arg_machine);
+                        kdbus_fd = bus_kernel_create_domain(ns, &kdbus_domain);
+                        if (r < 0)
+                                log_debug("Failed to create kdbus domain: %s", strerror(-r));
+                        else
+                                log_debug("Successfully created kdbus domain as %s", kdbus_domain);
+                }
+        }
 
         if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, kmsg_socket_pair) < 0) {
                 log_error("Failed to create kmsg socket pair: %m");
@@ -1438,7 +1491,8 @@ int main(int argc, char *argv[]) {
 
                         umask(0022);
 
-                        loopback_setup();
+                        if (arg_private_network)
+                                loopback_setup();
 
                         if (drop_capabilities() < 0) {
                                 log_error("drop_capabilities() failed: %m");
@@ -1644,7 +1698,7 @@ int main(int argc, char *argv[]) {
                 } else if (status.si_code == CLD_KILLED ||
                            status.si_code == CLD_DUMPED) {
 
-                        log_error("Container %s terminated by signal %s.", arg_machine,  signal_to_string(status.si_status));
+                        log_error("Container %s terminated by signal %s.", arg_machine, signal_to_string(status.si_status));
                         r = EXIT_FAILURE;
                         break;
                 } else {
