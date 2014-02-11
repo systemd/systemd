@@ -6,6 +6,7 @@
   This file is part of systemd.
 
   Copyright (C) 2013 Intel Corporation. All rights reserved.
+  Copyright (C) 2014 Tom Gundersen
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -40,5 +41,13 @@ int dhcp_option_append(uint8_t **buf, size_t *buflen, uint8_t code,
 
 typedef int (*dhcp_option_cb_t)(uint8_t code, uint8_t len,
                                 const uint8_t *option, void *user_data);
+
 int dhcp_option_parse(DHCPMessage *message, size_t len,
                       dhcp_option_cb_t cb, void *user_data);
+
+int dhcp_message_init(DHCPMessage *message, uint8_t op, uint32_t xid, uint8_t type,
+                      uint16_t secs, uint8_t **opt, size_t *optlen);
+
+void dhcp_packet_append_ip_headers(DHCPPacket *packet, uint8_t op, uint16_t len);
+
+int dhcp_packet_verify_headers(DHCPPacket *packet, uint8_t op, size_t len);

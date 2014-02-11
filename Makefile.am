@@ -2350,6 +2350,7 @@ libsystemd_dhcp_la_SOURCES = \
 	src/libsystemd-dhcp/dhcp-lease.c \
 	src/libsystemd-dhcp/dhcp-network.c \
 	src/libsystemd-dhcp/dhcp-option.c \
+	src/libsystemd-dhcp/dhcp-packet.c \
 	src/libsystemd-dhcp/dhcp-internal.h \
 	src/libsystemd-dhcp/dhcp-protocol.h
 

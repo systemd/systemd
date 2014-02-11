@@ -198,116 +198,52 @@ static int client_stop(sd_dhcp_client *client, int error) {
         return 0;
 }
 
-static int client_packet_init(sd_dhcp_client *client, uint8_t type,
-                              DHCPMessage *message, uint16_t secs,
-                              uint8_t **opt, size_t *optlen) {
-        int err;
-        be16_t max_size;
+static int client_message_init(sd_dhcp_client *client, DHCPMessage *message,
+                               uint8_t type, uint16_t secs, uint8_t **opt,
+                               size_t *optlen) {
+        int r;
 
-        *opt = (uint8_t *)(message + 1);
+        r = dhcp_message_init(message, BOOTREQUEST, client->xid, type,
+                              secs, opt, optlen);
+        if (r < 0)
+                return r;
 
-        if (*optlen < 4)
-                return -ENOBUFS;
-        *optlen -= 4;
-
-        message->op = BOOTREQUEST;
-        message->htype = 1;
-        message->hlen = ETHER_ADDR_LEN;
-        message->xid = htobe32(client->xid);
-
-        /* Although 'secs' field is a SHOULD in RFC 2131, certain DHCP servers
-           refuse to issue an DHCP lease if 'secs' is set to zero */
-        message->secs = htobe16(secs);
+        memcpy(&message->chaddr, &client->mac_addr, ETH_ALEN);
 
         if (client->state == DHCP_STATE_RENEWING ||
             client->state == DHCP_STATE_REBINDING)
                 message->ciaddr = client->lease->address;
 
-        memcpy(&message->chaddr, &client->mac_addr, ETH_ALEN);
-        (*opt)[0] = 0x63;
-        (*opt)[1] = 0x82;
-        (*opt)[2] = 0x53;
-        (*opt)[3] = 0x63;
-
-        *opt += 4;
-
-        err = dhcp_option_append(opt, optlen, DHCP_OPTION_MESSAGE_TYPE, 1,
-                                 &type);
-        if (err < 0)
-                return err;
-
         /* Some DHCP servers will refuse to issue an DHCP lease if the Cliient
            Identifier option is not set */
-        err = dhcp_option_append(opt, optlen, DHCP_OPTION_CLIENT_IDENTIFIER,
-                                 ETH_ALEN, &client->mac_addr);
-        if (err < 0)
-                return err;
+        r = dhcp_option_append(opt, optlen, DHCP_OPTION_CLIENT_IDENTIFIER,
+                               ETH_ALEN, &client->mac_addr);
+        if (r < 0)
+                return r;
 
         if (type == DHCP_DISCOVER || type == DHCP_REQUEST) {
-                err = dhcp_option_append(opt, optlen,
-                                         DHCP_OPTION_PARAMETER_REQUEST_LIST,
-                                         client->req_opts_size,
-                                         client->req_opts);
-                if (err < 0)
-                        return err;
+                be16_t max_size;
+
+                r = dhcp_option_append(opt, optlen,
+                                       DHCP_OPTION_PARAMETER_REQUEST_LIST,
+                                       client->req_opts_size,
+                                       client->req_opts);
+                if (r < 0)
+                        return r;
 
                 /* Some DHCP servers will send bigger DHCP packets than the
                    defined default size unless the Maximum Messge Size option
                    is explicitely set */
                 max_size = htobe16(DHCP_IP_UDP_SIZE + DHCP_MESSAGE_SIZE +
                                    DHCP_CLIENT_MIN_OPTIONS_SIZE);
-                err = dhcp_option_append(opt, optlen,
-                                         DHCP_OPTION_MAXIMUM_MESSAGE_SIZE,
-                                         2, &max_size);
-                if (err < 0)
-                        return err;
+                r = dhcp_option_append(opt, optlen,
+                                       DHCP_OPTION_MAXIMUM_MESSAGE_SIZE,
+                                       2, &max_size);
+                if (r < 0)
+                        return r;
         }
 
         return 0;
-}
-
-static uint16_t client_checksum(void *buf, int len) {
-        uint32_t sum;
-        uint16_t *check;
-        int i;
-        uint8_t *odd;
-
-        sum = 0;
-        check = buf;
-
-        for (i = 0; i < len / 2 ; i++)
-                sum += check[i];
-
-        if (len & 0x01) {
-                odd = buf;
-                sum += odd[len - 1];
-        }
-
-        while (sum >> 16)
-                sum = (sum & 0xffff) + (sum >> 16);
-
-        return ~sum;
-}
-
-static void client_append_ip_headers(DHCPPacket *packet, uint16_t len) {
-        packet->ip.version = IPVERSION;
-        packet->ip.ihl = DHCP_IP_SIZE / 4;
-        packet->ip.tot_len = htobe16(len);
-
-        packet->ip.protocol = IPPROTO_UDP;
-        packet->ip.saddr = INADDR_ANY;
-        packet->ip.daddr = INADDR_BROADCAST;
-
-        packet->udp.source = htobe16(DHCP_PORT_CLIENT);
-        packet->udp.dest = htobe16(DHCP_PORT_SERVER);
-        packet->udp.len = htobe16(len - DHCP_IP_SIZE);
-
-        packet->ip.check = packet->udp.len;
-        packet->udp.check = client_checksum(&packet->ip.ttl, len - 8);
-
-        packet->ip.ttl = IPDEFTTL;
-        packet->ip.check = 0;
-        packet->ip.check = client_checksum(&packet->ip, DHCP_IP_SIZE);
 }
 
 static int client_send_discover(sd_dhcp_client *client, uint16_t secs) {
@@ -324,8 +260,8 @@ static int client_send_discover(sd_dhcp_client *client, uint16_t secs) {
         if (!discover)
                 return -ENOMEM;
 
-        err = client_packet_init(client, DHCP_DISCOVER, &discover->dhcp,
-                                 secs, &opt, &optlen);
+        err = client_message_init(client, &discover->dhcp, DHCP_DISCOVER,
+                                  secs, &opt, &optlen);
         if (err < 0)
                 return err;
 
@@ -341,7 +277,7 @@ static int client_send_discover(sd_dhcp_client *client, uint16_t secs) {
         if (err < 0)
                 return err;
 
-        client_append_ip_headers(discover, len);
+        dhcp_packet_append_ip_headers(discover, BOOTREQUEST, len);
 
         err = dhcp_network_send_raw_socket(client->fd, &client->link,
                                            discover, len);
@@ -362,8 +298,8 @@ static int client_send_request(sd_dhcp_client *client, uint16_t secs) {
         if (!request)
                 return -ENOMEM;
 
-        err = client_packet_init(client, DHCP_REQUEST, &request->dhcp, secs,
-                                 &opt, &optlen);
+        err = client_message_init(client, &request->dhcp, DHCP_REQUEST, secs,
+                                  &opt, &optlen);
         if (err < 0)
                 return err;
 
@@ -391,7 +327,7 @@ static int client_send_request(sd_dhcp_client *client, uint16_t secs) {
                                                    &request->dhcp,
                                                    len - DHCP_IP_UDP_SIZE);
         } else {
-                client_append_ip_headers(request, len);
+                dhcp_packet_append_ip_headers(request, BOOTREQUEST, len);
 
                 err = dhcp_network_send_raw_socket(client->fd, &client->link,
                                                    request, len);
@@ -606,34 +542,11 @@ static int client_timeout_t1(sd_event_source *s, uint64_t usec, void *userdata) 
 
 static int client_verify_headers(sd_dhcp_client *client, DHCPPacket *message,
                                  size_t len) {
-        size_t hdrlen;
+        int r;
 
-        if (len < (DHCP_IP_UDP_SIZE + DHCP_MESSAGE_SIZE))
-                return -EINVAL;
-
-        hdrlen = message->ip.ihl * 4;
-        if (hdrlen < 20 || hdrlen > len || client_checksum(&message->ip,
-                                                           hdrlen))
-                return -EINVAL;
-
-        if (hdrlen + be16toh(message->udp.len) > len)
-                return -EINVAL;
-
-        if (message->udp.check) {
-                message->ip.check = message->udp.len;
-                message->ip.ttl = 0;
-
-                if (client_checksum(&message->ip.ttl,
-                                    be16toh(message->udp.len) + 12))
-                        return -EINVAL;
-        }
-
-        if (be16toh(message->udp.source) != DHCP_PORT_SERVER ||
-            be16toh(message->udp.dest) != DHCP_PORT_CLIENT)
-                return -EINVAL;
-
-        if (message->dhcp.op != BOOTREPLY)
-                return -EINVAL;
+        r = dhcp_packet_verify_headers(message, BOOTREPLY, len);
+        if (r < 0)
+                return r;
 
         if (be32toh(message->dhcp.xid) != client->xid)
                 return -EINVAL;
