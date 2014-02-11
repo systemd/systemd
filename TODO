@@ -144,6 +144,7 @@ Features:
   - allow updating attach flags during runtime
   - pid1: peek into activating message when activating a service
   - test bloom filter generation indexes
+  - introduce sd_bus_emit_object_added()/sd_bus_emit_object_removed() that automatically includes the build-in interfaces in the list
 
 * sd-event
   - allow multiple signal handlers per signal?
