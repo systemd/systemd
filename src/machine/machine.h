@@ -63,7 +63,7 @@ struct Machine {
         char *service;
         char *root_directory;
 
-        char *scope;
+        char *unit;
         char *scope_job;
 
         pid_t leader;

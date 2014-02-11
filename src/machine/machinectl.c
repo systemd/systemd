@@ -107,7 +107,7 @@ static int list_machines(sd_bus *bus, char **args, unsigned n) {
         return 0;
 }
 
-static int show_scope_cgroup(sd_bus *bus, const char *unit, pid_t leader) {
+static int show_unit_cgroup(sd_bus *bus, const char *unit, pid_t leader) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *path = NULL;
@@ -129,7 +129,7 @@ static int show_scope_cgroup(sd_bus *bus, const char *unit, pid_t leader) {
                         bus,
                         "org.freedesktop.systemd1",
                         path,
-                        "org.freedesktop.systemd1.Scope",
+                        endswith(unit, ".scope") ? "org.freedesktop.systemd1.Scope" : "org.freedesktop.systemd1.Service",
                         "ControlGroup",
                         &error,
                         &reply,
@@ -168,7 +168,7 @@ typedef struct MachineStatusInfo {
         sd_id128_t id;
         char *class;
         char *service;
-        char *scope;
+        char *unit;
         char *root_directory;
         pid_t leader;
         usec_t timestamp;
@@ -219,9 +219,9 @@ static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
         if (i->root_directory)
                 printf("\t    Root: %s\n", i->root_directory);
 
-        if (i->scope) {
-                printf("\t    Unit: %s\n", i->scope);
-                show_scope_cgroup(bus, i->scope, i->leader);
+        if (i->unit) {
+                printf("\t    Unit: %s\n", i->unit);
+                show_unit_cgroup(bus, i->unit, i->leader);
         }
 }
 
@@ -231,7 +231,7 @@ static int show_info(const char *verb, sd_bus *bus, const char *path, bool *new_
                 { "Name",          "s",  NULL,          offsetof(MachineStatusInfo, name) },
                 { "Class",         "s",  NULL,          offsetof(MachineStatusInfo, class) },
                 { "Service",       "s",  NULL,          offsetof(MachineStatusInfo, service) },
-                { "Scope",         "s",  NULL,          offsetof(MachineStatusInfo, scope) },
+                { "Unit",          "s",  NULL,          offsetof(MachineStatusInfo, unit) },
                 { "RootDirectory", "s",  NULL,          offsetof(MachineStatusInfo, root_directory) },
                 { "Leader",        "u",  NULL,          offsetof(MachineStatusInfo, leader) },
                 { "Timestamp",     "t",  NULL,          offsetof(MachineStatusInfo, timestamp) },
@@ -264,7 +264,7 @@ static int show_info(const char *verb, sd_bus *bus, const char *path, bool *new_
         free(info.name);
         free(info.class);
         free(info.service);
-        free(info.scope);
+        free(info.unit);
         free(info.root_directory);
 
         return r;

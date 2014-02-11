@@ -120,6 +120,7 @@ static char **arg_setenv = NULL;
 static bool arg_quiet = false;
 static bool arg_share_system = false;
 static bool arg_register = true;
+static bool arg_keep_unit = false;
 
 static int help(void) {
 
@@ -152,6 +153,8 @@ static int help(void) {
                "     --bind-ro=PATH[:PATH]  Similar, but creates a read-only bind mount\n"
                "     --setenv=NAME=VALUE    Pass an environment variable to PID 1\n"
                "     --register=BOOLEAN     Register container as machine\n"
+               "     --keep-unit            Do not register a scope for the machine, reuse\n"
+               "                            the service unit nspawn is running in\n"
                "  -q --quiet                Do not show status information\n",
                program_invocation_short_name);
 
@@ -172,7 +175,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_BIND_RO,
                 ARG_SETENV,
                 ARG_SHARE_SYSTEM,
-                ARG_REGISTER
+                ARG_REGISTER,
+                ARG_KEEP_UNIT
         };
 
         static const struct option options[] = {
@@ -197,6 +201,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "quiet",                 no_argument,       NULL, 'q'                 },
                 { "share-system",          no_argument,       NULL, ARG_SHARE_SYSTEM    },
                 { "register",              required_argument, NULL, ARG_REGISTER        },
+                { "keep-unit",             no_argument,       NULL, ARG_KEEP_UNIT       },
                 {}
         };
 
@@ -410,6 +415,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_register = r;
                         break;
 
+                case ARG_KEEP_UNIT:
+                        arg_keep_unit = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -423,6 +432,11 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_boot && arg_share_system) {
                 log_error("--boot and --share-system may not be combined.");
+                return -EINVAL;
+        }
+
+        if (arg_keep_unit && cg_pid_get_owner_uid(0, NULL) >= 0) {
+                log_error("--keep-unit may not be used when invoked from a user session.");
                 return -EINVAL;
         }
 
@@ -1086,22 +1100,41 @@ static int register_machine(pid_t pid) {
                 return r;
         }
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.machine1",
-                        "/org/freedesktop/machine1",
-                        "org.freedesktop.machine1.Manager",
-                        "CreateMachine",
-                        &error,
-                        NULL,
-                        "sayssusa(sv)",
-                        arg_machine,
-                        SD_BUS_MESSAGE_APPEND_ID128(arg_uuid),
-                        "nspawn",
-                        "container",
-                        (uint32_t) pid,
-                        strempty(arg_directory),
-                        !isempty(arg_slice), "Slice", "s", arg_slice);
+        if (arg_keep_unit) {
+                r = sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.machine1",
+                                "/org/freedesktop/machine1",
+                                "org.freedesktop.machine1.Manager",
+                                "RegisterMachine",
+                                &error,
+                                NULL,
+                                "sayssus",
+                                arg_machine,
+                                SD_BUS_MESSAGE_APPEND_ID128(arg_uuid),
+                                "nspawn",
+                                "container",
+                                (uint32_t) pid,
+                                strempty(arg_directory));
+        } else {
+                r = sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.machine1",
+                                "/org/freedesktop/machine1",
+                                "org.freedesktop.machine1.Manager",
+                                "CreateMachine",
+                                &error,
+                                NULL,
+                                "sayssusa(sv)",
+                                arg_machine,
+                                SD_BUS_MESSAGE_APPEND_ID128(arg_uuid),
+                                "nspawn",
+                                "container",
+                                (uint32_t) pid,
+                                strempty(arg_directory),
+                                !isempty(arg_slice), "Slice", "s", arg_slice);
+        }
+
         if (r < 0) {
                 log_error("Failed to register machine: %s", bus_error_message(&error, r));
                 return r;

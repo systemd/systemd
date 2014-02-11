@@ -76,9 +76,9 @@ void machine_free(Machine *m) {
         if (m->in_gc_queue)
                 LIST_REMOVE(gc_queue, m->manager->machine_gc_queue, m);
 
-        if (m->scope) {
-                hashmap_remove(m->manager->machine_units, m->scope);
-                free(m->scope);
+        if (m->unit) {
+                hashmap_remove(m->manager->machine_units, m->unit);
+                free(m->unit);
         }
 
         free(m->scope_job);
@@ -123,8 +123,8 @@ int machine_save(Machine *m) {
                 "NAME=%s\n",
                 m->name);
 
-        if (m->scope)
-                fprintf(f, "SCOPE=%s\n", m->scope);
+        if (m->unit)
+                fprintf(f, "SCOPE=%s\n", m->unit); /* We continue to call this "SCOPE=" because it is internal only, and we want to stay compatible with old files */
 
         if (m->scope_job)
                 fprintf(f, "SCOPE_JOB=%s\n", m->scope_job);
@@ -159,11 +159,36 @@ int machine_save(Machine *m) {
                 unlink(temp_path);
         }
 
+        if (m->unit) {
+                char *sl;
+
+                /* Create a symlink from the unit name to the machine
+                 * name, so that we can quickly find the machine for
+                 * each given unit */
+                sl = strappenda("/run/systemd/machines/unit:", m->unit);
+                symlink(m->name, sl);
+        }
+
 finish:
         if (r < 0)
                 log_error("Failed to save machine data %s: %s", m->state_file, strerror(-r));
 
         return r;
+}
+
+static void machine_unlink(Machine *m) {
+        assert(m);
+
+        if (m->unit) {
+
+                char *sl;
+
+                sl = strappenda("/run/systemd/machines/unit:", m->unit);
+                unlink(sl);
+        }
+
+        if (m->state_file)
+                unlink(m->state_file);
 }
 
 int machine_load(Machine *m) {
@@ -173,7 +198,7 @@ int machine_load(Machine *m) {
         assert(m);
 
         r = parse_env_file(m->state_file, NEWLINE,
-                           "SCOPE",     &m->scope,
+                           "SCOPE",     &m->unit,
                            "SCOPE_JOB", &m->scope_job,
                            "SERVICE",   &m->service,
                            "ROOT",      &m->root_directory,
@@ -225,7 +250,7 @@ static int machine_start_scope(Machine *m, sd_bus_message *properties, sd_bus_er
 
         assert(m);
 
-        if (!m->scope) {
+        if (!m->unit) {
                 _cleanup_free_ char *escaped = NULL;
                 char *scope, *description, *job;
 
@@ -245,15 +270,15 @@ static int machine_start_scope(Machine *m, sd_bus_message *properties, sd_bus_er
                         free(scope);
                         return r;
                 } else {
-                        m->scope = scope;
+                        m->unit = scope;
 
                         free(m->scope_job);
                         m->scope_job = job;
                 }
         }
 
-        if (m->scope)
-                hashmap_put(m->manager->machine_units, m->scope, m);
+        if (m->unit)
+                hashmap_put(m->manager->machine_units, m->unit, m);
 
         return r;
 }
@@ -302,10 +327,10 @@ static int machine_stop_scope(Machine *m) {
 
         assert(m);
 
-        if (!m->scope)
+        if (!m->unit)
                 return 0;
 
-        r = manager_stop_unit(m->manager, m->scope, &error, &job);
+        r = manager_stop_unit(m->manager, m->unit, &error, &job);
         if (r < 0) {
                 log_error("Failed to stop machine scope: %s", bus_error_message(&error, r));
                 return r;
@@ -334,7 +359,7 @@ int machine_stop(Machine *m) {
         if (k < 0)
                 r = k;
 
-        unlink(m->state_file);
+        machine_unlink(m);
         machine_add_to_gc_queue(m);
 
         if (m->started)
@@ -354,7 +379,7 @@ bool machine_check_gc(Machine *m, bool drop_not_started) {
         if (m->scope_job && manager_job_is_active(m->manager, m->scope_job))
                 return true;
 
-        if (m->scope && manager_unit_is_active(m->manager, m->scope))
+        if (m->unit && manager_unit_is_active(m->manager, m->unit))
                 return true;
 
         return false;
@@ -382,10 +407,10 @@ MachineState machine_get_state(Machine *s) {
 int machine_kill(Machine *m, KillWho who, int signo) {
         assert(m);
 
-        if (!m->scope)
+        if (!m->unit)
                 return -ESRCH;
 
-        return manager_kill_unit(m->manager, m->scope, who, signo, NULL);
+        return manager_kill_unit(m->manager, m->unit, who, signo, NULL);
 }
 
 static const char* const machine_class_table[_MACHINE_CLASS_MAX] = {

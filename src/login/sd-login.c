@@ -630,7 +630,32 @@ _public_ int sd_get_uids(uid_t **users) {
 }
 
 _public_ int sd_get_machine_names(char ***machines) {
-        return get_files_in_directory("/run/systemd/machines/", machines);
+        char **l = NULL, **a, **b;
+        int r;
+
+        r = get_files_in_directory("/run/systemd/machines/", &l);
+        if (r < 0)
+                return r;
+
+        if (l) {
+                r = 0;
+
+                /* Filter out the unit: symlinks */
+                for (a = l, b = l; *a; a++) {
+                        if (startswith(*a, "unit:"))
+                                free(*a);
+                        else {
+                                *b = *a;
+                                b++;
+                                r++;
+                        }
+                }
+
+                *b = NULL;
+        }
+
+        *machines = l;
+        return r;
 }
 
 static inline int MONITOR_TO_FD(sd_login_monitor *m) {

@@ -1282,39 +1282,18 @@ int cg_pid_get_user_unit(pid_t pid, char **unit) {
 }
 
 int cg_path_get_machine_name(const char *path, char **machine) {
-        const char *e, *n, *x;
-        char *s, *r;
-        size_t l;
+        _cleanup_free_ char *u = NULL, *sl = NULL;
+        int r;
 
-        assert(path);
-        assert(machine);
+        r = cg_path_get_unit(path, &u);
+        if (r < 0)
+                return r;
 
-        /* Skip slices, if there are any */
-        e = skip_slices(path);
-
-        n = strchrnul(e, '/');
-        if (e == n)
-                return -ENOENT;
-
-        s = strndupa(e, n - e);
-        s = cg_unescape(s);
-
-        x = startswith(s, "machine-");
-        if (!x)
-                return -ENOENT;
-        if (!endswith(x, ".scope"))
-                return -ENOENT;
-
-        l = strlen(x);
-        if (l <= 6)
-                return -ENOENT;
-
-        r = strndup(x, l - 6);
-        if (!r)
+        sl = strjoin("/run/systemd/machines/unit:", u, NULL);
+        if (!sl)
                 return -ENOMEM;
 
-        *machine = r;
-        return 0;
+        return readlink_malloc(sl, machine);
 }
 
 int cg_pid_get_machine_name(pid_t pid, char **machine) {

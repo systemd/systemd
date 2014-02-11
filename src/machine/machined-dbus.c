@@ -169,9 +169,8 @@ static int method_list_machines(sd_bus *bus, sd_bus_message *message, void *user
         return sd_bus_send(bus, reply, NULL);
 }
 
-static int method_create_machine(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_create_or_register_machine(Manager *manager, sd_bus_message *message, Machine **_m, sd_bus_error *error) {
         const char *name, *service, *class, *root_directory;
-        Manager *manager = userdata;
         MachineClass c;
         uint32_t leader;
         sd_id128_t id;
@@ -180,9 +179,9 @@ static int method_create_machine(sd_bus *bus, sd_bus_message *message, void *use
         size_t n;
         int r;
 
-        assert(bus);
-        assert(message);
         assert(manager);
+        assert(message);
+        assert(_m);
 
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
@@ -217,10 +216,6 @@ static int method_create_machine(sd_bus *bus, sd_bus_message *message, void *use
 
         if (!isempty(root_directory) && !path_is_absolute(root_directory))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Root directory must be empty or an absolute path");
-
-        r = sd_bus_message_enter_container(message, 'a', "(sv)");
-        if (r < 0)
-                return r;
 
         if (leader == 0) {
                 _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
@@ -263,17 +258,70 @@ static int method_create_machine(sd_bus *bus, sd_bus_message *message, void *use
                 }
         }
 
-        r = machine_start(m, message, error);
-        if (r < 0)
-                goto fail;
-
-        m->create_message = sd_bus_message_ref(message);
+        *_m = m;
 
         return 1;
 
 fail:
         machine_add_to_gc_queue(m);
+        return r;
+}
 
+static int method_create_machine(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *manager = userdata;
+        Machine *m = NULL;
+        int r;
+
+        r = method_create_or_register_machine(manager, message, &m, error);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_enter_container(message, 'a', "(sv)");
+        if (r < 0)
+                goto fail;
+
+        r = machine_start(m, message, error);
+        if (r < 0)
+                goto fail;
+
+        m->create_message = sd_bus_message_ref(message);
+        return 1;
+
+fail:
+        machine_add_to_gc_queue(m);
+        return r;
+}
+
+static int method_register_machine(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *manager = userdata;
+        _cleanup_free_ char *p = NULL;
+        Machine *m = NULL;
+        int r;
+
+        r = method_create_or_register_machine(manager, message, &m, error);
+        if (r < 0)
+                return r;
+
+        r = cg_pid_get_unit(m->leader, &m->unit);
+        if (r < 0) {
+                r = sd_bus_error_set_errnof(error, r, "Failed to determine unit of process "PID_FMT" : %s", m->leader, strerror(-r));
+                goto fail;
+        }
+
+        r = machine_start(m, NULL, error);
+        if (r < 0)
+                goto fail;
+
+        p = machine_bus_path(m);
+        if (!p) {
+                r = -ENOMEM;
+                goto fail;
+        }
+
+        return sd_bus_reply_method_return(message, "o", p);
+
+fail:
+        machine_add_to_gc_queue(m);
         return r;
 }
 
@@ -347,6 +395,7 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_METHOD("GetMachineByPID", "u", "o", method_get_machine_by_pid, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ListMachines", NULL, "a(ssso)", method_list_machines, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("CreateMachine", "sayssusa(sv)", "o", method_create_machine, 0),
+        SD_BUS_METHOD("RegisterMachine", "sayssus", "o", method_register_machine, 0),
         SD_BUS_METHOD("KillMachine", "ssi", NULL, method_kill_machine, SD_BUS_VTABLE_CAPABILITY(CAP_KILL)),
         SD_BUS_METHOD("TerminateMachine", "s", NULL, method_terminate_machine, SD_BUS_VTABLE_CAPABILITY(CAP_KILL)),
         SD_BUS_SIGNAL("MachineNew", "so", 0),
