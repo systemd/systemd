@@ -761,28 +761,31 @@ char *strappend(const char *s, const char *suffix) {
         return strnappend(s, suffix, suffix ? strlen(suffix) : 0);
 }
 
-int readlink_malloc(const char *p, char **r) {
+int readlink_malloc(const char *p, char **ret) {
         size_t l = 100;
+        int r;
 
         assert(p);
-        assert(r);
+        assert(ret);
 
         for (;;) {
                 char *c;
                 ssize_t n;
 
-                if (!(c = new(char, l)))
+                c = new(char, l);
+                if (!c)
                         return -ENOMEM;
 
-                if ((n = readlink(p, c, l-1)) < 0) {
-                        int ret = -errno;
+                n = readlink(p, c, l-1);
+                if (n < 0) {
+                        r = -errno;
                         free(c);
-                        return ret;
+                        return r;
                 }
 
                 if ((size_t) n < l-1) {
                         c[n] = 0;
-                        *r = c;
+                        *ret = c;
                         return 0;
                 }
 
