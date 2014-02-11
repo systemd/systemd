@@ -490,21 +490,6 @@ static void test_strrep(void) {
         assert_se(streq(zero, ""));
 }
 
-static void test_parse_user_at_host(void) {
-        _cleanup_free_ char *both = strdup("waldo@waldoscomputer");
-        _cleanup_free_ char *onlyhost = strdup("mikescomputer");
-        char *user = NULL, *host = NULL;
-
-        parse_user_at_host(both, &user, &host);
-        assert_se(streq(user, "waldo"));
-        assert_se(streq(host, "waldoscomputer"));
-
-        user = host = NULL;
-        parse_user_at_host(onlyhost, &user, &host);
-        assert_se(user == NULL);
-        assert_se(streq(host, "mikescomputer"));
-}
-
 static void test_split_pair(void) {
         _cleanup_free_ char *a = NULL, *b = NULL;
 
@@ -635,7 +620,6 @@ int main(int argc, char *argv[]) {
         test_parse_bytes();
         test_strextend();
         test_strrep();
-        test_parse_user_at_host();
         test_split_pair();
         test_fstab_node_to_udev_node();
         test_get_files_in_directory();
