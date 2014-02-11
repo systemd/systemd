@@ -106,6 +106,10 @@ int manager_enumerate_machines(Manager *m) {
                 if (!dirent_is_file(de))
                         continue;
 
+                /* Ignore symlinks that map the unit name to the machine */
+                if (startswith(de->d_name, "unit:"))
+                        continue;
+
                 k = manager_add_machine(m, de->d_name, &machine);
                 if (k < 0) {
                         log_error("Failed to add machine by file name %s: %s", de->d_name, strerror(-k));
