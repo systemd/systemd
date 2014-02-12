@@ -188,9 +188,11 @@ have_python=no
 AC_ARG_WITH([python],
         [AS_HELP_STRING([--without-python], [Disable building the man page index and systemd-python (default: test)])])
 
+have_lxml=no
 AS_IF([test "x$with_python" != "xno"], [
         AM_PATH_PYTHON(,, [:])
-        AS_IF([test "$PYTHON" != :], [have_python=yes])
+        AS_IF(["$PYTHON" -c 'import lxml' 2>/dev/null], [have_lxml=yes], [have_lxml=no])
+        AS_IF([test "$PYTHON" != : -a $have_lxml = yes], [have_python=yes])
 ])
 AM_CONDITIONAL([HAVE_PYTHON], [test "x$have_python" = "xyes"])
 AS_IF([test "x$PYTHON_BINARY" = "x"],
