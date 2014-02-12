@@ -338,7 +338,7 @@ static int client_send_request(sd_dhcp_client *client, uint16_t secs) {
 
 static uint16_t client_update_secs(sd_dhcp_client *client, usec_t time_now)
 {
-        client->secs = (time_now - client->start_time) / USEC_PER_SEC;
+        client->secs = ((time_now - client->start_time) / USEC_PER_SEC) ? : 1;
 
         return client->secs;
 }
