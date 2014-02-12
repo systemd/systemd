@@ -327,7 +327,9 @@ have_seccomp=no
 AC_ARG_ENABLE(seccomp, AS_HELP_STRING([--disable-seccomp], [Disable optional SECCOMP support]))
 if test "x$enable_seccomp" != "xno"; then
         PKG_CHECK_MODULES(SECCOMP, [libseccomp >= 1.0.0],
-               [AC_DEFINE(HAVE_SECCOMP, 1, [Define if seccomp is available]) have_seccomp=yes],
+               [AC_DEFINE(HAVE_SECCOMP, 1, [Define if seccomp is available])
+                have_seccomp=yes
+                M4_DEFINES="$M4_DEFINES -DHAVE_SECCOMP"],
                [have_seccomp=no])
         if test "x$have_seccomp" = "xno" -a "x$enable_seccomp" = "xyes"; then
                 AC_MSG_ERROR([*** seccomp support requested but libraries not found])

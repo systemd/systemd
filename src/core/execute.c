@@ -40,11 +40,6 @@
 #include <sys/poll.h>
 #include <glob.h>
 #include <libgen.h>
-#ifdef HAVE_SECCOMP
-#include <seccomp.h>
-
-#include "set.h"
-#endif
 #undef basename
 
 #ifdef HAVE_PAM
@@ -53,6 +48,10 @@
 
 #ifdef HAVE_SELINUX
 #include <selinux/selinux.h>
+#endif
+
+#ifdef HAVE_SECCOMP
+#include <seccomp.h>
 #endif
 
 #include "execute.h"
@@ -76,6 +75,7 @@
 #include "unit.h"
 #include "async.h"
 #include "selinux-util.h"
+#include "errno-list.h"
 
 #define IDLE_TIMEOUT_USEC (5*USEC_PER_SEC)
 #define IDLE_TIMEOUT2_USEC (1*USEC_PER_SEC)
@@ -937,29 +937,36 @@ static void rename_process_from_path(const char *path) {
 }
 
 #ifdef HAVE_SECCOMP
+
 static int apply_seccomp(ExecContext *c) {
-        uint32_t action = SCMP_ACT_ALLOW;
+        uint32_t negative_action, action;
+        scmp_filter_ctx *seccomp;
         Iterator i;
         void *id;
+        int r;
 
         assert(c);
 
-        c->syscall_filter = seccomp_init(c->syscall_filter_default_action);
-        if (!c->syscall_filter)
-                return -1;
+        negative_action = c->syscall_errno == 0 ? SCMP_ACT_KILL : SCMP_ACT_ERRNO(c->syscall_errno);
 
-        if (c->syscall_filter_default_action == SCMP_ACT_ALLOW)
-                action = SCMP_ACT_KILL;
+        seccomp = seccomp_init(c->syscall_whitelist ? negative_action : SCMP_ACT_ALLOW);
+        if (!seccomp)
+                return -ENOMEM;
 
-        SET_FOREACH(id, c->filtered_syscalls, i) {
-                int r = seccomp_rule_add(c->syscall_filter, action, PTR_TO_INT(id) - 1, 0);
+        action = c->syscall_whitelist ? SCMP_ACT_ALLOW : negative_action;
+
+        SET_FOREACH(id, c->syscall_filter, i) {
+                r = seccomp_rule_add(seccomp, action, PTR_TO_INT(id) - 1, 0);
                 if (r < 0) {
-                        log_error("Failed to add syscall filter");
+                        seccomp_release(seccomp);
                         return r;
                 }
         }
 
-        return seccomp_load(c->syscall_filter);
+        r = seccomp_load(seccomp);
+        seccomp_release(seccomp);
+
+        return r;
 }
 #endif
 
@@ -1541,7 +1548,7 @@ int exec_spawn(ExecCommand *command,
                                 }
 
 #ifdef HAVE_SECCOMP
-                        if (context->filtered_syscalls) {
+                        if (context->syscall_filter) {
                                 err = apply_seccomp(context);
                                 if (err < 0) {
                                         r = EXIT_SECCOMP;
@@ -1549,6 +1556,7 @@ int exec_spawn(ExecCommand *command,
                                 }
                         }
 #endif
+
 #ifdef HAVE_SELINUX
                         if (context->selinux_context && use_selinux()) {
                                 bool ignore;
@@ -1729,19 +1737,9 @@ void exec_context_done(ExecContext *c) {
         free(c->selinux_context);
         c->selinux_context = NULL;
 
-        free(c->syscall_filter);
-        c->syscall_filter = NULL;
-
-        free(c->syscall_filter_string);
-        c->syscall_filter_string = NULL;
-
 #ifdef HAVE_SECCOMP
-        if (c->syscall_filter) {
-                seccomp_release(c->syscall_filter);
-                c->syscall_filter = NULL;
-        }
-        set_free(c->filtered_syscalls);
-        c->filtered_syscalls = NULL;
+        set_free(c->syscall_filter);
+        c->syscall_filter = NULL;
 #endif
 }
 
@@ -2115,6 +2113,38 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 fprintf(f,
                         "%sSELinuxContext: %s\n",
                         prefix, c->selinux_context);
+
+        if (c->syscall_filter) {
+                Iterator j;
+                void *id;
+                bool first = true;
+
+                fprintf(f,
+                        "%sSystemCallFilter: \n",
+                        prefix);
+
+                if (!c->syscall_whitelist)
+                        fputc('~', f);
+
+                SET_FOREACH(id, c->syscall_filter, j) {
+                        _cleanup_free_ char *name = NULL;
+
+                        if (first)
+                                first = false;
+                        else
+                                fputc(' ', f);
+
+                        name = seccomp_syscall_resolve_num_arch(PTR_TO_INT(id)-1, SCMP_ARCH_NATIVE);
+                        fputs(strna(name), f);
+                }
+
+                fputc('\n', f);
+        }
+
+        if (c->syscall_errno != 0)
+                fprintf(f,
+                        "%sSystemCallErrorNumber: %s\n",
+                        prefix, strna(errno_to_name(c->syscall_errno)));
 }
 
 void exec_status_start(ExecStatus *s, pid_t pid) {

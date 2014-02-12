@@ -167,12 +167,9 @@ struct ExecContext {
          * don't enter a trigger loop. */
         bool same_pgrp;
 
-#ifdef HAVE_SECCOMP
-        scmp_filter_ctx syscall_filter;
-        Set *filtered_syscalls;
-        uint32_t syscall_filter_default_action;
-#endif
-        char *syscall_filter_string;
+        Set *syscall_filter;
+        int syscall_errno;
+        bool syscall_whitelist:1;
 
         bool oom_score_adjust_set:1;
         bool nice_set:1;

@@ -348,12 +348,66 @@ static int property_get_syscall_filter(
                 sd_bus_error *error) {
 
         ExecContext *c = userdata;
+        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free_ char *t = NULL;
+        Iterator i;
+        void *id;
+        int r;
 
         assert(bus);
         assert(reply);
         assert(c);
 
-        return sd_bus_message_append(reply, "s", c->syscall_filter_string);
+        SET_FOREACH(id, c->syscall_filter, i) {
+                char *name;
+
+                name = seccomp_syscall_resolve_num_arch(SCMP_ARCH_NATIVE, PTR_TO_INT(id) - 1);
+                if (!name)
+                        continue;
+
+                r = strv_push(&l, name);
+                if (r < 0) {
+                        free(name);
+                        return -ENOMEM;
+                }
+        }
+
+        strv_sort(l);
+
+        t = strv_join(l, " ");
+        if (!t)
+                return -ENOMEM;
+
+        if (!c->syscall_whitelist) {
+                char *d;
+
+                d = strappend("~", t);
+                if (!d)
+                        return -ENOMEM;
+
+                free(t);
+                t = d;
+        }
+
+        return sd_bus_message_append(reply, "s", t);
+}
+
+static int property_get_syscall_errno(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        ExecContext *c = userdata;
+
+        assert(bus);
+        assert(reply);
+        assert(c);
+
+        return sd_bus_message_append(reply, "i", (int32_t) c->syscall_errno);
 }
 
 const sd_bus_vtable bus_exec_vtable[] = {
@@ -419,6 +473,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("IgnoreSIGPIPE", "b", bus_property_get_bool, offsetof(ExecContext, ignore_sigpipe), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("NoNewPrivileges", "b", bus_property_get_bool, offsetof(ExecContext, no_new_privileges), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SystemCallFilter", "s", property_get_syscall_filter, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("SystemCallErrorNumber", "i", property_get_syscall_errno, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_VTABLE_END
 };
 
