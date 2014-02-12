@@ -335,6 +335,10 @@ $ eog targets.svg</programlisting>
                                         equivalent to passing
                                         <option>--no-pager</option>.</para>
                                 </listitem>
+				<term><varname>$SYSTEMD_LESS</varname></term>
+				<listitem><para><varname>$SYSTEMD_LESS</varname> overrides the
+				default options passed to <literal>less</literal>
+				(<literal>FRSXMK</literal>).</para></listitem>
                         </varlistentry>
                 </variablelist>
         </refsect1>
