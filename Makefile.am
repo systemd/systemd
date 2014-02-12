@@ -644,7 +644,8 @@ EXTRA_DIST += \
 	tools/make-man-index.py \
 	tools/make-directive-index.py \
 	tools/make-man-rules.py \
-	tools/xml_helper.py
+	tools/xml_helper.py \
+	man/less-variables.xml
 
 # ------------------------------------------------------------------------------
 noinst_LTLIBRARIES += \
