@@ -25,9 +25,23 @@ External:
 
 * Fedora: post FPC ticket to move add %tmpfiles_create to the packaging guidelines
 
+Preparation for 209:
+
+* Review new libraries
+
+* Rework cgroup propagation logic
+
+* libsystemd-journal returns the object created as first param in sd_journal_new(), sd_bus_new() and suchlike as last...
+
+* Merge Distribute= patches for .socket units
+
+* When a Type=forking service fails and needed another service, that
+  service is not cleaned up again when it has StopWhenUnneeded=yes
+  http://lists.freedesktop.org/archives/systemd-devel/2013-July/012141.html
+
 Features:
 
-* hookup nspawn and PrivateNetwork=yes with "ip netns"
+* maybe: hookup nspawn and PrivateNetwork=yes with "ip netns"
 
 * socket units: support creating sockets in different namespace,
   opening it up for JoinsNamespaceOf=. This would require to fork off
@@ -46,8 +60,6 @@ Features:
 
 * machinectl bash completion is missing
 * busctl bash and zsh completions are outdated
-
-* libsystemd-journal returns the object created as first param in sd_journal_new(), sd_bus_new() and suchlike as last...
 
 * cgroups:
   - implement system-wide DefaultCPUAccounting=1 switch (and similar for blockio, memory?)
@@ -85,8 +97,6 @@ Features:
 
 * rfkill,backlight: we probably should run the load tools inside of the udev rules so that the state is properly initialized by the time other software sees it
 
-* Add a new Distribute=$NUMBER key to socket units that makes use of SO_REUSEPORT to distribute network traffic on $NUMBER instances
-
 * move config_parse_path_strv() out of conf-parser.c
 
 * After coming back from hibernation reset hibernation swap partition using the /dev/snapshot ioctl APIs
@@ -94,10 +104,6 @@ Features:
 * If we try to find a unit via a dangling symlink, generate a clean
   error. Currently, we just ignore it and read the unit from the search
   path anyway.
-
-* When a Type=forking service fails and needed another service, that
-  service is not cleaned up again when it has StopWhenUnneeded=yes
-  http://lists.freedesktop.org/archives/systemd-devel/2013-July/012141.html
 
 * refuse boot if /etc/os-release is missing or /etc/machine-id cannot be set up
 
@@ -153,11 +159,6 @@ Features:
   complain loudly if they have argv[0][0] == '@' set.
   https://bugzilla.redhat.com/show_bug.cgi?id=961044
 
-* Introduce a way how we can kill the main process of a service with KillSignal, but all processes with SIGKILL later on
-  https://bugzilla.redhat.com/show_bug.cgi?id=952634
-
-* maybe add a warning to the unit file parses where the access mode of unit files is nonsensical.
-
 * investigate endianness issues of UUID vs. GUID
 
 * dbus: when a unit failed to load (i.e. is in UNIT_ERROR state), we
@@ -196,11 +197,6 @@ Features:
 * add ConditionArchitecture= or so
 
 * teach ConditionKernelCommandLine= globs or regexes (in order to match foobar={no,0,off})
-
-* Support SO_REUSEPORT with socket activation:
-  - Let systemd maintain a pool of servers.
-  - Use for seamless upgrades, by running the new server before stopping the
-    old.
 
 * after all byte-wise realloc() is slow, even on glibc, so i guess we
   need manual exponential loops after all
@@ -263,9 +259,7 @@ Features:
   - logind: wakelock/opportunistic suspend support
   - Add pretty name for seats in logind
   - logind: allow showing logout dialog from system?
-  - logind: non-local X11 server handling
   - logind: add equivalent to sd_pid_get_owner_uid() to the D-Bus API
-  - pam: when leaving a session explicitly exclude the ReleaseSession() caller process from the killing spree
   - we should probably handle SIGTERM/SIGINT to not leave dot files around, just in case
   - when logging out, remove user-owned sysv and posix IPC objects
   - session scopes/user unit: add RequiresMountsFor for the home directory of the user
@@ -431,7 +425,7 @@ Features:
 * currently x-systemd.timeout is lost in the initrd, since crypttab is copied into dracut, but fstab isn't
 
 * nspawn:
-  - nspawn: consider changing users for -u with su, so that NSS resolving works correctly
+  - nspawn: consider changing users for -u with /usr/bin/getent, so that NSS resolving works correctly
   - nspawn: implement personality changes a la linux32(8)
   - nspawn: --read-only is not applied recursively to submounts
   - nspawn: make use of device cgroup controller by default
@@ -439,13 +433,8 @@ Features:
   - nspawn: investigate whether we can support the same as LXC's
     lxc.network.type=phys mode, and pass through entire network
     interfaces to the container
-  - nspawn: maybe explicitly reset loginuid?
   - nspawn: make it work for dwalsh and shared /usr containers -- tmpfs mounts as command line parameters, selinux exec context
   - refuses to boot containers without /etc/machine-id (OK?), and with empty /etc/machine-id (not OK).
-  - add an option to nspawn that uses seccomp to make socket(AF_NETLINK,
-    SOCK_RAW, NETLINK_AUDIT) fail the the appropriate error code that
-    makes the audit userspace to think auditing is not available in the
-    kernel.
   - support taking a btrfs snapshot at startup and dropping it afterwards
 
 * cryptsetup:
@@ -475,8 +464,6 @@ Features:
 * allow writing multiple conditions in unit files on one line
 
 * explore multiple service instances per listening socket idea
-
-* shutdown: don't read-only mount anything when running in container
 
 * MountFlags=shared acts as MountFlags=slave right now.
 
@@ -637,13 +624,6 @@ Features:
 * maybe introduce ExecRestartPre=
 
 * dot output for --test showing the 'initial transaction'
-
-* port over to LISTEN_FDS/LISTEN_PID:
-   - postfix, saslauthd
-   - apache/samba
-   - libvirtd (/var/run/libvirt/libvirt-sock-ro)
-   - bluetoothd (/var/run/sdp! @/org/bluez/audio!)
-   - distccd
 
 * fingerprint.target, wireless.target, gps.target, netdevice.target
 
