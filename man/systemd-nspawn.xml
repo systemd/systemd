@@ -144,19 +144,6 @@
         </refsect1>
 
         <refsect1>
-                <title>Incompatibility with Auditing</title>
-
-                <para>Note that the kernel auditing subsystem is
-                currently broken when used together with
-                containers. We hence recommend turning it off entirely
-                by booting with <literal>audit=0</literal> on the
-                kernel command line, or by turning it off at kernel
-                build time. If auditing is enabled in the kernel,
-                operating systems booted in an nspawn container might
-                refuse log-in attempts.</para>
-        </refsect1>
-
-        <refsect1>
                 <title>Options</title>
 
                 <para>If option <option>-b</option> is specified, the

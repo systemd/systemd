@@ -42,10 +42,6 @@ int audit_session_from_pid(pid_t pid, uint32_t *id) {
 
         assert(id);
 
-        /* Audit doesn't support containers right now */
-        if (detect_container(NULL) > 0)
-                return -ENOTSUP;
-
         p = procfs_file_alloca(pid, "sessionid");
 
         r = read_one_line_file(p, &s);
@@ -70,10 +66,6 @@ int audit_loginuid_from_pid(pid_t pid, uid_t *uid) {
         int r;
 
         assert(uid);
-
-        /* Audit doesn't support containers right now */
-        if (detect_container(NULL) > 0)
-                return -ENOTSUP;
 
         p = procfs_file_alloca(pid, "loginuid");
 

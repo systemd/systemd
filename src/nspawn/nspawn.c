@@ -1198,15 +1198,37 @@ static int terminate_machine(pid_t pid) {
         return 0;
 }
 
-static bool audit_enabled(void) {
-        int fd;
+static int reset_audit_loginuid(void) {
+        _cleanup_free_ char *p = NULL;
+        int r;
 
-        fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_AUDIT);
-        if (fd >= 0) {
-                close_nointr_nofail(fd);
-                return true;
+        if (arg_share_system)
+                return 0;
+
+        r = read_one_line_file("/proc/self/loginuid", &p);
+        if (r == -EEXIST)
+                return 0;
+        if (r < 0) {
+                log_error("Failed to read /proc/self/loginuid: %s", strerror(-r));
+                return r;
         }
-        return false;
+
+        /* Already reset? */
+        if (streq(p, "4294967295"))
+                return 0;
+
+        r = write_string_file("/proc/self/loginuid", "4294967295");
+        if (r < 0) {
+                log_error("Failed to reset audit login UID. This probably means that your kernel is too\n"
+                          "old and you have audit enabled. Note that the auditing subsystem is known to\n"
+                          "be incompatible with containers on old kernels. Please make sure to upgrade\n"
+                          "your kernel or to off auditing with 'audit=0' on the kernel command line before\n"
+                          "using systemd-nspawn. Sleeping for 5s... (%s)\n", strerror(-r));
+
+                sleep(5);
+        }
+
+        return 0;
 }
 
 int main(int argc, char *argv[]) {
@@ -1269,13 +1291,6 @@ int main(int argc, char *argv[]) {
         if (sd_booted() <= 0) {
                 log_error("Not running on a systemd system.");
                 goto finish;
-        }
-
-        if (arg_boot && audit_enabled()) {
-                log_warning("The kernel auditing subsystem is known to be incompatible with containers.\n"
-                            "Please make sure to turn off auditing with 'audit=0' on the kernel command\n"
-                            "line before using systemd-nspawn. Sleeping for 5s...\n");
-                sleep(5);
         }
 
         if (path_equal(arg_directory, "/")) {
@@ -1435,6 +1450,9 @@ int main(int argc, char *argv[]) {
                                 log_error("setsid() failed: %m");
                                 goto child_fail;
                         }
+
+                        if (reset_audit_loginuid() < 0)
+                                goto child_fail;
 
                         if (prctl(PR_SET_PDEATHSIG, SIGKILL) < 0) {
                                 log_error("PR_SET_PDEATHSIG failed: %m");
