@@ -265,7 +265,19 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>login</command> <replaceable>ID</replaceable>...</term>
+                                <term><command>reboot</command> <replaceable>ID</replaceable>...</term>
+
+                                <listitem><para>Reboot one or more
+                                containers. This will trigger a reboot
+                                by sending SIGINT to the container's
+                                init process, which is roughly
+                                equivalent to pressing Ctrl+Alt+Del on
+                                a non-containerized
+                                system.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><command>login</command> <replaceable>ID</replaceable></term>
 
                                 <listitem><para>Open a terminal login
                                 session to a container. This will
