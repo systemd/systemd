@@ -2115,9 +2115,11 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                         prefix, c->selinux_context);
 
         if (c->syscall_filter) {
+#ifdef HAVE_SECCOMP
                 Iterator j;
                 void *id;
                 bool first = true;
+#endif
 
                 fprintf(f,
                         "%sSystemCallFilter: \n",
@@ -2126,6 +2128,7 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 if (!c->syscall_whitelist)
                         fputc('~', f);
 
+#ifdef HAVE_SECCOMP
                 SET_FOREACH(id, c->syscall_filter, j) {
                         _cleanup_free_ char *name = NULL;
 
@@ -2137,6 +2140,7 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                         name = seccomp_syscall_resolve_num_arch(PTR_TO_INT(id)-1, SCMP_ARCH_NATIVE);
                         fputs(strna(name), f);
                 }
+#endif
 
                 fputc('\n', f);
         }

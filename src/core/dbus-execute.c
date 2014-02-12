@@ -350,14 +350,17 @@ static int property_get_syscall_filter(
         ExecContext *c = userdata;
         _cleanup_strv_free_ char **l = NULL;
         _cleanup_free_ char *t = NULL;
+#ifdef HAVE_SECCOMP
         Iterator i;
         void *id;
         int r;
+#endif
 
         assert(bus);
         assert(reply);
         assert(c);
 
+#ifdef HAVE_SECCOMP
         SET_FOREACH(id, c->syscall_filter, i) {
                 char *name;
 
@@ -371,6 +374,7 @@ static int property_get_syscall_filter(
                         return -ENOMEM;
                 }
         }
+#endif
 
         strv_sort(l);
 
