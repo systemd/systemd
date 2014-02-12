@@ -3405,6 +3405,48 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
                                 printf("%s=%s \"%s\"\n", name, strempty(a), strempty(b));
 
                         return 0;
+                } else if (streq_ptr(name, "SystemCallFilter")) {
+                        _cleanup_strv_free_ char **l = NULL;
+                        int whitelist;
+
+                        r = sd_bus_message_enter_container(m, 'r', "bas");
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        r = sd_bus_message_read(m, "b", &whitelist);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        r = sd_bus_message_read_strv(m, &l);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        r = sd_bus_message_exit_container(m);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        if (arg_all || whitelist || !strv_isempty(l)) {
+                                bool first = true;
+                                char **i;
+
+                                fputs(name, stdout);
+                                fputc('=', stdout);
+
+                                if (!whitelist)
+                                        fputc('~', stdout);
+
+                                STRV_FOREACH(i, l) {
+                                        if (first)
+                                                first = false;
+                                        else
+                                                fputc(' ', stdout);
+
+                                        fputs(*i, stdout);
+                                }
+                                fputc('\n', stdout);
+                        }
+
+                        return 0;
                 }
 
                 break;

@@ -57,6 +57,10 @@
 #include "bus-error.h"
 #include "errno-list.h"
 
+#ifdef HAVE_SECCOMP
+#include "seccomp-util.h"
+#endif
+
 #if !defined(HAVE_SYSV_COMPAT) || !defined(HAVE_SECCOMP)
 int config_parse_warn_compat(
                 const char *unit,
@@ -2025,6 +2029,57 @@ int config_parse_syscall_filter(
         }
 
         c->no_new_privileges = true;
+
+        return 0;
+}
+
+int config_parse_syscall_archs(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        ExecContext *c = data;
+        char *w, *state;
+        size_t l;
+        int r;
+
+        if (isempty(rvalue)) {
+                set_free(c->syscall_archs);
+                c->syscall_archs = NULL;
+                return 0;
+        }
+
+        r = set_ensure_allocated(&c->syscall_archs, trivial_hash_func, trivial_compare_func);
+        if (r < 0)
+                return log_oom();
+
+        FOREACH_WORD_QUOTED(w, l, rvalue, state) {
+                _cleanup_free_ char *t = NULL;
+                uint32_t a;
+
+                t = strndup(w, l);
+                if (!t)
+                        return log_oom();
+
+                r = seccomp_arch_from_string(t, &a);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Failed to parse system call architecture, ignoring: %s", t);
+                        continue;
+                }
+
+                r = set_put(c->syscall_archs, UINT32_TO_PTR(a + 1));
+                if (r == -EEXIST)
+                        continue;
+                if (r < 0)
+                        return log_oom();
+        }
 
         return 0;
 }

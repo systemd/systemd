@@ -21,6 +21,10 @@
 
 #include <sys/prctl.h>
 
+#ifdef HAVE_SECCOMP
+#include <seccomp.h>
+#endif
+
 #include "bus-util.h"
 #include "missing.h"
 #include "ioprio.h"
@@ -30,6 +34,10 @@
 #include "dbus-execute.h"
 #include "capability.h"
 #include "env-util.h"
+
+#ifdef HAVE_SECCOMP
+#include "seccomp-util.h"
+#endif
 
 BUS_DEFINE_PROPERTY_GET_ENUM(bus_property_get_exec_output, exec_output, ExecOutput);
 
@@ -349,16 +357,24 @@ static int property_get_syscall_filter(
 
         ExecContext *c = userdata;
         _cleanup_strv_free_ char **l = NULL;
-        _cleanup_free_ char *t = NULL;
+        int r;
+
 #ifdef HAVE_SECCOMP
         Iterator i;
         void *id;
-        int r;
 #endif
 
         assert(bus);
         assert(reply);
         assert(c);
+
+        r = sd_bus_message_open_container(reply, 'r', "bas");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(reply, "b", c->syscall_whitelist);
+        if (r < 0)
+                return r;
 
 #ifdef HAVE_SECCOMP
         SET_FOREACH(id, c->syscall_filter, i) {
@@ -378,22 +394,56 @@ static int property_get_syscall_filter(
 
         strv_sort(l);
 
-        t = strv_join(l, " ");
-        if (!t)
-                return -ENOMEM;
+        r = sd_bus_message_append_strv(reply, l);
+        if (r < 0)
+                return r;
 
-        if (!c->syscall_whitelist) {
-                char *d;
+        return sd_bus_message_close_container(reply);
+}
 
-                d = strappend("~", t);
-                if (!d)
+static int property_get_syscall_archs(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        ExecContext *c = userdata;
+        _cleanup_strv_free_ char **l = NULL;
+        int r;
+
+#ifdef HAVE_SECCOMP
+        Iterator i;
+        void *id;
+#endif
+
+        assert(bus);
+        assert(reply);
+        assert(c);
+
+#ifdef HAVE_SECCOMP
+        SET_FOREACH(id, c->syscall_archs, i) {
+                const char *name;
+
+                name = seccomp_arch_to_string(PTR_TO_UINT32(id) - 1);
+                if (!name)
+                        continue;
+
+                r = strv_extend(&l, name);
+                if (r < 0)
                         return -ENOMEM;
-
-                free(t);
-                t = d;
         }
+#endif
 
-        return sd_bus_message_append(reply, "s", t);
+        strv_sort(l);
+
+        r = sd_bus_message_append_strv(reply, l);
+        if (r < 0)
+                return r;
+
+        return 0;
 }
 
 static int property_get_syscall_errno(
@@ -476,7 +526,8 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("SELinuxContext", "s", NULL, offsetof(ExecContext, selinux_context), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("IgnoreSIGPIPE", "b", bus_property_get_bool, offsetof(ExecContext, ignore_sigpipe), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("NoNewPrivileges", "b", bus_property_get_bool, offsetof(ExecContext, no_new_privileges), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("SystemCallFilter", "s", property_get_syscall_filter, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("SystemCallFilter", "(bas)", property_get_syscall_filter, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("SystemCallArchitectures", "as", property_get_syscall_archs, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SystemCallErrorNumber", "i", property_get_syscall_errno, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_VTABLE_END
 };

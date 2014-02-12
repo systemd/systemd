@@ -770,6 +770,12 @@ nodist_libsystemd_shared_la_SOURCES = \
 	src/shared/errno-from-name.h \
 	src/shared/errno-to-name.h
 
+if HAVE_SECCOMP
+libsystemd_shared_la_SOURCES += \
+	src/shared/seccomp-util.h \
+	src/shared/seccomp-util.c
+endif
+
 # ------------------------------------------------------------------------------
 noinst_LTLIBRARIES += \
 	libsystemd-units.la

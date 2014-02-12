@@ -168,6 +168,7 @@ struct ExecContext {
         bool same_pgrp;
 
         Set *syscall_filter;
+        Set *syscall_archs;
         int syscall_errno;
         bool syscall_whitelist:1;
 

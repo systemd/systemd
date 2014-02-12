@@ -77,6 +77,10 @@
 #include "selinux-util.h"
 #include "errno-list.h"
 
+#ifdef HAVE_SECCOMP
+#include "seccomp-util.h"
+#endif
+
 #define IDLE_TIMEOUT_USEC (5*USEC_PER_SEC)
 #define IDLE_TIMEOUT2_USEC (1*USEC_PER_SEC)
 
@@ -953,8 +957,17 @@ static int apply_seccomp(ExecContext *c) {
         if (!seccomp)
                 return -ENOMEM;
 
-        action = c->syscall_whitelist ? SCMP_ACT_ALLOW : negative_action;
+        SET_FOREACH(id, c->syscall_archs, i) {
+                r = seccomp_arch_add(seccomp, PTR_TO_UINT32(id) - 1);
+                if (r == -EEXIST)
+                        continue;
+                if (r < 0) {
+                        seccomp_release(seccomp);
+                        return r;
+                }
+        }
 
+        action = c->syscall_whitelist ? SCMP_ACT_ALLOW : negative_action;
         SET_FOREACH(id, c->syscall_filter, i) {
                 r = seccomp_rule_add(seccomp, action, PTR_TO_INT(id) - 1, 0);
                 if (r < 0) {
@@ -1548,7 +1561,7 @@ int exec_spawn(ExecCommand *command,
                                 }
 
 #ifdef HAVE_SECCOMP
-                        if (context->syscall_filter) {
+                        if (context->syscall_filter || context->syscall_archs) {
                                 err = apply_seccomp(context);
                                 if (err < 0) {
                                         r = EXIT_SECCOMP;
@@ -1740,6 +1753,9 @@ void exec_context_done(ExecContext *c) {
 #ifdef HAVE_SECCOMP
         set_free(c->syscall_filter);
         c->syscall_filter = NULL;
+
+        set_free(c->syscall_archs);
+        c->syscall_archs = NULL;
 #endif
 }
 
@@ -2122,7 +2138,7 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
 #endif
 
                 fprintf(f,
-                        "%sSystemCallFilter: \n",
+                        "%sSystemCallFilter: ",
                         prefix);
 
                 if (!c->syscall_whitelist)
@@ -2137,11 +2153,28 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                         else
                                 fputc(' ', f);
 
-                        name = seccomp_syscall_resolve_num_arch(PTR_TO_INT(id)-1, SCMP_ARCH_NATIVE);
+                        name = seccomp_syscall_resolve_num_arch(SCMP_ARCH_NATIVE, PTR_TO_INT(id) - 1);
                         fputs(strna(name), f);
                 }
 #endif
 
+                fputc('\n', f);
+        }
+
+        if (c->syscall_archs) {
+#ifdef HAVE_SECCOMP
+                Iterator j;
+                void *id;
+#endif
+
+                fprintf(f,
+                        "%sSystemCallArchitectures:",
+                        prefix);
+
+#ifdef HAVE_SECCOMP
+                SET_FOREACH(id, c->syscall_archs, j)
+                        fprintf(f, " %s", strna(seccomp_arch_to_string(PTR_TO_UINT32(id) - 1)));
+#endif
                 fputc('\n', f);
         }
 
