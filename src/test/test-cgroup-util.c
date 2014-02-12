@@ -122,21 +122,6 @@ static void test_path_get_owner_uid(void) {
         check_p_g_o_u("", -ENOENT, 0);
 }
 
-static void check_p_g_m_n(const char *path, int code, const char *result) {
-        _cleanup_free_ char *m = NULL;
-
-        assert_se(cg_path_get_machine_name(path, &m) == code);
-        assert_se(streq_ptr(m, result));
-}
-
-static void test_path_get_machine_name(void) {
-        check_p_g_m_n("/user.slice/machine-foobar.scope", 0, "foobar");
-        check_p_g_m_n("/machine-foobar.scope", 0, "foobar");
-        check_p_g_m_n("/user.slice/user-kuux.slice/machine-foobar.scope", 0, "foobar");
-        check_p_g_m_n("/user.slice/user-kuux.slice/machine-foobar.scope/asjhdkj", 0, "foobar");
-        check_p_g_m_n("", -ENOENT, NULL);
-}
-
 static void test_get_paths(void) {
         _cleanup_free_ char *a = NULL;
 
@@ -267,7 +252,6 @@ int main(void) {
         test_path_get_user_unit();
         test_path_get_session();
         test_path_get_owner_uid();
-        test_path_get_machine_name();
         TEST_REQ_RUNNING_SYSTEMD(test_get_paths());
         test_proc();
         TEST_REQ_RUNNING_SYSTEMD(test_escape());
