@@ -250,15 +250,34 @@ static char* context_fallback_icon_name(Context *c) {
         return strdup("computer");
 }
 
-static int context_write_data_hostname(Context *c) {
+static bool hostname_is_useful(const char *hn) {
+        return !isempty(hn) && !streq(hn, "localhost");
+}
+
+static int context_update_kernel_hostname(Context *c) {
+        const char *static_hn;
         const char *hn;
 
         assert(c);
 
-        if (isempty(c->data[PROP_HOSTNAME]))
-                hn = "localhost";
-        else
+        static_hn = c->data[PROP_STATIC_HOSTNAME];
+
+        /* /etc/hostname with something other than "localhost"
+         * has the highest preference ... */
+        if (hostname_is_useful(static_hn))
+                hn = static_hn;
+
+        /* ... the transient host name, (ie: DHCP) comes next ...*/
+        else if (!isempty(c->data[PROP_HOSTNAME]))
                 hn = c->data[PROP_HOSTNAME];
+
+        /* ... fallback to static "localhost.*" ignored above ... */
+        else if (!isempty(static_hn))
+                hn = static_hn;
+
+        /* ... and the ultimate fallback */
+        else
+                hn = "localhost";
 
         if (sethostname(hn, strlen(hn)) < 0)
                 return -errno;
@@ -411,7 +430,7 @@ static int method_set_hostname(sd_bus *bus, sd_bus_message *m, void *userdata, s
         free(c->data[PROP_HOSTNAME]);
         c->data[PROP_HOSTNAME] = h;
 
-        r = context_write_data_hostname(c);
+        r = context_update_kernel_hostname(c);
         if (r < 0) {
                 log_error("Failed to set host name: %s", strerror(-r));
                 return sd_bus_error_set_errnof(error, r, "Failed to set hostname: %s", strerror(-r));
@@ -461,6 +480,12 @@ static int method_set_static_hostname(sd_bus *bus, sd_bus_message *m, void *user
 
                 free(c->data[PROP_STATIC_HOSTNAME]);
                 c->data[PROP_STATIC_HOSTNAME] = h;
+        }
+
+        r = context_update_kernel_hostname(c);
+        if (r < 0) {
+                log_error("Failed to set host name: %s", strerror(-r));
+                return sd_bus_error_set_errnof(error, r, "Failed to set hostname: %s", strerror(-r));
         }
 
         r = context_write_data_static_hostname(c);

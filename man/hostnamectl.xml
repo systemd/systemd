@@ -69,11 +69,9 @@
                 (e.g. "Lennart's Laptop"), the static hostname which
                 is used to initialize the kernel hostname at boot
                 (e.g. "lennarts-laptop"), and the transient hostname
-                which might be assigned temporarily due to network
-                configuration and might revert back to the static
-                hostname if network connectivity is lost and is only
-                temporarily written to the kernel hostname
-                (e.g. "dhcp-47-11").</para>
+                which is a default received from network configuration.
+                If a static hostname is set, and is valid (something other
+                than localhost) then the transient hostname is not used.</para>
 
                 <para>Note that the pretty hostname has little
                 restrictions on the characters used, while the static
