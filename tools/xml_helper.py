@@ -17,19 +17,23 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
+from lxml import etree as tree
+
+class CustomResolver(tree.Resolver):
+    def resolve(self, url, id, context):
+        if 'custom-entities.ent' in url:
+            return self.resolve_filename('man/custom-entities.ent', context)
+
 try:
-    from lxml import etree as tree
-
-    class CustomResolver(tree.Resolver):
-        def resolve(self, url, id, context):
-            if 'custom-entities.ent' in url:
-                return self.resolve_filename('man/custom-entities.ent', context)
-
     _parser = tree.XMLParser()
     _parser.resolvers.add(CustomResolver())
-    xml_parse = lambda page: tree.parse(page, _parser)
-    xml_print = lambda xml: tree.tostring(xml, pretty_print=True,
-                                          encoding='utf-8')
+    def xml_parse(page):
+        doc = tree.parse(page, _parser)
+        doc.xinclude()
+        return doc
+    def xml_print(xml):
+        return tree.tostring(xml, pretty_print=True, encoding='utf-8')
+
 except ImportError:
     import xml.etree.ElementTree as tree
     import re as _re

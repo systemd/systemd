@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<!DOCTYPE book PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+                 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+
+<refsect1>
+        <title>Environment</title>
+
+        <variablelist class='environment-variables'>
+                <varlistentry>
+                        <term><varname>$SYSTEMD_PAGER</varname></term>
+
+                        <listitem><para>Pager to use when
+                        <option>--no-pager</option> is not given;
+                        overrides <varname>$PAGER</varname>.  Setting
+                        this to an empty string or the value
+                        <literal>cat</literal> is equivalent to passing
+                        <option>--no-pager</option>.</para></listitem>
+                </varlistentry>
+
+                <varlistentry>
+                        <term><varname>$SYSTEMD_LESS</varname></term>
+
+                        <listitem><para>Override the default
+                        options passed to
+                        <command>less</command>
+                        (<literal>FRSXMK</literal>).</para></listitem>
+                </varlistentry>
+        </variablelist>
+</refsect1>

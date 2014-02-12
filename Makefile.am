@@ -4645,7 +4645,7 @@ if ENABLE_MANPAGES
 man/custom-entities.ent:
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@)
 	$(AM_V_GEN)(echo '<?xml version="1.0" encoding="utf-8" ?>' && \
-	 echo '$(subst '|,<!ENTITY ,$(subst =, ",$(subst |',">,$(substitutions))))') \
+	 printf '$(subst '|,<!ENTITY ,$(subst =, ",$(subst |',">\n,$(substitutions))))') \
 	 > $@ # '
 
 DISTCLEANFILES += \
@@ -4653,6 +4653,7 @@ DISTCLEANFILES += \
 
 XSLTPROC_FLAGS = \
 	--nonet \
+	--xinclude \
 	--stringparam man.output.quietly 1 \
 	--stringparam funcsynopsis.style ansi \
 	--stringparam man.authors.section.enabled 0 \
