@@ -27,6 +27,7 @@
 #include "udev-util.h"
 #include "rtnl-util.h"
 #include "mkdir.h"
+#include "virt.h"
 
 const char* const network_dirs[] = {
         "/etc/systemd/network",
@@ -63,9 +64,18 @@ int manager_new(Manager **ret) {
         if (!m->udev)
                 return -ENOMEM;
 
-        m->udev_monitor = udev_monitor_new_from_netlink(m->udev, "udev");
-        if (!m->udev_monitor)
-                return -ENOMEM;
+        /* udev does not initialize devices inside containers,
+         * so we rely on them being already initialized before
+         * entering the container */
+        if (detect_container(NULL) > 0) {
+                m->udev_monitor = udev_monitor_new_from_netlink(m->udev, "kernel");
+                if (!m->udev_monitor)
+                        return -ENOMEM;
+        } else {
+                m->udev_monitor = udev_monitor_new_from_netlink(m->udev, "udev");
+                if (!m->udev_monitor)
+                        return -ENOMEM;
+        }
 
         m->links = hashmap_new(uint64_hash_func, uint64_compare_func);
         if (!m->links)
@@ -179,9 +189,14 @@ int manager_udev_enumerate_links(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = udev_enumerate_add_match_is_initialized(e);
-        if (r < 0)
-                return r;
+        /* udev does not initialize devices inside containers,
+         * so we rely on them being already initialized before
+         * entering the container */
+        if (detect_container(NULL) <= 0) {
+                r = udev_enumerate_add_match_is_initialized(e);
+                if (r < 0)
+                        return r;
+        }
 
         r = udev_enumerate_scan_devices(e);
         if (r < 0)
