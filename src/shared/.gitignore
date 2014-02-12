@@ -1,7 +1,3 @@
-/syscall-from-name.gperf
-/syscall-from-name.h
-/syscall-list.txt
-/syscall-to-name.h
 /errno-from-name.gperf
 /errno-from-name.h
 /errno-list.txt

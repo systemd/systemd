@@ -38,9 +38,13 @@
 #include <linux/fs.h>
 #include <linux/oom.h>
 #include <sys/poll.h>
-#include <linux/seccomp-bpf.h>
 #include <glob.h>
 #include <libgen.h>
+#ifdef HAVE_SECCOMP
+#include <seccomp.h>
+
+#include "set.h"
+#endif
 #undef basename
 
 #ifdef HAVE_PAM
@@ -67,7 +71,6 @@
 #include "utmp-wtmp.h"
 #include "def.h"
 #include "path-util.h"
-#include "syscall-list.h"
 #include "env-util.h"
 #include "fileio.h"
 #include "unit.h"
@@ -933,57 +936,32 @@ static void rename_process_from_path(const char *path) {
         rename_process(process_name);
 }
 
-static int apply_seccomp(uint32_t *syscall_filter) {
-        static const struct sock_filter header[] = {
-                VALIDATE_ARCHITECTURE,
-                EXAMINE_SYSCALL
-        };
-        static const struct sock_filter footer[] = {
-                _KILL_PROCESS
-        };
+#ifdef HAVE_SECCOMP
+static int apply_seccomp(ExecContext *c) {
+        uint32_t action = SCMP_ACT_ALLOW;
+        Iterator i;
+        void *id;
 
-        int i;
-        unsigned n;
-        struct sock_filter *f;
-        struct sock_fprog prog = {};
+        assert(c);
 
-        assert(syscall_filter);
+        c->syscall_filter = seccomp_init(c->syscall_filter_default_action);
+        if (!c->syscall_filter)
+                return -1;
 
-        /* First: count the syscalls to check for */
-        for (i = 0, n = 0; i < syscall_max(); i++)
-                if (syscall_filter[i >> 4] & (1 << (i & 31)))
-                        n++;
+        if (c->syscall_filter_default_action == SCMP_ACT_ALLOW)
+                action = SCMP_ACT_KILL;
 
-        /* Second: build the filter program from a header the syscall
-         * matches and the footer */
-        f = alloca(sizeof(struct sock_filter) * (ELEMENTSOF(header) + 2*n + ELEMENTSOF(footer)));
-        memcpy(f, header, sizeof(header));
-
-        for (i = 0, n = 0; i < syscall_max(); i++)
-                if (syscall_filter[i >> 4] & (1 << (i & 31))) {
-                        struct sock_filter item[] = {
-                                BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, INDEX_TO_SYSCALL(i), 0, 1),
-                                BPF_STMT(BPF_RET+BPF_K, SECCOMP_RET_ALLOW)
-                        };
-
-                        assert_cc(ELEMENTSOF(item) == 2);
-
-                        f[ELEMENTSOF(header) + 2*n]  = item[0];
-                        f[ELEMENTSOF(header) + 2*n+1] = item[1];
-
-                        n++;
+        SET_FOREACH(id, c->filtered_syscalls, i) {
+                int r = seccomp_rule_add(c->syscall_filter, action, PTR_TO_INT(id) - 1, 0);
+                if (r < 0) {
+                        log_error("Failed to add syscall filter");
+                        return r;
                 }
+        }
 
-        memcpy(f + (ELEMENTSOF(header) + 2*n), footer, sizeof(footer));
-
-        /* Third: install the filter */
-        prog.len = ELEMENTSOF(header) + ELEMENTSOF(footer) + 2*n;
-        prog.filter = f;
-        if (prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &prog) < 0)
-                return -errno;
-
-        return 0;
+        return seccomp_load(c->syscall_filter);
 }
+#endif
 
 static void do_idle_pipe_dance(int idle_pipe[4]) {
         assert(idle_pipe);
@@ -1562,13 +1540,15 @@ int exec_spawn(ExecCommand *command,
                                         goto fail_child;
                                 }
 
-                        if (context->syscall_filter) {
-                                err = apply_seccomp(context->syscall_filter);
+#ifdef HAVE_SECCOMP
+                        if (context->filtered_syscalls) {
+                                err = apply_seccomp(context);
                                 if (err < 0) {
                                         r = EXIT_SECCOMP;
                                         goto fail_child;
                                 }
                         }
+#endif
 #ifdef HAVE_SELINUX
                         if (context->selinux_context && use_selinux()) {
                                 bool ignore;
@@ -1751,6 +1731,18 @@ void exec_context_done(ExecContext *c) {
 
         free(c->syscall_filter);
         c->syscall_filter = NULL;
+
+        free(c->syscall_filter_string);
+        c->syscall_filter_string = NULL;
+
+#ifdef HAVE_SECCOMP
+        if (c->syscall_filter) {
+                seccomp_release(c->syscall_filter);
+                c->syscall_filter = NULL;
+        }
+        set_free(c->filtered_syscalls);
+        c->filtered_syscalls = NULL;
+#endif
 }
 
 void exec_command_done(ExecCommand *c) {

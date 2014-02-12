@@ -323,6 +323,19 @@ fi
 AM_CONDITIONAL(HAVE_BLKID, [test "$have_blkid" = "yes"])
 
 # ------------------------------------------------------------------------------
+have_seccomp=no
+AC_ARG_ENABLE(seccomp, AS_HELP_STRING([--disable-seccomp], [Disable optional SECCOMP support]))
+if test "x$enable_seccomp" != "xno"; then
+        PKG_CHECK_MODULES(SECCOMP, [libseccomp >= 1.0.0],
+               [AC_DEFINE(HAVE_SECCOMP, 1, [Define if seccomp is available]) have_seccomp=yes],
+               [have_seccomp=no])
+        if test "x$have_seccomp" = "xno" -a "x$enable_seccomp" = "xyes"; then
+                AC_MSG_ERROR([*** seccomp support requested but libraries not found])
+        fi
+fi
+AM_CONDITIONAL(HAVE_SECCOMP, [test "$have_seccomp" = "yes"])
+
+# ------------------------------------------------------------------------------
 have_ima=yes
 AC_ARG_ENABLE([ima], AS_HELP_STRING([--disable-ima],[Disable optional IMA support]),
                 [case "${enableval}" in
@@ -1090,6 +1103,7 @@ AC_MSG_RESULT([
         AUDIT:                   ${have_audit}
         IMA:                     ${have_ima}
         SELinux:                 ${have_selinux}
+        SECCOMP:                 ${have_seccomp}
         SMACK:                   ${have_smack}
         XZ:                      ${have_xz}
         ACL:                     ${have_acl}

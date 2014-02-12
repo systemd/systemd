@@ -33,6 +33,11 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/resource.h>
+#ifdef HAVE_SECCOMP
+#include <seccomp.h>
+
+#include "set.h"
+#endif
 
 #include "sd-messages.h"
 #include "unit.h"
@@ -47,13 +52,12 @@
 #include "unit-printf.h"
 #include "utf8.h"
 #include "path-util.h"
-#include "syscall-list.h"
 #include "env-util.h"
 #include "cgroup.h"
 #include "bus-util.h"
 #include "bus-error.h"
 
-#ifndef HAVE_SYSV_COMPAT
+#if !defined(HAVE_SYSV_COMPAT) || !defined(HAVE_SECCOMP)
 int config_parse_warn_compat(const char *unit,
                              const char *filename,
                              unsigned line,
@@ -1916,16 +1920,7 @@ int config_parse_documentation(const char *unit,
         return r;
 }
 
-static void syscall_set(uint32_t *p, int nr) {
-        nr = SYSCALL_TO_INDEX(nr);
-        p[nr >> 4] |= 1 << (nr & 31);
-}
-
-static void syscall_unset(uint32_t *p, int nr) {
-        nr = SYSCALL_TO_INDEX(nr);
-        p[nr >> 4] &= ~(1 << (nr & 31));
-}
-
+#ifdef HAVE_SECCOMP
 int config_parse_syscall_filter(const char *unit,
                                 const char *filename,
                                 unsigned line,
@@ -1936,13 +1931,23 @@ int config_parse_syscall_filter(const char *unit,
                                 const char *rvalue,
                                 void *data,
                                 void *userdata) {
-
         ExecContext *c = data;
         Unit *u = userdata;
         bool invert = false;
         char *w;
         size_t l;
         char *state;
+        _cleanup_strv_free_ char **syscalls = strv_new(NULL, NULL);
+        _cleanup_free_ char *sorted_syscalls = NULL;
+        uint32_t action = SCMP_ACT_ALLOW;
+        Iterator i;
+        void *e;
+        static char const *default_syscalls[] = {"execve",
+                                                 "exit",
+                                                 "exit_group",
+                                                 "rt_sigreturn",
+                                                 "sigreturn",
+                                                 NULL};
 
         assert(filename);
         assert(lvalue);
@@ -1951,34 +1956,37 @@ int config_parse_syscall_filter(const char *unit,
 
         if (isempty(rvalue)) {
                 /* Empty assignment resets the list */
-                free(c->syscall_filter);
-                c->syscall_filter = NULL;
+                set_free(c->filtered_syscalls);
+                c->filtered_syscalls= NULL;
+                free(c->syscall_filter_string);
+                c->syscall_filter_string = NULL;
                 return 0;
         }
 
         if (rvalue[0] == '~') {
                 invert = true;
+                action = SCMP_ACT_KILL;
                 rvalue++;
         }
 
-        if (!c->syscall_filter) {
-                size_t n;
+        if (!c->filtered_syscalls) {
+                c->filtered_syscalls = set_new(trivial_hash_func, trivial_compare_func);
+                if (invert)
+                        c->syscall_filter_default_action = SCMP_ACT_ALLOW;
+                else {
+                        char const **syscall;
 
-                n = (syscall_max() + 31) >> 4;
-                c->syscall_filter = new(uint32_t, n);
-                if (!c->syscall_filter)
-                        return log_oom();
+                        c->syscall_filter_default_action = SCMP_ACT_KILL;
 
-                memset(c->syscall_filter, invert ? 0xFF : 0, n * sizeof(uint32_t));
+                        /* accept default syscalls if we are on a whitelist */
+                        STRV_FOREACH(syscall, default_syscalls) {
+                                int id = seccomp_syscall_resolve_name(*syscall);
+                                if (id < 0)
+                                        continue;
 
-                /* Add these by default */
-                syscall_set(c->syscall_filter, __NR_execve);
-                syscall_set(c->syscall_filter, __NR_rt_sigreturn);
-#ifdef __NR_sigreturn
-                syscall_set(c->syscall_filter, __NR_sigreturn);
-#endif
-                syscall_set(c->syscall_filter, __NR_exit_group);
-                syscall_set(c->syscall_filter, __NR_exit);
+                                set_replace(c->filtered_syscalls, INT_TO_PTR(id + 1));
+                        }
+                }
         }
 
         FOREACH_WORD_QUOTED(w, l, rvalue, state) {
@@ -1989,23 +1997,39 @@ int config_parse_syscall_filter(const char *unit,
                 if (!t)
                         return log_oom();
 
-                id = syscall_from_name(t);
+                id = seccomp_syscall_resolve_name(t);
                 if (id < 0)  {
                         log_syntax(unit, LOG_ERR, filename, line, EINVAL,
                                    "Failed to parse syscall, ignoring: %s", t);
                         continue;
                 }
 
-                if (invert)
-                        syscall_unset(c->syscall_filter, id);
+                /* If we previously wanted to forbid a syscall
+                 * and now we want to allow it, then remove it from the list
+                 * libseccomp will also return -EPERM if we try to add
+                 * a rule with the same action as the default
+                 */
+                if (action == c->syscall_filter_default_action)
+                        set_remove(c->filtered_syscalls, INT_TO_PTR(id + 1));
                 else
-                        syscall_set(c->syscall_filter, id);
+                        set_replace(c->filtered_syscalls, INT_TO_PTR(id + 1));
         }
 
+        SET_FOREACH(e, c->filtered_syscalls, i) {
+                char *name = seccomp_syscall_resolve_num_arch(SCMP_ARCH_NATIVE, PTR_TO_INT(e) - 1);
+                strv_push(&syscalls, name);
+        }
+
+        sorted_syscalls = strv_join(strv_sort(syscalls), " ");
+        if (invert)
+                c->syscall_filter_string = strv_join(STRV_MAKE("~", sorted_syscalls, NULL), "");
+        else
+                c->syscall_filter_string = strdup(sorted_syscalls);
         c->no_new_privileges = true;
 
         return 0;
 }
+#endif
 
 int config_parse_unit_slice(
                 const char *unit,
@@ -2778,7 +2802,11 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_set_status,            "STATUS" },
                 { config_parse_service_sockets,       "SOCKETS" },
                 { config_parse_environ,               "ENVIRON" },
+#ifdef HAVE_SECCOMP
                 { config_parse_syscall_filter,        "SYSCALL" },
+#else
+                { config_parse_warn_compat,           "NOTSUPPORTED" },
+#endif
                 { config_parse_cpu_shares,            "SHARES" },
                 { config_parse_memory_limit,          "LIMIT" },
                 { config_parse_device_allow,          "DEVICE" },

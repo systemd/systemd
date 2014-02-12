@@ -92,6 +92,7 @@ REQUIREMENTS:
 
         glibc >= 2.14
         libcap
+        libseccomp >= 1.0.0 (optional)
         libblkid >= 2.20 (from util-linux) (optional)
         libkmod >= 15 (optional)
         PAM >= 1.1.2 (optional)

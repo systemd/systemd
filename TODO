@@ -490,7 +490,6 @@ Features:
   - syscall filter: add knowledge about compat syscalls
   - syscall filter: don't enforce no new privs?
   - syscall filter: option to return EPERM rather than SIGSYS?
-  - syscall filter: port to libseccomp
   - system-wide seccomp filter
 
 * load-fragment: when loading a unit file via a chain of symlinks

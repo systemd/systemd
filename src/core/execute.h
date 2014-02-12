@@ -33,6 +33,11 @@ typedef struct ExecRuntime ExecRuntime;
 #include <stdbool.h>
 #include <stdio.h>
 #include <sched.h>
+#ifdef HAVE_SECCOMP
+#include <seccomp.h>
+
+#include "set.h"
+#endif
 
 #include "list.h"
 #include "util.h"
@@ -162,7 +167,12 @@ struct ExecContext {
          * don't enter a trigger loop. */
         bool same_pgrp;
 
-        uint32_t *syscall_filter;
+#ifdef HAVE_SECCOMP
+        scmp_filter_ctx syscall_filter;
+        Set *filtered_syscalls;
+        uint32_t syscall_filter_default_action;
+#endif
+        char *syscall_filter_string;
 
         bool oom_score_adjust_set:1;
         bool nice_set:1;

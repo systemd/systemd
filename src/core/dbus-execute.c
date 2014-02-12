@@ -25,7 +25,6 @@
 #include "missing.h"
 #include "ioprio.h"
 #include "strv.h"
-#include "syscall-list.h"
 #include "fileio.h"
 #include "execute.h"
 #include "dbus-execute.h"
@@ -354,10 +353,7 @@ static int property_get_syscall_filter(
         assert(reply);
         assert(c);
 
-        if (c->syscall_filter)
-                return sd_bus_message_append_array(reply, 'u', c->syscall_filter, (syscall_max() + 31) >> 4);
-        else
-                return sd_bus_message_append_array(reply, 'u', NULL, 0);
+        return sd_bus_message_append(reply, "s", c->syscall_filter_string);
 }
 
 const sd_bus_vtable bus_exec_vtable[] = {
@@ -422,7 +418,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("SELinuxContext", "s", NULL, offsetof(ExecContext, selinux_context), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("IgnoreSIGPIPE", "b", bus_property_get_bool, offsetof(ExecContext, ignore_sigpipe), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("NoNewPrivileges", "b", bus_property_get_bool, offsetof(ExecContext, no_new_privileges), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("SystemCallFilter", "au", property_get_syscall_filter, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("SystemCallFilter", "s", property_get_syscall_filter, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_VTABLE_END
 };
 

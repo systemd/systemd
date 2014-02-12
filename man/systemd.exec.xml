@@ -1029,7 +1029,23 @@
                                 merged. If the empty string is
                                 assigned, the filter is reset, all
                                 prior assignments will have no
-                                effect.</para></listitem>
+                                effect.</para>
+
+                                <para>If you specify both types of this option
+                                (i.e. whitelisting and blacklisting) the first
+                                encountered will take precedence and will
+                                dictate the default action (termination
+                                or approval of a system call). Then the
+                                next occurrences of this option will add or
+                                delete the listed system calls from the set
+                                of the filtered system calls, depending of
+                                its type and the default action (e.g. You
+                                have started with a whitelisting of <function>
+                                read</function> and <function>write</function>
+                                and right after it add a blacklisting of
+                                <function>write</function>, then <function>
+                                write</function> will be removed from the set)
+                                </para></listitem>
                         </varlistentry>
 
                 </variablelist>

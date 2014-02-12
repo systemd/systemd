@@ -654,8 +654,6 @@ noinst_LTLIBRARIES += \
 libsystemd_shared_la_SOURCES = \
 	src/shared/linux/auto_dev-ioctl.h \
 	src/shared/linux/fanotify.h \
-	src/shared/linux/seccomp.h \
-	src/shared/linux/seccomp-bpf.h \
 	src/shared/ioprio.h \
 	src/shared/missing.h \
 	src/shared/initreq.h \
@@ -763,8 +761,6 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/net-util.h \
 	src/shared/errno-list.c \
 	src/shared/errno-list.h \
-	src/shared/syscall-list.c \
-	src/shared/syscall-list.h \
 	src/shared/audit.c \
 	src/shared/audit.h \
 	src/shared/xml.c \
@@ -772,9 +768,7 @@ libsystemd_shared_la_SOURCES = \
 
 nodist_libsystemd_shared_la_SOURCES = \
 	src/shared/errno-from-name.h \
-	src/shared/errno-to-name.h \
-	src/shared/syscall-from-name.h \
-	src/shared/syscall-to-name.h
+	src/shared/errno-to-name.h
 
 # ------------------------------------------------------------------------------
 noinst_LTLIBRARIES += \
@@ -999,6 +993,7 @@ libsystemd_core_la_CFLAGS = \
 	$(PAM_CFLAGS) \
 	$(AUDIT_CFLAGS) \
 	$(KMOD_CFLAGS) \
+	$(SECCOMP_CFLAGS) \
 	-pthread
 
 libsystemd_core_la_LIBADD = \
@@ -1013,6 +1008,7 @@ libsystemd_core_la_LIBADD = \
 	$(PAM_LIBS) \
 	$(AUDIT_LIBS) \
 	$(CAP_LIBS) \
+	$(SECCOMP_LIBS) \
 	$(KMOD_LIBS)
 
 src/core/load-fragment-gperf-nulstr.c: src/core/load-fragment-gperf.gperf
@@ -1026,32 +1022,12 @@ CLEANFILES += \
 	src/core/load-fragment-gperf.gperf \
 	src/core/load-fragment-gperf.c \
 	src/core/load-fragment-gperf-nulstr.c \
-	src/shared/syscall-list.txt \
-	src/shared/syscall-from-name.gperf \
 	src/shared/errno-list.txt \
 	src/shared/errno-from-name.gperf
 
 BUILT_SOURCES += \
-	src/shared/syscall-from-name.h \
-	src/shared/syscall-to-name.h \
 	src/shared/errno-from-name.h \
 	src/shared/errno-to-name.h
-
-src/shared/syscall-list.txt:
-	$(AM_V_at)$(MKDIR_P) $(dir $@)
-	$(AM_V_GEN)$(CPP) $(CFLAGS) $(AM_CPPFLAGS) $(CPPFLAGS) -dM -include sys/syscall.h - < /dev/null | $(AWK) '/^#define[ \t]+__NR_[^ ]+[ \t]+[0-9(]/ { sub(/__NR_/, "", $$2); if ($$2 !~ /SYSCALL_BASE/) print $$2; }' > $@
-
-src/shared/syscall-from-name.gperf: src/shared/syscall-list.txt
-	$(AM_V_at)$(MKDIR_P) $(dir $@)
-	$(AM_V_GEN)$(AWK) 'BEGIN{ print "struct syscall_name { const char* name; int id; };"; print "%null-strings"; print "%%";} { printf "%s, __NR_%s\n", $$1, $$1 }' < $< > $@
-
-src/shared/syscall-from-name.h: src/shared/syscall-from-name.gperf
-	$(AM_V_at)$(MKDIR_P) $(dir $@)
-	$(AM_V_GPERF)$(GPERF) -L ANSI-C -t --ignore-case -N lookup_syscall -H hash_syscall_name -p -C < $< > $@
-
-src/shared/syscall-to-name.h: src/shared/syscall-list.txt
-	$(AM_V_at)$(MKDIR_P) $(dir $@)
-	$(AM_V_GEN)$(AWK) 'BEGIN{ print "static const char* const syscall_names[] = { "} { printf "[SYSCALL_TO_INDEX(__NR_%s)] = \"%s\",\n", $$1, $$1 } END{print "};"}' < $< > $@
 
 src/shared/errno-list.txt:
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
