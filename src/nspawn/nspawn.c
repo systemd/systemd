@@ -49,6 +49,10 @@
 #include <selinux/selinux.h>
 #endif
 
+#ifdef HAVE_SECCOMP
+#include <seccomp.h>
+#endif
+
 #include "sd-daemon.h"
 #include "sd-bus.h"
 #include "sd-id128.h"
@@ -1432,6 +1436,57 @@ static int move_network_interfaces(pid_t pid) {
         return 0;
 }
 
+static int audit_still_doesnt_work_in_containers(void) {
+
+#ifdef HAVE_SECCOMP
+        scmp_filter_ctx seccomp;
+        int r;
+
+        /*
+           Audit is broken in containers, much of the userspace audit
+           hookup will fail if running inside a container. We don't
+           care and just turn off creation of audit sockets.
+
+           This will make socket(AF_NETLINK, *, NETLINK_AUDIT) fail
+           with EAFNOSUPPORT which audit userspace uses as indication
+           that audit is disabled in the kernel.
+         */
+
+        seccomp = seccomp_init(SCMP_ACT_ALLOW);
+        if (!seccomp)
+                return log_oom();
+
+        r = seccomp_rule_add_exact(
+                        seccomp,
+                        SCMP_ACT_ERRNO(EAFNOSUPPORT),
+                        SCMP_SYS(socket),
+                        2,
+                        SCMP_A0(SCMP_CMP_EQ, AF_NETLINK),
+                        SCMP_A2(SCMP_CMP_EQ, NETLINK_AUDIT));
+        if (r < 0) {
+                log_error("Failed to add audit seccomp rule: %s", strerror(-r));
+                goto finish;
+        }
+
+        r = seccomp_attr_set(seccomp, SCMP_FLTATR_CTL_NNP, 0);
+        if (r < 0) {
+                log_error("Failed to unset NO_NEW_PRIVS: %s", strerror(-r));
+                goto finish;
+        }
+
+        r = seccomp_load(seccomp);
+        if (r < 0)
+                log_error("Failed to install seccomp audit filter: %s", strerror(-r));
+
+finish:
+        seccomp_release(seccomp);
+        return r;
+#else
+        return 0;
+#endif
+
+}
+
 int main(int argc, char *argv[]) {
 
         _cleanup_close_ int master = -1, kdbus_fd = -1, sync_fd = -1, netns_fd = -1;
@@ -1706,6 +1761,9 @@ int main(int argc, char *argv[]) {
                                 close_nointr_nofail(netns_fd);
                                 netns_fd = -1;
                         }
+
+                        if (audit_still_doesnt_work_in_containers() < 0)
+                                goto child_fail;
 
                         if (setup_dev_console(arg_directory, console) < 0)
                                 goto child_fail;

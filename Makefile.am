@@ -1850,7 +1850,8 @@ systemd_nspawn_LDADD = \
 	libsystemd-internal.la \
 	libsystemd-daemon-internal.la \
 	libudev-internal.la \
-	libsystemd-shared.la
+	libsystemd-shared.la \
+	$(SECCOMP_LIBS)
 
 # ------------------------------------------------------------------------------
 systemd_run_SOURCES = \
