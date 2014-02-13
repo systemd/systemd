@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<!DOCTYPE book PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+          "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+
+<variablelist>
+  <varlistentry id='user'>
+    <term><option>--user</option></term>
+
+    <listitem id='user-text'>
+      <para>Talk to the service manager of the calling user,
+      rather than the service manager of the system.</para>
+    </listitem>
+  </varlistentry>
+
+  <varlistentry id='system'>
+    <term><option>--system</option></term>
+
+    <listitem id='system-text'>
+      <para>Talk to the service manager of the system. This is the
+      implied default.</para>
+    </listitem>
+  </varlistentry>
+</variablelist>

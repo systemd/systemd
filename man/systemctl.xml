@@ -285,22 +285,8 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         </listitem>
       </varlistentry>
 
-      <varlistentry>
-        <term><option>--system</option></term>
-
-        <listitem>
-          <para>Talk to the systemd system manager. (Default)</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--user</option></term>
-
-        <listitem>
-          <para>Talk to the systemd manager of the calling
-          user.</para>
-        </listitem>
-      </varlistentry>
+      <xi:include href="user-system-options.xml" xpointer="user" />
+      <xi:include href="user-system-options.xml" xpointer="system" />
 
       <varlistentry>
         <term><option>--no-wall</option></term>

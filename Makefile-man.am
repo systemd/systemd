@@ -1472,4 +1472,5 @@ EXTRA_DIST += \
 	man/tmpfiles.d.xml \
 	man/udev.xml \
 	man/udevadm.xml \
+	man/user-system-options.xml \
 	man/vconsole.conf.xml

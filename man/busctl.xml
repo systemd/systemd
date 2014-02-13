@@ -71,24 +71,6 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
     <variablelist>
       <varlistentry>
-        <term><option>--system</option></term>
-
-        <listitem>
-          <para>Talk to the systemd system manager (the
-          default).</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--user</option></term>
-
-        <listitem>
-          <para>Talk to the systemd manager of the calling
-          user.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><option>-H</option></term>
         <term><option>--host</option></term>
 
@@ -170,6 +152,9 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           footer.</para>
         </listitem>
       </varlistentry>
+
+      <xi:include href="user-system-options.xml" xpointer="user" />
+      <xi:include href="user-system-options.xml" xpointer="system" />
 
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
