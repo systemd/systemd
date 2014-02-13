@@ -2511,14 +2511,16 @@ static int start_special(sd_bus *bus, char **args) {
 static int check_unit_generic(sd_bus *bus, int code, const char *good_states, char **args) {
         _cleanup_strv_free_ char **names = NULL;
         char **name;
-        int r = code;
+        int r;
 
         assert(bus);
         assert(args);
 
         r = expand_names(bus, args, NULL, &names);
-        if (r < 0)
+        if (r < 0) {
                 log_error("Failed to expand names: %s", strerror(-r));
+                return r;
+        }
 
         STRV_FOREACH(name, names) {
                 int state;
@@ -2526,8 +2528,8 @@ static int check_unit_generic(sd_bus *bus, int code, const char *good_states, ch
                 state = check_one_unit(bus, *name, good_states, arg_quiet);
                 if (state < 0)
                         return state;
-                if (state > 0)
-                        r = 0;
+                if (state == 0)
+                        r = code;
         }
 
         return r;
