@@ -35,10 +35,6 @@ Preparation for 209:
 
 * Merge Distribute= patches for .socket units
 
-* When a Type=forking service fails and needed another service, that
-  service is not cleaned up again when it has StopWhenUnneeded=yes
-  http://lists.freedesktop.org/archives/systemd-devel/2013-July/012141.html
-
 Features:
 
 * maybe: hookup nspawn and PrivateNetwork=yes with "ip netns"
