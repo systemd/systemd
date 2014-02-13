@@ -83,7 +83,7 @@ _public_ struct udev_enumerate *udev_enumerate_new(struct udev *udev)
 
         if (udev == NULL)
                 return NULL;
-        udev_enumerate = calloc(1, sizeof(struct udev_enumerate));
+        udev_enumerate = new0(struct udev_enumerate, 1);
         if (udev_enumerate == NULL)
                 return NULL;
         udev_enumerate->refcount = 1;

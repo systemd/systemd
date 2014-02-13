@@ -96,7 +96,7 @@ static struct udev_monitor *udev_monitor_new(struct udev *udev)
 {
         struct udev_monitor *udev_monitor;
 
-        udev_monitor = calloc(1, sizeof(struct udev_monitor));
+        udev_monitor = new0(struct udev_monitor, 1);
         if (udev_monitor == NULL)
                 return NULL;
         udev_monitor->refcount = 1;

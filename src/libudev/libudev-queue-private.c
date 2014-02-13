@@ -79,7 +79,7 @@ struct udev_queue_export *udev_queue_export_new(struct udev *udev)
         if (udev == NULL)
                 return NULL;
 
-        udev_queue_export = calloc(1, sizeof(struct udev_queue_export));
+        udev_queue_export = new0(struct udev_queue_export, 1);
         if (udev_queue_export == NULL)
                 return NULL;
         udev_queue_export->udev = udev;
@@ -162,7 +162,7 @@ static struct queue_devpaths *build_index(struct udev_queue_export *udev_queue_e
                 udev_err(udev_queue_export->udev, "queue file overflow\n");
                 return NULL;
         }
-        devpaths = calloc(1, sizeof(struct queue_devpaths) + (range + 1) * sizeof(long));
+        devpaths = malloc0(sizeof(struct queue_devpaths) + (range + 1) * sizeof(long));
         if (devpaths == NULL)
                 return NULL;
         devpaths->devpaths_size = range + 1;

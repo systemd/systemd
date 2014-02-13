@@ -647,7 +647,7 @@ struct udev_device *udev_device_new(struct udev *udev)
         if (udev == NULL)
                 return NULL;
 
-        udev_device = calloc(1, sizeof(struct udev_device));
+        udev_device = new0(struct udev_device, 1);
         if (udev_device == NULL)
                 return NULL;
         udev_device->refcount = 1;

@@ -318,10 +318,10 @@ int main(int argc, char *argv[]) {
         (void) setrlimit(RLIMIT_NOFILE, &rlim);
 
         /* start with empty ps LL */
-        ps_first = calloc(1, sizeof(struct ps_struct));
+        ps_first = new0(struct ps_struct, 1);
         if (!ps_first) {
-                perror("calloc(ps_struct)");
-                exit(EXIT_FAILURE);
+                log_oom();
+                return EXIT_FAILURE;
         }
 
         /* handle TERM/INT nicely */
@@ -397,8 +397,8 @@ int main(int argc, char *argv[]) {
                                         /* caught signal, probably HUP! */
                                         break;
                                 }
-                                perror("nanosleep()");
-                                exit (EXIT_FAILURE);
+                                log_error("nanosleep() failed: %m");
+                                exit(EXIT_FAILURE);
                         }
                 } else {
                         overrun++;

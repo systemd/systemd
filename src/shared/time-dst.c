@@ -183,7 +183,7 @@ read_again:
                         return -EINVAL;
         }
 
-        transitions = (time_t *)calloc(total_size + tzspec_len, 1);
+        transitions = malloc0(total_size + tzspec_len);
         if (transitions == NULL)
                 return -EINVAL;
 

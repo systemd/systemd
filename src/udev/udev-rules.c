@@ -1615,7 +1615,7 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
         char **files, **f;
         int r;
 
-        rules = calloc(1, sizeof(struct udev_rules));
+        rules = new0(struct udev_rules, 1);
         if (rules == NULL)
                 return NULL;
         rules->udev = udev;

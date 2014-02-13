@@ -132,8 +132,6 @@ void log_sample(int sample, struct list_sample_data **ptr) {
         struct list_sample_data *sampledata;
         struct ps_sched_struct *ps_prev = NULL;
 
-
-
         sampledata = *ptr;
 
         /* all the per-process stuff goes here */
@@ -151,8 +149,8 @@ void log_sample(int sample, struct list_sample_data **ptr) {
                 /* block stuff */
                 vmstat = openat(procfd, "vmstat", O_RDONLY);
                 if (vmstat == -1) {
-                        perror("open /proc/vmstat");
-                        exit (EXIT_FAILURE);
+                        log_error("Failed to open /proc/vmstat: %m");
+                        exit(EXIT_FAILURE);
                 }
         }
 
@@ -183,8 +181,8 @@ vmstat_next:
                 /* overall CPU utilization */
                 schedstat = openat(procfd, "schedstat", O_RDONLY);
                 if (schedstat == -1) {
-                        perror("open /proc/schedstat");
-                        exit (EXIT_FAILURE);
+                        log_error("Failed to open /proc/schedstat: %m");
+                        exit(EXIT_FAILURE);
                 }
         }
 
@@ -257,17 +255,17 @@ schedstat_next:
                         char t[32];
                         struct ps_struct *parent;
 
-                        ps->next_ps = calloc(1, sizeof(struct ps_struct));
+                        ps->next_ps = new0(struct ps_struct, 1);
                         if (!ps->next_ps) {
-                                perror("calloc(ps_struct)");
+                                log_oom();
                                 exit (EXIT_FAILURE);
                         }
                         ps = ps->next_ps;
                         ps->pid = pid;
 
-                        ps->sample = calloc(1, sizeof(struct ps_sched_struct));
+                        ps->sample = new0(struct ps_sched_struct, 1);
                         if (!ps->sample) {
-                                perror("calloc(ps_struct)");
+                                log_oom();
                                 exit (EXIT_FAILURE);
                         }
                         ps->sample->sampledata = sampledata;
@@ -393,10 +391,10 @@ schedstat_next:
                 if (!sscanf(buf, "%s %s %*s", rt, wt))
                         continue;
 
-                ps->sample->next = calloc(1, sizeof(struct ps_sched_struct));
+                ps->sample->next = new0(struct ps_sched_struct, 1);
                 if (!ps->sample) {
-                        perror("calloc(ps_struct)");
-                        exit (EXIT_FAILURE);
+                        log_oom();
+                        exit(EXIT_FAILURE);
                 }
                 ps->sample->next->prev = ps->sample;
                 ps->sample = ps->sample->next;

@@ -69,7 +69,7 @@ _public_ struct udev_queue *udev_queue_new(struct udev *udev)
         if (udev == NULL)
                 return NULL;
 
-        udev_queue = calloc(1, sizeof(struct udev_queue));
+        udev_queue = new0(struct udev_queue, 1);
         if (udev_queue == NULL)
                 return NULL;
         udev_queue->refcount = 1;

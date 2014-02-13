@@ -203,6 +203,7 @@ int util_resolve_subsys_kernel(struct udev *udev, const char *string,
         udev_device_unref(dev);
         return 0;
 }
+
 ssize_t util_get_sys_core_link_value(struct udev *udev, const char *slink, const char *syspath, char *value, size_t size)
 {
         char path[UTIL_PATH_SIZE];
@@ -417,7 +418,7 @@ uint64_t util_string_bloom64(const char *str)
 
 ssize_t print_kmsg(const char *fmt, ...)
 {
-        int fd;
+        _cleanup_close_ int fd = -1;
         va_list ap;
         char text[1024];
         ssize_t len;
@@ -435,7 +436,7 @@ ssize_t print_kmsg(const char *fmt, ...)
 
         ret = write(fd, text, len);
         if (ret < 0)
-                ret = -errno;
-        close(fd);
+                return -errno;
+
         return ret;
 }

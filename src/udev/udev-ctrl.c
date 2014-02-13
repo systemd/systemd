@@ -75,7 +75,7 @@ struct udev_ctrl *udev_ctrl_new_from_fd(struct udev *udev, int fd)
         struct udev_ctrl *uctrl;
         const int on = 1;
 
-        uctrl = calloc(1, sizeof(struct udev_ctrl));
+        uctrl = new0(struct udev_ctrl, 1);
         if (uctrl == NULL)
                 return NULL;
         uctrl->refcount = 1;

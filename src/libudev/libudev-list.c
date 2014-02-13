@@ -165,7 +165,7 @@ struct udev_list_entry *udev_list_entry_add(struct udev_list *list, const char *
         }
 
         /* add new name */
-        entry = calloc(1, sizeof(struct udev_list_entry));
+        entry = new0(struct udev_list_entry, 1);
         if (entry == NULL)
                 return NULL;
         entry->name = strdup(name);

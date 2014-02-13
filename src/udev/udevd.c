@@ -200,7 +200,7 @@ static void worker_new(struct event *event)
         udev_monitor_allow_unicast_sender(worker_monitor, monitor);
         udev_monitor_enable_receiving(worker_monitor);
 
-        worker = calloc(1, sizeof(struct worker));
+        worker = new0(struct worker, 1);
         if (worker == NULL) {
                 udev_monitor_unref(worker_monitor);
                 return;
@@ -431,7 +431,7 @@ static int event_queue_insert(struct udev_device *dev)
 {
         struct event *event;
 
-        event = calloc(1, sizeof(struct event));
+        event = new0(struct event, 1);
         if (event == NULL)
                 return -1;
 
