@@ -19,7 +19,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="bootctl" conditional='ENABLE_EFI'>
+<refentry id="bootctl" conditional='ENABLE_EFI'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
         <refentryinfo>
                 <title>bootctl</title>
@@ -74,20 +75,8 @@
                 <para>The following options are understood:</para>
 
                 <variablelist>
-                        <varlistentry>
-                                <term><option>-h</option></term>
-                                <term><option>--help</option></term>
-
-                                <listitem><para>Prints a short help
-                                text and exits.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--version</option></term>
-
-                                <listitem><para>Prints a short version
-                                string and exits.</para></listitem>
-                        </varlistentry>
+                        <xi:include href="standard-options.xml" xpointer="help" />
+                        <xi:include href="standard-options.xml" xpointer="version" />
                 </variablelist>
 
                 <para>The following commands are understood:</para>

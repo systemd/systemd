@@ -21,7 +21,8 @@ You should have received a copy of the GNU Lesser General Public License
 along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="systemd-journal-gatewayd.service" conditional='HAVE_MICROHTTPD'>
+<refentry id="systemd-journal-gatewayd.service" conditional='HAVE_MICROHTTPD'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>systemd-journal-gatewayd.service</title>
@@ -82,21 +83,6 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
     <variablelist>
       <varlistentry>
-        <term><option>--help</option></term>
-        <term><option>-h</option></term>
-
-        <listitem><para>Prints a short help
-        text and exits.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--version</option></term>
-
-        <listitem><para>Prints a short version
-        string and exits.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><option>--cert=</option></term>
 
         <listitem><para>Specify the path to a file containing a server
@@ -114,6 +100,8 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         with <option>--cert=</option>.</para></listitem>
       </varlistentry>
 
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
   </refsect1>
 

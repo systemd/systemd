@@ -21,7 +21,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="systemd-delta">
+<refentry id="systemd-delta"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
         <refentryinfo>
                 <title>systemd-delta</title>
@@ -108,28 +109,6 @@
 
                 <variablelist>
                         <varlistentry>
-                                <term><option>-h</option></term>
-                                <term><option>--help</option></term>
-
-                                <listitem><para>Prints a short help
-                                text and exits.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--version</option></term>
-
-                                <listitem><para>Prints a short version
-                                string and exits.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--no-pager</option></term>
-
-                                <listitem><para>Do not pipe output into a
-                                pager.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
                                 <term><option>-t</option></term>
                                 <term><option>--type=</option></term>
 
@@ -197,6 +176,9 @@
                                 to <option>true</option>.</para></listitem>
                         </varlistentry>
 
+                        <xi:include href="standard-options.xml" xpointer="help" />
+                        <xi:include href="standard-options.xml" xpointer="version" />
+                        <xi:include href="standard-options.xml" xpointer="no-pager" />
                 </variablelist>
         </refsect1>
 

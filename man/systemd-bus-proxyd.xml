@@ -21,7 +21,8 @@ You should have received a copy of the GNU Lesser General Public License
 along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="systemd-bus-proxyd" conditional="ENABLE_KDBUS">
+<refentry id="systemd-bus-proxyd" conditional="ENABLE_KDBUS"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>systemd-bus-proxyd</title>
@@ -86,21 +87,8 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         </listitem>
       </varlistentry>
 
-      <varlistentry>
-        <term><option>--version</option></term>
-
-        <listitem>
-          <para>Prints a short version string and exits.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>-h</option></term>
-        <term><option>--help</option></term>
-
-        <listitem><para>Prints a short help
-        text and exits.</para></listitem>
-      </varlistentry>
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
 
     <para><replaceable>PLACEHOLDER</replaceable>, if given, must be a string

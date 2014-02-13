@@ -21,7 +21,8 @@ You should have received a copy of the GNU Lesser General Public License
 along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="systemd-activate">
+<refentry id="systemd-activate"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>systemd-activate</title>
@@ -84,21 +85,6 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <title>Options</title>
     <variablelist>
       <varlistentry>
-        <term><option>--help</option></term>
-        <term><option>-h</option></term>
-
-        <listitem><para>Prints a short help
-        text and exits.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--version</option></term>
-
-        <listitem><para>Prints a short version
-        string and exits.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><option>-l <replaceable>address</replaceable></option></term>
         <term><option>--listen=<replaceable>address</replaceable></option></term>
 
@@ -128,6 +114,9 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         environment of <command>systemd-activate</command> itself.
         </para></listitem>
       </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
   </refsect1>
 

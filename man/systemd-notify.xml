@@ -21,7 +21,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="systemd-notify">
+<refentry id="systemd-notify"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
         <refentryinfo>
                 <title>systemd-notify</title>
@@ -87,21 +88,6 @@
 
                 <variablelist>
                         <varlistentry>
-                                <term><option>-h</option></term>
-                                <term><option>--help</option></term>
-
-                                <listitem><para>Prints a short help
-                                text and exits.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--version</option></term>
-
-                                <listitem><para>Prints a short version
-                                string and exits.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
                                 <term><option>--ready</option></term>
 
                                 <listitem><para>Inform the init system
@@ -165,6 +151,9 @@
                                 about the semantics of this option see
                                 <citerefentry><refentrytitle>sd_readahead</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para></listitem>
                         </varlistentry>
+
+                        <xi:include href="standard-options.xml" xpointer="help" />
+                        <xi:include href="standard-options.xml" xpointer="version" />
                 </variablelist>
 
         </refsect1>

@@ -21,7 +21,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="systemd-nspawn">
+<refentry id="systemd-nspawn"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
         <refentryinfo>
                 <title>systemd-nspawn</title>
@@ -158,32 +159,6 @@
                 <para>The following options are understood:</para>
 
                 <variablelist>
-                        <varlistentry>
-                                <term><option>-h</option></term>
-                                <term><option>--help</option></term>
-
-                                <listitem><para>Prints a short help
-                                text and exits.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--version</option></term>
-
-                                <listitem><para>Prints a version string
-                                and exits.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>-q</option></term>
-                                <term><option>--quiet</option></term>
-
-                                <listitem><para>Turns off any status
-                                output by the tool itself. When this
-                                switch is used, the only output
-                                from nspawn will be the console output
-                                of the container OS itself.</para></listitem>
-                        </varlistentry>
-
                         <varlistentry>
                                 <term><option>-D</option></term>
                                 <term><option>--directory=</option></term>
@@ -577,6 +552,20 @@
                                 reported on the
                                 host.</para></listitem>
                         </varlistentry>
+
+                        <varlistentry>
+                                <term><option>-q</option></term>
+                                <term><option>--quiet</option></term>
+
+                                <listitem><para>Turns off any status
+                                output by the tool itself. When this
+                                switch is used, the only output
+                                from nspawn will be the console output
+                                of the container OS itself.</para></listitem>
+                        </varlistentry>
+
+                        <xi:include href="standard-options.xml" xpointer="help" />
+                        <xi:include href="standard-options.xml" xpointer="version" />
                 </variablelist>
 
         </refsect1>

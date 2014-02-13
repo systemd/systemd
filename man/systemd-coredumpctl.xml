@@ -21,7 +21,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="systemd-coredumpctl" conditional='ENABLE_COREDUMP'>
+<refentry id="systemd-coredumpctl" conditional='ENABLE_COREDUMP'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
         <refentryinfo>
                 <title>systemd-coredumpctl</title>
@@ -71,21 +72,6 @@
 
                 <variablelist>
                         <varlistentry>
-                                <term><option>-h</option></term>
-                                <term><option>--help</option></term>
-
-                                <listitem><para>Print a short help
-                                text and exit.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--version</option></term>
-
-                                <listitem><para>Print a short version
-                                string and exit.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
                                 <term><option>-F</option></term>
                                 <term><option>--field=</option></term>
 
@@ -104,20 +90,15 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>--no-pager</option></term>
-
-                                <listitem><para>Do not pipe output of
-                                <command>list</command> into a
-                                pager.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
                                 <term><option>--no-legend</option></term>
 
                                 <listitem><para>Do not print the column headers.
                                 </para></listitem>
                         </varlistentry>
 
+                        <xi:include href="standard-options.xml" xpointer="help" />
+                        <xi:include href="standard-options.xml" xpointer="version" />
+                        <xi:include href="standard-options.xml" xpointer="no-pager" />
                 </variablelist>
 
                 <para>The following commands are understood:</para>

@@ -3,7 +3,9 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
-<refentry id="systemd-udevd.service">
+<refentry id="systemd-udevd.service"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
   <refentryinfo>
     <title>systemd-udevd.service</title>
     <productname>systemd</productname>
@@ -67,18 +69,21 @@
           <para>Detach and run in the background.</para>
         </listitem>
       </varlistentry>
+
       <varlistentry>
         <term><option>--debug</option></term>
         <listitem>
           <para>Print debug messages to standard error.</para>
         </listitem>
       </varlistentry>
+
       <varlistentry>
         <term><option>--children-max=</option></term>
         <listitem>
           <para>Limit the number of events executed in parallel.</para>
         </listitem>
       </varlistentry>
+
       <varlistentry>
         <term><option>--exec-delay=</option></term>
         <listitem>
@@ -89,6 +94,7 @@
           modules.</para>
         </listitem>
       </varlistentry>
+
       <varlistentry>
         <term><option>--resolve-names=</option></term>
         <listitem>
@@ -100,18 +106,13 @@
           and all devices will be owned by root.</para>
         </listitem>
       </varlistentry>
-      <varlistentry>
-        <term><option>--version</option></term>
-        <listitem>
-          <para>Print version number.</para>
-        </listitem>
-      </varlistentry>
+
       <varlistentry>
         <term><option>--help</option></term>
-        <listitem>
-          <para>Print help text.</para>
-        </listitem>
+
+        <xi:include href="standard-options.xml" xpointer="help-text" />
       </varlistentry>
+      <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
   </refsect1>
 

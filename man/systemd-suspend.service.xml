@@ -22,7 +22,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="systemd-suspend.service">
+<refentry id="systemd-suspend.service"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
         <refentryinfo>
                 <title>systemd-suspend.service</title>
@@ -125,19 +126,9 @@
                 following commands:</para>
 
                 <variablelist>
-                        <varlistentry>
-                                <term><option>-h</option></term>
-                                <term><option>--help</option></term>
+                        <xi:include href="standard-options.xml" xpointer="help" />
+                        <xi:include href="standard-options.xml" xpointer="version" />
 
-                                <listitem><para>Print a short help
-                                text and exit.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><option>--version</option></term>
-
-                                <listitem><para>Print the systemd version
-                                identifier and exit.</para></listitem>
-                        </varlistentry>
                         <varlistentry>
                                 <term><option>suspend</option></term>
                                 <term><option>hibernate</option></term>

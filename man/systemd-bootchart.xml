@@ -26,7 +26,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="systemd-bootchart" conditional='ENABLE_BOOTCHART'>
+<refentry id="systemd-bootchart" conditional='ENABLE_BOOTCHART'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
         <refentryinfo>
                 <title>systemd-bootchart</title>
                 <productname>systemd</productname>
@@ -144,12 +146,7 @@
                 </para>
 
                 <variablelist>
-
-                        <varlistentry>
-                               <term><option>-h</option></term>
-                               <term><option>--help</option></term>
-                               <listitem><para>Prints a short help text and exits.</para></listitem>
-                        </varlistentry>
+                        <xi:include href="standard-options.xml" xpointer="help" />
 
                         <varlistentry>
                                 <term><option>-n</option></term>

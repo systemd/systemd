@@ -21,7 +21,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="systemd-cgls">
+<refentry id="systemd-cgls"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
         <refentryinfo>
                 <title>systemd-cgls</title>
@@ -83,28 +84,6 @@
 
                 <variablelist>
                         <varlistentry>
-                                <term><option>-h</option></term>
-                                <term><option>--help</option></term>
-
-                                <listitem><para>Prints a short help
-                                text and exits.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--version</option></term>
-
-                                <listitem><para>Prints a short version
-                                string and exits.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--no-pager</option></term>
-
-                                <listitem><para>Do not pipe output into a
-                                pager.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
                                 <term><option>--all</option></term>
 
                                 <listitem><para>Do not hide empty
@@ -138,6 +117,9 @@
                                 </para></listitem>
                         </varlistentry>
 
+                        <xi:include href="standard-options.xml" xpointer="help" />
+                        <xi:include href="standard-options.xml" xpointer="version" />
+                        <xi:include href="standard-options.xml" xpointer="no-pager" />
                 </variablelist>
 
         </refsect1>
