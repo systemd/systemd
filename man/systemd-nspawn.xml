@@ -277,7 +277,15 @@
                                 the container. This makes all network
                                 interfaces unavailable in the
                                 container, with the exception of the
-                                loopback device.</para></listitem>
+                                loopback device and those specified
+                                with
+                                <option>--network-interface=</option>. If
+                                this option is specified the
+                                CAP_NET_ADMIN capability will be added
+                                to the set of capabilities the
+                                container retains. The latter may be
+                                disabled by using
+                                <option>--drop-capability=</option>.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -290,7 +298,13 @@
                                 namespace and place it in the
                                 container. When the container
                                 terminates it is moved back to the
-                                host namespace.</para></listitem>
+                                host namespace. Note that
+                                <option>--network-interface=</option>
+                                implies
+                                <option>--private-network</option>. This
+                                option may be used more than once to
+                                add multiple network interfaces to the
+                                container.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -323,8 +337,11 @@
                                 CAP_SYS_CHROOT, CAP_SYS_NICE,
                                 CAP_SYS_PTRACE, CAP_SYS_TTY_CONFIG,
                                 CAP_SYS_RESOURCE, CAP_SYS_BOOT,
-                                CAP_AUDIT_WRITE, CAP_AUDIT_CONTROL. If
-                                the special value
+                                CAP_AUDIT_WRITE,
+                                CAP_AUDIT_CONTROL. Also CAP_NET_ADMIN
+                                is retained if
+                                <option>--private-network</option> is
+                                specified. If the special value
                                 <literal>all</literal> is passed all
                                 capabilities are
                                 retained.</para></listitem>

@@ -216,6 +216,7 @@ static int parse_argv(int argc, char *argv[]) {
         };
 
         int c, r;
+        uint64_t plus = 0, minus = 0;
 
         assert(argc >= 0);
         assert(argv);
@@ -325,9 +326,9 @@ static int parse_argv(int argc, char *argv[]) {
 
                                 if (streq(t, "all")) {
                                         if (c == ARG_CAPABILITY)
-                                                arg_retain = (uint64_t) -1;
+                                                plus = (uint64_t) -1;
                                         else
-                                                arg_retain = 0;
+                                                minus = (uint64_t) -1;
                                 } else {
                                         if (cap_from_name(t, &cap) < 0) {
                                                 log_error("Failed to parse capability %s.", t);
@@ -335,9 +336,9 @@ static int parse_argv(int argc, char *argv[]) {
                                         }
 
                                         if (c == ARG_CAPABILITY)
-                                                arg_retain |= 1ULL << (uint64_t) cap;
+                                                plus |= 1ULL << (uint64_t) cap;
                                         else
-                                                arg_retain &= ~(1ULL << (uint64_t) cap);
+                                                minus |= 1ULL << (uint64_t) cap;
                                 }
                         }
 
@@ -459,6 +460,8 @@ static int parse_argv(int argc, char *argv[]) {
                 log_error("--keep-unit may not be used when invoked from a user session.");
                 return -EINVAL;
         }
+
+        arg_retain = (arg_retain | plus | (arg_private_network ? 1ULL << CAP_NET_ADMIN : 0)) & ~minus;
 
         return 1;
 }
