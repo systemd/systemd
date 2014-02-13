@@ -499,6 +499,12 @@ int user_stop(User *u, bool force) {
         int r = 0, k;
         assert(u);
 
+        /* Stop jobs have already been queued */
+        if (u->stopping) {
+                user_save(u);
+                return r;
+        }
+
         LIST_FOREACH(sessions_by_user, s, u->sessions) {
                 k = session_stop(s, force);
                 if (k < 0)

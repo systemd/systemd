@@ -889,10 +889,11 @@ void manager_gc(Manager *m, bool drop_not_started) {
                 LIST_REMOVE(gc_queue, m->user_gc_queue, user);
                 user->in_gc_queue = false;
 
-                if (!user_check_gc(user, drop_not_started) &&
-                    user_get_state(user) != USER_CLOSING)
+                /* First step: queue stop jobs */
+                if (!user_check_gc(user, drop_not_started))
                         user_stop(user, false);
 
+                /* Second step: finalize user */
                 if (!user_check_gc(user, drop_not_started)) {
                         user_finalize(user);
                         user_free(user);
