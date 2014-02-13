@@ -43,6 +43,7 @@
 #include <linux/rtnetlink.h>
 #include <sys/eventfd.h>
 #include <net/if.h>
+#include <linux/veth.h>
 
 #ifdef HAVE_SELINUX
 #include <selinux/selinux.h>
@@ -128,6 +129,7 @@ static bool arg_share_system = false;
 static bool arg_register = true;
 static bool arg_keep_unit = false;
 static char **arg_network_interfaces = NULL;
+static bool arg_network_veth = false;
 
 static int help(void) {
 
@@ -135,36 +137,39 @@ static int help(void) {
                "Spawn a minimal namespace container for debugging, testing and building.\n\n"
                "  -h --help                 Show this help\n"
                "     --version              Print version string\n"
+               "  -q --quiet                Do not show status information\n"
                "  -D --directory=NAME       Root directory for the container\n"
                "  -b --boot                 Boot up full system (i.e. invoke init)\n"
                "  -u --user=USER            Run the command under specified user or uid\n"
-               "     --uuid=UUID            Set a specific machine UUID for the container\n"
                "  -M --machine=NAME         Set the machine name for the container\n"
+               "     --uuid=UUID            Set a specific machine UUID for the container\n"
                "  -S --slice=SLICE          Place the container in the specified slice\n"
+               "     --private-network      Disable network in container\n"
+               "     --network-interface=INTERFACE\n"
+               "                            Assign an existing network interface to the\n"
+               "                            container\n"
+               "     --network-veth         Add a a virtual ethernet connection between host\n"
+               "                            and container\n"
                "  -Z --selinux-context=SECLABEL\n"
                "                            Set the SELinux security context to be used by\n"
                "                            processes in the container\n"
                "  -L --selinux-apifs-context=SECLABEL\n"
                "                            Set the SELinux security context to be used by\n"
                "                            API/tmpfs file systems in the container\n"
-               "     --private-network      Disable network in container\n"
-               "     --network-interface=INTERFACE\n"
-               "                            Assign an existing network interface to the container\n"
-               "     --share-system         Share system namespaces with host\n"
-               "     --read-only            Mount the root directory read-only\n"
                "     --capability=CAP       In addition to the default, retain specified\n"
                "                            capability\n"
                "     --drop-capability=CAP  Drop the specified capability from the default set\n"
                "     --link-journal=MODE    Link up guest journal, one of no, auto, guest, host\n"
                "  -j                        Equivalent to --link-journal=host\n"
+               "     --read-only            Mount the root directory read-only\n"
                "     --bind=PATH[:PATH]     Bind mount a file or directory from the host into\n"
                "                            the container\n"
                "     --bind-ro=PATH[:PATH]  Similar, but creates a read-only bind mount\n"
                "     --setenv=NAME=VALUE    Pass an environment variable to PID 1\n"
+               "     --share-system         Share system namespaces with host\n"
                "     --register=BOOLEAN     Register container as machine\n"
                "     --keep-unit            Do not register a scope for the machine, reuse\n"
-               "                            the service unit nspawn is running in\n"
-               "  -q --quiet                Do not show status information\n",
+               "                            the service unit nspawn is running in\n",
                program_invocation_short_name);
 
         return 0;
@@ -186,7 +191,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SHARE_SYSTEM,
                 ARG_REGISTER,
                 ARG_KEEP_UNIT,
-                ARG_NETWORK_INTERFACE
+                ARG_NETWORK_INTERFACE,
+                ARG_NETWORK_VETH,
         };
 
         static const struct option options[] = {
@@ -213,6 +219,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "register",              required_argument, NULL, ARG_REGISTER          },
                 { "keep-unit",             no_argument,       NULL, ARG_KEEP_UNIT         },
                 { "network-interface",     required_argument, NULL, ARG_NETWORK_INTERFACE },
+                { "network-veth",          no_argument,       NULL, ARG_NETWORK_VETH   },
                 {}
         };
 
@@ -250,6 +257,11 @@ static int parse_argv(int argc, char *argv[]) {
                         if (!arg_user)
                                 return log_oom();
 
+                        break;
+
+                case ARG_NETWORK_VETH:
+                        arg_network_veth = true;
+                        arg_private_network = true;
                         break;
 
                 case ARG_NETWORK_INTERFACE:
@@ -1255,9 +1267,104 @@ static int reset_audit_loginuid(void) {
         return 0;
 }
 
-static int move_network_interfaces(pid_t pid) {
+static int setup_veth(int netns_fd) {
+        _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
         _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
+        char iface_name[IFNAMSIZ] = "ve-";
+        int r;
+
+        if (!arg_private_network)
+                return 0;
+
+        if (!arg_network_veth)
+                return 0;
+
+        strncpy(iface_name+3, arg_machine, sizeof(iface_name) - 3);
+
+        r = sd_rtnl_open(0, &rtnl);
+        if (r < 0) {
+                log_error("Failed to connect to netlink: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_new_link(RTM_NEWLINK, 0, &m);
+        if (r < 0) {
+                log_error("Failed to allocate netlink message: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_append_string(m, IFLA_IFNAME, "host0");
+        if (r < 0) {
+                log_error("Failed to append netlink kind: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_open_container(m, IFLA_LINKINFO, 0);
+        if (r < 0) {
+                log_error("Failed to open netlink container: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_append_string(m, IFLA_INFO_KIND, "veth");
+        if (r < 0) {
+                log_error("Failed to append netlink kind: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_open_container(m, IFLA_INFO_DATA, 0);
+        if (r < 0) {
+                log_error("Failed to open netlink container: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_open_container(m, VETH_INFO_PEER, sizeof(struct ifinfomsg));
+        if (r < 0) {
+                log_error("z Failed to open netlink container: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_append_string(m, IFLA_IFNAME, iface_name);
+        if (r < 0) {
+                log_error("Failed to append netlink kind: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_append_u32(m, IFLA_NET_NS_FD, netns_fd);
+        if (r < 0) {
+                log_error("Failed to add netlink namespace field: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_close_container(m);
+        if (r < 0) {
+                log_error("Failed to close netlink container: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_close_container(m);
+        if (r < 0) {
+                log_error("Failed to close netlink container: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_close_container(m);
+        if (r < 0) {
+                log_error("Failed to close netlink container: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_call(rtnl, m, 0, NULL);
+        if (r < 0) {
+                log_error("Failed to add new veth interfaces: %s", strerror(-r));
+                return r;
+        }
+
+        return 0;
+}
+
+static int move_network_interfaces(pid_t pid) {
         _cleanup_udev_unref_ struct udev *udev = NULL;
+        _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
         char **i;
         int r;
 
@@ -1326,15 +1433,16 @@ static int move_network_interfaces(pid_t pid) {
 }
 
 int main(int argc, char *argv[]) {
-        pid_t pid = 0;
-        int r = EXIT_FAILURE, k;
-        _cleanup_close_ int master = -1, kdbus_fd = -1, sync_fd = -1;
-        int n_fd_passed;
-        const char *console = NULL;
-        sigset_t mask;
+
+        _cleanup_close_ int master = -1, kdbus_fd = -1, sync_fd = -1, netns_fd = -1;
         _cleanup_close_pipe_ int kmsg_socket_pair[2] = { -1, -1 };
-        _cleanup_fdset_free_ FDSet *fds = NULL;
         _cleanup_free_ char *kdbus_domain = NULL;
+        _cleanup_fdset_free_ FDSet *fds = NULL;
+        const char *console = NULL;
+        int r = EXIT_FAILURE, k;
+        int n_fd_passed;
+        pid_t pid = 0;
+        sigset_t mask;
 
         log_parse_environment();
         log_open();
@@ -1429,6 +1537,13 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
+        if (arg_network_veth) {
+                netns_fd = open("/proc/self/ns/net", O_RDWR|O_CLOEXEC);
+                if (netns_fd < 0) {
+                        log_error("Failed to open network namespace fd: %m");
+                        goto finish;
+                }
+        }
 
         if (access("/dev/kdbus/control", F_OK) >= 0) {
 
@@ -1583,6 +1698,14 @@ int main(int argc, char *argv[]) {
                                 goto child_fail;
 
                         dev_setup(arg_directory);
+
+                        if (setup_veth(netns_fd) < 0)
+                                goto child_fail;
+
+                        if (netns_fd >= 0) {
+                                close_nointr_nofail(netns_fd);
+                                netns_fd = -1;
+                        }
 
                         if (setup_dev_console(arg_directory, console) < 0)
                                 goto child_fail;
