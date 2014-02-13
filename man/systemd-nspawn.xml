@@ -281,6 +281,19 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>--network-interface=</option></term>
+
+                                <listitem><para>Assign the specified
+                                network interface to the
+                                container. This will move the
+                                specified interface from the calling
+                                namespace and place it in the
+                                container. When the container
+                                terminates it is moved back to the
+                                host namespace.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>--read-only</option></term>
 
                                 <listitem><para>Mount the root file

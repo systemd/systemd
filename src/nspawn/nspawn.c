@@ -40,7 +40,10 @@
 #include <sys/un.h>
 #include <sys/socket.h>
 #include <linux/netlink.h>
+#include <linux/rtnetlink.h>
 #include <sys/eventfd.h>
+#include <net/if.h>
+
 #ifdef HAVE_SELINUX
 #include <selinux/selinux.h>
 #endif
@@ -48,6 +51,7 @@
 #include "sd-daemon.h"
 #include "sd-bus.h"
 #include "sd-id128.h"
+#include "sd-rtnl.h"
 #include "log.h"
 #include "util.h"
 #include "mkdir.h"
@@ -68,6 +72,7 @@
 #include "bus-kernel.h"
 #include "env-util.h"
 #include "def.h"
+#include "rtnl-util.h"
 
 typedef enum LinkJournal {
         LINK_NO,
@@ -121,6 +126,7 @@ static bool arg_quiet = false;
 static bool arg_share_system = false;
 static bool arg_register = true;
 static bool arg_keep_unit = false;
+static char **arg_network_interfaces = NULL;
 
 static int help(void) {
 
@@ -141,6 +147,8 @@ static int help(void) {
                "                            Set the SELinux security context to be used by\n"
                "                            API/tmpfs file systems in the container\n"
                "     --private-network      Disable network in container\n"
+               "     --network-interface=INTERFACE\n"
+               "                            Assign an existing network interface to the container\n"
                "     --share-system         Share system namespaces with host\n"
                "     --read-only            Mount the root directory read-only\n"
                "     --capability=CAP       In addition to the default, retain specified\n"
@@ -176,32 +184,34 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SETENV,
                 ARG_SHARE_SYSTEM,
                 ARG_REGISTER,
-                ARG_KEEP_UNIT
+                ARG_KEEP_UNIT,
+                ARG_NETWORK_INTERFACE
         };
 
         static const struct option options[] = {
-                { "help",                  no_argument,       NULL, 'h'                 },
-                { "version",               no_argument,       NULL, ARG_VERSION         },
-                { "directory",             required_argument, NULL, 'D'                 },
-                { "user",                  required_argument, NULL, 'u'                 },
-                { "private-network",       no_argument,       NULL, ARG_PRIVATE_NETWORK },
-                { "boot",                  no_argument,       NULL, 'b'                 },
-                { "uuid",                  required_argument, NULL, ARG_UUID            },
-                { "read-only",             no_argument,       NULL, ARG_READ_ONLY       },
-                { "capability",            required_argument, NULL, ARG_CAPABILITY      },
-                { "drop-capability",       required_argument, NULL, ARG_DROP_CAPABILITY },
-                { "link-journal",          required_argument, NULL, ARG_LINK_JOURNAL    },
-                { "bind",                  required_argument, NULL, ARG_BIND            },
-                { "bind-ro",               required_argument, NULL, ARG_BIND_RO         },
-                { "machine",               required_argument, NULL, 'M'                 },
-                { "slice",                 required_argument, NULL, 'S'                 },
-                { "setenv",                required_argument, NULL, ARG_SETENV          },
-                { "selinux-context",       required_argument, NULL, 'Z'                 },
-                { "selinux-apifs-context", required_argument, NULL, 'L'                 },
-                { "quiet",                 no_argument,       NULL, 'q'                 },
-                { "share-system",          no_argument,       NULL, ARG_SHARE_SYSTEM    },
-                { "register",              required_argument, NULL, ARG_REGISTER        },
-                { "keep-unit",             no_argument,       NULL, ARG_KEEP_UNIT       },
+                { "help",                  no_argument,       NULL, 'h'                   },
+                { "version",               no_argument,       NULL, ARG_VERSION           },
+                { "directory",             required_argument, NULL, 'D'                   },
+                { "user",                  required_argument, NULL, 'u'                   },
+                { "private-network",       no_argument,       NULL, ARG_PRIVATE_NETWORK   },
+                { "boot",                  no_argument,       NULL, 'b'                   },
+                { "uuid",                  required_argument, NULL, ARG_UUID              },
+                { "read-only",             no_argument,       NULL, ARG_READ_ONLY         },
+                { "capability",            required_argument, NULL, ARG_CAPABILITY        },
+                { "drop-capability",       required_argument, NULL, ARG_DROP_CAPABILITY   },
+                { "link-journal",          required_argument, NULL, ARG_LINK_JOURNAL      },
+                { "bind",                  required_argument, NULL, ARG_BIND              },
+                { "bind-ro",               required_argument, NULL, ARG_BIND_RO           },
+                { "machine",               required_argument, NULL, 'M'                   },
+                { "slice",                 required_argument, NULL, 'S'                   },
+                { "setenv",                required_argument, NULL, ARG_SETENV            },
+                { "selinux-context",       required_argument, NULL, 'Z'                   },
+                { "selinux-apifs-context", required_argument, NULL, 'L'                   },
+                { "quiet",                 no_argument,       NULL, 'q'                   },
+                { "share-system",          no_argument,       NULL, ARG_SHARE_SYSTEM      },
+                { "register",              required_argument, NULL, ARG_REGISTER          },
+                { "keep-unit",             no_argument,       NULL, ARG_KEEP_UNIT         },
+                { "network-interface",     required_argument, NULL, ARG_NETWORK_INTERFACE },
                 {}
         };
 
@@ -239,6 +249,12 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_oom();
 
                         break;
+
+                case ARG_NETWORK_INTERFACE:
+                        if (strv_push(&arg_network_interfaces, optarg) < 0)
+                                return log_oom();
+
+                        /* fall through */
 
                 case ARG_PRIVATE_NETWORK:
                         arg_private_network = true;
@@ -1235,6 +1251,55 @@ static int reset_audit_loginuid(void) {
         return 0;
 }
 
+static int move_network_interfaces(pid_t pid) {
+        _cleanup_sd_rtnl_unref_ sd_rtnl *rtnl = NULL;
+        char **i;
+        int r;
+
+        if (!arg_private_network)
+                return 0;
+
+        if (strv_isempty(arg_network_interfaces))
+                return 0;
+
+        r = sd_rtnl_open(NETLINK_ROUTE, &rtnl);
+        if (r < 0) {
+                log_error("Failed to connect to netlink: %s", strerror(-r));
+                return r;
+        }
+
+        STRV_FOREACH(i, arg_network_interfaces) {
+                _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *m = NULL;
+                unsigned ifi;
+
+                ifi = if_nametoindex(*i);
+                if (ifi == 0) {
+                        log_error("Failed to resolve interface %s: %m", *i);
+                        return -errno;
+                }
+
+                r = sd_rtnl_message_link_new(RTM_NEWLINK, ifi, &m);
+                if (r < 0) {
+                        log_error("Failed to allocate netlink message: %s", strerror(-r));
+                        return r;
+                }
+
+                r = sd_rtnl_message_append_u32(m, IFLA_NET_NS_PID, pid);
+                if (r < 0) {
+                        log_error("Failed to append namespace PID to netlink message: %s", strerror(-r));
+                        return r;
+                }
+
+                r = sd_rtnl_call(rtnl, m, 0, NULL);
+                if (r < 0) {
+                        log_error("Failed to move interface to namespace: %s", strerror(-r));
+                        return r;
+                }
+        }
+
+        return 0;
+}
+
 int main(int argc, char *argv[]) {
         pid_t pid = 0;
         int r = EXIT_FAILURE, k;
@@ -1700,6 +1765,10 @@ int main(int argc, char *argv[]) {
                 if (r < 0)
                         goto finish;
 
+                r = move_network_interfaces(pid);
+                if (r < 0)
+                        goto finish;
+
                 eventfd_write(sync_fd, 1);
                 close_nointr_nofail(sync_fd);
                 sync_fd = -1;
@@ -1770,6 +1839,7 @@ finish:
         free(arg_directory);
         free(arg_machine);
         free(arg_setenv);
+        free(arg_network_interfaces);
 
         return r;
 }
