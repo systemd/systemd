@@ -1849,6 +1849,7 @@ systemd_nspawn_LDADD = \
 	libsystemd-capability.la \
 	libsystemd-internal.la \
 	libsystemd-daemon-internal.la \
+	libudev-internal.la \
 	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------

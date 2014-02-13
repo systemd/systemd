@@ -73,6 +73,7 @@
 #include "env-util.h"
 #include "def.h"
 #include "rtnl-util.h"
+#include "udev-util.h"
 
 typedef enum LinkJournal {
         LINK_NO,
@@ -1256,6 +1257,7 @@ static int reset_audit_loginuid(void) {
 
 static int move_network_interfaces(pid_t pid) {
         _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
+        _cleanup_udev_unref_ struct udev *udev = NULL;
         char **i;
         int r;
 
@@ -1271,14 +1273,34 @@ static int move_network_interfaces(pid_t pid) {
                 return r;
         }
 
+        udev = udev_new();
+        if (!udev) {
+                log_error("Failed to connect to udev.");
+                return -ENOMEM;
+        }
+
         STRV_FOREACH(i, arg_network_interfaces) {
                 _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
+                _cleanup_udev_device_unref_ struct udev_device *d = NULL;
+                char ifi_str[2 + DECIMAL_STR_MAX(int)];
                 int ifi;
 
                 ifi = (int) if_nametoindex(*i);
                 if (ifi <= 0) {
                         log_error("Failed to resolve interface %s: %m", *i);
                         return -errno;
+                }
+
+                sprintf(ifi_str, "n%i", ifi);
+                d = udev_device_new_from_device_id(udev, ifi_str);
+                if (!d) {
+                        log_error("Failed to get udev device for interface %s: %m", *i);
+                        return -errno;
+                }
+
+                if (udev_device_get_is_initialized(d) <= 0) {
+                        log_error("Network interface %s is not initialized yet.", *i);
+                        return -EBUSY;
                 }
 
                 r = sd_rtnl_message_new_link(RTM_NEWLINK, ifi, &m);
