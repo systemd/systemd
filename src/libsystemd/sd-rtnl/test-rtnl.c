@@ -287,11 +287,11 @@ static void test_container(void) {
 
         assert(sd_rtnl_message_new_link(RTM_NEWLINK, 0, &m) >= 0);
 
-        assert(sd_rtnl_message_open_container(m, IFLA_LINKINFO) >= 0);
-        assert(sd_rtnl_message_open_container(m, IFLA_LINKINFO) == -ENOTSUP);
+        assert(sd_rtnl_message_open_container(m, IFLA_LINKINFO, 0) >= 0);
+        assert(sd_rtnl_message_open_container(m, IFLA_LINKINFO, 0) == -ENOTSUP);
         assert(sd_rtnl_message_append_string(m, IFLA_INFO_KIND, "kind") >= 0);
-        assert(sd_rtnl_message_open_container(m, IFLA_INFO_DATA) >= 0);
-        assert(sd_rtnl_message_open_container(m, IFLA_INFO_DATA) == -ENOTSUP);
+        assert(sd_rtnl_message_open_container(m, IFLA_INFO_DATA, 0) >= 0);
+        assert(sd_rtnl_message_open_container(m, IFLA_INFO_DATA, 0) == -ENOTSUP);
         assert(sd_rtnl_message_append_u16(m, IFLA_VLAN_ID, 100) >= 0);
         assert(sd_rtnl_message_close_container(m) >= 0);
         assert(sd_rtnl_message_append_string(m, IFLA_INFO_KIND, "kind") >= 0);

@@ -24,6 +24,7 @@
 #include <netinet/ether.h>
 #include <stdbool.h>
 #include <unistd.h>
+#include <linux/veth.h>
 
 #include "util.h"
 #include "refcnt.h"
@@ -32,7 +33,7 @@
 #include "rtnl-util.h"
 #include "rtnl-internal.h"
 
-#define GET_CONTAINER(m, i) (i < (m)->n_containers ? (struct rtattr*)((uint8_t*)(m)->hdr + (m)->container_offsets[i]) : NULL)
+#define GET_CONTAINER(m, i) ((i) < (m)->n_containers ? (struct rtattr*)((uint8_t*)(m)->hdr + (m)->container_offsets[i]) : NULL)
 #define NEXT_RTA(m) ((struct rtattr*)((uint8_t*)(m)->hdr + (m)->next_rta_offset))
 #define UPDATE_RTA(m, new) (m)->next_rta_offset = (uint8_t*)(new) - (uint8_t*)(m)->hdr;
 #define PUSH_CONTAINER(m, new) (m)->container_offsets[(m)->n_containers ++] = (uint8_t*)(new) - (uint8_t*)(m)->hdr;
@@ -700,7 +701,7 @@ int sd_rtnl_message_append_ether_addr(sd_rtnl_message *m, unsigned short type, c
         return 0;
 }
 
-int sd_rtnl_message_open_container(sd_rtnl_message *m, unsigned short type) {
+int sd_rtnl_message_open_container(sd_rtnl_message *m, unsigned short type, size_t extra) {
         uint16_t rtm_type;
 
         assert_return(m, -EINVAL);
@@ -709,16 +710,14 @@ int sd_rtnl_message_open_container(sd_rtnl_message *m, unsigned short type) {
         sd_rtnl_message_get_type(m, &rtm_type);
 
         if (rtnl_message_type_is_link(rtm_type)) {
-                if ((type == IFLA_LINKINFO && m->n_containers == 0) ||
-                    (type == IFLA_INFO_DATA && m->n_containers == 1 &&
-                     GET_CONTAINER(m, 0)->rta_type == IFLA_LINKINFO))
-                        return add_rtattr(m, type, NULL, 0);
-                else
-                        return -ENOTSUP;
-        } else
-                return -ENOTSUP;
 
-        return 0;
+                if ((type == IFLA_LINKINFO && m->n_containers == 0) ||
+                    (type == IFLA_INFO_DATA && m->n_containers == 1 && GET_CONTAINER(m, 0)->rta_type == IFLA_LINKINFO) ||
+                    (type == VETH_INFO_PEER && m->n_containers == 2 && GET_CONTAINER(m, 1)->rta_type == IFLA_INFO_DATA))
+                        return add_rtattr(m, type, NULL, extra);
+        }
+
+        return -ENOTSUP;
 }
 
 int sd_rtnl_message_close_container(sd_rtnl_message *m) {
