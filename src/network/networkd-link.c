@@ -426,7 +426,7 @@ static int set_mtu_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 }
 
 static int link_set_mtu(Link *link, uint32_t mtu) {
-        _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *req = NULL;
+        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL;
         int r;
 
         assert(link);
@@ -783,7 +783,7 @@ static int link_up_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 }
 
 static int link_up(Link *link) {
-        _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *req = NULL;
+        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL;
         int r;
 
         assert(link);
@@ -950,7 +950,7 @@ static int link_get_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 }
 
 static int link_get(Link *link) {
-        _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *req = NULL;
+        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL;
         int r;
 
         assert(link);

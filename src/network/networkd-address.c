@@ -95,7 +95,7 @@ void address_free(Address *address) {
 
 int address_drop(Address *address, Link *link,
                  sd_rtnl_message_handler_t callback) {
-        _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *req = NULL;
+        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL;
         int r;
 
         assert(address);
@@ -139,7 +139,7 @@ int address_drop(Address *address, Link *link,
 
 int address_configure(Address *address, Link *link,
                       sd_rtnl_message_handler_t callback) {
-        _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *req = NULL;
+        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL;
         int r;
 
         assert(address);

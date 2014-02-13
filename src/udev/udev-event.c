@@ -748,7 +748,7 @@ out:
 static int rename_netif(struct udev_event *event)
 {
         struct udev_device *dev = event->dev;
-        _cleanup_sd_rtnl_unref_ sd_rtnl *rtnl = NULL;
+        _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
         char name[IFNAMSIZ];
         const char *oldname;
         int r;

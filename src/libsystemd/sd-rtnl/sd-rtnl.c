@@ -71,7 +71,7 @@ static bool rtnl_pid_changed(sd_rtnl *rtnl) {
 }
 
 int sd_rtnl_open(uint32_t groups, sd_rtnl **ret) {
-        _cleanup_sd_rtnl_unref_ sd_rtnl *rtnl = NULL;
+        _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
         socklen_t addrlen;
         int r;
 
@@ -241,7 +241,7 @@ static int dispatch_wqueue(sd_rtnl *rtnl) {
 }
 
 static int process_timeout(sd_rtnl *rtnl) {
-        _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *m = NULL;
+        _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
         struct reply_callback *c;
         usec_t n;
         int r;
@@ -315,7 +315,7 @@ static int process_match(sd_rtnl *rtnl, sd_rtnl_message *m) {
 }
 
 static int process_running(sd_rtnl *rtnl, sd_rtnl_message **ret) {
-        _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *m = NULL;
+        _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
         int r;
 
         assert(rtnl);
@@ -557,7 +557,7 @@ int sd_rtnl_call(sd_rtnl *nl,
 
         for (;;) {
                 usec_t left;
-                _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *incoming = NULL;
+                _cleanup_rtnl_message_unref_ sd_rtnl_message *incoming = NULL;
 
                 if (!room) {
                         sd_rtnl_message **q;

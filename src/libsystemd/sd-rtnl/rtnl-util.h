@@ -42,5 +42,5 @@ int rtnl_message_link_get_ifname(sd_rtnl_message *m, const char **ret);
 DEFINE_TRIVIAL_CLEANUP_FUNC(sd_rtnl*, sd_rtnl_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(sd_rtnl_message*, sd_rtnl_message_unref);
 
-#define _cleanup_sd_rtnl_unref_ _cleanup_(sd_rtnl_unrefp)
-#define _cleanup_sd_rtnl_message_unref_ _cleanup_(sd_rtnl_message_unrefp)
+#define _cleanup_rtnl_unref_ _cleanup_(sd_rtnl_unrefp)
+#define _cleanup_rtnl_message_unref_ _cleanup_(sd_rtnl_message_unrefp)

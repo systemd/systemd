@@ -96,7 +96,7 @@ void route_free(Route *route) {
 
 int route_configure(Route *route, Link *link,
                     sd_rtnl_message_handler_t callback) {
-        _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *req = NULL;
+        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL;
         int r;
 
         assert(link);

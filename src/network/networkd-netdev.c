@@ -84,7 +84,7 @@ static int netdev_enter_failed(NetDev *netdev) {
 }
 
 static int netdev_enslave_ready(NetDev *netdev, Link* link, sd_rtnl_message_handler_t callback) {
-        _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *req = NULL;
+        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL;
         int r;
 
         assert(netdev);
@@ -158,7 +158,7 @@ static int netdev_create_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userda
 }
 
 static int netdev_create(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callback) {
-        _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *req = NULL;
+        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL;
         const char *kind;
         int r;
 

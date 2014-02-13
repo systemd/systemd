@@ -1252,7 +1252,7 @@ static int reset_audit_loginuid(void) {
 }
 
 static int move_network_interfaces(pid_t pid) {
-        _cleanup_sd_rtnl_unref_ sd_rtnl *rtnl = NULL;
+        _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
         char **i;
         int r;
 
@@ -1269,7 +1269,7 @@ static int move_network_interfaces(pid_t pid) {
         }
 
         STRV_FOREACH(i, arg_network_interfaces) {
-                _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *m = NULL;
+                _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
                 unsigned ifi;
 
                 ifi = if_nametoindex(*i);

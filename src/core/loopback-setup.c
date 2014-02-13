@@ -48,7 +48,7 @@ static int pipe_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 }
 
 static int add_addresses(sd_rtnl *rtnl, int if_loopback, struct in_addr *ipv4_address, int *counter) {
-        _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *ipv4 = NULL, *ipv6 = NULL;
+        _cleanup_rtnl_message_unref_ sd_rtnl_message *ipv4 = NULL, *ipv6 = NULL;
         int r;
 
         r = sd_rtnl_message_addr_new(RTM_NEWADDR, if_loopback, AF_INET, &ipv4);
@@ -110,7 +110,7 @@ static int add_addresses(sd_rtnl *rtnl, int if_loopback, struct in_addr *ipv4_ad
 }
 
 static int start_interface(sd_rtnl *rtnl, int if_loopback, struct in_addr *ipv4_address, int *counter) {
-        _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *req = NULL;
+        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL;
         int r;
 
         r = sd_rtnl_message_link_new(RTM_SETLINK, if_loopback, &req);
@@ -157,7 +157,7 @@ static int check_loopback(void) {
 }
 
 int loopback_setup(void) {
-        _cleanup_sd_rtnl_unref_ sd_rtnl *rtnl = NULL;
+        _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
         int r, if_loopback, counter = 0;
         bool eperm = false;
         struct in_addr ipv4_address;

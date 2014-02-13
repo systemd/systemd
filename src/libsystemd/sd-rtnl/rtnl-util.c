@@ -28,7 +28,7 @@
 #include "rtnl-internal.h"
 
 int rtnl_set_link_name(sd_rtnl *rtnl, int ifindex, const char *name) {
-        _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *message = NULL;
+        _cleanup_rtnl_message_unref_ sd_rtnl_message *message = NULL;
         int r;
 
         assert(rtnl);
@@ -52,7 +52,7 @@ int rtnl_set_link_name(sd_rtnl *rtnl, int ifindex, const char *name) {
 
 int rtnl_set_link_properties(sd_rtnl *rtnl, int ifindex, const char *alias,
                              const struct ether_addr *mac, unsigned mtu) {
-        _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *message = NULL;
+        _cleanup_rtnl_message_unref_ sd_rtnl_message *message = NULL;
         bool need_update = false;
         int r;
 

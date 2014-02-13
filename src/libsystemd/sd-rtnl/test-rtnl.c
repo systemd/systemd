@@ -30,7 +30,7 @@
 #include "event-util.h"
 
 static void test_link_configure(sd_rtnl *rtnl, int ifindex) {
-        _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *message;
+        _cleanup_rtnl_message_unref_ sd_rtnl_message *message;
         uint16_t type;
         const char *mac = "98:fe:94:3f:c6:18", *name = "test";
         unsigned int mtu = 1450;
@@ -130,7 +130,7 @@ static void test_link_get(sd_rtnl *rtnl, int ifindex) {
 }
 
 static void test_route(void) {
-        _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *req;
+        _cleanup_rtnl_message_unref_ sd_rtnl_message *req;
         struct in_addr addr;
         uint32_t index = 2;
         uint16_t type;
@@ -208,8 +208,8 @@ static int link_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 
 static void test_event_loop(int ifindex) {
         _cleanup_event_unref_ sd_event *event = NULL;
-        _cleanup_sd_rtnl_unref_ sd_rtnl *rtnl = NULL;
-        _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *m = NULL;
+        _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
+        _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
         char *ifname;
 
         ifname = strdup("lo2");
@@ -240,8 +240,8 @@ static int pipe_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 }
 
 static void test_async(int ifindex) {
-        _cleanup_sd_rtnl_unref_ sd_rtnl *rtnl = NULL;
-        _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *m = NULL, *r = NULL;
+        _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
+        _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL, *r = NULL;
         uint32_t serial;
         char *ifname;
 
@@ -259,8 +259,8 @@ static void test_async(int ifindex) {
 }
 
 static void test_pipe(int ifindex) {
-        _cleanup_sd_rtnl_unref_ sd_rtnl *rtnl = NULL;
-        _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *m1 = NULL, *m2 = NULL;
+        _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
+        _cleanup_rtnl_message_unref_ sd_rtnl_message *m1 = NULL, *m2 = NULL;
         int counter = 0;
 
         assert(sd_rtnl_open(0, &rtnl) >= 0);
@@ -281,7 +281,7 @@ static void test_pipe(int ifindex) {
 }
 
 static void test_container(void) {
-        _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *m = NULL;
+        _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
         uint16_t type;
         void *data;
 
@@ -323,7 +323,7 @@ static void test_container(void) {
 }
 
 static void test_match(void) {
-        _cleanup_sd_rtnl_unref_ sd_rtnl *rtnl = NULL;
+        _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
 
         assert(sd_rtnl_open(0, &rtnl) >= 0);
 
