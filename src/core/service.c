@@ -3308,7 +3308,10 @@ static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *us
 
         case SERVICE_AUTO_RESTART:
                 log_info_unit(UNIT(s)->id,
-                              "%s holdoff time over, scheduling restart.", UNIT(s)->id);
+                              s->restart_usec > 0 ?
+                              "%s holdoff time over, scheduling restart." :
+                              "%s has no holdoff time, scheduling restart.",
+                              UNIT(s)->id);
                 service_enter_restart(s);
                 break;
 

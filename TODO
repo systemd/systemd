@@ -72,8 +72,11 @@ Features:
   desktop UIs such as gnome-shell to freeze apps that are not visible
   on screen, not unlike how job control works on the shell
 
-* machinectl bash completion is missing
-* busctl bash and zsh completions are outdated
+* completions:
+ - busctl zsh completion is outdated
+ - systemd-nspawn -Z/-L/-q is missing for zsh
+ - systemd-nspawn completion is missing for bash
+ - manager property enumeration was broken when systemd moved to /usr/lib/
 
 * cgroups:
   - implement system-wide DefaultCPUAccounting=1 switch (and similar for blockio, memory?)
