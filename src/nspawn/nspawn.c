@@ -1265,7 +1265,7 @@ static int move_network_interfaces(pid_t pid) {
         if (strv_isempty(arg_network_interfaces))
                 return 0;
 
-        r = sd_rtnl_open(NETLINK_ROUTE, &rtnl);
+        r = sd_rtnl_open(0, &rtnl);
         if (r < 0) {
                 log_error("Failed to connect to netlink: %s", strerror(-r));
                 return r;
@@ -1273,10 +1273,10 @@ static int move_network_interfaces(pid_t pid) {
 
         STRV_FOREACH(i, arg_network_interfaces) {
                 _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
-                unsigned ifi;
+                int ifi;
 
-                ifi = if_nametoindex(*i);
-                if (ifi == 0) {
+                ifi = (int) if_nametoindex(*i);
+                if (ifi <= 0) {
                         log_error("Failed to resolve interface %s: %m", *i);
                         return -errno;
                 }
@@ -1295,7 +1295,7 @@ static int move_network_interfaces(pid_t pid) {
 
                 r = sd_rtnl_call(rtnl, m, 0, NULL);
                 if (r < 0) {
-                        log_error("Failed to move interface to namespace: %s", strerror(-r));
+                        log_error("Failed to move interface %s to namespace: %s", *i, strerror(-r));
                         return r;
                 }
         }
