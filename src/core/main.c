@@ -642,7 +642,9 @@ static int parse_config_file(void) {
                 { "Manager", "RuntimeWatchdogSec",        config_parse_sec,              0, &arg_runtime_watchdog                  },
                 { "Manager", "ShutdownWatchdogSec",       config_parse_sec,              0, &arg_shutdown_watchdog                 },
                 { "Manager", "CapabilityBoundingSet",     config_parse_bounding_set,     0, &arg_capability_bounding_set_drop      },
+#ifdef HAVE_SECCOMP
                 { "Manager", "SystemCallArchitectures",   config_parse_syscall_archs,    0, &arg_syscall_archs                     },
+#endif
                 { "Manager", "TimerSlackNSec",            config_parse_nsec,             0, &arg_timer_slack_nsec                  },
                 { "Manager", "DefaultStandardOutput",     config_parse_output,           0, &arg_default_std_output                },
                 { "Manager", "DefaultStandardError",      config_parse_output,           0, &arg_default_std_error                 },
