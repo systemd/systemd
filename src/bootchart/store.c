@@ -61,7 +61,7 @@ void log_uptime(void) {
         char str[32];
         double uptime;
 
-        f = fopen("/proc/uptime", "r");
+        f = fopen("/proc/uptime", "re");
 
         if (!f)
                 return;

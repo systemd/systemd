@@ -259,7 +259,7 @@ static void do_journal_append(char *file) {
 
         memcpy(p, "BOOTCHART=", 10);
 
-        f = open(file, O_RDONLY);
+        f = open(file, O_RDONLY|O_CLOEXEC);
         if (f < 0) {
                 log_error("Failed to read bootchart data: %m");
                 return;
@@ -356,11 +356,11 @@ int main(int argc, char *argv[]) {
                         t = time(NULL);
                         strftime(datestr, sizeof(datestr), "%Y%m%d-%H%M", localtime(&t));
                         snprintf(output_file, PATH_MAX, "%s/bootchart-%s.svg", arg_output_path, datestr);
-                        of = fopen(output_file, "w");
+                        of = fopen(output_file, "we");
                 }
 
                 if (sysfd < 0)
-                        sysfd = open("/sys", O_RDONLY);
+                        sysfd = open("/sys", O_RDONLY|O_CLOEXEC);
 
                 if (!build)
                         parse_env_file("/etc/os-release", NEWLINE,
@@ -424,7 +424,7 @@ int main(int argc, char *argv[]) {
                 t = time(NULL);
                 strftime(datestr, sizeof(datestr), "%Y%m%d-%H%M", localtime(&t));
                 snprintf(output_file, PATH_MAX, "%s/bootchart-%s.svg", arg_output_path, datestr);
-                of = fopen(output_file, "w");
+                of = fopen(output_file, "we");
         }
 
         if (!of) {

@@ -38,19 +38,18 @@ struct btrfs_ioctl_vol_args {
 static int builtin_btrfs(struct udev_device *dev, int argc, char *argv[], bool test)
 {
         struct  btrfs_ioctl_vol_args args;
-        int fd;
+        _cleanup_close_ int fd = -1;
         int err;
 
         if (argc != 3 || !streq(argv[1], "ready"))
                 return EXIT_FAILURE;
 
-        fd = open("/dev/btrfs-control", O_RDWR);
+        fd = open("/dev/btrfs-control", O_RDWR|O_CLOEXEC);
         if (fd < 0)
                 return EXIT_FAILURE;
 
         strscpy(args.name, sizeof(args.name), argv[2]);
         err = ioctl(fd, BTRFS_IOC_DEVICES_READY, &args);
-        close(fd);
         if (err < 0)
                 return EXIT_FAILURE;
 

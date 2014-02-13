@@ -155,7 +155,7 @@ static int process_progress(int fd) {
                 return -errno;
         }
 
-        console = fopen("/dev/console", "w");
+        console = fopen("/dev/console", "we");
         if (!console)
                 return -ENOMEM;
 

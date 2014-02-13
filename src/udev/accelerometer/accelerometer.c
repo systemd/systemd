@@ -197,7 +197,7 @@ static void test_orientation(struct udev *udev,
 
         old = get_prev_orientation(dev);
 
-        fd = open(devpath, O_RDONLY);
+        fd = open(devpath, O_RDONLY|O_CLOEXEC);
         if (fd < 0)
                 return;
 

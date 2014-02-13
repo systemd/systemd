@@ -130,7 +130,7 @@ ssize_t sendfile_full(int out_fd, const char *fn) {
         assert(out_fd > 0);
         assert(fn);
 
-        f = fopen(fn, "r");
+        f = fopen(fn, "re");
         if (!f)
                 return -errno;
 

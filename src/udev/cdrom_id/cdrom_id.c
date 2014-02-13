@@ -930,7 +930,7 @@ int main(int argc, char *argv[])
         for (cnt = 20; cnt > 0; cnt--) {
                 struct timespec duration;
 
-                fd = open(node, O_RDONLY|O_NONBLOCK|(is_mounted(node) ? 0 : O_EXCL));
+                fd = open(node, O_RDONLY|O_NONBLOCK|O_CLOEXEC|(is_mounted(node) ? 0 : O_EXCL));
                 if (fd >= 0 || errno != EBUSY)
                         break;
                 duration.tv_sec = 0;

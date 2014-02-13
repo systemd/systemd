@@ -95,7 +95,7 @@ static int prepare(char *dir, char *filename)
 
         snprintf(buf, sizeof(buf), "%s/%s", dir, filename);
 
-        fd = open(buf,O_RDWR|O_CREAT, S_IRUSR|S_IWUSR);
+        fd = open(buf,O_RDWR|O_CREAT|O_CLOEXEC, S_IRUSR|S_IWUSR);
         if (fd < 0)
                 fprintf(stderr, "Cannot open %s: %m\n", buf);
 

@@ -51,7 +51,7 @@ static void exec_list(struct udev_enumerate *udev_enumerate, const char *action)
                 if (dry_run)
                         continue;
                 strscpyl(filename, sizeof(filename), udev_list_entry_get_name(entry), "/uevent", NULL);
-                fd = open(filename, O_WRONLY);
+                fd = open(filename, O_WRONLY|O_CLOEXEC);
                 if (fd < 0)
                         continue;
                 if (write(fd, action, strlen(action)) < 0)

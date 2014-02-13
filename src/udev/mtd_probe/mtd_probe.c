@@ -37,7 +37,7 @@ int main(int argc, char** argv)
                 return 1;
         }
 
-        mtd_fd = open(argv[1], O_RDONLY);
+        mtd_fd = open(argv[1], O_RDONLY|O_CLOEXEC);
         if (mtd_fd == -1) {
                 perror("open");
                 exit(-1);

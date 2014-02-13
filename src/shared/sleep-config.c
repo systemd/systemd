@@ -174,7 +174,7 @@ static int hibernation_partition_size(size_t *size, size_t *used) {
         assert(size);
         assert(used);
 
-        f = fopen("/proc/swaps", "r");
+        f = fopen("/proc/swaps", "re");
         if (!f) {
                 log_full(errno == ENOENT ? LOG_DEBUG : LOG_WARNING,
                          "Failed to retrieve open /proc/swaps: %m");

@@ -734,7 +734,7 @@ static int handle_inotify(struct udev *udev)
 
                                 log_debug("device %s closed, synthesising 'change'", udev_device_get_devnode(dev));
                                 strscpyl(filename, sizeof(filename), udev_device_get_syspath(dev), "/uevent", NULL);
-                                fd = open(filename, O_WRONLY);
+                                fd = open(filename, O_WRONLY|O_CLOEXEC);
                                 if (fd >= 0) {
                                         if (write(fd, "change", 6) < 0)
                                                 log_debug("error writing uevent: %m");
