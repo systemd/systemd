@@ -105,7 +105,7 @@ int address_drop(Address *address, Link *link,
         assert(link->manager);
         assert(link->manager->rtnl);
 
-        r = sd_rtnl_message_addr_new(RTM_DELADDR, link->ifindex, address->family, &req);
+        r = sd_rtnl_message_new_addr(RTM_DELADDR, link->ifindex, address->family, &req);
         if (r < 0) {
                 log_error("Could not allocate RTM_DELADDR message: %s",
                           strerror(-r));
@@ -149,7 +149,7 @@ int address_configure(Address *address, Link *link,
         assert(link->manager);
         assert(link->manager->rtnl);
 
-        r = sd_rtnl_message_addr_new(RTM_NEWADDR, link->ifindex,
+        r = sd_rtnl_message_new_addr(RTM_NEWADDR, link->ifindex,
                         address->family, &req);
         if (r < 0) {
                 log_error("Could not allocate RTM_NEWADDR message: %s",

@@ -1278,7 +1278,7 @@ static int move_network_interfaces(pid_t pid) {
                         return -errno;
                 }
 
-                r = sd_rtnl_message_link_new(RTM_NEWLINK, ifi, &m);
+                r = sd_rtnl_message_new_link(RTM_NEWLINK, ifi, &m);
                 if (r < 0) {
                         log_error("Failed to allocate netlink message: %s", strerror(-r));
                         return r;
