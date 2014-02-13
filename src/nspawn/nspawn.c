@@ -300,25 +300,29 @@ static int parse_argv(int argc, char *argv[]) {
                         size_t length;
 
                         FOREACH_WORD_SEPARATOR(word, length, optarg, ",", state) {
+                                _cleanup_free_ char *t;
                                 cap_value_t cap;
-                                char *t;
 
                                 t = strndup(word, length);
                                 if (!t)
                                         return log_oom();
 
-                                if (cap_from_name(t, &cap) < 0) {
-                                        log_error("Failed to parse capability %s.", t);
-                                        free(t);
-                                        return -EINVAL;
+                                if (streq(t, "all")) {
+                                        if (c == ARG_CAPABILITY)
+                                                arg_retain = (uint64_t) -1;
+                                        else
+                                                arg_retain = 0;
+                                } else {
+                                        if (cap_from_name(t, &cap) < 0) {
+                                                log_error("Failed to parse capability %s.", t);
+                                                return -EINVAL;
+                                        }
+
+                                        if (c == ARG_CAPABILITY)
+                                                arg_retain |= 1ULL << (uint64_t) cap;
+                                        else
+                                                arg_retain &= ~(1ULL << (uint64_t) cap);
                                 }
-
-                                free(t);
-
-                                if (c == ARG_CAPABILITY)
-                                        arg_retain |= 1ULL << (uint64_t) cap;
-                                else
-                                        arg_retain &= ~(1ULL << (uint64_t) cap);
                         }
 
                         break;

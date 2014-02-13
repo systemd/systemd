@@ -310,8 +310,11 @@
                                 CAP_SYS_CHROOT, CAP_SYS_NICE,
                                 CAP_SYS_PTRACE, CAP_SYS_TTY_CONFIG,
                                 CAP_SYS_RESOURCE, CAP_SYS_BOOT,
-                                CAP_AUDIT_WRITE,
-                                CAP_AUDIT_CONTROL.</para></listitem>
+                                CAP_AUDIT_WRITE, CAP_AUDIT_CONTROL. If
+                                the special value
+                                <literal>all</literal> is passed all
+                                capabilities are
+                                retained.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
