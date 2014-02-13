@@ -82,10 +82,8 @@ static enum {
         ACTION_DUMP_CONFIGURATION_ITEMS,
         ACTION_DONE
 } arg_action = ACTION_RUN;
-
 static char *arg_default_unit = NULL;
 static SystemdRunningAs arg_running_as = _SYSTEMD_RUNNING_AS_INVALID;
-
 static bool arg_dump_core = true;
 static bool arg_crash_shell = false;
 static int arg_crash_chvt = -1;
@@ -106,11 +104,10 @@ static char **arg_default_environment = NULL;
 static struct rlimit *arg_default_rlimit[RLIMIT_NLIMITS] = {};
 static uint64_t arg_capability_bounding_set_drop = 0;
 static nsec_t arg_timer_slack_nsec = (nsec_t) -1;
+static Set* arg_syscall_archs = NULL;
+static FILE* arg_serialization = NULL;
 
-static FILE* serialization = NULL;
-
-static void nop_handler(int sig) {
-}
+static void nop_handler(int sig) {}
 
 noreturn static void crash(int sig) {
 
@@ -632,45 +629,46 @@ static int config_parse_join_controllers(const char *unit,
 static int parse_config_file(void) {
 
         const ConfigTableItem items[] = {
-                { "Manager", "LogLevel",              config_parse_level2,       0, NULL                     },
-                { "Manager", "LogTarget",             config_parse_target,       0, NULL                     },
-                { "Manager", "LogColor",              config_parse_color,        0, NULL                     },
-                { "Manager", "LogLocation",           config_parse_location,     0, NULL                     },
-                { "Manager", "DumpCore",              config_parse_bool,         0, &arg_dump_core           },
-                { "Manager", "CrashShell",            config_parse_bool,         0, &arg_crash_shell         },
-                { "Manager", "ShowStatus",            config_parse_show_status,  0, &arg_show_status         },
-                { "Manager", "CrashChVT",             config_parse_int,          0, &arg_crash_chvt          },
-                { "Manager", "CPUAffinity",           config_parse_cpu_affinity2, 0, NULL                    },
-                { "Manager", "DefaultStandardOutput", config_parse_output,       0, &arg_default_std_output  },
-                { "Manager", "DefaultStandardError",  config_parse_output,       0, &arg_default_std_error   },
-                { "Manager", "DefaultTimeoutStartSec", config_parse_sec,         0, &arg_default_timeout_start_usec },
-                { "Manager", "DefaultTimeoutStopSec", config_parse_sec,          0, &arg_default_timeout_stop_usec  },
-                { "Manager", "DefaultRestartSec",     config_parse_sec,          0, &arg_default_restart_usec  },
-                { "Manager", "DefaultStartLimitInterval", config_parse_sec,      0, &arg_default_start_limit_interval },
-                { "Manager", "DefaultStartLimitBurst", config_parse_unsigned,    0, &arg_default_start_limit_burst },
-                { "Manager", "JoinControllers",       config_parse_join_controllers, 0, &arg_join_controllers },
-                { "Manager", "RuntimeWatchdogSec",    config_parse_sec,          0, &arg_runtime_watchdog    },
-                { "Manager", "ShutdownWatchdogSec",   config_parse_sec,          0, &arg_shutdown_watchdog   },
-                { "Manager", "CapabilityBoundingSet", config_parse_bounding_set, 0, &arg_capability_bounding_set_drop },
-                { "Manager", "TimerSlackNSec",        config_parse_nsec,         0, &arg_timer_slack_nsec    },
-                { "Manager", "DefaultEnvironment",    config_parse_environ,      0, &arg_default_environment },
-                { "Manager", "DefaultLimitCPU",       config_parse_limit,        0, &arg_default_rlimit[RLIMIT_CPU]},
-                { "Manager", "DefaultLimitFSIZE",     config_parse_limit,        0, &arg_default_rlimit[RLIMIT_FSIZE]},
-                { "Manager", "DefaultLimitDATA",      config_parse_limit,        0, &arg_default_rlimit[RLIMIT_DATA]},
-                { "Manager", "DefaultLimitSTACK",     config_parse_limit,        0, &arg_default_rlimit[RLIMIT_STACK]},
-                { "Manager", "DefaultLimitCORE",      config_parse_limit,        0, &arg_default_rlimit[RLIMIT_CORE]},
-                { "Manager", "DefaultLimitRSS",       config_parse_limit,        0, &arg_default_rlimit[RLIMIT_RSS]},
-                { "Manager", "DefaultLimitNOFILE",    config_parse_limit,        0, &arg_default_rlimit[RLIMIT_NOFILE]},
-                { "Manager", "DefaultLimitAS",        config_parse_limit,        0, &arg_default_rlimit[RLIMIT_AS]},
-                { "Manager", "DefaultLimitNPROC",     config_parse_limit,        0, &arg_default_rlimit[RLIMIT_NPROC]},
-                { "Manager", "DefaultLimitMEMLOCK",   config_parse_limit,        0, &arg_default_rlimit[RLIMIT_MEMLOCK]},
-                { "Manager", "DefaultLimitLOCKS",     config_parse_limit,        0, &arg_default_rlimit[RLIMIT_LOCKS]},
-                { "Manager", "DefaultLimitSIGPENDING",config_parse_limit,        0, &arg_default_rlimit[RLIMIT_SIGPENDING]},
-                { "Manager", "DefaultLimitMSGQUEUE",  config_parse_limit,        0, &arg_default_rlimit[RLIMIT_MSGQUEUE]},
-                { "Manager", "DefaultLimitNICE",      config_parse_limit,        0, &arg_default_rlimit[RLIMIT_NICE]},
-                { "Manager", "DefaultLimitRTPRIO",    config_parse_limit,        0, &arg_default_rlimit[RLIMIT_RTPRIO]},
-                { "Manager", "DefaultLimitRTTIME",    config_parse_limit,        0, &arg_default_rlimit[RLIMIT_RTTIME]},
-                { NULL, NULL, NULL, 0, NULL }
+                { "Manager", "LogLevel",                  config_parse_level2,           0, NULL                                   },
+                { "Manager", "LogTarget",                 config_parse_target,           0, NULL                                   },
+                { "Manager", "LogColor",                  config_parse_color,            0, NULL                                   },
+                { "Manager", "LogLocation",               config_parse_location,         0, NULL                                   },
+                { "Manager", "DumpCore",                  config_parse_bool,             0, &arg_dump_core                         },
+                { "Manager", "CrashShell",                config_parse_bool,             0, &arg_crash_shell                       },
+                { "Manager", "ShowStatus",                config_parse_show_status,      0, &arg_show_status                       },
+                { "Manager", "CrashChVT",                 config_parse_int,              0, &arg_crash_chvt                        },
+                { "Manager", "CPUAffinity",               config_parse_cpu_affinity2,    0, NULL                                   },
+                { "Manager", "JoinControllers",           config_parse_join_controllers, 0, &arg_join_controllers                  },
+                { "Manager", "RuntimeWatchdogSec",        config_parse_sec,              0, &arg_runtime_watchdog                  },
+                { "Manager", "ShutdownWatchdogSec",       config_parse_sec,              0, &arg_shutdown_watchdog                 },
+                { "Manager", "CapabilityBoundingSet",     config_parse_bounding_set,     0, &arg_capability_bounding_set_drop      },
+                { "Manager", "SystemCallArchitectures",   config_parse_syscall_archs,    0, &arg_syscall_archs                     },
+                { "Manager", "TimerSlackNSec",            config_parse_nsec,             0, &arg_timer_slack_nsec                  },
+                { "Manager", "DefaultStandardOutput",     config_parse_output,           0, &arg_default_std_output                },
+                { "Manager", "DefaultStandardError",      config_parse_output,           0, &arg_default_std_error                 },
+                { "Manager", "DefaultTimeoutStartSec",    config_parse_sec,              0, &arg_default_timeout_start_usec        },
+                { "Manager", "DefaultTimeoutStopSec",     config_parse_sec,              0, &arg_default_timeout_stop_usec         },
+                { "Manager", "DefaultRestartSec",         config_parse_sec,              0, &arg_default_restart_usec              },
+                { "Manager", "DefaultStartLimitInterval", config_parse_sec,              0, &arg_default_start_limit_interval      },
+                { "Manager", "DefaultStartLimitBurst",    config_parse_unsigned,         0, &arg_default_start_limit_burst         },
+                { "Manager", "DefaultEnvironment",        config_parse_environ,          0, &arg_default_environment               },
+                { "Manager", "DefaultLimitCPU",           config_parse_limit,            0, &arg_default_rlimit[RLIMIT_CPU]        },
+                { "Manager", "DefaultLimitFSIZE",         config_parse_limit,            0, &arg_default_rlimit[RLIMIT_FSIZE]      },
+                { "Manager", "DefaultLimitDATA",          config_parse_limit,            0, &arg_default_rlimit[RLIMIT_DATA]       },
+                { "Manager", "DefaultLimitSTACK",         config_parse_limit,            0, &arg_default_rlimit[RLIMIT_STACK]      },
+                { "Manager", "DefaultLimitCORE",          config_parse_limit,            0, &arg_default_rlimit[RLIMIT_CORE]       },
+                { "Manager", "DefaultLimitRSS",           config_parse_limit,            0, &arg_default_rlimit[RLIMIT_RSS]        },
+                { "Manager", "DefaultLimitNOFILE",        config_parse_limit,            0, &arg_default_rlimit[RLIMIT_NOFILE]     },
+                { "Manager", "DefaultLimitAS",            config_parse_limit,            0, &arg_default_rlimit[RLIMIT_AS]         },
+                { "Manager", "DefaultLimitNPROC",         config_parse_limit,            0, &arg_default_rlimit[RLIMIT_NPROC]      },
+                { "Manager", "DefaultLimitMEMLOCK",       config_parse_limit,            0, &arg_default_rlimit[RLIMIT_MEMLOCK]    },
+                { "Manager", "DefaultLimitLOCKS",         config_parse_limit,            0, &arg_default_rlimit[RLIMIT_LOCKS]      },
+                { "Manager", "DefaultLimitSIGPENDING",    config_parse_limit,            0, &arg_default_rlimit[RLIMIT_SIGPENDING] },
+                { "Manager", "DefaultLimitMSGQUEUE",      config_parse_limit,            0, &arg_default_rlimit[RLIMIT_MSGQUEUE]   },
+                { "Manager", "DefaultLimitNICE",          config_parse_limit,            0, &arg_default_rlimit[RLIMIT_NICE]       },
+                { "Manager", "DefaultLimitRTPRIO",        config_parse_limit,            0, &arg_default_rlimit[RLIMIT_RTPRIO]     },
+                { "Manager", "DefaultLimitRTTIME",        config_parse_limit,            0, &arg_default_rlimit[RLIMIT_RTTIME]     },
+                {}
         };
 
         _cleanup_fclose_ FILE *f;
@@ -925,10 +923,10 @@ static int parse_argv(int argc, char *argv[]) {
                                 return -errno;
                         }
 
-                        if (serialization)
-                                fclose(serialization);
+                        if (arg_serialization)
+                                fclose(arg_serialization);
 
-                        serialization = f;
+                        arg_serialization = f;
 
                         break;
                 }
@@ -1194,6 +1192,39 @@ static int initialize_join_controllers(void) {
         return 0;
 }
 
+static int enforce_syscall_archs(Set *archs) {
+#ifdef HAVE_SECCOMP
+        scmp_filter_ctx *seccomp;
+        Iterator i;
+        void *id;
+        int r;
+
+        seccomp = seccomp_init(SCMP_ACT_ALLOW);
+        if (!seccomp)
+                return log_oom();
+
+        SET_FOREACH(id, arg_syscall_archs, i) {
+                r = seccomp_arch_add(seccomp, PTR_TO_UINT32(id) - 1);
+                if (r == -EEXIST)
+                        continue;
+                if (r < 0) {
+                        log_error("Failed to add architecture to seccomp: %s", strerror(-r));
+                        goto finish;
+                }
+        }
+
+        r = seccomp_load(seccomp);
+        if (r < 0)
+                log_error("Failed to add install architecture seccomp: %s", strerror(-r));
+
+finish:
+        seccomp_release(seccomp);
+        return r;
+#else
+        return 0;
+#endif
+}
+
 int main(int argc, char *argv[]) {
         Manager *m = NULL;
         int r, retval = EXIT_FAILURE;
@@ -1209,7 +1240,7 @@ int main(int argc, char *argv[]) {
         dual_timestamp security_finish_timestamp = { 0ULL, 0ULL };
         static char systemd[] = "systemd";
         bool skip_setup = false;
-        int j;
+        unsigned j;
         bool loaded_policy = false;
         bool arm_reboot_watchdog = false;
         bool queue_default_job = false;
@@ -1437,8 +1468,8 @@ int main(int argc, char *argv[]) {
         } else
                 fdset_cloexec(fds, true);
 
-        if (serialization)
-                assert_se(fdset_remove(fds, fileno(serialization)) >= 0);
+        if (arg_serialization)
+                assert_se(fdset_remove(fds, fileno(arg_serialization)) >= 0);
 
         if (arg_running_as == SYSTEMD_SYSTEM)
                 /* Become a session leader if we aren't one yet. */
@@ -1520,6 +1551,12 @@ int main(int argc, char *argv[]) {
                 }
         }
 
+        if (arg_syscall_archs) {
+                r = enforce_syscall_archs(arg_syscall_archs);
+                if (r < 0)
+                        goto finish;
+        }
+
         if (arg_running_as == SYSTEMD_USER) {
                 /* Become reaper of our children */
                 if (prctl(PR_SET_CHILD_SUBREAPER, 1) < 0) {
@@ -1564,11 +1601,11 @@ int main(int argc, char *argv[]) {
         manager_set_show_status(m, arg_show_status);
 
         /* Remember whether we should queue the default job */
-        queue_default_job = !serialization || arg_switched_root;
+        queue_default_job = !arg_serialization || arg_switched_root;
 
         before_startup = now(CLOCK_MONOTONIC);
 
-        r = manager_startup(m, serialization, fds);
+        r = manager_startup(m, arg_serialization, fds);
         if (r < 0)
                 log_error("Failed to fully start up daemon: %s", strerror(-r));
 
@@ -1577,9 +1614,9 @@ int main(int argc, char *argv[]) {
         fdset_free(fds);
         fds = NULL;
 
-        if (serialization) {
-                fclose(serialization);
-                serialization = NULL;
+        if (arg_serialization) {
+                fclose(arg_serialization);
+                arg_serialization = NULL;
         }
 
         if (queue_default_job) {
@@ -1672,7 +1709,7 @@ int main(int argc, char *argv[]) {
 
                 case MANAGER_REEXECUTE:
 
-                        if (prepare_reexecute(m, &serialization, &fds, false) < 0)
+                        if (prepare_reexecute(m, &arg_serialization, &fds, false) < 0)
                                 goto finish;
 
                         reexecute = true;
@@ -1686,7 +1723,7 @@ int main(int argc, char *argv[]) {
                         m->switch_root = m->switch_root_init = NULL;
 
                         if (!switch_root_init)
-                                if (prepare_reexecute(m, &serialization, &fds, true) < 0)
+                                if (prepare_reexecute(m, &arg_serialization, &fds, true) < 0)
                                         goto finish;
 
                         reexecute = true;
@@ -1717,14 +1754,26 @@ int main(int argc, char *argv[]) {
         }
 
 finish:
-        if (m)
+        if (m) {
                 manager_free(m);
+                m = NULL;
+        }
 
-        for (j = 0; j < RLIMIT_NLIMITS; j++)
+        for (j = 0; j < ELEMENTSOF(arg_default_rlimit); j++) {
                 free(arg_default_rlimit[j]);
+                arg_default_rlimit[j] = NULL;
+        }
 
         free(arg_default_unit);
+        arg_default_unit = NULL;
+
         free_join_controllers();
+
+        strv_free(arg_default_environment);
+        arg_default_environment = NULL;
+
+        set_free(arg_syscall_archs);
+        arg_syscall_archs = NULL;
 
         label_finish();
 
@@ -1767,10 +1816,10 @@ finish:
                          * this only if the user didn't specify an
                          * explicit init to spawn. */
 
-                        assert(serialization);
+                        assert(arg_serialization);
                         assert(fds);
 
-                        snprintf(sfd, sizeof(sfd), "%i", fileno(serialization));
+                        snprintf(sfd, sizeof(sfd), "%i", fileno(arg_serialization));
                         char_array_0(sfd);
 
                         i = 0;
@@ -1796,9 +1845,9 @@ finish:
                  * getopt() in argv[], and some cleanups in envp[],
                  * but let's hope that doesn't matter.) */
 
-                if (serialization) {
-                        fclose(serialization);
-                        serialization = NULL;
+                if (arg_serialization) {
+                        fclose(arg_serialization);
+                        arg_serialization = NULL;
                 }
 
                 if (fds) {
@@ -1809,7 +1858,7 @@ finish:
                 /* Reopen the console */
                 make_console_stdio();
 
-                for (j = 1, i = 1; j < argc; j++)
+                for (j = 1, i = 1; j < (unsigned) argc; j++)
                         args[i++] = argv[j];
                 args[i++] = NULL;
                 assert(i <= args_size);
@@ -1834,11 +1883,15 @@ finish:
                         log_warning("Failed to execute /sbin/init, giving up: %m");
         }
 
-        if (serialization)
-                fclose(serialization);
+        if (arg_serialization) {
+                fclose(arg_serialization);
+                arg_serialization = NULL;
+        }
 
-        if (fds)
+        if (fds) {
                 fdset_free(fds);
+                fds = NULL;
+        }
 
 #ifdef HAVE_VALGRIND_VALGRIND_H
         /* If we are PID 1 and running under valgrind, then let's exit

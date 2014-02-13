@@ -51,7 +51,7 @@ $1.TimerSlackNSec,               config_parse_nsec,                  0,         
 $1.NoNewPrivileges,              config_parse_bool,                  0,                             offsetof($1, exec_context.no_new_privileges)
 m4_ifdef(`HAVE_SECCOMP',
 `$1.SystemCallFilter,            config_parse_syscall_filter,        0,                             offsetof($1, exec_context)
-$1.SystemCallArchitectures,      config_parse_syscall_archs,         0,                             offsetof($1, exec_context)
+$1.SystemCallArchitectures,      config_parse_syscall_archs,         0,                             offsetof($1, exec_context.syscall_archs)
 $1.SystemCallErrorNumber,        config_parse_syscall_errno,         0,                             offsetof($1, exec_context)',
 `$1.SystemCallFilter,            config_parse_warn_compat,           0,                             0
 $1.SystemCallArchitectures,      config_parse_warn_compat,           0,                             0

@@ -94,42 +94,6 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>DefaultTimeoutStartSec=</varname></term>
-                                <term><varname>DefaultTimeoutStopSec=</varname></term>
-                                <term><varname>DefaultRestartSec=</varname></term>
-
-                                <listitem><para>Configures the default
-                                time-outs for starting and stopping of
-                                units, as well as the default time to
-                                sleep between automatic restarts of
-                                units, as configured per-unit in
-                                <varname>TimeoutStartSec=</varname>,
-                                <varname>TimeoutStopSec=</varname> and
-                                <varname>RestartSec=</varname> (for
-                                service units, see
-                                <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                                for details on the per-unit
-                                settings). For non-service units,
-                                <varname>DefaultTimeoutStartSec=</varname>
-                                sets the default
-                                <varname>TimeoutSec=</varname> value.
-                                </para></listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><varname>DefaultStartLimitInterval=</varname></term>
-                                <term><varname>DefaultStartLimitBurst=</varname></term>
-
-                                <listitem><para>Configure the default start rate
-                                limiting, as configured per-service by
-                                <varname>StartLimitInterval=</varname> and
-                                <varname>StartLimitBurst=</varname>. See
-                                <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                                for details on the per-service
-                                settings).
-                                </para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
                                 <term><varname>CPUAffinity=</varname></term>
 
                                 <listitem><para>Configures the initial
@@ -248,6 +212,50 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>SystemCallArchitectures=</varname></term>
+
+                                <listitem><para>Takes a
+                                space-separated list of architecture
+                                identifiers. Selects of which
+                                architectures system calls may be
+                                invoked on this system. This may be
+                                used as an effective way to disable
+                                invocation of non-native binaries
+                                system-wide, for example to prohibit
+                                execution of 32bit x86 binaries on
+                                64bit x86-64 systems. This option
+                                operates system wide, and acts
+                                similar to the
+                                <varname>SystemCallArchitectures=</varname>
+                                setting of unit files, see
+                                <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                for details. This setting defaults to
+                                the empty list in which case no
+                                filtering of system calls based on
+                                architecture is applied. Known
+                                architecture identifiers are
+                                <literal>x86</literal>,
+                                <literal>x86-64</literal>,
+                                <literal>x32</literal>,
+                                <literal>arm</literal> and the special
+                                identifier
+                                <literal>native</literal>. The latter
+                                implicitly maps to the native
+                                architecture of the system (or more
+                                specifically, the architecture the
+                                system manager was compiled for). Set
+                                this setting to
+                                <literal>native</literal> to prohibit
+                                execution of any non-native
+                                binaries. When a binary executes a
+                                system call of an architecture that is
+                                not listed in this setting it will be
+                                immediately terminated with the SIGSYS
+                                signal.</para></listitem>
+                        </varlistentry>
+
+
+                        <varlistentry>
                                 <term><varname>TimerSlackNSec=</varname></term>
 
                                 <listitem><para>Sets the timer slack
@@ -269,6 +277,42 @@
                                 unit is specified. The usual time
                                 units are understood
                                 too.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>DefaultTimeoutStartSec=</varname></term>
+                                <term><varname>DefaultTimeoutStopSec=</varname></term>
+                                <term><varname>DefaultRestartSec=</varname></term>
+
+                                <listitem><para>Configures the default
+                                time-outs for starting and stopping of
+                                units, as well as the default time to
+                                sleep between automatic restarts of
+                                units, as configured per-unit in
+                                <varname>TimeoutStartSec=</varname>,
+                                <varname>TimeoutStopSec=</varname> and
+                                <varname>RestartSec=</varname> (for
+                                service units, see
+                                <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                for details on the per-unit
+                                settings). For non-service units,
+                                <varname>DefaultTimeoutStartSec=</varname>
+                                sets the default
+                                <varname>TimeoutSec=</varname> value.
+                                </para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><varname>DefaultStartLimitInterval=</varname></term>
+                                <term><varname>DefaultStartLimitBurst=</varname></term>
+
+                                <listitem><para>Configure the default start rate
+                                limiting, as configured per-service by
+                                <varname>StartLimitInterval=</varname> and
+                                <varname>StartLimitBurst=</varname>. See
+                                <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                for details on the per-service
+                                settings).
+                                </para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -334,7 +378,10 @@
                   <para>
                           <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-                          <citerefentry><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                          <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                   </para>
         </refsect1>
 

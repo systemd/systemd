@@ -2045,18 +2045,18 @@ int config_parse_syscall_archs(
                 void *data,
                 void *userdata) {
 
-        ExecContext *c = data;
+        Set **archs = data;
         char *w, *state;
         size_t l;
         int r;
 
         if (isempty(rvalue)) {
-                set_free(c->syscall_archs);
-                c->syscall_archs = NULL;
+                set_free(*archs);
+                *archs = NULL;
                 return 0;
         }
 
-        r = set_ensure_allocated(&c->syscall_archs, trivial_hash_func, trivial_compare_func);
+        r = set_ensure_allocated(archs, trivial_hash_func, trivial_compare_func);
         if (r < 0)
                 return log_oom();
 
@@ -2074,7 +2074,7 @@ int config_parse_syscall_archs(
                         continue;
                 }
 
-                r = set_put(c->syscall_archs, UINT32_TO_PTR(a + 1));
+                r = set_put(*archs, UINT32_TO_PTR(a + 1));
                 if (r == -EEXIST)
                         continue;
                 if (r < 0)
