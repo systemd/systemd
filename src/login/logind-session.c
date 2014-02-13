@@ -915,10 +915,11 @@ void session_add_to_gc_queue(Session *s) {
 SessionState session_get_state(Session *s) {
         assert(s);
 
+        /* always check closing first */
         if (s->stopping || s->timer_event_source)
                 return SESSION_CLOSING;
 
-        if (s->scope_job)
+        if (s->scope_job || s->fifo_fd < 0)
                 return SESSION_OPENING;
 
         if (session_is_active(s))
