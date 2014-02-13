@@ -98,6 +98,9 @@ void manager_free(Manager *m) {
         NetDev *netdev;
         Link *link;
 
+        if (!m)
+                return;
+
         udev_monitor_unref(m->udev_monitor);
         udev_unref(m->udev);
         sd_bus_unref(m->bus);
