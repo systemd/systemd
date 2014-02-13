@@ -486,11 +486,7 @@ Features:
 
 * rename "userspace" to "core-os"
 
-* syscall filter:
-  - syscall filter: add knowledge about compat syscalls
-  - syscall filter: don't enforce no new privs?
-  - syscall filter: option to return EPERM rather than SIGSYS?
-  - system-wide seccomp filter
+* syscall filter: optionally don't enforce no new privs?
 
 * load-fragment: when loading a unit file via a chain of symlinks
   verify that it isn't masked via any of the names traversed.
