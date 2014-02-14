@@ -113,26 +113,22 @@
                         and no namespace isolation.</para>
                         <example>
                                 <title>proxy-to-nginx.socket</title>
-                                <programlisting>
-<![CDATA[[Socket]
+                                <programlisting><![CDATA[[Socket]
 ListenStream=80
 
 [Install]
-WantedBy=sockets.target]]>
-</programlisting>
+WantedBy=sockets.target]]></programlisting>
                         </example>
                         <example>
                                 <title>proxy-to-nginx.service</title>
-                                <programlisting>
-<![CDATA[[Unit]
+                                <programlisting><![CDATA[[Unit]
 Requires=nginx.service
 After=nginx.service
 
 [Service]
 ExecStart=/usr/lib/systemd/systemd-socket-proxyd /tmp/nginx.sock
 PrivateTmp=yes
-PrivateNetwork=yes]]>
-</programlisting>
+PrivateNetwork=yes]]></programlisting>
                         </example>
                         <example>
                                 <title>nginx.conf</title>
@@ -145,11 +141,9 @@ server {
                         </example>
                         <example>
                                 <title>Enabling the proxy</title>
-                                <programlisting>
-<![CDATA[# systemctl enable proxy-to-nginx.socket
+                                <programlisting><![CDATA[# systemctl enable proxy-to-nginx.socket
 # systemctl start proxy-to-nginx.socket
-$ curl http://localhost:80/]]>
-</programlisting>
+$ curl http://localhost:80/]]></programlisting>
                         </example>
                 </refsect2>
                 <refsect2>
@@ -163,18 +157,15 @@ $ curl http://localhost:80/]]>
                         too.</para>
                         <example>
                                 <title>proxy-to-nginx.socket</title>
-                                <programlisting>
-<![CDATA[[Socket]
+                                <programlisting><![CDATA[[Socket]
 ListenStream=80
 
 [Install]
-WantedBy=sockets.target]]>
-</programlisting>
+WantedBy=sockets.target]]></programlisting>
                         </example>
                         <example>
                                 <title>proxy-to-nginx.service</title>
-                                <programlisting>
-<![CDATA[[Unit]
+                                <programlisting><![CDATA[[Unit]
 Requires=nginx.service
 After=nginx.service
 JoinsNamespaceOf=nginx.service
@@ -182,26 +173,21 @@ JoinsNamespaceOf=nginx.service
 [Service]
 ExecStart=/usr/lib/systemd/systemd-socket-proxyd 127.0.0.1:8080
 PrivateTmp=yes
-PrivateNetwork=yes]]>
-</programlisting>
+PrivateNetwork=yes]]></programlisting>
                         </example>
                         <example>
                                 <title>nginx.conf</title>
-                                <programlisting>
-<![CDATA[[...]
+                                <programlisting><![CDATA[[...]
 server {
     listen       8080;
     listen       unix:/tmp/nginx.sock;
-    [...]]]>
-</programlisting>
+    [...]]]></programlisting>
                         </example>
                         <example>
                                 <title>Enabling the proxy</title>
-                                <programlisting>
-<![CDATA[# systemctl enable proxy-to-nginx.socket
+                                <programlisting><![CDATA[# systemctl enable proxy-to-nginx.socket
 # systemctl start proxy-to-nginx.socket
-$ curl http://localhost:80/]]>
-</programlisting>
+$ curl http://localhost:80/]]></programlisting>
                         </example>
                 </refsect2>
         </refsect1>

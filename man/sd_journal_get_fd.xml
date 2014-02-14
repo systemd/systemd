@@ -330,8 +330,7 @@ int wait_for_changes(sd_journal *j) {
         pollfd.events = sd_journal_get_events(j);
         poll(&amp;pollfd, 1, msec);
         return sd_journal_process(j);
-}
-                </programlisting>
+}</programlisting>
         </refsect1>
 
         <refsect1>

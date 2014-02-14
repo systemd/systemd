@@ -160,10 +160,8 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <para>Example: to exploit the <quote>freeze</quote> mode added
     in Linux 3.9, one can use <command>systemctl suspend</command>
     with
-    <programlisting>
-[Sleep]
-SuspendState=freeze
-    </programlisting></para>
+    <programlisting>[Sleep]
+SuspendState=freeze</programlisting></para>
   </refsect1>
 
   <refsect1>

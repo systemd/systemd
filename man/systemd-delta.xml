@@ -204,20 +204,16 @@
 		<title>Examples</title>
 
 		<para>To see all local configuration:</para>
-		<programlisting>systemd-delta
-		</programlisting>
+		<programlisting>systemd-delta</programlisting>
 
 		<para>To see all runtime configuration:</para>
-		<programlisting>systemd-delta /run
-		</programlisting>
+		<programlisting>systemd-delta /run</programlisting>
 
 		<para>To see all system unit configuration changes:</para>
-		<programlisting>systemd-delta systemd/system
-		</programlisting>
+		<programlisting>systemd-delta systemd/system</programlisting>
 
 		<para>To see all runtime "drop-in" changes for system units:</para>
-		<programlisting>systemd-delta --type=extended /run/systemd/system
-		</programlisting>
+		<programlisting>systemd-delta --type=extended /run/systemd/system</programlisting>
 	</refsect1>
 
         <refsect1>

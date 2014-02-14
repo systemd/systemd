@@ -86,8 +86,7 @@
         <refsect1>
                 <title>Example</title>
 
-                <programlisting>
-# /etc/nsswitch.conf
+<programlisting># /etc/nsswitch.conf
 
 passwd:         compat
 group:          compat
@@ -101,20 +100,17 @@ services:       db files
 ethers:         db files
 rpc:            db files
 
-netgroup:       nis
-                </programlisting>
+netgroup:       nis</programlisting>
 
                 <para>To test, use <command>glibc</command>'s <command>getent</command> tool:</para>
 
-                <programlisting>
-$ getent ahosts `hostname`
+                <programlisting>$ getent ahosts `hostname`
 ::1             STREAM omega
 ::1             DGRAM
 ::1             RAW
 127.0.0.2       STREAM
 127.0.0.2       DGRAM
-127.0.0.2       RAW
-                </programlisting>
+127.0.0.2       RAW</programlisting>
 
                 <para>In this case the local hostname is <varname>omega</varname>.</para>
 

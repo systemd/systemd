@@ -442,12 +442,9 @@
                                 be used, they need to be passed
                                 explicitly to a shell implementation
                                 of some kind. Example:</para>
-                                <programlisting>ExecStart=/bin/sh -c 'dmesg | tac'
-                                </programlisting>
-
+                                <programlisting>ExecStart=/bin/sh -c 'dmesg | tac'</programlisting>
                                 <para>Example:</para>
-                                <programlisting>ExecStart=/bin/echo one ; /bin/echo "two two"
-                                </programlisting>
+                                <programlisting>ExecStart=/bin/echo one ; /bin/echo "two two"</programlisting>
                                 <para>This will execute
                                 <command>/bin/echo</command> two
                                 times, each time with one argument,
@@ -460,8 +457,7 @@
 
                                 <para>Example:</para>
                                 <programlisting>ExecStart=/bin/echo / &gt;/dev/null &amp; \; \
-/bin/ls
-                                </programlisting>
+/bin/ls</programlisting>
                                 <para>This will execute
                                 <command>/bin/echo</command> with five
                                 arguments: <literal>/</literal>,
@@ -472,8 +468,7 @@
 
                                 <para>Example:</para>
                                 <programlisting>Environment="ONE=one" 'TWO=two two'
-ExecStart=/bin/echo $ONE $TWO ${TWO}
-                                </programlisting>
+ExecStart=/bin/echo $ONE $TWO ${TWO}</programlisting>
                                 <para>This will execute
                                 <command>/bin/echo</command> with four
                                 arguments: <literal>one</literal>,

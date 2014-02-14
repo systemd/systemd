@@ -90,9 +90,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           <filename>/usr/lib/kernel/install.d/*.install</filename> and
           <filename>/etc/kernel/install.d/*.install</filename> with
           the arguments
-          <programlisting>
-add <replaceable>KERNEL-VERSION</replaceable> <filename>/boot/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/</filename>
-          </programlisting>
+          <programlisting>add <replaceable>KERNEL-VERSION</replaceable> <filename>/boot/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/</filename></programlisting>
           </para>
 
           <para>The kernel-install plugin <filename>50-depmod.install</filename> runs depmod for the <replaceable>KERNEL-VERSION</replaceable>.</para>
@@ -114,9 +112,7 @@ add <replaceable>KERNEL-VERSION</replaceable> <filename>/boot/<replaceable>MACHI
         <listitem>
           <para>Calls every executable <filename>/usr/lib/kernel/install.d/*.install</filename>
           and <filename>/etc/kernel/install.d/*.install</filename> with the arguments
-          <programlisting>
-remove <replaceable>KERNEL-VERSION</replaceable> <filename>/boot/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/</filename>
-          </programlisting>
+          <programlisting>remove <replaceable>KERNEL-VERSION</replaceable> <filename>/boot/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/</filename></programlisting>
           </para>
 
           <para><command>kernel-install</command> removes the entire directory
