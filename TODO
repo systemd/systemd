@@ -33,11 +33,13 @@ Preparation for 209:
 
 * libsystemd-journal returns the object created as first param in sd_journal_new(), sd_bus_new() and suchlike as last...
 
-* Merge Distribute= patches for .socket units
-
 Features:
 
-* maybe: hookup nspawn and PrivateNetwork=yes with "ip netns"
+* implement Distribute= in socket units to allow running multiple
+  service instances processing the listening socket, and open this up
+  for ReusePort=
+
+* add a timelimit to generator invocation
 
 * socket units: support creating sockets in different namespace,
   opening it up for JoinsNamespaceOf=. This would require to fork off
@@ -89,7 +91,7 @@ Features:
 
 * Automatically configure swap partition to use for hibernation by looking for largest swap partition on the root disk?
 
-* socket-proxyd:Use a nonblocking alternative to getaddrinfo
+* socket-proxyd: Use sd-resolve to resolve the server address
 
 * rfkill,backlight: we probably should run the load tools inside of the udev rules so that the state is properly initialized by the time other software sees it
 
@@ -426,12 +428,12 @@ Features:
   - nspawn: --read-only is not applied recursively to submounts
   - nspawn: make use of device cgroup controller by default
   - bind mount read-only the cgroup tree higher than nspawn
-  - nspawn: investigate whether we can support the same as LXC's
-    lxc.network.type=phys mode, and pass through entire network
-    interfaces to the container
   - nspawn: make it work for dwalsh and shared /usr containers -- tmpfs mounts as command line parameters, selinux exec context
   - refuses to boot containers without /etc/machine-id (OK?), and with empty /etc/machine-id (not OK).
   - support taking a btrfs snapshot at startup and dropping it afterwards
+  - maybe: hookup nspawn and PrivateNetwork=yes with "ip netns"
+  - introduce --network-bridge= which works like --network-veth but also adds the host side to an existing bridge
+  - allow booting disk images with a GPT signature using the bootloaderspec partition uuids
 
 * cryptsetup:
   - cryptsetup-generator: allow specification of passwords in crypttab itself
