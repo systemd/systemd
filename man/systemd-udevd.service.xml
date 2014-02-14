@@ -70,7 +70,7 @@
       <varlistentry>
         <term><option>--debug</option></term>
         <listitem>
-          <para>Print debug messages to stderr.</para>
+          <para>Print debug messages to STDERR.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -82,7 +82,6 @@
       <varlistentry>
         <term><option>--exec-delay=</option></term>
         <listitem>
-
           <para>Delay the execution of RUN instruction by the given
           number of seconds. This option might be useful when
           debugging system crashes during coldplug caused by loading
@@ -158,7 +157,7 @@
         <term><varname>net.ifnames=</varname></term>
         <listitem>
           <para>Network interfaces are renamed to give them predictable names
-          when possible. It is enabled by default, specifying 0 disables it.</para>
+          when possible. It is enabled by default; specifying 0 disables it.</para>
         </listitem>
       </varlistentry>
     </variablelist>

@@ -491,8 +491,8 @@
                         <varlistentry>
                                 <term><varname>TTYPath=</varname></term>
                                 <listitem><para>Sets the terminal
-                                device node to use if standard input,
-                                output or stderr are connected to a
+                                device node to use if STDIN, STDOUT,
+                                or STDERR are connected to a
                                 TTY (see above). Defaults to
                                 <filename>/dev/console</filename>.</para></listitem>
                         </varlistentry>

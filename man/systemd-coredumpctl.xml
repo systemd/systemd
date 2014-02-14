@@ -135,7 +135,7 @@
 
                                 <listitem><para>Extract the last coredump
                                 matching specified characteristics.
-                                Coredump will be written on stdout, unless
+                                Coredump will be written on STDOUT, unless
                                 an output file is specified with
                                 <option>-o/--output</option>.
                                 </para></listitem>
@@ -200,8 +200,8 @@
 
         <refsect1>
                 <title>Exit status</title>
-                <para>On success, 0 is returned, a non-zero failure
-                code otherwise. Not finding any matching coredumps is treated
+                <para>On success, 0 is returned; otherwise, a non-zero failure
+                code is returned. Not finding any matching coredumps is treated
                 as failure.
                 </para>
         </refsect1>
