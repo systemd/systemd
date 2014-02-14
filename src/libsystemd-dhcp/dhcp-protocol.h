@@ -58,6 +58,7 @@ typedef struct DHCPPacket DHCPPacket;
 #define DHCP_IP_SIZE            (int32_t)(sizeof(struct iphdr))
 #define DHCP_IP_UDP_SIZE        (int32_t)(sizeof(struct udphdr) + DHCP_IP_SIZE)
 #define DHCP_MESSAGE_SIZE       (int32_t)(sizeof(DHCPMessage))
+#define DHCP_MIN_OPTIONS_SIZE   312
 
 enum {
         DHCP_PORT_SERVER                        = 67,

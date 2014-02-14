@@ -32,8 +32,6 @@
 #include "dhcp-internal.h"
 #include "sd-dhcp-client.h"
 
-#define DHCP_CLIENT_MIN_OPTIONS_SIZE            312
-
 struct sd_dhcp_client {
         DHCPState state;
         sd_event *event;
@@ -237,7 +235,7 @@ static int client_message_init(sd_dhcp_client *client, DHCPMessage *message,
                    defined default size unless the Maximum Messge Size option
                    is explicitely set */
                 max_size = htobe16(DHCP_IP_UDP_SIZE + DHCP_MESSAGE_SIZE +
-                                   DHCP_CLIENT_MIN_OPTIONS_SIZE);
+                                   DHCP_MIN_OPTIONS_SIZE);
                 r = dhcp_option_append(opt, optlen,
                                        DHCP_OPTION_MAXIMUM_MESSAGE_SIZE,
                                        2, &max_size);
@@ -254,7 +252,7 @@ static int client_send_discover(sd_dhcp_client *client, uint16_t secs) {
         size_t optlen, len;
         uint8_t *opt;
 
-        optlen = DHCP_CLIENT_MIN_OPTIONS_SIZE;
+        optlen = DHCP_MIN_OPTIONS_SIZE;
         len = sizeof(DHCPPacket) + optlen;
 
         discover = malloc0(len);
@@ -293,7 +291,7 @@ static int client_send_request(sd_dhcp_client *client, uint16_t secs) {
         int err;
         uint8_t *opt;
 
-        optlen = DHCP_CLIENT_MIN_OPTIONS_SIZE;
+        optlen = DHCP_MIN_OPTIONS_SIZE;
         len = DHCP_MESSAGE_SIZE + optlen;
 
         request = malloc0(len);
@@ -801,7 +799,7 @@ error:
 static int client_receive_message_raw(sd_event_source *s, int fd,
                                       uint32_t revents, void *userdata) {
         sd_dhcp_client *client = userdata;
-        uint8_t buf[sizeof(DHCPMessage) + DHCP_CLIENT_MIN_OPTIONS_SIZE];
+        uint8_t buf[sizeof(DHCPMessage) + DHCP_MIN_OPTIONS_SIZE];
         int buflen = sizeof(buf);
         int len, r = 0;
         usec_t time_now;
@@ -825,7 +823,7 @@ static int client_receive_message_raw(sd_event_source *s, int fd,
 static int client_receive_message_udp(sd_event_source *s, int fd,
                                       uint32_t revents, void *userdata) {
         sd_dhcp_client *client = userdata;
-        uint8_t buf[sizeof(DHCPPacket) + DHCP_CLIENT_MIN_OPTIONS_SIZE];
+        uint8_t buf[sizeof(DHCPPacket) + DHCP_MIN_OPTIONS_SIZE];
         int buflen = sizeof(buf);
         int len, r = 0;
         DHCPPacket *packet;
