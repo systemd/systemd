@@ -3349,10 +3349,12 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags) {
                 return;
         }
 
-        if (s->notify_access == NOTIFY_MAIN && s->main_pid != 0 && pid != s->main_pid) {
-                log_warning_unit(u->id,
-                                 "%s: Got notification message from PID "PID_FMT", but reception only permitted for PID "PID_FMT,
-                                 u->id, pid, s->main_pid);
+        if (s->notify_access == NOTIFY_MAIN && pid != s->main_pid) {
+
+                if (s->main_pid != 0)
+                        log_warning_unit(u->id, "%s: Got notification message from PID "PID_FMT", but reception only permitted for main PID "PID_FMT, u->id, pid, s->main_pid);
+                else
+                        log_warning_unit(u->id, "%s: Got notification message from PID "PID_FMT", but reception only permitted for main PID which is currently not known", u->id, pid);
                 return;
         }
 
