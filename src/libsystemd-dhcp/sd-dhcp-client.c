@@ -324,6 +324,7 @@ static int client_send_request(sd_dhcp_client *client, uint16_t secs) {
         if (client->state == DHCP_STATE_RENEWING) {
                 err = dhcp_network_send_udp_socket(client->fd,
                                                    client->lease->server_address,
+                                                   DHCP_PORT_SERVER,
                                                    &request->dhcp,
                                                    len - DHCP_IP_UDP_SIZE);
         } else {
@@ -535,7 +536,8 @@ static int client_timeout_t1(sd_event_source *s, uint64_t usec,
         client->attempt = 1;
 
         r = dhcp_network_bind_udp_socket(client->index,
-                                         client->lease->address);
+                                         client->lease->address,
+                                         DHCP_PORT_CLIENT);
         if (r < 0) {
                 client_stop(client, r);
                 return 0;

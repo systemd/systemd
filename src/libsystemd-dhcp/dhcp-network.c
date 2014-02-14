@@ -56,13 +56,13 @@ int dhcp_network_bind_raw_socket(int index, union sockaddr_union *link)
         return s;
 }
 
-int dhcp_network_bind_udp_socket(int index, be32_t client_address)
+int dhcp_network_bind_udp_socket(int index, be32_t address, uint16_t port)
 {
         int s;
         union sockaddr_union src = {
                 .in.sin_family = AF_INET,
-                .in.sin_port = htobe16(DHCP_PORT_CLIENT),
-                .in.sin_addr.s_addr = client_address,
+                .in.sin_port = htobe16(port),
+                .in.sin_addr.s_addr = address,
         };
 
         s = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
@@ -90,13 +90,13 @@ int dhcp_network_send_raw_socket(int s, const union sockaddr_union *link,
         return 0;
 }
 
-int dhcp_network_send_udp_socket(int s, be32_t server_address,
+int dhcp_network_send_udp_socket(int s, be32_t address, uint16_t port,
                                  const void *packet, size_t len)
 {
         union sockaddr_union dest = {
                 .in.sin_family = AF_INET,
-                .in.sin_port = htobe16(DHCP_PORT_SERVER),
-                .in.sin_addr.s_addr = server_address,
+                .in.sin_port = htobe16(port),
+                .in.sin_addr.s_addr = address,
         };
 
         if (sendto(s, packet, len, 0, &dest.sa, sizeof(dest.in)) < 0)
