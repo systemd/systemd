@@ -513,6 +513,31 @@ char *truncate_nl(char *s) {
         return s;
 }
 
+int get_process_state(pid_t pid) {
+        const char *p;
+        char state;
+        int r;
+        _cleanup_free_ char *line = NULL;
+
+        assert(pid >= 0);
+
+        p = procfs_file_alloca(pid, "stat");
+        r = read_one_line_file(p, &line);
+        if (r < 0)
+                return r;
+
+        p = strrchr(line, ')');
+        if (!p)
+                return -EIO;
+
+        p++;
+
+        if (sscanf(p, " %c", &state) != 1)
+                return -EIO;
+
+        return (unsigned char) state;
+}
+
 int get_process_comm(pid_t pid, char **name) {
         const char *p;
         int r;

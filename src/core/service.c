@@ -1376,6 +1376,14 @@ static int service_load_pid_file(Service *s, bool may_warn) {
                 return -ESRCH;
         }
 
+        if (get_process_state(pid) == 'Z') {
+                if (may_warn)
+                        log_info_unit(UNIT(s)->id,
+                                      "PID "PID_FMT" read from file %s is a zombie.",
+                                      pid, s->pid_file);
+                return -ESRCH;
+        }
+
         if (s->main_pid_known) {
                 if (pid == s->main_pid)
                         return 0;
