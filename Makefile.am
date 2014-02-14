@@ -1749,6 +1749,7 @@ systemd_dbus1_generator_LDADD = \
 	libsystemd-internal.la
 
 dbus1-generator-install-hook:
+	$(AM_V_at)$(MKDIR_P) $(DESTDIR)$(usergeneratordir)
 	$(AM_V_LN)$(LN_S) -f $(systemgeneratordir)/systemd-dbus1-generator $(DESTDIR)$(usergeneratordir)/systemd-dbus1-generator
 
 dbus1-generator-uninstall-hook:
@@ -1874,6 +1875,7 @@ systemd_bus_proxyd_LDADD = \
 	libsystemd-shared.la
 
 bus-proxyd-install-hook:
+	$(AM_V_at)$(MKDIR_P) $(DESTDIR)$(bindir)
 	$(AM_V_LN)$(LN_S) -f ../lib/systemd/systemd-bus-proxyd $(DESTDIR)$(bindir)/systemd-stdio-bridge
 
 bus-proxyd-uninstall-hook:
