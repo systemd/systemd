@@ -3354,7 +3354,7 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags) {
                 if (s->main_pid != 0)
                         log_warning_unit(u->id, "%s: Got notification message from PID "PID_FMT", but reception only permitted for main PID "PID_FMT, u->id, pid, s->main_pid);
                 else
-                        log_warning_unit(u->id, "%s: Got notification message from PID "PID_FMT", but reception only permitted for main PID which is currently not known", u->id, pid);
+                        log_debug_unit(u->id, "%s: Got notification message from PID "PID_FMT", but reception only permitted for main PID which is currently not known", u->id, pid);
                 return;
         }
 
