@@ -119,14 +119,12 @@ int sd_rtnl_message_link_set_flags(sd_rtnl_message *m, unsigned flags, unsigned 
         assert_return(m, -EINVAL);
         assert_return(m->hdr, -EINVAL);
         assert_return(rtnl_message_type_is_link(m->hdr->nlmsg_type), -EINVAL);
+        assert_return(change, -EINVAL);
 
         ifi = NLMSG_DATA(m->hdr);
 
         ifi->ifi_flags = flags;
-        if (change)
-                ifi->ifi_change = change;
-        else
-                ifi->ifi_change = 0xffffffff;
+        ifi->ifi_change = change;
 
         return 0;
 }
