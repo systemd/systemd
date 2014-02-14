@@ -1,0 +1,9 @@
+[Unit]
+Description=Will not fail
+
+[Service]
+ExecStart=/bin/echo "Foo bar"
+SystemCallFilter=~read write open execve ioperm
+SystemCallFilter=ioctl
+SystemCallFilter=read write open execve
+SystemCallFilter=~ioperm

@@ -1,0 +1,6 @@
+[Unit]
+Description=Will fail 2
+
+[Service]
+ExecStart=/bin/echo "This should not be seen"
+SystemCallFilter=~write open execve exit_group close mmap munmap fstat DONOTEXIST
