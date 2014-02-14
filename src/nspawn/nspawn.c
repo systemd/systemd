@@ -1555,9 +1555,21 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        if (arg_boot && path_is_os_tree(arg_directory) <= 0) {
-                log_error("Directory %s doesn't look like an OS root directory (/etc/os-release is missing). Refusing.", arg_directory);
-                goto finish;
+        if (arg_boot) {
+                if (path_is_os_tree(arg_directory) <= 0) {
+                        log_error("Directory %s doesn't look like an OS root directory (/etc/os-release is missing). Refusing.", arg_directory);
+                        goto finish;
+                }
+        } else {
+                const char *p;
+
+                p = strappenda(arg_directory,
+                               argc > optind && path_is_absolute(argv[optind]) ? argv[optind] : "/usr/bin/");
+                if (access(p, F_OK) < 0) {
+                        log_error("Directory %s lacks the binary to execute or doesn't look like a binary tree. Refusing.", arg_directory);
+                        goto finish;
+
+                }
         }
 
         log_close();
