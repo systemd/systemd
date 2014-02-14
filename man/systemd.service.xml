@@ -748,7 +748,10 @@ ExecStart=/bin/echo $ONE $TWO ${TWO}
                                 <constant>SIGTERM</constant>, and <constant>SIGPIPE</constant>. Exit status
                                 definitions can either be numeric exit
                                 codes or termination signal names,
-                                separated by spaces. For example:
+                                separated by spaces. Signals will only
+                                be considered if the service does not implement
+                                a signal handler and exits as a direct result
+                                of receiving the signal. For example:
 				<programlisting>SuccessExitStatus=1 2 8 <constant>SIGKILL</constant></programlisting>
 				ensures that exit codes 1, 2, 8 and
 				the termination signal
