@@ -1968,6 +1968,7 @@ int main(int argc, char *argv[]) {
                         else {
                                 chdir(home ? home : "/root");
                                 execle("/bin/bash", "-bash", NULL, env_use);
+                                execle("/bin/sh", "-sh", NULL, env_use);
                         }
 
                         log_error("execv() failed: %m");
