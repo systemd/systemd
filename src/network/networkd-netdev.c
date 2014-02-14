@@ -194,7 +194,7 @@ static int netdev_create(NetDev *netdev, Link *link, sd_rtnl_message_handler_t c
                 return r;
         }
 
-        r = sd_rtnl_message_open_container(req, IFLA_LINKINFO, 0);
+        r = sd_rtnl_message_open_container(req, IFLA_LINKINFO);
         if (r < 0) {
                 log_error_netdev(netdev,
                                  "Could not open IFLA_LINKINFO container: %s",
@@ -217,7 +217,7 @@ static int netdev_create(NetDev *netdev, Link *link, sd_rtnl_message_handler_t c
         }
 
         if (netdev->vlanid <= VLANID_MAX) {
-                r = sd_rtnl_message_open_container(req, IFLA_INFO_DATA, 0);
+                r = sd_rtnl_message_open_container(req, IFLA_INFO_DATA);
                 if (r < 0) {
                         log_error_netdev(netdev,
                                          "Could not open IFLA_INFO_DATA container: %s",

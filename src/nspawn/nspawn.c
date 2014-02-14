@@ -1303,7 +1303,7 @@ static int setup_veth(int netns_fd) {
                 return r;
         }
 
-        r = sd_rtnl_message_open_container(m, IFLA_LINKINFO, 0);
+        r = sd_rtnl_message_open_container(m, IFLA_LINKINFO);
         if (r < 0) {
                 log_error("Failed to open netlink container: %s", strerror(-r));
                 return r;
@@ -1315,13 +1315,13 @@ static int setup_veth(int netns_fd) {
                 return r;
         }
 
-        r = sd_rtnl_message_open_container(m, IFLA_INFO_DATA, 0);
+        r = sd_rtnl_message_open_container(m, IFLA_INFO_DATA);
         if (r < 0) {
                 log_error("Failed to open netlink container: %s", strerror(-r));
                 return r;
         }
 
-        r = sd_rtnl_message_open_container(m, VETH_INFO_PEER, sizeof(struct ifinfomsg));
+        r = sd_rtnl_message_open_container(m, VETH_INFO_PEER);
         if (r < 0) {
                 log_error("z Failed to open netlink container: %s", strerror(-r));
                 return r;

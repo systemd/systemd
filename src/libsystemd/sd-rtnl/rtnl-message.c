@@ -699,7 +699,7 @@ int sd_rtnl_message_append_ether_addr(sd_rtnl_message *m, unsigned short type, c
         return 0;
 }
 
-int sd_rtnl_message_open_container(sd_rtnl_message *m, unsigned short type, size_t extra) {
+int sd_rtnl_message_open_container(sd_rtnl_message *m, unsigned short type) {
         uint16_t rtm_type;
 
         assert_return(m, -EINVAL);
@@ -710,9 +710,13 @@ int sd_rtnl_message_open_container(sd_rtnl_message *m, unsigned short type, size
         if (rtnl_message_type_is_link(rtm_type)) {
 
                 if ((type == IFLA_LINKINFO && m->n_containers == 0) ||
-                    (type == IFLA_INFO_DATA && m->n_containers == 1 && GET_CONTAINER(m, 0)->rta_type == IFLA_LINKINFO) ||
-                    (type == VETH_INFO_PEER && m->n_containers == 2 && GET_CONTAINER(m, 1)->rta_type == IFLA_INFO_DATA))
-                        return add_rtattr(m, type, NULL, extra);
+                    (type == IFLA_INFO_DATA && m->n_containers == 1 &&
+                     GET_CONTAINER(m, 0)->rta_type == IFLA_LINKINFO))
+                        return add_rtattr(m, type, NULL, 0);
+                else if (type == VETH_INFO_PEER && m->n_containers == 2 &&
+                         GET_CONTAINER(m, 1)->rta_type == IFLA_INFO_DATA &&
+                         GET_CONTAINER(m, 0)->rta_type == IFLA_LINKINFO)
+                        return add_rtattr(m, type, NULL, sizeof(struct ifinfomsg));
         }
 
         return -ENOTSUP;

@@ -102,7 +102,7 @@ int sd_rtnl_message_append_in_addr(sd_rtnl_message *m, unsigned short type, cons
 int sd_rtnl_message_append_in6_addr(sd_rtnl_message *m, unsigned short type, const struct in6_addr *data);
 int sd_rtnl_message_append_ether_addr(sd_rtnl_message *m, unsigned short type, const struct ether_addr *data);
 
-int sd_rtnl_message_open_container(sd_rtnl_message *m, unsigned short type, size_t extra);
+int sd_rtnl_message_open_container(sd_rtnl_message *m, unsigned short type);
 int sd_rtnl_message_close_container(sd_rtnl_message *m);
 
 int sd_rtnl_message_read(sd_rtnl_message *m, unsigned short *type, void **data);
