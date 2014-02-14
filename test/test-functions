@@ -66,11 +66,13 @@ $KERNEL_APPEND \
         QEMU_OPTIONS="$QEMU_OPTIONS -initrd $INITRD"
     fi
 
-    $QEMU_BIN $QEMU_OPTIONS -append "$KERNEL_APPEND" $TESTDIR/rootdisk.img || return 1
+    ( set -x
+      $QEMU_BIN $QEMU_OPTIONS -append "$KERNEL_APPEND" $TESTDIR/rootdisk.img ) || return 1
 }
 
 run_nspawn() {
-    ../../systemd-nspawn --boot --directory=$TESTDIR/nspawn-root /usr/lib/systemd/systemd
+    set -x
+    ../../systemd-nspawn --boot --directory=$TESTDIR/nspawn-root /usr/lib/systemd/systemd $KERNEL_APPEND
 }
 
 setup_basic_environment() {
@@ -108,7 +110,7 @@ install_dmevent() {
 
 install_systemd() {
     # install compiled files
-    (cd $TEST_BASE_DIR/..; make DESTDIR=$initdir install)
+    (cd $TEST_BASE_DIR/..; set -x; make DESTDIR=$initdir install)
     # remove unneeded documentation
     rm -fr $initdir/usr/share/{man,doc,gtk-doc}
     # we strip binaries since debug symbols increase binaries size a lot
