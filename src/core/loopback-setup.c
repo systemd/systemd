@@ -24,7 +24,6 @@
 #include <net/if.h>
 #include <asm/types.h>
 #include <netinet/in.h>
-#include <linux/rtnetlink.h>
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>

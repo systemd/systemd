@@ -22,7 +22,6 @@
 #pragma once
 
 #include <arpa/inet.h>
-#include <linux/rtnetlink.h>
 
 #include "sd-event.h"
 #include "sd-rtnl.h"

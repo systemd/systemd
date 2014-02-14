@@ -25,6 +25,7 @@
 #include <inttypes.h>
 #include <netinet/in.h>
 #include <netinet/ether.h>
+#include <linux/rtnetlink.h>
 
 #include "sd-event.h"
 #include "_sd-common.h"
@@ -71,12 +72,7 @@ int sd_rtnl_message_new_addr(uint16_t msg_type, int index, unsigned char family,
                              sd_rtnl_message **ret);
 int sd_rtnl_message_new_route(uint16_t nlmsg_type, unsigned char rtm_family,
                               sd_rtnl_message **ret);
-/*
-                              unsigned char rtm_dst_len, unsigned char rtm_src_len,
-                              unsigned char rtm_tos, unsigned char rtm_table,
-                              unsigned char rtm_scope, unsigned char rtm_protocol,
-                              unsigned char rtm_type, unsigned flags, sd_rtnl_message **ret);
-*/
+
 sd_rtnl_message *sd_rtnl_message_ref(sd_rtnl_message *m);
 sd_rtnl_message *sd_rtnl_message_unref(sd_rtnl_message *m);
 

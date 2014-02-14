@@ -19,7 +19,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <linux/rtnetlink.h>
 #include <netinet/in.h>
 #include <netinet/ether.h>
 #include <stdbool.h>
@@ -232,6 +231,8 @@ int sd_rtnl_message_new_addr(uint16_t nlmsg_type, int index, unsigned char famil
 
         (*ret)->hdr->nlmsg_len = NLMSG_LENGTH(sizeof(struct ifaddrmsg));
         (*ret)->hdr->nlmsg_type = nlmsg_type;
+        if (nlmsg_type == RTM_GETADDR && family == AF_INET)
+                (*ret)->hdr->nlmsg_flags |= NLM_F_DUMP;
 
         ifa = NLMSG_DATA((*ret)->hdr);
 

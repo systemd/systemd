@@ -40,7 +40,6 @@
 #include <sys/un.h>
 #include <sys/socket.h>
 #include <linux/netlink.h>
-#include <linux/rtnetlink.h>
 #include <sys/eventfd.h>
 #include <net/if.h>
 #include <linux/veth.h>
