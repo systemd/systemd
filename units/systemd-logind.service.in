@@ -13,6 +13,11 @@ Documentation=http://www.freedesktop.org/wiki/Software/systemd/multiseat
 Wants=user.slice
 After=nss-user-lookup.target user.slice
 
+# Ask for the dbus socket. If running over kdbus, the socket will
+# not be actually used.
+Wants=dbus.socket
+After=dbus.socket
+
 [Service]
 ExecStart=@rootlibexecdir@/systemd-logind
 Restart=always
