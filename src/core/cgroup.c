@@ -335,7 +335,7 @@ CGroupControllerMask cgroup_context_get_mask(CGroupContext *c) {
         return mask;
 }
 
-static CGroupControllerMask unit_get_cgroup_mask(Unit *u) {
+CGroupControllerMask unit_get_cgroup_mask(Unit *u) {
         CGroupContext *c;
 
         c = unit_get_cgroup_context(u);
@@ -345,24 +345,52 @@ static CGroupControllerMask unit_get_cgroup_mask(Unit *u) {
         return cgroup_context_get_mask(c);
 }
 
-static CGroupControllerMask unit_get_members_mask(Unit *u) {
+CGroupControllerMask unit_get_members_mask(Unit *u) {
         assert(u);
+
+        if (u->cgroup_members_mask_valid)
+                return u->cgroup_members_mask;
+
+        u->cgroup_members_mask = 0;
+
+        if (u->type == UNIT_SLICE) {
+                Unit *member;
+                Iterator i;
+
+                SET_FOREACH(member, u->dependencies[UNIT_BEFORE], i) {
+
+                        if (member == u)
+                                continue;
+
+                         if (UNIT_DEREF(member->slice) != u)
+                                continue;
+
+                        u->cgroup_members_mask |=
+                                unit_get_cgroup_mask(member) |
+                                unit_get_members_mask(member);
+                }
+        }
+
+        u->cgroup_members_mask_valid = true;
         return u->cgroup_members_mask;
 }
 
-static CGroupControllerMask unit_get_siblings_mask(Unit *u) {
+CGroupControllerMask unit_get_siblings_mask(Unit *u) {
+        CGroupControllerMask m;
+
         assert(u);
 
-        if (!UNIT_ISSET(u->slice))
-                return 0;
+        if (UNIT_ISSET(u->slice))
+                m = unit_get_members_mask(UNIT_DEREF(u->slice));
+        else
+                m = unit_get_cgroup_mask(u) | unit_get_members_mask(u);
 
         /* Sibling propagation is only relevant for weight-based
          * controllers, so let's mask out everything else */
-        return unit_get_members_mask(UNIT_DEREF(u->slice)) &
-                (CGROUP_CPU|CGROUP_BLKIO|CGROUP_CPUACCT);
+        return m & (CGROUP_CPU|CGROUP_BLKIO|CGROUP_CPUACCT);
 }
 
-static CGroupControllerMask unit_get_target_mask(Unit *u) {
+CGroupControllerMask unit_get_target_mask(Unit *u) {
         CGroupControllerMask mask;
 
         mask = unit_get_cgroup_mask(u) | unit_get_members_mask(u) | unit_get_siblings_mask(u);
@@ -373,19 +401,57 @@ static CGroupControllerMask unit_get_target_mask(Unit *u) {
 
 /* Recurse from a unit up through its containing slices, propagating
  * mask bits upward. A unit is also member of itself. */
-void unit_update_member_masks(Unit *u) {
-        u->cgroup_members_mask |= unit_get_cgroup_mask(u);
+void unit_update_cgroup_members_masks(Unit *u) {
+        CGroupControllerMask m;
+        bool more;
+
+        assert(u);
+
+        /* Calculate subtree mask */
+        m = unit_get_cgroup_mask(u) | unit_get_members_mask(u);
+
+        /* See if anything changed from the previous invocation. If
+         * not, we're done. */
+        if (u->cgroup_subtree_mask_valid && m == u->cgroup_subtree_mask)
+                return;
+
+        more =
+                u->cgroup_subtree_mask_valid &&
+                ((m & ~u->cgroup_subtree_mask) != 0) &&
+                ((~m & u->cgroup_subtree_mask) == 0);
+
+        u->cgroup_subtree_mask = m;
+        u->cgroup_subtree_mask_valid = true;
+
         if (UNIT_ISSET(u->slice)) {
                 Unit *s = UNIT_DEREF(u->slice);
-                s->cgroup_members_mask |= u->cgroup_members_mask;
-                unit_update_member_masks(s);
+
+                if (more)
+                        /* There's more set now than before. We
+                         * propagate the new mask to the parent's mask
+                         * (not caring if it actually was valid or
+                         * not). */
+
+                        s->cgroup_members_mask |= m;
+
+                else
+                        /* There's less set now than before (or we
+                         * don't know), we need to recalculate
+                         * everything, so let's invalidate the
+                         * parent's members mask */
+
+                        s->cgroup_members_mask_valid = false;
+
+                /* And now make sure that this change also hits our
+                 * grandparents */
+                unit_update_cgroup_members_masks(s);
         }
 }
 
 static int unit_create_cgroups(Unit *u, CGroupControllerMask mask) {
         _cleanup_free_ char *path;
-        int r;
         bool was_in_hash = false;
+        int r;
 
         assert(u);
 
@@ -424,13 +490,15 @@ static int unit_create_cgroups(Unit *u, CGroupControllerMask mask) {
         }
 
         u->cgroup_realized = true;
-        u->cgroup_mask = mask;
+        u->cgroup_realized_mask = mask;
 
         return 0;
 }
 
 static bool unit_has_mask_realized(Unit *u, CGroupControllerMask mask) {
-        return u->cgroup_realized && u->cgroup_mask == mask;
+        assert(u);
+
+        return u->cgroup_realized && u->cgroup_realized_mask == mask;
 }
 
 /* Check if necessary controllers and attributes for a unit are in place.
@@ -452,7 +520,6 @@ static int unit_realize_cgroup_now(Unit *u) {
 
         mask = unit_get_target_mask(u);
 
-        /* TODO: Consider skipping this check. It may be redundant. */
         if (unit_has_mask_realized(u, mask))
                 return 0;
 
@@ -541,7 +608,6 @@ static void unit_queue_siblings(Unit *u) {
 
 int unit_realize_cgroup(Unit *u) {
         CGroupContext *c;
-        int r;
 
         assert(u);
 
@@ -564,9 +630,7 @@ int unit_realize_cgroup(Unit *u) {
         unit_queue_siblings(u);
 
         /* And realize this one now (and apply the values) */
-        r = unit_realize_cgroup_now(u);
-
-        return r;
+        return unit_realize_cgroup_now(u);
 }
 
 void unit_destroy_cgroup(Unit *u) {
@@ -586,7 +650,7 @@ void unit_destroy_cgroup(Unit *u) {
         free(u->cgroup_path);
         u->cgroup_path = NULL;
         u->cgroup_realized = false;
-        u->cgroup_mask = 0;
+        u->cgroup_realized_mask = 0;
 
 }
 

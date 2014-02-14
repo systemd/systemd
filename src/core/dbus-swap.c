@@ -88,6 +88,8 @@ int bus_swap_set_property(
 int bus_swap_commit_properties(Unit *u) {
         assert(u);
 
+        unit_update_cgroup_members_masks(u);
         unit_realize_cgroup(u);
+
         return 0;
 }

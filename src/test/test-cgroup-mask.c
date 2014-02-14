@@ -33,7 +33,7 @@
 
 static int test_cgroup_mask(void) {
         Manager *m;
-        Unit *son, *daughter, *parent, *root;
+        Unit *son, *daughter, *parent, *root, *grandchild, *parent_deep;
         FILE *serial = NULL;
         FDSet *fdset = NULL;
         int r;
@@ -53,24 +53,50 @@ static int test_cgroup_mask(void) {
         assert_se(manager_load_unit(m, "parent.slice", NULL, NULL, &parent) >= 0);
         assert_se(manager_load_unit(m, "son.service", NULL, NULL, &son) >= 0);
         assert_se(manager_load_unit(m, "daughter.service", NULL, NULL, &daughter) >= 0);
+        assert_se(manager_load_unit(m, "grandchild.service", NULL, NULL, &grandchild) >= 0);
+        assert_se(manager_load_unit(m, "parent-deep.slice", NULL, NULL, &parent_deep) >= 0);
         assert(parent->load_state == UNIT_LOADED);
         assert(son->load_state == UNIT_LOADED);
         assert(daughter->load_state == UNIT_LOADED);
+        assert(grandchild->load_state == UNIT_LOADED);
+        assert(parent_deep->load_state == UNIT_LOADED);
         assert(UNIT_DEREF(son->slice) == parent);
         assert(UNIT_DEREF(daughter->slice) == parent);
+        assert(UNIT_DEREF(parent_deep->slice) == parent);
+        assert(UNIT_DEREF(grandchild->slice) == parent_deep);
         root = UNIT_DEREF(parent->slice);
 
         /* Verify per-unit cgroups settings. */
-        assert(cgroup_context_get_mask(unit_get_cgroup_context(son)) == (CGROUP_CPU | CGROUP_CPUACCT));
-        assert(cgroup_context_get_mask(unit_get_cgroup_context(daughter)) == 0);
-        assert(cgroup_context_get_mask(unit_get_cgroup_context(parent)) == CGROUP_BLKIO);
-        assert(cgroup_context_get_mask(unit_get_cgroup_context(root)) == 0);
+        assert(unit_get_cgroup_mask(son) == (CGROUP_CPU | CGROUP_CPUACCT));
+        assert(unit_get_cgroup_mask(daughter) == 0);
+        assert(unit_get_cgroup_mask(grandchild) == 0);
+        assert(unit_get_cgroup_mask(parent_deep) == CGROUP_MEMORY);
+        assert(unit_get_cgroup_mask(parent) == CGROUP_BLKIO);
+        assert(unit_get_cgroup_mask(root) == 0);
 
-        /* Verify aggregation of controller masks. */
-        assert(son->cgroup_members_mask == (CGROUP_CPU | CGROUP_CPUACCT));
-        assert(daughter->cgroup_members_mask == 0);
-        assert(parent->cgroup_members_mask == (CGROUP_CPU | CGROUP_CPUACCT | CGROUP_BLKIO));
-        assert(root->cgroup_members_mask == (CGROUP_CPU | CGROUP_CPUACCT | CGROUP_BLKIO));
+        /* Verify aggregation of member masks */
+        assert(unit_get_members_mask(son) == 0);
+        assert(unit_get_members_mask(daughter) == 0);
+        assert(unit_get_members_mask(grandchild) == 0);
+        assert(unit_get_members_mask(parent_deep) == 0);
+        assert(unit_get_members_mask(parent) == (CGROUP_CPU | CGROUP_CPUACCT | CGROUP_MEMORY));
+        assert(unit_get_members_mask(root) == (CGROUP_CPU | CGROUP_CPUACCT | CGROUP_BLKIO | CGROUP_MEMORY));
+
+        /* Verify aggregation of sibling masks. */
+        assert(unit_get_siblings_mask(son) == (CGROUP_CPU | CGROUP_CPUACCT));
+        assert(unit_get_siblings_mask(daughter) == (CGROUP_CPU | CGROUP_CPUACCT));
+        assert(unit_get_siblings_mask(grandchild) == 0);
+        assert(unit_get_siblings_mask(parent_deep) == (CGROUP_CPU | CGROUP_CPUACCT));
+        assert(unit_get_siblings_mask(parent) == (CGROUP_CPU | CGROUP_CPUACCT | CGROUP_BLKIO));
+        assert(unit_get_siblings_mask(root) == (CGROUP_CPU | CGROUP_CPUACCT | CGROUP_BLKIO));
+
+        /* Verify aggregation of target masks. */
+        assert(unit_get_target_mask(son) == (CGROUP_CPU | CGROUP_CPUACCT));
+        assert(unit_get_target_mask(daughter) == (CGROUP_CPU | CGROUP_CPUACCT));
+        assert(unit_get_target_mask(grandchild) == 0);
+        assert(unit_get_target_mask(parent_deep) == (CGROUP_CPU | CGROUP_CPUACCT | CGROUP_MEMORY));
+        assert(unit_get_target_mask(parent) == (CGROUP_CPU | CGROUP_CPUACCT | CGROUP_BLKIO | CGROUP_MEMORY));
+        assert(unit_get_target_mask(root) == (CGROUP_CPU | CGROUP_CPUACCT | CGROUP_BLKIO | CGROUP_MEMORY));
 
         manager_free(m);
 

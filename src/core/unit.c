@@ -778,7 +778,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, strna(unit_slice_name(u)),
                 prefix, strna(u->cgroup_path),
                 prefix, yes_no(u->cgroup_realized),
-                prefix, u->cgroup_mask,
+                prefix, u->cgroup_realized_mask,
                 prefix, u->cgroup_members_mask);
 
         SET_FOREACH(t, u->names, i)
@@ -1056,21 +1056,17 @@ int unit_load(Unit *u) {
                                 goto fail;
                 }
 
-                unit_update_member_masks(u);
-
                 r = unit_add_mount_links(u);
                 if (r < 0)
                         goto fail;
 
-                if (u->on_failure_job_mode == JOB_ISOLATE &&
-                    set_size(u->dependencies[UNIT_ON_FAILURE]) > 1) {
-
-                        log_error_unit(u->id,
-                                       "More than one OnFailure= dependencies specified for %s but OnFailureJobMode=isolate set. Refusing.", u->id);
-
+                if (u->on_failure_job_mode == JOB_ISOLATE && set_size(u->dependencies[UNIT_ON_FAILURE]) > 1) {
+                        log_error_unit(u->id, "More than one OnFailure= dependencies specified for %s but OnFailureJobMode=isolate set. Refusing.", u->id);
                         r = -EINVAL;
                         goto fail;
                 }
+
+                unit_update_cgroup_members_masks(u);
         }
 
         assert((u->load_state != UNIT_MERGED) == !u->merged_into);

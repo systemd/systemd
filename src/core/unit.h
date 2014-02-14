@@ -177,7 +177,8 @@ struct Unit {
 
         /* Counterparts in the cgroup filesystem */
         char *cgroup_path;
-        CGroupControllerMask cgroup_mask;
+        CGroupControllerMask cgroup_realized_mask;
+        CGroupControllerMask cgroup_subtree_mask;
         CGroupControllerMask cgroup_members_mask;
 
         UnitRef slice;
@@ -266,6 +267,8 @@ struct Unit {
         bool in_audit:1;
 
         bool cgroup_realized:1;
+        bool cgroup_members_mask_valid:1;
+        bool cgroup_subtree_mask_valid:1;
 };
 
 struct UnitStatusMessageFormats {
