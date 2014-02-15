@@ -47,7 +47,7 @@ REQUIREMENTS:
           CONFIG_NET
           CONFIG_SYSFS
           CONFIG_PROC_FS
-          CONFIG_FHANDLE (mount and bind mount handling)
+          CONFIG_FHANDLE (libudev, mount and bind mount handling)
 
         Linux kernel >= 3.8 for Smack support
 
