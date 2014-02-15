@@ -303,7 +303,8 @@ static int parse_proc_cmdline_word(const char *word) {
         } else if (startswith(word, "systemd.dump_core=")) {
                 int r;
 
-                if ((r = parse_boolean(word + 18)) < 0)
+                r = parse_boolean(word + 18);
+                if (r < 0)
                         log_warning("Failed to parse dump core switch %s. Ignoring.", word + 18);
                 else
                         arg_dump_core = r;
@@ -311,7 +312,8 @@ static int parse_proc_cmdline_word(const char *word) {
         } else if (startswith(word, "systemd.crash_shell=")) {
                 int r;
 
-                if ((r = parse_boolean(word + 20)) < 0)
+                r = parse_boolean(word + 20);
+                if (r < 0)
                         log_warning("Failed to parse crash shell switch %s. Ignoring.", word + 20);
                 else
                         arg_crash_shell = r;
@@ -319,7 +321,8 @@ static int parse_proc_cmdline_word(const char *word) {
         } else if (startswith(word, "systemd.confirm_spawn=")) {
                 int r;
 
-                if ((r = parse_boolean(word + 22)) < 0)
+                r = parse_boolean(word + 22);
+                if (r < 0)
                         log_warning("Failed to parse confirm spawn switch %s. Ignoring.", word + 22);
                 else
                         arg_confirm_spawn = r;
@@ -341,23 +344,21 @@ static int parse_proc_cmdline_word(const char *word) {
         } else if (startswith(word, "systemd.default_standard_output=")) {
                 int r;
 
-                if ((r = exec_output_from_string(word + 32)) < 0)
+                r = exec_output_from_string(word + 32);
+                if (r < 0)
                         log_warning("Failed to parse default standard output switch %s. Ignoring.", word + 32);
                 else
                         arg_default_std_output = r;
         } else if (startswith(word, "systemd.default_standard_error=")) {
                 int r;
 
-                if ((r = exec_output_from_string(word + 31)) < 0)
+                r = exec_output_from_string(word + 31);
+                if (r < 0)
                         log_warning("Failed to parse default standard error switch %s. Ignoring.", word + 31);
                 else
                         arg_default_std_error = r;
         } else if (startswith(word, "systemd.setenv=")) {
-                _cleanup_free_ char *cenv = NULL;
-
-                cenv = strdup(word + 15);
-                if (!cenv)
-                        return -ENOMEM;
+                const char *cenv = word + 15;
 
                 if (env_assignment_is_valid(cenv)) {
                         char **env;
@@ -366,7 +367,8 @@ static int parse_proc_cmdline_word(const char *word) {
                         if (env)
                                 arg_default_environment = env;
                         else
-                                log_warning("Setting environment variable '%s' failed, ignoring: %m", cenv);
+                                log_warning("Setting environment variable '%s' failed, ignoring: %s",
+                                            cenv, strerror(ENOMEM));
                 } else
                         log_warning("Environment variable name '%s' is not valid. Ignoring.", cenv);
 
@@ -737,7 +739,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "switched-root",            no_argument,       NULL, ARG_SWITCHED_ROOT            },
                 { "default-standard-output",  required_argument, NULL, ARG_DEFAULT_STD_OUTPUT,      },
                 { "default-standard-error",   required_argument, NULL, ARG_DEFAULT_STD_ERROR,       },
-                { NULL,                       0,                 NULL, 0                            }
+                {}
         };
 
         int c, r;
@@ -753,7 +755,8 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case ARG_LOG_LEVEL:
-                        if ((r = log_set_max_level_from_string(optarg)) < 0) {
+                        r = log_set_max_level_from_string(optarg);
+                        if (r < 0) {
                                 log_error("Failed to parse log level %s.", optarg);
                                 return r;
                         }
@@ -761,8 +764,8 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_LOG_TARGET:
-
-                        if ((r = log_set_target_from_string(optarg)) < 0) {
+                        r = log_set_target_from_string(optarg);
+                        if (r < 0) {
                                 log_error("Failed to parse log target %s.", optarg);
                                 return r;
                         }
@@ -772,7 +775,8 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_LOG_COLOR:
 
                         if (optarg) {
-                                if ((r = log_show_color_from_string(optarg)) < 0) {
+                                r = log_show_color_from_string(optarg);
+                                if (r < 0) {
                                         log_error("Failed to parse log color setting %s.", optarg);
                                         return r;
                                 }
@@ -782,9 +786,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_LOG_LOCATION:
-
                         if (optarg) {
-                                if ((r = log_show_location_from_string(optarg)) < 0) {
+                                r = log_show_location_from_string(optarg);
+                                if (r < 0) {
                                         log_error("Failed to parse log location setting %s.", optarg);
                                         return r;
                                 }
@@ -794,8 +798,8 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_DEFAULT_STD_OUTPUT:
-
-                        if ((r = exec_output_from_string(optarg)) < 0) {
+                        r = exec_output_from_string(optarg);
+                        if (r < 0) {
                                 log_error("Failed to parse default standard output setting %s.", optarg);
                                 return r;
                         } else
@@ -803,8 +807,8 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_DEFAULT_STD_ERROR:
-
-                        if ((r = exec_output_from_string(optarg)) < 0) {
+                        r = exec_output_from_string(optarg);
+                        if (r < 0) {
                                 log_error("Failed to parse default standard error output setting %s.", optarg);
                                 return r;
                         } else
@@ -813,7 +817,8 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_UNIT:
 
-                        if ((r = set_default_unit(optarg)) < 0) {
+                        r = set_default_unit(optarg);
+                        if (r < 0) {
                                 log_error("Failed to set default unit %s: %s", optarg, strerror(-r));
                                 return r;
                         }

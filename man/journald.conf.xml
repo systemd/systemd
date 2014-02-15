@@ -399,7 +399,10 @@
                                 <literal>systemd.journald.forward_to_kmsg=</literal>
                                 and
                                 <literal>systemd.journald.forward_to_console=</literal>.
-                                </para></listitem>
+                                When forwarding to the console, the
+                                TTY to log to log to can be changed
+                                with <varname>TTYPath=</varname>,
+                                described below.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

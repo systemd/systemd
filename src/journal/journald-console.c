@@ -55,7 +55,7 @@ void server_forward_console(
         struct timespec ts;
         char tbuf[4 + DECIMAL_STR_MAX(ts.tv_sec) + DECIMAL_STR_MAX(ts.tv_nsec)-3 + 1];
         int n = 0, fd;
-        char *ident_buf = NULL;
+        _cleanup_free_ char *ident_buf = NULL;
         const char *tty;
 
         assert(s);
@@ -101,14 +101,11 @@ void server_forward_console(
         fd = open_terminal(tty, O_WRONLY|O_NOCTTY|O_CLOEXEC);
         if (fd < 0) {
                 log_debug("Failed to open %s for logging: %m", tty);
-                goto finish;
+                return;
         }
 
         if (writev(fd, iovec, n) < 0)
                 log_debug("Failed to write to %s for logging: %m", tty);
 
         close_nointr_nofail(fd);
-
-finish:
-        free(ident_buf);
 }
