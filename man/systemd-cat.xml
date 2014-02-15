@@ -60,18 +60,18 @@
                 <title>Description</title>
 
                 <para><command>systemd-cat</command> may be used to
-                connect STDOUT and STDERR of a process with the
+                connect the standard input and output of a process to the
                 journal, or as a filter tool in a shell pipeline to
                 pass the output the previous pipeline element
                 generates to the journal.</para>
 
                 <para>If no parameter is passed,
                 <command>systemd-cat</command> will write
-                everything it reads from standard input (STDIN) to the journal.</para>
+                everything it reads from standard input (stdin) to the journal.</para>
 
                 <para>If parameters are passed, they are executed as
-                command line with standard output (STDOUT) and standard
-                error output (STDERR) connected to the journal, so
+                command line with standard output (stdout) and standard
+                error output (stderr) connected to the journal, so
                 that all it writes is stored in the journal.</para>
         </refsect1>
 
@@ -169,7 +169,7 @@
                         <title>Invoke a program</title>
 
                         <para>This calls <filename noindex='true'>/bin/ls</filename>
-                        with STDOUT/STDERR connected to the
+                        with standard output and error connected to the
                         journal:</para>
 
                         <programlisting># systemd-cat ls</programlisting>
@@ -188,8 +188,8 @@
 
                 <para>Even though the two examples have very similar
                 effects the first is preferable since only one process
-                is running at a time, and both STDOUT and STDERR are
-                captured while in the second example only STDOUT is
+                is running at a time, and both stdout and stderr are
+                captured while in the second example only stdout is
                 captured.</para>
         </refsect1>
 

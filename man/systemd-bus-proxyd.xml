@@ -61,8 +61,8 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <para><command>systemd-bus-proxyd</command> will proxy D-Bus
     messages to and from a bus. The will be either the system bus or
     the bus specified with <option>--address</option> when that option
-    is given. Messages will be proxied to/from STDIN and STDOUT, or
-    the socket received through socket activation.</para>
+    is given. Messages will be proxied to/from standard input and
+    output, or the socket received through socket activation.</para>
 
     <para>This program can be used to connect a program using classic
     D-Bus to kdbus.</para>

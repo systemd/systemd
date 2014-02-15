@@ -70,7 +70,7 @@
       <varlistentry>
         <term><option>--debug</option></term>
         <listitem>
-          <para>Print debug messages to STDERR.</para>
+          <para>Print debug messages to standard error.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -82,10 +82,11 @@
       <varlistentry>
         <term><option>--exec-delay=</option></term>
         <listitem>
-          <para>Delay the execution of RUN instruction by the given
-          number of seconds. This option might be useful when
-          debugging system crashes during coldplug caused by loading
-          non-working kernel modules.</para>
+          <para>Delay the execution of <varname>RUN</varname>
+          instruction by the given number of seconds. This option
+          might be useful when debugging system crashes during
+          coldplug caused by loading non-working kernel
+          modules.</para>
         </listitem>
       </varlistentry>
       <varlistentry>

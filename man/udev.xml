@@ -255,7 +255,7 @@
             <para>Execute a program to determine whether there
             is a match; the key is true if the program returns
             successfully. The device properties are made available to the
-            executed program in the environment. The program's STDOUT
+            executed program in the environment. The program's standard ouput
             is available in the <varname>RESULT</varname> key.</para>
             <para>This can only be used for very short-running foreground tasks. For details,
             see <varname>RUN</varname>.</para>

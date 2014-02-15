@@ -472,9 +472,9 @@
                         <varlistentry>
                                 <term><varname>StandardError=</varname></term>
                                 <listitem><para>Controls where file
-                                descriptor 2 (STDERR) of the executed
-                                processes is connected to. The
-                                available options are identical to
+                                descriptor 2 (standard error) of the
+                                executed processes is connected to.
+                                The available options are identical to
                                 those of
                                 <varname>StandardOutput=</varname>,
                                 with one exception: if set to
@@ -491,8 +491,8 @@
                         <varlistentry>
                                 <term><varname>TTYPath=</varname></term>
                                 <listitem><para>Sets the terminal
-                                device node to use if STDIN, STDOUT,
-                                or STDERR are connected to a
+                                device node to use if standard input, output,
+                                or error are connected to a
                                 TTY (see above). Defaults to
                                 <filename>/dev/console</filename>.</para></listitem>
                         </varlistentry>

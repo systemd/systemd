@@ -700,21 +700,23 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
 
           <listitem>
             <para>Check whether any of the specified units are active
-            (i.e. running). Returns an exit code 0 if at least one is
-            active, or non-zero otherwise. Unless <option>--quiet</option>
-            is specified, this will also print the current unit state to
-            STDOUT.</para>
+            (i.e. running). Returns an exit code
+            <constant>0</constant> if at least one is active, or
+            non-zero otherwise. Unless <option>--quiet</option> is
+            specified, this will also print the current unit state to
+            standard output.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><command>is-failed <replaceable>PATTERN</replaceable>...</command></term>
 
           <listitem>
-            <para>Check whether any of the specified units are in a "failed" state.
-            Returns an exit code 0 if at least one has failed, non-zero
-            otherwise. Unless <option>--quiet</option> is specified, this
-            will also print the current unit state to
-            STDOUT.</para>
+            <para>Check whether any of the specified units are in a
+            "failed" state. Returns an exit code
+            <constant>0</constant> if at least one has failed,
+            non-zero otherwise. Unless <option>--quiet</option> is
+            specified, this will also print the current unit state to
+            standard output.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1127,9 +1129,10 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           <listitem>
             <para>Create a snapshot. If a snapshot name is specified,
             the new snapshot will be named after it. If none is
-            specified, an automatic snapshot name is generated. In either
-            case, the snapshot name used is printed to STDOUT, unless
-            <option>--quiet</option> is specified.</para>
+            specified, an automatic snapshot name is generated. In
+            either case, the snapshot name used is printed to standard
+            output, unless <option>--quiet</option> is specified.
+            </para>
 
             <para>A snapshot refers to a saved state of the systemd
             manager. It is implemented itself as a unit that is

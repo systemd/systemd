@@ -72,7 +72,7 @@
       <varlistentry>
         <term><option>--debug</option></term>
         <listitem>
-          <para>Print debug messages to STDERR.</para>
+          <para>Print debug messages to standard error.</para>
         </listitem>
       </varlistentry>
       <varlistentry>

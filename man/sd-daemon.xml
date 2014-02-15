@@ -96,7 +96,7 @@
 #define SD_DEBUG   "&lt;7&gt;"  /* debug-level messages */</programlisting>
 
                 <para>These prefixes are intended to be used in
-                conjunction with STDERR-based logging as implemented
+                conjunction with stderr-based logging as implemented
                 by systemd. If a systemd service definition file is
                 configured with <varname>StandardError=syslog</varname>
                 or <varname>StandardError=kmsg</varname>, these

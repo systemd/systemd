@@ -74,8 +74,8 @@
 
                         <orderedlist>
                                 <listitem><para>Close all open file
-                                descriptors except STDIN, STDOUT,
-                                STDERR (i.e. the first three file
+                                descriptors except stdin, stdout,
+                                stderr (i.e. the first three file
                                 descriptors 0, 1, 2). This ensures
                                 that no accidentally passed file
                                 descriptor stays around in the daemon
@@ -128,8 +128,8 @@
 
                                 <listitem><para>In the daemon process,
                                 connect <filename>/dev/null</filename>
-                                to STDIN, STDOUT,
-                                STDERR.</para></listitem>
+                                to standard input, output, and error.
+                                </para></listitem>
 
                                 <listitem><para>In the daemon process,
                                 reset the umask to 0, so that the file
@@ -223,15 +223,16 @@
                         service.</para>
 
                         <para>Note that new-style init systems
-                        guarantee execution of daemon processes in
-                        a clean process context: it is guaranteed that
+                        guarantee execution of daemon processes in a
+                        clean process context: it is guaranteed that
                         the environment block is sanitized, that the
                         signal handlers and mask is reset and that no
                         left-over file descriptors are passed. Daemons
-                        will be executed in their own session, and
-                        STDIN/STDOUT/STDERR connected to
+                        will be executed in their own session, with
+                        standard input/output/error connected to
                         <filename>/dev/null</filename> unless
-                        otherwise configured. The umask is reset.</para>
+                        otherwise configured. The umask is reset.
+                        </para>
 
                         <para>It is recommended for new-style daemons
                         to implement the following:</para>
@@ -324,7 +325,7 @@
                                 <listitem><para>Instead of using the
                                 <function>syslog()</function> call to log directly to the
                                 system syslog service, a new-style daemon may
-                                choose to simply log to STDERR via
+                                choose to simply log to standard error via
                                 <function>fprintf()</function>, which is then forwarded to
                                 syslog by the init system. If log
                                 priorities are necessary, these can be

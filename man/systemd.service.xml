@@ -861,7 +861,7 @@ ExecStart=/bin/echo $ONE $TWO ${TWO}</programlisting>
                                 for all file descriptors passed via
                                 socket-based activation. If true, all
                                 file descriptors >= 3 (i.e. all except
-                                STDIN/STDOUT/STDERR) will have
+                                stdin, stdout, and stderr) will have
                                 the <constant>O_NONBLOCK</constant> flag
                                 set and hence are in
                                 non-blocking mode. This option is only

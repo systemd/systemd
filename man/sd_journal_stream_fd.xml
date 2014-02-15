@@ -69,8 +69,8 @@
                 messages written to this file descriptor as simple
                 newline-separated text strings are written to the
                 journal. This file descriptor can be used internally
-                by applications or be made STDOUT/STDERR of other
-                processes executed.</para>
+                by applications or be made standard output or standard
+                error of other processes executed.</para>
 
                 <para><function>sd_journal_stream_fd()</function>
                 takes a short program identifier string as first

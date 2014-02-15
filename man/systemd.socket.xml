@@ -144,8 +144,8 @@
                 <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 for details) or via the traditional
                 <citerefentry><refentrytitle>inetd</refentrytitle><manvolnum>8</manvolnum></citerefentry>-style
-                socket passing (i.e. sockets passed in via STDIN and
-                STDOUT, using <varname>StandardInput=socket</varname>
+                socket passing (i.e. sockets passed in via standard input and
+                output, using <varname>StandardInput=socket</varname>
                 in the service file).</para>
         </refsect1>
 
