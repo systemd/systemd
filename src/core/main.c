@@ -1881,13 +1881,41 @@ finish:
 #endif
 
         if (shutdown_verb) {
-                const char * command_line[] = {
+                char log_level[DECIMAL_STR_MAX(int) + 1];
+                const char* command_line[9] = {
                         SYSTEMD_SHUTDOWN_BINARY_PATH,
                         shutdown_verb,
-                        NULL
+                        "--log-level", log_level,
+                        "--log-target",
                 };
+                unsigned pos = 5;
+                assert(command_line[pos] == NULL);
+
                 _cleanup_strv_free_ char **env_block = NULL;
                 env_block = strv_copy(environ);
+
+                snprintf(log_level, sizeof(log_level), "%d", log_get_max_level());
+
+                switch (log_get_target()) {
+                case LOG_TARGET_KMSG:
+                case LOG_TARGET_JOURNAL_OR_KMSG:
+                case LOG_TARGET_SYSLOG_OR_KMSG:
+                        command_line[pos++] = "kmsg";
+                        break;
+
+                case LOG_TARGET_CONSOLE:
+                default:
+                        command_line[pos++] = "console";
+                        break;
+                };
+
+                if (log_get_show_color())
+                        command_line[pos++] = "--log-color";
+
+                if (log_get_show_location())
+                        command_line[pos++] = "--log-location";
+
+                assert(pos + 1 < ELEMENTSOF(command_line));
 
                 if (arm_reboot_watchdog && arg_shutdown_watchdog > 0) {
                         char *e;
@@ -1911,7 +1939,8 @@ finish:
                         cg_uninstall_release_agent(SYSTEMD_CGROUP_CONTROLLER);
 
                 execve(SYSTEMD_SHUTDOWN_BINARY_PATH, (char **) command_line, env_block);
-                log_error("Failed to execute shutdown binary, freezing: %m");
+                log_error("Failed to execute shutdown binary, %s: %m",
+                          getpid() == 1 ? "freezing" : "quitting");
         }
 
         if (getpid() == 1)

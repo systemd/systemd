@@ -35,6 +35,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <getopt.h>
 
 #include "missing.h"
 #include "log.h"
@@ -49,6 +50,93 @@
 #include "def.h"
 
 #define FINALIZE_ATTEMPTS 50
+
+static char* arg_verb;
+
+static int parse_argv(int argc, char *argv[]) {
+        enum {
+                ARG_LOG_LEVEL = 0x100,
+                ARG_LOG_TARGET,
+                ARG_LOG_COLOR,
+                ARG_LOG_LOCATION,
+        };
+
+        static const struct option options[] = {
+                { "log-level",     required_argument, NULL, ARG_LOG_LEVEL    },
+                { "log-target",    required_argument, NULL, ARG_LOG_TARGET   },
+                { "log-color",     optional_argument, NULL, ARG_LOG_COLOR    },
+                { "log-location",  optional_argument, NULL, ARG_LOG_LOCATION },
+                {}
+        };
+
+        int c, r;
+
+        assert(argc >= 1);
+        assert(argv);
+
+        opterr = 0;
+
+        while ((c = getopt_long(argc, argv, ":", options, NULL)) >= 0)
+                switch (c) {
+
+                case ARG_LOG_LEVEL:
+                        r = log_set_max_level_from_string(optarg);
+                        if (r < 0)
+                                log_error("Failed to parse log level %s, ignoring.", optarg);
+
+                        break;
+
+                case ARG_LOG_TARGET:
+                        r = log_set_target_from_string(optarg);
+                        if (r < 0)
+                                log_error("Failed to parse log target %s, ignoring", optarg);
+
+                        break;
+
+                case ARG_LOG_COLOR:
+
+                        if (optarg) {
+                                r = log_show_color_from_string(optarg);
+                                if (r < 0)
+                                        log_error("Failed to parse log color setting %s, ignoring", optarg);
+                        } else
+                                log_show_color(true);
+
+                        break;
+
+                case ARG_LOG_LOCATION:
+                        if (optarg) {
+                                r = log_show_location_from_string(optarg);
+                                if (r < 0)
+                                        log_error("Failed to parse log location setting %s, ignoring", optarg);
+                        } else
+                                log_show_location(true);
+
+                        break;
+
+                case '?':
+                        log_error("Unknown option %s.", argv[optind-1]);
+                        return -EINVAL;
+
+                case ':':
+                        log_error("Missing argument to %s.", argv[optind-1]);
+                        return -EINVAL;
+
+                default:
+                        assert_not_reached("Unhandled option code.");
+                }
+
+        if (optind >= argc) {
+                log_error("Verb argument missing.");
+                return -EINVAL;
+        }
+
+        arg_verb = argv[optind];
+
+        if (optind + 1 < argc)
+                log_error("Excess arguments, ignoring");
+        return 0;
+}
 
 static int prepare_new_root(void) {
         static const char dirs[] =
@@ -139,52 +227,38 @@ int main(int argc, char *argv[]) {
         unsigned retries;
         int cmd, r;
 
-        /* suppress shutdown status output if 'quiet' is used  */
-        r = proc_cmdline(&line);
-        if (r > 0) {
-                char *w, *state;
-                size_t l;
-
-                FOREACH_WORD_QUOTED(w, l, line, state) {
-                        if (l == 5 && memcmp(w, "quiet", 5) == 0) {
-                                log_set_max_level(LOG_WARNING);
-                                break;
-                        }
-                }
-        }
-
         log_parse_environment();
-        log_set_target(LOG_TARGET_CONSOLE); /* syslog will die if not gone yet */
+        r = parse_argv(argc, argv);
+        if (r < 0)
+                goto error;
+
+        /* journald will die if not gone yet. The log target defaults
+         * to console, but may have been changed by commandline options. */
+
         log_close_console(); /* force reopen of /dev/console */
         log_open();
 
         umask(0022);
 
         if (getpid() != 1) {
-                log_error("Not executed by init (pid 1).");
+                log_error("Not executed by init (PID 1).");
                 r = -EPERM;
-                goto error;
-        }
-
-        if (argc != 2) {
-                log_error("Invalid number of arguments.");
-                r = -EINVAL;
                 goto error;
         }
 
         in_container = detect_container(NULL) > 0;
 
-        if (streq(argv[1], "reboot"))
+        if (streq(arg_verb, "reboot"))
                 cmd = RB_AUTOBOOT;
-        else if (streq(argv[1], "poweroff"))
+        else if (streq(arg_verb, "poweroff"))
                 cmd = RB_POWER_OFF;
-        else if (streq(argv[1], "halt"))
+        else if (streq(arg_verb, "halt"))
                 cmd = RB_HALT_SYSTEM;
-        else if (streq(argv[1], "kexec"))
+        else if (streq(arg_verb, "kexec"))
                 cmd = LINUX_REBOOT_CMD_KEXEC;
         else {
-                log_error("Unknown action '%s'.", argv[1]);
                 r = -EINVAL;
+                log_error("Unknown action '%s'.", arg_verb);
                 goto error;
         }
 
@@ -292,7 +366,7 @@ int main(int argc, char *argv[]) {
                 log_info("Storage is finalized.");
 
         arguments[0] = NULL;
-        arguments[1] = argv[1];
+        arguments[1] = arg_verb;
         arguments[2] = NULL;
         execute_directory(SYSTEM_SHUTDOWN_PATH, NULL, arguments);
 
@@ -301,10 +375,11 @@ int main(int argc, char *argv[]) {
 
                 if (prepare_new_root() >= 0 &&
                     pivot_to_new_root() >= 0) {
+                        arguments[0] = (char*) "/shutdown";
 
                         log_info("Returning to initrd...");
 
-                        execv("/shutdown", argv);
+                        execv("/shutdown", arguments);
                         log_error("Failed to execute shutdown binary: %m");
                 }
         }
@@ -389,5 +464,4 @@ int main(int argc, char *argv[]) {
         log_error("Critical error while doing system shutdown: %s", strerror(-r));
 
         freeze();
-        return EXIT_FAILURE;
 }

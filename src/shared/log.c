@@ -927,8 +927,16 @@ void log_show_color(bool b) {
         show_color = b;
 }
 
+bool log_get_show_color(void) {
+        return show_color;
+}
+
 void log_show_location(bool b) {
         show_location = b;
+}
+
+bool log_get_show_location(void) {
+        return show_location;
 }
 
 int log_show_color_from_string(const char *e) {
