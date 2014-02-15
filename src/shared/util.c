@@ -513,7 +513,7 @@ char *truncate_nl(char *s) {
         return s;
 }
 
-int get_process_state(pid_t pid) {
+char get_process_state(pid_t pid) {
         const char *p;
         char state;
         int r;
