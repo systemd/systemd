@@ -69,39 +69,19 @@ static int add_modules(const char *p) {
         return 0;
 }
 
-static int parse_proc_cmdline(void) {
-        _cleanup_free_ char *line = NULL;
-        char *w, *state;
-        size_t l;
+static int parse_proc_cmdline_word(const char *word) {
         int r;
 
-        r = proc_cmdline(&line);
-        if (r < 0)
-                log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));
-        if (r <= 0)
-                return 0;
+        if (startswith(word, "modules-load=")) {
+                r = add_modules(word + 13);
+                if (r < 0)
+                        return r;
 
-        FOREACH_WORD_QUOTED(w, l, line, state) {
-                _cleanup_free_ char *word;
-
-                word = strndup(w, l);
-                if (!word)
-                        return log_oom();
-
-                if (startswith(word, "modules-load=")) {
-
-                        r = add_modules(word + 13);
+        } else if (startswith(word, "rd.modules-load=")) {
+                if (in_initrd()) {
+                        r = add_modules(word + 16);
                         if (r < 0)
                                 return r;
-
-                } else if (startswith(word, "rd.modules-load=")) {
-
-                        if (in_initrd()) {
-                                r = add_modules(word + 16);
-                                if (r < 0)
-                                        return r;
-                        }
-
                 }
         }
 
@@ -273,7 +253,7 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        if (parse_proc_cmdline() < 0)
+        if (parse_proc_cmdline(parse_proc_cmdline_word) < 0)
                 return EXIT_FAILURE;
 
         ctx = kmod_new(NULL, NULL);

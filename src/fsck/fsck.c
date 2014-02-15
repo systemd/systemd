@@ -72,38 +72,24 @@ static void start_target(const char *target) {
                 log_error("Failed to start unit: %s", bus_error_message(&error, -r));
 }
 
-static int parse_proc_cmdline(void) {
-        _cleanup_free_ char *line = NULL;
-        char *w, *state;
-        size_t l;
-        int r;
-
-        r = proc_cmdline(&line);
-        if (r < 0)
-                log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));
-        if (r <= 0)
-                return 0;
-
-        FOREACH_WORD_QUOTED(w, l, line, state) {
-
-                if (strneq(w, "fsck.mode=auto", l))
-                        arg_force = arg_skip = false;
-                else if (strneq(w, "fsck.mode=force", l))
-                        arg_force = true;
-                else if (strneq(w, "fsck.mode=skip", l))
-                        arg_skip = true;
-                else if (startswith(w, "fsck"))
-                        log_warning("Invalid fsck parameter. Ignoring.");
+static int parse_proc_cmdline_word(const char *w) {
+        if (streq(w, "fsck.mode=auto"))
+                arg_force = arg_skip = false;
+        else if (streq(w, "fsck.mode=force"))
+                arg_force = true;
+        else if (streq(w, "fsck.mode=skip"))
+                arg_skip = true;
+        else if (startswith(w, "fsck"))
+                log_warning("Invalid fsck parameter. Ignoring.");
 #ifdef HAVE_SYSV_COMPAT
-                else if (strneq(w, "fastboot", l)) {
-                        log_error("Please pass 'fsck.mode=skip' rather than 'fastboot' on the kernel command line.");
-                        arg_skip = true;
-                } else if (strneq(w, "forcefsck", l)) {
-                        log_error("Please pass 'fsck.mode=force' rather than 'forcefsck' on the kernel command line.");
-                        arg_force = true;
-                }
-#endif
+        else if (streq(w, "fastboot")) {
+                log_error("Please pass 'fsck.mode=skip' rather than 'fastboot' on the kernel command line.");
+                arg_skip = true;
+        } else if (streq(w, "forcefsck")) {
+                log_error("Please pass 'fsck.mode=force' rather than 'forcefsck' on the kernel command line.");
+                arg_force = true;
         }
+#endif
 
         return 0;
 }
@@ -229,7 +215,7 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        parse_proc_cmdline();
+        parse_proc_cmdline(parse_proc_cmdline_word);
         test_files();
 
         if (!arg_force && arg_skip)

@@ -31,35 +31,22 @@
 static bool arg_skip = false;
 static bool arg_force = false;
 
-static int parse_proc_cmdline(void) {
-        _cleanup_free_ char *line = NULL;
-        char *w, *state;
-        size_t l;
-        int r;
-
-        r = proc_cmdline(&line);
-        if (r < 0)
-                log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));
-        if (r <= 0)
-                return 0;
-
-        FOREACH_WORD_QUOTED(w, l, line, state) {
-
-                if (strneq(w, "quotacheck.mode=auto", l))
-                        arg_force = arg_skip = false;
-                else if (strneq(w, "quotacheck.mode=force", l))
-                        arg_force = true;
-                else if (strneq(w, "quotacheck.mode=skip", l))
-                        arg_skip = true;
-                else if (startswith(w, "quotacheck"))
-                        log_warning("Invalid quotacheck parameter. Ignoring.");
+static int parse_proc_cmdline_word(const char *w) {
+        if (streq(w, "quotacheck.mode=auto"))
+                arg_force = arg_skip = false;
+        else if (streq(w, "quotacheck.mode=force"))
+                arg_force = true;
+        else if (streq(w, "quotacheck.mode=skip"))
+                arg_skip = true;
+        else if (startswith(w, "quotacheck"))
+                log_warning("Invalid quotacheck parameter. Ignoring.");
 #ifdef HAVE_SYSV_COMPAT
-                else if (strneq(w, "forcequotacheck", l)) {
-                        log_error("Please use 'quotacheck.mode=force' rather than 'forcequotacheck' on the kernel command line.");
-                        arg_force = true;
-                }
-#endif
+        else if (streq(w, "forcequotacheck")) {
+                log_error("Please use 'quotacheck.mode=force' rather than 'forcequotacheck' on the kernel command line.");
+                arg_force = true;
         }
+#endif
+
         return 0;
 }
 
@@ -93,7 +80,7 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        parse_proc_cmdline();
+        parse_proc_cmdline(parse_proc_cmdline_word);
         test_files();
 
         if (!arg_force) {

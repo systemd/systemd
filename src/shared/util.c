@@ -5943,6 +5943,35 @@ int proc_cmdline(char **ret) {
         return 1;
 }
 
+int parse_proc_cmdline(int (*parse_word)(const char *word)) {
+        _cleanup_free_ char *line = NULL;
+        char *w, *state;
+        size_t l;
+        int r;
+
+        r = proc_cmdline(&line);
+        if (r < 0)
+                log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));
+        if (r <= 0)
+                return 0;
+
+        FOREACH_WORD_QUOTED(w, l, line, state) {
+                _cleanup_free_ char *word;
+
+                word = strndup(w, l);
+                if (!word)
+                        return log_oom();
+
+                r = parse_word(word);
+                if (r < 0) {
+                        log_error("Failed on cmdline argument %s: %s", word, strerror(-r));
+                        return r;
+                }
+        }
+
+        return 0;
+}
+
 int container_get_leader(const char *machine, pid_t *pid) {
         _cleanup_free_ char *s = NULL, *class = NULL;
         const char *p;

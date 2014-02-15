@@ -501,47 +501,30 @@ static int parse_new_root_from_proc_cmdline(void) {
         return (r < 0) ? r : 0;
 }
 
-static int parse_proc_cmdline(void) {
-        _cleanup_free_ char *line = NULL;
-        char *w, *state;
-        size_t l;
+static int parse_proc_cmdline_word(const char *word) {
         int r;
 
-        r = proc_cmdline(&line);
-        if (r < 0)
-                log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));
-        if (r <= 0)
-                return 0;
+        if (startswith(word, "fstab=")) {
+                r = parse_boolean(word + 6);
+                if (r < 0)
+                        log_warning("Failed to parse fstab switch %s. Ignoring.", word + 6);
+                else
+                        arg_enabled = r;
 
-        FOREACH_WORD_QUOTED(w, l, line, state) {
-                _cleanup_free_ char *word = NULL;
+        } else if (startswith(word, "rd.fstab=")) {
 
-                word = strndup(w, l);
-                if (!word)
-                        return log_oom();
-
-                if (startswith(word, "fstab=")) {
-                        r = parse_boolean(word + 6);
+                if (in_initrd()) {
+                        r = parse_boolean(word + 9);
                         if (r < 0)
-                                log_warning("Failed to parse fstab switch %s. Ignoring.", word + 6);
+                                log_warning("Failed to parse fstab switch %s. Ignoring.", word + 9);
                         else
                                 arg_enabled = r;
-
-                } else if (startswith(word, "rd.fstab=")) {
-
-                        if (in_initrd()) {
-                                r = parse_boolean(word + 9);
-                                if (r < 0)
-                                        log_warning("Failed to parse fstab switch %s. Ignoring.", word + 9);
-                                else
-                                        arg_enabled = r;
-                        }
-
-                } else if (startswith(word, "fstab.") ||
-                           (in_initrd() && startswith(word, "rd.fstab."))) {
-
-                        log_warning("Unknown kernel switch %s. Ignoring.", word);
                 }
+
+        } else if (startswith(word, "fstab.") ||
+                   (in_initrd() && startswith(word, "rd.fstab."))) {
+
+                log_warning("Unknown kernel switch %s. Ignoring.", word);
         }
 
         return 0;
@@ -564,7 +547,7 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        if (parse_proc_cmdline() < 0)
+        if (parse_proc_cmdline(parse_proc_cmdline_word) < 0)
                 return EXIT_FAILURE;
 
         if (in_initrd())

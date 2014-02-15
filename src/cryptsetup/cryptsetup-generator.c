@@ -34,6 +34,11 @@ static const char *arg_dest = "/tmp";
 static bool arg_enabled = true;
 static bool arg_read_crypttab = true;
 
+static char **arg_disks;
+static char **arg_options;
+static char *arg_keyfile;
+
+
 static bool has_option(const char *haystack, const char *needle) {
         const char *f = haystack;
         size_t l;
@@ -250,122 +255,94 @@ static int create_disk(
         return 0;
 }
 
-static int parse_proc_cmdline(
-                char ***arg_proc_cmdline_disks,
-                char ***arg_proc_cmdline_options,
-                char **arg_proc_cmdline_keyfile) {
-
-        _cleanup_free_ char *line = NULL;
-        char *w = NULL, *state = NULL;
-        size_t l;
+static int parse_proc_cmdline_word(const char *word) {
         int r;
 
-        r = proc_cmdline(&line);
-        if (r < 0)
-                log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));
-        if (r <= 0)
-                return 0;
+        if (startswith(word, "luks=")) {
+                r = parse_boolean(word + 5);
+                if (r < 0)
+                        log_warning("Failed to parse luks switch %s. Ignoring.", word + 5);
+                else
+                        arg_enabled = r;
 
-        FOREACH_WORD_QUOTED(w, l, line, state) {
-                _cleanup_free_ char *word = NULL;
+        } else if (startswith(word, "rd.luks=")) {
 
-                word = strndup(w, l);
-                if (!word)
-                        return log_oom();
-
-                if (startswith(word, "luks=")) {
-                        r = parse_boolean(word + 5);
+                if (in_initrd()) {
+                        r = parse_boolean(word + 8);
                         if (r < 0)
-                                log_warning("Failed to parse luks switch %s. Ignoring.", word + 5);
+                                log_warning("Failed to parse luks switch %s. Ignoring.", word + 8);
                         else
                                 arg_enabled = r;
+                }
 
-                } else if (startswith(word, "rd.luks=")) {
+        } else if (startswith(word, "luks.crypttab=")) {
+                r = parse_boolean(word + 14);
+                if (r < 0)
+                        log_warning("Failed to parse luks crypttab switch %s. Ignoring.", word + 14);
+                else
+                        arg_read_crypttab = r;
 
-                        if (in_initrd()) {
-                                r = parse_boolean(word + 8);
-                                if (r < 0)
-                                        log_warning("Failed to parse luks switch %s. Ignoring.", word + 8);
-                                else
-                                        arg_enabled = r;
-                        }
+        } else if (startswith(word, "rd.luks.crypttab=")) {
 
-                } else if (startswith(word, "luks.crypttab=")) {
-                        r = parse_boolean(word + 14);
+                if (in_initrd()) {
+                        r = parse_boolean(word + 17);
                         if (r < 0)
-                                log_warning("Failed to parse luks crypttab switch %s. Ignoring.", word + 14);
+                                log_warning("Failed to parse luks crypttab switch %s. Ignoring.", word + 17);
                         else
                                 arg_read_crypttab = r;
-
-                } else if (startswith(word, "rd.luks.crypttab=")) {
-
-                        if (in_initrd()) {
-                                r = parse_boolean(word + 17);
-                                if (r < 0)
-                                        log_warning("Failed to parse luks crypttab switch %s. Ignoring.", word + 17);
-                                else
-                                        arg_read_crypttab = r;
-                        }
-
-                } else if (startswith(word, "luks.uuid=")) {
-                        if (strv_extend(arg_proc_cmdline_disks, word + 10) < 0)
-                                return log_oom();
-
-                } else if (startswith(word, "rd.luks.uuid=")) {
-
-                        if (in_initrd()) {
-                                if (strv_extend(arg_proc_cmdline_disks, word + 13) < 0)
-                                        return log_oom();
-                        }
-
-                } else if (startswith(word, "luks.options=")) {
-                        if (strv_extend(arg_proc_cmdline_options, word + 13) < 0)
-                                return log_oom();
-
-                } else if (startswith(word, "rd.luks.options=")) {
-
-                        if (in_initrd()) {
-                                if (strv_extend(arg_proc_cmdline_options, word + 16) < 0)
-                                        return log_oom();
-                        }
-
-                } else if (startswith(word, "luks.key=")) {
-                        if (*arg_proc_cmdline_keyfile)
-                                free(*arg_proc_cmdline_keyfile);
-                        *arg_proc_cmdline_keyfile = strdup(word + 9);
-                        if (!*arg_proc_cmdline_keyfile)
-                                return log_oom();
-
-                } else if (startswith(word, "rd.luks.key=")) {
-
-                        if (in_initrd()) {
-                                if (*arg_proc_cmdline_keyfile)
-                                        free(*arg_proc_cmdline_keyfile);
-                                *arg_proc_cmdline_keyfile = strdup(word + 12);
-                                if (!*arg_proc_cmdline_keyfile)
-                                        return log_oom();
-                        }
-
-                } else if (startswith(word, "luks.") ||
-                           (in_initrd() && startswith(word, "rd.luks."))) {
-
-                        log_warning("Unknown kernel switch %s. Ignoring.", word);
                 }
-        }
 
-        strv_uniq(*arg_proc_cmdline_disks);
+        } else if (startswith(word, "luks.uuid=")) {
+                if (strv_extend(&arg_disks, word + 10) < 0)
+                        return log_oom();
+
+        } else if (startswith(word, "rd.luks.uuid=")) {
+
+                if (in_initrd()) {
+                        if (strv_extend(&arg_disks, word + 13) < 0)
+                                return log_oom();
+                }
+
+        } else if (startswith(word, "luks.options=")) {
+                if (strv_extend(&arg_options, word + 13) < 0)
+                        return log_oom();
+
+        } else if (startswith(word, "rd.luks.options=")) {
+
+                if (in_initrd()) {
+                        if (strv_extend(&arg_options, word + 16) < 0)
+                                return log_oom();
+                }
+
+        } else if (startswith(word, "luks.key=")) {
+                free(arg_keyfile);
+                arg_keyfile = strdup(word + 9);
+                if (!arg_keyfile)
+                        return log_oom();
+
+        } else if (startswith(word, "rd.luks.key=")) {
+
+                if (in_initrd()) {
+                        free(arg_keyfile);
+                        arg_keyfile = strdup(word + 12);
+                        if (!arg_keyfile)
+                                return log_oom();
+                }
+
+        } else if (startswith(word, "luks.") ||
+                   (in_initrd() && startswith(word, "rd.luks."))) {
+
+                log_warning("Unknown kernel switch %s. Ignoring.", word);
+        }
 
         return 0;
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_strv_free_ char **arg_proc_cmdline_disks_done = NULL;
-        _cleanup_strv_free_ char **arg_proc_cmdline_disks = NULL;
-        _cleanup_strv_free_ char **arg_proc_cmdline_options = NULL;
-        _cleanup_free_ char *arg_proc_cmdline_keyfile = NULL;
+        _cleanup_strv_free_ char **disks_done = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         unsigned n = 0;
-        int r = EXIT_SUCCESS;
+        int r = EXIT_FAILURE, r2 = EXIT_FAILURE;
         char **i;
 
         if (argc > 1 && argc != 4) {
@@ -382,11 +359,15 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        if (parse_proc_cmdline(&arg_proc_cmdline_disks, &arg_proc_cmdline_options, &arg_proc_cmdline_keyfile) < 0)
-                return EXIT_FAILURE;
+        if (parse_proc_cmdline(parse_proc_cmdline_word) < 0)
+                goto cleanup;
 
-        if (!arg_enabled)
-                return EXIT_SUCCESS;
+        if (!arg_enabled) {
+                r = r2 = EXIT_SUCCESS;
+                goto cleanup;
+        }
+
+        strv_uniq(arg_disks);
 
         if (arg_read_crypttab) {
                 struct stat st;
@@ -395,17 +376,14 @@ int main(int argc, char *argv[]) {
                 if (!f) {
                         if (errno == ENOENT)
                                 r = EXIT_SUCCESS;
-                        else {
-                                r = EXIT_FAILURE;
+                        else
                                 log_error("Failed to open /etc/crypttab: %m");
-                        }
 
                         goto next;
                 }
 
                 if (fstat(fileno(f), &st) < 0) {
                         log_error("Failed to stat /etc/crypttab: %m");
-                        r = EXIT_FAILURE;
                         goto next;
                 }
 
@@ -433,36 +411,34 @@ int main(int argc, char *argv[]) {
                         k = sscanf(l, "%ms %ms %ms %ms", &name, &device, &password, &options);
                         if (k < 2 || k > 4) {
                                 log_error("Failed to parse /etc/crypttab:%u, ignoring.", n);
-                                r = EXIT_FAILURE;
                                 continue;
                         }
 
-                        if (arg_proc_cmdline_options) {
-                                /*
-                                  If options are specified on the kernel commandline, let them override
-                                  the ones from crypttab.
-                                */
-                                STRV_FOREACH(i, arg_proc_cmdline_options) {
-                                        _cleanup_free_ char *proc_uuid = NULL, *proc_options = NULL;
-                                        const char *p = *i;
+                        /*
+                          If options are specified on the kernel commandline, let them override
+                          the ones from crypttab.
+                        */
+                        STRV_FOREACH(i, arg_options) {
+                                _cleanup_free_ char *proc_uuid = NULL, *proc_options = NULL;
+                                const char *p = *i;
 
-                                        k = sscanf(p, "%m[0-9a-fA-F-]=%ms", &proc_uuid, &proc_options);
-                                        if (k == 2 && streq(proc_uuid, device + 5)) {
-                                                if (options)
-                                                        free(options);
-                                                options = strdup(p);
-                                                if (!proc_options)
-                                                        return log_oom();
+                                k = sscanf(p, "%m[0-9a-fA-F-]=%ms", &proc_uuid, &proc_options);
+                                if (k == 2 && streq(proc_uuid, device + 5)) {
+                                        free(options);
+                                        options = strdup(p);
+                                        if (!proc_options) {
+                                                log_oom();
+                                                goto cleanup;
                                         }
                                 }
                         }
 
-                        if (arg_proc_cmdline_disks) {
+                        if (arg_disks) {
                                 /*
                                   If luks UUIDs are specified on the kernel command line, use them as a filter
                                   for /etc/crypttab and only generate units for those.
                                 */
-                                STRV_FOREACH(i, arg_proc_cmdline_disks) {
+                                STRV_FOREACH(i, arg_disks) {
                                         _cleanup_free_ char *proc_device = NULL, *proc_name = NULL;
                                         const char *p = *i;
 
@@ -472,26 +448,31 @@ int main(int argc, char *argv[]) {
                                         proc_name = strappend("luks-", p);
                                         proc_device = strappend("UUID=", p);
 
-                                        if (!proc_name || !proc_device)
-                                                return log_oom();
+                                        if (!proc_name || !proc_device) {
+                                                log_oom();
+                                                goto cleanup;
+                                        }
 
                                         if (streq(proc_device, device) || streq(proc_name, name)) {
                                                 if (create_disk(name, device, password, options) < 0)
-                                                        r = EXIT_FAILURE;
+                                                        goto cleanup;
 
-                                                if (strv_extend(&arg_proc_cmdline_disks_done, p) < 0)
-                                                        return log_oom();
+                                                if (strv_extend(&disks_done, p) < 0) {
+                                                        log_oom();
+                                                        goto cleanup;
+                                                }
                                         }
                                 }
-                        } else {
-                                if (create_disk(name, device, password, options) < 0)
-                                        r = EXIT_FAILURE;
-                        }
+                        } else if (create_disk(name, device, password, options) < 0)
+                                goto cleanup;
+
                 }
         }
 
+        r = EXIT_SUCCESS;
+
 next:
-        STRV_FOREACH(i, arg_proc_cmdline_disks) {
+        STRV_FOREACH(i, arg_disks) {
                 /*
                   Generate units for those UUIDs, which were specified
                   on the kernel command line and not yet written.
@@ -503,22 +484,24 @@ next:
                 if (startswith(p, "luks-"))
                         p += 5;
 
-                if (strv_contains(arg_proc_cmdline_disks_done, p))
+                if (strv_contains(disks_done, p))
                         continue;
 
                 name = strappend("luks-", p);
                 device = strappend("UUID=", p);
 
-                if (!name || !device)
-                        return log_oom();
+                if (!name || !device) {
+                        log_oom();
+                        goto cleanup;
+                }
 
-                if (arg_proc_cmdline_options) {
+                if (arg_options) {
                         /*
                           If options are specified on the kernel commandline, use them.
                         */
                         char **j;
 
-                        STRV_FOREACH(j, arg_proc_cmdline_options) {
+                        STRV_FOREACH(j, arg_options) {
                                 _cleanup_free_ char *proc_uuid = NULL, *proc_options = NULL;
                                 const char *s = *j;
                                 int k;
@@ -529,29 +512,42 @@ next:
                                                 if (options)
                                                         free(options);
                                                 options = strdup(proc_options);
-                                                if (!options)
-                                                        return log_oom();
+                                                if (!options) {
+                                                        log_oom();
+                                                        goto cleanup;
+                                                }
                                         }
                                 } else if (!options) {
                                         /*
                                           Fall back to options without a specified UUID
                                         */
                                         options = strdup(s);
-                                        if (!options)
-                                                return log_oom();
+                                        if (!options) {
+                                                log_oom();
+                                                goto cleanup;
+                                        };
                                 }
                         }
                 }
 
                 if (!options) {
                         options = strdup("timeout=0");
-                        if (!options)
-                                return log_oom();
+                        if (!options) {
+                                log_oom();
+                                goto cleanup;
+                        }
                 }
 
-                if (create_disk(name, device, arg_proc_cmdline_keyfile, options) < 0)
-                        r = EXIT_FAILURE;
+                if (create_disk(name, device, arg_keyfile, options) < 0)
+                        goto cleanup;
         }
 
-        return r;
+        r2 = EXIT_SUCCESS;
+
+cleanup:
+        strv_free(arg_disks);
+        strv_free(arg_options);
+        free(arg_keyfile);
+
+        return r != EXIT_SUCCESS ? r : r2;
 }
