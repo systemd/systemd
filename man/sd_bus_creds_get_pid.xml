@@ -385,7 +385,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
         <listitem><para>Given field is not available in
         <parameter>c</parameter>.</para>
-	</listitem>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -399,7 +399,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <function>sd_bus_get_owner_uid</function> if the sender is not
         part of a systemd system unit, systemd user unit, systemd
         slice, logind session, or a systemd user session.</para>
-	</listitem>
+        </listitem>
       </varlistentry>
 
       <varlistentry>

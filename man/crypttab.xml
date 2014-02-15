@@ -305,7 +305,7 @@
 
                                 <listitem><para>Use TrueCrypt in system
                                 encryption mode. This implies
-				<varname>tcrypt</varname>.</para></listitem>
+                                <varname>tcrypt</varname>.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

@@ -121,16 +121,16 @@
                 boot or late system shutdown should disable this
                 option.</para>
 
-		<para>Socket units will have a
-		<varname>Before=</varname> dependency on the service
-		which they trigger added implicitly. No implicit
-		<varname>WantedBy=</varname> or
-		<varname>RequiredBy=</varname> dependency from the
-		socket to the service is added. This means that the
-		service may be started without the socket, in which
-		case it must be able to open sockets by itself. To
-		prevent this, an explicit <varname>Requires=</varname>
-		dependency may be added.</para>
+                <para>Socket units will have a
+                <varname>Before=</varname> dependency on the service
+                which they trigger added implicitly. No implicit
+                <varname>WantedBy=</varname> or
+                <varname>RequiredBy=</varname> dependency from the
+                socket to the service is added. This means that the
+                service may be started without the socket, in which
+                case it must be able to open sockets by itself. To
+                prevent this, an explicit <varname>Requires=</varname>
+                dependency may be added.</para>
 
                 <para>Socket units may be used to implement on-demand
                 starting of services, as well as parallelized starting
