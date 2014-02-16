@@ -246,10 +246,10 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     TID (thread identifier).</para>
 
     <para><function>sd_bus_creds_get_uid</function> will retrieve the
-    UID (user identifier).</para>
+    numeric UID (user identifier).</para>
 
     <para><function>sd_bus_creds_get_gid</function> will retrieve the
-    GID (group identifier).</para>
+    numeric GID (group identifier).</para>
 
     <para><function>sd_bus_creds_get_comm</function> will retrieve the
     comm field (name of the executable, as stored in
@@ -301,7 +301,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     </para>
 
     <para><function>sd_bus_creds_get_owner_uid</function> will retrieve
-    the UID (user identifier) of the user who owns the slice
+    the numeric UID (user identifier) of the user who owns the slice
     that the process is part of. See
     <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     <!-- and
