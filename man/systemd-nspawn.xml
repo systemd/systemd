@@ -270,7 +270,7 @@
                                 exception of the loopback device and
                                 those specified with
                                 <option>--network-interface=</option>
-                                and configured ith
+                                and configured with
                                 <option>--network-veth</option>. If
                                 this option is specified the
                                 CAP_NET_ADMIN capability will be added
@@ -316,6 +316,18 @@
                                 <option>--network-veth</option>
                                 implies
                                 <option>--private-network</option>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--network-bridge=</option></term>
+
+                                <listitem><para>Adds the host side of the
+                                ethernet link created with
+                                <option>--network-veth</option>
+                                to the specified bridge. Note that
+                                <option>--network-bridge</option>
+                                implies
+                                <option>--network-veth</option>.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

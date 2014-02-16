@@ -432,7 +432,6 @@ Features:
   - refuses to boot containers without /etc/machine-id (OK?), and with empty /etc/machine-id (not OK).
   - support taking a btrfs snapshot at startup and dropping it afterwards
   - maybe: hookup nspawn and PrivateNetwork=yes with "ip netns"
-  - introduce --network-bridge= which works like --network-veth but also adds the host side to an existing bridge
   - allow booting disk images with a GPT signature using the bootloaderspec partition uuids
 
 * cryptsetup:

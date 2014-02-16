@@ -133,6 +133,7 @@ static bool arg_register = true;
 static bool arg_keep_unit = false;
 static char **arg_network_interfaces = NULL;
 static bool arg_network_veth = false;
+static char *arg_network_bridge = NULL;
 
 static int help(void) {
 
@@ -153,6 +154,10 @@ static int help(void) {
                "                            container\n"
                "     --network-veth         Add a a virtual ethernet connection between host\n"
                "                            and container\n"
+               "     --network-bridge=INTERFACE\n"
+               "                            Add a a virtual ethernet connection between host\n"
+               "                            and container and add it to an existing bridge on\n"
+               "                            the host\n"
                "  -Z --selinux-context=SECLABEL\n"
                "                            Set the SELinux security context to be used by\n"
                "                            processes in the container\n"
@@ -196,6 +201,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_KEEP_UNIT,
                 ARG_NETWORK_INTERFACE,
                 ARG_NETWORK_VETH,
+                ARG_NETWORK_BRIDGE,
         };
 
         static const struct option options[] = {
@@ -222,7 +228,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "register",              required_argument, NULL, ARG_REGISTER          },
                 { "keep-unit",             no_argument,       NULL, ARG_KEEP_UNIT         },
                 { "network-interface",     required_argument, NULL, ARG_NETWORK_INTERFACE },
-                { "network-veth",          no_argument,       NULL, ARG_NETWORK_VETH   },
+                { "network-veth",          no_argument,       NULL, ARG_NETWORK_VETH      },
+                { "network-bridge",        required_argument, NULL, ARG_NETWORK_BRIDGE    },
                 {}
         };
 
@@ -261,6 +268,13 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_oom();
 
                         break;
+
+                case ARG_NETWORK_BRIDGE:
+                        arg_network_bridge = strdup(optarg);
+                        if (!arg_network_bridge)
+                                return log_oom();
+
+                        /* fall through */
 
                 case ARG_NETWORK_VETH:
                         arg_network_veth = true;
@@ -1270,10 +1284,9 @@ static int reset_audit_loginuid(void) {
         return 0;
 }
 
-static int setup_veth(int netns_fd) {
+static int setup_veth(pid_t pid, char iface_name[]) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
         _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
-        char iface_name[IFNAMSIZ] = "ve-";
         int r;
 
         if (!arg_private_network)
@@ -1282,7 +1295,7 @@ static int setup_veth(int netns_fd) {
         if (!arg_network_veth)
                 return 0;
 
-        strncpy(iface_name+3, arg_machine, sizeof(iface_name) - 3);
+        strncpy(iface_name+3, arg_machine, IFNAMSIZ - 3);
 
         r = sd_rtnl_open(0, &rtnl);
         if (r < 0) {
@@ -1296,9 +1309,9 @@ static int setup_veth(int netns_fd) {
                 return r;
         }
 
-        r = sd_rtnl_message_append_string(m, IFLA_IFNAME, "host0");
+        r = sd_rtnl_message_append_string(m, IFLA_IFNAME, iface_name);
         if (r < 0) {
-                log_error("Failed to append netlink kind: %s", strerror(-r));
+                log_error("Failed to add netlink interface name: %s", strerror(-r));
                 return r;
         }
 
@@ -1322,17 +1335,17 @@ static int setup_veth(int netns_fd) {
 
         r = sd_rtnl_message_open_container(m, VETH_INFO_PEER);
         if (r < 0) {
-                log_error("z Failed to open netlink container: %s", strerror(-r));
+                log_error("Failed to open netlink container: %s", strerror(-r));
                 return r;
         }
 
-        r = sd_rtnl_message_append_string(m, IFLA_IFNAME, iface_name);
+        r = sd_rtnl_message_append_string(m, IFLA_IFNAME, "host0");
         if (r < 0) {
-                log_error("Failed to append netlink kind: %s", strerror(-r));
+                log_error("Failed to add netlink interface name: %s", strerror(-r));
                 return r;
         }
 
-        r = sd_rtnl_message_append_u32(m, IFLA_NET_NS_FD, netns_fd);
+        r = sd_rtnl_message_append_u32(m, IFLA_NET_NS_PID, pid);
         if (r < 0) {
                 log_error("Failed to add netlink namespace field: %s", strerror(-r));
                 return r;
@@ -1359,6 +1372,59 @@ static int setup_veth(int netns_fd) {
         r = sd_rtnl_call(rtnl, m, 0, NULL);
         if (r < 0) {
                 log_error("Failed to add new veth interfaces: %s", strerror(-r));
+                return r;
+        }
+
+        return 0;
+}
+
+static int setup_bridge(const char veth_name[]) {
+        _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
+        _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
+        int r, bridge;
+
+        if (!arg_private_network)
+                return 0;
+
+        if (!arg_network_veth)
+                return 0;
+
+        if (!arg_network_bridge)
+                return 0;
+
+        bridge = (int) if_nametoindex(arg_network_bridge);
+        if (bridge <= 0) {
+                log_error("Failed to resolve interface %s: %m", arg_network_bridge);
+                return -errno;
+        }
+
+        r = sd_rtnl_open(0, &rtnl);
+        if (r < 0) {
+                log_error("Failed to connect to netlink: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_new_link(RTM_SETLINK, 0, &m);
+        if (r < 0) {
+                log_error("Failed to allocate netlink message: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_append_string(m, IFLA_IFNAME, veth_name);
+        if (r < 0) {
+                log_error("Failed to add netlink interface name field: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_append_u32(m, IFLA_MASTER, bridge);
+        if (r < 0) {
+                log_error("Failed to add netlink master field: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_call(rtnl, m, 0, NULL);
+        if (r < 0) {
+                log_error("Failed to add veth interface to bridge: %s", strerror(-r));
                 return r;
         }
 
@@ -1497,6 +1563,7 @@ int main(int argc, char *argv[]) {
         int n_fd_passed;
         pid_t pid = 0;
         sigset_t mask;
+        char veth_name[IFNAMSIZ] = "ve-";
 
         log_parse_environment();
         log_open();
@@ -1601,14 +1668,6 @@ int main(int argc, char *argv[]) {
         if (unlockpt(master) < 0) {
                 log_error("Failed to unlock tty: %m");
                 goto finish;
-        }
-
-        if (arg_network_veth) {
-                netns_fd = open("/proc/self/ns/net", O_RDWR|O_CLOEXEC);
-                if (netns_fd < 0) {
-                        log_error("Failed to open network namespace fd: %m");
-                        goto finish;
-                }
         }
 
         if (access("/dev/kdbus/control", F_OK) >= 0) {
@@ -1764,14 +1823,6 @@ int main(int argc, char *argv[]) {
                                 goto child_fail;
 
                         dev_setup(arg_directory);
-
-                        if (setup_veth(netns_fd) < 0)
-                                goto child_fail;
-
-                        if (netns_fd >= 0) {
-                                close_nointr_nofail(netns_fd);
-                                netns_fd = -1;
-                        }
 
                         if (audit_still_doesnt_work_in_containers() < 0)
                                 goto child_fail;
@@ -1984,6 +2035,14 @@ int main(int argc, char *argv[]) {
                         goto finish;
 
                 r = move_network_interfaces(pid);
+                if (r < 0)
+                        goto finish;
+
+                r = setup_veth(pid, veth_name);
+                if (r < 0)
+                        goto finish;
+
+                r = setup_bridge(veth_name);
                 if (r < 0)
                         goto finish;
 
