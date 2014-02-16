@@ -147,7 +147,8 @@ int sd_rtnl_message_new_link(uint16_t nlmsg_type, int index, sd_rtnl_message **r
         int r;
 
         assert_return(rtnl_message_type_is_link(nlmsg_type), -EINVAL);
-        assert_return(nlmsg_type == RTM_NEWLINK || index > 0, -EINVAL);
+        assert_return(nlmsg_type == RTM_NEWLINK ||
+                      nlmsg_type == RTM_SETLINK || index > 0, -EINVAL);
         assert_return(ret, -EINVAL);
 
         r = message_new(ret, NLMSG_SPACE(sizeof(struct ifinfomsg)));
