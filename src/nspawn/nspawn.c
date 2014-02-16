@@ -1554,7 +1554,7 @@ finish:
 
 int main(int argc, char *argv[]) {
 
-        _cleanup_close_ int master = -1, kdbus_fd = -1, sync_fd = -1, netns_fd = -1;
+        _cleanup_close_ int master = -1, kdbus_fd = -1, sync_fd = -1;
         _cleanup_close_pipe_ int kmsg_socket_pair[2] = { -1, -1 };
         _cleanup_free_ char *kdbus_domain = NULL;
         _cleanup_fdset_free_ FDSet *fds = NULL;
