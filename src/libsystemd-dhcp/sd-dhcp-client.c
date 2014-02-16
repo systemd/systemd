@@ -710,11 +710,11 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message,
         assert(message);
 
         if (be32toh(message->xid) != client->xid)
-                return -EINVAL;
+                return 0;
 
         if (memcmp(&message->chaddr[0], &client->mac_addr.ether_addr_octet,
                    ETHER_ADDR_LEN))
-                return -EINVAL;
+                return 0;
 
         switch (client->state) {
         case DHCP_STATE_SELECTING:
@@ -843,7 +843,7 @@ static int client_receive_message_udp(sd_event_source *s, int fd,
 
         r = dhcp_packet_verify_headers(packet, BOOTREPLY, len);
         if (r < 0)
-                return r;
+                return 0;
 
         len -= DHCP_IP_UDP_SIZE;
 
