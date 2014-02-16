@@ -56,17 +56,17 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
       <funcprototype>
         <funcdef>int <function>sd_bus_new</function></funcdef>
-        <paramdef>sd_bus** <parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
-        <funcdef>sd_bus* <function>sd_bus_ref</function></funcdef>
-        <paramdef>sd_bus* <parameter>bus</parameter></paramdef>
+        <funcdef>sd_bus *<function>sd_bus_ref</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
-        <funcdef>sd_bus* <function>sd_bus_unref</function></funcdef>
-        <paramdef>sd_bus* <parameter>bus</parameter></paramdef>
+        <funcdef>sd_bus *<function>sd_bus_unref</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>

@@ -60,34 +60,34 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
       <funcprototype>
         <funcdef>int <function>sd_bus_open_user</function></funcdef>
-        <paramdef>sd_bus** <parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_open_system</function></funcdef>
-        <paramdef>sd_bus** <parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_open_system_remote</function></funcdef>
         <paramdef>const char *<parameter>host</parameter></paramdef>
-        <paramdef>sd_bus** <parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_open_system_container</function></funcdef>
         <paramdef>const char *<parameter>machine</parameter></paramdef>
-        <paramdef>sd_bus** <parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_default_user</function></funcdef>
-        <paramdef>sd_bus** <parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_default_system</function></funcdef>
-        <paramdef>sd_bus** <parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>

@@ -54,13 +54,13 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
 
       <funcprototype>
-        <funcdef>char* <function>sd_bus_label_escape</function></funcdef>
-        <paramdef>const char* <parameter>s</parameter></paramdef>
+        <funcdef>char *<function>sd_bus_label_escape</function></funcdef>
+        <paramdef>const char *<parameter>s</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
-        <funcdef>char* <function>sd_bus_label_unescape</function></funcdef>
-        <paramdef>const char* <parameter>f</parameter></paramdef>
+        <funcdef>char *<function>sd_bus_label_unescape</function></funcdef>
+        <paramdef>const char *<parameter>f</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>

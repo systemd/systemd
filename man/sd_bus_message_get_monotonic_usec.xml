@@ -55,20 +55,20 @@
 
                         <funcprototype>
                                 <funcdef>int <function>sd_bus_message_get_monotonic_usec</function></funcdef>
-                                <paramdef>sd_bus_message* <parameter>message</parameter></paramdef>
-                                <paramdef>uint64_t* <parameter>usec</parameter></paramdef>
+                                <paramdef>sd_bus_message *<parameter>message</parameter></paramdef>
+                                <paramdef>uint64_t *<parameter>usec</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_bus_message_get_realtime_usec</function></funcdef>
-                                <paramdef>sd_bus_message* <parameter>message</parameter></paramdef>
-                                <paramdef>uint64_t* <parameter>usec</parameter></paramdef>
+                                <paramdef>sd_bus_message *<parameter>message</parameter></paramdef>
+                                <paramdef>uint64_t *<parameter>usec</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_bus_message_get_seqnum</function></funcdef>
-                                <paramdef>sd_bus_message* <parameter>message</parameter></paramdef>
-                                <paramdef>uint64_t* <parameter>seqnum</parameter></paramdef>
+                                <paramdef>sd_bus_message *<parameter>message</parameter></paramdef>
+                                <paramdef>uint64_t *<parameter>seqnum</parameter></paramdef>
                         </funcprototype>
                 </funcsynopsis>
         </refsynopsisdiv>
