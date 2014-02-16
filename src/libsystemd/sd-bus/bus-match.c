@@ -814,7 +814,7 @@ int bus_match_parse(
 
                 value = NULL;
 
-                if (q[1] == 0)
+                if (q[quoted] == 0)
                         break;
 
                 if (q[quoted] != ',') {
