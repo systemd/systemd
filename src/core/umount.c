@@ -170,7 +170,7 @@ static int swap_list_get(MountPoint **head) {
                         continue;
                 }
 
-                if (endswith(dev, "(deleted)")) {
+                if (endswith(dev, " (deleted)")) {
                         free(dev);
                         continue;
                 }
