@@ -55,7 +55,7 @@
         </refnamediv>
 
         <refsynopsisdiv>
-                <para><filename>/etc/localtime</filename> -> <filename>../usr/share/zoneinfo/…</filename></para>
+                <para><filename>/etc/localtime</filename> -&gt; <filename>../usr/share/zoneinfo/…</filename></para>
         </refsynopsisdiv>
 
         <refsect1>

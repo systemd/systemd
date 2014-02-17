@@ -297,7 +297,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <parameter>format</parameter> and the arguments.</para>
 
     <para><function>sd_bus_error_get_errno</function> is will convert
-    <structname>e->name</structname> to an errno-like value using the
+    <structname>e-&gt;name</structname> to an errno-like value using the
     same rules as <function>sd_bus_error_set</function>.  If
     <parameter>e</parameter> is <constant>NULL</constant>, 0 will be
     returned.</para>
@@ -343,7 +343,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <para><function>sd_bus_error_get_errno</function> returns
     <constant>false</constant> when <parameter>e</parameter> is
     <constant>NULL</constant>, and a positive errno value mapped from
-    <parameter>e->name</parameter> otherwise.</para>
+    <parameter>e-&gt;name</parameter> otherwise.</para>
 
     <para><function>sd_bus_error_copy</function> returns 0 or a
     positive integer on success, and one of the negative error values
@@ -351,12 +351,12 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
     <para><function>sd_bus_error_is_set</function> returns
     <constant>true</constant> when <parameter>e</parameter> and
-    <parameter>e->name</parameter> are non-<constant>NULL</constant>,
+    <parameter>e-&gt;name</parameter> are non-<constant>NULL</constant>,
     <constant>false</constant> otherwise.</para>
 
     <para><function>sd_bus_error_has_name</function> returns
     <constant>true</constant> when <parameter>e</parameter> is
-    non-<constant>NULL</constant> and <parameter>e->name</parameter>
+    non-<constant>NULL</constant> and <parameter>e-&gt;name</parameter>
     is equal to <parameter>name</parameter>,
     <constant>false</constant> otherwise.</para>
   </refsect1>
