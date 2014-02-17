@@ -1572,18 +1572,8 @@ int exec_spawn(ExecCommand *command,
 
 #ifdef HAVE_SELINUX
                         if (context->selinux_context && use_selinux()) {
-                                bool ignore;
-                                char* c;
-
-                                c = context->selinux_context;
-                                if (c[0] == '-') {
-                                        c++;
-                                        ignore = true;
-                                } else
-                                        ignore = false;
-
-                                err = setexeccon(c);
-                                if (err < 0 && !ignore) {
+                                err = setexeccon(context->selinux_context);
+                                if (err < 0 && !context->selinux_context_ignore) {
                                         r = EXIT_SELINUX_CONTEXT;
                                         goto fail_child;
                                 }
@@ -2127,8 +2117,8 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
 
         if (c->selinux_context)
                 fprintf(f,
-                        "%sSELinuxContext: %s\n",
-                        prefix, c->selinux_context);
+                        "%sSELinuxContext: %s%s\n",
+                        prefix, c->selinux_context_ignore ? "-" : "", c->selinux_context);
 
         if (c->syscall_filter) {
 #ifdef HAVE_SECCOMP

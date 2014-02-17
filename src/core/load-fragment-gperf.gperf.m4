@@ -83,7 +83,7 @@ $1.TCPWrapName,                  config_parse_unit_string_printf,    0,         
 $1.PAMName,                      config_parse_unit_string_printf,    0,                             offsetof($1, exec_context.pam_name)
 $1.IgnoreSIGPIPE,                config_parse_bool,                  0,                             offsetof($1, exec_context.ignore_sigpipe)
 $1.UtmpIdentifier,               config_parse_unit_string_printf,    0,                             offsetof($1, exec_context.utmp_id)
-$1.SELinuxContext,               config_parse_unit_string_printf,    0,                             offsetof($1, exec_context.selinux_context)'
+$1.SELinuxContext,               config_parse_exec_selinux_context,  0,                             offsetof($1, exec_context)'
 )m4_dnl
 m4_define(`KILL_CONTEXT_CONFIG_ITEMS',
 `$1.SendSIGKILL,                 config_parse_bool,                  0,                             offsetof($1, kill_context.send_sigkill)

@@ -1143,6 +1143,55 @@ int config_parse_exec_mount_flags(const char *unit,
         return 0;
 }
 
+int config_parse_exec_selinux_context(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        ExecContext *c = data;
+        Unit *u = userdata;
+        bool ignore;
+        char *k;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                free(c->selinux_context);
+                c->selinux_context = NULL;
+                c->selinux_context_ignore = false;
+                return 0;
+        }
+
+        if (rvalue[0] == '-') {
+                ignore = true;
+                rvalue++;
+        } else
+                ignore = false;
+
+        r = unit_name_printf(u, rvalue, &k);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, -r, "Failed to resolve specifiers, ignoring: %s", strerror(-r));
+                return 0;
+        }
+
+        free(c->selinux_context);
+        c->selinux_context = k;
+        c->selinux_context_ignore = ignore;
+
+        return 0;
+}
+
 int config_parse_timer(const char *unit,
                        const char *filename,
                        unsigned line,
