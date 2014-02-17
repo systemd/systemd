@@ -105,13 +105,13 @@
                                 <varlistentry>
                                         <term><varname>Kind</varname></term>
                                         <listitem>
-                                                <para>The netdev kind. Currently, 'bridge', 'bond' and 'vlan'
+                                                <para>The netdev kind. Currently, <literal>bridge</literal>, <literal>bond</literal> and <literal>vlan</literal>
                                                 are supported. This option is compulsory.</para>
                                         </listitem>
                                 </varlistentry>
                         </variablelist>
 
-                        <para>The <literal>[VLAN]</literal> section only applies for netdevs of kind 'vlan',
+                        <para>The <literal>[VLAN]</literal> section only applies for netdevs of kind <literal>vlan</literal>,
                         and accepts the following keys:</para>
 
                         <variablelist class='network-directives'>
@@ -199,7 +199,7 @@
                                         <term><varname>Address</varname></term>
                                         <listitem>
                                                 <para>A static IPv4 or IPv6 address and its prefix length,
-                                                separated by a '/' character. The format of the address must
+                                                separated by a <literal>/</literal> character. The format of the address must
                                                 be as described in
                                                 <citerefentry><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                                                 . This is a short-hand for an [Address] section only containing an Address key (see below).</para>
