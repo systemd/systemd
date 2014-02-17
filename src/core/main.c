@@ -1911,9 +1911,9 @@ finish:
                         "--log-target",
                 };
                 unsigned pos = 5;
-                assert(command_line[pos] == NULL);
-
                 _cleanup_strv_free_ char **env_block = NULL;
+
+                assert(command_line[pos] == NULL);
                 env_block = strv_copy(environ);
 
                 snprintf(log_level, sizeof(log_level), "%d", log_get_max_level());
