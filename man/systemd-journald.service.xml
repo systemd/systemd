@@ -66,10 +66,10 @@
                 <citerefentry><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 call, from standard input and standard error of system
                 services or via its native API. It will implicitly
-                collect numerous meta data fields for each log
+                collect numerous metadata fields for each log
                 messages in a secure and unfakeable way. See
                 <citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-                for more information about the collected meta data.
+                for more information about the collected metadata.
                 </para>
 
                 <para>Log data collected by the journal is primarily

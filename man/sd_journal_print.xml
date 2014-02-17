@@ -203,7 +203,7 @@ sd_journal_send("MESSAGE=Hello World, this is PID %lu!", (unsigned long) getpid(
                 be guaranteed. Using
                 <function>sd_journal_print()</function> has the
                 benefit of logging source code line, filenames, and
-                functions as meta data along all entries, and
+                functions as metadata along all entries, and
                 guaranteeing chronological ordering with structured
                 log entries that are generated via
                 <function>sd_journal_send()</function>. Using

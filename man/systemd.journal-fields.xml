@@ -529,7 +529,7 @@
                 JSON Format</ulink>, the addresses of journal entries
                 are serialized into fields prefixed with double
                 underscores. Note that these are not proper fields when
-                stored in the journal but for addressing meta data of
+                stored in the journal but for addressing metadata of
                 entries. They cannot be written as part of structured
                 log entries via calls such as
                 <citerefentry><refentrytitle>sd_journal_send</refentrytitle><manvolnum>3</manvolnum></citerefentry>. They

@@ -179,8 +179,8 @@
 
                                 <listitem><para>Turns off any status
                                 output by the tool itself. When this
-                                switch is used, then the only output
-                                by nspawn will be the console output
+                                switch is used, the only output
+                                from nspawn will be the console output
                                 of the container OS itself.</para></listitem>
                         </varlistentry>
 
@@ -303,14 +303,14 @@
                                 <term><option>--network-veth</option></term>
 
                                 <listitem><para>Create a virtual
-                                ethernet link between host and
+                                Ethernet link between host and
                                 container. The host side of the
-                                ethernet link will be available as
+                                Ethernet link will be available as a
                                 network interface named after the
                                 container's name (as specified with
                                 <option>--machine=</option>), prefixed
                                 with <literal>ve-</literal>. The
-                                container side of the the ethernet
+                                container side of the the Ethernet
                                 link will be named
                                 <literal>host0</literal>. Note that
                                 <option>--network-veth</option>
@@ -322,7 +322,7 @@
                                 <term><option>--network-bridge=</option></term>
 
                                 <listitem><para>Adds the host side of the
-                                ethernet link created with
+                                Ethernet link created with
                                 <option>--network-veth</option>
                                 to the specified bridge. Note that
                                 <option>--network-bridge</option>
@@ -540,13 +540,13 @@
                                 container in, simply register the
                                 service or scope unit
                                 <command>systemd-nspawn</command> has
-                                been invoked in in
+                                been invoked in with
                                 <citerefentry><refentrytitle>systemd-machined</refentrytitle><manvolnum>8</manvolnum></citerefentry>. This
                                 has no effect if
                                 <option>--register=no</option> is
                                 used. This switch should be used if
                                 <command>systemd-nspawn</command> is
-                                invoked from within an a service unit,
+                                invoked from within a service unit,
                                 and the service unit's sole purpose
                                 is to run a single
                                 <command>systemd-nspawn</command>

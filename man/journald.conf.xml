@@ -269,12 +269,12 @@
                                 violated when systemd-journald is
                                 started, the value will be raised to
                                 percentage that is actually free. This
-                                means that if before there was enough
-                                free space and journal files were
+                                means that if there was enough
+                                free space before and journal files were
                                 created, and subsequently something
                                 else causes the file system to fill
                                 up, journald will stop using more
-                                space, but it'll will not removing
+                                space, but it will not be removing
                                 existing files to go reduce footprint
                                 either.</para>
 

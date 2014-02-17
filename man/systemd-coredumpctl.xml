@@ -135,7 +135,7 @@
 
                                 <listitem><para>Extract the last coredump
                                 matching specified characteristics.
-                                Coredump will be written on standard output,
+                                The coredump will be written on standard output,
                                 unless an output file is specified with
                                 <option>-o/--output</option>.
                                 </para></listitem>

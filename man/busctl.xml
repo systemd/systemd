@@ -171,7 +171,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           <term><option>--activatable</option></term>
 
           <listitem><para>When showing the list of endpoints, show
-          only endpoints which haven't actually been activated yet,
+          only endpoints which have actually not been activated yet,
           but may be started automatically if accessed.</para>
           </listitem>
       </varlistentry>

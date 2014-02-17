@@ -380,7 +380,7 @@
                                                         terse output, only
                                                         showing the actual
                                                         message of each journal
-                                                        entry with no meta data,
+                                                        entry with no metadata,
                                                         not even a timestamp.
                                                         </para>
                                                 </listitem>

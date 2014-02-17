@@ -227,7 +227,7 @@
 
                 <para>The following environment variables are read by
                 the module and may be used by the PAM service to pass
-                meta data to the module:</para>
+                metadata to the module:</para>
 
                 <variablelist class='environment-variables'>
                         <varlistentry>

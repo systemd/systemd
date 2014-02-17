@@ -231,10 +231,10 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
   <refsect1>
     <title>Description</title>
 
-    <para><structname>sd_bus_error</structname> structure carries
+    <para>The <structname>sd_bus_error</structname> structure carries
     information for a <filename>sd-bus</filename> error.
     Functions described below can be used to set and query fields in
-    this structure. Field <structfield>name</structfield> contains a
+    this structure. The <structfield>name</structfield> field contains a
     short identifier of an error. It should follow the rules for error
     names described in the D-Bus specification, subsection <ulink
     url="http://dbus.freedesktop.org/doc/dbus-specification.html#message-protocol-names">Valid
@@ -251,16 +251,16 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     and the remaining ones to <constant>-ENXIO</constant>. Well-known
     D-Bus error names are available as constants
     <constant>SD_BUS_ERROR_FAILED</constant>, etc., listed above. If
-    <parameter>name</parameter> is <constant>NULL</constant>, it is is
+    <parameter>name</parameter> is <constant>NULL</constant>, it is
     assumed that no error occured, and 0 is returned. This means that
     this function may be conveniently used in a
     <function>return</function> statement.</para>
 
     <para>If <parameter>e</parameter> is not
     <constant>NULL</constant>, <structfield>name</structfield> and
-    <structfield>message</structfield> will be filled-in in the
+    <structfield>message</structfield> in the
     <structname>sd_bus_error</structname> structure
-    <parameter>e</parameter> points at. As described above,
+    <parameter>e</parameter> points at will be filled in. As described above,
     <parameter>name</parameter> may be <constant>NULL</constant>,
     which is treated as no error. Parameter
     <parameter>message</parameter> may also be
@@ -307,7 +307,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <parameter>e</parameter>. If the strings in
     <parameter>e</parameter> were set using
     <function>sd_bus_set_error_const</function>, they will be shared.
-    Otherwie, they wil be copied.</para>
+    Otherwise, they will be copied.</para>
 
     <para><function>sd_bus_error_is_set</function> will return
     <constant>true</constant> if <parameter>e</parameter> is

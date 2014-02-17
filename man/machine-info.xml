@@ -55,7 +55,7 @@
                 <title>Description</title>
 
                 <para>The <filename>/etc/machine-info</filename> file
-                contains machine meta data.</para>
+                contains machine metadata.</para>
 
                 <para>The basic file format of
                 <filename>machine-info</filename> is a
@@ -68,7 +68,7 @@
                 execution engine.</para>
 
                 <para><filename>/etc/machine-info</filename> contains
-                meta data about the machine that is set by the user or
+                metadata about the machine that is set by the user or
                 administrator.</para>
 
                 <para>Depending on the operating system other
@@ -84,7 +84,7 @@
         <refsect1>
                 <title>Options</title>
 
-                <para>The following machine meta data parameters may
+                <para>The following machine metadata parameters may
                 be set using
                 <filename>/etc/machine-info</filename>:</para>
 

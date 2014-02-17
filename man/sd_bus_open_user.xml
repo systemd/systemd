@@ -100,7 +100,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <function>sd_bus_open_system()</function> does the same, but
     connects to the system bus.</para>
 
-    <para>If <varname>$DBUS_SESSION_BUS_ADDRESS</varname> environment
+    <para>If the <varname>$DBUS_SESSION_BUS_ADDRESS</varname> environment
     variable is set
     (c.f. <citerefentry><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry>),
     it will be used as the address of the user bus. This variable can
@@ -108,7 +108,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     this variable is not set, a suitable default for the default user
     D-Bus instance will be used.</para>
 
-    <para>If <varname>$DBUS_SYSTEM_BUS_ADDRESS</varname> environment
+    <para>If the <varname>$DBUS_SYSTEM_BUS_ADDRESS</varname> environment
     variable is set, it will be used as the address of the system
     bus. This variable uses the same syntax as
     <varname>$DBUS_SESSION_BUS_ADDRESS</varname>/. If this variable is
@@ -158,7 +158,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <citerefentry><refentrytitle>sd_bus_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     </para>
 
-    <para>Functions <function>sd_bus_default_user()</function> and
+    <para>The functions <function>sd_bus_default_user()</function> and
     <function>sd_bus_default_system()</function> do not create a new
     reference.</para>
   </refsect1>

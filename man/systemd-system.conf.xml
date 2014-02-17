@@ -99,7 +99,7 @@
                                 <listitem><para>Configures the initial
                                 CPU affinity for the init
                                 process. Takes a space-separated list
-                                of CPU indexes.</para></listitem>
+                                of CPU indices.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -216,7 +216,7 @@
 
                                 <listitem><para>Takes a
                                 space-separated list of architecture
-                                identifiers. Selects of which
+                                identifiers. Selects from which
                                 architectures system calls may be
                                 invoked on this system. This may be
                                 used as an effective way to disable

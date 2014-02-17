@@ -90,9 +90,9 @@
                 <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 for more information about .service files). The name
                 of the .service unit is by default the same as the
-                name of the .socket unit, but can be altered with
+                name of the .socket unit, but can be altered with the
                 <option>Service=</option> option described below.
-                Depending on the setting of <option>Accept=</option>
+                Depending on the setting of the <option>Accept=</option>
                 option described below, this .service unit must either
                 be named like the .socket unit, but with the suffix
                 replaced, unless overridden with
@@ -135,7 +135,7 @@
                 <para>Socket units may be used to implement on-demand
                 starting of services, as well as parallelized starting
                 of services. See the blog stories linked at the end
-                for introduction.</para>
+                for an introduction.</para>
 
                 <para>Note that the daemon software configured for
                 socket activation with socket units needs to be able

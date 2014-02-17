@@ -1444,7 +1444,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
       <literal>[]</literal> may be used. See
       <citerefentry><refentrytitle>glob</refentrytitle><manvolnum>7</manvolnum></citerefentry>
       for more details. The patterns are matched against the names of
-      currently loaded units, and patterns which don't match anything
+      currently loaded units, and patterns which do not match anything
       are silently skipped. For example:
       <programlisting># systemctl stop sshd@*.service</programlisting>
       will stop all <filename>sshd@.service</filename> instances.
