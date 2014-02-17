@@ -1368,25 +1368,10 @@ static int service_load_pid_file(Service *s, bool may_warn) {
                 return r;
         }
 
-        if (kill(pid, 0) < 0 && errno != EPERM) {
+        if (!pid_is_alive(pid)) {
                 if (may_warn)
-                        log_info_unit(UNIT(s)->id,
-                                      "PID "PID_FMT" read from file %s does not exist.",
-                                      pid, s->pid_file);
-                return -ESRCH;
-        }
+                        log_info_unit(UNIT(s)->id, "PID "PID_FMT" read from file %s does not exist or is a zombie.", pid, s->pid_file);
 
-        r = get_process_state(pid);
-        if (r < 0) {
-                if (may_warn)
-                        log_info_unit(UNIT(s)->id, "Failed to read /proc/%d/stat: %s",
-                                      pid, strerror(-r));
-                return r;
-        } else if (r == 'Z') {
-                if (may_warn)
-                        log_info_unit(UNIT(s)->id,
-                                      "PID "PID_FMT" read from file %s is a zombie.",
-                                      pid, s->pid_file);
                 return -ESRCH;
         }
 
@@ -1579,7 +1564,7 @@ static int service_coldplug(Unit *u) {
                                 return r;
                 }
 
-                if (pid_valid(s->main_pid) &&
+                if (pid_is_unwaited(s->main_pid) &&
                     ((s->deserialized_state == SERVICE_START && IN_SET(s->type, SERVICE_FORKING, SERVICE_DBUS, SERVICE_ONESHOT, SERVICE_NOTIFY)) ||
                      IN_SET(s->deserialized_state,
                             SERVICE_START, SERVICE_START_POST,
@@ -1592,7 +1577,7 @@ static int service_coldplug(Unit *u) {
                                 return r;
                 }
 
-                if (pid_valid(s->control_pid) &&
+                if (pid_is_unwaited(s->control_pid) &&
                     IN_SET(s->deserialized_state,
                            SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST,
                            SERVICE_RELOAD,
@@ -1824,7 +1809,7 @@ static int main_pid_good(Service *s) {
                 /* If it's an alien child let's check if it is still
                  * alive ... */
                 if (s->main_pid_alien && s->main_pid > 0)
-                        return kill(s->main_pid, 0) >= 0 || errno != ESRCH;
+                        return pid_is_alive(s->main_pid);
 
                 /* .. otherwise assume we'll get a SIGCHLD for it,
                  * which we really should wait for to collect exit

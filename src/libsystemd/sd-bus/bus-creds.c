@@ -148,7 +148,7 @@ _public_ int sd_bus_creds_new_from_pid(pid_t pid, uint64_t mask, sd_bus_creds **
 
         /* Check if the process existed at all, in case we haven't
          * figured that out already */
-        if (kill(pid, 0) < 0 && errno == ESRCH) {
+        if (!pid_is_alive(pid)) {
                 sd_bus_creds_unref(c);
                 return -ESRCH;
         }

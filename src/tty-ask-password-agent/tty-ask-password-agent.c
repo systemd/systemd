@@ -294,9 +294,7 @@ static int parse_password(const char *filename, char **wall) {
                 }
         }
 
-        if (pid > 0 &&
-            kill(pid, 0) < 0 &&
-            errno == ESRCH) {
+        if (pid > 0 && !pid_is_alive(pid)) {
                 r = 0;
                 goto finish;
         }

@@ -1833,7 +1833,7 @@ void unit_tidy_watch_pids(Unit *u, pid_t except1, pid_t except2) {
                 if (pid == except1 || pid == except2)
                         continue;
 
-                if (kill(pid, 0) < 0 && errno == ESRCH)
+                if (!pid_is_unwaited(pid))
                         set_remove(u->pids, e);
         }
 }

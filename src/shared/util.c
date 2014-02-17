@@ -6045,7 +6045,9 @@ int namespace_enter(int pidns_fd, int mntns_fd, int root_fd) {
         return 0;
 }
 
-bool pid_valid(pid_t pid) {
+bool pid_is_unwaited(pid_t pid) {
+        /* Checks whether a PID is still valid at all, including a zombie */
+
         if (pid <= 0)
                 return false;
 
@@ -6053,6 +6055,21 @@ bool pid_valid(pid_t pid) {
                 return true;
 
         return errno != ESRCH;
+}
+
+bool pid_is_alive(pid_t pid) {
+        int r;
+
+        /* Checks whether a PID is still valid and not a zombie */
+
+        if (pid <= 0)
+                return false;
+
+        r = get_process_state(pid);
+        if (r == -ENOENT || r == 'Z')
+                return false;
+
+        return true;
 }
 
 int getpeercred(int fd, struct ucred *ucred) {
