@@ -626,10 +626,12 @@ static void dhcp_handler(sd_dhcp_client *client, int event, void *userdata) {
                                 return;
                         }
 
-                        r = dhcp_lease_lost(link);
-                        if (r < 0) {
-                                link_enter_failed(link);
-                                return;
+                        if (link->dhcp_lease) {
+                                r = dhcp_lease_lost(link);
+                                if (r < 0) {
+                                        link_enter_failed(link);
+                                        return;
+                                }
                         }
 
                         if (event == DHCP_EVENT_IP_CHANGE) {
