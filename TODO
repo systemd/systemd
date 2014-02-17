@@ -29,8 +29,6 @@ Preparation for 209:
 
 * Review new libraries
 
-* Rework cgroup propagation logic
-
 * libsystemd-journal returns the object created as first param in sd_journal_new(), sd_bus_new() and suchlike as last...
 
 Features:
