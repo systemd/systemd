@@ -61,7 +61,7 @@
 #include "seccomp-util.h"
 #endif
 
-#if !defined(HAVE_SYSV_COMPAT) || !defined(HAVE_SECCOMP)
+#if !defined(HAVE_SYSV_COMPAT) || !defined(HAVE_SECCOMP) || !defined(HAVE_LIBWRAP) || !defined(HAVE_PAM) || !defined(HAVE_SELINUX) || !defined(HAVE_SMACK)
 int config_parse_warn_compat(
                 const char *unit,
                 const char *filename,
@@ -2880,7 +2880,7 @@ void unit_dump_config_items(FILE *f) {
                 const ConfigParserCallback callback;
                 const char *rvalue;
         } table[] = {
-#if !defined(HAVE_SYSV_COMPAT) || !defined(HAVE_SECCOMP)
+#if !defined(HAVE_SYSV_COMPAT) || !defined(HAVE_SECCOMP) || !defined(HAVE_LIBWRAP) || !defined(HAVE_PAM) || !defined(HAVE_SELINUX) || !defined(HAVE_SMACK)
                 { config_parse_warn_compat,           "NOTSUPPORTED" },
 #endif
                 { config_parse_int,                   "INTEGER" },
@@ -2943,6 +2943,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_environ,               "ENVIRON" },
 #ifdef HAVE_SECCOMP
                 { config_parse_syscall_filter,        "SYSCALLS" },
+                { config_parse_syscall_archs,         "ARCHS" },
                 { config_parse_syscall_errno,         "ERRNO" },
 #endif
                 { config_parse_cpu_shares,            "SHARES" },
@@ -2954,6 +2955,11 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_blockio_device_weight, "DEVICEWEIGHT" },
                 { config_parse_long,                  "LONG" },
                 { config_parse_socket_service,        "SERVICE" },
+#ifdef HAVE_SELINUX
+                { config_parse_exec_selinux_context,  "LABEL" },
+#endif
+                { config_parse_job_mode,              "MODE" },
+                { config_parse_job_mode_isolate,      "BOOLEAN" },
         };
 
         const char *prev = NULL;

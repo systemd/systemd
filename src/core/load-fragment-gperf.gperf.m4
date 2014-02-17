@@ -55,7 +55,8 @@ $1.SystemCallArchitectures,      config_parse_syscall_archs,         0,         
 $1.SystemCallErrorNumber,        config_parse_syscall_errno,         0,                             offsetof($1, exec_context)',
 `$1.SystemCallFilter,            config_parse_warn_compat,           0,                             0
 $1.SystemCallArchitectures,      config_parse_warn_compat,           0,                             0
-$1.SystemCallErrorNumber,        config_parse_warn_compat,           0,                             0')
+$1.SystemCallErrorNumber,        config_parse_warn_compat,           0,                             0'
+)
 $1.LimitCPU,                     config_parse_limit,                 RLIMIT_CPU,                    offsetof($1, exec_context.rlimit)
 $1.LimitFSIZE,                   config_parse_limit,                 RLIMIT_FSIZE,                  offsetof($1, exec_context.rlimit)
 $1.LimitDATA,                    config_parse_limit,                 RLIMIT_DATA,                   offsetof($1, exec_context.rlimit)
@@ -79,11 +80,20 @@ $1.PrivateTmp,                   config_parse_bool,                  0,         
 $1.PrivateNetwork,               config_parse_bool,                  0,                             offsetof($1, exec_context.private_network)
 $1.PrivateDevices,               config_parse_bool,                  0,                             offsetof($1, exec_context.private_devices)
 $1.MountFlags,                   config_parse_exec_mount_flags,      0,                             offsetof($1, exec_context)
-$1.TCPWrapName,                  config_parse_unit_string_printf,    0,                             offsetof($1, exec_context.tcpwrap_name)
-$1.PAMName,                      config_parse_unit_string_printf,    0,                             offsetof($1, exec_context.pam_name)
+m4_ifdef(`HAVE_LIBWRAP',
+`$1.TCPWrapName,                 config_parse_unit_string_printf,    0,                             offsetof($1, exec_context.tcpwrap_name)',
+`$1.TCPWrapName,                 config_parse_warn_compat,           0,                             0'
+)
+m4_ifdef(`HAVE_PAM',
+`$1.PAMName,                     config_parse_unit_string_printf,    0,                             offsetof($1, exec_context.pam_name)',
+`$1.PAMName,                     config_parse_warn_compat,           0,                             0'
+)
 $1.IgnoreSIGPIPE,                config_parse_bool,                  0,                             offsetof($1, exec_context.ignore_sigpipe)
 $1.UtmpIdentifier,               config_parse_unit_string_printf,    0,                             offsetof($1, exec_context.utmp_id)
-$1.SELinuxContext,               config_parse_exec_selinux_context,  0,                             offsetof($1, exec_context)'
+m4_ifdef(`HAVE_SELINUX',
+`$1.SELinuxContext,              config_parse_exec_selinux_context,  0,                             offsetof($1, exec_context)',
+`$1.SELinuxContext,              config_parse_warn_compat,           0,                             0'
+)'
 )m4_dnl
 m4_define(`KILL_CONTEXT_CONFIG_ITEMS',
 `$1.SendSIGKILL,                 config_parse_bool,                  0,                             offsetof($1, kill_context.send_sigkill)
@@ -178,7 +188,8 @@ Service.RestartPreventExitStatus, config_parse_set_status,           0,         
 Service.SuccessExitStatus,       config_parse_set_status,            0,                             offsetof(Service, success_status)
 m4_ifdef(`HAVE_SYSV_COMPAT',
 `Service.SysVStartPriority,      config_parse_sysv_priority,         0,                             offsetof(Service, sysv_start_priority)',
-`Service.SysVStartPriority,      config_parse_warn_compat,           0,                             0')
+`Service.SysVStartPriority,      config_parse_warn_compat,           0,                             0'
+)
 Service.NonBlocking,             config_parse_bool,                  0,                             offsetof(Service, exec_context.non_blocking)
 Service.BusName,                 config_parse_unit_string_printf,    0,                             offsetof(Service, bus_name)
 Service.NotifyAccess,            config_parse_notify_access,         0,                             offsetof(Service, notify_access)
@@ -224,9 +235,14 @@ Socket.ReusePort,                config_parse_bool,                  0,         
 Socket.MessageQueueMaxMessages,  config_parse_long,                  0,                             offsetof(Socket, mq_maxmsg)
 Socket.MessageQueueMessageSize,  config_parse_long,                  0,                             offsetof(Socket, mq_msgsize)
 Socket.Service,                  config_parse_socket_service,        0,                             0
-Socket.SmackLabel,               config_parse_string,                0,                             offsetof(Socket, smack)
+m4_ifdef(`HAVE_SMACK',
+`Socket.SmackLabel,              config_parse_string,                0,                             offsetof(Socket, smack)
 Socket.SmackLabelIPIn,           config_parse_string,                0,                             offsetof(Socket, smack_ip_in)
-Socket.SmackLabelIPOut,          config_parse_string,                0,                             offsetof(Socket, smack_ip_out)
+Socket.SmackLabelIPOut,          config_parse_string,                0,                             offsetof(Socket, smack_ip_out)',
+`Socket.SmackLabel,              config_parse_warn_compat,           0,                             0
+Socket.SmackLabelIPIn,           config_parse_warn_compat,           0,                             0
+Socket.SmackLabelIPOut,          config_parse_warn_compat,           0,                             0'
+)
 EXEC_CONTEXT_CONFIG_ITEMS(Socket)m4_dnl
 CGROUP_CONTEXT_CONFIG_ITEMS(Socket)m4_dnl
 KILL_CONTEXT_CONFIG_ITEMS(Socket)m4_dnl

@@ -375,7 +375,10 @@ have_selinux=no
 AC_ARG_ENABLE(selinux, AS_HELP_STRING([--disable-selinux], [Disable optional SELINUX support]))
 if test "x$enable_selinux" != "xno"; then
         PKG_CHECK_MODULES([SELINUX], [libselinux >= 2.1.9],
-                [AC_DEFINE(HAVE_SELINUX, 1, [Define if SELinux is available]) have_selinux=yes], have_selinux=no)
+                [AC_DEFINE(HAVE_SELINUX, 1, [Define if SELinux is available])
+                 have_selinux=yes
+                 M4_DEFINES="$M4_DEFINES -DHAVE_SELINUX"],
+                [have_selinux=no])
         if test "x$have_selinux" = xno -a "x$enable_selinux" = xyes; then
                 AC_MSG_ERROR([*** SELinux support requested but libraries not found])
         fi
@@ -428,6 +431,7 @@ if test "x${have_tcpwrap}" != xno ; then
                 fi
                 have_tcpwrap=no
         else
+                M4_DEFINES="$M4_DEFINES -DHAVE_LIBWRAP"
                 have_tcpwrap=yes
         fi
 else
@@ -464,6 +468,7 @@ if test "x${have_pam}" != xno ; then
         if test "x$have_pam" = xyes ; then
                 PAM_LIBS="-lpam -lpam_misc"
                 AC_DEFINE(HAVE_PAM, 1, [PAM available])
+                M4_DEFINES="$M4_DEFINES -DHAVE_PAM"
         else
                 have_pam=no
         fi
@@ -566,6 +571,7 @@ if test "x${have_xattr}" = xno; then
         fi
 else
         if test "x${have_smack}" = xauto; then
+                M4_DEFINES="$M4_DEFINES -DHAVE_SMACK"
                 have_smack=yes
         fi
 fi
