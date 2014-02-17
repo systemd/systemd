@@ -129,8 +129,8 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     for more information about "machines".</para>
 
     <para><function>sd_bus_default_user()</function> returns a bus
-    object connected to the user bus. This bus object is shared
-    per-thread. It is created on the first invocation of
+    object connected to the user bus. Each thread has its own object, but it
+    may be passed around. It is created on the first invocation of
     <function>sd_bus_default_user()</function>, and subsequent
     invocations returns a reference to the same object.</para>
 
