@@ -629,7 +629,7 @@ int unit_realize_cgroup(Unit *u) {
          * unit, we need to first create all parents, but there's more
          * actually: for the weight-based controllers we also need to
          * make sure that all our siblings (i.e. units that are in the
-         * same slice as we are) have cgroups, too. Otherwise things
+         * same slice as we are) have cgroups, too. Otherwise, things
          * would become very uneven as each of their processes would
          * get as much resources as all our group together. This call
          * will synchronously create the parent cgroups, but will

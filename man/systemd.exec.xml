@@ -1033,7 +1033,7 @@
 
                                 <para>If you specify both types of
                                 this option (i.e. whitelisting and
-                                blacklisting) the first encountered
+                                blacklisting), the first encountered
                                 will take precedence and will dictate
                                 the default action (termination or
                                 approval of a system call). Then the
@@ -1044,7 +1044,7 @@
                                 default action (e.g. You have started
                                 with a whitelisting of
                                 <function>read</function> and
-                                <function>write</function> and right
+                                <function>write</function>, and right
                                 after it add a blacklisting of
                                 <function>write</function>, then
                                 <function>write</function> will be
@@ -1075,7 +1075,7 @@
                                 <literal>EACCES</literal> or
                                 <literal>EUCLEAN</literal>. When this
                                 setting is not used, or when the empty
-                                string is assigned the process will be
+                                string is assigned, the process will be
                                 terminated immediately when the filter
                                 is triggered.</para></listitem>
                         </varlistentry>
@@ -1099,8 +1099,8 @@
                                 unit. This is an effective way to
                                 disable compatibility with non-native
                                 architectures for processes, for
-                                example to prohibit execution of 32bit
-                                x86 binaries on 64bit x86-64
+                                example to prohibit execution of 32-bit
+                                x86 binaries on 64-bit x86-64
                                 systems. The special
                                 <literal>native</literal> identifier
                                 implicitly maps to the native
@@ -1110,7 +1110,7 @@
                                 that setting this option to a
                                 non-empty list implies that
                                 <literal>native</literal> is included
-                                too. By default this option is set to
+                                too. By default, this option is set to
                                 the empty list, i.e. no architecture
                                 system call filtering is applied. Note
                                 that configuring a system call filter

@@ -464,7 +464,7 @@ static int compare_entry_order(JournalFile *af, Object *_ao,
 
         if (sd_id128_equal(ao->entry.boot_id, bo->entry.boot_id)) {
 
-                /* If the boot id matches compare monotonic time */
+                /* If the boot id matches, compare monotonic time */
                 a = le64toh(ao->entry.monotonic);
                 b = le64toh(bo->entry.monotonic);
 
@@ -474,7 +474,7 @@ static int compare_entry_order(JournalFile *af, Object *_ao,
                         return 1;
         }
 
-        /* Otherwise compare UTC time */
+        /* Otherwise, compare UTC time */
         a = le64toh(ao->entry.realtime);
         b = le64toh(bo->entry.realtime);
 

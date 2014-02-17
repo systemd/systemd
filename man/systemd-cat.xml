@@ -189,7 +189,7 @@
                 <para>Even though the two examples have very similar
                 effects the first is preferable since only one process
                 is running at a time, and both stdout and stderr are
-                captured while in the second example only stdout is
+                captured while in the second example, only stdout is
                 captured.</para>
         </refsect1>
 

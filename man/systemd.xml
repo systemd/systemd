@@ -393,7 +393,7 @@
                 and ordering dependencies are placed between two
                 units. Also note that the majority of dependencies are
                 implicitly created and maintained by systemd. In most
-                cases it should be unnecessary to declare additional
+                cases, it should be unnecessary to declare additional
                 dependencies manually, however it is possible to do
                 this.</para>
 

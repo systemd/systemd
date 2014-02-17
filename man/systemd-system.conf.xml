@@ -222,15 +222,15 @@
                                 used as an effective way to disable
                                 invocation of non-native binaries
                                 system-wide, for example to prohibit
-                                execution of 32bit x86 binaries on
-                                64bit x86-64 systems. This option
-                                operates system wide, and acts
+                                execution of 32-bit x86 binaries on
+                                64-bit x86-64 systems. This option
+                                operates system-wide, and acts
                                 similar to the
                                 <varname>SystemCallArchitectures=</varname>
                                 setting of unit files, see
                                 <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                                 for details. This setting defaults to
-                                the empty list in which case no
+                                the empty list, in which case no
                                 filtering of system calls based on
                                 architecture is applied. Known
                                 architecture identifiers are
@@ -249,7 +249,7 @@
                                 execution of any non-native
                                 binaries. When a binary executes a
                                 system call of an architecture that is
-                                not listed in this setting it will be
+                                not listed in this setting, it will be
                                 immediately terminated with the SIGSYS
                                 signal.</para></listitem>
                         </varlistentry>
@@ -285,7 +285,7 @@
                                 <term><varname>DefaultRestartSec=</varname></term>
 
                                 <listitem><para>Configures the default
-                                time-outs for starting and stopping of
+                                timeouts for starting and stopping of
                                 units, as well as the default time to
                                 sleep between automatic restarts of
                                 units, as configured per-unit in

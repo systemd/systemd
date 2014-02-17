@@ -727,7 +727,7 @@ static int add_matches(sd_journal *j, char **args) {
                                         t = strappend("_COMM=", comm);
 
                                         /* Append _EXE only if the interpreter is not a link.
-                                           Otherwise it might be outdated often. */
+                                           Otherwise, it might be outdated often. */
                                         if (lstat(interpreter, &st) == 0 &&
                                             !S_ISLNK(st.st_mode)) {
                                                 t2 = strappend("_EXE=", interpreter);

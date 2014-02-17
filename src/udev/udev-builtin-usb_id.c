@@ -219,9 +219,9 @@ static int dev_if_packed_info(struct udev_device *dev, char *ifs_str, size_t len
  * A unique USB identification is generated like this:
  *
  * 1.) Get the USB device type from InterfaceClass and InterfaceSubClass
- * 2.) If the device type is 'Mass-Storage/SPC-2' or 'Mass-Storage/RBC'
+ * 2.) If the device type is 'Mass-Storage/SPC-2' or 'Mass-Storage/RBC',
  *     use the SCSI vendor and model as USB-Vendor and USB-model.
- * 3.) Otherwise use the USB manufacturer and product as
+ * 3.) Otherwise, use the USB manufacturer and product as
  *     USB-Vendor and USB-model. Any non-printable characters
  *     in those strings will be skipped; a slash '/' will be converted
  *     into a full stop '.'.

@@ -299,8 +299,8 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
                         continue;
                 }
 
-                /* Otherwise let's send a vector to the actual data,
-                 * for that we need to map it first. */
+                /* Otherwise, let's send a vector to the actual data.
+                 * For that, we need to map it first. */
                 r = bus_body_part_map(part);
                 if (r < 0)
                         goto fail;

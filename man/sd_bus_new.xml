@@ -75,7 +75,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <title>Description</title>
 
     <para><function>sd_bus_new()</function> creates a new bus
-    object. This object is reference counted, and will be destroyed
+    object. This object is reference-counted, and will be destroyed
     when all references are gone. Initially, the caller of this
     function owns the sole reference.</para>
 

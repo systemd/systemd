@@ -93,10 +93,10 @@
         <term><option>--resolve-names=</option></term>
         <listitem>
           <para>Specify when systemd-udevd should resolve names of users and groups.
-          When set to <option>early</option> (the default) names will be
+          When set to <option>early</option> (the default), names will be
           resolved when the rules are parsed.  When set to
-          <option>late</option> names will be resolved for every event.
-          When set to <option>never</option> names will never be resolved
+          <option>late</option>, names will be resolved for every event.
+          When set to <option>never</option>, names will never be resolved
           and all devices will be owned by root.</para>
         </listitem>
       </varlistentry>

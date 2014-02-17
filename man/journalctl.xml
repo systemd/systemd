@@ -521,16 +521,16 @@
                                 unit names found in the journal is
                                 compared with the specified pattern
                                 and all that match are used. For each
-                                unit name a match is added for
+                                unit name, a match is added for
                                 messages from the unit
-                                (<literal>_SYSTEMD_UNIT=<replaceable>UNIT</replaceable></literal>)
+                                (<literal>_SYSTEMD_UNIT=<replaceable>UNIT</replaceable></literal>),
                                 along with additional matches for
                                 messages from systemd and messages
                                 about coredumps for the specified
                                 unit.</para>
 
                                 <para>This parameter can be specified
-                                multiple times. </para></listitem>
+                                multiple times.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

@@ -272,7 +272,7 @@
                                 <option>--network-interface=</option>
                                 and configured with
                                 <option>--network-veth</option>. If
-                                this option is specified the
+                                this option is specified, the
                                 CAP_NET_ADMIN capability will be added
                                 to the set of capabilities the
                                 container retains. The latter may be
@@ -289,7 +289,7 @@
                                 specified interface from the calling
                                 namespace and place it in the
                                 container. When the container
-                                terminates it is moved back to the
+                                terminates, it is moved back to the
                                 host namespace. Note that
                                 <option>--network-interface=</option>
                                 implies
@@ -378,7 +378,7 @@
                                 is retained if
                                 <option>--private-network</option> is
                                 specified. If the special value
-                                <literal>all</literal> is passed all
+                                <literal>all</literal> is passed, all
                                 capabilities are
                                 retained.</para></listitem>
                         </varlistentry>
@@ -524,7 +524,7 @@
                                 and shown by tools such as
                                 <citerefentry><refentrytitle>ps</refentrytitle><manvolnum>1</manvolnum></citerefentry>. If
                                 the container does not run an init
-                                system it is recommended to set this
+                                system, it is recommended to set this
                                 option to <literal>no</literal>. Note
                                 that <option>--share-system</option>
                                 implies

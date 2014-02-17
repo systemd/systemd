@@ -285,7 +285,7 @@ int main(int argc, char *argv[]) {
          * their probing at boot-time might happen in any order. This
          * means the validity checking of the device then is not
          * reliable, since it might not see other devices conflicting
-         * with a specific backlight. To deal with this we will
+         * with a specific backlight. To deal with this, we will
          * actively delete backlight state files at shutdown (where
          * device probing should be complete), so that the validity
          * check at boot time doesn't have to be reliable. */

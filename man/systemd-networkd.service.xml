@@ -118,7 +118,7 @@
                                 <varlistentry>
                                         <term><varname>Id</varname></term>
                                         <listitem>
-                                                <para>The VLAN ID to use. An integer in the range 0-4094.
+                                                <para>The VLAN ID to use. An integer in the range 0–4094.
                                                 This option is compulsory.</para>
                                         </listitem>
                                 </varlistentry>
@@ -192,7 +192,7 @@
                                 <varlistentry>
                                         <term><varname>DHCP</varname></term>
                                         <listitem>
-                                                <para>A boolean. When true enables basic DHCPv4 support.</para>
+                                                <para>A boolean. When true, enables basic DHCPv4 support.</para>
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
@@ -283,28 +283,28 @@
                                 <varlistentry>
                                         <term><varname>UseDNS</varname></term>
                                         <listitem>
-                                                <para>When true (the default) the DNS servers received from the DHCP server will
-                                                be used, and take precedence over any statically configured ones.</para>
+                                                <para>When true (the default), the DNS servers received from the DHCP server will
+                                                be used and take precedence over any statically configured ones.</para>
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
                                         <term><varname>UseMTU</varname></term>
                                         <listitem>
-                                                <para>When true the interface maximum transmission unit from the DHCP server will
+                                                <para>When true, the interface maximum transmission unit from the DHCP server will
                                                 be used on the current link. Defaults to false.</para>
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
                                         <term><varname>UseHostname</varname></term>
                                         <listitem>
-                                                <para>When true (the default) the hostname received from the DHCP server
+                                                <para>When true (the default), the hostname received from the DHCP server
                                                 will be used as the transient hostname.</para>
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
                                         <term><varname>CriticalConnection</varname></term>
                                         <listitem>
-                                                <para>When true the connection will never be torn down even if the DHCP lease
+                                                <para>When true, the connection will never be torn down even if the DHCP lease
                                                 expires. This is contrary to the DHCP specification, but may be the best choice
                                                 if, say, the root filesystem relies on this connection. Defaults to false.</para>
                                         </listitem>

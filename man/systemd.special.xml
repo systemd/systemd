@@ -820,7 +820,7 @@
                 services. These targets are generally not part of the
                 initial boot transaction, unless they are explicitly
                 pulled in by one of the implementing services. Note
-                specifically, that these <emphasis>passive</emphasis>
+                specifically that these <emphasis>passive</emphasis>
                 target units are generally not pulled in by the
                 consumer of a service, but by the provider of the
                 service. This means: a consuming service should order

@@ -1041,7 +1041,7 @@ int cg_mangle_path(const char *path, char **result) {
         assert(path);
         assert(result);
 
-        /* First check if it already is a filesystem path */
+        /* First, check if it already is a filesystem path */
         if (path_startswith(path, "/sys/fs/cgroup")) {
 
                 t = strdup(path);
@@ -1053,7 +1053,7 @@ int cg_mangle_path(const char *path, char **result) {
                 return 0;
         }
 
-        /* Otherwise treat it as cg spec */
+        /* Otherwise, treat it as cg spec */
         r = cg_split_spec(path, &c, &p);
         if (r < 0)
                 return r;

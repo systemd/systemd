@@ -214,7 +214,7 @@
                                 later. Within this time window, the
                                 expiry time will be placed at a
                                 host-specific, randomized but stable
-                                position, that is synchronized between
+                                position that is synchronized between
                                 all local timer units. This is done in
                                 order to distribute the wake-up time
                                 in networked installations, as well as

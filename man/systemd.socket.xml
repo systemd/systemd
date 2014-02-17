@@ -84,7 +84,7 @@
                 which configure resource control settings for the
                 processes of the socket.</para>
 
-                <para>For each socket file a matching service file
+                <para>For each socket file, a matching service file
                 must exist, describing the service to start on
                 incoming traffic on the socket (see
                 <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
@@ -254,7 +254,7 @@
                                 before the interface it is configured
                                 on is up and running, and even
                                 regardless of whether it will be up and
-                                running at any point. To deal with this
+                                running at any point. To deal with this,
                                 it is recommended to set the
                                 <varname>FreeBind=</varname> option
                                 described below.</para></listitem>
@@ -720,7 +720,7 @@
                                 <varname>Accept=no</varname>. It
                                 defaults to the service that bears the
                                 same name as the socket (with the
-                                suffix replaced). In most cases it
+                                suffix replaced). In most cases, it
                                 should not be necessary to use this
                                 option.</para></listitem>
                         </varlistentry>
