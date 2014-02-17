@@ -1191,6 +1191,12 @@ static int enforce_syscall_archs(Set *archs) {
                 }
         }
 
+        r = seccomp_attr_set(seccomp, SCMP_FLTATR_CTL_NNP, 0);
+        if (r < 0) {
+                log_error("Failed to unset NO_NEW_PRIVS: %s", strerror(-r));
+                goto finish;
+        }
+
         r = seccomp_load(seccomp);
         if (r < 0)
                 log_error("Failed to add install architecture seccomp: %s", strerror(-r));
