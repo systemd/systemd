@@ -448,9 +448,26 @@ void unit_update_cgroup_members_masks(Unit *u) {
         }
 }
 
+static const char *migrate_callback(CGroupControllerMask mask, void *userdata) {
+        Unit *u = userdata;
+
+        assert(mask != 0);
+        assert(u);
+
+        while (u) {
+                if (u->cgroup_path &&
+                    u->cgroup_realized &&
+                    (u->cgroup_realized_mask & mask) == mask)
+                        return u->cgroup_path;
+
+                u = UNIT_DEREF(u->slice);
+        }
+
+        return NULL;
+}
+
 static int unit_create_cgroups(Unit *u, CGroupControllerMask mask) {
-        _cleanup_free_ char *path;
-        bool was_in_hash = false;
+        _cleanup_free_ char *path = NULL;
         int r;
 
         assert(u);
@@ -460,37 +477,30 @@ static int unit_create_cgroups(Unit *u, CGroupControllerMask mask) {
                 return log_oom();
 
         r = hashmap_put(u->manager->cgroup_unit, path, u);
-        if (r == 0)
-                was_in_hash = true;
-        else if (r < 0) {
-                log_error(r == -EEXIST ?
-                          "cgroup %s exists already: %s" : "hashmap_put failed for %s: %s",
-                          path, strerror(-r));
+        if (r < 0) {
+                log_error(r == -EEXIST ? "cgroup %s exists already: %s" : "hashmap_put failed for %s: %s", path, strerror(-r));
                 return r;
         }
-
-        /* First, create our own group */
-        r = cg_create_everywhere(u->manager->cgroup_supported, mask, path);
-        if (r < 0)
-                log_error("Failed to create cgroup %s: %s", path, strerror(-r));
-
-        /* Then, possibly move things over */
-        if (u->cgroup_path) {
-                r = cg_migrate_everywhere(u->manager->cgroup_supported, u->cgroup_path, path);
-                if (r < 0)
-                        log_error("Failed to migrate cgroup from %s to %s: %s",
-                                  u->cgroup_path, path, strerror(-r));
-        }
-
-        if (!was_in_hash) {
-                /* Remember the new data */
-                free(u->cgroup_path);
+        if (r > 0) {
                 u->cgroup_path = path;
                 path = NULL;
         }
 
+        /* First, create our own group */
+        r = cg_create_everywhere(u->manager->cgroup_supported, mask, u->cgroup_path);
+        if (r < 0) {
+                log_error("Failed to create cgroup %s: %s", u->cgroup_path, strerror(-r));
+                return r;
+        }
+
+        /* Keep track that this is now realized */
         u->cgroup_realized = true;
         u->cgroup_realized_mask = mask;
+
+        /* Then, possibly move things over */
+        r = cg_migrate_everywhere(u->manager->cgroup_supported, u->cgroup_path, u->cgroup_path, migrate_callback, u);
+        if (r < 0)
+                log_warning("Failed to migrate cgroup from to %s: %s", u->cgroup_path, strerror(-r));
 
         return 0;
 }

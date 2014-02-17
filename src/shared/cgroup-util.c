@@ -1668,7 +1668,7 @@ int cg_attach_many_everywhere(CGroupControllerMask supported, const char *path, 
         return r;
 }
 
-int cg_migrate_everywhere(CGroupControllerMask supported, const char *from, const char *to) {
+int cg_migrate_everywhere(CGroupControllerMask supported, const char *from, const char *to, cg_migrate_callback_t to_callback, void *userdata) {
         CGroupControllerMask bit = 1;
         const char *n;
         int r;
@@ -1680,8 +1680,17 @@ int cg_migrate_everywhere(CGroupControllerMask supported, const char *from, cons
         }
 
         NULSTR_FOREACH(n, mask_names) {
-                if (supported & bit)
-                        cg_migrate_recursive_fallback(SYSTEMD_CGROUP_CONTROLLER, to, n, to, false, false);
+                if (supported & bit) {
+                        const char *p = NULL;
+
+                        if (to_callback)
+                                p = to_callback(bit, userdata);
+
+                        if (!p)
+                                p = to;
+
+                        cg_migrate_recursive_fallback(SYSTEMD_CGROUP_CONTROLLER, to, n, p, false, false);
+                }
 
                 bit <<= 1;
         }
