@@ -88,7 +88,7 @@ static bool arg_dump_core = true;
 static bool arg_crash_shell = false;
 static int arg_crash_chvt = -1;
 static bool arg_confirm_spawn = false;
-static ShowStatus arg_show_status = SHOW_STATUS_UNSET;
+static ShowStatus arg_show_status = _SHOW_STATUS_UNSET;
 static bool arg_switched_root = false;
 static char ***arg_join_controllers = NULL;
 static ExecOutput arg_default_std_output = EXEC_OUTPUT_JOURNAL;
@@ -408,7 +408,7 @@ static int parse_proc_cmdline_word(const char *word) {
                 }
 
         } else if (streq(word, "quiet")) {
-                if (arg_show_status == SHOW_STATUS_UNSET)
+                if (arg_show_status == _SHOW_STATUS_UNSET)
                         arg_show_status = SHOW_STATUS_AUTO;
         } else if (streq(word, "debug")) {
                 /* Log to kmsg, the journal socket will fill up before the
@@ -1209,6 +1209,24 @@ finish:
 #endif
 }
 
+static int status_welcome(void) {
+        _cleanup_free_ char *pretty_name = NULL, *ansi_color = NULL;
+        int r;
+
+        r = parse_env_file("/etc/os-release", NEWLINE,
+                           "PRETTY_NAME", &pretty_name,
+                           "ANSI_COLOR", &ansi_color,
+                           NULL);
+
+        if (r < 0 && r != -ENOENT)
+                log_warning("Failed to read /etc/os-release: %s", strerror(-r));
+
+        return status_printf(NULL, false, false,
+                             "\nWelcome to \x1B[%sm%s\x1B[0m!\n",
+                             isempty(ansi_color) ? "1" : ansi_color,
+                             isempty(pretty_name) ? "Linux" : pretty_name);
+}
+
 int main(int argc, char *argv[]) {
         Manager *m = NULL;
         int r, retval = EXIT_FAILURE;
@@ -1470,6 +1488,9 @@ int main(int argc, char *argv[]) {
         /* Open the logging devices, if possible and necessary */
         log_open();
 
+        if (arg_show_status == _SHOW_STATUS_UNSET)
+                arg_show_status = SHOW_STATUS_YES;
+
         /* Make sure we leave a core dump without panicing the
          * kernel. */
         if (getpid() == 1) {
@@ -1576,12 +1597,7 @@ int main(int argc, char *argv[]) {
         m->security_finish_timestamp = security_finish_timestamp;
 
         manager_set_default_rlimits(m, arg_default_rlimit);
-
-        if (arg_default_environment)
-                manager_environment_add(m, NULL, arg_default_environment);
-
-        if (arg_show_status == SHOW_STATUS_UNSET)
-                arg_show_status = SHOW_STATUS_YES;
+        manager_environment_add(m, NULL, arg_default_environment);
         manager_set_show_status(m, arg_show_status);
 
         /* Remember whether we should queue the default job */

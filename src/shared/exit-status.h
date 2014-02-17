@@ -91,7 +91,7 @@ bool is_clean_exit_lsb(int code, int status, ExitStatusSet *success_status);
 /* Manager status */
 
 typedef enum ShowStatus {
-        SHOW_STATUS_UNSET = -2,
+        _SHOW_STATUS_UNSET = -2,
         SHOW_STATUS_AUTO = -1,
         SHOW_STATUS_NO = 0,
         SHOW_STATUS_YES = 1,
