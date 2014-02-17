@@ -400,7 +400,7 @@
                                 and
                                 <literal>systemd.journald.forward_to_console=</literal>.
                                 When forwarding to the console, the
-                                TTY to log to log to can be changed
+                                TTY to log to can be changed
                                 with <varname>TTYPath=</varname>,
                                 described below.</para></listitem>
                         </varlistentry>
