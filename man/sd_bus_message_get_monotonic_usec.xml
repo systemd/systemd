@@ -104,7 +104,7 @@
 
                 <para>These timestamps and the sequence number are
                 attached to each message by the kernel and cannot be
-                manipulated by the sending userspace.</para>
+                manipulated by the sender.</para>
 
                 <para>Note that these timestamps are only available on
                 some bus transports, and only after support for them

@@ -171,7 +171,7 @@
                                 If the key slot does not match the given
                                 passphrase or key, but another would, the
                                 setup of the device will fail regardless.
-                                This implies <varname>luks</varname>. See
+                                This option implies <varname>luks</varname>. See
                                 <citerefentry><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                                 for possible values. The default is to try
                                 all key slots in sequential order.</para></listitem>
@@ -275,7 +275,7 @@
                                 <term><varname>tcrypt-hidden</varname></term>
 
                                 <listitem><para>Use the hidden TrueCrypt volume.
-                                This implies <varname>tcrypt</varname>.</para>
+                                This option implies <varname>tcrypt</varname>.</para>
 
                                 <para>This will map the hidden volume that is
                                 inside of the volume provided in the second
@@ -304,7 +304,7 @@
                                 <term><varname>tcrypt-system</varname></term>
 
                                 <listitem><para>Use TrueCrypt in system
-                                encryption mode. This implies
+                                encryption mode. This option implies
                                 <varname>tcrypt</varname>.</para></listitem>
                         </varlistentry>
 
