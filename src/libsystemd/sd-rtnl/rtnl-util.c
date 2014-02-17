@@ -34,7 +34,7 @@ int rtnl_set_link_name(sd_rtnl *rtnl, int ifindex, const char *name) {
         assert(ifindex > 0);
         assert(name);
 
-        r = sd_rtnl_message_new_link(RTM_SETLINK, ifindex, &message);
+        r = sd_rtnl_message_new_link(rtnl, RTM_SETLINK, ifindex, &message);
         if (r < 0)
                 return r;
 
@@ -61,7 +61,7 @@ int rtnl_set_link_properties(sd_rtnl *rtnl, int ifindex, const char *alias,
         if (!alias && !mac && mtu == 0)
                 return 0;
 
-        r = sd_rtnl_message_new_link(RTM_SETLINK, ifindex, &message);
+        r = sd_rtnl_message_new_link(rtnl, RTM_SETLINK, ifindex, &message);
         if (r < 0)
                 return r;
 
@@ -105,7 +105,7 @@ int rtnl_message_new_synthetic_error(int error, uint32_t serial, sd_rtnl_message
 
         assert(error <= 0);
 
-        r = message_new(ret, NLMSG_SPACE(sizeof(struct nlmsgerr)));
+        r = message_new(NULL, ret, NLMSG_SPACE(sizeof(struct nlmsgerr)));
         if (r < 0)
                 return r;
 

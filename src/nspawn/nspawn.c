@@ -1303,7 +1303,7 @@ static int setup_veth(pid_t pid, char iface_name[]) {
                 return r;
         }
 
-        r = sd_rtnl_message_new_link(RTM_NEWLINK, 0, &m);
+        r = sd_rtnl_message_new_link(rtnl, RTM_NEWLINK, 0, &m);
         if (r < 0) {
                 log_error("Failed to allocate netlink message: %s", strerror(-r));
                 return r;
@@ -1404,7 +1404,7 @@ static int setup_bridge(const char veth_name[]) {
                 return r;
         }
 
-        r = sd_rtnl_message_new_link(RTM_SETLINK, 0, &m);
+        r = sd_rtnl_message_new_link(rtnl, RTM_SETLINK, 0, &m);
         if (r < 0) {
                 log_error("Failed to allocate netlink message: %s", strerror(-r));
                 return r;
@@ -1479,7 +1479,7 @@ static int move_network_interfaces(pid_t pid) {
                         return -EBUSY;
                 }
 
-                r = sd_rtnl_message_new_link(RTM_NEWLINK, ifi, &m);
+                r = sd_rtnl_message_new_link(rtnl, RTM_NEWLINK, ifi, &m);
                 if (r < 0) {
                         log_error("Failed to allocate netlink message: %s", strerror(-r));
                         return r;

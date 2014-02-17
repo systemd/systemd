@@ -435,7 +435,8 @@ static int link_set_mtu(Link *link, uint32_t mtu) {
 
         log_debug_link(link, "setting MTU: %" PRIu32, mtu);
 
-        r = sd_rtnl_message_new_link(RTM_SETLINK, link->ifindex, &req);
+        r = sd_rtnl_message_new_link(link->manager->rtnl, RTM_SETLINK,
+                                     link->ifindex, &req);
         if (r < 0) {
                 log_error_link(link, "Could not allocate RTM_SETLINK message");
                 return r;
@@ -794,7 +795,8 @@ static int link_up(Link *link) {
 
         log_debug_link(link, "bringing link up");
 
-        r = sd_rtnl_message_new_link(RTM_SETLINK, link->ifindex, &req);
+        r = sd_rtnl_message_new_link(link->manager->rtnl, RTM_SETLINK,
+                                     link->ifindex, &req);
         if (r < 0) {
                 log_error_link(link, "Could not allocate RTM_SETLINK message");
                 return r;
@@ -961,7 +963,8 @@ static int link_get(Link *link) {
 
         log_debug_link(link, "requesting link status");
 
-        r = sd_rtnl_message_new_link(RTM_GETLINK, link->ifindex, &req);
+        r = sd_rtnl_message_new_link(link->manager->rtnl, RTM_GETLINK,
+                                     link->ifindex, &req);
         if (r < 0) {
                 log_error_link(link, "Could not allocate RTM_GETLINK message");
                 return r;

@@ -37,7 +37,7 @@
 #define UPDATE_RTA(m, new) (m)->next_rta_offset = (uint8_t*)(new) - (uint8_t*)(m)->hdr;
 #define PUSH_CONTAINER(m, new) (m)->container_offsets[(m)->n_containers ++] = (uint8_t*)(new) - (uint8_t*)(m)->hdr;
 
-int message_new(sd_rtnl_message **ret, size_t initial_size) {
+int message_new(sd_rtnl *rtnl, sd_rtnl_message **ret, size_t initial_size) {
         sd_rtnl_message *m;
 
         assert_return(ret, -EINVAL);
@@ -57,6 +57,9 @@ int message_new(sd_rtnl_message **ret, size_t initial_size) {
 
         m->hdr->nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
         m->sealed = false;
+
+        if (rtnl)
+                m->rtnl = sd_rtnl_ref(rtnl);
 
         *ret = m;
 
@@ -81,7 +84,8 @@ int sd_rtnl_message_route_set_dst_prefixlen(sd_rtnl_message *m, unsigned char pr
         return 0;
 }
 
-int sd_rtnl_message_new_route(uint16_t nlmsg_type, unsigned char rtm_family,
+int sd_rtnl_message_new_route(sd_rtnl *rtnl, uint16_t nlmsg_type,
+                              unsigned char rtm_family,
                               sd_rtnl_message **ret) {
         struct rtmsg *rtm;
         int r;
@@ -90,7 +94,7 @@ int sd_rtnl_message_new_route(uint16_t nlmsg_type, unsigned char rtm_family,
         assert_return(rtm_family == AF_INET || rtm_family == AF_INET6, -EINVAL);
         assert_return(ret, -EINVAL);
 
-        r = message_new(ret, NLMSG_SPACE(sizeof(struct rtmsg)));
+        r = message_new(rtnl, ret, NLMSG_SPACE(sizeof(struct rtmsg)));
         if (r < 0)
                 return r;
 
@@ -142,7 +146,8 @@ int sd_rtnl_message_link_set_type(sd_rtnl_message *m, unsigned type) {
         return 0;
 }
 
-int sd_rtnl_message_new_link(uint16_t nlmsg_type, int index, sd_rtnl_message **ret) {
+int sd_rtnl_message_new_link(sd_rtnl *rtnl, uint16_t nlmsg_type, int index,
+                             sd_rtnl_message **ret) {
         struct ifinfomsg *ifi;
         int r;
 
@@ -151,7 +156,7 @@ int sd_rtnl_message_new_link(uint16_t nlmsg_type, int index, sd_rtnl_message **r
                       nlmsg_type == RTM_SETLINK || index > 0, -EINVAL);
         assert_return(ret, -EINVAL);
 
-        r = message_new(ret, NLMSG_SPACE(sizeof(struct ifinfomsg)));
+        r = message_new(rtnl, ret, NLMSG_SPACE(sizeof(struct ifinfomsg)));
         if (r < 0)
                 return r;
 
@@ -216,7 +221,8 @@ int sd_rtnl_message_addr_set_scope(sd_rtnl_message *m, unsigned char scope) {
         return 0;
 }
 
-int sd_rtnl_message_new_addr(uint16_t nlmsg_type, int index, unsigned char family,
+int sd_rtnl_message_new_addr(sd_rtnl *rtnl, uint16_t nlmsg_type, int index,
+                             unsigned char family,
                              sd_rtnl_message **ret) {
         struct ifaddrmsg *ifa;
         int r;
@@ -226,7 +232,7 @@ int sd_rtnl_message_new_addr(uint16_t nlmsg_type, int index, unsigned char famil
         assert_return(family == AF_INET || family == AF_INET6, -EINVAL);
         assert_return(ret, -EINVAL);
 
-        r = message_new(ret, NLMSG_SPACE(sizeof(struct ifaddrmsg)));
+        r = message_new(rtnl, ret, NLMSG_SPACE(sizeof(struct ifaddrmsg)));
         if (r < 0)
                 return r;
 
@@ -258,6 +264,7 @@ sd_rtnl_message *sd_rtnl_message_ref(sd_rtnl_message *m) {
 
 sd_rtnl_message *sd_rtnl_message_unref(sd_rtnl_message *m) {
         if (m && REFCNT_DEC(m->n_ref) <= 0) {
+                sd_rtnl_unref(m->rtnl);
                 free(m->hdr);
                 free(m);
         }
@@ -897,7 +904,7 @@ int socket_read_message(sd_rtnl *nl, sd_rtnl_message **ret) {
         if (r < 0)
                 return r;
 
-        r = message_new(&m, need);
+        r = message_new(nl, &m, need);
         if (r < 0)
                 return r;
 

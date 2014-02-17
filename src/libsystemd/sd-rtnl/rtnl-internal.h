@@ -88,6 +88,8 @@ struct sd_rtnl {
 struct sd_rtnl_message {
         RefCount n_ref;
 
+        sd_rtnl *rtnl;
+
         struct nlmsghdr *hdr;
         size_t container_offsets[RTNL_CONTAINER_DEPTH]; /* offset from hdr to each container's start */
         unsigned n_containers; /* number of containers */
@@ -96,7 +98,7 @@ struct sd_rtnl_message {
         bool sealed:1;
 };
 
-int message_new(sd_rtnl_message **ret, size_t initial_size);
+int message_new(sd_rtnl *rtnl, sd_rtnl_message **ret, size_t initial_size);
 
 int socket_write_message(sd_rtnl *nl, sd_rtnl_message *m);
 int socket_read_message(sd_rtnl *nl, sd_rtnl_message **ret);
