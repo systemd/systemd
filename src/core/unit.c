@@ -947,7 +947,7 @@ int unit_add_default_target_dependency(Unit *u, Unit *target) {
         return unit_add_dependency(target, UNIT_AFTER, u, true);
 }
 
-static int unit_add_default_dependencies(Unit *u) {
+static int unit_add_target_dependencies(Unit *u) {
 
         static const UnitDependency deps[] = {
                 UNIT_REQUIRED_BY,
@@ -958,8 +958,8 @@ static int unit_add_default_dependencies(Unit *u) {
 
         Unit *target;
         Iterator i;
-        int r;
         unsigned k;
+        int r;
 
         assert(u);
 
@@ -970,20 +970,22 @@ static int unit_add_default_dependencies(Unit *u) {
                                 return r;
                 }
 
-        if (u->default_dependencies && unit_get_cgroup_context(u)) {
-                if (UNIT_ISSET(u->slice))
-                        r = unit_add_two_dependencies(u, UNIT_AFTER, UNIT_WANTS, UNIT_DEREF(u->slice), true);
-                else
-                        r = unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_WANTS, SPECIAL_ROOT_SLICE, NULL, true);
-
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
+        return r;
 }
 
-static int unit_add_mount_links(Unit *u) {
+static int unit_add_slice_dependencies(Unit *u) {
+        assert(u);
+
+        if (!unit_get_cgroup_context(u))
+                return 0;
+
+        if (UNIT_ISSET(u->slice))
+                return unit_add_two_dependencies(u, UNIT_AFTER, UNIT_WANTS, UNIT_DEREF(u->slice), true);
+
+        return unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_WANTS, SPECIAL_ROOT_SLICE, NULL, true);
+}
+
+static int unit_add_mount_dependencies(Unit *u) {
         char **i;
         int r;
 
@@ -1050,13 +1052,15 @@ int unit_load(Unit *u) {
 
         if (u->load_state == UNIT_LOADED) {
 
-                if (u->default_dependencies) {
-                        r = unit_add_default_dependencies(u);
-                        if (r < 0)
-                                goto fail;
-                }
+                r = unit_add_target_dependencies(u);
+                if (r < 0)
+                        goto fail;
 
-                r = unit_add_mount_links(u);
+                r = unit_add_slice_dependencies(u);
+                if (r < 0)
+                        goto fail;
+
+                r = unit_add_mount_dependencies(u);
                 if (r < 0)
                         goto fail;
 
