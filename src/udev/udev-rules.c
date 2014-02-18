@@ -440,8 +440,6 @@ static void dump_rules(struct udev_rules *rules)
                 dump_token(rules, &rules->tokens[i]);
 }
 #else
-static inline const char *operation_str(enum operation_type type) { return NULL; }
-static inline const char *token_str(enum token_type type) { return NULL; }
 static inline void dump_token(struct udev_rules *rules, struct token *token) {}
 static inline void dump_rules(struct udev_rules *rules) {}
 #endif /* DEBUG */

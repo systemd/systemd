@@ -222,7 +222,7 @@ static int pivot_to_new_root(void) {
 int main(int argc, char *argv[]) {
         bool need_umount = true, need_swapoff = true, need_loop_detach = true, need_dm_detach = true;
         bool in_container, use_watchdog = false;
-        _cleanup_free_ char *line = NULL, *cgroup = NULL;
+        _cleanup_free_ char *cgroup = NULL;
         char *arguments[3];
         unsigned retries;
         int cmd, r;
