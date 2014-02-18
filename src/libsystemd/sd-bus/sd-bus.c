@@ -1214,7 +1214,7 @@ fail:
         return r;
 }
 
-_public_ int sd_bus_open_system_remote(const char *host, sd_bus **ret) {
+_public_ int sd_bus_open_system_remote(sd_bus **ret, const char *host) {
         _cleanup_free_ char *e = NULL;
         char *p = NULL;
         sd_bus *bus;
@@ -1250,7 +1250,7 @@ _public_ int sd_bus_open_system_remote(const char *host, sd_bus **ret) {
         return 0;
 }
 
-_public_ int sd_bus_open_system_container(const char *machine, sd_bus **ret) {
+_public_ int sd_bus_open_system_container(sd_bus **ret, const char *machine) {
         _cleanup_free_ char *e = NULL;
         sd_bus *bus;
         char *p;

@@ -620,7 +620,7 @@ static int login_machine(sd_bus *bus, char **args, unsigned n) {
                 return -EIO;
         }
 
-        r = sd_bus_open_system_container(args[1], &container_bus);
+        r = sd_bus_open_system_container(&container_bus, args[1]);
         if (r < 0) {
                 log_error("Failed to get container bus: %s", strerror(-r));
                 return r;

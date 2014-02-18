@@ -102,8 +102,8 @@ int sd_bus_default_system(sd_bus **ret);
 int sd_bus_open(sd_bus **ret);
 int sd_bus_open_user(sd_bus **ret);
 int sd_bus_open_system(sd_bus **ret);
-int sd_bus_open_system_remote(const char *host, sd_bus **ret);
-int sd_bus_open_system_container(const char *machine, sd_bus **ret);
+int sd_bus_open_system_remote(sd_bus **ret, const char *host);
+int sd_bus_open_system_container(sd_bus **ret, const char *machine);
 
 int sd_bus_new(sd_bus **ret);
 int sd_bus_set_address(sd_bus *bus, const char *address);
