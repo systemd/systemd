@@ -118,7 +118,7 @@ CHANGES WITH 209:
         * machinectl gained a new command "login" to open a getty
           login in any local container. This works with any container
           that is registered with machined (such as those created by
-          libvirt-lxc or nspawn), and which run systemd inside.
+          libvirt-lxc or nspawn), and which runs systemd inside.
 
         * machinectl gained a new "reboot" command that may be used to
           trigger a reboot on a specific container that is registered
@@ -145,7 +145,7 @@ CHANGES WITH 209:
 
         * PID1 will now export on the bus profile data of the security
           policy upload process (such as the SELinux policy upload to
-          the kernel) .
+          the kernel).
 
         * journald: when forwarding logs to the console, include
           timestamps (following the setting in
@@ -193,8 +193,8 @@ CHANGES WITH 209:
           sd_session_get_remote_host() to query information about
           remote sessions.
 
-        * The udev device database now also carries vendor/product
-          information about SDIO devices.
+        * The udev hardware database now also carries vendor/product
+          information of SDIO devices.
 
         * The "sd-daemon.h" API gained a new sd_watchdog_enabled() to
           determine whether watchdog notifications are requested by
@@ -238,7 +238,7 @@ CHANGES WITH 209:
           "sd-resolve.h", "sd-utf8.h" are found in this library as
           well, however are subject to the --enable-kdbus switch (see
           below). Note that "sd-dhcp.h" and "sd-daemon.h" are not part
-          of this libraries (the former because it only consumes,
+          of this library (the former because it only consumes,
           never provides services of/to other APIs, and the latter
           because it is completely standalone). To make the transition
           from the separate libraries to the unified one easy, we
@@ -311,15 +311,15 @@ CHANGES WITH 209:
 
         * Boot-time status output is now enabled automatically after a
           short timeout if boot does not progress, in order to give
-          the user an indication what he or she is waiting for.
+          the user an indication what she or he is waiting for.
 
         * The boot-time output has been improved to show how much time
           remains until jobs expire.
 
         * The KillMode= switch in service units gained a new possible
-          value "mixed". If set and the unit is shutdown, then the
+          value "mixed". If set and the unit is shut down, then the
           initial SIGTERM signal is sent only to the main daemon
-          process, while the following SIGKILL signal is then sent to
+          process, while the following SIGKILL signal is sent to
           all remaining processes of the service.
 
         * When a scope unit is registered, a new property "Controller"
@@ -364,7 +364,7 @@ CHANGES WITH 209:
 
         * systemd-nspawn gained a new --register= switch to control
           whether the container is registered with systemd-machined or
-          not. This is useful for containers that do not register full
+          not. This is useful for containers that do not run full
           OS images, but only specific apps.
 
         * systemd-nspawn gained a new --keep-unit which may be used
@@ -401,7 +401,7 @@ CHANGES WITH 209:
 
         * For usage together with SystemCallFilter=, a new
           SystemCallErrorNumber= setting has been introduce that
-          allows configuration if a system error number to return on
+          allows configuration of a system error number to return on
           filtered syscalls, instead of immediately killing the
           process. Also, SystemCallArchitectures= has been added to
           limit access to system calls of a particular architecture
