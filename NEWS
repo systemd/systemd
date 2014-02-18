@@ -4,16 +4,16 @@ CHANGES WITH 209:
 
         * A new component "systemd-networkd" has been added that can
           be used to configure local network interfaces statically or
-          via DHCP. It is capable to set up bridges, VLANs and bonding.
-          This currently provides no hookups for interactive network
-          configuration. Use this for your initrd, container, embedded
-          or server setup, if you need a simple, yet powerful network
-          configuration solution. This configuration subsystem is
-          quite nifty as it allows wildcard hotplug matching in
-          interfaces. For example, with a single configuration snippet
-          you can configure that all ethernet interfaces showing up
-          are automatically added to a bridge, or similar. It
-          optionally supports link-sensing and more.
+          via DHCP. It is capable of bringing up bridges, VLANs and
+          bonding. Currently no hookups for interactive network
+          configuration are privided. Use this for your initrd,
+          container, embedded or server setup, if you need a simple,
+          yet powerful network configuration solution. This
+          configuration subsystem is quite nifty as it allows wildcard
+          hotplug matching in interfaces. For example, with a single
+          configuration snippet you can configure that all ethernet
+          interfaces showing up are automatically added to a bridge,
+          or similar. It supports link-sensing and more.
 
         * A new tool "systemd-socket-proxyd" has been added which can
           act as a bidirectional proxy for TCP sockets. This is
@@ -61,7 +61,7 @@ CHANGES WITH 209:
 
         * systemd will not generate nor install static dbus
           introspection data anymore to /usr/share/dbus-1/interfaces,
-          as the precise format of these files are unclear, and
+          as the precise format of these files is unclear, and
           nothing makes use of it.
 
         * A proxy daemon is now provided to proxy clients connecting
@@ -90,7 +90,7 @@ CHANGES WITH 209:
           "systemd-networkd".
 
         * There is a new kernel command line option
-          "systemd.restore_state". When set, none of the systemd tools
+          "systemd.restore_state=0|1". When set to "0", none of the systemd tools
           will restore saved runtime state to hardware devices. More
           specifically, the rfkill and backlight states are not
           restored.
@@ -138,10 +138,6 @@ CHANGES WITH 209:
           --fail, --irreversible, --ignore-dependencies which are
           still available but not advertised anymore.
 
-        * systemd-activate gained a new --setenv= parameter to specify
-          additional environment variables to pass to the executed
-          program.
-
         * /etc/systemd/system.conf gained new settings to configure
           various default timeouts of units, as well as the default
           start limit interval and burst. These may still be overridden
@@ -151,8 +147,9 @@ CHANGES WITH 209:
           policy upload process (such as the SELinux policy upload to
           the kernel) .
 
-        * journald: when forwarding logs to the console, include
-          timestamps.
+        * journald: when forwarding logs to the console include
+          timestamps (following the setting in
+          /sys/module/printk/parameters/time).
 
         * OnCalendar= in timer units now understands the special
           strings "yearly" and "annually". (Both are equivalent)
@@ -166,12 +163,14 @@ CHANGES WITH 209:
 
         * A new command "cat" has been added to systemctl. It outputs
           the original unit file of a unit, and concatenates the
-          contents of addition "drop-in" unit file snippets to it, so
-          that the full configuration is shown.
+          contents of additional "drop-in" unit file snippets, so that
+          the full configuration is shown.
 
         * systemctl now supports globbing on the various "list-xyz"
           commands, like "list-units" or "list-sockets", as well as on
-          thsoe commands which take multiple unit names.
+          those commands which take multiple unit names.
+
+        * journalctl's --unit= switch gained support for globbing.
 
         * All systemd daemons now make use of the watchdog logic so
           that systemd automatically notices when they hang.
@@ -201,20 +200,17 @@ CHANGES WITH 209:
           determine whether watchdog notifications are requested by
           the system manager.
 
-        * "systemd-delta" will now also display changes made via .d/
-          drop-ins for unit files.
-
-        * Socket-activated per-connection services will now include a
+        * Socket-activated per-connection services now include a
           short description of the connection parameters in the
           description.
 
         * tmpfiles gained a new "--boot" option. When this is not used,
           only lines where the command character is not suffixed with
-          "!" are executed. When this option is specified, those
-          options are executed too. This is useful to ensure that
-          specific lines are not executed by accident during runtime,
-          and only at boot. (For example, a line that creates
-          /run/nologin.)
+          "!" are executed. When this option is specified those
+          options are executed too. This partitions tmpfiles
+          directives into those that can be safely executed at any
+          time, and those which should be run only at boot (for
+          example, a line that creates /run/nologin).
 
         * A new API "sd-resolv.h" has been added which provides a simple
           asynchronous wrapper around glibc NSS host name resolution
@@ -225,8 +221,6 @@ CHANGES WITH 209:
           host name resolution systems continue to work, such as mDNS,
           LDAP, etc. This API is based on libasyncns, but has been
           cleaned up for inclusion in systemd.
-
-        * journalctl's --unit= switch gained support for globbing.
 
         * The APIs "sd-journal.h", "sd-login.h", "sd-id128.h" are no
           longer found in individual libraries libsystemd-journal.so,
@@ -303,24 +297,24 @@ CHANGES WITH 209:
           been disabled at compile time.
 
         * If a process holds a delay lock for system sleep or shutdown
-          and fails to release it in time, we will now log about its
+          and fails to release it in time, we will now log its
           identity. This makes it easier to identify processes that
           cause slow suspends or power-offs.
 
-        * When parsing /etc/crypttab, support a new key-slot= option
-          as supported by Debian, which allows indicating which LUKS
-          slot to use on disk.
+        * When parsing /etc/crypttab, support for a new key-slot=
+          option as supported by Debian is added. It allows indicating
+          which LUKS slot to use on disk, speeding up key loading.
 
-        * The boot-time has been improved to show information about
-          timeouts that are expiring as they are expiring.
-
-        * The sd_journald_sendv() API call has been updated to be
-          async-signal-safe so that it may be invoked from signal
-          handlers for logging purposes.
+        * The sd_journald_sendv() API call has been checked and
+          officially declared to be async-signal-safe so that it may
+          be invoked from signal handlers for logging purposes.
 
         * Boot-time status output is now enabled automatically after a
           short timeout if boot does not progress, in order to give
-          the user an indication what he is waiting for.
+          the user an indication what he or she is waiting for.
+
+        * The boot-time output has been improved to show how much time
+          remains until jobs expire.
 
         * The KillMode= switch in service units gained a new possible
           value "mixed". If set and the unit is shutdown, then the
@@ -337,14 +331,16 @@ CHANGES WITH 209:
           manager process which created them takes no further
           responsibilities for it.
 
-        * When reading unit files, systemd will now implicitly verify
+        * When reading unit files, systemd will now verify
           the access mode of these files, and warn about certain
           suspicious combinations. This has been added to make it
           easier to track down packaging bugs where unit files are
           marked executable or world-writable.
 
         * systemd-nspawn gained a new "--setenv=" switch to set
-          container-wide environment variables.
+          container-wide environment variables. Similar option in
+          systemd-activate was renamed from "--environment=" to
+          "--setenv=" for consistency.
 
         * systemd-nspawn has been updated to create a new kdbus domain
           for each container that is invoked, thus allowing each
@@ -367,14 +363,14 @@ CHANGES WITH 209:
           container without PID namespacing enabled.
 
         * systemd-nspawn gained a new --register= switch to control
-          whether the container is registered with machined or
+          whether the container is registered with systemd-machined or
           not. This is useful for containers that do not register full
           OS images, but only specific apps.
 
         * systemd-nspawn gained a new --keep-unit which may be used
           when invoked as only program from a service unit, and
           results in registration of the unit service itself in
-          machined, instead of a newly opened scope unit.
+          systemd-machined, instead of a newly opened scope unit.
 
         * systemd-nspawn gained a new --network-interface= switch for
           moving arbitrary interfaces to the container. The new
