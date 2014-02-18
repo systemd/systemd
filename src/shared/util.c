@@ -58,6 +58,7 @@
 #include <limits.h>
 #include <langinfo.h>
 #include <locale.h>
+#include <sys/personality.h>
 #include <libgen.h>
 #undef basename
 
@@ -6191,4 +6192,33 @@ int fd_warn_permissions(const char *path, int fd) {
                 log_warning("Configuration file %s is marked world-inaccessible. This has no effect as configuration data is accessible via APIs without restrictions. Proceeding anyway.", path);
 
         return 0;
+}
+
+unsigned long parse_personality(const char *p) {
+
+        /* Parse a personality specifier. We introduce our own
+         * identifiers that indicate specific ABIs, rather than just
+         * hints regarding the register size, since we want to keep
+         * things open for multiple locally supported ABIs for the
+         * same register size. We try to reuse the ABI identifiers
+         * used by libseccomp. */
+
+#if defined(__x86_64__)
+
+        if (streq(p, "x86"))
+                return PER_LINUX32;
+
+        if (streq(p, "x86-64"))
+                return PER_LINUX;
+
+#elif defined(__i386__)
+
+        if (streq(p, "x86"))
+                return PER_LINUX;
+#endif
+
+        /* personality(7) documents that 0xffffffffUL is used for
+         * querying the current personality, hence let's use that here
+         * as error indicator. */
+        return 0xffffffffUL;
 }

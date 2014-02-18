@@ -555,6 +555,24 @@
                                 session.</para></listitem>
                         </varlistentry>
 
+                        <varlistentry>
+                                <term><option>--personality=</option></term>
+
+                                <listitem><para>Control the
+                                architecture ("personality") reported
+                                by
+                                <citerefentry><refentrytitle>uname</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+                                in the container. Currently, only
+                                <literal>x86</literal> and
+                                <literal>x86-64</literal> are
+                                supported. This is useful when running
+                                a 32bit container on a 64bit
+                                host. If this setting is not used
+                                the personality reported in the
+                                container is the same as the one
+                                reported on the
+                                host.</para></listitem>
+                        </varlistentry>
                 </variablelist>
 
         </refsect1>

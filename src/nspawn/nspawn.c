@@ -43,6 +43,7 @@
 #include <sys/eventfd.h>
 #include <net/if.h>
 #include <linux/veth.h>
+#include <sys/personality.h>
 
 #ifdef HAVE_SELINUX
 #include <selinux/selinux.h>
@@ -138,6 +139,7 @@ static bool arg_keep_unit = false;
 static char **arg_network_interfaces = NULL;
 static bool arg_network_veth = false;
 static char *arg_network_bridge = NULL;
+static unsigned long arg_personality = 0xffffffffLU;
 
 static int help(void) {
 
@@ -206,6 +208,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NETWORK_INTERFACE,
                 ARG_NETWORK_VETH,
                 ARG_NETWORK_BRIDGE,
+                ARG_PERSONALITY,
         };
 
         static const struct option options[] = {
@@ -234,6 +237,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "network-interface",     required_argument, NULL, ARG_NETWORK_INTERFACE },
                 { "network-veth",          no_argument,       NULL, ARG_NETWORK_VETH      },
                 { "network-bridge",        required_argument, NULL, ARG_NETWORK_BRIDGE    },
+                { "personality",           required_argument, NULL, ARG_PERSONALITY       },
                 {}
         };
 
@@ -472,6 +476,16 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_KEEP_UNIT:
                         arg_keep_unit = true;
+                        break;
+
+                case ARG_PERSONALITY:
+
+                        arg_personality = parse_personality(optarg);
+                        if (arg_personality == 0xffffffffLU) {
+                                log_error("Unknown or unsupported personality '%s'.", optarg);
+                                return -EINVAL;
+                        }
+
                         break;
 
                 case '?':
@@ -1982,6 +1996,13 @@ int main(int argc, char *argv[]) {
                         }
 
                         setup_hostname();
+
+                        if (arg_personality != 0xffffffffLU) {
+                                if (personality(arg_personality) < 0) {
+                                        log_error("personality() failed: %m");
+                                        goto child_fail;
+                                }
+                        }
 
                         eventfd_read(sync_fd, &x);
                         close_nointr_nofail(sync_fd);

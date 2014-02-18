@@ -379,6 +379,10 @@ CHANGES WITH 209:
           switch then allows assigning the host side of this virtual
           Ethernet connection to a bridge device.
 
+        * systemd-nspawn gained a new --personality= switch for
+          setting the kernel personality for the container. This is
+          useful when running a 32bit container on a 64bit host.
+
         * logind will now also track a "Desktop" identifier for each
           session which encodes the desktop environment of it. This is
           useful for desktop environments that want to identify
