@@ -38,6 +38,7 @@ static struct ether_addr mac_addr = {
         .ether_addr_octet = {'A', 'B', 'C', '1', '2', '3'}
 };
 
+static bool verbose = false;
 static int test_fd[2];
 
 static void test_request_basic(sd_event *e)
@@ -45,6 +46,9 @@ static void test_request_basic(sd_event *e)
         int r;
 
         sd_dhcp_client *client;
+
+        if (verbose)
+                printf("* %s\n", __FUNCTION__);
 
         r = sd_dhcp_client_new(&client);
 
@@ -126,6 +130,9 @@ static void test_checksum(void)
                 0xff, 0xff, 0xff, 0xff
         };
 
+        if (verbose)
+                printf("* %s\n", __FUNCTION__);
+
         assert(client_checksum(&buf, 20) == be16toh(0x78ae));
 }
 
@@ -206,6 +213,9 @@ static void test_discover_message(sd_event *e)
 {
         sd_dhcp_client *client;
         int res, r;
+
+        if (verbose)
+                printf("* %s\n", __FUNCTION__);
 
         r = sd_dhcp_client_new(&client);
         assert(r >= 0);
