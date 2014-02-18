@@ -165,7 +165,8 @@
                                         <term><varname>Driver</varname></term>
                                         <listitem>
                                                 <para>The driver currently bound to the device, as
-                                                exposed by the udev property <literal>DRIVER</literal>.
+                                                exposed by the udev property <literal>DRIVER</literal>
+                                                of its parent device.
                                                 </para>
                                         </listitem>
                                 </varlistentry>

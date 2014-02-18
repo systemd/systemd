@@ -639,7 +639,6 @@ Features:
    - Make sure ID_PATH is always exported and complete for
      network devices where possible, so we can safely rely
      on Path= matching
-   - Check if Driver= is broken, or just my driver (bcma)
 
 * sd-rtnl:
    - add support for exiting containers without reading them fully first
