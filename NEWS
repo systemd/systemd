@@ -212,7 +212,7 @@ CHANGES WITH 209:
           time, and those which should be run only at boot (for
           example, a line that creates /run/nologin).
 
-        * A new API "sd-resolv.h" has been added which provides a simple
+        * A new API "sd-resolve.h" has been added which provides a simple
           asynchronous wrapper around glibc NSS host name resolution
           calls, such as getaddrinfo(). In contrast to glibc's
           getaddrinfo_a(), it does not use signals. In contrast to most
