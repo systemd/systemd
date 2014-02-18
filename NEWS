@@ -147,9 +147,9 @@ CHANGES WITH 209:
           start limit interval and burst. These may still be overriden
           within each Unit.
 
-        * PID1 will now export profile data of security policy
-          uploading (such as SELinux policy upload to the kernel)
-          over.
+        * PID1 will now export on the bus profile data of the security
+          policy upload process (such as the SELinux policy upload to
+          the kernel) .
 
         * journald: when forwarding logs to the console include
           timestamps.
