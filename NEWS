@@ -186,11 +186,6 @@ CHANGES WITH 209:
           not safe from PID 1. They stay available for --user
           instances of systemd, and as special case for the root user.
 
-        * When the kernel command line argument "kdbus" is specified,
-          systemd will automatically load the kdbus kernel
-          module. This is useful for testing kdbus without having to
-          turn it on unconditionally.
-
         * loginctl gained a new "--no-legend" switch to turn off output
           of the legend text.
 
@@ -267,12 +262,26 @@ CHANGES WITH 209:
           want to maintain the freedom to still change the APIs for
           now. By specifying this build-time switch, you acknowledge
           that you are aware of the instability of the current
-          APIs. Also, note that while kdbus is pretty much complete,
+          APIs.
+
+        * Also, note that while kdbus is pretty much complete,
           it lacks one thing: proper policy support. This means you
           can build a fully working system with all features, however
           it will be highly insecure. Policy support will be added in
           one of the next releases, at the same time that we will
           declare the APIs stable.
+
+        * When the kernel command line argument "kdbus" is specified,
+          systemd will automatically load the kdbus.ko kernel module. At
+          this stage of development, it is only useful for testing kdbus,
+          and should not be used in production. Note: if "--enable-kdbus"
+          is specified and the kdbus.ko kernel module is available and
+          "kdbus" is added to the kernel command line, the entire system
+          runs with kdbus instead of dbus-daemon, with the above mentioned
+          problem of missing the system policy enforcement. Also a future
+          version of kdbus.ko or a newer systemd will not be compatible with
+          each other, and will unlikely be able to boot the machine if only
+          one of them is updated.
 
         * systemctl gained a new "import-environment" command which
           uploads the caller's environment (or parts thereof) into the
