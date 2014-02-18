@@ -1531,7 +1531,7 @@ static int audit_still_doesnt_work_in_containers(void) {
                 goto finish;
         }
 
-        r = seccomp_rule_add_exact(
+        r = seccomp_rule_add(
                         seccomp,
                         SCMP_ACT_ERRNO(EAFNOSUPPORT),
                         SCMP_SYS(socket),
