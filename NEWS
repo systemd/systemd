@@ -75,7 +75,7 @@ CHANGES WITH 209:
         * A new API "sd-event.h" has been added that implements a
           minimal event loop API built around epoll. It provides a
           couple of features that direct epoll usage is lacking:
-          priorization of events, scales to large numbers of timer
+          prioritization of events, scales to large numbers of timer
           events, per-event timer slack (accuracy), system-wide
           coalescing of timer events, exit handlers, watchdog
           supervision support using systemd's sd_notify() API, child
@@ -144,7 +144,7 @@ CHANGES WITH 209:
 
         * /etc/systemd/system.conf gained new settings to configure
           various default timeouts of units, as well as the default
-          start limit interval and burst. These may still be overriden
+          start limit interval and burst. These may still be overridden
           within each Unit.
 
         * PID1 will now export on the bus profile data of the security
@@ -239,7 +239,7 @@ CHANGES WITH 209:
           merged them into a single library libsystemd.so which
           provides all symbols. The reason for this are cyclic
           dependencies, as these libraries tend to use each other's
-          symbols. So far we maneged to work-around that by linking a
+          symbols. So far we managed to work-around that by linking a
           copy of a good part of our code into each of these libraries
           again and again, which however makes certain things hard to
           do, like sharing static variables. Also, it substantially
@@ -339,12 +339,12 @@ CHANGES WITH 209:
 
         * systemd-nspawn has been updated to create a new kdbus domain
           for each container that is invoked, thus allowing each
-          container to have its own set of system and user busses,
+          container to have its own set of system and user buses,
           independently of the host.
 
         * systemd-nspawn gained a new --drop-capability= switch to run
           the container with less capabilities than the default. Both
-          --drop-capability= and --capability= now take the specia
+          --drop-capability= and --capability= now take the special
           string "all" for dropping or keeping all capabilities.
 
         * systemd-nspawn gained new switches for executing containers
