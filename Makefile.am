@@ -3951,6 +3951,9 @@ machinectl_LDADD = \
 rootbin_PROGRAMS += \
 	machinectl
 
+dist_bashcompletion_DATA += \
+	shell-completion/bash/machinectl
+
 test_machine_tables_SOURCES = \
 	src/machine/test-machine-tables.c
 

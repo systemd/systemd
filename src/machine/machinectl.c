@@ -46,6 +46,7 @@ static char **arg_property = NULL;
 static bool arg_all = false;
 static bool arg_full = false;
 static bool arg_no_pager = false;
+static bool arg_legend = true;
 static const char *arg_kill_who = NULL;
 static int arg_signal = SIGTERM;
 static bool arg_ask_password = true;
@@ -84,7 +85,8 @@ static int list_machines(sd_bus *bus, char **args, unsigned n) {
                 return r;
         }
 
-        printf("%-32s %-9s %-16s\n", "MACHINE", "CONTAINER", "SERVICE");
+        if (arg_legend)
+                printf("%-32s %-9s %-16s\n", "MACHINE", "CONTAINER", "SERVICE");
 
         r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(ssso)");
         if (r < 0)
@@ -102,7 +104,8 @@ static int list_machines(sd_bus *bus, char **args, unsigned n) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        printf("\n%u machines listed.\n", k);
+        if (arg_legend)
+                printf("\n%u machines listed.\n", k);
 
         return 0;
 }
@@ -673,6 +676,7 @@ static int help(void) {
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
                "     --no-pager          Do not pipe output into a pager\n"
+               "     --no-legend         Do not show the headers and footers\n"
                "     --no-ask-password   Don't prompt for password\n"
                "  -H --host=[USER@]HOST  Operate on remote host\n"
                "  -M --machine=CONTAINER Operate on local container\n"
@@ -699,6 +703,7 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_NO_PAGER,
+                ARG_NO_LEGEND,
                 ARG_KILL_WHO,
                 ARG_NO_ASK_PASSWORD,
         };
@@ -710,6 +715,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "all",             no_argument,       NULL, 'a'                 },
                 { "full",            no_argument,       NULL, 'l'                 },
                 { "no-pager",        no_argument,       NULL, ARG_NO_PAGER        },
+                { "no-legend",       no_argument,       NULL, ARG_NO_LEGEND       },
                 { "kill-who",        required_argument, NULL, ARG_KILL_WHO        },
                 { "signal",          required_argument, NULL, 's'                 },
                 { "host",            required_argument, NULL, 'H'                 },
@@ -756,6 +762,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_PAGER:
                         arg_no_pager = true;
+                        break;
+
+                case ARG_NO_LEGEND:
+                        arg_legend = false;
                         break;
 
                 case ARG_NO_ASK_PASSWORD:
