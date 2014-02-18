@@ -30,17 +30,11 @@
 #include <sys/types.h>
 #include <inttypes.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include "_sd-common.h"
+
+_SD_BEGIN_DECLARATIONS;
 
 /*
-  Reference implementation of a few systemd related interfaces for
-  writing daemons. These interfaces are trivial to implement. To
-  simplify porting we provide this reference implementation.
-  Applications are welcome to reimplement the algorithms described
-  here if they do not want to include these two source files.
-
   The following functionality is provided:
 
   - Support for logging with log levels on stderr
@@ -48,32 +42,8 @@ extern "C" {
   - Daemon startup and status notification
   - Detection of systemd boots
 
-  You may compile this with -DDISABLE_SYSTEMD to disable systemd
-  support. This makes all those calls NOPs that are directly related to
-  systemd (i.e. only sd_is_xxx() will stay useful).
-
-  Since this is drop-in code we don't want any of our symbols to be
-  exported in any case. Hence we declare hidden visibility for all of
-  them.
-
-  You may find an up-to-date version of these source files online:
-
-  http://cgit.freedesktop.org/systemd/systemd/plain/src/systemd/sd-daemon.h
-  http://cgit.freedesktop.org/systemd/systemd/plain/src/libsystemd-daemon/sd-daemon.c
-
-  This should compile on non-Linux systems, too, but with the
-  exception of the sd_is_xxx() calls all functions will become NOPs.
-
   See sd-daemon(3) for more information.
 */
-
-#ifndef _sd_printf_attr_
-#  if __GNUC__ >= 4
-#    define _sd_printf_attr_(a,b) __attribute__ ((format (printf, a, b)))
-#  else
-#    define _sd_printf_attr_(a,b)
-#  endif
-#endif
 
 /*
   Log levels for usage on stderr:
@@ -263,7 +233,7 @@ int sd_notify(int unset_environment, const char *state);
 
   See sd_notifyf(3) for more information.
 */
-int sd_notifyf(int unset_environment, const char *format, ...) _sd_printf_attr_(2,3);
+int sd_notifyf(int unset_environment, const char *format, ...) _sd_printf_(2,3);
 
 /*
   Returns > 0 if the system was booted with systemd. Returns < 0 on
@@ -294,8 +264,6 @@ int sd_booted(void);
 */
 int sd_watchdog_enabled(int unset_environment, uint64_t *usec);
 
-#ifdef __cplusplus
-}
-#endif
+_SD_END_DECLARATIONS;
 
 #endif

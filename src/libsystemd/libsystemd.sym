@@ -10,6 +10,21 @@
 LIBSYSTEMD_209 {
 global:
 
+        /* originally LIBSYSTEMD_DAEMON_31 */
+        sd_booted;
+        sd_is_fifo;
+        sd_is_mq;
+        sd_is_socket;
+        sd_is_socket_inet;
+        sd_is_socket_unix;
+        sd_is_special;
+        sd_listen_fds;
+        sd_notify;
+        sd_notifyf;
+
+        /* LIBSYSTEMD_DAEMON_209 */
+        sd_watchdog_enabled;
+
         /* originally LIBSYSTEMD_ID128_38 */
         sd_id128_to_string;
         sd_id128_from_string;

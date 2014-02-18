@@ -34,7 +34,7 @@ extern "C" {
 /*
   Reference implementation of a few boot readahead related
   interfaces. These interfaces are trivial to implement. To simplify
-  porting we provide this reference implementation.  Applications are
+  porting, we provide this reference implementation.  Applications are
   welcome to reimplement the algorithms described here if they do not
   want to include these two source files.
 

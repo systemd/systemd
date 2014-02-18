@@ -1,32 +1,23 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
 /***
+  This file is part of systemd.
+
   Copyright 2010 Lennart Poettering
 
-  Permission is hereby granted, free of charge, to any person
-  obtaining a copy of this software and associated documentation files
-  (the "Software"), to deal in the Software without restriction,
-  including without limitation the rights to use, copy, modify, merge,
-  publish, distribute, sublicense, and/or sell copies of the Software,
-  and to permit persons to whom the Software is furnished to do so,
-  subject to the following conditions:
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
 
-  The above copyright notice and this permission notice shall be
-  included in all copies or substantial portions of the Software.
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
 
-  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-  EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-  NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-  BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-  ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-  CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-  SOFTWARE.
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
-
-#ifndef _GNU_SOURCE
-#  define _GNU_SOURCE
-#endif
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -42,31 +33,12 @@
 #include <stdio.h>
 #include <stddef.h>
 #include <limits.h>
-
-#if defined(__linux__) && !defined(SD_DAEMON_DISABLE_MQ)
-#  include <mqueue.h>
-#endif
+#include <mqueue.h>
 
 #include "util.h"
 #include "sd-daemon.h"
 
-#if (__GNUC__ >= 4)
-#  ifdef SD_EXPORT_SYMBOLS
-/* Export symbols */
-#    define _sd_export_ __attribute__ ((visibility("default")))
-#  else
-/* Don't export the symbols */
-#    define _sd_export_ __attribute__ ((visibility("hidden")))
-#  endif
-#else
-#  define _sd_export_
-#endif
-
-_sd_export_ int sd_listen_fds(int unset_environment) {
-
-#if defined(DISABLE_SYSTEMD) || !defined(__linux__)
-        return 0;
-#else
+_public_ int sd_listen_fds(int unset_environment) {
         int r, fd;
         const char *e;
         char *p = NULL;
@@ -143,10 +115,9 @@ finish:
         }
 
         return r;
-#endif
 }
 
-_sd_export_ int sd_is_fifo(int fd, const char *path) {
+_public_ int sd_is_fifo(int fd, const char *path) {
         struct stat st_fd;
 
         if (fd < 0)
@@ -177,7 +148,7 @@ _sd_export_ int sd_is_fifo(int fd, const char *path) {
         return 1;
 }
 
-_sd_export_ int sd_is_special(int fd, const char *path) {
+_public_ int sd_is_special(int fd, const char *path) {
         struct stat st_fd;
 
         if (fd < 0)
@@ -264,7 +235,7 @@ union sockaddr_union {
         struct sockaddr_storage storage;
 };
 
-_sd_export_ int sd_is_socket(int fd, int family, int type, int listening) {
+_public_ int sd_is_socket(int fd, int family, int type, int listening) {
         int r;
 
         if (family < 0)
@@ -290,7 +261,7 @@ _sd_export_ int sd_is_socket(int fd, int family, int type, int listening) {
         return 1;
 }
 
-_sd_export_ int sd_is_socket_inet(int fd, int family, int type, int listening, uint16_t port) {
+_public_ int sd_is_socket_inet(int fd, int family, int type, int listening, uint16_t port) {
         union sockaddr_union sockaddr = {};
         socklen_t l = sizeof(sockaddr);
         int r;
@@ -333,7 +304,7 @@ _sd_export_ int sd_is_socket_inet(int fd, int family, int type, int listening, u
         return 1;
 }
 
-_sd_export_ int sd_is_socket_unix(int fd, int type, int listening, const char *path, size_t length) {
+_public_ int sd_is_socket_unix(int fd, int type, int listening, const char *path, size_t length) {
         union sockaddr_union sockaddr = {};
         socklen_t l = sizeof(sockaddr);
         int r;
@@ -374,10 +345,7 @@ _sd_export_ int sd_is_socket_unix(int fd, int type, int listening, const char *p
         return 1;
 }
 
-_sd_export_ int sd_is_mq(int fd, const char *path) {
-#if !defined(__linux__) || defined(SD_DAEMON_DISABLE_MQ)
-        return 0;
-#else
+_public_ int sd_is_mq(int fd, const char *path) {
         struct mq_attr attr;
 
         if (fd < 0)
@@ -408,13 +376,9 @@ _sd_export_ int sd_is_mq(int fd, const char *path) {
         }
 
         return 1;
-#endif
 }
 
-_sd_export_ int sd_notify(int unset_environment, const char *state) {
-#if defined(DISABLE_SYSTEMD) || !defined(__linux__) || !defined(SOCK_CLOEXEC)
-        return 0;
-#else
+_public_ int sd_notify(int unset_environment, const char *state) {
         int fd = -1, r;
         struct msghdr msghdr;
         struct iovec iovec;
@@ -478,13 +442,9 @@ finish:
                 close(fd);
 
         return r;
-#endif
 }
 
-_sd_export_ int sd_notifyf(int unset_environment, const char *format, ...) {
-#if defined(DISABLE_SYSTEMD) || !defined(__linux__)
-        return 0;
-#else
+_public_ int sd_notifyf(int unset_environment, const char *format, ...) {
         va_list ap;
         char *p = NULL;
         int r;
@@ -500,13 +460,9 @@ _sd_export_ int sd_notifyf(int unset_environment, const char *format, ...) {
         free(p);
 
         return r;
-#endif
 }
 
-_sd_export_ int sd_booted(void) {
-#if defined(DISABLE_SYSTEMD) || !defined(__linux__)
-        return 0;
-#else
+_public_ int sd_booted(void) {
         struct stat st;
 
         /* We test whether the runtime unit file directory has been
@@ -517,14 +473,9 @@ _sd_export_ int sd_booted(void) {
                 return 0;
 
         return !!S_ISDIR(st.st_mode);
-#endif
 }
 
-_sd_export_ int sd_watchdog_enabled(int unset_environment, uint64_t *usec) {
-
-#if defined(DISABLE_SYSTEMD) || !defined(__linux__)
-        return 0;
-#else
+_public_ int sd_watchdog_enabled(int unset_environment, uint64_t *usec) {
         unsigned long long ll;
         unsigned long l;
         const char *e;
@@ -583,5 +534,4 @@ finish:
         }
 
         return r;
-#endif
 }
