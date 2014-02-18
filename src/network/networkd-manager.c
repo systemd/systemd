@@ -145,30 +145,31 @@ bool manager_should_reload(Manager *m) {
 }
 
 static int manager_process_link(Manager *m, struct udev_device *device) {
-        Link *link;
+        Link *link = NULL;
         int r;
 
-        if (streq_ptr(udev_device_get_action(device), "remove")) {
-                uint64_t ifindex;
+        assert(m);
+        assert(device);
 
+        link_get(m, udev_device_get_ifindex(device), &link);
+
+        if (streq_ptr(udev_device_get_action(device), "remove")) {
                 log_debug("%s: link removed", udev_device_get_sysname(device));
 
-                ifindex = udev_device_get_ifindex(device);
-                link = hashmap_get(m->links, &ifindex);
-                if (!link)
-                        return 0;
-
-                link_free(link);
+                if (link)
+                        link_free(link);
         } else {
+                if (link) {
+                        log_debug("%s: link already exists, ignoring",
+                                  link->ifname);
+                        return 0;
+                }
+
                 r = link_add(m, device, &link);
                 if (r < 0) {
-                        if (r == -EEXIST)
-                                log_debug("%s: link already exists, ignoring",
-                                          link->ifname);
-                        else
-                                log_error("%s: could not handle link: %s",
-                                          udev_device_get_sysname(device),
-                                          strerror(-r));
+                        log_error("%s: could not handle link: %s",
+                                  udev_device_get_sysname(device),
+                                  strerror(-r));
                 } else
                         log_debug("%s: link (with ifindex %" PRIu64") added",
                                   link->ifname, link->ifindex);
@@ -264,8 +265,11 @@ static int manager_rtnl_process_link(sd_rtnl *rtnl, sd_rtnl_message *message, vo
         Manager *m = userdata;
         Link *link;
         const char *name;
-        uint64_t ifindex_64;
         int r, ifindex;
+
+        assert(rtnl);
+        assert(message);
+        assert(m);
 
         r = sd_rtnl_message_link_get_ifindex(message, &ifindex);
         if (r < 0 || ifindex <= 0) {
@@ -288,9 +292,8 @@ static int manager_rtnl_process_link(sd_rtnl *rtnl, sd_rtnl_message *message, vo
                 }
         }
 
-        ifindex_64 = ifindex;
-        link = hashmap_get(m->links, &ifindex_64);
-        if (!link) {
+        r = link_get(m, ifindex, &link);
+        if (r < 0) {
                 log_debug("received RTM_NEWLINK message for untracked ifindex %d", ifindex);
                 return 0;
         }

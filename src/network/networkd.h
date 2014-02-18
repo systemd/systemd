@@ -313,6 +313,7 @@ int config_parse_label(const char *unit, const char *filename, unsigned line,
 
 int link_new(Manager *manager, struct udev_device *device, Link **ret);
 void link_free(Link *link);
+int link_get(Manager *m, int ifindex, Link **ret);
 int link_add(Manager *manager, struct udev_device *device, Link **ret);
 int link_configure(Link *link);
 

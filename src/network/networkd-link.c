@@ -85,21 +85,32 @@ void link_free(Link *link) {
         free(link);
 }
 
+int link_get(Manager *m, int ifindex, Link **ret) {
+        Link *link;
+        uint64_t ifindex_64;
+
+        assert(m);
+        assert(m->links);
+        assert(ifindex);
+        assert(ret);
+
+        ifindex_64 = ifindex;
+        link = hashmap_get(m->links, &ifindex_64);
+        if (!link)
+                return -ENODEV;
+
+        *ret = link;
+
+        return 0;
+}
+
 int link_add(Manager *m, struct udev_device *device, Link **ret) {
         Link *link;
         Network *network;
         int r;
-        uint64_t ifindex;
 
         assert(m);
         assert(device);
-
-        ifindex = udev_device_get_ifindex(device);
-        link = hashmap_get(m->links, &ifindex);
-        if (link) {
-                *ret = link;
-                return -EEXIST;
-        }
 
         r = link_new(m, device, &link);
         if (r < 0)
@@ -926,7 +937,8 @@ static int link_enter_enslave(Link *link) {
         return 0;
 }
 
-static int link_get_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
+static int link_getlink_handler(sd_rtnl *rtnl, sd_rtnl_message *m,
+                                void *userdata) {
         Link *link = userdata;
         int r;
 
@@ -953,7 +965,7 @@ static int link_get_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
         return 1;
 }
 
-static int link_get(Link *link) {
+static int link_getlink(Link *link) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL;
         int r;
 
@@ -970,7 +982,8 @@ static int link_get(Link *link) {
                 return r;
         }
 
-        r = sd_rtnl_call_async(link->manager->rtnl, req, link_get_handler, link, 0, NULL);
+        r = sd_rtnl_call_async(link->manager->rtnl, req, link_getlink_handler,
+                               link, 0, NULL);
         if (r < 0) {
                 log_error_link(link,
                                "Could not send rtnetlink message: %s", strerror(-r));
@@ -987,7 +1000,7 @@ int link_configure(Link *link) {
         assert(link->network);
         assert(link->state == _LINK_STATE_INVALID);
 
-        r = link_get(link);
+        r = link_getlink(link);
         if (r < 0) {
                 link_enter_failed(link);
                 return r;
