@@ -1,5 +1,437 @@
 systemd System and Service Manager
 
+CHANGES WITH 209:
+
+        * A new component "systemd-networkd" has been added that can
+          be used to configure local network interfaces statically or
+          via DHCP. It is capable up bridges, VLANs and bonding. This
+          currently provides no hookups for interactive network
+          configuration. Use this for your initrd, container, embedded
+          or server setup, if you need a simple, yet powerful network
+          configuration solution. This configuration subsystem is
+          quite nifty as it allows wildcard hotplug matching in
+          interfaces. For example, with a single configuration snippet
+          you can configure that all ethernet interfaces showing up
+          are automatically added to a bridge, or similar. It
+          optionally supports link-sensing and more.
+
+        * A new tool "systemd-socket-proxyd" has been added which can
+          acts as a bidirectional proxy for TCP sockets. This is
+          useful for adding socket activation support to services that
+          do not actually support socket activation, including virtual
+          machines and suchlike.
+
+        * Add a new tool to save/restore rfkill state on
+          shutdown/boot.
+
+        * Save/restore state of kbd backlights in addition to display
+          backlights on shutdown/boot.
+
+        * udev learned a new SECLABEL{} construct to label device
+          nodes with a specific security label when they appear. For
+          now only SECLABEL{selinux} is supported, but the syntax is
+          prepared for additional security frameworks.
+
+        * udev gained a new scheme to configure link-level attributes
+          from files in /etc/systemd/network/*.link. These files can
+          match against MAC address, device path, driver name and type
+          and will apply attributes like the naming policy, link speed
+          MTU, duplex settings, WakeOnLan settings, MAC address, MAC
+          address assignment policy (randomized, ...).
+
+        * When the User= switch is used in a unit file, also
+          initialize $SHELL= based on user database.
+
+        * systemd no longer depends on libdbus. All communication is
+          now done with sd-bus, systemd's low-level bus library
+          implementation.
+
+        * kdbus support has been added to PID 1 itself. When kdbus is
+          enabled this causes PID 1 to set up the system bus, and
+          enable support for a new ".busname" unit type that
+          encapsulates bus name activation on kdbus. It works a little
+          bit like ".socket" units, except for bus names. A new
+          generator has been added that converts classic dbus1 service
+          activation files automatically into native systemd .busname
+          and .service units.
+
+        * sd-bus: add a light-weight vtable implementation that allows
+          defining objects on the bus with a simple static const
+          vtable array of its methods, signals and properties.
+
+        * systemd will not generate nor install static dbus
+          introspection data anymore to /usr/share/dbus-1/interfaces,
+          as the precise format of these files are unclear, and
+          nothing makes use of it.
+
+        * A proxy daemon is now provided to proxy clients connecting
+          via classic D-Bus AF_UNIX sockets to kdbus, to provide full
+          compatibility with classic D-Bus.
+
+        * A bus driver implementation has been added that supports the
+          classic D-Bus bus driver calls on kdbus, also for
+          compatibility purposes.
+
+        * A new API "sd-event.h" has been added that implements a
+          minimal event loop API built around epoll. It provides a
+          couple of features that direct epoll usage is lacking:
+          priorization of events, scales to large numbers of timer
+          events, per-event timer slack (accuracy), system-wide
+          coalescing of timer events, exit handlers, watchdog
+          supervision support using systemd's sd_notify() API, child
+          process handling.
+
+        * A new API "sd-rntl.h" has been added that provides an API
+          around the route netlink interface of the kernel, similar in
+          style to "sd-bus.h".
+
+        * A new API "sd-dhcp.h" has been added that provides a small
+          DHCPv4 client side implementation. This is used by
+          "systemd-networkd".
+
+        * There's a new kernel command line option
+          "systemd.restore_state". When set none of the systemd tools
+          will restore saved runtime state to hardware devices. More
+          specifically, the rfkill and backlight states are not
+          restored.
+
+        * The FsckPassNo= compatibility option in mount/service units
+          has been removed. The fstab generator will now add the
+          necessary dependencies automatically, and does not require
+          PID1's support for that anymore.
+
+        * journalctl gained a new switch --list-boots, that lists
+          recent boots with their times and boot IDs.
+
+        * The various tools like systemctl, loginctl, timedatectl,
+          busctl, systemd-run, ... have gained a new switch "-M" to
+          connect to a specific, local OS container (as direct
+          connection, without requiring SSH). This works on any
+          container that is registered with machined, such as those
+          created by libvirt-lxc or nspawn.
+
+        * systemd-run and systemd-analyze also gained support for "-H"
+          to connect to remote hosts via SSH. This is particular
+          useful for systemd-run since it enables queuing of jobs onto
+          remote systems.
+
+        * machinectl gained a new command "login" to open a getty
+          login in any local container. This works with any container
+          that is registered with machined (such as those created by
+          libvirt-lxc or nspawn), and which run systemd inside.
+
+        * machinectl gained a new "reboot" command that may be used to
+          trigger a reboot on a specific container that is registered
+          with machined. This works on any container that runs an init
+          system of some kind.
+
+        * systemctl gained a new "list-timers" command to print a nice
+          listing of installed timer units with the times they elapse
+          next.
+
+        * Alternative reboot() parameters may now be specified on the
+          "systemctl reboot" command line and are passed to the
+          reboot() system call.
+
+        * systemctl gained a new --job-mode= switch to configure the
+          mode to queue a job with. This is a more generic version of
+          --fail, --irreversible, --ignore-dependencies which are
+          still available but not advertised anymore.
+
+        * systemd-activate gained a new --setenv= parameter to specify
+          additional environment variables to pass to the executed
+          program.
+
+        * /etc/systemd/system.conf gained new settings to configure
+          various default timeouts of units, as well as the default
+          start limit interval and burst. These may still be overriden
+          within each Unit.
+
+        * PID1 will now export profile data of security policy
+          uploading (such as SELinux policy upload to the kernel)
+          over.
+
+        * journald: when forwarding logs to the console include
+          timestamps.
+
+        * OnCalendar= in timer units now understands the special
+          strings "yearly" and "annually". (Both are equivalent)
+
+        * The accuracy of timer units is now configurable with the new
+          AccuracySec= setting. It defaults to 1min.
+
+        * A new dependency type JoinsNamespaceOf= has been added that
+          allows running two services within the same /tmp and network
+          namespace, if PrivateNetwork= or PrivateTmp= are used.
+
+        * A new command "cat" has been added to systemctl. It outputs
+          the original unit file of a unit, and concatenates the
+          contents of addition "drop-in" unit file snippets to it, so
+          that the full configuration is shown.
+
+        * systemctl now supports globbing on the various "list-xyz"
+          commands, like "list-units" or "list-sockets", as well as on
+          thsoe commands which take multiple unit names.
+
+        * All systemd daemons now make use of the watchdog logic so
+          that systemd automatically notices when they hang.
+
+        * If the $container_ttys environment variable is set
+          getty-generator will automatically spawn a getty for each
+          listed tty. This is useful for container managers to request
+          login gettys to be spawned on as many ttys as needed.
+
+        * %h, %s, %U specifier support is not available anymore when
+          used in unit files for PID 1. This is because NSS calls are
+          not safe from PID 1. They stay available for --user
+          instances of systemd, and as special case for the root user.
+
+        * When the kernel command line argument "kdbus" is specified
+          systemd will automatically load the kdbus kernel
+          module. This is useful for testing kdbus without having to
+          turn it on unconditionally.
+
+        * loginctl gained a new "--no-legend" switch to turn off output
+          of the legend text.
+
+        * The "sd-login.h" API gained three new calls:
+          sd_session_is_remote(), sd_session_get_remote_user(),
+          sd_session_get_remote_host() to query information about
+          remote sessions.
+
+        * The udev device database now also carries vendor/product
+          information about SDIO devices.
+
+        * The "sd-daemon.h" API gained a new sd_watchdog_enabled() to
+          determine whether watchdog notifications are requested by
+          the system manager.
+
+        * "systemd-delta" will now also display changes made via .d/
+          drop-ins for unit files.
+
+        * Socket-activated per-connection services will now include a
+          short description of the connection parameters in the
+          description.
+
+        * tmpfiles gained a new "--boot" option. When this is not used
+          only lines where the command character is not suffixed with
+          "!" are executed. When this option is specified those
+          options are executed too. This is useful to ensure that
+          specific lines are not executed by accident during runtime,
+          and only at boot (for example, a line that creates
+          /run/nologin).
+
+        * A new API "sd-resolv.h" has been added, that provides a
+          simple asynchronous around glibc NSS host name resolution
+          calls, such as getaddrinfo(). In contrast to glibc's
+          getaddrinfo_a() it does not use signals. In contrast to most
+          other asynchronous name resolution libraries this one does
+          not not reimplement DNS, but reused NSS, so that alternative
+          host name resolution systems continue to work, such as mDNS,
+          LDAP, ... This API is based on libasyncns, but has been
+          cleaned up for inclusion in systemd.
+
+        * journalctl's --unit= switch gained support for globbing.
+
+        * The APIs "sd-journal.h", "sd-login.h", "sd-id128.h" are no
+          longer found in individual libraries libsystemd-journal.so,
+          libsystemd-login.so, libsystemd-id128.so. Instead we have
+          merged them into a single library libsystemd.so which
+          provides all symbols. The reason for this are cyclic
+          dependencies, as these libraries tend to use each other's
+          symbols. So far we maneged to work-around that by linking a
+          copy of a good part of our code into each of these libraries
+          again and again, which however makes certain things hard to
+          do, like sharing static variables. Also, it substantially
+          increases footprint. With this change there's only one
+          library for the basic APIs systemd provides. Also,
+          "sd-bus.h", "sd-memfd.h", "sd-event.h", "sd-rtnl.h",
+          "sd-resolve.h", "sd-utf8.h" are found in this library as
+          well, however are subject to the --enable-kdbus switch (see
+          below). Note that "sd-dhcp.h" and "sd-daemon.h" are not part
+          of this libraries (the former because it only consumes,
+          never provides services of/to other APIs, and the latter
+          because it is completely standalone). To make the transition
+          from the separate libraries to the unified one easy we
+          provide the --enable-compat-libs compile time switch which
+          will generate stub libraries that are compatible with the
+          old ones but redirect all calls to the new one.
+
+        * All the kdbus logic and the new APIs "sd-bus.h",
+          "sd-memfd.h", "sd-event.h", "sd-rtnl.h", "sd-resolve.h",
+          "sd-utf8.h" is compile-time optional, via the
+          "--enable-kdbus" switch and is not compiled in by
+          default. To make use of you have to explicitly enable the
+          switch. Note however, that neither the kernel nor the
+          userspace API for all of this is considered stable yet. We
+          want to maintain the freedom to still change the APIs for
+          now. By specifying this build-time switch you acknowledge
+          that you are aware of the instability of the current
+          APIs. Also, note that while kdbus is pretty much complete,
+          it lacks one thing: proper policy support. This means you
+          can build a fully working system with all features, however
+          it will be highly insecure. Policy will be added in one of
+          the next releases, at the same time as we will declare the
+          APIs stable.
+
+        * systemctl gained a new "import-environment" command which
+          uploads the callers environment (or parts thereof) into the
+          service manager so that it is inherited by services started
+          by the manager. This is useful to upload variables like
+          $DISPLAY into the user service manager.
+
+        * A new PrivateDevices= switch has been added to service units
+          which allows running a service with a namespaced /dev
+          directory that does not contain any device nodes for
+          physical devices. More specifically it only includes devices
+          such as /dev/null, /dev/urandom and /dev/zero which are API
+          entry points.
+
+        * logind has been extended to support behaviour like VT
+          switching on seats that do not support a VT. This makes
+          multi-session available on seats that are not the first seat
+          (seat0), and on systems where kernel support for VTs has
+          been disabled at compile time.
+
+        * If a process holds a delay lock for system sleep or shutdown
+          and fails to release it in time we will now log about its
+          identity. This makes it easier to identify processes that
+          cause slow suspends or power-offs.
+
+        * When parsing /etc/crypttab, support a new key-slot= option
+          as supported by Debian, which allows indicating which LUKS
+          slot to use on disk.
+
+        * The boot-time has been improved to show information about
+          timeouts that are expiring as they are expiring.
+
+        * The sd_journald_sendv() API call has been updated to be
+          async-signal-safe so that it may be invoked from signal
+          handlers for logging purposes.
+
+        * Boot-time status output is now enabled automatically after a
+          short timeout if boot does not progress, in order to give
+          the user an indication what he is waiting for.
+
+        * The KillMode= switch in service units gained a new possible
+          value "mixed". If set and the unit is shutdown then the
+          initial SIGTERM signal is sent only to the main daemon
+          process, while the following SIGKILL signal is then sent to
+          all remaining processes of the service.
+
+        * When a scope unit is registered a new property "Controller"
+          may be set. If set to a valid bus name systemd will send a
+          RequestStop() signal to this name when it would like to shut
+          down the scope. This may be used to hook manager logic into
+          the shutdown logic of scope units. Also, scope units may now
+          be put in a special "abandoned" state in which case the
+          manager process which created them takes no further
+          responsibilities for it.
+
+        * When reading unit files systemd will now implicitly verify
+          the access mode of these files, and warn about certain
+          suspicious combinations. This has been added to make it
+          easier to track down packaging bugs where unit files are
+          marked executable or world-writable.
+
+        * systemd-nspawn gained a new "--setenv=" switch to set
+          container-wide environment variables.
+
+        * systemd-nspawn has been updated to create a new kdbus domain
+          for each container that is invoked, thus allowing each
+          container to have its own set of system and user busses,
+          independently of the host.
+
+        * systemd-nspawn gained a new --drop-capability= switch to run
+          the container with less capabilities than the default. Both
+          --drop-capability= and --capability= now take the specia
+          string "all" for dropping or keeping all capabilities.
+
+        * systemd-nspawn gained new switches for executing containers
+          with specific SELinux labels set.
+
+        * systemd-nspawn gained a new --quiet switch to not generate
+          any additional output but the container's own console
+          output.
+
+        * systemd-nspawn gained a new --share-system switch to run a
+          container without PID namespacing enabled.
+
+        * systemd-nspawn gained a new --register= switch to control
+          whether the container is registered with machined or
+          not. This is useful for containers that do not register full
+          OS images, but only specific apps.
+
+        * systemd-nspawn gained a new --keep-unit which may be used
+          when invoked as only program from a service unit, and
+          results in registration of the unit service itself in
+          machined, instead of a newly opened scope unit.
+
+        * systemd-nspawn gained a new --network-interface= switch for
+          moving arbitrary interfaces to the container. The new
+          --network-veth switch creates a virtual ethernet connection
+          between host and container. Thew new --network-bridge=
+          switch then additionally allows assigning the host side of
+          this virtual ethernet connection to a bridge device.
+
+        * logind will now also track a "Desktop" identifier for each
+          session which encodes the desktop environment of it. This is
+          useful for desktop environments that want to identify
+          multiple running sessions of itself easily.
+
+        * A new SELinuxContext= setting for service units has been
+          added that allows setting a specific SELinux execution
+          context for a service.
+
+        * Most systemd client tools will now honour $SYSTEMD_LESS for
+          settings of the "less" pager. By default, these tools will
+          override $LESS to allow certain operations like
+          jump-to-the-end work. With $SYSTEMD_LESS it is possible to
+          influence this logic.
+
+        * systemd's "seccomp" hook-up has been changed to make use of
+          the libseccomp library instead of using its own
+          implementation. This has benefits for portability among
+          other things.
+
+        * For usage together with SystemCallFilter= a new
+          SystemCallErrorNumber= setting has been introduce that
+          allows configuration if a system error number to return on
+          filtered syscalls, instead of immediately killing the
+          process. Also, SystemCallArchitectures= has been added to
+          limit access to system calls of a particular architecture
+          (in order to turn off support for unused secondary
+          architectures). There's also a global
+          SystemcallArchitecture= setting in system.conf now to turn
+          off support for non-native system calls system-wide.
+
+        Contributions from: Adam Williamson, Alex Jia, Anatol Pomozov,
+        Ansgar Burchardt, AppleBloom, Auke Kok, Bastien Nocera,
+        Chengwei Yang, Christian Seiler, Colin Guthrie, Colin Walters,
+        Cristian Rodríguez, Daniel Buch, Daniele Medri, Daniel J
+        Walsh, Daniel Mack, Dan McGee, Dave Reisner, David Coppa,
+        David Herrmann, David Strauss, Djalal Harouni, Dmitry Pisklov,
+        Elia Pinto, Florian Weimer, George McCollister, Goffredo
+        Baroncelli, Greg Kroah-Hartman, Hendrik Brueckner, Igor
+        Zhbanov, Jan Engelhardt, Jan Janssen, Jason A. Donenfeld,
+        Jason St. John, Jasper St. Pierre, Jóhann B. Guðmundsson, Jose
+        Ignacio Naranjo, Karel Zak, Kay Sievers, Kristian Høgsberg,
+        Lennart Poettering, Lubomir Rintel, Lukas Nykryn, Lukasz
+        Skalski, Łukasz Stelmach, Luke Shumaker, Mantas Mikulėnas,
+        Marc-Antoine Perennou, Marcel Holtmann, Marcos Felipe Rasia de
+        Mello, Marko Myllynen, Martin Pitt, Matthew Monaco, Michael
+        Marineau, Michael Scherer, Michał Górny, Michal Sekletar,
+        Michele Curti, Oleksii Shevchuk, Olivier Brunel, Patrik Flykt,
+        Pavel Holica, Raudi, Richard Marko, Ronny Chevalier, Sébastien
+        Luttringer, Sergey Ptashnick, Shawn Landden, Simon Peeters,
+        Stefan Beller, Susant Sahani, Sylvain Plantefeve, Sylvia Else,
+        Tero Roponen, Thomas Bächler, Thomas Hindoe Paaboel Andersen,
+        Tom Gundersen, Umut Tezduyar Lindskog, Unai Uribarri, Václav
+        Pavlín, Vincent Batts, WaLyong Cho, William Giokas, Yang
+        Zhiyong, Yin Kangkai, Yuxuan Shui, Zbigniew Jędrzejewski-Szmek
+
+        -- Berlin, 2014-02-xx
+
 CHANGES WITH 208:
 
         * logind has gained support for facilitating privileged input
