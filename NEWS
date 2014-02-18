@@ -85,8 +85,8 @@ CHANGES WITH 209:
           around the route netlink interface of the kernel, similar in
           style to "sd-bus.h".
 
-        * A new API "sd-dhcp.h" has been added that provides a small
-          DHCPv4 client-side implementation. This is used by
+        * A new API "sd-dhcp-client.h" has been added that provides a
+          small DHCPv4 client-side implementation. This is used by
           "systemd-networkd".
 
         * There is a new kernel command line option
@@ -237,8 +237,8 @@ CHANGES WITH 209:
           "sd-bus.h", "sd-memfd.h", "sd-event.h", "sd-rtnl.h",
           "sd-resolve.h", "sd-utf8.h" are found in this library as
           well, however are subject to the --enable-kdbus switch (see
-          below). Note that "sd-dhcp.h" and "sd-daemon.h" are not part
-          of this library (the former because it only consumes,
+          below). Note that "sd-dhcp-client.h" and "sd-daemon.h" are not
+          part of this library (the former because it only consumes,
           never provides, services of/to other APIs, and the latter
           because it is completely standalone). To make the transition
           easy from the separate libraries to the unified one, we
