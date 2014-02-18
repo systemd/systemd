@@ -957,10 +957,20 @@ static int apply_seccomp(ExecContext *c) {
         if (!seccomp)
                 return -ENOMEM;
 
-        SET_FOREACH(id, c->syscall_archs, i) {
-                r = seccomp_arch_add(seccomp, PTR_TO_UINT32(id) - 1);
-                if (r == -EEXIST)
-                        continue;
+        if (c->syscall_archs) {
+
+                SET_FOREACH(id, c->syscall_archs, i) {
+                        r = seccomp_arch_add(seccomp, PTR_TO_UINT32(id) - 1);
+                        if (r == -EEXIST)
+                                continue;
+                        if (r < 0) {
+                                seccomp_release(seccomp);
+                                return r;
+                        }
+                }
+        } else {
+
+                r = seccomp_add_secondary_archs(seccomp);
                 if (r < 0) {
                         seccomp_release(seccomp);
                         return r;

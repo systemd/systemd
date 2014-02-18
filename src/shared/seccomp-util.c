@@ -61,3 +61,29 @@ int seccomp_arch_from_string(const char *n, uint32_t *ret) {
 
         return 0;
 }
+
+int seccomp_add_secondary_archs(scmp_filter_ctx *c) {
+
+#if defined(__i386__) || defined(__x86_64__)
+        int r;
+
+        /* Add in all possible secondary archs we are aware of that
+         * this kernel might support. */
+
+        r = seccomp_arch_add(c, SCMP_ARCH_X86);
+        if (r < 0 && r != -EEXIST)
+                return r;
+
+        r = seccomp_arch_add(c, SCMP_ARCH_X86_64);
+        if (r < 0 && r != -EEXIST)
+                return r;
+
+        r = seccomp_arch_add(c, SCMP_ARCH_X32);
+        if (r < 0 && r != -EEXIST)
+                return r;
+
+#endif
+
+        return 0;
+
+}

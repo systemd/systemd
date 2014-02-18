@@ -196,7 +196,6 @@ AM_CPPFLAGS = \
 	-I $(top_srcdir)/src/libsystemd/sd-bus \
 	-I $(top_srcdir)/src/libsystemd/sd-event \
 	-I $(top_srcdir)/src/libsystemd/sd-rtnl \
-	$(SECCOMP_CFLAGS) \
 	$(OUR_CPPFLAGS)
 
 AM_CFLAGS = $(OUR_CFLAGS)
@@ -771,12 +770,6 @@ nodist_libsystemd_shared_la_SOURCES = \
 	src/shared/errno-from-name.h \
 	src/shared/errno-to-name.h
 
-if HAVE_SECCOMP
-libsystemd_shared_la_SOURCES += \
-	src/shared/seccomp-util.h \
-	src/shared/seccomp-util.c
-endif
-
 # ------------------------------------------------------------------------------
 noinst_LTLIBRARIES += \
 	libsystemd-units.la
@@ -815,6 +808,26 @@ libsystemd_label_la_CFLAGS = \
 
 libsystemd_label_la_LIBADD = \
 	$(SELINUX_LIBS)
+
+# ------------------------------------------------------------------------------
+
+if HAVE_SECCOMP
+
+noinst_LTLIBRARIES += \
+	libsystemd-seccomp.la
+
+libsystemd_seccomp_la_SOURCES = \
+	src/shared/seccomp-util.h \
+	src/shared/seccomp-util.c
+
+libsystemd_seccomp_la_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(SECCOMP_CFLAGS)
+
+libsystemd_seccomp_la_LIBADD = \
+	$(SECCOMP_LIBS)
+
+endif
 
 # ------------------------------------------------------------------------------
 noinst_LTLIBRARIES += \
@@ -999,6 +1012,7 @@ libsystemd_core_la_CFLAGS = \
 	$(LIBWRAP_CFLAGS) \
 	$(PAM_CFLAGS) \
 	$(AUDIT_CFLAGS) \
+	$(CAP_CFLAGS) \
 	$(KMOD_CFLAGS) \
 	$(SECCOMP_CFLAGS) \
 	-pthread
@@ -1015,8 +1029,13 @@ libsystemd_core_la_LIBADD = \
 	$(PAM_LIBS) \
 	$(AUDIT_LIBS) \
 	$(CAP_LIBS) \
-	$(SECCOMP_LIBS) \
-	$(KMOD_LIBS)
+	$(KMOD_LIBS) \
+	$(SECCOMP_LIBS)
+
+if HAVE_SECCOMP
+libsystemd_core_la_LIBADD += \
+	libsystemd-seccomp.la
+endif
 
 src/core/load-fragment-gperf-nulstr.c: src/core/load-fragment-gperf.gperf
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
@@ -1846,6 +1865,10 @@ systemd_nspawn_SOURCES = \
 	src/core/loopback-setup.c \
 	src/core/loopback-setup.h
 
+systemd_nspawn_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(SECCOMP_CFLAGS)
+
 systemd_nspawn_LDADD = \
 	libsystemd-label.la \
 	libsystemd-capability.la \
@@ -1853,6 +1876,7 @@ systemd_nspawn_LDADD = \
 	libsystemd-daemon-internal.la \
 	libudev-internal.la \
 	libsystemd-shared.la \
+	libsystemd-seccomp.la \
 	$(SECCOMP_LIBS)
 
 # ------------------------------------------------------------------------------

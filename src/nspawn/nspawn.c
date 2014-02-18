@@ -79,6 +79,10 @@
 #include "rtnl-util.h"
 #include "udev-util.h"
 
+#ifdef HAVE_SECCOMP
+#include "seccomp-util.h"
+#endif
+
 typedef enum LinkJournal {
         LINK_NO,
         LINK_AUTO,
@@ -1521,6 +1525,12 @@ static int audit_still_doesnt_work_in_containers(void) {
         if (!seccomp)
                 return log_oom();
 
+        r = seccomp_add_secondary_archs(seccomp);
+        if (r < 0 && r != -EEXIST) {
+                log_error("Failed to add secondary archs to seccomp filter: %s", strerror(-r));
+                goto finish;
+        }
+
         r = seccomp_rule_add_exact(
                         seccomp,
                         SCMP_ACT_ERRNO(EAFNOSUPPORT),
@@ -1538,14 +1548,6 @@ static int audit_still_doesnt_work_in_containers(void) {
                 log_error("Failed to unset NO_NEW_PRIVS: %s", strerror(-r));
                 goto finish;
         }
-
-#ifdef __x86_64__
-        r = seccomp_arch_add(seccomp, SCMP_ARCH_X86);
-        if (r < 0 && r != -EEXIST) {
-                log_error("Failed to add x86 to seccomp filter: %s", strerror(-r));
-                goto finish;
-        }
-#endif
 
         r = seccomp_load(seccomp);
         if (r < 0)

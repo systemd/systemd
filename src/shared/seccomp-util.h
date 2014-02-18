@@ -24,3 +24,5 @@
 
 const char* seccomp_arch_to_string(uint32_t c);
 int seccomp_arch_from_string(const char *n, uint32_t *ret);
+
+int seccomp_add_secondary_archs(scmp_filter_ctx *c);
