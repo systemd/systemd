@@ -1539,6 +1539,14 @@ static int audit_still_doesnt_work_in_containers(void) {
                 goto finish;
         }
 
+#ifdef __x86_64__
+        r = seccomp_arch_add(seccomp, SCMP_ARCH_X86);
+        if (r < 0 && r != -EEXIST) {
+                log_error("Failed to add x86 to seccomp filter: %s", strerror(-r));
+                goto finish;
+        }
+#endif
+
         r = seccomp_load(seccomp);
         if (r < 0)
                 log_error("Failed to install seccomp audit filter: %s", strerror(-r));
