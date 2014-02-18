@@ -5,13 +5,13 @@ CHANGES WITH 209:
         * A new component "systemd-networkd" has been added that can
           be used to configure local network interfaces statically or
           via DHCP. It is capable of bringing up bridges, VLANs and
-          bonding. Currently no hookups for interactive network
-          configuration are privided. Use this for your initrd,
-          container, embedded or server setup, if you need a simple,
+          bonding. Currently, no hookups for interactive network
+          configuration are provided. Use this for your initrd,
+          container, embedded or server setup if you need a simple,
           yet powerful network configuration solution. This
-          configuration subsystem is quite nifty as it allows wildcard
+          configuration subsystem is quite nifty, as it allows wildcard
           hotplug matching in interfaces. For example, with a single
-          configuration snippet you can configure that all ethernet
+          configuration snippet, you can configure that all Ethernet
           interfaces showing up are automatically added to a bridge,
           or similar. It supports link-sensing and more.
 
@@ -147,7 +147,7 @@ CHANGES WITH 209:
           policy upload process (such as the SELinux policy upload to
           the kernel) .
 
-        * journald: when forwarding logs to the console include
+        * journald: when forwarding logs to the console, include
           timestamps (following the setting in
           /sys/module/printk/parameters/time).
 
@@ -206,7 +206,7 @@ CHANGES WITH 209:
 
         * tmpfiles gained a new "--boot" option. When this is not used,
           only lines where the command character is not suffixed with
-          "!" are executed. When this option is specified those
+          "!" are executed. When this option is specified, those
           options are executed too. This partitions tmpfiles
           directives into those that can be safely executed at any
           time, and those which should be run only at boot (for
@@ -338,7 +338,7 @@ CHANGES WITH 209:
           marked executable or world-writable.
 
         * systemd-nspawn gained a new "--setenv=" switch to set
-          container-wide environment variables. Similar option in
+          container-wide environment variables. A similar option in
           systemd-activate was renamed from "--environment=" to
           "--setenv=" for consistency.
 
