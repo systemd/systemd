@@ -61,11 +61,16 @@
                 network devices as they appear, as well as creating virtual
                 network devices.</para>
 
+                <para>To configure low-level link settings independently of
+                networks, see
+                <citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                .</para>
+
                 <para>Network configurations applied before networkd is started
-                are not removed, and configuration applied by networkd are not
-                removed when networkd exits. This ensures restarting networkd
-                does not cut the network connection, and, in particular, that
-                it is safe to transition between the initrd and the real root,
+                are not removed, and static configuration applied by networkd
+                are not removed when networkd exits. This ensures restarting
+                networkd does not cut the network connection, and, in particular,
+                that it is safe to transition between the initrd and the real root,
                 and back.</para>
         </refsect1>
 
@@ -105,14 +110,15 @@
                                 <varlistentry>
                                         <term><varname>Kind</varname></term>
                                         <listitem>
-                                                <para>The netdev kind. Currently, <literal>bridge</literal>, <literal>bond</literal> and <literal>vlan</literal>
+                                                <para>The netdev kind. Currently, <literal>bridge</literal>,
+                                                <literal>bond</literal> and <literal>vlan</literal>
                                                 are supported. This option is compulsory.</para>
                                         </listitem>
                                 </varlistentry>
                         </variablelist>
 
                         <para>The <literal>[VLAN]</literal> section only applies for netdevs of kind <literal>vlan</literal>,
-                        and accepts the following keys:</para>
+                        and accepts the following key:</para>
 
                         <variablelist class='network-directives'>
                                 <varlistentry>
@@ -249,6 +255,15 @@
                                         <term><varname>Address</varname></term>
                                         <listitem>
                                                 <para>As in the <literal>[Network]</literal> section. This key is mandatory.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>Broadcast</varname></term>
+                                        <listitem>
+                                                <para>The broadcast address, which must be in the format described in
+                                                <citerefentry><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                                                . This key only applies to IPv4 addresses. If it is not given, it is
+                                                derived from the <literal>Address</literal> key.</para>
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>

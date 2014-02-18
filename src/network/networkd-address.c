@@ -275,6 +275,13 @@ int config_parse_broadcast(const char *unit,
         if (r < 0)
                 return r;
 
+        if (n->family == AF_INET6) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Broadcast is not valid for IPv6 addresses, "
+                           "ignoring assignment: %s", address);
+                return 0;
+        }
+
         r = net_parse_inaddr(address, &n->family, &n->broadcast);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, EINVAL,
