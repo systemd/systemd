@@ -38,8 +38,11 @@ static struct ether_addr mac_addr = {
         .ether_addr_octet = {'A', 'B', 'C', '1', '2', '3'}
 };
 
+typedef int (*test_callback_recv_t)(size_t size, DHCPMessage *dhcp);
+
 static bool verbose = false;
 static int test_fd[2];
+static test_callback_recv_t callback_recv;
 
 static void test_request_basic(sd_event *e)
 {
@@ -148,7 +151,6 @@ int dhcp_network_send_raw_socket(int s, const union sockaddr_union *link,
         size_t size;
         _cleanup_free_ DHCPPacket *discover;
         uint16_t ip_check, udp_check;
-        int res;
 
         assert(s >= 0);
         assert(packet);
@@ -158,8 +160,6 @@ int dhcp_network_send_raw_socket(int s, const union sockaddr_union *link,
 
         discover = memdup(packet, len);
 
-        assert(memcmp(discover->dhcp.chaddr,
-                      &mac_addr.ether_addr_octet, 6) == 0);
         assert(discover->ip.ttl == IPDEFTTL);
         assert(discover->ip.protocol == IPPROTO_UDP);
         assert(discover->ip.saddr == INADDR_ANY);
@@ -181,11 +181,14 @@ int dhcp_network_send_raw_socket(int s, const union sockaddr_union *link,
         ip_check = ~client_checksum(&discover->ip, sizeof(discover->ip));
         assert(ip_check == 0xffff);
 
+        assert(discover->dhcp.xid);
+        assert(memcmp(discover->dhcp.chaddr,
+                      &mac_addr.ether_addr_octet, 6) == 0);
+
         size = len - sizeof(struct iphdr) - sizeof(struct udphdr);
 
-        res = dhcp_option_parse(&discover->dhcp, size, check_options, NULL);
-        if (res < 0)
-                return res;
+        assert(callback_recv);
+        callback_recv(size, &discover->dhcp);
 
         return 575;
 }
@@ -209,6 +212,19 @@ int dhcp_network_send_udp_socket(int s, be32_t address, uint16_t port,
         return 0;
 }
 
+static int test_discover_message_verify(size_t size, struct DHCPMessage *dhcp)
+{
+        int res;
+
+        res = dhcp_option_parse(dhcp, size, check_options, NULL);
+        assert(res == DHCP_DISCOVER);
+
+        if (verbose)
+                printf("  recv DHCP Discover 0x%08x\n", be32toh(dhcp->xid));
+
+        return 0;
+}
+
 static void test_discover_message(sd_event *e)
 {
         sd_dhcp_client *client;
@@ -229,12 +245,21 @@ static void test_discover_message(sd_event *e)
 
         assert(sd_dhcp_client_set_request_option(client, 248) >= 0);
 
+        callback_recv = test_discover_message_verify;
+
         res = sd_dhcp_client_start(client);
 
         assert(res == 0 || res == -EINPROGRESS);
 
+        sd_event_run(e, (uint64_t) -1);
+
+        sd_dhcp_client_stop(client);
+        sd_dhcp_client_free(client);
+
         close(test_fd[0]);
         close(test_fd[1]);
+
+        callback_recv = NULL;
 }
 
 int main(int argc, char *argv[])
@@ -247,7 +272,6 @@ int main(int argc, char *argv[])
         test_checksum();
 
         test_discover_message(e);
-        sd_event_run(e, (uint64_t) -1);
 
         return 0;
 }
