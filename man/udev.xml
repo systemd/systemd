@@ -874,9 +874,9 @@
           <listitem>
             <para>An ordered, space-separated list of policies by which the
               interface name should be set. <literal>NamePolicy</literal> may
-              be disabeled by specifying <literal>net.ifnames=0</literal> on the
+              be disabled by specifying <literal>net.ifnames=0</literal> on the
               kernel commandline. Each of the policies may fail, and the first
-              successfull one is used. The name is not set directly, but
+              successful one is used. The name is not set directly, but
               is exported to udev as the property <literal>ID_NET_NAME</literal>,
               which is, by default, used by a udev rule to set
               <literal>NAME</literal>. The available policies are:
