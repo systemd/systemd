@@ -286,9 +286,11 @@ int main(int argc, char *argv[]) {
                                 r = k;
                 }
 
-                r = conf_files_list_nulstr(&files, ".conf", NULL, conf_file_dirs);
-                if (r < 0) {
-                        log_error("Failed to enumerate modules-load.d files: %s", strerror(-r));
+                k = conf_files_list_nulstr(&files, ".conf", NULL, conf_file_dirs);
+                if (k < 0) {
+                        log_error("Failed to enumerate modules-load.d files: %s", strerror(-k));
+                        if (r == 0)
+                                r = k;
                         goto finish;
                 }
 
