@@ -4,11 +4,11 @@ CHANGES WITH 209:
 
         * A new component "systemd-networkd" has been added that can
           be used to configure local network interfaces statically or
-          via DHCP. It is capable of bringing up bridges, VLANs and
-          bonding. Currently, no hookups for interactive network
+          via DHCP. It is capable of bringing up bridges, VLANs, and
+          bonding. Currently, no hook-ups for interactive network
           configuration are provided. Use this for your initrd,
-          container, embedded or server setup if you need a simple,
-          yet powerful network configuration solution. This
+          container, embedded, or server setup if you need a simple,
+          yet powerful, network configuration solution. This
           configuration subsystem is quite nifty, as it allows wildcard
           hotplug matching in interfaces. For example, with a single
           configuration snippet, you can configure that all Ethernet
@@ -24,8 +24,8 @@ CHANGES WITH 209:
         * Add a new tool to save/restore rfkill state on
           shutdown/boot.
 
-        * Save/restore state of kbd backlights in addition to display
-          backlights on shutdown/boot.
+        * Save/restore state of keyboard backlights in addition to
+          display backlights on shutdown/boot.
 
         * udev learned a new SECLABEL{} construct to label device
           nodes with a specific security label when they appear. For
@@ -34,9 +34,9 @@ CHANGES WITH 209:
 
         * udev gained a new scheme to configure link-level attributes
           from files in /etc/systemd/network/*.link. These files can
-          match against MAC address, device path, driver name and type
+          match against MAC address, device path, driver name and type,
           and will apply attributes like the naming policy, link speed,
-          MTU, duplex settings, WakeOnLan settings, MAC address, MAC
+          MTU, duplex settings, Wake-on-LAN settings, MAC address, MAC
           address assignment policy (randomized, ...).
 
         * When the User= switch is used in a unit file, also
@@ -59,7 +59,7 @@ CHANGES WITH 209:
           defining objects on the bus with a simple static const
           vtable array of its methods, signals and properties.
 
-        * systemd will not generate nor install static dbus
+        * systemd will not generate or install static dbus
           introspection data anymore to /usr/share/dbus-1/interfaces,
           as the precise format of these files is unclear, and
           nothing makes use of it.
@@ -90,17 +90,17 @@ CHANGES WITH 209:
           "systemd-networkd".
 
         * There is a new kernel command line option
-          "systemd.restore_state=0|1". When set to "0", none of the systemd tools
-          will restore saved runtime state to hardware devices. More
-          specifically, the rfkill and backlight states are not
-          restored.
+          "systemd.restore_state=0|1". When set to "0", none of the
+          systemd tools will restore saved runtime state to hardware
+          devices. More specifically, the rfkill and backlight states
+          are not restored.
 
         * The FsckPassNo= compatibility option in mount/service units
           has been removed. The fstab generator will now add the
           necessary dependencies automatically, and does not require
           PID1's support for that anymore.
 
-        * journalctl gained a new switch --list-boots, that lists
+        * journalctl gained a new switch, --list-boots, that lists
           recent boots with their times and boot IDs.
 
         * The various tools like systemctl, loginctl, timedatectl,
@@ -112,8 +112,8 @@ CHANGES WITH 209:
 
         * systemd-run and systemd-analyze also gained support for "-H"
           to connect to remote hosts via SSH. This is particularly
-          useful for systemd-run since it enables queuing of jobs onto
-          remote systems.
+          useful for systemd-run because it enables queuing of jobs
+          onto remote systems.
 
         * machinectl gained a new command "login" to open a getty
           login in any local container. This works with any container
@@ -135,7 +135,7 @@ CHANGES WITH 209:
 
         * systemctl gained a new --job-mode= switch to configure the
           mode to queue a job with. This is a more generic version of
-          --fail, --irreversible, --ignore-dependencies which are
+          --fail, --irreversible, and --ignore-dependencies, which are
           still available but not advertised anymore.
 
         * /etc/systemd/system.conf gained new settings to configure
@@ -219,18 +219,18 @@ CHANGES WITH 209:
           other asynchronous name resolution libraries, this one does
           not reimplement DNS, but reuses NSS, so that alternate
           host name resolution systems continue to work, such as mDNS,
-          LDAP, etc. This API is based on libasyncns, but has been
+          LDAP, etc. This API is based on libasyncns, but it has been
           cleaned up for inclusion in systemd.
 
         * The APIs "sd-journal.h", "sd-login.h", "sd-id128.h" are no
           longer found in individual libraries libsystemd-journal.so,
           libsystemd-login.so, libsystemd-id128.so. Instead, we have
-          merged them into a single library libsystemd.so which
-          provides all symbols. The reason for this are cyclic
+          merged them into a single library, libsystemd.so, which
+          provides all symbols. The reason for this is cyclic
           dependencies, as these libraries tend to use each other's
-          symbols. So far, we managed to workaround that by linking a
+          symbols. So far, we've managed to workaround that by linking a
           copy of a good part of our code into each of these libraries
-          again and again, which however makes certain things hard to
+          again and again, which, however, makes certain things hard to
           do, like sharing static variables. Also, it substantially
           increases footprint. With this change, there is only one
           library for the basic APIs systemd provides. Also,
@@ -239,18 +239,18 @@ CHANGES WITH 209:
           well, however are subject to the --enable-kdbus switch (see
           below). Note that "sd-dhcp.h" and "sd-daemon.h" are not part
           of this library (the former because it only consumes,
-          never provides services of/to other APIs, and the latter
+          never provides, services of/to other APIs, and the latter
           because it is completely standalone). To make the transition
-          from the separate libraries to the unified one easy, we
+          easy from the separate libraries to the unified one, we
           provide the --enable-compat-libs compile-time switch which
           will generate stub libraries that are compatible with the
           old ones but redirect all calls to the new one.
 
-        * All the kdbus logic and the new APIs "sd-bus.h",
+        * All of the kdbus logic and the new APIs "sd-bus.h",
           "sd-memfd.h", "sd-event.h", "sd-rtnl.h", "sd-resolve.h",
-          "sd-utf8.h" is compile-time optional via the
-          "--enable-kdbus" switch, and is not compiled in by
-          default. To make use of it, you have to explicitly enable
+          and "sd-utf8.h" are compile-time optional via the
+          "--enable-kdbus" switch, and they are not compiled in by
+          default. To make use of kdbus, you have to explicitly enable
           the switch. Note however, that neither the kernel nor the
           userspace API for all of this is considered stable yet. We
           want to maintain the freedom to still change the APIs for
@@ -260,16 +260,16 @@ CHANGES WITH 209:
 
         * Also, note that while kdbus is pretty much complete,
           it lacks one thing: proper policy support. This means you
-          can build a fully working system with all features, however
+          can build a fully working system with all features; however,
           it will be highly insecure. Policy support will be added in
           one of the next releases, at the same time that we will
           declare the APIs stable.
 
-        * When the kernel command line argument "kdbus" is specified,
+        * When the kernel command-line argument "kdbus" is specified,
           systemd will automatically load the kdbus.ko kernel module. At
-          this stage of development, it is only useful for testing kdbus,
+          this stage of development, it is only useful for testing kdbus
           and should not be used in production. Note: if "--enable-kdbus"
-          is specified and the kdbus.ko kernel module is available and
+          is specified, and the kdbus.ko kernel module is available, and
           "kdbus" is added to the kernel command line, the entire system
           runs with kdbus instead of dbus-daemon, with the above mentioned
           problem of missing the system policy enforcement. Also a future
@@ -287,14 +287,14 @@ CHANGES WITH 209:
           which allows running a service with a namespaced /dev
           directory that does not contain any device nodes for
           physical devices. More specifically, it only includes devices
-          such as /dev/null, /dev/urandom and /dev/zero which are API
+          such as /dev/null, /dev/urandom, and /dev/zero which are API
           entry points.
 
         * logind has been extended to support behaviour like VT
           switching on seats that do not support a VT. This makes
           multi-session available on seats that are not the first seat
           (seat0), and on systems where kernel support for VTs has
-          been disabled at compile time.
+          been disabled at compile-time.
 
         * If a process holds a delay lock for system sleep or shutdown
           and fails to release it in time, we will now log its
@@ -317,7 +317,7 @@ CHANGES WITH 209:
           remains until jobs expire.
 
         * The KillMode= switch in service units gained a new possible
-          value "mixed". If set and the unit is shut down, then the
+          value "mixed". If set, and the unit is shut down, then the
           initial SIGTERM signal is sent only to the main daemon
           process, while the following SIGKILL signal is sent to
           all remaining processes of the service.
@@ -327,7 +327,7 @@ CHANGES WITH 209:
           RequestStop() signal to this name when it would like to shut
           down the scope. This may be used to hook manager logic into
           the shutdown logic of scope units. Also, scope units may now
-          be put in a special "abandoned" state in which case the
+          be put in a special "abandoned" state, in which case the
           manager process which created them takes no further
           responsibilities for it.
 
@@ -338,14 +338,14 @@ CHANGES WITH 209:
           marked executable or world-writable.
 
         * systemd-nspawn gained a new "--setenv=" switch to set
-          container-wide environment variables. A similar option in
+          container-wide environment variables. The similar option in
           systemd-activate was renamed from "--environment=" to
           "--setenv=" for consistency.
 
         * systemd-nspawn has been updated to create a new kdbus domain
           for each container that is invoked, thus allowing each
           container to have its own set of system and user buses,
-          independently of the host.
+          independent of the host.
 
         * systemd-nspawn gained a new --drop-capability= switch to run
           the container with less capabilities than the default. Both
@@ -368,16 +368,16 @@ CHANGES WITH 209:
           OS images, but only specific apps.
 
         * systemd-nspawn gained a new --keep-unit which may be used
-          when invoked as only program from a service unit, and
+          when invoked as the only program from a service unit, and
           results in registration of the unit service itself in
           systemd-machined, instead of a newly opened scope unit.
 
         * systemd-nspawn gained a new --network-interface= switch for
           moving arbitrary interfaces to the container. The new
           --network-veth switch creates a virtual Ethernet connection
-          between host and container. Thew new --network-bridge=
-          switch then additionally allows assigning the host side of
-          this virtual Ethernet connection to a bridge device.
+          between host and container. The new --network-bridge=
+          switch then allows assigning the host side of this virtual
+          Ethernet connection to a bridge device.
 
         * logind will now also track a "Desktop" identifier for each
           session which encodes the desktop environment of it. This is
@@ -390,8 +390,8 @@ CHANGES WITH 209:
 
         * Most systemd client tools will now honour $SYSTEMD_LESS for
           settings of the "less" pager. By default, these tools will
-          override $LESS to allow certain operations like
-          jump-to-the-end work. With $SYSTEMD_LESS, it is possible to
+          override $LESS to allow certain operations to work, such as
+          jump-to-the-end. With $SYSTEMD_LESS, it is possible to
           influence this logic.
 
         * systemd's "seccomp" hook-up has been changed to make use of
@@ -400,14 +400,14 @@ CHANGES WITH 209:
           other things.
 
         * For usage together with SystemCallFilter=, a new
-          SystemCallErrorNumber= setting has been introduce that
+          SystemCallErrorNumber= setting has been introduced that
           allows configuration of a system error number to return on
-          filtered syscalls, instead of immediately killing the
+          filtered system calls, instead of immediately killing the
           process. Also, SystemCallArchitectures= has been added to
           limit access to system calls of a particular architecture
           (in order to turn off support for unused secondary
           architectures). There is also a global
-          SystemcallArchitecture= setting in system.conf now to turn
+          SystemCallArchitectures= setting in system.conf now to turn
           off support for non-native system calls system-wide.
 
         Contributions from: Adam Williamson, Alex Jia, Anatol Pomozov,
