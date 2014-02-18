@@ -49,7 +49,6 @@ static bool arg_no_pager = false;
 static bool arg_legend = true;
 static const char *arg_kill_who = NULL;
 static int arg_signal = SIGTERM;
-static bool arg_ask_password = true;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static char *arg_host = NULL;
 
@@ -677,7 +676,6 @@ static int help(void) {
                "     --version           Show package version\n"
                "     --no-pager          Do not pipe output into a pager\n"
                "     --no-legend         Do not show the headers and footers\n"
-               "     --no-ask-password   Don't prompt for password\n"
                "  -H --host=[USER@]HOST  Operate on remote host\n"
                "  -M --machine=CONTAINER Operate on local container\n"
                "  -p --property=NAME     Show only properties by this name\n"
@@ -705,7 +703,6 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_PAGER,
                 ARG_NO_LEGEND,
                 ARG_KILL_WHO,
-                ARG_NO_ASK_PASSWORD,
         };
 
         static const struct option options[] = {
@@ -720,7 +717,6 @@ static int parse_argv(int argc, char *argv[]) {
                 { "signal",          required_argument, NULL, 's'                 },
                 { "host",            required_argument, NULL, 'H'                 },
                 { "machine",         required_argument, NULL, 'M'                 },
-                { "no-ask-password", no_argument,       NULL, ARG_NO_ASK_PASSWORD },
                 {}
         };
 
@@ -766,10 +762,6 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_LEGEND:
                         arg_legend = false;
-                        break;
-
-                case ARG_NO_ASK_PASSWORD:
-                        arg_ask_password = false;
                         break;
 
                 case ARG_KILL_WHO:
