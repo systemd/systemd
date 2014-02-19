@@ -4761,7 +4761,8 @@ DISTCHECK_CONFIGURE_FLAGS = \
 	--with-pamconfdir=$$dc_install_base/$(pamconfdir) \
 	--with-rootprefix=$$dc_install_base \
 	--disable-split-usr \
-	--enable-kdbus
+	--enable-kdbus \
+	--enable-compat-libs
 
 if HAVE_SYSV_COMPAT
 DISTCHECK_CONFIGURE_FLAGS += \
