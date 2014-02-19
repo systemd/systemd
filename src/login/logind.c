@@ -73,8 +73,7 @@ Manager *manager_new(void) {
         m->busnames = set_new(string_hash_func, string_compare_func);
 
         if (!m->devices || !m->seats || !m->sessions || !m->users || !m->inhibitors || !m->buttons || !m->busnames ||
-            !m->user_units || !m->session_units ||
-            !m->busnames) {
+            !m->user_units || !m->session_units) {
                 manager_free(m);
                 return NULL;
         }
