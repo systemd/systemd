@@ -21,15 +21,6 @@ MANPAGES += \
 	man/sd-id128.3 \
 	man/sd-journal.3 \
 	man/sd_booted.3 \
-	man/sd_bus_creds_get_pid.3 \
-	man/sd_bus_creds_new_from_pid.3 \
-	man/sd_bus_error.3 \
-	man/sd_bus_label_escape.3 \
-	man/sd_bus_message_get_cookie.3 \
-	man/sd_bus_message_get_monotonic_usec.3 \
-	man/sd_bus_new.3 \
-	man/sd_bus_open_user.3 \
-	man/sd_bus_request_name.3 \
 	man/sd_id128_get_machine.3 \
 	man/sd_id128_randomize.3 \
 	man/sd_id128_to_string.3 \
@@ -58,7 +49,6 @@ MANPAGES += \
 	man/systemd-analyze.1 \
 	man/systemd-ask-password-console.service.8 \
 	man/systemd-ask-password.1 \
-	man/systemd-bus-proxyd.8 \
 	man/systemd-cat.1 \
 	man/systemd-cgls.1 \
 	man/systemd-cgtop.1 \
@@ -143,53 +133,6 @@ MANPAGES_ALIAS += \
 	man/init.1 \
 	man/poweroff.8 \
 	man/reboot.8 \
-	man/sd_bus_creds_get_audit_login_uid.3 \
-	man/sd_bus_creds_get_audit_session_id.3 \
-	man/sd_bus_creds_get_cgroup.3 \
-	man/sd_bus_creds_get_cmdline.3 \
-	man/sd_bus_creds_get_comm.3 \
-	man/sd_bus_creds_get_exe.3 \
-	man/sd_bus_creds_get_gid.3 \
-	man/sd_bus_creds_get_mask.3 \
-	man/sd_bus_creds_get_owner_uid.3 \
-	man/sd_bus_creds_get_pid_starttime.3 \
-	man/sd_bus_creds_get_selinux_context.3 \
-	man/sd_bus_creds_get_session.3 \
-	man/sd_bus_creds_get_slice.3 \
-	man/sd_bus_creds_get_tid.3 \
-	man/sd_bus_creds_get_tid_comm.3 \
-	man/sd_bus_creds_get_uid.3 \
-	man/sd_bus_creds_get_unique_name.3 \
-	man/sd_bus_creds_get_unit.3 \
-	man/sd_bus_creds_get_user_unit.3 \
-	man/sd_bus_creds_get_well_known_names.3 \
-	man/sd_bus_creds_has_bounding_cap.3 \
-	man/sd_bus_creds_has_effective_cap.3 \
-	man/sd_bus_creds_has_inheritable_cap.3 \
-	man/sd_bus_creds_has_permitted_cap.3 \
-	man/sd_bus_creds_ref.3 \
-	man/sd_bus_creds_unref.3 \
-	man/sd_bus_default_system.3 \
-	man/sd_bus_default_user.3 \
-	man/sd_bus_error_copy.3 \
-	man/sd_bus_error_free.3 \
-	man/sd_bus_error_get_errno.3 \
-	man/sd_bus_error_has_name.3 \
-	man/sd_bus_error_is_set.3 \
-	man/sd_bus_error_set.3 \
-	man/sd_bus_error_set_const.3 \
-	man/sd_bus_error_set_errno.3 \
-	man/sd_bus_error_set_errnof.3 \
-	man/sd_bus_label_unescape.3 \
-	man/sd_bus_message_get_realtime_usec.3 \
-	man/sd_bus_message_get_reply_cookie.3 \
-	man/sd_bus_message_get_seqnum.3 \
-	man/sd_bus_open_system.3 \
-	man/sd_bus_open_system_container.3 \
-	man/sd_bus_open_system_remote.3 \
-	man/sd_bus_ref.3 \
-	man/sd_bus_release_name.3 \
-	man/sd_bus_unref.3 \
 	man/sd_id128_equal.3 \
 	man/sd_id128_from_string.3 \
 	man/sd_id128_get_boot.3 \
@@ -926,9 +869,66 @@ endif
 
 if ENABLE_KDBUS
 MANPAGES += \
-	man/systemd-bus-proxyd@.service.8
+	man/systemd-bus-proxyd.8 \
+	man/systemd-bus-proxyd@.service.8 \
+	man/sd_bus_creds_get_pid.3 \
+	man/sd_bus_creds_new_from_pid.3 \
+	man/sd_bus_error.3 \
+	man/sd_bus_label_escape.3 \
+	man/sd_bus_message_get_cookie.3 \
+	man/sd_bus_message_get_monotonic_usec.3 \
+	man/sd_bus_new.3 \
+	man/sd_bus_open_user.3 \
+	man/sd_bus_request_name.3
 MANPAGES_ALIAS += \
-	man/systemd-bus-proxyd.socket.8
+	man/systemd-bus-proxyd.socket.8 \
+	man/sd_bus_creds_get_audit_login_uid.3 \
+	man/sd_bus_creds_get_audit_session_id.3 \
+	man/sd_bus_creds_get_cgroup.3 \
+	man/sd_bus_creds_get_cmdline.3 \
+	man/sd_bus_creds_get_comm.3 \
+	man/sd_bus_creds_get_exe.3 \
+	man/sd_bus_creds_get_gid.3 \
+	man/sd_bus_creds_get_mask.3 \
+	man/sd_bus_creds_get_owner_uid.3 \
+	man/sd_bus_creds_get_pid_starttime.3 \
+	man/sd_bus_creds_get_selinux_context.3 \
+	man/sd_bus_creds_get_session.3 \
+	man/sd_bus_creds_get_slice.3 \
+	man/sd_bus_creds_get_tid.3 \
+	man/sd_bus_creds_get_tid_comm.3 \
+	man/sd_bus_creds_get_uid.3 \
+	man/sd_bus_creds_get_unique_name.3 \
+	man/sd_bus_creds_get_unit.3 \
+	man/sd_bus_creds_get_user_unit.3 \
+	man/sd_bus_creds_get_well_known_names.3 \
+	man/sd_bus_creds_has_bounding_cap.3 \
+	man/sd_bus_creds_has_effective_cap.3 \
+	man/sd_bus_creds_has_inheritable_cap.3 \
+	man/sd_bus_creds_has_permitted_cap.3 \
+	man/sd_bus_creds_ref.3 \
+	man/sd_bus_creds_unref.3 \
+	man/sd_bus_default_system.3 \
+	man/sd_bus_default_user.3 \
+	man/sd_bus_error_copy.3 \
+	man/sd_bus_error_free.3 \
+	man/sd_bus_error_get_errno.3 \
+	man/sd_bus_error_has_name.3 \
+	man/sd_bus_error_is_set.3 \
+	man/sd_bus_error_set.3 \
+	man/sd_bus_error_set_const.3 \
+	man/sd_bus_error_set_errno.3 \
+	man/sd_bus_error_set_errnof.3 \
+	man/sd_bus_label_unescape.3 \
+	man/sd_bus_message_get_realtime_usec.3 \
+	man/sd_bus_message_get_reply_cookie.3 \
+	man/sd_bus_message_get_seqnum.3 \
+	man/sd_bus_open_system.3 \
+	man/sd_bus_open_system_container.3 \
+	man/sd_bus_open_system_remote.3 \
+	man/sd_bus_ref.3 \
+	man/sd_bus_release_name.3 \
+	man/sd_bus_unref.3
 man/systemd-bus-proxyd.socket.8: man/systemd-bus-proxyd@.service.8
 man/systemd-bus-proxyd.socket.html: man/systemd-bus-proxyd@.service.html
 	$(html-alias)
@@ -1313,7 +1313,7 @@ MANPAGES_ALIAS += \
 endif
 
 EXTRA_DIST += \
-       man/binfmt.d.xml \
+man/binfmt.d.xml \
 	man/bootchart.conf.xml \
 	man/bootctl.xml \
 	man/bootup.xml \
