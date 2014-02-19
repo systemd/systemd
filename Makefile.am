@@ -1925,7 +1925,6 @@ systemd_tty_ask_password_agent_LDADD = \
 
 # ------------------------------------------------------------------------------
 libsystemd_internal_la_SOURCES = \
-	src/libsystemd/libsystemd.sym \
 	src/systemd/sd-bus.h \
 	src/systemd/sd-bus-protocol.h \
 	src/systemd/sd-bus-vtable.h \
@@ -1991,6 +1990,7 @@ libsystemd_internal_la_SOURCES = \
 	src/login/login-shared.h
 
 nodist_libsystemd_internal_la_SOURCES = \
+	src/libsystemd/libsystemd.sym \
 	src/libsystemd/sd-bus/bus-error-mapping.c
 
 libsystemd_internal_la_CFLAGS = \
@@ -2012,13 +2012,18 @@ noinst_LTLIBRARIES += \
 	libsystemd-dump.la
 
 EXTRA_DIST += \
+	src/libsystemd/libsystemd.sym.m4 \
+	src/libsystemd/libsystemd.pc.in \
 	src/libsystemd/sd-bus/bus-error-mapping.gperf \
 	src/libsystemd/sd-bus/DIFFERENCES \
-	src/libsystemd/sd-bus/GVARIANT-SERIALIZATION \
-	src/libsystemd/libsystemd.pc.in
+	src/libsystemd/sd-bus/GVARIANT-SERIALIZATION
 
 CLEANFILES += \
+	src/libsystemd/libsystemd.sym \
 	src/libsystemd/sd-bus/bus-error-mapping.c
+
+BUILT_SOURCES += \
+	src/libsystemd/libsystemd.sym
 
 libsystemd_la_SOURCES = \
 	$(libsystemd_internal_la_SOURCES) \
@@ -2034,7 +2039,7 @@ libsystemd_la_CFLAGS = \
 libsystemd_la_LDFLAGS = \
 	$(AM_LDFLAGS) \
 	-version-info $(LIBSYSTEMD_CURRENT):$(LIBSYSTEMD_REVISION):$(LIBSYSTEMD_AGE) \
-	-Wl,--version-script=$(top_srcdir)/src/libsystemd/libsystemd.sym
+	-Wl,--version-script=$(top_builddir)/src/libsystemd/libsystemd.sym
 
 libsystemd_la_LIBADD = \
 	libsystemd-shared.la \
@@ -4879,7 +4884,7 @@ define generate-sym-test
 endef
 
 test-libsystemd-sym.c: \
-		src/libsystemd/libsystemd.sym \
+		$(top_builddir)/src/libsystemd/libsystemd.sym \
 		src/systemd/sd-journal.h \
 		src/systemd/sd-daemon.h \
 		src/systemd/sd-login.h \

@@ -123,6 +123,7 @@ global:
         sd_session_get_remote_user;
         sd_session_get_remote_host;
 
+m4_ifdef(`HAVE_KDBUS',
         /* sd-bus */
         sd_bus_default;
         sd_bus_default_user;
@@ -376,7 +377,7 @@ global:
         /* sd-utf8 */
         sd_utf8_is_valid;
         sd_ascii_is_valid;
-
+)
 local:
        *;
 };
