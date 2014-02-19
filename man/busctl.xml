@@ -94,6 +94,16 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       </varlistentry>
 
       <varlistentry>
+        <term><option>--no-legend</option></term>
+
+        <listitem>
+          <para>Do not print the legend,
+          i.e. the column headers and the
+          footer.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--system</option></term>
 
         <listitem>

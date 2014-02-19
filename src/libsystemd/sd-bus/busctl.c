@@ -34,6 +34,7 @@
 #include "bus-dump.h"
 
 static bool arg_no_pager = false;
+static bool arg_legend = true;
 static char *arg_address = NULL;
 static bool arg_unique = false;
 static bool arg_acquired = false;
@@ -106,13 +107,15 @@ static int list_bus_names(sd_bus *bus, char **argv) {
         merged[n] = NULL;
         strv_sort(merged);
 
-        printf("%-*s %*s %-*s %-*s %-*s %-*s %-*s %-*s",
-               (int) max_i, "NAME", 10, "PID", 15, "PROCESS", 16, "USER", 13, "CONNECTION", 25, "UNIT", 10, "SESSION", 19, "CONNECTION-NAME");
+        if (arg_legend) {
+                printf("%-*s %*s %-*s %-*s %-*s %-*s %-*s %-*s",
+                       (int) max_i, "NAME", 10, "PID", 15, "PROCESS", 16, "USER", 13, "CONNECTION", 25, "UNIT", 10, "SESSION", 19, "CONNECTION-NAME");
 
-        if (arg_show_machine)
-                puts(" MACHINE");
-        else
-                putchar('\n');
+                if (arg_show_machine)
+                        puts(" MACHINE");
+                else
+                        putchar('\n');
+        }
 
         STRV_FOREACH(i, merged) {
                 _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
@@ -323,6 +326,7 @@ static int help(void) {
                "  -h --help               Show this help\n"
                "     --version            Show package version\n"
                "     --no-pager           Do not pipe output into a pager\n"
+               "     --no-legend          Do not show the headers and footers\n"
                "     --system             Connect to system bus\n"
                "     --user               Connect to user bus\n"
                "  -H --host=[USER@]HOST   Operate on remote host\n"
@@ -348,6 +352,7 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_NO_PAGER,
+                ARG_NO_LEGEND,
                 ARG_SYSTEM,
                 ARG_USER,
                 ARG_ADDRESS,
@@ -362,6 +367,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "help",         no_argument,       NULL, 'h'              },
                 { "version",      no_argument,       NULL, ARG_VERSION      },
                 { "no-pager",     no_argument,       NULL, ARG_NO_PAGER     },
+                { "no-legend",    no_argument,       NULL, ARG_NO_LEGEND    },
                 { "system",       no_argument,       NULL, ARG_SYSTEM       },
                 { "user",         no_argument,       NULL, ARG_USER         },
                 { "address",      required_argument, NULL, ARG_ADDRESS      },
@@ -394,6 +400,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_PAGER:
                         arg_no_pager = true;
+                        break;
+
+                case ARG_NO_LEGEND:
+                        arg_legend = false;
                         break;
 
                 case ARG_USER:

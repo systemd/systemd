@@ -32,14 +32,14 @@ __get_machines() {
 
 __get_endpoints() {
         local a b
-        busctl list --no-pager | { while read a b; do echo " $a"; done; };
+        busctl list --no-legend --no-pager | { while read a b; do echo " $a"; done; };
 }
 
 _busctl() {
         local i verb comps
         local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
         local -A OPTS=(
-               [STANDALONE]='-h --help --version --no-pager --system --user
+               [STANDALONE]='-h --help --version --no-pager --no-legend --system --user
                              --show-machine --unique --acquired --activatable'
                       [ARG]='-H --host -M --machine --address --match'
         )
