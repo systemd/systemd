@@ -1338,7 +1338,7 @@ static int send_unit_files_changed(sd_bus *bus, const char *destination, void *u
 
         assert(bus);
 
-        r = sd_bus_message_new_signal(bus, "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "UnitFilesChanged", &message);
+        r = sd_bus_message_new_signal(bus, &message, "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "UnitFilesChanged");
         if (r < 0)
                 return r;
 
@@ -1680,7 +1680,7 @@ static int send_finished(sd_bus *bus, const char *destination, void *userdata) {
         assert(bus);
         assert(times);
 
-        r = sd_bus_message_new_signal(bus, "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "StartupFinished", &message);
+        r = sd_bus_message_new_signal(bus, &message, "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "StartupFinished");
         if (r < 0)
                 return r;
 
@@ -1716,7 +1716,7 @@ static int send_reloading(sd_bus *bus, const char *destination, void *userdata) 
 
         assert(bus);
 
-        r = sd_bus_message_new_signal(bus, "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "Reloading", &message);
+        r = sd_bus_message_new_signal(bus, &message, "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "Reloading");
         if (r < 0)
                 return r;
 

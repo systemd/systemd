@@ -150,11 +150,13 @@ static int set_locale(sd_bus *bus, char **args, unsigned n) {
 
         polkit_agent_open_if_enabled();
 
-        r = sd_bus_message_new_method_call(bus,
+        r = sd_bus_message_new_method_call(
+                        bus,
+                        &m,
                         "org.freedesktop.locale1",
                         "/org/freedesktop/locale1",
                         "org.freedesktop.locale1",
-                        "SetLocale", &m);
+                        "SetLocale");
         if (r < 0)
                 return bus_log_create_error(r);
 

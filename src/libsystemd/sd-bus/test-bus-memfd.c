@@ -40,7 +40,7 @@ int main(int argc, char *argv[]) {
 
         log_set_max_level(LOG_DEBUG);
 
-        r = sd_memfd_new(NULL, &m);
+        r = sd_memfd_new(&m, NULL);
         if (r == -ENOENT)
                 return EXIT_TEST_SKIP;
 
@@ -103,7 +103,7 @@ int main(int argc, char *argv[]) {
         sd_memfd_free(m);
 
         /* new sd_memfd, same underlying memfd */
-        r = sd_memfd_make(fd, &m);
+        r = sd_memfd_new_from_fd(&m, fd);
         assert_se(r >= 0);
 
         /* we did truncate it to 6 */

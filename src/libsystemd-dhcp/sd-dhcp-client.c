@@ -392,10 +392,11 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec,
 
         next_timeout += (random_u32() & 0x1fffff);
 
-        r = sd_event_add_monotonic(client->event, next_timeout,
+        r = sd_event_add_monotonic(client->event,
+                                     &client->timeout_resend,
+                                     next_timeout,
                                      10 * USEC_PER_MSEC,
-                                     client_timeout_resend, client,
-                                     &client->timeout_resend);
+                                     client_timeout_resend, client);
         if (r < 0)
                 goto error;
 
@@ -465,8 +466,9 @@ static int client_initialize_events(sd_dhcp_client *client,
         assert(client);
         assert(client->event);
 
-        r = sd_event_add_io(client->event, client->fd, EPOLLIN, io_callback,
-                            client, &client->receive_message);
+        r = sd_event_add_io(client->event, &client->receive_message,
+                            client->fd, EPOLLIN, io_callback,
+                            client);
         if (r < 0)
                 goto error;
 
@@ -475,9 +477,10 @@ static int client_initialize_events(sd_dhcp_client *client,
         if (r < 0)
                 goto error;
 
-        r = sd_event_add_monotonic(client->event, usec, 0,
-                                   client_timeout_resend, client,
-                                   &client->timeout_resend);
+        r = sd_event_add_monotonic(client->event,
+                                   &client->timeout_resend,
+                                   usec, 0,
+                                   client_timeout_resend, client);
         if (r < 0)
                 goto error;
 
@@ -643,10 +646,11 @@ static int client_set_lease_timeouts(sd_dhcp_client *client, uint64_t usec) {
         if (next_timeout < usec)
                 return -EINVAL;
 
-        r = sd_event_add_monotonic(client->event, next_timeout,
+        r = sd_event_add_monotonic(client->event,
+                                     &client->timeout_t1,
+                                     next_timeout,
                                      10 * USEC_PER_MSEC,
-                                     client_timeout_t1, client,
-                                     &client->timeout_t1);
+                                     client_timeout_t1, client);
         if (r < 0)
                 return r;
 
@@ -669,10 +673,11 @@ static int client_set_lease_timeouts(sd_dhcp_client *client, uint64_t usec) {
         if (next_timeout < usec)
                 return -EINVAL;
 
-        r = sd_event_add_monotonic(client->event, next_timeout,
+        r = sd_event_add_monotonic(client->event,
+                                     &client->timeout_t2,
+                                     next_timeout,
                                      10 * USEC_PER_MSEC,
-                                     client_timeout_t2, client,
-                                     &client->timeout_t2);
+                                     client_timeout_t2, client);
         if (r < 0)
                 return r;
 
@@ -686,10 +691,10 @@ static int client_set_lease_timeouts(sd_dhcp_client *client, uint64_t usec) {
         if (next_timeout < usec)
                 return -EINVAL;
 
-        r = sd_event_add_monotonic(client->event, next_timeout,
+        r = sd_event_add_monotonic(client->event,
+                                     &client->timeout_expire, next_timeout,
                                      10 * USEC_PER_MSEC,
-                                     client_timeout_expire, client,
-                                     &client->timeout_expire);
+                                     client_timeout_expire, client);
         if (r < 0)
                 return r;
 
@@ -728,10 +733,11 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message,
                         client->state = DHCP_STATE_REQUESTING;
                         client->attempt = 1;
 
-                        r = sd_event_add_monotonic(client->event, time_now, 0,
+                        r = sd_event_add_monotonic(client->event,
+                                                   &client->timeout_resend,
+                                                   time_now, 0,
                                                    client_timeout_resend,
-                                                   client,
-                                                   &client->timeout_resend);
+                                                   client);
                         if (r < 0)
                                 goto error;
 

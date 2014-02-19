@@ -366,11 +366,11 @@ static int locale_update_system_manager(Context *c, sd_bus *bus) {
         }
 
         assert(c_set + c_unset == _LOCALE_MAX);
-        r = sd_bus_message_new_method_call(bus,
+        r = sd_bus_message_new_method_call(bus, &m,
                         "org.freedesktop.systemd1",
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
-                        "UnsetAndSetEnvironment", &m);
+                        "UnsetAndSetEnvironment");
         if (r < 0)
                 return r;
 

@@ -1315,13 +1315,13 @@ static int setup_veth(pid_t pid, char iface_name[]) {
 
         strncpy(iface_name+3, arg_machine, IFNAMSIZ - 3);
 
-        r = sd_rtnl_open(0, &rtnl);
+        r = sd_rtnl_open(&rtnl, 0);
         if (r < 0) {
                 log_error("Failed to connect to netlink: %s", strerror(-r));
                 return r;
         }
 
-        r = sd_rtnl_message_new_link(rtnl, RTM_NEWLINK, 0, &m);
+        r = sd_rtnl_message_new_link(rtnl, &m, RTM_NEWLINK, 0);
         if (r < 0) {
                 log_error("Failed to allocate netlink message: %s", strerror(-r));
                 return r;
@@ -1416,13 +1416,13 @@ static int setup_bridge(const char veth_name[]) {
                 return -errno;
         }
 
-        r = sd_rtnl_open(0, &rtnl);
+        r = sd_rtnl_open(&rtnl, 0);
         if (r < 0) {
                 log_error("Failed to connect to netlink: %s", strerror(-r));
                 return r;
         }
 
-        r = sd_rtnl_message_new_link(rtnl, RTM_SETLINK, 0, &m);
+        r = sd_rtnl_message_new_link(rtnl, &m, RTM_SETLINK, 0);
         if (r < 0) {
                 log_error("Failed to allocate netlink message: %s", strerror(-r));
                 return r;
@@ -1461,7 +1461,7 @@ static int move_network_interfaces(pid_t pid) {
         if (strv_isempty(arg_network_interfaces))
                 return 0;
 
-        r = sd_rtnl_open(0, &rtnl);
+        r = sd_rtnl_open(&rtnl, 0);
         if (r < 0) {
                 log_error("Failed to connect to netlink: %s", strerror(-r));
                 return r;
@@ -1497,7 +1497,7 @@ static int move_network_interfaces(pid_t pid) {
                         return -EBUSY;
                 }
 
-                r = sd_rtnl_message_new_link(rtnl, RTM_NEWLINK, ifi, &m);
+                r = sd_rtnl_message_new_link(rtnl, &m, RTM_NEWLINK, ifi);
                 if (r < 0) {
                         log_error("Failed to allocate netlink message: %s", strerror(-r));
                         return r;

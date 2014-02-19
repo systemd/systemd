@@ -52,7 +52,7 @@ int manager_new(Manager **ret) {
 
         sd_event_set_watchdog(m->event, true);
 
-        r = sd_rtnl_open(RTMGRP_LINK | RTMGRP_IPV4_IFADDR, &m->rtnl);
+        r = sd_rtnl_open(&m->rtnl, RTMGRP_LINK | RTMGRP_IPV4_IFADDR);
         if (r < 0)
                 return r;
 
@@ -252,9 +252,10 @@ int manager_udev_listen(Manager *m) {
         }
 
         r = sd_event_add_io(m->event,
+                        &m->udev_event_source,
                         udev_monitor_get_fd(m->udev_monitor),
                         EPOLLIN, manager_dispatch_link_udev,
-                        m, &m->udev_event_source);
+                        m);
         if (r < 0)
                 return r;
 

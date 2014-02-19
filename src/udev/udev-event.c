@@ -760,7 +760,7 @@ static int rename_netif(struct udev_event *event)
 
         strscpy(name, IFNAMSIZ, event->name);
 
-        r = sd_rtnl_open(0, &rtnl);
+        r = sd_rtnl_open(&rtnl, 0);
         if (r < 0)
                 return r;
 

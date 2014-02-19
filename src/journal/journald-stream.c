@@ -403,7 +403,7 @@ static int stdout_stream_new(sd_event_source *es, int listen_fd, uint32_t revent
                 goto fail;
         }
 
-        r = sd_event_add_io(s->event, fd, EPOLLIN, stdout_stream_process, stream, &stream->event_source);
+        r = sd_event_add_io(s->event, &stream->event_source, fd, EPOLLIN, stdout_stream_process, stream);
         if (r < 0) {
                 log_error("Failed to add stream to event loop: %s", strerror(-r));
                 goto fail;
@@ -460,7 +460,7 @@ int server_open_stdout_socket(Server *s) {
         } else
                 fd_nonblock(s->stdout_fd, 1);
 
-        r = sd_event_add_io(s->event, s->stdout_fd, EPOLLIN, stdout_stream_new, s, &s->stdout_event_source);
+        r = sd_event_add_io(s->event, &s->stdout_event_source, s->stdout_fd, EPOLLIN, stdout_stream_new, s);
         if (r < 0) {
                 log_error("Failed to add stdout server fd to event source: %s", strerror(-r));
                 return r;

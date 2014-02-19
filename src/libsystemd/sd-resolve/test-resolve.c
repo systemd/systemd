@@ -52,7 +52,7 @@ int main(int argc, char *argv[]) {
         hints.ai_socktype = SOCK_STREAM;
         hints.ai_flags = AI_CANONNAME;
 
-        r = sd_resolve_getaddrinfo(resolve, argc >= 2 ? argv[1] : "www.heise.de", NULL, &hints, &q1);
+        r = sd_resolve_getaddrinfo(resolve, &q1, argc >= 2 ? argv[1] : "www.heise.de", NULL, &hints);
         if (r < 0)
                 log_error("sd_resolve_getaddrinfo(): %s\n", strerror(-r));
 
@@ -61,12 +61,12 @@ int main(int argc, char *argv[]) {
         sa.sin_addr.s_addr = inet_addr(argc >= 3 ? argv[2] : "193.99.144.71");
         sa.sin_port = htons(80);
 
-        r = sd_resolve_getnameinfo(resolve, (struct sockaddr*) &sa, sizeof(sa), 0, true, true, &q2);
+        r = sd_resolve_getnameinfo(resolve, &q2, (struct sockaddr*) &sa, sizeof(sa), 0, true, true);
         if (r < 0)
                 log_error("sd_resolve_getnameinfo(): %s\n", strerror(-r));
 
         /* Make a res_query() call */
-        r = sd_resolve_res_query(resolve, "_xmpp-client._tcp.gmail.com", C_IN, T_SRV, &q3);
+        r = sd_resolve_res_query(resolve, &q3, "_xmpp-client._tcp.gmail.com", C_IN, T_SRV);
         if (r < 0)
                 log_error("sd_resolve_res_query(): %s\n", strerror(-r));
 

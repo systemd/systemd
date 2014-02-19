@@ -68,7 +68,7 @@ int sd_resolve_wait(sd_resolve *resolve, uint64_t timeout_usec);
  * getaddrinfo(3). The function returns a new query object. When the
  * query is completed you may retrieve the results using
  * sd_resolve_getaddrinfo_done(). */
-int sd_resolve_getaddrinfo(sd_resolve *resolve, const char *node, const char *service, const struct addrinfo *hints, sd_resolve_query **q);
+int sd_resolve_getaddrinfo(sd_resolve *resolve, sd_resolve_query **q, const char *node, const char *service, const struct addrinfo *hints);
 
 /** Retrieve the results of a preceding sd_resolve_getaddrinfo()
  * call. Returns a addrinfo structure and a return value compatible
@@ -90,7 +90,7 @@ void sd_resolve_freeaddrinfo(struct addrinfo *ai);
  * query is completed you may retrieve the results using
  * sd_resolve_getnameinfo_done(). Set gethost (resp. getserv) to non-zero
  * if you want to query the hostname (resp. the service name). */
-int sd_resolve_getnameinfo(sd_resolve *resolve, const struct sockaddr *sa, socklen_t salen, int flags, int gethost, int getserv, sd_resolve_query **q);
+int sd_resolve_getnameinfo(sd_resolve *resolve, sd_resolve_query **q, const struct sockaddr *sa, socklen_t salen, int flags, int gethost, int getserv);
 
 /** Retrieve the results of a preceding sd_resolve_getnameinfo()
  * call. Returns the hostname and the service name in ret_host and
@@ -103,13 +103,13 @@ int sd_resolve_getnameinfo_done(sd_resolve_query* q, char **ret_host, char **ret
  * compatible with the ones of libc's res_query(3). The function returns a new
  * query object. When the query is completed you may retrieve the results using
  * sd_resolve_res_done().  */
-int sd_resolve_res_query(sd_resolve *resolve, const char *dname, int class, int type, sd_resolve_query **q);
+int sd_resolve_res_query(sd_resolve *resolve, sd_resolve_query **q, const char *dname, int class, int type);
 
 /** Issue an resolver query on the specified session. The arguments are
  * compatible with the ones of libc's res_search(3). The function returns a new
  * query object. When the query is completed you may retrieve the results using
  * sd_resolve_res_done().  */
-int sd_resolve_res_search(sd_resolve *resolve, const char *dname, int class, int type, sd_resolve_query **q);
+int sd_resolve_res_search(sd_resolve *resolve, sd_resolve_query **q, const char *dname, int class, int type);
 
 /** Retrieve the results of a preceding sd_resolve_res_query() or
  * resolve_res_search call.  The query object q is destroyed by this

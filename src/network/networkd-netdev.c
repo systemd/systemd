@@ -94,8 +94,8 @@ static int netdev_enslave_ready(NetDev *netdev, Link* link, sd_rtnl_message_hand
         assert(link);
         assert(callback);
 
-        r = sd_rtnl_message_new_link(netdev->manager->rtnl, RTM_SETLINK,
-                                     link->ifindex, &req);
+        r = sd_rtnl_message_new_link(netdev->manager->rtnl, &req,
+                                     RTM_SETLINK, link->ifindex);
         if (r < 0) {
                 log_error_netdev(netdev,
                                  "Could not allocate RTM_SETLINK message: %s",
@@ -172,7 +172,7 @@ static int netdev_create(NetDev *netdev, Link *link, sd_rtnl_message_handler_t c
         assert(netdev->manager);
         assert(netdev->manager->rtnl);
 
-        r = sd_rtnl_message_new_link(netdev->manager->rtnl, RTM_NEWLINK, 0, &req);
+        r = sd_rtnl_message_new_link(netdev->manager->rtnl, &req, RTM_NEWLINK, 0);
         if (r < 0) {
                 log_error_netdev(netdev,
                                  "Could not allocate RTM_NEWLINK message: %s",

@@ -914,10 +914,10 @@ static int alloc_query(sd_resolve *resolve, sd_resolve_query **_q) {
 
 _public_ int sd_resolve_getaddrinfo(
                 sd_resolve *resolve,
+                sd_resolve_query **_q,
                 const char *node,
                 const char *service,
-                const struct addrinfo *hints,
-                sd_resolve_query **_q) {
+                const struct addrinfo *hints) {
 
         AddrInfoRequest req = {};
         struct msghdr mh = {};
@@ -1007,10 +1007,10 @@ _public_ int sd_resolve_getaddrinfo_done(sd_resolve_query* q, struct addrinfo **
 
 _public_ int sd_resolve_getnameinfo(
                 sd_resolve *resolve,
+                sd_resolve_query**_q,
                 const struct sockaddr *sa, socklen_t salen,
                 int flags,
-                int gethost, int getserv,
-                sd_resolve_query**_q) {
+                int gethost, int getserv) {
 
         NameInfoRequest req = {};
         struct msghdr mh = {};
@@ -1098,10 +1098,10 @@ _public_ int sd_resolve_getnameinfo_done(sd_resolve_query* q, char **ret_host, c
 
 static int resolve_res(
                 sd_resolve *resolve,
+                sd_resolve_query **_q,
                 QueryType qtype,
                 const char *dname,
-                int class, int type,
-                sd_resolve_query **_q) {
+                int class, int type) {
 
         struct msghdr mh = {};
         struct iovec iov[2];
@@ -1141,12 +1141,12 @@ static int resolve_res(
         return 0;
 }
 
-_public_ int sd_resolve_res_query(sd_resolve *resolve, const char *dname, int class, int type, sd_resolve_query** q) {
-        return resolve_res(resolve, REQUEST_RES_QUERY, dname, class, type, q);
+_public_ int sd_resolve_res_query(sd_resolve *resolve, sd_resolve_query** q, const char *dname, int class, int type) {
+        return resolve_res(resolve, q, REQUEST_RES_QUERY, dname, class, type);
 }
 
-_public_ int sd_resolve_res_search(sd_resolve *resolve, const char *dname, int class, int type, sd_resolve_query** q) {
-        return resolve_res(resolve, REQUEST_RES_SEARCH, dname, class, type, q);
+_public_ int sd_resolve_res_search(sd_resolve *resolve, sd_resolve_query** q, const char *dname, int class, int type) {
+        return resolve_res(resolve, q, REQUEST_RES_SEARCH, dname, class, type);
 }
 
 _public_ int sd_resolve_res_done(sd_resolve_query* q, unsigned char **answer) {

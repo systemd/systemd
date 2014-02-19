@@ -1207,10 +1207,11 @@ _public_ int sd_bus_get_owner_machine_id(sd_bus *bus, const char *name, sd_id128
 
         r = sd_bus_message_new_method_call(
                         bus,
+                        &m,
                         name,
                         "/",
                         "org.freedesktop.DBus.Peer",
-                        "GetMachineId", &m);
+                        "GetMachineId");
         if (r < 0)
                 return r;
 

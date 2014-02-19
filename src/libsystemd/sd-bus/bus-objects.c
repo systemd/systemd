@@ -2004,7 +2004,7 @@ static int emit_properties_changed_on_interface(
         if (!n)
                 return 0;
 
-        r = sd_bus_message_new_signal(bus, path, "org.freedesktop.DBus.Properties", "PropertiesChanged", &m);
+        r = sd_bus_message_new_signal(bus, &m, path, "org.freedesktop.DBus.Properties", "PropertiesChanged");
         if (r < 0)
                 return r;
 
@@ -2373,7 +2373,7 @@ _public_ int sd_bus_emit_interfaces_added_strv(sd_bus *bus, const char *path, ch
                 if (m)
                         m = sd_bus_message_unref(m);
 
-                r = sd_bus_message_new_signal(bus, path, "org.freedesktop.DBus.ObjectManager", "InterfacesAdded", &m);
+                r = sd_bus_message_new_signal(bus, &m, path, "org.freedesktop.DBus.ObjectManager", "InterfacesAdded");
                 if (r < 0)
                         return r;
 
@@ -2441,7 +2441,7 @@ _public_ int sd_bus_emit_interfaces_removed_strv(sd_bus *bus, const char *path, 
         if (strv_isempty(interfaces))
                 return 0;
 
-        r = sd_bus_message_new_signal(bus, path, "org.freedesktop.DBus.ObjectManager", "InterfacesRemoved", &m);
+        r = sd_bus_message_new_signal(bus, &m, path, "org.freedesktop.DBus.ObjectManager", "InterfacesRemoved");
         if (r < 0)
                 return r;
 

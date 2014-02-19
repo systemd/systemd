@@ -741,7 +741,7 @@ static int manager_connect_console(Manager *m) {
                 return -errno;
         }
 
-        r = sd_event_add_io(m->event, m->console_active_fd, 0, manager_dispatch_console, m, &m->console_active_event_source);
+        r = sd_event_add_io(m->event, &m->console_active_event_source, m->console_active_fd, 0, manager_dispatch_console, m);
         if (r < 0) {
                 log_error("Failed to watch foreground console");
                 return r;
@@ -771,7 +771,7 @@ static int manager_connect_udev(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_event_add_io(m->event, udev_monitor_get_fd(m->udev_seat_monitor), EPOLLIN, manager_dispatch_seat_udev, m, &m->udev_seat_event_source);
+        r = sd_event_add_io(m->event, &m->udev_seat_event_source, udev_monitor_get_fd(m->udev_seat_monitor), EPOLLIN, manager_dispatch_seat_udev, m);
         if (r < 0)
                 return r;
 
@@ -795,7 +795,7 @@ static int manager_connect_udev(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_event_add_io(m->event, udev_monitor_get_fd(m->udev_device_monitor), EPOLLIN, manager_dispatch_device_udev, m, &m->udev_device_event_source);
+        r = sd_event_add_io(m->event, &m->udev_device_event_source, udev_monitor_get_fd(m->udev_device_monitor), EPOLLIN, manager_dispatch_device_udev, m);
         if (r < 0)
                 return r;
 
@@ -821,7 +821,7 @@ static int manager_connect_udev(Manager *m) {
                 if (r < 0)
                         return r;
 
-                r = sd_event_add_io(m->event, udev_monitor_get_fd(m->udev_button_monitor), EPOLLIN, manager_dispatch_button_udev, m, &m->udev_button_event_source);
+                r = sd_event_add_io(m->event, &m->udev_button_event_source, udev_monitor_get_fd(m->udev_button_monitor), EPOLLIN, manager_dispatch_button_udev, m);
                 if (r < 0)
                         return r;
         }
@@ -841,7 +841,7 @@ static int manager_connect_udev(Manager *m) {
                 if (r < 0)
                         return r;
 
-                r = sd_event_add_io(m->event, udev_monitor_get_fd(m->udev_vcsa_monitor), EPOLLIN, manager_dispatch_vcsa_udev, m, &m->udev_vcsa_event_source);
+                r = sd_event_add_io(m->event, &m->udev_vcsa_event_source, udev_monitor_get_fd(m->udev_vcsa_monitor), EPOLLIN, manager_dispatch_vcsa_udev, m);
                 if (r < 0)
                         return r;
         }
@@ -935,7 +935,7 @@ static int manager_dispatch_idle_action(sd_event_source *s, uint64_t t, void *us
 
         if (!m->idle_action_event_source) {
 
-                r = sd_event_add_monotonic(m->event, elapse, USEC_PER_SEC*30, manager_dispatch_idle_action, m, &m->idle_action_event_source);
+                r = sd_event_add_monotonic(m->event, &m->idle_action_event_source, elapse, USEC_PER_SEC*30, manager_dispatch_idle_action, m);
                 if (r < 0) {
                         log_error("Failed to add idle event source: %s", strerror(-r));
                         return r;

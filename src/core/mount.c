@@ -181,7 +181,7 @@ static int mount_arm_timer(Mount *m) {
                 return sd_event_source_set_enabled(m->timer_event_source, SD_EVENT_ONESHOT);
         }
 
-        return sd_event_add_monotonic(UNIT(m)->manager->event, now(CLOCK_MONOTONIC) + m->timeout_usec, 0, mount_dispatch_timer, m, &m->timer_event_source);
+        return sd_event_add_monotonic(UNIT(m)->manager->event, &m->timer_event_source, now(CLOCK_MONOTONIC) + m->timeout_usec, 0, mount_dispatch_timer, m);
 }
 
 static void mount_unwatch_control_pid(Mount *m) {
@@ -1612,7 +1612,7 @@ static int mount_enumerate(Manager *m) {
                 if (!m->proc_self_mountinfo)
                         return -errno;
 
-                r = sd_event_add_io(m->event, fileno(m->proc_self_mountinfo), EPOLLPRI, mount_dispatch_io, m, &m->mount_event_source);
+                r = sd_event_add_io(m->event, &m->mount_event_source, fileno(m->proc_self_mountinfo), EPOLLPRI, mount_dispatch_io, m);
                 if (r < 0)
                         goto fail;
 

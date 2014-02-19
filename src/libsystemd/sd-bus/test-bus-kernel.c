@@ -130,7 +130,7 @@ int main(int argc, char *argv[]) {
         r = sd_bus_request_name(a, "net.x0pointer.foobar", 0);
         assert_se(r >= 0);
 
-        r = sd_bus_message_new_method_call(b, "net.x0pointer.foobar", "/a/path", "an.inter.face", "AMethod", &m);
+        r = sd_bus_message_new_method_call(b, &m, "net.x0pointer.foobar", "/a/path", "an.inter.face", "AMethod");
         assert_se(r >= 0);
 
         assert_se(pipe2(pipe_fds, O_CLOEXEC) >= 0);

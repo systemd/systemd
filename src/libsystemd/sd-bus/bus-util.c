@@ -383,11 +383,11 @@ int bus_verify_polkit_async(
 
         r = sd_bus_message_new_method_call(
                         bus,
+                        &pk,
                         "org.freedesktop.PolicyKit1",
                         "/org/freedesktop/PolicyKit1/Authority",
                         "org.freedesktop.PolicyKit1.Authority",
-                        "CheckAuthorization",
-                        &pk);
+                        "CheckAuthorization");
         if (r < 0)
                 return r;
 

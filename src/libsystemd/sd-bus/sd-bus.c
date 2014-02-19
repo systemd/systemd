@@ -399,11 +399,11 @@ static int bus_send_hello(sd_bus *bus) {
 
         r = sd_bus_message_new_method_call(
                         bus,
+                        &m,
                         "org.freedesktop.DBus",
                         "/org/freedesktop/DBus",
                         "org.freedesktop.DBus",
-                        "Hello",
-                        &m);
+                        "Hello");
         if (r < 0)
                 return r;
 
@@ -2384,10 +2384,10 @@ static int process_closing(sd_bus *bus, sd_bus_message **ret) {
         /* Then, synthesize a Disconnected message */
         r = sd_bus_message_new_signal(
                         bus,
+                        &m,
                         "/org/freedesktop/DBus/Local",
                         "org.freedesktop.DBus.Local",
-                        "Disconnected",
-                        &m);
+                        "Disconnected");
         if (r < 0)
                 return r;
 
@@ -2821,7 +2821,7 @@ static int attach_io_events(sd_bus *bus) {
                 return 0;
 
         if (!bus->input_io_event_source) {
-                r = sd_event_add_io(bus->event, bus->input_fd, 0, io_callback, bus, &bus->input_io_event_source);
+                r = sd_event_add_io(bus->event, &bus->input_io_event_source, bus->input_fd, 0, io_callback, bus);
                 if (r < 0)
                         return r;
 
@@ -2840,7 +2840,7 @@ static int attach_io_events(sd_bus *bus) {
                 assert(bus->output_fd >= 0);
 
                 if (!bus->output_io_event_source) {
-                        r = sd_event_add_io(bus->event, bus->output_fd, 0, io_callback, bus, &bus->output_io_event_source);
+                        r = sd_event_add_io(bus->event, &bus->output_io_event_source, bus->output_fd, 0, io_callback, bus);
                         if (r < 0)
                                 return r;
 
@@ -2889,7 +2889,7 @@ _public_ int sd_bus_attach_event(sd_bus *bus, sd_event *event, int priority) {
 
         bus->event_priority = priority;
 
-        r = sd_event_add_monotonic(bus->event, 0, 0, time_callback, bus, &bus->time_event_source);
+        r = sd_event_add_monotonic(bus->event, &bus->time_event_source, 0, 0, time_callback, bus);
         if (r < 0)
                 goto fail;
 
@@ -2897,7 +2897,7 @@ _public_ int sd_bus_attach_event(sd_bus *bus, sd_event *event, int priority) {
         if (r < 0)
                 goto fail;
 
-        r = sd_event_add_exit(bus->event, quit_callback, bus, &bus->quit_event_source);
+        r = sd_event_add_exit(bus->event, &bus->quit_event_source, quit_callback, bus);
         if (r < 0)
                 goto fail;
 

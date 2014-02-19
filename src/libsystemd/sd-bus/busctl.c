@@ -308,7 +308,7 @@ static int status(sd_bus *bus, char *argv[]) {
         if (r < 0)
                 r = sd_bus_get_owner(bus, argv[1], _SD_BUS_CREDS_ALL, &creds);
         else
-                r = sd_bus_creds_new_from_pid(pid, _SD_BUS_CREDS_ALL, &creds);
+                r = sd_bus_creds_new_from_pid(&creds, pid, _SD_BUS_CREDS_ALL);
 
         if (r < 0) {
                 log_error("Failed to get credentials: %s", strerror(-r));

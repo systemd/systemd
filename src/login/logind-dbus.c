@@ -2192,11 +2192,11 @@ int manager_start_scope(
 
         r = sd_bus_message_new_method_call(
                         manager->bus,
+                        &m,
                         "org.freedesktop.systemd1",
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
-                        "StartTransientUnit",
-                        &m);
+                        "StartTransientUnit");
         if (r < 0)
                 return r;
 

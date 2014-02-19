@@ -105,7 +105,7 @@ static int manager_watch_jobs_in_progress(Manager *m) {
                 return 0;
 
         next = now(CLOCK_MONOTONIC) + JOBS_IN_PROGRESS_WAIT_USEC;
-        return sd_event_add_monotonic(m->event, next, 0, manager_dispatch_jobs_in_progress, m, &m->jobs_in_progress_event_source);
+        return sd_event_add_monotonic(m->event, &m->jobs_in_progress_event_source, next, 0, manager_dispatch_jobs_in_progress, m);
 }
 
 #define CYLON_BUFFER_EXTRA (2*(sizeof(ANSI_RED_ON)-1) + sizeof(ANSI_HIGHLIGHT_RED_ON)-1 + 2*(sizeof(ANSI_HIGHLIGHT_OFF)-1))
@@ -209,7 +209,7 @@ static int manager_watch_idle_pipe(Manager *m) {
         if (m->idle_pipe[2] < 0)
                 return 0;
 
-        r = sd_event_add_io(m->event, m->idle_pipe[2], EPOLLIN, manager_dispatch_idle_pipe_fd, m, &m->idle_pipe_event_source);
+        r = sd_event_add_io(m->event, &m->idle_pipe_event_source, m->idle_pipe[2], EPOLLIN, manager_dispatch_idle_pipe_fd, m);
         if (r < 0) {
                 log_error("Failed to watch idle pipe: %s", strerror(-r));
                 return r;
@@ -253,7 +253,7 @@ static int manager_setup_time_change(Manager *m) {
                 return 0;
         }
 
-        r = sd_event_add_io(m->event, m->time_change_fd, EPOLLIN, manager_dispatch_time_change_fd, m, &m->time_change_event_source);
+        r = sd_event_add_io(m->event, &m->time_change_event_source, m->time_change_fd, EPOLLIN, manager_dispatch_time_change_fd, m);
         if (r < 0) {
                 log_error("Failed to create time change event source: %s", strerror(-r));
                 return r;
@@ -340,7 +340,7 @@ static int manager_setup_signals(Manager *m) {
         if (m->signal_fd < 0)
                 return -errno;
 
-        r = sd_event_add_io(m->event, m->signal_fd, EPOLLIN, manager_dispatch_signal_fd, m, &m->signal_event_source);
+        r = sd_event_add_io(m->event, &m->signal_event_source, m->signal_fd, EPOLLIN, manager_dispatch_signal_fd, m);
         if (r < 0)
                 return r;
 
@@ -455,7 +455,7 @@ int manager_new(SystemdRunningAs running_as, Manager **_m) {
         if (r < 0)
                 goto fail;
 
-        r = sd_event_add_defer(m->event, manager_dispatch_run_queue, m, &m->run_queue_event_source);
+        r = sd_event_add_defer(m->event, &m->run_queue_event_source, manager_dispatch_run_queue, m);
         if (r < 0)
                 goto fail;
 
@@ -552,7 +552,7 @@ static int manager_setup_notify(Manager *m) {
         }
 
         if (!m->notify_event_source) {
-                r = sd_event_add_io(m->event, m->notify_fd, EPOLLIN, manager_dispatch_notify_fd, m, &m->notify_event_source);
+                r = sd_event_add_io(m->event, &m->notify_event_source, m->notify_fd, EPOLLIN, manager_dispatch_notify_fd, m);
                 if (r < 0) {
                         log_error("Failed to allocate notify event source: %s", strerror(-r));
                         return -errno;

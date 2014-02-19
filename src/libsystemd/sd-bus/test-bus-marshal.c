@@ -76,7 +76,7 @@ int main(int argc, char *argv[]) {
         _cleanup_fclose_ FILE *ms = NULL;
         size_t first_size = 0, second_size = 0, third_size = 0;
 
-        r = sd_bus_message_new_method_call(NULL, "foobar.waldo", "/", "foobar.waldo", "Piep", &m);
+        r = sd_bus_message_new_method_call(NULL, &m, "foobar.waldo", "/", "foobar.waldo", "Piep");
         assert_se(r >= 0);
 
         r = sd_bus_message_append(m, "s", "a string");
@@ -245,7 +245,7 @@ int main(int argc, char *argv[]) {
         r = sd_bus_message_peek_type(m, NULL, NULL);
         assert_se(r == 0);
 
-        r = sd_bus_message_new_method_call(NULL, "foobar.waldo", "/", "foobar.waldo", "Piep", &copy);
+        r = sd_bus_message_new_method_call(NULL, &copy, "foobar.waldo", "/", "foobar.waldo", "Piep");
         assert_se(r >= 0);
 
         r = sd_bus_message_rewind(m, true);

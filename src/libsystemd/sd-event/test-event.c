@@ -97,7 +97,7 @@ static int signal_handler(sd_event_source *s, const struct signalfd_siginfo *si,
         if (pid == 0)
                 _exit(0);
 
-        assert_se(sd_event_add_child(sd_event_source_get_event(s), pid, WEXITED, child_handler, INT_TO_PTR('f'), &p) >= 0);
+        assert_se(sd_event_add_child(sd_event_source_get_event(s), &p, pid, WEXITED, child_handler, INT_TO_PTR('f')) >= 0);
         assert_se(sd_event_source_set_enabled(p, SD_EVENT_ONESHOT) >= 0);
 
         sd_event_source_unref(s);
@@ -118,7 +118,7 @@ static int defer_handler(sd_event_source *s, void *userdata) {
         assert_se(sigemptyset(&ss) >= 0);
         assert_se(sigaddset(&ss, SIGUSR1) >= 0);
         assert_se(sigprocmask(SIG_BLOCK, &ss, NULL) >= 0);
-        assert_se(sd_event_add_signal(sd_event_source_get_event(s), SIGUSR1, signal_handler, INT_TO_PTR('e'), &p) >= 0);
+        assert_se(sd_event_add_signal(sd_event_source_get_event(s), &p, SIGUSR1, signal_handler, INT_TO_PTR('e')) >= 0);
         assert_se(sd_event_source_set_enabled(p, SD_EVENT_ONESHOT) >= 0);
         raise(SIGUSR1);
 
@@ -137,7 +137,7 @@ static int time_handler(sd_event_source *s, uint64_t usec, void *userdata) {
                 if (do_quit) {
                         sd_event_source *p;
 
-                        assert_se(sd_event_add_defer(sd_event_source_get_event(s), defer_handler, INT_TO_PTR('d'), &p) >= 0);
+                        assert_se(sd_event_add_defer(sd_event_source_get_event(s), &p, defer_handler, INT_TO_PTR('d')) >= 0);
                         assert_se(sd_event_source_set_enabled(p, SD_EVENT_ONESHOT) >= 0);
                 } else {
                         assert(!got_c);
@@ -176,7 +176,7 @@ int main(int argc, char *argv[]) {
 
         /* Test whether we cleanly can destroy an io event source from its own handler */
         got_unref = false;
-        assert_se(sd_event_add_io(e, k[0], EPOLLIN, unref_handler, NULL, &t) >= 0);
+        assert_se(sd_event_add_io(e, &t, k[0], EPOLLIN, unref_handler, NULL) >= 0);
         assert_se(write(k[1], &ch, 1) == 1);
         assert_se(sd_event_run(e, (uint64_t) -1) >= 1);
         assert_se(got_unref);
@@ -185,7 +185,7 @@ int main(int argc, char *argv[]) {
 
         /* Add a oneshot handler, trigger it, re-enable it, and trigger
          * it again. */
-        assert_se(sd_event_add_io(e, d[0], EPOLLIN, io_handler, INT_TO_PTR('d'), &w) >= 0);
+        assert_se(sd_event_add_io(e, &w, d[0], EPOLLIN, io_handler, INT_TO_PTR('d')) >= 0);
         assert_se(sd_event_source_set_enabled(w, SD_EVENT_ONESHOT) >= 0);
         assert_se(write(d[1], &ch, 1) >= 0);
         assert_se(sd_event_run(e, (uint64_t) -1) >= 1);
@@ -194,10 +194,10 @@ int main(int argc, char *argv[]) {
         assert_se(sd_event_run(e, (uint64_t) -1) >= 1);
         assert_se(got_d == 2);
 
-        assert_se(sd_event_add_io(e, a[0], EPOLLIN, io_handler, INT_TO_PTR('a'), &x) >= 0);
-        assert_se(sd_event_add_io(e, b[0], EPOLLIN, io_handler, INT_TO_PTR('b'), &y) >= 0);
-        assert_se(sd_event_add_monotonic(e, 0, 0, time_handler, INT_TO_PTR('c'), &z) >= 0);
-        assert_se(sd_event_add_exit(e, exit_handler, INT_TO_PTR('g'), &q) >= 0);
+        assert_se(sd_event_add_io(e, &x, a[0], EPOLLIN, io_handler, INT_TO_PTR('a')) >= 0);
+        assert_se(sd_event_add_io(e, &y, b[0], EPOLLIN, io_handler, INT_TO_PTR('b')) >= 0);
+        assert_se(sd_event_add_monotonic(e, &z, 0, 0, time_handler, INT_TO_PTR('c')) >= 0);
+        assert_se(sd_event_add_exit(e, &q, exit_handler, INT_TO_PTR('g')) >= 0);
 
         assert_se(sd_event_source_set_priority(x, 99) >= 0);
         assert_se(sd_event_source_set_enabled(y, SD_EVENT_ONESHOT) >= 0);

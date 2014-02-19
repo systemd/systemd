@@ -77,7 +77,7 @@ static void transaction(sd_bus *b, size_t sz) {
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
         uint8_t *p;
 
-        assert_se(sd_bus_message_new_method_call(b, ":1.1", "/", "benchmark.server", "Work", &m) >= 0);
+        assert_se(sd_bus_message_new_method_call(b, &m, ":1.1", "/", "benchmark.server", "Work") >= 0);
         assert_se(sd_bus_message_append_array_space(m, 'y', sz, (void**) &p) >= 0);
 
         memset(p, 0x80, sz);
@@ -151,7 +151,7 @@ static void client_bisect(const char *address) {
         }
 
         b->use_memfd = 1;
-        assert_se(sd_bus_message_new_method_call(b, ":1.1", "/", "benchmark.server", "Exit", &x) >= 0);
+        assert_se(sd_bus_message_new_method_call(b, &x, ":1.1", "/", "benchmark.server", "Exit") >= 0);
         assert_se(sd_bus_message_append(x, "t", csize) >= 0);
         assert_se(sd_bus_send(b, x, NULL) >= 0);
 
@@ -207,7 +207,7 @@ static void client_chart(const char *address) {
         }
 
         b->use_memfd = 1;
-        assert_se(sd_bus_message_new_method_call(b, ":1.1", "/", "benchmark.server", "Exit", &x) >= 0);
+        assert_se(sd_bus_message_new_method_call(b, &x, ":1.1", "/", "benchmark.server", "Exit") >= 0);
         assert_se(sd_bus_message_append(x, "t", csize) >= 0);
         assert_se(sd_bus_send(b, x, NULL) >= 0);
 

@@ -350,7 +350,7 @@ static void timer_enter_waiting(Timer *t, bool initial) {
 
                         r = sd_event_source_set_enabled(t->monotonic_event_source, SD_EVENT_ONESHOT);
                 } else
-                        r = sd_event_add_monotonic(UNIT(t)->manager->event, t->next_elapse_monotonic, t->accuracy_usec, timer_dispatch, t, &t->monotonic_event_source);
+                        r = sd_event_add_monotonic(UNIT(t)->manager->event, &t->monotonic_event_source, t->next_elapse_monotonic, t->accuracy_usec, timer_dispatch, t);
 
                 if (r < 0)
                         goto fail;
@@ -376,7 +376,7 @@ static void timer_enter_waiting(Timer *t, bool initial) {
 
                         r = sd_event_source_set_enabled(t->realtime_event_source, SD_EVENT_ONESHOT);
                 } else
-                        r = sd_event_add_realtime(UNIT(t)->manager->event, t->next_elapse_realtime, t->accuracy_usec, timer_dispatch, t, &t->realtime_event_source);
+                        r = sd_event_add_realtime(UNIT(t)->manager->event, &t->realtime_event_source, t->next_elapse_realtime, t->accuracy_usec, timer_dispatch, t);
 
                 if (r < 0)
                         goto fail;

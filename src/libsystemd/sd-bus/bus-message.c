@@ -509,10 +509,10 @@ static sd_bus_message *message_new(sd_bus *bus, uint8_t type) {
 
 _public_ int sd_bus_message_new_signal(
                 sd_bus *bus,
+                sd_bus_message **m,
                 const char *path,
                 const char *interface,
-                const char *member,
-                sd_bus_message **m) {
+                const char *member) {
 
         sd_bus_message *t;
         int r;
@@ -549,11 +549,11 @@ fail:
 
 _public_ int sd_bus_message_new_method_call(
                 sd_bus *bus,
+                sd_bus_message **m,
                 const char *destination,
                 const char *path,
                 const char *interface,
-                const char *member,
-                sd_bus_message **m) {
+                const char *member) {
 
         sd_bus_message *t;
         int r;
@@ -647,8 +647,8 @@ _public_ int sd_bus_message_new_method_return(
 
 _public_ int sd_bus_message_new_method_error(
                 sd_bus_message *call,
-                const sd_bus_error *e,
-                sd_bus_message **m) {
+                sd_bus_message **m,
+                const sd_bus_error *e) {
 
         sd_bus_message *t;
         int r;
@@ -697,23 +697,23 @@ _public_ int sd_bus_message_new_method_errorf(
         bus_error_setfv(&error, name, format, ap);
         va_end(ap);
 
-        return sd_bus_message_new_method_error(call, &error, m);
+        return sd_bus_message_new_method_error(call, m, &error);
 }
 
 _public_ int sd_bus_message_new_method_errno(
                 sd_bus_message *call,
+                sd_bus_message **m,
                 int error,
-                const sd_bus_error *p,
-                sd_bus_message **m) {
+                const sd_bus_error *p) {
 
         _cleanup_free_ sd_bus_error berror = SD_BUS_ERROR_NULL;
 
         if (sd_bus_error_is_set(p))
-                return sd_bus_message_new_method_error(call, p, m);
+                return sd_bus_message_new_method_error(call, m, p);
 
         sd_bus_error_set_errno(&berror, error);
 
-        return sd_bus_message_new_method_error(call, &berror, m);
+        return sd_bus_message_new_method_error(call, m, &berror);
 }
 
 _public_ int sd_bus_message_new_method_errnof(
@@ -730,7 +730,7 @@ _public_ int sd_bus_message_new_method_errnof(
         bus_error_set_errnofv(&berror, error, format, ap);
         va_end(ap);
 
-        return sd_bus_message_new_method_error(call, &berror, m);
+        return sd_bus_message_new_method_error(call, m, &berror);
 }
 
 int bus_message_new_synthetic_error(
@@ -5468,14 +5468,14 @@ int bus_message_remarshal(sd_bus *bus, sd_bus_message **m) {
         switch ((*m)->header->type) {
 
         case SD_BUS_MESSAGE_SIGNAL:
-                r = sd_bus_message_new_signal(bus, (*m)->path, (*m)->interface, (*m)->member, &n);
+                r = sd_bus_message_new_signal(bus, &n, (*m)->path, (*m)->interface, (*m)->member);
                 if (r < 0)
                         return r;
 
                 break;
 
         case SD_BUS_MESSAGE_METHOD_CALL:
-                r = sd_bus_message_new_method_call(bus, (*m)->destination, (*m)->path, (*m)->interface, (*m)->member, &n);
+                r = sd_bus_message_new_method_call(bus, &n, (*m)->destination, (*m)->path, (*m)->interface, (*m)->member);
                 if (r < 0)
                         return r;
 

@@ -403,7 +403,7 @@ int server_open_dev_kmsg(Server *s) {
                 return 0;
         }
 
-        r = sd_event_add_io(s->event, s->dev_kmsg_fd, EPOLLIN, dispatch_dev_kmsg, s, &s->dev_kmsg_event_source);
+        r = sd_event_add_io(s->event, &s->dev_kmsg_event_source, s->dev_kmsg_fd, EPOLLIN, dispatch_dev_kmsg, s);
         if (r < 0) {
 
                 /* This will fail with EPERM on older kernels where

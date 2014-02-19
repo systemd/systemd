@@ -683,7 +683,7 @@ void session_release(Session *s) {
                 return;
 
         if (!s->timer_event_source)
-                sd_event_add_monotonic(s->manager->event, now(CLOCK_MONOTONIC) + RELEASE_USEC, 0, release_timeout_callback, s, &s->timer_event_source);
+                sd_event_add_monotonic(s->manager->event, &s->timer_event_source, now(CLOCK_MONOTONIC) + RELEASE_USEC, 0, release_timeout_callback, s);
 }
 
 bool session_is_active(Session *s) {
@@ -844,7 +844,7 @@ int session_create_fifo(Session *s) {
         }
 
         if (!s->fifo_event_source) {
-                r = sd_event_add_io(s->manager->event, s->fifo_fd, 0, session_dispatch_fifo, s, &s->fifo_event_source);
+                r = sd_event_add_io(s->manager->event, &s->fifo_event_source, s->fifo_fd, 0, session_dispatch_fifo, s);
                 if (r < 0)
                         return r;
 
@@ -986,7 +986,7 @@ void session_mute_vt(Session *s) {
         sigaddset(&mask, SIGUSR1);
         sigprocmask(SIG_BLOCK, &mask, NULL);
 
-        r = sd_event_add_signal(s->manager->event, SIGUSR1, session_vt_fn, s, &s->vt_source);
+        r = sd_event_add_signal(s->manager->event, &s->vt_source, SIGUSR1, session_vt_fn, s);
         if (r < 0)
                 goto error;
 

@@ -70,7 +70,7 @@ static bool rtnl_pid_changed(sd_rtnl *rtnl) {
         return rtnl->original_pid != getpid();
 }
 
-int sd_rtnl_open(uint32_t groups, sd_rtnl **ret) {
+int sd_rtnl_open(sd_rtnl **ret, uint32_t groups) {
         _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
         socklen_t addrlen;
         int r;
@@ -774,7 +774,7 @@ int sd_rtnl_attach_event(sd_rtnl *rtnl, sd_event *event, int priority) {
                         return r;
         }
 
-        r = sd_event_add_io(rtnl->event, rtnl->fd, 0, io_callback, rtnl, &rtnl->io_event_source);
+        r = sd_event_add_io(rtnl->event, &rtnl->io_event_source, rtnl->fd, 0, io_callback, rtnl);
         if (r < 0)
                 goto fail;
 
@@ -786,7 +786,7 @@ int sd_rtnl_attach_event(sd_rtnl *rtnl, sd_event *event, int priority) {
         if (r < 0)
                 goto fail;
 
-        r = sd_event_add_monotonic(rtnl->event, 0, 0, time_callback, rtnl, &rtnl->time_event_source);
+        r = sd_event_add_monotonic(rtnl->event, &rtnl->time_event_source, 0, 0, time_callback, rtnl);
         if (r < 0)
                 goto fail;
 
@@ -794,7 +794,7 @@ int sd_rtnl_attach_event(sd_rtnl *rtnl, sd_event *event, int priority) {
         if (r < 0)
                 goto fail;
 
-        r = sd_event_add_exit(rtnl->event, exit_callback, rtnl, &rtnl->exit_event_source);
+        r = sd_event_add_exit(rtnl->event, &rtnl->exit_event_source, exit_callback, rtnl);
         if (r < 0)
                 goto fail;
 

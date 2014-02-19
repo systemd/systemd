@@ -37,7 +37,7 @@ static void test_link_configure(sd_rtnl *rtnl, int ifindex) {
         void *data;
 
         /* we'd really like to test NEWLINK, but let's not mess with the running kernel */
-        assert(sd_rtnl_message_new_link(rtnl, RTM_GETLINK, ifindex, &message) >= 0);
+        assert(sd_rtnl_message_new_link(rtnl, &message, RTM_GETLINK, ifindex) >= 0);
         assert(sd_rtnl_message_append_string(message, IFLA_IFNAME, name) >= 0);
         assert(sd_rtnl_message_append_ether_addr(message, IFLA_ADDRESS, ether_aton(mac)) >= 0);
         assert(sd_rtnl_message_append_u32(message, IFLA_MTU, mtu) >= 0);
@@ -57,7 +57,6 @@ static void test_link_configure(sd_rtnl *rtnl, int ifindex) {
         assert(mtu == *(unsigned int *) data);
 }
 
-
 static void test_link_get(sd_rtnl *rtnl, int ifindex) {
         sd_rtnl_message *m;
         sd_rtnl_message *r;
@@ -66,7 +65,7 @@ static void test_link_get(sd_rtnl *rtnl, int ifindex) {
         void *data;
         uint16_t type;
 
-        assert(sd_rtnl_message_new_link(rtnl, RTM_GETLINK, ifindex, &m) >= 0);
+        assert(sd_rtnl_message_new_link(rtnl, &m, RTM_GETLINK, ifindex) >= 0);
         assert(m);
 
         /* u8 test cases  */
@@ -137,7 +136,7 @@ static void test_route(void) {
         void *data;
         int r;
 
-        r = sd_rtnl_message_new_route(NULL, RTM_NEWROUTE, AF_INET, &req);
+        r = sd_rtnl_message_new_route(NULL, &req, RTM_NEWROUTE, AF_INET);
         if (r < 0) {
                 log_error("Could not create RTM_NEWROUTE message: %s", strerror(-r));
                 return;
@@ -171,8 +170,8 @@ static void test_route(void) {
 static void test_multiple(void) {
         sd_rtnl *rtnl1, *rtnl2;
 
-        assert(sd_rtnl_open(0, &rtnl1) >= 0);
-        assert(sd_rtnl_open(0, &rtnl2) >= 0);
+        assert(sd_rtnl_open(&rtnl1, 0) >= 0);
+        assert(sd_rtnl_open(&rtnl2, 0) >= 0);
 
         rtnl1 = sd_rtnl_unref(rtnl1);
         rtnl2 = sd_rtnl_unref(rtnl2);
@@ -215,8 +214,8 @@ static void test_event_loop(int ifindex) {
         ifname = strdup("lo2");
         assert(ifname);
 
-        assert(sd_rtnl_open(0, &rtnl) >= 0);
-        assert(sd_rtnl_message_new_link(rtnl, RTM_GETLINK, ifindex, &m) >= 0);
+        assert(sd_rtnl_open(&rtnl, 0) >= 0);
+        assert(sd_rtnl_message_new_link(rtnl, &m, RTM_GETLINK, ifindex) >= 0);
 
         assert(sd_rtnl_call_async(rtnl, m, &link_handler, ifname, 0, NULL) >= 0);
 
@@ -248,9 +247,9 @@ static void test_async(int ifindex) {
         ifname = strdup("lo");
         assert(ifname);
 
-        assert(sd_rtnl_open(0, &rtnl) >= 0);
+        assert(sd_rtnl_open(&rtnl, 0) >= 0);
 
-        assert(sd_rtnl_message_new_link(rtnl, RTM_GETLINK, ifindex, &m) >= 0);
+        assert(sd_rtnl_message_new_link(rtnl, &m, RTM_GETLINK, ifindex) >= 0);
 
         assert(sd_rtnl_call_async(rtnl, m, &link_handler, ifname, 0, &serial) >= 0);
 
@@ -263,10 +262,10 @@ static void test_pipe(int ifindex) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *m1 = NULL, *m2 = NULL;
         int counter = 0;
 
-        assert(sd_rtnl_open(0, &rtnl) >= 0);
+        assert(sd_rtnl_open(&rtnl, 0) >= 0);
 
-        assert(sd_rtnl_message_new_link(rtnl, RTM_GETLINK, ifindex, &m1) >= 0);
-        assert(sd_rtnl_message_new_link(rtnl, RTM_GETLINK, ifindex, &m2) >= 0);
+        assert(sd_rtnl_message_new_link(rtnl, &m1, RTM_GETLINK, ifindex) >= 0);
+        assert(sd_rtnl_message_new_link(rtnl, &m2, RTM_GETLINK, ifindex) >= 0);
 
         counter ++;
         assert(sd_rtnl_call_async(rtnl, m1, &pipe_handler, &counter, 0, NULL) >= 0);
@@ -285,7 +284,7 @@ static void test_container(void) {
         uint16_t type;
         void *data;
 
-        assert(sd_rtnl_message_new_link(NULL, RTM_NEWLINK, 0, &m) >= 0);
+        assert(sd_rtnl_message_new_link(NULL, &m, RTM_NEWLINK, 0) >= 0);
 
         assert(sd_rtnl_message_open_container(m, IFLA_LINKINFO) >= 0);
         assert(sd_rtnl_message_open_container(m, IFLA_LINKINFO) == -ENOTSUP);
@@ -325,7 +324,7 @@ static void test_container(void) {
 static void test_match(void) {
         _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
 
-        assert(sd_rtnl_open(0, &rtnl) >= 0);
+        assert(sd_rtnl_open(&rtnl, 0) >= 0);
 
         assert(sd_rtnl_add_match(rtnl, RTM_NEWLINK, &link_handler, NULL) >= 0);
         assert(sd_rtnl_add_match(rtnl, RTM_NEWLINK, &link_handler, NULL) >= 0);
@@ -351,7 +350,7 @@ int main(void) {
 
         test_container();
 
-        assert(sd_rtnl_open(0, &rtnl) >= 0);
+        assert(sd_rtnl_open(&rtnl, 0) >= 0);
         assert(rtnl);
 
         if_loopback = (int) if_nametoindex("lo");
@@ -365,7 +364,7 @@ int main(void) {
 
         test_link_configure(rtnl, if_loopback);
 
-        assert(sd_rtnl_message_new_link(rtnl, RTM_GETLINK, if_loopback, &m) >= 0);
+        assert(sd_rtnl_message_new_link(rtnl, &m, RTM_GETLINK, if_loopback) >= 0);
         assert(m);
 
         assert(sd_rtnl_message_get_type(m, &type) >= 0);

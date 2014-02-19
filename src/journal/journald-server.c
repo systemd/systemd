@@ -1267,19 +1267,19 @@ static int setup_signals(Server *s) {
         sigset_add_many(&mask, SIGINT, SIGTERM, SIGUSR1, SIGUSR2, -1);
         assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) == 0);
 
-        r = sd_event_add_signal(s->event, SIGUSR1, dispatch_sigusr1, s, &s->sigusr1_event_source);
+        r = sd_event_add_signal(s->event, &s->sigusr1_event_source, SIGUSR1, dispatch_sigusr1, s);
         if (r < 0)
                 return r;
 
-        r = sd_event_add_signal(s->event, SIGUSR2, dispatch_sigusr2, s, &s->sigusr2_event_source);
+        r = sd_event_add_signal(s->event, &s->sigusr2_event_source, SIGUSR2, dispatch_sigusr2, s);
         if (r < 0)
                 return r;
 
-        r = sd_event_add_signal(s->event, SIGTERM, dispatch_sigterm, s, &s->sigterm_event_source);
+        r = sd_event_add_signal(s->event, &s->sigterm_event_source, SIGTERM, dispatch_sigterm, s);
         if (r < 0)
                 return r;
 
-        r = sd_event_add_signal(s->event, SIGINT, dispatch_sigterm, s, &s->sigint_event_source);
+        r = sd_event_add_signal(s->event, &s->sigint_event_source, SIGINT, dispatch_sigterm, s);
         if (r < 0)
                 return r;
 
@@ -1387,7 +1387,7 @@ int server_schedule_sync(Server *s, int priority) {
                 when += s->sync_interval_usec;
 
                 if (!s->sync_event_source) {
-                        r = sd_event_add_monotonic(s->event, when, 0, server_dispatch_sync, s, &s->sync_event_source);
+                        r = sd_event_add_monotonic(s->event, &s->sync_event_source, when, 0, server_dispatch_sync, s);
                         if (r < 0)
                                 return r;
 
@@ -1428,7 +1428,7 @@ static int server_open_hostname(Server *s) {
                 return -errno;
         }
 
-        r = sd_event_add_io(s->event, s->hostname_fd, 0, dispatch_hostname_change, s, &s->hostname_event_source);
+        r = sd_event_add_io(s->event, &s->hostname_event_source, s->hostname_fd, 0, dispatch_hostname_change, s);
         if (r < 0) {
                 log_error("Failed to register hostname fd in event loop: %s", strerror(-r));
                 return r;

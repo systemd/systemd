@@ -4175,11 +4175,11 @@ static int set_property(sd_bus *bus, char **args) {
 
         r = sd_bus_message_new_method_call(
                         bus,
+                        &m,
                         "org.freedesktop.systemd1",
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
-                        "SetUnitProperties",
-                        &m);
+                        "SetUnitProperties");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -4490,11 +4490,11 @@ static int set_environment(sd_bus *bus, char **args) {
 
         r = sd_bus_message_new_method_call(
                         bus,
+                        &m,
                         "org.freedesktop.systemd1",
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
-                        method,
-                        &m);
+                        method);
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -4521,11 +4521,11 @@ static int import_environment(sd_bus *bus, char **args) {
 
         r = sd_bus_message_new_method_call(
                         bus,
+                        &m,
                         "org.freedesktop.systemd1",
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
-                        "SetEnvironment",
-                        &m);
+                        "SetEnvironment");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -4849,11 +4849,11 @@ static int enable_unit(sd_bus *bus, char **args) {
 
                 r = sd_bus_message_new_method_call(
                                 bus,
+                                &m,
                                 "org.freedesktop.systemd1",
                                 "/org/freedesktop/systemd1",
                                 "org.freedesktop.systemd1.Manager",
-                                method,
-                                &m);
+                                method);
                 if (r < 0)
                         return bus_log_create_error(r);
 

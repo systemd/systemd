@@ -920,10 +920,10 @@ static int push_name_owner_changed(sd_bus *bus, const char *name, const char *ol
 
         r = sd_bus_message_new_signal(
                         bus,
+                        &m,
                         "/org/freedesktop/DBus",
                         "org.freedesktop.DBus",
-                        "NameOwnerChanged",
-                        &m);
+                        "NameOwnerChanged");
         if (r < 0)
                 return r;
 

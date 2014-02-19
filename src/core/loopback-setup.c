@@ -50,7 +50,7 @@ static int add_addresses(sd_rtnl *rtnl, int if_loopback, struct in_addr *ipv4_ad
         _cleanup_rtnl_message_unref_ sd_rtnl_message *ipv4 = NULL, *ipv6 = NULL;
         int r;
 
-        r = sd_rtnl_message_new_addr(rtnl, RTM_NEWADDR, if_loopback, AF_INET, &ipv4);
+        r = sd_rtnl_message_new_addr(rtnl, &ipv4, RTM_NEWADDR, if_loopback, AF_INET);
         if (r < 0)
                 return r;
 
@@ -79,7 +79,7 @@ static int add_addresses(sd_rtnl *rtnl, int if_loopback, struct in_addr *ipv4_ad
         if (!socket_ipv6_is_supported())
                 return 0;
 
-        r = sd_rtnl_message_new_addr(rtnl, RTM_NEWADDR, if_loopback, AF_INET6, &ipv6);
+        r = sd_rtnl_message_new_addr(rtnl, &ipv6, RTM_NEWADDR, if_loopback, AF_INET6);
         if (r < 0)
                 return r;
 
@@ -112,7 +112,7 @@ static int start_interface(sd_rtnl *rtnl, int if_loopback, struct in_addr *ipv4_
         _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL;
         int r;
 
-        r = sd_rtnl_message_new_link(rtnl, RTM_SETLINK, if_loopback, &req);
+        r = sd_rtnl_message_new_link(rtnl, &req, RTM_SETLINK, if_loopback);
         if (r < 0)
                 return r;
 
@@ -168,7 +168,7 @@ int loopback_setup(void) {
 
         ipv4_address.s_addr = htonl(INADDR_LOOPBACK);
 
-        r = sd_rtnl_open(0, &rtnl);
+        r = sd_rtnl_open(&rtnl, 0);
         if (r < 0)
                 return r;
 

@@ -138,7 +138,7 @@ static void test_marshal(void) {
         assert_se(sd_bus_open_system(&bus) >= 0);
         bus->message_version = 2; /* dirty hack to enable gvariant*/
 
-        assert_se(sd_bus_message_new_method_call(bus, "a.service.name", "/an/object/path/which/is/really/really/long/so/that/we/hit/the/eight/bit/boundary/by/quite/some/margin/to/test/this/stuff/that/it/really/works", "an.interface.name", "AMethodName", &m) >= 0);
+        assert_se(sd_bus_message_new_method_call(bus, &m, "a.service.name", "/an/object/path/which/is/really/really/long/so/that/we/hit/the/eight/bit/boundary/by/quite/some/margin/to/test/this/stuff/that/it/really/works", "an.interface.name", "AMethodName") >= 0);
 
         assert_se(sd_bus_message_append(m,
                                         "a(usv)", 3,
@@ -182,7 +182,7 @@ static void test_marshal(void) {
 
         m = sd_bus_message_unref(m);
 
-        assert_se(sd_bus_message_new_method_call(bus, "a.x", "/a/x", "a.x", "Ax", &m) >= 0);
+        assert_se(sd_bus_message_new_method_call(bus, &m, "a.x", "/a/x", "a.x", "Ax") >= 0);
 
         assert_se(sd_bus_message_append(m, "as", 0) >= 0);
 

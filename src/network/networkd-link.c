@@ -395,11 +395,11 @@ static int set_hostname(sd_bus *bus, const char *hostname) {
 
         r = sd_bus_message_new_method_call(
                         bus,
+                        &m,
                         "org.freedesktop.hostname1",
                         "/org/freedesktop/hostname1",
                         "org.freedesktop.hostname1",
-                        "SetHostname",
-                        &m);
+                        "SetHostname");
         if (r < 0)
                 return r;
 
@@ -446,8 +446,8 @@ static int link_set_mtu(Link *link, uint32_t mtu) {
 
         log_debug_link(link, "setting MTU: %" PRIu32, mtu);
 
-        r = sd_rtnl_message_new_link(link->manager->rtnl, RTM_SETLINK,
-                                     link->ifindex, &req);
+        r = sd_rtnl_message_new_link(link->manager->rtnl, &req,
+                                     RTM_SETLINK, link->ifindex);
         if (r < 0) {
                 log_error_link(link, "Could not allocate RTM_SETLINK message");
                 return r;
@@ -813,8 +813,8 @@ static int link_up(Link *link) {
 
         log_debug_link(link, "bringing link up");
 
-        r = sd_rtnl_message_new_link(link->manager->rtnl, RTM_SETLINK,
-                                     link->ifindex, &req);
+        r = sd_rtnl_message_new_link(link->manager->rtnl, &req,
+                                     RTM_SETLINK, link->ifindex);
         if (r < 0) {
                 log_error_link(link, "Could not allocate RTM_SETLINK message");
                 return r;
@@ -982,8 +982,8 @@ static int link_getlink(Link *link) {
 
         log_debug_link(link, "requesting link status");
 
-        r = sd_rtnl_message_new_link(link->manager->rtnl, RTM_GETLINK,
-                                     link->ifindex, &req);
+        r = sd_rtnl_message_new_link(link->manager->rtnl, &req,
+                                     RTM_GETLINK, link->ifindex);
         if (r < 0) {
                 log_error_link(link, "Could not allocate RTM_GETLINK message");
                 return r;

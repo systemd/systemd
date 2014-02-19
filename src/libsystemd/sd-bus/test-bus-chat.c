@@ -340,11 +340,11 @@ finish:
 
                 r = sd_bus_message_new_method_call(
                                 bus,
+                                &q,
                                 "org.freedesktop.systemd.test",
                                 "/",
                                 "org.freedesktop.systemd.test",
-                                "ExitClient1",
-                                &q);
+                                "ExitClient1");
                 if (r < 0)
                         log_error("Failed to allocate method call: %s", strerror(-r));
                 else
@@ -386,11 +386,11 @@ static void* client2(void*p) {
 
         r = sd_bus_message_new_method_call(
                         bus,
+                        &m,
                         "org.freedesktop.systemd.test",
                         "/foo/bar/waldo/piep",
                         "org.object.test",
-                        "Foobar",
-                        &m);
+                        "Foobar");
         if (r < 0) {
                 log_error("Failed to allocate method call: %s", strerror(-r));
                 goto finish;
@@ -407,10 +407,10 @@ static void* client2(void*p) {
 
         r = sd_bus_message_new_signal(
                         bus,
+                        &m,
                         "/foobar",
                         "foo.bar",
-                        "Notify",
-                        &m);
+                        "Notify");
         if (r < 0) {
                 log_error("Failed to allocate signal: %s", strerror(-r));
                 goto finish;
@@ -427,11 +427,11 @@ static void* client2(void*p) {
 
         r = sd_bus_message_new_method_call(
                         bus,
+                        &m,
                         "org.freedesktop.systemd.test",
                         "/",
                         "org.freedesktop.DBus.Peer",
-                        "GetMachineId",
-                        &m);
+                        "GetMachineId");
         if (r < 0) {
                 log_error("Failed to allocate method call: %s", strerror(-r));
                 goto finish;
@@ -456,11 +456,11 @@ static void* client2(void*p) {
 
         r = sd_bus_message_new_method_call(
                         bus,
+                        &m,
                         "org.freedesktop.systemd.test",
                         "/",
                         "org.freedesktop.systemd.test",
-                        "Slow",
-                        &m);
+                        "Slow");
         if (r < 0) {
                 log_error("Failed to allocate method call: %s", strerror(-r));
                 goto finish;
@@ -480,11 +480,11 @@ static void* client2(void*p) {
 
         r = sd_bus_message_new_method_call(
                         bus,
+                        &m,
                         "org.freedesktop.systemd.test",
                         "/",
                         "org.freedesktop.systemd.test",
-                        "Slow",
-                        &m);
+                        "Slow");
         if (r < 0) {
                 log_error("Failed to allocate method call: %s", strerror(-r));
                 goto finish;
@@ -519,11 +519,11 @@ finish:
 
                 r = sd_bus_message_new_method_call(
                                 bus,
+                                &q,
                                 "org.freedesktop.systemd.test",
                                 "/",
                                 "org.freedesktop.systemd.test",
-                                "ExitClient2",
-                                &q);
+                                "ExitClient2");
                 if (r < 0) {
                         log_error("Failed to allocate method call: %s", strerror(-r));
                         goto finish;

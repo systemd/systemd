@@ -190,7 +190,7 @@ failed:
 
         log_debug("D-Bus activation failed for %s: %s", name, bus_error_message(&error, r));
 
-        r = sd_bus_message_new_signal(bus, "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Activator", "ActivationFailure", &reply);
+        r = sd_bus_message_new_signal(bus, &reply, "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Activator", "ActivationFailure");
         if (r < 0) {
                 bus_log_create_error(r);
                 return 0;
@@ -994,7 +994,7 @@ static int bus_init_private(Manager *m) {
                 return -errno;
         }
 
-        r = sd_event_add_io(m->event, fd, EPOLLIN, bus_on_connection, m, &s);
+        r = sd_event_add_io(m->event, &s, fd, EPOLLIN, bus_on_connection, m);
         if (r < 0) {
                 log_error("Failed to allocate event source: %s", strerror(-r));
                 return r;

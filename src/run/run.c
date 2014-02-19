@@ -241,10 +241,11 @@ static int message_start_transient_unit_new(sd_bus *bus, const char *name, sd_bu
 
         r = sd_bus_message_new_method_call(
                         bus,
+                        &m,
                         "org.freedesktop.systemd1",
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
-                        "StartTransientUnit", &m);
+                        "StartTransientUnit");
         if (r < 0)
                 return r;
 

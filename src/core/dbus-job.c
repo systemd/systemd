@@ -137,10 +137,10 @@ static int send_new_signal(sd_bus *bus, const char *destination, Job *j) {
 
         r = sd_bus_message_new_signal(
                         bus,
+                        &m,
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
-                        "JobNew",
-                        &m);
+                        "JobNew");
         if (r < 0)
                 return r;
 
@@ -196,10 +196,10 @@ static int send_removed_signal(sd_bus *bus, const char *destination, Job *j) {
 
         r = sd_bus_message_new_signal(
                         bus,
+                        &m,
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
-                        "JobRemoved",
-                        &m);
+                        "JobRemoved");
         if (r < 0)
                 return r;
 

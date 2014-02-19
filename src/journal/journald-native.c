@@ -419,7 +419,7 @@ int server_open_native_socket(Server*s) {
                 return -errno;
         }
 
-        r = sd_event_add_io(s->event, s->native_fd, EPOLLIN, process_datagram, s, &s->native_event_source);
+        r = sd_event_add_io(s->event, &s->native_event_source, s->native_fd, EPOLLIN, process_datagram, s);
         if (r < 0) {
                 log_error("Failed to add native server fd to event loop: %s", strerror(-r));
                 return r;

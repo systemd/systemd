@@ -217,7 +217,7 @@ static int busname_watch_fd(BusName *n) {
         if (n->event_source)
                 r = sd_event_source_set_enabled(n->event_source, SD_EVENT_ON);
         else
-                r = sd_event_add_io(UNIT(n)->manager->event, n->starter_fd, EPOLLIN, busname_dispatch_io, n, &n->event_source);
+                r = sd_event_add_io(UNIT(n)->manager->event, &n->event_source, n->starter_fd, EPOLLIN, busname_dispatch_io, n);
         if (r < 0) {
                 log_warning_unit(UNIT(n)->id, "Failed to watch starter fd: %s", strerror(-r));
                 busname_unwatch_fd(n);

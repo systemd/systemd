@@ -599,11 +599,11 @@ static sd_event_source *source_new(sd_event *e, EventSourceType type) {
 
 _public_ int sd_event_add_io(
                 sd_event *e,
+                sd_event_source **ret,
                 int fd,
                 uint32_t events,
                 sd_event_io_handler_t callback,
-                void *userdata,
-                sd_event_source **ret) {
+                void *userdata) {
 
         sd_event_source *s;
         int r;
@@ -683,6 +683,7 @@ static int event_setup_timer_fd(
 
 static int event_add_time_internal(
                 sd_event *e,
+                sd_event_source **ret,
                 EventSourceType type,
                 int *timer_fd,
                 clockid_t id,
@@ -691,8 +692,7 @@ static int event_add_time_internal(
                 uint64_t usec,
                 uint64_t accuracy,
                 sd_event_time_handler_t callback,
-                void *userdata,
-                sd_event_source **ret) {
+                void *userdata) {
 
         sd_event_source *s;
         int r;
@@ -755,23 +755,23 @@ fail:
 }
 
 _public_ int sd_event_add_monotonic(sd_event *e,
+                                    sd_event_source **ret,
                                     uint64_t usec,
                                     uint64_t accuracy,
                                     sd_event_time_handler_t callback,
-                                    void *userdata,
-                                    sd_event_source **ret) {
+                                    void *userdata) {
 
-        return event_add_time_internal(e, SOURCE_MONOTONIC, &e->monotonic_fd, CLOCK_MONOTONIC, &e->monotonic_earliest, &e->monotonic_latest, usec, accuracy, callback, userdata, ret);
+        return event_add_time_internal(e, ret, SOURCE_MONOTONIC, &e->monotonic_fd, CLOCK_MONOTONIC, &e->monotonic_earliest, &e->monotonic_latest, usec, accuracy, callback, userdata);
 }
 
 _public_ int sd_event_add_realtime(sd_event *e,
+                                   sd_event_source **ret,
                                    uint64_t usec,
                                    uint64_t accuracy,
                                    sd_event_time_handler_t callback,
-                                   void *userdata,
-                                   sd_event_source **ret) {
+                                   void *userdata) {
 
-        return event_add_time_internal(e, SOURCE_REALTIME, &e->realtime_fd, CLOCK_REALTIME, &e->realtime_earliest, &e->monotonic_latest, usec, accuracy, callback, userdata, ret);
+        return event_add_time_internal(e, ret, SOURCE_REALTIME, &e->realtime_fd, CLOCK_REALTIME, &e->realtime_earliest, &e->monotonic_latest, usec, accuracy, callback, userdata);
 }
 
 static int event_update_signal_fd(sd_event *e) {
@@ -808,10 +808,10 @@ static int event_update_signal_fd(sd_event *e) {
 
 _public_ int sd_event_add_signal(
                 sd_event *e,
+                sd_event_source **ret,
                 int sig,
                 sd_event_signal_handler_t callback,
-                void *userdata,
-                sd_event_source **ret) {
+                void *userdata) {
 
         sd_event_source *s;
         sigset_t ss;
@@ -865,11 +865,11 @@ _public_ int sd_event_add_signal(
 
 _public_ int sd_event_add_child(
                 sd_event *e,
+                sd_event_source **ret,
                 pid_t pid,
                 int options,
                 sd_event_child_handler_t callback,
-                void *userdata,
-                sd_event_source **ret) {
+                void *userdata) {
 
         sd_event_source *s;
         int r;
@@ -926,9 +926,9 @@ _public_ int sd_event_add_child(
 
 _public_ int sd_event_add_defer(
                 sd_event *e,
+                sd_event_source **ret,
                 sd_event_handler_t callback,
-                void *userdata,
-                sd_event_source **ret) {
+                void *userdata) {
 
         sd_event_source *s;
         int r;
@@ -959,9 +959,9 @@ _public_ int sd_event_add_defer(
 
 _public_ int sd_event_add_exit(
                 sd_event *e,
+                sd_event_source **ret,
                 sd_event_handler_t callback,
-                void *userdata,
-                sd_event_source **ret) {
+                void *userdata) {
 
         sd_event_source *s;
         int r;

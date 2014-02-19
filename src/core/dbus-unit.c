@@ -604,10 +604,10 @@ static int send_new_signal(sd_bus *bus, const char *destination, void *userdata)
 
         r = sd_bus_message_new_signal(
                         bus,
+                        &m,
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
-                        "UnitNew",
-                        &m);
+                        "UnitNew");
         if (r < 0)
                 return r;
 
@@ -689,10 +689,10 @@ static int send_removed_signal(sd_bus *bus, const char *destination, void *userd
 
         r = sd_bus_message_new_signal(
                         bus,
+                        &m,
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
-                        "UnitRemoved",
-                        &m);
+                        "UnitRemoved");
         if (r < 0)
                 return r;
 

@@ -776,11 +776,11 @@ static int driver_update_environment(sd_bus*bus, sd_bus_message *m, void *userda
 
         r = sd_bus_message_new_method_call(
                         bus,
+                        &msg,
                         "org.freedesktop.systemd1",
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
-                        "SetEnvironment",
-                        &msg);
+                        "SetEnvironment");
         if (r < 0)
                 return r;
 

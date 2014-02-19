@@ -468,7 +468,7 @@ int server_open_syslog_socket(Server *s) {
                 return -errno;
         }
 
-        r = sd_event_add_io(s->event, s->syslog_fd, EPOLLIN, process_datagram, s, &s->syslog_event_source);
+        r = sd_event_add_io(s->event, &s->syslog_event_source, s->syslog_fd, EPOLLIN, process_datagram, s);
         if (r < 0) {
                 log_error("Failed to add syslog server fd to event loop: %s", strerror(-r));
                 return r;

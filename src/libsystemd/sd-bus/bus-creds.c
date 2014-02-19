@@ -125,7 +125,7 @@ sd_bus_creds* bus_creds_new(void) {
         return c;
 }
 
-_public_ int sd_bus_creds_new_from_pid(pid_t pid, uint64_t mask, sd_bus_creds **ret) {
+_public_ int sd_bus_creds_new_from_pid(sd_bus_creds **ret, pid_t pid, uint64_t mask) {
         sd_bus_creds *c;
         int r;
 

@@ -47,7 +47,7 @@ static void test_bus_new_method_call(void) {
 
         assert_se(sd_bus_open_system(&bus) >= 0);
 
-        assert_se(sd_bus_message_new_method_call(bus, "a.service.name", "/an/object/path", "an.interface.name", "AMethodName", &m) >= 0);
+        assert_se(sd_bus_message_new_method_call(bus, &m, "a.service.name", "/an/object/path", "an.interface.name", "AMethodName") >= 0);
 
         printf("after message_new_method_call: refcount %u\n", REFCNT_GET(bus->n_ref));
 
@@ -61,7 +61,7 @@ static void test_bus_new_signal(void) {
 
         assert_se(sd_bus_open_system(&bus) >= 0);
 
-        assert_se(sd_bus_message_new_signal(bus, "/an/object/path", "an.interface.name", "Name", &m) >= 0);
+        assert_se(sd_bus_message_new_signal(bus, &m, "/an/object/path", "an.interface.name", "Name") >= 0);
 
         printf("after message_new_signal: refcount %u\n", REFCNT_GET(bus->n_ref));
 

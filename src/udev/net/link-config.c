@@ -97,7 +97,7 @@ static int link_config_ctx_connect(link_config_ctx *ctx) {
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_open(0, &ctx->rtnl);
+        r = sd_rtnl_open(&ctx->rtnl, 0);
         if (r < 0)
                 return r;
 

@@ -36,7 +36,7 @@ struct sd_memfd {
         FILE *f;
 };
 
-_public_ int sd_memfd_new(const char *name, sd_memfd **m) {
+_public_ int sd_memfd_new(sd_memfd **m, const char *name) {
 
         struct kdbus_cmd_memfd_make *cmd;
         struct kdbus_item *item;
@@ -115,7 +115,7 @@ _public_ int sd_memfd_new(const char *name, sd_memfd **m) {
         return 0;
 }
 
-_public_ int sd_memfd_make(int fd, sd_memfd **m) {
+_public_ int sd_memfd_new_from_fd(sd_memfd **m, int fd) {
         sd_memfd *n;
         uint64_t sz;
 
@@ -249,11 +249,11 @@ _public_ int sd_memfd_set_size(sd_memfd *m, uint64_t sz) {
         return r;
 }
 
-_public_ int sd_memfd_new_and_map(const char *name, sd_memfd **m, size_t sz, void **p) {
+_public_ int sd_memfd_new_and_map(sd_memfd **m, const char *name, size_t sz, void **p) {
         sd_memfd *n;
         int r;
 
-        r = sd_memfd_new(name, &n);
+        r = sd_memfd_new(&n, name);
         if (r < 0)
                 return r;
 

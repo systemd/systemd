@@ -184,7 +184,7 @@ static int swap_arm_timer(Swap *s) {
                 return sd_event_source_set_enabled(s->timer_event_source, SD_EVENT_ONESHOT);
         }
 
-        return sd_event_add_monotonic(UNIT(s)->manager->event, now(CLOCK_MONOTONIC) + s->timeout_usec, 0, swap_dispatch_timer, s, &s->timer_event_source);
+        return sd_event_add_monotonic(UNIT(s)->manager->event, &s->timer_event_source, now(CLOCK_MONOTONIC) + s->timeout_usec, 0, swap_dispatch_timer, s);
 }
 
 static int swap_add_device_links(Swap *s) {
@@ -1270,7 +1270,7 @@ static int swap_enumerate(Manager *m) {
                 if (!m->proc_swaps)
                         return errno == ENOENT ? 0 : -errno;
 
-                r = sd_event_add_io(m->event, fileno(m->proc_swaps), EPOLLPRI, swap_dispatch_io, m, &m->swap_event_source);
+                r = sd_event_add_io(m->event, &m->swap_event_source, fileno(m->proc_swaps), EPOLLPRI, swap_dispatch_io, m);
                 if (r < 0)
                         goto fail;
 

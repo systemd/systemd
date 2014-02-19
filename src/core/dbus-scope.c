@@ -209,10 +209,10 @@ int bus_scope_send_request_stop(Scope *s) {
 
         r = sd_bus_message_new_signal(
                         UNIT(s)->manager->api_bus,
+                        &m,
                         p,
                         "org.freedesktop.systemd1.Scope",
-                        "RequestStop",
-                        &m);
+                        "RequestStop");
         if (r < 0)
                 return r;
 

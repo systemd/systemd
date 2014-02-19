@@ -99,8 +99,8 @@ static void *server(void *p) {
                 } else if (sd_bus_message_is_method_call(m, NULL, NULL)) {
                         r = sd_bus_message_new_method_error(
                                         m,
-                                        &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_UNKNOWN_METHOD, "Unknown method."),
-                                        &reply);
+                                        &reply,
+                                        &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_UNKNOWN_METHOD, "Unknown method."));
                         if (r < 0) {
                                 log_error("Failed to allocate return: %s", strerror(-r));
                                 goto fail;
@@ -141,11 +141,11 @@ static int client(struct context *c) {
 
         r = sd_bus_message_new_method_call(
                         bus,
+                        &m,
                         "org.freedesktop.systemd.test",
                         "/",
                         "org.freedesktop.systemd.test",
-                        "Exit",
-                        &m);
+                        "Exit");
         if (r < 0) {
                 log_error("Failed to allocate method call: %s", strerror(-r));
                 return r;

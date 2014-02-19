@@ -264,7 +264,7 @@ static void service_start_watchdog(Service *s) {
 
                 r = sd_event_source_set_enabled(s->watchdog_event_source, SD_EVENT_ONESHOT);
         } else {
-                r = sd_event_add_monotonic(UNIT(s)->manager->event, s->watchdog_timestamp.monotonic + s->watchdog_usec, 0, service_dispatch_watchdog, s, &s->watchdog_event_source);
+                r = sd_event_add_monotonic(UNIT(s)->manager->event, &s->watchdog_event_source, s->watchdog_timestamp.monotonic + s->watchdog_usec, 0, service_dispatch_watchdog, s);
                 if (r < 0) {
                         log_warning_unit(UNIT(s)->id, "%s failed to add watchdog timer: %s", UNIT(s)->id, strerror(-r));
                         return;
@@ -354,7 +354,7 @@ static int service_arm_timer(Service *s, usec_t usec) {
                 return sd_event_source_set_enabled(s->timer_event_source, SD_EVENT_ONESHOT);
         }
 
-        return sd_event_add_monotonic(UNIT(s)->manager->event, now(CLOCK_MONOTONIC) + usec, 0, service_dispatch_timer, s, &s->timer_event_source);
+        return sd_event_add_monotonic(UNIT(s)->manager->event, &s->timer_event_source, now(CLOCK_MONOTONIC) + usec, 0, service_dispatch_timer, s);
 }
 
 #ifdef HAVE_SYSV_COMPAT

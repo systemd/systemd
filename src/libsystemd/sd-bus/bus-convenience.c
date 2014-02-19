@@ -39,7 +39,7 @@ _public_ int sd_bus_emit_signal(
         assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
-        r = sd_bus_message_new_signal(bus, path, interface, member, &m);
+        r = sd_bus_message_new_signal(bus, &m, path, interface, member);
         if (r < 0)
                 return r;
 
@@ -73,7 +73,7 @@ _public_ int sd_bus_call_method(
         assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
-        r = sd_bus_message_new_method_call(bus, destination, path, interface, member, &m);
+        r = sd_bus_message_new_method_call(bus, &m, destination, path, interface, member);
         if (r < 0)
                 return r;
 
@@ -140,7 +140,7 @@ _public_ int sd_bus_reply_method_error(
         if (call->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED)
                 return 0;
 
-        r = sd_bus_message_new_method_error(call, e, &m);
+        r = sd_bus_message_new_method_error(call, &m, e);
         if (r < 0)
                 return r;
 
@@ -386,7 +386,7 @@ _public_ int sd_bus_set_property(
         assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
-        r = sd_bus_message_new_method_call(bus, destination, path, "org.freedesktop.DBus.Properties", "Set", &m);
+        r = sd_bus_message_new_method_call(bus, &m, destination, path, "org.freedesktop.DBus.Properties", "Set");
         if (r < 0)
                 return r;
 

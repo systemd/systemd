@@ -177,12 +177,12 @@ int sd_bus_remove_object_manager(sd_bus *bus, const char *path);
 
 /* Message object */
 
-int sd_bus_message_new_signal(sd_bus *bus, const char *path, const char *interface, const char *member, sd_bus_message **m);
-int sd_bus_message_new_method_call(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_message **m);
+int sd_bus_message_new_signal(sd_bus *bus, sd_bus_message **m, const char *path, const char *interface, const char *member);
+int sd_bus_message_new_method_call(sd_bus *bus, sd_bus_message **m, const char *destination, const char *path, const char *interface, const char *member);
 int sd_bus_message_new_method_return(sd_bus_message *call, sd_bus_message **m);
-int sd_bus_message_new_method_error(sd_bus_message *call, const sd_bus_error *e, sd_bus_message **m);
+int sd_bus_message_new_method_error(sd_bus_message *call, sd_bus_message **m, const sd_bus_error *e);
 int sd_bus_message_new_method_errorf(sd_bus_message *call, sd_bus_message **m, const char *name, const char *format, ...) _sd_printf_(4, 5);
-int sd_bus_message_new_method_errno(sd_bus_message *call, int error, const sd_bus_error *e, sd_bus_message **m);
+int sd_bus_message_new_method_errno(sd_bus_message *call, sd_bus_message **m, int error, const sd_bus_error *e);
 int sd_bus_message_new_method_errnof(sd_bus_message *call, sd_bus_message **m, int error, const char *format, ...) _sd_printf_(4, 5);
 
 sd_bus_message* sd_bus_message_ref(sd_bus_message *m);
@@ -284,7 +284,7 @@ int sd_bus_query_sender_creds(sd_bus_message *call, uint64_t mask, sd_bus_creds 
 
 /* Credential handling */
 
-int sd_bus_creds_new_from_pid(pid_t pid, uint64_t creds_mask, sd_bus_creds **ret);
+int sd_bus_creds_new_from_pid(sd_bus_creds **ret, pid_t pid, uint64_t creds_mask);
 sd_bus_creds *sd_bus_creds_ref(sd_bus_creds *c);
 sd_bus_creds *sd_bus_creds_unref(sd_bus_creds *c);
 uint64_t sd_bus_creds_get_mask(const sd_bus_creds *c);

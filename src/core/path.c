@@ -71,7 +71,7 @@ int path_spec_watch(PathSpec *s, sd_event_io_handler_t handler) {
                 goto fail;
         }
 
-        r = sd_event_add_io(s->unit->manager->event, s->inotify_fd, EPOLLIN, handler, s, &s->event_source);
+        r = sd_event_add_io(s->unit->manager->event, &s->event_source, s->inotify_fd, EPOLLIN, handler, s);
         if (r < 0)
                 goto fail;
 

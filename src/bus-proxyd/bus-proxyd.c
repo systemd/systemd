@@ -216,19 +216,19 @@ static int synthesize_name_acquired(sd_bus *a, sd_bus *b, sd_bus_message *m) {
 
                 r = sd_bus_message_new_signal(
                                 b,
+                                &n,
                                 "/org/freedesktop/DBus",
                                 "org.freedesktop.DBus",
-                                "NameLost",
-                                &n);
+                                "NameLost");
 
         } else if (streq(new_owner, a->unique_name)) {
 
                 r = sd_bus_message_new_signal(
                                 b,
+                                &n,
                                 "/org/freedesktop/DBus",
                                 "org.freedesktop.DBus",
-                                "NameAcquired",
-                                &n);
+                                "NameAcquired");
         } else
                 return 0;
 
@@ -359,10 +359,10 @@ static int process_hello(sd_bus *a, sd_bus *b, sd_bus_message *m, bool *got_hell
         n = sd_bus_message_unref(n);
         r = sd_bus_message_new_signal(
                         b,
+                        &n,
                         "/org/freedesktop/DBus",
                         "org.freedesktop.DBus",
-                        "NameAcquired",
-                        &n);
+                        "NameAcquired");
         if (r < 0) {
                 log_error("Failed to allocate initial NameAcquired message: %s", strerror(-r));
                 return r;

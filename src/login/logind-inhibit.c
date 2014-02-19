@@ -300,7 +300,7 @@ int inhibitor_create_fifo(Inhibitor *i) {
         }
 
         if (!i->event_source) {
-                r = sd_event_add_io(i->manager->event, i->fifo_fd, 0, inhibitor_dispatch_fifo, i, &i->event_source);
+                r = sd_event_add_io(i->manager->event, &i->event_source, i->fifo_fd, 0, inhibitor_dispatch_fifo, i);
                 if (r < 0)
                         return r;
 

@@ -111,7 +111,7 @@ int main(int argc, char *argv[]) {
 
         bus_match_dump(&root, 0);
 
-        assert_se(sd_bus_message_new_signal(NULL, "/foo/bar", "bar.x", "waldo", &m) >= 0);
+        assert_se(sd_bus_message_new_signal(NULL, &m, "/foo/bar", "bar.x", "waldo") >= 0);
         assert_se(sd_bus_message_append(m, "ssss", "one", "two", "/prefix/three", "prefix.four") >= 0);
         assert_se(bus_message_seal(m, 1, 0) >= 0);
 

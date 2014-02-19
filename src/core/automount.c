@@ -256,7 +256,7 @@ static int automount_coldplug(Unit *u) {
 
                         assert(a->pipe_fd >= 0);
 
-                        r = sd_event_add_io(u->manager->event, a->pipe_fd, EPOLLIN, automount_dispatch_io, u, &a->pipe_event_source);
+                        r = sd_event_add_io(u->manager->event, &a->pipe_event_source, a->pipe_fd, EPOLLIN, automount_dispatch_io, u);
                         if (r < 0)
                                 return r;
                 }
@@ -531,7 +531,7 @@ static void automount_enter_waiting(Automount *a) {
         close_nointr_nofail(ioctl_fd);
         ioctl_fd = -1;
 
-        r = sd_event_add_io(UNIT(a)->manager->event, p[0], EPOLLIN, automount_dispatch_io, a, &a->pipe_event_source);
+        r = sd_event_add_io(UNIT(a)->manager->event, &a->pipe_event_source, p[0], EPOLLIN, automount_dispatch_io, a);
         if (r < 0)
                 goto fail;
 

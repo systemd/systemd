@@ -318,7 +318,7 @@ static int connection_enable_event_sources(Connection *c, sd_event *event) {
         if (c->server_event_source)
                 r = sd_event_source_set_io_events(c->server_event_source, a);
         else if (c->server_fd >= 0)
-                r = sd_event_add_io(event, c->server_fd, a, traffic_cb, c, &c->server_event_source);
+                r = sd_event_add_io(event, &c->server_event_source, c->server_fd, a, traffic_cb, c);
         else
                 r = 0;
 
@@ -330,7 +330,7 @@ static int connection_enable_event_sources(Connection *c, sd_event *event) {
         if (c->client_event_source)
                 r = sd_event_source_set_io_events(c->client_event_source, b);
         else if (c->client_fd >= 0)
-                r = sd_event_add_io(event, c->client_fd, b, traffic_cb, c, &c->client_event_source);
+                r = sd_event_add_io(event, &c->client_event_source, c->client_fd, b, traffic_cb, c);
         else
                 r = 0;
 
@@ -433,7 +433,7 @@ static int add_connection_socket(Context *context, sd_event *event, int fd) {
         r = connect(c->client_fd, &sa.sa, salen);
         if (r < 0) {
                 if (errno == EINPROGRESS) {
-                        r = sd_event_add_io(event, c->client_fd, EPOLLOUT, connect_cb, c, &c->client_event_source);
+                        r = sd_event_add_io(event, &c->client_event_source, c->client_fd, EPOLLOUT, connect_cb, c);
                         if (r < 0) {
                                 log_error("Failed to add connection socket: %s", strerror(-r));
                                 goto fail;
@@ -526,7 +526,7 @@ static int add_listen_socket(Context *context, sd_event *event, int fd) {
                 return r;
         }
 
-        r = sd_event_add_io(event, fd, EPOLLIN, accept_cb, context, &source);
+        r = sd_event_add_io(event, &source, fd, EPOLLIN, accept_cb, context);
         if (r < 0) {
                 log_error("Failed to add event source: %s", strerror(-r));
                 return r;
