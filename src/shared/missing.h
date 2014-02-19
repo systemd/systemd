@@ -30,6 +30,7 @@
 #include <unistd.h>
 #include <linux/oom.h>
 #include <linux/input.h>
+#include <linux/if_link.h>
 
 #ifdef HAVE_AUDIT
 #include <libaudit.h>
@@ -83,6 +84,19 @@
 
 #ifndef IP_TRANSPARENT
 #define IP_TRANSPARENT 19
+#endif
+
+#ifndef IFLA_CARRIER
+  #define IFLA_CARRIER 33
+  #ifndef IFLA_NUM_RX_QUEUES
+    #define IFLA_NUM_RX_QUEUES 32
+    #ifndef IFLA_NUM_TX_QUEUES
+      #define IFLA_NUM_TX_QUEUES 31
+      #ifndef IFLA_PROMISCUITY
+        #define IFLA_PROMISCUITY 30
+      #endif
+    #endif
+  #endif
 #endif
 
 #if !HAVE_DECL_PIVOT_ROOT

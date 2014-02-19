@@ -27,6 +27,7 @@
 
 #include "util.h"
 #include "refcnt.h"
+#include "missing.h"
 
 #include "sd-rtnl.h"
 #include "rtnl-util.h"
