@@ -594,6 +594,17 @@ static int method_create_session(sd_bus *bus, sd_bus_message *message, void *use
                 if (!path)
                         return -ENOMEM;
 
+                log_debug("Sending reply about an existing session: "
+                          "id=%s object_path=%s uid=%u runtime_path=%s "
+                          "session_fd=%d seat=%s vtnr=%u",
+                          session->id,
+                          path,
+                          (uint32_t) session->user->uid,
+                          session->user->runtime_path,
+                          fifo_fd,
+                          session->seat ? session->seat->id : "",
+                          (uint32_t) session->vtnr);
+
                 return sd_bus_reply_method_return(
                                 message, "soshusub",
                                 session->id,

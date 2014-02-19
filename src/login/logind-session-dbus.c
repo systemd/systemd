@@ -675,9 +675,11 @@ int session_send_create_reply(Session *s, sd_bus_error *error) {
                 return -ENOMEM;
 
         log_debug("Sending reply about created session: "
-                  "id=%s object_path=%s runtime_path=%s session_fd=%d seat=%s vtnr=%u",
+                  "id=%s object_path=%s uid=%u runtime_path=%s "
+                  "session_fd=%d seat=%s vtnr=%u",
                   s->id,
                   p,
+                  (uint32_t) s->user->uid,
                   s->user->runtime_path,
                   fifo_fd,
                   s->seat ? s->seat->id : "",
