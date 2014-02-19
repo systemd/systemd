@@ -731,7 +731,7 @@ static int create_item(Item *i) {
                 break;
 
         case CREATE_SYMLINK: {
-                char *x;
+                _cleanup_free_ char *x = NULL;
 
                 label_context_set(i->path, S_IFLNK);
                 r = symlink(i->argument, i->path);
@@ -751,12 +751,10 @@ static int create_item(Item *i) {
                 }
 
                 if (!streq(i->argument, x)) {
-                        free(x);
                         log_error("%s is not the right symlinks.", i->path);
                         return -EEXIST;
                 }
 
-                free(x);
                 break;
         }
 
