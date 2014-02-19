@@ -1286,8 +1286,6 @@ _public_ int sd_event_source_set_enabled(sd_event_source *s, int m) {
                         break;
 
                 case SOURCE_CHILD:
-                        s->enabled = m;
-
                         if (s->enabled == SD_EVENT_OFF) {
                                 s->event->n_enabled_child_sources++;
 
@@ -1296,6 +1294,8 @@ _public_ int sd_event_source_set_enabled(sd_event_source *s, int m) {
                                         event_update_signal_fd(s->event);
                                 }
                         }
+
+                        s->enabled = m;
                         break;
 
                 case SOURCE_EXIT:
