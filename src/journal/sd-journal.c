@@ -1281,7 +1281,7 @@ static bool file_type_wanted(int flags, const char *filename) {
 }
 
 static int add_any_file(sd_journal *j, const char *path) {
-        JournalFile *f;
+        JournalFile *f = NULL;
         int r;
 
         assert(j);

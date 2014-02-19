@@ -642,9 +642,9 @@ static int event_setup_timer_fd(
                 int *timer_fd,
                 clockid_t id) {
 
+        sd_id128_t bootid = {};
         struct epoll_event ev = {};
         int r, fd;
-        sd_id128_t bootid;
 
         assert(e);
         assert(timer_fd);
@@ -2126,7 +2126,7 @@ _public_ int sd_event_get_now_monotonic(sd_event *e, uint64_t *usec) {
 _public_ int sd_event_default(sd_event **ret) {
 
         static thread_local sd_event *default_event = NULL;
-        sd_event *e;
+        sd_event *e = NULL;
         int r;
 
         if (!ret)

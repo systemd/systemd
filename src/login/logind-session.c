@@ -480,7 +480,7 @@ static int session_start_scope(Session *s) {
         if (!s->scope) {
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_free_ char *description = NULL;
-                char *scope, *job;
+                char *scope, *job = NULL;
 
                 description = strjoin("Session ", s->id, " of user ", s->user->name, NULL);
                 if (!description)
@@ -567,7 +567,7 @@ int session_start(Session *s) {
 
 static int session_stop_scope(Session *s, bool force) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        char *job;
+        char *job = NULL;
         int r;
 
         assert(s);

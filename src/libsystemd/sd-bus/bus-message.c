@@ -1863,7 +1863,7 @@ _public_ int sd_bus_message_open_container(
         struct bus_container *c, *w;
         uint32_t *array_size = NULL;
         char *signature;
-        size_t before, begin;
+        size_t before, begin = 0;
         bool need_offsets = false;
         int r;
 

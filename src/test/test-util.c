@@ -567,11 +567,11 @@ static void test_in_set(void) {
 
 static void test_writing_tmpfile(void) {
         char name[] = "/tmp/test-systemd_writing_tmpfile.XXXXXX";
-        _cleanup_free_ char *contents;
+        _cleanup_free_ char *contents = NULL;
         size_t size;
         int fd, r;
-
         struct iovec iov[3];
+
         IOVEC_SET_STRING(iov[0], "abc\n");
         IOVEC_SET_STRING(iov[1], ALPHANUMERICAL "\n");
         IOVEC_SET_STRING(iov[2], "");

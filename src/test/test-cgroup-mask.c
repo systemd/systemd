@@ -32,7 +32,7 @@
 #include "test-helper.h"
 
 static int test_cgroup_mask(void) {
-        Manager *m;
+        Manager *m = NULL;
         Unit *son, *daughter, *parent, *root, *grandchild, *parent_deep;
         FILE *serial = NULL;
         FDSet *fdset = NULL;

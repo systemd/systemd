@@ -25,7 +25,7 @@
 #include "macro.h"
 
 int main(int argc, char *argv[]) {
-        Manager *m;
+        Manager *m = NULL;
         Unit *idle_ok, *idle_bad, *rr_ok, *rr_bad, *rr_sched;
         Service *ser;
         FILE *serial = NULL;

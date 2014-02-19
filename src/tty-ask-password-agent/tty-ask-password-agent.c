@@ -361,7 +361,7 @@ static int parse_password(const char *filename, char **wall) {
 
                 } else {
                         int tty_fd = -1;
-                        char *password;
+                        char *password = NULL;
 
                         if (arg_console)
                                 if ((tty_fd = acquire_terminal("/dev/console", false, false, false, (usec_t) -1)) < 0) {

@@ -252,7 +252,7 @@ static int machine_start_scope(Machine *m, sd_bus_message *properties, sd_bus_er
 
         if (!m->unit) {
                 _cleanup_free_ char *escaped = NULL;
-                char *scope, *description, *job;
+                char *scope, *description, *job = NULL;
 
                 escaped = unit_name_escape(m->name);
                 if (!escaped)
@@ -322,7 +322,7 @@ int machine_start(Machine *m, sd_bus_message *properties, sd_bus_error *error) {
 
 static int machine_stop_scope(Machine *m) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        char *job;
+        char *job = NULL;
         int r;
 
         assert(m);

@@ -83,7 +83,7 @@ struct acpi_fpdt_boot {
 int acpi_get_boot_usec(usec_t *loader_start, usec_t *loader_exit) {
         _cleanup_free_ char *buf = NULL;
         struct acpi_table_header *tbl;
-        size_t l;
+        size_t l = 0;
         struct acpi_fpdt_header *rec;
         int r;
         uint64_t ptr = 0;

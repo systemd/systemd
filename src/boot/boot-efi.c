@@ -50,7 +50,7 @@ static char *tilt_slashes(char *s) {
 }
 
 static int get_boot_entries(struct boot_info *info) {
-        uint16_t *list;
+        uint16_t *list = NULL;
         int i, n;
         int err = 0;
 

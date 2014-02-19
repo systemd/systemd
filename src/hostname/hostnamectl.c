@@ -69,7 +69,7 @@ typedef struct StatusInfo {
 } StatusInfo;
 
 static void print_status_info(StatusInfo *i) {
-        sd_id128_t mid, bid;
+        sd_id128_t mid = {}, bid = {};
         int r;
         const char *id = NULL;
         _cleanup_free_ char *pretty_name = NULL, *cpe_name = NULL;

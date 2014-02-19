@@ -130,7 +130,7 @@ int efi_get_variable(
 
 int efi_get_variable_string(sd_id128_t vendor, const char *name, char **p) {
         _cleanup_free_ void *s = NULL;
-        size_t ss;
+        size_t ss = 0;
         int r;
         char *x;
 
@@ -393,7 +393,7 @@ fail:
 static int read_usec(sd_id128_t vendor, const char *name, usec_t *u) {
         _cleanup_free_ char *j = NULL;
         int r;
-        uint64_t x;
+        uint64_t x = 0;
 
         assert(name);
         assert(u);

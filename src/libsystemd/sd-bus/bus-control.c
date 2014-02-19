@@ -687,8 +687,8 @@ static int bus_get_owner_dbus1(
                 }
 
                 if (mask & SD_BUS_CREDS_SELINUX_CONTEXT) {
-                        const void *p;
-                        size_t sz;
+                        const void *p = NULL;
+                        size_t sz = 0;
 
                         r = sd_bus_call_method(
                                         bus,

@@ -33,7 +33,7 @@ int main(int argc, char *argv[]) {
         char *s, *name;
         uint64_t sz;
         int r, fd;
-        FILE *f;
+        FILE *f = NULL;
         char buf[3] = {};
         struct iovec iov[3] = {};
         char bufv[3][3] = {};

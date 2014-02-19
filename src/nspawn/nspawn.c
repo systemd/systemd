@@ -743,7 +743,7 @@ static int setup_resolv_conf(const char *dest) {
 
 static int setup_boot_id(const char *dest) {
         _cleanup_free_ char *from = NULL, *to = NULL;
-        sd_id128_t rnd;
+        sd_id128_t rnd = {};
         char as_uuid[37];
         int r;
 

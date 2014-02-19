@@ -5903,7 +5903,7 @@ int proc_cmdline(char **ret) {
         int r;
 
         if (detect_container(NULL) > 0) {
-                char *buf, *p;
+                char *buf = NULL, *p;
                 size_t sz = 0;
 
                 r = read_full_file("/proc/1/cmdline", &buf, &sz);

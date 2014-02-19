@@ -76,7 +76,7 @@ static int child_handler(sd_event_source *s, const siginfo_t *si, void *userdata
 }
 
 static int signal_handler(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
-        sd_event_source *p;
+        sd_event_source *p = NULL;
         sigset_t ss;
         pid_t pid;
 
@@ -106,7 +106,7 @@ static int signal_handler(sd_event_source *s, const struct signalfd_siginfo *si,
 }
 
 static int defer_handler(sd_event_source *s, void *userdata) {
-        sd_event_source *p;
+        sd_event_source *p = NULL;
         sigset_t ss;
 
         assert(s);

@@ -39,7 +39,7 @@ static void test_login(void) {
         uid_t *uids;
         unsigned n;
         struct pollfd pollfd;
-        sd_login_monitor *m;
+        sd_login_monitor *m = NULL;
 
         assert_se(sd_pid_get_session(0, &session) == 0);
         printf("session = %s\n", session);

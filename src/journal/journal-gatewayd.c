@@ -744,7 +744,7 @@ static int request_handler_file(
 
 static int get_virtualization(char **v) {
         _cleanup_bus_unref_ sd_bus *bus = NULL;
-        char *b;
+        char *b = NULL;
         int r;
 
         r = sd_bus_default_system(&bus);
@@ -780,7 +780,7 @@ static int request_handler_machine(
         RequestMeta *m = connection_cls;
         int r;
         _cleanup_free_ char* hostname = NULL, *os_name = NULL;
-        uint64_t cutoff_from, cutoff_to, usage;
+        uint64_t cutoff_from = 0, cutoff_to = 0, usage;
         char *json;
         sd_id128_t mid, bid;
         _cleanup_free_ char *v = NULL;

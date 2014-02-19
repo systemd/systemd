@@ -110,7 +110,7 @@ static void test_replacements(void) {
 }
 
 static int test_unit_printf(void) {
-        Manager *m;
+        Manager *m = NULL;
         Unit *u, *u2;
         int r;
 

@@ -873,7 +873,7 @@ static int method_create_snapshot(sd_bus *bus, sd_bus_message *message, void *us
         Manager *m = userdata;
         const char *name;
         int cleanup;
-        Snapshot *s;
+        Snapshot *s = NULL;
         int r;
 
         assert(bus);

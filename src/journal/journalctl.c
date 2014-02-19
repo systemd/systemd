@@ -1651,7 +1651,7 @@ int main(int argc, char *argv[]) {
         }
 
         if (arg_action == ACTION_DISK_USAGE) {
-                uint64_t bytes;
+                uint64_t bytes = 0;
                 char sbytes[FORMAT_BYTES_MAX];
 
                 r = sd_journal_get_usage(j, &bytes);

@@ -26,7 +26,7 @@
 #include "efivars.h"
 
 int boot_timestamps(const dual_timestamp *n, dual_timestamp *firmware, dual_timestamp *loader) {
-        usec_t x, y, a;
+        usec_t x = 0, y = 0, a;
         int r;
         dual_timestamp _n;
 

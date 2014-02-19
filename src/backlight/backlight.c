@@ -64,7 +64,7 @@ static struct udev_device *find_pci_or_platform_parent(struct udev_device *devic
 
                 value = udev_device_get_sysattr_value(parent, "class");
                 if (value) {
-                        unsigned long class;
+                        unsigned long class = 0;
 
                         if (safe_atolu(value, &class) < 0) {
                                 log_warning("Cannot parse PCI class %s of device %s:%s.", value, subsystem, sysname);

@@ -180,7 +180,7 @@ int udev_ctrl_get_fd(struct udev_ctrl *uctrl)
 struct udev_ctrl_connection *udev_ctrl_get_connection(struct udev_ctrl *uctrl)
 {
         struct udev_ctrl_connection *conn;
-        struct ucred ucred;
+        struct ucred ucred = {};
         const int on = 1;
         int r;
 

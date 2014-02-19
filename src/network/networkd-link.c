@@ -105,7 +105,7 @@ int link_get(Manager *m, int ifindex, Link **ret) {
 }
 
 int link_add(Manager *m, struct udev_device *device, Link **ret) {
-        Link *link;
+        Link *link = NULL;
         Network *network;
         int r;
 

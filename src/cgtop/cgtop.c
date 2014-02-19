@@ -98,7 +98,7 @@ static void group_hashmap_free(Hashmap *h) {
 static int process(const char *controller, const char *path, Hashmap *a, Hashmap *b, unsigned iteration) {
         Group *g;
         int r;
-        FILE *f;
+        FILE *f = NULL;
         pid_t pid;
         unsigned n;
 
