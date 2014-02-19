@@ -9,8 +9,61 @@
 
 LIBSYSTEMD_209 {
 global:
+        /* sd-journal */
+        sd_journal_print;
+        sd_journal_printv;
+        sd_journal_send;
+        sd_journal_sendv;
+        sd_journal_stream_fd;
+        sd_journal_open;
+        sd_journal_close;
+        sd_journal_previous;
+        sd_journal_next;
+        sd_journal_previous_skip;
+        sd_journal_next_skip;
+        sd_journal_get_realtime_usec;
+        sd_journal_get_monotonic_usec;
+        sd_journal_get_data;
+        sd_journal_enumerate_data;
+        sd_journal_restart_data;
+        sd_journal_add_match;
+        sd_journal_flush_matches;
+        sd_journal_seek_head;
+        sd_journal_seek_tail;
+        sd_journal_seek_monotonic_usec;
+        sd_journal_seek_realtime_usec;
+        sd_journal_seek_cursor;
+        sd_journal_get_cursor;
+        sd_journal_get_fd;
+        sd_journal_process;
+        sd_journal_print_with_location;
+        sd_journal_printv_with_location;
+        sd_journal_send_with_location;
+        sd_journal_sendv_with_location;
+        sd_journal_get_cutoff_realtime_usec;
+        sd_journal_get_cutoff_monotonic_usec;
+        sd_journal_wait;
+        sd_journal_open_directory;
+        sd_journal_add_disjunction;
+        sd_journal_perror;
+        sd_journal_perror_with_location;
+        sd_journal_get_usage;
+        sd_journal_test_cursor;
+        sd_journal_query_unique;
+        sd_journal_enumerate_unique;
+        sd_journal_restart_unique;
+        sd_journal_get_catalog;
+        sd_journal_get_catalog_for_message_id;
+        sd_journal_set_data_threshold;
+        sd_journal_get_data_threshold;
+        sd_journal_reliable_fd;
+        sd_journal_get_events;
+        sd_journal_get_timeout;
+        sd_journal_add_conjunction;
+        sd_journal_open_files;
+        sd_journal_open_container;
 
-        /* originally LIBSYSTEMD_DAEMON_31 */
+        /* sd-dameon */
         sd_booted;
         sd_is_fifo;
         sd_is_mq;
@@ -21,18 +74,16 @@ global:
         sd_listen_fds;
         sd_notify;
         sd_notifyf;
-
-        /* LIBSYSTEMD_DAEMON_209 */
         sd_watchdog_enabled;
 
-        /* originally LIBSYSTEMD_ID128_38 */
+        /* sd-id128 */
         sd_id128_to_string;
         sd_id128_from_string;
         sd_id128_randomize;
         sd_id128_get_machine;
         sd_id128_get_boot;
 
-        /* originally LIBSYSTEMD_LOGIN_31 */
+        /* sd-login */
         sd_get_seats;
         sd_get_sessions;
         sd_get_uids;
@@ -52,49 +103,27 @@ global:
         sd_uid_get_sessions;
         sd_uid_get_state;
         sd_uid_is_on_seat;
-
-        /* originally LIBSYSTEMD_LOGIN_38 */
         sd_pid_get_unit;
         sd_session_get_service;
-
-        /* originally LIBSYSTEMD_LOGIN_43 */
         sd_session_get_type;
         sd_session_get_class;
         sd_session_get_display;
-
-        /* originally LIBSYSTEMD_LOGIN_186 */
         sd_session_get_state;
         sd_seat_can_tty;
         sd_seat_can_graphical;
-
-        /* originally LIBSYSTEMD_LOGIN_198 */
         sd_session_get_tty;
-
-        /* originally LIBSYSTEMD_LOGIN_201 */
         sd_login_monitor_get_events;
         sd_login_monitor_get_timeout;
-
-        /* originally LIBSYSTEMD_LOGIN_202 */
         sd_pid_get_user_unit;
         sd_pid_get_machine_name;
-
-        /* originally LIBSYSTEMD_LOGIN_203 */
         sd_get_machine_names;
-
-        /* originally LIBSYSTEMD_LOGIN_205 */
         sd_pid_get_slice;
-
-        /* originally LIBSYSTEMD_LOGIN_207 */
         sd_session_get_vt;
-
-        /* new in LIBSYSTEMD_LOGIN_209 */
         sd_session_is_remote;
         sd_session_get_remote_user;
         sd_session_get_remote_host;
 
-        /* Same order as in sd-bus.h should be used */
-
-        /* Connections */
+        /* sd-bus */
         sd_bus_default;
         sd_bus_default_user;
         sd_bus_default_system;
@@ -158,8 +187,6 @@ global:
         sd_bus_remove_node_enumerator;
         sd_bus_add_object_manager;
         sd_bus_remove_object_manager;
-
-        /* Message object */
         sd_bus_message_new_signal;
         sd_bus_message_new_method_call;
         sd_bus_message_new_method_return;
@@ -219,16 +246,12 @@ global:
         sd_bus_message_verify_type;
         sd_bus_message_at_end;
         sd_bus_message_rewind;
-
-        /* Bus management */
         sd_bus_get_unique_name;
         sd_bus_request_name;
         sd_bus_release_name;
         sd_bus_list_names;
         sd_bus_get_owner;
         sd_bus_get_owner_machine_id;
-
-        /* Convenience calls */
         sd_bus_call_method;
         sd_bus_get_property;
         sd_bus_get_property_trivial;
@@ -248,8 +271,6 @@ global:
         sd_bus_emit_interfaces_removed_strv;
         sd_bus_emit_interfaces_removed;
         sd_bus_query_sender_creds;
-
-        /* Credentials */
         sd_bus_creds_new_from_pid;
         sd_bus_creds_ref;
         sd_bus_creds_unref;
@@ -279,8 +300,6 @@ global:
         sd_bus_creds_get_unique_name;
         sd_bus_creds_get_well_known_names;
         sd_bus_creds_get_connection_name;
-
-        /* Error structures */
         sd_bus_error_free;
         sd_bus_error_set;
         sd_bus_error_setf;
@@ -291,12 +310,10 @@ global:
         sd_bus_error_copy;
         sd_bus_error_is_set;
         sd_bus_error_has_name;
-
-        /* Escaping */
         sd_bus_label_escape;
         sd_bus_label_unescape;
 
-        /* sd-memfd functions */
+        /* sd-memfd */
         sd_memfd_new;
         sd_memfd_make;
         sd_memfd_new_and_map;
@@ -311,13 +328,11 @@ global:
         sd_memfd_set_size;
         sd_memfd_get_name;
 
-        /* sd-event functions */
+        /* sd-event */
         sd_event_default;
-
         sd_event_new;
         sd_event_ref;
         sd_event_unref;
-
         sd_event_add_io;
         sd_event_add_monotonic;
         sd_event_add_realtime;
@@ -325,11 +340,9 @@ global:
         sd_event_add_child;
         sd_event_add_defer;
         sd_event_add_exit;
-
         sd_event_run;
         sd_event_loop;
         sd_event_exit;
-
         sd_event_get_state;
         sd_event_get_tid;
         sd_event_get_exit_code;
@@ -337,10 +350,8 @@ global:
         sd_event_get_now_monotonic;
         sd_event_set_watchdog;
         sd_event_get_watchdog;
-
         sd_event_source_ref;
         sd_event_source_unref;
-
         sd_event_source_set_prepare;
         sd_event_source_get_pending;
         sd_event_source_get_priority;
@@ -362,7 +373,7 @@ global:
         sd_event_source_get_child_pid;
         sd_event_source_get_event;
 
-        /* sd-utf8 function */
+        /* sd-utf8 */
         sd_utf8_is_valid;
         sd_ascii_is_valid;
 

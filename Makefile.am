@@ -56,7 +56,7 @@ LIBSYSTEMD_ID128_REVISION=27
 LIBSYSTEMD_ID128_AGE=0
 
 LIBSYSTEMD_JOURNAL_CURRENT=11
-LIBSYSTEMD_JOURNAL_REVISION=3
+LIBSYSTEMD_JOURNAL_REVISION=4
 LIBSYSTEMD_JOURNAL_AGE=11
 
 LIBSYSTEMD_CURRENT=0
@@ -1924,7 +1924,7 @@ systemd_tty_ask_password_agent_LDADD = \
 	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
-libsystemd_la_SOURCES = \
+libsystemd_internal_la_SOURCES = \
 	src/libsystemd/libsystemd.sym \
 	src/systemd/sd-bus.h \
 	src/systemd/sd-bus-protocol.h \
@@ -1990,22 +1990,56 @@ libsystemd_la_SOURCES = \
 	src/login/login-shared.c \
 	src/login/login-shared.h
 
-nodist_libsystemd_la_SOURCES = \
+nodist_libsystemd_internal_la_SOURCES = \
 	src/libsystemd/sd-bus/bus-error-mapping.c
 
-libsystemd_la_LIBADD = \
-	libsystemd-shared.la \
-	$(RT_LIBS) \
-	-lresolv
-
-libsystemd_la_CFLAGS = \
+libsystemd_internal_la_CFLAGS = \
 	$(AM_CFLAGS) \
 	-pthread
+
+noinst_LTLIBRARIES += \
+	libsystemd-internal.la
+
+libsystemd_dump_la_SOURCES = \
+	src/libsystemd/sd-bus/bus-dump.c \
+	src/libsystemd/sd-bus/bus-dump.h
+
+libsystemd_dump_la_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(CAP_CFLAGS)
+
+noinst_LTLIBRARIES += \
+	libsystemd-dump.la
+
+EXTRA_DIST += \
+	src/libsystemd/sd-bus/bus-error-mapping.gperf \
+	src/libsystemd/sd-bus/DIFFERENCES \
+	src/libsystemd/sd-bus/GVARIANT-SERIALIZATION \
+	src/libsystemd/libsystemd.pc.in
+
+CLEANFILES += \
+	src/libsystemd/sd-bus/bus-error-mapping.c
+
+libsystemd_la_SOURCES = \
+	$(libsystemd_internal_la_SOURCES) \
+	$(libsystemd_journal_internal_la_SOURCES)
+
+nodist_libsystemd_la_SOURCES = \
+	$(nodist_libsystemd_internal_la_SOURCES)
+
+libsystemd_la_CFLAGS = \
+	$(libsystemd_internal_la_CFLAGS)
 
 libsystemd_la_LDFLAGS = \
 	$(AM_LDFLAGS) \
 	-version-info $(LIBSYSTEMD_CURRENT):$(LIBSYSTEMD_REVISION):$(LIBSYSTEMD_AGE) \
 	-Wl,--version-script=$(top_srcdir)/src/libsystemd/libsystemd.sym
+
+libsystemd_la_LIBADD = \
+	libsystemd-shared.la \
+	$(libsystemd_journal_internal_la_LIBADD) \
+	$(RT_LIBS) \
+	-lresolv
 
 pkgconfiglib_DATA += \
 	src/libsystemd/libsystemd.pc
@@ -2027,40 +2061,8 @@ pkginclude_HEADERS += \
 	src/systemd/sd-resolve.h
 endif
 
-EXTRA_DIST += \
-	src/libsystemd/sd-bus/bus-error-mapping.gperf \
-	src/libsystemd/sd-bus/DIFFERENCES \
-	src/libsystemd/sd-bus/GVARIANT-SERIALIZATION \
-	src/libsystemd/libsystemd.pc.in
-
-CLEANFILES += \
-	src/libsystemd/sd-bus/bus-error-mapping.c
-
 lib_LTLIBRARIES += \
 	libsystemd.la
-
-libsystemd_internal_la_SOURCES = \
-	$(libsystemd_la_SOURCES)
-
-nodist_libsystemd_internal_la_SOURCES = \
-	$(nodist_libsystemd_la_SOURCES)
-
-libsystemd_internal_la_CFLAGS = \
-	$(libsystemd_la_CFLAGS)
-
-noinst_LTLIBRARIES += \
-	libsystemd-internal.la
-
-libsystemd_dump_la_SOURCES = \
-	src/libsystemd/sd-bus/bus-dump.c \
-	src/libsystemd/sd-bus/bus-dump.h
-
-libsystemd_dump_la_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(CAP_CFLAGS)
-
-noinst_LTLIBRARIES += \
-	libsystemd-dump.la
 
 tests += \
 	test-bus-marshal \
@@ -3074,67 +3076,6 @@ test_catalog_CPPFLAGS = \
 test_catalog_LDADD = \
 	libsystemd-journal-core.la
 
-libsystemd_journal_la_SOURCES = \
-	src/journal/libsystemd-journal.sym \
-	src/journal/sd-journal.c \
-	src/systemd/sd-journal.h \
-	src/systemd/_sd-common.h \
-	src/journal/journal-file.c \
-	src/journal/journal-file.h \
-	src/journal/journal-vacuum.c \
-	src/journal/journal-vacuum.h \
-	src/journal/journal-verify.c \
-	src/journal/journal-verify.h \
-	src/journal/lookup3.c \
-	src/journal/lookup3.h \
-	src/journal/journal-send.c \
-	src/journal/journal-def.h \
-	src/journal/compress.h \
-	src/journal/catalog.c \
-	src/journal/catalog.h \
-	src/journal/mmap-cache.c \
-	src/journal/mmap-cache.h
-
-libsystemd_journal_la_CFLAGS = \
-	$(AM_CFLAGS) \
-	-fvisibility=hidden
-
-libsystemd_journal_la_LDFLAGS = \
-	$(AM_LDFLAGS) \
-	-version-info $(LIBSYSTEMD_JOURNAL_CURRENT):$(LIBSYSTEMD_JOURNAL_REVISION):$(LIBSYSTEMD_JOURNAL_AGE) \
-	-Wl,--version-script=$(top_srcdir)/src/journal/libsystemd-journal.sym
-
-libsystemd_journal_la_LIBADD = \
-	libsystemd-label.la \
-	libsystemd-internal.la \
-	libsystemd-shared.la
-
-libsystemd_journal_internal_la_SOURCES = \
-	$(libsystemd_journal_la_SOURCES)
-
-# using _CFLAGS = in the conditional below would suppress AM_CFLAGS
-libsystemd_journal_internal_la_CFLAGS = \
-	$(AM_CFLAGS)
-
-libsystemd_journal_internal_la_LIBADD =
-
-if HAVE_XZ
-libsystemd_journal_la_SOURCES += \
-	src/journal/compress.c
-
-libsystemd_journal_la_CFLAGS += \
-	$(XZ_CFLAGS)
-
-libsystemd_journal_la_LIBADD += \
-	$(XZ_LIBS)
-
-libsystemd_journal_internal_la_CFLAGS += \
-	$(XZ_CFLAGS)
-
-libsystemd_journal_internal_la_LIBADD += \
-	$(XZ_LIBS)
-endif
-
 libsystemd_journal_core_la_SOURCES = \
 	src/journal/journald-kmsg.c \
 	src/journal/journald-kmsg.h \
@@ -3170,45 +3111,6 @@ endif
 
 noinst_LTLIBRARIES += \
 	libsystemd-journal-core.la
-
-if HAVE_GCRYPT
-libsystemd_journal_la_SOURCES += \
-	src/journal/journal-authenticate.c \
-	src/journal/journal-authenticate.h \
-	src/journal/fsprg.c \
-	src/journal/fsprg.h
-
-libsystemd_journal_la_CFLAGS += \
-	$(GCRYPT_CFLAGS) \
-	-Wno-pointer-arith
-
-libsystemd_journal_la_LIBADD += \
-	$(GCRYPT_LIBS)
-
-libsystemd_journal_internal_la_CFLAGS += \
-	$(GCRYPT_CFLAGS) \
-	-Wno-pointer-arith
-
-libsystemd_journal_internal_la_LIBADD += \
-	$(GCRYPT_LIBS)
-endif
-
-# move lib from $(libdir) to $(rootlibdir) and update devel link, if
-# needed. Also, grant read access to new journal files to members of
-# "adm" and "wheel".
-libsystemd-journal-install-hook:
-	libname=libsystemd-journal.so && $(move-to-rootlibdir)
-	-$(MKDIR_P) $(DESTDIR)/var/log/journal
-	-chown 0:0 $(DESTDIR)/var/log/journal
-	-chmod 755 $(DESTDIR)/var/log/journal
-	-setfacl -nm g:adm:rx,d:g:adm:rx $(DESTDIR)/var/log/journal/
-	-setfacl -nm g:wheel:rx,d:g:wheel:rx $(DESTDIR)/var/log/journal/
-
-libsystemd-journal-uninstall-hook:
-	rm -f $(DESTDIR)$(rootlibdir)/libsystemd-journal.so*
-
-INSTALL_EXEC_HOOKS += libsystemd-journal-install-hook
-UNINSTALL_EXEC_HOOKS += libsystemd-journal-uninstall-hook
 
 # ------------------------------------------------------------------------------
 
@@ -3247,8 +3149,57 @@ pkginclude_HEADERS += \
 	src/systemd/sd-messages.h \
 	src/systemd/_sd-common.h
 
-lib_LTLIBRARIES += \
-	libsystemd-journal.la
+libsystemd_journal_internal_la_SOURCES = \
+	src/journal/sd-journal.c \
+	src/systemd/sd-journal.h \
+	src/systemd/_sd-common.h \
+	src/journal/journal-file.c \
+	src/journal/journal-file.h \
+	src/journal/journal-vacuum.c \
+	src/journal/journal-vacuum.h \
+	src/journal/journal-verify.c \
+	src/journal/journal-verify.h \
+	src/journal/lookup3.c \
+	src/journal/lookup3.h \
+	src/journal/journal-send.c \
+	src/journal/journal-def.h \
+	src/journal/compress.h \
+	src/journal/catalog.c \
+	src/journal/catalog.h \
+	src/journal/mmap-cache.c \
+	src/journal/mmap-cache.h
+
+# using _CFLAGS = in the conditional below would suppress AM_CFLAGS
+libsystemd_journal_internal_la_CFLAGS =
+	$(AM_CFLAGS)
+
+libsystemd_journal_internal_la_LIBADD =
+
+if HAVE_XZ
+libsystemd_journal_internal_la_SOURCES += \
+	src/journal/compress.c
+
+libsystemd_journal_internal_la_CFLAGS += \
+	$(XZ_CFLAGS)
+
+libsystemd_journal_internal_la_LIBADD += \
+	$(XZ_LIBS)
+endif
+
+if HAVE_GCRYPT
+libsystemd_journal_internal_la_SOURCES += \
+	src/journal/journal-authenticate.c \
+	src/journal/journal-authenticate.h \
+	src/journal/fsprg.c \
+	src/journal/fsprg.h
+
+libsystemd_journal_internal_la_LIBADD += \
+	$(GCRYPT_LIBS)
+
+libsystemd_journal_internal_la_CFLAGS += \
+	$(GCRYPT_CFLAGS) \
+	-Wno-pointer-arith
+endif
 
 noinst_LTLIBRARIES += \
 	libsystemd-journal-internal.la
@@ -3272,9 +3223,6 @@ nodist_systemunit_DATA += \
 dist_pkgsysconf_DATA += \
 	src/journal/journald.conf
 
-pkgconfiglib_DATA += \
-	src/journal/libsystemd-journal.pc
-
 dist_catalog_DATA = \
 	catalog/systemd.fr.catalog \
 	catalog/systemd.ru.catalog \
@@ -3288,7 +3236,6 @@ SYSINIT_TARGET_WANTS += \
 	systemd-journal-flush.service
 
 EXTRA_DIST += \
-	src/journal/libsystemd-journal.pc.in \
 	units/systemd-journald.service.in \
 	units/systemd-journal-flush.service.in \
 	src/journal/journald-gperf.gperf
@@ -4254,7 +4201,7 @@ _journal_la_LDFLAGS = \
 
 _journal_la_LIBADD = \
 	$(PYTHON_DEVEL_LIBS) \
-	libsystemd-journal.la
+	libsystemd.la
 
 id128_la_SOURCES = \
 	src/python-systemd/id128.c \
@@ -4318,7 +4265,6 @@ _reader_la_LDFLAGS = \
 _reader_la_LIBADD = \
 	$(PYTHON_DEVEL_LIBS) \
 	libsystemd.la \
-	libsystemd-journal.la \
 	libsystemd-shared.la
 
 login_la_SOURCES = \
@@ -4392,6 +4338,24 @@ define generate-fake-lib
 	$(AM_V_GEN)sed -r -n 's/^ +(sd_.*);/void new_\1(void);\n__asm__(".symver new_\1,\1@LIBSYSTEMD_209");\nstatic void (*resolve_\1(void)) (void) {\n\treturn new_\1;\n}\nvoid \1(void) __attribute__((ifunc("resolve_\1")));\nobsolete_lib(\1,$(notdir $(basename $<)));\n/p' <$< >$@
 endef
 
+libsystemd_journal_la_SOURCES = \
+	libsystemd-journal.c \
+	src/compat-libs/libsystemd-journal.sym
+
+libsystemd_journal_la_CFLAGS = \
+	$(AM_CFLAGS) \
+	-fvisibility=default \
+	-imacros $(top_srcdir)/src/compat-libs/linkwarning.h \
+	-fno-lto
+
+libsystemd_journal_la_LDFLAGS = \
+	$(AM_LDFLAGS) \
+	-version-info $(LIBSYSTEMD_JOURNAL_CURRENT):$(LIBSYSTEMD_JOURNAL_REVISION):$(LIBSYSTEMD_JOURNAL_AGE) \
+	-Wl,--version-script=$(top_srcdir)/src/compat-libs/libsystemd-journal.sym
+
+libsystemd_journal_la_LIBADD = \
+	libsystemd.la
+
 libsystemd_login_la_SOURCES = \
 	libsystemd-login.c \
 	src/compat-libs/libsystemd-login.sym
@@ -4441,6 +4405,7 @@ libsystemd_daemon_la_LIBADD = \
 	libsystemd.la
 
 BUILT_SOURCES += \
+	libsystemd-journal.c \
 	libsystemd-login.c \
 	libsystemd-id128.c \
 	libsystemd-daemon.c
@@ -4449,6 +4414,7 @@ libsystemd-%.c: src/compat-libs/libsystemd-%.sym
 	$(generate-fake-lib)
 
 lib_LTLIBRARIES += \
+	libsystemd-journal.la \
 	libsystemd-login.la \
 	libsystemd-id128.la \
 	libsystemd-daemon.la
@@ -4911,42 +4877,57 @@ define generate-sym-test
 endef
 
 test-libsystemd-sym.c: \
-	src/libsystemd/libsystemd.sym \
-	src/systemd/sd-bus.h \
-	src/systemd/sd-utf8.h \
-	src/systemd/sd-daemon.h \
-	src/systemd/sd-login.h
-	$(generate-sym-test)
-
-test-libsystemd-daemon-sym.c: \
-	src/compat-libs/libsystemd-daemon.sym \
-	src/systemd/sd-daemon.h
-	$(generate-sym-test)
-
-test-libsystemd-id128-sym.c: \
-	src/compat-libs/libsystemd-id128.sym \
-	src/systemd/sd-id128.h
-	$(generate-sym-test)
-
-test-libsystemd-journal-sym.c: \
-	src/journal/libsystemd-journal.sym \
-	src/systemd/sd-journal.h
-	$(generate-sym-test)
-
-test-libsystemd-login-sym.c: \
-	src/compat-libs/libsystemd-login.sym \
-	src/systemd/sd-login.h
+		src/libsystemd/libsystemd.sym \
+		src/systemd/sd-journal.h \
+		src/systemd/sd-daemon.h \
+		src/systemd/sd-login.h \
+		src/systemd/sd-bus.h \
+		src/systemd/sd-utf8.h
 	$(generate-sym-test)
 
 test-libudev-sym.c: \
-	src/libudev/libudev.sym \
-	src/udev/udev.h
+		src/libudev/libudev.sym \
+		src/udev/udev.h
 	$(generate-sym-test)
 
 test_libsystemd_sym_SOURCES = \
 	test-libsystemd-sym.c
 test_libsystemd_sym_LDADD = \
 	libsystemd.la
+
+test_libudev_sym_SOURCES = \
+	test-libudev-sym.c
+test_libudev_sym_LDADD = \
+	libudev.la
+
+BUILT_SOURCES += \
+	$(test_libsystemd_sym_SOURCES) \
+	$(test_libudev_sym_SOURCES)
+
+tests += \
+	test-libsystemd-sym \
+	test-libudev-sym
+
+if ENABLE_COMPAT_LIBS
+test-libsystemd-daemon-sym.c: \
+		src/compat-libs/libsystemd-daemon.sym \
+		src/systemd/sd-daemon.h
+	$(generate-sym-test)
+
+test-libsystemd-id128-sym.c: \
+		src/compat-libs/libsystemd-id128.sym \
+		src/systemd/sd-id128.h
+	$(generate-sym-test)
+
+test-libsystemd-journal-sym.c: \
+		src/compat-libs/libsystemd-journal.sym \
+		src/systemd/sd-journal.h
+	$(generate-sym-test)
+
+test-libsystemd-login-sym.c: \
+		src/compat-libs/libsystemd-login.sym \
+		src/systemd/sd-login.h
+	$(generate-sym-test)
 
 test_libsystemd_daemon_sym_SOURCES = \
 	test-libsystemd-daemon-sym.c
@@ -4968,28 +4949,14 @@ test_libsystemd_login_sym_SOURCES = \
 test_libsystemd_login_sym_LDADD = \
 	libsystemd-login.la
 
-test_libudev_sym_SOURCES = \
-	test-libudev-sym.c
-test_libudev_sym_LDADD = \
-	libudev.la
-
 BUILT_SOURCES += \
-	$(test_libsystemd_sym_SOURCES) \
 	$(test_libsystemd_journal_sym_SOURCES) \
-	$(test_libudev_sym_SOURCES)
-
-tests += \
-	test-libsystemd-sym \
-	test-libsystemd-journal-sym \
-	test-libudev-sym
-
-if ENABLE_COMPAT_LIBS
-BUILT_SOURCES += \
 	$(test_libsystemd_login_sym_SOURCES) \
 	$(test_libsystemd_id128_sym_SOURCES) \
 	$(test_libsystemd_daemon_sym_SOURCES)
 
 tests += \
+	test-libsystemd-journal-sym \
 	test-libsystemd-login-sym \
 	test-libsystemd-id128-sym \
 	test-libsystemd-daemon-sym

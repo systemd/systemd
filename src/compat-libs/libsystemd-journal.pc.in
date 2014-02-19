@@ -11,9 +11,9 @@ libdir=@libdir@
 includedir=@includedir@
 
 Name: systemd
-Description: systemd Journal Utility Library
+Description: systemd Journal Utility Library - deprecated
 URL: @PACKAGE_URL@
 Version: @PACKAGE_VERSION@
 Requires: libsystemd = @PACKAGE_VERSION@
-Libs: -L${libdir} -lsystemd-journal
+Libs: -L${libdir} -lsystemd
 Cflags: -I${includedir}
