@@ -2028,7 +2028,8 @@ nodist_libsystemd_la_SOURCES = \
 	$(nodist_libsystemd_internal_la_SOURCES)
 
 libsystemd_la_CFLAGS = \
-	$(libsystemd_internal_la_CFLAGS)
+	$(libsystemd_internal_la_CFLAGS) \
+	$(libsystemd_journal_internal_la_CFLAGS)
 
 libsystemd_la_LDFLAGS = \
 	$(AM_LDFLAGS) \
@@ -3196,6 +3197,7 @@ libsystemd_journal_internal_la_SOURCES += \
 libsystemd_journal_internal_la_LIBADD += \
 	$(GCRYPT_LIBS)
 
+# fsprg.c is a drop-in file using void pointer arithmetic
 libsystemd_journal_internal_la_CFLAGS += \
 	$(GCRYPT_CFLAGS) \
 	-Wno-pointer-arith
