@@ -41,6 +41,48 @@
 static struct selabel_handle *label_hnd = NULL;
 
 #endif
+#ifdef HAVE_SMACK
+#include <sys/xattr.h>
+#include <string.h>
+#define FLOOR_LABEL	"_"
+#define STAR_LABEL	"*"
+
+static void smack_relabel_in_dev(const char *path) {
+        struct stat sb;
+        const char *label;
+        int r;
+
+        /*
+         * Path must be in /dev and must exist
+         */
+        if (!path_equal(path, "/dev") &&
+            !path_startswith(path, "/dev"))
+                return;
+
+        r = lstat(path, &sb);
+        if (r < 0)
+                return;
+
+        /*
+         * Label directories and character devices "*".
+         * Label symlinks "_".
+         * Don't change anything else.
+         */
+        if (S_ISDIR(sb.st_mode))
+                label = STAR_LABEL;
+        else if (S_ISLNK(sb.st_mode))
+                label = FLOOR_LABEL;
+        else if (S_ISCHR(sb.st_mode))
+                label = STAR_LABEL;
+        else
+                return;
+
+        r = setxattr(path, "security.SMACK64", label, strlen(label), 0);
+        if (r < 0)
+                log_error("Smack relabeling \"%s\" %s", path, strerror(errno));
+        return;
+}
+#endif
 
 int label_init(const char *prefix) {
         int r = 0;
@@ -130,6 +172,9 @@ int label_fix(const char *path, bool ignore_enoent, bool ignore_erofs) {
                 r = security_getenforce() == 1 ? -errno : 0;
         }
 #endif
+#ifdef HAVE_SMACK
+        smack_relabel_in_dev(path);
+#endif
 
         return r;
 }
@@ -207,6 +252,9 @@ int label_context_set(const char *path, mode_t mode) {
         if (r < 0 && security_getenforce() == 0)
                 r = 0;
 #endif
+#ifdef HAVE_SMACK
+        smack_relabel_in_dev(path);
+#endif
 
         return r;
 }
@@ -260,11 +308,11 @@ void label_free(const char *label) {
 }
 
 int label_mkdir(const char *path, mode_t mode) {
-
-        /* Creates a directory and labels it according to the SELinux policy */
-#ifdef HAVE_SELINUX
-        security_context_t fcon = NULL;
         int r;
+
+#ifdef HAVE_SELINUX
+        /* Creates a directory and labels it according to the SELinux policy */
+        security_context_t fcon = NULL;
 
         if (!use_selinux() || !label_hnd)
                 goto skipped;
@@ -305,7 +353,13 @@ finish:
 
 skipped:
 #endif
-        return mkdir(path, mode) < 0 ? -errno : 0;
+        r = mkdir(path, mode);
+        if (r)
+                return -errno;
+#ifdef HAVE_SMACK
+        smack_relabel_in_dev(path);
+#endif
+        return 0;
 }
 
 int label_bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
