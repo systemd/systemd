@@ -798,7 +798,7 @@ error:
         return 0;
 }
 
-static int client_receive_message_raw(sd_event_source *s, int fd,
+static int client_receive_message_udp(sd_event_source *s, int fd,
                                       uint32_t revents, void *userdata) {
         sd_dhcp_client *client = userdata;
         uint8_t buf[sizeof(DHCPMessage) + DHCP_MIN_OPTIONS_SIZE];
@@ -822,7 +822,7 @@ static int client_receive_message_raw(sd_event_source *s, int fd,
                                      time_now);
 }
 
-static int client_receive_message_udp(sd_event_source *s, int fd,
+static int client_receive_message_raw(sd_event_source *s, int fd,
                                       uint32_t revents, void *userdata) {
         sd_dhcp_client *client = userdata;
         uint8_t buf[sizeof(DHCPPacket) + DHCP_MIN_OPTIONS_SIZE];
@@ -876,7 +876,7 @@ int sd_dhcp_client_start(sd_dhcp_client *client) {
         client->start_time = now(CLOCK_MONOTONIC);
         client->secs = 0;
 
-        return client_initialize_events(client, client_receive_message_udp,
+        return client_initialize_events(client, client_receive_message_raw,
                                         client->start_time);
 }
 
