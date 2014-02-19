@@ -137,7 +137,10 @@ int label_fix(const char *path, bool ignore_enoent, bool ignore_erofs) {
 void label_finish(void) {
 
 #ifdef HAVE_SELINUX
-        if (use_selinux() && label_hnd)
+        if (!use_selinux())
+                return;
+
+        if (label_hnd)
                 selabel_close(label_hnd);
 #endif
 }
@@ -260,8 +263,8 @@ int label_mkdir(const char *path, mode_t mode) {
 
         /* Creates a directory and labels it according to the SELinux policy */
 #ifdef HAVE_SELINUX
-        int r;
         security_context_t fcon = NULL;
+        int r;
 
         if (!use_selinux() || !label_hnd)
                 goto skipped;
@@ -269,14 +272,13 @@ int label_mkdir(const char *path, mode_t mode) {
         if (path_is_absolute(path))
                 r = selabel_lookup_raw(label_hnd, &fcon, path, S_IFDIR);
         else {
-                char *newpath;
+                _cleanup_free_ char *newpath;
 
                 newpath = path_make_absolute_cwd(path);
                 if (!newpath)
                         return -ENOMEM;
 
                 r = selabel_lookup_raw(label_hnd, &fcon, newpath, S_IFDIR);
-                free(newpath);
         }
 
         if (r == 0)
@@ -311,10 +313,10 @@ int label_bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
         /* Binds a socket and label its file system object according to the SELinux policy */
 
 #ifdef HAVE_SELINUX
-        int r;
         security_context_t fcon = NULL;
         const struct sockaddr_un *un;
-        char *path = NULL;
+        char *path;
+        int r;
 
         assert(fd >= 0);
         assert(addr);
@@ -336,24 +338,18 @@ int label_bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
         if (un->sun_path[0] == 0)
                 goto skipped;
 
-        path = strndup(un->sun_path, addrlen - offsetof(struct sockaddr_un, sun_path));
-        if (!path)
-                return -ENOMEM;
+        path = strndupa(un->sun_path, addrlen - offsetof(struct sockaddr_un, sun_path));
 
         if (path_is_absolute(path))
                 r = selabel_lookup_raw(label_hnd, &fcon, path, S_IFSOCK);
         else {
-                char *newpath;
+                _cleanup_free_ char *newpath;
 
                 newpath = path_make_absolute_cwd(path);
-
-                if (!newpath) {
-                        free(path);
+                if (!newpath)
                         return -ENOMEM;
-                }
 
                 r = selabel_lookup_raw(label_hnd, &fcon, newpath, S_IFSOCK);
-                free(newpath);
         }
 
         if (r == 0)
@@ -375,7 +371,6 @@ int label_bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
 finish:
         setfscreatecon(NULL);
         freecon(fcon);
-        free(path);
 
         return r;
 
