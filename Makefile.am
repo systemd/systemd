@@ -2463,6 +2463,7 @@ dist_udevhwdb_DATA = \
 	hwdb/20-bluetooth-vendor-product.hwdb \
 	hwdb/20-acpi-vendor.hwdb \
 	hwdb/20-OUI.hwdb \
+	hwdb/20-net-ifname.hwdb \
 	hwdb/60-keyboard.hwdb
 
 udevconfdir = $(sysconfdir)/udev

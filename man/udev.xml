@@ -884,6 +884,15 @@
             </para>
             <variablelist>
               <varlistentry>
+                <term><literal>database</literal></term>
+                <listitem>
+                  <para>The name is set based on entries in the Hardware
+                    Database with the key
+                    <literal>ID_NET_NAME_FROM_DATABASE</literal>.
+                  </para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
                 <term><literal>onboard</literal></term>
                 <listitem>
                   <para>The name is set based on information given by the

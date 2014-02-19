@@ -383,6 +383,9 @@ int link_config_apply(link_config_ctx *ctx, link_config *config, struct udev_dev
 
                 for (policy = config->name_policy; !new_name && *policy != _NAMEPOLICY_INVALID; policy++) {
                         switch (*policy) {
+                                case NAMEPOLICY_DATABASE:
+                                        new_name = udev_device_get_property_value(device, "ID_NET_NAME_FROM_DATABASE");
+                                        break;
                                 case NAMEPOLICY_ONBOARD:
                                         new_name = udev_device_get_property_value(device, "ID_NET_NAME_ONBOARD");
                                         break;
@@ -447,6 +450,7 @@ DEFINE_STRING_TABLE_LOOKUP(mac_policy, MACPolicy);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_mac_policy, mac_policy, MACPolicy, "Failed to parse MAC address policy");
 
 static const char* const name_policy_table[] = {
+        [NAMEPOLICY_DATABASE] = "database",
         [NAMEPOLICY_ONBOARD] = "onboard",
         [NAMEPOLICY_SLOT] = "slot",
         [NAMEPOLICY_PATH] = "path",
