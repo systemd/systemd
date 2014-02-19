@@ -27,6 +27,7 @@
 #include "socket-util.h"
 #include "rtnl-util.h"
 #include "event-util.h"
+#include "missing.h"
 
 static void test_link_configure(sd_rtnl *rtnl, int ifindex) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *message;
