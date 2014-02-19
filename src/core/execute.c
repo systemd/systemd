@@ -1977,27 +1977,20 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                         fprintf(f, "%s%s: %llu\n", prefix, rlimit_to_string(i), (unsigned long long) c->rlimit[i]->rlim_max);
 
         if (c->ioprio_set) {
-                char *class_str;
-                int r;
+                _cleanup_free_ char *class_str = NULL;
 
-                r = ioprio_class_to_string_alloc(IOPRIO_PRIO_CLASS(c->ioprio), &class_str);
-                if (r < 0)
-                        class_str = NULL;
+                ioprio_class_to_string_alloc(IOPRIO_PRIO_CLASS(c->ioprio), &class_str);
                 fprintf(f,
                         "%sIOSchedulingClass: %s\n"
                         "%sIOPriority: %i\n",
                         prefix, strna(class_str),
                         prefix, (int) IOPRIO_PRIO_DATA(c->ioprio));
-                free(class_str);
         }
 
         if (c->cpu_sched_set) {
-                char *policy_str;
-                int r;
+                _cleanup_free_ char *policy_str = NULL;
 
-                r = sched_policy_to_string_alloc(c->cpu_sched_policy, &policy_str);
-                if (r < 0)
-                        policy_str = NULL;
+                sched_policy_to_string_alloc(c->cpu_sched_policy, &policy_str);
                 fprintf(f,
                         "%sCPUSchedulingPolicy: %s\n"
                         "%sCPUSchedulingPriority: %i\n"
@@ -2005,7 +1998,6 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                         prefix, strna(policy_str),
                         prefix, c->cpu_sched_priority,
                         prefix, yes_no(c->cpu_sched_reset_on_fork));
-                free(policy_str);
         }
 
         if (c->cpuset) {
