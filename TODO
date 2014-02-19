@@ -33,6 +33,20 @@ Preparation for 209:
 
 Features:
 
+* systemctl (and possibly related tools): support a new switch that
+  allows enumerating units in local containers recursively. "systemctl
+  list-units -R" or so should not only lists on the host, but also the
+  services in all containers in a pretty way, to give an overview of
+  the entire system. Also, maybe add "systemctl list-machines" which
+  works like "machinectl list" but includes information about the
+  health status of each registered machine. For that we should
+  probably implement something that encodes the system health status
+  in a single enum state, i.e. something like a system-wide state
+  starting → running → failed → stopping, that is based on the current
+  job queue and a check for failed services. Maybe then change
+  "systemctl status" without args to output this state along with a
+  selection of other data, such as the uptime or so.
+
 * generalize ConditionXYZ= logic and make it available in networkd's
   .network, .netdev, .network files, too. This is particularly useful
   to match on containers with ConditionVirtualization to
