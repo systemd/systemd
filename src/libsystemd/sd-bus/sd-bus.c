@@ -1365,7 +1365,8 @@ _public_ sd_bus *sd_bus_unref(sd_bus *bus) {
                  * the messages and thus implicitly also kill our own
                  * last references */
 
-                bus_reset_queues(bus);
+                if (q)
+                        bus_reset_queues(bus);
         }
 
         i = REFCNT_DEC(bus->n_ref);
