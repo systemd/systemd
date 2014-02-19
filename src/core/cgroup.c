@@ -362,7 +362,7 @@ CGroupControllerMask unit_get_members_mask(Unit *u) {
                         if (member == u)
                                 continue;
 
-                         if (UNIT_DEREF(member->slice) != u)
+                        if (UNIT_DEREF(member->slice) != u)
                                 continue;
 
                         u->cgroup_members_mask |=

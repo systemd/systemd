@@ -33,6 +33,9 @@ Preparation for 209:
 
 Features:
 
+* "busctl status" works only as root on dbus1, since we cannot read
+  /proc/$PID/exe
+
 * systemctl (and possibly related tools): support a new switch that
   allows enumerating units in local containers recursively. "systemctl
   list-units -R" or so should not only lists on the host, but also the
