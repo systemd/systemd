@@ -52,7 +52,7 @@
                 <refname>SD_NOTICE</refname>
                 <refname>SD_INFO</refname>
                 <refname>SD_DEBUG</refname>
-                <refpurpose>Reference implementation of APIs for
+                <refpurpose>APIs for
                 new-style daemons</refpurpose>
         </refnamediv>
 
@@ -62,7 +62,7 @@
                 </funcsynopsis>
 
                 <cmdsynopsis>
-                        <command>pkg-config --cflags --libs libsystemd-daemon</command>
+                        <command>pkg-config --cflags --libs libsystemd</command>
                 </cmdsynopsis>
 
         </refsynopsisdiv>
@@ -70,10 +70,8 @@
         <refsect1>
                 <title>Description</title>
 
-                <para><filename>sd-daemon.c</filename> and
-                <filename>sd-daemon.h</filename> provide a reference
-                implementation of various APIs for new-style daemons,
-                as implemented by the
+                <para><filename>sd-daemon.h</filename> provide APIs
+                for new-style daemons, as implemented by the
                 <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 init system.</para>
 
@@ -81,7 +79,8 @@
                 <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                 <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                 <citerefentry><refentrytitle>sd_booted</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-                <citerefentry><refentrytitle>sd_is_fifo</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                <citerefentry><refentrytitle>sd_is_fifo</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                <citerefentry><refentrytitle>sd_watchdog_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 for more information about the functions
                 implemented. In addition to these functions, a couple
                 of logging prefixes are defined as macros:</para>
@@ -126,37 +125,10 @@
         <refsect1>
                 <title>Notes</title>
 
-                <para>These interfaces are provided by the reference
-                implementation of APIs for new-style daemons and
-                distributed with the systemd package. The algorithms
-                they implement are simple, and can easily be
-                reimplemented in daemons if it is important to support
-                this interface without using the reference
-                implementation. See the respective function man pages
-                for details.</para>
-
-                <para>In addition, for details about the algorithms,
-                check the liberally licensed reference implementation
-                sources:
-                <ulink url="http://cgit.freedesktop.org/systemd/systemd/plain/src/libsystemd-daemon/sd-daemon.c"/>
-                and <ulink url="http://cgit.freedesktop.org/systemd/systemd/plain/src/systemd/sd-daemon.h"/></para>
-
-                <para>These APIs are implemented in the reference
-                implementation's <filename>sd-daemon.c</filename> and
-                <filename>sd-daemon.h</filename> files. These
-                interfaces are available as a shared library, which can
-                be compiled and linked to with the
-                <constant>libsystemd-daemon</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-                file. Alternatively, applications consuming these APIs
-                may copy the implementation into their source tree,
-                either verbatim or in excerpts.</para>
-
-                <para>The functions directly related to new-style
-                daemons become NOPs when -DDISABLE_SYSTEMD is set
-                during compilation and the reference implementation is
-                used as drop-in files. In addition, if
-                <filename>sd-daemon.c</filename> is compiled on
-                non-Linux systems they become NOPs.</para>
+                <para>These APIs are implemented as a shared library,
+                which can be compiled and linked to with the
+                <constant>libsystemd</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                file.</para>
         </refsect1>
 
         <refsect1>
