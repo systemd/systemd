@@ -4341,6 +4341,9 @@ clean-python:
 # ------------------------------------------------------------------------------
 if ENABLE_COMPAT_LIBS
 
+EXTRA_DIST += \
+	src/compat-libs/linkwarning.h
+
 define generate-fake-lib
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_GEN)sed -r -n 's/^ +(sd_.*);/void new_\1(void);\n__asm__(".symver new_\1,\1@LIBSYSTEMD_209");\nstatic void (*resolve_\1(void)) (void) {\n\treturn new_\1;\n}\nvoid \1(void) __attribute__((ifunc("resolve_\1")));\nobsolete_lib(\1,$(notdir $(basename $<)));\n/p' <$< >$@
