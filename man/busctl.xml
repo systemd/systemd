@@ -204,7 +204,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
         <listitem><para>Dump messages being exchanged. If
         <replaceable>NAME</replaceable> is specified, show messages
-        to or from this endpoint. Otherwsise, show all messages on the
+        to or from this endpoint. Otherwise, show all messages on the
         bus.</para></listitem>
       </varlistentry>
 
