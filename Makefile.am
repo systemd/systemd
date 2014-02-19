@@ -4431,6 +4431,7 @@ lib_LTLIBRARIES += \
 	libsystemd-daemon.la
 
 pkgconfiglib_DATA += \
+	src/compat-libs/libsystemd-journal.pc \
 	src/compat-libs/libsystemd-login.pc \
 	src/compat-libs/libsystemd-id128.pc \
 	src/compat-libs/libsystemd-daemon.pc
