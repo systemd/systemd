@@ -1,8 +1,9 @@
-# hostnamectl(1) completion                               -*- shell-script -*-
+# busctl(1) completion                               -*- shell-script -*-
 #
 # This file is part of systemd.
 #
 # Copyright 2013 Zbigniew Jędrzejewski-Szmek
+# Copyright 2014 Thomas H.P. Andersen
 #
 # systemd is free software; you can redistribute it and/or modify it
 # under the terms of the GNU Lesser General Public License as published by
@@ -24,14 +25,23 @@ __contains_word () {
         done
 }
 
+__get_machines() {
+        local a b
+        machinectl list --no-legend --no-pager | { while read a b; do echo " $a"; done; };
+}
+
+__get_endpoints() {
+        local a b
+        busctl list --no-pager | { while read a b; do echo " $a"; done; };
+}
+
 _busctl() {
         local i verb comps
         local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
         local -A OPTS=(
                [STANDALONE]='-h --help --version --no-pager --system --user
-                             --no-unique --no-machine'
-                      [ARG]='-H --host -M --machine --address
-                             --match'
+                             --show-machine --unique --acquired --activatable'
+                      [ARG]='-H --host -M --machine --address --match'
         )
 
         if __contains_word "$prev" ${OPTS[ARG]}; then
@@ -39,6 +49,8 @@ _busctl() {
                         --host|-H)
                                 comps=$(compgen -A hostname)
                         ;;
+                        --machine|-M)
+                                comps=$( __get_machines )
                 esac
                 COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
                 return 0
@@ -50,7 +62,8 @@ _busctl() {
         fi
 
         local -A VERBS=(
-                [STANDALONE]='list monitor'
+                [STANDALONE]='list help'
+                [ENDPOINT]='monitor status'
         )
 
         for ((i=0; i < COMP_CWORD; i++)); do
@@ -65,6 +78,8 @@ _busctl() {
                 comps=${VERBS[*]}
         elif __contains_word "$verb" ${VERBS[STANDALONE]}; then
                 comps=''
+        elif __contains_word "$verb" ${VERBS[ENDPOINT]}; then
+                comps=$( __get_endpoints )
         fi
 
         COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
