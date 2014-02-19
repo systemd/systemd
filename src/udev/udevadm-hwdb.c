@@ -341,7 +341,7 @@ static int trie_store(struct trie *trie, const char *filename) {
         struct trie_f t = {
                 .trie = trie,
         };
-        char *filename_tmp;
+        _cleanup_free_ char *filename_tmp = NULL;
         int64_t pos;
         int64_t root_off;
         int64_t size;
@@ -385,8 +385,8 @@ static int trie_store(struct trie *trie, const char *filename) {
                 err = -errno;
         fclose(t.f);
         if (err < 0 || rename(filename_tmp, filename) < 0) {
-                unlink(filename_tmp);
-                goto out;
+                unlink_noerrno(filename_tmp);
+                return err < 0 ? err : -errno;
         }
 
         log_debug("=== trie on-disk ===");
@@ -400,9 +400,8 @@ static int trie_store(struct trie *trie, const char *filename) {
                   t.values_count * sizeof(struct trie_value_entry_f), t.values_count);
         log_debug("string store:     %8zu bytes", trie->strings->len);
         log_debug("strings start:    %8"PRIu64, t.strings_off);
-out:
-        free(filename_tmp);
-        return err;
+
+        return 0;
 }
 
 static int insert_data(struct trie *trie, struct udev_list *match_list,
