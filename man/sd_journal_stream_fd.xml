@@ -114,7 +114,7 @@
                 <para>The <function>sd_journal_stream_fd()</function>
                 interface is available as a shared library, which can
                 be compiled and linked to with the
-                <constant>libsystemd-journal</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                <constant>libsystemd</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>
         </refsect1>
 

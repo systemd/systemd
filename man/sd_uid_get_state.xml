@@ -172,7 +172,7 @@
                 <function>sd_uid_get_sessions()</function>, and
                 <function>sd_uid_get_seats()</function> interfaces are
                 available as a shared library, which can be compiled and
-                linked to with the <constant>libsystemd-login</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                linked to with the <constant>libsystemd</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>
         </refsect1>
 
