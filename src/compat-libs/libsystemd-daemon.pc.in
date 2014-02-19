@@ -12,8 +12,8 @@ libdir=@libdir@
 includedir=@includedir@
 
 Name: systemd
-Description: systemd Daemon Utility Library
+Description: systemd Daemon Utility Library - deprecated
 URL: @PACKAGE_URL@
 Version: @PACKAGE_VERSION@
-Libs: -L${libdir} -lsystemd-daemon
+Libs: -L${libdir} -lsystemd
 Cflags: -I${includedir}

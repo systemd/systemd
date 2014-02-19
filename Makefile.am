@@ -1994,7 +1994,7 @@ nodist_libsystemd_la_SOURCES = \
 
 libsystemd_la_LIBADD = \
 	libsystemd-shared.la \
-	$(RT_LIBS)
+	$(RT_LIBS) \
 	-lresolv
 
 libsystemd_la_CFLAGS = \
