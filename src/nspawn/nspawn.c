@@ -480,7 +480,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_PERSONALITY:
 
-                        arg_personality = parse_personality(optarg);
+                        arg_personality = personality_from_string(optarg);
                         if (arg_personality == 0xffffffffLU) {
                                 log_error("Unknown or unsupported personality '%s'.", optarg);
                                 return -EINVAL;

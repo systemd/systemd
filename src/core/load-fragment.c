@@ -2566,6 +2566,36 @@ int config_parse_job_mode_isolate(
         return 0;
 }
 
+int config_parse_personality(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        unsigned long *personality = data, p;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(personality);
+
+        p = personality_from_string(rvalue);
+        if (p == 0xffffffffUL) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Failed to parse personality, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        *personality = p;
+        return 0;
+}
+
 #define FOLLOW_MAX 8
 
 static int open_follow(char **filename, FILE **_f, Set *names, char **_final) {

@@ -79,6 +79,7 @@ $1.PrivateTmp,                   config_parse_bool,                  0,         
 $1.PrivateNetwork,               config_parse_bool,                  0,                             offsetof($1, exec_context.private_network)
 $1.PrivateDevices,               config_parse_bool,                  0,                             offsetof($1, exec_context.private_devices)
 $1.MountFlags,                   config_parse_exec_mount_flags,      0,                             offsetof($1, exec_context)
+$1.Personality,                  config_parse_personality,           0,                             offsetof($1, exec_context.personality)
 m4_ifdef(`HAVE_LIBWRAP',
 `$1.TCPWrapName,                 config_parse_unit_string_printf,    0,                             offsetof($1, exec_context.tcpwrap_name)',
 `$1.TCPWrapName,                 config_parse_warn_compat,           0,                             0')

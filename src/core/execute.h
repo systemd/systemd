@@ -168,6 +168,8 @@ struct ExecContext {
          * don't enter a trigger loop. */
         bool same_pgrp;
 
+        unsigned long personality;
+
         Set *syscall_filter;
         Set *syscall_archs;
         int syscall_errno;

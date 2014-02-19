@@ -39,6 +39,7 @@
 #include <linux/oom.h>
 #include <sys/poll.h>
 #include <glob.h>
+#include <sys/personality.h>
 #include <libgen.h>
 #undef basename
 
@@ -1372,6 +1373,13 @@ int exec_spawn(ExecCommand *command,
                                 goto fail_child;
                         }
 
+                if (context->personality != 0xffffffffUL)
+                        if (personality(context->personality) < 0) {
+                                err = -errno;
+                                r = EXIT_PERSONALITY;
+                                goto fail_child;
+                        }
+
                 if (context->utmp_id)
                         utmp_put_init_process(context->utmp_id, getpid(), getsid(0), context->tty_path);
 
@@ -1683,6 +1691,7 @@ void exec_context_init(ExecContext *c) {
         c->syslog_level_prefix = true;
         c->ignore_sigpipe = true;
         c->timer_slack_nsec = (nsec_t) -1;
+        c->personality = 0xffffffffUL;
 }
 
 void exec_context_done(ExecContext *c) {
@@ -2129,6 +2138,11 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 fprintf(f,
                         "%sSELinuxContext: %s%s\n",
                         prefix, c->selinux_context_ignore ? "-" : "", c->selinux_context);
+
+        if (c->personality != 0xffffffffUL)
+                fprintf(f,
+                        "%sPersonality: %s\n",
+                        prefix, strna(personality_to_string(c->personality)));
 
         if (c->syscall_filter) {
 #ifdef HAVE_SECCOMP

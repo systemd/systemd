@@ -1063,9 +1063,9 @@
                                 is triggered, instead of terminating
                                 the process immediately. Takes an
                                 error name such as
-                                <literal>EPERM</literal>,
-                                <literal>EACCES</literal> or
-                                <literal>EUCLEAN</literal>. When this
+                                <constant>EPERM</constant>,
+                                <constant>EACCES</constant> or
+                                <constant>EUCLEAN</constant>. When this
                                 setting is not used, or when the empty
                                 string is assigned, the process will be
                                 terminated immediately when the filter
@@ -1080,12 +1080,12 @@
                                 identifiers to include in the system
                                 call filter. The known architecture
                                 identifiers are
-                                <literal>x86</literal>,
-                                <literal>x86-64</literal>,
-                                <literal>x32</literal>,
-                                <literal>arm</literal> as well as the
+                                <constant>x86</constant>,
+                                <constant>x86-64</constant>,
+                                <constant>x32</constant>,
+                                <constant>arm</constant> as well as the
                                 special identifier
-                                <literal>native</literal>. Only system
+                                <constant>native</constant>. Only system
                                 calls of the specified architectures
                                 will be permitted to processes of this
                                 unit. This is an effective way to
@@ -1094,20 +1094,37 @@
                                 example to prohibit execution of
                                 32-bit x86 binaries on 64-bit x86-64
                                 systems. The special
-                                <literal>native</literal> identifier
+                                <constant>native</constant> identifier
                                 implicitly maps to the native
                                 architecture of the system (or more
                                 strictly: to the architecture the
                                 system manager is compiled for). Note
                                 that setting this option to a
                                 non-empty list implies that
-                                <literal>native</literal> is included
+                                <constant>native</constant> is included
                                 too. By default, this option is set to
                                 the empty list, i.e. no architecture
                                 system call filtering is
                                 applied.</para></listitem>
                         </varlistentry>
 
+                        <varlistentry>
+                                <term><varname>Personality=</varname></term>
+
+                                <listitem><para>Controls which
+                                kernel architecture
+                                <citerefentry><refentrytitle>uname</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+                                shall report, when invoked by unit
+                                processes. Takes one of
+                                <constant>x86</constant> and
+                                <constant>x86-64</constant>. This is
+                                useful when running 32bit services on
+                                a 64bit host system. If not specified
+                                the personality is left unmodified and
+                                thus reflects the personality of the
+                                host system's
+                                kernel.</para></listitem>
+                        </varlistentry>
                 </variablelist>
         </refsect1>
 

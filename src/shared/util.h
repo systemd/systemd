@@ -871,4 +871,5 @@ int open_tmpfile(const char *path, int flags);
 
 int fd_warn_permissions(const char *path, int fd);
 
-unsigned long parse_personality(const char *p);
+unsigned long personality_from_string(const char *p);
+const char *personality_to_string(unsigned long);

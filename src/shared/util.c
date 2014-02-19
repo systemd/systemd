@@ -6194,7 +6194,7 @@ int fd_warn_permissions(const char *path, int fd) {
         return 0;
 }
 
-unsigned long parse_personality(const char *p) {
+unsigned long personality_from_string(const char *p) {
 
         /* Parse a personality specifier. We introduce our own
          * identifiers that indicate specific ABIs, rather than just
@@ -6221,4 +6221,23 @@ unsigned long parse_personality(const char *p) {
          * querying the current personality, hence let's use that here
          * as error indicator. */
         return 0xffffffffUL;
+}
+
+const char* personality_to_string(unsigned long p) {
+
+#if defined(__x86_64__)
+
+        if (p == PER_LINUX32)
+                return "x86";
+
+        if (p == PER_LINUX)
+                return "x86-64";
+
+#elif defined(__i386__)
+
+        if (p == PER_LINUX)
+                return "x86";
+#endif
+
+        return NULL;
 }
