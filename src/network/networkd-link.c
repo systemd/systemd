@@ -507,9 +507,14 @@ static int dhcp_lease_lost(Link *link) {
         }
 
         if (link->network->dhcp_hostname) {
-                r = set_hostname(link->manager->bus, "");
-                if (r < 0)
-                        log_error("Failed to reset transient hostname");
+                const char *hostname = NULL;
+
+                r = sd_dhcp_lease_get_hostname(link->dhcp_lease, &hostname);
+                if (r >= 0 && hostname) {
+                        r = set_hostname(link->manager->bus, "");
+                        if (r < 0)
+                                log_error("Failed to reset transient hostname");
+                }
         }
 
         link->dhcp_lease = sd_dhcp_lease_unref(link->dhcp_lease);
