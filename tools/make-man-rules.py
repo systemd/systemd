@@ -66,6 +66,8 @@ def xml(file):
 def add_rules(rules, name):
     xml = xml_parse(name)
     # print('parsing {}'.format(name), file=sys.stderr)
+    if xml.getroot().tag != 'refentry':
+        return
     conditional = xml.getroot().get('conditional') or ''
     rulegroup = rules[conditional]
     refmeta = xml.find('./refmeta')
@@ -86,7 +88,11 @@ def create_rules(xml_files):
     " {conditional => {alias-name => source-name}} "
     rules = collections.defaultdict(dict)
     for name in xml_files:
-        add_rules(rules, name)
+        try:
+            add_rules(rules, name)
+        except Exception:
+            print("Failed to process", name, file=sys.stderr)
+            raise
     return rules
 
 def mjoin(files):
