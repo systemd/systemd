@@ -99,10 +99,10 @@ static void print_status_info(const StatusInfo *i) {
         struct tm tm;
         time_t sec;
         bool have_time = false;
-        char *zc, *zn;
+        _cleanup_free_ char *zc = NULL, *zn = NULL;
         time_t t, tc, tn;
-        int dn;
-        bool is_dstc, is_dstn;
+        int dn = 0;
+        bool is_dstc = false, is_dstn = false;
         int r;
 
         assert(i);
@@ -193,9 +193,6 @@ static void print_status_info(const StatusInfo *i) {
                        "                  %s\n"
                        "                  %s\n",
                        is_dstn ? "begins" : "ends", jump_str(dn, s, sizeof(s)), a, b);
-
-                free(zc);
-                free(zn);
         } else
                 printf("      DST active: %s\n", yes_no(is_dstc));
 
