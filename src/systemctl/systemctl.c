@@ -5879,7 +5879,6 @@ static int runlevel_parse_argv(int argc, char *argv[]) {
 
                 case ARG_HELP:
                         return runlevel_help();
-                        return 0;
 
                 case '?':
                         return -EINVAL;
