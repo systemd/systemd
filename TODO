@@ -33,6 +33,14 @@ Preparation for 209:
 
 Features:
 
+* generalize ConditionXYZ= logic and make it available in networkd's
+  .network, .netdev, .network files, too. This is particularly useful
+  to match on containers with ConditionVirtualization to
+  conditionalize network setups for containers
+
+* doc: remove documentation for .include, drop-in snippets are the
+  better replacement.
+
 * Add a seccomp-based filter for socket() calls to limit services to
   specific address families (for example: AF_UNIX), inspired by
   Android's sandboxing
