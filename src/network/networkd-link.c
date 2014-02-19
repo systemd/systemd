@@ -479,6 +479,8 @@ static int dhcp_lease_lost(Link *link) {
         assert(link);
         assert(link->dhcp_lease);
 
+        log_warning_link(link, "DHCP lease lost");
+
         r = address_new_dynamic(&address);
         if (r >= 0) {
                 sd_dhcp_lease_get_address(link->dhcp_lease, &addr);
