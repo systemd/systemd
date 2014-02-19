@@ -208,22 +208,14 @@ _public_ int sd_id128_get_boot(sd_id128_t *ret) {
 }
 
 _public_ int sd_id128_randomize(sd_id128_t *ret) {
-        _cleanup_close_ int fd = -1;
         sd_id128_t t;
-        ssize_t k;
+        int r;
 
         assert_return(ret, -EINVAL);
 
-        fd = open("/dev/urandom", O_RDONLY|O_CLOEXEC|O_NOCTTY);
-        if (fd < 0)
-                return -errno;
-
-        k = loop_read(fd, &t, 16, false);
-        if (k < 0)
-                return (int) k;
-
-        if (k != 16)
-                return -EIO;
+        r = dev_urandom(&t, sizeof(t));
+        if (r < 0)
+                return r;
 
         /* Turn this into a valid v4 UUID, to be nice. Note that we
          * only guarantee this for newly generated UUIDs, not for
