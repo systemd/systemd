@@ -2526,9 +2526,11 @@ int get_ctty_devnr(pid_t pid, dev_t *d) {
 }
 
 int get_ctty(pid_t pid, dev_t *_devnr, char **r) {
-        int k;
-        char fn[sizeof("/dev/char/")-1 + 2*DECIMAL_STR_MAX(unsigned) + 1 + 1], *s, *b, *p;
+        char fn[sizeof("/dev/char/")-1 + 2*DECIMAL_STR_MAX(unsigned) + 1 + 1], *b = NULL;
+        _cleanup_free_ char *s = NULL;
+        const char *p;
         dev_t devnr;
+        int k;
 
         assert(r);
 
@@ -2546,14 +2548,8 @@ int get_ctty(pid_t pid, dev_t *_devnr, char **r) {
 
                 /* This is an ugly hack */
                 if (major(devnr) == 136) {
-                        if (asprintf(&b, "pts/%lu", (unsigned long) minor(devnr)) < 0)
-                                return -ENOMEM;
-
-                        *r = b;
-                        if (_devnr)
-                                *_devnr = devnr;
-
-                        return 0;
+                        asprintf(&b, "pts/%lu", (unsigned long) minor(devnr));
+                        goto finish;
                 }
 
                 /* Probably something like the ptys which have no
@@ -2561,14 +2557,7 @@ int get_ctty(pid_t pid, dev_t *_devnr, char **r) {
                  * vaguely useful. */
 
                 b = strdup(fn + 5);
-                if (!b)
-                        return -ENOMEM;
-
-                *r = b;
-                if (_devnr)
-                        *_devnr = devnr;
-
-                return 0;
+                goto finish;
         }
 
         if (startswith(s, "/dev/"))
@@ -2579,8 +2568,8 @@ int get_ctty(pid_t pid, dev_t *_devnr, char **r) {
                 p = s;
 
         b = strdup(p);
-        free(s);
 
+finish:
         if (!b)
                 return -ENOMEM;
 
