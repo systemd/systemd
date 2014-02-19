@@ -348,6 +348,7 @@ systemgenerator_PROGRAMS = \
 	systemd-system-update-generator
 
 dist_bashcompletion_DATA = \
+	shell-completion/bash/busctl \
 	shell-completion/bash/journalctl \
 	shell-completion/bash/systemctl \
 	shell-completion/bash/systemd-analyze \
