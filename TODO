@@ -25,12 +25,6 @@ External:
 
 * Fedora: post FPC ticket to move add %tmpfiles_create to the packaging guidelines
 
-Preparation for 209:
-
-* Review new libraries
-
-* libsystemd-journal returns the object created as first param in sd_journal_new(), sd_bus_new() and suchlike as last...
-
 Features:
 
 * "busctl status" works only as root on dbus1, since we cannot read
