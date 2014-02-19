@@ -21,7 +21,7 @@ You should have received a copy of the GNU Lesser General Public License
 along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="sd_bus_creds_new_from_pid">
+<refentry id="sd_bus_creds_new_from_pid" conditional="ENABLE_KDBUS">
 
   <refentryinfo>
     <title>sd_bus_creds_new_from_pid</title>

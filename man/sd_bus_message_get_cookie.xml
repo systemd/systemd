@@ -21,7 +21,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="sd_bus_message_get_cookie">
+<refentry id="sd_bus_message_get_cookie" conditional="ENABLE_KDBUS">
 
         <refentryinfo>
                 <title>sd_bus_message_get_cookie</title>

@@ -21,7 +21,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="sd_bus_request_name">
+<refentry id="sd_bus_request_name" conditional="ENABLE_KDBUS">
 
         <refentryinfo>
                 <title>sd_bus_request_name</title>
