@@ -472,7 +472,7 @@
                         <varlistentry>
                                 <term><varname>StandardError=</varname></term>
                                 <listitem><para>Controls where file
-                                descriptor 2 (standard error) of the
+                                descriptor 2 (STDERR) of the
                                 executed processes is connected to.
                                 The available options are identical to
                                 those of
@@ -1206,6 +1206,17 @@
                                 <varname>$XDG_VTNR</varname> will
                                 only be set when attached to a seat and a
                                 tty.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>$MAINPID</varname></term>
+
+                                <listitem><para>The PID of the units
+                                main process if it is known. This is
+                                only set for control processes as
+                                invoked by
+                                <varname>ExecReload=</varname> and
+                                similar.  </para></listitem>
                         </varlistentry>
 
                         <varlistentry>
