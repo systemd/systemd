@@ -1882,9 +1882,13 @@ systemd_nspawn_LDADD = \
 	libsystemd-capability.la \
 	libsystemd-internal.la \
 	libudev-internal.la \
-	libsystemd-shared.la \
+	libsystemd-shared.la
+
+if HAVE_SECCOMP
+systemd_nspawn_LDADD += \
 	libsystemd-seccomp.la \
 	$(SECCOMP_LIBS)
+endif
 
 # ------------------------------------------------------------------------------
 systemd_run_SOURCES = \
