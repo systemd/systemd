@@ -1012,8 +1012,8 @@ static int journal_file_append_data(
         else
                 eq = memchr(data, '=', size);
         if (eq && eq > data) {
+                Object *fo = NULL;
                 uint64_t fp;
-                Object *fo;
 
                 /* Create field object ... */
                 r = journal_file_append_field(f, data, (uint8_t*) eq - (uint8_t*) data, &fo, &fp);
