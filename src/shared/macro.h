@@ -46,6 +46,14 @@
 #define _alignas_(x) __attribute__((aligned(__alignof(x))))
 #define _cleanup_(x) __attribute__((cleanup(x)))
 
+/* Temporarily disable some warnings */
+#define DISABLE_WARNING_DECLARATION_AFTER_STATEMENT                     \
+        _Pragma("GCC diagnostic push");                                 \
+        _Pragma("GCC diagnostic ignored \"-Wdeclaration-after-statement\"")
+
+#define REENABLE_WARNING                                                \
+        _Pragma("GCC diagnostic pop")
+
 /* automake test harness */
 #define EXIT_TEST_SKIP 77
 
@@ -154,9 +162,20 @@ static inline size_t ALIGN_TO(size_t l, size_t ali) {
         } while (false)
 
 #if defined(static_assert)
-#define assert_cc(expr) static_assert(expr, #expr)
+/* static_assert() is sometimes defined in a way that trips up
+ * -Wdeclaration-after-statement, hence let's temporarily turn off
+ * this warning around it. */
+#define assert_cc(expr)                                                 \
+        DISABLE_WARNING_DECLARATION_AFTER_STATEMENT;                    \
+        static_assert(expr, #expr);                                     \
+        REENABLE_WARNING
 #else
-#define assert_cc(expr) struct UNIQUE(_assert_struct_) { char x[(expr) ? 0 : -1]; };
+#define assert_cc(expr)                                                 \
+        DISABLE_WARNING_DECLARATION_AFTER_STATEMENT;                    \
+        struct UNIQUE(_assert_struct_) {                                \
+                char x[(expr) ? 0 : -1];                                \
+        };                                                              \
+        REENABLE_WARNING
 #endif
 
 #define assert_return(expr, r)                                          \
