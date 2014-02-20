@@ -77,23 +77,25 @@ void condition_free_list(Condition *first) {
                 condition_free(c);
 }
 
-static bool test_kernel_command_line(const char *parameter) {
+static bool condition_test_kernel_command_line(Condition *c) {
         char *line, *w, *state, *word = NULL;
         bool equal;
         int r;
         size_t l, pl;
         bool found = false;
 
-        assert(parameter);
+        assert(c);
+        assert(c->parameter);
+        assert(c->type == CONDITION_KERNEL_COMMAND_LINE);
 
         r = proc_cmdline(&line);
         if (r < 0)
                 log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));
         if (r <= 0)
-                return false;
+                return c->negate;
 
-        equal = !!strchr(parameter, '=');
-        pl = strlen(parameter);
+        equal = !!strchr(c->parameter, '=');
+        pl = strlen(c->parameter);
 
         FOREACH_WORD_QUOTED(w, l, line, state) {
 
@@ -103,12 +105,12 @@ static bool test_kernel_command_line(const char *parameter) {
                         break;
 
                 if (equal) {
-                        if (streq(word, parameter)) {
+                        if (streq(word, c->parameter)) {
                                 found = true;
                                 break;
                         }
                 } else {
-                        if (startswith(word, parameter) && (word[pl] == '=' || word[pl] == 0)) {
+                        if (startswith(word, c->parameter) && (word[pl] == '=' || word[pl] == 0)) {
                                 found = true;
                                 break;
                         }
@@ -119,71 +121,81 @@ static bool test_kernel_command_line(const char *parameter) {
         free(word);
         free(line);
 
-        return found;
+        return found == !c->negate;
 }
 
-static bool test_virtualization(const char *parameter) {
+static bool condition_test_virtualization(Condition *c) {
         int b;
         Virtualization v;
         const char *id;
 
-        assert(parameter);
+        assert(c);
+        assert(c->parameter);
+        assert(c->type == CONDITION_VIRTUALIZATION);
 
         v = detect_virtualization(&id);
         if (v < 0) {
                 log_warning("Failed to detect virtualization, ignoring: %s", strerror(-v));
-                return false;
+                return c->negate;
         }
 
         /* First, compare with yes/no */
-        b = parse_boolean(parameter);
+        b = parse_boolean(c->parameter);
 
         if (v > 0 && b > 0)
-                return true;
+                return !c->negate;
 
         if (v == 0 && b == 0)
-                return true;
+                return !c->negate;
 
         /* Then, compare categorization */
-        if (v == VIRTUALIZATION_VM && streq(parameter, "vm"))
-                return true;
+        if (v == VIRTUALIZATION_VM && streq(c->parameter, "vm"))
+                return !c->negate;
 
-        if (v == VIRTUALIZATION_CONTAINER && streq(parameter, "container"))
-                return true;
+        if (v == VIRTUALIZATION_CONTAINER && streq(c->parameter, "container"))
+                return !c->negate;
 
         /* Finally compare id */
-        return v > 0 && streq(parameter, id);
+        return (v > 0 && streq(c->parameter, id)) == !c->negate;
 }
 
-static bool test_security(const char *parameter) {
-        if (streq(parameter, "selinux"))
-                return use_selinux();
-        if (streq(parameter, "apparmor"))
-                return use_apparmor();
-        if (streq(parameter, "ima"))
-                return use_ima();
-        if (streq(parameter, "smack"))
-                return use_smack();
-        return false;
+static bool condition_test_security(Condition *c) {
+        assert(c);
+        assert(c->parameter);
+        assert(c->type == CONDITION_SECURITY);
+
+        if (streq(c->parameter, "selinux"))
+                return use_selinux() == !c->negate;
+        if (streq(c->parameter, "apparmor"))
+                return use_apparmor() == !c->negate;
+        if (streq(c->parameter, "ima"))
+                return use_ima() == !c->negate;
+        if (streq(c->parameter, "smack"))
+                return use_smack() == !c->negate;
+        return c->negate;
 }
 
-static bool test_capability(const char *parameter) {
+static bool condition_test_capability(Condition *c) {
         cap_value_t value;
         FILE *f;
         char line[LINE_MAX];
         unsigned long long capabilities = (unsigned long long) -1;
 
+        assert(c);
+        assert(c->parameter);
+        assert(c->type == CONDITION_CAPABILITY);
+
         /* If it's an invalid capability, we don't have it */
 
-        if (cap_from_name(parameter, &value) < 0)
-                return false;
+        if (cap_from_name(c->parameter, &value) < 0)
+                return c->negate;
 
         /* If it's a valid capability we default to assume
          * that we have it */
 
         f = fopen("/proc/self/status", "re");
         if (!f)
-                return true;
+                return !c->negate;
 
         while (fgets(line, sizeof(line), f)) {
                 truncate_nl(line);
@@ -196,42 +208,50 @@ static bool test_capability(const char *parameter) {
 
         fclose(f);
 
-        return !!(capabilities & (1ULL << value));
+        return !!(capabilities & (1ULL << value)) == !c->negate;
 }
 
-static bool test_host(const char *parameter) {
+static bool condition_test_host(Condition *c) {
         sd_id128_t x, y;
         char *h;
         int r;
         bool b;
 
-        if (sd_id128_from_string(parameter, &x) >= 0) {
+        assert(c);
+        assert(c->parameter);
+        assert(c->type == CONDITION_HOST);
+
+        if (sd_id128_from_string(c->parameter, &x) >= 0) {
 
                 r = sd_id128_get_machine(&y);
                 if (r < 0)
-                        return false;
+                        return c->negate;
 
                 return sd_id128_equal(x, y);
         }
 
         h = gethostname_malloc();
         if (!h)
-                return false;
+                return c->negate;
 
-        b = fnmatch(parameter, h, FNM_CASEFOLD) == 0;
+        b = fnmatch(c->parameter, h, FNM_CASEFOLD) == 0;
         free(h);
 
-        return b;
+        return b == !c->negate;
 }
 
-static bool test_ac_power(const char *parameter) {
+static bool condition_test_ac_power(Condition *c) {
         int r;
 
-        r = parse_boolean(parameter);
-        if (r < 0)
-                return true;
+        assert(c);
+        assert(c->parameter);
+        assert(c->type == CONDITION_AC_POWER);
 
-        return (on_ac_power() != 0) == !!r;
+        r = parse_boolean(c->parameter);
+        if (r < 0)
+                return !c->negate;
+
+        return ((on_ac_power() != 0) == !!r) == !c->negate;
 }
 
 static bool condition_test(Condition *c) {
@@ -293,22 +313,22 @@ static bool condition_test(Condition *c) {
         }
 
         case CONDITION_KERNEL_COMMAND_LINE:
-                return test_kernel_command_line(c->parameter) == !c->negate;
+                return condition_test_kernel_command_line(c);
 
         case CONDITION_VIRTUALIZATION:
-                return test_virtualization(c->parameter) == !c->negate;
+                return condition_test_virtualization(c);
 
         case CONDITION_SECURITY:
-                return test_security(c->parameter) == !c->negate;
+                return condition_test_security(c);
 
         case CONDITION_CAPABILITY:
-                return test_capability(c->parameter) == !c->negate;
+                return condition_test_capability(c);
 
         case CONDITION_HOST:
-                return test_host(c->parameter) == !c->negate;
+                return condition_test_host(c);
 
         case CONDITION_AC_POWER:
-                return test_ac_power(c->parameter) == !c->negate;
+                return condition_test_ac_power(c);
 
         case CONDITION_NULL:
                 return !c->negate;
