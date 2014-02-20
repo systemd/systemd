@@ -222,25 +222,25 @@ CHANGES WITH 209:
           LDAP, etc. This API is based on libasyncns, but it has been
           cleaned up for inclusion in systemd.
 
-        * The APIs "sd-journal.h", "sd-login.h", "sd-id128.h" are no
-          longer found in individual libraries libsystemd-journal.so,
-          libsystemd-login.so, libsystemd-id128.so. Instead, we have
+        * The APIs "sd-journal.h", "sd-login.h", "sd-id128.h",
+          "sd-daemon.h" are no longer found in individual libraries
+          libsystemd-journal.so, libsystemd-login.so,
+          libsystemd-id128.so, libsystemd-daemon.so. Instead, we have
           merged them into a single library, libsystemd.so, which
           provides all symbols. The reason for this is cyclic
           dependencies, as these libraries tend to use each other's
-          symbols. So far, we've managed to workaround that by linking a
-          copy of a good part of our code into each of these libraries
-          again and again, which, however, makes certain things hard to
-          do, like sharing static variables. Also, it substantially
-          increases footprint. With this change, there is only one
-          library for the basic APIs systemd provides. Also,
-          "sd-bus.h", "sd-memfd.h", "sd-event.h", "sd-rtnl.h",
-          "sd-resolve.h", "sd-utf8.h" are found in this library as
-          well, however are subject to the --enable-kdbus switch (see
-          below). Note that "sd-dhcp-client.h" and "sd-daemon.h" are not
-          part of this library (the former because it only consumes,
-          never provides, services of/to other APIs, and the latter
-          because it is completely standalone). To make the transition
+          symbols. So far, we've managed to workaround that by linking
+          a copy of a good part of our code into each of these
+          libraries again and again, which, however, makes certain
+          things hard to do, like sharing static variables. Also, it
+          substantially increases footprint. With this change, there
+          is only one library for the basic APIs systemd
+          provides. Also, "sd-bus.h", "sd-memfd.h", "sd-event.h",
+          "sd-rtnl.h", "sd-resolve.h", "sd-utf8.h" are found in this
+          library as well, however are subject to the --enable-kdbus
+          switch (see below). Note that "sd-dhcp-client.h" is not part
+          of this library (this is because it only consumes, never
+          provides, services of/to other APIs). To make the transition
           easy from the separate libraries to the unified one, we
           provide the --enable-compat-libs compile-time switch which
           will generate stub libraries that are compatible with the
@@ -441,7 +441,7 @@ CHANGES WITH 209:
         Pavlín, Vincent Batts, WaLyong Cho, William Giokas, Yang
         Zhiyong, Yin Kangkai, Yuxuan Shui, Zbigniew Jędrzejewski-Szmek
 
-        -- Berlin, 2014-02-xx
+        -- Berlin, 2014-02-20
 
 CHANGES WITH 208:
 
