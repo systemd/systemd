@@ -766,7 +766,9 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/audit.c \
 	src/shared/audit.h \
 	src/shared/xml.c \
-	src/shared/xml.h
+	src/shared/xml.h \
+	src/shared/condition-util.c \
+	src/shared/condition-util.h
 
 nodist_libsystemd_shared_la_SOURCES = \
 	src/shared/errno-from-name.h \

@@ -21,52 +21,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdbool.h>
-
-#include "list.h"
-
-typedef enum ConditionType {
-        CONDITION_PATH_EXISTS,
-        CONDITION_PATH_EXISTS_GLOB,
-        CONDITION_PATH_IS_DIRECTORY,
-        CONDITION_PATH_IS_SYMBOLIC_LINK,
-        CONDITION_PATH_IS_MOUNT_POINT,
-        CONDITION_PATH_IS_READ_WRITE,
-        CONDITION_DIRECTORY_NOT_EMPTY,
-        CONDITION_FILE_NOT_EMPTY,
-        CONDITION_FILE_IS_EXECUTABLE,
-        CONDITION_KERNEL_COMMAND_LINE,
-        CONDITION_VIRTUALIZATION,
-        CONDITION_SECURITY,
-        CONDITION_CAPABILITY,
-        CONDITION_HOST,
-        CONDITION_AC_POWER,
-        CONDITION_NULL,
-        _CONDITION_TYPE_MAX,
-        _CONDITION_TYPE_INVALID = -1
-} ConditionType;
-
-typedef struct Condition {
-        ConditionType type;
-
-        bool trigger:1;
-        bool negate:1;
-
-        char *parameter;
-
-        int state;
-
-        LIST_FIELDS(struct Condition, conditions);
-} Condition;
-
-Condition* condition_new(ConditionType type, const char *parameter, bool trigger, bool negate);
-void condition_free(Condition *c);
-void condition_free_list(Condition *c);
+#include "condition-util.h"
 
 bool condition_test_list(const char *unit, Condition *c);
-
-void condition_dump(Condition *c, FILE *f, const char *prefix);
-void condition_dump_list(Condition *c, FILE *f, const char *prefix);
-
-const char* condition_type_to_string(ConditionType t) _const_;
-int condition_type_from_string(const char *s) _pure_;
