@@ -2047,6 +2047,20 @@ libsystemd_la_LIBADD = \
 	$(RT_LIBS) \
 	-lresolv
 
+libsystemd-install-hook:
+	libname=libsystemd.so && $(move-to-rootlibdir)
+	-$(MKDIR_P) $(DESTDIR)/var/log/journal
+	-chown 0:0 $(DESTDIR)/var/log/journal
+	-chmod 755 $(DESTDIR)/var/log/journal
+	-setfacl -nm g:adm:rx,d:g:adm:rx $(DESTDIR)/var/log/journal/
+	-setfacl -nm g:wheel:rx,d:g:wheel:rx $(DESTDIR)/var/log/journal/
+
+libsystemd-uninstall-hook:
+	rm -f $(DESTDIR)$(rootlibdir)/libsystemd.so*
+
+INSTALL_EXEC_HOOKS += libsystemd-install-hook
+UNINSTALL_EXEC_HOOKS += libsystemd-uninstall-hook
+
 pkgconfiglib_DATA += \
 	src/libsystemd/libsystemd.pc
 
