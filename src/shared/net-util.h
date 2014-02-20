@@ -25,11 +25,16 @@
 #include <netinet/in.h>
 #include <stdbool.h>
 
+#include "condition-util.h"
+
 bool net_match_config(const struct ether_addr *match_mac,
                       const char *match_path,
                       const char *match_driver,
                       const char *match_type,
                       const char *match_name,
+                      Condition *match_host,
+                      Condition *match_virt,
+                      Condition *match_kernel,
                       const char *dev_mac,
                       const char *dev_path,
                       const char *dev_driver,
@@ -37,6 +42,10 @@ bool net_match_config(const struct ether_addr *match_mac,
                       const char *dev_name);
 
 unsigned net_netmask_to_prefixlen(const struct in_addr *netmask);
+
+int config_parse_net_condition(const char *unit, const char *filename, unsigned line,
+                               const char *section, unsigned section_line, const char *lvalue,
+                               int ltype, const char *rvalue, void *data, void *userdata);
 
 int config_parse_hwaddr(const char *unit, const char *filename, unsigned line,
                         const char *section, unsigned section_line, const char *lvalue,

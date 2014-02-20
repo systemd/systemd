@@ -32,6 +32,7 @@
 #include "rtnl-util.h"
 #include "hashmap.h"
 #include "list.h"
+#include "condition-util.h"
 
 typedef struct NetDev NetDev;
 typedef struct Network Network;
@@ -92,6 +93,9 @@ struct Network {
         char *match_driver;
         char *match_type;
         char *match_name;
+        Condition *match_host;
+        Condition *match_virt;
+        Condition *match_kernel;
 
         char *description;
         NetDev *bridge;

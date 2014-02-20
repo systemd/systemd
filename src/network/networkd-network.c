@@ -175,7 +175,8 @@ int network_get(Manager *manager, struct udev_device *device, Network **ret) {
         LIST_FOREACH(networks, network, manager->networks) {
                 if (net_match_config(network->match_mac, network->match_path,
                                         network->match_driver, network->match_type,
-                                        network->match_name,
+                                        network->match_name, network->match_host,
+                                        network->match_virt, network->match_kernel,
                                         udev_device_get_sysattr_value(device, "address"),
                                         udev_device_get_property_value(device, "ID_PATH"),
                                         udev_device_get_driver(udev_device_get_parent(device)),

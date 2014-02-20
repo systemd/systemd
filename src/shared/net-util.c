@@ -28,17 +28,30 @@
 #include "utf8.h"
 #include "util.h"
 #include "conf-parser.h"
+#include "condition.h"
 
 bool net_match_config(const struct ether_addr *match_mac,
                       const char *match_path,
                       const char *match_driver,
                       const char *match_type,
                       const char *match_name,
+                      Condition *match_host,
+                      Condition *match_virt,
+                      Condition *match_kernel,
                       const char *dev_mac,
                       const char *dev_path,
                       const char *dev_driver,
                       const char *dev_type,
                       const char *dev_name) {
+
+        if (match_host && !condition_test_host(match_host))
+                return 0;
+
+        if (match_virt && !condition_test_virtualization(match_virt))
+                return 0;
+
+        if (match_kernel && !condition_test_kernel_command_line(match_kernel))
+                return 0;
 
         if (match_mac && (!dev_mac || memcmp(match_mac, ether_aton(dev_mac), ETH_ALEN)))
                 return 0;
@@ -62,6 +75,47 @@ unsigned net_netmask_to_prefixlen(const struct in_addr *addr) {
         assert(addr);
 
         return 32 - u32ctz(be32toh(addr->s_addr));
+}
+
+int config_parse_net_condition(const char *unit,
+                               const char *filename,
+                               unsigned line,
+                               const char *section,
+                               unsigned section_line,
+                               const char *lvalue,
+                               int ltype,
+                               const char *rvalue,
+                               void *data,
+                               void *userdata) {
+
+        ConditionType cond = ltype;
+        Condition **ret = data;
+        bool negate;
+        Condition *c;
+        _cleanup_free_ char *s = NULL;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        negate = rvalue[0] == '!';
+        if (negate)
+                rvalue++;
+
+        s = strdup(rvalue);
+        if (!s)
+                return log_oom();
+
+        c = condition_new(cond, s, false, negate);
+        if (!c)
+                return log_oom();
+
+        if (*ret)
+                condition_free(*ret);
+
+        *ret = c;
+        return 0;
 }
 
 int config_parse_ifname(const char *unit,
