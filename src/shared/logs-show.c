@@ -124,6 +124,11 @@ static bool print_multiline(FILE *f, unsigned prefix, unsigned n_columns, Output
                 }
         }
 
+        /* A special case: make sure that we print a newline when
+           the message is empty. */
+        if (message_len == 0)
+                fputs("\n", f);
+
         for (pos = message;
              pos < message + message_len;
              pos = end + 1, line++) {
