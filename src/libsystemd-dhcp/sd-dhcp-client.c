@@ -392,6 +392,8 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec,
 
         next_timeout += (random_u32() & 0x1fffff);
 
+        client->timeout_resend = sd_event_source_unref(client->timeout_resend);
+
         r = sd_event_add_monotonic(client->event,
                                      &client->timeout_resend,
                                      next_timeout,
@@ -476,6 +478,8 @@ static int client_initialize_events(sd_dhcp_client *client,
                                          client->event_priority);
         if (r < 0)
                 goto error;
+
+        client->timeout_resend = sd_event_source_unref(client->timeout_resend);
 
         r = sd_event_add_monotonic(client->event,
                                    &client->timeout_resend,
