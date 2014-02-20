@@ -71,6 +71,10 @@ struct NetDev {
 
         char *filename;
 
+        Condition *condition_host;
+        Condition *condition_virt;
+        Condition *condition_kernel;
+
         char *description;
         char *name;
         NetDevKind kind;
@@ -242,6 +246,9 @@ NetDevKind netdev_kind_from_string(const char *d) _pure_;
 
 int config_parse_netdev_kind(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 
+/* gperf */
+const struct ConfigPerfItem* network_netdev_gperf_lookup(const char *key, unsigned length);
+
 /* Network */
 
 int network_load(Manager *manager);
@@ -267,8 +274,7 @@ int config_parse_vlan(const char *unit, const char *filename, unsigned line,
                       int ltype, const char *rvalue, void *data, void *userdata);
 
 /* gperf */
-
-const struct ConfigPerfItem* network_gperf_lookup(const char *key, unsigned length);
+const struct ConfigPerfItem* network_network_gperf_lookup(const char *key, unsigned length);
 
 /* Route */
 int route_new_static(Network *network, unsigned section, Route **ret);

@@ -337,8 +337,8 @@ static int netdev_load_one(Manager *manager, const char *filename) {
         netdev->kind = _NETDEV_KIND_INVALID;
         netdev->vlanid = VLANID_MAX + 1;
 
-        r = config_parse(NULL, filename, file, "NetDev\0VLAN\0", config_item_perf_lookup,
-                        (void*) network_gperf_lookup, false, false, netdev);
+        r = config_parse(NULL, filename, file, "Match\0NetDev\0VLAN\0", config_item_perf_lookup,
+                        (void*) network_netdev_gperf_lookup, false, false, netdev);
         if (r < 0) {
                 log_warning("Could not parse config file %s: %s", filename, strerror(-r));
                 return r;
@@ -362,6 +362,12 @@ static int netdev_load_one(Manager *manager, const char *filename) {
         netdev->filename = strdup(filename);
         if (!netdev->filename)
                 return log_oom();
+
+        if (net_match_config(NULL, NULL, NULL, NULL, NULL,
+                             netdev->condition_host, netdev->condition_virt,
+                             netdev->condition_kernel, NULL, NULL, NULL,
+                             NULL, NULL) <= 0)
+                return 0;
 
         r = hashmap_put(netdev->manager->netdevs, netdev->name, netdev);
         if (r < 0)

@@ -3925,7 +3925,8 @@ systemd_networkd_SOURCES = \
 	src/network/networkd-manager.c
 
 nodist_systemd_networkd_SOURCES = \
-	src/network/networkd-gperf.c
+	src/network/networkd-network-gperf.c \
+	src/network/networkd-netdev-gperf.c
 
 systemd_networkd_LDADD = \
 	libudev-internal.la \
@@ -3949,7 +3950,8 @@ test_network_SOURCES = \
 	src/network/networkd-address.c \
 	src/network/networkd-route.c \
 	src/network/networkd-manager.c \
-	src/network/networkd-gperf.c
+	src/network/networkd-network-gperf.c \
+	src/network/networkd-netdev-gperf.c
 
 test_network_LDADD = \
 	libudev-internal.la \
@@ -3962,11 +3964,13 @@ tests += \
 	test-network
 
 EXTRA_DIST += \
-	src/network/networkd-gperf.gperf \
+	src/network/networkd-network-gperf.gperf \
+	src/network/networkd-netdev-gperf.gperf \
 	units/systemd-networkd.service.in
 
 CLEANFILES += \
-	src/network/networkd-gperf.c
+	src/network/networkd-network-gperf.c \
+	src/network/networkd-netdev-gperf.c
 endif
 
 # ------------------------------------------------------------------------------
