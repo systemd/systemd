@@ -30,9 +30,6 @@
 
 #include "kmod-setup.h"
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wformat-nonliteral"
-
 static void systemd_kmod_log(
                 void *data,
                 int priority,
@@ -42,10 +39,10 @@ static void systemd_kmod_log(
                 va_list args) {
 
         /* library logging is enabled at debug only */
+        DISABLE_WARNING_FORMAT_NONLITERAL;
         log_metav(LOG_DEBUG, file, line, fn, format, args);
+        REENABLE_WARNING;
 }
-
-#pragma GCC diagnostic pop
 
 static bool cmdline_check_kdbus(void) {
         _cleanup_free_ char *line = NULL;

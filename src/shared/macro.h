@@ -51,6 +51,10 @@
         _Pragma("GCC diagnostic push");                                 \
         _Pragma("GCC diagnostic ignored \"-Wdeclaration-after-statement\"")
 
+#define DISABLE_WARNING_FORMAT_NONLITERAL                               \
+        _Pragma("GCC diagnostic push");                                 \
+        _Pragma("GCC diagnostic ignored \"-Wformat-nonliteral\"")
+
 #define REENABLE_WARNING                                                \
         _Pragma("GCC diagnostic pop")
 

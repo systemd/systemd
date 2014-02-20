@@ -703,22 +703,21 @@ int log_meta_object(
         return r;
 }
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wformat-nonliteral"
 static void log_assert(int level, const char *text, const char *file, int line, const char *func, const char *format) {
         static char buffer[LINE_MAX];
 
         if (_likely_(LOG_PRI(level) > log_max_level))
                 return;
 
+        DISABLE_WARNING_FORMAT_NONLITERAL;
         snprintf(buffer, sizeof(buffer), format, text, file, line, func);
+        REENABLE_WARNING;
 
         char_array_0(buffer);
         log_abort_msg = buffer;
 
         log_dispatch(level, file, line, func, NULL, NULL, buffer);
 }
-#pragma GCC diagnostic pop
 
 noreturn void log_assert_failed(const char *text, const char *file, int line, const char *func) {
         log_assert(LOG_CRIT, text, file, line, func, "Assertion '%s' failed at %s:%u, function %s(). Aborting.");

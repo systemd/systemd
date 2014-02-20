@@ -1140,8 +1140,6 @@ _pure_ static const char *unit_get_status_message_format_try_harder(Unit *u, Job
         return NULL;
 }
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wformat-nonliteral"
 static void unit_status_print_starting_stopping(Unit *u, JobType t) {
         const char *format;
 
@@ -1154,12 +1152,11 @@ static void unit_status_print_starting_stopping(Unit *u, JobType t) {
         if (!format)
                 return;
 
+        DISABLE_WARNING_FORMAT_NONLITERAL;
         unit_status_printf(u, "", format);
+        REENABLE_WARNING;
 }
-#pragma GCC diagnostic pop
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wformat-nonliteral"
 static void unit_status_log_starting_stopping_reloading(Unit *u, JobType t) {
         const char *format;
         char buf[LINE_MAX];
@@ -1179,8 +1176,10 @@ static void unit_status_log_starting_stopping_reloading(Unit *u, JobType t) {
         if (!format)
                 return;
 
+        DISABLE_WARNING_FORMAT_NONLITERAL;
         snprintf(buf, sizeof(buf), format, unit_description(u));
         char_array_0(buf);
+        REENABLE_WARNING;
 
         mid = t == JOB_START ? SD_MESSAGE_UNIT_STARTING :
               t == JOB_STOP  ? SD_MESSAGE_UNIT_STOPPING :
@@ -1192,7 +1191,6 @@ static void unit_status_log_starting_stopping_reloading(Unit *u, JobType t) {
                         "MESSAGE=%s", buf,
                         NULL);
 }
-#pragma GCC diagnostic pop
 
 /* Errors:
  *         -EBADR:     This unit type does not support starting.
@@ -2525,12 +2523,11 @@ int unit_coldplug(Unit *u) {
         return 0;
 }
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wformat-nonliteral"
 void unit_status_printf(Unit *u, const char *status, const char *unit_status_msg_format) {
+        DISABLE_WARNING_FORMAT_NONLITERAL;
         manager_status_printf(u->manager, false, status, unit_status_msg_format, unit_description(u));
+        REENABLE_WARNING;
 }
-#pragma GCC diagnostic pop
 
 bool unit_need_daemon_reload(Unit *u) {
         _cleanup_strv_free_ char **t = NULL;

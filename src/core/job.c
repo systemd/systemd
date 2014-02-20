@@ -610,14 +610,14 @@ _pure_ static const char *job_get_status_message_format_try_harder(Unit *u, JobT
         return NULL;
 }
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wformat-nonliteral"
 static void job_print_status_message(Unit *u, JobType t, JobResult result) {
         const char *format;
 
         assert(u);
         assert(t >= 0);
         assert(t < _JOB_TYPE_MAX);
+
+        DISABLE_WARNING_FORMAT_NONLITERAL;
 
         if (t == JOB_START) {
                 format = job_get_status_message_format(u, t, result);
@@ -681,11 +681,10 @@ static void job_print_status_message(Unit *u, JobType t, JobResult result) {
                 if (result == JOB_SKIPPED)
                         unit_status_printf(u, ANSI_HIGHLIGHT_ON " INFO " ANSI_HIGHLIGHT_OFF, "%s is not active.");
         }
-}
-#pragma GCC diagnostic pop
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+        REENABLE_WARNING;
+}
+
 static void job_log_status_message(Unit *u, JobType t, JobResult result) {
         const char *format;
         char buf[LINE_MAX];
@@ -704,8 +703,10 @@ static void job_log_status_message(Unit *u, JobType t, JobResult result) {
         if (!format)
                 return;
 
+        DISABLE_WARNING_FORMAT_NONLITERAL;
         snprintf(buf, sizeof(buf), format, unit_description(u));
         char_array_0(buf);
+        REENABLE_WARNING;
 
         if (t == JOB_START) {
                 sd_id128_t mid;
@@ -734,7 +735,6 @@ static void job_log_status_message(Unit *u, JobType t, JobResult result) {
                            "MESSAGE=%s", buf,
                            NULL);
 }
-#pragma GCC diagnostic pop
 
 int job_finish_and_invalidate(Job *j, JobResult result, bool recursive) {
         Unit *u;

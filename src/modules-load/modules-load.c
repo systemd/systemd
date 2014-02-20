@@ -48,13 +48,13 @@ static const char conf_file_dirs[] =
 #endif
         ;
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wformat-nonliteral"
 static void systemd_kmod_log(void *data, int priority, const char *file, int line,
                              const char *fn, const char *format, va_list args) {
+
+        DISABLE_WARNING_FORMAT_NONLITERAL;
         log_metav(priority, file, line, fn, format, args);
+        REENABLE_WARNING;
 }
-#pragma GCC diagnostic pop
 
 static int add_modules(const char *p) {
         _cleanup_strv_free_ char **k = NULL;
