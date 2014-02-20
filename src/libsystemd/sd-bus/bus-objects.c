@@ -527,7 +527,7 @@ static int property_get_set_callbacks_run(
 
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        void *u;
+        void *u = NULL;
         int r;
 
         assert(bus);
