@@ -959,7 +959,7 @@ static int unit_add_target_dependencies(Unit *u) {
         Unit *target;
         Iterator i;
         unsigned k;
-        int r;
+        int r = 0;
 
         assert(u);
 
