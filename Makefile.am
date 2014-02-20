@@ -4453,6 +4453,7 @@ UNINSTALL_EXEC_HOOKS += compat-lib-uninstall-hook
 endif
 
 EXTRA_DIST += \
+	src/compat-libs/libsystemd-journal.pc.in \
 	src/compat-libs/libsystemd-login.pc.in \
 	src/compat-libs/libsystemd-id128.pc.in \
 	src/compat-libs/libsystemd-daemon.pc.in
