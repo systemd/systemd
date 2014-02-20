@@ -871,9 +871,9 @@ static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direc
 static int real_journal_next(sd_journal *j, direction_t direction) {
         JournalFile *f, *new_file = NULL;
         uint64_t new_offset = 0;
-        Object *o;
-        uint64_t p;
+        uint64_t p = 0;
         Iterator i;
+        Object *o;
         int r;
 
         assert_return(j, -EINVAL);
