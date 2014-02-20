@@ -22,6 +22,7 @@
 #include <netinet/ether.h>
 #include <linux/if.h>
 #include <arpa/inet.h>
+#include <fnmatch.h>
 
 #include "net-util.h"
 #include "log.h"
@@ -56,7 +57,7 @@ bool net_match_config(const struct ether_addr *match_mac,
         if (match_mac && (!dev_mac || memcmp(match_mac, ether_aton(dev_mac), ETH_ALEN)))
                 return 0;
 
-        if (match_path && !streq_ptr(match_path, dev_path))
+        if (match_path && (!dev_path || fnmatch(match_path, dev_path, 0)))
                 return 0;
 
         if (match_driver && !streq_ptr(match_driver, dev_driver))
@@ -65,7 +66,7 @@ bool net_match_config(const struct ether_addr *match_mac,
         if (match_type && !streq_ptr(match_type, dev_type))
                 return 0;
 
-        if (match_name && !streq_ptr(match_name, dev_name))
+        if (match_name && (!dev_path || fnmatch(match_name, dev_name, 0)))
                 return 0;
 
         return 1;
