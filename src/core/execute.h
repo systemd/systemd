@@ -141,6 +141,9 @@ struct ExecContext {
         bool selinux_context_ignore;
         char *selinux_context;
 
+        bool apparmor_profile_ignore;
+        char *apparmor_profile;
+
         char **read_write_dirs, **read_only_dirs, **inaccessible_dirs;
         unsigned long mount_flags;
 

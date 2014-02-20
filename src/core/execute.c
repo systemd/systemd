@@ -55,6 +55,10 @@
 #include <seccomp.h>
 #endif
 
+#ifdef HAVE_APPARMOR
+#include <sys/apparmor.h>
+#endif
+
 #include "execute.h"
 #include "strv.h"
 #include "macro.h"
@@ -77,6 +81,7 @@
 #include "async.h"
 #include "selinux-util.h"
 #include "errno-list.h"
+#include "apparmor-util.h"
 
 #ifdef HAVE_SECCOMP
 #include "seccomp-util.h"
@@ -1597,6 +1602,16 @@ int exec_spawn(ExecCommand *command,
                                 }
                         }
 #endif
+
+#ifdef HAVE_APPARMOR
+                        if (context->apparmor_profile && use_apparmor()) {
+                                err = aa_change_onexec(context->apparmor_profile);
+                                if (err < 0 && !context->apparmor_profile_ignore) {
+                                        r = EXIT_APPARMOR_PROFILE;
+                                        goto fail_child;
+                                }
+                        }
+#endif
                 }
 
                 err = build_environment(context, n_fds, watchdog_usec, home, username, shell, &our_env);
@@ -1758,6 +1773,9 @@ void exec_context_done(ExecContext *c) {
 
         free(c->selinux_context);
         c->selinux_context = NULL;
+
+        free(c->apparmor_profile);
+        c->apparmor_profile = NULL;
 
 #ifdef HAVE_SECCOMP
         set_free(c->syscall_filter);
@@ -2188,6 +2206,11 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 fprintf(f,
                         "%sSystemCallErrorNumber: %s\n",
                         prefix, strna(errno_to_name(c->syscall_errno)));
+
+        if (c->apparmor_profile)
+                fprintf(f,
+                        "%sAppArmorProfile: %s%s\n",
+                        prefix, c->apparmor_profile_ignore ? "-" : "", c->apparmor_profile);
 }
 
 void exec_status_start(ExecStatus *s, pid_t pid) {

@@ -385,6 +385,21 @@ if test "x$enable_selinux" != "xno"; then
 fi
 AM_CONDITIONAL(HAVE_SELINUX, [test "$have_selinux" = "yes"])
 
+have_apparmor=no
+AC_ARG_ENABLE(apparmor, AS_HELP_STRING([--disable-apparmor], [Disable optional AppArmor support]))
+if test "x$enable_apparmor" != "xno"; then
+        PKG_CHECK_MODULES([APPARMOR], [libapparmor],
+                [AC_DEFINE(HAVE_APPARMOR, 1, [Define if AppArmor is available])
+                 have_apparmor=yes
+                 M4_DEFINES="$M4_DEFINES -DHAVE_APPARMOR"],
+                [have_apparmor=no])
+        if test "x$have_apparmor" = xno -a "x$enable_apparmor" = xyes; then
+                AC_MSG_ERROR([*** AppArmor support requested but libraries not found])
+        fi
+fi
+AM_CONDITIONAL(HAVE_APPARMOR, [test "$have_apparmor" = "yes"])
+
+
 AC_ARG_WITH(debug-shell,
         AS_HELP_STRING([--with-debug-shell=PATH],
                 [Path to debug shell binary]),
@@ -1110,6 +1125,7 @@ AC_MSG_RESULT([
         PAM:                     ${have_pam}
         AUDIT:                   ${have_audit}
         IMA:                     ${have_ima}
+        AppArmor:                ${have_apparmor}
         SELinux:                 ${have_selinux}
         SECCOMP:                 ${have_seccomp}
         SMACK:                   ${have_smack}

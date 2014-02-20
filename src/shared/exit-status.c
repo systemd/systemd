@@ -136,6 +136,9 @@ const char* exit_status_to_string(ExitStatus status, ExitStatusLevel level) {
 
                 case EXIT_PERSONALITY:
                         return "PERSONALITY";
+
+                case EXIT_APPARMOR_PROFILE:
+                        return "APPARMOR";
                 }
         }
 

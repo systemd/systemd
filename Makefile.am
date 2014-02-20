@@ -1020,6 +1020,7 @@ libsystemd_core_la_CFLAGS = \
 	$(AUDIT_CFLAGS) \
 	$(CAP_CFLAGS) \
 	$(KMOD_CFLAGS) \
+	$(APPARMOR_CFLAGS) \
 	$(SECCOMP_CFLAGS) \
 	-pthread
 
@@ -1035,6 +1036,7 @@ libsystemd_core_la_LIBADD = \
 	$(AUDIT_LIBS) \
 	$(CAP_LIBS) \
 	$(KMOD_LIBS) \
+	$(APPARMOR_LIBS) \
 	$(SECCOMP_LIBS)
 
 if HAVE_SECCOMP

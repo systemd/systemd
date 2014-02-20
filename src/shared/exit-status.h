@@ -69,7 +69,8 @@ typedef enum ExitStatus {
         EXIT_NO_NEW_PRIVILEGES,
         EXIT_SECCOMP,
         EXIT_SELINUX_CONTEXT,
-        EXIT_PERSONALITY  /* 230 */
+        EXIT_PERSONALITY,  /* 230 */
+        EXIT_APPARMOR_PROFILE
 } ExitStatus;
 
 typedef enum ExitStatusLevel {

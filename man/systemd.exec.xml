@@ -968,6 +968,19 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>AppArmorProfile=</varname></term>
+
+                                <listitem><para>Take a profile name as argument.
+                                The process executed by the unit will switch to
+                                this profile when started. Profiles must already
+                                be loaded in the kernel, or the unit will fail.
+                                This result in a non operation if AppArmor is not
+                                enabled. If prefixed by <literal>-</literal>, all errors
+                                will be ignored.
+                                </para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>IgnoreSIGPIPE=</varname></term>
 
                                 <listitem><para>Takes a boolean
