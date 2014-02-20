@@ -4245,7 +4245,8 @@ id128_la_LDFLAGS = \
 
 id128_la_LIBADD = \
 	$(PYTHON_DEVEL_LIBS) \
-	libsystemd.la
+	libsystemd.la \
+	libsystemd-shared.la
 
 _daemon_la_SOURCES = \
 	src/python-systemd/_daemon.c \
@@ -4266,7 +4267,8 @@ _daemon_la_LDFLAGS = \
 
 _daemon_la_LIBADD = \
 	$(PYTHON_DEVEL_LIBS) \
-	libsystemd.la
+	libsystemd.la \
+	libsystemd-shared.la
 
 _reader_la_SOURCES = \
 	src/python-systemd/_reader.c \

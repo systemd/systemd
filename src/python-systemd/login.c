@@ -316,12 +316,9 @@ static PyTypeObject MonitorType = {
         .tp_new = PyType_GenericNew,
 };
 
-
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wmissing-prototypes"
-
 #if PY_MAJOR_VERSION < 3
 
+DISABLE_WARNING_MISSING_PROTOTYPES;
 PyMODINIT_FUNC initlogin(void) {
         PyObject *m;
 
@@ -337,6 +334,8 @@ PyMODINIT_FUNC initlogin(void) {
         Py_INCREF(&MonitorType);
         PyModule_AddObject(m, "Monitor", (PyObject *) &MonitorType);
 }
+REENABLE_WARNING;
+
 #else
 
 static struct PyModuleDef module = {
@@ -347,6 +346,7 @@ static struct PyModuleDef module = {
         methods
 };
 
+DISABLE_WARNING_MISSING_PROTOTYPES;
 PyMODINIT_FUNC PyInit_login(void) {
         PyObject *m;
 
@@ -371,7 +371,6 @@ PyMODINIT_FUNC PyInit_login(void) {
 
         return m;
 }
+REENABLE_WARNING;
 
 #endif
-
-#pragma GCC diagnostic pop

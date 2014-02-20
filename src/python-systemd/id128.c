@@ -24,6 +24,9 @@
 #include <systemd/sd-messages.h>
 
 #include "pyutil.h"
+#include "log.h"
+#include "util.h"
+#include "macro.h"
 
 PyDoc_STRVAR(module__doc__,
              "Python interface to the libsystemd-id128 library.\n\n"
@@ -108,11 +111,9 @@ static int add_id(PyObject *module, const char* name, sd_id128_t id) {
         return PyModule_AddObject(module, name, obj);
 }
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wmissing-prototypes"
-
 #if PY_MAJOR_VERSION < 3
 
+DISABLE_WARNING_MISSING_PROTOTYPES;
 PyMODINIT_FUNC initid128(void) {
         PyObject *m;
 
@@ -126,6 +127,7 @@ PyMODINIT_FUNC initid128(void) {
 #undef JOINER
         PyModule_AddStringConstant(m, "__version__", PACKAGE_VERSION);
 }
+REENABLE_WARNING;
 
 #else
 
@@ -137,6 +139,7 @@ static struct PyModuleDef module = {
         methods
 };
 
+DISABLE_WARNING_MISSING_PROTOTYPES;
 PyMODINIT_FUNC PyInit_id128(void) {
         PyObject *m;
 
@@ -155,7 +158,6 @@ PyMODINIT_FUNC PyInit_id128(void) {
 
         return m;
 }
+REENABLE_WARNING;
 
 #endif
-
-#pragma GCC diagnostic pop

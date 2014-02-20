@@ -1046,8 +1046,7 @@ static PyModuleDef module = {
 static bool initialized = false;
 #endif
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wmissing-prototypes"
+DISABLE_WARNING_MISSING_PROTOTYPES;
 
 PyMODINIT_FUNC
 #if PY_MAJOR_VERSION >= 3
@@ -1110,4 +1109,4 @@ init_reader(void)
 #endif
 }
 
-#pragma GCC diagnostic pop
+REENABLE_WARNING;
