@@ -96,6 +96,45 @@
                         <filename>.netdev</filename>; other extensions are ignored. Virtual
                         network devices are created as soon as networkd is started.</para>
 
+                        <para>A virtual network device is only created if the
+                        <literal>[Match]</literal> section matches the current
+                        environment, or if the section is empty. The following keys are accepted:</para>
+
+                        <variablelist class='network-directives'>
+                                <varlistentry>
+                                        <term><varname>Host</varname></term>
+                                        <listitem>
+                                                <para>Matches against the hostname or machine ID of the
+                                                host. See <literal>ConditionHost=</literal> in
+                                                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                                for details.
+                                                </para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>Virtualization</varname></term>
+                                        <listitem>
+                                                <para>Checks whether the system is executed in a virtualized
+                                                environment and optionally test whether it is a specific
+                                                implementation. See <literal>ConditionVirtualization=</literal> in
+                                                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                                for details.
+                                                </para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>KernelCommandLine</varname></term>
+                                        <listitem>
+                                                <para>Checks whether a specific kernel command line option is
+                                                set (or if prefixed with the exclamation mark unset). See
+                                                <literal>ConditionKernelCommandLine=</literal> in
+                                                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                                for details.
+                                                </para>
+                                        </listitem>
+                                </varlistentry>
+                        </variablelist>
+
                         <para>The <literal>[NetDev]</literal> section accepts the following
                         keys:</para>
 
@@ -158,7 +197,8 @@
                                         <term><varname>Path</varname></term>
                                         <listitem>
                                                 <para>The persistent path, as exposed by the udev
-                                                property <literal>ID_PATH</literal>.</para>
+                                                property <literal>ID_PATH</literal>. May contain shell
+                                                style globs.</para>
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
@@ -181,7 +221,40 @@
                                         <term><varname>Name</varname></term>
                                         <listitem>
                                                 <para>The device name, as exposed by the udev property
-                                                <literal>INTERFACE</literal>.</para>
+                                                <literal>INTERFACE</literal>. May contain shell style
+                                                globs.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>Host</varname></term>
+                                        <listitem>
+                                                <para>Matches against the hostname or machine ID of the
+                                                host. See <literal>ConditionHost=</literal> in
+                                                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                                for details.
+                                                </para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>Virtualization</varname></term>
+                                        <listitem>
+                                                <para>Checks whether the system is executed in a virtualized
+                                                environment and optionally test whether it is a specific
+                                                implementation. See <literal>ConditionVirtualization=</literal> in
+                                                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                                for details.
+                                                </para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>KernelCommandLine</varname></term>
+                                        <listitem>
+                                                <para>Checks whether a specific kernel command line option is
+                                                set (or if prefixed with the exclamation mark unset). See
+                                                <literal>ConditionKernelCommandLine=</literal> in
+                                                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                                for details.
+                                                </para>
                                         </listitem>
                                 </varlistentry>
                         </variablelist>
