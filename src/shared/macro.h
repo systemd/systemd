@@ -59,6 +59,10 @@
         _Pragma("GCC diagnostic push");                                 \
         _Pragma("GCC diagnostic ignored \"-Wmissing-prototypes\"")
 
+#define DISABLE_WARNING_NONNULL                                         \
+        _Pragma("GCC diagnostic push");                                 \
+        _Pragma("GCC diagnostic ignored \"-Wnonnull\"")
+
 #define REENABLE_WARNING                                                \
         _Pragma("GCC diagnostic pop")
 

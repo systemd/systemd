@@ -295,9 +295,6 @@ static void test_load_env_file_4(void) {
 }
 
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wnonnull"
-
 static void test_install_printf(void) {
         char    name[] = "name.service",
                 path[] = "/run/systemd/system/name.service",
@@ -343,7 +340,11 @@ static void test_install_printf(void) {
         expect(i, "%p", "name");
         expect(i, "%i", "");
         expect(i, "%u", "xxxx-no-such-user");
+
+        DISABLE_WARNING_NONNULL;
         expect(i, "%U", NULL);
+        REENABLE_WARNING;
+
         expect(i, "%m", mid);
         expect(i, "%b", bid);
         expect(i, "%H", host);
@@ -355,7 +356,11 @@ static void test_install_printf(void) {
         expect(i3, "%N", "name@inst");
         expect(i3, "%p", "name");
         expect(i3, "%u", "xxxx-no-such-user");
+
+        DISABLE_WARNING_NONNULL;
         expect(i3, "%U", NULL);
+        REENABLE_WARNING;
+
         expect(i3, "%m", mid);
         expect(i3, "%b", bid);
         expect(i3, "%H", host);
@@ -363,7 +368,6 @@ static void test_install_printf(void) {
         expect(i4, "%u", "root");
         expect(i4, "%U", "0");
 }
-#pragma GCC diagnostic pop
 
 int main(int argc, char *argv[]) {
         int r;
