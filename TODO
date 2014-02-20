@@ -27,6 +27,10 @@ External:
 
 Features:
 
+* nspawn: name normal veth ifaces on the host "ve-*", and those
+  already added to a bridge "vb-*". That way we can later on install
+  catchall matches that identify these interfaces and run DHCP on them.
+
 * "busctl status" works only as root on dbus1, since we cannot read
   /proc/$PID/exe
 
