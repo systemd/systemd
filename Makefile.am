@@ -2464,7 +2464,8 @@ INSTALL_DIRS += \
 	$(sysconfdir)/udev/hwdb.d
 
 dist_network_DATA = \
-	network/99-default.link
+	network/99-default.link \
+	network/80-container-host0.network
 
 dist_udevrules_DATA += \
 	rules/99-systemd.rules \
