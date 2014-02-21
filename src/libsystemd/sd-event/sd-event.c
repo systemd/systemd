@@ -771,7 +771,7 @@ _public_ int sd_event_add_realtime(sd_event *e,
                                    sd_event_time_handler_t callback,
                                    void *userdata) {
 
-        return event_add_time_internal(e, ret, SOURCE_REALTIME, &e->realtime_fd, CLOCK_REALTIME, &e->realtime_earliest, &e->monotonic_latest, usec, accuracy, callback, userdata);
+        return event_add_time_internal(e, ret, SOURCE_REALTIME, &e->realtime_fd, CLOCK_REALTIME, &e->realtime_earliest, &e->realtime_latest, usec, accuracy, callback, userdata);
 }
 
 static int event_update_signal_fd(sd_event *e) {
