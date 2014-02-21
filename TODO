@@ -27,10 +27,6 @@ External:
 
 Features:
 
-* nspawn: name normal veth ifaces on the host "ve-*", and those
-  already added to a bridge "vb-*". That way we can later on install
-  catchall matches that identify these interfaces and run DHCP on them.
-
 * "busctl status" works only as root on dbus1, since we cannot read
   /proc/$PID/exe
 
@@ -47,11 +43,6 @@ Features:
   job queue and a check for failed services. Maybe then change
   "systemctl status" without args to output this state along with a
   selection of other data, such as the uptime or so.
-
-* generalize ConditionXYZ= logic and make it available in networkd's
-  .network, .netdev, .network files, too. This is particularly useful
-  to match on containers with ConditionVirtualization to
-  conditionalize network setups for containers
 
 * doc: remove documentation for .include, drop-in snippets are the
   better replacement.
@@ -215,8 +206,6 @@ Features:
 
 * when isolating, try to figure out a way how we implicitly can order
   all units we stop before the isolating unit...
-
-* add ConditionArchitecture= or so
 
 * teach ConditionKernelCommandLine= globs or regexes (in order to match foobar={no,0,off})
 
