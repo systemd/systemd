@@ -416,6 +416,9 @@ CHANGES WITH 209:
           SystemCallArchitectures= setting in system.conf now to turn
           off support for non-native system calls system-wide.
 
+        * systemd requires a kernel with a working name_to_handle_at(),
+          please see the kernel config requirements in the README file.
+
         Contributions from: Adam Williamson, Alex Jia, Anatol Pomozov,
         Ansgar Burchardt, AppleBloom, Auke Kok, Bastien Nocera,
         Chengwei Yang, Christian Seiler, Colin Guthrie, Colin Walters,
