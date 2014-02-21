@@ -38,6 +38,7 @@ bool net_match_config(const struct ether_addr *match_mac,
                       Condition *match_arch,
                       const char *dev_mac,
                       const char *dev_path,
+                      const char *dev_parent_driver,
                       const char *dev_driver,
                       const char *dev_type,
                       const char *dev_name);

@@ -181,6 +181,7 @@ int network_get(Manager *manager, struct udev_device *device, Network **ret) {
                                         udev_device_get_sysattr_value(device, "address"),
                                         udev_device_get_property_value(device, "ID_PATH"),
                                         udev_device_get_driver(udev_device_get_parent(device)),
+                                        udev_device_get_property_value(device, "ID_NET_DRIVER"),
                                         udev_device_get_devtype(device),
                                         udev_device_get_sysname(device))) {
                         log_debug("%s: found matching network '%s'",

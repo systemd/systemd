@@ -42,6 +42,7 @@ bool net_match_config(const struct ether_addr *match_mac,
                       Condition *match_arch,
                       const char *dev_mac,
                       const char *dev_path,
+                      const char *dev_parent_driver,
                       const char *dev_driver,
                       const char *dev_type,
                       const char *dev_name) {
@@ -64,13 +65,17 @@ bool net_match_config(const struct ether_addr *match_mac,
         if (match_path && (!dev_path || fnmatch(match_path, dev_path, 0)))
                 return 0;
 
-        if (match_driver && !streq_ptr(match_driver, dev_driver))
-                return 0;
+        if (match_driver) {
+                if (dev_parent_driver && !streq(match_driver, dev_parent_driver))
+                        return 0;
+                else if (!streq_ptr(match_driver, dev_driver))
+                        return 0;
+        }
 
         if (match_type && !streq_ptr(match_type, dev_type))
                 return 0;
 
-        if (match_name && (!dev_path || fnmatch(match_name, dev_name, 0)))
+        if (match_name && (!dev_name || fnmatch(match_name, dev_name, 0)))
                 return 0;
 
         return 1;

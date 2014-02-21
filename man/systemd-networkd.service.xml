@@ -216,8 +216,9 @@
                                         <listitem>
                                                 <para>The driver currently bound to the device, as
                                                 exposed by the udev property <literal>DRIVER</literal>
-                                                of its parent device.
-                                                </para>
+                                                of its parent device, or if that is not set the driver
+                                                as exposed by <literal>ethtool -i</literal> of the
+                                                device itself.</para>
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
