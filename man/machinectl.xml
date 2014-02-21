@@ -73,27 +73,6 @@
 
                 <variablelist>
                         <varlistentry>
-                                <term><option>-H</option></term>
-                                <term><option>--host=</option></term>
-
-                                <listitem><para>Execute the operation
-                                remotely. Specify a hostname, or
-                                username and hostname separated by <literal>@</literal>,
-                                to connect to. This will use SSH to
-                                talk to the remote machine manager
-                                instance.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>-M</option></term>
-                                <term><option>--machine=</option></term>
-
-                                <listitem><para>Execute the operation on a
-                                local container. Specify a container
-                                name to connect to.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
                                 <term><option>-p</option></term>
                                 <term><option>--property=</option></term>
 
@@ -166,6 +145,9 @@
                                         i.e. the column headers and the
                                         footer.</para></listitem>
                         </varlistentry>
+
+                        <xi:include href="user-system-options.xml" xpointer="host" />
+                        <xi:include href="user-system-options.xml" xpointer="machine" />
 
                         <xi:include href="standard-options.xml" xpointer="help" />
                         <xi:include href="standard-options.xml" xpointer="version" />
