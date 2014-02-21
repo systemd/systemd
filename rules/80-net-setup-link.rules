@@ -4,6 +4,8 @@ SUBSYSTEM!="net", GOTO="net_setup_link_end"
 
 IMPORT{builtin}="path_id"
 
+ACTION=="move", IMPORT{db}="ID_NET_DRIVER"
+
 ACTION!="add", GOTO="net_setup_link_end"
 
 IMPORT{builtin}="net_setup_link"
