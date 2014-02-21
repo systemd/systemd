@@ -78,9 +78,9 @@ static int process_pty_loop(int master, sigset_t *mask, pid_t kill_pid, int sign
         assert(kill_pid == 0 || kill_pid > 1);
         assert(signo >= 0 && signo < _NSIG);
 
-        fd_nonblock(STDIN_FILENO, 1);
-        fd_nonblock(STDOUT_FILENO, 1);
-        fd_nonblock(master, 1);
+        fd_nonblock(STDIN_FILENO, true);
+        fd_nonblock(STDOUT_FILENO, true);
+        fd_nonblock(master, true);
 
         signal_fd = signalfd(-1, mask, SFD_NONBLOCK|SFD_CLOEXEC);
         if (signal_fd < 0) {
@@ -375,6 +375,11 @@ int process_pty(int master, sigset_t *mask, pid_t kill_pid, int signo) {
                 tcsetattr(STDOUT_FILENO, TCSANOW, &saved_stdout_attr);
         if (saved_stdin)
                 tcsetattr(STDIN_FILENO, TCSANOW, &saved_stdin_attr);
+
+        /* STDIN/STDOUT should not be nonblocking normally, so let's
+         * unconditionally reset it */
+        fd_nonblock(STDIN_FILENO, false);
+        fd_nonblock(STDOUT_FILENO, false);
 
         return r;
 
