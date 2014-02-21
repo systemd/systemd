@@ -26,6 +26,7 @@
 static link_config_ctx *ctx = NULL;
 
 static int builtin_net_setup_link(struct udev_device *dev, int argc, char **argv, bool test) {
+        _cleanup_free_ char *driver = NULL;
         const char *name;
         link_config *link;
         int r;
@@ -34,6 +35,10 @@ static int builtin_net_setup_link(struct udev_device *dev, int argc, char **argv
                 log_error("This program takes no arguments.");
                 return EXIT_FAILURE;
         }
+
+        r = link_get_driver(ctx, dev, &driver);
+        if (r >= 0)
+                udev_builtin_add_property(dev, test, "ID_NET_DRIVER", driver);
 
         r = link_config_get(ctx, dev, &link);
         if (r < 0) {

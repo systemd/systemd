@@ -90,16 +90,17 @@ int link_config_ctx_new(link_config_ctx **ret) {
 static int link_config_ctx_connect(link_config_ctx *ctx) {
         int r;
 
-        if (ctx->ethtool_fd >= 0 && ctx->rtnl)
-                return 0;
+        if (ctx->ethtool_fd == -1) {
+                r = ethtool_connect(&ctx->ethtool_fd);
+                if (r < 0)
+                        return r;
+        }
 
-        r = ethtool_connect(&ctx->ethtool_fd);
-        if (r < 0)
-                return r;
-
-        r = sd_rtnl_open(&ctx->rtnl, 0);
-        if (r < 0)
-                return r;
+        if (!ctx->rtnl) {
+                r = sd_rtnl_open(&ctx->rtnl, 0);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }
@@ -439,6 +440,27 @@ int link_config_apply(link_config_ctx *ctx, link_config *config, struct udev_dev
                 return r;
         }
 
+        return 0;
+}
+
+int link_get_driver(link_config_ctx *ctx, struct udev_device *device, char **ret) {
+        const char *name;
+        char *driver;
+        int r;
+
+        r = link_config_ctx_connect(ctx);
+        if (r < 0)
+                return r;
+
+        name = udev_device_get_sysname(device);
+        if (!name)
+                return -EINVAL;
+
+        r = ethtool_get_driver(ctx->ethtool_fd, name, &driver);
+        if (r < 0)
+                return r;
+
+        *ret = driver;
         return 0;
 }
 
