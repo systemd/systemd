@@ -32,6 +32,7 @@
 #include "util.h"
 #include "time-util.h"
 #include "missing.h"
+#include "set.h"
 
 #include "sd-event.h"
 
@@ -45,6 +46,7 @@ typedef enum EventSourceType {
         SOURCE_SIGNAL,
         SOURCE_CHILD,
         SOURCE_DEFER,
+        SOURCE_POST,
         SOURCE_EXIT,
         SOURCE_WATCHDOG
 } EventSourceType;
@@ -97,6 +99,9 @@ struct sd_event_source {
                 } defer;
                 struct {
                         sd_event_handler_t callback;
+                } post;
+                struct {
+                        sd_event_handler_t callback;
                         unsigned prioq_index;
                 } exit;
         };
@@ -133,6 +138,8 @@ struct sd_event {
 
         Hashmap *child_sources;
         unsigned n_enabled_child_sources;
+
+        Set *post_sources;
 
         Prioq *exit;
 
@@ -350,6 +357,7 @@ static void event_free(sd_event *e) {
         free(e->signal_sources);
 
         hashmap_free(e->child_sources);
+        set_free(e->post_sources);
         free(e);
 }
 
@@ -522,6 +530,10 @@ static void source_free(sd_event_source *s) {
 
                 case SOURCE_DEFER:
                         /* nothing */
+                        break;
+
+                case SOURCE_POST:
+                        set_remove(s->event->post_sources, s);
                         break;
 
                 case SOURCE_EXIT:
@@ -957,6 +969,43 @@ _public_ int sd_event_add_defer(
         return 0;
 }
 
+_public_ int sd_event_add_post(
+                sd_event *e,
+                sd_event_source **ret,
+                sd_event_handler_t callback,
+                void *userdata) {
+
+        sd_event_source *s;
+        int r;
+
+        assert_return(e, -EINVAL);
+        assert_return(callback, -EINVAL);
+        assert_return(ret, -EINVAL);
+        assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
+        assert_return(!event_pid_changed(e), -ECHILD);
+
+        r = set_ensure_allocated(&e->post_sources, trivial_hash_func, trivial_compare_func);
+        if (r < 0)
+                return r;
+
+        s = source_new(e, SOURCE_POST);
+        if (!s)
+                return -ENOMEM;
+
+        s->post.callback = callback;
+        s->userdata = userdata;
+        s->enabled = SD_EVENT_ON;
+
+        r = set_put(e->post_sources, s);
+        if (r < 0) {
+                source_free(s);
+                return r;
+        }
+
+        *ret = s;
+        return 0;
+}
+
 _public_ int sd_event_add_exit(
                 sd_event *e,
                 sd_event_source **ret,
@@ -1246,6 +1295,7 @@ _public_ int sd_event_source_set_enabled(sd_event_source *s, int m) {
                         break;
 
                 case SOURCE_DEFER:
+                case SOURCE_POST:
                         s->enabled = m;
                         break;
 
@@ -1304,6 +1354,7 @@ _public_ int sd_event_source_set_enabled(sd_event_source *s, int m) {
                         break;
 
                 case SOURCE_DEFER:
+                case SOURCE_POST:
                         s->enabled = m;
                         break;
 
@@ -1779,6 +1830,23 @@ static int source_dispatch(sd_event_source *s) {
                         return r;
         }
 
+        if (s->type != SOURCE_POST) {
+                sd_event_source *z;
+                Iterator i;
+
+                /* If we execute a non-post source, let's mark all
+                 * post sources as pending */
+
+                SET_FOREACH(z, s->event->post_sources, i) {
+                        if (z->enabled == SD_EVENT_OFF)
+                                continue;
+
+                        r = source_set_pending(z, true);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
         if (s->enabled == SD_EVENT_ONESHOT) {
                 r = sd_event_source_set_enabled(s, SD_EVENT_OFF);
                 if (r < 0)
@@ -1823,6 +1891,10 @@ static int source_dispatch(sd_event_source *s) {
 
         case SOURCE_DEFER:
                 r = s->defer.callback(s, s->userdata);
+                break;
+
+        case SOURCE_POST:
+                r = s->post.callback(s, s->userdata);
                 break;
 
         case SOURCE_EXIT:
