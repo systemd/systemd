@@ -64,25 +64,26 @@ int ethtool_connect(int *ret) {
 }
 
 int ethtool_get_driver(int fd, const char *ifname, char **ret) {
-        struct ifreq ifr;
-        struct ethtool_drvinfo ecmd;
+        struct ethtool_drvinfo ecmd = {
+                .cmd = ETHTOOL_GDRVINFO
+        };
+        struct ifreq ifr = {
+                .ifr_data = (void*) &ecmd
+        };
+        char *d;
         int r;
 
-        zero(ecmd);
-        ecmd.cmd = ETHTOOL_GDRVINFO;
-
-        zero(ifr);
         strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
-        ifr.ifr_data = (void *)&ecmd;
 
         r = ioctl(fd, SIOCETHTOOL, &ifr);
         if (r < 0)
                 return -errno;
 
-        *ret = strdup(ecmd.driver);
-        if (!*ret)
+        d = strdup(ecmd.driver);
+        if (!d)
                 return -ENOMEM;
 
+        *ret = d;
         return 0;
 }
 
