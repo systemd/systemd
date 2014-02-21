@@ -73,32 +73,28 @@ Manager *manager_new(void) {
         m->busnames = set_new(string_hash_func, string_compare_func);
 
         if (!m->devices || !m->seats || !m->sessions || !m->users || !m->inhibitors || !m->buttons || !m->busnames ||
-            !m->user_units || !m->session_units) {
-                manager_free(m);
-                return NULL;
-        }
+            !m->user_units || !m->session_units)
+                goto fail;
 
         m->kill_exclude_users = strv_new("root", NULL);
-        if (!m->kill_exclude_users) {
-                manager_free(m);
-                return NULL;
-        }
+        if (!m->kill_exclude_users)
+                goto fail;
 
         m->udev = udev_new();
-        if (!m->udev) {
-                manager_free(m);
-                return NULL;
-        }
+        if (!m->udev)
+                goto fail;
 
         r = sd_event_default(&m->event);
-        if (r < 0) {
-                manager_free(m);
-                return NULL;
-        }
+        if (r < 0)
+                goto fail;
 
         sd_event_set_watchdog(m->event, true);
 
         return m;
+
+fail:
+        manager_free(m);
+        return NULL;
 }
 
 void manager_free(Manager *m) {
@@ -968,6 +964,7 @@ int manager_startup(Manager *m) {
         Seat *seat;
         Session *session;
         User *user;
+        Button *button;
         Inhibitor *inhibitor;
         Iterator i;
 
@@ -1041,29 +1038,12 @@ int manager_startup(Manager *m) {
         HASHMAP_FOREACH(inhibitor, m->inhibitors, i)
                 inhibitor_start(inhibitor);
 
+        HASHMAP_FOREACH(button, m->buttons, i)
+                button_check_lid(button);
+
         manager_dispatch_idle_action(NULL, 0, m);
 
         return 0;
-}
-
-static int manager_recheck_buttons(Manager *m) {
-        Iterator i;
-        Button *b;
-        int r = 0;
-
-        assert(m);
-
-        HASHMAP_FOREACH(b, m->buttons, i) {
-                int q;
-
-                q = button_recheck(b);
-                if (q > 0)
-                        return 1;
-                if (q < 0)
-                        r = q;
-        }
-
-        return r;
 }
 
 int manager_run(Manager *m) {
@@ -1083,9 +1063,6 @@ int manager_run(Manager *m) {
                 manager_gc(m, true);
 
                 if (manager_dispatch_delayed(m) > 0)
-                        continue;
-
-                if (manager_recheck_buttons(m) > 0)
                         continue;
 
                 if (m->action_what != 0 && !m->action_job) {

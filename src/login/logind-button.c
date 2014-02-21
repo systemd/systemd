@@ -66,7 +66,8 @@ void button_free(Button *b) {
 
         hashmap_remove(b->manager->buttons, b->name);
 
-        sd_event_source_unref(b->event_source);
+        sd_event_source_unref(b->io_event_source);
+        sd_event_source_unref(b->check_event_source);
 
         if (b->fd >= 0) {
                 /* If the device has been unplugged close() returns
@@ -96,24 +97,30 @@ int button_set_seat(Button *b, const char *sn) {
         return 0;
 }
 
-static int button_handle(
-                Button *b,
-                InhibitWhat inhibit_key,
-                HandleAction handle,
-                bool ignore_inhibited,
-                bool is_edge) {
-
-        int r;
+static int button_recheck(sd_event_source *e, void *userdata) {
+        Button *b = userdata;
 
         assert(b);
+        assert(b->lid_closed);
 
-        r = manager_handle_action(b->manager, inhibit_key, handle, ignore_inhibited, is_edge);
-        if (r > 0)
-                /* We are executing the operation, so make sure we don't
-                 * execute another one until the lid is opened/closed again */
-                b->lid_close_queued = false;
+        manager_handle_action(b->manager, INHIBIT_HANDLE_LID_SWITCH, b->manager->handle_lid_switch, b->manager->lid_switch_ignore_inhibited, false);
+        return 1;
+}
 
-        return 0;
+static int button_install_check_event_source(Button *b) {
+        int r;
+        assert(b);
+
+        /* Install a post handler, so that we keep rechecking as long as the lid is closed. */
+
+        if (b->check_event_source)
+                return 0;
+
+        r = sd_event_add_post(b->manager->event, &b->check_event_source, button_recheck, b);
+        if (r < 0)
+                return r;
+
+        return sd_event_source_set_priority(b->check_event_source, SD_EVENT_PRIORITY_IDLE+1);
 }
 
 static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
@@ -142,7 +149,7 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
                                    MESSAGE_ID(SD_MESSAGE_POWER_KEY),
                                    NULL);
 
-                        button_handle(b, INHIBIT_HANDLE_POWER_KEY, b->manager->handle_power_key, b->manager->power_key_ignore_inhibited, true);
+                        manager_handle_action(b->manager, INHIBIT_HANDLE_POWER_KEY, b->manager->handle_power_key, b->manager->power_key_ignore_inhibited, true);
                         break;
 
                 /* The kernel is a bit confused here:
@@ -157,7 +164,7 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
                                    MESSAGE_ID(SD_MESSAGE_SUSPEND_KEY),
                                    NULL);
 
-                        button_handle(b, INHIBIT_HANDLE_SUSPEND_KEY, b->manager->handle_suspend_key, b->manager->suspend_key_ignore_inhibited, true);
+                        manager_handle_action(b->manager, INHIBIT_HANDLE_SUSPEND_KEY, b->manager->handle_suspend_key, b->manager->suspend_key_ignore_inhibited, true);
                         break;
 
                 case KEY_SUSPEND:
@@ -166,7 +173,7 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
                                    MESSAGE_ID(SD_MESSAGE_HIBERNATE_KEY),
                                    NULL);
 
-                        button_handle(b, INHIBIT_HANDLE_HIBERNATE_KEY, b->manager->handle_hibernate_key, b->manager->hibernate_key_ignore_inhibited, true);
+                        manager_handle_action(b->manager, INHIBIT_HANDLE_HIBERNATE_KEY, b->manager->handle_hibernate_key, b->manager->hibernate_key_ignore_inhibited, true);
                         break;
                 }
 
@@ -178,8 +185,9 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
                                    MESSAGE_ID(SD_MESSAGE_LID_CLOSED),
                                    NULL);
 
-                        b->lid_close_queued = true;
-                        button_handle(b, INHIBIT_HANDLE_LID_SWITCH, b->manager->handle_lid_switch, b->manager->lid_switch_ignore_inhibited, true);
+                        b->lid_closed = true;
+                        manager_handle_action(b->manager, INHIBIT_HANDLE_LID_SWITCH, b->manager->handle_lid_switch, b->manager->lid_switch_ignore_inhibited, true);
+                        button_install_check_event_source(b);
                 }
 
         } else if (ev.type == EV_SW && ev.value == 0) {
@@ -190,7 +198,8 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
                                    MESSAGE_ID(SD_MESSAGE_LID_OPENED),
                                    NULL);
 
-                        b->lid_close_queued = false;
+                        b->lid_closed = false;
+                        b->check_event_source = sd_event_source_unref(b->check_event_source);
                 }
         }
 
@@ -222,7 +231,7 @@ int button_open(Button *b) {
                 goto fail;
         }
 
-        r = sd_event_add_io(b->manager->event, &b->event_source, b->fd, EPOLLIN, button_dispatch, b);
+        r = sd_event_add_io(b->manager->event, &b->io_event_source, b->fd, EPOLLIN, button_dispatch, b);
         if (r < 0) {
                 log_error("Failed to add button event: %s", strerror(-r));
                 goto fail;
@@ -238,11 +247,22 @@ fail:
         return r;
 }
 
-int button_recheck(Button *b) {
+int button_check_lid(Button *b) {
+        uint8_t switches[SW_MAX/8+1] = {};
         assert(b);
 
-        if (!b->lid_close_queued)
-                return 0;
+        if (b->fd < 0)
+                return -EINVAL;
 
-        return button_handle(b, INHIBIT_HANDLE_LID_SWITCH, b->manager->handle_lid_switch, b->manager->lid_switch_ignore_inhibited, false);
+        if (ioctl(b->fd, EVIOCGSW(sizeof(switches)), switches) < 0)
+                return -errno;
+
+        b->lid_closed = (switches[SW_LID/8] >> (SW_LID % 8)) & 1;
+
+        if (b->lid_closed) {
+                manager_handle_action(b->manager, INHIBIT_HANDLE_LID_SWITCH, b->manager->handle_lid_switch, b->manager->lid_switch_ignore_inhibited, true);
+                button_install_check_event_source(b);
+        }
+
+        return 0;
 }

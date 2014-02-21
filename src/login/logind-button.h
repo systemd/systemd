@@ -30,17 +30,18 @@ typedef struct Button Button;
 struct Button {
         Manager *manager;
 
-        sd_event_source *event_source;
+        sd_event_source *io_event_source;
+        sd_event_source *check_event_source;
 
         char *name;
         char *seat;
         int fd;
 
-        bool lid_close_queued;
+        bool lid_closed;
 };
 
 Button* button_new(Manager *m, const char *name);
 void button_free(Button*b);
 int button_open(Button *b);
-int button_recheck(Button *b);
 int button_set_seat(Button *b, const char *sn);
+int button_check_lid(Button *b);
