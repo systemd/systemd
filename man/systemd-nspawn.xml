@@ -321,13 +321,17 @@
                         <varlistentry>
                                 <term><option>--network-bridge=</option></term>
 
-                                <listitem><para>Adds the host side of the
-                                Ethernet link created with
-                                <option>--network-veth</option>
-                                to the specified bridge. Note that
-                                <option>--network-bridge</option>
+                                <listitem><para>Adds the host side of
+                                the Ethernet link created with
+                                <option>--network-veth</option> to the
+                                specified bridge. Note that
+                                <option>--network-bridge=</option>
                                 implies
-                                <option>--network-veth</option>.</para></listitem>
+                                <option>--network-veth</option>. If
+                                this option is used the host side of
+                                the Ethernet link will use the
+                                <literal>vb-</literal> prefix instead
+                                of <literal>ve-</literal>.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -466,7 +470,7 @@
                                 destination in the container. The
                                 <option>--bind-ro=</option> option
                                 creates read-only bind
-                                mount.</para></listitem>
+                                mounts.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

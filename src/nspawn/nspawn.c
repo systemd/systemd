@@ -1302,7 +1302,7 @@ static int reset_audit_loginuid(void) {
         return 0;
 }
 
-static int setup_veth(pid_t pid, char iface_name[]) {
+static int setup_veth(pid_t pid, char iface_name[IFNAMSIZ]) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
         _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
         int r;
@@ -1312,6 +1312,13 @@ static int setup_veth(pid_t pid, char iface_name[]) {
 
         if (!arg_network_veth)
                 return 0;
+
+        /* Use two different interface name prefixes depending whether
+         * we are in bridge mode or not. */
+        if (arg_network_bridge)
+                memcpy(iface_name, "vb-", 3);
+        else
+                memcpy(iface_name, "ve-", 3);
 
         strncpy(iface_name+3, arg_machine, IFNAMSIZ - 3);
 
@@ -1587,7 +1594,7 @@ int main(int argc, char *argv[]) {
         int n_fd_passed;
         pid_t pid = 0;
         sigset_t mask;
-        char veth_name[IFNAMSIZ] = "ve-";
+        char veth_name[IFNAMSIZ];
 
         log_parse_environment();
         log_open();
