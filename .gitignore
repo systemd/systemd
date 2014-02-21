@@ -108,6 +108,7 @@
 /systemd-user-sessions
 /systemd-vconsole-setup
 /tags
+/test-architecture
 /test-boot-timestamp
 /test-bus-chat
 /test-bus-creds
