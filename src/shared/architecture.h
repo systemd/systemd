@@ -80,13 +80,13 @@ Architecture uname_architecture(void);
 #elif defined(__alpha__)
 #  define native_architecture() ARCHITECTURE_ALPHA
 #elif defined(__aarch64__)
-#  ifdef defined(WORDS_BIGENDIAN)
+#  if defined(WORDS_BIGENDIAN)
 #    define native_architecture() ARCHITECTURE_ARM64_BE
 #  else
 #    define native_architecture() ARCHITECTURE_ARM64
 #  endif
 #elif defined(__arm__)
-#  ifdef defined(WORDS_BIGENDIAN)
+#  if defined(WORDS_BIGENDIAN)
 #    define native_architecture() ARCHITECTURE_ARM_BE
 #  else
 #    define native_architecture() ARCHITECTURE_ARM
