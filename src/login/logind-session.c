@@ -1008,7 +1008,7 @@ error:
 }
 
 void session_restore_vt(Session *s) {
-        _cleanup_free_ char *utf8;
+        _cleanup_free_ char *utf8 = NULL;
         int vt, kb = K_XLATE;
         struct vt_mode mode = { 0 };
 
