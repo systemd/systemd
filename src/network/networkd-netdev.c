@@ -364,9 +364,9 @@ static int netdev_load_one(Manager *manager, const char *filename) {
                 return log_oom();
 
         if (net_match_config(NULL, NULL, NULL, NULL, NULL,
-                             netdev->condition_host, netdev->condition_virt,
-                             netdev->condition_kernel, NULL, NULL, NULL,
-                             NULL, NULL) <= 0)
+                             netdev->match_host, netdev->match_virt,
+                             netdev->match_kernel, netdev->match_arch,
+                             NULL, NULL, NULL, NULL, NULL) <= 0)
                 return 0;
 
         r = hashmap_put(netdev->manager->netdevs, netdev->name, netdev);

@@ -39,6 +39,7 @@ bool net_match_config(const struct ether_addr *match_mac,
                       Condition *match_host,
                       Condition *match_virt,
                       Condition *match_kernel,
+                      Condition *match_arch,
                       const char *dev_mac,
                       const char *dev_path,
                       const char *dev_driver,
@@ -52,6 +53,9 @@ bool net_match_config(const struct ether_addr *match_mac,
                 return 0;
 
         if (match_kernel && !condition_test_kernel_command_line(match_kernel))
+                return 0;
+
+        if (match_arch && !condition_test_architecture(match_arch))
                 return 0;
 
         if (match_mac && (!dev_mac || memcmp(match_mac, ether_aton(dev_mac), ETH_ALEN)))

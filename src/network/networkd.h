@@ -71,9 +71,10 @@ struct NetDev {
 
         char *filename;
 
-        Condition *condition_host;
-        Condition *condition_virt;
-        Condition *condition_kernel;
+        Condition *match_host;
+        Condition *match_virt;
+        Condition *match_kernel;
+        Condition *match_arch;
 
         char *description;
         char *name;
@@ -100,6 +101,7 @@ struct Network {
         Condition *match_host;
         Condition *match_virt;
         Condition *match_kernel;
+        Condition *match_arch;
 
         char *description;
         NetDev *bridge;

@@ -133,6 +133,16 @@
                                                 </para>
                                         </listitem>
                                 </varlistentry>
+                                <varlistentry>
+                                        <term><varname>Architecture</varname></term>
+                                        <listitem>
+                                                <para>Checks whether the system is running on a specific
+                                                architecture. See <literal>ConditionArchitecture=</literal> in
+                                                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                                for details.
+                                                </para>
+                                        </listitem>
+                                </varlistentry>
                         </variablelist>
 
                         <para>The <literal>[NetDev]</literal> section accepts the following
@@ -252,6 +262,16 @@
                                                 <para>Checks whether a specific kernel command line option is
                                                 set (or if prefixed with the exclamation mark unset). See
                                                 <literal>ConditionKernelCommandLine=</literal> in
+                                                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                                for details.
+                                                </para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>Architecture</varname></term>
+                                        <listitem>
+                                                <para>Checks whether the system is running on a specific
+                                                architecture. See <literal>ConditionArchitecture=</literal> in
                                                 <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                                                 for details.
                                                 </para>

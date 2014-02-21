@@ -58,6 +58,7 @@ struct link_config {
         Condition *match_host;
         Condition *match_virt;
         Condition *match_kernel;
+        Condition *match_arch;
 
         char *description;
         struct ether_addr *mac;

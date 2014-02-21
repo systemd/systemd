@@ -177,6 +177,7 @@ int network_get(Manager *manager, struct udev_device *device, Network **ret) {
                                         network->match_driver, network->match_type,
                                         network->match_name, network->match_host,
                                         network->match_virt, network->match_kernel,
+                                        network->match_arch,
                                         udev_device_get_sysattr_value(device, "address"),
                                         udev_device_get_property_value(device, "ID_PATH"),
                                         udev_device_get_driver(udev_device_get_parent(device)),

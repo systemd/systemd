@@ -23,6 +23,7 @@ Match.Name,                  config_parse_ifname,                0,             
 Match.Host,                  config_parse_net_condition,         CONDITION_HOST,                offsetof(Network, match_host)
 Match.Virtualization,        config_parse_net_condition,         CONDITION_VIRTUALIZATION,      offsetof(Network, match_virt)
 Match.KernelCommandLine,     config_parse_net_condition,         CONDITION_KERNEL_COMMAND_LINE, offsetof(Network, match_kernel)
+Match.Architecture,          config_parse_net_condition,         CONDITION_ARCHITECTURE,        offsetof(Network, match_arch)
 Network.Description,         config_parse_string,                0,                             offsetof(Network, description)
 Network.Bridge,              config_parse_bridge,                0,                             offsetof(Network, bridge)
 Network.Bond,                config_parse_bond,                  0,                             offsetof(Network, bond)

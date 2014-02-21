@@ -845,6 +845,15 @@
             for details.</para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><varname>Architecture</varname></term>
+          <listitem>
+            <para>Checks whether the system is running on a specific
+            architecture. See <literal>ConditionArchitecture=</literal> in
+            <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+            for details.</para>
+          </listitem>
+        </varlistentry>
       </variablelist>
 
       <para>The <literal>[Link]</literal> section accepts the following keys:</para>
