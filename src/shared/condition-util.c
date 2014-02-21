@@ -33,6 +33,7 @@
 #include "path-util.h"
 #include "fileio.h"
 #include "unit.h"
+#include "architecture.h"
 
 Condition* condition_new(ConditionType type, const char *parameter, bool trigger, bool negate) {
         Condition *c;
@@ -154,6 +155,28 @@ bool condition_test_virtualization(Condition *c) {
         return (v > 0 && streq(c->parameter, id)) == !c->negate;
 }
 
+bool condition_test_architecture(Condition *c) {
+        Architecture a, b;
+
+        assert(c);
+        assert(c->parameter);
+        assert(c->type == CONDITION_ARCHITECTURE);
+
+        a = uname_architecture();
+        if (a < 0)
+                return c->negate;
+
+        if (streq(c->parameter, "native"))
+                b = native_architecture();
+        else
+                b = architecture_from_string(c->parameter);
+
+        if (b < 0)
+                return c->negate;
+
+        return (a == b) == !c->negate;
+}
+
 bool condition_test_host(Condition *c) {
         sd_id128_t x, y;
         char *h;
@@ -170,7 +193,7 @@ bool condition_test_host(Condition *c) {
                 if (r < 0)
                         return c->negate;
 
-                return sd_id128_equal(x, y);
+                return sd_id128_equal(x, y) == !c->negate;
         }
 
         h = gethostname_malloc();
@@ -237,6 +260,7 @@ static const char* const condition_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_CAPABILITY] = "ConditionCapability",
         [CONDITION_HOST] = "ConditionHost",
         [CONDITION_AC_POWER] = "ConditionACPower",
+        [CONDITION_ARCHITECTURE] = "ConditionArchitecture",
         [CONDITION_NULL] = "ConditionNull"
 };
 

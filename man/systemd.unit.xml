@@ -879,6 +879,13 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>ConditionArchitecture=</varname></term>
+                                <term><varname>ConditionVirtualization=</varname></term>
+                                <term><varname>ConditionHost=</varname></term>
+                                <term><varname>ConditionKernelCommandLine=</varname></term>
+                                <term><varname>ConditionSecurity=</varname></term>
+                                <term><varname>ConditionCapability=</varname></term>
+                                <term><varname>ConditionACPower=</varname></term>
                                 <term><varname>ConditionPathExists=</varname></term>
                                 <term><varname>ConditionPathExistsGlob=</varname></term>
                                 <term><varname>ConditionPathIsDirectory=</varname></term>
@@ -888,12 +895,6 @@
                                 <term><varname>ConditionDirectoryNotEmpty=</varname></term>
                                 <term><varname>ConditionFileNotEmpty=</varname></term>
                                 <term><varname>ConditionFileIsExecutable=</varname></term>
-                                <term><varname>ConditionKernelCommandLine=</varname></term>
-                                <term><varname>ConditionVirtualization=</varname></term>
-                                <term><varname>ConditionSecurity=</varname></term>
-                                <term><varname>ConditionCapability=</varname></term>
-                                <term><varname>ConditionHost=</varname></term>
-                                <term><varname>ConditionACPower=</varname></term>
                                 <term><varname>ConditionNull=</varname></term>
 
                                 <listitem><para>Before starting a unit
@@ -907,6 +908,151 @@
                                 condition is checked at the time the
                                 queued start job is to be
                                 executed.</para>
+
+                                <para><varname>ConditionArchitecture=</varname>
+                                may be used to check whether the
+                                system is running on a specific
+                                architecture. Takes one of
+                                <varname>x86</varname>,
+                                <varname>x86-64</varname>,
+                                <varname>ppc</varname>,
+                                <varname>ppc64</varname>,
+                                <varname>ia64</varname>,
+                                <varname>parisc</varname>,
+                                <varname>parisc64</varname>,
+                                <varname>s390</varname>,
+                                <varname>s390x</varname>,
+                                <varname>sparc</varname>,
+                                <varname>sparc64</varname>,
+                                <varname>mips</varname>,
+                                <varname>mips64</varname>,
+                                <varname>alpha</varname>,
+                                <varname>arm</varname>,
+                                <varname>arm-be</varname>,
+                                <varname>arm64</varname>,
+                                <varname>arm64-be</varname>,
+                                <varname>sh</varname>,
+                                <varname>sh64</varname>,
+                                <varname>m86k</varname> to test
+                                against a specific architecture. The
+                                architecture is determined from the
+                                information returned by
+                                <citerefentry><refentrytitle>uname</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+                                and is thus subject to
+                                <citerefentry><refentrytitle>personality</refentrytitle><manvolnum>2</manvolnum></citerefentry>. Note
+                                that a <varname>Personality=</varname>
+                                setting in the same unit file has no
+                                effect on this condition. A special
+                                architecture name
+                                <varname>native</varname> is mapped to
+                                the architecture the system manager
+                                itself is compiled for. The test may
+                                be negated by prepending an
+                                exclamation mark.</para>
+
+                                <para><varname>ConditionVirtualization=</varname>
+                                may be used to check whether the
+                                system is executed in a virtualized
+                                environment and optionally test
+                                whether it is a specific
+                                implementation. Takes either boolean
+                                value to check if being executed in
+                                any virtualized environment, or one of
+                                <varname>vm</varname> and
+                                <varname>container</varname> to test
+                                against a generic type of
+                                virtualization solution, or one of
+                                <varname>qemu</varname>,
+                                <varname>kvm</varname>,
+                                <varname>vmware</varname>,
+                                <varname>microsoft</varname>,
+                                <varname>oracle</varname>,
+                                <varname>xen</varname>,
+                                <varname>bochs</varname>,
+                                <varname>chroot</varname>,
+                                <varname>uml</varname>,
+                                <varname>openvz</varname>,
+                                <varname>lxc</varname>,
+                                <varname>lxc-libvirt</varname>,
+                                <varname>systemd-nspawn</varname> to
+                                test against a specific
+                                implementation. If multiple
+                                virtualization technologies are nested,
+                                only the innermost is considered. The
+                                test may be negated by prepending an
+                                exclamation mark.</para>
+
+                                <para><varname>ConditionHost=</varname>
+                                may be used to match against the
+                                hostname or machine ID of the
+                                host. This either takes a hostname
+                                string (optionally with shell style
+                                globs) which is tested against the
+                                locally set hostname as returned by
+                                <citerefentry><refentrytitle>gethostname</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
+                                or a machine ID formatted as string
+                                (see
+                                <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
+                                The test may be negated by prepending
+                                an exclamation mark.</para>
+
+                                <para><varname>ConditionKernelCommandLine=</varname>
+                                may be used to check whether a
+                                specific kernel command line option is
+                                set (or if prefixed with the
+                                exclamation mark unset). The argument
+                                must either be a single word, or an
+                                assignment (i.e. two words, separated
+                                <literal>=</literal>). In the former
+                                case the kernel command line is
+                                searched for the word appearing as is,
+                                or as left hand side of an
+                                assignment. In the latter case the
+                                exact assignment is looked for with
+                                right and left hand side
+                                matching.</para>
+
+                                <para><varname>ConditionSecurity=</varname>
+                                may be used to check whether the given
+                                security module is enabled on the
+                                system. Currently the recognized values
+                                values are <varname>selinux</varname>,
+                                <varname>apparmor</varname>,
+                                <varname>ima</varname> and
+                                <varname>smack</varname>.
+                                The test may be negated by prepending
+                                an exclamation
+                                mark.</para>
+
+                                <para><varname>ConditionCapability=</varname>
+                                may be used to check whether the given
+                                capability exists in the capability
+                                bounding set of the service manager
+                                (i.e. this does not check whether
+                                capability is actually available in
+                                the permitted or effective sets, see
+                                <citerefentry><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                                for details). Pass a capability name
+                                such as <literal>CAP_MKNOD</literal>,
+                                possibly prefixed with an exclamation
+                                mark to negate the check.</para>
+
+                                <para><varname>ConditionACPower=</varname>
+                                may be used to check whether the
+                                system has AC power, or is exclusively
+                                battery powered at the time of
+                                activation of the unit. This takes a
+                                boolean argument. If set to
+                                <varname>true</varname>, the condition
+                                will hold only if at least one AC
+                                connector of the system is connected
+                                to a power source, or if no AC
+                                connectors are known. Conversely, if
+                                set to <varname>false</varname>, the
+                                condition will hold only if there is
+                                at least one AC connector known and
+                                all AC connectors are disconnected
+                                from a power source.</para>
 
                                 <para>With
                                 <varname>ConditionPathExists=</varname>
@@ -978,111 +1124,6 @@
                                 but verifies whether a certain path
                                 exists, is a regular file and marked
                                 executable.</para>
-
-                                <para>Similarly,
-                                <varname>ConditionKernelCommandLine=</varname>
-                                may be used to check whether a
-                                specific kernel command line option is
-                                set (or if prefixed with the
-                                exclamation mark unset). The argument
-                                must either be a single word, or an
-                                assignment (i.e. two words, separated
-                                <literal>=</literal>). In the former
-                                case the kernel command line is
-                                searched for the word appearing as is,
-                                or as left hand side of an
-                                assignment. In the latter case the
-                                exact assignment is looked for with
-                                right and left hand side
-                                matching.</para>
-
-                                <para><varname>ConditionVirtualization=</varname>
-                                may be used to check whether the
-                                system is executed in a virtualized
-                                environment and optionally test
-                                whether it is a specific
-                                implementation. Takes either boolean
-                                value to check if being executed in
-                                any virtualized environment, or one of
-                                <varname>vm</varname> and
-                                <varname>container</varname> to test
-                                against a generic type of
-                                virtualization solution, or one of
-                                <varname>qemu</varname>,
-                                <varname>kvm</varname>,
-                                <varname>vmware</varname>,
-                                <varname>microsoft</varname>,
-                                <varname>oracle</varname>,
-                                <varname>xen</varname>,
-                                <varname>bochs</varname>,
-                                <varname>chroot</varname>,
-                                <varname>uml</varname>,
-                                <varname>openvz</varname>,
-                                <varname>lxc</varname>,
-                                <varname>lxc-libvirt</varname>,
-                                <varname>systemd-nspawn</varname> to
-                                test against a specific
-                                implementation. If multiple
-                                virtualization technologies are nested,
-                                only the innermost is considered. The
-                                test may be negated by prepending an
-                                exclamation mark.</para>
-
-                                <para><varname>ConditionSecurity=</varname>
-                                may be used to check whether the given
-                                security module is enabled on the
-                                system. Currently the recognized values
-                                values are <varname>selinux</varname>,
-                                <varname>apparmor</varname>,
-                                <varname>ima</varname> and
-                                <varname>smack</varname>.
-                                The test may be negated by prepending
-                                an exclamation
-                                mark.</para>
-
-                                <para><varname>ConditionCapability=</varname>
-                                may be used to check whether the given
-                                capability exists in the capability
-                                bounding set of the service manager
-                                (i.e. this does not check whether
-                                capability is actually available in
-                                the permitted or effective sets, see
-                                <citerefentry><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-                                for details). Pass a capability name
-                                such as <literal>CAP_MKNOD</literal>,
-                                possibly prefixed with an exclamation
-                                mark to negate the check.</para>
-
-                                <para><varname>ConditionHost=</varname>
-                                may be used to match against the
-                                hostname or machine ID of the
-                                host. This either takes a hostname
-                                string (optionally with shell style
-                                globs) which is tested against the
-                                locally set hostname as returned by
-                                <citerefentry><refentrytitle>gethostname</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
-                                or a machine ID formatted as string
-                                (see
-                                <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
-                                The test may be negated by prepending
-                                an exclamation mark.</para>
-
-                                <para><varname>ConditionACPower=</varname>
-                                may be used to check whether the
-                                system has AC power, or is exclusively
-                                battery powered at the time of
-                                activation of the unit. This takes a
-                                boolean argument. If set to
-                                <varname>true</varname>, the condition
-                                will hold only if at least one AC
-                                connector of the system is connected
-                                to a power source, or if no AC
-                                connectors are known. Conversely, if
-                                set to <varname>false</varname>, the
-                                condition will hold only if there is
-                                at least one AC connector known and
-                                all AC connectors are disconnected
-                                from a power source.</para>
 
                                 <para>Finally,
                                 <varname>ConditionNull=</varname> may

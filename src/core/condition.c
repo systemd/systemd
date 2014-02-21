@@ -167,6 +167,9 @@ static bool condition_test(Condition *c) {
         case CONDITION_AC_POWER:
                 return condition_test_ac_power(c);
 
+        case CONDITION_ARCHITECTURE:
+                return condition_test_architecture(c);
+
         case CONDITION_NULL:
                 return !c->negate;
 

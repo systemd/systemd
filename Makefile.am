@@ -674,6 +674,8 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/util.h \
 	src/shared/virt.c \
 	src/shared/virt.h \
+	src/shared/architecture.c \
+	src/shared/architecture.h \
 	src/shared/efivars.c \
 	src/shared/efivars.h \
 	src/shared/path-util.c \
@@ -1150,7 +1152,8 @@ tests += \
 	test-list \
 	test-tables \
 	test-device-nodes \
-	test-xml
+	test-xml \
+	test-architecture
 
 EXTRA_DIST += \
 	test/sched_idle_bad.service \
@@ -1297,6 +1300,12 @@ test_time_SOURCES = \
 
 test_time_LDADD = \
 	libsystemd-core.la
+
+test_architecture_SOURCES = \
+	src/test/test-architecture.c
+
+test_architecture_LDADD = \
+	libsystemd-shared.la
 
 test_log_SOURCES = \
 	src/test/test-log.c
