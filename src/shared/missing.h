@@ -273,25 +273,17 @@ static inline pid_t gettid(void) {
 #define MAX_HANDLE_SZ 128
 #endif
 
-#if defined __x86_64__
-#  ifndef __NR_name_to_handle_at
+#ifndef __NR_name_to_handle_at
+#  if defined(__x86_64__)
 #    define __NR_name_to_handle_at 303
-#  endif
-#elif defined __i386__
-#  ifndef __NR_name_to_handle_at
+#  elif defined(__i386__)
 #    define __NR_name_to_handle_at 341
-#  endif
-#elif defined __arm__
-#  ifndef __NR_name_to_handle_at
+#  elif defined(__arm__)
 #    define __NR_name_to_handle_at 370
-#  endif
-#elif defined __powerpc__
-#  ifndef __NR_name_to_handle_at
+#  elif defined(__powerpc__)
 #    define __NR_name_to_handle_at 345
-#  endif
-#else
-#  ifndef __NR_name_to_handle_at
-#    error __NR_name_to_handle_at is not defined
+#  else
+#    error "__NR_name_to_handle_at is not defined"
 #  endif
 #endif
 
@@ -311,7 +303,7 @@ static inline int name_to_handle_at(int fd, const char *name, struct file_handle
 #  ifdef HAVE___SECURE_GETENV
 #    define secure_getenv __secure_getenv
 #  else
-#    error neither secure_getenv nor __secure_getenv are available
+#    error "neither secure_getenv nor __secure_getenv are available"
 #  endif
 #endif
 
