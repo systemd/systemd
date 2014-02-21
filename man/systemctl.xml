@@ -148,8 +148,8 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <term><option>--before</option></term>
 
         <listitem>
-          <para>Show which units are started after or before
-          with <command>list-dependencies</command>, respectively.
+          <para>Show after (before) which units the specified unit is started
+          with <command>list-dependencies</command>.
           </para>
         </listitem>
       </varlistentry>
