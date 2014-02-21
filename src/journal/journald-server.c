@@ -1430,6 +1430,16 @@ static int server_open_hostname(Server *s) {
 
         r = sd_event_add_io(s->event, &s->hostname_event_source, s->hostname_fd, 0, dispatch_hostname_change, s);
         if (r < 0) {
+                /* kernels prior to 3.2 don't support polling this file. Ignore
+                 * the failure. */
+                if (r == -EPERM) {
+                        log_warning("Failed to register hostname fd in event loop: %s. Ignoring.",
+                                        strerror(-r));
+                        close_nointr_nofail(s->hostname_fd);
+                        s->hostname_fd = -1;
+                        return 0;
+                }
+
                 log_error("Failed to register hostname fd in event loop: %s", strerror(-r));
                 return r;
         }
