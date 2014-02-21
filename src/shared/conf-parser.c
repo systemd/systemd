@@ -225,6 +225,15 @@ static int parse_line(const char* unit,
         if (startswith(l, ".include ")) {
                 _cleanup_free_ char *fn = NULL;
 
+                /* .includes are a bad idea, we only support them here
+                 * for historical reasons. They create cyclic include
+                 * problems and make it difficult to detect
+                 * configuration file changes with an easy
+                 * stat(). Better approaches, such as .d/ drop-in
+                 * snippets exist.
+                 *
+                 * Support for them should be eventually removed. */
+
                 if (!allow_include) {
                         log_syntax(unit, LOG_ERR, filename, line, EBADMSG,
                                    ".include not allowed here. Ignoring.");

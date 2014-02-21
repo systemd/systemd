@@ -200,12 +200,6 @@
                 has the appropriate section headers before any
                 directive.</para>
 
-                <para>If a line starts with <option>.include</option>
-                followed by a filename, the specified file will be
-                parsed at this point. Make sure that the file that is
-                included has the appropriate section headers before
-                any directives.</para>
-
                 <para>Note that while systemd offers a flexible
                 dependency system between units it is recommended to
                 use this functionality only sparingly and instead rely
