@@ -68,7 +68,7 @@
 
                 <para>Network configurations applied before networkd is started
                 are not removed, and static configuration applied by networkd
-                are not removed when networkd exits. This ensures restarting
+                is not removed when networkd exits. This ensures restarting
                 networkd does not cut the network connection, and, in particular,
                 that it is safe to transition between the initrd and the real root,
                 and back.</para>
@@ -153,7 +153,7 @@
                                         <term><varname>Name=</varname></term>
                                         <listitem>
                                                 <para>The interface name used when creating the
-                                                bridge. This option is compulsory.</para>
+                                                netdev. This option is compulsory.</para>
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
