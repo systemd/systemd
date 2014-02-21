@@ -21,7 +21,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="sd_notify">
+<refentry id="sd_notify"
+        xmlns:xi="http://www.w3.org/2001/XInclude">
 
         <refentryinfo>
                 <title>sd_notify</title>
@@ -211,10 +212,7 @@
         <refsect1>
                 <title>Notes</title>
 
-                <para>These APIs are implemented as a shared library,
-                which can be compiled and linked to with the
-                <constant>libsystemd</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-                file.</para>
+                <xi:include href="libsystemd-pkgconfig.xml" xpointer="pkgconfig-text"/>
 
                 <para>Internally, these functions send a single
                 datagram with the state string as payload to the

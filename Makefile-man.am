@@ -1328,6 +1328,7 @@ EXTRA_DIST += \
 	man/kernel-command-line.xml \
 	man/kernel-install.xml \
 	man/less-variables.xml \
+	man/libsystemd-pkgconfig.xml \
 	man/locale.conf.xml \
 	man/localectl.xml \
 	man/localtime.xml \

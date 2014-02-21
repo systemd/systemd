@@ -21,7 +21,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="sd-id128">
+<refentry id="sd-id128"
+        xmlns:xi="http://www.w3.org/2001/XInclude">
 
         <refentryinfo>
                 <title>sd-id128</title>
@@ -152,15 +153,7 @@
                 <option>--new-id</option> option.</para>
         </refsect1>
 
-        <refsect1>
-                <title>Notes</title>
-
-                <para>These APIs are implemented as a shared library,
-                which can be compiled and linked to with the
-                <literal>libsystemd</literal> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-                file.</para>
-
-        </refsect1>
+        <xi:include href="libsystemd-pkgconfig.xml" />
 
         <refsect1>
                 <title>See Also</title>

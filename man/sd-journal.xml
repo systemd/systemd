@@ -21,7 +21,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="sd-journal">
+<refentry id="sd-journal"
+        xmlns:xi="http://www.w3.org/2001/XInclude">
 
         <refentryinfo>
                 <title>sd-journal</title>
@@ -95,14 +96,7 @@
                 tool.</para>
         </refsect1>
 
-        <refsect1>
-                <title>Notes</title>
-
-                <para>These APIs are implemented as a shared library,
-                which can be compiled and linked to with the
-                <constant>libsystemd</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-                file.</para>
-        </refsect1>
+        <xi:include href="libsystemd-pkgconfig.xml" />
 
         <refsect1>
                 <title>See Also</title>

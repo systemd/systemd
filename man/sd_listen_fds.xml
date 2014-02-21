@@ -21,7 +21,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="sd_listen_fds">
+<refentry id="sd_listen_fds"
+        xmlns:xi="http://www.w3.org/2001/XInclude">
 
         <refentryinfo>
                 <title>sd_listen_fds</title>
@@ -121,10 +122,7 @@
         <refsect1>
                 <title>Notes</title>
 
-                <para>These APIs are implemented as a shared library,
-                which can be compiled and linked to with the
-                <constant>libsystemd</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-                file.</para>
+                <xi:include href="libsystemd-pkgconfig.xml" xpointer="pkgconfig-text"/>
 
                 <para>Internally, this function checks whether the
                 <varname>$LISTEN_PID</varname> environment variable
