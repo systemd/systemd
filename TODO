@@ -27,6 +27,10 @@ External:
 
 Features:
 
+* man: move .link, .network and .netdev documentation into their own
+  man pages maybe called "systemd.link(5)", "systemd.network(5)" and
+  "systemd.netdev(5)" or so.
+
 * extend device cgroup controller support to allow enabling groups of
   device nodes, so that pts can be allowed in whole. For that,
   introduce the syntax "block-XYZ" and "char-XYZ" in addition to the
@@ -52,9 +56,6 @@ Features:
   job queue and a check for failed services. Maybe then change
   "systemctl status" without args to output this state along with a
   selection of other data, such as the uptime or so.
-
-* doc: remove documentation for .include, drop-in snippets are the
-  better replacement.
 
 * Add a seccomp-based filter for socket() calls to limit services to
   specific address families (for example: AF_UNIX), inspired by
@@ -349,7 +350,6 @@ Features:
   - document in wiki how to map ical recurrence events to systemd timer unit calendar specifications
   - add a man page containing packaging guidelines and recommending usage of things like Documentation=, PrivateTmp=, PrivateNetwork= and ReadOnlyDirectories=/etc /usr.
   - document systemd-journal-flush.service properly
-  - man: remove .include documentation, and instead push people to use .d/*.conf
   - documentation: recommend to connect the timer units of a service to the service via Also= in [Install]
   - man: document the very specific env the shutdown drop-in tools live in
   - man: extend runlevel(8) to mention that runlevels suck, and are dead. Maybe add runlevel(7) with a note about that too
