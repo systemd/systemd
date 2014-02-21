@@ -593,7 +593,7 @@ int main(int argc, char* argv[]) {
                 arg_description = description;
         }
 
-        r = bus_open_transport(arg_transport, arg_host, arg_user, &bus);
+        r = bus_open_transport_systemd(arg_transport, arg_host, arg_user, &bus);
         if (r < 0) {
                 log_error("Failed to create bus connection: %s", strerror(-r));
                 goto finish;
