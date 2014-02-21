@@ -58,6 +58,13 @@ int selinux_setup(bool *loaded_policy) {
        cb.func_log = null_log;
        selinux_set_callback(SELINUX_CB_LOG, cb);
 
+       /* Don't load policy in the initrd if we don't appear to have
+        * it.  For the real root, we check below if we've already
+        * loaded policy, and return gracefully.
+        */
+       if (in_initrd() && access(selinux_path(), F_OK) < 0)
+               return 0;
+
        /* Already initialized by somebody else? */
        r = getcon_raw(&con);
        if (r == 0) {
