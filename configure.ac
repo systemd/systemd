@@ -1150,6 +1150,7 @@ AC_MSG_RESULT([
         hostnamed:               ${have_hostnamed}
         timedated:               ${have_timedated}
         localed:                 ${have_localed}
+        networkd:                ${have_networkd}
         coredump:                ${have_coredump}
         polkit:                  ${have_polkit}
         efi:                     ${have_efi}
