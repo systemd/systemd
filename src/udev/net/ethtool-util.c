@@ -89,20 +89,19 @@ int ethtool_get_driver(int fd, const char *ifname, char **ret) {
 
 int ethtool_set_speed(int fd, const char *ifname, unsigned int speed, Duplex duplex)
 {
-        struct ifreq ifr;
-        struct ethtool_cmd ecmd;
+        struct ethtool_cmd ecmd = {
+                .cmd = ETHTOOL_GSET
+        };
+        struct ifreq ifr = {
+                .ifr_data = (void*) &ecmd
+        };
         bool need_update = false;
         int r;
 
         if (speed == 0 && duplex == _DUP_INVALID)
                 return 0;
 
-        zero(ecmd);
-        ecmd.cmd = ETHTOOL_GSET;
-
-        zero(ifr);
         strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
-        ifr.ifr_data = (void *)&ecmd;
 
         r = ioctl(fd, SIOCETHTOOL, &ifr);
         if (r < 0)
@@ -142,20 +141,19 @@ int ethtool_set_speed(int fd, const char *ifname, unsigned int speed, Duplex dup
 }
 
 int ethtool_set_wol(int fd, const char *ifname, WakeOnLan wol) {
-        struct ifreq ifr;
-        struct ethtool_wolinfo ecmd;
+        struct ethtool_wolinfo ecmd = {
+                .cmd = ETHTOOL_GWOL
+        };
+        struct ifreq ifr = {
+                .ifr_data = (void*) &ecmd
+        };
         bool need_update = false;
         int r;
 
         if (wol == _WOL_INVALID)
                 return 0;
 
-        zero(ecmd);
-        ecmd.cmd = ETHTOOL_GWOL;
-
-        zero(ifr);
         strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
-        ifr.ifr_data = (void *)&ecmd;
 
         r = ioctl(fd, SIOCETHTOOL, &ifr);
         if (r < 0)
