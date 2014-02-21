@@ -350,7 +350,7 @@
         </refsect1>
 
         <refsect1>
-                <title>Options</title>
+                <title>[Unit] Section Options</title>
 
                 <para>Unit file may include a [Unit] section, which
                 carries generic information about the unit that is not
@@ -1166,6 +1166,11 @@
                                 normal units.</para></listitem>
                         </varlistentry>
                 </variablelist>
+
+        </refsect1>
+
+        <refsect1>
+                <title>[Install] Section Options</title>
 
                 <para>Unit file may include a [Install] section, which
                 carries installation information for the unit. This
