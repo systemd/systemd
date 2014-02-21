@@ -2016,6 +2016,9 @@ libsystemd_internal_la_CFLAGS = \
 	$(AM_CFLAGS) \
 	-pthread
 
+libsystemd_internal_la_LIBADD = \
+	$(RT_LIBS)
+
 noinst_LTLIBRARIES += \
 	libsystemd-internal.la
 
