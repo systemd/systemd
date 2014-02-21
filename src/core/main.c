@@ -51,6 +51,7 @@
 #include "strv.h"
 #include "def.h"
 #include "virt.h"
+#include "architecture.h"
 #include "watchdog.h"
 #include "path-util.h"
 #include "switch-root.h"
@@ -1509,6 +1510,8 @@ int main(int argc, char *argv[]) {
                 detect_virtualization(&virtualization);
                 if (virtualization)
                         log_info("Detected virtualization '%s'.", virtualization);
+
+                log_info("Detected architecture '%s'.", architecture_to_string(uname_architecture()));
 
                 if (in_initrd())
                         log_info("Running in initial RAM disk.");

@@ -39,6 +39,7 @@
 #include "strv.h"
 #include "sd-id128.h"
 #include "virt.h"
+#include "architecture.h"
 #include "fileio.h"
 
 static bool arg_ask_password = true;
@@ -121,7 +122,9 @@ static void print_status_info(StatusInfo *i) {
 
         assert_se(uname(&u) >= 0);
         printf("            Kernel: %s %s\n"
-               "      Architecture: %s\n", u.sysname, u.release, u.machine);
+               "      Architecture: %s\n",
+               u.sysname, u.release,
+               architecture_to_string(uname_architecture()));
 
 }
 
