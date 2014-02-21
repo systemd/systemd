@@ -27,6 +27,15 @@ External:
 
 Features:
 
+* extend device cgroup controller support to allow enabling groups of
+  device nodes, so that pts can be allowed in whole. For that,
+  introduce the syntax "block-XYZ" and "char-XYZ" in addition to the
+  existing "/dev/foobar", where XYZ then is looked up in /proc/devices
+  and mapped to one or more majors.
+
+* Add all pts device nodes to those allowed by default when the device
+  controller is used.
+
 * "busctl status" works only as root on dbus1, since we cannot read
   /proc/$PID/exe
 
