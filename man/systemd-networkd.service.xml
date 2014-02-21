@@ -102,7 +102,7 @@
 
                         <variablelist class='network-directives'>
                                 <varlistentry>
-                                        <term><varname>Host</varname></term>
+                                        <term><varname>Host=</varname></term>
                                         <listitem>
                                                 <para>Matches against the hostname or machine ID of the
                                                 host. See <literal>ConditionHost=</literal> in
@@ -112,7 +112,7 @@
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
-                                        <term><varname>Virtualization</varname></term>
+                                        <term><varname>Virtualization=</varname></term>
                                         <listitem>
                                                 <para>Checks whether the system is executed in a virtualized
                                                 environment and optionally test whether it is a specific
@@ -123,7 +123,7 @@
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
-                                        <term><varname>KernelCommandLine</varname></term>
+                                        <term><varname>KernelCommandLine=</varname></term>
                                         <listitem>
                                                 <para>Checks whether a specific kernel command line option is
                                                 set (or if prefixed with the exclamation mark unset). See
@@ -134,7 +134,7 @@
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
-                                        <term><varname>Architecture</varname></term>
+                                        <term><varname>Architecture=</varname></term>
                                         <listitem>
                                                 <para>Checks whether the system is running on a specific
                                                 architecture. See <literal>ConditionArchitecture=</literal> in
@@ -150,14 +150,14 @@
 
                         <variablelist class='network-directives'>
                                 <varlistentry>
-                                        <term><varname>Name</varname></term>
+                                        <term><varname>Name=</varname></term>
                                         <listitem>
                                                 <para>The interface name used when creating the
                                                 bridge. This option is compulsory.</para>
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
-                                        <term><varname>Kind</varname></term>
+                                        <term><varname>Kind=</varname></term>
                                         <listitem>
                                                 <para>The netdev kind. Currently, <literal>bridge</literal>,
                                                 <literal>bond</literal> and <literal>vlan</literal>
@@ -171,7 +171,7 @@
 
                         <variablelist class='network-directives'>
                                 <varlistentry>
-                                        <term><varname>Id</varname></term>
+                                        <term><varname>Id=</varname></term>
                                         <listitem>
                                                 <para>The VLAN ID to use. An integer in the range 0–4094.
                                                 This option is compulsory.</para>
@@ -198,13 +198,13 @@
 
                         <variablelist class='network-directives'>
                                 <varlistentry>
-                                        <term><varname>MACAddress</varname></term>
+                                        <term><varname>MACAddress=</varname></term>
                                         <listitem>
                                                 <para>The hardware address.</para>
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
-                                        <term><varname>Path</varname></term>
+                                        <term><varname>Path=</varname></term>
                                         <listitem>
                                                 <para>The persistent path, as exposed by the udev
                                                 property <literal>ID_PATH</literal>. May contain shell
@@ -212,7 +212,7 @@
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
-                                        <term><varname>Driver</varname></term>
+                                        <term><varname>Driver=</varname></term>
                                         <listitem>
                                                 <para>The driver currently bound to the device, as
                                                 exposed by the udev property <literal>DRIVER</literal>
@@ -221,14 +221,14 @@
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
-                                        <term><varname>Type</varname></term>
+                                        <term><varname>Type=</varname></term>
                                         <listitem>
                                                 <para>The device type, as exposed by the udev property
                                                 <literal>DEVTYPE</literal>.</para>
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
-                                        <term><varname>Name</varname></term>
+                                        <term><varname>Name=</varname></term>
                                         <listitem>
                                                 <para>The device name, as exposed by the udev property
                                                 <literal>INTERFACE</literal>. May contain shell style
@@ -236,7 +236,7 @@
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
-                                        <term><varname>Host</varname></term>
+                                        <term><varname>Host=</varname></term>
                                         <listitem>
                                                 <para>Matches against the hostname or machine ID of the
                                                 host. See <literal>ConditionHost=</literal> in
@@ -246,7 +246,7 @@
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
-                                        <term><varname>Virtualization</varname></term>
+                                        <term><varname>Virtualization=</varname></term>
                                         <listitem>
                                                 <para>Checks whether the system is executed in a virtualized
                                                 environment and optionally test whether it is a specific
@@ -257,7 +257,7 @@
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
-                                        <term><varname>KernelCommandLine</varname></term>
+                                        <term><varname>KernelCommandLine=</varname></term>
                                         <listitem>
                                                 <para>Checks whether a specific kernel command line option is
                                                 set (or if prefixed with the exclamation mark unset). See
@@ -268,7 +268,7 @@
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
-                                        <term><varname>Architecture</varname></term>
+                                        <term><varname>Architecture=</varname></term>
                                         <listitem>
                                                 <para>Checks whether the system is running on a specific
                                                 architecture. See <literal>ConditionArchitecture=</literal> in
@@ -283,20 +283,20 @@
 
                         <variablelist class='network-directives'>
                                 <varlistentry>
-                                        <term><varname>Description</varname></term>
+                                        <term><varname>Description=</varname></term>
                                         <listitem>
                                                 <para>A description of the device. This is only used for
                                                 presentation purposes.</para>
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
-                                        <term><varname>DHCP</varname></term>
+                                        <term><varname>DHCP=</varname></term>
                                         <listitem>
                                                 <para>A boolean. When true, enables basic DHCPv4 support.</para>
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
-                                        <term><varname>Address</varname></term>
+                                        <term><varname>Address=</varname></term>
                                         <listitem>
                                                 <para>A static IPv4 or IPv6 address and its prefix length,
                                                 separated by a <literal>/</literal> character. The format of the address must
@@ -306,7 +306,7 @@
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
-                                        <term><varname>Gateway</varname></term>
+                                        <term><varname>Gateway=</varname></term>
                                         <listitem>
                                                 <para>The gateway address, which must be in the format described in
                                                 <citerefentry><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>
@@ -314,7 +314,7 @@
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
-                                        <term><varname>DNS</varname></term>
+                                        <term><varname>DNS=</varname></term>
                                         <listitem>
                                                 <para>A DNS server address, which must be in the format described in
                                                 <citerefentry><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>
@@ -322,19 +322,19 @@
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
-                                        <term><varname>Bridge</varname></term>
+                                        <term><varname>Bridge=</varname></term>
                                         <listitem>
                                                 <para>The name of the bridge to add the link to.</para>
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
-                                        <term><varname>Bond</varname></term>
+                                        <term><varname>Bond=</varname></term>
                                         <listitem>
                                                 <para>The name of the bond to add the link to.</para>
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
-                                        <term><varname>VLAN</varname></term>
+                                        <term><varname>VLAN=</varname></term>
                                         <listitem>
                                                 <para>The name of a VLAN to create on the link. This option
                                                 may be specified more than once.</para>
@@ -346,13 +346,13 @@
 
                         <variablelist class='network-directives'>
                                 <varlistentry>
-                                        <term><varname>Address</varname></term>
+                                        <term><varname>Address=</varname></term>
                                         <listitem>
                                                 <para>As in the <literal>[Network]</literal> section. This key is mandatory.</para>
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
-                                        <term><varname>Broadcast</varname></term>
+                                        <term><varname>Broadcast=</varname></term>
                                         <listitem>
                                                 <para>The broadcast address, which must be in the format described in
                                                 <citerefentry><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>
@@ -361,7 +361,7 @@
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
-                                        <term><varname>Label</varname></term>
+                                        <term><varname>Label=</varname></term>
                                         <listitem>
                                                 <para>An address label.</para>
                                         </listitem>
@@ -372,13 +372,13 @@
 
                         <variablelist class='network-directives'>
                                 <varlistentry>
-                                        <term><varname>Gateway</varname></term>
+                                        <term><varname>Gateway=</varname></term>
                                         <listitem>
                                                 <para>As in the <literal>[Network]</literal> section. This key is mandatory.</para>
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
-                                        <term><varname>Destination</varname></term>
+                                        <term><varname>Destination=</varname></term>
                                         <listitem>
                                                 <para>The destination prefix of the route. Possibly followed by a slash and the
                                                 prefixlength, if ommitted a full-length host route is assumed.</para>
@@ -390,28 +390,28 @@
 
                         <variablelist class='network-directives'>
                                 <varlistentry>
-                                        <term><varname>UseDNS</varname></term>
+                                        <term><varname>UseDNS=</varname></term>
                                         <listitem>
                                                 <para>When true (the default), the DNS servers received from the DHCP server will
                                                 be used and take precedence over any statically configured ones.</para>
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
-                                        <term><varname>UseMTU</varname></term>
+                                        <term><varname>UseMTU=</varname></term>
                                         <listitem>
                                                 <para>When true, the interface maximum transmission unit from the DHCP server will
                                                 be used on the current link. Defaults to false.</para>
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
-                                        <term><varname>UseHostname</varname></term>
+                                        <term><varname>UseHostname=</varname></term>
                                         <listitem>
                                                 <para>When true (the default), the hostname received from the DHCP server
                                                 will be used as the transient hostname.</para>
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
-                                        <term><varname>CriticalConnection</varname></term>
+                                        <term><varname>CriticalConnection=</varname></term>
                                         <listitem>
                                                 <para>When true, the connection will never be torn down even if the DHCP lease
                                                 expires. This is contrary to the DHCP specification, but may be the best choice
@@ -427,7 +427,7 @@
                 <title>See Also</title>
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                 </para>
         </refsect1>
 
