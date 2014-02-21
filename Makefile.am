@@ -3955,9 +3955,6 @@ systemd_networkd_LDADD = \
 nodist_systemunit_DATA += \
 	units/systemd-networkd.service
 
-MULTI_USER_TARGET_WANTS += \
-	systemd-networkd.service
-
 test_network_SOURCES = \
 	src/network/test-network.c \
 	src/network/networkd.h \
