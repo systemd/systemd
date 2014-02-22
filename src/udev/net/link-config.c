@@ -365,10 +365,11 @@ int link_config_apply(link_config_ctx *ctx, link_config *config, struct udev_dev
         if (!old_name)
                 return -EINVAL;
 
-        r = ethtool_set_speed(ctx->ethtool_fd, old_name, config->speed, config->duplex);
+        r = ethtool_set_speed(ctx->ethtool_fd, old_name, config->speed / 1024, config->duplex);
         if (r < 0)
-                log_warning("Could not set speed or duplex of %s to %u Mbytes (%s): %s",
-                             old_name, config->speed, duplex_to_string(config->duplex), strerror(-r));
+                log_warning("Could not set speed or duplex of %s to %u Mbps (%s): %s",
+                            old_name, config->speed / 1024, duplex_to_string(config->duplex),
+                            strerror(-r));
 
         r = ethtool_set_wol(ctx->ethtool_fd, old_name, config->wol);
         if (r < 0)
