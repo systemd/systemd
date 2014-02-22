@@ -2368,9 +2368,10 @@ int config_parse_device_allow(
         if (!path)
                 return log_oom();
 
-        if (!path_startswith(path, "/dev")) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Invalid device node path '%s'. Ignoring.", path);
+        if (!startswith(path, "/dev/") &&
+            !startswith(path, "block-") &&
+            !startswith(path, "char-")) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Invalid device node path '%s'. Ignoring.", path);
                 return 0;
         }
 
@@ -2379,8 +2380,7 @@ int config_parse_device_allow(
                 m = "rwm";
 
         if (!in_charset(m, "rwm")) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Invalid device rights '%s'. Ignoring.", m);
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Invalid device rights '%s'. Ignoring.", m);
                 return 0;
         }
 

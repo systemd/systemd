@@ -191,6 +191,82 @@ static int whitelist_device(const char *path, const char *node, const char *acc)
         return r;
 }
 
+static int whitelist_major(const char *path, const char *name, char type, const char *acc) {
+        _cleanup_fclose_ FILE *f = NULL;
+        char line[LINE_MAX];
+        bool good = false;
+        int r;
+
+        assert(path);
+        assert(acc);
+        assert(type == 'b' || type == 'c');
+
+        f = fopen("/proc/devices", "re");
+        if (!f) {
+                log_warning("Cannot open /proc/devices to resolve %s (%c): %m", name, type);
+                return -errno;
+        }
+
+        FOREACH_LINE(line, f, goto fail) {
+                char buf[2+DECIMAL_STR_MAX(unsigned)+3+4], *p, *w;
+                unsigned maj;
+
+                truncate_nl(line);
+
+                if (type == 'c' && streq(line, "Character devices:")) {
+                        good = true;
+                        continue;
+                }
+
+                if (type == 'b' && streq(line, "Block devices:")) {
+                        good = true;
+                        continue;
+                }
+
+                if (isempty(line)) {
+                        good = false;
+                        continue;
+                }
+
+                if (!good)
+                        continue;
+
+                p = strstrip(line);
+
+                w = strpbrk(p, WHITESPACE);
+                if (!w)
+                        continue;
+                *w = 0;
+
+                r = safe_atou(p, &maj);
+                if (r < 0)
+                        continue;
+                if (maj <= 0)
+                        continue;
+
+                w++;
+                w += strspn(w, WHITESPACE);
+                if (!streq(w, name))
+                        continue;
+
+                sprintf(buf,
+                        "%c %u:* %s",
+                        type,
+                        maj,
+                        acc);
+
+                r = cg_set_attribute("devices", path, "devices.allow", buf);
+                if (r < 0)
+                        log_warning("Failed to set devices.allow on %s: %s", path, strerror(-r));
+        }
+
+        return 0;
+
+fail:
+        log_warning("Failed to read /proc/devices: %m");
+        return -errno;
+}
+
 void cgroup_context_apply(CGroupContext *c, CGroupControllerMask mask, const char *path) {
         int r;
 
@@ -306,7 +382,15 @@ void cgroup_context_apply(CGroupContext *c, CGroupControllerMask mask, const cha
                                 continue;
 
                         acc[k++] = 0;
-                        whitelist_device(path, a->path, acc);
+
+                        if (startswith(a->path, "/dev/"))
+                                whitelist_device(path, a->path, acc);
+                        else if (startswith(a->path, "block-"))
+                                whitelist_major(path, a->path + 6, 'b', acc);
+                        else if (startswith(a->path, "char-"))
+                                whitelist_major(path, a->path + 5, 'c', acc);
+                        else
+                                log_debug("Ignoring device %s while writing cgroup attribute.", a->path);
                 }
         }
 }

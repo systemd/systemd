@@ -247,17 +247,31 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <listitem>
           <para>Control access to specific device nodes by the
           executed processes. Takes two space-separated strings: a
-          device node path (such as <filename>/dev/null</filename>)
-          followed by a combination of <constant>r</constant>,
-          <constant>w</constant>, <constant>m</constant> to control
+          device node specifier followed by a combination of
+          <constant>r</constant>, <constant>w</constant>,
+          <constant>m</constant> to control
           <emphasis>r</emphasis>eading, <emphasis>w</emphasis>riting,
-          or creation of the specific device node by the unit
+          or creation of the specific device node(s) by the unit
           (<emphasis>m</emphasis>knod), respectively. This controls
           the <literal>devices.allow</literal> and
           <literal>devices.deny</literal> control group
-          attributes. For details about these control group attributes,
-          see <ulink
+          attributes. For details about these control group
+          attributes, see <ulink
           url="https://www.kernel.org/doc/Documentation/cgroups/devices.txt">devices.txt</ulink>.</para>
+
+          <para>The device node specifier is either a path to a device
+          node in the file system, starting with
+          <filename>/dev/</filename>, or a string starting with either
+          <literal>char-</literal> or <literal>block-</literal>
+          followed by a device group name, as listed in
+          <filename>/proc/devices</filename>. The latter is useful to
+          whitelist all current and future devices belonging to a
+          specific device group at once. Examples:
+          <filename>/dev/sda5</filename> is a path to a device node,
+          referring to an ATA or SCSI block
+          device. <literal>char-pts</literal> and
+          <literal>char-alsa</literal> are specifiers for all pseudo
+          TTYs and all ALSA sound devices, respectively.</para>
         </listitem>
       </varlistentry>
 

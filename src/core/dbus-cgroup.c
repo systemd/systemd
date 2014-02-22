@@ -442,8 +442,11 @@ int bus_cgroup_set_property(
 
                 while ((r = sd_bus_message_read(message, "(ss)", &path, &rwm)) > 0) {
 
-                        if (!path_startswith(path, "/dev"))
-                                return sd_bus_error_set_errnof(error, EINVAL, "DeviceAllow= requires device node");
+                        if ((!startswith(path, "/dev/") &&
+                             !startswith(path, "block-") &&
+                             !startswith(path, "char-")) ||
+                            strpbrk(path, WHITESPACE))
+                            return sd_bus_error_set_errnof(error, EINVAL, "DeviceAllow= requires device node");
 
                         if (isempty(rwm))
                                 rwm = "rwm";
