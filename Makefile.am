@@ -775,6 +775,10 @@ nodist_libsystemd_shared_la_SOURCES = \
 	src/shared/errno-from-name.h \
 	src/shared/errno-to-name.h
 
+libsystemd_shared_la_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(SECCOMP_CFLAGS)
+
 # ------------------------------------------------------------------------------
 noinst_LTLIBRARIES += \
 	libsystemd-units.la
@@ -817,7 +821,6 @@ libsystemd_label_la_LIBADD = \
 # ------------------------------------------------------------------------------
 
 if HAVE_SECCOMP
-
 noinst_LTLIBRARIES += \
 	libsystemd-seccomp.la
 
@@ -831,7 +834,6 @@ libsystemd_seccomp_la_CFLAGS = \
 
 libsystemd_seccomp_la_LIBADD = \
 	$(SECCOMP_LIBS)
-
 endif
 
 # ------------------------------------------------------------------------------
@@ -1081,6 +1083,10 @@ src/shared/errno-to-name.h: src/shared/errno-list.txt
 systemd_SOURCES = \
 	src/core/main.c
 
+systemd_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(SECCOMP_CFLAGS)
+
 systemd_LDADD = \
 	libsystemd-core.la \
 	$(RT_LIBS)
@@ -1178,6 +1184,10 @@ test_device_nodes_LDADD = \
 test_engine_SOURCES = \
 	src/test/test-engine.c
 
+test_engine_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(SECCOMP_CFLAGS)
+
 test_engine_LDADD = \
 	libsystemd-core.la \
 	$(RT_LIBS)
@@ -1185,12 +1195,20 @@ test_engine_LDADD = \
 test_job_type_SOURCES = \
 	src/test/test-job-type.c
 
+test_job_type_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(SECCOMP_CFLAGS)
+
 test_job_type_LDADD = \
 	libsystemd-core.la \
 	$(RT_LIBS)
 
 test_ns_SOURCES = \
 	src/test/test-ns.c
+
+test_ns_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(SECCOMP_CFLAGS)
 
 test_ns_LDADD = \
 	libsystemd-core.la
@@ -1221,12 +1239,20 @@ endif
 test_unit_name_SOURCES = \
 	src/test/test-unit-name.c
 
+test_unit_name_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(SECCOMP_CFLAGS)
+
 test_unit_name_LDADD = \
 	libsystemd-core.la \
 	$(RT_LIBS)
 
 test_unit_file_SOURCES = \
 	src/test/test-unit-file.c
+
+test_unit_file_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(SECCOMP_CFLAGS)
 
 test_unit_file_LDADD = \
 	libsystemd-core.la \
@@ -1277,6 +1303,10 @@ test_list_LDADD = \
 test_tables_SOURCES = \
 	src/test/test-tables.c \
 	src/shared/test-tables.h
+
+test_tables_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(SECCOMP_CFLAGS)
 
 test_tables_LDADD = \
 	libsystemd-logs.la \
@@ -1371,6 +1401,10 @@ test_cgroup_mask_CPPFLAGS = \
 	$(AM_CPPFLAGS) \
 	-DTEST_DIR=\"$(abs_top_srcdir)/test\"
 
+test_cgroup_mask_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(SECCOMP_CFLAGS)
+
 test_cgroup_mask_LDADD = \
 	libsystemd-core.la \
 	$(RT_LIBS)
@@ -1436,6 +1470,10 @@ test_sched_prio_SOURCES = \
 test_sched_prio_CPPFLAGS = \
 	$(AM_CPPFLAGS) \
 	-DTEST_DIR=\"$(abs_top_srcdir)/test\"
+
+test_sched_prio_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(SECCOMP_CFLAGS)
 
 test_sched_prio_LDADD = \
 	libsystemd-core.la \
@@ -2163,6 +2201,10 @@ test_bus_chat_LDADD = \
 
 test_bus_cleanup_SOURCES = \
 	src/libsystemd/sd-bus/test-bus-cleanup.c
+
+test_bus_cleanup_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(SECCOMP_CFLAGS)
 
 test_bus_cleanup_LDADD = \
 	libsystemd-internal.la \
