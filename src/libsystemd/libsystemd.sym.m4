@@ -123,7 +123,7 @@ global:
         sd_session_get_remote_user;
         sd_session_get_remote_host;
 
-m4_ifdef(`HAVE_KDBUS',
+m4_ifdef(`ENABLE_KDBUS',
         /* sd-bus */
         sd_bus_default;
         sd_bus_default_user;
@@ -316,7 +316,7 @@ m4_ifdef(`HAVE_KDBUS',
 
         /* sd-memfd */
         sd_memfd_new;
-        sd_memfd_make;
+        sd_memfd_new;
         sd_memfd_new_and_map;
         sd_memfd_free;
         sd_memfd_get_fd;
