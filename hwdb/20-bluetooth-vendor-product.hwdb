@@ -630,6 +630,9 @@ bluetooth:v00CE*
 bluetooth:v00CF*
  ID_VENDOR_FROM_DATABASE=ARCHOS SA
 
+bluetooth:v00D0*
+ ID_VENDOR_FROM_DATABASE=Dexcom, Inc.
+
 bluetooth:v00D1*
  ID_VENDOR_FROM_DATABASE=Polar Electro Europe B.V.
 
@@ -869,3 +872,33 @@ bluetooth:v011F*
 
 bluetooth:v0120*
  ID_VENDOR_FROM_DATABASE=Porsche AG
+
+bluetooth:v0121*
+ ID_VENDOR_FROM_DATABASE=Sino Wealth Electronic Ltd.
+
+bluetooth:v0122*
+ ID_VENDOR_FROM_DATABASE=AirTurn, Inc.
+
+bluetooth:v0123*
+ ID_VENDOR_FROM_DATABASE=Kinsa, Inc.
+
+bluetooth:v0124*
+ ID_VENDOR_FROM_DATABASE=HID Global
+
+bluetooth:v0125*
+ ID_VENDOR_FROM_DATABASE=SEAT es
+
+bluetooth:v0126*
+ ID_VENDOR_FROM_DATABASE=Promethean Ltd.
+
+bluetooth:v0127*
+ ID_VENDOR_FROM_DATABASE=Salutica Allied Solutions
+
+bluetooth:v0128*
+ ID_VENDOR_FROM_DATABASE=GPSI Group Pty Ltd
+
+bluetooth:v0129*
+ ID_VENDOR_FROM_DATABASE=Nimble Devices Oy
+
+bluetooth:v012A*
+ ID_VENDOR_FROM_DATABASE=Changzhou Yongse Infotech Co., Ltd
