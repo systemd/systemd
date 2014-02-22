@@ -769,7 +769,9 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/xml.c \
 	src/shared/xml.h \
 	src/shared/condition-util.c \
-	src/shared/condition-util.h
+	src/shared/condition-util.h \
+	src/shared/bus-label.c \
+	src/shared/bus-label.h
 
 nodist_libsystemd_shared_la_SOURCES = \
 	src/shared/errno-from-name.h \
@@ -1392,7 +1394,8 @@ test_cgroup_SOURCES = \
 
 test_cgroup_LDADD = \
 	libsystemd-label.la \
-	libsystemd-shared.la
+	libsystemd-shared.la \
+	libsystemd-internal.la
 
 test_cgroup_mask_SOURCES = \
 	src/test/test-cgroup-mask.c
@@ -1455,8 +1458,8 @@ test_install_SOURCES = \
 test_install_LDADD = \
 	libsystemd-units.la \
 	libsystemd-label.la \
-	libsystemd-internal.la \
-	libsystemd-shared.la
+	libsystemd-shared.la \
+	libsystemd-internal.la
 
 test_watchdog_SOURCES = \
 	src/test/test-watchdog.c
@@ -2328,8 +2331,8 @@ test_bus_introspect_SOURCES = \
 	src/libsystemd/sd-bus/test-bus-introspect.c
 
 test_bus_introspect_LDADD = \
-	libsystemd-shared.la \
-	libsystemd-internal.la
+	libsystemd-internal.la \
+	libsystemd-shared.la
 
 test_event_SOURCES = \
 	src/libsystemd/sd-event/test-event.c
@@ -4321,8 +4324,8 @@ id128_la_LDFLAGS = \
 
 id128_la_LIBADD = \
 	$(PYTHON_DEVEL_LIBS) \
-	libsystemd.la \
-	libsystemd-shared.la
+	libsystemd-shared.la \
+	libsystemd.la
 
 _daemon_la_SOURCES = \
 	src/python-systemd/_daemon.c \
@@ -4343,8 +4346,8 @@ _daemon_la_LDFLAGS = \
 
 _daemon_la_LIBADD = \
 	$(PYTHON_DEVEL_LIBS) \
-	libsystemd.la \
-	libsystemd-shared.la
+	libsystemd-shared.la \
+	libsystemd.la
 
 _reader_la_SOURCES = \
 	src/python-systemd/_reader.c \
@@ -4364,8 +4367,8 @@ _reader_la_LDFLAGS = \
 
 _reader_la_LIBADD = \
 	$(PYTHON_DEVEL_LIBS) \
-	libsystemd.la \
-	libsystemd-shared.la
+	libsystemd-shared.la \
+	libsystemd.la
 
 login_la_SOURCES = \
 	src/python-systemd/login.c \
@@ -4385,8 +4388,8 @@ login_la_LDFLAGS = \
 
 login_la_LIBADD = \
 	$(PYTHON_DEVEL_LIBS) \
-	libsystemd.la \
-	libsystemd-shared.la
+	libsystemd-shared.la \
+	libsystemd.la
 
 dist_pkgpyexec_PYTHON = \
 	src/python-systemd/journal.py \
