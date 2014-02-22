@@ -37,24 +37,24 @@ static void test_link_configure(sd_rtnl *rtnl, int ifindex) {
         void *data;
 
         /* we'd really like to test NEWLINK, but let's not mess with the running kernel */
-        assert(sd_rtnl_message_new_link(rtnl, &message, RTM_GETLINK, ifindex) >= 0);
-        assert(sd_rtnl_message_append_string(message, IFLA_IFNAME, name) >= 0);
-        assert(sd_rtnl_message_append_ether_addr(message, IFLA_ADDRESS, ether_aton(mac)) >= 0);
-        assert(sd_rtnl_message_append_u32(message, IFLA_MTU, mtu) >= 0);
+        assert_se(sd_rtnl_message_new_link(rtnl, &message, RTM_GETLINK, ifindex) >= 0);
+        assert_se(sd_rtnl_message_append_string(message, IFLA_IFNAME, name) >= 0);
+        assert_se(sd_rtnl_message_append_ether_addr(message, IFLA_ADDRESS, ether_aton(mac)) >= 0);
+        assert_se(sd_rtnl_message_append_u32(message, IFLA_MTU, mtu) >= 0);
 
-        assert(sd_rtnl_call(rtnl, message, 0, NULL) == 1);
+        assert_se(sd_rtnl_call(rtnl, message, 0, NULL) == 1);
 
-        assert(sd_rtnl_message_read(message, &type, &data) > 0);
-        assert(type == IFLA_IFNAME);
-        assert(streq(name, (char *) data));
+        assert_se(sd_rtnl_message_read(message, &type, &data) > 0);
+        assert_se(type == IFLA_IFNAME);
+        assert_se(streq(name, (char *) data));
 
-        assert(sd_rtnl_message_read(message, &type, &data) > 0);
-        assert(type == IFLA_ADDRESS);
-        assert(streq(mac, ether_ntoa(data)));
+        assert_se(sd_rtnl_message_read(message, &type, &data) > 0);
+        assert_se(type == IFLA_ADDRESS);
+        assert_se(streq(mac, ether_ntoa(data)));
 
-        assert(sd_rtnl_message_read(message, &type, &data) > 0);
-        assert(type == IFLA_MTU);
-        assert(mtu == *(unsigned int *) data);
+        assert_se(sd_rtnl_message_read(message, &type, &data) > 0);
+        assert_se(type == IFLA_MTU);
+        assert_se(mtu == *(unsigned int *) data);
 }
 
 static void test_link_get(sd_rtnl *rtnl, int ifindex) {
@@ -65,66 +65,66 @@ static void test_link_get(sd_rtnl *rtnl, int ifindex) {
         void *data;
         uint16_t type;
 
-        assert(sd_rtnl_message_new_link(rtnl, &m, RTM_GETLINK, ifindex) >= 0);
-        assert(m);
+        assert_se(sd_rtnl_message_new_link(rtnl, &m, RTM_GETLINK, ifindex) >= 0);
+        assert_se(m);
 
         /* u8 test cases  */
-        assert(sd_rtnl_message_append_u8(m, IFLA_CARRIER, 0) >= 0);
-        assert(sd_rtnl_message_append_u8(m, IFLA_OPERSTATE, 0) >= 0);
-        assert(sd_rtnl_message_append_u8(m, IFLA_LINKMODE, 0) >= 0);
+        assert_se(sd_rtnl_message_append_u8(m, IFLA_CARRIER, 0) >= 0);
+        assert_se(sd_rtnl_message_append_u8(m, IFLA_OPERSTATE, 0) >= 0);
+        assert_se(sd_rtnl_message_append_u8(m, IFLA_LINKMODE, 0) >= 0);
 
         /* u32 test cases */
-        assert(sd_rtnl_message_append_u32(m, IFLA_MTU, mtu) >= 0);
-        assert(sd_rtnl_message_append_u32(m, IFLA_GROUP, 0) >= 0);
-        assert(sd_rtnl_message_append_u32(m, IFLA_TXQLEN, 0) >= 0);
-        assert(sd_rtnl_message_append_u32(m, IFLA_NUM_TX_QUEUES, 0) >= 0);
-        assert(sd_rtnl_message_append_u32(m, IFLA_NUM_RX_QUEUES, 0) >= 0);
+        assert_se(sd_rtnl_message_append_u32(m, IFLA_MTU, mtu) >= 0);
+        assert_se(sd_rtnl_message_append_u32(m, IFLA_GROUP, 0) >= 0);
+        assert_se(sd_rtnl_message_append_u32(m, IFLA_TXQLEN, 0) >= 0);
+        assert_se(sd_rtnl_message_append_u32(m, IFLA_NUM_TX_QUEUES, 0) >= 0);
+        assert_se(sd_rtnl_message_append_u32(m, IFLA_NUM_RX_QUEUES, 0) >= 0);
 
-        assert(sd_rtnl_call(rtnl, m, -1, &r) == 1);
+        assert_se(sd_rtnl_call(rtnl, m, -1, &r) == 1);
 
         /* u8 read back */
-        assert(sd_rtnl_message_read(m, &type, &data) == 1);
-        assert(type == IFLA_CARRIER);
+        assert_se(sd_rtnl_message_read(m, &type, &data) == 1);
+        assert_se(type == IFLA_CARRIER);
 
-        assert(sd_rtnl_message_read(m, &type, &data) == 1);
-        assert(type == IFLA_OPERSTATE);
+        assert_se(sd_rtnl_message_read(m, &type, &data) == 1);
+        assert_se(type == IFLA_OPERSTATE);
 
-        assert(sd_rtnl_message_read(m, &type, &data) == 1);
-        assert(type == IFLA_LINKMODE);
+        assert_se(sd_rtnl_message_read(m, &type, &data) == 1);
+        assert_se(type == IFLA_LINKMODE);
 
         /* u32 read back */
-        assert(sd_rtnl_message_read(m, &type, (void **) &mtu_reply) == 1);
-        assert(type == IFLA_MTU);
-        assert(*mtu_reply == mtu);
+        assert_se(sd_rtnl_message_read(m, &type, (void **) &mtu_reply) == 1);
+        assert_se(type == IFLA_MTU);
+        assert_se(*mtu_reply == mtu);
 
-        assert(sd_rtnl_message_read(m, &type, &data) == 1);
-        assert(type == IFLA_GROUP);
+        assert_se(sd_rtnl_message_read(m, &type, &data) == 1);
+        assert_se(type == IFLA_GROUP);
 
-        assert(sd_rtnl_message_read(m, &type, &data) == 1);
-        assert(type == IFLA_TXQLEN);
+        assert_se(sd_rtnl_message_read(m, &type, &data) == 1);
+        assert_se(type == IFLA_TXQLEN);
 
-        assert(sd_rtnl_message_read(m, &type, &data) == 1);
-        assert(type == IFLA_NUM_TX_QUEUES);
+        assert_se(sd_rtnl_message_read(m, &type, &data) == 1);
+        assert_se(type == IFLA_NUM_TX_QUEUES);
 
-        assert(sd_rtnl_message_read(m, &type, &data) == 1);
-        assert(type == IFLA_NUM_RX_QUEUES);
+        assert_se(sd_rtnl_message_read(m, &type, &data) == 1);
+        assert_se(type == IFLA_NUM_RX_QUEUES);
 
         while (sd_rtnl_message_read(r, &type, &data) > 0) {
                 switch (type) {
 //                        case IFLA_MTU:
-//                                assert(*(unsigned int *) data == 65536);
+//                                assert_se(*(unsigned int *) data == 65536);
 //                                break;
 //                        case IFLA_QDISC:
-//                                assert(streq((char *) data, "noqueue"));
+//                                assert_se(streq((char *) data, "noqueue"));
 //                                break;
                         case IFLA_IFNAME:
-                                assert(streq((char *) data, "lo"));
+                                assert_se(streq((char *) data, "lo"));
                                 break;
                 }
         }
 
-        assert(sd_rtnl_flush(rtnl) >= 0);
-        assert((m = sd_rtnl_message_unref(m)) == NULL);
+        assert_se(sd_rtnl_flush(rtnl) >= 0);
+        assert_se((m = sd_rtnl_message_unref(m)) == NULL);
 
 }
 
@@ -156,22 +156,22 @@ static void test_route(void) {
                 return;
         }
 
-        assert(rtnl_message_seal(NULL, req) >= 0);
+        assert_se(rtnl_message_seal(NULL, req) >= 0);
 
-        assert(sd_rtnl_message_read(req, &type, &data) > 0);
-        assert(type == RTA_GATEWAY);
-        assert(((struct in_addr *)data)->s_addr == addr.s_addr);
+        assert_se(sd_rtnl_message_read(req, &type, &data) > 0);
+        assert_se(type == RTA_GATEWAY);
+        assert_se(((struct in_addr *)data)->s_addr == addr.s_addr);
 
-        assert(sd_rtnl_message_read(req, &type, &data) > 0);
-        assert(type == RTA_OIF);
-        assert(*(uint32_t *) data == index);
+        assert_se(sd_rtnl_message_read(req, &type, &data) > 0);
+        assert_se(type == RTA_OIF);
+        assert_se(*(uint32_t *) data == index);
 }
 
 static void test_multiple(void) {
         sd_rtnl *rtnl1, *rtnl2;
 
-        assert(sd_rtnl_open(&rtnl1, 0) >= 0);
-        assert(sd_rtnl_open(&rtnl2, 0) >= 0);
+        assert_se(sd_rtnl_open(&rtnl1, 0) >= 0);
+        assert_se(sd_rtnl_open(&rtnl2, 0) >= 0);
 
         rtnl1 = sd_rtnl_unref(rtnl1);
         rtnl2 = sd_rtnl_unref(rtnl2);
@@ -182,8 +182,8 @@ static int link_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
         uint16_t type;
         char *ifname = userdata;
 
-        assert(rtnl);
-        assert(m);
+        assert_se(rtnl);
+        assert_se(m);
 
         log_info("got link info about %s", ifname);
         free(ifname);
@@ -191,13 +191,13 @@ static int link_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
         while (sd_rtnl_message_read(m, &type, &data) > 0) {
                 switch (type) {
 //                        case IFLA_MTU:
-//                                assert(*(unsigned int *) data == 65536);
+//                                assert_se(*(unsigned int *) data == 65536);
 //                                break;
 //                        case IFLA_QDISC:
-//                                assert(streq((char *) data, "noqueue"));
+//                                assert_se(streq((char *) data, "noqueue"));
 //                                break;
                         case IFLA_IFNAME:
-                                assert(streq((char *) data, "lo"));
+                                assert_se(streq((char *) data, "lo"));
                                 break;
                 }
         }
@@ -212,20 +212,20 @@ static void test_event_loop(int ifindex) {
         char *ifname;
 
         ifname = strdup("lo2");
-        assert(ifname);
+        assert_se(ifname);
 
-        assert(sd_rtnl_open(&rtnl, 0) >= 0);
-        assert(sd_rtnl_message_new_link(rtnl, &m, RTM_GETLINK, ifindex) >= 0);
+        assert_se(sd_rtnl_open(&rtnl, 0) >= 0);
+        assert_se(sd_rtnl_message_new_link(rtnl, &m, RTM_GETLINK, ifindex) >= 0);
 
-        assert(sd_rtnl_call_async(rtnl, m, &link_handler, ifname, 0, NULL) >= 0);
+        assert_se(sd_rtnl_call_async(rtnl, m, &link_handler, ifname, 0, NULL) >= 0);
 
-        assert(sd_event_default(&event) >= 0);
+        assert_se(sd_event_default(&event) >= 0);
 
-        assert(sd_rtnl_attach_event(rtnl, event, 0) >= 0);
+        assert_se(sd_rtnl_attach_event(rtnl, event, 0) >= 0);
 
-        assert(sd_event_run(event, 0) >= 0);
+        assert_se(sd_event_run(event, 0) >= 0);
 
-        assert(sd_rtnl_detach_event(rtnl) >= 0);
+        assert_se(sd_rtnl_detach_event(rtnl) >= 0);
 }
 
 static int pipe_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
@@ -245,16 +245,16 @@ static void test_async(int ifindex) {
         char *ifname;
 
         ifname = strdup("lo");
-        assert(ifname);
+        assert_se(ifname);
 
-        assert(sd_rtnl_open(&rtnl, 0) >= 0);
+        assert_se(sd_rtnl_open(&rtnl, 0) >= 0);
 
-        assert(sd_rtnl_message_new_link(rtnl, &m, RTM_GETLINK, ifindex) >= 0);
+        assert_se(sd_rtnl_message_new_link(rtnl, &m, RTM_GETLINK, ifindex) >= 0);
 
-        assert(sd_rtnl_call_async(rtnl, m, &link_handler, ifname, 0, &serial) >= 0);
+        assert_se(sd_rtnl_call_async(rtnl, m, &link_handler, ifname, 0, &serial) >= 0);
 
-        assert(sd_rtnl_wait(rtnl, 0) >= 0);
-        assert(sd_rtnl_process(rtnl, &r) >= 0);
+        assert_se(sd_rtnl_wait(rtnl, 0) >= 0);
+        assert_se(sd_rtnl_process(rtnl, &r) >= 0);
 }
 
 static void test_pipe(int ifindex) {
@@ -262,20 +262,20 @@ static void test_pipe(int ifindex) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *m1 = NULL, *m2 = NULL;
         int counter = 0;
 
-        assert(sd_rtnl_open(&rtnl, 0) >= 0);
+        assert_se(sd_rtnl_open(&rtnl, 0) >= 0);
 
-        assert(sd_rtnl_message_new_link(rtnl, &m1, RTM_GETLINK, ifindex) >= 0);
-        assert(sd_rtnl_message_new_link(rtnl, &m2, RTM_GETLINK, ifindex) >= 0);
-
-        counter ++;
-        assert(sd_rtnl_call_async(rtnl, m1, &pipe_handler, &counter, 0, NULL) >= 0);
+        assert_se(sd_rtnl_message_new_link(rtnl, &m1, RTM_GETLINK, ifindex) >= 0);
+        assert_se(sd_rtnl_message_new_link(rtnl, &m2, RTM_GETLINK, ifindex) >= 0);
 
         counter ++;
-        assert(sd_rtnl_call_async(rtnl, m2, &pipe_handler, &counter, 0, NULL) >= 0);
+        assert_se(sd_rtnl_call_async(rtnl, m1, &pipe_handler, &counter, 0, NULL) >= 0);
+
+        counter ++;
+        assert_se(sd_rtnl_call_async(rtnl, m2, &pipe_handler, &counter, 0, NULL) >= 0);
 
         while (counter > 0) {
-                assert(sd_rtnl_wait(rtnl, 0) >= 0);
-                assert(sd_rtnl_process(rtnl, NULL) >= 0);
+                assert_se(sd_rtnl_wait(rtnl, 0) >= 0);
+                assert_se(sd_rtnl_process(rtnl, NULL) >= 0);
         }
 }
 
@@ -284,54 +284,54 @@ static void test_container(void) {
         uint16_t type;
         void *data;
 
-        assert(sd_rtnl_message_new_link(NULL, &m, RTM_NEWLINK, 0) >= 0);
+        assert_se(sd_rtnl_message_new_link(NULL, &m, RTM_NEWLINK, 0) >= 0);
 
-        assert(sd_rtnl_message_open_container(m, IFLA_LINKINFO) >= 0);
-        assert(sd_rtnl_message_open_container(m, IFLA_LINKINFO) == -ENOTSUP);
-        assert(sd_rtnl_message_append_string(m, IFLA_INFO_KIND, "kind") >= 0);
-        assert(sd_rtnl_message_open_container(m, IFLA_INFO_DATA) >= 0);
-        assert(sd_rtnl_message_open_container(m, IFLA_INFO_DATA) == -ENOTSUP);
-        assert(sd_rtnl_message_append_u16(m, IFLA_VLAN_ID, 100) >= 0);
-        assert(sd_rtnl_message_close_container(m) >= 0);
-        assert(sd_rtnl_message_append_string(m, IFLA_INFO_KIND, "kind") >= 0);
-        assert(sd_rtnl_message_close_container(m) >= 0);
-        assert(sd_rtnl_message_close_container(m) == -EINVAL);
+        assert_se(sd_rtnl_message_open_container(m, IFLA_LINKINFO) >= 0);
+        assert_se(sd_rtnl_message_open_container(m, IFLA_LINKINFO) == -ENOTSUP);
+        assert_se(sd_rtnl_message_append_string(m, IFLA_INFO_KIND, "kind") >= 0);
+        assert_se(sd_rtnl_message_open_container(m, IFLA_INFO_DATA) >= 0);
+        assert_se(sd_rtnl_message_open_container(m, IFLA_INFO_DATA) == -ENOTSUP);
+        assert_se(sd_rtnl_message_append_u16(m, IFLA_VLAN_ID, 100) >= 0);
+        assert_se(sd_rtnl_message_close_container(m) >= 0);
+        assert_se(sd_rtnl_message_append_string(m, IFLA_INFO_KIND, "kind") >= 0);
+        assert_se(sd_rtnl_message_close_container(m) >= 0);
+        assert_se(sd_rtnl_message_close_container(m) == -EINVAL);
 
-        assert(rtnl_message_seal(NULL, m) >= 0);
+        assert_se(rtnl_message_seal(NULL, m) >= 0);
 
-        assert(sd_rtnl_message_read(m, &type, &data) >= 0);
-        assert(type == IFLA_LINKINFO);
-        assert(data == NULL);
-        assert(sd_rtnl_message_read(m, &type, &data) >= 0);
-        assert(type == IFLA_INFO_KIND);
-        assert(streq("kind", (char *)data));
-        assert(sd_rtnl_message_read(m, &type, &data) >= 0);
-        assert(type == IFLA_INFO_DATA);
-        assert(data == NULL);
-        assert(sd_rtnl_message_read(m, &type, &data) >= 0);
-        assert(type == IFLA_VLAN_ID);
-        assert(*(uint16_t *)data == 100);
-        assert(sd_rtnl_message_read(m, &type, &data) == 0);
-        assert(sd_rtnl_message_exit_container(m) >= 0);
-        assert(sd_rtnl_message_read(m, &type, &data) >= 0);
-        assert(type == IFLA_INFO_KIND);
-        assert(streq("kind", (char *)data));
-        assert(sd_rtnl_message_read(m, &type, &data) == 0);
-        assert(sd_rtnl_message_exit_container(m) >= 0);
-        assert(sd_rtnl_message_exit_container(m) == -EINVAL);
+        assert_se(sd_rtnl_message_read(m, &type, &data) >= 0);
+        assert_se(type == IFLA_LINKINFO);
+        assert_se(data == NULL);
+        assert_se(sd_rtnl_message_read(m, &type, &data) >= 0);
+        assert_se(type == IFLA_INFO_KIND);
+        assert_se(streq("kind", (char *)data));
+        assert_se(sd_rtnl_message_read(m, &type, &data) >= 0);
+        assert_se(type == IFLA_INFO_DATA);
+        assert_se(data == NULL);
+        assert_se(sd_rtnl_message_read(m, &type, &data) >= 0);
+        assert_se(type == IFLA_VLAN_ID);
+        assert_se(*(uint16_t *)data == 100);
+        assert_se(sd_rtnl_message_read(m, &type, &data) == 0);
+        assert_se(sd_rtnl_message_exit_container(m) >= 0);
+        assert_se(sd_rtnl_message_read(m, &type, &data) >= 0);
+        assert_se(type == IFLA_INFO_KIND);
+        assert_se(streq("kind", (char *)data));
+        assert_se(sd_rtnl_message_read(m, &type, &data) == 0);
+        assert_se(sd_rtnl_message_exit_container(m) >= 0);
+        assert_se(sd_rtnl_message_exit_container(m) == -EINVAL);
 }
 
 static void test_match(void) {
         _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
 
-        assert(sd_rtnl_open(&rtnl, 0) >= 0);
+        assert_se(sd_rtnl_open(&rtnl, 0) >= 0);
 
-        assert(sd_rtnl_add_match(rtnl, RTM_NEWLINK, &link_handler, NULL) >= 0);
-        assert(sd_rtnl_add_match(rtnl, RTM_NEWLINK, &link_handler, NULL) >= 0);
+        assert_se(sd_rtnl_add_match(rtnl, RTM_NEWLINK, &link_handler, NULL) >= 0);
+        assert_se(sd_rtnl_add_match(rtnl, RTM_NEWLINK, &link_handler, NULL) >= 0);
 
-        assert(sd_rtnl_remove_match(rtnl, RTM_NEWLINK, &link_handler, NULL) == 1);
-        assert(sd_rtnl_remove_match(rtnl, RTM_NEWLINK, &link_handler, NULL) == 1);
-        assert(sd_rtnl_remove_match(rtnl, RTM_NEWLINK, &link_handler, NULL) == 0);
+        assert_se(sd_rtnl_remove_match(rtnl, RTM_NEWLINK, &link_handler, NULL) == 1);
+        assert_se(sd_rtnl_remove_match(rtnl, RTM_NEWLINK, &link_handler, NULL) == 1);
+        assert_se(sd_rtnl_remove_match(rtnl, RTM_NEWLINK, &link_handler, NULL) == 0);
 }
 
 int main(void) {
@@ -350,11 +350,11 @@ int main(void) {
 
         test_container();
 
-        assert(sd_rtnl_open(&rtnl, 0) >= 0);
-        assert(rtnl);
+        assert_se(sd_rtnl_open(&rtnl, 0) >= 0);
+        assert_se(rtnl);
 
         if_loopback = (int) if_nametoindex("lo");
-        assert(if_loopback > 0);
+        assert_se(if_loopback > 0);
 
         test_async(if_loopback);
 
@@ -364,31 +364,31 @@ int main(void) {
 
         test_link_configure(rtnl, if_loopback);
 
-        assert(sd_rtnl_message_new_link(rtnl, &m, RTM_GETLINK, if_loopback) >= 0);
-        assert(m);
+        assert_se(sd_rtnl_message_new_link(rtnl, &m, RTM_GETLINK, if_loopback) >= 0);
+        assert_se(m);
 
-        assert(sd_rtnl_message_get_type(m, &type) >= 0);
-        assert(type == RTM_GETLINK);
+        assert_se(sd_rtnl_message_get_type(m, &type) >= 0);
+        assert_se(type == RTM_GETLINK);
 
-        assert(sd_rtnl_message_read(m, &type, &data) == -EPERM);
+        assert_se(sd_rtnl_message_read(m, &type, &data) == -EPERM);
 
-        assert(sd_rtnl_call(rtnl, m, 0, &r) == 1);
-        assert(sd_rtnl_message_get_type(r, &type) >= 0);
-        assert(type == RTM_NEWLINK);
+        assert_se(sd_rtnl_call(rtnl, m, 0, &r) == 1);
+        assert_se(sd_rtnl_message_get_type(r, &type) >= 0);
+        assert_se(type == RTM_NEWLINK);
 
-        assert(sd_rtnl_message_read(m, &type, &data) == 0);
-        assert((r = sd_rtnl_message_unref(r)) == NULL);
+        assert_se(sd_rtnl_message_read(m, &type, &data) == 0);
+        assert_se((r = sd_rtnl_message_unref(r)) == NULL);
 
-        assert(sd_rtnl_call(rtnl, m, -1, &r) == -EPERM);
-        assert((m = sd_rtnl_message_unref(m)) == NULL);
-        assert((r = sd_rtnl_message_unref(r)) == NULL);
+        assert_se(sd_rtnl_call(rtnl, m, -1, &r) == -EPERM);
+        assert_se((m = sd_rtnl_message_unref(m)) == NULL);
+        assert_se((r = sd_rtnl_message_unref(r)) == NULL);
 
         test_link_get(rtnl, if_loopback);
 
-        assert(sd_rtnl_flush(rtnl) >= 0);
-        assert((m = sd_rtnl_message_unref(m)) == NULL);
-        assert((r = sd_rtnl_message_unref(r)) == NULL);
-        assert((rtnl = sd_rtnl_unref(rtnl)) == NULL);
+        assert_se(sd_rtnl_flush(rtnl) >= 0);
+        assert_se((m = sd_rtnl_message_unref(m)) == NULL);
+        assert_se((r = sd_rtnl_message_unref(r)) == NULL);
+        assert_se((rtnl = sd_rtnl_unref(rtnl)) == NULL);
 
         return EXIT_SUCCESS;
 }

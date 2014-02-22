@@ -27,8 +27,8 @@ static void test_link(struct udev_device *loopback) {
 
         manager_new(&manager);
 
-        assert(link_new(manager, loopback, &link) >= 0);
-        assert(link);
+        assert_se(link_new(manager, loopback, &link) >= 0);
+        assert_se(link);
 }
 
 static void test_load_config(Manager *manager) {
@@ -36,10 +36,10 @@ static void test_load_config(Manager *manager) {
  *        so we can't do this test here, move it to a test for paths_check_timestamps
  *        directly
  *
- *        assert(network_should_reload(manager) == true);
+ *        assert_se(network_should_reload(manager) == true);
 */
-        assert(manager_load_config(manager) >= 0);
-        assert(manager_should_reload(manager) == false);
+        assert_se(manager_load_config(manager) >= 0);
+        assert_se(manager_should_reload(manager) == false);
 }
 
 static void test_network_get(Manager *manager, struct udev_device *loopback) {
@@ -47,8 +47,8 @@ static void test_network_get(Manager *manager, struct udev_device *loopback) {
 
         /* let's assume that the test machine does not have a .network file
            that applies to the loopback device... */
-        assert(network_get(manager, loopback, &network) == -ENOENT);
-        assert(!network);
+        assert_se(network_get(manager, loopback, &network) == -ENOENT);
+        assert_se(!network);
 }
 
 int main(void) {
@@ -56,24 +56,24 @@ int main(void) {
         struct udev *udev;
         struct udev_device *loopback;
 
-        assert(manager_new(&manager) >= 0);
+        assert_se(manager_new(&manager) >= 0);
 
         test_load_config(manager);
 
         udev = udev_new();
-        assert(udev);
+        assert_se(udev);
 
         loopback = udev_device_new_from_syspath(udev, "/sys/class/net/lo");
-        assert(loopback);
-        assert(udev_device_get_ifindex(loopback) == 1);
+        assert_se(loopback);
+        assert_se(udev_device_get_ifindex(loopback) == 1);
 
         test_network_get(manager, loopback);
 
         test_link(loopback);
 
-        assert(manager_udev_listen(manager) >= 0);
-        assert(manager_udev_enumerate_links(manager) >= 0);
-        assert(manager_rtnl_listen(manager) >= 0);
+        assert_se(manager_udev_listen(manager) >= 0);
+        assert_se(manager_udev_enumerate_links(manager) >= 0);
+        assert_se(manager_rtnl_listen(manager) >= 0);
 
         udev_device_unref(loopback);
         udev_unref(udev);
