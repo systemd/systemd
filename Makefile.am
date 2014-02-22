@@ -2071,11 +2071,6 @@ libsystemd_la_LIBADD = \
 
 libsystemd-install-hook:
 	libname=libsystemd.so && $(move-to-rootlibdir)
-	-$(MKDIR_P) $(DESTDIR)/var/log/journal
-	-chown 0:0 $(DESTDIR)/var/log/journal
-	-chmod 755 $(DESTDIR)/var/log/journal
-	-setfacl -nm g:adm:rx,d:g:adm:rx $(DESTDIR)/var/log/journal/
-	-setfacl -nm g:wheel:rx,d:g:wheel:rx $(DESTDIR)/var/log/journal/
 
 libsystemd-uninstall-hook:
 	rm -f $(DESTDIR)$(rootlibdir)/libsystemd.so*
@@ -3155,8 +3150,20 @@ endif
 noinst_LTLIBRARIES += \
 	libsystemd-journal-core.la
 
-# ------------------------------------------------------------------------------
+journal-install-hook:
+	-$(MKDIR_P) $(DESTDIR)/var/log/journal
+	-chown 0:0 $(DESTDIR)/var/log/journal
+	-chmod 755 $(DESTDIR)/var/log/journal
+	-setfacl -nm g:adm:rx,d:g:adm:rx $(DESTDIR)/var/log/journal/
+	-setfacl -nm g:wheel:rx,d:g:wheel:rx $(DESTDIR)/var/log/journal/
 
+journal-uninstall-hook:
+	-rmdir $(DESTDIR)/var/log/journal/
+
+INSTALL_EXEC_HOOKS += journal-install-hook
+UNINSTALL_EXEC_HOOKS += journal-uninstall-hook
+
+# ------------------------------------------------------------------------------
 # Update catalog on installation. Do not bother if installing
 # in DESTDIR, since this is likely for packaging purposes.
 catalog-update-hook:
