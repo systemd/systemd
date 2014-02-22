@@ -201,6 +201,8 @@ struct Manager {
         struct udev *udev;
         struct udev_monitor *udev_monitor;
         sd_event_source *udev_event_source;
+        sd_event_source *sigterm_event_source;
+        sd_event_source *sigint_event_source;
 
         Hashmap *links;
         Hashmap *netdevs;

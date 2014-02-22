@@ -21,11 +21,8 @@
 
 #include "networkd.h"
 
-static void test_link(struct udev_device *loopback) {
-        _cleanup_manager_free_ Manager *manager = NULL;
+static void test_link(Manager *manager, struct udev_device *loopback) {
         Link *link = NULL;
-
-        manager_new(&manager);
 
         assert_se(link_new(manager, loopback, &link) >= 0);
         assert_se(link);
@@ -69,7 +66,7 @@ int main(void) {
 
         test_network_get(manager, loopback);
 
-        test_link(loopback);
+        test_link(manager, loopback);
 
         assert_se(manager_udev_listen(manager) >= 0);
         assert_se(manager_udev_enumerate_links(manager) >= 0);

@@ -35,6 +35,8 @@ int link_new(Manager *manager, struct udev_device *device, Link **ret) {
         const char *ifname;
         int r;
 
+        assert(manager);
+        assert(manager->links);
         assert(device);
         assert(ret);
 
