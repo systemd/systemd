@@ -108,6 +108,9 @@ gboolean            g_udev_device_get_property_as_boolean   (GUdevDevice  *devic
 const gchar* const *g_udev_device_get_property_as_strv      (GUdevDevice  *device,
                                                              const gchar  *key);
 
+const gchar* const *g_udev_device_get_sysfs_attr_keys       (GUdevDevice  *device);
+gboolean            g_udev_device_has_sysfs_attr            (GUdevDevice  *device,
+                                                             const gchar  *key);
 const gchar        *g_udev_device_get_sysfs_attr            (GUdevDevice  *device,
                                                              const gchar  *name);
 gint                g_udev_device_get_sysfs_attr_as_int     (GUdevDevice  *device,
