@@ -18,7 +18,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-
 #define __make_section_unallocated(section_string)      \
   asm (".section " section_string "\n\t.previous");
 

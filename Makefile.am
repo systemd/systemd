@@ -4432,80 +4432,12 @@ clean-python:
 
 # ------------------------------------------------------------------------------
 if ENABLE_COMPAT_LIBS
-
 EXTRA_DIST += \
 	src/compat-libs/linkwarning.h
 
-define generate-fake-lib
+libsystemd-%.c: src/compat-libs/libsystemd-%.sym
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
-	$(AM_V_GEN)sed -r -n 's/^ +(sd_.*);/void new_\1(void);\n__asm__(".symver new_\1,\1@LIBSYSTEMD_209");\nstatic void (*resolve_\1(void)) (void) {\n\treturn new_\1;\n}\nvoid \1(void) __attribute__((ifunc("resolve_\1")));\nobsolete_lib(\1,$(notdir $(basename $<)));\n/p' <$< >$@
-endef
-
-libsystemd_journal_la_SOURCES = \
-	libsystemd-journal.c \
-	src/compat-libs/libsystemd-journal.sym
-
-libsystemd_journal_la_CFLAGS = \
-	$(AM_CFLAGS) \
-	-fvisibility=default \
-	-imacros $(top_srcdir)/src/compat-libs/linkwarning.h \
-	-fno-lto
-
-libsystemd_journal_la_LDFLAGS = \
-	$(AM_LDFLAGS) \
-	-version-info $(LIBSYSTEMD_JOURNAL_CURRENT):$(LIBSYSTEMD_JOURNAL_REVISION):$(LIBSYSTEMD_JOURNAL_AGE) \
-	-Wl,--version-script=$(top_srcdir)/src/compat-libs/libsystemd-journal.sym
-
-libsystemd_journal_la_LIBADD = \
-	libsystemd.la
-
-libsystemd_login_la_SOURCES = \
-	libsystemd-login.c \
-	src/compat-libs/libsystemd-login.sym
-
-libsystemd_login_la_CFLAGS = \
-	$(AM_CFLAGS) \
-	-fvisibility=default \
-	-imacros $(top_srcdir)/src/compat-libs/linkwarning.h \
-	-fno-lto
-
-libsystemd_login_la_LDFLAGS = \
-	$(AM_LDFLAGS) \
-	-version-info $(LIBSYSTEMD_LOGIN_CURRENT):$(LIBSYSTEMD_LOGIN_REVISION):$(LIBSYSTEMD_LOGIN_AGE) \
-	-Wl,--version-script=$(top_srcdir)/src/compat-libs/libsystemd-login.sym
-
-libsystemd_login_la_LIBADD = \
-	libsystemd.la
-
-libsystemd_id128_la_SOURCES = \
-	libsystemd-id128.c \
-	src/compat-libs/libsystemd-id128.sym
-
-libsystemd_id128_la_CFLAGS = \
-	$(libsystemd_login_la_CFLAGS)
-
-libsystemd_id128_la_LDFLAGS = \
-	$(AM_LDFLAGS) \
-	-version-info $(LIBSYSTEMD_ID128_CURRENT):$(LIBSYSTEMD_ID128_REVISION):$(LIBSYSTEMD_ID128_AGE) \
-	-Wl,--version-script=$(top_srcdir)/src/compat-libs/libsystemd-id128.sym
-
-libsystemd_id128_la_LIBADD = \
-	libsystemd.la
-
-libsystemd_daemon_la_SOURCES = \
-	libsystemd-daemon.c \
-	src/compat-libs/libsystemd-daemon.sym
-
-libsystemd_daemon_la_CFLAGS = \
-	$(libsystemd_login_la_CFLAGS)
-
-libsystemd_daemon_la_LDFLAGS = \
-	$(AM_LDFLAGS) \
-	-version-info $(LIBSYSTEMD_DAEMON_CURRENT):$(LIBSYSTEMD_DAEMON_REVISION):$(LIBSYSTEMD_DAEMON_AGE) \
-	-Wl,--version-script=$(top_srcdir)/src/compat-libs/libsystemd-daemon.sym
-
-libsystemd_daemon_la_LIBADD = \
-	libsystemd.la
+	$(AM_V_GEN)sed -r -n 's/^ +(sd_.*);/obsolete_lib(\1,$(notdir $(basename $<)));/p' <$< >$@
 
 BUILT_SOURCES += \
 	libsystemd-journal.c \
@@ -4513,8 +4445,74 @@ BUILT_SOURCES += \
 	libsystemd-id128.c \
 	libsystemd-daemon.c
 
-libsystemd-%.c: src/compat-libs/libsystemd-%.sym
-	$(generate-fake-lib)
+libsystemd_journal_la_SOURCES = \
+	libsystemd-journal.c \
+	src/compat-libs/libsystemd-journal.sym
+
+libsystemd_journal_la_CPPFLAGS = \
+	$(AM_CFLAGS) \
+	-imacros$(top_srcdir)/src/compat-libs/linkwarning.h
+
+libsystemd_journal_la_LDFLAGS = \
+	$(AM_LDFLAGS) \
+	-version-info $(LIBSYSTEMD_JOURNAL_CURRENT):$(LIBSYSTEMD_JOURNAL_REVISION):$(LIBSYSTEMD_JOURNAL_AGE) \
+	-Wl,--version-script=$(top_srcdir)/src/compat-libs/libsystemd-journal.sym
+
+libsystemd_journal_la_LIBADD = \
+	libsystemd-journal-internal.la \
+	libsystemd-internal.la \
+	libsystemd-shared.la
+
+libsystemd_login_la_SOURCES = \
+	libsystemd-login.c \
+	src/compat-libs/libsystemd-login.sym
+
+libsystemd_login_la_CPPFLAGS = \
+	$(AM_CFLAGS) \
+	-imacros$(top_srcdir)/src/compat-libs/linkwarning.h
+
+libsystemd_login_la_LDFLAGS = \
+	$(AM_LDFLAGS) \
+	-version-info $(LIBSYSTEMD_LOGIN_CURRENT):$(LIBSYSTEMD_LOGIN_REVISION):$(LIBSYSTEMD_LOGIN_AGE) \
+	-Wl,--version-script=$(top_srcdir)/src/compat-libs/libsystemd-login.sym
+
+libsystemd_login_la_LIBADD = \
+	libsystemd-internal.la \
+	libsystemd-shared.la
+
+libsystemd_id128_la_SOURCES = \
+	libsystemd-id128.c \
+	src/compat-libs/libsystemd-id128.sym
+
+libsystemd_id128_la_CPPFLAGS = \
+	$(AM_CFLAGS) \
+	-imacros$(top_srcdir)/src/compat-libs/linkwarning.h
+
+libsystemd_id128_la_LDFLAGS = \
+	$(AM_LDFLAGS) \
+	-version-info $(LIBSYSTEMD_ID128_CURRENT):$(LIBSYSTEMD_ID128_REVISION):$(LIBSYSTEMD_ID128_AGE) \
+	-Wl,--version-script=$(top_srcdir)/src/compat-libs/libsystemd-id128.sym
+
+libsystemd_id128_la_LIBADD = \
+	libsystemd-internal.la \
+	libsystemd-shared.la
+
+libsystemd_daemon_la_SOURCES = \
+	libsystemd-daemon.c \
+	src/compat-libs/libsystemd-daemon.sym
+
+libsystemd_daemon_la_CPPFLAGS = \
+	$(AM_CFLAGS) \
+	-imacros$(top_srcdir)/src/compat-libs/linkwarning.h
+
+libsystemd_daemon_la_LDFLAGS = \
+	$(AM_LDFLAGS) \
+	-version-info $(LIBSYSTEMD_DAEMON_CURRENT):$(LIBSYSTEMD_DAEMON_REVISION):$(LIBSYSTEMD_DAEMON_AGE) \
+	-Wl,--version-script=$(top_srcdir)/src/compat-libs/libsystemd-daemon.sym
+
+libsystemd_daemon_la_LIBADD = \
+	libsystemd-internal.la \
+	libsystemd-shared.la
 
 lib_LTLIBRARIES += \
 	libsystemd-journal.la \
@@ -4543,7 +4541,6 @@ compat-lib-uninstall-hook:
 
 INSTALL_EXEC_HOOKS += compat-lib-install-hook
 UNINSTALL_EXEC_HOOKS += compat-lib-uninstall-hook
-
 endif
 
 EXTRA_DIST += \
@@ -4972,7 +4969,6 @@ EXTRA_DIST += \
 	$(top_srcdir)/tools/check-includes.pl
 
 # Stupid test that everything purported to be exported really is
-
 define generate-sym-test
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_at)printf '#include <stdio.h>\n' > $@
