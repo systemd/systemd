@@ -316,7 +316,6 @@ m4_ifdef(`ENABLE_KDBUS',
 
         /* sd-memfd */
         sd_memfd_new;
-        sd_memfd_new;
         sd_memfd_new_and_map;
         sd_memfd_free;
         sd_memfd_get_fd;
