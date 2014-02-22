@@ -195,6 +195,8 @@ static int client_stop(sd_dhcp_client *client, int error) {
         if (client->lease)
                 client->lease = sd_dhcp_lease_unref(client->lease);
 
+        log_dhcp_client(client, "STOPPED");
+
         return 0;
 }
 
@@ -214,7 +216,7 @@ static int client_message_init(sd_dhcp_client *client, DHCPMessage *message,
             client->state == DHCP_STATE_REBINDING)
                 message->ciaddr = client->lease->address;
 
-        /* Some DHCP servers will refuse to issue an DHCP lease if the Cliient
+        /* Some DHCP servers will refuse to issue an DHCP lease if the Client
            Identifier option is not set */
         r = dhcp_option_append(opt, optlen, DHCP_OPTION_CLIENT_IDENTIFIER,
                                ETH_ALEN, &client->mac_addr);
@@ -282,6 +284,8 @@ static int client_send_discover(sd_dhcp_client *client, uint16_t secs) {
         err = dhcp_network_send_raw_socket(client->fd, &client->link,
                                            discover, len);
 
+        log_dhcp_client(client, "DISCOVER");
+
         return err;
 }
 
@@ -333,6 +337,8 @@ static int client_send_request(sd_dhcp_client *client, uint16_t secs) {
                 err = dhcp_network_send_raw_socket(client->fd, &client->link,
                                                    request, len);
         }
+
+        log_dhcp_client(client, "REQUEST");
 
         return err;
 }
@@ -503,6 +509,8 @@ static int client_timeout_expire(sd_event_source *s, uint64_t usec,
                                  void *userdata) {
         sd_dhcp_client *client = userdata;
 
+        log_dhcp_client(client, "EXPIRED");
+
         client_stop(client, DHCP_EVENT_EXPIRED);
 
         return 0;
@@ -530,6 +538,8 @@ static int client_timeout_t2(sd_event_source *s, uint64_t usec, void *userdata) 
 
         client->fd = r;
 
+        log_dhcp_client(client, "TIMEOUT T2");
+
         return client_initialize_events(client, client_receive_message_raw,
                                         usec);
 }
@@ -551,6 +561,8 @@ static int client_timeout_t1(sd_event_source *s, uint64_t usec,
         }
 
         client->fd = r;
+
+        log_dhcp_client(client, "TIMEOUT T1");
 
         return client_initialize_events(client, client_receive_message_udp, usec);
 }
@@ -579,6 +591,8 @@ static int client_handle_offer(sd_dhcp_client *client, DHCPMessage *offer,
         client->lease = lease;
         lease = NULL;
 
+        log_dhcp_client(client, "OFFER");
+
         return 0;
 }
 
@@ -592,8 +606,10 @@ static int client_handle_ack(sd_dhcp_client *client, DHCPMessage *ack,
                 return r;
 
         r = dhcp_option_parse(ack, len, dhcp_lease_parse_options, lease);
-        if (r == DHCP_NAK)
+        if (r == DHCP_NAK) {
+                log_dhcp_client(client, "NAK");
                 return DHCP_EVENT_NO_LEASE;
+        }
 
         if (r != DHCP_ACK)
                 return -ENOMSG;
@@ -618,6 +634,8 @@ static int client_handle_ack(sd_dhcp_client *client, DHCPMessage *ack,
 
         client->lease = lease;
         lease = NULL;
+
+        log_dhcp_client(client, "ACK");
 
         return r;
 }
@@ -852,8 +870,10 @@ static int client_receive_message_raw(sd_event_source *s, int fd,
         packet = (DHCPPacket *) buf;
 
         r = dhcp_packet_verify_headers(packet, BOOTREPLY, len);
-        if (r < 0)
+        if (r < 0) {
+                log_dhcp_client(client, "ignoring DHCP packet with invalid headers");
                 return 0;
+        }
 
         len -= DHCP_IP_UDP_SIZE;
 
@@ -885,6 +905,8 @@ int sd_dhcp_client_start(sd_dhcp_client *client) {
         client->fd = r;
         client->start_time = now(CLOCK_MONOTONIC);
         client->secs = 0;
+
+        log_dhcp_client(client, "STARTED");
 
         return client_initialize_events(client, client_receive_message_raw,
                                         client->start_time);
