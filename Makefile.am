@@ -4481,11 +4481,13 @@ pkgconfiglib_DATA += \
 # move lib from $(libdir) to $(rootlibdir) and update devel link, if needed
 compat-lib-install-hook:
 	libname=libsystemd-login.so && $(move-to-rootlibdir)
+	libname=libsystemd-journal.so && $(move-to-rootlibdir)
 	libname=libsystemd-id128.so && $(move-to-rootlibdir)
 	libname=libsystemd-daemon.so && $(move-to-rootlibdir)
 
 compat-lib-uninstall-hook:
 	rm -f $(DESTDIR)$(rootlibdir)/libsystemd-login.so*
+	rm -f $(DESTDIR)$(rootlibdir)/libsystemd-journal.so*
 	rm -f $(DESTDIR)$(rootlibdir)/libsystemd-id128.so*
 	rm -f $(DESTDIR)$(rootlibdir)/libsystemd-daemon.so*
 
