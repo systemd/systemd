@@ -164,7 +164,7 @@ int dhcp_packet_verify_headers(DHCPPacket *packet, size_t len) {
                 return -EINVAL;
         }
 
-        if (hdrlen + be16toh(packet->udp.len) > len) {
+        if (len < hdrlen + be16toh(packet->udp.len)) {
                 log_dhcp_client(client, "ignoring packet: packet (%zu bytes) "
                                 "smaller than expected (%zu) by UDP header", len,
                                 hdrlen + be16toh(packet->udp.len));
@@ -182,10 +182,10 @@ int dhcp_packet_verify_headers(DHCPPacket *packet, size_t len) {
                 }
         }
 
-        if (be16toh(packet->udp.source) != DHCP_PORT_SERVER ||
-            be16toh(packet->udp.dest) != DHCP_PORT_CLIENT) {
-                log_dhcp_client(client, "ignoring packet: wrong ports (source: %u, destination: %u)",
-                                be16toh(packet->udp.source), be16toh(packet->udp.dest));
+        if (be16toh(packet->udp.dest) != DHCP_PORT_CLIENT) {
+                log_dhcp_client(client, "ignoring packet: to port %u, which "
+                                "is not the DHCP client port (%u)",
+                                be16toh(packet->udp.dest), DHCP_PORT_CLIENT);
                 return -EINVAL;
         }
 
