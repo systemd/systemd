@@ -870,10 +870,8 @@ static int client_receive_message_raw(sd_event_source *s, int fd,
         packet = (DHCPPacket *) buf;
 
         r = dhcp_packet_verify_headers(packet, BOOTREPLY, len);
-        if (r < 0) {
-                log_dhcp_client(client, "ignoring DHCP packet with invalid headers");
+        if (r < 0)
                 return 0;
-        }
 
         len -= DHCP_IP_UDP_SIZE;
 

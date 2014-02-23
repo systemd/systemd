@@ -132,38 +132,58 @@ int dhcp_packet_verify_headers(DHCPPacket *packet, uint8_t op, size_t len) {
 
         assert(op == BOOTREQUEST || op == BOOTREPLY);
 
-        if (len < (DHCP_IP_UDP_SIZE + DHCP_MESSAGE_SIZE))
+        if (len < (DHCP_IP_UDP_SIZE + DHCP_MESSAGE_SIZE)) {
+                log_dhcp_client(client, "ignoring packet: packet too small");
                 return -EINVAL;
+        }
 
         hdrlen = packet->ip.ihl * 4;
-        if (hdrlen < 20 || hdrlen > len || dhcp_checksum(&packet->ip, hdrlen))
+        if (hdrlen < 20 || hdrlen > len) {
+                log_dhcp_client(client, "ignoring packet: header with wrong size");
                 return -EINVAL;
+        }
 
-        if (hdrlen + be16toh(packet->udp.len) > len)
+        if (dhcp_checksum(&packet->ip, hdrlen)) {
+                log_dhcp_client(client, "ignoring packet: invalid ip checksum");
                 return -EINVAL;
+        }
+
+        if (hdrlen + be16toh(packet->udp.len) > len) {
+                log_dhcp_client(client, "ignoring packet: packet too small (udp.len=%u)",
+                                be16toh(packet->udp.len));
+                return -EINVAL;
+        }
 
         if (packet->udp.check) {
                 packet->ip.check = packet->udp.len;
                 packet->ip.ttl = 0;
 
                 if (dhcp_checksum(&packet->ip.ttl,
-                                  be16toh(packet->udp.len) + 12))
+                                  be16toh(packet->udp.len) + 12)) {
+                        log_dhcp_client(client, "ignoring packet: invalid udp checksum");
                         return -EINVAL;
+                }
         }
 
-        if (packet->dhcp.op != op)
+        if (packet->dhcp.op != op) {
+                log_dhcp_client(client, "ignoring packet: wrong operation");
                 return -EINVAL;
+        }
 
         switch (op) {
                 case BOOTREQUEST:
                         if (be16toh(packet->udp.source) != DHCP_PORT_CLIENT ||
-                            be16toh(packet->udp.dest) != DHCP_PORT_SERVER)
+                            be16toh(packet->udp.dest) != DHCP_PORT_SERVER) {
+                                log_dhcp_client(client, "ignoring packet: wrong ports");
                                 return -EINVAL;
+                        }
                         break;
                 case BOOTREPLY:
                         if (be16toh(packet->udp.source) != DHCP_PORT_SERVER ||
-                            be16toh(packet->udp.dest) != DHCP_PORT_CLIENT)
+                            be16toh(packet->udp.dest) != DHCP_PORT_CLIENT) {
+                                log_dhcp_client(client, "ignoring packet: wrong ports");
                                 return -EINVAL;
+                        }
                         break;
         }
 
