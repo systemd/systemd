@@ -303,7 +303,7 @@ static int client_send_request(sd_dhcp_client *client, uint16_t secs) {
         uint8_t *opt;
 
         optlen = DHCP_MIN_OPTIONS_SIZE;
-        len = DHCP_MESSAGE_SIZE + optlen;
+        len = sizeof(DHCPPacket) + optlen;
 
         request = malloc0(len);
         if (!request)
