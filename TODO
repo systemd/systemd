@@ -27,6 +27,8 @@ External:
 
 Features:
 
+* MessageQueueMessageSize= and RLimitFSIZE= (and suchlike) should use parse_iec_size().
+
 * man: move .link, .network and .netdev documentation into their own
   man pages maybe called "systemd.link(5)", "systemd.network(5)" and
   "systemd.netdev(5)" or so.
