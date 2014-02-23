@@ -39,6 +39,16 @@ CHANGES WITH 209:
           MTU, duplex settings, Wake-on-LAN settings, MAC address, MAC
           address assignment policy (randomized, ...).
 
+        * The configuration of network interface naming rules for
+          "permanent interface names" has changed: a new NamePolicy=
+          setting in the [Link] section of .link files determines the
+          priority of possible naming schemes (onboard, slot, mac,
+          path). The default value of this setting is determined by
+          /usr/lib/net/links/99-default.link. Old
+          80-net-name-slot.rules udev configuration file has been
+          removed, so local configuration overriding this file should
+          be adapated to override 99-default.link instead.
+
         * When the User= switch is used in a unit file, also
           initialize $SHELL= based on the user database entry.
 
