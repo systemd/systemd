@@ -278,7 +278,7 @@ finish:
 }
 
 /* Returns a short identifier for the various VM/container implementations */
-Virtualization detect_virtualization(const char **id) {
+int detect_virtualization(const char **id) {
         int r;
 
         r = detect_container(id);

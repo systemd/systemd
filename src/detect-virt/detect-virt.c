@@ -129,7 +129,7 @@ int main(int argc, char *argv[]) {
         switch (arg_mode) {
 
         case ANY_VIRTUALIZATION: {
-                Virtualization v;
+                int v;
 
                 v = detect_virtualization(&id);
                 if (v < 0) {

@@ -121,8 +121,7 @@ bool condition_test_kernel_command_line(Condition *c) {
 }
 
 bool condition_test_virtualization(Condition *c) {
-        int b;
-        Virtualization v;
+        int b, v;
         const char *id;
 
         assert(c);

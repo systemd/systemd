@@ -24,12 +24,12 @@
 int detect_vm(const char **id);
 int detect_container(const char **id);
 
-typedef enum Virtualization {
+enum {
         VIRTUALIZATION_NONE = 0,
         VIRTUALIZATION_VM,
         VIRTUALIZATION_CONTAINER,
         _VIRTUALIZATION_MAX,
         _VIRTUALIZATION_INVALID = -1
-} Virtualization;
+};
 
-Virtualization detect_virtualization(const char **id);
+int detect_virtualization(const char **id);

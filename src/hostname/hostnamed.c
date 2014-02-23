@@ -123,7 +123,7 @@ static const char* fallback_chassis(void) {
         int r;
         char *type;
         unsigned t;
-        Virtualization v;
+        int v;
 
         v = detect_virtualization(NULL);
 

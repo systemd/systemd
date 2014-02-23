@@ -26,7 +26,7 @@
 
 int main(int argc, char *argv[]) {
         Architecture a;
-        Virtualization v;
+        int v;
         const char *id = NULL;
 
         v = detect_virtualization(&id);
