@@ -972,12 +972,7 @@ AS_IF([test "x$enable_gudev" = "xyes"], [ AC_DEFINE(HAVE_GLIB, 1, [Define if gli
 # ------------------------------------------------------------------------------
 have_manpages=no
 AC_ARG_ENABLE(manpages, AS_HELP_STRING([--disable-manpages], [disable manpages]))
-AS_IF([test "x$enable_manpages" != xno], [
-        AS_IF([test "x$enable_manpages" = xyes -a "x$XSLTPROC" = x], [
-                AC_MSG_ERROR([*** Manpages requested but xsltproc not found])
-        ])
-        AS_IF([test "x$XSLTPROC" != x], [have_manpages=yes])
-])
+AS_IF([test "x$enable_manpages" != xno], [have_manpages=yes])
 AM_CONDITIONAL(ENABLE_MANPAGES, [test "x$have_manpages" = "xyes"])
 
 # ------------------------------------------------------------------------------
