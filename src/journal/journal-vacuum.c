@@ -333,7 +333,7 @@ finish:
                 free(list[i].filename);
         free(list);
 
-        log_info("Vacuuming done, freed %"PRIu64" bytes", freed);
+        log_debug("Vacuuming done, freed %"PRIu64" bytes", freed);
 
         return r;
 }
