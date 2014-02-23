@@ -2293,8 +2293,6 @@ _public_ int sd_journal_process(sd_journal *j) {
                         l -= step;
                 }
         }
-
-        return determine_change(j);
 }
 
 _public_ int sd_journal_wait(sd_journal *j, uint64_t timeout_usec) {

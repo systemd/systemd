@@ -1814,8 +1814,6 @@ static int process_signal(sd_event *e, uint32_t events) {
                 if (r < 0)
                         return r;
         }
-
-        return 0;
 }
 
 static int source_dispatch(sd_event_source *s) {

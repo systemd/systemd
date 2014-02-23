@@ -1436,9 +1436,7 @@ static int service_search_main_pid(Service *s) {
                 log_warning_unit(UNIT(s)->id,
                                  "Failed to watch PID "PID_FMT" from service %s",
                                  pid, UNIT(s)->id);
-                return r;
-
-        return 0;
+        return r;
 }
 
 static void service_set_state(Service *s, ServiceState state) {

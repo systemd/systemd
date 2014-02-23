@@ -469,8 +469,6 @@ static int find_symlinks_fd(
                                 return 1;
                 }
         }
-
-        return r;
 }
 
 static int find_symlinks(

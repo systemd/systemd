@@ -220,7 +220,6 @@ static int parse_args(int argc, char *argv[]) {
                         fprintf(stderr, " --help,      -h          Display this message\n");
                         fprintf(stderr, "See bootchart.conf for more information.\n");
                         exit (EXIT_SUCCESS);
-                        break;
                 default:
                         break;
                 }

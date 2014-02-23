@@ -480,7 +480,7 @@ int sd_rtnl_message_append_u16(sd_rtnl_message *m, unsigned short type, uint16_t
                                 break;
                         else
                                 return -ENOTSUP;
-                        break;
+
                 default:
                         return -ENOTSUP;
         }
@@ -932,10 +932,6 @@ int socket_read_message(sd_rtnl *nl, sd_rtnl_message **ret) {
 
         if (k > 0)
                 switch (m->hdr->nlmsg_type) {
-                        struct ifinfomsg *ifi;
-                        struct ifaddrmsg *ifa;
-                        struct rtmsg *rtm;
-
                         /* check that the size matches the message type */
                         case NLMSG_ERROR:
                                 if (m->hdr->nlmsg_len < NLMSG_LENGTH(sizeof(struct nlmsgerr)))
@@ -948,6 +944,8 @@ int socket_read_message(sd_rtnl *nl, sd_rtnl_message **ret) {
                                 if (m->hdr->nlmsg_len < NLMSG_LENGTH(sizeof(struct ifinfomsg)))
                                         k = -EIO;
                                 else {
+                                        struct ifinfomsg *ifi;
+
                                         ifi = NLMSG_DATA(m->hdr);
                                         UPDATE_RTA(m, IFLA_RTA(ifi));
                                 }
@@ -958,6 +956,8 @@ int socket_read_message(sd_rtnl *nl, sd_rtnl_message **ret) {
                                 if (m->hdr->nlmsg_len < NLMSG_LENGTH(sizeof(struct ifaddrmsg)))
                                         k = -EIO;
                                 else {
+                                        struct ifaddrmsg *ifa;
+
                                         ifa = NLMSG_DATA(m->hdr);
                                         UPDATE_RTA(m, IFA_RTA(ifa));
                                 }
@@ -968,6 +968,8 @@ int socket_read_message(sd_rtnl *nl, sd_rtnl_message **ret) {
                                 if (m->hdr->nlmsg_len < NLMSG_LENGTH(sizeof(struct rtmsg)))
                                         k = -EIO;
                                 else {
+                                        struct rtmsg *rtm;
+
                                         rtm = NLMSG_DATA(m->hdr);
                                         UPDATE_RTA(m, RTM_RTA(rtm));
                                 }

@@ -498,8 +498,7 @@ static int uinfo(struct udev *udev, int argc, char *argv[])
                         print_record(device);
                         break;
                 default:
-                        fprintf(stderr, "unknown query type\n");
-                        break;
+                        assert_not_reached("unknown query type");
                 }
                 break;
         case ACTION_ATTRIBUTE_WALK:

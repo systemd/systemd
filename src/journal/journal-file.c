@@ -2210,8 +2210,6 @@ int journal_file_move_to_entry_by_monotonic_for_data(
 
                 z = q;
         }
-
-        return 0;
 }
 
 int journal_file_move_to_entry_by_seqnum_for_data(

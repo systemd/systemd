@@ -1078,8 +1078,6 @@ int manager_run(Manager *m) {
                 if (r < 0)
                         return r;
         }
-
-        return 0;
 }
 
 static int manager_parse_config_file(Manager *m) {

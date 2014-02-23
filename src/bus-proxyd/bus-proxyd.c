@@ -774,8 +774,6 @@ int main(int argc, char *argv[]) {
                 }
         }
 
-        r = 0;
-
 finish:
         sd_bus_flush(a);
         sd_bus_flush(b);

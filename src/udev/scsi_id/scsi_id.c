@@ -396,7 +396,6 @@ static int set_options(struct udev *udev,
                 case 'V':
                         printf("%s\n", VERSION);
                         exit(0);
-                        break;
 
                 case 'x':
                         export = true;
