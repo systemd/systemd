@@ -119,6 +119,8 @@ void dhcp_packet_append_ip_headers(DHCPPacket *packet, uint16_t len) {
 int dhcp_packet_verify_headers(DHCPPacket *packet, size_t len) {
         size_t hdrlen;
 
+        assert(packet);
+
         /* IP */
 
         if (len < DHCP_IP_SIZE) {

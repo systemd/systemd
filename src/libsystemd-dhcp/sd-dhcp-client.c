@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <net/ethernet.h>
 #include <sys/param.h>
+#include <sys/ioctl.h>
 
 #include "util.h"
 #include "list.h"
@@ -847,16 +848,23 @@ error:
 static int client_receive_message_udp(sd_event_source *s, int fd,
                                       uint32_t revents, void *userdata) {
         sd_dhcp_client *client = userdata;
-        uint8_t buf[sizeof(DHCPMessage) + DHCP_MIN_OPTIONS_SIZE];
-        int buflen = sizeof(buf);
-        int len, r = 0;
+        _cleanup_free_ DHCPMessage *message = NULL;
+        int buflen = 0, len, r;
         usec_t time_now;
 
         assert(s);
         assert(client);
         assert(client->event);
 
-        len = read(fd, &buf, buflen);
+        r = ioctl(fd, FIONREAD, &buflen);
+        if (r < 0 || buflen <= 0)
+                buflen = sizeof(DHCPMessage) + DHCP_MIN_OPTIONS_SIZE;
+
+        message = malloc0(buflen);
+        if (!message)
+                return -ENOMEM;
+
+        len = read(fd, message, buflen);
         if (len < 0)
                 return 0;
 
@@ -864,28 +872,32 @@ static int client_receive_message_udp(sd_event_source *s, int fd,
         if (r < 0)
                 return client_stop(client, r);
 
-        return client_handle_message(client, (DHCPMessage *) buf, len,
+        return client_handle_message(client, message, len,
                                      time_now);
 }
 
 static int client_receive_message_raw(sd_event_source *s, int fd,
                                       uint32_t revents, void *userdata) {
         sd_dhcp_client *client = userdata;
-        uint8_t buf[sizeof(DHCPPacket) + DHCP_MIN_OPTIONS_SIZE];
-        int buflen = sizeof(buf);
-        int len, r = 0;
-        DHCPPacket *packet;
+        _cleanup_free_ DHCPPacket *packet = NULL;
+        int buflen = 0, len, r;
         usec_t time_now;
 
         assert(s);
         assert(client);
         assert(client->event);
 
-        len = read(fd, &buf, buflen);
+        r = ioctl(fd, FIONREAD, &buflen);
+        if (r < 0 || buflen <= 0)
+                buflen = sizeof(DHCPPacket) + DHCP_MIN_OPTIONS_SIZE;
+
+        packet = malloc0(buflen);
+        if (!packet)
+                return -ENOMEM;
+
+        len = read(fd, packet, buflen);
         if (len < 0)
                 return 0;
-
-        packet = (DHCPPacket *) buf;
 
         r = dhcp_packet_verify_headers(packet, len);
         if (r < 0)
