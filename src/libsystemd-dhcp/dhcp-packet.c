@@ -37,9 +37,10 @@
 #define DHCP_CLIENT_MIN_OPTIONS_SIZE            312
 
 int dhcp_message_init(DHCPMessage *message, uint8_t op, uint32_t xid,
-                      uint8_t type, uint16_t secs, uint8_t **opt,
-                      size_t *optlen) {
+                      uint8_t type, uint8_t **opt, size_t *optlen) {
         int err;
+
+        assert(op == BOOTREQUEST || op == BOOTREPLY);
 
         *opt = (uint8_t *)(message + 1);
 
@@ -51,10 +52,6 @@ int dhcp_message_init(DHCPMessage *message, uint8_t op, uint32_t xid,
         message->htype = ARPHRD_ETHER;
         message->hlen = ETHER_ADDR_LEN;
         message->xid = htobe32(xid);
-
-        /* Although 'secs' field is a SHOULD in RFC 2131, certain DHCP servers
-           refuse to issue an DHCP lease if 'secs' is set to zero */
-        message->secs = htobe16(secs);
 
         (*opt)[0] = 0x63;
         (*opt)[1] = 0x82;

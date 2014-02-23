@@ -206,10 +206,16 @@ static int client_message_init(sd_dhcp_client *client, DHCPMessage *message,
                                size_t *optlen) {
         int r;
 
-        r = dhcp_message_init(message, BOOTREQUEST, client->xid, type,
-                              secs, opt, optlen);
+        assert(secs);
+
+        r = dhcp_message_init(message, BOOTREQUEST, client->xid, type, opt,
+                              optlen);
         if (r < 0)
                 return r;
+
+        /* Although 'secs' field is a SHOULD in RFC 2131, certain DHCP servers
+           refuse to issue an DHCP lease if 'secs' is set to zero */
+        message->secs = htobe16(secs);
 
         memcpy(&message->chaddr, &client->mac_addr, ETH_ALEN);
 
