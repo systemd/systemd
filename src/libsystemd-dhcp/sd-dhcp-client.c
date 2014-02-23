@@ -279,7 +279,7 @@ static int client_send_discover(sd_dhcp_client *client, uint16_t secs) {
         if (err < 0)
                 return err;
 
-        dhcp_packet_append_ip_headers(discover, BOOTREQUEST, len);
+        dhcp_packet_append_ip_headers(discover, len);
 
         err = dhcp_network_send_raw_socket(client->fd, &client->link,
                                            discover, len);
@@ -332,7 +332,7 @@ static int client_send_request(sd_dhcp_client *client, uint16_t secs) {
                                                    &request->dhcp,
                                                    len - DHCP_IP_UDP_SIZE);
         } else {
-                dhcp_packet_append_ip_headers(request, BOOTREQUEST, len);
+                dhcp_packet_append_ip_headers(request, len);
 
                 err = dhcp_network_send_raw_socket(client->fd, &client->link,
                                                    request, len);
@@ -736,12 +736,30 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message,
         assert(client->event);
         assert(message);
 
-        if (be32toh(message->xid) != client->xid)
+        if (len < DHCP_MESSAGE_SIZE) {
+                log_dhcp_client(client, "message too small (%d bytes): "
+                                "ignoring", len);
                 return 0;
+        }
+
+        if (message->op != BOOTREPLY) {
+                log_dhcp_client(client, "not a BOOTREPLY message: ignoring");
+                return 0;
+        }
+
+        if (be32toh(message->xid) != client->xid) {
+                log_dhcp_client(client, "received xid (%u) does not match "
+                                "expected (%u): ignoring",
+                                be32toh(message->xid), client->xid);
+                return 0;
+        }
 
         if (memcmp(&message->chaddr[0], &client->mac_addr.ether_addr_octet,
-                   ETHER_ADDR_LEN))
+                   ETHER_ADDR_LEN)) {
+                log_dhcp_client(client, "received chaddr does not match "
+                                "expected: ignoring");
                 return 0;
+        }
 
         switch (client->state) {
         case DHCP_STATE_SELECTING:
@@ -869,7 +887,7 @@ static int client_receive_message_raw(sd_event_source *s, int fd,
 
         packet = (DHCPPacket *) buf;
 
-        r = dhcp_packet_verify_headers(packet, BOOTREPLY, len);
+        r = dhcp_packet_verify_headers(packet, len);
         if (r < 0)
                 return 0;
 
