@@ -226,14 +226,15 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           case the backing block device of the file system of the file
           is used. If the bandwidth is suffixed with K, M, G, or T,
           the specified bandwidth is parsed as Kilobytes, Megabytes,
-          Gigabytes, or Terabytes, respectively (Example:
+          Gigabytes, or Terabytes, respectively, to the base of
+          1000. (Example:
           "/dev/disk/by-path/pci-0000:00:1f.2-scsi-0:0:0:0 5M"). This
           controls the <literal>blkio.read_bps_device</literal> and
           <literal>blkio.write_bps_device</literal> control group
           attributes. Use this option multiple times to set bandwidth
           limits for multiple devices. For details about these control
-          group attributes, see
-          <ulink url="https://www.kernel.org/doc/Documentation/cgroups/blkio-controller.txt">blkio-controller.txt</ulink>.
+          group attributes, see <ulink
+          url="https://www.kernel.org/doc/Documentation/cgroups/blkio-controller.txt">blkio-controller.txt</ulink>.
           </para>
 
           <para>Implies

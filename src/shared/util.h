@@ -144,8 +144,9 @@ int close_nointr(int fd);
 void close_nointr_nofail(int fd);
 void close_many(const int fds[], unsigned n_fd);
 
+int parse_size(const char *t, off_t base, off_t *size);
+
 int parse_boolean(const char *v) _pure_;
-int parse_bytes(const char *t, off_t *bytes);
 int parse_pid(const char *s, pid_t* ret_pid);
 int parse_uid(const char *s, uid_t* ret_uid);
 #define parse_gid(s, ret_uid) parse_uid(s, ret_uid)

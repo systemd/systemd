@@ -2327,10 +2327,9 @@ int config_parse_memory_limit(
 
         assert_cc(sizeof(uint64_t) == sizeof(off_t));
 
-        r = parse_bytes(rvalue, &bytes);
+        r = parse_size(rvalue, 1024, &bytes);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Memory limit '%s' invalid. Ignoring.", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Memory limit '%s' invalid. Ignoring.", rvalue);
                 return 0;
         }
 
@@ -2563,10 +2562,9 @@ int config_parse_blockio_bandwidth(
                 return 0;
         }
 
-        r = parse_bytes(bandwidth, &bytes);
+        r = parse_size(bandwidth, 1000, &bytes);
         if (r < 0 || bytes <= 0) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Block IO Bandwidth '%s' invalid. Ignoring.", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Block IO Bandwidth '%s' invalid. Ignoring.", rvalue);
                 return 0;
         }
 
@@ -2964,7 +2962,9 @@ void unit_dump_config_items(FILE *f) {
 #endif
                 { config_parse_int,                   "INTEGER" },
                 { config_parse_unsigned,              "UNSIGNED" },
-                { config_parse_bytes_size,            "SIZE" },
+                { config_parse_iec_size,              "SIZE" },
+                { config_parse_iec_off,               "SIZE" },
+                { config_parse_si_size,               "SIZE" },
                 { config_parse_bool,                  "BOOLEAN" },
                 { config_parse_string,                "STRING" },
                 { config_parse_path,                  "PATH" },

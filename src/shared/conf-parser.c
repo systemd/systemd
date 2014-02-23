@@ -447,8 +447,7 @@ DEFINE_PARSER(double, double, safe_atod)
 DEFINE_PARSER(nsec, nsec_t, parse_nsec)
 DEFINE_PARSER(sec, usec_t, parse_sec)
 
-
-int config_parse_bytes_size(const char* unit,
+int config_parse_iec_size(const char* unit,
                             const char *filename,
                             unsigned line,
                             const char *section,
@@ -468,10 +467,9 @@ int config_parse_bytes_size(const char* unit,
         assert(rvalue);
         assert(data);
 
-        r = parse_bytes(rvalue, &o);
+        r = parse_size(rvalue, 1024, &o);
         if (r < 0 || (off_t) (size_t) o != o) {
-                log_syntax(unit, LOG_ERR, filename, line, -r,
-                           "Failed to parse byte value, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r < 0 ? -r : ERANGE, "Failed to parse size value, ignoring: %s", rvalue);
                 return 0;
         }
 
@@ -479,8 +477,37 @@ int config_parse_bytes_size(const char* unit,
         return 0;
 }
 
+int config_parse_si_size(const char* unit,
+                            const char *filename,
+                            unsigned line,
+                            const char *section,
+                            unsigned section_line,
+                            const char *lvalue,
+                            int ltype,
+                            const char *rvalue,
+                            void *data,
+                            void *userdata) {
 
-int config_parse_bytes_off(const char* unit,
+        size_t *sz = data;
+        off_t o;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = parse_size(rvalue, 1000, &o);
+        if (r < 0 || (off_t) (size_t) o != o) {
+                log_syntax(unit, LOG_ERR, filename, line, r < 0 ? -r : ERANGE, "Failed to parse size value, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        *sz = (size_t) o;
+        return 0;
+}
+
+int config_parse_iec_off(const char* unit,
                            const char *filename,
                            unsigned line,
                            const char *section,
@@ -501,10 +528,9 @@ int config_parse_bytes_off(const char* unit,
 
         assert_cc(sizeof(off_t) == sizeof(uint64_t));
 
-        r = parse_bytes(rvalue, bytes);
+        r = parse_size(rvalue, 1024, bytes);
         if (r < 0)
-                log_syntax(unit, LOG_ERR, filename, line, -r,
-                           "Failed to parse bytes value, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, -r, "Failed to parse size value, ignoring: %s", rvalue);
 
         return 0;
 }

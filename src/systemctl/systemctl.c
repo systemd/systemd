@@ -4045,7 +4045,7 @@ static int append_assignment(sd_bus_message *m, const char *assignment) {
         } else if (streq(field, "MemoryLimit")) {
                 off_t bytes;
 
-                r = parse_bytes(eq, &bytes);
+                r = parse_size(eq, 1024, &bytes);
                 if (r < 0) {
                         log_error("Failed to parse bytes specification %s", assignment);
                         return -EINVAL;
@@ -4115,7 +4115,7 @@ static int append_assignment(sd_bus_message *m, const char *assignment) {
                                 return -EINVAL;
                         }
 
-                        r = parse_bytes(bandwidth, &bytes);
+                        r = parse_size(bandwidth, 1000, &bytes);
                         if (r < 0) {
                                 log_error("Failed to parse byte value %s.", bandwidth);
                                 return -EINVAL;

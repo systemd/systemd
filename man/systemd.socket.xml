@@ -484,12 +484,15 @@
                                 <term><varname>ReceiveBuffer=</varname></term>
                                 <term><varname>SendBuffer=</varname></term>
                                 <listitem><para>Takes an integer
-                                argument controlling the receive
-                                or send buffer sizes of this
-                                socket, respectively. This controls the SO_RCVBUF
-                                and SO_SNDBUF socket options (see
+                                argument controlling the receive or
+                                send buffer sizes of this socket,
+                                respectively. This controls the
+                                SO_RCVBUF and SO_SNDBUF socket options
+                                (see
                                 <citerefentry><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-                                for details.).</para></listitem>
+                                for details.). The usual suffixes K,
+                                M, G are supported and are understood
+                                to the base of 1024.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -568,12 +571,14 @@
 
                         <varlistentry>
                                 <term><varname>PipeSize=</varname></term>
-                                <listitem><para>Takes an integer
-                                value. Controls the pipe buffer size
+                                <listitem><para>Takes an size in
+                                bytes. Controls the pipe buffer size
                                 of FIFOs configured in this socket
                                 unit. See
                                 <citerefentry><refentrytitle>fcntl</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-                                for details.</para></listitem>
+                                for details. The usual suffixes K, M,
+                                G are supported and are understood to
+                                the base of 1024.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

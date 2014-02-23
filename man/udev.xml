@@ -984,14 +984,18 @@
         <varlistentry>
           <term><varname>MTUBytes=</varname></term>
           <listitem>
-            <para>The maximum transmission unit in bytes to set for the device.</para>
+            <para>The maximum transmission unit in bytes to set for
+            the device. The usual suffixes K, M, G, are supported and
+            are understood to the base of 1024.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>BitsPerSecond=</varname></term>
           <listitem>
-            <para>The speed to set for the device, the value is rounded down
-            to the nearest Mbps.</para>
+            <para>The speed to set for the device, the value is
+            rounded down to the nearest Mbps. The usual suffixes K, M,
+            G, are supported and are understood to the base of
+            1000.</para>
           </listitem>
         </varlistentry>
         <varlistentry>

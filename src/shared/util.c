@@ -2135,11 +2135,28 @@ ssize_t loop_write(int fd, const void *buf, size_t nbytes, bool do_poll) {
         return n;
 }
 
-int parse_bytes(const char *t, off_t *bytes) {
-        static const struct {
+int parse_size(const char *t, off_t base, off_t *size) {
+
+        /* Soo, sometimes we want to parse IEC binary suffxies, and
+         * sometimes SI decimal suffixes. This function can parse
+         * both. Which one is the right way depends on the
+         * context. Wikipedia suggests that SI is customary for
+         * hardrware metrics and network speeds, while IEC is
+         * customary for most data sizes used by software and volatile
+         * (RAM) memory. Hence be careful which one you pick!
+         *
+         * In either case we use just K, M, G as suffix, and not Ki,
+         * Mi, Gi or so (as IEC would suggest). That's because that's
+         * frickin' ugly. But this means you really need to make sure
+         * to document which base you are parsing when you use this
+         * call. */
+
+        struct table {
                 const char *suffix;
                 unsigned long long factor;
-        } table[] = {
+        };
+
+        static const struct table iec[] = {
                 { "B", 1 },
                 { "K", 1024ULL },
                 { "M", 1024ULL*1024ULL },
@@ -2150,11 +2167,33 @@ int parse_bytes(const char *t, off_t *bytes) {
                 { "", 1 },
         };
 
+        static const struct table si[] = {
+                { "B", 1 },
+                { "K", 1000ULL },
+                { "M", 1000ULL*1000ULL },
+                { "G", 1000ULL*1000ULL*1000ULL },
+                { "T", 1000ULL*1000ULL*1000ULL*1000ULL },
+                { "P", 1000ULL*1000ULL*1000ULL*1000ULL*1000ULL },
+                { "E", 1000ULL*1000ULL*1000ULL*1000ULL*1000ULL*1000ULL },
+                { "", 1 },
+        };
+
+        const struct table *table;
         const char *p;
         unsigned long long r = 0;
+        unsigned n_entries;
 
         assert(t);
-        assert(bytes);
+        assert(base == 1000 || base == 1024);
+        assert(size);
+
+        if (base == 1000) {
+                table = si;
+                n_entries = ELEMENTSOF(si);
+        } else {
+                table = iec;
+                n_entries = ELEMENTSOF(iec);
+        }
 
         p = t;
         do {
@@ -2176,7 +2215,7 @@ int parse_bytes(const char *t, off_t *bytes) {
 
                 e += strspn(e, WHITESPACE);
 
-                for (i = 0; i < ELEMENTSOF(table); i++)
+                for (i = 0; i < n_entries; i++)
                         if (startswith(e, table[i].suffix)) {
                                 unsigned long long tmp;
                                 if ((unsigned long long) l > ULLONG_MAX / table[i].factor)
@@ -2193,12 +2232,12 @@ int parse_bytes(const char *t, off_t *bytes) {
                                 break;
                         }
 
-                if (i >= ELEMENTSOF(table))
+                if (i >= n_entries)
                         return -EINVAL;
 
         } while (*p);
 
-        *bytes = r;
+        *size = r;
 
         return 0;
 }
