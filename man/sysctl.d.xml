@@ -103,6 +103,16 @@
                 <filename>/dev/null</filename> in
                 <filename>/etc/sysctl.d/</filename> bearing the
                 same filename.</para>
+
+                <para>The settings configured with
+                <filename>sysctl.d</filename> files will be applied
+                early on boot. The network interface-specific options
+                will also be applied individually for each network
+                interface as it shows up in the system. (More
+                specifically, that is
+                <filename>net.ipv4.conf.*</filename>,
+                <filename>net.ipv6.conf.*</filename>,
+                <filename>net.ipv4.neigh.*</filename> and <filename>net.ipv6.neigh.*</filename>)</para>
         </refsect1>
 
         <refsect1>
