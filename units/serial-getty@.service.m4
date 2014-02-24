@@ -33,3 +33,6 @@ TTYVHangup=yes
 KillMode=process
 IgnoreSIGPIPE=no
 SendSIGHUP=yes
+
+[Install]
+WantedBy=getty.target
