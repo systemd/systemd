@@ -268,6 +268,7 @@ fail:
 }
 
 void cgroup_context_apply(CGroupContext *c, CGroupControllerMask mask, const char *path) {
+        bool is_root;
         int r;
 
         assert(c);
@@ -276,7 +277,11 @@ void cgroup_context_apply(CGroupContext *c, CGroupControllerMask mask, const cha
         if (mask == 0)
                 return;
 
-        if (mask & CGROUP_CPU) {
+        /* Some cgroup attributes are not support on the root cgroup,
+         * hence silently ignore */
+        is_root = isempty(path) || path_equal(path, "/");
+
+        if ((mask & CGROUP_CPU) && !is_root) {
                 char buf[DECIMAL_STR_MAX(unsigned long) + 1];
 
                 sprintf(buf, "%lu\n", c->cpu_shares);
@@ -292,23 +297,25 @@ void cgroup_context_apply(CGroupContext *c, CGroupControllerMask mask, const cha
                 CGroupBlockIODeviceWeight *w;
                 CGroupBlockIODeviceBandwidth *b;
 
-                sprintf(buf, "%lu\n", c->blockio_weight);
-                r = cg_set_attribute("blkio", path, "blkio.weight", buf);
-                if (r < 0)
-                        log_warning("Failed to set blkio.weight on %s: %s", path, strerror(-r));
-
-                /* FIXME: no way to reset this list */
-                LIST_FOREACH(device_weights, w, c->blockio_device_weights) {
-                        dev_t dev;
-
-                        r = lookup_blkio_device(w->path, &dev);
+                if (!is_root) {
+                        sprintf(buf, "%lu\n", c->blockio_weight);
+                        r = cg_set_attribute("blkio", path, "blkio.weight", buf);
                         if (r < 0)
-                                continue;
+                                log_warning("Failed to set blkio.weight on %s: %s", path, strerror(-r));
 
-                        sprintf(buf, "%u:%u %lu", major(dev), minor(dev), w->weight);
-                        r = cg_set_attribute("blkio", path, "blkio.weight_device", buf);
-                        if (r < 0)
-                                log_error("Failed to set blkio.weight_device on %s: %s", path, strerror(-r));
+                        /* FIXME: no way to reset this list */
+                        LIST_FOREACH(device_weights, w, c->blockio_device_weights) {
+                                dev_t dev;
+
+                                r = lookup_blkio_device(w->path, &dev);
+                                if (r < 0)
+                                        continue;
+
+                                sprintf(buf, "%u:%u %lu", major(dev), minor(dev), w->weight);
+                                r = cg_set_attribute("blkio", path, "blkio.weight_device", buf);
+                                if (r < 0)
+                                        log_error("Failed to set blkio.weight_device on %s: %s", path, strerror(-r));
+                        }
                 }
 
                 /* FIXME: no way to reset this list */
@@ -342,7 +349,7 @@ void cgroup_context_apply(CGroupContext *c, CGroupControllerMask mask, const cha
                         log_error("Failed to set memory.limit_in_bytes on %s: %s", path, strerror(-r));
         }
 
-        if (mask & CGROUP_DEVICE) {
+        if ((mask & CGROUP_DEVICE) && !is_root) {
                 CGroupDeviceAllow *a;
 
                 if (c->device_allow || c->device_policy != CGROUP_AUTO)
@@ -350,7 +357,7 @@ void cgroup_context_apply(CGroupContext *c, CGroupControllerMask mask, const cha
                 else
                         r = cg_set_attribute("devices", path, "devices.allow", "a");
                 if (r < 0)
-                        log_error("Failed to reset devices.list on %s: %s", path, strerror(-r));
+                        log_warning("Failed to reset devices.list on %s: %s", path, strerror(-r));
 
                 if (c->device_policy == CGROUP_CLOSED ||
                     (c->device_policy == CGROUP_AUTO && c->device_allow)) {
