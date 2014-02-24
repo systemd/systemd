@@ -31,6 +31,7 @@
 #include "hwclock.h"
 #include "path-util.h"
 #include "virt.h"
+#include "architecture.h"
 #include "env-util.h"
 #include "dbus.h"
 #include "dbus-manager.h"
@@ -87,6 +88,21 @@ static int property_get_virtualization(
         detect_virtualization(&id);
 
         return sd_bus_message_append(reply, "s", id);
+}
+
+static int property_get_architecture(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        assert(bus);
+        assert(reply);
+
+        return sd_bus_message_append(reply, "s", architecture_to_string(uname_architecture()));
 }
 
 static int property_get_tainted(
@@ -1549,6 +1565,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_PROPERTY("Version", "s", property_get_version, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Features", "s", property_get_features, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Virtualization", "s", property_get_virtualization, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("Architecture", "s", property_get_architecture, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Tainted", "s", property_get_tainted, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         BUS_PROPERTY_DUAL_TIMESTAMP("FirmwareTimestamp", offsetof(Manager, firmware_timestamp), SD_BUS_VTABLE_PROPERTY_CONST),
         BUS_PROPERTY_DUAL_TIMESTAMP("LoaderTimestamp", offsetof(Manager, loader_timestamp), SD_BUS_VTABLE_PROPERTY_CONST),
