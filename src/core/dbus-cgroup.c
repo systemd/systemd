@@ -278,6 +278,10 @@ int bus_cgroup_set_property(
                 if (r < 0)
                         return r;
 
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
                 if (mode != UNIT_CHECK) {
                         CGroupBlockIODeviceBandwidth *a, *next;
                         _cleanup_free_ char *buf = NULL;
@@ -355,6 +359,10 @@ int bus_cgroup_set_property(
 
                         n++;
                 }
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
 
                 if (mode != UNIT_CHECK) {
                         _cleanup_free_ char *buf = NULL;
@@ -481,11 +489,14 @@ int bus_cgroup_set_property(
                                 a->r = !!strchr(rwm, 'r');
                                 a->w = !!strchr(rwm, 'w');
                                 a->m = !!strchr(rwm, 'm');
-
                         }
 
                         n++;
                 }
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_exit_container(message);
                 if (r < 0)
                         return r;
 
