@@ -27,6 +27,14 @@ External:
 
 Features:
 
+* logind: watch drm connectors and if we see a number of connectors !=
+  1 avoid processing the lid switch.
+
+* logind: avoid processing the lid switch for 3min (or so) after
+  startup and 1min (or so) after coming back from suspend, in order to
+  give USB docking stations time to pop up a video device, which could
+  act as lid-switch blocker.
+
 * machined: provide calls GetMachineByAddress() on the manager
   interface to get the machine for a local IP address, and
   GetAddress() on the Machine interface to get the Address for a
