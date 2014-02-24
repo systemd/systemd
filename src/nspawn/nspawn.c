@@ -1188,22 +1188,86 @@ static int register_machine(pid_t pid) {
                                 (uint32_t) pid,
                                 strempty(arg_directory));
         } else {
-                r = sd_bus_call_method(
+                _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+
+                r = sd_bus_message_new_method_call(
                                 bus,
+                                &m,
                                 "org.freedesktop.machine1",
                                 "/org/freedesktop/machine1",
                                 "org.freedesktop.machine1.Manager",
-                                "CreateMachine",
-                                &error,
-                                NULL,
-                                "sayssusa(sv)",
+                                "CreateMachine");
+                if (r < 0) {
+                        log_error("Failed to create message: %s", strerror(-r));
+                        return r;
+                }
+
+                r = sd_bus_message_append(
+                                m,
+                                "sayssus",
                                 arg_machine,
                                 SD_BUS_MESSAGE_APPEND_ID128(arg_uuid),
                                 "nspawn",
                                 "container",
                                 (uint32_t) pid,
-                                strempty(arg_directory),
-                                !isempty(arg_slice), "Slice", "s", arg_slice);
+                                strempty(arg_directory));
+                if (r < 0) {
+                        log_error("Failed to append message arguments: %s", strerror(-r));
+                        return r;
+                }
+
+                r = sd_bus_message_open_container(m, 'a', "(sv)");
+                if (r < 0) {
+                        log_error("Failed to open container: %s", strerror(-r));
+                        return r;
+                }
+
+                if (!isempty(arg_slice)) {
+                        r = sd_bus_message_append(m, "(sv)", "Slice", "s", arg_slice);
+                        if (r < 0) {
+                                log_error("Failed to append slice: %s", strerror(-r));
+                                return r;
+                        }
+                }
+
+                r = sd_bus_message_append(m, "(sv)", "DevicePolicy", "s", "strict");
+                if (r < 0) {
+                        log_error("Failed to add device policy: %s", strerror(-r));
+                        return r;
+                }
+
+                r = sd_bus_message_append(m, "(sv)", "DeviceAllow", "a(ss)", 8,
+                                          /* Allow the container to
+                                           * access and create the API
+                                           * device nodes, so that
+                                           * PrivateDevices= in the
+                                           * container can work
+                                           * fine */
+                                          "/dev/null", "rwm",
+                                          "/dev/zero", "rwm",
+                                          "/dev/full", "rwm",
+                                          "/dev/random", "rwm",
+                                          "/dev/urandom", "rwm",
+                                          "/dev/tty", "rwm",
+                                          /* Allow the container
+                                           * access to ptys. However,
+                                           * do not permit the
+                                           * container to ever create
+                                           * these device nodes. */
+                                          "/dev/pts/ptmx", "rw",
+                                          "char-pts", "rw");
+                if (r < 0) {
+                        log_error("Failed to add device whitelist: %s", strerror(-r));
+                        return r;
+                }
+
+                r = sd_bus_message_close_container(m);
+                if (r < 0) {
+                        log_error("Failed to close container: %s", strerror(-r));
+                        return r;
+                }
+
+                r = sd_bus_call(bus, m, 0, &error, NULL);
         }
 
         if (r < 0) {
