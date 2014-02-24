@@ -259,9 +259,6 @@ int unit_set_description(Unit *u, const char *description) {
 bool unit_check_gc(Unit *u) {
         assert(u);
 
-        if (u->load_state == UNIT_STUB)
-                return true;
-
         if (UNIT_VTABLE(u)->no_gc)
                 return true;
 
