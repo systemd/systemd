@@ -254,6 +254,8 @@ subst:
                                                 cpos++;
                                         while (isspace(cpos[0]))
                                                 cpos++;
+                                        if (cpos[0] == '\0')
+                                                break;
                                 }
                                 if (i > 0) {
                                         log_error("requested part of result string not found");
