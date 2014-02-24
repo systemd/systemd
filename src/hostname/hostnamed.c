@@ -635,7 +635,7 @@ int main(int argc, char *argv[]) {
 
         r = context_read_data(&context);
         if (r < 0) {
-                log_error("Failed to read timezone data: %s", strerror(-r));
+                log_error("Failed to read hostname and machine information: %s", strerror(-r));
                 goto finish;
         }
 
