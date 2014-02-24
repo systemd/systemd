@@ -50,6 +50,6 @@ int dhcp_message_init(DHCPMessage *message, uint8_t op, uint32_t xid, uint8_t ty
 
 void dhcp_packet_append_ip_headers(DHCPPacket *packet, uint16_t len);
 
-int dhcp_packet_verify_headers(DHCPPacket *packet, size_t len);
+int dhcp_packet_verify_headers(DHCPPacket *packet, size_t len, bool checksum);
 
 #define log_dhcp_client(client, fmt, ...) log_meta(LOG_DEBUG, __FILE__, __LINE__, __func__, "DHCP CLIENT: " fmt, ##__VA_ARGS__)

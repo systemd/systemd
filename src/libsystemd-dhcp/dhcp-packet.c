@@ -113,7 +113,7 @@ void dhcp_packet_append_ip_headers(DHCPPacket *packet, uint16_t len) {
         packet->ip.check = dhcp_checksum(&packet->ip, DHCP_IP_SIZE);
 }
 
-int dhcp_packet_verify_headers(DHCPPacket *packet, size_t len) {
+int dhcp_packet_verify_headers(DHCPPacket *packet, size_t len, bool checksum) {
         size_t hdrlen;
 
         assert(packet);
@@ -168,7 +168,7 @@ int dhcp_packet_verify_headers(DHCPPacket *packet, size_t len) {
                 return -EINVAL;
         }
 
-        if (packet->udp.check) {
+        if (checksum && packet->udp.check) {
                 packet->ip.check = packet->udp.len;
                 packet->ip.ttl = 0;
 

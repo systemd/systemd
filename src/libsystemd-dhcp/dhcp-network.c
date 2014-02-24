@@ -32,7 +32,7 @@
 
 int dhcp_network_bind_raw_socket(int index, union sockaddr_union *link)
 {
-        int s;
+        int s, one = 1;
 
         assert(index > 0);
         assert(link);
@@ -47,6 +47,9 @@ int dhcp_network_bind_raw_socket(int index, union sockaddr_union *link)
         link->ll.sll_ifindex =  index;
         link->ll.sll_halen = ETH_ALEN;
         memset(link->ll.sll_addr, 0xff, ETH_ALEN);
+
+        if (setsockopt (s, SOL_PACKET, PACKET_AUXDATA, &one, sizeof(one)) < 0)
+                return -errno;
 
         if (bind(s, &link->sa, sizeof(link->ll)) < 0) {
                 close_nointr_nofail(s);

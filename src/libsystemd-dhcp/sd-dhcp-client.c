@@ -886,8 +886,18 @@ static int client_receive_message_raw(sd_event_source *s, int fd,
                                       uint32_t revents, void *userdata) {
         sd_dhcp_client *client = userdata;
         _cleanup_free_ DHCPPacket *packet = NULL;
-        int buflen = 0, len, r;
         usec_t time_now;
+        uint8_t cmsgbuf[CMSG_LEN(sizeof(struct tpacket_auxdata))];
+        struct iovec iov = {};
+        struct msghdr msg = {
+                .msg_iov = &iov,
+                .msg_iovlen = 1,
+                .msg_control = cmsgbuf,
+                .msg_controllen = sizeof(cmsgbuf),
+        };
+        struct cmsghdr *cmsg;
+        bool checksum = true;
+        int buflen = 0, len, r;
 
         assert(s);
         assert(client);
@@ -901,11 +911,26 @@ static int client_receive_message_raw(sd_event_source *s, int fd,
         if (!packet)
                 return -ENOMEM;
 
-        len = read(fd, packet, buflen);
-        if (len < 0)
-                return 0;
+        iov.iov_base = packet;
+        iov.iov_len = buflen;
 
-        r = dhcp_packet_verify_headers(packet, len);
+        len = recvmsg(fd, &msg, 0);
+        if (len < 0) {
+                log_dhcp_client(client, "could not receive message from raw "
+                                "socket: %s", strerror(errno));
+                return 0;
+        }
+
+        for (cmsg = CMSG_FIRSTHDR(&msg); cmsg; cmsg = CMSG_NXTHDR(&msg, cmsg)) {
+                if (cmsg->cmsg_level == SOL_PACKET && cmsg->cmsg_type == PACKET_AUXDATA) {
+                        struct tpacket_auxdata *aux = (void *)CMSG_DATA(cmsg);
+
+                        checksum = !(aux->tp_status & TP_STATUS_CSUMNOTREADY);
+                        break;
+                }
+        }
+
+        r = dhcp_packet_verify_headers(packet, len, checksum);
         if (r < 0)
                 return 0;
 
