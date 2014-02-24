@@ -29,8 +29,8 @@ CHANGES WITH 210:
 
         * logind will now watch SW_DOCK switches and inhibit reaction
           to the lid switch if it is pressed. This means that logind
-          will not suspend the machine if the lid is closed and the
-          systemd is docked anymore, if the laptop supports SW_DOCK
+          will not suspend the machine anymore if the lid is closed
+          and the systemd is docked, if the laptop supports SW_DOCK
           notifications via the input layer. Note that ACPI docking
           stations do not generate this currently. Also note that this
           logic is usually not fully sufficient and Desktop
@@ -79,6 +79,20 @@ CHANGES WITH 210:
           is used. This way it is easy to distuingish these cases on
           the host, for example to apply different configuration to
           them with systemd-networkd.
+
+        * The compatibility libraries for libsystemd-journal.so,
+          libsystem-id128.so, libsystemd-login.so and
+          libsystemd-daemon.so do not make use of IFUNC
+          anymore. Instead we now build libsystemd.so multiple times
+          under these alternative names. This means that the footprint
+          is drastically increased, but given that these are
+          transitional compatibility libraries this shouldn't matter
+          much. This change has been made necessary to support the ARM
+          platform for these compatibility libraries, as the ARM
+          toolchain isn't really at the same level as the toolchain
+          for other archictures like x86 and does not support
+          IFUNC. Please make sure to use --enable-compat-libs only
+          during a transitional period!
 
         Contributions from: Andreas Fuchs, Armin K, Colin Walters,
         Daniel Mack, Dave Reisner, David Herrmann, Djalal Harouni,
