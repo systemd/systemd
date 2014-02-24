@@ -5076,3 +5076,6 @@ cppcheck:
 # Used to extract compile flags for YCM.
 print-%:
 	@echo $($*)
+
+git-contrib:
+	@git shortlog -s `git describe --abbrev=0`.. | cut -c8- | awk '{ print $$0 "," }' | sort -u

@@ -1,5 +1,96 @@
 systemd System and Service Manager
 
+CHANGES WITH 210:
+
+        * systemd will now relabel /dev after loading the SMACK policy
+          according to SMACK rules.
+
+        * A new unit file option AppArmoreProfile= has been added to
+          set the AppArmor profile for the processes of a unit.
+
+        * A new condition check ConditionArchitecture= has been added
+          to conditionalize units based on the system architecture, as
+          reported by uname()'s "machine" field.
+
+        * systemd-networkd now supports matching on the system
+          virtualization, architecture, kernel command line, host name
+          and machine ID.
+
+        * logind is now a lot more agressive when suspending the
+          machine due to a closed laptop lid. Instead of acting only
+          on the lid close action it will continously watch the lid
+          status and act on it. This is useful for laptops where the
+          power button is on the outside of the chassis so that it can
+          be reached whithout opening the lid (such as the Lenovo
+          Yoga). On those machines logind will now immediately
+          resuspend the machine if the power button has been
+          accidentally pressed while the laptop was suspended and in a
+          backpack or similar.
+
+        * logind will now watch SW_DOCK switches and inhibit reaction
+          to the lid switch if it is pressed. This means that logind
+          will not suspend the machine if the lid is closed and the
+          systemd is docked anymore, if the laptop supports SW_DOCK
+          notifications via the input layer. Note that ACPI docking
+          stations do not generate this currently. Also note that this
+          logic is usually not fully sufficient and Desktop
+          Environments should take a lid switch inhibitor lock when an
+          external display is connected, as systemd will not watch
+          this on its own.
+
+        * nspawn will now make use of the devices cgroup controller by
+          default, and only permit creation of and access to the usual
+          API device nodes like /dev/null or /dev/random, as well as
+          access to (but not creation of) the pty devices.
+
+        * We will now ship a default .network file for
+          systemd-networkd that automatically configures DHCP for
+          network interfaces created by nspawn's --network-veth or
+          --network-bridge= switches.
+
+        * systemd will now understand the usual M, K, G, T suffixes
+          according to SI conventions (i.e. to the base 1000) when
+          referring to throughput and hardware metrics. It will stay
+          with IEC conventions (i.e. to the base 1024) for software
+          metrics, according to what is customary according to
+          Wikipedia. We explicitly document which base applies for
+          each configuration option.
+
+        * The DeviceAllow= setting in unit files now supports a syntax
+          to whitelist an entire group of devince node majors at once,
+          based on the /proc/devices listing. For example, with the
+          string "char-pts" it is now possible to whitelist all
+          current and future pseudo-TTYs at once.
+
+        * sd-event learned a new "post" event source. Event sources of
+          this type are triggered by the dispatching of any event
+          source of a type that is not "post". This is useful for
+          implementing clean-up and check event sources that are
+          triggered by other work being done in the program.
+
+        * systemd-networkd is no longer statically enabled, but uses
+          the usual [Install] sections so that it can be
+          enabled/disabled using systemctl. It still is enabled by
+          default however.
+
+        * When creating a veth interface pair with systemd-nspawn the
+          host side will now be prefixed with "vb-" if
+          --network-bridge= is used, and with "ve-" if --network-veth
+          is used. This way it is easy to distuingish these cases on
+          the host, for example to apply different configuration to
+          them with systemd-networkd.
+
+        Contributions from: Andreas Fuchs, Armin K, Colin Walters,
+        Daniel Mack, Dave Reisner, David Herrmann, Djalal Harouni,
+        Holger Schurig, Jason A. Donenfeld, Jason St. John, Jasper
+        St. Pierre, Kay Sievers, Lennart Poettering, Łukasz Stelmach,
+        Marcel Holtmann, Michael Scherer, Michal Sekletar, Mike
+        Gilbert, Samuli Suominen, Thomas Bächler, Thomas Hindoe
+        Paaboel Andersen, Tom Gundersen, Umut Tezduyar Lindskog,
+        Zbigniew Jędrzejewski-Szmek
+
+        -- Berlin, 2014-02-24
+
 CHANGES WITH 209:
 
         * A new component "systemd-networkd" has been added that can
