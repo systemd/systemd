@@ -22,6 +22,7 @@
 #include <string.h>
 #include <errno.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 #include "log.h"
 #include "util.h"
@@ -90,6 +91,30 @@ static int add_container_getty(const char *tty) {
                 return log_oom();
 
         return add_symlink("container-getty@.service", n);
+}
+
+static int verify_tty(const char *name) {
+        _cleanup_close_ int fd = -1;
+        const char *p;
+
+        /* Some TTYs are weird and have been enumerated but don't work
+         * when you try to use them, such as classic ttyS0 and
+         * friends. Let's check that and open the device and run
+         * isatty() on it. */
+
+        p = strappenda("/dev/", name);
+
+        /* O_NONBLOCK is essential here, to make sure we don't wait
+         * for DCD */
+        fd = open(p, O_RDWR|O_NONBLOCK|O_NOCTTY|O_CLOEXEC|O_NOFOLLOW);
+        if (fd < 0)
+                return -errno;
+
+        errno = 0;
+        if (isatty(fd) <= 0)
+                return errno ? -errno : -EIO;
+
+        return 0;
 }
 
 int main(int argc, char *argv[]) {
@@ -178,6 +203,9 @@ int main(int argc, char *argv[]) {
                         }
 
                         if (isempty(tty) || tty_is_vc(tty))
+                                continue;
+
+                        if (verify_tty(tty) < 0)
                                 continue;
 
                         /* We assume that gettys on virtual terminals are
