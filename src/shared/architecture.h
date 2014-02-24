@@ -27,7 +27,9 @@ typedef enum Architecture {
         ARCHITECTURE_X86 = 0,
         ARCHITECTURE_X86_64,
         ARCHITECTURE_PPC,
+        ARCHITECTURE_PPC_LE,
         ARCHITECTURE_PPC64,
+        ARCHITECTURE_PPC64_LE,
         ARCHITECTURE_IA64,
         ARCHITECTURE_PARISC,
         ARCHITECTURE_PARISC64,
@@ -56,9 +58,17 @@ Architecture uname_architecture(void);
 #elif defined(__i386__)
 #  define native_architecture() ARCHITECTURE_X86
 #elif defined(__powerpc64__)
-#  define native_architecture() ARCHITECTURE_PPC64
+#  if defined(WORDS_BIGENDIAN)
+#    define native_architecture() ARCHITECTURE_PPC64
+#  else
+#    define native_architecture() ARCHITECTURE_PPC64_LE
+#  endif
 #elif defined(__powerpc__)
-#  define native_architecture() ARCHITECTURE_PPC
+#  if defined(WORDS_BIGENDIAN)
+#    define native_architecture() ARCHITECTURE_PPC
+#  else
+#    define native_architecture() ARCHITECTURE_PPC_LE
+#  endif
 #elif defined(__ia64__)
 #  define native_architecture() ARCHITECTURE_IA64
 #elif defined(__hppa64__)

@@ -51,7 +51,9 @@ Architecture uname_architecture(void) {
                 { "i386",       ARCHITECTURE_X86      },
 #elif defined(__powerpc__) || defined(__powerpc64__)
                 { "ppc64",      ARCHITECTURE_PPC64    },
+                { "ppc64le",    ARCHITECTURE_PPC64_LE },
                 { "ppc",        ARCHITECTURE_PPC      },
+                { "ppcle",      ARCHITECTURE_PPC_LE   },
 #elif defined(__ia64__)
                 { "ia64",       ARCHITECTURE_IA64     },
 #elif defined(__hppa__) || defined(__hppa64__)
@@ -136,7 +138,9 @@ static const char *const architecture_table[_ARCHITECTURE_MAX] = {
         [ARCHITECTURE_X86] = "x86",
         [ARCHITECTURE_X86_64] = "x86-64",
         [ARCHITECTURE_PPC] = "ppc",
+        [ARCHITECTURE_PPC_LE] = "ppc-le",
         [ARCHITECTURE_PPC64] = "ppc64",
+        [ARCHITECTURE_PPC64_LE] = "ppc64-le",
         [ARCHITECTURE_IA64] = "ia64",
         [ARCHITECTURE_PARISC] = "parisc",
         [ARCHITECTURE_PARISC64] = "parisc64",
