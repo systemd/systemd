@@ -27,6 +27,10 @@ External:
 
 Features:
 
+* machined: provide calls GetMachineByAddress() on the manager interface to get the machine for a local IP address, and GetAddress() on the Machine interface to get the Address for a machine. Implement via forking off child process which quickly joins the cotnainer and passes data to parent. Show this in "machinectl status", and use it to implement NSS module to provide automatic name resolution for containers.
+
+* add generator that pulls in systemd-network from containers when CAP_NET_ADMIN is set, more than the loopback device is defined, even when it is otherwise off
+
 * logind: avoid suspending on SW_LID if SW_DOCK is set
 
 * MessageQueueMessageSize= and RLimitFSIZE= (and suchlike) should use parse_iec_size().
