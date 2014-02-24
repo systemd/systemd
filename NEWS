@@ -16,14 +16,14 @@ CHANGES WITH 210:
           virtualization, architecture, kernel command line, host name
           and machine ID.
 
-        * logind is now a lot more agressive when suspending the
+        * logind is now a lot more aggressive when suspending the
           machine due to a closed laptop lid. Instead of acting only
-          on the lid close action it will continously watch the lid
+          on the lid close action it will continuously watch the lid
           status and act on it. This is useful for laptops where the
           power button is on the outside of the chassis so that it can
-          be reached whithout opening the lid (such as the Lenovo
+          be reached without opening the lid (such as the Lenovo
           Yoga). On those machines logind will now immediately
-          resuspend the machine if the power button has been
+          re-suspend the machine if the power button has been
           accidentally pressed while the laptop was suspended and in a
           backpack or similar.
 
@@ -57,7 +57,7 @@ CHANGES WITH 210:
           each configuration option.
 
         * The DeviceAllow= setting in unit files now supports a syntax
-          to whitelist an entire group of devince node majors at once,
+          to whitelist an entire group of devices node majors at once,
           based on the /proc/devices listing. For example, with the
           string "char-pts" it is now possible to whitelist all
           current and future pseudo-TTYs at once.
@@ -76,7 +76,7 @@ CHANGES WITH 210:
         * When creating a veth interface pair with systemd-nspawn the
           host side will now be prefixed with "vb-" if
           --network-bridge= is used, and with "ve-" if --network-veth
-          is used. This way it is easy to distuingish these cases on
+          is used. This way it is easy to distinguish these cases on
           the host, for example to apply different configuration to
           them with systemd-networkd.
 
@@ -90,7 +90,7 @@ CHANGES WITH 210:
           much. This change has been made necessary to support the ARM
           platform for these compatibility libraries, as the ARM
           toolchain isn't really at the same level as the toolchain
-          for other archictures like x86 and does not support
+          for other architectures like x86 and does not support
           IFUNC. Please make sure to use --enable-compat-libs only
           during a transitional period!
 
