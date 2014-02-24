@@ -27,6 +27,9 @@ External:
 
 Features:
 
+* make eparis happy: in the getty generator open ttys to run gettys on
+  first with O_NDELAY and check isatty() to filter out invalid ttys.
+
 * MessageQueueMessageSize= and RLimitFSIZE= (and suchlike) should use parse_iec_size().
 
 * man: move .link, .network and .netdev documentation into their own
