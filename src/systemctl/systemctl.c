@@ -908,6 +908,31 @@ static int output_timers_list(struct timer_info *timer_infos, unsigned n) {
         return 0;
 }
 
+static usec_t calc_next_elapse(dual_timestamp *nw, dual_timestamp *next) {
+        usec_t next_elapse;
+
+        assert(nw);
+        assert(next);
+
+        if (next->monotonic != (usec_t) -1 && next->monotonic > 0) {
+                usec_t converted;
+
+                if (next->monotonic > nw->monotonic)
+                        converted = nw->realtime + (next->monotonic - nw->monotonic);
+                else
+                        converted = nw->realtime - (nw->monotonic - next->monotonic);
+
+                if (next->realtime != (usec_t) -1 && next->realtime > 0)
+                        next_elapse = MIN(converted, next->realtime);
+                else
+                        next_elapse = converted;
+
+        } else
+                next_elapse = next->realtime;
+
+        return next_elapse;
+}
+
 static int list_timers(sd_bus *bus, char **args) {
 
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
@@ -944,25 +969,12 @@ static int list_timers(sd_bus *bus, char **args) {
                 if (r < 0)
                         goto cleanup;
 
-                if (next.monotonic != (usec_t) -1 && next.monotonic > 0) {
-                        usec_t converted;
-
-                        if (next.monotonic > nw.monotonic)
-                                converted = nw.realtime + (next.monotonic - nw.monotonic);
-                        else
-                                converted = nw.realtime - (nw.monotonic - next.monotonic);
-
-                        if (next.realtime != (usec_t) -1 && next.realtime > 0)
-                                m = MIN(converted, next.realtime);
-                        else
-                                m = converted;
-                } else
-                        m = next.realtime;
-
                 if (!GREEDY_REALLOC(timer_infos, size, c+1)) {
                         r = log_oom();
                         goto cleanup;
                 }
+
+                m = calc_next_elapse(&nw, &next);
 
                 timer_infos[c++] = (struct timer_info) {
                         .id = u->id,
