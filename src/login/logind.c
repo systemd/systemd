@@ -1039,7 +1039,7 @@ int manager_startup(Manager *m) {
                 inhibitor_start(inhibitor);
 
         HASHMAP_FOREACH(button, m->buttons, i)
-                button_check_lid(button);
+                button_check_switches(button);
 
         manager_dispatch_idle_action(NULL, 0, m);
 

@@ -70,6 +70,14 @@ int manager_handle_action(
                 return 0;
         }
 
+        /* If we are docked don't react to lid closing */
+        if (inhibit_key == INHIBIT_HANDLE_LID_SWITCH) {
+                if (manager_is_docked(m)) {
+                        log_debug("Ignoring lid switch request, system is docked.");
+                        return 0;
+                }
+        }
+
         /* If the key handling is inhibited, don't do anything */
         if (inhibit_key > 0) {
                 if (manager_is_inhibited(m, inhibit_key, INHIBIT_BLOCK, NULL, true, false, 0, NULL)) {

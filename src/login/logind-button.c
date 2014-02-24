@@ -188,6 +188,14 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
                         b->lid_closed = true;
                         manager_handle_action(b->manager, INHIBIT_HANDLE_LID_SWITCH, b->manager->handle_lid_switch, b->manager->lid_switch_ignore_inhibited, true);
                         button_install_check_event_source(b);
+
+                } else if (ev.code == SW_DOCK) {
+                        log_struct(LOG_INFO,
+                                   "MESSAGE=System docked.",
+                                   MESSAGE_ID(SD_MESSAGE_SYSTEM_DOCKED),
+                                   NULL);
+
+                        b->docked = true;
                 }
 
         } else if (ev.type == EV_SW && ev.value == 0) {
@@ -200,6 +208,14 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
 
                         b->lid_closed = false;
                         b->check_event_source = sd_event_source_unref(b->check_event_source);
+
+                } else if (ev.code == SW_DOCK) {
+                        log_struct(LOG_INFO,
+                                   "MESSAGE=System undocked.",
+                                   MESSAGE_ID(SD_MESSAGE_SYSTEM_UNDOCKED),
+                                   NULL);
+
+                        b->docked = false;
                 }
         }
 
@@ -247,7 +263,7 @@ fail:
         return r;
 }
 
-int button_check_lid(Button *b) {
+int button_check_switches(Button *b) {
         uint8_t switches[SW_MAX/8+1] = {};
         assert(b);
 
@@ -258,11 +274,10 @@ int button_check_lid(Button *b) {
                 return -errno;
 
         b->lid_closed = (switches[SW_LID/8] >> (SW_LID % 8)) & 1;
+        b->docked = (switches[SW_DOCK/8] >> (SW_DOCK % 8)) & 1;
 
-        if (b->lid_closed) {
-                manager_handle_action(b->manager, INHIBIT_HANDLE_LID_SWITCH, b->manager->handle_lid_switch, b->manager->lid_switch_ignore_inhibited, true);
+        if (b->lid_closed)
                 button_install_check_event_source(b);
-        }
 
         return 0;
 }

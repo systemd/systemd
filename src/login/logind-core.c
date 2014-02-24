@@ -503,3 +503,14 @@ int manager_spawn_autovt(Manager *m, unsigned int vtnr) {
 
         return r;
 }
+
+bool manager_is_docked(Manager *m) {
+        Iterator i;
+        Button *b;
+
+        HASHMAP_FOREACH(b, m->buttons, i)
+                if (b->docked)
+                        return true;
+
+        return false;
+}
