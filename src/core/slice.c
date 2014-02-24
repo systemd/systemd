@@ -43,6 +43,7 @@ static void slice_init(Unit *u) {
         assert(u->load_state == UNIT_STUB);
 
         cgroup_context_init(&s->cgroup_context);
+        unit_cgroup_context_init_defaults(u, &s->cgroup_context);
 }
 
 static void slice_done(Unit *u) {

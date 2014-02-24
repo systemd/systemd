@@ -602,7 +602,8 @@ void unit_ref_unset(UnitRef *ref);
 #define UNIT_DEREF(ref) ((ref).unit)
 #define UNIT_ISSET(ref) (!!(ref).unit)
 
-int unit_exec_context_defaults(Unit *u, ExecContext *c);
+int unit_exec_context_patch_defaults(Unit *u, ExecContext *c);
+int unit_cgroup_context_init_defaults(Unit *u, CGroupContext *c);
 
 ExecContext *unit_get_exec_context(Unit *u) _pure_;
 KillContext *unit_get_kill_context(Unit *u) _pure_;

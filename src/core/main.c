@@ -107,6 +107,9 @@ static uint64_t arg_capability_bounding_set_drop = 0;
 static nsec_t arg_timer_slack_nsec = (nsec_t) -1;
 static Set* arg_syscall_archs = NULL;
 static FILE* arg_serialization = NULL;
+static bool arg_default_cpu_accounting = false;
+static bool arg_default_blockio_accounting = false;
+static bool arg_default_memory_accounting = false;
 
 static void nop_handler(int sig) {}
 
@@ -673,6 +676,9 @@ static int parse_config_file(void) {
                 { "Manager", "DefaultLimitNICE",          config_parse_limit,            0, &arg_default_rlimit[RLIMIT_NICE]       },
                 { "Manager", "DefaultLimitRTPRIO",        config_parse_limit,            0, &arg_default_rlimit[RLIMIT_RTPRIO]     },
                 { "Manager", "DefaultLimitRTTIME",        config_parse_limit,            0, &arg_default_rlimit[RLIMIT_RTTIME]     },
+                { "Manager", "DefaultCPUAccounting",      config_parse_bool,             0, &arg_default_cpu_accounting            },
+                { "Manager", "DefaultBlockIOAccounting",  config_parse_bool,             0, &arg_default_blockio_accounting        },
+                { "Manager", "DefaultMemoryAccounting",   config_parse_bool,             0, &arg_default_memory_accounting         },
                 {}
         };
 
@@ -1591,6 +1597,9 @@ int main(int argc, char *argv[]) {
         m->default_timeout_stop_usec = arg_default_timeout_stop_usec;
         m->default_start_limit_interval = arg_default_start_limit_interval;
         m->default_start_limit_burst = arg_default_start_limit_burst;
+        m->default_cpu_accounting = arg_default_cpu_accounting;
+        m->default_blockio_accounting = arg_default_blockio_accounting;
+        m->default_memory_accounting = arg_default_memory_accounting;
         m->runtime_watchdog = arg_runtime_watchdog;
         m->shutdown_watchdog = arg_shutdown_watchdog;
         m->userspace_timestamp = userspace_timestamp;

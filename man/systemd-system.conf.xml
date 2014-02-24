@@ -292,7 +292,7 @@
                                 <varname>TimeoutStartSec=</varname>,
                                 <varname>TimeoutStopSec=</varname> and
                                 <varname>RestartSec=</varname> (for
-                                service units, see
+                                services, see
                                 <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                                 for details on the per-unit
                                 settings). For non-service units,
@@ -301,18 +301,20 @@
                                 <varname>TimeoutSec=</varname> value.
                                 </para></listitem>
                         </varlistentry>
+
                         <varlistentry>
                                 <term><varname>DefaultStartLimitInterval=</varname></term>
                                 <term><varname>DefaultStartLimitBurst=</varname></term>
 
-                                <listitem><para>Configure the default start rate
-                                limiting, as configured per-service by
-                                <varname>StartLimitInterval=</varname> and
+                                <listitem><para>Configure the default
+                                unit start rate limiting, as
+                                configured per-service by
+                                <varname>StartLimitInterval=</varname>
+                                and
                                 <varname>StartLimitBurst=</varname>. See
                                 <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                                 for details on the per-service
-                                settings).
-                                </para></listitem>
+                                settings.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -335,6 +337,23 @@
                                 <literal>VAR1</literal>,
                                 <literal>VAR2</literal>,
                                 <literal>VAR3</literal>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>DefaultCPUAccounting=</varname></term>
+                                <term><varname>DefaultBlockIOAccounting=</varname></term>
+                                <term><varname>DefaultMemoryAccounting=</varname></term>
+
+                                <listitem><para>Configure the default
+                                resource accounting settings, as
+                                configured per-unit by
+                                <varname>CPUAccounting=</varname>,
+                                <varname>BlockIOAccounting=</varname>
+                                and
+                                <varname>MemoryAccounting=</varname>. See
+                                <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                for details on the per-unit
+                                settings.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

@@ -141,6 +141,8 @@ static void mount_init(Unit *u) {
         kill_context_init(&m->kill_context);
         cgroup_context_init(&m->cgroup_context);
 
+        unit_cgroup_context_init_defaults(u, &m->cgroup_context);
+
         if (unit_has_name(u, "-.mount")) {
                 /* Don't allow start/stop for root directory */
                 u->refuse_manual_start = true;
@@ -577,7 +579,7 @@ static int mount_add_extras(Mount *m) {
         if (r < 0)
                 return r;
 
-        r = unit_exec_context_defaults(u, &m->exec_context);
+        r = unit_exec_context_patch_defaults(u, &m->exec_context);
         if (r < 0)
                 return r;
 

@@ -124,6 +124,8 @@ static void swap_init(Unit *u) {
         kill_context_init(&s->kill_context);
         cgroup_context_init(&s->cgroup_context);
 
+        unit_cgroup_context_init_defaults(u, &s->cgroup_context);
+
         s->parameters_proc_swaps.priority = s->parameters_fragment.priority = -1;
 
         s->control_command_id = _SWAP_EXEC_COMMAND_INVALID;
@@ -352,7 +354,7 @@ static int swap_load(Unit *u) {
                                 return r;
                 }
 
-                r = unit_exec_context_defaults(u, &s->exec_context);
+                r = unit_exec_context_patch_defaults(u, &s->exec_context);
                 if (r < 0)
                         return r;
         }

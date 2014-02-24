@@ -96,6 +96,8 @@ static void socket_init(Unit *u) {
         kill_context_init(&s->kill_context);
         cgroup_context_init(&s->cgroup_context);
 
+        unit_cgroup_context_init_defaults(u, &s->cgroup_context);
+
         s->control_command_id = _SOCKET_EXEC_COMMAND_INVALID;
 }
 
@@ -338,7 +340,7 @@ static int socket_add_extras(Socket *s) {
         if (r < 0)
                 return r;
 
-        r = unit_exec_context_defaults(u, &s->exec_context);
+        r = unit_exec_context_patch_defaults(u, &s->exec_context);
         if (r < 0)
                 return r;
 

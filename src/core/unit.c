@@ -2777,12 +2777,29 @@ void unit_ref_unset(UnitRef *ref) {
         ref->unit = NULL;
 }
 
-int unit_exec_context_defaults(Unit *u, ExecContext *c) {
+int unit_cgroup_context_init_defaults(Unit *u, CGroupContext *c) {
+        assert(u);
+        assert(c);
+
+        /* Copy in the manager defaults into the cgroup context,
+         * _before_ the rest of the settings have been initialized */
+
+        c->cpu_accounting = u->manager->default_cpu_accounting;
+        c->blockio_accounting = u->manager->default_blockio_accounting;
+        c->memory_accounting = u->manager->default_memory_accounting;
+
+        return 0;
+}
+
+int unit_exec_context_patch_defaults(Unit *u, ExecContext *c) {
         unsigned i;
         int r;
 
         assert(u);
         assert(c);
+
+        /* Patch in the manager defaults into the exec context,
+         * _after_ the rest of the settings have been initialized */
 
         /* This only copies in the ones that need memory */
         for (i = 0; i < RLIMIT_NLIMITS; i++)

@@ -105,8 +105,11 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           <para>Turn on CPU usage accounting for this unit. Takes a
           boolean argument. Note that turning on CPU accounting for
           one unit might also implicitly turn it on for all units
-          contained in the same slice and for all its parent slices and
-          the units contained therein.</para>
+          contained in the same slice and for all its parent slices
+          and the units contained therein. The system default for this
+          setting maybe controlled with
+          <varname>DefaultCPUAccounting=</varname> in
+          <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
         </listitem>
       </varlistentry>
 
@@ -132,8 +135,10 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           <para>Turn on process and kernel memory accounting for this
           unit. Takes a boolean argument. Note that turning on memory
           accounting for one unit might also implicitly turn it on for
-          all units contained in the same slice and for all its parent
-          slices and the units contained therein.</para>
+          all its parent slices. The system default for this setting
+          maybe controlled with
+          <varname>DefaultMemoryAccounting=</varname> in
+          <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
         </listitem>
       </varlistentry>
 
@@ -164,8 +169,11 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           <para>Turn on Block IO accounting for this unit. Takes a
           boolean argument. Note that turning on block IO accounting
           for one unit might also implicitly turn it on for all units
-          contained in the same slice and all for its parent slices and
-          the units contained therein.</para>
+          contained in the same slice and all for its parent slices
+          and the units contained therein. The system default for this
+          setting maybe controlled with
+          <varname>DefaultBlockIOAccounting=</varname> in
+          <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
         </listitem>
       </varlistentry>
 

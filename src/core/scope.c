@@ -54,6 +54,8 @@ static void scope_init(Unit *u) {
         cgroup_context_init(&s->cgroup_context);
         kill_context_init(&s->kill_context);
 
+        unit_cgroup_context_init_defaults(u, &s->cgroup_context);
+
         UNIT(s)->ignore_on_isolate = true;
         UNIT(s)->ignore_on_snapshot = true;
 }
