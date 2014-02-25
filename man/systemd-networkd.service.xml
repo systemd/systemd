@@ -300,10 +300,12 @@
                                         <term><varname>Address=</varname></term>
                                         <listitem>
                                                 <para>A static IPv4 or IPv6 address and its prefix length,
-                                                separated by a <literal>/</literal> character. The format of the address must
-                                                be as described in
+                                                separated by a <literal>/</literal> character. Specify this
+                                                key more than once to configure several addresses.
+                                                The format of the address must be as described in
                                                 <citerefentry><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-                                                . This is a short-hand for an [Address] section only containing an Address key (see below).</para>
+                                                . This is a short-hand for an [Address] section only containing an Address key (see below).
+                                                </para>
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
@@ -343,7 +345,9 @@
                                 </varlistentry>
                         </variablelist>
 
-                        <para>The <literal>[Address]</literal> section accepts the following keys:</para>
+                        <para>An <literal>[Address]</literal> section accepts the following keys.
+                        Specify several <literal>[Address]</literal> sections to configure several
+                        addresses.</para>
 
                         <variablelist class='network-directives'>
                                 <varlistentry>
@@ -369,7 +373,8 @@
                                 </varlistentry>
                         </variablelist>
 
-                        <para>The <literal>[Route]</literal> section accepts the following keys:</para>
+                        <para>The <literal>[Route]</literal> section accepts the following keys. Specify
+                        several <literal>[Route]</literal> sections to configure several routes.</para>
 
                         <variablelist class='network-directives'>
                                 <varlistentry>
