@@ -53,8 +53,12 @@ static int network_load_one(Manager *manager, const char *filename) {
         LIST_HEAD_INIT(network->static_addresses);
         LIST_HEAD_INIT(network->static_routes);
 
-        network->vlans = hashmap_new(uint64_hash_func, uint64_compare_func);
+        network->vlans = hashmap_new(string_hash_func, string_compare_func);
         if (!network->vlans)
+                return log_oom();
+
+        network->macvlans = hashmap_new(uint64_hash_func, uint64_compare_func);
+        if (!network->macvlans)
                 return log_oom();
 
         network->addresses_by_section = hashmap_new(uint64_hash_func, uint64_compare_func);
@@ -149,6 +153,8 @@ void network_free(Network *network) {
         address_free(network->dns);
 
         hashmap_free(network->vlans);
+
+        hashmap_free(network->macvlans);
 
         while ((route = network->static_routes))
                 route_free(route);
@@ -325,6 +331,48 @@ int config_parse_vlan(const char *unit,
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, EINVAL,
                            "Can not add VLAN to network: %s", rvalue);
+                return 0;
+        }
+
+        return 0;
+}
+
+int config_parse_macvlan(const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        Network *network = userdata;
+        NetDev *netdev;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = netdev_get(network->manager, rvalue, &netdev);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "MACVLAN is invalid, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        if (netdev->kind != NETDEV_KIND_MACVLAN) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "NetDev is not a MACVLAN, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        r = hashmap_put(network->macvlans, netdev->name, netdev);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Can not add MACVLAN to network: %s", rvalue);
                 return 0;
         }
 

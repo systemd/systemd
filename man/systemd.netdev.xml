@@ -142,8 +142,9 @@
                                         <term><varname>Kind=</varname></term>
                                         <listitem>
                                                 <para>The netdev kind. Currently, <literal>bridge</literal>,
-                                                <literal>bond</literal> and <literal>vlan</literal>
-                                                are supported. This option is compulsory.</para>
+                                                <literal>bond</literal>, <literal>vlan</literal> and
+                                                <literal>macvlan</literal> are supported. This option
+                                                is compulsory.</para>
                                         </listitem>
                                 </varlistentry>
                         </variablelist>
@@ -157,6 +158,21 @@
                                         <listitem>
                                                 <para>The VLAN ID to use. An integer in the range 0–4094.
                                                 This option is compulsory.</para>
+                                        </listitem>
+                                </varlistentry>
+                        </variablelist>
+
+                        <para>The <literal>[MACVLAN]</literal> section only applies for netdevs of kind
+                        <literal>macvlan</literal>, and accepts the following key:</para>
+
+                        <variablelist class='network-directives'>
+                                <varlistentry>
+                                        <term><varname>Mode=</varname></term>
+                                        <listitem>
+                                                <para>The MACVLAN mode to use. The supported options are
+                                                <literal>private</literal>, <literal>vepa</literal>,
+                                                <literal>bridge</literal> and <literal>passthru</literal>.
+                                                </para>
                                         </listitem>
                                 </varlistentry>
                         </variablelist>

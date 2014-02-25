@@ -890,7 +890,7 @@ static int enslave_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 }
 
 static int link_enter_enslave(Link *link) {
-        NetDev *vlan;
+        NetDev *vlan, *macvlan;
         Iterator i;
         int r;
 
@@ -901,7 +901,8 @@ static int link_enter_enslave(Link *link) {
         link->state = LINK_STATE_ENSLAVING;
 
         if (!link->network->bridge && !link->network->bond &&
-            hashmap_isempty(link->network->vlans))
+            hashmap_isempty(link->network->vlans) &&
+            hashmap_isempty(link->network->macvlans))
                 return link_enslaved(link);
 
         if (link->network->bridge) {
@@ -936,6 +937,24 @@ static int link_enter_enslave(Link *link) {
                                         "MESSAGE=%s: could not enslave by '%s': %s",
                                         link->ifname, vlan->name, strerror(-r),
                                         NETDEV(vlan), NULL);
+                        link_enter_failed(link);
+                        return r;
+                }
+
+                link->enslaving ++;
+        }
+
+        HASHMAP_FOREACH(macvlan, link->network->macvlans, i) {
+                log_struct_link(LOG_DEBUG, link,
+                                "MESSAGE=%s: enslaving by '%s'",
+                                link->ifname, macvlan->name, NETDEV(macvlan), NULL);
+
+                r = netdev_enslave(macvlan, link, &enslave_handler);
+                if (r < 0) {
+                        log_struct_link(LOG_WARNING, link,
+                                        "MESSAGE=%s: could not enslave by '%s': %s",
+                                        link->ifname, macvlan->name, strerror(-r),
+                                        NETDEV(macvlan), NULL);
                         link_enter_failed(link);
                         return r;
                 }

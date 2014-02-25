@@ -32,10 +32,21 @@ static const char* const netdev_kind_table[] = {
         [NETDEV_KIND_BRIDGE] = "bridge",
         [NETDEV_KIND_BOND] = "bond",
         [NETDEV_KIND_VLAN] = "vlan",
+        [NETDEV_KIND_MACVLAN] = "macvlan",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(netdev_kind, NetDevKind);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_netdev_kind, netdev_kind, NetDevKind, "Failed to parse netdev kind");
+
+static const char* const macvlan_mode_table[] = {
+        [NETDEV_MACVLAN_MODE_PRIVATE] = "private",
+        [NETDEV_MACVLAN_MODE_VEPA] = "vepa",
+        [NETDEV_MACVLAN_MODE_BRIDGE] = "bridge",
+        [NETDEV_MACVLAN_MODE_PASSTHRU] = "passthru",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(macvlan_mode, MacVlanMode);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_macvlan_mode, macvlan_mode, MacVlanMode, "Failed to parse macvlan mode");
 
 void netdev_free(NetDev *netdev) {
         netdev_enslave_callback *callback;
@@ -166,8 +177,8 @@ static int netdev_create(NetDev *netdev, Link *link, sd_rtnl_message_handler_t c
         int r;
 
         assert(netdev);
-        assert(!(netdev->kind == NETDEV_KIND_VLAN) ||
-               (link && callback && netdev->vlanid <= VLANID_MAX));
+        assert(!(netdev->kind == NETDEV_KIND_VLAN || netdev->kind == NETDEV_KIND_MACVLAN) ||
+               (link && callback));
         assert(netdev->name);
         assert(netdev->manager);
         assert(netdev->manager->rtnl);
@@ -220,7 +231,7 @@ static int netdev_create(NetDev *netdev, Link *link, sd_rtnl_message_handler_t c
                 return r;
         }
 
-        if (netdev->vlanid <= VLANID_MAX) {
+        if (netdev->vlanid <= VLANID_MAX || netdev->macvlan_mode != _NETDEV_MACVLAN_MODE_INVALID) {
                 r = sd_rtnl_message_open_container(req, IFLA_INFO_DATA);
                 if (r < 0) {
                         log_error_netdev(netdev,
@@ -229,12 +240,24 @@ static int netdev_create(NetDev *netdev, Link *link, sd_rtnl_message_handler_t c
                         return r;
                 }
 
-                r = sd_rtnl_message_append_u16(req, IFLA_VLAN_ID, netdev->vlanid);
-                if (r < 0) {
-                        log_error_netdev(netdev,
-                                         "Could not append IFLA_VLAN_ID attribute: %s",
-                                         strerror(-r));
-                        return r;
+                if (netdev->vlanid <= VLANID_MAX) {
+                        r = sd_rtnl_message_append_u16(req, IFLA_VLAN_ID, netdev->vlanid);
+                        if (r < 0) {
+                                log_error_netdev(netdev,
+                                                 "Could not append IFLA_VLAN_ID attribute: %s",
+                                                 strerror(-r));
+                                return r;
+                        }
+                }
+
+                if (netdev->macvlan_mode != _NETDEV_MACVLAN_MODE_INVALID) {
+                        r = sd_rtnl_message_append_u32(req, IFLA_MACVLAN_MODE, netdev->macvlan_mode);
+                        if (r < 0) {
+                                log_error_netdev(netdev,
+                                                 "Could not append IFLA_MACVLAN_MODE attribute: %s",
+                                                 strerror(-r));
+                                return r;
+                        }
                 }
 
                 r = sd_rtnl_message_close_container(req);
@@ -272,7 +295,7 @@ static int netdev_create(NetDev *netdev, Link *link, sd_rtnl_message_handler_t c
 }
 
 int netdev_enslave(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callback) {
-        if (netdev->kind == NETDEV_KIND_VLAN)
+        if (netdev->kind == NETDEV_KIND_VLAN || netdev->kind == NETDEV_KIND_MACVLAN)
                 return netdev_create(netdev, link, callback);
 
         if (netdev->state == NETDEV_STATE_READY) {
@@ -335,10 +358,12 @@ static int netdev_load_one(Manager *manager, const char *filename) {
         netdev->manager = manager;
         netdev->state = _NETDEV_STATE_INVALID;
         netdev->kind = _NETDEV_KIND_INVALID;
+        netdev->macvlan_mode = _NETDEV_MACVLAN_MODE_INVALID;
         netdev->vlanid = VLANID_MAX + 1;
 
-        r = config_parse(NULL, filename, file, "Match\0NetDev\0VLAN\0", config_item_perf_lookup,
-                        (void*) network_netdev_gperf_lookup, false, false, netdev);
+        r = config_parse(NULL, filename, file, "Match\0NetDev\0VLAN\0MACVLAN\0",
+                         config_item_perf_lookup, (void*) network_netdev_gperf_lookup,
+                         false, false, netdev);
         if (r < 0) {
                 log_warning("Could not parse config file %s: %s", filename, strerror(-r));
                 return r;
@@ -359,6 +384,19 @@ static int netdev_load_one(Manager *manager, const char *filename) {
                 return 0;
         }
 
+        if (netdev->kind != NETDEV_KIND_VLAN && netdev->vlanid <= VLANID_MAX) {
+                log_warning("VLAN Id configured for a %s in %s. Ignoring",
+                            netdev_kind_to_string(netdev->kind), filename);
+                return 0;
+        }
+
+        if (netdev->kind != NETDEV_KIND_MACVLAN &&
+            netdev->macvlan_mode != _NETDEV_MACVLAN_MODE_INVALID) {
+                log_warning("MACVLAN Mode configured for a %s in %s. Ignoring",
+                            netdev_kind_to_string(netdev->kind), filename);
+                return 0;
+        }
+
         netdev->filename = strdup(filename);
         if (!netdev->filename)
                 return log_oom();
@@ -375,7 +413,8 @@ static int netdev_load_one(Manager *manager, const char *filename) {
 
         LIST_HEAD_INIT(netdev->callbacks);
 
-        if (netdev->kind != NETDEV_KIND_VLAN) {
+        if (netdev->kind != NETDEV_KIND_VLAN &&
+            netdev->kind != NETDEV_KIND_MACVLAN) {
                 r = netdev_create(netdev, NULL, NULL);
                 if (r < 0)
                         return r;

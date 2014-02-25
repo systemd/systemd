@@ -50,10 +50,20 @@ struct netdev_enslave_callback {
         LIST_FIELDS(netdev_enslave_callback, callbacks);
 };
 
+typedef enum MacVlanMode {
+        NETDEV_MACVLAN_MODE_PRIVATE = MACVLAN_MODE_PRIVATE,
+        NETDEV_MACVLAN_MODE_VEPA = MACVLAN_MODE_VEPA,
+        NETDEV_MACVLAN_MODE_BRIDGE = MACVLAN_MODE_BRIDGE,
+        NETDEV_MACVLAN_MODE_PASSTHRU = MACVLAN_MODE_PASSTHRU,
+        _NETDEV_MACVLAN_MODE_MAX,
+        _NETDEV_MACVLAN_MODE_INVALID = -1
+} MacVlanMode;
+
 typedef enum NetDevKind {
         NETDEV_KIND_BRIDGE,
         NETDEV_KIND_BOND,
         NETDEV_KIND_VLAN,
+        NETDEV_KIND_MACVLAN,
         _NETDEV_KIND_MAX,
         _NETDEV_KIND_INVALID = -1
 } NetDevKind;
@@ -81,6 +91,7 @@ struct NetDev {
         NetDevKind kind;
 
         uint64_t vlanid;
+        int32_t macvlan_mode;
 
         int ifindex;
         NetDevState state;
@@ -107,6 +118,7 @@ struct Network {
         NetDev *bridge;
         NetDev *bond;
         Hashmap *vlans;
+        Hashmap *macvlans;
         bool dhcp;
         bool dhcp_dns;
         bool dhcp_mtu;
@@ -248,7 +260,12 @@ int netdev_enslave(NetDev *netdev, Link *link, sd_rtnl_message_handler_t cb);
 const char *netdev_kind_to_string(NetDevKind d) _const_;
 NetDevKind netdev_kind_from_string(const char *d) _pure_;
 
+const char *macvlan_mode_to_string(MacVlanMode d) _const_;
+MacVlanMode macvlan_mode_from_string(const char *d) _pure_;
+
 int config_parse_netdev_kind(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+
+int config_parse_macvlan_mode(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 
 /* gperf */
 const struct ConfigPerfItem* network_netdev_gperf_lookup(const char *key, unsigned length);
@@ -276,6 +293,10 @@ int config_parse_bond(const char *unit, const char *filename, unsigned line,
 int config_parse_vlan(const char *unit, const char *filename, unsigned line,
                       const char *section, unsigned section_line, const char *lvalue,
                       int ltype, const char *rvalue, void *data, void *userdata);
+
+int config_parse_macvlan(const char *unit, const char *filename, unsigned line,
+                         const char *section, unsigned section_line, const char *lvalue,
+                         int ltype, const char *rvalue, void *data, void *userdata);
 
 /* gperf */
 const struct ConfigPerfItem* network_network_gperf_lookup(const char *key, unsigned length);
