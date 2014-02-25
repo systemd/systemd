@@ -27,6 +27,8 @@ External:
 
 Features:
 
+* add an "input" group to udev logic and add all input devices to it
+
 * logind: watch drm connectors and if we see a number of connectors !=
   1 avoid processing the lid switch.
 
@@ -34,6 +36,8 @@ Features:
   startup and 1min (or so) after coming back from suspend, in order to
   give USB docking stations time to pop up a video device, which could
   act as lid-switch blocker.
+
+* libsystemd-login: implement getpeer_unit(), get_peer_slice(), ...
 
 * machined: provide calls GetMachineByAddress() on the manager
   interface to get the machine for a local IP address, and
@@ -102,7 +106,6 @@ Features:
  - manager property enumeration was broken when systemd moved to /usr/lib/
 
 * cgroups:
-  - implement system-wide DefaultCPUAccounting=1 switch (and similar for blockio, memory?)
   - implement per-slice CPUFairScheduling=1 switch
   - handle jointly mounted controllers correctly
   - introduce high-level settings for RT budget, swappiness
