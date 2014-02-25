@@ -52,10 +52,12 @@ $1.NoNewPrivileges,              config_parse_bool,                  0,         
 m4_ifdef(`HAVE_SECCOMP',
 `$1.SystemCallFilter,            config_parse_syscall_filter,        0,                             offsetof($1, exec_context)
 $1.SystemCallArchitectures,      config_parse_syscall_archs,         0,                             offsetof($1, exec_context.syscall_archs)
-$1.SystemCallErrorNumber,        config_parse_syscall_errno,         0,                             offsetof($1, exec_context)',
+$1.SystemCallErrorNumber,        config_parse_syscall_errno,         0,                             offsetof($1, exec_context)
+$1.RestrictAddressFamilies,      config_parse_address_families,      0,                             offsetof($1, exec_context)',
 `$1.SystemCallFilter,            config_parse_warn_compat,           0,                             0
 $1.SystemCallArchitectures,      config_parse_warn_compat,           0,                             0
-$1.SystemCallErrorNumber,        config_parse_warn_compat,           0,                             0')
+$1.SystemCallErrorNumber,        config_parse_warn_compat,           0,                             0
+$1.RestrictAddressFamilies,      config_parse_warn_compat,           0,                             0')
 $1.LimitCPU,                     config_parse_limit,                 RLIMIT_CPU,                    offsetof($1, exec_context.rlimit)
 $1.LimitFSIZE,                   config_parse_limit,                 RLIMIT_FSIZE,                  offsetof($1, exec_context.rlimit)
 $1.LimitDATA,                    config_parse_limit,                 RLIMIT_DATA,                   offsetof($1, exec_context.rlimit)

@@ -56,6 +56,7 @@
 #include "bus-util.h"
 #include "bus-error.h"
 #include "errno-list.h"
+#include "af-list.h"
 
 #ifdef HAVE_SECCOMP
 #include "seccomp-util.h"
@@ -2216,6 +2217,81 @@ int config_parse_syscall_errno(
         c->syscall_errno = e;
         return 0;
 }
+
+int config_parse_address_families(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        ExecContext *c = data;
+        Unit *u = userdata;
+        bool invert = false;
+        char *w, *state;
+        size_t l;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(u);
+
+        if (isempty(rvalue)) {
+                /* Empty assignment resets the list */
+                set_free(c->address_families);
+                c->address_families = NULL;
+                c->address_families_whitelist = false;
+                return 0;
+        }
+
+        if (rvalue[0] == '~') {
+                invert = true;
+                rvalue++;
+        }
+
+        if (!c->address_families) {
+                c->address_families = set_new(trivial_hash_func, trivial_compare_func);
+                if (!c->address_families)
+                        return log_oom();
+
+                c->address_families_whitelist = !invert;
+        }
+
+        FOREACH_WORD_QUOTED(w, l, rvalue, state) {
+                _cleanup_free_ char *t = NULL;
+                int af;
+
+                t = strndup(w, l);
+                if (!t)
+                        return log_oom();
+
+                af = af_from_name(t);
+                if (af <= 0)  {
+                        log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Failed to parse address family, ignoring: %s", t);
+                        continue;
+                }
+
+                /* If we previously wanted to forbid an address family and now
+                 * we want to allow it, then remove it from the list
+                 */
+                if (!invert == c->address_families_whitelist)  {
+                        r = set_put(c->address_families, INT_TO_PTR(af));
+                        if (r == -EEXIST)
+                                continue;
+                        if (r < 0)
+                                return log_oom();
+                } else
+                        set_remove(c->address_families, INT_TO_PTR(af));
+        }
+
+        return 0;
+}
 #endif
 
 int config_parse_unit_slice(
@@ -3024,6 +3100,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_syscall_filter,        "SYSCALLS" },
                 { config_parse_syscall_archs,         "ARCHS" },
                 { config_parse_syscall_errno,         "ERRNO" },
+                { config_parse_address_families,      "FAMILIES" },
 #endif
                 { config_parse_cpu_shares,            "SHARES" },
                 { config_parse_memory_limit,          "LIMIT" },
@@ -3039,6 +3116,7 @@ void unit_dump_config_items(FILE *f) {
 #endif
                 { config_parse_job_mode,              "MODE" },
                 { config_parse_job_mode_isolate,      "BOOLEAN" },
+                { config_parse_personality,           "PERSONALITY" },
         };
 
         const char *prev = NULL;

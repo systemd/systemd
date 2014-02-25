@@ -178,6 +178,9 @@ struct ExecContext {
         int syscall_errno;
         bool syscall_whitelist:1;
 
+        Set *address_families;
+        bool address_families_whitelist:1;
+
         bool oom_score_adjust_set:1;
         bool nice_set:1;
         bool ioprio_set:1;

@@ -764,6 +764,8 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/net-util.h \
 	src/shared/errno-list.c \
 	src/shared/errno-list.h \
+	src/shared/af-list.c \
+	src/shared/af-list.h \
 	src/shared/audit.c \
 	src/shared/audit.h \
 	src/shared/xml.c \
@@ -775,7 +777,9 @@ libsystemd_shared_la_SOURCES = \
 
 nodist_libsystemd_shared_la_SOURCES = \
 	src/shared/errno-from-name.h \
-	src/shared/errno-to-name.h
+	src/shared/errno-to-name.h \
+	src/shared/af-from-name.h \
+	src/shared/af-to-name.h
 
 libsystemd_shared_la_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -1059,11 +1063,15 @@ CLEANFILES += \
 	src/core/load-fragment-gperf.c \
 	src/core/load-fragment-gperf-nulstr.c \
 	src/shared/errno-list.txt \
-	src/shared/errno-from-name.gperf
+	src/shared/errno-from-name.gperf \
+	src/shared/af-list.txt \
+	src/shared/af-from-name.gperf
 
 BUILT_SOURCES += \
 	src/shared/errno-from-name.h \
-	src/shared/errno-to-name.h
+	src/shared/errno-to-name.h \
+	src/shared/af-from-name.h \
+	src/shared/af-to-name.h
 
 src/shared/errno-list.txt:
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
@@ -1080,6 +1088,22 @@ src/shared/errno-from-name.h: src/shared/errno-from-name.gperf
 src/shared/errno-to-name.h: src/shared/errno-list.txt
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_GEN)$(AWK) 'BEGIN{ print "static const char* const errno_names[] = { "} { printf "[%s] = \"%s\",\n", $$1, $$1 } END{print "};"}' < $< > $@
+
+src/shared/af-list.txt:
+	$(AM_V_at)$(MKDIR_P) $(dir $@)
+	$(AM_V_GEN)$(CPP) $(CFLAGS) $(AM_CPPFLAGS) $(CPPFLAGS) -dM -include sys/socket.h - < /dev/null | grep -v AF_UNSPEC | grep -v AF_MAX | $(AWK) '/^#define[ \t]+AF_[^ \t]+[ \t]+PF_[^ \t]/ { print $$2; }'  > $@
+
+src/shared/af-from-name.gperf: src/shared/af-list.txt
+	$(AM_V_at)$(MKDIR_P) $(dir $@)
+	$(AM_V_GEN)$(AWK) 'BEGIN{ print "struct af_name { const char* name; int id; };"; print "%null-strings"; print "%%";} { printf "%s, %s\n", $$1, $$1 }' < $< > $@
+
+src/shared/af-from-name.h: src/shared/af-from-name.gperf
+	$(AM_V_at)$(MKDIR_P) $(dir $@)
+	$(AM_V_GPERF)$(GPERF) -L ANSI-C -t --ignore-case -N lookup_af -H hash_af_name -p -C < $< > $@
+
+src/shared/af-to-name.h: src/shared/af-list.txt
+	$(AM_V_at)$(MKDIR_P) $(dir $@)
+	$(AM_V_GEN)$(AWK) 'BEGIN{ print "static const char* const af_names[] = { "} !/AF_FILE/ && !/AF_ROUTE/ && !/AF_LOCAL/ { printf "[%s] = \"%s\",\n", $$1, $$1 } END{print "};"}' < $< > $@
 
 # ------------------------------------------------------------------------------
 systemd_SOURCES = \

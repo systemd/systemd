@@ -34,6 +34,7 @@
 #include "dbus-execute.h"
 #include "capability.h"
 #include "env-util.h"
+#include "af-list.h"
 
 #ifdef HAVE_SECCOMP
 #include "seccomp-util.h"
@@ -518,6 +519,54 @@ static int property_get_personality(
         return sd_bus_message_append(reply, "s", personality_to_string(c->personality));
 }
 
+static int property_get_address_families(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        ExecContext *c = userdata;
+        _cleanup_strv_free_ char **l = NULL;
+        Iterator i;
+        void *af;
+        int r;
+
+        assert(bus);
+        assert(reply);
+        assert(c);
+
+        r = sd_bus_message_open_container(reply, 'r', "bas");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(reply, "b", c->address_families_whitelist);
+        if (r < 0)
+                return r;
+
+        SET_FOREACH(af, c->address_families, i) {
+                const char *name;
+
+                name = af_to_name(PTR_TO_INT(af));
+                if (!name)
+                        continue;
+
+                r = strv_extend(&l, name);
+                if (r < 0)
+                        return -ENOMEM;
+        }
+
+        strv_sort(l);
+
+        r = sd_bus_message_append_strv(reply, l);
+        if (r < 0)
+                return r;
+
+        return sd_bus_message_close_container(reply);
+}
+
 const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Environment", "as", NULL, offsetof(ExecContext, environment), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -585,6 +634,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("SystemCallArchitectures", "as", property_get_syscall_archs, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SystemCallErrorNumber", "i", property_get_syscall_errno, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Personality", "s", property_get_personality, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("RestrictAddressFamilies", "(bas)", property_get_address_families, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_VTABLE_END
 };
 

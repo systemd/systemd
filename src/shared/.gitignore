@@ -2,3 +2,7 @@
 /errno-from-name.h
 /errno-list.txt
 /errno-to-name.h
+/af-from-name.gperf
+/af-from-name.h
+/af-list.txt
+/af-to-name.h

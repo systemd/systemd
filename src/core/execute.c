@@ -81,6 +81,7 @@
 #include "async.h"
 #include "selinux-util.h"
 #include "errno-list.h"
+#include "af-list.h"
 #include "apparmor-util.h"
 
 #ifdef HAVE_SECCOMP
@@ -994,9 +995,130 @@ static int apply_seccomp(ExecContext *c) {
 
 finish:
         seccomp_release(seccomp);
-
         return r;
 }
+
+static int apply_address_families(ExecContext *c) {
+        scmp_filter_ctx *seccomp;
+        Iterator i;
+        int r;
+
+        assert(c);
+
+        seccomp = seccomp_init(SCMP_ACT_ALLOW);
+        if (!seccomp)
+                return -ENOMEM;
+
+        r = seccomp_add_secondary_archs(seccomp);
+        if (r < 0)
+                goto finish;
+
+        if (c->address_families_whitelist) {
+                int af, first = 0, last = 0;
+                void *afp;
+
+                /* If this is a whitelist, we first block the address
+                 * families that are out of range and then everything
+                 * that is not in the set. First, we find the lowest
+                 * and highest address family in the set. */
+
+                SET_FOREACH(afp, c->address_families, i) {
+                        af = PTR_TO_INT(afp);
+
+                        if (af <= 0 || af >= af_max())
+                                continue;
+
+                        if (first == 0 || af < first)
+                                first = af;
+
+                        if (last == 0 || af > last)
+                                last = af;
+                }
+
+                assert((first == 0) == (last == 0));
+
+                if (first == 0) {
+
+                        /* No entries in the valid range, block everything */
+                        r = seccomp_rule_add(
+                                        seccomp,
+                                        SCMP_ACT_ERRNO(EPROTONOSUPPORT),
+                                        SCMP_SYS(socket),
+                                        0);
+                        if (r < 0)
+                                goto finish;
+
+                } else {
+
+                        /* Block everything below the first entry */
+                        r = seccomp_rule_add(
+                                        seccomp,
+                                        SCMP_ACT_ERRNO(EPROTONOSUPPORT),
+                                        SCMP_SYS(socket),
+                                        1,
+                                        SCMP_A0(SCMP_CMP_LT, first));
+                        if (r < 0)
+                                goto finish;
+
+                        /* Block everything above the last entry */
+                        r = seccomp_rule_add(
+                                        seccomp,
+                                        SCMP_ACT_ERRNO(EPROTONOSUPPORT),
+                                        SCMP_SYS(socket),
+                                        1,
+                                        SCMP_A0(SCMP_CMP_GT, last));
+                        if (r < 0)
+                                goto finish;
+
+                        /* Block everything between the first and last
+                         * entry */
+                        for (af = 1; af < af_max(); af++) {
+
+                                if (set_contains(c->address_families, INT_TO_PTR(af)))
+                                        continue;
+
+                                r = seccomp_rule_add(
+                                                seccomp,
+                                                SCMP_ACT_ERRNO(EPROTONOSUPPORT),
+                                                SCMP_SYS(socket),
+                                                1,
+                                                SCMP_A0(SCMP_CMP_EQ, af));
+                                if (r < 0)
+                                        goto finish;
+                        }
+                }
+
+        } else {
+                void *af;
+
+                /* If this is a blacklist, then generate one rule for
+                 * each address family that are then combined in OR
+                 * checks. */
+
+                SET_FOREACH(af, c->address_families, i) {
+
+                        r = seccomp_rule_add(
+                                        seccomp,
+                                        SCMP_ACT_ERRNO(EPROTONOSUPPORT),
+                                        SCMP_SYS(socket),
+                                        1,
+                                        SCMP_A0(SCMP_CMP_EQ, PTR_TO_INT(af)));
+                        if (r < 0)
+                                goto finish;
+                }
+        }
+
+        r = seccomp_attr_set(seccomp, SCMP_FLTATR_CTL_NNP, 0);
+        if (r < 0)
+                goto finish;
+
+        r = seccomp_load(seccomp);
+
+finish:
+        seccomp_release(seccomp);
+        return r;
+}
+
 #endif
 
 static void do_idle_pipe_dance(int idle_pipe[4]) {
@@ -1584,6 +1706,14 @@ int exec_spawn(ExecCommand *command,
                                 }
 
 #ifdef HAVE_SECCOMP
+                        if (context->address_families) {
+                                err = apply_address_families(context);
+                                if (err < 0) {
+                                        r = EXIT_ADDRESS_FAMILIES;
+                                        goto fail_child;
+                                }
+                        }
+
                         if (context->syscall_filter || context->syscall_archs) {
                                 err = apply_seccomp(context);
                                 if (err < 0) {
@@ -1777,13 +1907,14 @@ void exec_context_done(ExecContext *c) {
         free(c->apparmor_profile);
         c->apparmor_profile = NULL;
 
-#ifdef HAVE_SECCOMP
         set_free(c->syscall_filter);
         c->syscall_filter = NULL;
 
         set_free(c->syscall_archs);
         c->syscall_archs = NULL;
-#endif
+
+        set_free(c->address_families);
+        c->address_families = NULL;
 }
 
 void exec_command_done(ExecCommand *c) {
