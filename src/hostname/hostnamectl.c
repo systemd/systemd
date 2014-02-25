@@ -67,29 +67,27 @@ typedef struct StatusInfo {
         char *pretty_hostname;
         char *icon_name;
         char *chassis;
+        char *virtualization;
+        char *architecture;
 } StatusInfo;
 
 static void print_status_info(StatusInfo *i) {
         sd_id128_t mid = {}, bid = {};
         int r;
-        const char *id = NULL;
         _cleanup_free_ char *pretty_name = NULL, *cpe_name = NULL;
         struct utsname u;
 
         assert(i);
 
-        printf("   Static hostname: %s\n",
-               strna(i->static_hostname));
+        printf("   Static hostname: %s\n", strna(i->static_hostname));
 
         if (!isempty(i->pretty_hostname) &&
             !streq_ptr(i->pretty_hostname, i->static_hostname))
-                printf("   Pretty hostname: %s\n",
-                       strna(i->pretty_hostname));
+                printf("   Pretty hostname: %s\n", i->pretty_hostname);
 
         if (!isempty(i->hostname) &&
             !streq_ptr(i->hostname, i->static_hostname))
-                printf("Transient hostname: %s\n",
-                       strna(i->hostname));
+                printf("Transient hostname: %s\n", i->hostname);
 
         printf("         Icon name: %s\n"
                "           Chassis: %s\n",
@@ -104,8 +102,8 @@ static void print_status_info(StatusInfo *i) {
         if (r >= 0)
                 printf("           Boot ID: " SD_ID128_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(bid));
 
-        if (detect_virtualization(&id) > 0)
-                printf("    Virtualization: %s\n", id);
+        if (!isempty(i->virtualization))
+                printf("    Virtualization: %s\n", i->virtualization);
 
         r = parse_env_file("/etc/os-release", NEWLINE,
                            "PRETTY_NAME", &pretty_name,
@@ -121,10 +119,10 @@ static void print_status_info(StatusInfo *i) {
                 printf("       CPE OS Name: %s\n", cpe_name);
 
         assert_se(uname(&u) >= 0);
-        printf("            Kernel: %s %s\n"
-               "      Architecture: %s\n",
-               u.sysname, u.release,
-               architecture_to_string(uname_architecture()));
+        printf("            Kernel: %s %s\n", u.sysname, u.release);
+
+        if (!isempty(i->architecture))
+                printf("      Architecture: %s\n", i->architecture);
 
 }
 
@@ -157,7 +155,8 @@ static int show_one_name(sd_bus *bus, const char* attr) {
 
 static int show_all_names(sd_bus *bus) {
         StatusInfo info = {};
-        static const struct bus_properties_map map[]  = {
+
+        static const struct bus_properties_map hostname_map[]  = {
                 { "Hostname",       "s", NULL, offsetof(StatusInfo, hostname) },
                 { "StaticHostname", "s", NULL, offsetof(StatusInfo, static_hostname) },
                 { "PrettyHostname", "s", NULL, offsetof(StatusInfo, pretty_hostname) },
@@ -165,15 +164,28 @@ static int show_all_names(sd_bus *bus) {
                 { "Chassis",        "s", NULL, offsetof(StatusInfo, chassis) },
                 {}
         };
+
+        static const struct bus_properties_map manager_map[] = {
+                { "Virtualization", "s", NULL, offsetof(StatusInfo, virtualization) },
+                { "Architecture",   "s", NULL, offsetof(StatusInfo, architecture) },
+                {}
+        };
+
         int r;
 
         r = bus_map_all_properties(bus,
                                    "org.freedesktop.hostname1",
                                    "/org/freedesktop/hostname1",
-                                   map,
+                                   hostname_map,
                                    &info);
         if (r < 0)
                 goto fail;
+
+        bus_map_all_properties(bus,
+                               "org.freedesktop.systemd1",
+                               "/org/freedesktop/systemd1",
+                               manager_map,
+                               &info);
 
         print_status_info(&info);
 
@@ -183,7 +195,10 @@ fail:
         free(info.pretty_hostname);
         free(info.icon_name);
         free(info.chassis);
-        return 0;
+        free(info.virtualization);
+        free(info.architecture);
+
+        return r;
 }
 
 static int show_status(sd_bus *bus, char **args, unsigned n) {
