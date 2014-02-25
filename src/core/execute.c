@@ -969,30 +969,30 @@ static int apply_seccomp(ExecContext *c) {
                         r = seccomp_arch_add(seccomp, PTR_TO_UINT32(id) - 1);
                         if (r == -EEXIST)
                                 continue;
-                        if (r < 0) {
-                                seccomp_release(seccomp);
-                                return r;
-                        }
+                        if (r < 0)
+                                goto finish;
                 }
-        } else {
 
+        } else {
                 r = seccomp_add_secondary_archs(seccomp);
-                if (r < 0) {
-                        seccomp_release(seccomp);
-                        return r;
-                }
+                if (r < 0)
+                        goto finish;
         }
 
         action = c->syscall_whitelist ? SCMP_ACT_ALLOW : negative_action;
         SET_FOREACH(id, c->syscall_filter, i) {
                 r = seccomp_rule_add(seccomp, action, PTR_TO_INT(id) - 1, 0);
-                if (r < 0) {
-                        seccomp_release(seccomp);
-                        return r;
-                }
+                if (r < 0)
+                        goto finish;
         }
 
+        r = seccomp_attr_set(seccomp, SCMP_FLTATR_CTL_NNP, 0);
+        if (r < 0)
+                goto finish;
+
         r = seccomp_load(seccomp);
+
+finish:
         seccomp_release(seccomp);
 
         return r;
