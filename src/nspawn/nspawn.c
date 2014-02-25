@@ -1738,7 +1738,7 @@ static int audit_still_doesnt_work_in_containers(void) {
                 return log_oom();
 
         r = seccomp_add_secondary_archs(seccomp);
-        if (r < 0 && r != -EEXIST) {
+        if (r < 0) {
                 log_error("Failed to add secondary archs to seccomp filter: %s", strerror(-r));
                 goto finish;
         }
