@@ -5,7 +5,7 @@ CHANGES WITH 210:
         * systemd will now relabel /dev after loading the SMACK policy
           according to SMACK rules.
 
-        * A new unit file option AppArmoreProfile= has been added to
+        * A new unit file option AppArmorProfile= has been added to
           set the AppArmor profile for the processes of a unit.
 
         * A new condition check ConditionArchitecture= has been added
