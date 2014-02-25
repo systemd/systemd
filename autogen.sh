@@ -17,6 +17,10 @@
 
 set -e
 
+oldpwd=$(pwd)
+topdir=$(dirname $0)
+cd $topdir
+
 if [ -f .git/hooks/pre-commit.sample ] && [ ! -f .git/hooks/pre-commit ]; then
         # This part is allowed to fail
         cp -p .git/hooks/pre-commit.sample .git/hooks/pre-commit && \
@@ -53,20 +57,22 @@ args="$args \
 "
 fi
 
+cd $oldpwd
+
 if [ "x$1" = "xc" ]; then
-        ./configure CFLAGS='-g -O0 -ftrapv' --enable-compat-libs --enable-kdbus $args
+        $topdir/configure CFLAGS='-g -O0 -ftrapv' --enable-compat-libs --enable-kdbus $args
         make clean
 elif [ "x$1" = "xg" ]; then
-        ./configure CFLAGS='-g -Og -ftrapv' --enable-compat-libs --enable-kdbus $args
+        $topdir/configure CFLAGS='-g -Og -ftrapv' --enable-compat-libs --enable-kdbus $args
         make clean
 elif [ "x$1" = "xa" ]; then
-        ./configure CFLAGS='-g -O0 -Wsuggest-attribute=pure -Wsuggest-attribute=const -ftrapv' --enable-compat-libs --enable-kdbus $args
+        $topdir/configure CFLAGS='-g -O0 -Wsuggest-attribute=pure -Wsuggest-attribute=const -ftrapv' --enable-compat-libs --enable-kdbus $args
         make clean
 elif [ "x$1" = "xl" ]; then
-        ./configure CC=clang CFLAGS='-g -O0 -ftrapv -Wno-gnu' --enable-compat-libs --enable-kdbus $args
+        $topdir/configure CC=clang CFLAGS='-g -O0 -ftrapv -Wno-gnu' --enable-compat-libs --enable-kdbus $args
         make clean
 elif [ "x$1" = "xs" ]; then
-        scan-build ./configure CFLAGS='-g -O0 -ftrapv' --enable-compat-libs --enable-kdbus $args
+        scan-build $topdir/configure CFLAGS='-g -O0 -ftrapv' --enable-compat-libs --enable-kdbus $args
         scan-build make
 else
         echo
@@ -74,6 +80,6 @@ else
         echo "Initialized build system. For a common configuration please run:"
         echo "----------------------------------------------------------------"
         echo
-        echo "./configure CFLAGS='-g -O0 -ftrapv' --enable-compat-libs --enable-kdbus $args"
+        echo "$topdir/configure CFLAGS='-g -O0 -ftrapv' --enable-compat-libs --enable-kdbus $args"
         echo
 fi
