@@ -102,30 +102,6 @@ static void test_request_basic(sd_event *e)
         assert_se(sd_dhcp_client_set_request_option(client, 33) == -EEXIST);
 }
 
-static uint16_t client_checksum(void *buf, int len)
-{
-        uint32_t sum;
-        uint16_t *check;
-        int i;
-        uint8_t *odd;
-
-        sum = 0;
-        check = buf;
-
-        for (i = 0; i < len / 2 ; i++)
-                sum += check[i];
-
-        if (len & 0x01) {
-                odd = buf;
-                sum += odd[len - 1];
-        }
-
-        while (sum >> 16)
-                sum = (sum & 0xffff) + (sum >> 16);
-
-        return ~sum;
-}
-
 static void test_checksum(void)
 {
         uint8_t buf[20] = {
@@ -137,7 +113,7 @@ static void test_checksum(void)
         if (verbose)
                 printf("* %s\n", __FUNCTION__);
 
-        assert_se(client_checksum(&buf, 20) == be16toh(0x78ae));
+        assert_se(dhcp_packet_checksum(&buf, 20) == be16toh(0x78ae));
 }
 
 static int check_options(uint8_t code, uint8_t len, const uint8_t *option,
@@ -173,13 +149,13 @@ int dhcp_network_send_raw_socket(int s, const union sockaddr_union *link,
         discover->ip.ttl = 0;
         discover->ip.check = discover->udp.len;
 
-        udp_check = ~client_checksum(&discover->ip.ttl, len - 8);
+        udp_check = ~dhcp_packet_checksum(&discover->ip.ttl, len - 8);
         assert_se(udp_check == 0xffff);
 
         discover->ip.ttl = IPDEFTTL;
         discover->ip.check = ip_check;
 
-        ip_check = ~client_checksum(&discover->ip, sizeof(discover->ip));
+        ip_check = ~dhcp_packet_checksum(&discover->ip, sizeof(discover->ip));
         assert_se(ip_check == 0xffff);
 
         assert_se(discover->dhcp.xid);
