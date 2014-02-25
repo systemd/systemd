@@ -1349,7 +1349,7 @@ static int reset_audit_loginuid(void) {
                 return 0;
 
         r = read_one_line_file("/proc/self/loginuid", &p);
-        if (r == -EEXIST)
+        if (r == -ENOENT)
                 return 0;
         if (r < 0) {
                 log_error("Failed to read /proc/self/loginuid: %s", strerror(-r));
