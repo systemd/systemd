@@ -459,6 +459,7 @@ int seat_stop_sessions(Seat *s, bool force) {
 }
 
 void seat_evict_position(Seat *s, Session *session) {
+        Session *iter;
         unsigned int pos = session->pos;
 
         session->pos = 0;
@@ -466,8 +467,19 @@ void seat_evict_position(Seat *s, Session *session) {
         if (!pos)
                 return;
 
-        if (pos < s->position_count && s->positions[pos] == session)
+        if (pos < s->position_count && s->positions[pos] == session) {
                 s->positions[pos] = NULL;
+
+                /* There might be another session claiming the same
+                 * position (eg., during gdm->session transition), so lets look
+                 * for it and set it on the free slot. */
+                LIST_FOREACH(sessions_by_seat, iter, s->sessions) {
+                        if (iter->pos == pos) {
+                                s->positions[pos] = iter;
+                                break;
+                        }
+                }
+        }
 }
 
 void seat_claim_position(Seat *s, Session *session, unsigned int pos) {
