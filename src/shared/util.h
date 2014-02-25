@@ -723,6 +723,15 @@ void* greedy_realloc0(void **p, size_t *allocated, size_t need);
 #define GREEDY_REALLOC0(array, allocated, need) \
         greedy_realloc0((void**) &(array), &(allocated), sizeof((array)[0]) * (need))
 
+#define GREEDY_REALLOC0_T(array, count, need)                           \
+        ({                                                              \
+                size_t _size = (count) * sizeof((array)[0]);            \
+                void *_ptr = GREEDY_REALLOC0((array), _size, (need));   \
+                if (_ptr)                                               \
+                        (count) = _size / sizeof((array)[0]);           \
+                _ptr;                                                   \
+        })
+
 static inline void _reset_errno_(int *saved_errno) {
         errno = *saved_errno;
 }
