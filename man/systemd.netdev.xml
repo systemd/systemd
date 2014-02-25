@@ -1,0 +1,200 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2013 Tom Gundersen
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="systemd.netdev" conditional='ENABLE_NETWORKD'>
+
+        <refentryinfo>
+                <title>systemd.network</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Tom</firstname>
+                                <surname>Gundersen</surname>
+                                <email>teg@jklm.no</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>systemd.netdev</refentrytitle>
+                <manvolnum>5</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>systemd.netdev</refname>
+                <refpurpose>Virtual Network Device configuration</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <para><filename><replaceable>netdev</replaceable>.netdev</filename></para>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para>Network setup is performed by
+                <citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+                </para>
+
+                <para>Virtual Network Device files must have the extension
+                <filename>.netdev</filename>; other extensions are ignored. Virtual
+                network devices are created as soon as networkd is started.</para>
+
+                <para>The <filename>.netdev</filename> files are read from the files located in the
+                system network directory <filename>/usr/lib/systemd/network</filename>,
+                the volatile runtime network directory
+                <filename>/run/systemd/network</filename> and the local administration
+                network directory <filename>/etc/systemd/network</filename>.
+                All configuration files are collectively sorted and processed in lexical order,
+                regardless of the directories in which they live. However, files with
+                identical filenames replace each other. Files in
+                <filename>/etc</filename> have the highest priority, files in
+                <filename>/run</filename> take precedence over files with the same
+                name in <filename>/usr/lib</filename>. This can be used to override a
+                system-supplied configuration file with a local file if needed; a symlink in
+                <filename>/etc</filename> with the same name as a configuration file in
+                <filename>/usr/lib</filename>, pointing to <filename>/dev/null</filename>,
+                disables the configuration file entirely.</para>
+
+                <para>A virtual network device is only created if the
+                <literal>[Match]</literal> section matches the current
+                environment, or if the section is empty. The following keys are accepted:</para>
+
+                        <variablelist class='network-directives'>
+                                <varlistentry>
+                                        <term><varname>Host=</varname></term>
+                                        <listitem>
+                                                <para>Matches against the hostname or machine ID of the
+                                                host. See <literal>ConditionHost=</literal> in
+                                                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                                for details.
+                                                </para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>Virtualization=</varname></term>
+                                        <listitem>
+                                                <para>Checks whether the system is executed in a virtualized
+                                                environment and optionally test whether it is a specific
+                                                implementation. See <literal>ConditionVirtualization=</literal> in
+                                                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                                for details.
+                                                </para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>KernelCommandLine=</varname></term>
+                                        <listitem>
+                                                <para>Checks whether a specific kernel command line option is
+                                                set (or if prefixed with the exclamation mark unset). See
+                                                <literal>ConditionKernelCommandLine=</literal> in
+                                                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                                for details.
+                                                </para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>Architecture=</varname></term>
+                                        <listitem>
+                                                <para>Checks whether the system is running on a specific
+                                                architecture. See <literal>ConditionArchitecture=</literal> in
+                                                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                                for details.
+                                                </para>
+                                        </listitem>
+                                </varlistentry>
+                        </variablelist>
+
+                        <para>The <literal>[NetDev]</literal> section accepts the following
+                        keys:</para>
+
+                        <variablelist class='network-directives'>
+                                <varlistentry>
+                                        <term><varname>Name=</varname></term>
+                                        <listitem>
+                                                <para>The interface name used when creating the
+                                                netdev. This option is compulsory.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>Kind=</varname></term>
+                                        <listitem>
+                                                <para>The netdev kind. Currently, <literal>bridge</literal>,
+                                                <literal>bond</literal> and <literal>vlan</literal>
+                                                are supported. This option is compulsory.</para>
+                                        </listitem>
+                                </varlistentry>
+                        </variablelist>
+
+                        <para>The <literal>[VLAN]</literal> section only applies for netdevs of kind <literal>vlan</literal>,
+                        and accepts the following key:</para>
+
+                        <variablelist class='network-directives'>
+                                <varlistentry>
+                                        <term><varname>Id=</varname></term>
+                                        <listitem>
+                                                <para>The VLAN ID to use. An integer in the range 0–4094.
+                                                This option is compulsory.</para>
+                                        </listitem>
+                                </varlistentry>
+                        </variablelist>
+
+        </refsect1>
+
+        <refsect1>
+                <title>Example</title>
+                <example>
+                        <title>/etc/systemd/network/bridge.netdev</title>
+
+                        <programlisting>[NetDev]
+Name=bridge0
+Kind=bridge</programlisting>
+                </example>
+
+                <example>
+                        <title>/etc/systemd/network/vlan1.netdev</title>
+
+                        <programlisting>[Match]
+Virtualization=no
+
+[NetDev]
+Name=vlan1
+Kind=vlan
+
+[VLAN]
+Id=1</programlisting>
+                </example>
+
+        </refsect1>
+
+        <refsect1>
+                <title>See Also</title>
+                <para>
+                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                </para>
+        </refsect1>
+
+</refentry>

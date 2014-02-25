@@ -348,23 +348,25 @@
         <refsect1>
                 <title>Example</title>
                 <example>
-                        <title>/etc/systemd/network/wireless.link</title>
+                        <title>/etc/systemd/network/bridge.netdev</title>
 
-                        <programlisting>[Match]
-MACAddress=12:34:56:78:9a:bc
-Driver=brcmsmac
-Path=pci-0000:02:00.0-*
-Type=wlan
-Virtualization=no
-Host=my-laptop
-Architecture=x86-64
+                        <programlisting>[NetDev]
+Name=bridge0
+Kind=bridge</programlisting>
+                </example>
+        </refsect1>
 
-[Link]
-Name=wireless0
-MTUBytes=1450
-BitsPerSecond=10M
-WakeOnLan=magic
-MACAddress=cb:a9:87:65:43:21</programlisting>
+        <refsect1>
+                <title>Example</title>
+                <example>
+                        <title>/etc/systemd/network/vlan1.netdev</title>
+
+                        <programlisting>[NetDev]
+Name=vlan1
+Kind=vlan
+
+[VLAN]
+Id=1</programlisting>
                 </example>
         </refsect1>
 

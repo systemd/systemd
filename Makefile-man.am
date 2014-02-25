@@ -101,6 +101,8 @@ MANPAGES += \
 	man/systemd.timer.5 \
 	man/systemd.unit.5 \
 	man/systemd.link.5 \
+	man/systemd.netdev.5 \
+	man/systemd.network.5 \
 	man/telinit.8 \
 	man/tmpfiles.d.5 \
 	man/udev.7 \
@@ -1469,6 +1471,8 @@ EXTRA_DIST += \
 	man/systemd.timer.xml \
 	man/systemd.unit.xml \
 	man/systemd.link.xml \
+	man/systemd.netdev.xml \
+	man/systemd.network.xml \
 	man/systemd.xml \
 	man/telinit.xml \
 	man/timedatectl.xml \
