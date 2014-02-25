@@ -260,7 +260,7 @@
 
                                 <listitem><para>Assign the specified
                                 network interface to the
-                                container. This will move the
+                                container. This will remove the
                                 specified interface from the calling
                                 namespace and place it in the
                                 container. When the container
@@ -275,11 +275,35 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>--network-macvlan=</option></term>
+
+                                <listitem><para>Create a
+                                <literal>macvlan</literal> interface
+                                of the specified Ethernet network
+                                interface and add it to the
+                                container. A
+                                <literal>macvlan</literal> interface
+                                is a virtual interface that adds a
+                                second MAC address to an existing
+                                physical Ethernet link. The interface
+                                in the container will be named after
+                                the interface on the host, prefixed
+                                with <literal>mv-</literal>. Note that
+                                <option>--network-macvlan=</option>
+                                implies
+                                <option>--private-network</option>. This
+                                option may be used more than once to
+                                add multiple network interfaces to the
+                                container.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>--network-veth</option></term>
 
                                 <listitem><para>Create a virtual
-                                Ethernet link between host and
-                                container. The host side of the
+                                Ethernet link
+                                (<literal>veth</literal>) between host
+                                and container. The host side of the
                                 Ethernet link will be available as a
                                 network interface named after the
                                 container's name (as specified with

@@ -95,8 +95,8 @@ static char *arg_directory = NULL;
 static char *arg_user = NULL;
 static sd_id128_t arg_uuid = {};
 static char *arg_machine = NULL;
-static char *arg_selinux_context = NULL;
-static char *arg_selinux_apifs_context = NULL;
+static const char *arg_selinux_context = NULL;
+static const char *arg_selinux_apifs_context = NULL;
 static const char *arg_slice = NULL;
 static bool arg_private_network = false;
 static bool arg_read_only = false;
@@ -137,8 +137,9 @@ static bool arg_share_system = false;
 static bool arg_register = true;
 static bool arg_keep_unit = false;
 static char **arg_network_interfaces = NULL;
+static char **arg_network_macvlan = NULL;
 static bool arg_network_veth = false;
-static char *arg_network_bridge = NULL;
+static const char *arg_network_bridge = NULL;
 static unsigned long arg_personality = 0xffffffffLU;
 
 static int help(void) {
@@ -158,6 +159,9 @@ static int help(void) {
                "     --network-interface=INTERFACE\n"
                "                            Assign an existing network interface to the\n"
                "                            container\n"
+               "     --network-macvlan=INTERFACE\n"
+               "                            Create a macvlan network interface based on an\n"
+               "                            existing network interface to the container\n"
                "     --network-veth         Add a virtual ethernet connection between host\n"
                "                            and container\n"
                "     --network-bridge=INTERFACE\n"
@@ -206,6 +210,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_REGISTER,
                 ARG_KEEP_UNIT,
                 ARG_NETWORK_INTERFACE,
+                ARG_NETWORK_MACVLAN,
                 ARG_NETWORK_VETH,
                 ARG_NETWORK_BRIDGE,
                 ARG_PERSONALITY,
@@ -235,6 +240,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "register",              required_argument, NULL, ARG_REGISTER          },
                 { "keep-unit",             no_argument,       NULL, ARG_KEEP_UNIT         },
                 { "network-interface",     required_argument, NULL, ARG_NETWORK_INTERFACE },
+                { "network-macvlan",       required_argument, NULL, ARG_NETWORK_MACVLAN   },
                 { "network-veth",          no_argument,       NULL, ARG_NETWORK_VETH      },
                 { "network-bridge",        required_argument, NULL, ARG_NETWORK_BRIDGE    },
                 { "personality",           required_argument, NULL, ARG_PERSONALITY       },
@@ -278,9 +284,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_NETWORK_BRIDGE:
-                        arg_network_bridge = strdup(optarg);
-                        if (!arg_network_bridge)
-                                return log_oom();
+                        arg_network_bridge = optarg;
 
                         /* fall through */
 
@@ -290,7 +294,14 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_NETWORK_INTERFACE:
-                        if (strv_push(&arg_network_interfaces, optarg) < 0)
+                        if (strv_extend(&arg_network_interfaces, optarg) < 0)
+                                return log_oom();
+
+                        arg_private_network = true;
+                        break;
+
+                case ARG_NETWORK_MACVLAN:
+                        if (strv_extend(&arg_network_macvlan, optarg) < 0)
                                 return log_oom();
 
                         /* fall through */
@@ -312,10 +323,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'S':
-                        arg_slice = strdup(optarg);
-                        if (!arg_slice)
-                                return log_oom();
-
+                        arg_slice = optarg;
                         break;
 
                 case 'M':
@@ -1520,6 +1528,32 @@ static int setup_bridge(const char veth_name[]) {
         return 0;
 }
 
+static int parse_interface(struct udev *udev, const char *name) {
+        _cleanup_udev_device_unref_ struct udev_device *d = NULL;
+        char ifi_str[2 + DECIMAL_STR_MAX(int)];
+        int ifi;
+
+        ifi = (int) if_nametoindex(name);
+        if (ifi <= 0) {
+                log_error("Failed to resolve interface %s: %m", name);
+                return -errno;
+        }
+
+        sprintf(ifi_str, "n%i", ifi);
+        d = udev_device_new_from_device_id(udev, ifi_str);
+        if (!d) {
+                log_error("Failed to get udev device for interface %s: %m", name);
+                return -errno;
+        }
+
+        if (udev_device_get_is_initialized(d) <= 0) {
+                log_error("Network interface %s is not initialized yet.", name);
+                return -EBUSY;
+        }
+
+        return ifi;
+}
+
 static int move_network_interfaces(pid_t pid) {
         _cleanup_udev_unref_ struct udev *udev = NULL;
         _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
@@ -1546,27 +1580,11 @@ static int move_network_interfaces(pid_t pid) {
 
         STRV_FOREACH(i, arg_network_interfaces) {
                 _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
-                _cleanup_udev_device_unref_ struct udev_device *d = NULL;
-                char ifi_str[2 + DECIMAL_STR_MAX(int)];
                 int ifi;
 
-                ifi = (int) if_nametoindex(*i);
-                if (ifi <= 0) {
-                        log_error("Failed to resolve interface %s: %m", *i);
-                        return -errno;
-                }
-
-                sprintf(ifi_str, "n%i", ifi);
-                d = udev_device_new_from_device_id(udev, ifi_str);
-                if (!d) {
-                        log_error("Failed to get udev device for interface %s: %m", *i);
-                        return -errno;
-                }
-
-                if (udev_device_get_is_initialized(d) <= 0) {
-                        log_error("Network interface %s is not initialized yet.", *i);
-                        return -EBUSY;
-                }
+                ifi = parse_interface(udev, *i);
+                if (ifi < 0)
+                        return ifi;
 
                 r = sd_rtnl_message_new_link(rtnl, &m, RTM_NEWLINK, ifi);
                 if (r < 0) {
@@ -1583,6 +1601,115 @@ static int move_network_interfaces(pid_t pid) {
                 r = sd_rtnl_call(rtnl, m, 0, NULL);
                 if (r < 0) {
                         log_error("Failed to move interface %s to namespace: %s", *i, strerror(-r));
+                        return r;
+                }
+        }
+
+        return 0;
+}
+
+static int setup_macvlan(pid_t pid) {
+        _cleanup_udev_unref_ struct udev *udev = NULL;
+        _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
+        char **i;
+        int r;
+
+        if (!arg_private_network)
+                return 0;
+
+        if (strv_isempty(arg_network_macvlan))
+                return 0;
+
+        r = sd_rtnl_open(&rtnl, 0);
+        if (r < 0) {
+                log_error("Failed to connect to netlink: %s", strerror(-r));
+                return r;
+        }
+
+        udev = udev_new();
+        if (!udev) {
+                log_error("Failed to connect to udev.");
+                return -ENOMEM;
+        }
+
+        STRV_FOREACH(i, arg_network_macvlan) {
+                _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
+                _cleanup_free_ char *n = NULL;
+                int ifi;
+
+                ifi = parse_interface(udev, *i);
+                if (ifi < 0)
+                        return ifi;
+
+                r = sd_rtnl_message_new_link(rtnl, &m, RTM_NEWLINK, 0);
+                if (r < 0) {
+                        log_error("Failed to allocate netlink message: %s", strerror(-r));
+                        return r;
+                }
+
+                r = sd_rtnl_message_append_u32(m, IFLA_LINK, ifi);
+                if (r < 0) {
+                        log_error("Failed to add netlink interface index: %s", strerror(-r));
+                        return r;
+                }
+
+                n = strappend("mv-", *i);
+                if (!n)
+                        return log_oom();
+
+                strshorten(n, IFNAMSIZ-1);
+
+                r = sd_rtnl_message_append_string(m, IFLA_IFNAME, n);
+                if (r < 0) {
+                        log_error("Failed to add netlink interface name: %s", strerror(-r));
+                        return r;
+                }
+
+                r = sd_rtnl_message_append_u32(m, IFLA_NET_NS_PID, pid);
+                if (r < 0) {
+                        log_error("Failed to add netlink namespace field: %s", strerror(-r));
+                        return r;
+                }
+
+                r = sd_rtnl_message_open_container(m, IFLA_LINKINFO);
+                if (r < 0) {
+                        log_error("Failed to open netlink container: %s", strerror(-r));
+                        return r;
+                }
+
+                r = sd_rtnl_message_append_string(m, IFLA_INFO_KIND, "macvlan");
+                if (r < 0) {
+                        log_error("Failed to append netlink kind: %s", strerror(-r));
+                        return r;
+                }
+
+                r = sd_rtnl_message_open_container(m, IFLA_INFO_DATA);
+                if (r < 0) {
+                        log_error("Failed to open netlink container: %s", strerror(-r));
+                        return r;
+                }
+
+                r = sd_rtnl_message_append_u32(m, IFLA_MACVLAN_MODE, MACVLAN_MODE_BRIDGE);
+                if (r < 0) {
+                        log_error("Failed to append macvlan mode: %s", strerror(-r));
+                        return r;
+                }
+
+                r = sd_rtnl_message_close_container(m);
+                if (r < 0) {
+                        log_error("Failed to close netlink container: %s", strerror(-r));
+                        return r;
+                }
+
+                r = sd_rtnl_message_close_container(m);
+                if (r < 0) {
+                        log_error("Failed to close netlink container: %s", strerror(-r));
+                        return r;
+                }
+
+                r = sd_rtnl_call(rtnl, m, 0, NULL);
+                if (r < 0) {
+                        log_error("Failed to add new macvlan interfaces: %s", strerror(-r));
                         return r;
                 }
         }
@@ -2094,7 +2221,7 @@ int main(int argc, char *argv[]) {
 
 #ifdef HAVE_SELINUX
                         if (arg_selinux_context)
-                                if (setexeccon(arg_selinux_context) < 0)
+                                if (setexeccon((security_context_t) arg_selinux_context) < 0)
                                         log_error("setexeccon(\"%s\") failed: %m", arg_selinux_context);
 #endif
                         if (arg_boot) {
@@ -2145,6 +2272,10 @@ int main(int argc, char *argv[]) {
                         goto finish;
 
                 r = setup_bridge(veth_name);
+                if (r < 0)
+                        goto finish;
+
+                r = setup_macvlan(pid);
                 if (r < 0)
                         goto finish;
 
@@ -2217,8 +2348,12 @@ finish:
 
         free(arg_directory);
         free(arg_machine);
-        free(arg_setenv);
-        free(arg_network_interfaces);
+        free(arg_user);
+        strv_free(arg_setenv);
+        strv_free(arg_network_interfaces);
+        strv_free(arg_network_macvlan);
+        strv_free(arg_bind);
+        strv_free(arg_bind_ro);
 
         return r;
 }

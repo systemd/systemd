@@ -521,6 +521,7 @@ int sd_rtnl_message_append_u32(sd_rtnl_message *m, unsigned short type, uint32_t
                                 case IFLA_PROMISCUITY:
                                 case IFLA_NUM_TX_QUEUES:
                                 case IFLA_NUM_RX_QUEUES:
+                                case IFLA_MACVLAN_MODE:
                                         break;
                                 default:
                                         return -ENOTSUP;
