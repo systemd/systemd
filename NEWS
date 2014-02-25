@@ -30,7 +30,7 @@ CHANGES WITH 210:
         * logind will now watch SW_DOCK switches and inhibit reaction
           to the lid switch if it is pressed. This means that logind
           will not suspend the machine anymore if the lid is closed
-          and the systemd is docked, if the laptop supports SW_DOCK
+          and the system is docked, if the laptop supports SW_DOCK
           notifications via the input layer. Note that ACPI docking
           stations do not generate this currently. Also note that this
           logic is usually not fully sufficient and Desktop
