@@ -149,7 +149,7 @@
                                 write the daemon PID (as returned by
                                 <function>getpid()</function>) to a
                                 PID file, for example
-                                <filename>/var/run/foobar.pid</filename>
+                                <filename>/run/foobar.pid</filename>
                                 (for a hypothetical daemon "foobar")
                                 to ensure that the daemon cannot be
                                 started more than once. This must be

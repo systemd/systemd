@@ -124,7 +124,7 @@
 
                 <variablelist>
                         <varlistentry>
-                                <term><filename>/var/run/utmp</filename></term>
+                                <term><filename>/run/utmp</filename></term>
 
                                 <listitem><para>The utmp database
                                 <command>runlevel</command> reads the

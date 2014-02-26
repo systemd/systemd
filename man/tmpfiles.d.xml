@@ -441,8 +441,8 @@ r! /tmp/.X[0-9]*-lock</programlisting>
                         <title>/etc/tmpfiles.d/screen.conf example</title>
                         <para><command>screen</command> needs two directories created at boot with specific modes and ownership.</para>
 
-                        <programlisting>d /var/run/screens  1777 root root 10d
-d /var/run/uscreens 0755 root root 10d12h</programlisting>
+                        <programlisting>d /run/screens  1777 root root 10d
+d /run/uscreens 0755 root root 10d12h</programlisting>
                 </example>
                 <example>
                         <title>/etc/tmpfiles.d/abrt.conf example</title>
