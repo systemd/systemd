@@ -1390,7 +1390,7 @@ static int mount_add_one(
         _cleanup_free_ char *e = NULL, *w = NULL, *o = NULL, *f = NULL;
         bool load_extras = false;
         MountParameters *p;
-        bool delete;
+        bool delete, changed = false;
         Unit *u;
         int r;
 
@@ -1458,6 +1458,7 @@ static int mount_add_one(
                 }
 
                 unit_add_to_load_queue(u);
+                changed = true;
         } else {
                 delete = false;
 
@@ -1476,6 +1477,7 @@ static int mount_add_one(
                         /* Load in the extras later on, after we
                          * finished initialization of the unit */
                         load_extras = true;
+                        changed = true;
                 }
         }
 
@@ -1488,10 +1490,16 @@ static int mount_add_one(
         }
 
         p = &MOUNT(u)->parameters_proc_self_mountinfo;
+
+        changed = changed ||
+                !streq_ptr(p->options, options) ||
+                !streq_ptr(p->what, what) ||
+                !streq_ptr(p->fstype, fstype);
+
         if (set_flags) {
                 MOUNT(u)->is_mounted = true;
                 MOUNT(u)->just_mounted = !MOUNT(u)->from_proc_self_mountinfo;
-                MOUNT(u)->just_changed = !streq_ptr(p->options, o);
+                MOUNT(u)->just_changed = changed;
         }
 
         MOUNT(u)->from_proc_self_mountinfo = true;
@@ -1514,7 +1522,8 @@ static int mount_add_one(
                         goto fail;
         }
 
-        unit_add_to_dbus_queue(u);
+        if (changed)
+                unit_add_to_dbus_queue(u);
 
         return 0;
 
