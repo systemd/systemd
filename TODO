@@ -74,10 +74,6 @@ Features:
   "systemctl status" without args to output this state along with a
   selection of other data, such as the uptime or so.
 
-* Add a seccomp-based filter for socket() calls to limit services to
-  specific address families (for example: AF_UNIX), inspired by
-  Android's sandboxing
-
 * implement Distribute= in socket units to allow running multiple
   service instances processing the listening socket, and open this up
   for ReusePort=
