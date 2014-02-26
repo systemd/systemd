@@ -59,7 +59,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <para><filename>systemd-bus-proxyd.socket</filename> will launch
     <filename>systemd-bus-proxyd@.service</filename> for connections
     to the classic D-Bus socket in
-    <filename>/run/dbus/system_bus_socket</filename>.</para>
+    <filename>/var/run/dbus/system_bus_socket</filename>.</para>
 
     <para><filename>systemd-bus-proxyd@.service</filename> is launched
     for an existing D-Bus connection and will use

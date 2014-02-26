@@ -536,7 +536,7 @@ parameter.
 Client libraries should use the following connection string when
 connecting to the system bus:
 
-   kernel:path=/dev/kdbus/0-system/bus;unix:path=/run/dbus/system_bus_socket
+   kernel:path=/dev/kdbus/0-system/bus;unix:path=/var/run/dbus/system_bus_socket
 
 This will ensure that kdbus is preferred over the legacy AF_UNIX
 socket, but compatibility is kept. For the user bus use:

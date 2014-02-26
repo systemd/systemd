@@ -61,7 +61,7 @@
         "/usr/lib/kbd/keymaps/\0"
 #endif
 
-#define UNIX_SYSTEM_BUS_PATH "unix:path=/run/dbus/system_bus_socket"
+#define UNIX_SYSTEM_BUS_PATH "unix:path=/var/run/dbus/system_bus_socket"
 #define KERNEL_SYSTEM_BUS_PATH "kernel:path=/dev/kdbus/0-system/bus"
 
 #ifdef ENABLE_KDBUS
