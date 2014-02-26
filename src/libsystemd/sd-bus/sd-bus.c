@@ -794,8 +794,8 @@ static int parse_container_unix_address(sd_bus *b, const char **p, char **guid) 
         machine = NULL;
 
         b->sockaddr.un.sun_family = AF_UNIX;
-        strncpy(b->sockaddr.un.sun_path, "/run/dbus/system_bus_socket", sizeof(b->sockaddr.un.sun_path));
-        b->sockaddr_size = offsetof(struct sockaddr_un, sun_path) + strlen("/run/dbus/system_bus_socket");
+        strncpy(b->sockaddr.un.sun_path, "/var/run/dbus/system_bus_socket", sizeof(b->sockaddr.un.sun_path));
+        b->sockaddr_size = offsetof(struct sockaddr_un, sun_path) + strlen("/var/run/dbus/system_bus_socket");
 
         return 0;
 }
