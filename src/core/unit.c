@@ -2817,6 +2817,14 @@ int unit_exec_context_patch_defaults(Unit *u, ExecContext *c) {
                         return r;
         }
 
+        if (u->manager->running_as == SYSTEMD_USER &&
+            (c->syscall_whitelist ||
+             !set_isempty(c->syscall_filter) ||
+             !set_isempty(c->syscall_archs) ||
+             c->address_families_whitelist ||
+             !set_isempty(c->address_families)))
+                c->no_new_privileges = true;
+
         return 0;
 }
 

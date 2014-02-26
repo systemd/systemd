@@ -1706,7 +1706,8 @@ int exec_spawn(ExecCommand *command,
                                 }
 
 #ifdef HAVE_SECCOMP
-                        if (context->address_families) {
+                        if (context->address_families_whitelist ||
+                            !set_isempty(context->address_families)) {
                                 err = apply_address_families(context);
                                 if (err < 0) {
                                         r = EXIT_ADDRESS_FAMILIES;
@@ -1714,7 +1715,9 @@ int exec_spawn(ExecCommand *command,
                                 }
                         }
 
-                        if (context->syscall_filter || context->syscall_archs) {
+                        if (context->syscall_whitelist ||
+                            !set_isempty(context->syscall_filter) ||
+                            !set_isempty(context->syscall_archs)) {
                                 err = apply_seccomp(context);
                                 if (err < 0) {
                                         r = EXIT_SECCOMP;

@@ -1010,8 +1010,8 @@
                         <varlistentry>
                                 <term><varname>SystemCallFilter=</varname></term>
 
-                                <listitem><para>Takes a space-separated
-                                list of system call
+                                <listitem><para>Takes a
+                                space-separated list of system call
                                 names. If this setting is used, all
                                 system calls executed by the unit
                                 processes except for the listed ones
@@ -1023,12 +1023,13 @@
                                 the effect is inverted: only the
                                 listed system calls will result in
                                 immediate process termination
-                                (blacklisting). If this option is used,
+                                (blacklisting). If running in user
+                                mode and this option is used,
                                 <varname>NoNewPrivileges=yes</varname>
-                                is implied. This feature makes use of
-                                the Secure Computing Mode 2 interfaces
-                                of the kernel ('seccomp filtering')
-                                and is useful for enforcing a minimal
+                                is implied. This feature makes use of the
+                                Secure Computing Mode 2 interfaces of
+                                the kernel ('seccomp filtering') and
+                                is useful for enforcing a minimal
                                 sandboxing environment. Note that the
                                 <function>execve</function>,
                                 <function>rt_sigreturn</function>,
@@ -1096,28 +1097,31 @@
                                 <constant>x86</constant>,
                                 <constant>x86-64</constant>,
                                 <constant>x32</constant>,
-                                <constant>arm</constant> as well as the
-                                special identifier
-                                <constant>native</constant>. Only system
-                                calls of the specified architectures
-                                will be permitted to processes of this
-                                unit. This is an effective way to
-                                disable compatibility with non-native
-                                architectures for processes, for
-                                example to prohibit execution of
-                                32-bit x86 binaries on 64-bit x86-64
-                                systems. The special
+                                <constant>arm</constant> as well as
+                                the special identifier
+                                <constant>native</constant>. Only
+                                system calls of the specified
+                                architectures will be permitted to
+                                processes of this unit. This is an
+                                effective way to disable compatibility
+                                with non-native architectures for
+                                processes, for example to prohibit
+                                execution of 32-bit x86 binaries on
+                                64-bit x86-64 systems. The special
                                 <constant>native</constant> identifier
                                 implicitly maps to the native
                                 architecture of the system (or more
                                 strictly: to the architecture the
-                                system manager is compiled for). Note
-                                that setting this option to a
-                                non-empty list implies that
-                                <constant>native</constant> is included
-                                too. By default, this option is set to
-                                the empty list, i.e. no architecture
-                                system call filtering is
+                                system manager is compiled for). If
+                                running in user mode and this option
+                                is used,
+                                <varname>NoNewPrivileges=yes</varname>
+                                is implied. Note that setting this
+                                option to a non-empty list implies
+                                that <constant>native</constant> is
+                                included too. By default, this option
+                                is set to the empty list, i.e. no
+                                architecture system call filtering is
                                 applied.</para></listitem>
                         </varlistentry>
 
@@ -1149,7 +1153,10 @@
                                 sockets only) are unaffected. Note
                                 that this option has no effect on
                                 32bit x86 and is ignored (but works
-                                correctly on x86-64). By default no
+                                correctly on x86-64). If running in user
+                                mode and this option is used,
+                                <varname>NoNewPrivileges=yes</varname>
+                                is implied. By default no
                                 restriction applies, all address
                                 families are accessible to
                                 processes. If assigned the empty
