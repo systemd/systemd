@@ -4012,8 +4012,16 @@ rootlibexec_PROGRAMS += \
 	systemd-networkd
 
 systemd_networkd_SOURCES = \
+	src/network/networkd.c
+
+systemd_networkd_LDADD = \
+	libsystemd-networkd-core.la
+
+noinst_LTLIBRARIES += \
+	libsystemd-networkd-core.la
+
+libsystemd_networkd_core_la_SOURCES = \
 	src/network/networkd.h \
-	src/network/networkd.c \
 	src/network/networkd-link.c \
 	src/network/networkd-netdev.c \
 	src/network/networkd-network.c \
@@ -4021,11 +4029,11 @@ systemd_networkd_SOURCES = \
 	src/network/networkd-route.c \
 	src/network/networkd-manager.c
 
-nodist_systemd_networkd_SOURCES = \
+nodist_libsystemd_networkd_core_la_SOURCES = \
 	src/network/networkd-network-gperf.c \
 	src/network/networkd-netdev-gperf.c
 
-systemd_networkd_LDADD = \
+libsystemd_networkd_core_la_LIBADD = \
 	libudev-internal.la \
 	libsystemd-internal.la \
 	libsystemd-dhcp.la \
@@ -4039,23 +4047,10 @@ GENERAL_ALIASES += \
 	$(systemunitdir)/systemd-networkd.service $(pkgsysconfdir)/system/multi-user.target.wants/systemd-networkd.service
 
 test_network_SOURCES = \
-	src/network/test-network.c \
-	src/network/networkd.h \
-	src/network/networkd-link.c \
-	src/network/networkd-netdev.c \
-	src/network/networkd-network.c \
-	src/network/networkd-address.c \
-	src/network/networkd-route.c \
-	src/network/networkd-manager.c \
-	src/network/networkd-network-gperf.c \
-	src/network/networkd-netdev-gperf.c
+	src/network/test-network.c
 
 test_network_LDADD = \
-	libudev-internal.la \
-	libsystemd-internal.la \
-	libsystemd-dhcp.la \
-	libsystemd-label.la \
-	libsystemd-shared.la
+	libsystemd-networkd-core.la
 
 tests += \
 	test-network
