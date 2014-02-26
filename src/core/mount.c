@@ -1479,9 +1479,10 @@ static int mount_add_one(
                 }
         }
 
-        if (!(w = strdup(what)) ||
-            !(o = strdup(options)) ||
-            !(f = strdup(fstype))) {
+        w = strdup(what);
+        o = strdup(options);
+        f = strdup(fstype);
+        if (!w || !o || !f) {
                 r = -ENOMEM;
                 goto fail;
         }
