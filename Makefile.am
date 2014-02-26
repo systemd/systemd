@@ -502,9 +502,6 @@ EXTRA_DIST += \
 	units/systemd-fsck@.service.in \
 	units/systemd-fsck-root.service.in \
 	units/user@.service.in \
-	units/systemd-udevd.service \
-	units/systemd-udev-trigger.service \
-	units/systemd-udev-settle.service \
 	units/debug-shell.service.in \
 	units/systemd-hibernate.service.in \
 	units/systemd-hybrid-sleep.service.in \
