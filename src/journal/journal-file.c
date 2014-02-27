@@ -1359,7 +1359,7 @@ int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const st
 }
 
 typedef struct ChainCacheItem {
-        uint64_t first; /* the array at the begin of the chain */
+        uint64_t first; /* the array at the beginning of the chain */
         uint64_t array; /* the cached array */
         uint64_t begin; /* the first item in the cached array */
         uint64_t total; /* the total number of items in all arrays before this one in the chain */
@@ -1945,7 +1945,7 @@ int journal_file_next_entry(
                 direction_t direction,
                 Object **ret, uint64_t *offset) {
 
-        uint64_t i, n;
+        uint64_t i, n, ofs;
         int r;
 
         assert(f);
@@ -1986,10 +1986,24 @@ int journal_file_next_entry(
         }
 
         /* And jump to it */
-        return generic_array_get(f,
-                                 le64toh(f->header->entry_array_offset),
-                                 i,
-                                 ret, offset);
+        r = generic_array_get(f,
+                              le64toh(f->header->entry_array_offset),
+                              i,
+                              ret, &ofs);
+        if (r <= 0)
+                return r;
+
+        if (p > 0 &&
+            (direction == DIRECTION_DOWN ? ofs <= p : ofs >= p)) {
+                log_debug("%s: entry array corrupted at entry %"PRIu64,
+                          f->path, i);
+                return -EBADMSG;
+        }
+
+        if (offset)
+                *offset = ofs;
+
+        return 1;
 }
 
 int journal_file_skip_entry(
