@@ -112,6 +112,8 @@ Architecture uname_architecture(void) {
                 { "sh",         ARCHITECTURE_SH       },
 #elif defined(__m68k__)
                 { "m68k",       ARCHITECTURE_M68K     },
+#elif defined(__tilegx__)
+                { "tilegx",     ARCHITECTURE_TILEGX   },
 #else
 #error "Please register your architecture here!"
 #endif
@@ -158,6 +160,7 @@ static const char *const architecture_table[_ARCHITECTURE_MAX] = {
         [ARCHITECTURE_SH] = "sh",
         [ARCHITECTURE_SH64] = "sh64",
         [ARCHITECTURE_M68K] = "m68k",
+        [ARCHITECTURE_TILEGX] = "tilegx",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(architecture, Architecture);
