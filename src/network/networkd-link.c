@@ -28,6 +28,8 @@
 #include "bus-util.h"
 #include "net-util.h"
 
+#include "dhcp-lease-internal.h"
+
 int link_new(Manager *manager, struct udev_device *device, Link **ret) {
         _cleanup_link_free_ Link *link = NULL;
         const char *mac;
@@ -50,6 +52,11 @@ int link_new(Manager *manager, struct udev_device *device, Link **ret) {
         link->ifindex = udev_device_get_ifindex(device);
         if (link->ifindex <= 0)
                 return -EINVAL;
+
+        r = asprintf(&link->state_file, "/run/systemd/network/links/%u",
+                     (unsigned) link->ifindex);
+        if (r < 0)
+                return r;
 
         mac = udev_device_get_sysattr_value(device, "address");
         if (mac) {
@@ -83,6 +90,7 @@ void link_free(Link *link) {
         hashmap_remove(link->manager->links, &link->ifindex);
 
         free(link->ifname);
+        free(link->state_file);
 
         free(link);
 }
@@ -139,6 +147,8 @@ static int link_enter_configured(Link *link) {
 
         link->state = LINK_STATE_CONFIGURED;
 
+        link_save(link);
+
         return 0;
 }
 
@@ -148,6 +158,8 @@ static void link_enter_failed(Link *link) {
         log_warning_link(link, "failed");
 
         link->state = LINK_STATE_FAILED;
+
+        link_save(link);
 }
 
 static int route_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
@@ -900,6 +912,8 @@ static int link_enter_enslave(Link *link) {
 
         link->state = LINK_STATE_ENSLAVING;
 
+        link_save(link);
+
         if (!link->network->bridge && !link->network->bond &&
             hashmap_isempty(link->network->vlans) &&
             hashmap_isempty(link->network->macvlans))
@@ -1066,3 +1080,61 @@ int link_update(Link *link, sd_rtnl_message *m) {
 
         return link_update_flags(link, flags);
 }
+
+int link_save(Link *link) {
+        _cleanup_free_ char *temp_path = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        int r;
+
+        assert(link);
+        assert(link->state_file);
+
+        r = mkdir_safe_label("/run/systemd/network/links", 0755, 0, 0);
+        if (r < 0)
+                goto finish;
+
+        r = fopen_temporary(link->state_file, &f, &temp_path);
+        if (r < 0)
+                goto finish;
+
+        fchmod(fileno(f), 0644);
+
+        fprintf(f,
+                "# This is private data. Do not parse.\n"
+                "STATE=%s\n",
+                link_state_to_string(link->state));
+
+        if (link->dhcp_lease) {
+                const char *lease_file = "/run/systemd/network/leases/test.lease";
+
+                r = dhcp_lease_save(link->dhcp_lease, lease_file);
+                if (r < 0)
+                        goto finish;
+
+                fprintf(f, "DHCP_LEASE=%s\n", lease_file);
+        }
+
+        fflush(f);
+
+        if (ferror(f) || rename(temp_path, link->state_file) < 0) {
+                r = -errno;
+                unlink(link->state_file);
+                unlink(temp_path);
+        }
+
+finish:
+        if (r < 0)
+                log_error("Failed to save link data %s: %s", link->state_file, strerror(-r));
+
+        return r;
+}
+
+static const char* const link_state_table[_LINK_STATE_MAX] = {
+        [LINK_STATE_ENSLAVING] = "configuring",
+        [LINK_STATE_SETTING_ADDRESSES] = "configuring",
+        [LINK_STATE_SETTING_ROUTES] = "configuring",
+        [LINK_STATE_CONFIGURED] = "configured",
+        [LINK_STATE_FAILED] = "failed",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(link_state, LinkState);

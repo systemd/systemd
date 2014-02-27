@@ -29,8 +29,8 @@
 #include "list.h"
 
 #include "dhcp-protocol.h"
-#include "dhcp-lease.h"
 #include "dhcp-internal.h"
+#include "dhcp-lease-internal.h"
 #include "sd-dhcp-client.h"
 
 struct sd_dhcp_client {

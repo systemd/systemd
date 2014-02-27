@@ -189,6 +189,7 @@ struct Link {
 
         uint64_t ifindex;
         char *ifname;
+        char *state_file;
         struct ether_addr mac;
 
         unsigned flags;
@@ -353,6 +354,11 @@ int link_add(Manager *manager, struct udev_device *device, Link **ret);
 int link_configure(Link *link);
 
 int link_update(Link *link, sd_rtnl_message *message);
+
+int link_save(Link *link);
+
+const char* link_state_to_string(LinkState s) _const_;
+LinkState link_state_from_string(const char *s) _pure_;
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_free);
 #define _cleanup_link_free_ _cleanup_(link_freep)

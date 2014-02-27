@@ -196,6 +196,7 @@ AM_CPPFLAGS = \
 	-I $(top_srcdir)/src/libsystemd/sd-bus \
 	-I $(top_srcdir)/src/libsystemd/sd-event \
 	-I $(top_srcdir)/src/libsystemd/sd-rtnl \
+	-I $(top_srcdir)/src/libsystemd-network \
 	$(OUR_CPPFLAGS)
 
 AM_CFLAGS = $(OUR_CFLAGS)
@@ -2398,41 +2399,44 @@ busctl_CFLAGS = \
 
 # ------------------------------------------------------------------------------
 noinst_LTLIBRARIES += \
-	libsystemd-dhcp.la
+	libsystemd-network.la
 
-libsystemd_dhcp_la_SOURCES = \
+libsystemd_network_la_SOURCES = \
+	src/systemd/sd-network.h \
 	src/systemd/sd-dhcp-client.h \
-	src/libsystemd-dhcp/sd-dhcp-client.c \
-	src/libsystemd-dhcp/dhcp-lease.h \
-	src/libsystemd-dhcp/dhcp-lease.c \
-	src/libsystemd-dhcp/dhcp-network.c \
-	src/libsystemd-dhcp/dhcp-option.c \
-	src/libsystemd-dhcp/dhcp-packet.c \
-	src/libsystemd-dhcp/dhcp-internal.h \
-	src/libsystemd-dhcp/dhcp-protocol.h
+	src/systemd/sd-dhcp-lease.h \
+	src/network/sd-network.c \
+	src/libsystemd-network/sd-dhcp-client.c \
+	src/libsystemd-network/dhcp-network.c \
+	src/libsystemd-network/dhcp-option.c \
+	src/libsystemd-network/dhcp-packet.c \
+	src/libsystemd-network/dhcp-internal.h \
+	src/libsystemd-network/dhcp-protocol.h \
+	src/libsystemd-network/dhcp-lease-internal.h \
+	src/libsystemd-network/sd-dhcp-lease.c
 
-libsystemd_dhcp_la_LIBADD = \
+libsystemd_network_la_LIBADD = \
 	libsystemd-internal.la \
 	libsystemd-shared.la
 
 test_dhcp_option_SOURCES = \
-	src/libsystemd-dhcp/dhcp-protocol.h \
-	src/libsystemd-dhcp/dhcp-internal.h \
-	src/libsystemd-dhcp/test-dhcp-option.c
+	src/libsystemd-network/dhcp-protocol.h \
+	src/libsystemd-network/dhcp-internal.h \
+	src/libsystemd-network/test-dhcp-option.c
 
 test_dhcp_option_LDADD = \
-	libsystemd-dhcp.la \
+	libsystemd-network.la \
 	libsystemd-internal.la \
 	libsystemd-shared.la
 
 test_dhcp_client_SOURCES = \
 	src/systemd/sd-dhcp-client.h \
-	src/libsystemd-dhcp/dhcp-protocol.h \
-	src/libsystemd-dhcp/dhcp-internal.h \
-	src/libsystemd-dhcp/test-dhcp-client.c
+	src/libsystemd-network/dhcp-protocol.h \
+	src/libsystemd-network/dhcp-internal.h \
+	src/libsystemd-network/test-dhcp-client.c
 
 test_dhcp_client_LDADD = \
-	libsystemd-dhcp.la \
+	libsystemd-network.la \
 	libsystemd-internal.la \
 	libsystemd-shared.la
 
@@ -4033,7 +4037,7 @@ nodist_libsystemd_networkd_core_la_SOURCES = \
 libsystemd_networkd_core_la_LIBADD = \
 	libudev-internal.la \
 	libsystemd-internal.la \
-	libsystemd-dhcp.la \
+	libsystemd-network.la \
 	libsystemd-label.la \
 	libsystemd-shared.la
 

@@ -23,14 +23,18 @@
 #include <string.h>
 #include <stdio.h>
 #include <net/ethernet.h>
+#include <arpa/inet.h>
 #include <sys/param.h>
 
 #include "util.h"
 #include "list.h"
+#include "mkdir.h"
+#include "fileio.h"
 
 #include "dhcp-protocol.h"
 #include "dhcp-internal.h"
-#include "dhcp-lease.h"
+#include "dhcp-lease-internal.h"
+#include "sd-dhcp-lease.h"
 #include "sd-dhcp-client.h"
 
 int sd_dhcp_lease_get_address(sd_dhcp_lease *lease, struct in_addr *addr) {
@@ -236,6 +240,159 @@ int dhcp_lease_new(sd_dhcp_lease **ret) {
                 return -ENOMEM;
 
         lease->n_ref = REFCNT_INIT;
+
+        *ret = lease;
+        lease = NULL;
+
+        return 0;
+}
+
+int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
+        _cleanup_free_ char *temp_path = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        char buf[INET_ADDRSTRLEN];
+        struct in_addr address;
+        const char *string;
+        uint16_t mtu;
+        int r;
+
+        assert(lease);
+        assert(lease_file);
+
+        r = mkdir_safe_label("/run/systemd/network/leases", 0755, 0, 0);
+        if (r < 0)
+                goto finish;
+
+        r = fopen_temporary(lease_file, &f, &temp_path);
+        if (r < 0)
+                goto finish;
+
+        fchmod(fileno(f), 0644);
+
+        r = sd_dhcp_lease_get_address(lease, &address);
+        if (r < 0)
+                goto finish;
+
+        string = inet_ntop(AF_INET, &address, buf, INET_ADDRSTRLEN);
+        if (!string) {
+                r = -errno;
+                goto finish;
+        }
+
+        fprintf(f,
+                "# This is private data. Do not parse.\n"
+                "ADDRESS=%s\n", string);
+
+        r = sd_dhcp_lease_get_router(lease, &address);
+        if (r < 0)
+                goto finish;
+
+        string = inet_ntop(AF_INET, &address, buf, INET_ADDRSTRLEN);
+        if (!string) {
+                r = -errno;
+                goto finish;
+        }
+
+        fprintf(f,
+                "ROUTER=%s\n", string);
+
+        r = sd_dhcp_lease_get_netmask(lease, &address);
+        if (r < 0)
+                goto finish;
+
+        string = inet_ntop(AF_INET, &address, buf, INET_ADDRSTRLEN);
+        if (!string) {
+                r = -errno;
+                goto finish;
+        }
+
+        fprintf(f,
+                "NETMASK=%s\n", string);
+
+        r = sd_dhcp_lease_get_mtu(lease, &mtu);
+        if (r >= 0)
+                fprintf(f, "MTU=%" PRIu16 "\n", mtu);
+
+/* TODO: DNS. See resolv.conf writing in network-manager.c */
+
+        r = sd_dhcp_lease_get_domainname(lease, &string);
+        if (r >= 0)
+                fprintf(f, "DOMAINNAME=%s\n", string);
+
+        r = sd_dhcp_lease_get_hostname(lease, &string);
+        if (r >= 0)
+                fprintf(f, "HOSTNAME=%s\n", string);
+
+        r = 0;
+
+        fflush(f);
+
+        if (ferror(f) || rename(temp_path, lease_file) < 0) {
+                r = -errno;
+                unlink(lease_file);
+                unlink(temp_path);
+        }
+
+finish:
+        if (r < 0)
+                log_error("Failed to save lease data %s: %s", lease_file, strerror(-r));
+
+        return r;
+}
+
+int dhcp_lease_load(const char *lease_file, sd_dhcp_lease **ret) {
+        _cleanup_dhcp_lease_unref_ sd_dhcp_lease *lease = NULL;
+        _cleanup_free_ char *address = NULL, *router = NULL, *netmask = NULL,
+                            *mtu = NULL;
+        struct in_addr addr;
+        int r;
+
+        assert(lease_file);
+        assert(ret);
+
+        r = dhcp_lease_new(&lease);
+        if (r < 0)
+                return r;
+
+        r = parse_env_file(lease_file, NEWLINE,
+                           "ADDRESS", &address,
+                           "ROUTER", &router,
+                           "NETMASK", &netmask,
+                           "MTU", &mtu,
+                           "DOMAINNAME", &lease->domainname,
+                           "HOSTNAME", &lease->hostname,
+                           NULL);
+        if (r < 0) {
+                if (r == -ENOENT)
+                        return 0;
+
+                log_error("Failed to read %s: %s", lease_file, strerror(-r));
+                return r;
+        }
+
+        r = inet_pton(AF_INET, address, &addr);
+        if (r < 0)
+                return r;
+
+        lease->address = addr.s_addr;
+
+        r = inet_pton(AF_INET, router, &addr);
+        if (r < 0)
+                return r;
+
+        lease->router = addr.s_addr;
+
+        r = inet_pton(AF_INET, netmask, &addr);
+        if (r < 0)
+                return r;
+
+        lease->subnet_mask = addr.s_addr;
+
+        if (mtu) {
+                uint16_t u;
+                if (sscanf(mtu, "%" SCNu16, &u) > 0)
+                        lease->mtu = u;
+        }
 
         *ret = lease;
         lease = NULL;

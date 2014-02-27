@@ -30,8 +30,9 @@
 #include "list.h"
 
 #include "dhcp-protocol.h"
-#include "dhcp-lease.h"
+#include "dhcp-lease-internal.h"
 #include "dhcp-internal.h"
+#include "sd-dhcp-lease.h"
 #include "sd-dhcp-client.h"
 
 #define DHCP_CLIENT_MIN_OPTIONS_SIZE            312

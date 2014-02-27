@@ -40,6 +40,11 @@ int main(int argc, char *argv[]) {
                 goto out;
         }
 
+        /* Always create the directories people can create inotify
+         * watches in. */
+        mkdir_label("/run/systemd/network/links", 0755);
+        mkdir_label("/run/systemd/network/leases", 0755);
+
         r = manager_new(&m);
         if (r < 0) {
                 log_error("Could not create manager: %s", strerror(-r));
