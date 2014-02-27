@@ -658,6 +658,11 @@ static int parse_argv(int argc, char *argv[]) {
                 return -EINVAL;
         }
 
+        if (arg_action != ACTION_SHOW && optind < argc) {
+                log_error("Extraneous arguments starting with '%s'", argv[optind]);
+                return -EINVAL;
+        }
+
         return 1;
 }
 
