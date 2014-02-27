@@ -556,7 +556,7 @@ static int cd_profiles(struct udev *udev, int fd)
         if ((err != 0)) {
                 info_scsi_cmd_err(udev, "GET CONFIGURATION", err);
                 /* handle pre-MMC2 drives which do not support GET CONFIGURATION */
-                if (SK(err) == 0x5 && ASC(err) == 0x20) {
+                if (SK(err) == 0x5 && (ASC(err) == 0x20 || ASC(err) == 0x24)) {
                         log_debug("drive is pre-MMC2 and does not support 46h get configuration command");
                         log_debug("trying to work around the problem");
                         ret = cd_profiles_old_mmc(udev, fd);
