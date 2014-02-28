@@ -34,7 +34,7 @@
 #include "dhcp-lease-internal.h"
 
 _public_ int sd_network_get_link_state(unsigned index, char **state) {
-        char *p, *s = NULL;
+        _cleanup_free_ char *s = NULL, *p = NULL;
         int r;
 
         assert_return(index, -EINVAL);
@@ -44,23 +44,20 @@ _public_ int sd_network_get_link_state(unsigned index, char **state) {
                 return -ENOMEM;
 
         r = parse_env_file(p, NEWLINE, "STATE", &s, NULL);
-        free(p);
 
-        if (r == -ENOENT) {
-                free(s);
-                s = strdup("unknown");
-                if (!s)
-                        return -ENOMEM;
-
-                *state = s;
-                return 0;
-        } else if (r < 0) {
-                free(s);
+        if (r == -ENOENT)
+                return -ENODATA;
+        else if (r < 0)
                 return r;
-        } else if (!s)
+        else if (!s)
                 return -EIO;
 
+        if (streq(s, "unmanaged"))
+                return -EUNATCH;
+
         *state = s;
+        s = NULL;
+
         return 0;
 }
 

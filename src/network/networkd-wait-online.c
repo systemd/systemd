@@ -38,20 +38,15 @@ static bool all_configured(void) {
                 _cleanup_free_ char *state = NULL;
 
                 r = sd_network_get_link_state(indices[i], &state);
-                if (r < 0)
+                if (r == -EUNATCH)
+                        continue;
+                if (r < 0 || !streq(state, "configured"))
                         return false;
 
-                if (streq(state, "configured"))
-                        one_ready = true;
-
-                if (!streq(state, "configured") && !streq(state, "unmanaged"))
-                        return false;
+                one_ready = true;
         }
 
-        if (one_ready)
-                return true;
-
-        return false;
+        return one_ready;
 }
 
 static int event_handler(sd_event_source *s, int fd, uint32_t revents,
