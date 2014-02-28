@@ -4047,6 +4047,16 @@ nodist_systemunit_DATA += \
 GENERAL_ALIASES += \
 	$(systemunitdir)/systemd-networkd.service $(pkgsysconfdir)/system/multi-user.target.wants/systemd-networkd.service
 
+rootlibexec_PROGRAMS += \
+	systemd-networkd-wait-online
+
+systemd_networkd_wait_online_SOURCES = \
+	src/network/networkd-wait-online.c
+
+systemd_networkd_wait_online_LDADD = \
+	libsystemd-internal.la \
+	libsystemd-network.la
+
 test_network_SOURCES = \
 	src/network/test-network.c
 
