@@ -47,6 +47,7 @@ int address_new_static(Network *network, unsigned section, Address **ret) {
                 return -ENOMEM;
 
         address->family = AF_UNSPEC;
+        address->scope = RT_SCOPE_UNIVERSE;
 
         address->network = network;
 
@@ -71,6 +72,7 @@ int address_new_dynamic(Address **ret) {
                 return -ENOMEM;
 
         address->family = AF_UNSPEC;
+        address->scope = RT_SCOPE_UNIVERSE;
 
         *ret = address;
         address = NULL;
@@ -170,7 +172,7 @@ int address_configure(Address *address, Link *link,
                 return r;
         }
 
-        r = sd_rtnl_message_addr_set_scope(req, RT_SCOPE_UNIVERSE);
+        r = sd_rtnl_message_addr_set_scope(req, address->scope);
         if (r < 0) {
                 log_error("Could not set scope: %s", strerror(-r));
                 return r;

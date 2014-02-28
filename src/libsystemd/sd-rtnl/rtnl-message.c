@@ -85,6 +85,20 @@ int sd_rtnl_message_route_set_dst_prefixlen(sd_rtnl_message *m, unsigned char pr
         return 0;
 }
 
+int sd_rtnl_message_route_set_scope(sd_rtnl_message *m, unsigned char scope) {
+        struct rtmsg *rtm;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(rtnl_message_type_is_route(m->hdr->nlmsg_type), -EINVAL);
+
+        rtm = NLMSG_DATA(m->hdr);
+
+        rtm->rtm_scope = scope;
+
+        return 0;
+}
+
 int sd_rtnl_message_new_route(sd_rtnl *rtnl, sd_rtnl_message **ret,
                               uint16_t nlmsg_type, unsigned char rtm_family) {
         struct rtmsg *rtm;

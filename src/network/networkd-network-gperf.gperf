@@ -30,6 +30,7 @@ Network.Bond,                config_parse_bond,                  0,             
 Network.VLAN,                config_parse_vlan,                  0,                             offsetof(Network, vlans)
 Network.MACVLAN,             config_parse_macvlan,               0,                             offsetof(Network, macvlans)
 Network.DHCP,                config_parse_bool,                  0,                             offsetof(Network, dhcp)
+Network.IPv4LL,              config_parse_bool,                  0,                             offsetof(Network, ipv4ll)
 Network.Address,             config_parse_address,               0,                             0
 Network.Gateway,             config_parse_gateway,               0,                             0
 Network.DNS,                 config_parse_dns,                   0,                             offsetof(Network, dns)

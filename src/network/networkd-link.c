@@ -87,6 +87,8 @@ void link_free(Link *link) {
         sd_dhcp_client_free(link->dhcp_client);
         sd_dhcp_lease_unref(link->dhcp_lease);
 
+        sd_ipv4ll_free(link->ipv4ll);
+
         hashmap_remove(link->manager->links, &link->ifindex);
 
         free(link->ifname);
@@ -196,6 +198,7 @@ static int route_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 
 static int link_enter_set_routes(Link *link) {
         Route *rt;
+        struct in_addr a;
         int r;
 
         assert(link);
@@ -204,7 +207,8 @@ static int link_enter_set_routes(Link *link) {
 
         link->state = LINK_STATE_SETTING_ROUTES;
 
-        if (!link->network->static_routes && !link->dhcp_lease)
+        if (!link->network->static_routes && !link->dhcp_lease &&
+                (!link->ipv4ll || sd_ipv4ll_get_address(link->ipv4ll, &a) < 0))
                 return link_enter_configured(link);
 
         log_debug_link(link, "setting routes");
@@ -219,6 +223,41 @@ static int link_enter_set_routes(Link *link) {
                 }
 
                 link->route_messages ++;
+        }
+
+        if (link->ipv4ll && !link->dhcp_lease) {
+                _cleanup_route_free_ Route *route = NULL;
+                struct in_addr addr;
+
+                r = sd_ipv4ll_get_address(link->ipv4ll, &addr);
+                if (r < 0 && r != -ENOENT) {
+                        log_warning_link(link, "IPV4LL error: no address: %s",
+                                        strerror(-r));
+                        return r;
+                }
+
+                if (r != -ENOENT) {
+                        r = route_new_dynamic(&route);
+                        if (r < 0) {
+                                log_error_link(link, "Could not allocate route: %s",
+                                               strerror(-r));
+                                return r;
+                        }
+
+                        route->family = AF_INET;
+                        route->scope = RT_SCOPE_LINK;
+                        route->metrics = 99;
+
+                        r = route_configure(route, link, &route_handler);
+                        if (r < 0) {
+                                log_warning_link(link,
+                                                 "could not set routes: %s", strerror(-r));
+                                link_enter_failed(link);
+                                return r;
+                        }
+
+                        link->route_messages ++;
+                }
         }
 
         if (link->dhcp_lease) {
@@ -256,6 +295,28 @@ static int link_enter_set_routes(Link *link) {
         return 0;
 }
 
+static int route_drop_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
+        Link *link = userdata;
+        int r;
+
+        assert(m);
+        assert(link);
+        assert(link->ifname);
+
+        if (link->state == LINK_STATE_FAILED)
+                return 1;
+
+        r = sd_rtnl_message_get_errno(m);
+        if (r < 0 && r != -ENOENT)
+                log_struct_link(LOG_WARNING, link,
+                                "MESSAGE=%s: could not drop route: %s",
+                                link->ifname, strerror(-r),
+                                "ERRNO=%d", -r,
+                                NULL);
+
+        return 0;
+}
+
 static int address_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
         Link *link = userdata;
         int r;
@@ -289,6 +350,7 @@ static int address_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 
 static int link_enter_set_addresses(Link *link) {
         Address *ad;
+        struct in_addr a;
         int r;
 
         assert(link);
@@ -297,7 +359,8 @@ static int link_enter_set_addresses(Link *link) {
 
         link->state = LINK_STATE_SETTING_ADDRESSES;
 
-        if (!link->network->static_addresses && !link->dhcp_lease)
+        if (!link->network->static_addresses && !link->dhcp_lease &&
+                (!link->ipv4ll || sd_ipv4ll_get_address(link->ipv4ll, &a) < 0))
                 return link_enter_set_routes(link);
 
         log_debug_link(link, "setting addresses");
@@ -312,6 +375,42 @@ static int link_enter_set_addresses(Link *link) {
                 }
 
                 link->addr_messages ++;
+        }
+
+        if (link->ipv4ll && !link->dhcp_lease) {
+                _cleanup_address_free_ Address *ll_addr = NULL;
+                struct in_addr addr;
+
+                r = sd_ipv4ll_get_address(link->ipv4ll, &addr);
+                if (r < 0 && r != -ENOENT) {
+                        log_warning_link(link, "IPV4LL error: no address: %s",
+                                        strerror(-r));
+                        return r;
+                }
+
+                if (r != -ENOENT) {
+                        r = address_new_dynamic(&ll_addr);
+                        if (r < 0) {
+                                log_error_link(link, "Could not allocate address: %s", strerror(-r));
+                                return r;
+                        }
+
+                        ll_addr->family = AF_INET;
+                        ll_addr->in_addr.in = addr;
+                        ll_addr->prefixlen = 16;
+                        ll_addr->broadcast.s_addr = ll_addr->in_addr.in.s_addr | htonl(0xfffffffflu >> ll_addr->prefixlen);
+                        ll_addr->scope = RT_SCOPE_LINK;
+
+                        r = address_configure(ll_addr, link, &address_handler);
+                        if (r < 0) {
+                                log_warning_link(link,
+                                         "could not set addresses: %s", strerror(-r));
+                                link_enter_failed(link);
+                                return r;
+                        }
+
+                        link->addr_messages ++;
+                }
         }
 
         if (link->dhcp_lease) {
@@ -381,7 +480,7 @@ static int address_drop_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdat
                                 "ERRNO=%d", -r,
                                 NULL);
 
-        return 1;
+        return 0;
 }
 
 static int set_hostname_handler(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
@@ -505,7 +604,7 @@ static int dhcp_lease_lost(Link *link) {
                 address->in_addr.in = addr;
                 address->prefixlen = prefixlen;
 
-                address_drop(address, link, address_drop_handler);
+                address_drop(address, link, &address_drop_handler);
         }
 
         if (link->network->dhcp_mtu) {
@@ -675,12 +774,27 @@ static void dhcp_handler(sd_dhcp_client *client, int event, void *userdata) {
                                 }
                         }
 
+                        if (event == DHCP_EVENT_EXPIRED && link->network->ipv4ll) {
+                                r = sd_ipv4ll_start (link->ipv4ll);
+                                if (r < 0) {
+                                        link_enter_failed(link);
+                                        return;
+                                }
+                        }
+
                         break;
                 case DHCP_EVENT_IP_ACQUIRE:
                         r = dhcp_lease_acquired(client, link);
                         if (r < 0) {
                                 link_enter_failed(link);
                                 return;
+                        }
+                        if (link->ipv4ll) {
+                                r = sd_ipv4ll_stop(link->ipv4ll);
+                                if (r < 0) {
+                                        link_enter_failed(link);
+                                        return;
+                                }
                         }
                         break;
                 default:
@@ -694,48 +808,179 @@ static void dhcp_handler(sd_dhcp_client *client, int event, void *userdata) {
         return;
 }
 
+static int ipv4ll_address_lost(sd_ipv4ll *ll, Link *link) {
+        int r;
+        struct in_addr addr;
+
+        assert(ll);
+        assert(link);
+
+        r = sd_ipv4ll_get_address(link->ipv4ll, &addr);
+        if (r >= 0) {
+                _cleanup_address_free_ Address *address = NULL;
+                _cleanup_route_free_ Route *route = NULL;
+
+                log_debug_link(link, "IPv4 link-local release %u.%u.%u.%u",
+                                ADDRESS_FMT_VAL(addr));
+
+                r = address_new_dynamic(&address);
+                if (r < 0) {
+                        log_error_link(link, "Could not allocate address: %s", strerror(-r));
+                        return r;
+                }
+
+                address->family = AF_INET;
+                address->in_addr.in = addr;
+                address->prefixlen = 16;
+                address->scope = RT_SCOPE_LINK;
+
+                address_drop(address, link, &address_drop_handler);
+
+                r = route_new_dynamic(&route);
+                if (r < 0) {
+                        log_error_link(link, "Could not allocate route: %s",
+                                       strerror(-r));
+                        return r;
+                }
+
+                route->family = AF_INET;
+                route->scope = RT_SCOPE_LINK;
+                route->metrics = 99;
+
+                route_drop(route, link, &route_drop_handler);
+        }
+
+        return 0;
+}
+
+static int ipv4ll_address_claimed(sd_ipv4ll *ll, Link *link) {
+        struct in_addr address;
+        int r;
+
+        assert(ll);
+        assert(link);
+
+        r = sd_ipv4ll_get_address(ll, &address);
+        if (r < 0)
+                return r;
+
+        log_struct_link(LOG_INFO, link,
+                        "MESSAGE=%s: IPv4 link-local address %u.%u.%u.%u",
+                        link->ifname,
+                        ADDRESS_FMT_VAL(address),
+                        NULL);
+
+       link_enter_set_addresses(link);
+
+       return 0;
+}
+
+static void ipv4ll_handler(sd_ipv4ll *ll, int event, void *userdata){
+        Link *link = userdata;
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(link->manager);
+
+        switch(event) {
+                case IPV4LL_EVENT_STOP:
+                case IPV4LL_EVENT_CONFLICT:
+                        r = ipv4ll_address_lost(ll, link);
+                        if (r < 0) {
+                                link_enter_failed(link);
+                                return;
+                        }
+                        break;
+                case IPV4LL_EVENT_BIND:
+                        r = ipv4ll_address_claimed(ll, link);
+                        if (r < 0) {
+                                link_enter_failed(link);
+                                return;
+                        }
+                        break;
+                default:
+                        if (event < 0)
+                                log_warning_link(link, "IPv4 link-local error: %s", strerror(-event));
+                        else
+                                log_warning_link(link, "IPv4 link-local unknown event: %d", event);
+                        break;
+        }
+}
+
 static int link_acquire_conf(Link *link) {
         int r;
 
         assert(link);
         assert(link->network);
-        assert(link->network->dhcp);
         assert(link->manager);
         assert(link->manager->event);
 
-        if (!link->dhcp_client) {
-                r = sd_dhcp_client_new(&link->dhcp_client);
-                if (r < 0)
-                        return r;
+        if (link->network->ipv4ll) {
+                if (!link->ipv4ll) {
+                        r = sd_ipv4ll_new(&link->ipv4ll);
+                        if (r < 0)
+                                return r;
 
-                r = sd_dhcp_client_attach_event(link->dhcp_client, NULL, 0);
-                if (r < 0)
-                        return r;
+                        r = sd_ipv4ll_attach_event(link->ipv4ll, NULL, 0);
+                        if (r < 0)
+                                return r;
 
-                r = sd_dhcp_client_set_index(link->dhcp_client, link->ifindex);
-                if (r < 0)
-                        return r;
+                        r = sd_ipv4ll_set_index(link->ipv4ll, link->ifindex);
+                        if (r < 0)
+                                return r;
 
-                r = sd_dhcp_client_set_mac(link->dhcp_client, &link->mac);
-                if (r < 0)
-                        return r;
+                        r = sd_ipv4ll_set_mac(link->ipv4ll, &link->mac);
+                        if (r < 0)
+                                return r;
 
-                r = sd_dhcp_client_set_callback(link->dhcp_client, dhcp_handler, link);
-                if (r < 0)
-                        return r;
-
-                if (link->network->dhcp_mtu) {
-                        r = sd_dhcp_client_set_request_option(link->dhcp_client, 26);
+                        r = sd_ipv4ll_set_callback(link->ipv4ll, ipv4ll_handler, link);
                         if (r < 0)
                                 return r;
                 }
+
+                log_debug_link(link, "acquiring IPv4 link-local address");
+
+                r = sd_ipv4ll_start(link->ipv4ll);
+                if (r < 0)
+                        return r;
         }
 
-        log_debug_link(link, "acquiring DHCPv4 lease");
+        if (link->network->dhcp) {
+                if (!link->dhcp_client) {
+                        r = sd_dhcp_client_new(&link->dhcp_client);
+                        if (r < 0)
+                                return r;
 
-        r = sd_dhcp_client_start(link->dhcp_client);
-        if (r < 0)
-                return r;
+                        r = sd_dhcp_client_attach_event(link->dhcp_client, NULL, 0);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_dhcp_client_set_index(link->dhcp_client, link->ifindex);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_dhcp_client_set_mac(link->dhcp_client, &link->mac);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_dhcp_client_set_callback(link->dhcp_client, dhcp_handler, link);
+                        if (r < 0)
+                                return r;
+
+                        if (link->network->dhcp_mtu) {
+                                r = sd_dhcp_client_set_request_option(link->dhcp_client, 26);
+                                if (r < 0)
+                                        return r;
+                        }
+                }
+
+                log_debug_link(link, "acquiring DHCPv4 lease");
+
+                r = sd_dhcp_client_start(link->dhcp_client);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }
@@ -762,10 +1007,10 @@ static int link_update_flags(Link *link, unsigned flags) {
                 if (flags & IFF_LOWER_UP) {
                         log_info_link(link, "carrier on");
 
-                        if (link->network->dhcp) {
+                        if (link->network->dhcp || link->network->ipv4ll) {
                                 r = link_acquire_conf(link);
                                 if (r < 0) {
-                                        log_warning_link(link, "Could not acquire DHCPv4 lease: %s", strerror(-r));
+                                        log_warning_link(link, "Could not acquire configuration: %s", strerror(-r));
                                         link_enter_failed(link);
                                         return r;
                                 }
@@ -777,6 +1022,15 @@ static int link_update_flags(Link *link, unsigned flags) {
                                 r = sd_dhcp_client_stop(link->dhcp_client);
                                 if (r < 0) {
                                         log_warning_link(link, "Could not stop DHCPv4 client: %s", strerror(-r));
+                                        link_enter_failed(link);
+                                        return r;
+                                }
+                        }
+
+                        if (link->network->ipv4ll) {
+                                r = sd_ipv4ll_stop(link->ipv4ll);
+                                if (r < 0) {
+                                        log_warning_link(link, "Could not stop IPv4 link-local: %s", strerror(-r));
                                         link_enter_failed(link);
                                         return r;
                                 }
@@ -863,7 +1117,7 @@ static int link_enslaved(Link *link) {
                 return r;
         }
 
-        if (!link->network->dhcp)
+        if (!link->network->dhcp && !link->network->ipv4ll)
                 return link_enter_set_addresses(link);
 
         return 0;

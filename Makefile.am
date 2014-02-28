@@ -2422,6 +2422,7 @@ libsystemd_network_la_SOURCES = \
 	src/systemd/sd-network.h \
 	src/systemd/sd-dhcp-client.h \
 	src/systemd/sd-dhcp-lease.h \
+	src/systemd/sd-ipv4ll.h \
 	src/network/sd-network.c \
 	src/network/network-util.h \
 	src/libsystemd-network/sd-dhcp-client.c \
@@ -2431,7 +2432,11 @@ libsystemd_network_la_SOURCES = \
 	src/libsystemd-network/dhcp-internal.h \
 	src/libsystemd-network/dhcp-protocol.h \
 	src/libsystemd-network/dhcp-lease-internal.h \
-	src/libsystemd-network/sd-dhcp-lease.c
+	src/libsystemd-network/sd-dhcp-lease.c \
+	src/libsystemd-network/sd-ipv4ll.c \
+	src/libsystemd-network/ipv4ll-network.c \
+	src/libsystemd-network/ipv4ll-packet.c \
+	src/libsystemd-network/ipv4ll-internal.h
 
 libsystemd_network_la_LIBADD = \
 	libsystemd-internal.la \

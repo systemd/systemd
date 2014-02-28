@@ -27,6 +27,7 @@
 #include "sd-rtnl.h"
 #include "sd-bus.h"
 #include "sd-dhcp-client.h"
+#include "sd-ipv4ll.h"
 #include "udev.h"
 
 #include "rtnl-util.h"
@@ -125,6 +126,7 @@ struct Network {
         bool dhcp_hostname;
         bool dhcp_domainname;
         bool dhcp_critical;
+        bool ipv4ll;
 
         LIST_HEAD(Address, static_addresses);
         LIST_HEAD(Route, static_routes);
@@ -142,6 +144,7 @@ struct Address {
 
         unsigned char family;
         unsigned char prefixlen;
+        unsigned char scope;
         char *label;
 
         struct in_addr broadcast;
@@ -160,6 +163,8 @@ struct Route {
 
         unsigned char family;
         unsigned char dst_prefixlen;
+        unsigned char scope;
+        uint32_t metrics;
 
         union {
                 struct in_addr in;
@@ -205,6 +210,7 @@ struct Link {
         sd_dhcp_client *dhcp_client;
         sd_dhcp_lease *dhcp_lease;
         uint16_t original_mtu;
+        sd_ipv4ll *ipv4ll;
 };
 
 struct Manager {
@@ -307,6 +313,8 @@ int route_new_static(Network *network, unsigned section, Route **ret);
 int route_new_dynamic(Route **ret);
 void route_free(Route *route);
 int route_configure(Route *route, Link *link, sd_rtnl_message_handler_t callback);
+int route_drop(Route *route, Link *link, sd_rtnl_message_handler_t callback);
+
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Route*, route_free);
 #define _cleanup_route_free_ _cleanup_(route_freep)

@@ -48,6 +48,7 @@ int route_new_static(Network *network, unsigned section, Route **ret) {
                 return -ENOMEM;
 
         route->family = AF_UNSPEC;
+        route->scope = RT_SCOPE_UNIVERSE;
 
         route->network = network;
 
@@ -72,6 +73,7 @@ int route_new_dynamic(Route **ret) {
                 return -ENOMEM;
 
         route->family = AF_UNSPEC;
+        route->scope = RT_SCOPE_UNIVERSE;
 
         *ret = route;
         route = NULL;
@@ -92,6 +94,77 @@ void route_free(Route *route) {
         }
 
         free(route);
+}
+
+int route_drop(Route *route, Link *link,
+               sd_rtnl_message_handler_t callback) {
+        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL;
+        int r;
+
+        assert(link);
+        assert(link->manager);
+        assert(link->manager->rtnl);
+        assert(link->ifindex > 0);
+        assert(route->family == AF_INET || route->family == AF_INET6);
+
+        r = sd_rtnl_message_new_route(link->manager->rtnl, &req,
+                                      RTM_DELROUTE, route->family);
+        if (r < 0) {
+                log_error("Could not create RTM_DELROUTE message: %s", strerror(-r));
+                return r;
+        }
+
+        if (route->family == AF_INET)
+                r = sd_rtnl_message_append_in_addr(req, RTA_GATEWAY, &route->in_addr.in);
+        else if (route->family == AF_INET6)
+                r = sd_rtnl_message_append_in6_addr(req, RTA_GATEWAY, &route->in_addr.in6);
+        if (r < 0) {
+                log_error("Could not append RTA_GATEWAY attribute: %s", strerror(-r));
+                return r;
+        }
+
+        if (route->dst_prefixlen) {
+                if (route->family == AF_INET)
+                        r = sd_rtnl_message_append_in_addr(req, RTA_DST, &route->dst_addr.in);
+                else if (route->family == AF_INET6)
+                        r = sd_rtnl_message_append_in6_addr(req, RTA_DST, &route->dst_addr.in6);
+                if (r < 0) {
+                        log_error("Could not append RTA_DST attribute: %s", strerror(-r));
+                        return r;
+                }
+
+                r = sd_rtnl_message_route_set_dst_prefixlen(req, route->dst_prefixlen);
+                if (r < 0) {
+                        log_error("Could not set destination prefix length: %s", strerror(-r));
+                        return r;
+                }
+        }
+
+        r = sd_rtnl_message_route_set_scope(req, route->scope);
+        if (r < 0) {
+                log_error("Could not set scope: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_append_u32(req, RTA_PRIORITY, route->metrics);
+        if (r < 0) {
+                log_error("Could not append RTA_PRIORITY attribute: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_append_u32(req, RTA_OIF, link->ifindex);
+        if (r < 0) {
+                log_error("Could not append RTA_OIF attribute: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_call_async(link->manager->rtnl, req, callback, link, 0, NULL);
+        if (r < 0) {
+                log_error("Could not send rtnetlink message: %s", strerror(-r));
+                return r;
+        }
+
+        return 0;
 }
 
 int route_configure(Route *route, Link *link,
@@ -136,6 +209,18 @@ int route_configure(Route *route, Link *link,
                         log_error("Could not set destination prefix length: %s", strerror(-r));
                         return r;
                 }
+        }
+
+        r = sd_rtnl_message_route_set_scope(req, route->scope);
+        if (r < 0) {
+                log_error("Could not set scope: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_append_u32(req, RTA_PRIORITY, route->metrics);
+        if (r < 0) {
+                log_error("Could not append RTA_PRIORITY attribute: %s", strerror(-r));
+                return r;
         }
 
         r = sd_rtnl_message_append_u32(req, RTA_OIF, link->ifindex);
