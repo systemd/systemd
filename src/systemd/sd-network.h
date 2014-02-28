@@ -1,7 +1,7 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foosdloginhfoo
-#define foosdloginhfoo
+#ifndef foosdnetworkhfoo
+#define foosdnetworkhfoo
 
 /***
   This file is part of systemd.
