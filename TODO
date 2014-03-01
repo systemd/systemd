@@ -462,6 +462,8 @@ Features:
   - support taking a btrfs snapshot at startup and dropping it afterwards
   - maybe: hookup nspawn and PrivateNetwork=yes with "ip netns"
   - allow booting disk images with a GPT signature using the bootloaderspec partition uuids
+  - generate predictable mac addresses for the netdev we create (host0), maybe based on guest's machine
+    name and machine-id of host (?)
 
 * cryptsetup:
   - cryptsetup-generator: allow specification of passwords in crypttab itself
