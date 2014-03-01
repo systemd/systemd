@@ -20,8 +20,10 @@
 ***/
 
 #include "sd-event.h"
+#include "event-util.h"
 #include "sd-daemon.h"
 #include "sd-network.h"
+#include "network-util.h"
 
 #include "util.h"
 
@@ -62,9 +64,9 @@ static int event_handler(sd_event_source *s, int fd, uint32_t revents,
 }
 
 int main(int argc, char *argv[]) {
-        sd_event *event;
-        sd_event_source *event_source;
-        sd_network_monitor *monitor;
+        _cleanup_event_unref_ sd_event *event = NULL;
+        _cleanup_event_source_unref_ sd_event_source *event_source = NULL;
+        _cleanup_network_monitor_unref_ sd_network_monitor *monitor = NULL;
         int r, fd, events;
 
         log_set_target(LOG_TARGET_AUTO);
@@ -128,10 +130,6 @@ int main(int argc, char *argv[]) {
 out:
         sd_notify(false,
                   "STATUS=All interfaces configured...");
-
-        sd_event_source_unref(event_source);
-        sd_event_unref(event);
-        sd_network_monitor_unref(monitor);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
