@@ -552,7 +552,10 @@ dist_doc_DATA = \
 	LICENSE.LGPL2.1 \
 	LICENSE.GPL2 \
 	LICENSE.MIT \
-	DISTRO_PORTING
+	DISTRO_PORTING \
+	src/libsystemd/sd-bus/PORTING-DBUS1 \
+	src/libsystemd/sd-bus/DIFFERENCES \
+	src/libsystemd/sd-bus/GVARIANT-SERIALIZATION
 
 @INTLTOOL_POLICY_RULE@
 
