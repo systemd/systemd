@@ -354,6 +354,7 @@ dist_bashcompletion_DATA = \
 	shell-completion/bash/systemctl \
 	shell-completion/bash/systemd-analyze \
 	shell-completion/bash/systemd-cgls \
+	shell-completion/bash/systemd-cgtop \
 	shell-completion/bash/systemd-delta \
 	shell-completion/bash/systemd-nspawn \
 	shell-completion/bash/systemd-run \
