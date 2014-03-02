@@ -2157,31 +2157,31 @@ int parse_size(const char *t, off_t base, off_t *size) {
         };
 
         static const struct table iec[] = {
-                { "B", 1 },
-                { "K", 1024ULL },
-                { "M", 1024ULL*1024ULL },
-                { "G", 1024ULL*1024ULL*1024ULL },
-                { "T", 1024ULL*1024ULL*1024ULL*1024ULL },
-                { "P", 1024ULL*1024ULL*1024ULL*1024ULL*1024ULL },
                 { "E", 1024ULL*1024ULL*1024ULL*1024ULL*1024ULL*1024ULL },
+                { "P", 1024ULL*1024ULL*1024ULL*1024ULL*1024ULL },
+                { "T", 1024ULL*1024ULL*1024ULL*1024ULL },
+                { "G", 1024ULL*1024ULL*1024ULL },
+                { "M", 1024ULL*1024ULL },
+                { "K", 1024ULL },
+                { "B", 1 },
                 { "", 1 },
         };
 
         static const struct table si[] = {
-                { "B", 1 },
-                { "K", 1000ULL },
-                { "M", 1000ULL*1000ULL },
-                { "G", 1000ULL*1000ULL*1000ULL },
-                { "T", 1000ULL*1000ULL*1000ULL*1000ULL },
-                { "P", 1000ULL*1000ULL*1000ULL*1000ULL*1000ULL },
                 { "E", 1000ULL*1000ULL*1000ULL*1000ULL*1000ULL*1000ULL },
+                { "P", 1000ULL*1000ULL*1000ULL*1000ULL*1000ULL },
+                { "T", 1000ULL*1000ULL*1000ULL*1000ULL },
+                { "G", 1000ULL*1000ULL*1000ULL },
+                { "M", 1000ULL*1000ULL },
+                { "K", 1000ULL },
+                { "B", 1 },
                 { "", 1 },
         };
 
         const struct table *table;
         const char *p;
         unsigned long long r = 0;
-        unsigned n_entries;
+        unsigned n_entries, start_pos = 0;
 
         assert(t);
         assert(base == 1000 || base == 1024);
@@ -2235,7 +2235,7 @@ int parse_size(const char *t, off_t base, off_t *size) {
 
                 e += strspn(e, WHITESPACE);
 
-                for (i = 0; i < n_entries; i++)
+                for (i = start_pos; i < n_entries; i++)
                         if (startswith(e, table[i].suffix)) {
                                 unsigned long long tmp;
                                 if ((unsigned long long) l + (frac > 0) > ULLONG_MAX / table[i].factor)
@@ -2249,6 +2249,8 @@ int parse_size(const char *t, off_t base, off_t *size) {
                                         return -ERANGE;
 
                                 p = e + strlen(table[i].suffix);
+
+                                start_pos = i + 1;
                                 break;
                         }
 
