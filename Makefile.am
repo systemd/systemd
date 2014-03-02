@@ -2411,6 +2411,7 @@ libsystemd_network_la_SOURCES = \
 	src/systemd/sd-dhcp-client.h \
 	src/systemd/sd-dhcp-lease.h \
 	src/network/sd-network.c \
+	src/network/network-util.h \
 	src/libsystemd-network/sd-dhcp-client.c \
 	src/libsystemd-network/dhcp-network.c \
 	src/libsystemd-network/dhcp-option.c \
@@ -2418,8 +2419,7 @@ libsystemd_network_la_SOURCES = \
 	src/libsystemd-network/dhcp-internal.h \
 	src/libsystemd-network/dhcp-protocol.h \
 	src/libsystemd-network/dhcp-lease-internal.h \
-	src/libsystemd-network/sd-dhcp-lease.c \
-	src/libsystemd-network/network-util.h
+	src/libsystemd-network/sd-dhcp-lease.c
 
 libsystemd_network_la_LIBADD = \
 	libsystemd-internal.la \
