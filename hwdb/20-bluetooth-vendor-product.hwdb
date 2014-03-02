@@ -902,3 +902,12 @@ bluetooth:v0129*
 
 bluetooth:v012A*
  ID_VENDOR_FROM_DATABASE=Changzhou Yongse Infotech Co., Ltd
+
+bluetooth:v012B*
+ ID_VENDOR_FROM_DATABASE=SportIQ
+
+bluetooth:v012C*
+ ID_VENDOR_FROM_DATABASE=TEMEC Instruments B.V.
+
+bluetooth:v012D*
+ ID_VENDOR_FROM_DATABASE=Sony Corporation
