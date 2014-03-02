@@ -2198,6 +2198,8 @@ int parse_size(const char *t, off_t base, off_t *size) {
         p = t;
         do {
                 long long l;
+                unsigned long long l2;
+                double frac = 0;
                 char *e;
                 unsigned i;
 
@@ -2213,14 +2215,32 @@ int parse_size(const char *t, off_t base, off_t *size) {
                 if (e == p)
                         return -EINVAL;
 
+                if (*e == '.') {
+                        e++;
+                        if (*e >= '0' && *e <= '9') {
+                                char *e2;
+
+                                /* strotoull itself would accept space/+/- */
+                                l2 = strtoull(e, &e2, 10);
+
+                                if (errno == ERANGE)
+                                        return -errno;
+
+                                /* Ignore failure. E.g. 10.M is valid */
+                                frac = l2;
+                                for (; e < e2; e++)
+                                        frac /= 10;
+                        }
+                }
+
                 e += strspn(e, WHITESPACE);
 
                 for (i = 0; i < n_entries; i++)
                         if (startswith(e, table[i].suffix)) {
                                 unsigned long long tmp;
-                                if ((unsigned long long) l > ULLONG_MAX / table[i].factor)
+                                if ((unsigned long long) l + (frac > 0) > ULLONG_MAX / table[i].factor)
                                         return -ERANGE;
-                                tmp = l * table[i].factor;
+                                tmp = l * table[i].factor + (unsigned long long) (frac * table[i].factor);
                                 if (tmp > ULLONG_MAX - r)
                                         return -ERANGE;
 

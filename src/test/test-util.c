@@ -30,6 +30,7 @@
 #include "strv.h"
 #include "def.h"
 #include "fileio.h"
+#include "conf-parser.h"
 
 static void test_streq_ptr(void) {
         assert_se(streq_ptr(NULL, NULL));
@@ -441,17 +442,32 @@ static void test_parse_size(void) {
         assert_se(parse_size("111", 1024, &bytes) == 0);
         assert_se(bytes == 111);
 
+        assert_se(parse_size("111.4", 1024, &bytes) == 0);
+        assert_se(bytes == 111);
+
         assert_se(parse_size(" 112 B", 1024, &bytes) == 0);
         assert_se(bytes == 112);
 
-        assert_se(parse_size("3 K", 1024, &bytes) == 0);
+        assert_se(parse_size(" 112.6 B", 1024, &bytes) == 0);
+        assert_se(bytes == 112);
+
+        assert_se(parse_size("3.5 K", 1024, &bytes) == 0);
+        assert_se(bytes == 3*1024 + 512);
+
+        assert_se(parse_size("3. K", 1024, &bytes) == 0);
         assert_se(bytes == 3*1024);
 
-        assert_se(parse_size(" 4 M 11K", 1024, &bytes) == 0);
-        assert_se(bytes == 4*1024*1024 + 11 * 1024);
+        assert_se(parse_size("3.0 K", 1024, &bytes) == 0);
+        assert_se(bytes == 3*1024);
 
-        assert_se(parse_size("3B3G", 1024, &bytes) == 0);
-        assert_se(bytes == 3ULL*1024*1024*1024 + 3);
+        assert_se(parse_size("3. 0 K", 1024, &bytes) == 0);
+        assert_se(bytes == 3);
+
+        assert_se(parse_size(" 4 M 11.5K", 1024, &bytes) == 0);
+        assert_se(bytes == 4*1024*1024 + 11 * 1024 + 512);
+
+        assert_se(parse_size("3B3.5G", 1024, &bytes) == 0);
+        assert_se(bytes == 3ULL*1024*1024*1024 + 512*1024*1024 + 3);
 
         assert_se(parse_size("3B3G4T", 1024, &bytes) == 0);
         assert_se(bytes == (4ULL*1024 + 3)*1024*1024*1024 + 3);
@@ -464,6 +480,10 @@ static void test_parse_size(void) {
 
         assert_se(parse_size("12X", 1024, &bytes) == -EINVAL);
 
+        assert_se(parse_size("12.5X", 1024, &bytes) == -EINVAL);
+
+        assert_se(parse_size("12.5e3", 1024, &bytes) == -EINVAL);
+
         assert_se(parse_size("1024E", 1024, &bytes) == -ERANGE);
         assert_se(parse_size("-1", 1024, &bytes) == -ERANGE);
         assert_se(parse_size("-1024E", 1024, &bytes) == -ERANGE);
@@ -471,6 +491,14 @@ static void test_parse_size(void) {
         assert_se(parse_size("-1024P", 1024, &bytes) == -ERANGE);
 
         assert_se(parse_size("-10B 20K", 1024, &bytes) == -ERANGE);
+}
+
+static void test_config_parse_iec_off(void) {
+        off_t offset = 0;
+        assert_se(config_parse_iec_off(NULL, "/this/file", 11, "Section", 22, "Size", 0, "4M", &offset, NULL) == 0);
+        assert_se(offset == 4 * 1024 * 1024);
+
+        assert_se(config_parse_iec_off(NULL, "/this/file", 11, "Section", 22, "Size", 0, "4.5M", &offset, NULL) == 0);
 }
 
 static void test_strextend(void) {
@@ -589,6 +617,9 @@ static void test_writing_tmpfile(void) {
 }
 
 int main(int argc, char *argv[]) {
+        log_parse_environment();
+        log_open();
+
         test_streq_ptr();
         test_first_word();
         test_close_many();
@@ -618,6 +649,7 @@ int main(int argc, char *argv[]) {
         test_get_process_comm();
         test_protect_errno();
         test_parse_size();
+        test_config_parse_iec_off();
         test_strextend();
         test_strrep();
         test_split_pair();
