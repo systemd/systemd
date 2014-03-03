@@ -2713,6 +2713,8 @@ static void *remove_tmpdir_thread(void *p) {
 }
 
 void exec_runtime_destroy(ExecRuntime *rt) {
+        int r;
+
         if (!rt)
                 return;
 
@@ -2722,13 +2724,25 @@ void exec_runtime_destroy(ExecRuntime *rt) {
 
         if (rt->tmp_dir) {
                 log_debug("Spawning thread to nuke %s", rt->tmp_dir);
-                asynchronous_job(remove_tmpdir_thread, rt->tmp_dir);
+
+                r = asynchronous_job(remove_tmpdir_thread, rt->tmp_dir);
+                if (r < 0) {
+                        log_warning("Failed to nuke %s: %s", rt->tmp_dir, strerror(-r));
+                        free(rt->tmp_dir);
+                }
+
                 rt->tmp_dir = NULL;
         }
 
         if (rt->var_tmp_dir) {
                 log_debug("Spawning thread to nuke %s", rt->var_tmp_dir);
-                asynchronous_job(remove_tmpdir_thread, rt->var_tmp_dir);
+
+                r = asynchronous_job(remove_tmpdir_thread, rt->var_tmp_dir);
+                if (r < 0) {
+                        log_warning("Failed to nuke %s: %s", rt->var_tmp_dir, strerror(-r));
+                        free(rt->var_tmp_dir);
+                }
+
                 rt->var_tmp_dir = NULL;
         }
 
