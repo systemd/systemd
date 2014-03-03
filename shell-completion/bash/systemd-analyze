@@ -25,10 +25,19 @@ __contains_word () {
         done
 }
 
+__get_machines() {
+        local a b
+        machinectl list --no-legend --no-pager | { while read a b; do echo " $a"; done; };
+}
+
 _systemd_analyze() {
         local i verb comps
         local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
-        local OPTS='--help --version --system --user --from-pattern --to-pattern --order --require'
+
+        local -A OPTS=(
+               [STANDALONE]='--help --version --system --user --from-pattern --to-pattern --order --require --no-pager'
+                      [ARG]='-H --host -M --machine'
+        )
 
         local -A VERBS=(
                 [STANDALONE]='time blame plot dump'
@@ -46,6 +55,19 @@ _systemd_analyze() {
                         break
                 fi
         done
+
+        if __contains_word "$prev" ${OPTS[ARG]}; then
+                case $prev in
+                        --host|-H)
+                                comps=$(compgen -A hostname)
+                        ;;
+                        --machine|-M)
+                                comps=$( __get_machines )
+                        ;;
+                esac
+                COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+                return 0
+        fi
 
         if [[ -z $verb  && $cur = -* ]]; then
                 COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
