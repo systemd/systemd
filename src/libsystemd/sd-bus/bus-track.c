@@ -205,7 +205,7 @@ _public_ int sd_bus_track_add_name(sd_bus_track *track, const char *name) {
 
 _public_ int sd_bus_track_remove_name(sd_bus_track *track, const char *name) {
         const char *match;
-        _cleanup_free_ char *n;
+        _cleanup_free_ char *n = NULL;;
 
         assert_return(name, -EINVAL);
 
