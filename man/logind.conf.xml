@@ -242,10 +242,10 @@
                                 <literal>ignore</literal>, logind will
                                 never handle these keys. If
                                 <literal>lock</literal>, all running
-                                sessions will be screen-locked; otherwise,
-                                the specified action
-                                will be taken in the respective
-                                event. Only input devices with the
+                                sessions will be screen-locked;
+                                otherwise, the specified action will
+                                be taken in the respective event. Only
+                                input devices with the
                                 <literal>power-switch</literal> udev
                                 tag will be watched for key/lid switch
                                 events. <varname>HandlePowerKey=</varname>
@@ -257,7 +257,11 @@
                                 default to <literal>suspend</literal>.
                                 <varname>HandleHibernateKey=</varname>
                                 defaults to
-                                <literal>hibernate</literal>.</para></listitem>
+                                <literal>hibernate</literal>. Note
+                                that the lid switch is ignored if the
+                                system is inserted in a docking
+                                station, or if more than one display
+                                is connected.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

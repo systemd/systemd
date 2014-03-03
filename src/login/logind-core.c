@@ -32,6 +32,7 @@
 #include "audit.h"
 #include "bus-util.h"
 #include "bus-error.h"
+#include "udev-util.h"
 #include "logind.h"
 
 int manager_add_device(Manager *m, const char *sysfs, bool master, Device **_device) {
@@ -276,9 +277,11 @@ int manager_process_seat_device(Manager *m, struct udev_device *d) {
                         return 0;
                 }
 
-                /* ignore non-master devices for unknown seats */
+                seat = hashmap_get(m->seats, sn);
                 master = udev_device_has_tag(d, "master-of-seat");
-                if (!master && !(seat = hashmap_get(m->seats, sn)))
+
+                /* Ignore non-master devices for unknown seats */
+                if (!master && !seat)
                         return 0;
 
                 r = manager_add_device(m, udev_device_get_syspath(d), master, &device);
@@ -513,4 +516,52 @@ bool manager_is_docked(Manager *m) {
                         return true;
 
         return false;
+}
+
+int manager_count_displays(Manager *m) {
+        _cleanup_udev_enumerate_unref_ struct udev_enumerate *e = NULL;
+        struct udev_list_entry *item = NULL, *first = NULL;
+        int r;
+        int n = 0;
+
+        e = udev_enumerate_new(m->udev);
+        if (!e)
+                return -ENOMEM;
+
+        r = udev_enumerate_add_match_subsystem(e, "drm");
+        if (r < 0)
+                return r;
+
+        r = udev_enumerate_scan_devices(e);
+        if (r < 0)
+                return r;
+
+        first = udev_enumerate_get_list_entry(e);
+        udev_list_entry_foreach(item, first) {
+                _cleanup_udev_device_unref_ struct udev_device *d = NULL;
+                struct udev_device *p;
+                const char *status;
+
+                d = udev_device_new_from_syspath(m->udev, udev_list_entry_get_name(item));
+                if (!d)
+                        return -ENOMEM;
+
+                p = udev_device_get_parent(d);
+                if (!p)
+                        return -ENOMEM;
+
+                /* If the parent shares the same subsystem as the
+                 * device we are looking at then it is a connector,
+                 * which is what we are interested in. */
+                if (!streq_ptr(udev_device_get_subsystem(p), "drm"))
+                        continue;
+
+                /* We count any connector which is not explicitly
+                 * "disconnected" as connected. */
+                status = udev_device_get_sysattr_value(d, "status");
+                if (!streq_ptr(status, "disconnected"))
+                        n++;
+        }
+
+        return n;
 }

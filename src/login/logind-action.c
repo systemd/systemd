@@ -72,8 +72,16 @@ int manager_handle_action(
 
         /* If we are docked don't react to lid closing */
         if (inhibit_key == INHIBIT_HANDLE_LID_SWITCH) {
+                int n;
+
                 if (manager_is_docked(m)) {
                         log_debug("Ignoring lid switch request, system is docked.");
+                        return 0;
+                }
+
+                n = manager_count_displays(m);
+                if (n != 1) {
+                        log_debug("Ignoring lid switch request, %s displays connected.");
                         return 0;
                 }
         }

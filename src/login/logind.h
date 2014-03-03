@@ -149,6 +149,7 @@ int manager_get_user_by_pid(Manager *m, pid_t pid, User **user);
 int manager_get_session_by_pid(Manager *m, pid_t pid, Session **session);
 
 bool manager_is_docked(Manager *m);
+int manager_count_displays(Manager *m);
 
 extern const sd_bus_vtable manager_vtable[];
 
