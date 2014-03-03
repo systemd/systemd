@@ -617,9 +617,7 @@ int config_parse_path(const char *unit,
                       void *data,
                       void *userdata) {
 
-        char **s = data;
-        char *n;
-        int offset;
+        char **s = data, *n;
 
         assert(filename);
         assert(lvalue);
@@ -627,16 +625,12 @@ int config_parse_path(const char *unit,
         assert(data);
 
         if (!utf8_is_valid(rvalue)) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Path is not UTF-8 clean, ignoring assignment: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Path is not UTF-8 clean, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
-        offset = rvalue[0] == '-' && (streq(lvalue, "InaccessibleDirectories") ||
-                                      streq(lvalue, "ReadOnlyDirectories"));
-        if (!path_is_absolute(rvalue + offset)) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Not an absolute path, ignoring: %s", rvalue);
+        if (!path_is_absolute(rvalue)) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Not an absolute path, ignoring: %s", rvalue);
                 return 0;
         }
 
