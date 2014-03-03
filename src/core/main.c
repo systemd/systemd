@@ -468,16 +468,17 @@ DEFINE_SETTER(config_parse_target, log_set_target_from_string, "target")
 DEFINE_SETTER(config_parse_color, log_show_color_from_string, "color" )
 DEFINE_SETTER(config_parse_location, log_show_location_from_string, "location")
 
-static int config_parse_cpu_affinity2(const char *unit,
-                                      const char *filename,
-                                      unsigned line,
-                                      const char *section,
-                                      unsigned section_line,
-                                      const char *lvalue,
-                                      int ltype,
-                                      const char *rvalue,
-                                      void *data,
-                                      void *userdata) {
+static int config_parse_cpu_affinity2(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         char *w;
         size_t l;
@@ -519,6 +520,36 @@ static int config_parse_cpu_affinity2(const char *unit,
                         log_warning_unit(unit, "Failed to set CPU affinity: %m");
 
                 CPU_FREE(c);
+        }
+
+        return 0;
+}
+
+static int config_parse_show_status(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        int k;
+        ShowStatus *b = data;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        k = parse_show_status(rvalue, b);
+        if (k < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, -k,
+                           "Failed to parse show status setting, ignoring: %s", rvalue);
+                return 0;
         }
 
         return 0;

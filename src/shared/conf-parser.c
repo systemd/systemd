@@ -565,35 +565,6 @@ int config_parse_bool(const char* unit,
         return 0;
 }
 
-int config_parse_show_status(const char* unit,
-                             const char *filename,
-                             unsigned line,
-                             const char *section,
-                             unsigned section_line,
-                             const char *lvalue,
-                             int ltype,
-                             const char *rvalue,
-                             void *data,
-                             void *userdata) {
-
-        int k;
-        ShowStatus *b = data;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        k = parse_show_status(rvalue, b);
-        if (k < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, -k,
-                           "Failed to parse show status setting, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        return 0;
-}
-
 int config_parse_string(const char *unit,
                         const char *filename,
                         unsigned line,

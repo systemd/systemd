@@ -58,6 +58,7 @@ typedef enum ManagerExitCode {
 #include "execute.h"
 #include "unit-name.h"
 #include "exit-status.h"
+#include "show-status.h"
 
 struct Manager {
         /* Note that the set of units we know of is allowed to be
