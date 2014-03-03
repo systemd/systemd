@@ -119,7 +119,7 @@ int main(int argc, char *argv[]) {
 
         sd_notify(false,
                   "READY=1\n"
-                  "STATUS=Waiting for network connecitons...");
+                  "STATUS=Waiting for network connections...");
 
         r = sd_event_loop(event);
         if (r < 0) {
