@@ -126,6 +126,15 @@ int sd_dhcp_lease_get_netmask(sd_dhcp_lease *lease, struct in_addr *addr) {
         return 0;
 }
 
+int sd_dhcp_lease_get_server_identifier(sd_dhcp_lease *lease, struct in_addr *addr) {
+        assert_return(lease, -EINVAL);
+        assert_return(addr, -EINVAL);
+
+        addr->s_addr = lease->server_address;
+
+        return 0;
+}
+
 sd_dhcp_lease *sd_dhcp_lease_ref(sd_dhcp_lease *lease) {
         if (lease)
                 assert_se(REFCNT_INC(lease->n_ref) >= 2);
@@ -329,6 +338,18 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
         fprintf(f,
                 "NETMASK=%s\n", string);
 
+        r = sd_dhcp_lease_get_server_identifier(lease, &address);
+        if (r >= 0) {
+                string = inet_ntop(AF_INET, &address, buf, INET_ADDRSTRLEN);
+                if (!string) {
+                        r = -errno;
+                        goto finish;
+                }
+
+                fprintf(f,
+                        "SERVER_ADDRESS=%s\n", string);
+        }
+
         r = sd_dhcp_lease_get_mtu(lease, &mtu);
         if (r >= 0)
                 fprintf(f, "MTU=%" PRIu16 "\n", mtu);
@@ -367,7 +388,7 @@ finish:
 int dhcp_lease_load(const char *lease_file, sd_dhcp_lease **ret) {
         _cleanup_dhcp_lease_unref_ sd_dhcp_lease *lease = NULL;
         _cleanup_free_ char *address = NULL, *router = NULL, *netmask = NULL,
-                            *mtu = NULL;
+                            *server_address = NULL, *mtu = NULL;
         struct in_addr addr;
         int r;
 
@@ -382,6 +403,7 @@ int dhcp_lease_load(const char *lease_file, sd_dhcp_lease **ret) {
                            "ADDRESS", &address,
                            "ROUTER", &router,
                            "NETMASK", &netmask,
+                           "SERVER_IDENTIFIER", &server_address,
                            "MTU", &mtu,
                            "DOMAINNAME", &lease->domainname,
                            "HOSTNAME", &lease->hostname,
@@ -412,6 +434,14 @@ int dhcp_lease_load(const char *lease_file, sd_dhcp_lease **ret) {
                 return r;
 
         lease->subnet_mask = addr.s_addr;
+
+        if (server_address) {
+                r = inet_pton(AF_INET, server_address, &addr);
+                if (r < 0)
+                        return r;
+
+                lease->server_address = addr.s_addr;
+        }
 
         if (mtu) {
                 uint16_t u;
