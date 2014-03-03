@@ -105,6 +105,7 @@ enum {
         DHCP_OPTION_DOMAIN_NAME_SERVER          = 6,
         DHCP_OPTION_HOST_NAME                   = 12,
         DHCP_OPTION_DOMAIN_NAME                 = 15,
+        DHCP_OPTION_ROOT_PATH                   = 17,
         DHCP_OPTION_INTERFACE_MTU               = 26,
         DHCP_OPTION_NTP_SERVER                  = 42,
         DHCP_OPTION_REQUESTED_IP_ADDRESS        = 50,

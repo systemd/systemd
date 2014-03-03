@@ -96,6 +96,18 @@ int sd_dhcp_lease_get_hostname(sd_dhcp_lease *lease, const char **hostname) {
         return 0;
 }
 
+int sd_dhcp_lease_get_root_path(sd_dhcp_lease *lease, const char **root_path) {
+        assert_return(lease, -EINVAL);
+        assert_return(root_path, -EINVAL);
+
+        if (lease->root_path)
+                *root_path = lease->root_path;
+        else
+                return -ENOENT;
+
+        return 0;
+}
+
 int sd_dhcp_lease_get_router(sd_dhcp_lease *lease, struct in_addr *addr) {
         assert_return(lease, -EINVAL);
         assert_return(addr, -EINVAL);
@@ -212,6 +224,14 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const uint8_t *option,
 
                 break;
 
+        case DHCP_OPTION_ROOT_PATH:
+                if (len >= 1) {
+                        free(lease->root_path);
+                        lease->root_path = strndup((const char *)option, len);
+                }
+
+                break;
+
         case DHCP_OPTION_RENEWAL_T1_TIME:
                 if (len == 4) {
                         memcpy(&val, option, 4);
@@ -323,6 +343,10 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
         if (r >= 0)
                 fprintf(f, "HOSTNAME=%s\n", string);
 
+        r = sd_dhcp_lease_get_root_path(lease, &string);
+        if (r >= 0)
+                fprintf(f, "ROOT_PATH=%s\n", string);
+
         r = 0;
 
         fflush(f);
@@ -361,6 +385,7 @@ int dhcp_lease_load(const char *lease_file, sd_dhcp_lease **ret) {
                            "MTU", &mtu,
                            "DOMAINNAME", &lease->domainname,
                            "HOSTNAME", &lease->hostname,
+                           "ROOT_PATH", &lease->root_path,
                            NULL);
         if (r < 0) {
                 if (r == -ENOENT)

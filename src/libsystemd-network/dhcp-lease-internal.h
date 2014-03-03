@@ -46,6 +46,7 @@ struct sd_dhcp_lease {
         uint16_t mtu;
         char *domainname;
         char *hostname;
+        char *root_path;
 };
 
 int dhcp_lease_new(sd_dhcp_lease **ret);
