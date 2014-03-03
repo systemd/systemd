@@ -646,6 +646,7 @@ static int swap_spawn(Swap *s, ExecCommand *c, pid_t *_pid) {
                        UNIT(s)->manager->confirm_spawn,
                        UNIT(s)->manager->cgroup_supported,
                        UNIT(s)->cgroup_path,
+                       manager_get_runtime_prefix(UNIT(s)->manager),
                        UNIT(s)->id,
                        0,
                        NULL,
@@ -677,6 +678,8 @@ static void swap_enter_dead(Swap *s, SwapResult f) {
 
         exec_runtime_destroy(s->exec_runtime);
         s->exec_runtime = exec_runtime_unref(s->exec_runtime);
+
+        exec_context_destroy_runtime_directory(&s->exec_context, manager_get_runtime_prefix(UNIT(s)->manager));
 
         swap_set_state(s, s->result != SWAP_SUCCESS ? SWAP_FAILED : SWAP_DEAD);
 }

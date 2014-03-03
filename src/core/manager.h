@@ -318,3 +318,5 @@ void manager_status_printf(Manager *m, bool ephemeral, const char *status, const
 void manager_flip_auto_status(Manager *m, bool enable);
 
 Set *manager_get_units_requiring_mounts_for(Manager *m, const char *path);
+
+const char *manager_get_runtime_prefix(Manager *m);

@@ -177,6 +177,9 @@ struct ExecContext {
         Set *address_families;
         bool address_families_whitelist:1;
 
+        char **runtime_directory;
+        mode_t runtime_directory_mode;
+
         bool oom_score_adjust_set:1;
         bool nice_set:1;
         bool ioprio_set:1;
@@ -196,6 +199,7 @@ int exec_spawn(ExecCommand *command,
                bool confirm_spawn,
                CGroupControllerMask cgroup_mask,
                const char *cgroup_path,
+               const char *runtime_prefix,
                const char *unit_id,
                usec_t watchdog_usec,
                int pipe_fd[2],
@@ -218,6 +222,8 @@ int exec_command_set(ExecCommand *c, const char *path, ...);
 void exec_context_init(ExecContext *c);
 void exec_context_done(ExecContext *c);
 void exec_context_dump(ExecContext *c, FILE* f, const char *prefix);
+
+int exec_context_destroy_runtime_directory(ExecContext *c, const char *runtime_root);
 
 int exec_context_load_environment(const ExecContext *c, char ***l);
 

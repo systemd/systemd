@@ -82,6 +82,7 @@
 #include "selinux-util.h"
 #include "errno-list.h"
 #include "af-list.h"
+#include "mkdir.h"
 #include "apparmor-util.h"
 
 #ifdef HAVE_SECCOMP
@@ -1247,6 +1248,7 @@ int exec_spawn(ExecCommand *command,
                bool confirm_spawn,
                CGroupControllerMask cgroup_supported,
                const char *cgroup_path,
+               const char *runtime_prefix,
                const char *unit_id,
                usec_t watchdog_usec,
                int idle_pipe[4],
@@ -1544,6 +1546,27 @@ int exec_spawn(ExecCommand *command,
                 }
 #endif
 
+                if (!strv_isempty(context->runtime_directory) && runtime_prefix) {
+                        char **rt;
+
+                        STRV_FOREACH(rt, context->runtime_directory) {
+                                _cleanup_free_ char *p;
+
+                                p = strjoin(runtime_prefix, "/", *rt, NULL);
+                                if (!p) {
+                                        r = EXIT_RUNTIME_DIRECTORY;
+                                        err = -ENOMEM;
+                                        goto fail_child;
+                                }
+
+                                err = mkdir_safe(p, context->runtime_directory_mode, uid, gid);
+                                if (err < 0) {
+                                        r = EXIT_RUNTIME_DIRECTORY;
+                                        goto fail_child;
+                                }
+                        }
+                }
+
                 if (apply_permissions) {
                         err = enforce_groups(context, username, gid);
                         if (err < 0) {
@@ -1840,6 +1863,7 @@ void exec_context_init(ExecContext *c) {
         c->ignore_sigpipe = true;
         c->timer_slack_nsec = (nsec_t) -1;
         c->personality = 0xffffffffUL;
+        c->runtime_directory_mode = 0755;
 }
 
 void exec_context_done(ExecContext *c) {
@@ -1918,6 +1942,33 @@ void exec_context_done(ExecContext *c) {
 
         set_free(c->address_families);
         c->address_families = NULL;
+
+        strv_free(c->runtime_directory);
+        c->runtime_directory = NULL;
+}
+
+int exec_context_destroy_runtime_directory(ExecContext *c, const char *runtime_prefix) {
+        char **i;
+
+        assert(c);
+
+        if (!runtime_prefix)
+                return 0;
+
+        STRV_FOREACH(i, c->runtime_directory) {
+                _cleanup_free_ char *p;
+
+                p = strjoin(runtime_prefix, "/", *i, NULL);
+                if (!p)
+                        return -ENOMEM;
+
+                /* We execute this synchronously, since we need to be
+                 * sure this is gone when we start the service
+                 * next. */
+                rm_rf_dangerous(p, false, true, false);
+        }
+
+        return 0;
 }
 
 void exec_command_done(ExecCommand *c) {

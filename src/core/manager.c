@@ -2851,3 +2851,10 @@ Set *manager_get_units_requiring_mounts_for(Manager *m, const char *path) {
 
         return hashmap_get(m->units_requiring_mounts_for, streq(p, "/") ? "" : p);
 }
+
+const char *manager_get_runtime_prefix(Manager *m) {
+
+        return m->running_as == SYSTEMD_SYSTEM ?
+               "/run" :
+               getenv("XDG_RUNTIME_DIR");
+}

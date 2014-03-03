@@ -1770,6 +1770,7 @@ static int service_spawn(
                        UNIT(s)->manager->confirm_spawn,
                        UNIT(s)->manager->cgroup_supported,
                        path,
+                       manager_get_runtime_prefix(UNIT(s)->manager),
                        UNIT(s)->id,
                        s->watchdog_usec,
                        s->type == SERVICE_IDLE ? UNIT(s)->manager->idle_pipe : NULL,
@@ -1871,9 +1872,12 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
 
         s->forbid_restart = false;
 
-        /* we want fresh tmpdirs in case service is started again immediately */
+        /* We want fresh tmpdirs in case service is started again immediately */
         exec_runtime_destroy(s->exec_runtime);
         s->exec_runtime = exec_runtime_unref(s->exec_runtime);
+
+        /* Also, remove the runtime directory in */
+        exec_context_destroy_runtime_directory(&s->exec_context, manager_get_runtime_prefix(UNIT(s)->manager));
 
         /* Try to delete the pid file. At this point it will be
          * out-of-date, and some software might be confused by it, so

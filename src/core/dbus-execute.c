@@ -635,6 +635,8 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("SystemCallErrorNumber", "i", property_get_syscall_errno, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Personality", "s", property_get_personality, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RestrictAddressFamilies", "(bas)", property_get_address_families, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("RuntimeDirectoryMode", "u", bus_property_get_mode, offsetof(ExecContext, runtime_directory_mode), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("RuntimeDirectory", "as", NULL, offsetof(ExecContext, runtime_directory), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_VTABLE_END
 };
 

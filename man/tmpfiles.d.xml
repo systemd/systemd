@@ -61,6 +61,23 @@
                 temporary files and directories which usually reside
                 in directories such as <filename>/run</filename>
                 or <filename>/tmp</filename>.</para>
+
+                <para>Volatile and temporary files and directories are
+                those located in <filename>/run</filename> (and its
+                alias <filename>/var/run</filename>),
+                <filename>/tmp</filename>,
+                <filename>/var/tmp</filename>, the API file systems
+                such as <filename>/sys</filename> or
+                <filename>/proc</filename>, as well as some other
+                directories below <filename>/var</filename>.</para>
+
+                <para>System daemons frequently require private
+                runtime directories below <filename>/run</filename> to
+                place communication sockets and similar in. For these
+                consider declaring them in their unit files using
+                <varname>RuntimeDirectory=</varname>
+                (see <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for details),
+                if this is feasible.</para>
         </refsect1>
 
         <refsect1>
@@ -458,7 +475,8 @@ x /var/tmp/abrt/*</programlisting>
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd-tmpfiles</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd-delta</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>systemd-delta</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 </para>
         </refsect1>
 

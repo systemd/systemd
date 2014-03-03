@@ -1255,6 +1255,7 @@ static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
                        UNIT(s)->manager->confirm_spawn,
                        UNIT(s)->manager->cgroup_supported,
                        UNIT(s)->cgroup_path,
+                       manager_get_runtime_prefix(UNIT(s)->manager),
                        UNIT(s)->id,
                        0,
                        NULL,
@@ -1288,6 +1289,8 @@ static void socket_enter_dead(Socket *s, SocketResult f) {
 
         exec_runtime_destroy(s->exec_runtime);
         s->exec_runtime = exec_runtime_unref(s->exec_runtime);
+
+        exec_context_destroy_runtime_directory(&s->exec_context, manager_get_runtime_prefix(UNIT(s)->manager));
 
         socket_set_state(s, s->result != SOCKET_SUCCESS ? SOCKET_FAILED : SOCKET_DEAD);
 }

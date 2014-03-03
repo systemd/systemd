@@ -2719,6 +2719,56 @@ int config_parse_personality(
         return 0;
 }
 
+int config_parse_runtime_directory(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char***rt = data, *w, *state;
+        size_t l;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                /* Empty assignment resets the list */
+                strv_free(*rt);
+                *rt = NULL;
+                return 0;
+        }
+
+        FOREACH_WORD_QUOTED(w, l, rvalue, state) {
+                _cleanup_free_ char *n;
+
+                n = strndup(w, l);
+                if (!n)
+                        return log_oom();
+
+                if (!filename_is_safe(n)) {
+                        log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Runtime directory is not valid, ignoring assignment: %s", rvalue);
+                        continue;
+                }
+
+                r = strv_push(rt, n);
+                if (r < 0)
+                        return log_oom();
+
+                n = NULL;
+        }
+
+        return 0;
+}
+
 #define FOLLOW_MAX 8
 
 static int open_follow(char **filename, FILE **_f, Set *names, char **_final) {
