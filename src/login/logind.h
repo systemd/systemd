@@ -42,6 +42,9 @@ typedef struct Manager Manager;
 #include "logind-button.h"
 #include "logind-action.h"
 
+#define IGNORE_LID_SWITCH_STARTUP_USEC (3 * USEC_PER_MINUTE)
+#define IGNORE_LID_SWITCH_SUSPEND_USEC (30 * USEC_PER_SEC)
+
 struct Manager {
         sd_event *event;
         sd_bus *bus;
@@ -118,6 +121,8 @@ struct Manager {
         bool lid_switch_ignore_inhibited;
 
         Hashmap *polkit_registry;
+
+        sd_event_source *lid_switch_ignore_event_source;
 };
 
 Manager *manager_new(void);
@@ -178,3 +183,5 @@ const struct ConfigPerfItem* logind_gperf_lookup(const char *key, unsigned lengt
 
 int manager_watch_busname(Manager *manager, const char *name);
 void manager_drop_busname(Manager *manager, const char *name);
+
+int manager_set_lid_switch_ignore(Manager *m, usec_t until);

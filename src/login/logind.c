@@ -144,6 +144,7 @@ void manager_free(Manager *m) {
         sd_event_source_unref(m->udev_device_event_source);
         sd_event_source_unref(m->udev_vcsa_event_source);
         sd_event_source_unref(m->udev_button_event_source);
+        sd_event_source_unref(m->lid_switch_ignore_event_source);
 
         if (m->console_active_fd >= 0)
                 close_nointr_nofail(m->console_active_fd);
@@ -959,6 +960,46 @@ static int manager_dispatch_idle_action(sd_event_source *s, uint64_t t, void *us
         return 0;
 }
 
+static int lid_switch_ignore_handler(sd_event_source *e, uint64_t usec, void *userdata) {
+        Manager *m = userdata;
+
+        assert(e);
+        assert(m);
+
+        m->lid_switch_ignore_event_source = sd_event_source_unref(m->lid_switch_ignore_event_source);
+        return 0;
+}
+
+int manager_set_lid_switch_ignore(Manager *m, usec_t until) {
+        int r;
+
+        assert(m);
+
+        if (until <= now(CLOCK_MONOTONIC))
+                return 0;
+
+        /* We want to ignore the lid switch for a while after each
+         * suspend, and after boot-up. Hence let's install a timer for
+         * this. As long as the event source exists we ignore the lid
+         * switch. */
+
+        if (m->lid_switch_ignore_event_source) {
+                usec_t u;
+
+                r = sd_event_source_get_time(m->lid_switch_ignore_event_source, &u);
+                if (r < 0)
+                        return r;
+
+                if (until <= u)
+                        return 0;
+
+                r = sd_event_source_set_time(m->lid_switch_ignore_event_source, until);
+        } else
+                r = sd_event_add_monotonic(m->event, &m->lid_switch_ignore_event_source, until, 0, lid_switch_ignore_handler, m);
+
+        return r;
+}
+
 int manager_startup(Manager *m) {
         int r;
         Seat *seat;
@@ -993,6 +1034,10 @@ int manager_startup(Manager *m) {
                 log_error("Failed to add seat0: %s", strerror(-r));
                 return r;
         }
+
+        r = manager_set_lid_switch_ignore(m, 0 + IGNORE_LID_SWITCH_STARTUP_USEC);
+        if (r < 0)
+                log_warning("Failed to set up lid switch ignore event source: %s", strerror(-r));
 
         /* Deserialize state */
         r = manager_enumerate_devices(m);

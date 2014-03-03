@@ -1337,6 +1337,9 @@ static int execute_shutdown_or_sleep(
         m->action_job = c;
         m->action_what = w;
 
+        /* Make sure the lid switch is ignored for a while */
+        manager_set_lid_switch_ignore(m, now(CLOCK_MONOTONIC) + IGNORE_LID_SWITCH_SUSPEND_USEC);
+
         return 0;
 }
 
