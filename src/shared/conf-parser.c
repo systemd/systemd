@@ -709,64 +709,6 @@ int config_parse_strv(const char *unit,
         return 0;
 }
 
-int config_parse_path_strv(const char *unit,
-                           const char *filename,
-                           unsigned line,
-                           const char *section,
-                           unsigned section_line,
-                           const char *lvalue,
-                           int ltype,
-                           const char *rvalue,
-                           void *data,
-                           void *userdata) {
-
-        char*** sv = data, *w, *state;
-        size_t l;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        if (isempty(rvalue)) {
-                /* Empty assignment resets the list */
-                strv_free(*sv);
-                *sv = NULL;
-                return 0;
-        }
-
-        FOREACH_WORD_QUOTED(w, l, rvalue, state) {
-                _cleanup_free_ char *n;
-                int offset;
-
-                n = strndup(w, l);
-                if (!n)
-                        return log_oom();
-
-                if (!utf8_is_valid(n)) {
-                        log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                                   "Path is not UTF-8 clean, ignoring assignment: %s", rvalue);
-                        continue;
-                }
-
-                offset = n[0] == '-' && (streq(lvalue, "InaccessibleDirectories") ||
-                                         streq(lvalue, "ReadOnlyDirectories"));
-                if (!path_is_absolute(n + offset)) {
-                        log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                                   "Not an absolute path, ignoring: %s", rvalue);
-                        continue;
-                }
-
-                path_kill_slashes(n);
-                r = strv_extend(sv, n);
-                if (r < 0)
-                        return log_oom();
-        }
-
-        return 0;
-}
-
 int config_parse_mode(const char *unit,
                       const char *filename,
                       unsigned line,

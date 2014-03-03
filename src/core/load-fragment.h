@@ -93,6 +93,7 @@ int config_parse_exec_apparmor_profile(const char *unit, const char *filename, u
 int config_parse_address_families(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_runtime_directory(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_set_status(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+int config_parse_namespace_path_strv(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 
 /* gperf prototypes */
 const struct ConfigPerfItem* load_fragment_gperf_lookup(const char *key, unsigned length);

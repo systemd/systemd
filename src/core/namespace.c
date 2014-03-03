@@ -69,7 +69,7 @@ static int append_mounts(BindMount **p, char **strv, MountMode mode) {
 
                 (*p)->ignore = false;
 
-                if ((mode == INACCESSIBLE || mode == READONLY) && (*i)[0] == '-') {
+                if ((mode == INACCESSIBLE || mode == READONLY || mode == READWRITE) && (*i)[0] == '-') {
                         (*p)->ignore = true;
                         (*i)++;
                 }

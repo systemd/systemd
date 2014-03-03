@@ -2848,6 +2848,65 @@ int config_parse_set_status(
         return 0;
 }
 
+int config_parse_namespace_path_strv(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char*** sv = data, *w, *state;
+        size_t l;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                /* Empty assignment resets the list */
+                strv_free(*sv);
+                *sv = NULL;
+                return 0;
+        }
+
+        FOREACH_WORD_QUOTED(w, l, rvalue, state) {
+                _cleanup_free_ char *n;
+                int offset;
+
+                n = strndup(w, l);
+                if (!n)
+                        return log_oom();
+
+                if (!utf8_is_valid(n)) {
+                        log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Path is not UTF-8 clean, ignoring assignment: %s", rvalue);
+                        continue;
+                }
+
+                offset = n[0] == '-';
+                if (!path_is_absolute(n + offset)) {
+                        log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Not an absolute path, ignoring: %s", rvalue);
+                        continue;
+                }
+
+                path_kill_slashes(n);
+
+                r = strv_push(sv, n);
+                if (r < 0)
+                        return log_oom();
+
+                n = NULL;
+        }
+
+        return 0;
+}
+
 #define FOLLOW_MAX 8
 
 static int open_follow(char **filename, FILE **_f, Set *names, char **_final) {
@@ -3206,7 +3265,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_socket_bindtodevice,   "NETWORKINTERFACE" },
                 { config_parse_sec,                   "SECONDS" },
                 { config_parse_nsec,                  "NANOSECONDS" },
-                { config_parse_path_strv,             "PATH [...]" },
+                { config_parse_namespace_path_strv,   "PATH [...]" },
                 { config_parse_unit_requires_mounts_for, "PATH [...]" },
                 { config_parse_exec_mount_flags,      "MOUNTFLAG [...]" },
                 { config_parse_unit_string_printf,    "STRING" },
