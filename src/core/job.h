@@ -146,7 +146,8 @@ struct Job {
         usec_t begin_usec;
 
         /* There can be more than one client, because of job merging. */
-        Set *subscribed;
+        sd_bus_track *subscribed;
+        char **deserialized_subscribed;
 
         JobResult result;
 

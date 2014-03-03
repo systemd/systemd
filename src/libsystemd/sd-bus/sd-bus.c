@@ -51,6 +51,7 @@
 #include "bus-util.h"
 #include "bus-container.h"
 #include "bus-protocol.h"
+#include "bus-track.h"
 
 static int bus_poll(sd_bus *bus, bool need_more, uint64_t timeout_usec);
 static int attach_io_events(sd_bus *b);
@@ -130,6 +131,8 @@ static void bus_free(sd_bus *b) {
         struct node *n;
 
         assert(b);
+
+        assert(!b->track_queue);
 
         sd_bus_detach_event(b);
 
@@ -2000,6 +2003,11 @@ _public_ int sd_bus_get_timeout(sd_bus *bus, uint64_t *timeout_usec) {
         assert_return(BUS_IS_OPEN(bus->state) || bus->state == BUS_CLOSING, -ENOTCONN);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
+        if (bus->track_queue) {
+                *timeout_usec = 0;
+                return 1;
+        }
+
         if (bus->state == BUS_CLOSING) {
                 *timeout_usec = 0;
                 return 1;
@@ -2282,6 +2290,16 @@ finish:
         return r;
 }
 
+static int dispatch_track(sd_bus *bus) {
+        assert(bus);
+
+        if (!bus->track_queue)
+                return 0;
+
+        bus_track_dispatch(bus->track_queue);
+        return 1;
+}
+
 static int process_running(sd_bus *bus, bool hint_priority, int64_t priority, sd_bus_message **ret) {
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         int r;
@@ -2294,6 +2312,10 @@ static int process_running(sd_bus *bus, bool hint_priority, int64_t priority, sd
                 goto null_message;
 
         r = dispatch_wqueue(bus);
+        if (r != 0)
+                goto null_message;
+
+        r = dispatch_track(bus);
         if (r != 0)
                 goto null_message;
 

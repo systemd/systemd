@@ -37,7 +37,6 @@
 #include "dbus-manager.h"
 #include "dbus-unit.h"
 #include "dbus-snapshot.h"
-#include "dbus-client-track.h"
 #include "dbus-execute.h"
 #include "bus-errors.h"
 
@@ -824,11 +823,23 @@ static int method_subscribe(sd_bus *bus, sd_bus_message *message, void *userdata
         if (r < 0)
                 return r;
 
-        r = bus_client_track(&m->subscribed, bus, sd_bus_message_get_sender(message));
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return sd_bus_error_setf(error, BUS_ERROR_ALREADY_SUBSCRIBED, "Client is already subscribed.");
+        if (bus == m->api_bus) {
+
+                /* Note that direct bus connection subscribe by
+                 * default, we only track peers on the API bus here */
+
+                if (!m->subscribed) {
+                        r = sd_bus_track_new(bus, &m->subscribed, NULL, NULL);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = sd_bus_track_add_sender(m->subscribed, message);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return sd_bus_error_setf(error, BUS_ERROR_ALREADY_SUBSCRIBED, "Client is already subscribed.");
+        }
 
         return sd_bus_reply_method_return(message, NULL);
 }
@@ -845,11 +856,13 @@ static int method_unsubscribe(sd_bus *bus, sd_bus_message *message, void *userda
         if (r < 0)
                 return r;
 
-        r = bus_client_untrack(m->subscribed, bus, sd_bus_message_get_sender(message));
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return sd_bus_error_setf(error, BUS_ERROR_NOT_SUBSCRIBED, "Client is not subscribed.");
+        if (bus == m->api_bus) {
+                r = sd_bus_track_remove_sender(m->subscribed, message);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return sd_bus_error_setf(error, BUS_ERROR_NOT_SUBSCRIBED, "Client is not subscribed.");
+        }
 
         return sd_bus_reply_method_return(message, NULL);
 }
@@ -1348,7 +1361,7 @@ static int method_get_default_target(sd_bus *bus, sd_bus_message *message, void 
         return sd_bus_reply_method_return(message, "s", default_target);
 }
 
-static int send_unit_files_changed(sd_bus *bus, const char *destination, void *userdata) {
+static int send_unit_files_changed(sd_bus *bus, void *userdata) {
         _cleanup_bus_message_unref_ sd_bus_message *message = NULL;
         int r;
 
@@ -1358,7 +1371,7 @@ static int send_unit_files_changed(sd_bus *bus, const char *destination, void *u
         if (r < 0)
                 return r;
 
-        return sd_bus_send_to(bus, message, destination, NULL);
+        return sd_bus_send(bus, message, NULL);
 }
 
 static int reply_unit_file_changes_and_free(
@@ -1374,7 +1387,7 @@ static int reply_unit_file_changes_and_free(
         int r;
 
         if (n_changes > 0)
-                bus_manager_foreach_client(m, send_unit_files_changed, NULL);
+                bus_foreach_bus(m, NULL, send_unit_files_changed, NULL);
 
         r = sd_bus_message_new_method_return(message, &reply);
         if (r < 0)
@@ -1656,41 +1669,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_VTABLE_END
 };
 
-int bus_manager_foreach_client(Manager *m, int (*send_message)(sd_bus *bus, const char *destination, void *userdata), void *userdata) {
-        Iterator i;
-        sd_bus *b;
-        unsigned n;
-        int r, ret;
-
-        n = set_size(m->subscribed);
-        if (n <= 0)
-                return 0;
-        if (n == 1) {
-                BusTrackedClient *d;
-
-                assert_se(d = set_first(m->subscribed));
-                return send_message(d->bus, isempty(d->name) ? NULL : d->name, userdata);
-        }
-
-        ret = 0;
-
-        /* Send to everybody */
-        SET_FOREACH(b, m->private_buses, i) {
-                r = send_message(b, NULL, userdata);
-                if (r < 0)
-                        ret = r;
-        }
-
-        if (m->api_bus) {
-                r = send_message(m->api_bus, NULL, userdata);
-                if (r < 0)
-                        ret = r;
-        }
-
-        return ret;
-}
-
-static int send_finished(sd_bus *bus, const char *destination, void *userdata) {
+static int send_finished(sd_bus *bus, void *userdata) {
         _cleanup_bus_message_unref_ sd_bus_message *message = NULL;
         usec_t *times = userdata;
         int r;
@@ -1706,7 +1685,7 @@ static int send_finished(sd_bus *bus, const char *destination, void *userdata) {
         if (r < 0)
                 return r;
 
-        return sd_bus_send_to(bus, message, destination, NULL);
+        return sd_bus_send(bus, message, NULL);
 }
 
 void bus_manager_send_finished(
@@ -1722,13 +1701,23 @@ void bus_manager_send_finished(
 
         assert(m);
 
-        r = bus_manager_foreach_client(m, send_finished,
-                                   (usec_t[6]) { firmware_usec, loader_usec, kernel_usec, initrd_usec, userspace_usec, total_usec });
+        r = bus_foreach_bus(
+                        m,
+                        NULL,
+                        send_finished,
+                        (usec_t[6]) {
+                                firmware_usec,
+                                loader_usec,
+                                kernel_usec,
+                                initrd_usec,
+                                userspace_usec,
+                                total_usec
+                        });
         if (r < 0)
                 log_debug("Failed to send finished signal: %s", strerror(-r));
 }
 
-static int send_reloading(sd_bus *bus, const char *destination, void *userdata) {
+static int send_reloading(sd_bus *bus, void *userdata) {
         _cleanup_bus_message_unref_ sd_bus_message *message = NULL;
         int r;
 
@@ -1742,7 +1731,7 @@ static int send_reloading(sd_bus *bus, const char *destination, void *userdata) 
         if (r < 0)
                 return r;
 
-        return sd_bus_send_to(bus, message, destination, NULL);
+        return sd_bus_send(bus, message, NULL);
 }
 
 void bus_manager_send_reloading(Manager *m, bool active) {
@@ -1750,7 +1739,7 @@ void bus_manager_send_reloading(Manager *m, bool active) {
 
         assert(m);
 
-        r = bus_manager_foreach_client(m, send_reloading, INT_TO_PTR(active));
+        r = bus_foreach_bus(m, NULL, send_reloading, INT_TO_PTR(active));
         if (r < 0)
                 log_debug("Failed to send reloading signal: %s", strerror(-r));
 

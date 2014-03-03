@@ -274,6 +274,8 @@ struct sd_bus {
 
         size_t bloom_size;
         unsigned bloom_n_hash;
+
+        sd_bus_track *track_queue;
 };
 
 #define BUS_DEFAULT_TIMEOUT ((usec_t) (25 * USEC_PER_SEC))

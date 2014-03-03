@@ -26,7 +26,5 @@
 
 extern const sd_bus_vtable bus_manager_vtable[];
 
-int bus_manager_foreach_client(Manager *m, int (*send_message)(sd_bus *bus, const char *destination, void *userdata), void *userdata);
-
 void bus_manager_send_finished(Manager *m, usec_t firmware_usec, usec_t loader_usec, usec_t kernel_usec, usec_t initrd_usec, usec_t userspace_usec, usec_t total_usec);
 void bus_manager_send_reloading(Manager *m, bool active);

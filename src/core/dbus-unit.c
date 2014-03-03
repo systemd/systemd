@@ -26,10 +26,10 @@
 #include "strv.h"
 #include "path-util.h"
 #include "fileio.h"
-#include "dbus-unit.h"
-#include "dbus-manager.h"
 #include "bus-errors.h"
-#include "dbus-client-track.h"
+#include "dbus.h"
+#include "dbus-manager.h"
+#include "dbus-unit.h"
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_load_state, unit_load_state, UnitLoadState);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_job_mode, job_mode, JobMode);
@@ -589,7 +589,7 @@ const sd_bus_vtable bus_unit_cgroup_vtable[] = {
         SD_BUS_VTABLE_END
 };
 
-static int send_new_signal(sd_bus *bus, const char *destination, void *userdata) {
+static int send_new_signal(sd_bus *bus, void *userdata) {
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         _cleanup_free_ char *p = NULL;
         Unit *u = userdata;
@@ -615,10 +615,10 @@ static int send_new_signal(sd_bus *bus, const char *destination, void *userdata)
         if (r < 0)
                 return r;
 
-        return sd_bus_send_to(bus, m, destination, NULL);
+        return sd_bus_send(bus, m, NULL);
 }
 
-static int send_changed_signal(sd_bus *bus, const char *destination, void *userdata) {
+static int send_changed_signal(sd_bus *bus, void *userdata) {
         _cleanup_free_ char *p = NULL;
         Unit *u = userdata;
         int r;
@@ -667,14 +667,14 @@ void bus_unit_send_change_signal(Unit *u) {
         if (!u->id)
                 return;
 
-        r = bus_manager_foreach_client(u->manager, u->sent_dbus_new_signal ? send_changed_signal : send_new_signal, u);
+        r = bus_foreach_bus(u->manager, NULL, u->sent_dbus_new_signal ? send_changed_signal : send_new_signal, u);
         if (r < 0)
                 log_debug("Failed to send unit change signal for %s: %s", u->id, strerror(-r));
 
         u->sent_dbus_new_signal = true;
 }
 
-static int send_removed_signal(sd_bus *bus, const char *destination, void *userdata) {
+static int send_removed_signal(sd_bus *bus, void *userdata) {
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         _cleanup_free_ char *p = NULL;
         Unit *u = userdata;
@@ -700,7 +700,7 @@ static int send_removed_signal(sd_bus *bus, const char *destination, void *userd
         if (r < 0)
                 return r;
 
-        return sd_bus_send_to(bus, m, destination, NULL);
+        return sd_bus_send(bus, m, NULL);
 }
 
 void bus_unit_send_removed_signal(Unit *u) {
@@ -713,7 +713,7 @@ void bus_unit_send_removed_signal(Unit *u) {
         if (!u->id)
                 return;
 
-        r = bus_manager_foreach_client(u->manager, send_removed_signal, u);
+        r = bus_foreach_bus(u->manager, NULL, send_removed_signal, u);
         if (r < 0)
                 log_debug("Failed to send unit remove signal for %s: %s", u->id, strerror(-r));
 }
@@ -765,9 +765,17 @@ int bus_unit_queue_job(
         if (r < 0)
                 return r;
 
-        r = bus_client_track(&j->subscribed, bus, sd_bus_message_get_sender(message));
-        if (r < 0)
-                return r;
+        if (bus == u->manager->api_bus) {
+                if (!j->subscribed) {
+                        r = sd_bus_track_new(bus, &j->subscribed, NULL, NULL);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = sd_bus_track_add_sender(j->subscribed, message);
+                if (r < 0)
+                        return r;
+        }
 
         path = job_dbus_path(j);
         if (!path)

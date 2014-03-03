@@ -37,7 +37,7 @@
 #include "special.h"
 #include "async.h"
 #include "virt.h"
-#include "dbus-client-track.h"
+#include "dbus.h"
 
 Job* job_new_raw(Unit *unit) {
         Job *j;
@@ -90,7 +90,8 @@ void job_free(Job *j) {
 
         sd_event_source_unref(j->timer_event_source);
 
-        bus_client_track_free(j->subscribed);
+        sd_bus_track_unref(j->subscribed);
+        strv_free(j->deserialized_subscribed);
 
         free(j);
 }
@@ -931,7 +932,7 @@ int job_serialize(Job *j, FILE *f, FDSet *fds) {
         if (j->begin_usec > 0)
                 fprintf(f, "job-begin="USEC_FMT"\n", j->begin_usec);
 
-        bus_client_track_serialize(j->manager, f, j->subscribed);
+        bus_track_serialize(j->subscribed, f);
 
         /* End marker */
         fputc('\n', f);
@@ -1035,13 +1036,10 @@ int job_deserialize(Job *j, FILE *f, FDSet *fds) {
                         else
                                 j->begin_usec = ull;
 
-                } else {
-                        char t[strlen(l) + 1 + strlen(v) + 1];
+                } else if (streq(l, "subscribed")) {
 
-                        strcpy(stpcpy(stpcpy(t, l), "="), v);
-
-                        if (bus_client_track_deserialize_item(j->manager, &j->subscribed, t) == 0)
-                                log_debug("Unknown deserialization key '%s'", l);
+                        if (strv_extend(&j->deserialized_subscribed, v) < 0)
+                                return log_oom();
                 }
         }
 }
@@ -1050,6 +1048,12 @@ int job_coldplug(Job *j) {
         int r;
 
         assert(j);
+
+        /* After deserialization is complete and the bus connection
+         * set up again, let's start watching our subscribers again */
+        r = bus_track_coldplug(j->manager, &j->subscribed, &j->deserialized_subscribed);
+        if (r < 0)
+                return r;
 
         if (j->begin_usec == 0 || j->unit->job_timeout == 0)
                 return 0;

@@ -38,6 +38,7 @@ _SD_BEGIN_DECLARATIONS;
 typedef struct sd_bus sd_bus;
 typedef struct sd_bus_message sd_bus_message;
 typedef struct sd_bus_creds sd_bus_creds;
+typedef struct sd_bus_track sd_bus_track;
 
 typedef struct {
         const char *name;
@@ -89,6 +90,7 @@ typedef int (*sd_bus_property_get_t) (sd_bus *bus, const char *path, const char 
 typedef int (*sd_bus_property_set_t) (sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *value, void *userdata, sd_bus_error *ret_error);
 typedef int (*sd_bus_object_find_t) (sd_bus *bus, const char *path, const char *interface, void *userdata, void **ret_found, sd_bus_error *ret_error);
 typedef int (*sd_bus_node_enumerator_t) (sd_bus *bus, const char *path, void *userdata, char ***ret_nodes, sd_bus_error *ret_error);
+typedef int (*sd_bus_track_handler_t) (sd_bus_track *track, void *userdata);
 
 #include "sd-bus-protocol.h"
 #include "sd-bus-vtable.h"
@@ -349,6 +351,23 @@ int sd_bus_error_has_name(const sd_bus_error *e, const char *name);
 
 char *sd_bus_label_escape(const char *s);
 char *sd_bus_label_unescape(const char *f);
+
+/* Tracking peers */
+
+int sd_bus_track_new(sd_bus *bus, sd_bus_track **track, sd_bus_track_handler_t handler, void *userdata);
+sd_bus_track* sd_bus_track_ref(sd_bus_track *track);
+sd_bus_track* sd_bus_track_unref(sd_bus_track *track);
+sd_bus* sd_bus_track_get_bus(sd_bus_track *track);
+
+int sd_bus_track_add_sender(sd_bus_track *track, sd_bus_message *m);
+int sd_bus_track_remove_sender(sd_bus_track *track, sd_bus_message *m);
+int sd_bus_track_add_name(sd_bus_track *track, const char *name);
+int sd_bus_track_remove_name(sd_bus_track *track, const char *name);
+
+unsigned sd_bus_track_count(sd_bus_track *track);
+const char* sd_bus_track_contains(sd_bus_track *track, const char *names);
+const char* sd_bus_track_first(sd_bus_track *track);
+const char* sd_bus_track_next(sd_bus_track *track);
 
 _SD_END_DECLARATIONS;
 

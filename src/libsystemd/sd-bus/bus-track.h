@@ -21,22 +21,4 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "sd-bus.h"
-#include "set.h"
-#include "manager.h"
-
-typedef struct BusTrackedClient {
-        Set *set;
-        sd_bus *bus;
-        char name[0];
-} BusTrackedClient;
-
-int bus_client_track(Set **s, sd_bus *bus, const char *name);
-
-int bus_client_untrack(Set *s, sd_bus *bus, const char *name);
-int bus_client_untrack_bus(Set *s, sd_bus *bus);
-
-void bus_client_track_free(Set *s);
-
-void bus_client_track_serialize(Manager *m, FILE *f, Set *s);
-int bus_client_track_deserialize_item(Manager *m, Set **s, const char *line);
+void bus_track_dispatch(sd_bus_track *track);

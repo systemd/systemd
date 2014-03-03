@@ -328,7 +328,8 @@ void unit_add_to_dbus_queue(Unit *u) {
                 return;
 
         /* Shortcut things if nobody cares */
-        if (set_isempty(u->manager->subscribed)) {
+        if (sd_bus_track_count(u->manager->subscribed) <= 0 &&
+            set_isempty(u->manager->private_buses)) {
                 u->sent_dbus_new_signal = true;
                 return;
         }

@@ -167,7 +167,13 @@ struct Manager {
         Set *private_buses;
         int private_listen_fd;
         sd_event_source *private_listen_event_source;
-        Set *subscribed;
+
+        /* Contains all the clients that are subscribed to signals via
+        the API bus. Note that private bus connections are always
+        considered subscribes, since they last for very short only,
+        and it is much simpler that way. */
+        sd_bus_track *subscribed;
+        char **deserialized_subscribed;
 
         sd_bus_message *queued_message; /* This is used during reloading:
                                       * before the reload we queue the

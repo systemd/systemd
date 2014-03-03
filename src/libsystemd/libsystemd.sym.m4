@@ -313,6 +313,18 @@ m4_ifdef(`ENABLE_KDBUS',
         sd_bus_error_has_name;
         sd_bus_label_escape;
         sd_bus_label_unescape;
+        sd_bus_track_new;
+        sd_bus_track_ref;
+        sd_bus_track_unref;
+        sd_bus_track_get_bus;
+        sd_bus_track_add_sender;
+        sd_bus_track_remove_sender;
+        sd_bus_track_add_name;
+        sd_bus_track_remove_name;
+        sd_bus_track_count;
+        sd_bus_track_contains;
+        sd_bus_track_first;
+        sd_bus_track_next;
 
         /* sd-memfd */
         sd_memfd_new;

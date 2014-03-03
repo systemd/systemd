@@ -41,7 +41,6 @@
 #include "bus-error.h"
 #include "bus-errors.h"
 #include "strxcpyx.h"
-#include "dbus-client-track.h"
 #include "bus-internal.h"
 #include "selinux-access.h"
 
@@ -1040,9 +1039,12 @@ static void destroy_bus(Manager *m, sd_bus **bus) {
                 return;
 
         /* Get rid of tracked clients on this bus */
-        bus_client_untrack_bus(m->subscribed, *bus);
+        if (m->subscribed && sd_bus_track_get_bus(m->subscribed) == *bus)
+                m->subscribed = sd_bus_track_unref(m->subscribed);
+
         HASHMAP_FOREACH(j, m->jobs, i)
-                bus_client_untrack_bus(j->subscribed, *bus);
+                if (j->subscribed && sd_bus_track_get_bus(j->subscribed) == *bus)
+                        j->subscribed = sd_bus_track_unref(j->subscribed);
 
         /* Get rid of queued message on this bus */
         if (m->queued_message_bus == *bus) {
@@ -1075,7 +1077,11 @@ void bus_done(Manager *m) {
                 destroy_bus(m, &b);
 
         set_free(m->private_buses);
-        set_free(m->subscribed);
+        m->private_buses = NULL;
+
+        m->subscribed = sd_bus_track_unref(m->subscribed);
+        strv_free(m->deserialized_subscribed);
+        m->deserialized_subscribed = NULL;
 
         if (m->private_listen_event_source)
                 m->private_listen_event_source = sd_event_source_unref(m->private_listen_event_source);
@@ -1126,16 +1132,85 @@ int bus_fdset_add_all(Manager *m, FDSet *fds) {
         return 0;
 }
 
-void bus_serialize(Manager *m, FILE *f) {
-        assert(m);
-        assert(f);
+int bus_foreach_bus(
+                Manager *m,
+                sd_bus_track *subscribed2,
+                int (*send_message)(sd_bus *bus, void *userdata),
+                void *userdata) {
 
-        bus_client_track_serialize(m, f, m->subscribed);
+        Iterator i;
+        sd_bus *b;
+        int r, ret = 0;
+
+        /* Send to all direct busses, unconditionally */
+        SET_FOREACH(b, m->private_buses, i) {
+                r = send_message(b, userdata);
+                if (r < 0)
+                        ret = r;
+        }
+
+        /* Send to API bus, but only if somebody is subscribed */
+        if (sd_bus_track_count(m->subscribed) > 0 ||
+            sd_bus_track_count(subscribed2) > 0) {
+                r = send_message(m->api_bus, userdata);
+                if (r < 0)
+                        ret = r;
+        }
+
+        return ret;
 }
 
-int bus_deserialize_item(Manager *m, const char *line) {
-        assert(m);
+void bus_track_serialize(sd_bus_track *t, FILE *f) {
+        const char *n;
+
+        assert(t);
+        assert(f);
+
+        for (n = sd_bus_track_first(t); n; n = sd_bus_track_next(t))
+                fprintf(f, "subscribed=%s\n", n);
+}
+
+int bus_track_deserialize_item(char ***l, const char *line) {
+        const char *e;
+
+        assert(l);
         assert(line);
 
-        return bus_client_track_deserialize_item(m, &m->subscribed, line);
+        e = startswith(line, "subscribed=");
+        if (!e)
+                return 0;
+
+        return strv_extend(l, e);
+}
+
+int bus_track_coldplug(Manager *m, sd_bus_track **t, char ***l) {
+        int r = 0;
+
+        assert(m);
+        assert(t);
+        assert(l);
+
+        if (!strv_isempty(*l) && m->api_bus) {
+                char **i;
+
+                if (!*t) {
+                        r = sd_bus_track_new(m->api_bus, t, NULL, NULL);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = 0;
+                STRV_FOREACH(i, *l) {
+                        int k;
+
+                        k = sd_bus_track_add_name(*t, *i);
+                        if (k < 0)
+                                r = k;
+                }
+        }
+
+        strv_free(*l);
+        *l = NULL;
+
+        return r;
 }
