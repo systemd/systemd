@@ -33,6 +33,7 @@ sd_dhcp_lease *sd_dhcp_lease_unref(sd_dhcp_lease *lease);
 int sd_dhcp_lease_get_address(sd_dhcp_lease *lease, struct in_addr *addr);
 int sd_dhcp_lease_get_netmask(sd_dhcp_lease *lease, struct in_addr *addr);
 int sd_dhcp_lease_get_router(sd_dhcp_lease *lease, struct in_addr *addr);
+int sd_dhcp_lease_get_next_server(sd_dhcp_lease *lease, struct in_addr *addr);
 int sd_dhcp_lease_get_server_identifier(sd_dhcp_lease *lease, struct in_addr *addr);
 int sd_dhcp_lease_get_dns(sd_dhcp_lease *lease, struct in_addr **addr, size_t *addr_size);
 int sd_dhcp_lease_get_mtu(sd_dhcp_lease *lease, uint16_t *mtu);

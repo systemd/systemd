@@ -587,6 +587,8 @@ static int client_handle_offer(sd_dhcp_client *client, DHCPMessage *offer,
         if (r != DHCP_OFFER)
                 return -ENOMSG;
 
+        lease->next_server = offer->siaddr;
+
         lease->address = offer->yiaddr;
 
         if (lease->address == INADDR_ANY ||
@@ -620,6 +622,8 @@ static int client_handle_ack(sd_dhcp_client *client, DHCPMessage *ack,
 
         if (r != DHCP_ACK)
                 return -ENOMSG;
+
+        lease->next_server = ack->siaddr;
 
         lease->address = ack->yiaddr;
 
