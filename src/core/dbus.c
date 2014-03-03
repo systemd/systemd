@@ -1163,7 +1163,6 @@ int bus_foreach_bus(
 void bus_track_serialize(sd_bus_track *t, FILE *f) {
         const char *n;
 
-        assert(t);
         assert(f);
 
         for (n = sd_bus_track_first(t); n; n = sd_bus_track_next(t))
