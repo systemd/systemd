@@ -29,14 +29,6 @@ Features:
 
 * add an "input" group to udev logic and add all input devices to it
 
-* logind: watch drm connectors and if we see a number of connectors !=
-  1 avoid processing the lid switch.
-
-* logind: avoid processing the lid switch for 3min (or so) after
-  startup and 1min (or so) after coming back from suspend, in order to
-  give USB docking stations time to pop up a video device, which could
-  act as lid-switch blocker.
-
 * libsystemd-login: implement getpeer_unit(), get_peer_slice(), ...
 
 * machined: provide calls GetMachineByAddress() on the manager
@@ -52,10 +44,6 @@ Features:
   when it is otherwise off
 
 * MessageQueueMessageSize= and RLimitFSIZE= (and suchlike) should use parse_iec_size().
-
-* man: move .link, .network and .netdev documentation into their own
-  man pages maybe called "systemd.link(5)", "systemd.network(5)" and
-  "systemd.netdev(5)" or so.
 
 * "busctl status" works only as root on dbus1, since we cannot read
   /proc/$PID/exe
