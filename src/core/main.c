@@ -35,6 +35,9 @@
 #ifdef HAVE_VALGRIND_VALGRIND_H
 #include <valgrind/valgrind.h>
 #endif
+#ifdef HAVE_SECCOMP
+#include <seccomp.h>
+#endif
 
 #include "sd-daemon.h"
 #include "sd-messages.h"

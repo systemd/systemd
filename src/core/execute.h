@@ -33,14 +33,10 @@ typedef struct ExecRuntime ExecRuntime;
 #include <stdbool.h>
 #include <stdio.h>
 #include <sched.h>
-#ifdef HAVE_SECCOMP
-#include <seccomp.h>
-
-#include "set.h"
-#endif
 
 #include "list.h"
 #include "util.h"
+#include "set.h"
 #include "fdset.h"
 
 typedef enum ExecInput {
