@@ -834,16 +834,17 @@ int config_parse_mode(const char *unit,
         return 0;
 }
 
-int config_parse_facility(const char *unit,
-                          const char *filename,
-                          unsigned line,
-                          const char *section,
-                          unsigned section_line,
-                          const char *lvalue,
-                          int ltype,
-                          const char *rvalue,
-                          void *data,
-                          void *userdata) {
+int config_parse_log_facility(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
 
         int *o = data, x;
@@ -865,16 +866,17 @@ int config_parse_facility(const char *unit,
         return 0;
 }
 
-int config_parse_level(const char *unit,
-                       const char *filename,
-                       unsigned line,
-                       const char *section,
-                       unsigned section_line,
-                       const char *lvalue,
-                       int ltype,
-                       const char *rvalue,
-                       void *data,
-                       void *userdata) {
+int config_parse_log_level(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
 
         int *o = data, x;
