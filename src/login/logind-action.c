@@ -81,7 +81,7 @@ int manager_handle_action(
 
                 n = manager_count_displays(m);
                 if (n != 1) {
-                        log_debug("Ignoring lid switch request, %s displays connected.");
+                        log_debug("Ignoring lid switch request, %i displays connected.", n);
                         return 0;
                 }
         }
