@@ -27,6 +27,8 @@ External:
 
 Features:
 
+* Imply DevicePolicy=closed when PrivateDevices= is used
+
 * add an "input" group to udev logic and add all input devices to it
 
 * libsystemd-login: implement getpeer_unit(), get_peer_slice(), ...
@@ -119,8 +121,6 @@ Features:
 * socket-proxyd: Use sd-resolve to resolve the server address
 
 * rfkill,backlight: we probably should run the load tools inside of the udev rules so that the state is properly initialized by the time other software sees it
-
-* move config_parse_path_strv() out of conf-parser.c
 
 * After coming back from hibernation reset hibernation swap partition using the /dev/snapshot ioctl APIs
 
