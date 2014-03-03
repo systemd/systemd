@@ -208,6 +208,7 @@ define move-to-rootlibdir
 		$(MKDIR_P) $(DESTDIR)$(rootlibdir) && \
 		so_img_name=$$(readlink $(DESTDIR)$(libdir)/$$libname) && \
 		so_img_rel_target_prefix=$$(echo $(libdir) | sed 's,\(^/\|\)[^/][^/]*,..,g') && \
+		rm -f $(DESTDIR)$(libdir)/$$libname && \
 		$(LN_S) --relative -f $$so_img_rel_target_prefix$(rootlibdir)/$$so_img_name $(DESTDIR)$(libdir)/$$libname && \
 		mv $(DESTDIR)$(libdir)/$$libname.* $(DESTDIR)$(rootlibdir); \
 	fi
@@ -310,6 +311,10 @@ AM_V_GPERF_0 = @echo "  GPERF   " $@;
 AM_V_LN = $(AM_V_LN_$(V))
 AM_V_LN_ = $(AM_V_LN_$(AM_DEFAULT_VERBOSITY))
 AM_V_LN_0 = @echo "  LN      " $@;
+
+AM_V_RM = $(AM_V_RM_$(V))
+AM_V_RM_ = $(AM_V_RM_$(AM_DEFAULT_VERBOSITY))
+AM_V_RM_0 = @echo "  RM      " $@;
 
 # ------------------------------------------------------------------------------
 rootbin_PROGRAMS = \
@@ -1859,6 +1864,7 @@ systemd_dbus1_generator_LDADD = \
 
 dbus1-generator-install-hook:
 	$(AM_V_at)$(MKDIR_P) $(DESTDIR)$(usergeneratordir)
+	$(AM_V_RM)rm -f $(DESTDIR)$(usergeneratordir)/systemd-dbus1-generator
 	$(AM_V_LN)$(LN_S) --relative -f $(DESTDIR)$(systemgeneratordir)/systemd-dbus1-generator $(DESTDIR)$(usergeneratordir)/systemd-dbus1-generator
 
 dbus1-generator-uninstall-hook:
@@ -1989,6 +1995,7 @@ systemd_bus_proxyd_LDADD = \
 
 bus-proxyd-install-hook:
 	$(AM_V_at)$(MKDIR_P) $(DESTDIR)$(bindir)
+	$(AM_V_RM)rm -f $(DESTDIR)$(bindir)/systemd-stdio-bridge
 	$(AM_V_LN)$(LN_S) --relative -f $(DESTDIR)$(rootlibexecdir)/systemd-bus-proxyd $(DESTDIR)$(bindir)/systemd-stdio-bridge
 
 bus-proxyd-uninstall-hook:
