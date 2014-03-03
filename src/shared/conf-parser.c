@@ -565,57 +565,55 @@ int config_parse_bool(const char* unit,
         return 0;
 }
 
-int config_parse_string(const char *unit,
-                        const char *filename,
-                        unsigned line,
-                        const char *section,
-                        unsigned section_line,
-                        const char *lvalue,
-                        int ltype,
-                        const char *rvalue,
-                        void *data,
-                        void *userdata) {
+int config_parse_string(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
-        char **s = data;
-        char *n;
+        char **s = data, *n;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        n = strdup(rvalue);
-        if (!n)
-                return log_oom();
-
-        if (!utf8_is_valid(n)) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "String is not UTF-8 clean, ignoring assignment: %s", rvalue);
-                free(n);
+        if (!utf8_is_valid(rvalue)) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "String is not UTF-8 clean, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
-        free(*s);
-        if (*n)
-                *s = n;
+        if (isempty(rvalue))
+                n = NULL;
         else {
-                free(n);
-                *s = NULL;
+                n = strdup(rvalue);
+                if (!n)
+                        return log_oom();
         }
+
+        free(*s);
+        *s = n;
 
         return 0;
 }
 
-int config_parse_path(const char *unit,
-                      const char *filename,
-                      unsigned line,
-                      const char *section,
-                      unsigned section_line,
-                      const char *lvalue,
-                      int ltype,
-                      const char *rvalue,
-                      void *data,
-                      void *userdata) {
+int config_parse_path(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         char **s = data, *n;
 
