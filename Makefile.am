@@ -366,6 +366,7 @@ dist_bashcompletion_DATA = \
 	shell-completion/bash/journalctl \
 	shell-completion/bash/systemctl \
 	shell-completion/bash/systemd-analyze \
+	shell-completion/bash/systemd-cat \
 	shell-completion/bash/systemd-cgls \
 	shell-completion/bash/systemd-cgtop \
 	shell-completion/bash/systemd-delta \
