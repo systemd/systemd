@@ -58,6 +58,14 @@
 #  error Unknown uid_t size
 #endif
 
+#if SIZEOF_GID_T == 4
+#  define GID_FMT "%" PRIu32
+#elif SIZEOF_GID_T == 2
+#  define GID_FMT "%" PRIu16
+#else
+#  error Unknown gid_t size
+#endif
+
 #include "macro.h"
 #include "time-util.h"
 
@@ -883,3 +891,5 @@ int fd_warn_permissions(const char *path, int fd);
 
 unsigned long personality_from_string(const char *p);
 const char *personality_to_string(unsigned long);
+
+uint64_t physical_memory(void);

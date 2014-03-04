@@ -295,6 +295,28 @@
                                 </para></listitem>
                         </varlistentry>
 
+                        <varlistentry>
+                                <term><varname>RuntimeDirectorySize=</varname></term>
+
+                                <listitem><para>Sets the size limit on
+                                the
+                                <varname>$XDG_RUNTIME_DIR</varname>
+                                runtime directory for each user who
+                                logs in. Takes a size in bytes,
+                                possibly suffixed with the usual K, G,
+                                M, T suffixes, to the base 1024
+                                (IEC). Alternatively, a percentage
+                                suffixed by <literal>%</literal> may
+                                be specified, which sets the size
+                                limit relative to the amount of
+                                physical RAM. Defaults to 10%. Note
+                                that this size is a safety limit
+                                only. As each runtime directory is a
+                                tmpfs file system it will only consume
+                                as much memory as it is filled up
+                                to.</para></listitem>
+                        </varlistentry>
+
                 </variablelist>
         </refsect1>
 

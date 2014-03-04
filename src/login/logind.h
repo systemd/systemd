@@ -123,6 +123,8 @@ struct Manager {
         Hashmap *polkit_registry;
 
         sd_event_source *lid_switch_ignore_event_source;
+
+        size_t runtime_dir_size;
 };
 
 Manager *manager_new(void);
@@ -185,3 +187,5 @@ int manager_watch_busname(Manager *manager, const char *name);
 void manager_drop_busname(Manager *manager, const char *name);
 
 int manager_set_lid_switch_ignore(Manager *m, usec_t until);
+
+int config_parse_tmpfs_size(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);

@@ -6291,3 +6291,15 @@ const char* personality_to_string(unsigned long p) {
 
         return NULL;
 }
+
+uint64_t physical_memory(void) {
+        long mem;
+
+        /* We return this as uint64_t in case we are running as 32bit
+         * process on a 64bit kernel with huge amounts of memory */
+
+        mem = sysconf(_SC_PHYS_PAGES);
+        assert(mem > 0);
+
+        return (uint64_t) mem * (uint64_t) page_size();
+}

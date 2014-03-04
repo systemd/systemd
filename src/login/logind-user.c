@@ -19,6 +19,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <sys/mount.h>
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
@@ -28,10 +29,12 @@
 #include "hashmap.h"
 #include "strv.h"
 #include "fileio.h"
+#include "path-util.h"
 #include "special.h"
 #include "unit-name.h"
 #include "bus-util.h"
 #include "bus-error.h"
+#include "conf-parser.h"
 #include "logind-user.h"
 
 User* user_new(Manager *m, uid_t uid, gid_t gid, const char *name) {
@@ -311,21 +314,35 @@ static int user_mkdir_runtime_path(User *u) {
         }
 
         if (!u->runtime_path) {
-                if (asprintf(&p, "/run/user/%lu", (unsigned long) u->uid) < 0)
+                if (asprintf(&p, "/run/user/" UID_FMT, u->uid) < 0)
                         return log_oom();
         } else
                 p = u->runtime_path;
 
-        r = mkdir_safe_label(p, 0700, u->uid, u->gid);
-        if (r < 0) {
-                log_error("Failed to create runtime directory %s: %s", p, strerror(-r));
-                free(p);
-                u->runtime_path = NULL;
-                return r;
+        if (path_is_mount_point(p, false) <= 0) {
+                _cleanup_free_ char *t = NULL;
+
+                mkdir(p, 0700);
+
+                if (asprintf(&t, "mode=0700,uid=" UID_FMT ",gid=" GID_FMT ",size=%zu", u->uid, u->gid, u->manager->runtime_dir_size) < 0) {
+                        r = log_oom();
+                        goto fail;
+                }
+
+                r = mount("tmpfs", p, "tmpfs", MS_NODEV|MS_NOSUID, t);
+                if (r < 0) {
+                        log_error("Failed to mount per-user tmpfs directory %s: %s", p, strerror(-r));
+                        goto fail;
+                }
         }
 
         u->runtime_path = p;
         return 0;
+
+fail:
+        free(p);
+        u->runtime_path = NULL;
+        return r;
 }
 
 static int user_start_slice(User *u) {
@@ -483,6 +500,13 @@ static int user_remove_runtime_path(User *u) {
 
         if (!u->runtime_path)
                 return 0;
+
+        r = rm_rf(u->runtime_path, false, false, false);
+        if (r < 0)
+                log_error("Failed to remove runtime directory %s: %s", u->runtime_path, strerror(-r));
+
+        if (umount2(u->runtime_path, MNT_DETACH) < 0)
+                log_error("Failed to unmount user runtime directory %s: %m", u->runtime_path);
 
         r = rm_rf(u->runtime_path, false, true, false);
         if (r < 0)
@@ -691,3 +715,57 @@ static const char* const user_state_table[_USER_STATE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(user_state, UserState);
+
+int config_parse_tmpfs_size(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        size_t *sz = data;
+        const char *e;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        e = endswith(rvalue, "%");
+        if (e) {
+                unsigned long ul;
+                char *f;
+
+                errno = 0;
+                ul = strtoul(rvalue, &f, 10);
+                if (errno != 0 || f != e) {
+                        log_syntax(unit, LOG_ERR, filename, line, errno ? errno : EINVAL, "Failed to parse percentage value, ignoring: %s", rvalue);
+                        return 0;
+                }
+
+                if (ul <= 0 || ul >= 100) {
+                        log_syntax(unit, LOG_ERR, filename, line, errno ? errno : EINVAL, "Percentage value out of range, ignoring: %s", rvalue);
+                        return 0;
+                }
+
+                *sz = PAGE_ALIGN((size_t) ((physical_memory() * (uint64_t) ul) / (uint64_t) 100));
+        } else {
+                off_t o;
+
+                r = parse_size(rvalue, 1024, &o);
+                if (r < 0 || (off_t) (size_t) o != o) {
+                        log_syntax(unit, LOG_ERR, filename, line, r < 0 ? -r : ERANGE, "Failed to parse size value, ignoring: %s", rvalue);
+                        return 0;
+                }
+
+                *sz = PAGE_ALIGN((size_t) o);
+        }
+
+        return 0;
+}
