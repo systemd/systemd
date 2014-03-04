@@ -48,6 +48,7 @@ typedef enum Architecture {
         ARCHITECTURE_SH64,
         ARCHITECTURE_M68K,
         ARCHITECTURE_TILEGX,
+        ARCHITECTURE_CRIS,
         _ARCHITECTURE_MAX,
         _ARCHITECTURE_INVALID = -1
 } Architecture;
@@ -110,6 +111,8 @@ Architecture uname_architecture(void);
 #  define native_architecture() ARCHITECTURE_M68K
 #elif defined(__tilegx__)
 #  define native_architecture() ARCHITECTURE_TILEGX
+#elif defined(__cris__)
+#  define native_architecture() ARCHITECTURE_CRIS
 #else
 #error "Please register your architecture here!"
 #endif
