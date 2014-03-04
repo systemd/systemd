@@ -133,8 +133,7 @@ int locale_setup(char ***environment) {
                         goto finish;
                 }
 
-                if (strv_push(&add, s) < 0) {
-                        free(s);
+                if (strv_consume(&add, s) < 0) {
                         r = -ENOMEM;
                         goto finish;
                 }

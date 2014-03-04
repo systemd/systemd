@@ -378,9 +378,18 @@ int strv_push(char ***l, char *value) {
         return 0;
 }
 
+int strv_consume(char ***l, char *value) {
+        int r;
+
+        r = strv_push(l, value);
+        if (r < 0)
+                free(value);
+
+        return r;
+}
+
 int strv_extend(char ***l, const char *value) {
         char *v;
-        int r;
 
         if (!value)
                 return 0;
@@ -389,11 +398,7 @@ int strv_extend(char ***l, const char *value) {
         if (!v)
                 return -ENOMEM;
 
-        r = strv_push(l, v);
-        if (r < 0)
-                free(v);
-
-        return r;
+        return strv_consume(l, v);
 }
 
 char **strv_uniq(char **l) {

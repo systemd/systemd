@@ -237,11 +237,9 @@ static int kernel_get_list(sd_bus *bus, uint64_t flags, char ***x) {
                         if (asprintf(&n, ":1.%llu", (unsigned long long) name->owner_id) < 0)
                                 return -ENOMEM;
 
-                        r = strv_push(x, n);
-                        if (r < 0) {
-                                free(n);
-                                return -ENOMEM;
-                        }
+                        r = strv_consume(x, n);
+                        if (r < 0)
+                                return r;
 
                         previous_id = name->owner_id;
                 }

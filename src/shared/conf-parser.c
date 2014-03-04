@@ -681,7 +681,7 @@ int config_parse_strv(const char *unit,
         }
 
         FOREACH_WORD_QUOTED(w, l, rvalue, state) {
-                _cleanup_free_ char *n;
+                char *n;
 
                 n = cunescape_length(w, l);
                 if (!n)
@@ -693,7 +693,7 @@ int config_parse_strv(const char *unit,
                         continue;
                 }
 
-                r = strv_extend(sv, n);
+                r = strv_consume(sv, n);
                 if (r < 0)
                         return log_oom();
         }

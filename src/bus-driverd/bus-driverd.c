@@ -562,11 +562,9 @@ static int driver_list_queued_owners(sd_bus *bus, sd_bus_message *m, void *userd
                 if (asprintf(&n, ":1.%llu", (unsigned long long) name->owner_id) < 0)
                         return -ENOMEM;
 
-                r = strv_push(&owners, n);
-                if (r < 0) {
-                        free(n);
-                        return -ENOMEM;
-                }
+                r = strv_consume(&owners, n);
+                if (r < 0)
+                        return r;
         }
 
         r = ioctl(bus->input_fd, KDBUS_CMD_FREE, &cmd.offset);

@@ -136,9 +136,8 @@ int search_acl_groups(char*** dst, const char* path, bool* belong) {
                                 return log_oom();
                         }
 
-                        r = strv_push(dst, name);
+                        r = strv_consume(dst, name);
                         if (r < 0) {
-                                free(name);
                                 acl_free(acl);
                                 return log_oom();
                         }

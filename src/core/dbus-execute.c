@@ -385,11 +385,9 @@ static int property_get_syscall_filter(
                 if (!name)
                         continue;
 
-                r = strv_push(&l, name);
-                if (r < 0) {
-                        free(name);
-                        return -ENOMEM;
-                }
+                r = strv_consume(&l, name);
+                if (r < 0)
+                        return r;
         }
 #endif
 

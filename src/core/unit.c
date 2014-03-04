@@ -3181,11 +3181,9 @@ int unit_require_mounts_for(Unit *u, const char *path) {
                 return 0;
         }
 
-        r = strv_push(&u->requires_mounts_for, p);
-        if (r < 0) {
-                free(p);
+        r = strv_consume(&u->requires_mounts_for, p);
+        if (r < 0)
                 return r;
-        }
 
         PATH_FOREACH_PREFIX_MORE(prefix, p) {
                 Set *x;

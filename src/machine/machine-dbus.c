@@ -225,11 +225,9 @@ int machine_node_enumerator(sd_bus *bus, const char *path, void *userdata, char 
                 if (!p)
                         return -ENOMEM;
 
-                r = strv_push(&l, p);
-                if (r < 0) {
-                        free(p);
+                r = strv_consume(&l, p);
+                if (r < 0)
                         return r;
-                }
         }
 
         *nodes = l;

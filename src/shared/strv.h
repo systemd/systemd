@@ -40,6 +40,7 @@ int strv_extend_strv(char ***a, char **b);
 int strv_extend_strv_concat(char ***a, char **b, const char *suffix);
 int strv_extend(char ***l, const char *value);
 int strv_push(char ***l, char *value);
+int strv_consume(char ***l, char *value);
 
 char **strv_remove(char **l, const char *s);
 char **strv_uniq(char **l);

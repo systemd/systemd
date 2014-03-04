@@ -2167,13 +2167,11 @@ static int expand_names(sd_bus *bus, char **names, const char* suffix, char ***r
                         return log_oom();
 
                 if (string_is_glob(t))
-                        r = strv_push(&globs, t);
+                        r = strv_consume(&globs, t);
                 else
-                        r = strv_push(&mangled, t);
-                if (r < 0) {
-                        free(t);
+                        r = strv_consume(&mangled, t);
+                if (r < 0)
                         return log_oom();
-                }
         }
 
         /* Query the manager only if any of the names are a glob, since
@@ -5346,10 +5344,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                         if (!prop)
                                                 return log_oom();
 
-                                        if (strv_push(&arg_properties, prop) < 0) {
-                                                free(prop);
+                                        if (strv_consume(&arg_properties, prop) < 0)
                                                 return log_oom();
-                                        }
                                 }
                         }
 
@@ -5518,10 +5514,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                 if (!s)
                                         return log_oom();
 
-                                if (strv_push(&arg_states, s) < 0) {
-                                        free(s);
+                                if (strv_consume(&arg_states, s) < 0)
                                         return log_oom();
-                                }
                         }
                         break;
                 }

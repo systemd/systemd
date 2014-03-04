@@ -614,11 +614,9 @@ static int load_env_file_push(const char *filename, unsigned line,
         if (!p)
                 return -ENOMEM;
 
-        r = strv_push(m, p);
-        if (r < 0) {
-                free(p);
+        r = strv_consume(m, p);
+        if (r < 0)
                 return r;
-        }
 
         free(value);
         return 0;
