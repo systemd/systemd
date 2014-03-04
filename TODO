@@ -27,7 +27,7 @@ External:
 
 Features:
 
-* make /run/user/$UID/ a tmpfs
+* support transient mount units
 
 * Imply DevicePolicy=closed when PrivateDevices= is used
 
