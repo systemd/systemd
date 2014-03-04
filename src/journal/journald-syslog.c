@@ -441,7 +441,7 @@ int server_open_syslog_socket(Server *s) {
 
                 r = bind(s->syslog_fd, &sa.sa, offsetof(union sockaddr_union, un.sun_path) + strlen(sa.un.sun_path));
                 if (r < 0) {
-                        log_error("bind() failed: %m");
+                        log_error("bind(%s) failed: %m", sa.un.sun_path);
                         return -errno;
                 }
 

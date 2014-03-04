@@ -554,7 +554,7 @@ static int manager_setup_notify(Manager *m) {
                 strncpy(sa.un.sun_path, m->notify_socket, sizeof(sa.un.sun_path)-1);
                 r = bind(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path));
                 if (r < 0) {
-                        log_error("bind() failed: %m");
+                        log_error("bind(@%s) failed: %m", sa.un.sun_path+1);
                         return -errno;
                 }
 
