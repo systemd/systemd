@@ -121,6 +121,12 @@ int log_syntax_internal(const char *unit, int level,
                             config_file, config_line,                   \
                             error, __VA_ARGS__)
 
+#define log_invalid_utf8(unit, level, config_file, config_line, error, rvalue) { \
+        _cleanup_free_ char *__p = utf8_escape_invalid(rvalue);                  \
+        log_syntax(unit, level, config_file, config_line, error,                 \
+                   "String is not UTF-8 clean, ignoring assignment: %s", __p);   \
+        }
+
 #define DEFINE_CONFIG_PARSE_ENUM(function,name,type,msg)                \
         int function(const char *unit,                                  \
                      const char *filename,                              \

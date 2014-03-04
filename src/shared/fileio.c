@@ -598,15 +598,18 @@ static int load_env_file_push(const char *filename, unsigned line,
         int r;
 
         if (!utf8_is_valid(key)) {
+                _cleanup_free_ char *t = utf8_escape_invalid(key);
+
                 log_error("%s:%u: invalid UTF-8 for key '%s', ignoring.",
-                          filename, line, key);
+                          filename, line, t);
                 return -EINVAL;
         }
 
         if (value && !utf8_is_valid(value)) {
-                /* FIXME: filter UTF-8 */
+                _cleanup_free_ char *t = utf8_escape_invalid(value);
+
                 log_error("%s:%u: invalid UTF-8 value for key %s: '%s', ignoring.",
-                          filename, line, key, value);
+                          filename, line, key, t);
                 return -EINVAL;
         }
 

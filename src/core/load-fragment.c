@@ -536,9 +536,7 @@ int config_parse_exec(const char *unit,
                                 }
 
                                 if (!utf8_is_valid(path)) {
-                                        log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                                                   "Path is not UTF-8 clean, ignoring assignment: %s",
-                                                   rvalue);
+                                        log_invalid_utf8(unit, LOG_ERR, filename, line, EINVAL, rvalue);
                                         r = 0;
                                         goto fail;
                                 }
@@ -553,9 +551,7 @@ int config_parse_exec(const char *unit,
                                 }
 
                                 if (!utf8_is_valid(c)) {
-                                        log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                                                   "Path is not UTF-8 clean, ignoring assignment: %s",
-                                                   rvalue);
+                                        log_invalid_utf8(unit, LOG_ERR, filename, line, EINVAL, rvalue);
                                         r = 0;
                                         goto fail;
                                 }
@@ -1960,8 +1956,7 @@ int config_parse_unit_requires_mounts_for(
                         return log_oom();
 
                 if (!utf8_is_valid(n)) {
-                        log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                                   "Path is not UTF-8 clean, ignoring assignment: %s", rvalue);
+                        log_invalid_utf8(unit, LOG_ERR, filename, line, EINVAL, rvalue);
                         continue;
                 }
 
@@ -2885,7 +2880,7 @@ int config_parse_namespace_path_strv(
                         return log_oom();
 
                 if (!utf8_is_valid(n)) {
-                        log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Path is not UTF-8 clean, ignoring assignment: %s", rvalue);
+                        log_invalid_utf8(unit, LOG_ERR, filename, line, EINVAL, rvalue);
                         continue;
                 }
 
