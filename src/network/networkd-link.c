@@ -1345,11 +1345,32 @@ int link_update(Link *link, sd_rtnl_message *m) {
         }
 
         while (sd_rtnl_message_read(m, &type, &data) > 0) {
-                if (type == IFLA_MTU && link->network->dhcp &&
-                    link->network->dhcp_mtu && !link->original_mtu) {
-                        link->original_mtu = *(uint16_t *) data;
-                        log_debug_link(link, "saved original MTU: %" PRIu16,
-                                       link->original_mtu);
+                switch(type) {
+                case IFLA_MTU:
+                        if (link->network->dhcp && link->network->dhcp_mtu &&
+                            !link->original_mtu) {
+                                link->original_mtu = *(uint16_t *) data;
+                                log_debug_link(link, "saved original MTU: %"
+                                               PRIu16, link->original_mtu);
+                        }
+
+                        break;
+                case IFLA_ADDRESS:
+                        if (memcmp(&link->mac.ether_addr_octet, &data,
+                                   ETH_ALEN)) {
+                                memcpy(&link->mac, data, ETH_ALEN);
+
+                                log_debug_link(link, "updated MAC address: "
+                                               "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",
+                                               link->mac.ether_addr_octet[0],
+                                               link->mac.ether_addr_octet[1],
+                                               link->mac.ether_addr_octet[2],
+                                               link->mac.ether_addr_octet[3],
+                                               link->mac.ether_addr_octet[4],
+                                               link->mac.ether_addr_octet[5]);
+                        }
+
+                        break;
                 }
         }
 
