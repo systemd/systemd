@@ -87,6 +87,7 @@ static int property_get_rlimit(
 
         struct rlimit *rl;
         uint64_t u;
+        rlim_t x;
 
         assert(bus);
         assert(reply);
@@ -94,7 +95,7 @@ static int property_get_rlimit(
 
         rl = *(struct rlimit**) userdata;
         if (rl)
-                u = (uint64_t) rl->rlim_max;
+                x = rl->rlim_max;
         else {
                 struct rlimit buf = {};
                 int z;
@@ -103,9 +104,13 @@ static int property_get_rlimit(
                 assert(z >= 0);
 
                 getrlimit(z, &buf);
-
-                u = (uint64_t) buf.rlim_max;
+                x = buf.rlim_max;
         }
+
+        /* rlim_t might have different sizes, let's map
+         * RLIMIT_INFINITY to (uint64_t) -1, so that it is the same on
+         * all archs */
+        u = x == RLIM_INFINITY ? (uint64_t) -1 : (uint64_t) x;
 
         return sd_bus_message_append(reply, "t", u);
 }
