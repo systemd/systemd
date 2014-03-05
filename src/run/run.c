@@ -45,27 +45,29 @@ static const char *arg_exec_group = NULL;
 static int arg_nice = 0;
 static bool arg_nice_set = false;
 static char **arg_environment = NULL;
+static char **arg_property = NULL;
 
 static int help(void) {
 
         printf("%s [OPTIONS...] COMMAND [ARGS...]\n\n"
                "Run the specified command in a transient scope or service unit.\n\n"
-               "  -h --help               Show this help\n"
-               "     --version            Show package version\n"
-               "     --user               Run as user unit\n"
-               "  -H --host=[USER@]HOST   Operate on remote host\n"
-               "  -M --machine=CONTAINER  Operate on local container\n"
-               "     --scope              Run this as scope rather than service\n"
-               "     --unit=UNIT          Run under the specified unit name\n"
-               "     --description=TEXT   Description for unit\n"
-               "     --slice=SLICE        Run in the specified slice\n"
-               "  -r --remain-after-exit  Leave service around until explicitly stopped\n"
-               "     --send-sighup        Send SIGHUP when terminating\n"
-               "     --service-type=TYPE  Service type\n"
-               "     --uid=USER           Run as system user\n"
-               "     --gid=GROUP          Run as system group\n"
-               "     --nice=NICE          Nice level\n"
-               "     --setenv=NAME=VALUE  Set environment\n",
+               "  -h --help                 Show this help\n"
+               "     --version              Show package version\n"
+               "     --user                 Run as user unit\n"
+               "  -H --host=[USER@]HOST     Operate on remote host\n"
+               "  -M --machine=CONTAINER    Operate on local container\n"
+               "     --scope                Run this as scope rather than service\n"
+               "     --unit=UNIT            Run under the specified unit name\n"
+               "  -p --property=NAME=VALUE  Set unit property\n"
+               "     --description=TEXT     Description for unit\n"
+               "     --slice=SLICE          Run in the specified slice\n"
+               "  -r --remain-after-exit    Leave service around until explicitly stopped\n"
+               "     --send-sighup          Send SIGHUP when terminating\n"
+               "     --service-type=TYPE    Service type\n"
+               "     --uid=USER             Run as system user\n"
+               "     --gid=GROUP            Run as system group\n"
+               "     --nice=NICE            Nice level\n"
+               "     --setenv=NAME=VALUE    Set environment\n",
                program_invocation_short_name);
 
         return 0;
@@ -107,6 +109,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "gid",               required_argument, NULL, ARG_EXEC_GROUP   },
                 { "nice",              required_argument, NULL, ARG_NICE         },
                 { "setenv",            required_argument, NULL, ARG_SETENV       },
+                { "property",          required_argument, NULL, 'p'              },
                 {},
         };
 
@@ -115,7 +118,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "+hrH:M:", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "+hrH:M:p:", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -198,6 +201,13 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case 'p':
+
+                        if (strv_extend(&arg_property, optarg) < 0)
+                                return log_oom();
+
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -231,6 +241,7 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int message_start_transient_unit_new(sd_bus *bus, const char *name, sd_bus_message **ret) {
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        char **i;
         int r;
 
         assert(bus);
@@ -257,6 +268,20 @@ static int message_start_transient_unit_new(sd_bus *bus, const char *name, sd_bu
         if (r < 0)
                 return r;
 
+        STRV_FOREACH(i, arg_property) {
+                r = sd_bus_message_open_container(m, 'r', "sv");
+                if (r < 0)
+                        return r;
+
+                r = bus_append_unit_property_assignment(m, *i);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        return r;
+        }
+
         r = sd_bus_message_append(m, "(sv)", "Description", "s", arg_description);
         if (r < 0)
                 return r;
@@ -273,9 +298,11 @@ static int message_start_transient_unit_new(sd_bus *bus, const char *name, sd_bu
                         return r;
         }
 
-        r = sd_bus_message_append(m, "(sv)", "SendSIGHUP", "b", arg_send_sighup);
-        if (r < 0)
-                return r;
+        if (arg_send_sighup) {
+                r = sd_bus_message_append(m, "(sv)", "SendSIGHUP", "b", arg_send_sighup);
+                if (r < 0)
+                        return r;
+        }
 
         *ret = m;
         m = NULL;
@@ -320,9 +347,11 @@ static int start_transient_service(
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_append(m, "(sv)", "RemainAfterExit", "b", arg_remain_after_exit);
-        if (r < 0)
-                return r;
+        if (arg_remain_after_exit) {
+                r = sd_bus_message_append(m, "(sv)", "RemainAfterExit", "b", arg_remain_after_exit);
+                if (r < 0)
+                        return r;
+        }
 
         if (arg_service_type) {
                 r = sd_bus_message_append(m, "(sv)", "Type", "s", arg_service_type);
@@ -504,5 +533,8 @@ int main(int argc, char* argv[]) {
                 log_error("Failed start transient unit: %s", bus_error_message(&error, r));
 
 finish:
+        strv_free(arg_environment);
+        strv_free(arg_property);
+
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

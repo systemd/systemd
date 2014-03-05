@@ -107,6 +107,18 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       </varlistentry>
 
       <varlistentry>
+        <term><option>--property=</option></term>
+        <term><option>-p</option></term>
+
+        <listitem><para>Sets a unit property for the scope or service
+        unit that is created. This takes an assignment in the same
+        format as
+        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+        <command>set-property</command> command.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--description=</option></term>
 
         <listitem><para>Provide description for the unit. If not
@@ -173,7 +185,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
   </refsect1>
 
   <refsect1>
-    <title>Example</title>
+    <title>Examples</title>
 
     <para>The following command will log the environment variables
     provided by systemd to services:</para>
@@ -186,6 +198,15 @@ Sep 08 07:37:21 bupkis systemd[1]: Started /usr/bin/env.
 Sep 08 07:37:21 bupkis env[19948]: PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
 Sep 08 07:37:21 bupkis env[19948]: LANG=en_US.UTF-8
 Sep 08 07:37:21 bupkis env[19948]: BOOT_IMAGE=/vmlinuz-3.11.0-0.rc5.git6.2.fc20.x86_64</programlisting>
+
+    <para>The following command invokes the
+    <citerefentry><refentrytitle>updatedb</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    tool but lowers the block IO weight for it to 10. See
+    <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for more information on the <varname>BlockIOWeight=</varname>
+    property.</para>
+
+    <programlisting># systemd-run -p BlockIOWeight=10 updatedb</programlisting>
   </refsect1>
 
   <refsect1>
@@ -197,6 +218,8 @@ Sep 08 07:37:21 bupkis env[19948]: BOOT_IMAGE=/vmlinuz-3.11.0-0.rc5.git6.2.fc20.
       <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.scope</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     </para>
   </refsect1>

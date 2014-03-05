@@ -26,6 +26,7 @@
 #include "strv.h"
 #include "macro.h"
 #include "def.h"
+#include "path-util.h"
 #include "missing.h"
 
 #include "sd-event.h"
@@ -1229,4 +1230,155 @@ int bus_maybe_reply_error(sd_bus_message *m, int r, sd_bus_error *error) {
                   bus_error_message(error, r));
 
         return 1;
+}
+
+int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignment) {
+        const char *eq, *field;
+        int r;
+
+        assert(m);
+        assert(assignment);
+
+        eq = strchr(assignment, '=');
+        if (!eq) {
+                log_error("Not an assignment: %s", assignment);
+                return -EINVAL;
+        }
+
+        field = strndupa(assignment, eq - assignment);
+        eq ++;
+
+        r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, field);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        if (STR_IN_SET(field, "CPUAccounting", "MemoryAccounting", "BlockIOAccounting")) {
+
+                r = parse_boolean(eq);
+                if (r < 0) {
+                        log_error("Failed to parse boolean assignment %s.", assignment);
+                        return -EINVAL;
+                }
+
+                r = sd_bus_message_append(m, "v", "b", r);
+
+        } else if (streq(field, "MemoryLimit")) {
+                off_t bytes;
+
+                r = parse_size(eq, 1024, &bytes);
+                if (r < 0) {
+                        log_error("Failed to parse bytes specification %s", assignment);
+                        return -EINVAL;
+                }
+
+                r = sd_bus_message_append(m, "v", "t", (uint64_t) bytes);
+
+        } else if (STR_IN_SET(field, "CPUShares", "BlockIOWeight")) {
+                uint64_t u;
+
+                r = safe_atou64(eq, &u);
+                if (r < 0) {
+                        log_error("Failed to parse %s value %s.", field, eq);
+                        return -EINVAL;
+                }
+
+                r = sd_bus_message_append(m, "v", "t", u);
+
+        } else if (streq(field, "DevicePolicy"))
+                r = sd_bus_message_append(m, "v", "s", eq);
+
+        else if (streq(field, "DeviceAllow")) {
+
+                if (isempty(eq))
+                        r = sd_bus_message_append(m, "v", "a(ss)", 0);
+                else {
+                        const char *path, *rwm, *e;
+
+                        e = strchr(eq, ' ');
+                        if (e) {
+                                path = strndupa(eq, e - eq);
+                                rwm = e+1;
+                        } else {
+                                path = eq;
+                                rwm = "";
+                        }
+
+                        if (!path_startswith(path, "/dev")) {
+                                log_error("%s is not a device file in /dev.", path);
+                                return -EINVAL;
+                        }
+
+                        r = sd_bus_message_append(m, "v", "a(ss)", 1, path, rwm);
+                }
+
+        } else if (STR_IN_SET(field, "BlockIOReadBandwidth", "BlockIOWriteBandwidth")) {
+
+                if (isempty(eq))
+                        r = sd_bus_message_append(m, "v", "a(st)", 0);
+                else {
+                        const char *path, *bandwidth, *e;
+                        off_t bytes;
+
+                        e = strchr(eq, ' ');
+                        if (e) {
+                                path = strndupa(eq, e - eq);
+                                bandwidth = e+1;
+                        } else {
+                                log_error("Failed to parse %s value %s.", field, eq);
+                                return -EINVAL;
+                        }
+
+                        if (!path_startswith(path, "/dev")) {
+                                log_error("%s is not a device file in /dev.", path);
+                                return -EINVAL;
+                        }
+
+                        r = parse_size(bandwidth, 1000, &bytes);
+                        if (r < 0) {
+                                log_error("Failed to parse byte value %s.", bandwidth);
+                                return -EINVAL;
+                        }
+
+                        r = sd_bus_message_append(m, "v", "a(st)", 1, path, (uint64_t) bytes);
+                }
+
+        } else if (streq(field, "BlockIODeviceWeight")) {
+
+                if (isempty(eq))
+                        r = sd_bus_message_append(m, "v", "a(st)", 0);
+                else {
+                        const char *path, *weight, *e;
+                        uint64_t u;
+
+                        e = strchr(eq, ' ');
+                        if (e) {
+                                path = strndupa(eq, e - eq);
+                                weight = e+1;
+                        } else {
+                                log_error("Failed to parse %s value %s.", field, eq);
+                                return -EINVAL;
+                        }
+
+                        if (!path_startswith(path, "/dev")) {
+                                log_error("%s is not a device file in /dev.", path);
+                                return -EINVAL;
+                        }
+
+                        r = safe_atou64(weight, &u);
+                        if (r < 0) {
+                                log_error("Failed to parse %s value %s.", field, weight);
+                                return -EINVAL;
+                        }
+                        r = sd_bus_message_append(m, "v", "a(st)", path, u);
+                }
+
+        } else {
+                log_error("Unknown assignment %s.", assignment);
+                return -EINVAL;
+        }
+
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return 0;
 }
