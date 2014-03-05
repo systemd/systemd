@@ -116,3 +116,5 @@ void strv_print(char **l);
                 }                                               \
                 _l;                                             \
         })
+
+#define STR_IN_SET(x, ...) strv_contains(STRV_MAKE(__VA_ARGS__), x)
