@@ -670,7 +670,6 @@ Features:
    - add proper initrd support (in particular generate .network/.link files based on /proc/cmdline)
    - add reduced [Link] support to .network files
    - add IPv4LL tests (inspire by DHCP)
-   - add IPv4LL to man pages. Explain coexistance between DHCP
    - add Scope= parsing option for [Network]
    - change LL address generation and make it predictable like get_mac() (link-config.c)
    - have smooth transition from LL to routable address, without disconnecting clients.
