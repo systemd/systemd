@@ -27,6 +27,13 @@ External:
 
 Features:
 
+* gpt-auto-generator:
+  - Properly handle cryptsetup partitions
+  - Define new partition type for encrypted swap
+  - Make /home automount rather than mount?
+  - don't use blkid on every single partition, but on the main disk only
+  - automatically find root disk in initrd
+
 * improve journalctl performance by loading journal files
   lazily. Encode just enough information in the file name, so that we
   don't have to open it to know that it is not interesting for us, for

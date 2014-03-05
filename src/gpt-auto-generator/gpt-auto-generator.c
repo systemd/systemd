@@ -43,14 +43,6 @@
 #include "generator.h"
 #include "gpt.h"
 
-/* TODO:
- *
- * - Properly handle cryptsetup partitions
- * - Define new partition type for encrypted swap
- * - Make /home automount rather than mount
- *
- */
-
 static const char *arg_dest = "/tmp";
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(blkid_probe, blkid_free_probe);
