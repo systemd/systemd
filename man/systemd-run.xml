@@ -182,9 +182,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <listitem><para>Runs the service process under the UNIX user
         and group. Also see <varname>User=</varname> and
         <varname>Group=</varname> in
-        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>. This
-        option has no effect in conjunction with
-        <option>--scope</option>.</para>
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
         </listitem>
       </varlistentry>
 
@@ -193,9 +191,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
         <listitem><para>Runs the service process with the specified
         nice level. Also see <varname>Nice=</varname> in
-        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>. This
-        option has no effect in conjunction with
-        <option>--scope</option>.</para>
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
         </listitem>
       </varlistentry>
 
@@ -205,9 +201,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <listitem><para>Runs the service process with the specified
         environment variables set. Also see
         <varname>Environment=</varname> in
-        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>. This
-        option has no effect in conjunction with
-        <option>--scope</option>.</para>
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
         </listitem>
       </varlistentry>
 

@@ -527,3 +527,18 @@ void strv_print(char **l) {
         STRV_FOREACH(s, l)
                 puts(*s);
 }
+
+int strv_extendf(char ***l, const char *format, ...) {
+        va_list ap;
+        char *x;
+        int r;
+
+        va_start(ap, format);
+        r = vasprintf(&x, format, ap);
+        va_end(ap);
+
+        if (r < 0)
+                return -ENOMEM;
+
+        return strv_consume(l, x);
+}

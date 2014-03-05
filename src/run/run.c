@@ -27,6 +27,7 @@
 #include "strv.h"
 #include "build.h"
 #include "unit-name.h"
+#include "env-util.h"
 #include "path-util.h"
 #include "bus-error.h"
 
@@ -231,8 +232,8 @@ static int parse_argv(int argc, char *argv[]) {
                 return -EINVAL;
         }
 
-        if (arg_scope && (arg_remain_after_exit || arg_service_type || arg_exec_user || arg_exec_group || arg_nice_set || arg_environment)) {
-                log_error("--remain-after-exit, --service-type=, --user=, --group=, --nice= and --setenv= are not supported in --scope mode.");
+        if (arg_scope && (arg_remain_after_exit || arg_service_type)) {
+                log_error("--remain-after-exit and --service-type= are not supported in --scope mode.");
                 return -EINVAL;
         }
 
@@ -461,6 +462,7 @@ static int start_transient_scope(
 
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         _cleanup_free_ char *name = NULL;
+        _cleanup_strv_free_ char **env = NULL, **user_env = NULL;
         int r;
 
         assert(bus);
@@ -484,7 +486,73 @@ static int start_transient_scope(
         if (r < 0)
                 return r;
 
-        execvp(argv[0], argv);
+        if (arg_nice_set) {
+                if (setpriority(PRIO_PROCESS, 0, arg_nice) < 0) {
+                        log_error("Failed to set nice level: %m");
+                        return -errno;
+                }
+        }
+
+        if (arg_exec_group) {
+                gid_t gid;
+
+                r = get_group_creds(&arg_exec_group, &gid);
+                if (r < 0) {
+                        log_error("Failed to resolve group %s: %s", arg_exec_group, strerror(-r));
+                        return r;
+                }
+
+                if (setresgid(gid, gid, gid) < 0) {
+                        log_error("Failed to change GID to " GID_FMT ": %m", gid);
+                        return -errno;
+                }
+        }
+
+        if (arg_exec_user) {
+                const char *home, *shell;
+                uid_t uid;
+                gid_t gid;
+
+                r = get_user_creds(&arg_exec_user, &uid, &gid, &home, &shell);
+                if (r < 0) {
+                        log_error("Failed to resolve user %s: %s", arg_exec_user, strerror(-r));
+                        return r;
+                }
+
+                r = strv_extendf(&user_env, "HOME=%s", home);
+                if (r < 0)
+                        return log_oom();
+
+                r = strv_extendf(&user_env, "SHELL=%s", shell);
+                if (r < 0)
+                        return log_oom();
+
+                r = strv_extendf(&user_env, "USER=%s", arg_exec_user);
+                if (r < 0)
+                        return log_oom();
+
+                r = strv_extendf(&user_env, "LOGNAME=%s", arg_exec_user);
+                if (r < 0)
+                        return log_oom();
+
+                if (!arg_exec_group) {
+                        if (setresgid(gid, gid, gid) < 0) {
+                                log_error("Failed to change GID to " GID_FMT ": %m", gid);
+                                return -errno;
+                        }
+                }
+
+                if (setresuid(uid, uid, uid) < 0) {
+                        log_error("Failed to change UID to " UID_FMT ": %m", uid);
+                        return -errno;
+                }
+        }
+
+        env = strv_env_merge(3, environ, user_env, arg_environment);
+        if (!env)
+                return log_oom();
+
+        execvpe(argv[0], argv, env);
         log_error("Failed to execute: %m");
         return -errno;
 }
