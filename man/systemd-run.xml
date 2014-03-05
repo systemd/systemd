@@ -121,9 +121,9 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       <varlistentry>
         <term><option>--description=</option></term>
 
-        <listitem><para>Provide description for the unit. If not
-        specified, the command itself will be used as a description.
-        See <varname>Description=</varname> in
+        <listitem><para>Provide description for the service or scope
+        unit. If not specified, the command itself will be used as a
+        description.  See <varname>Description=</varname> in
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
         </para></listitem>
       </varlistentry>
@@ -140,10 +140,10 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       <varlistentry>
         <term><option>--remain-after-exit</option></term>
 
-        <listitem><para>After the service's process has terminated, keep
-        the service around until it is explicitly stopped. This is
-        useful to collect runtime information about the service after
-        it finished running. Also see
+        <listitem><para>After the service or scope process has
+        terminated, keep the service around until it is explicitly
+        stopped. This is useful to collect runtime information about
+        the service after it finished running. Also see
         <varname>RemainAfterExit=</varname> in
         <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
         </para>
@@ -153,12 +153,61 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       <varlistentry>
         <term><option>--send-sighup</option></term>
 
-        <listitem><para>When terminating the scope unit, send a SIGHUP
-        immediately after SIGTERM. This is useful to indicate to
-        shells and shell-like processes that the connection has been
-        severed. Also see <varname>SendSIGHUP=</varname> in
+        <listitem><para>When terminating the scope or service unit,
+        send a SIGHUP immediately after SIGTERM. This is useful to
+        indicate to shells and shell-like processes that the
+        connection has been severed. Also see
+        <varname>SendSIGHUP=</varname> in
         <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
         </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--service-type=</option></term>
+
+        <listitem><para>Sets the service type. Also see
+        <varname>Type=</varname> in
+        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>. This
+        option has no effect in conjunction with
+        <option>--scope</option>. Defaults to
+        <constant>simple</constant>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--uid=</option></term>
+        <term><option>--gid=</option></term>
+
+        <listitem><para>Runs the service process under the UNIX user
+        and group. Also see <varname>User=</varname> and
+        <varname>Group=</varname> in
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>. This
+        option has no effect in conjunction with
+        <option>--scope</option>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--nice=</option></term>
+
+        <listitem><para>Runs the service process with the specified
+        nice level. Also see <varname>Nice=</varname> in
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>. This
+        option has no effect in conjunction with
+        <option>--scope</option>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--setenv=</option></term>
+
+        <listitem><para>Runs the service process with the specified
+        environment variables set. Also see
+        <varname>Environment=</varname> in
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>. This
+        option has no effect in conjunction with
+        <option>--scope</option>.</para>
         </listitem>
       </varlistentry>
 
