@@ -778,7 +778,7 @@ int sd_rtnl_message_read(sd_rtnl_message *m, unsigned short *type, void **data) 
         if (!RTA_OK(NEXT_RTA(m), remaining_size))
                 return 0;
 
-        /* if we read a container, enter it and return its type */
+        /* if we read a container, return its type, but do not enter it*/
         r = sd_rtnl_message_get_type(m, &rtm_type);
         if (r < 0)
                 return r;
@@ -790,14 +790,12 @@ int sd_rtnl_message_read(sd_rtnl_message *m, unsigned short *type, void **data) 
               NEXT_RTA(m)->rta_type == IFLA_LINKINFO) ||
              (m->n_containers == 1 &&
               GET_CONTAINER(m, 0)->rta_type == IFLA_LINKINFO &&
-              NEXT_RTA(m)->rta_type == IFLA_INFO_DATA))) {
+              NEXT_RTA(m)->rta_type == IFLA_INFO_DATA)))
                 *data = NULL;
-                PUSH_CONTAINER(m, NEXT_RTA(m));
-                UPDATE_RTA(m, RTA_DATA(NEXT_RTA(m)));
-        } else {
+        else
                 *data = RTA_DATA(NEXT_RTA(m));
-                UPDATE_RTA(m, RTA_NEXT(NEXT_RTA(m), remaining_size));
-        }
+
+        UPDATE_RTA(m, RTA_NEXT(NEXT_RTA(m), remaining_size));
 
         return 1;
 }
