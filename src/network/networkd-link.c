@@ -178,19 +178,6 @@ void link_drop(Link *link) {
         return;
 }
 
-static int link_enter_configured(Link *link) {
-        assert(link);
-        assert(link->state == LINK_STATE_SETTING_ROUTES);
-
-        log_info_link(link, "link configured");
-
-        link->state = LINK_STATE_CONFIGURED;
-
-        link_save(link);
-
-        return 0;
-}
-
 static void link_enter_unmanaged(Link *link) {
         assert(link);
 
@@ -231,6 +218,16 @@ static int link_stop_clients(Link *link) {
                 }
         }
 
+        if (link->network->dhcp_server) {
+                assert(link->dhcp_server);
+
+                k = sd_dhcp_server_stop(link->dhcp_server);
+                if (k < 0) {
+                        log_warning_link(link, "Could not stop DHCPv4 server: %s", strerror(-r));
+                        r = k;
+                }
+        }
+
         return r;
 }
 
@@ -247,6 +244,37 @@ static void link_enter_failed(Link *link) {
         link_stop_clients(link);
 
         link_save(link);
+}
+
+static int link_enter_configured(Link *link) {
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(link->state == LINK_STATE_SETTING_ROUTES);
+
+
+        if (link->network->dhcp_server) {
+                log_debug_link(link, "offering DHCPv4 leases");
+
+                r = sd_dhcp_server_start(link->dhcp_server);
+                if (r < 0) {
+                        log_warning_link(link, "could not start DHCPv4 server "
+                                         "instance: %s", strerror(-r));
+
+                        link_enter_failed(link);
+
+                        return 0;
+                }
+        }
+
+        log_info_link(link, "link configured");
+
+        link->state = LINK_STATE_CONFIGURED;
+
+        link_save(link);
+
+        return 0;
 }
 
 static int route_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
@@ -1667,7 +1695,52 @@ static int link_configure(Link *link) {
                 }
         }
 
-        if (link_has_carrier(link->flags, link->kernel_operstate)) {
+        if (link->network->dhcp_server) {
+                Address *address;
+
+                r = sd_dhcp_server_new(&link->dhcp_server, link->ifindex);
+                if (r < 0)
+                        return r;
+
+                r = sd_dhcp_server_attach_event(link->dhcp_server, NULL, 0);
+                if (r < 0)
+                        return r;
+
+                LIST_FOREACH(addresses, address,
+                             link->network->static_addresses) {
+                        struct in_addr pool_start;
+
+                        if (address->family != AF_INET)
+                                continue;
+
+                        /* currently this is picked essentially at random */
+                        r = sd_dhcp_server_set_address(link->dhcp_server,
+                                                       &address->in_addr.in);
+                        if (r < 0)
+                                return r;
+
+                        /* offer 32 addresses starting from the address following the server address */
+                        pool_start.s_addr = htobe32(be32toh(address->in_addr.in.s_addr) + 1);
+                        r = sd_dhcp_server_set_lease_pool(link->dhcp_server,
+                                                          &pool_start, 32);
+
+                        break;
+                }
+
+                /* TODO:
+                r = sd_dhcp_server_set_router(link->dhcp_server,
+                                              &main_address->in_addr.in);
+                if (r < 0)
+                        return r;
+
+                r = sd_dhcp_server_set_prefixlen(link->dhcp_server,
+                                                 main_address->prefixlen);
+                if (r < 0)
+                        return r;
+                */
+        }
+
+        if (link_has_carrier(link->flags, link->operstate)) {
                 r = link_acquire_conf(link);
                 if (r < 0)
                         return r;

@@ -27,6 +27,7 @@
 #include "sd-rtnl.h"
 #include "sd-bus.h"
 #include "sd-dhcp-client.h"
+#include "sd-dhcp-server.h"
 #include "sd-ipv4ll.h"
 #include "udev.h"
 
@@ -149,6 +150,8 @@ struct Network {
         bool dhcp_critical;
         bool ipv4ll;
 
+        bool dhcp_server;
+
         LIST_HEAD(Address, static_addresses);
         LIST_HEAD(Route, static_routes);
 
@@ -256,6 +259,8 @@ struct Link {
         char *lease_file;
         uint16_t original_mtu;
         sd_ipv4ll *ipv4ll;
+
+        sd_dhcp_server *dhcp_server;
 };
 
 struct Manager {
