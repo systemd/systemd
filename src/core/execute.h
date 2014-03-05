@@ -185,6 +185,7 @@ struct ExecContext {
         bool nice_set:1;
         bool ioprio_set:1;
         bool cpu_sched_set:1;
+        bool no_new_privileges_set:1;
 };
 
 #include "cgroup.h"

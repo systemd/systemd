@@ -2122,7 +2122,10 @@ int config_parse_syscall_filter(
                         set_remove(c->syscall_filter, INT_TO_PTR(id + 1));
         }
 
-        c->no_new_privileges = true;
+        /* Turn on NNP, but only if it wasn't configured explicitly
+         * before, and only if we are in user mode. */
+        if (!c->no_new_privileges_set && u->manager->running_as == SYSTEMD_USER)
+                c->no_new_privileges = true;
 
         return 0;
 }
@@ -2898,6 +2901,38 @@ int config_parse_namespace_path_strv(
 
                 n = NULL;
         }
+
+        return 0;
+}
+
+int config_parse_no_new_priviliges(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        ExecContext *c = data;
+        int k;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        k = parse_boolean(rvalue);
+        if (k < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, -k, "Failed to parse boolean value, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        c->no_new_privileges = !!k;
+        c->no_new_privileges_set = true;
 
         return 0;
 }
