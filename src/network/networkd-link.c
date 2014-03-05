@@ -1194,6 +1194,27 @@ static int link_enter_enslave(Link *link) {
                 link->enslaving ++;
         }
 
+        if (link->network->bond) {
+                log_struct_link(LOG_DEBUG, link,
+                                "MESSAGE=%s: enslaving by '%s'",
+                                link->ifname, link->network->bond->name,
+                                NETDEV(link->network->bond),
+                                NULL);
+
+                r = netdev_enslave(link->network->bond, link, &enslave_handler);
+                if (r < 0) {
+                        log_struct_link(LOG_WARNING, link,
+                                        "MESSAGE=%s: could not enslave by '%s': %s",
+                                        link->ifname, link->network->bond->name, strerror(-r),
+                                        NETDEV(link->network->bond),
+                                        NULL);
+                        link_enter_failed(link);
+                        return r;
+                }
+
+                link->enslaving ++;
+        }
+
         HASHMAP_FOREACH(vlan, link->network->vlans, i) {
                 log_struct_link(LOG_DEBUG, link,
                                 "MESSAGE=%s: enslaving by '%s'",
