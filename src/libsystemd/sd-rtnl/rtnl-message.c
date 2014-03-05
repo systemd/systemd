@@ -280,6 +280,7 @@ sd_rtnl_message *sd_rtnl_message_unref(sd_rtnl_message *m) {
         if (m && REFCNT_DEC(m->n_ref) <= 0) {
                 sd_rtnl_unref(m->rtnl);
                 free(m->hdr);
+                free(m->rta_offset_tb);
                 free(m);
         }
 
@@ -800,6 +801,81 @@ int sd_rtnl_message_read(sd_rtnl_message *m, unsigned short *type, void **data) 
         return 1;
 }
 
+int rtnl_message_read_internal(sd_rtnl_message *m, unsigned short type, void **data) {
+        assert_return(m, -EINVAL);
+        assert_return(m->sealed, -EPERM);
+        assert_return(data, -EINVAL);
+        assert_return(m->rta_offset_tb, -EINVAL);
+        assert_return(type < m->rta_tb_size, -EINVAL);
+
+        if(!m->rta_offset_tb[type])
+                return -ENODATA;
+
+        *data = RTA_DATA((struct rtattr *)((uint8_t *) m->hdr + m->rta_offset_tb[type]));
+
+        return 0;
+}
+
+int sd_rtnl_message_read_string(sd_rtnl_message *m, unsigned short type, char **data) {
+        int r;
+        void *attr_data;
+
+        assert_return(data, -EINVAL);
+
+        r = rtnl_message_read_internal(m, type, &attr_data);
+        if(r < 0)
+                return r;
+
+        *data = (char *) attr_data;
+
+        return 0;
+}
+
+int sd_rtnl_message_read_u8(sd_rtnl_message *m, unsigned short type, uint8_t *data) {
+        int r;
+        void *attr_data;
+
+        assert_return(data, -EINVAL);
+
+        r = rtnl_message_read_internal(m, type, &attr_data);
+        if(r < 0)
+                return r;
+
+        *data = *(uint8_t *) attr_data;
+
+        return 0;
+}
+
+int sd_rtnl_message_read_u16(sd_rtnl_message *m, unsigned short type, uint16_t *data) {
+        int r;
+        void *attr_data;
+
+        assert_return(data, -EINVAL);
+
+        r = rtnl_message_read_internal(m, type, &attr_data);
+        if(r < 0)
+                return r;
+
+        *data = *(uint16_t *) attr_data;
+
+        return 0;
+}
+
+int sd_rtnl_message_read_u32(sd_rtnl_message *m, unsigned short type, uint32_t *data) {
+        int r;
+        void *attr_data;
+
+        assert_return(data, -EINVAL);
+
+        r = rtnl_message_read_internal(m, type, &attr_data);
+        if(r < 0)
+                return r;
+
+        *data = *(uint32_t *) attr_data;
+
+        return 0;
+}
+
 int sd_rtnl_message_exit_container(sd_rtnl_message *m) {
         assert_return(m, -EINVAL);
         assert_return(m->sealed, -EINVAL);
@@ -868,6 +944,33 @@ static int message_receive_need(sd_rtnl *rtnl, size_t *need) {
         *need = page_size();
         if (*need > 8192UL)
                 *need = 8192UL;
+
+        return 0;
+}
+
+int rtnl_message_parse(sd_rtnl_message *m,
+                       size_t **rta_offset_tb,
+                       unsigned short *rta_tb_size,
+                       int max,
+                       struct rtattr *rta,
+                       unsigned int rt_len) {
+        int type;
+        size_t *tb;
+
+        tb = (size_t *) new0(size_t *, max);
+        if(!tb)
+                return -ENOMEM;
+
+        *rta_tb_size = max;
+
+        for (; RTA_OK(rta, rt_len); rta = RTA_NEXT(rta, rt_len)) {
+                type = rta->rta_type;
+
+                if (type < max && !tb[type])
+                        tb[type] = (uint8_t *) rta - (uint8_t *) m->hdr;
+        }
+
+        *rta_offset_tb = tb;
 
         return 0;
 }
@@ -961,6 +1064,14 @@ int socket_read_message(sd_rtnl *nl, sd_rtnl_message **ret) {
 
                                         ifi = NLMSG_DATA(m->hdr);
                                         UPDATE_RTA(m, IFLA_RTA(ifi));
+
+                                        r = rtnl_message_parse(m,
+                                                               &m->rta_offset_tb,
+                                                               &m->rta_tb_size,
+                                                               IFLA_MAX,
+                                                               IFLA_RTA(ifi),
+                                                               IFLA_PAYLOAD(m->hdr));
+
                                 }
                                 break;
                         case RTM_NEWADDR:
@@ -973,6 +1084,13 @@ int socket_read_message(sd_rtnl *nl, sd_rtnl_message **ret) {
 
                                         ifa = NLMSG_DATA(m->hdr);
                                         UPDATE_RTA(m, IFA_RTA(ifa));
+
+                                        r = rtnl_message_parse(m,
+                                                               &m->rta_offset_tb,
+                                                               &m->rta_tb_size,
+                                                               IFA_MAX,
+                                                               IFA_RTA(ifa),
+                                                               IFA_PAYLOAD(m->hdr));
                                 }
                                 break;
                         case RTM_NEWROUTE:
@@ -985,6 +1103,13 @@ int socket_read_message(sd_rtnl *nl, sd_rtnl_message **ret) {
 
                                         rtm = NLMSG_DATA(m->hdr);
                                         UPDATE_RTA(m, RTM_RTA(rtm));
+
+                                        r = rtnl_message_parse(m,
+                                                               &m->rta_offset_tb,
+                                                               &m->rta_tb_size,
+                                                               RTA_MAX,
+                                                               RTM_RTA(rtm),
+                                                               RTM_PAYLOAD(m->hdr));
                                 }
                                 break;
                         case NLMSG_NOOP:

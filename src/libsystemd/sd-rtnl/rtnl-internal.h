@@ -94,7 +94,8 @@ struct sd_rtnl_message {
         size_t container_offsets[RTNL_CONTAINER_DEPTH]; /* offset from hdr to each container's start */
         unsigned n_containers; /* number of containers */
         size_t next_rta_offset; /* offset from hdr to next rta */
-
+        size_t *rta_offset_tb;
+        unsigned short rta_tb_size;
         bool sealed:1;
 };
 
@@ -102,6 +103,14 @@ int message_new(sd_rtnl *rtnl, sd_rtnl_message **ret, size_t initial_size);
 
 int socket_write_message(sd_rtnl *nl, sd_rtnl_message *m);
 int socket_read_message(sd_rtnl *nl, sd_rtnl_message **ret);
+
+int rtnl_message_read_internal(sd_rtnl_message *m, unsigned short type, void **data);
+int rtnl_message_parse(sd_rtnl_message *m,
+                       size_t **rta_offset_tb,
+                       unsigned short *rta_tb_size,
+                       int max,
+                       struct rtattr *rta,
+                       unsigned int rt_len);
 
 /* Make sure callbacks don't destroy the rtnl connection */
 #define RTNL_DONT_DESTROY(rtnl) \

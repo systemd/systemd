@@ -28,6 +28,7 @@
 #include "rtnl-util.h"
 #include "event-util.h"
 #include "missing.h"
+#include "rtnl-internal.h"
 
 static void test_link_configure(sd_rtnl *rtnl, int ifindex) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *message;
@@ -63,7 +64,10 @@ static void test_link_get(sd_rtnl *rtnl, int ifindex) {
         unsigned int mtu = 1500;
         unsigned int *mtu_reply;
         void *data;
+        char *str_data;
         uint16_t type;
+        uint8_t u8_data;
+        uint32_t u32_data;
 
         assert_se(sd_rtnl_message_new_link(rtnl, &m, RTM_GETLINK, ifindex) >= 0);
         assert_se(m);
@@ -123,9 +127,21 @@ static void test_link_get(sd_rtnl *rtnl, int ifindex) {
                 }
         }
 
+        assert_se(sd_rtnl_message_read_string(r, IFLA_IFNAME, &str_data) == 0);
+
+        assert_se(sd_rtnl_message_read_u8(r, IFLA_CARRIER, &u8_data) == 0);
+        assert_se(sd_rtnl_message_read_u8(r, IFLA_OPERSTATE, &u8_data) == 0);
+        assert_se(sd_rtnl_message_read_u8(r, IFLA_LINKMODE, &u8_data) == 0);
+
+        assert_se(sd_rtnl_message_read_u32(r, IFLA_MTU, &u32_data) == 0);
+        assert_se(sd_rtnl_message_read_u32(r, IFLA_GROUP, &u32_data) == 0);
+        assert_se(sd_rtnl_message_read_u32(r, IFLA_TXQLEN, &u32_data) == 0);
+        assert_se(sd_rtnl_message_read_u32(r, IFLA_NUM_TX_QUEUES, &u32_data) == 0);
+        assert_se(sd_rtnl_message_read_u32(r, IFLA_NUM_RX_QUEUES, &u32_data) == 0);
+
         assert_se(sd_rtnl_flush(rtnl) >= 0);
         assert_se((m = sd_rtnl_message_unref(m)) == NULL);
-
+        assert_se((r = sd_rtnl_message_unref(r)) == NULL);
 }
 
 static void test_route(void) {
@@ -134,7 +150,9 @@ static void test_route(void) {
         uint32_t index = 2;
         uint16_t type;
         void *data;
+        uint32_t u32_data;
         int r;
+        struct rtmsg *rtm;
 
         r = sd_rtnl_message_new_route(NULL, &req, RTM_NEWROUTE, AF_INET);
         if (r < 0) {
@@ -165,6 +183,19 @@ static void test_route(void) {
         assert_se(sd_rtnl_message_read(req, &type, &data) > 0);
         assert_se(type == RTA_OIF);
         assert_se(*(uint32_t *) data == index);
+
+        rtm = NLMSG_DATA(req->hdr);
+        r = rtnl_message_parse(req,
+                               &req->rta_offset_tb,
+                               &req->rta_tb_size,
+                               RTA_MAX,
+                               RTM_RTA(rtm),
+                               RTM_PAYLOAD(req->hdr));
+
+        assert_se(sd_rtnl_message_read_u32(req, RTA_GATEWAY, &u32_data) == 0);
+        assert_se(sd_rtnl_message_read_u32(req, RTA_OIF, &u32_data) == 0);
+
+        assert_se((req = sd_rtnl_message_unref(req)) == NULL);
 }
 
 static void test_multiple(void) {
@@ -226,6 +257,8 @@ static void test_event_loop(int ifindex) {
         assert_se(sd_event_run(event, 0) >= 0);
 
         assert_se(sd_rtnl_detach_event(rtnl) >= 0);
+
+        assert_se((rtnl = sd_rtnl_unref(rtnl)) == NULL);
 }
 
 static int pipe_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
@@ -255,6 +288,8 @@ static void test_async(int ifindex) {
 
         assert_se(sd_rtnl_wait(rtnl, 0) >= 0);
         assert_se(sd_rtnl_process(rtnl, &r) >= 0);
+
+        assert_se((rtnl = sd_rtnl_unref(rtnl)) == NULL);
 }
 
 static void test_pipe(int ifindex) {
@@ -277,12 +312,17 @@ static void test_pipe(int ifindex) {
                 assert_se(sd_rtnl_wait(rtnl, 0) >= 0);
                 assert_se(sd_rtnl_process(rtnl, NULL) >= 0);
         }
+
+        assert_se((rtnl = sd_rtnl_unref(rtnl)) == NULL);
 }
 
 static void test_container(void) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
         uint16_t type;
+        uint32_t u32_data;
         void *data;
+        int r;
+        struct ifinfomsg *ifi;
 
         assert_se(sd_rtnl_message_new_link(NULL, &m, RTM_NEWLINK, 0) >= 0);
 
@@ -320,6 +360,19 @@ static void test_container(void) {
         assert_se(sd_rtnl_message_read(m, &type, &data) == 0);
         assert_se(sd_rtnl_message_exit_container(m) >= 0);
 */
+
+        ifi = NLMSG_DATA(m->hdr);
+        r = rtnl_message_parse(m,
+                               &m->rta_offset_tb,
+                               &m->rta_tb_size,
+                               IFLA_MAX,
+                               IFLA_RTA(ifi),
+                               IFLA_PAYLOAD(m->hdr));
+        if(r < 0)
+                return;
+
+        assert_se(sd_rtnl_message_read_u32(m, IFLA_LINKINFO, &u32_data) == 0);
+
         assert_se(sd_rtnl_message_exit_container(m) == -EINVAL);
 }
 
@@ -334,6 +387,8 @@ static void test_match(void) {
         assert_se(sd_rtnl_remove_match(rtnl, RTM_NEWLINK, &link_handler, NULL) == 1);
         assert_se(sd_rtnl_remove_match(rtnl, RTM_NEWLINK, &link_handler, NULL) == 1);
         assert_se(sd_rtnl_remove_match(rtnl, RTM_NEWLINK, &link_handler, NULL) == 0);
+
+        assert_se((rtnl = sd_rtnl_unref(rtnl)) == NULL);
 }
 
 int main(void) {
