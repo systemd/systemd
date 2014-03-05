@@ -228,7 +228,7 @@ struct Manager {
         bool default_memory_accounting;
         bool default_blockio_accounting;
 
-        struct rlimit *rlimit[RLIMIT_NLIMITS];
+        struct rlimit *rlimit[_RLIMIT_MAX];
 
         /* non-zero if we are reloading or reexecuting, */
         int n_reloading;

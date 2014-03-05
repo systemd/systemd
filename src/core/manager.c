@@ -810,7 +810,7 @@ void manager_free(Manager *m) {
         free(m->switch_root);
         free(m->switch_root_init);
 
-        for (i = 0; i < RLIMIT_NLIMITS; i++)
+        for (i = 0; i < _RLIMIT_MAX; i++)
                 free(m->rlimit[i]);
 
         assert(hashmap_isempty(m->units_requiring_mounts_for));
@@ -2728,7 +2728,7 @@ int manager_set_default_rlimits(Manager *m, struct rlimit **default_rlimit) {
 
         assert(m);
 
-        for (i = 0; i < RLIMIT_NLIMITS; i++) {
+        for (i = 0; i < _RLIMIT_MAX; i++) {
                 if (!default_rlimit[i])
                         continue;
 

@@ -83,6 +83,7 @@
 #include "gunicode.h"
 #include "virt.h"
 #include "def.h"
+#include "missing.h"
 
 int saved_argc = 0;
 char **saved_argv = NULL;
@@ -4713,7 +4714,7 @@ static const char* const sched_policy_table[] = {
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(sched_policy, int, INT_MAX);
 
-static const char* const rlimit_table[] = {
+static const char* const rlimit_table[_RLIMIT_MAX] = {
         [RLIMIT_CPU] = "LimitCPU",
         [RLIMIT_FSIZE] = "LimitFSIZE",
         [RLIMIT_DATA] = "LimitDATA",

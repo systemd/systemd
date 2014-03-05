@@ -38,6 +38,7 @@ typedef struct ExecRuntime ExecRuntime;
 #include "util.h"
 #include "set.h"
 #include "fdset.h"
+#include "missing.h"
 
 typedef enum ExecInput {
         EXEC_INPUT_NULL,
@@ -93,7 +94,7 @@ struct ExecContext {
         char **environment;
         char **environment_files;
 
-        struct rlimit *rlimit[RLIMIT_NLIMITS];
+        struct rlimit *rlimit[_RLIMIT_MAX];
         char *working_directory, *root_directory;
 
         mode_t umask;

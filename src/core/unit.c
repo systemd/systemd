@@ -2803,7 +2803,7 @@ int unit_exec_context_patch_defaults(Unit *u, ExecContext *c) {
          * _after_ the rest of the settings have been initialized */
 
         /* This only copies in the ones that need memory */
-        for (i = 0; i < RLIMIT_NLIMITS; i++)
+        for (i = 0; i < _RLIMIT_MAX; i++)
                 if (u->manager->rlimit[i] && !c->rlimit[i]) {
                         c->rlimit[i] = newdup(struct rlimit, u->manager->rlimit[i], 1);
                         if (!c->rlimit[i])

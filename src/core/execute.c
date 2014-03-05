@@ -1676,7 +1676,7 @@ int exec_spawn(ExecCommand *command,
 
                 if (apply_permissions) {
 
-                        for (i = 0; i < RLIMIT_NLIMITS; i++) {
+                        for (i = 0; i < _RLIMIT_MAX; i++) {
                                 if (!context->rlimit[i])
                                         continue;
 

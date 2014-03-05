@@ -47,6 +47,9 @@
 #define RLIMIT_RTTIME 15
 #endif
 
+/* If RLIMIT_RTTIME is not defined, then we cannot use RLIMIT_NLIMITS as is */
+#define _RLIMIT_MAX (RLIMIT_RTTIME+1 > RLIMIT_NLIMITS ? RLIMIT_RTTIME+1 : RLIMIT_NLIMITS)
+
 #ifndef F_LINUX_SPECIFIC_BASE
 #define F_LINUX_SPECIFIC_BASE 1024
 #endif
