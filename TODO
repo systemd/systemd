@@ -409,10 +409,6 @@ Features:
   mode, it will never touch the RTC if the no reliable time source is active or the
   user did not request anything like it.
 
-* if booted in "quiet" mode, and an error happens, turn on status
-  output again, so that the emergency mode isn't totally
-  surprising. Also, terminate plymouth.
-
 * libunwind support for coredump pattern hook, and includes this in
   the message for coredumps. After all, libunwind is now capable to
   unwind coredumps since a few weeks ago. This probably requires that
@@ -508,8 +504,6 @@ Features:
 * initialize the hostname from the fs label of /, if /etc/hostname does not exist?
 
 * rename "userspace" to "core-os"
-
-* syscall filter: optionally don't enforce no new privs?
 
 * load-fragment: when loading a unit file via a chain of symlinks
   verify that it isn't masked via any of the names traversed.
