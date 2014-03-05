@@ -27,6 +27,11 @@ External:
 
 Features:
 
+* improve journalctl performance by loading journal files
+  lazily. Encode just enough information in the file name, so that we
+  don't have to open it to know that it is not interesting for us, for
+  the most common operations.
+
 * support transient mount units
 
 * Imply DevicePolicy=closed when PrivateDevices= is used
