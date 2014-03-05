@@ -851,6 +851,44 @@ int bus_exec_context_set_transient_property(
                 }
 
                 return 1;
+
+        } else if (rlimit_from_string(name) >= 0) {
+                uint64_t rl;
+                rlim_t x;
+
+                r = sd_bus_message_read(message, "t", &rl);
+                if (r < 0)
+                        return r;
+
+                if (rl == (uint64_t) -1)
+                        x = RLIM_INFINITY;
+                else {
+                        x = (rlim_t) rl;
+
+                        if ((uint64_t) x != rl)
+                                return -ERANGE;
+                }
+
+                if (mode != UNIT_CHECK) {
+                        int z;
+
+                        z = rlimit_from_string(name);
+
+                        if (!c->rlimit[z]) {
+                                c->rlimit[z] = new(struct rlimit, 1);
+                                if (!c->rlimit[z])
+                                        return -ENOMEM;
+                        }
+
+                        c->rlimit[z]->rlim_cur = c->rlimit[z]->rlim_max = x;
+
+                        if (x == RLIM_INFINITY)
+                                unit_write_drop_in_private_format(u, mode, name, "%s=infinity\n", name);
+                        else
+                                unit_write_drop_in_private_format(u, mode, name, "%s=%" PRIu64 "\n", name, rl);
+                }
+
+                return 1;
         }
 
         return 0;

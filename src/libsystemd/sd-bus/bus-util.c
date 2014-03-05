@@ -1372,6 +1372,21 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                         r = sd_bus_message_append(m, "v", "a(st)", path, u);
                 }
 
+        } else if (rlimit_from_string(field) >= 0) {
+                uint64_t rl;
+
+                if (streq(eq, "infinity"))
+                        rl = (uint64_t) -1;
+                else {
+                        r = safe_atou64(eq, &rl);
+                        if (r < 0) {
+                                log_error("Invalid resource limit: %s", eq);
+                                return -EINVAL;
+                        }
+                }
+
+                r = sd_bus_message_append(m, "v", "t", rl);
+
         } else {
                 log_error("Unknown assignment %s.", assignment);
                 return -EINVAL;
