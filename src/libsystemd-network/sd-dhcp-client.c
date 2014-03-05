@@ -143,6 +143,15 @@ int sd_dhcp_client_set_mac(sd_dhcp_client *client,
         assert_return(client, -EINVAL);
         assert_return(client->state == DHCP_STATE_INIT, -EBUSY);
 
+        log_dhcp_client(client, "set MAC address to "
+                        "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",
+                        addr->ether_addr_octet[0],
+                        addr->ether_addr_octet[1],
+                        addr->ether_addr_octet[2],
+                        addr->ether_addr_octet[3],
+                        addr->ether_addr_octet[4],
+                        addr->ether_addr_octet[5]);
+
         memcpy(&client->mac_addr, addr, ETH_ALEN);
 
         return 0;
