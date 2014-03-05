@@ -249,8 +249,6 @@ static int message_start_transient_unit_new(sd_bus *bus, const char *name, sd_bu
         assert(name);
         assert(ret);
 
-        log_info("Running as unit %s.", name);
-
         r = sd_bus_message_new_method_call(
                         bus,
                         &m,
@@ -342,117 +340,123 @@ static int start_transient_service(
         else
                 asprintf(&name, "run-%lu.service", (unsigned long) getpid());
         if (!name)
-                return -ENOMEM;
+                return log_oom();
 
         r = message_start_transient_unit_new(bus, name, &m);
         if (r < 0)
-                return r;
+                return bus_log_create_error(r);
 
         if (arg_remain_after_exit) {
                 r = sd_bus_message_append(m, "(sv)", "RemainAfterExit", "b", arg_remain_after_exit);
                 if (r < 0)
-                        return r;
+                        return bus_log_create_error(r);
         }
 
         if (arg_service_type) {
                 r = sd_bus_message_append(m, "(sv)", "Type", "s", arg_service_type);
                 if (r < 0)
-                        return r;
+                        return bus_log_create_error(r);
         }
 
         if (arg_exec_user) {
                 r = sd_bus_message_append(m, "(sv)", "User", "s", arg_exec_user);
                 if (r < 0)
-                        return r;
+                        return bus_log_create_error(r);
         }
 
         if (arg_exec_group) {
                 r = sd_bus_message_append(m, "(sv)", "Group", "s", arg_exec_group);
                 if (r < 0)
-                        return r;
+                        return bus_log_create_error(r);
         }
 
         if (arg_nice_set) {
                 r = sd_bus_message_append(m, "(sv)", "Nice", "i", arg_nice);
                 if (r < 0)
-                        return r;
+                        return bus_log_create_error(r);
         }
 
         if (!strv_isempty(arg_environment)) {
                 r = sd_bus_message_open_container(m, 'r', "sv");
                 if (r < 0)
-                        return r;
+                        return bus_log_create_error(r);
 
                 r = sd_bus_message_append(m, "s", "Environment");
                 if (r < 0)
-                        return r;
+                        return bus_log_create_error(r);
 
                 r = sd_bus_message_open_container(m, 'v', "as");
                 if (r < 0)
-                        return r;
+                        return bus_log_create_error(r);
 
                 r = sd_bus_message_append_strv(m, arg_environment);
                 if (r < 0)
-                        return r;
+                        return bus_log_create_error(r);
 
                 r = sd_bus_message_close_container(m);
                 if (r < 0)
-                        return r;
+                        return bus_log_create_error(r);
 
                 r = sd_bus_message_close_container(m);
                 if (r < 0)
-                        return r;
+                        return bus_log_create_error(r);
         }
 
         r = sd_bus_message_open_container(m, 'r', "sv");
         if (r < 0)
-                return r;
+                return bus_log_create_error(r);
 
         r = sd_bus_message_append(m, "s", "ExecStart");
         if (r < 0)
-                return r;
+                return bus_log_create_error(r);
 
         r = sd_bus_message_open_container(m, 'v', "a(sasb)");
         if (r < 0)
-                return r;
+                return bus_log_create_error(r);
 
         r = sd_bus_message_open_container(m, 'a', "(sasb)");
         if (r < 0)
-                return r;
+                return bus_log_create_error(r);
 
         r = sd_bus_message_open_container(m, 'r', "sasb");
         if (r < 0)
-                return r;
+                return bus_log_create_error(r);
 
         r = sd_bus_message_append(m, "s", argv[0]);
         if (r < 0)
-                return r;
+                return bus_log_create_error(r);
 
         r = sd_bus_message_append_strv(m, argv);
         if (r < 0)
-                return r;
+                return bus_log_create_error(r);
 
         r = sd_bus_message_append(m, "b", false);
         if (r < 0)
-                return r;
+                return bus_log_create_error(r);
 
         r = sd_bus_message_close_container(m);
         if (r < 0)
-                return r;
+                return bus_log_create_error(r);
 
         r = sd_bus_message_close_container(m);
         if (r < 0)
-                return r;
+                return bus_log_create_error(r);
 
         r = sd_bus_message_close_container(m);
         if (r < 0)
-                return r;
+                return bus_log_create_error(r);
 
         r = sd_bus_message_close_container(m);
         if (r < 0)
-                return r;
+                return bus_log_create_error(r);
 
-        return message_start_transient_unit_send(bus, m, error, NULL);
+        r = message_start_transient_unit_send(bus, m, error, NULL);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        log_info("Running as unit %s.", name);
+
+        return 0;
 }
 
 static int start_transient_scope(
@@ -472,19 +476,19 @@ static int start_transient_scope(
         else
                 asprintf(&name, "run-%lu.scope", (unsigned long) getpid());
         if (!name)
-                return -ENOMEM;
+                return log_oom();
 
         r = message_start_transient_unit_new(bus, name, &m);
         if (r < 0)
-                return r;
+                return bus_log_create_error(r);
 
         r = sd_bus_message_append(m, "(sv)", "PIDs", "au", 1, (uint32_t) getpid());
         if (r < 0)
-                return r;
+                return bus_log_create_error(r);
 
         r = message_start_transient_unit_send(bus, m, error, NULL);
         if (r < 0)
-                return r;
+                return bus_log_create_error(r);
 
         if (arg_nice_set) {
                 if (setpriority(PRIO_PROCESS, 0, arg_nice) < 0) {
@@ -552,6 +556,8 @@ static int start_transient_scope(
         if (!env)
                 return log_oom();
 
+        log_info("Running as unit %s.", name);
+
         execvpe(argv[0], argv, env);
         log_error("Failed to execute: %m");
         return -errno;
@@ -597,8 +603,6 @@ int main(int argc, char* argv[]) {
                 r = start_transient_scope(bus, argv + optind, &error);
         else
                 r = start_transient_service(bus, argv + optind, &error);
-        if (r < 0)
-                log_error("Failed start transient unit: %s", bus_error_message(&error, r));
 
 finish:
         strv_free(arg_environment);
