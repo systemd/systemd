@@ -37,7 +37,7 @@ static const char *arg_description = NULL;
 static const char *arg_slice = NULL;
 static bool arg_send_sighup = false;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
-static char *arg_host = NULL;
+static const char *arg_host = NULL;
 static bool arg_user = false;
 static const char *arg_service_type = NULL;
 static const char *arg_exec_user = NULL;
@@ -186,7 +186,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_NICE:
                         r = safe_atoi(optarg, &arg_nice);
-                        if (r < 0) {
+                        if (r < 0 || arg_nice < PRIO_MIN || arg_nice >= PRIO_MAX) {
                                 log_error("Failed to parse nice value");
                                 return -EINVAL;
                         }
