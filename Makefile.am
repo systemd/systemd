@@ -792,7 +792,10 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/condition-util.c \
 	src/shared/condition-util.h \
 	src/shared/bus-label.c \
-	src/shared/bus-label.h
+	src/shared/bus-label.h \
+	src/shared/gpt.h \
+	src/shared/generator.h \
+	src/shared/generator.c
 
 nodist_libsystemd_shared_la_SOURCES = \
 	src/shared/errno-from-name.h \

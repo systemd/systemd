@@ -33,9 +33,10 @@
 #include "special.h"
 #include "mkdir.h"
 #include "fileio.h"
+#include "generator.h"
 
 static const char *arg_dest = "/tmp";
-static bool arg_enabled = true;
+static bool arg_fstab_enabled = true;
 
 static int mount_find_pri(struct mntent *me, int *ret) {
         char *end, *pri;
@@ -146,57 +147,6 @@ static bool mount_in_initrd(struct mntent *me) {
                 streq(me->mnt_dir, "/usr");
 }
 
-static int add_fsck(FILE *f, const char *what, const char *where, const char *type, int passno) {
-        assert(f);
-
-        if (passno == 0)
-                return 0;
-
-        if (!is_device_path(what)) {
-                log_warning("Checking was requested for \"%s\", but it is not a device.", what);
-                return 0;
-        }
-
-        if (type && !streq(type, "auto")) {
-                int r;
-                const char *checker;
-
-                checker = strappenda("/sbin/fsck.", type);
-                r = access(checker, X_OK);
-                if (r < 0) {
-                        log_warning("Checking was requested for %s, but %s cannot be used: %m", what, checker);
-
-                        /* treat missing check as essentially OK */
-                        return errno == ENOENT ? 0 : -errno;
-                }
-        }
-
-        if (streq(where, "/")) {
-                char *lnk;
-
-                lnk = strappenda(arg_dest, "/" SPECIAL_LOCAL_FS_TARGET ".wants/systemd-fsck-root.service");
-                mkdir_parents_label(lnk, 0755);
-                if (symlink(SYSTEM_DATA_UNIT_PATH "/systemd-fsck-root.service", lnk) < 0) {
-                        log_error("Failed to create symlink %s: %m", lnk);
-                        return -errno;
-                }
-        } else {
-                _cleanup_free_ char *fsck = NULL;
-
-                fsck = unit_name_from_path_instance("systemd-fsck", what, ".service");
-                if (!fsck)
-                        return log_oom();
-
-                fprintf(f,
-                        "RequiresOverridable=%s\n"
-                        "After=%s\n",
-                        fsck,
-                        fsck);
-        }
-
-        return 0;
-}
-
 static int add_mount(
                 const char *what,
                 const char *where,
@@ -208,6 +158,7 @@ static int add_mount(
                 bool automount,
                 const char *post,
                 const char *source) {
+
         _cleanup_free_ char
                 *name = NULL, *unit = NULL, *lnk = NULL,
                 *automount_name = NULL, *automount_unit = NULL;
@@ -231,6 +182,12 @@ static int add_mount(
         if (mount_point_is_api(where) ||
             mount_point_ignore(where))
                 return 0;
+
+        if (path_equal(where, "/")) {
+                automount = false;
+                noauto = false;
+                nofail = false;
+        }
 
         name = unit_name_from_path(where, ".mount");
         if (!name)
@@ -260,9 +217,11 @@ static int add_mount(
                         "Before=%s\n",
                         post);
 
-        r = add_fsck(f, what, where, type, passno);
-        if (r < 0)
-                return r;
+        if (passno != 0) {
+                r = generator_write_fsck_deps(f, arg_dest, what, where, type);
+                if (r < 0)
+                        return r;
+        }
 
         fprintf(f,
                 "\n"
@@ -274,8 +233,7 @@ static int add_mount(
                 where,
                 type);
 
-        if (!isempty(opts) &&
-            !streq(opts, "defaults"))
+        if (!isempty(opts) && !streq(opts, "defaults"))
                 fprintf(f,
                         "Options=%s\n",
                         opts);
@@ -300,7 +258,7 @@ static int add_mount(
                 }
         }
 
-        if (automount && !path_equal(where, "/")) {
+        if (automount) {
                 automount_name = unit_name_from_path(where, ".automount");
                 if (!automount_name)
                         return log_oom();
@@ -324,7 +282,7 @@ static int add_mount(
 
                 if (post)
                         fprintf(f,
-                                "Before= %s\n",
+                                "Before=%s\n",
                                 post);
 
                 fprintf(f,
@@ -353,19 +311,19 @@ static int add_mount(
         return 0;
 }
 
-static int parse_fstab(const char *prefix, bool initrd) {
-        char *fstab_path;
+static int parse_fstab(bool initrd) {
         _cleanup_endmntent_ FILE *f;
-        int r = 0;
+        const char *fstab_path;
         struct mntent *me;
+        int r = 0;
 
-        fstab_path = strappenda(strempty(prefix), "/etc/fstab");
-        f = setmntent(fstab_path, "r");
+        fstab_path = initrd ? "/sysroot/etc/fstab" : "/etc/fstab";
+        f = setmntent(fstab_path, "re");
         if (!f) {
                 if (errno == ENOENT)
                         return 0;
 
-                log_error("Failed to open %s/etc/fstab: %m", strempty(prefix));
+                log_error("Failed to open %s: %m", fstab_path);
                 return -errno;
         }
 
@@ -377,8 +335,11 @@ static int parse_fstab(const char *prefix, bool initrd) {
                         continue;
 
                 what = fstab_node_to_udev_node(me->mnt_fsname);
-                where = strjoin(strempty(prefix), me->mnt_dir, NULL);
-                if (!what || !where)
+                if (!what)
+                        return log_oom();
+
+                where = initrd ? strappend("/sysroot/", me->mnt_dir) : strdup(me->mnt_dir);
+                if (!where)
                         return log_oom();
 
                 if (is_path(where))
@@ -398,15 +359,14 @@ static int parse_fstab(const char *prefix, bool initrd) {
                                   hasmntopt(me, "comment=systemd.automount") ||
                                   hasmntopt(me, "x-systemd.automount");
 
-                        if (initrd) {
+                        if (initrd)
                                 post = SPECIAL_INITRD_FS_TARGET;
-                        } else if (mount_in_initrd(me)) {
+                        else if (mount_in_initrd(me))
                                 post = SPECIAL_INITRD_ROOT_FS_TARGET;
-                        } else if (mount_is_network(me)) {
+                        else if (mount_is_network(me))
                                 post = SPECIAL_REMOTE_FS_TARGET;
-                        } else {
+                        else
                                 post = SPECIAL_LOCAL_FS_TARGET;
-                        }
 
                         k = add_mount(what, where, me->mnt_type, me->mnt_opts,
                                       me->mnt_passno, noauto, nofail, automount,
@@ -505,11 +465,12 @@ static int parse_proc_cmdline_word(const char *word) {
         int r;
 
         if (startswith(word, "fstab=")) {
+
                 r = parse_boolean(word + 6);
                 if (r < 0)
                         log_warning("Failed to parse fstab switch %s. Ignoring.", word + 6);
                 else
-                        arg_enabled = r;
+                        arg_fstab_enabled = r;
 
         } else if (startswith(word, "rd.fstab=")) {
 
@@ -518,7 +479,7 @@ static int parse_proc_cmdline_word(const char *word) {
                         if (r < 0)
                                 log_warning("Failed to parse fstab switch %s. Ignoring.", word + 9);
                         else
-                                arg_enabled = r;
+                                arg_fstab_enabled = r;
                 }
 
         } else if (startswith(word, "fstab.") ||
@@ -531,7 +492,7 @@ static int parse_proc_cmdline_word(const char *word) {
 }
 
 int main(int argc, char *argv[]) {
-        int r = 0, k, l = 0;
+        int r = 0;
 
         if (argc > 1 && argc != 4) {
                 log_error("This program takes three or no arguments.");
@@ -550,16 +511,26 @@ int main(int argc, char *argv[]) {
         if (parse_proc_cmdline(parse_proc_cmdline_word) < 0)
                 return EXIT_FAILURE;
 
+        /* Always honour root= in the kernel command line if we are in an initrd */
         if (in_initrd())
                 r = parse_new_root_from_proc_cmdline();
 
-        if (!arg_enabled)
-                return (r < 0) ? EXIT_FAILURE : EXIT_SUCCESS;
+        /* Honour /etc/fstab only when that's enabled */
+        if (arg_fstab_enabled) {
+                int k;
 
-        k = parse_fstab(NULL, false);
+                /* Parse the local /etc/fstab, possibly from the initrd */
+                k = parse_fstab(false);
+                if (k < 0)
+                        r = k;
 
-        if (in_initrd())
-                l = parse_fstab("/sysroot", true);
+                /* If running in the initrd also parse the /etc/fstab from the host */
+                if (in_initrd()) {
+                        k = parse_fstab(true);
+                        if (k < 0)
+                                r = k;
+                }
+        }
 
-        return (r < 0) || (k < 0) || (l < 0) ? EXIT_FAILURE : EXIT_SUCCESS;
+        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
