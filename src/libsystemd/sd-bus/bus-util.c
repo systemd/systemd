@@ -1252,7 +1252,9 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
         if (r < 0)
                 return bus_log_create_error(r);
 
-        if (STR_IN_SET(field, "CPUAccounting", "MemoryAccounting", "BlockIOAccounting")) {
+        if (STR_IN_SET(field,
+                       "CPUAccounting", "MemoryAccounting", "BlockIOAccounting",
+                       "SendSIGHUP", "SendSIGKILL")) {
 
                 r = parse_boolean(eq);
                 if (r < 0) {
@@ -1284,7 +1286,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
 
                 r = sd_bus_message_append(m, "v", "t", u);
 
-        } else if (streq(field, "DevicePolicy"))
+        } else if (STR_IN_SET(field, "User", "Group", "DevicePolicy", "KillMode"))
                 r = sd_bus_message_append(m, "v", "s", eq);
 
         else if (streq(field, "DeviceAllow")) {
@@ -1386,6 +1388,32 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 }
 
                 r = sd_bus_message_append(m, "v", "t", rl);
+
+        } else if (streq(field, "Nice")) {
+                int32_t i;
+
+                r = safe_atoi32(eq, &i);
+                if (r < 0) {
+                        log_error("Failed to parse %s value %s.", field, eq);
+                        return -EINVAL;
+                }
+
+                r = sd_bus_message_append(m, "v", "i", i);
+
+        } else if (streq(field, "Environment")) {
+
+                r = sd_bus_message_append(m, "v", "as", 1, eq);
+
+        } else if (streq(field, "KillSignal")) {
+                int sig;
+
+                sig = signal_from_string_try_harder(eq);
+                if (sig < 0) {
+                        log_error("Failed to parse %s value %s.", field, eq);
+                        return -EINVAL;
+                }
+
+                r = sd_bus_message_append(m, "v", "i", sig);
 
         } else {
                 log_error("Unknown assignment %s.", assignment);
