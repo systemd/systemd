@@ -72,21 +72,26 @@ static void start_target(const char *target) {
                 log_error("Failed to start unit: %s", bus_error_message(&error, -r));
 }
 
-static int parse_proc_cmdline_word(const char *w) {
-        if (streq(w, "fsck.mode=auto"))
-                arg_force = arg_skip = false;
-        else if (streq(w, "fsck.mode=force"))
-                arg_force = true;
-        else if (streq(w, "fsck.mode=skip"))
-                arg_skip = true;
-        else if (startswith(w, "fsck"))
+static int parse_proc_cmdline_item(const char *key, const char *value) {
+
+        if (streq(key, "fsck.mode") && value) {
+
+                if (streq(value, "auto"))
+                        arg_force = arg_skip = false;
+                else if (streq(value, "force"))
+                        arg_force = true;
+                else if (streq(value, "skip"))
+                        arg_skip = true;
+                else
+                        log_warning("Invalid fsck.mode= parameter. Ignoring.");
+        } else if (startswith(key, "fsck."))
                 log_warning("Invalid fsck parameter. Ignoring.");
 #ifdef HAVE_SYSV_COMPAT
-        else if (streq(w, "fastboot")) {
-                log_error("Please pass 'fsck.mode=skip' rather than 'fastboot' on the kernel command line.");
+        else if (streq(key, "fastboot") && !value) {
+                log_warning("Please pass 'fsck.mode=skip' rather than 'fastboot' on the kernel command line.");
                 arg_skip = true;
-        } else if (streq(w, "forcefsck")) {
-                log_error("Please pass 'fsck.mode=force' rather than 'forcefsck' on the kernel command line.");
+        } else if (streq(key, "forcefsck") && !value) {
+                log_warning("Please pass 'fsck.mode=force' rather than 'forcefsck' on the kernel command line.");
                 arg_force = true;
         }
 #endif
@@ -215,7 +220,7 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        parse_proc_cmdline(parse_proc_cmdline_word);
+        parse_proc_cmdline(parse_proc_cmdline_item);
         test_files();
 
         if (!arg_force && arg_skip)

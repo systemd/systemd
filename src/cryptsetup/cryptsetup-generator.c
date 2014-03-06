@@ -255,85 +255,44 @@ static int create_disk(
         return 0;
 }
 
-static int parse_proc_cmdline_word(const char *word) {
+static int parse_proc_cmdline_item(const char *key, const char *value) {
         int r;
 
-        if (startswith(word, "luks=")) {
-                r = parse_boolean(word + 5);
+        if (STR_IN_SET(key, "luks", "rd.luks") && value) {
+
+                r = parse_boolean(value);
                 if (r < 0)
-                        log_warning("Failed to parse luks switch %s. Ignoring.", word + 5);
+                        log_warning("Failed to parse luks switch %s. Ignoring.", value);
                 else
                         arg_enabled = r;
 
-        } else if (startswith(word, "rd.luks=")) {
+        } else if (STR_IN_SET(key, "luks.crypttab", "rd.luks.crypttab") && value) {
 
-                if (in_initrd()) {
-                        r = parse_boolean(word + 8);
-                        if (r < 0)
-                                log_warning("Failed to parse luks switch %s. Ignoring.", word + 8);
-                        else
-                                arg_enabled = r;
-                }
-
-        } else if (startswith(word, "luks.crypttab=")) {
-                r = parse_boolean(word + 14);
+                r = parse_boolean(value);
                 if (r < 0)
-                        log_warning("Failed to parse luks crypttab switch %s. Ignoring.", word + 14);
+                        log_warning("Failed to parse luks crypttab switch %s. Ignoring.", value);
                 else
                         arg_read_crypttab = r;
 
-        } else if (startswith(word, "rd.luks.crypttab=")) {
+        } else if (STR_IN_SET(key, "luks.uuid", "rd.luks.uuid") && value) {
 
-                if (in_initrd()) {
-                        r = parse_boolean(word + 17);
-                        if (r < 0)
-                                log_warning("Failed to parse luks crypttab switch %s. Ignoring.", word + 17);
-                        else
-                                arg_read_crypttab = r;
-                }
-
-        } else if (startswith(word, "luks.uuid=")) {
-                if (strv_extend(&arg_disks, word + 10) < 0)
+                if (strv_extend(&arg_disks, value) < 0)
                         return log_oom();
 
-        } else if (startswith(word, "rd.luks.uuid=")) {
+        } else if (STR_IN_SET(key, "luks.options", "rd.luks.options") && value) {
 
-                if (in_initrd()) {
-                        if (strv_extend(&arg_disks, word + 13) < 0)
-                                return log_oom();
-                }
-
-        } else if (startswith(word, "luks.options=")) {
-                if (strv_extend(&arg_options, word + 13) < 0)
+                if (strv_extend(&arg_options, value) < 0)
                         return log_oom();
 
-        } else if (startswith(word, "rd.luks.options=")) {
+        } else if (STR_IN_SET(key, "luks.key", "rd.luks.key") && value) {
 
-                if (in_initrd()) {
-                        if (strv_extend(&arg_options, word + 16) < 0)
-                                return log_oom();
-                }
-
-        } else if (startswith(word, "luks.key=")) {
                 free(arg_keyfile);
-                arg_keyfile = strdup(word + 9);
+                arg_keyfile = strdup(key);
                 if (!arg_keyfile)
                         return log_oom();
 
-        } else if (startswith(word, "rd.luks.key=")) {
-
-                if (in_initrd()) {
-                        free(arg_keyfile);
-                        arg_keyfile = strdup(word + 12);
-                        if (!arg_keyfile)
-                                return log_oom();
-                }
-
-        } else if (startswith(word, "luks.") ||
-                   (in_initrd() && startswith(word, "rd.luks."))) {
-
-                log_warning("Unknown kernel switch %s. Ignoring.", word);
-        }
+        } else if (startswith(key, "luks.") || startswith(key, "rd.luks."))
+                log_warning("Unknown kernel switch %s. Ignoring.", key);
 
         return 0;
 }
@@ -359,7 +318,7 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        if (parse_proc_cmdline(parse_proc_cmdline_word) < 0)
+        if (parse_proc_cmdline(parse_proc_cmdline_item) < 0)
                 goto cleanup;
 
         if (!arg_enabled) {

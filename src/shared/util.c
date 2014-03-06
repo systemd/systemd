@@ -5944,7 +5944,7 @@ int split_pair(const char *s, const char *sep, char **l, char **r) {
 }
 
 int shall_restore_state(void) {
-        _cleanup_free_ char *line;
+        _cleanup_free_ char *line = NULL;
         char *w, *state;
         size_t l;
         int r;
@@ -5955,11 +5955,26 @@ int shall_restore_state(void) {
         if (r == 0) /* Container ... */
                 return 1;
 
-        FOREACH_WORD_QUOTED(w, l, line, state)
-                if (l == 23 && strneq(w, "systemd.restore_state=0", 23))
-                        return 0;
+        r = 1;
 
-        return 1;
+        FOREACH_WORD_QUOTED(w, l, line, state) {
+                const char *e;
+                char n[l+1];
+                int k;
+
+                memcpy(n, w, l);
+                n[l] = 0;
+
+                e = startswith(n, "systemd.restore_state=");
+                if (!e)
+                        continue;
+
+                k = parse_boolean(e);
+                if (k >= 0)
+                        r = k;
+        }
+
+        return r;
 }
 
 int proc_cmdline(char **ret) {
@@ -5977,7 +5992,7 @@ int proc_cmdline(char **ret) {
                         if (*p == 0)
                                 *p = ' ';
 
-                *p  = 0;
+                *p = 0;
                 *ret = buf;
                 return 1;
         }
@@ -5989,11 +6004,13 @@ int proc_cmdline(char **ret) {
         return 1;
 }
 
-int parse_proc_cmdline(int (*parse_word)(const char *word)) {
+int parse_proc_cmdline(int (*parse_item)(const char *key, const char *value)) {
         _cleanup_free_ char *line = NULL;
         char *w, *state;
         size_t l;
         int r;
+
+        assert(parse_item);
 
         r = proc_cmdline(&line);
         if (r < 0)
@@ -6002,17 +6019,23 @@ int parse_proc_cmdline(int (*parse_word)(const char *word)) {
                 return 0;
 
         FOREACH_WORD_QUOTED(w, l, line, state) {
-                _cleanup_free_ char *word;
+                char word[l+1], *value;
 
-                word = strndup(w, l);
-                if (!word)
-                        return log_oom();
+                memcpy(word, w, l);
+                word[l] = 0;
 
-                r = parse_word(word);
-                if (r < 0) {
-                        log_error("Failed on cmdline argument %s: %s", word, strerror(-r));
+                /* Filter out arguments that are intended only for the
+                 * initrd */
+                if (!in_initrd() && startswith(word, "rd."))
+                        continue;
+
+                value = strchr(word, '=');
+                if (value)
+                        *(value++) = 0;
+
+                r = parse_item(word, value);
+                if (r < 0)
                         return r;
-                }
         }
 
         return 0;

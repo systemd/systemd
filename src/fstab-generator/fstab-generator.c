@@ -34,6 +34,7 @@
 #include "mkdir.h"
 #include "fileio.h"
 #include "generator.h"
+#include "strv.h"
 
 static const char *arg_dest = "/tmp";
 static bool arg_fstab_enabled = true;
@@ -461,32 +462,19 @@ static int parse_new_root_from_proc_cmdline(void) {
         return (r < 0) ? r : 0;
 }
 
-static int parse_proc_cmdline_word(const char *word) {
+static int parse_proc_cmdline_item(const char *key, const char *value) {
         int r;
 
-        if (startswith(word, "fstab=")) {
+        if (STR_IN_SET(key, "fstab", "rd.fstab") && value) {
 
-                r = parse_boolean(word + 6);
+                r = parse_boolean(value);
                 if (r < 0)
-                        log_warning("Failed to parse fstab switch %s. Ignoring.", word + 6);
+                        log_warning("Failed to parse fstab switch %s. Ignoring.", value);
                 else
                         arg_fstab_enabled = r;
 
-        } else if (startswith(word, "rd.fstab=")) {
-
-                if (in_initrd()) {
-                        r = parse_boolean(word + 9);
-                        if (r < 0)
-                                log_warning("Failed to parse fstab switch %s. Ignoring.", word + 9);
-                        else
-                                arg_fstab_enabled = r;
-                }
-
-        } else if (startswith(word, "fstab.") ||
-                   (in_initrd() && startswith(word, "rd.fstab."))) {
-
-                log_warning("Unknown kernel switch %s. Ignoring.", word);
-        }
+        } else if (startswith(key, "fstab.") || startswith(key, "rd.fstab."))
+                log_warning("Unknown kernel switch %s. Ignoring.", key);
 
         return 0;
 }
@@ -508,7 +496,7 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        if (parse_proc_cmdline(parse_proc_cmdline_word) < 0)
+        if (parse_proc_cmdline(parse_proc_cmdline_item) < 0)
                 return EXIT_FAILURE;
 
         /* Always honour root= in the kernel command line if we are in an initrd */

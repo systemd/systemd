@@ -259,7 +259,7 @@ static int set_default_unit(const char *u) {
         return 0;
 }
 
-static int parse_proc_cmdline_word(const char *word) {
+static int parse_proc_cmdline_item(const char *key, const char *value) {
 
         static const char * const rlmap[] = {
                 "emergency", SPECIAL_EMERGENCY_TARGET,
@@ -274,125 +274,119 @@ static int parse_proc_cmdline_word(const char *word) {
                 "4",         SPECIAL_RUNLEVEL4_TARGET,
                 "5",         SPECIAL_RUNLEVEL5_TARGET,
         };
+        int r;
 
-        assert(word);
+        assert(key);
 
-        if (startswith(word, "systemd.unit=")) {
+        if (streq(key, "systemd.unit") && value) {
 
                 if (!in_initrd())
-                        return set_default_unit(word + 13);
+                        return set_default_unit(value);
 
-        } else if (startswith(word, "rd.systemd.unit=")) {
+        } else if (streq(key, "rd.systemd.unit") && value) {
 
-                if (in_initrd())
-                        return set_default_unit(word + 16);
+                return set_default_unit(value);
 
-        } else if (startswith(word, "systemd.log_target=")) {
+        } else if (streq(key, "systemd.log_target") && value) {
 
-                if (log_set_target_from_string(word + 19) < 0)
-                        log_warning("Failed to parse log target %s. Ignoring.", word + 19);
+                if (log_set_target_from_string(value) < 0)
+                        log_warning("Failed to parse log target %s. Ignoring.", value);
 
-        } else if (startswith(word, "systemd.log_level=")) {
+        } else if (streq(key, "systemd.log_level") && value) {
 
-                if (log_set_max_level_from_string(word + 18) < 0)
-                        log_warning("Failed to parse log level %s. Ignoring.", word + 18);
+                if (log_set_max_level_from_string(value) < 0)
+                        log_warning("Failed to parse log level %s. Ignoring.", value);
 
-        } else if (startswith(word, "systemd.log_color=")) {
+        } else if (streq(key, "systemd.log_color") && value) {
 
-                if (log_show_color_from_string(word + 18) < 0)
-                        log_warning("Failed to parse log color setting %s. Ignoring.", word + 18);
+                if (log_show_color_from_string(value) < 0)
+                        log_warning("Failed to parse log color setting %s. Ignoring.", value);
 
-        } else if (startswith(word, "systemd.log_location=")) {
+        } else if (streq(key, "systemd.log_location") && value) {
 
-                if (log_show_location_from_string(word + 21) < 0)
-                        log_warning("Failed to parse log location setting %s. Ignoring.", word + 21);
+                if (log_show_location_from_string(value) < 0)
+                        log_warning("Failed to parse log location setting %s. Ignoring.", value);
 
-        } else if (startswith(word, "systemd.dump_core=")) {
-                int r;
+        } else if (streq(key, "systemd.dump_core") && value) {
 
-                r = parse_boolean(word + 18);
+                r = parse_boolean(value);
                 if (r < 0)
-                        log_warning("Failed to parse dump core switch %s. Ignoring.", word + 18);
+                        log_warning("Failed to parse dump core switch %s. Ignoring.", value);
                 else
                         arg_dump_core = r;
 
-        } else if (startswith(word, "systemd.crash_shell=")) {
-                int r;
+        } else if (streq(key, "systemd.crash_shell") && value) {
 
-                r = parse_boolean(word + 20);
+                r = parse_boolean(value);
                 if (r < 0)
-                        log_warning("Failed to parse crash shell switch %s. Ignoring.", word + 20);
+                        log_warning("Failed to parse crash shell switch %s. Ignoring.", value);
                 else
                         arg_crash_shell = r;
 
-        } else if (startswith(word, "systemd.confirm_spawn=")) {
-                int r;
+        } else if (streq(key, "systemd.crash_chvt") && value) {
 
-                r = parse_boolean(word + 22);
+                if (safe_atoi(value, &r) < 0)
+                        log_warning("Failed to parse crash chvt switch %s. Ignoring.", value);
+                else
+                        arg_crash_chvt = r;
+
+        } else if (streq(key, "systemd.confirm_spawn") && value) {
+
+                r = parse_boolean(value);
                 if (r < 0)
-                        log_warning("Failed to parse confirm spawn switch %s. Ignoring.", word + 22);
+                        log_warning("Failed to parse confirm spawn switch %s. Ignoring.", value);
                 else
                         arg_confirm_spawn = r;
 
-        } else if (startswith(word, "systemd.crash_chvt=")) {
-                int k;
+        } else if (streq(key, "systemd.show_status") && value) {
 
-                if (safe_atoi(word + 19, &k) < 0)
-                        log_warning("Failed to parse crash chvt switch %s. Ignoring.", word + 19);
-                else
-                        arg_crash_chvt = k;
-
-        } else if (startswith(word, "systemd.show_status=")) {
-                int r;
-
-                r = parse_show_status(word + 20, &arg_show_status);
+                r = parse_show_status(value, &arg_show_status);
                 if (r < 0)
-                        log_warning("Failed to parse show status switch %s. Ignoring.", word + 20);
-        } else if (startswith(word, "systemd.default_standard_output=")) {
-                int r;
+                        log_warning("Failed to parse show status switch %s. Ignoring.", value);
 
-                r = exec_output_from_string(word + 32);
+        } else if (streq(key, "systemd.default_standard_output") && value) {
+
+                r = exec_output_from_string(value);
                 if (r < 0)
-                        log_warning("Failed to parse default standard output switch %s. Ignoring.", word + 32);
+                        log_warning("Failed to parse default standard output switch %s. Ignoring.", value);
                 else
                         arg_default_std_output = r;
-        } else if (startswith(word, "systemd.default_standard_error=")) {
-                int r;
 
-                r = exec_output_from_string(word + 31);
+        } else if (streq(key, "systemd.default_standard_error") && value) {
+
+                r = exec_output_from_string(value);
                 if (r < 0)
-                        log_warning("Failed to parse default standard error switch %s. Ignoring.", word + 31);
+                        log_warning("Failed to parse default standard error switch %s. Ignoring.", value);
                 else
                         arg_default_std_error = r;
-        } else if (startswith(word, "systemd.setenv=")) {
-                const char *cenv = word + 15;
 
-                if (env_assignment_is_valid(cenv)) {
+        } else if (streq(key, "systemd.setenv") && value) {
+
+                if (env_assignment_is_valid(value)) {
                         char **env;
 
-                        env = strv_env_set(arg_default_environment, cenv);
+                        env = strv_env_set(arg_default_environment, value);
                         if (env)
                                 arg_default_environment = env;
                         else
-                                log_warning("Setting environment variable '%s' failed, ignoring: %s",
-                                            cenv, strerror(ENOMEM));
+                                log_warning("Setting environment variable '%s' failed, ignoring: %s", value, strerror(ENOMEM));
                 } else
-                        log_warning("Environment variable name '%s' is not valid. Ignoring.", cenv);
+                        log_warning("Environment variable name '%s' is not valid. Ignoring.", value);
 
-        } else if (startswith(word, "systemd.") ||
-                   (in_initrd() && startswith(word, "rd.systemd."))) {
+        } else if (!streq(key, "systemd.restore_state") &&
+                   (startswith(key, "systemd.") || startswith(key, "rd.systemd."))) {
 
                 const char *c;
 
                 /* Ignore systemd.journald.xyz and friends */
-                c = word;
+                c = key;
                 if (startswith(c, "rd."))
                         c += 3;
                 if (startswith(c, "systemd."))
                         c += 8;
                 if (c[strcspn(c, ".=")] != '.')  {
 
-                        log_warning("Unknown kernel switch %s. Ignoring.", word);
+                        log_warning("Unknown kernel switch %s. Ignoring.", key);
 
                         log_info("Supported kernel switches:\n"
                                  "systemd.unit=UNIT                        Default unit to start\n"
@@ -411,25 +405,30 @@ static int parse_proc_cmdline_word(const char *word) {
                                  "                                         Set default log output for services\n"
                                  "systemd.default_standard_error=null|tty|syslog|syslog+console|kmsg|kmsg+console|journal|journal+console\n"
                                  "                                         Set default log error output for services\n"
-                                 "systemd.setenv=ASSIGNMENT                Set an environment variable for all spawned processes\n");
+                                 "systemd.setenv=ASSIGNMENT                Set an environment variable for all spawned processes\n"
+                                 "systemd.restore_state=0|1                Restore backlight/rfkill state at boot\n");
                 }
 
-        } else if (streq(word, "quiet")) {
+        } else if (streq(key, "quiet") && !value) {
+
                 if (arg_show_status == _SHOW_STATUS_UNSET)
                         arg_show_status = SHOW_STATUS_AUTO;
-        } else if (streq(word, "debug")) {
+
+        } else if (streq(key, "debug") && !value) {
+
                 /* Log to kmsg, the journal socket will fill up before the
                  * journal is started and tools running during that time
                  * will block with every log message for for 60 seconds,
                  * before they give up. */
                 log_set_max_level(LOG_DEBUG);
                 log_set_target(detect_container(NULL) > 0 ? LOG_TARGET_CONSOLE : LOG_TARGET_KMSG);
-        } else if (!in_initrd()) {
+
+        } else if (!in_initrd() && !value) {
                 unsigned i;
 
                 /* SysV compatibility */
                 for (i = 0; i < ELEMENTSOF(rlmap); i += 2)
-                        if (streq(word, rlmap[i]))
+                        if (streq(key, rlmap[i]))
                                 return set_default_unit(rlmap[i+1]);
         }
 
@@ -1000,7 +999,18 @@ static int parse_argv(int argc, char *argv[]) {
                  * instead. */
 
                 for (a = argv; a < argv + argc; a++) {
-                        r = parse_proc_cmdline_word(*a);
+                        _cleanup_free_ char *w;
+                        char *value;
+
+                        w = strdup(*a);
+                        if (!w)
+                                return log_oom();
+
+                        value = strchr(w, '=');
+                        if (value)
+                                *(value++) = 0;
+
+                        r = parse_proc_cmdline_item(w, value);
                         if (r < 0) {
                                 log_error("Failed on cmdline argument %s: %s", *a, strerror(-r));
                                 return r;
@@ -1449,7 +1459,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
 
         if (arg_running_as == SYSTEMD_SYSTEM)
-                if (parse_proc_cmdline(parse_proc_cmdline_word) < 0)
+                if (parse_proc_cmdline(parse_proc_cmdline_item) < 0)
                         goto finish;
 
         log_parse_environment();

@@ -69,20 +69,13 @@ static int add_modules(const char *p) {
         return 0;
 }
 
-static int parse_proc_cmdline_word(const char *word) {
+static int parse_proc_cmdline_item(const char *key, const char *value) {
         int r;
 
-        if (startswith(word, "modules-load=")) {
-                r = add_modules(word + 13);
+        if (STR_IN_SET(key, "modules-load", "rd.modules-load") && value) {
+                r = add_modules(value);
                 if (r < 0)
                         return r;
-
-        } else if (startswith(word, "rd.modules-load=")) {
-                if (in_initrd()) {
-                        r = add_modules(word + 16);
-                        if (r < 0)
-                                return r;
-                }
         }
 
         return 0;
@@ -253,7 +246,7 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        if (parse_proc_cmdline(parse_proc_cmdline_word) < 0)
+        if (parse_proc_cmdline(parse_proc_cmdline_item) < 0)
                 return EXIT_FAILURE;
 
         ctx = kmod_new(NULL, NULL);
