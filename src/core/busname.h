@@ -22,6 +22,7 @@
 ***/
 
 typedef struct BusName BusName;
+typedef struct BusNamePolicy BusNamePolicy;
 
 #include "unit.h"
 
@@ -54,6 +55,36 @@ struct BusName {
         BusNameResult result;
 
         sd_event_source *event_source;
+
+        LIST_HEAD(BusNamePolicy, policy);
+};
+
+typedef enum BusNamePolicyType {
+        BUSNAME_POLICY_TYPE_USER,
+        BUSNAME_POLICY_TYPE_GROUP,
+        BUSNAME_POLICY_TYPE_WORLD,
+        _BUSNAME_POLICY_TYPE_MAX,
+        _BUSNAME_POLICY_TYPE_INVALID = -1
+} BusNamePolicyType;
+
+typedef enum BusNamePolicyAccess {
+        BUSNAME_POLICY_ACCESS_SEE,
+        BUSNAME_POLICY_ACCESS_TALK,
+        BUSNAME_POLICY_ACCESS_OWN,
+        _BUSNAME_POLICY_ACCESS_MAX,
+        _BUSNAME_POLICY_ACCESS_INVALID = -1
+} BusNamePolicyAccess;
+
+struct BusNamePolicy {
+        BusNamePolicyType type;
+        BusNamePolicyAccess access;
+
+        union {
+                uid_t uid;
+                gid_t gid;
+        };
+
+        LIST_FIELDS(BusNamePolicy, policy);
 };
 
 extern const UnitVTable busname_vtable;
@@ -63,3 +94,6 @@ BusNameState busname_state_from_string(const char *s) _pure_;
 
 const char* busname_result_to_string(BusNameResult i) _const_;
 BusNameResult busname_result_from_string(const char *s) _pure_;
+
+const char* busname_policy_access_to_string(BusNamePolicyAccess i) _const_;
+BusNamePolicyAccess busname_policy_access_from_string(const char *s) _pure_;
