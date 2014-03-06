@@ -6,7 +6,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Create static device nodes in /dev
+Description=Create Static Device Nodes in /dev
 Documentation=man:tmpfiles.d(5) man:systemd-tmpfiles(8)
 DefaultDependencies=no
 Before=sysinit.target local-fs-pre.target systemd-udevd.service
