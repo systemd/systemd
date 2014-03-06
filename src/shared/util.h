@@ -451,6 +451,8 @@ static inline const char *ansi_highlight_off(void) {
         return on_tty() ? ANSI_HIGHLIGHT_OFF : "";
 }
 
+int files_same(const char *filea, const char *fileb);
+
 int running_in_chroot(void);
 
 char *ellipsize(const char *s, size_t length, unsigned percent);

@@ -3198,19 +3198,27 @@ bool on_tty(void) {
         return cached_on_tty;
 }
 
+int files_same(const char *filea, const char *fileb) {
+        struct stat a, b;
+
+        if (stat(filea, &a) < 0)
+                return -errno;
+
+        if (stat(fileb, &b) < 0)
+                return -errno;
+
+        return a.st_dev == b.st_dev &&
+               a.st_ino == b.st_ino;
+}
+
 int running_in_chroot(void) {
-        struct stat a = {}, b = {};
+        int ret;
 
-        /* Only works as root */
-        if (stat("/proc/1/root", &a) < 0)
-                return -errno;
+        ret = files_same("/proc/1/root", "/");
+        if (ret < 0)
+                return ret;
 
-        if (stat("/", &b) < 0)
-                return -errno;
-
-        return
-                a.st_dev != b.st_dev ||
-                a.st_ino != b.st_ino;
+        return ret == 0;
 }
 
 static char *ascii_ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigned percent) {
