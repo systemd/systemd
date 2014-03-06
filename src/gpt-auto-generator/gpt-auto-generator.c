@@ -298,7 +298,8 @@ static int add_mount(const char *id, const char *what, const char *where, const 
         assert(fstype);
         assert(description);
 
-        if (dir_is_empty(where) <= 0) {
+        if (path_is_mount_point(where, true) <= 0 &&
+            dir_is_empty(where) <= 0) {
                 log_debug("%s already populated, ignoring.", where);
                 return 0;
         }

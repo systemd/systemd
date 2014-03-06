@@ -58,6 +58,7 @@ int main(int argc, char *argv[]) {
                 log_debug("In initrd, exiting.");
                 return EXIT_SUCCESS;
         }
+
         if (detect_container(NULL) > 0) {
                 log_debug("In a container, exiting.");
                 return EXIT_SUCCESS;
@@ -68,7 +69,8 @@ int main(int argc, char *argv[]) {
                 return EXIT_SUCCESS;
         }
 
-        if (dir_is_empty("/boot") <= 0) {
+        if (path_is_mount_point("/boot", true) <= 0 &&
+            dir_is_empty("/boot") <= 0) {
                 log_debug("/boot already populated, exiting.");
                 return EXIT_SUCCESS;
         }
