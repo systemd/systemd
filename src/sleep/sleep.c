@@ -25,14 +25,15 @@
 #include <string.h>
 #include <getopt.h>
 
-#include "systemd/sd-id128.h"
-#include "systemd/sd-messages.h"
+#include "sd-id128.h"
+#include "sd-messages.h"
 #include "log.h"
 #include "util.h"
 #include "strv.h"
 #include "fileio.h"
 #include "build.h"
 #include "sleep-config.h"
+#include "def.h"
 
 static char* arg_verb = NULL;
 
@@ -41,9 +42,12 @@ static int write_mode(char **modes) {
         char **mode;
 
         STRV_FOREACH(mode, modes) {
-                int k = write_string_file("/sys/power/disk", *mode);
+                int k;
+
+                k = write_string_file("/sys/power/disk", *mode);
                 if (k == 0)
                         return 0;
+
                 log_debug("Failed to write '%s' to /sys/power/disk: %s",
                           *mode, strerror(-k));
                 if (r == 0)
@@ -106,7 +110,7 @@ static int execute(char **modes, char **states) {
         arguments[1] = (char*) "pre";
         arguments[2] = arg_verb;
         arguments[3] = NULL;
-        execute_directory(SYSTEM_SLEEP_PATH, NULL, arguments);
+        execute_directory(SYSTEM_SLEEP_PATH, NULL, DEFAULT_TIMEOUT_USEC, arguments);
 
         log_struct(LOG_INFO,
                    MESSAGE_ID(SD_MESSAGE_SLEEP_START),
@@ -125,7 +129,7 @@ static int execute(char **modes, char **states) {
                    NULL);
 
         arguments[1] = (char*) "post";
-        execute_directory(SYSTEM_SLEEP_PATH, NULL, arguments);
+        execute_directory(SYSTEM_SLEEP_PATH, NULL, DEFAULT_TIMEOUT_USEC, arguments);
 
         return r;
 }

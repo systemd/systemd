@@ -3684,111 +3684,123 @@ bool dirent_is_file_with_suffix(const struct dirent *de, const char *suffix) {
         return endswith(de->d_name, suffix);
 }
 
-void execute_directory(const char *directory, DIR *d, char *argv[]) {
-        DIR *_d = NULL;
-        struct dirent *de;
-        Hashmap *pids = NULL;
+void execute_directory(const char *directory, DIR *d, usec_t timeout, char *argv[]) {
+        pid_t executor_pid;
+        int r;
 
         assert(directory);
 
-        /* Executes all binaries in a directory in parallel and
-         * waits for them to finish. */
+        /* Executes all binaries in a directory in parallel and waits
+         * for them to finish. Optionally a timeout is applied. */
 
-        if (!d) {
-                if (!(_d = opendir(directory))) {
+        executor_pid = fork();
+        if (executor_pid < 0) {
+                log_error("Failed to fork: %m");
+                return;
 
-                        if (errno == ENOENT)
-                                return;
+        } else if (executor_pid == 0) {
+                _cleanup_hashmap_free_free_ Hashmap *pids = NULL;
+                _cleanup_closedir_ DIR *_d = NULL;
+                struct dirent *de;
+                sigset_t ss;
 
-                        log_error("Failed to enumerate directory %s: %m", directory);
-                        return;
+                /* We fork this all off from a child process so that
+                 * we can somewhat cleanly make use of SIGALRM to set
+                 * a time limit */
+
+                reset_all_signal_handlers();
+
+                assert_se(sigemptyset(&ss) == 0);
+                assert_se(sigprocmask(SIG_SETMASK, &ss, NULL) == 0);
+
+                assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
+
+                if (!d) {
+                        d = _d = opendir(directory);
+                        if (!d) {
+                                if (errno == ENOENT)
+                                        _exit(EXIT_SUCCESS);
+
+                                log_error("Failed to enumerate directory %s: %m", directory);
+                                _exit(EXIT_FAILURE);
+                        }
                 }
 
-                d = _d;
-        }
-
-        if (!(pids = hashmap_new(trivial_hash_func, trivial_compare_func))) {
-                log_error("Failed to allocate set.");
-                goto finish;
-        }
-
-        while ((de = readdir(d))) {
-                char *path;
-                pid_t pid;
-                int k;
-
-                if (!dirent_is_file(de))
-                        continue;
-
-                if (asprintf(&path, "%s/%s", directory, de->d_name) < 0) {
+                pids = hashmap_new(NULL, NULL);
+                if (!pids) {
                         log_oom();
-                        continue;
-                }
-
-                if ((pid = fork()) < 0) {
-                        log_error("Failed to fork: %m");
-                        free(path);
-                        continue;
-                }
-
-                if (pid == 0) {
-                        char *_argv[2];
-                        /* Child */
-
-                        if (!argv) {
-                                _argv[0] = path;
-                                _argv[1] = NULL;
-                                argv = _argv;
-                        } else
-                                argv[0] = path;
-
-                        execv(path, argv);
-
-                        log_error("Failed to execute %s: %m", path);
                         _exit(EXIT_FAILURE);
                 }
 
-                log_debug("Spawned %s as %lu", path, (unsigned long) pid);
+                FOREACH_DIRENT(de, d, break) {
+                        _cleanup_free_ char *path = NULL;
+                        pid_t pid;
 
-                if ((k = hashmap_put(pids, UINT_TO_PTR(pid), path)) < 0) {
-                        log_error("Failed to add PID to set: %s", strerror(-k));
-                        free(path);
-                }
-        }
-
-        while (!hashmap_isempty(pids)) {
-                pid_t pid = PTR_TO_UINT(hashmap_first_key(pids));
-                siginfo_t si = {};
-                char *path;
-
-                if (waitid(P_PID, pid, &si, WEXITED) < 0) {
-
-                        if (errno == EINTR)
+                        if (!dirent_is_file(de))
                                 continue;
 
-                        log_error("waitid() failed: %m");
-                        goto finish;
+                        if (asprintf(&path, "%s/%s", directory, de->d_name) < 0) {
+                                log_oom();
+                                _exit(EXIT_FAILURE);
+                        }
+
+                        pid = fork();
+                        if (pid < 0) {
+                                log_error("Failed to fork: %m");
+                                continue;
+                        } else if (pid == 0) {
+                                char *_argv[2];
+
+                                assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
+
+                                if (!argv) {
+                                        _argv[0] = path;
+                                        _argv[1] = NULL;
+                                        argv = _argv;
+                                } else
+                                        argv[0] = path;
+
+                                execv(path, argv);
+                                log_error("Failed to execute %s: %m", path);
+                                _exit(EXIT_FAILURE);
+                        }
+
+
+                        log_debug("Spawned %s as " PID_FMT ".", path, pid);
+
+                        r = hashmap_put(pids, UINT_TO_PTR(pid), path);
+                        if (r < 0) {
+                                log_oom();
+                                _exit(EXIT_FAILURE);
+                        }
+
+                        path = NULL;
                 }
 
-                if ((path = hashmap_remove(pids, UINT_TO_PTR(si.si_pid)))) {
-                        if (!is_clean_exit(si.si_code, si.si_status, NULL)) {
-                                if (si.si_code == CLD_EXITED)
-                                        log_error("%s exited with exit status %i.", path, si.si_status);
-                                else
-                                        log_error("%s terminated by signal %s.", path, signal_to_string(si.si_status));
-                        } else
-                                log_debug("%s exited successfully.", path);
+                /* Abort execution of this process after the
+                 * timout. We simply rely on SIGALRM as default action
+                 * terminating the process, and turn on alarm(). */
 
-                        free(path);
+                if (timeout != (usec_t) -1)
+                        alarm((timeout + USEC_PER_SEC - 1) / USEC_PER_SEC);
+
+                while (!hashmap_isempty(pids)) {
+                        _cleanup_free_ char *path = NULL;
+                        pid_t pid;
+
+                        pid = PTR_TO_UINT(hashmap_first_key(pids));
+                        assert(pid > 0);
+
+                        path = hashmap_remove(pids, UINT_TO_PTR(pid));
+                        assert(path);
+
+                        wait_for_terminate_and_warn(path, pid);
                 }
+
+                _exit(EXIT_SUCCESS);
         }
 
-finish:
-        if (_d)
-                closedir(_d);
-
-        if (pids)
-                hashmap_free_free(pids);
+        wait_for_terminate_and_warn(directory, executor_pid);
 }
 
 int kill_and_sigcont(pid_t pid, int sig) {
