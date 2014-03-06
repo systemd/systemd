@@ -252,7 +252,7 @@
                                 detect service errors and problems. It
                                 is recommended to follow the exit code
                                 scheme as defined in the <ulink
-                                url="http://refspecs.freestandards.org/LSB_3.1.1/LSB-Core-generic/LSB-Core-generic/iniscrptact.html">LSB
+                                url="http://refspecs.linuxbase.org/LSB_3.1.1/LSB-Core-generic/LSB-Core-generic/iniscrptact.html">LSB
                                 recommendations for SysV init
                                 scripts</ulink>.</para></listitem>
 
@@ -395,7 +395,7 @@
                         exclusively on boot (and manually by the
                         administrator) via SysV init scripts, as
                         detailed in the <ulink
-                        url="http://refspecs.freestandards.org/LSB_3.1.1/LSB-Core-generic/LSB-Core-generic/iniscrptact.html">LSB
+                        url="http://refspecs.linuxbase.org/LSB_3.1.1/LSB-Core-generic/LSB-Core-generic/iniscrptact.html">LSB
                         Linux Standard Base Core
                         Specification</ulink>. This method of
                         activation is supported ubiquitously on Linux
