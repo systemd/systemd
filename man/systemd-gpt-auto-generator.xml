@@ -43,7 +43,7 @@
         <refnamediv>
                 <refname>systemd-gpt-auto-generator</refname>
                 <refpurpose>Generator for automatically discovering
-                and mounting <filename>/home</filename> as well as
+                and mounting <filename>/home</filename> and <filename>/srv</filename>, as well as
                 discovering and enabling swap partitions, based on GPT
                 partition type GUIDs.</refpurpose>
         </refnamediv>
@@ -56,16 +56,16 @@
                 <title>Description</title>
 
                 <para><filename>systemd-gpt-auto-generator</filename>
-                is a generator that automatically discovers
-                <filename>/home</filename> and swap partitions and
-                creates mount and swap units for them, based on the
-                the partition type GUIDs of GUID partition tables
-                (GPT). Note that this generator will execute no
-                operation on non-GPT systems, on systems where the
+                is a unit generator that automatically discovers
+                <filename>/home</filename>, <filename>/srv</filename>
+                and swap partitions and creates mount and swap units
+                for them, based on the the partition type GUIDs of
+                GUID partition tables (GPT). Note that this generator
+                has no effect on non-GPT systems, on systems where the
                 units are explicitly configured (for example, listed
                 in
-                <citerefentry><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
-                or where the mount point is non-empty.</para>
+                <citerefentry><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>),
+                or where the mount points are non-empty.</para>
 
                 <para>This generator will only look for partitions on
                 the same physical disk the root file system is stored
@@ -73,16 +73,63 @@
                 root file system is distributed on multiple disks, for
                 example via btrfs RAID.</para>
 
-                <para>This generator is useful for centralizing file
-                system configuration in the partition table and making
-                manual configuration in
-                <filename>/etc/fstab</filename> or suchlike
+                <para><filename>systemd-gpt-auto-generator</filename>
+                is useful for centralizing file system configuration
+                in the partition table and making manual configuration
+                in <filename>/etc/fstab</filename> or suchlike
                 unnecessary.</para>
 
-                <para>This generator looks for swap partitions using
-                GPT type 0657fd6d-a4ab-43c4-84e50933c84b4f4f. It looks
-                for <filename>/home</filename> partitions using GPT
-                type 933ac7e1-2eb4-4f13-b8440e14e2aef915.</para>
+                <para>This generator looks for the partitions based on
+                their partition type GUID. The following partition
+                type GUIDs are identified:</para>
+
+                <table>
+                        <title>Partition Type GUIDs</title>
+                        <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+                                <colspec colname="guid" />
+                                <colspec colname="location" />
+                                <colspec colname="explanation" />
+                                <thead>
+                                        <row>
+                                                <entry>Partition Type GUID</entry>
+                                                <entry>Location</entry>
+                                                <entry>Explanation</entry>
+                                        </row>
+                                </thead>
+                                <tbody>
+                                        <row>
+                                                <entry>0657fd6d-a4ab-43c4-84e50933c84b4f4f</entry>
+                                                <entry>Swap</entry>
+                                                <entry>All swap partitions are enabled.</entry>
+                                        </row>
+                                        <row>
+                                                <entry>933ac7e1-2eb4-4f13-b8440e14e2aef915</entry>
+                                                <entry><filename>/home</filename></entry>
+                                                <entry>The first home partition on the disk is mounted to <filename>/home</filename>.</entry>
+                                        </row>
+                                        <row>
+                                                <entry>3b8f8425-20e0-4f3b-907f1a25a76f98e8</entry>
+                                                <entry><filename>/srv</filename></entry>
+                                                <entry>The first server data partition on the disk is mounted to <filename>/srv</filename>.</entry>
+                                        </row>
+                                </tbody>
+                        </tgroup>
+                </table>
+
+                <para>The <filename>/home</filename> and
+                <filename>/srv</filename> partitions may be encrypted
+                in LUKS format. In this case a device mapper device is
+                set up under the names
+                <filename>/dev/mapper/home</filename> and
+                <filename>/dev/mapper/srv</filename>. Note that this
+                might create conflicts if the same partition is listed
+                in <filename>/etc/crypttab</filename> with a different
+                device mapper device name.</para>
+
+                <para>Also note that
+                <citerefentry><refentrytitle>systemd-efi-boot-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                will mount the EFI System Partition to
+                <filename>/boot</filename> is not otherwise mounted.</para>
 
                 <para><filename>systemd-gpt-auto-generator</filename>
                 implements the <ulink
@@ -96,7 +143,10 @@
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.swap</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd-efi-boot-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 </para>
         </refsect1>
