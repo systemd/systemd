@@ -490,7 +490,7 @@ static int session_start_scope(Session *s) {
                 if (!scope)
                         return log_oom();
 
-                r = manager_start_scope(s->manager, scope, s->leader, s->user->slice, description, "systemd-logind.service", "systemd-user-session.service", &error, &job);
+                r = manager_start_scope(s->manager, scope, s->leader, s->user->slice, description, "systemd-logind.service", "systemd-user-sessions.service", &error, &job);
                 if (r < 0) {
                         log_error("Failed to start session scope %s: %s %s",
                                   scope, bus_error_message(&error, r), error.name);
