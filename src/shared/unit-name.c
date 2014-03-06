@@ -294,7 +294,7 @@ char *unit_name_unescape(const char *f) {
 }
 
 char *unit_name_path_escape(const char *f) {
-        char *p, *e;
+        _cleanup_free_ char *p;
 
         assert(f);
 
@@ -304,15 +304,10 @@ char *unit_name_path_escape(const char *f) {
 
         path_kill_slashes(p);
 
-        if (streq(p, "/") || streq(p, "")) {
-                free(p);
+        if (streq(p, "/") || streq(p, ""))
                 return strdup("-");
-        }
 
-        e = unit_name_escape(p[0] == '/' ? p + 1 : p);
-        free(p);
-
-        return e;
+        return unit_name_escape(p[0] == '/' ? p + 1 : p);
 }
 
 char *unit_name_path_unescape(const char *f) {
@@ -410,7 +405,7 @@ char *unit_name_template(const char *f) {
 }
 
 char *unit_name_from_path(const char *path, const char *suffix) {
-        char *p, *r;
+        _cleanup_free_ char *p = NULL;
 
         assert(path);
         assert(suffix);
@@ -419,14 +414,11 @@ char *unit_name_from_path(const char *path, const char *suffix) {
         if (!p)
                 return NULL;
 
-        r = strappend(p, suffix);
-        free(p);
-
-        return r;
+        return strappend(p, suffix);
 }
 
 char *unit_name_from_path_instance(const char *prefix, const char *path, const char *suffix) {
-        char *p, *r;
+        _cleanup_free_ char *p = NULL;
 
         assert(prefix);
         assert(path);
@@ -436,10 +428,7 @@ char *unit_name_from_path_instance(const char *prefix, const char *path, const c
         if (!p)
                 return NULL;
 
-        r = strjoin(prefix, "@", p, suffix, NULL);
-        free(p);
-
-        return r;
+        return strjoin(prefix, "@", p, suffix, NULL);
 }
 
 char *unit_name_to_path(const char *name) {
