@@ -813,6 +813,19 @@ int unlink_noerrno(const char *path);
                 _c_;                                    \
         })
 
+#define strappenda3(a, b, c)                                    \
+        ({                                                      \
+                const char *_a_ = (a), *_b_ = (b), *_c_ = (c);  \
+                char *_d_;                                      \
+                size_t _x_, _y_, _z_;                           \
+                _x_ = strlen(_a_);                              \
+                _y_ = strlen(_b_);                              \
+                _z_ = strlen(_c_);                              \
+                _d_ = alloca(_x_ + _y_ + _z_ + 1);              \
+                strcpy(stpcpy(stpcpy(_d_, _a_), _b_), _c_);     \
+                _d_;                                            \
+        })
+
 #define procfs_file_alloca(pid, field)                                  \
         ({                                                              \
                 pid_t _pid_ = (pid);                                    \
