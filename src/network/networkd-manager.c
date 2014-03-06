@@ -303,7 +303,7 @@ int manager_udev_listen(Manager *m) {
 static int manager_rtnl_process_link(sd_rtnl *rtnl, sd_rtnl_message *message, void *userdata) {
         Manager *m = userdata;
         Link *link;
-        const char *name;
+        char *name;
         int r, ifindex;
 
         assert(rtnl);
@@ -316,7 +316,7 @@ static int manager_rtnl_process_link(sd_rtnl *rtnl, sd_rtnl_message *message, vo
                 return 0;
         }
 
-        r = rtnl_message_link_get_ifname(message, &name);
+        r = sd_rtnl_message_read_string(message, IFLA_IFNAME, &name);
         if (r < 0)
                 log_debug("received RTM_NEWLINK message without valid IFLA_IFNAME");
         else {

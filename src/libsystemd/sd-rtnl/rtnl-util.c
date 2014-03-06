@@ -153,19 +153,3 @@ bool rtnl_message_type_is_addr(uint16_t type) {
                         return false;
         }
 }
-
-int rtnl_message_link_get_ifname(sd_rtnl_message *message, const char **ret) {
-        unsigned short type;
-        void *name;
-
-        assert(rtnl_message_type_is_link(message->hdr->nlmsg_type));
-
-        while (sd_rtnl_message_read(message, &type, &name)) {
-                if (type == IFLA_IFNAME) {
-                        *ret = name;
-                        return 0;
-                }
-        }
-
-        return -ENOENT;
-}

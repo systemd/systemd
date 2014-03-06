@@ -37,8 +37,6 @@ bool rtnl_message_type_is_route(uint16_t type);
 int rtnl_set_link_name(sd_rtnl *rtnl, int ifindex, const char *name);
 int rtnl_set_link_properties(sd_rtnl *rtnl, int ifindex, const char *alias, const struct ether_addr *mac, unsigned mtu);
 
-int rtnl_message_link_get_ifname(sd_rtnl_message *m, const char **ret);
-
 DEFINE_TRIVIAL_CLEANUP_FUNC(sd_rtnl*, sd_rtnl_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(sd_rtnl_message*, sd_rtnl_message_unref);
 
