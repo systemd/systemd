@@ -78,8 +78,8 @@
                         in which order, and where possible problems
                         exist in the startup sequence of the system.
                         It is essentially a more detailed version of
-                        the <command>systemd-analyze</command>
-                        <command>plot</command> function.
+                        the <command>systemd-analyze plot</command>
+                        function.
                 </para>
                 <para>
                         Of course, bootchart can also be used at any
