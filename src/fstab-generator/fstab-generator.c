@@ -38,6 +38,10 @@
 
 static const char *arg_dest = "/tmp";
 static bool arg_fstab_enabled = true;
+static char *arg_root_what = NULL;
+static char *arg_root_fstype = NULL;
+static char *arg_root_options = NULL;
+static int arg_root_rw = -1;
 
 static int mount_find_pri(struct mntent *me, int *ret) {
         char *end, *pri;
@@ -152,7 +156,7 @@ static bool mount_in_initrd(struct mntent *me) {
 static int add_mount(
                 const char *what,
                 const char *where,
-                const char *type,
+                const char *fstype,
                 const char *opts,
                 int passno,
                 bool noauto,
@@ -169,11 +173,10 @@ static int add_mount(
 
         assert(what);
         assert(where);
-        assert(type);
         assert(opts);
         assert(source);
 
-        if (streq(type, "autofs"))
+        if (streq_ptr(fstype, "autofs"))
                 return 0;
 
         if (!is_path(where)) {
@@ -221,7 +224,7 @@ static int add_mount(
                         post);
 
         if (passno != 0) {
-                r = generator_write_fsck_deps(f, arg_dest, what, where, type);
+                r = generator_write_fsck_deps(f, arg_dest, what, where, fstype);
                 if (r < 0)
                         return r;
         }
@@ -230,16 +233,15 @@ static int add_mount(
                 "\n"
                 "[Mount]\n"
                 "What=%s\n"
-                "Where=%s\n"
-                "Type=%s\n",
+                "Where=%s\n",
                 what,
-                where,
-                type);
+                where);
+
+        if (!isempty(fstype) && !streq(fstype, "auto"))
+                fprintf(f, "Type=%s\n", fstype);
 
         if (!isempty(opts) && !streq(opts, "defaults"))
-                fprintf(f,
-                        "Options=%s\n",
-                        opts);
+                fprintf(f, "Options=%s\n", opts);
 
         fflush(f);
         if (ferror(f)) {
@@ -316,7 +318,7 @@ static int add_mount(
 }
 
 static int parse_fstab(bool initrd) {
-        _cleanup_endmntent_ FILE *f;
+        _cleanup_endmntent_ FILE *f = NULL;
         const char *fstab_path;
         struct mntent *me;
         int r = 0;
@@ -372,9 +374,16 @@ static int parse_fstab(bool initrd) {
                         else
                                 post = SPECIAL_LOCAL_FS_TARGET;
 
-                        k = add_mount(what, where, me->mnt_type, me->mnt_opts,
-                                      me->mnt_passno, noauto, nofail, automount,
-                                      post, fstab_path);
+                        k = add_mount(what,
+                                      where,
+                                      me->mnt_type,
+                                      me->mnt_opts,
+                                      me->mnt_passno,
+                                      noauto,
+                                      nofail,
+                                      automount,
+                                      post,
+                                      fstab_path);
                 }
 
                 if (k < 0)
@@ -384,89 +393,55 @@ static int parse_fstab(bool initrd) {
         return r;
 }
 
-static int parse_new_root_from_proc_cmdline(void) {
-        _cleanup_free_ char *what = NULL, *type = NULL, *opts = NULL, *line = NULL;
+static int add_root_mount(void) {
+        _cleanup_free_ char *o = NULL, *what = NULL;
         bool noauto, nofail;
-        char *w, *state;
-        size_t l;
-        int r;
 
-        r = proc_cmdline(&line);
-        if (r < 0)
-                log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));
-        if (r <= 0)
-                return 0;
-
-        opts = strdup("ro");
-        type = strdup("auto");
-        if (!opts || !type)
-                return log_oom();
-
-        /* root= and roofstype= may occur more than once, the last instance should take precedence.
-         * In the case of multiple rootflags= the arguments should be concatenated */
-        FOREACH_WORD_QUOTED(w, l, line, state) {
-                _cleanup_free_ char *word;
-
-                word = strndup(w, l);
-                if (!word)
-                        return log_oom();
-
-                else if (startswith(word, "root=")) {
-                        free(what);
-                        what = fstab_node_to_udev_node(word+5);
-                        if (!what)
-                                return log_oom();
-
-                } else if (startswith(word, "rootfstype=")) {
-                        free(type);
-                        type = strdup(word + 11);
-                        if (!type)
-                                return log_oom();
-
-                } else if (startswith(word, "rootflags=")) {
-                        char *o;
-
-                        o = strjoin(opts, ",", word + 10, NULL);
-                        if (!o)
-                                return log_oom();
-
-                        free(opts);
-                        opts = o;
-
-                } else if (streq(word, "ro") || streq(word, "rw")) {
-                        char *o;
-
-                        o = strjoin(opts, ",", word, NULL);
-                        if (!o)
-                                return log_oom();
-
-                        free(opts);
-                        opts = o;
-                }
-        }
-
-        noauto = !!strstr(opts, "noauto");
-        nofail = !!strstr(opts, "nofail");
-
-        if (!what) {
+        if (isempty(arg_root_what)) {
                 log_debug("Could not find a root= entry on the kernel commandline.");
                 return 0;
         }
 
-        if (what[0] != '/') {
-                log_debug("Skipping entry what=%s where=/sysroot type=%s", what, type);
+        what = fstab_node_to_udev_node(arg_root_what);
+        if (!path_is_absolute(what)) {
+                log_debug("Skipping entry what=%s where=/sysroot type=%s", what, strna(arg_root_fstype));
                 return 0;
         }
 
-        log_debug("Found entry what=%s where=/sysroot type=%s", what, type);
-        r = add_mount(what, "/sysroot", type, opts, 1, noauto, nofail, false,
-                      SPECIAL_INITRD_ROOT_FS_TARGET, "/proc/cmdline");
+        if (!arg_root_options)
+                o = strdup(arg_root_rw > 0 ? "rw" : "ro");
+        else {
+                if (arg_root_rw >= 0 ||
+                    (!mount_test_option(arg_root_options, "ro") &&
+                     !mount_test_option(arg_root_options, "rw")))
+                        o = strjoin(arg_root_options, ",", arg_root_rw > 0 ? "rw" : "ro", NULL);
+                else
+                        o = strdup(arg_root_options);
+        }
+        if (!o)
+                return log_oom();
 
-        return (r < 0) ? r : 0;
+        noauto = mount_test_option(arg_root_options, "noauto");
+        nofail = mount_test_option(arg_root_options, "nofail");
+
+        log_debug("Found entry what=%s where=/sysroot type=%s", what, strna(arg_root_fstype));
+        return add_mount(what,
+                         "/sysroot",
+                         arg_root_fstype,
+                         o,
+                         1,
+                         noauto, nofail,
+                         false,
+                         SPECIAL_INITRD_ROOT_FS_TARGET,
+                         "/proc/cmdline");
 }
 
 static int parse_proc_cmdline_item(const char *key, const char *value) {
         int r;
+
+        /* root= and roofstype= may occur more than once, the last
+         * instance should take precedence.  In the case of multiple
+         * rootflags= the arguments should be concatenated */
 
         if (STR_IN_SET(key, "fstab", "rd.fstab") && value) {
 
@@ -476,7 +451,37 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
                 else
                         arg_fstab_enabled = r;
 
-        } else if (startswith(key, "fstab.") || startswith(key, "rd.fstab."))
+        } else if (streq(key, "root") && value) {
+
+                free(arg_root_what);
+                arg_root_what = strdup(value);
+                if (!arg_root_what)
+                        return log_oom();
+
+        } else if (streq(key, "rootfstype") && value) {
+
+                free(arg_root_fstype);
+                arg_root_fstype = strdup(value);
+                if (!arg_root_fstype)
+                        return log_oom();
+
+        } else if (streq(key, "rootflags") && value) {
+                char *o;
+
+                o = arg_root_options ?
+                        strjoin(arg_root_options, ",", value, NULL) :
+                        strdup(value);
+                if (!o)
+                        return log_oom();
+
+                free(arg_root_options);
+                arg_root_options = o;
+
+        } else if (streq(key, "rw") && !value)
+                arg_root_rw = true;
+        else if (streq(key, "ro") && !value)
+                arg_root_rw = false;
+        else if (startswith(key, "fstab.") || startswith(key, "rd.fstab."))
                 log_warning("Unknown kernel switch %s. Ignoring.", key);
 
         return 0;
@@ -504,7 +509,7 @@ int main(int argc, char *argv[]) {
 
         /* Always honour root= in the kernel command line if we are in an initrd */
         if (in_initrd())
-                r = parse_new_root_from_proc_cmdline();
+                r = add_root_mount();
 
         /* Honour /etc/fstab only when that's enabled */
         if (arg_fstab_enabled) {

@@ -3519,25 +3519,21 @@ int signal_from_string_try_harder(const char *s) {
 
 static char *tag_to_udev_node(const char *tagvalue, const char *by) {
         _cleanup_free_ char *t = NULL, *u = NULL;
-        char *dn;
         size_t enc_len;
 
         u = unquote(tagvalue, "\"\'");
-        if (u == NULL)
+        if (!u)
                 return NULL;
 
         enc_len = strlen(u) * 4 + 1;
         t = new(char, enc_len);
-        if (t == NULL)
+        if (!t)
                 return NULL;
 
         if (encode_devnode_name(u, t, enc_len) < 0)
                 return NULL;
 
-        if (asprintf(&dn, "/dev/disk/by-%s/%s", by, t) < 0)
-                return NULL;
-
-        return dn;
+        return strjoin("/dev/disk/by-", by, "/", t, NULL);
 }
 
 char *fstab_node_to_udev_node(const char *p) {
@@ -6338,4 +6334,21 @@ uint64_t physical_memory(void) {
         assert(mem > 0);
 
         return (uint64_t) mem * (uint64_t) page_size();
+}
+
+char* mount_test_option(const char *haystack, const char *needle) {
+
+        struct mntent me = {
+                .mnt_opts = (char*) haystack
+        };
+
+        assert(needle);
+
+        /* Like glibc's hasmntopt(), but works on a string, not a
+         * struct mntent */
+
+        if (!haystack)
+                return NULL;
+
+        return hasmntopt(&me, needle);
 }

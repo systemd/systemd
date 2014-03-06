@@ -893,3 +893,5 @@ unsigned long personality_from_string(const char *p);
 const char *personality_to_string(unsigned long);
 
 uint64_t physical_memory(void);
+
+char* mount_test_option(const char *haystack, const char *needle);

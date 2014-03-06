@@ -62,20 +62,6 @@ static const UnitActiveState state_translation_table[_MOUNT_STATE_MAX] = {
 static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata);
 static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata);
 
-static char* mount_test_option(const char *haystack, const char *needle) {
-        struct mntent me = { .mnt_opts = (char*) haystack };
-
-        assert(needle);
-
-        /* Like glibc's hasmntopt(), but works on a string, not a
-         * struct mntent */
-
-        if (!haystack)
-                return NULL;
-
-        return hasmntopt(&me, needle);
-}
-
 static bool mount_is_network(MountParameters *p) {
         assert(p);
 

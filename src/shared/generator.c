@@ -32,20 +32,23 @@ int generator_write_fsck_deps(
                 const char *dest,
                 const char *what,
                 const char *where,
-                const char *type) {
+                const char *fstype) {
 
         assert(f);
+        assert(dest);
+        assert(what);
+        assert(where);
 
         if (!is_device_path(what)) {
                 log_warning("Checking was requested for \"%s\", but it is not a device.", what);
                 return 0;
         }
 
-        if (type && !streq(type, "auto")) {
+        if (!isempty(fstype) && !streq(fstype, "auto")) {
                 const char *checker;
                 int r;
 
-                checker = strappenda("/sbin/fsck.", type);
+                checker = strappenda("/sbin/fsck.", fstype);
                 r = access(checker, X_OK);
                 if (r < 0) {
                         log_warning("Checking was requested for %s, but %s cannot be used: %m", what, checker);
