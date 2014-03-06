@@ -1704,11 +1704,11 @@ int unit_watch_pid(Unit *u, pid_t pid) {
         /* Watch a specific PID. We only support one or two units
          * watching each PID for now, not more. */
 
-        r = hashmap_ensure_allocated(&u->manager->watch_pids1, trivial_hash_func, trivial_compare_func);
+        r = set_ensure_allocated(&u->pids, trivial_hash_func, trivial_compare_func);
         if (r < 0)
                 return r;
 
-        r = set_ensure_allocated(&u->pids, trivial_hash_func, trivial_compare_func);
+        r = hashmap_ensure_allocated(&u->manager->watch_pids1, trivial_hash_func, trivial_compare_func);
         if (r < 0)
                 return r;
 
@@ -1737,7 +1737,17 @@ void unit_unwatch_pid(Unit *u, pid_t pid) {
         set_remove(u->pids, LONG_TO_PTR(pid));
 }
 
-static int watch_pids_in_path(Unit *u, const char *path) {
+void unit_unwatch_all_pids(Unit *u) {
+        assert(u);
+
+        while (!set_isempty(u->pids))
+                unit_unwatch_pid(u, PTR_TO_LONG(set_first(u->pids)));
+
+        set_free(u->pids);
+        u->pids = NULL;
+}
+
+static int unit_watch_pids_in_path(Unit *u, const char *path) {
         _cleanup_closedir_ DIR *d = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int ret = 0, r;
@@ -1775,7 +1785,7 @@ static int watch_pids_in_path(Unit *u, const char *path) {
                         if (!p)
                                 return -ENOMEM;
 
-                        r = watch_pids_in_path(u, p);
+                        r = unit_watch_pids_in_path(u, p);
                         if (r < 0 && ret >= 0)
                                 ret = r;
                 }
@@ -1788,31 +1798,15 @@ static int watch_pids_in_path(Unit *u, const char *path) {
         return ret;
 }
 
-
 int unit_watch_all_pids(Unit *u) {
         assert(u);
+
+        /* Adds all PIDs from our cgroup to the set of PIDs we watch */
 
         if (!u->cgroup_path)
                 return -ENOENT;
 
-        /* Adds all PIDs from our cgroup to the set of PIDs we watch */
-
-        return watch_pids_in_path(u, u->cgroup_path);
-}
-
-void unit_unwatch_all_pids(Unit *u) {
-        Iterator i;
-        void *e;
-
-        assert(u);
-
-        SET_FOREACH(e, u->pids, i) {
-                hashmap_remove_value(u->manager->watch_pids1, e, u);
-                hashmap_remove_value(u->manager->watch_pids2, e, u);
-        }
-
-        set_free(u->pids);
-        u->pids = NULL;
+        return unit_watch_pids_in_path(u, u->cgroup_path);
 }
 
 void unit_tidy_watch_pids(Unit *u, pid_t except1, pid_t except2) {
@@ -1830,7 +1824,7 @@ void unit_tidy_watch_pids(Unit *u, pid_t except1, pid_t except2) {
                         continue;
 
                 if (!pid_is_unwaited(pid))
-                        set_remove(u->pids, e);
+                        unit_unwatch_pid(u, pid);
         }
 }
 
