@@ -127,7 +127,9 @@ static int create_dbus_files(
                 "Documentation=man:systemd-dbus1-generator(8)\n\n"
                 "[BusName]\n"
                 "Name=%s\n"
-                "Service=%s\n",
+                "Service=%s\n"
+                "AllowUser=root own\n"
+                "AllowWorld=talk\n",
                 path,
                 name,
                 name,
