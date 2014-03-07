@@ -43,8 +43,12 @@
 #include "generator.h"
 #include "gpt.h"
 #include "fileio.h"
+#include "efivars.h"
 
 static const char *arg_dest = "/tmp";
+static bool arg_enabled = true;
+static bool arg_root_enabled = true;
+static bool arg_root_rw = false;
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(blkid_probe, blkid_free_probe);
 #define _cleanup_blkid_freep_probe_ _cleanup_(blkid_free_probep)
@@ -287,7 +291,15 @@ static int add_cryptsetup(const char *id, const char *what, char **device) {
         return 0;
 }
 
-static int add_mount(const char *id, const char *what, const char *where, const char *fstype, const char *description) {
+static int add_mount(
+                const char *id,
+                const char *what,
+                const char *where,
+                const char *fstype,
+                const char *options,
+                const char *description,
+                const char *post) {
+
         _cleanup_free_ char *unit = NULL, *lnk = NULL, *crypto_what = NULL, *p = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
@@ -295,7 +307,6 @@ static int add_mount(const char *id, const char *what, const char *where, const 
         assert(id);
         assert(what);
         assert(where);
-        assert(fstype);
         assert(description);
 
         if (path_is_mount_point(where, true) <= 0 &&
@@ -304,9 +315,9 @@ static int add_mount(const char *id, const char *what, const char *where, const 
                 return 0;
         }
 
-        log_debug("Adding %s: %s %s", where, what, fstype);
+        log_debug("Adding %s: %s %s", where, what, strna(fstype));
 
-        if (streq(fstype, "crypto_LUKS")) {
+        if (streq_ptr(fstype, "crypto_LUKS")) {
 
                 r = add_cryptsetup(id, what, &crypto_what);
                 if (r < 0)
@@ -337,6 +348,9 @@ static int add_mount(const char *id, const char *what, const char *where, const 
                 "Documentation=man:systemd-gpt-auto-generator(8)\n",
                 description);
 
+        if (post)
+                fprintf(f, "Before=%s\n", post);
+
         r = generator_write_fsck_deps(f, arg_dest, what, where, fstype);
         if (r < 0)
                 return r;
@@ -348,26 +362,28 @@ static int add_mount(const char *id, const char *what, const char *where, const 
                 "Where=%s\n",
                 what, where);
 
-        if (fstype) {
-                fprintf(f,
-                        "Type=%s\n",
-                        fstype);
-        }
+        if (fstype)
+                fprintf(f, "Type=%s\n", fstype);
+
+        if (options)
+                fprintf(f, "Options=%s\n", options);
 
         fflush(f);
         if (ferror(f)) {
-                log_error("Failed to write unit file %s: %m", unit);
+                log_error("Failed to write unit file %s: %m", p);
                 return -errno;
         }
 
-        lnk = strjoin(arg_dest, "/" SPECIAL_LOCAL_FS_TARGET ".requires/", unit, NULL);
-        if (!lnk)
-                return log_oom();
+        if (post) {
+                lnk = strjoin(arg_dest, "/", post, ".requires/", unit, NULL);
+                if (!lnk)
+                        return log_oom();
 
-        mkdir_parents_label(lnk, 0755);
-        if (symlink(unit, lnk) < 0) {
-                log_error("Failed to create symlink %s: %m", lnk);
-                return -errno;
+                mkdir_parents_label(lnk, 0755);
+                if (symlink(p, lnk) < 0) {
+                        log_error("Failed to create symlink %s: %m", lnk);
+                        return -errno;
+                }
         }
 
         return 0;
@@ -380,7 +396,7 @@ static int enumerate_partitions(struct udev *udev, dev_t dev) {
         unsigned home_nr = (unsigned) -1, srv_nr = (unsigned )-1;
         struct udev_list_entry *first, *item;
         struct udev_device *parent = NULL;
-        int r;
+        int r, k;
 
         e = udev_enumerate_new(udev);
         if (!e)
@@ -408,6 +424,8 @@ static int enumerate_partitions(struct udev *udev, dev_t dev) {
                 return r;
         }
 
+        r = 0;
+
         first = udev_enumerate_get_list_entry(e);
         udev_list_entry_foreach(item, first) {
                 _cleanup_udev_device_unref_ struct udev_device *q;
@@ -430,21 +448,26 @@ static int enumerate_partitions(struct udev *udev, dev_t dev) {
                 if (!node)
                         return log_oom();
 
-                r = verify_gpt_partition(node, &type_id, &nr, &fstype);
-                if (r < 0) {
+                k = verify_gpt_partition(node, &type_id, &nr, &fstype);
+                if (k < 0) {
                         /* skip child devices which are not detected properly */
-                        if (r == -EBADSLT)
+                        if (k == -EBADSLT)
                                 continue;
-                        log_error("Failed to verify GPT partition %s: %s", node, strerror(-r));
-                        return r;
+
+                        log_error("Failed to verify GPT partition %s: %s", node, strerror(-k));
+                        r = k;
+                        continue;
                 }
-                if (r == 0)
+                if (k == 0)
                         continue;
 
-                if (sd_id128_equal(type_id, GPT_SWAP))
-                        add_swap(node, fstype);
+                if (sd_id128_equal(type_id, GPT_SWAP)) {
 
-                else if (sd_id128_equal(type_id, GPT_HOME)) {
+                        k = add_swap(node, fstype);
+                        if (k < 0)
+                                r = k;
+
+                } else if (sd_id128_equal(type_id, GPT_HOME)) {
 
                         /* We only care for the first /home partition */
                         if (home && nr >= home_nr)
@@ -480,11 +503,17 @@ static int enumerate_partitions(struct udev *udev, dev_t dev) {
                 }
         }
 
-        if (home && home_fstype)
-                add_mount("home", home, "/home", home_fstype, "Home Partition");
+        if (home && home_fstype) {
+                k = add_mount("home", home, "/home", home_fstype, NULL, "Home Partition", SPECIAL_LOCAL_FS_TARGET);
+                if (k < 0)
+                        r = k;
+        }
 
-        if (srv && srv_fstype)
-                add_mount("srv", srv, "/srv", srv_fstype, "Server Data Partition");
+        if (srv && srv_fstype) {
+                k = add_mount("srv", srv, "/srv", srv_fstype, NULL, "Server Data Partition", SPECIAL_LOCAL_FS_TARGET);
+                if (k < 0)
+                        r = k;
+        }
 
         return r;
 }
@@ -582,10 +611,113 @@ static int devno_to_devnode(struct udev *udev, dev_t devno, char **ret) {
         return 0;
 }
 
-int main(int argc, char *argv[]) {
+static int parse_proc_cmdline_item(const char *key, const char *value) {
+        int r;
+
+        assert(key);
+
+        if (STR_IN_SET(key, "systemd.gpt_auto", "rd.systemd.gpt_auto") && value) {
+
+                r = parse_boolean(value);
+                if (r < 0)
+                        log_warning("Failed to parse gpt-auto switch %s. Ignoring.", value);
+
+                arg_enabled = r;
+
+        } else if (streq(key, "root") && value) {
+
+                /* Disable root disk logic if there's a root= value
+                 * specified (unless it happens to be "gpt-auto") */
+
+                arg_root_enabled = streq(value, "gpt-auto");
+
+        } else if (streq(key, "rw") && !value)
+                arg_root_rw = true;
+        else if (streq(key, "ro") && !value)
+                arg_root_rw = false;
+        else if (startswith(key, "systemd.gpt-auto.") || startswith(key, "rd.systemd.gpt-auto."))
+                log_warning("Unknown kernel switch %s. Ignoring.", key);
+
+        return 0;
+}
+
+static int add_root_mount(void) {
+
+#ifdef ENABLE_EFI
+        int r;
+
+        if (!is_efi_boot()) {
+                log_debug("Not a EFI boot, not creating root mount.");
+                return 0;
+        }
+
+        r = efi_loader_get_device_part_uuid(NULL);
+        if (r == -ENOENT) {
+                log_debug("EFI loader partition unknown, exiting.");
+                return 0;
+        } else if (r < 0) {
+                log_error("Failed to read ESP partition UUID: %s", strerror(-r));
+                return r;
+        }
+
+        /* OK, we have an ESP partition, this is fantastic, so let's
+         * wait for a root device to show up. A udev rule will create
+         * the link for us under the right name. */
+
+        return add_mount(
+                        "root",
+                        "/dev/disk/by-id/gpt-auto-root",
+                        in_initrd() ? "/sysroot" : "/",
+                        NULL,
+                        arg_root_rw ? "rw" : "ro",
+                        "Root Partition",
+                        in_initrd() ? SPECIAL_INITRD_ROOT_FS_TARGET : SPECIAL_LOCAL_FS_TARGET);
+#else
+        return 0;
+#endif
+}
+
+static int add_mounts(void) {
         _cleanup_udev_unref_ struct udev *udev = NULL;
         _cleanup_free_ char *node = NULL;
         dev_t devno;
+        int r;
+
+        r = get_block_device("/", &devno);
+        if (r < 0) {
+                log_error("Failed to determine block device of root file system: %s", strerror(-r));
+                return r;
+        } else if (r == 0) {
+                log_debug("Root file system not on a (single) block device.");
+                return 0;
+        }
+
+        udev = udev_new();
+        if (!udev)
+                return log_oom();
+
+        r = devno_to_devnode(udev, devno, &node);
+        if (r < 0) {
+                log_error("Failed to determine block device node from major/minor: %s", strerror(-r));
+                return r;
+        }
+
+        log_debug("Root device %s.", node);
+
+        r = verify_gpt_partition(node, NULL, NULL, NULL);
+        if (r < 0) {
+                log_error("Failed to verify GPT partition %s: %s", node, strerror(-r));
+                return r;
+        }
+        if (r == 0) {
+                log_debug("Not a GPT disk, exiting.");
+                return 0;
+        }
+
+        return enumerate_partitions(udev, devno);
+}
+
+int main(int argc, char *argv[]) {
         int r = 0;
 
         if (argc > 1 && argc != 4) {
@@ -602,52 +734,29 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        if (in_initrd()) {
-                log_debug("In initrd, exiting.");
-                return EXIT_SUCCESS;
-        }
-
         if (detect_container(NULL) > 0) {
                 log_debug("In a container, exiting.");
                 return EXIT_SUCCESS;
         }
 
-        r = get_block_device("/", &devno);
-        if (r < 0) {
-                log_error("Failed to determine block device of root file system: %s", strerror(-r));
+        if (parse_proc_cmdline(parse_proc_cmdline_item) < 0)
                 return EXIT_FAILURE;
-        } else if (r == 0) {
-                log_debug("Root file system not on a (single) block device.");
+
+        if (!arg_enabled) {
+                log_debug("Disabled, exiting.");
                 return EXIT_SUCCESS;
         }
 
-        udev = udev_new();
-        if (!udev) {
-                log_oom();
-                return EXIT_FAILURE;
+        if (arg_root_enabled)
+                r = add_root_mount();
+
+        if (!in_initrd()) {
+                int k;
+
+                k = add_mounts();
+                if (k < 0)
+                        r = k;
         }
 
-        r = devno_to_devnode(udev, devno, &node);
-        if (r < 0) {
-                log_error("Failed to determine block device node from major/minor: %s", strerror(-r));
-                return EXIT_FAILURE;
-        }
-
-        log_debug("Root device %s.", node);
-
-        r = verify_gpt_partition(node, NULL, NULL, NULL);
-        if (r < 0) {
-                log_error("Failed to verify GPT partition %s: %s", node, strerror(-r));
-                return EXIT_FAILURE;
-        }
-        if (r == 0) {
-                log_debug("Not a GPT disk, exiting.");
-                return EXIT_SUCCESS;
-        }
-
-        r = enumerate_partitions(udev, devno);
-        if (r < 0)
-                return EXIT_FAILURE;
-
-        return EXIT_SUCCESS;
+        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

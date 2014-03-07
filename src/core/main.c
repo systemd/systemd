@@ -374,6 +374,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
                         log_warning("Environment variable name '%s' is not valid. Ignoring.", value);
 
         } else if (!streq(key, "systemd.restore_state") &&
+                   !streq(key, "systemd.gpt_auto") &&
                    (startswith(key, "systemd.") || startswith(key, "rd.systemd."))) {
 
                 const char *c;

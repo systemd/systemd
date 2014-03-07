@@ -440,9 +440,6 @@ int efi_loader_get_boot_usec(usec_t *firmware, usec_t *loader) {
 int efi_loader_get_device_part_uuid(sd_id128_t *u) {
         _cleanup_free_ char *p = NULL;
         int r, parsed[16];
-        unsigned i;
-
-        assert(u);
 
         r = efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderDevicePartUUID", &p);
         if (r < 0)
@@ -455,8 +452,12 @@ int efi_loader_get_device_part_uuid(sd_id128_t *u) {
                    &parsed[12], &parsed[13], &parsed[14], &parsed[15]) != 16)
                 return -EIO;
 
-        for (i = 0; i < ELEMENTSOF(parsed); i++)
-                u->bytes[i] = parsed[i];
+        if (u) {
+                unsigned i;
+
+                for (i = 0; i < ELEMENTSOF(parsed); i++)
+                        u->bytes[i] = parsed[i];
+        }
 
         return 0;
 }
