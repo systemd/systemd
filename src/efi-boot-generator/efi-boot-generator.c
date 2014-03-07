@@ -77,7 +77,7 @@ int main(int argc, char *argv[]) {
 
         r = efi_loader_get_device_part_uuid(&id);
         if (r == -ENOENT) {
-                log_debug("EFI loader partition unknown exiting.");
+                log_debug("EFI loader partition unknown, exiting.");
                 return EXIT_SUCCESS;
         } else if (r < 0) {
                 log_error("Failed to read ESP partition UUID: %s", strerror(-r));
