@@ -1338,9 +1338,51 @@ int bus_kernel_create_bus(const char *name, bool world, char **s) {
         return fd;
 }
 
-int bus_kernel_create_starter(const char *bus, const char *name) {
+static void bus_kernel_translate_policy(const BusNamePolicy *policy, struct kdbus_item *item)
+{
+        switch (policy->type) {
+        case BUSNAME_POLICY_TYPE_USER:
+                item->policy_access.type = KDBUS_POLICY_ACCESS_USER;
+                item->policy_access.id = policy->uid;
+                break;
+
+        case BUSNAME_POLICY_TYPE_GROUP:
+                item->policy_access.type = KDBUS_POLICY_ACCESS_GROUP;
+                item->policy_access.id = policy->gid;
+                break;
+
+        case BUSNAME_POLICY_TYPE_WORLD:
+                item->policy_access.type = KDBUS_POLICY_ACCESS_WORLD;
+                break;
+
+        default:
+                assert_not_reached("Unknown policy type");
+        }
+
+        switch (policy->access) {
+        case BUSNAME_POLICY_ACCESS_SEE:
+                item->policy_access.access = KDBUS_POLICY_SEE;
+                break;
+
+        case BUSNAME_POLICY_ACCESS_TALK:
+                item->policy_access.access = KDBUS_POLICY_TALK;
+                break;
+
+        case BUSNAME_POLICY_ACCESS_OWN:
+                item->policy_access.access = KDBUS_POLICY_OWN;
+                break;
+
+        default:
+                assert_not_reached("Unknown policy access");
+        }
+}
+
+int bus_kernel_create_starter(const char *bus, const char *name, BusNamePolicy *policy) {
         struct kdbus_cmd_hello *hello;
         struct kdbus_item *n;
+        size_t policy_cnt = 0;
+        BusNamePolicy *po;
+        size_t size;
         char *p;
         int fd;
 
@@ -1354,16 +1396,29 @@ int bus_kernel_create_starter(const char *bus, const char *name) {
         if (fd < 0)
                 return -errno;
 
-        hello = alloca0(ALIGN8(offsetof(struct kdbus_cmd_hello, items) +
-                               offsetof(struct kdbus_item, str) +
-                               strlen(name) + 1));
+        LIST_FOREACH(policy, po, policy)
+                policy_cnt++;
+
+        size = ALIGN8(offsetof(struct kdbus_cmd_hello, items)) +
+               ALIGN8(offsetof(struct kdbus_item, str) + strlen(name) + 1) +
+               policy_cnt * ALIGN8(offsetof(struct kdbus_item, policy_access) + sizeof(struct kdbus_policy_access));
+
+        hello = alloca0(size);
 
         n = hello->items;
         strcpy(n->str, name);
         n->size = offsetof(struct kdbus_item, str) + strlen(n->str) + 1;
         n->type = KDBUS_ITEM_NAME;
+        n = KDBUS_ITEM_NEXT(n);
 
-        hello->size = ALIGN8(offsetof(struct kdbus_cmd_hello, items) + n->size);
+        LIST_FOREACH(policy, po, policy) {
+                n->type = KDBUS_ITEM_POLICY_ACCESS;
+                n->size = offsetof(struct kdbus_item, policy_access) + sizeof(struct kdbus_policy_access);
+                bus_kernel_translate_policy(po, n);
+                n = KDBUS_ITEM_NEXT(n);
+        }
+
+        hello->size = size;
         hello->conn_flags = KDBUS_HELLO_ACTIVATOR;
         hello->pool_size = KDBUS_POOL_SIZE;
 

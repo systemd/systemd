@@ -233,7 +233,8 @@ static int busname_open_fd(BusName *n) {
         if (n->starter_fd >= 0)
                 return 0;
 
-        n->starter_fd = bus_kernel_create_starter(UNIT(n)->manager->running_as == SYSTEMD_SYSTEM ? "system" : "user", n->name);
+        n->starter_fd = bus_kernel_create_starter(UNIT(n)->manager->running_as == SYSTEMD_SYSTEM ? "system" : "user",
+                                                  n->name, n->policy);
         if (n->starter_fd < 0) {
                 log_warning_unit(UNIT(n)->id, "Failed to create starter fd: %s", strerror(-n->starter_fd));
                 return n->starter_fd;
