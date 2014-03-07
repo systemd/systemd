@@ -594,7 +594,7 @@
     <title>See Also</title>
     <para><citerefentry>
         <refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum>
-    </citerefentry>
+    </citerefentry>,
     <citerefentry>
         <refentrytitle>systemd-udevd.service</refentrytitle><manvolnum>8</manvolnum>
     </citerefentry></para>
