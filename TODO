@@ -27,14 +27,10 @@ External:
 
 Features:
 
-* mount generators currently check if /boot, /home, /srv is empty or
-  not, before doing something. This breaks on PID 1 reload.
-
 * gpt-auto-generator:
   - Define new partition type for encrypted swap
   - Make /home automount rather than mount?
   - don't use blkid on every single partition, but on the main disk only
-  - automatically find root disk in initrd
 
 * improve journalctl performance by loading journal files
   lazily. Encode just enough information in the file name, so that we
