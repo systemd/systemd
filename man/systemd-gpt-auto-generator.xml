@@ -61,10 +61,12 @@
                 <filename>/home</filename>, <filename>/srv</filename>
                 and swap partitions and creates mount and swap units
                 for them, based on the the partition type GUIDs of
-                GUID partition tables (GPT). Note that this generator
-                has no effect on non-GPT systems, on systems where the
-                units are explicitly configured (for example, listed
-                in
+                GUID partition tables (GPT). It implements the <ulink
+                url="http://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec/">Discoverable
+                Partitions Specification</ulink>. Note that this
+                generator has no effect on non-GPT systems, on systems
+                where the units are explicitly configured (for
+                example, listed in
                 <citerefentry><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>),
                 or where the mount points are non-empty.</para>
 
@@ -152,8 +154,8 @@
 
                 <para><filename>systemd-gpt-auto-generator</filename>
                 implements the <ulink
-                url="http://www.freedesktop.org/wiki/Software/systemd/Generators">generator
-                specification</ulink>.</para>
+                url="http://www.freedesktop.org/wiki/Software/systemd/Generators">Generator
+                Specification</ulink>.</para>
         </refsect1>
 
         <refsect1>
