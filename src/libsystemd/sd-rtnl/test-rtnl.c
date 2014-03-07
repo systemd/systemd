@@ -68,6 +68,7 @@ static void test_link_get(sd_rtnl *rtnl, int ifindex) {
         uint16_t type;
         uint8_t u8_data;
         uint32_t u32_data;
+        struct ether_addr eth_data;
 
         assert_se(sd_rtnl_message_new_link(rtnl, &m, RTM_GETLINK, ifindex) >= 0);
         assert_se(m);
@@ -139,9 +140,33 @@ static void test_link_get(sd_rtnl *rtnl, int ifindex) {
         assert_se(sd_rtnl_message_read_u32(r, IFLA_NUM_TX_QUEUES, &u32_data) == 0);
         assert_se(sd_rtnl_message_read_u32(r, IFLA_NUM_RX_QUEUES, &u32_data) == 0);
 
+        assert_se(sd_rtnl_message_read_ether_addr(r, IFLA_ADDRESS, &eth_data) == 0);
+
         assert_se(sd_rtnl_flush(rtnl) >= 0);
         assert_se((m = sd_rtnl_message_unref(m)) == NULL);
         assert_se((r = sd_rtnl_message_unref(r)) == NULL);
+}
+
+
+static void test_address_get(sd_rtnl *rtnl, int ifindex) {
+        sd_rtnl_message *m;
+        sd_rtnl_message *r;
+        struct in_addr in_data;
+
+        assert_se(sd_rtnl_message_new_addr(rtnl, &m, RTM_GETADDR, ifindex, AF_INET) >= 0);
+        assert_se(m);
+
+        assert_se(sd_rtnl_call(rtnl, m, -1, &r) == 1);
+
+        assert_se(sd_rtnl_message_read_in_addr(r, IFA_LOCAL, &in_data) == 0);
+        assert_se(sd_rtnl_message_read_in_addr(r, IFA_ADDRESS, &in_data) == 0);
+        assert_se(sd_rtnl_message_read_in_addr(r, IFA_LABEL, &in_data) == 0);
+        assert_se(sd_rtnl_message_read_in_addr(r, IFA_CACHEINFO, &in_data) == 0);
+
+        assert_se(sd_rtnl_flush(rtnl) >= 0);
+        assert_se((m = sd_rtnl_message_unref(m)) == NULL);
+        assert_se((r = sd_rtnl_message_unref(r)) == NULL);
+
 }
 
 static void test_route(void) {
@@ -441,6 +466,7 @@ int main(void) {
         assert_se((r = sd_rtnl_message_unref(r)) == NULL);
 
         test_link_get(rtnl, if_loopback);
+        test_address_get(rtnl, if_loopback);
 
         assert_se(sd_rtnl_flush(rtnl) >= 0);
         assert_se((m = sd_rtnl_message_unref(m)) == NULL);
