@@ -189,6 +189,7 @@ static int add_mount(
                 return 0;
 
         if (path_equal(where, "/")) {
+                /* The root disk is not an option */
                 automount = false;
                 noauto = false;
                 nofail = false;
@@ -219,9 +220,7 @@ static int add_mount(
                 source);
 
         if (post && !noauto && !nofail && !automount)
-                fprintf(f,
-                        "Before=%s\n",
-                        post);
+                fprintf(f, "Before=%s\n", post);
 
         if (passno != 0) {
                 r = generator_write_fsck_deps(f, arg_dest, what, where, fstype);
@@ -249,17 +248,15 @@ static int add_mount(
                 return -errno;
         }
 
-        if (!noauto) {
-                if (post) {
-                        lnk = strjoin(arg_dest, "/", post, nofail || automount ? ".wants/" : ".requires/", name, NULL);
-                        if (!lnk)
-                                return log_oom();
+        if (!noauto && post) {
+                lnk = strjoin(arg_dest, "/", post, nofail || automount ? ".wants/" : ".requires/", name, NULL);
+                if (!lnk)
+                        return log_oom();
 
-                        mkdir_parents_label(lnk, 0755);
-                        if (symlink(unit, lnk) < 0) {
-                                log_error("Failed to create symlink %s: %m", lnk);
-                                return -errno;
-                        }
+                mkdir_parents_label(lnk, 0755);
+                if (symlink(unit, lnk) < 0) {
+                        log_error("Failed to create symlink %s: %m", lnk);
+                        return -errno;
                 }
         }
 
@@ -395,7 +392,6 @@ static int parse_fstab(bool initrd) {
 
 static int add_root_mount(void) {
         _cleanup_free_ char *o = NULL, *what = NULL;
-        bool noauto, nofail;
 
         if (isempty(arg_root_what)) {
                 log_debug("Could not find a root= entry on the kernel commandline.");
@@ -421,16 +417,14 @@ static int add_root_mount(void) {
         if (!o)
                 return log_oom();
 
-        noauto = mount_test_option(arg_root_options, "noauto");
-        nofail = mount_test_option(arg_root_options, "nofail");
-
         log_debug("Found entry what=%s where=/sysroot type=%s", what, strna(arg_root_fstype));
         return add_mount(what,
                          "/sysroot",
                          arg_root_fstype,
                          o,
                          1,
-                         noauto, nofail,
+                         false,
+                         false,
                          false,
                          SPECIAL_INITRD_ROOT_FS_TARGET,
                          "/proc/cmdline");
