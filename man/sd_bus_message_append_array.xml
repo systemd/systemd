@@ -1,0 +1,190 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+This file is part of systemd.
+
+Copyright 2014 Zbigniew Jędrzejewski-Szmek
+
+systemd is free software; you can redistribute it and/or modify it
+under the terms of the GNU Lesser General Public License as published by
+the Free Software Foundation; either version 2.1 of the License, or
+(at your option) any later version.
+
+systemd is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public License
+along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="sd_bus_message_append_array" conditional="ENABLE_KDBUS"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_bus_message_append_array</title>
+    <productname>systemd</productname>
+
+    <authorgroup>
+      <author>
+        <contrib>A monkey with a typewriter</contrib>
+        <firstname>Zbigniew</firstname>
+        <surname>Jędrzejewski-Szmek</surname>
+        <email>zbyszek@in.waw.pl</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_bus_message_append_array</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_bus_message_append_array</refname>
+    <refname>sd_bus_message_append_array_memfd</refname>
+    <refname>sd_bus_message_append_array_iovec</refname>
+    <refname>sd_bus_message_append_array_space</refname>
+
+    <refpurpose>Attach an array of items to a message</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int sd_bus_message_append_array</funcdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
+        <paramdef>char <parameter>type</parameter></paramdef>
+        <paramdef>char void *<parameter>ptr</parameter></paramdef>
+        <paramdef>size_t <parameter>size</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int sd_bus_message_append_array_memfd</funcdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
+        <paramdef>char <parameter>type</parameter></paramdef>
+        <paramdef>sd_memfd *<parameter>memfd</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int sd_bus_message_append_array_iovec</funcdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
+        <paramdef>char <parameter>type</parameter></paramdef>
+        <paramdef>const struct iovec *<parameter>iov</parameter></paramdef>
+        <paramdef>unsigned <parameter>n</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int sd_bus_message_append_array_space</funcdef>
+        <paramdef>char <parameter>type</parameter></paramdef>
+        <paramdef>size_t <parameter>size</parameter></paramdef>
+        <paramdef>char void **<parameter>ptr</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>Function <function>sd_bus_message_append_array</function>
+    appends items to message <parameter>m</parameter> as the single
+    array. A container will be opened, items appended, and the
+    container closed. Parameter <parameter>type</parameter> determines
+    how pointer <parameter>p</parameter> is interpreted.
+    <parameter>type</parameter> must be one of the "trivial" types
+    <literal>y</literal>, <literal>n</literal>, <literal>q</literal>,
+    <literal>i</literal>, <literal>u</literal>, <literal>x</literal>,
+    <literal>t</literal>, <literal>d</literal> (but not
+    <literal>b</literal>), as defined by the
+    <ulink url="http://dbus.freedesktop.org/doc/dbus-specification.html#basic-types">Basic Types</ulink>
+    section of the D-Bus specification, and listed in
+    <citerefentry><refentrytitle>sd_bus_message_append_basic</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    Pointer <parameter>p</parameter> must point to an array of of size
+    <parameter>size</parameter> bytes containing items of the
+    respective type. Size <parameter>size</parameter> must be a
+    multiple of the size of the type <parameter>type</parameter>. As a
+    special case, <parameter>p</parameter> may be
+    <constant>NULL</constant>, if <parameter>size</parameter> is 0.
+    </para>
+
+    <para>The memory pointed at by <parameter>p</parameter> is copied
+    into the memory area containing the message and may be changed
+    after this call.</para>
+
+    <para>Function
+    <function>sd_bus_message_append_array_memfd</function> appends
+    items to message <parameter>m</parameter>, similarly to
+    <function>sd_bus_message_append_array</function>. Contents of the
+    memory file descriptor <parameter>memfd</parameter> are used as
+    the contents of the array. Their size must be a multiple of the
+    size of the type <parameter>type</parameter>.</para>
+
+    <para>Descriptor <parameter>memfd</parameter> will be sealed
+    and cannot be modified after this call.</para>
+
+    <para>Function
+    <function>sd_bus_message_append_array_iovec</function> appends
+    items to message <parameter>m</parameter>, similarly to
+    <function>sd_bus_message_append_array</function>. Contents of the
+    iovec <parameter>iov</parameter> are used as the contents of the
+    array. The total size of <parameter>iov</parameter> payload (the
+    sum of <structfield>iov_len</structfield> fields) must be a multiple
+    of the size of the type <parameter>type</parameter>.</para>
+
+    <para>Pointer <parameter>iov</parameter> must point to
+    <parameter>n</parameter> <structname>struct iovec</structname>
+    structures. Each structure may have the
+    <structname>iov_base</structname> field set, in which case the
+    memory pointed to will be copied into the message, or unset, in
+    which case a block of zeros of length
+    <structname>iov_len</structname> bytes will be inserted. The
+    memory pointed at by <parameter>iov</parameter> may be changed
+    after this call.</para>
+
+    <para>Function
+    <function>sd_bus_message_append_array_space</function> appends
+    space for an array of items to message <parameter>m</parameter>.
+    It behaves the same as
+    <function>sd_bus_message_append_array</function>, but instead
+    of copying items to the message, it returns a pointer to the
+    destination area to the caller in pointer <parameter>p</parameter>.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, those calls return 0 or a positive integer. On
+    failure, they returns a negative errno-style error code.</para>
+  </refsect1>
+
+  <xi:include href="sd_bus_message_append_basic.xml" xpointer="errors" />
+
+  <refsect1>
+    <title>Notes</title>
+
+    <para><function>sd_bus_append_array()</function> and other
+    functions described here are available as a shared library, which
+    can be compiled and linked to with the
+    <constant>libsystemd</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    file.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_message_append</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_message_append_basic</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <ulink url="http://dbus.freedesktop.org/doc/dbus-specification.html">The D-Bus specification</ulink>
+    </para>
+  </refsect1>
+
+</refentry>

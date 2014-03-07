@@ -688,6 +688,11 @@ MANPAGES += \
 	man/sd_bus_creds_new_from_pid.3 \
 	man/sd_bus_error.3 \
 	man/sd_bus_label_escape.3 \
+	man/sd_bus_message_append.3 \
+	man/sd_bus_message_append_array.3 \
+	man/sd_bus_message_append_basic.3 \
+	man/sd_bus_message_append_string_memfd.3 \
+	man/sd_bus_message_append_strv.3 \
 	man/sd_bus_message_get_cookie.3 \
 	man/sd_bus_message_get_monotonic_usec.3 \
 	man/sd_bus_new.3 \
@@ -734,6 +739,11 @@ MANPAGES_ALIAS += \
 	man/sd_bus_error_set_errno.3 \
 	man/sd_bus_error_set_errnof.3 \
 	man/sd_bus_label_unescape.3 \
+	man/sd_bus_message_append_array_iovec.3 \
+	man/sd_bus_message_append_array_memfd.3 \
+	man/sd_bus_message_append_array_space.3 \
+	man/sd_bus_message_append_string_iovec.3 \
+	man/sd_bus_message_append_string_space.3 \
 	man/sd_bus_message_get_realtime_usec.3 \
 	man/sd_bus_message_get_reply_cookie.3 \
 	man/sd_bus_message_get_seqnum.3 \
@@ -782,6 +792,11 @@ man/sd_bus_error_set_const.3: man/sd_bus_error.3
 man/sd_bus_error_set_errno.3: man/sd_bus_error.3
 man/sd_bus_error_set_errnof.3: man/sd_bus_error.3
 man/sd_bus_label_unescape.3: man/sd_bus_label_escape.3
+man/sd_bus_message_append_array_iovec.3: man/sd_bus_message_append_array.3
+man/sd_bus_message_append_array_memfd.3: man/sd_bus_message_append_array.3
+man/sd_bus_message_append_array_space.3: man/sd_bus_message_append_array.3
+man/sd_bus_message_append_string_iovec.3: man/sd_bus_message_append_string_memfd.3
+man/sd_bus_message_append_string_space.3: man/sd_bus_message_append_string_memfd.3
 man/sd_bus_message_get_realtime_usec.3: man/sd_bus_message_get_monotonic_usec.3
 man/sd_bus_message_get_reply_cookie.3: man/sd_bus_message_get_cookie.3
 man/sd_bus_message_get_seqnum.3: man/sd_bus_message_get_monotonic_usec.3
@@ -904,6 +919,21 @@ man/sd_bus_error_set_errnof.html: man/sd_bus_error.html
 	$(html-alias)
 
 man/sd_bus_label_unescape.html: man/sd_bus_label_escape.html
+	$(html-alias)
+
+man/sd_bus_message_append_array_iovec.html: man/sd_bus_message_append_array.html
+	$(html-alias)
+
+man/sd_bus_message_append_array_memfd.html: man/sd_bus_message_append_array.html
+	$(html-alias)
+
+man/sd_bus_message_append_array_space.html: man/sd_bus_message_append_array.html
+	$(html-alias)
+
+man/sd_bus_message_append_string_iovec.html: man/sd_bus_message_append_string_memfd.html
+	$(html-alias)
+
+man/sd_bus_message_append_string_space.html: man/sd_bus_message_append_string_memfd.html
 	$(html-alias)
 
 man/sd_bus_message_get_realtime_usec.html: man/sd_bus_message_get_monotonic_usec.html
@@ -1355,6 +1385,11 @@ EXTRA_DIST += \
 	man/sd_bus_creds_new_from_pid.xml \
 	man/sd_bus_error.xml \
 	man/sd_bus_label_escape.xml \
+	man/sd_bus_message_append.xml \
+	man/sd_bus_message_append_array.xml \
+	man/sd_bus_message_append_basic.xml \
+	man/sd_bus_message_append_string_memfd.xml \
+	man/sd_bus_message_append_strv.xml \
 	man/sd_bus_message_get_cookie.xml \
 	man/sd_bus_message_get_monotonic_usec.xml \
 	man/sd_bus_new.xml \

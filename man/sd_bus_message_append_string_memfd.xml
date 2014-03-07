@@ -1,0 +1,153 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+This file is part of systemd.
+
+Copyright 2014 Zbigniew Jędrzejewski-Szmek
+
+systemd is free software; you can redistribute it and/or modify it
+under the terms of the GNU Lesser General Public License as published by
+the Free Software Foundation; either version 2.1 of the License, or
+(at your option) any later version.
+
+systemd is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public License
+along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="sd_bus_message_append_string_memfd" conditional="ENABLE_KDBUS"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_bus_message_append_string_memfd</title>
+    <productname>systemd</productname>
+
+    <authorgroup>
+      <author>
+        <contrib>A monkey with a typewriter</contrib>
+        <firstname>Zbigniew</firstname>
+        <surname>Jędrzejewski-Szmek</surname>
+        <email>zbyszek@in.waw.pl</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_bus_message_append_string_memfd</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_bus_message_append_string_memfd</refname>
+    <refname>sd_bus_message_append_string_iovec</refname>
+    <refname>sd_bus_message_append_string_space</refname>
+
+    <refpurpose>Attach a string to a message</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int sd_bus_message_append_string_memfd</funcdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
+        <paramdef>sd_memfd *<parameter>memfd</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int sd_bus_message_append_string_iovec</funcdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
+        <paramdef>const struct iovec *<parameter>iov</parameter></paramdef>
+        <paramdef>unsigned <parameter>n</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int sd_bus_message_append_string_space</funcdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
+        <paramdef>size_t <parameter>size</parameter></paramdef>
+        <paramdef>char **<parameter>s</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>Functions
+    <function>sd_bus_message_append_string_memfd</function> and
+    <function>sd_bus_message_append_string_iovec</function> can be
+    used to append a single string (item of type <literal>s</literal>)
+    to message <parameter>m</parameter>.</para>
+
+    <para>In case of
+    <function>sd_bus_message_append_string_memfd</function> the
+    contents of <parameter>memfd</parameter> are the string. They must
+    satisfy the same constraints as described for the
+    <literal>s</literal> type in
+    <citerefentry><refentrytitle>sd_bus_message_append_basic</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+
+    <para>In case of
+    <function>sd_bus_message_append_string_iovec</function> the
+    payload of <parameter>iov</parameter> is the string. It must
+    satisfy the same constraints as described for the
+    <literal>s</literal> type in
+    <citerefentry><refentrytitle>sd_bus_message_append_basic</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+
+    <para>Pointer <parameter>iov</parameter> must point to
+    <parameter>n</parameter> <structname>struct iovec</structname>
+    structures. Each structure may have the
+    <structname>iov_base</structname> field set, in which case the
+    memory pointed to will be copied into the message, or unset, in
+    which case a block of spaces (ASCII 32) of length
+    <structname>iov_len</structname> will be inserted. The
+    memory pointed at by <parameter>iov</parameter> may be changed
+    after this call.</para>
+
+    <para>Function
+    <function>sd_bus_message_append_string_space</function> appends
+    space for a string to message <parameter>m</parameter>. If behaves
+    similarly to <function>sd_bus_message_append_basic</function> with
+    type <literal>s</literal>, but instead of copying a string into
+    the the message, it returns a pointer to the destination area to
+    the caller in pointer <parameter>p</parameter>. Space for string
+    of length <parameter>size</parameter> plus the terminating
+    <constant>NUL</constant> is allocated.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, those calls return 0 or a positive integer. On
+    failure, they returns a negative errno-style error code.</para>
+  </refsect1>
+
+  <xi:include href="sd_bus_message_append_basic.xml" xpointer="errors" />
+
+  <refsect1>
+    <title>Notes</title>
+
+    <para>Functions described here are available as a shared library,
+    which can be compiled and linked to with the
+    <constant>libsystemd</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    file.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_message_append_basic</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <ulink url="http://dbus.freedesktop.org/doc/dbus-specification.html">The D-Bus specification</ulink>
+    </para>
+  </refsect1>
+
+</refentry>

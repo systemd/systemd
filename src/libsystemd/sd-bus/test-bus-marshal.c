@@ -79,6 +79,9 @@ int main(int argc, char *argv[]) {
         r = sd_bus_message_new_method_call(NULL, &m, "foobar.waldo", "/", "foobar.waldo", "Piep");
         assert_se(r >= 0);
 
+        r = sd_bus_message_append(m, "");
+        assert_se(r >= 0);
+
         r = sd_bus_message_append(m, "s", "a string");
         assert_se(r >= 0);
 
