@@ -53,12 +53,12 @@
         <refsect1>
                 <title>Description</title>
 
-                <para>Network link configuration is performed by the <literal>net_setup_link</literal>
+                <para>Network link configuration is performed by the <command>net_setup_link</command>
                 udev builtin.</para>
 
                 <para>The link files are read from the files located in the
                 system network directory <filename>/usr/lib/systemd/network</filename>,
-                the volatile runtime network directory <filename>/run/systemd/network</filename>
+                the volatile runtime network directory <filename>/run/systemd/network</filename>,
                 and the local administration network directory <filename>/etc/systemd/network</filename>.
                 Link files must have the extension <filename>.link</filename>; other extensions are ignored.
                 All link files are collectively sorted and processed in lexical order,
