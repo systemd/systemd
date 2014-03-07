@@ -6,7 +6,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Load/Save Screen Backlight Brightness of %I
+Description=Load/Save Screen Backlight Brightness of %i
 Documentation=man:systemd-backlight@.service(8)
 DefaultDependencies=no
 RequiresMountsFor=/var/lib/systemd/backlight
@@ -17,5 +17,5 @@ Before=sysinit.target shutdown.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=@rootlibexecdir@/systemd-backlight load %I
-ExecStop=@rootlibexecdir@/systemd-backlight save %I
+ExecStart=@rootlibexecdir@/systemd-backlight load %i
+ExecStop=@rootlibexecdir@/systemd-backlight save %i
