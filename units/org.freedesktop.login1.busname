@@ -13,3 +13,5 @@ Documentation=http://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 [BusName]
 Service=systemd-logind.service
+AllowUser=root own
+AllowWorld=talk
