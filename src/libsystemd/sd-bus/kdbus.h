@@ -190,30 +190,11 @@ struct kdbus_name {
  * @bits:		Access to grant. One of KDBUS_POLICY_*
  * @id:			For KDBUS_POLICY_ACCESS_USER, the uid
  *			For KDBUS_POLICY_ACCESS_GROUP, the gid
- *
- * Embedded in:
- *   struct kdbus_policy
  */
 struct kdbus_policy_access {
 	__u64 type;	/* USER, GROUP, WORLD */
-	__u64 bits;	/* RECV, SEND, OWN */
+	__u64 access;	/* OWN, TALK, SEE */
 	__u64 id;	/* uid, gid, 0 */
-};
-
-/**
- * struct kdbus_policy - a policy item
- * @access:		Policy access details
- * @name:		Well-known name to grant access to
- *
- * Attached to:
- *   KDBUS_POLICY_ACCESS
- *   KDBUS_ITEM_POLICY_NAME
- */
-struct kdbus_policy {
-	union {
-		struct kdbus_policy_access access;
-		char name[0];
-	};
 };
 
 /**
@@ -252,8 +233,7 @@ struct kdbus_policy {
  * @KDBUS_ITEM_AUDIT:		The audit IDs
  * @KDBUS_ITEM_CONN_NAME:	The connection's human-readable name (debugging)
  * @_KDBUS_ITEM_POLICY_BASE:	Start of policy items
- * @KDBUS_ITEM_POLICY_NAME:	Policy in struct kdbus_policy
- * @KDBUS_ITEM_POLICY_ACCESS:	Policy in struct kdbus_policy
+ * @KDBUS_ITEM_POLICY_ACCESS:	Policy access block
  * @_KDBUS_ITEM_KERNEL_BASE:	Start of kernel-generated message items
  * @KDBUS_ITEM_NAME_ADD:	Notify in struct kdbus_notify_name_change
  * @KDBUS_ITEM_NAME_REMOVE:	Notify in struct kdbus_notify_name_change
@@ -294,8 +274,7 @@ enum kdbus_item_type {
 	KDBUS_ITEM_CONN_NAME,
 
 	_KDBUS_ITEM_POLICY_BASE	= 0x2000,
-	KDBUS_ITEM_POLICY_NAME = _KDBUS_ITEM_POLICY_BASE,
-	KDBUS_ITEM_POLICY_ACCESS,
+	KDBUS_ITEM_POLICY_ACCESS = _KDBUS_ITEM_POLICY_BASE,
 
 	_KDBUS_ITEM_KERNEL_BASE	= 0x8000,
 	KDBUS_ITEM_NAME_ADD	= _KDBUS_ITEM_KERNEL_BASE,
@@ -329,8 +308,7 @@ enum kdbus_item_type {
  *			KDBUS_ITEM_NAME_CHANGE
  * @id_change:		KDBUS_ITEM_ID_ADD
  *			KDBUS_ITEM_ID_REMOVE
- * @policy:		KDBUS_ITEM_POLICY_NAME
- *			KDBUS_ITEM_POLICY_ACCESS
+ * @policy:		KDBUS_ITEM_POLICY_ACCESS
  */
 struct kdbus_item {
 	__u64 size;
@@ -353,7 +331,7 @@ struct kdbus_item {
 		int fds[0];
 		struct kdbus_notify_name_change name_change;
 		struct kdbus_notify_id_change id_change;
-		struct kdbus_policy policy;
+		struct kdbus_policy_access policy_access;
 	};
 };
 
@@ -483,29 +461,17 @@ enum kdbus_policy_access_type {
 
 /**
  * enum kdbus_policy_access_flags - mode flags
- * @KDBUS_POLICY_RECV:		Allow receive
- * @KDBUS_POLICY_SEND:		Allow send
  * @KDBUS_POLICY_OWN:		Allow to own a well-known name
+ *				Implies KDBUS_POLICY_TALK and KDBUS_POLICY_SEE
+ * @KDBUS_POLICY_TALK:		Allow communication to a well-known name
+ *				Implies KDBUS_POLICY_SEE
+ * @KDBUS_POLICY_SEE:		Allow to see a well-known name
  */
 enum kdbus_policy_type {
-	KDBUS_POLICY_RECV		= 1 <<  2,
-	KDBUS_POLICY_SEND		= 1 <<  1,
-	KDBUS_POLICY_OWN		= 1 <<  0,
+	KDBUS_POLICY_SEE	= 0,
+	KDBUS_POLICY_TALK,
+	KDBUS_POLICY_OWN,
 };
-
-/**
- * struct kdbus_cmd_policy - a series of policies to upload
- * @size:		The total size of the structure
- * @policies:		The policies to upload
- *
- * A KDBUS_POLICY_NAME must always preceeds a KDBUS_POLICY_ACCESS entry.
- * A new KDBUS_POLICY_NAME can be added after KDBUS_POLICY_ACCESS for
- * chaining multiple policies together.
- */
-struct kdbus_cmd_policy {
-	__u64 size;
-	struct kdbus_item policies[0];
-} __attribute__((aligned(8)));
 
 /**
  * enum kdbus_hello_flags - flags for struct kdbus_cmd_hello
@@ -514,13 +480,18 @@ struct kdbus_cmd_policy {
  * @KDBUS_HELLO_ACTIVATOR:	Special-purpose connection which registers
  *				a well-know name for a process to be started
  *				when traffic arrives
+ * @KDBUS_HELLO_POLICY_HOLDER:	Special-purpose connection which registers
+ *				policy entries for one or multiple names. The
+ *				provided names are not activated, and are not
+ *				registered with the name database
  * @KDBUS_HELLO_MONITOR:	Special-purpose connection to monitor
  *				bus traffic
  */
 enum kdbus_hello_flags {
 	KDBUS_HELLO_ACCEPT_FD		=  1 <<  0,
 	KDBUS_HELLO_ACTIVATOR		=  1 <<  1,
-	KDBUS_HELLO_MONITOR		=  1 <<  2,
+	KDBUS_HELLO_POLICY_HOLDER	=  1 <<  2,
+	KDBUS_HELLO_MONITOR		=  1 <<  3,
 };
 
 /**
@@ -584,11 +555,14 @@ struct kdbus_cmd_hello {
 	struct kdbus_item items[0];
 } __attribute__((aligned(8)));
 
-/* Flags for KDBUS_CMD_{BUS,EP,NS}_MAKE */
+/**
+ * enum kdbus_make_flags - Flags for KDBUS_CMD_{BUS,EP,NS}_MAKE
+ * @KDBUS_MAKE_ACCESS_GROUP:	Make the device node group-accessible
+ * @KDBUS_MAKE_ACCESS_WORLD:	Make the device node world-accessible
+ */
 enum kdbus_make_flags {
 	KDBUS_MAKE_ACCESS_GROUP		= 1 <<  0,
 	KDBUS_MAKE_ACCESS_WORLD		= 1 <<  1,
-	KDBUS_MAKE_POLICY_OPEN		= 1 <<  2,
 };
 
 /**
@@ -874,8 +848,6 @@ enum kdbus_ioctl_type {
 	KDBUS_CMD_MATCH_ADD =		_IOW (KDBUS_IOC_MAGIC, 0x70, struct kdbus_cmd_match),
 	KDBUS_CMD_MATCH_REMOVE =	_IOW (KDBUS_IOC_MAGIC, 0x71, struct kdbus_cmd_match),
 
-	KDBUS_CMD_EP_POLICY_SET =	_IOW (KDBUS_IOC_MAGIC, 0x80, struct kdbus_cmd_policy),
-
 	KDBUS_CMD_MEMFD_NEW =		_IOWR(KDBUS_IOC_MAGIC, 0xc0, struct kdbus_cmd_memfd_make),
 	KDBUS_CMD_MEMFD_SIZE_GET =	_IOR (KDBUS_IOC_MAGIC, 0xc1, __u64 *),
 	KDBUS_CMD_MEMFD_SIZE_SET =	_IOW (KDBUS_IOC_MAGIC, 0xc2, __u64 *),
@@ -891,6 +863,9 @@ enum kdbus_ioctl_type {
  * @EADDRNOTAVAIL:	A message flagged not to activate a service, addressed
  *			a service which is not currently running.
  * @EAGAIN:		No messages are queued at the moment.
+ * @EALREADY:		A requested name is already owned by the connection,
+ *			a connection is already disconnected, memfd is already
+ *			sealed or has the requested size.
  * @EBADF:		File descriptors passed with the message are not valid.
  * @EBADFD:		A bus connection is in a corrupted state.
  * @EBADMSG:		Passed data contains a combination of conflicting or
@@ -947,7 +922,7 @@ enum kdbus_ioctl_type {
  * @EPIPE:		When sending a message, a synchronous reply from the
  *			receiving connection was expected but the connection
  *			died before answering.
- * @ESHUTDOWN:		A domain or endpoint is currently shutting down;
+ * @ESHUTDOWN:		A domain, bus or endpoint is currently shutting down;
  *			no further operations will be possible.
  * @ESRCH:		A requested well-known bus name is not found.
  * @ETIMEDOUT:		A synchronous wait for a message reply did not arrive

@@ -1309,7 +1309,7 @@ int bus_kernel_create_bus(const char *name, bool world, char **s) {
         n->type = KDBUS_ITEM_MAKE_NAME;
         make->size += ALIGN8(n->size);
 
-        make->flags = KDBUS_MAKE_POLICY_OPEN | (world ? KDBUS_MAKE_ACCESS_WORLD : 0);
+        make->flags = world ? KDBUS_MAKE_ACCESS_WORLD : 0;
 
         if (ioctl(fd, KDBUS_CMD_BUS_MAKE, make) < 0) {
                 close_nointr_nofail(fd);
@@ -1410,7 +1410,7 @@ int bus_kernel_create_domain(const char *name, char **s) {
         n->type = KDBUS_ITEM_MAKE_NAME;
 
         make->size = ALIGN8(offsetof(struct kdbus_cmd_make, items) + n->size);
-        make->flags = KDBUS_MAKE_POLICY_OPEN | KDBUS_MAKE_ACCESS_WORLD;
+        make->flags = KDBUS_MAKE_ACCESS_WORLD;
 
         if (ioctl(fd, KDBUS_CMD_DOMAIN_MAKE, make) < 0) {
                 close_nointr_nofail(fd);
