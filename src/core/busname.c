@@ -548,6 +548,7 @@ DEFINE_STRING_TABLE_LOOKUP(busname_state, BusNameState);
 static const char* const busname_result_table[_BUSNAME_RESULT_MAX] = {
         [BUSNAME_SUCCESS] = "success",
         [BUSNAME_FAILURE_RESOURCES] = "resources",
+        [BUSNAME_FAILURE_SERVICE_FAILED_PERMANENT] = "failed-permanent",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(busname_result, BusNameResult);
