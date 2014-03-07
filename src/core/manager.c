@@ -1621,6 +1621,11 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                                 break;
                         }
 
+                        if (fflush(f)) {
+                                log_warning("Failed to flush status stream");
+                                break;
+                        }
+
                         log_dump(LOG_INFO, dump);
                         break;
                 }
