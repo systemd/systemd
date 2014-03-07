@@ -174,9 +174,9 @@ static int find_gpt_root(struct udev_device *dev, blkid_probe pr, bool test) {
         }
 
         /* We found the ESP on this disk, and also found a root
-         * partition, nice! Let's export its UUID*/
+         * partition, nice! Let's export its UUID */
         if (found_esp && root_id)
-                udev_builtin_add_property(dev, test, "ID_PART_GPT_AUTO_ROOT", root_id);
+                udev_builtin_add_property(dev, test, "ID_PART_GPT_AUTO_ROOT_UUID", root_id);
 #endif
 
         return 0;
@@ -217,6 +217,7 @@ static int probe_superblocks(blkid_probe pr)
 
 static int builtin_blkid(struct udev_device *dev, int argc, char *argv[], bool test)
 {
+        const char *root_partition;
         int64_t offset = 0;
         bool noraid = false;
         _cleanup_close_ int fd = -1;
@@ -282,6 +283,10 @@ static int builtin_blkid(struct udev_device *dev, int argc, char *argv[], bool t
         if (err < 0)
                 goto out;
 
+        /* If we are a partition then our parent passed on the root
+         * partition UUID to us */
+        root_partition = udev_device_get_property_value(dev, "ID_PART_GPT_AUTO_ROOT_UUID");
+
         nvals = blkid_probe_numof_values(pr);
         for (i = 0; i < nvals; i++) {
                 if (blkid_probe_get_value(pr, i, &name, &data, &len))
@@ -290,8 +295,14 @@ static int builtin_blkid(struct udev_device *dev, int argc, char *argv[], bool t
                 len = strnlen((char *) data, len);
                 print_property(dev, test, name, (char *) data);
 
+                /* Is this a disk with GPT partition table? */
                 if (streq(name, "PTTYPE") && streq(data, "gpt"))
                         is_gpt = true;
+
+                /* Is this a partition that matches the root partition
+                 * property we inherited from our parent? */
+                if (root_partition && streq(name, "PART_ENTRY_UUID") && streq(data, root_partition))
+                        udev_builtin_add_property(dev, test, "ID_PART_GPT_AUTO_ROOT", "1");
         }
 
         if (is_gpt)
