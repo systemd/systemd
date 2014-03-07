@@ -1328,8 +1328,6 @@ int link_configure(Link *link) {
 
 int link_update(Link *link, sd_rtnl_message *m) {
         unsigned flags;
-        void *data;
-        uint16_t type;
         int r;
 
         assert(link);
@@ -1344,34 +1342,24 @@ int link_update(Link *link, sd_rtnl_message *m) {
                 return r;
         }
 
-        while (sd_rtnl_message_read(m, &type, &data) > 0) {
-                switch(type) {
-                case IFLA_MTU:
-                        if (link->network->dhcp && link->network->dhcp_mtu &&
-                            !link->original_mtu) {
-                                link->original_mtu = *(uint16_t *) data;
-                                log_debug_link(link, "saved original MTU: %"
-                                               PRIu16, link->original_mtu);
-                        }
+        if (link->network->dhcp && link->network->dhcp_mtu &&
+            !link->original_mtu) {
+                r = sd_rtnl_message_read_u16(m, IFLA_MTU, &link->original_mtu);
+                if (r >= 0)
+                        log_debug_link(link, "saved original MTU: %"
+                                       PRIu16, link->original_mtu);
+        }
 
-                        break;
-                case IFLA_ADDRESS:
-                        if (memcmp(&link->mac.ether_addr_octet, &data,
-                                   ETH_ALEN)) {
-                                memcpy(&link->mac, data, ETH_ALEN);
-
-                                log_debug_link(link, "updated MAC address: "
-                                               "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",
-                                               link->mac.ether_addr_octet[0],
-                                               link->mac.ether_addr_octet[1],
-                                               link->mac.ether_addr_octet[2],
-                                               link->mac.ether_addr_octet[3],
-                                               link->mac.ether_addr_octet[4],
-                                               link->mac.ether_addr_octet[5]);
-                        }
-
-                        break;
-                }
+        r = sd_rtnl_message_read_ether_addr(m, IFLA_ADDRESS, &link->mac);
+        if (r >= 0) {
+                log_debug_link(link, "MAC address: "
+                               "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",
+                                link->mac.ether_addr_octet[0],
+                                link->mac.ether_addr_octet[1],
+                                link->mac.ether_addr_octet[2],
+                                link->mac.ether_addr_octet[3],
+                                link->mac.ether_addr_octet[4],
+                                link->mac.ether_addr_octet[5]);
         }
 
         return link_update_flags(link, flags);
