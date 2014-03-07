@@ -28,7 +28,7 @@
 
 #define VLANID_MAX 4094
 
-static const char* const netdev_kind_table[] = {
+static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_BRIDGE] = "bridge",
         [NETDEV_KIND_BOND] = "bond",
         [NETDEV_KIND_VLAN] = "vlan",
@@ -38,7 +38,7 @@ static const char* const netdev_kind_table[] = {
 DEFINE_STRING_TABLE_LOOKUP(netdev_kind, NetDevKind);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_netdev_kind, netdev_kind, NetDevKind, "Failed to parse netdev kind");
 
-static const char* const macvlan_mode_table[] = {
+static const char* const macvlan_mode_table[_NETDEV_MACVLAN_MODE_MAX] = {
         [NETDEV_MACVLAN_MODE_PRIVATE] = "private",
         [NETDEV_MACVLAN_MODE_VEPA] = "vepa",
         [NETDEV_MACVLAN_MODE_BRIDGE] = "bridge",

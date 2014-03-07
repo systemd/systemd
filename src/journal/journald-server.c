@@ -70,7 +70,7 @@
 
 #define RECHECK_AVAILABLE_SPACE_USEC (30*USEC_PER_SEC)
 
-static const char* const storage_table[] = {
+static const char* const storage_table[_STORAGE_MAX] = {
         [STORAGE_AUTO] = "auto",
         [STORAGE_VOLATILE] = "volatile",
         [STORAGE_PERSISTENT] = "persistent",
@@ -80,10 +80,10 @@ static const char* const storage_table[] = {
 DEFINE_STRING_TABLE_LOOKUP(storage, Storage);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_storage, storage, Storage, "Failed to parse storage setting");
 
-static const char* const split_mode_table[] = {
-        [SPLIT_NONE] = "none",
+static const char* const split_mode_table[_SPLIT_MAX] = {
+        [SPLIT_LOGIN] = "login",
         [SPLIT_UID] = "uid",
-        [SPLIT_LOGIN] = "login"
+        [SPLIT_NONE] = "none",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(split_mode, SplitMode);

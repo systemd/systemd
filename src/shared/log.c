@@ -967,7 +967,7 @@ bool log_on_console(void) {
         return syslog_fd < 0 && kmsg_fd < 0 && journal_fd < 0;
 }
 
-static const char *const log_target_table[] = {
+static const char *const log_target_table[_LOG_TARGET_MAX] = {
         [LOG_TARGET_CONSOLE] = "console",
         [LOG_TARGET_KMSG] = "kmsg",
         [LOG_TARGET_JOURNAL] = "journal",

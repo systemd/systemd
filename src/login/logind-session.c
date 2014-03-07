@@ -1115,10 +1115,10 @@ static const char* const session_state_table[_SESSION_STATE_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(session_state, SessionState);
 
 static const char* const session_type_table[_SESSION_TYPE_MAX] = {
+        [SESSION_UNSPECIFIED] = "unspecified",
         [SESSION_TTY] = "tty",
         [SESSION_X11] = "x11",
         [SESSION_WAYLAND] = "wayland",
-        [SESSION_UNSPECIFIED] = "unspecified",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(session_type, SessionType);

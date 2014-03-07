@@ -466,7 +466,7 @@ int link_get_driver(link_config_ctx *ctx, struct udev_device *device, char **ret
         return 0;
 }
 
-static const char* const mac_policy_table[] = {
+static const char* const mac_policy_table[_MACPOLICY_MAX] = {
         [MACPOLICY_PERSISTENT] = "persistent",
         [MACPOLICY_RANDOM] = "random"
 };
@@ -474,7 +474,7 @@ static const char* const mac_policy_table[] = {
 DEFINE_STRING_TABLE_LOOKUP(mac_policy, MACPolicy);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_mac_policy, mac_policy, MACPolicy, "Failed to parse MAC address policy");
 
-static const char* const name_policy_table[] = {
+static const char* const name_policy_table[_NAMEPOLICY_MAX] = {
         [NAMEPOLICY_DATABASE] = "database",
         [NAMEPOLICY_ONBOARD] = "onboard",
         [NAMEPOLICY_SLOT] = "slot",

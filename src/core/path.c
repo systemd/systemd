@@ -761,16 +761,16 @@ DEFINE_STRING_TABLE_LOOKUP(path_state, PathState);
 static const char* const path_type_table[_PATH_TYPE_MAX] = {
         [PATH_EXISTS] = "PathExists",
         [PATH_EXISTS_GLOB] = "PathExistsGlob",
+        [PATH_DIRECTORY_NOT_EMPTY] = "DirectoryNotEmpty",
         [PATH_CHANGED] = "PathChanged",
         [PATH_MODIFIED] = "PathModified",
-        [PATH_DIRECTORY_NOT_EMPTY] = "DirectoryNotEmpty"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(path_type, PathType);
 
 static const char* const path_result_table[_PATH_RESULT_MAX] = {
         [PATH_SUCCESS] = "success",
-        [PATH_FAILURE_RESOURCES] = "resources"
+        [PATH_FAILURE_RESOURCES] = "resources",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(path_result, PathResult);

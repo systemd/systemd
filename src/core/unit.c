@@ -3278,9 +3278,9 @@ static const char* const unit_dependency_table[_UNIT_DEPENDENCY_MAX] = {
         [UNIT_TRIGGERED_BY] = "TriggeredBy",
         [UNIT_PROPAGATES_RELOAD_TO] = "PropagatesReloadTo",
         [UNIT_RELOAD_PROPAGATED_FROM] = "ReloadPropagatedFrom",
+        [UNIT_JOINS_NAMESPACE_OF] = "JoinsNamespaceOf",
         [UNIT_REFERENCES] = "References",
         [UNIT_REFERENCED_BY] = "ReferencedBy",
-        [UNIT_JOINS_NAMESPACE_OF] = "JoinsNamespaceOf",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(unit_dependency, UnitDependency);

@@ -31,7 +31,7 @@
 #include "log.h"
 #include "conf-parser.h"
 
-static const char* const duplex_table[] = {
+static const char* const duplex_table[_DUP_MAX] = {
         [DUP_FULL] = "full",
         [DUP_HALF] = "half"
 };
@@ -39,7 +39,7 @@ static const char* const duplex_table[] = {
 DEFINE_STRING_TABLE_LOOKUP(duplex, Duplex);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_duplex, duplex, Duplex, "Failed to parse duplex setting");
 
-static const char* const wol_table[] = {
+static const char* const wol_table[_WOL_MAX] = {
         [WOL_PHY] = "phy",
         [WOL_MAGIC] = "magic",
         [WOL_OFF] = "off"
