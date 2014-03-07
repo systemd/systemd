@@ -33,7 +33,7 @@
 
 static void print_property(struct udev_device *dev, bool test, const char *name, const char *value)
 {
-        char s[265];
+        char s[256];
 
         s[0] = '\0';
 
@@ -110,7 +110,8 @@ static int probe_superblocks(blkid_probe pr)
 
         blkid_probe_enable_partitions(pr, 1);
 
-        if (!S_ISCHR(st.st_mode) && blkid_probe_get_size(pr) <= 1024 * 1440 &&
+        if (!S_ISCHR(st.st_mode) &&
+            blkid_probe_get_size(pr) <= 1024 * 1440 &&
             blkid_probe_is_wholedisk(pr)) {
                 /*
                  * check if the small disk is partitioned, if yes then
@@ -120,7 +121,7 @@ static int probe_superblocks(blkid_probe pr)
 
                 rc = blkid_do_fullprobe(pr);
                 if (rc < 0)
-                        return rc;        /* -1 = error, 1 = nothing, 0 = succes */
+                        return rc;        /* -1 = error, 1 = nothing, 0 = success */
 
                 if (blkid_probe_lookup_value(pr, "PTTYPE", NULL, NULL) == 0)
                         return 0;        /* partition table detected */
@@ -136,7 +137,7 @@ static int builtin_blkid(struct udev_device *dev, int argc, char *argv[], bool t
 {
         int64_t offset = 0;
         bool noraid = false;
-        int fd = -1;
+        _cleanup_close_ int fd = -1;
         blkid_probe pr;
         const char *data;
         const char *name;
@@ -208,10 +209,9 @@ static int builtin_blkid(struct udev_device *dev, int argc, char *argv[], bool t
 
         blkid_free_probe(pr);
 out:
-        if (fd > 0)
-                close(fd);
         if (err < 0)
                 return EXIT_FAILURE;
+
         return EXIT_SUCCESS;
 }
 
