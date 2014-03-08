@@ -128,7 +128,6 @@ static int create_dbus_files(
                 "[BusName]\n"
                 "Name=%s\n"
                 "Service=%s\n"
-                "AllowUser=root own\n"
                 "AllowWorld=talk\n",
                 path,
                 name,

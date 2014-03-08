@@ -12,5 +12,4 @@ Documentation=http://www.freedesktop.org/wiki/Software/systemd/hostnamed
 
 [BusName]
 Service=systemd-hostnamed.service
-AllowUser=root own
 AllowWorld=talk

@@ -10,5 +10,4 @@ Description=Bus Driver Service Bus Name
 
 [BusName]
 Service=systemd-bus-driverd.service
-AllowUser=root own
 AllowWorld=talk
