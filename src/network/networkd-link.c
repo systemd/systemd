@@ -1056,16 +1056,14 @@ static int link_up_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
                 return 1;
 
         r = sd_rtnl_message_get_errno(m);
-        if (r < 0)
+        if (r >= 0)
+                link_update_flags(link, link->flags | IFF_UP);
+        else
                 log_struct_link(LOG_WARNING, link,
                                 "MESSAGE=%s: could not bring up interface: %s",
                                 link->ifname, strerror(-r),
                                 "ERRNO=%d", -r,
                                 NULL);
-                return 1;
-
-        link_update_flags(link, link->flags | IFF_UP);
-
         return 1;
 }
 
