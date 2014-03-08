@@ -51,86 +51,15 @@ static bool arg_root_enabled = true;
 static bool arg_root_rw = false;
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(blkid_probe, blkid_free_probe);
-#define _cleanup_blkid_freep_probe_ _cleanup_(blkid_free_probep)
+#define _cleanup_blkid_free_probe_ _cleanup_(blkid_free_probep)
 
-static int verify_gpt_partition(const char *node, sd_id128_t *type, unsigned *nr, char **fstype) {
-        _cleanup_blkid_freep_probe_ blkid_probe b = NULL;
-        const char *v;
-        int r;
-
-        errno = 0;
-        b = blkid_new_probe_from_filename(node);
-        if (!b)
-                return errno != 0 ? -errno : -ENOMEM;
-
-        blkid_probe_enable_superblocks(b, 1);
-        blkid_probe_set_superblocks_flags(b, BLKID_SUBLKS_TYPE);
-        blkid_probe_enable_partitions(b, 1);
-        blkid_probe_set_partitions_flags(b, BLKID_PARTS_ENTRY_DETAILS);
-
-        errno = 0;
-        r = blkid_do_safeprobe(b);
-        if (r == -2 || r == 1) /* no result or uncertain */
-                return -EBADSLT;
-        else if (r != 0)
-                return errno ? -errno : -EIO;
-
-        errno = 0;
-        r = blkid_probe_lookup_value(b, "PART_ENTRY_SCHEME", &v, NULL);
-        if (r != 0)
-                /* return 0 if we're not on GPT */
-                return errno ? -errno : 0;
-
-        if (strcmp(v, "gpt") != 0)
-                return 0;
-
-        if (type) {
-                errno = 0;
-                r = blkid_probe_lookup_value(b, "PART_ENTRY_TYPE", &v, NULL);
-                if (r != 0)
-                        return errno ? -errno : -EIO;
-
-                r = sd_id128_from_string(v, type);
-                if (r < 0)
-                        return r;
-        }
-
-        if (nr) {
-                errno = 0;
-                r = blkid_probe_lookup_value(b, "PART_ENTRY_NUMBER", &v, NULL);
-                if (r != 0)
-                        return errno ? -errno : -EIO;
-
-                r = safe_atou(v, nr);
-                if (r < 0)
-                        return r;
-        }
-
-
-        if (fstype) {
-                errno = 0;
-                r = blkid_probe_lookup_value(b, "TYPE", &v, NULL);
-                if (r != 0)
-                        *fstype = NULL;
-                else {
-                        char *fst;
-
-                        fst = strdup(v);
-                        if (!fst)
-                                return -ENOMEM;
-
-                        *fstype = fst;
-                }
-        }
-
-        return 1;
-}
-
-static int add_swap(const char *path, const char *fstype) {
+static int add_swap(const char *path) {
         _cleanup_free_ char *name = NULL, *unit = NULL, *lnk = NULL;
         _cleanup_fclose_ FILE *f = NULL;
 
-        log_debug("Adding swap: %s %s", path, fstype);
+        assert(path);
+
+        log_debug("Adding swap: %s", path);
 
         name = unit_name_from_path(path, ".swap");
         if (!name)
@@ -309,12 +238,6 @@ static int add_mount(
         assert(where);
         assert(description);
 
-        if (path_is_mount_point(where, true) <= 0 &&
-            dir_is_empty(where) <= 0) {
-                log_debug("%s already populated, ignoring.", where);
-                return 0;
-        }
-
         log_debug("Adding %s: %s %s", where, what, strna(fstype));
 
         if (streq_ptr(fstype, "crypto_LUKS")) {
@@ -389,25 +312,164 @@ static int add_mount(
         return 0;
 }
 
-static int enumerate_partitions(struct udev *udev, dev_t dev) {
+static int probe_and_add_mount(
+                const char *id,
+                const char *what,
+                const char *where,
+                const char *description,
+                const char *post) {
+
+        _cleanup_blkid_free_probe_ blkid_probe b = NULL;
+        const char *fstype;
+        int r;
+
+        assert(id);
+        assert(what);
+        assert(where);
+        assert(description);
+
+        if (path_is_mount_point(where, true) <= 0 &&
+            dir_is_empty(where) <= 0) {
+                log_debug("%s already populated, ignoring.", where);
+                return 0;
+        }
+
+        /* Let's check the partition type here, so that we know
+         * whether to do LUKS magic. */
+
+        errno = 0;
+        b = blkid_new_probe_from_filename(what);
+        if (!b) {
+                if (errno == 0)
+                        return log_oom();
+                log_error("Failed to allocate prober: %m");
+                return -errno;
+        }
+
+        blkid_probe_enable_superblocks(b, 1);
+        blkid_probe_set_superblocks_flags(b, BLKID_SUBLKS_TYPE);
+
+        errno = 0;
+        r = blkid_do_safeprobe(b);
+        if (r == -2 || r == 1) /* no result or uncertain */
+                return 0;
+        else if (r != 0) {
+                if (errno == 0)
+                        errno = EIO;
+                log_error("Failed to probe %s: %m", what);
+                return -errno;
+        }
+
+        blkid_probe_lookup_value(b, "TYPE", &fstype, NULL);
+
+        return add_mount(
+                        id,
+                        what,
+                        where,
+                        fstype,
+                        NULL,
+                        description,
+                        post);
+}
+
+static int enumerate_partitions(dev_t devnum) {
+
         _cleanup_udev_enumerate_unref_ struct udev_enumerate *e = NULL;
         _cleanup_udev_device_unref_ struct udev_device *d = NULL;
-        _cleanup_free_ char *home = NULL, *home_fstype = NULL, *srv = NULL, *srv_fstype = NULL;
-        unsigned home_nr = (unsigned) -1, srv_nr = (unsigned )-1;
+        _cleanup_blkid_free_probe_ blkid_probe b = NULL;
+        _cleanup_udev_unref_ struct udev *udev = NULL;
+        _cleanup_free_ char *home = NULL, *srv = NULL;
         struct udev_list_entry *first, *item;
         struct udev_device *parent = NULL;
+        const char *node, *pttype, *devtype;
+        int home_nr = -1, srv_nr = -1;
+        blkid_partlist pl;
         int r, k;
+        dev_t pn;
 
-        e = udev_enumerate_new(udev);
-        if (!e)
+        udev = udev_new();
+        if (!udev)
                 return log_oom();
 
-        d = udev_device_new_from_devnum(udev, 'b', dev);
+        d = udev_device_new_from_devnum(udev, 'b', devnum);
         if (!d)
                 return log_oom();
 
         parent = udev_device_get_parent(d);
         if (!parent)
+                return log_oom();
+
+        /* Does it have a devtype? */
+        devtype = udev_device_get_devtype(parent);
+        if (!devtype)
+                return 0;
+
+        /* Is this a disk or a partition? We only care for disks... */
+        if (!streq(devtype, "disk"))
+                return 0;
+
+        /* Does it have a device node? */
+        node = udev_device_get_devnode(parent);
+        if (!node)
+                return 0;
+
+        log_debug("Root device %s.", node);
+
+        pn = udev_device_get_devnum(parent);
+        if (major(pn) == 0)
+                return 0;
+
+        errno = 0;
+        b = blkid_new_probe_from_filename(node);
+        if (!b) {
+                if (errno == 0)
+                        return log_oom();
+
+                log_error("Failed allocate prober: %m");
+                return -errno;
+        }
+
+        blkid_probe_enable_superblocks(b, 1);
+        blkid_probe_set_superblocks_flags(b, BLKID_SUBLKS_TYPE);
+        blkid_probe_enable_partitions(b, 1);
+        blkid_probe_set_partitions_flags(b, BLKID_PARTS_ENTRY_DETAILS);
+
+        errno = 0;
+        r = blkid_do_safeprobe(b);
+        if (r == -2 || r == 1) /* no result or uncertain */
+                return 0;
+        else if (r != 0) {
+                if (errno == 0)
+                        errno = EIO;
+                log_error("Failed to probe %s: %m", node);
+                return -errno;
+        }
+
+        errno = 0;
+        r = blkid_probe_lookup_value(b, "PTTYPE", &pttype, NULL);
+        if (r != 0) {
+                if (errno == 0)
+                        errno = EIO;
+                log_error("Failed to determine partition table type of %s: %m", node);
+                return -errno;
+        }
+
+        /* We only do this all for GPT... */
+        if (!streq_ptr(pttype, "gpt"))
+                return 0;
+
+        errno = 0;
+        pl = blkid_probe_get_partitions(b);
+        if (!pl) {
+                if (errno == 0)
+                        return log_oom();
+
+                log_error("Failed to list of partitions of %s: %m", node);
+                return -errno;
+        }
+
+        e = udev_enumerate_new(udev);
+        if (!e)
                 return log_oom();
 
         r = udev_enumerate_add_match_parent(e, parent);
@@ -420,50 +482,55 @@ static int enumerate_partitions(struct udev *udev, dev_t dev) {
 
         r = udev_enumerate_scan_devices(e);
         if (r < 0) {
-                log_error("Failed to enumerate partitions on /dev/block/%u:%u: %s", major(dev), minor(dev), strerror(-r));
+                log_error("Failed to enumerate partitions on %s: %s", node, strerror(-r));
                 return r;
         }
-
-        r = 0;
 
         first = udev_enumerate_get_list_entry(e);
         udev_list_entry_foreach(item, first) {
                 _cleanup_udev_device_unref_ struct udev_device *q;
-                _cleanup_free_ char *fstype = NULL;
-                const char *node = NULL;
+                const char *stype, *subnode;
                 sd_id128_t type_id;
-                unsigned nr;
+                blkid_partition pp;
+                dev_t qn;
+                int nr;
 
                 q = udev_device_new_from_syspath(udev, udev_list_entry_get_name(item));
                 if (!q)
-                        return log_oom();
-
-                if (udev_device_get_devnum(q) == udev_device_get_devnum(d))
                         continue;
 
-                if (udev_device_get_devnum(q) == udev_device_get_devnum(parent))
+                qn = udev_device_get_devnum(q);
+                if (major(qn) == 0)
                         continue;
 
-                node = udev_device_get_devnode(q);
-                if (!node)
-                        return log_oom();
-
-                k = verify_gpt_partition(node, &type_id, &nr, &fstype);
-                if (k < 0) {
-                        /* skip child devices which are not detected properly */
-                        if (k == -EBADSLT)
-                                continue;
-
-                        log_error("Failed to verify GPT partition %s: %s", node, strerror(-k));
-                        r = k;
+                if (qn == devnum)
                         continue;
-                }
-                if (k == 0)
+
+                if (qn == pn)
+                        continue;
+
+                subnode = udev_device_get_devnode(q);
+                if (!subnode)
+                        continue;
+
+                pp = blkid_partlist_devno_to_partition(pl, qn);
+                if (!pp)
+                        continue;
+
+                nr = blkid_partition_get_partno(pp);
+                if (nr < 0)
+                        continue;
+
+                stype = blkid_partition_get_type_string(pp);
+                if (!stype)
+                        continue;
+
+                if (sd_id128_from_string(stype, &type_id) < 0)
                         continue;
 
                 if (sd_id128_equal(type_id, GPT_SWAP)) {
 
-                        k = add_swap(node, fstype);
+                        k = add_swap(subnode);
                         if (k < 0)
                                 r = k;
 
@@ -476,13 +543,9 @@ static int enumerate_partitions(struct udev *udev, dev_t dev) {
                         home_nr = nr;
 
                         free(home);
-                        home = strdup(node);
+                        home = strdup(subnode);
                         if (!home)
                                 return log_oom();
-
-                        free(home_fstype);
-                        home_fstype = fstype;
-                        fstype = NULL;
 
                 } else if (sd_id128_equal(type_id, GPT_SRV)) {
 
@@ -496,21 +559,17 @@ static int enumerate_partitions(struct udev *udev, dev_t dev) {
                         srv = strdup(node);
                         if (!srv)
                                 return log_oom();
-
-                        free(srv_fstype);
-                        srv_fstype = fstype;
-                        fstype = NULL;
                 }
         }
 
-        if (home && home_fstype) {
-                k = add_mount("home", home, "/home", home_fstype, NULL, "Home Partition", SPECIAL_LOCAL_FS_TARGET);
+        if (home) {
+                k = probe_and_add_mount("home", home, "/home", "Home Partition", SPECIAL_LOCAL_FS_TARGET);
                 if (k < 0)
                         r = k;
         }
 
-        if (srv && srv_fstype) {
-                k = add_mount("srv", srv, "/srv", srv_fstype, NULL, "Server Data Partition", SPECIAL_LOCAL_FS_TARGET);
+        if (srv) {
+                k = probe_and_add_mount("srv", srv, "/srv", "Server Data Partition", SPECIAL_LOCAL_FS_TARGET);
                 if (k < 0)
                         r = k;
         }
@@ -590,27 +649,6 @@ static int get_block_device(const char *path, dev_t *dev) {
         return 0;
 }
 
-static int devno_to_devnode(struct udev *udev, dev_t devno, char **ret) {
-        _cleanup_udev_device_unref_ struct udev_device *d;
-        const char *t;
-        char *n;
-
-        d = udev_device_new_from_devnum(udev, 'b', devno);
-        if (!d)
-                return log_oom();
-
-        t = udev_device_get_devnode(d);
-        if (!t)
-                return -ENODEV;
-
-        n = strdup(t);
-        if (!n)
-                return -ENOMEM;
-
-        *ret = n;
-        return 0;
-}
-
 static int parse_proc_cmdline_item(const char *key, const char *value) {
         int r;
 
@@ -678,8 +716,6 @@ static int add_root_mount(void) {
 }
 
 static int add_mounts(void) {
-        _cleanup_udev_unref_ struct udev *udev = NULL;
-        _cleanup_free_ char *node = NULL;
         dev_t devno;
         int r;
 
@@ -692,29 +728,7 @@ static int add_mounts(void) {
                 return 0;
         }
 
-        udev = udev_new();
-        if (!udev)
-                return log_oom();
-
-        r = devno_to_devnode(udev, devno, &node);
-        if (r < 0) {
-                log_error("Failed to determine block device node from major/minor: %s", strerror(-r));
-                return r;
-        }
-
-        log_debug("Root device %s.", node);
-
-        r = verify_gpt_partition(node, NULL, NULL, NULL);
-        if (r < 0) {
-                log_error("Failed to verify GPT partition %s: %s", node, strerror(-r));
-                return r;
-        }
-        if (r == 0) {
-                log_debug("Not a GPT disk, exiting.");
-                return 0;
-        }
-
-        return enumerate_partitions(udev, devno);
+        return enumerate_partitions(devno);
 }
 
 int main(int argc, char *argv[]) {
