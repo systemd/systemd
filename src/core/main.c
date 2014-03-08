@@ -1994,7 +1994,7 @@ finish:
                 if (log_get_show_location())
                         command_line[pos++] = "--log-location";
 
-                assert(pos + 1 < ELEMENTSOF(command_line));
+                assert(pos < ELEMENTSOF(command_line));
 
                 if (arm_reboot_watchdog && arg_shutdown_watchdog > 0) {
                         char *e;
