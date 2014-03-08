@@ -700,13 +700,13 @@ struct kdbus_conn_info {
 };
 
 /**
- * struct kdbus_cmd_conn_update - update flags of a connection
+ * struct kdbus_cmd_update - update flags of a connection
  * @size:		The total size of the struct
  * @items:		A list of struct kdbus_item
  *
  * This struct is used with the KDBUS_CMD_CONN_UPDATE ioctl.
  */
-struct kdbus_cmd_conn_update {
+struct kdbus_cmd_update {
 	__u64 size;
 	struct kdbus_item items[0];
 } __attribute__((aligned(8)));
@@ -843,10 +843,12 @@ enum kdbus_ioctl_type {
 	KDBUS_CMD_NAME_LIST =		_IOWR(KDBUS_IOC_MAGIC, 0x52, struct kdbus_cmd_name_list),
 
 	KDBUS_CMD_CONN_INFO =		_IOWR(KDBUS_IOC_MAGIC, 0x60, struct kdbus_cmd_conn_info),
-	KDBUS_CMD_CONN_UPDATE =		_IOW (KDBUS_IOC_MAGIC, 0x61, struct kdbus_cmd_conn_update),
+	KDBUS_CMD_CONN_UPDATE =		_IOW (KDBUS_IOC_MAGIC, 0x61, struct kdbus_cmd_update),
 
-	KDBUS_CMD_MATCH_ADD =		_IOW (KDBUS_IOC_MAGIC, 0x70, struct kdbus_cmd_match),
-	KDBUS_CMD_MATCH_REMOVE =	_IOW (KDBUS_IOC_MAGIC, 0x71, struct kdbus_cmd_match),
+	KDBUS_CMD_EP_UPDATE =		_IOW (KDBUS_IOC_MAGIC, 0x71, struct kdbus_cmd_update),
+
+	KDBUS_CMD_MATCH_ADD =		_IOW (KDBUS_IOC_MAGIC, 0x80, struct kdbus_cmd_match),
+	KDBUS_CMD_MATCH_REMOVE =	_IOW (KDBUS_IOC_MAGIC, 0x81, struct kdbus_cmd_match),
 
 	KDBUS_CMD_MEMFD_NEW =		_IOWR(KDBUS_IOC_MAGIC, 0xc0, struct kdbus_cmd_memfd_make),
 	KDBUS_CMD_MEMFD_SIZE_GET =	_IOR (KDBUS_IOC_MAGIC, 0xc1, __u64 *),
