@@ -27,10 +27,12 @@ External:
 
 Features:
 
+* mount /sys/fs/cgroup read-only (but leave the subdirs writable)
+
 * gpt-auto-generator:
-  - Define new partition type for encrypted swap
+  - Support LUKS for root devices
+  - Define new partition type for encrypted swap? Support probed LUKS for encrypted swap?
   - Make /home automount rather than mount?
-  - don't use blkid on every single partition, but on the main disk only
 
 * improve journalctl performance by loading journal files
   lazily. Encode just enough information in the file name, so that we
@@ -158,8 +160,6 @@ Features:
   Maybe take a BSD lock at the disk device node and teach udev to
   check for that and suppress event handling.
 
-* something pulls in pcre as shared object dependency into our daemons such as hostnamed.
-
 * allow implementation of InaccessibleDirectories=/ plus
   ReadOnlyDirectories=... for whitelisting files for a service.
 
@@ -186,6 +186,7 @@ Features:
   - introduce sd_bus_emit_object_added()/sd_bus_emit_object_removed() that automatically includes the build-in interfaces in the list
   - port to sd-resolve for connecting to TCP dbus servers
   - constructors for bus messages should probably not be OK with a NULL bus pointer
+  - sd_bus_escape_label() should probably be reworked into sd_bus_make_bus_path(prefix, external_id)
 
 * sd-event
   - allow multiple signal handlers per signal?
