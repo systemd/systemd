@@ -359,7 +359,6 @@ int link_new(Manager *manager, struct udev_device *device, Link **ret);
 void link_free(Link *link);
 int link_get(Manager *m, int ifindex, Link **ret);
 int link_add(Manager *manager, struct udev_device *device, Link **ret);
-int link_configure(Link *link);
 
 int link_update(Link *link, sd_rtnl_message *message);
 

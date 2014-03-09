@@ -208,10 +208,6 @@ int network_apply(Manager *manager, Network *network, Link *link) {
 
         link->network = network;
 
-        r = link_configure(link);
-        if (r < 0)
-                return r;
-
         if (network->dns) {
                 r = manager_update_resolv_conf(manager);
                 if (r < 0)

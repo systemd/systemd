@@ -116,31 +116,6 @@ int link_get(Manager *m, int ifindex, Link **ret) {
         return 0;
 }
 
-int link_add(Manager *m, struct udev_device *device, Link **ret) {
-        Link *link = NULL;
-        Network *network;
-        int r;
-
-        assert(m);
-        assert(device);
-
-        r = link_new(m, device, &link);
-        if (r < 0)
-                return r;
-
-        *ret = link;
-
-        r = network_get(m, device, &network);
-        if (r < 0)
-                return r == -ENOENT ? 0 : r;
-
-        r = network_apply(m, network, link);
-        if (r < 0)
-                return r;
-
-        return 0;
-}
-
 static int link_enter_configured(Link *link) {
         assert(link);
         assert(link->state == LINK_STATE_SETTING_ROUTES);
@@ -994,10 +969,8 @@ static int link_update_flags(Link *link, unsigned flags) {
         if (link->state == LINK_STATE_FAILED)
                 return 0;
 
-        if (link->flags == flags) {
-                log_debug_link(link, "link status unchanged: %#.8x", flags);
+        if (link->flags == flags)
                 return 0;
-        }
 
         if ((link->flags & IFF_UP) != (flags & IFF_UP))
                 log_info_link(link,
@@ -1038,8 +1011,8 @@ static int link_update_flags(Link *link, unsigned flags) {
                 }
         }
 
-        log_debug_link(link,
-                       "link status updated: %#.8x -> %#.8x", link->flags, flags);
+        log_debug_link(link, "link status updated: %#.8x -> %#.8x",
+                       link->flags, flags);
 
         link->flags = flags;
 
@@ -1271,8 +1244,6 @@ static int link_getlink_handler(sd_rtnl *rtnl, sd_rtnl_message *m,
                 return 1;
         }
 
-        log_debug_link(link, "got link state");
-
         link_update(link, m);
 
         return 1;
@@ -1306,20 +1277,46 @@ static int link_getlink(Link *link) {
         return 0;
 }
 
-int link_configure(Link *link) {
+static int link_configure(Link *link) {
         int r;
 
         assert(link);
-        assert(link->network);
         assert(link->state == _LINK_STATE_INVALID);
 
         r = link_getlink(link);
-        if (r < 0) {
-                link_enter_failed(link);
+        if (r < 0)
                 return r;
-        }
 
         return link_enter_enslave(link);
+}
+
+int link_add(Manager *m, struct udev_device *device, Link **ret) {
+        Link *link = NULL;
+        Network *network;
+        int r;
+
+        assert(m);
+        assert(device);
+
+        r = link_new(m, device, &link);
+        if (r < 0)
+                return r;
+
+        *ret = link;
+
+        r = network_get(m, device, &network);
+        if (r < 0)
+                return r == -ENOENT ? 0 : r;
+
+        r = network_apply(m, network, link);
+        if (r < 0)
+                return r;
+
+        r = link_configure(link);
+        if (r < 0)
+                return r;
+
+        return 0;
 }
 
 int link_update(Link *link, sd_rtnl_message *m) {
@@ -1327,16 +1324,11 @@ int link_update(Link *link, sd_rtnl_message *m) {
         int r;
 
         assert(link);
+        assert(link->network);
         assert(m);
 
         if (link->state == LINK_STATE_FAILED)
                 return 0;
-
-        r = sd_rtnl_message_link_get_flags(m, &flags);
-        if (r < 0) {
-                log_warning_link(link, "Could not get link flags");
-                return r;
-        }
 
         if (link->network->dhcp && link->network->dhcp_mtu &&
             !link->original_mtu) {
@@ -1356,6 +1348,12 @@ int link_update(Link *link, sd_rtnl_message *m) {
                                 link->mac.ether_addr_octet[3],
                                 link->mac.ether_addr_octet[4],
                                 link->mac.ether_addr_octet[5]);
+        }
+
+        r = sd_rtnl_message_link_get_flags(m, &flags);
+        if (r < 0) {
+                log_warning_link(link, "Could not get link flags");
+                return r;
         }
 
         return link_update_flags(link, flags);
