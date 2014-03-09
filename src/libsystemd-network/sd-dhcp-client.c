@@ -264,6 +264,15 @@ static int client_message_init(sd_dhcp_client *client, DHCPMessage *message,
         return 0;
 }
 
+static int dhcp_client_send_raw(sd_dhcp_client *client, DHCPPacket *packet,
+                                size_t len) {
+        dhcp_packet_append_ip_headers(packet, INADDR_ANY, DHCP_PORT_CLIENT,
+                                      INADDR_BROADCAST, DHCP_PORT_SERVER, len);
+
+        return dhcp_network_send_raw_socket(client->fd, &client->link,
+                                            packet, len);
+}
+
 static int client_send_discover(sd_dhcp_client *client, uint16_t secs) {
         int err = 0;
         _cleanup_free_ DHCPPacket *discover;
@@ -295,14 +304,13 @@ static int client_send_discover(sd_dhcp_client *client, uint16_t secs) {
         if (err < 0)
                 return err;
 
-        dhcp_packet_append_ip_headers(discover, len);
-
-        err = dhcp_network_send_raw_socket(client->fd, &client->link,
-                                           discover, len);
+        err = dhcp_client_send_raw(client, discover, len);
+        if (err < 0)
+                return err;
 
         log_dhcp_client(client, "DISCOVER");
 
-        return err;
+        return 0;
 }
 
 static int client_send_request(sd_dhcp_client *client, uint16_t secs) {
@@ -348,15 +356,14 @@ static int client_send_request(sd_dhcp_client *client, uint16_t secs) {
                                                    &request->dhcp,
                                                    len - DHCP_IP_UDP_SIZE);
         } else {
-                dhcp_packet_append_ip_headers(request, len);
-
-                err = dhcp_network_send_raw_socket(client->fd, &client->link,
-                                                   request, len);
+                err = dhcp_client_send_raw(client, request, len);
         }
+        if (err < 0)
+                return err;
 
         log_dhcp_client(client, "REQUEST");
 
-        return err;
+        return 0;
 }
 
 static uint16_t client_update_secs(sd_dhcp_client *client, usec_t time_now)

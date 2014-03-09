@@ -92,17 +92,19 @@ static uint16_t dhcp_checksum(void *buf, int len) {
         return ~sum;
 }
 
-void dhcp_packet_append_ip_headers(DHCPPacket *packet, uint16_t len) {
+void dhcp_packet_append_ip_headers(DHCPPacket *packet, be32_t source_addr,
+                                   uint16_t source_port, be32_t destination_addr,
+                                   uint16_t destination_port, uint16_t len) {
         packet->ip.version = IPVERSION;
         packet->ip.ihl = DHCP_IP_SIZE / 4;
         packet->ip.tot_len = htobe16(len);
 
         packet->ip.protocol = IPPROTO_UDP;
-        packet->ip.saddr = INADDR_ANY;
-        packet->ip.daddr = INADDR_BROADCAST;
+        packet->ip.saddr = source_addr;
+        packet->ip.daddr = destination_addr;
 
-        packet->udp.source = htobe16(DHCP_PORT_CLIENT);
-        packet->udp.dest = htobe16(DHCP_PORT_SERVER);
+        packet->udp.source = htobe16(source_port);
+        packet->udp.dest = htobe16(destination_port);
 
         packet->udp.len = htobe16(len - DHCP_IP_SIZE);
 
