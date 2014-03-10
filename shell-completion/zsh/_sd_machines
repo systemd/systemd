@@ -1,6 +1,6 @@
 #autoload
 __get_machines () {
-        machinectl --full --no-pager list | {while read -r a b; do echo $a; done;};
+        machinectl --full --no-legend --no-pager list |  {while read -r a b; do echo $a; done;};
 }
 
 local -a _machines
