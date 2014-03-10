@@ -116,16 +116,27 @@ static void test_pointers (struct udev_device *dev,
                         udev_builtin_add_property(dev, test, "ID_INPUT_TABLET", "1");
                 else if (test_bit (BTN_TOOL_FINGER, bitmask_key) && !test_bit (BTN_TOOL_PEN, bitmask_key))
                         is_touchpad = 1;
-                else if (test_bit (BTN_TRIGGER, bitmask_key) ||
-                         test_bit (BTN_A, bitmask_key) ||
-                         test_bit (BTN_1, bitmask_key))
-                        udev_builtin_add_property(dev, test, "ID_INPUT_JOYSTICK", "1");
                 else if (test_bit (BTN_MOUSE, bitmask_key))
                         /* This path is taken by VMware's USB mouse, which has
                          * absolute axes, but no touch/pressure button. */
                         is_mouse = 1;
                 else if (test_bit (BTN_TOUCH, bitmask_key))
                         udev_builtin_add_property(dev, test, "ID_INPUT_TOUCHSCREEN", "1");
+                /* joysticks don't necessarily have to have buttons; e. g.
+                 * rudders/pedals are joystick-like, but buttonless; they have
+                 * other fancy axes */
+                else if (test_bit (BTN_TRIGGER, bitmask_key) ||
+                         test_bit (BTN_A, bitmask_key) ||
+                         test_bit (BTN_1, bitmask_key) ||
+                         test_bit (ABS_RX, bitmask_abs) ||
+                         test_bit (ABS_RY, bitmask_abs) ||
+                         test_bit (ABS_RZ, bitmask_abs) ||
+                         test_bit (ABS_THROTTLE, bitmask_abs) ||
+                         test_bit (ABS_RUDDER, bitmask_abs) ||
+                         test_bit (ABS_WHEEL, bitmask_abs) ||
+                         test_bit (ABS_GAS, bitmask_abs) ||
+                         test_bit (ABS_BRAKE, bitmask_abs))
+                        udev_builtin_add_property(dev, test, "ID_INPUT_JOYSTICK", "1");
         }
 
         if (test_bit (EV_REL, bitmask_ev) &&
