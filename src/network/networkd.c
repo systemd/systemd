@@ -51,21 +51,9 @@ int main(int argc, char *argv[]) {
                 goto out;
         }
 
-        r = manager_load_config(m);
-        if (r < 0) {
-                log_error("Could not load configuration files: %s", strerror(-r));
-                goto out;
-        }
-
         r = manager_udev_listen(m);
         if (r < 0) {
                 log_error("Could not connect to udev: %s", strerror(-r));
-                goto out;
-        }
-
-        r = manager_udev_enumerate_links(m);
-        if (r < 0) {
-                log_error("Could not enumerate links: %s", strerror(-r));
                 goto out;
         }
 
@@ -78,6 +66,18 @@ int main(int argc, char *argv[]) {
         r = manager_bus_listen(m);
         if (r < 0) {
                 log_error("Could not connect to system bus: %s", strerror(-r));
+                goto out;
+        }
+
+        r = manager_load_config(m);
+        if (r < 0) {
+                log_error("Could not load configuration files: %s", strerror(-r));
+                goto out;
+        }
+
+        r = manager_udev_enumerate_links(m);
+        if (r < 0) {
+                log_error("Could not enumerate links: %s", strerror(-r));
                 goto out;
         }
 
