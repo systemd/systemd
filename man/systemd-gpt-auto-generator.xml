@@ -104,27 +104,27 @@
                                 </thead>
                                 <tbody>
                                         <row>
-                                                <entry>44479540-f297-41b2-9af7d131d5f0458a</entry>
+                                                <entry>44479540-f297-41b2-9af7-d131d5f0458a</entry>
                                                 <entry><filename>Root Partition (x86)</filename></entry>
                                                 <entry>On 32bit x86 systems the first x86 root partition on the disk the EFI ESP is located on is mounted to the root directory <filename>/</filename>.</entry>
                                         </row>
                                         <row>
-                                                <entry>4f68bce3-e8cd-4db1-96e7fbcaf984b709</entry>
+                                                <entry>4f68bce3-e8cd-4db1-96e7-fbcaf984b709</entry>
                                                 <entry><filename>Root Partition (x86-64)</filename></entry>
                                                 <entry>On 64bit x86 systems the first x86-64 root partition on the disk the EFI ESP is located on is mounted to the root directory <filename>/</filename>.</entry>
                                         </row>
                                         <row>
-                                                <entry>933ac7e1-2eb4-4f13-b8440e14e2aef915</entry>
+                                                <entry>933ac7e1-2eb4-4f13-b844-0e14e2aef915</entry>
                                                 <entry>Home Partition</entry>
                                                 <entry>The first home partition on the disk the root partition is located on is mounted to <filename>/home</filename>.</entry>
                                         </row>
                                         <row>
-                                                <entry>3b8f8425-20e0-4f3b-907f1a25a76f98e8</entry>
+                                                <entry>3b8f8425-20e0-4f3b-907f-1a25a76f98e8</entry>
                                                 <entry>Server Data Partition</entry>
                                                 <entry>The first server data partition on the disk the root partition is located on is mounted to <filename>/srv</filename>.</entry>
                                         </row>
                                         <row>
-                                                <entry>0657fd6d-a4ab-43c4-84e50933c84b4f4f</entry>
+                                                <entry>0657fd6d-a4ab-43c4-84e5-0933c84b4f4f</entry>
                                                 <entry>Swap</entry>
                                                 <entry>All swap partitions located on the disk the root partition is located on are enabled.</entry>
                                         </row>
