@@ -186,6 +186,7 @@
 /test-strxcpyx
 /test-tables
 /test-time
+/test-timedate-sntp
 /test-tmpfiles
 /test-udev
 /test-unit-file

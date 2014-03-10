@@ -186,6 +186,7 @@ AM_CPPFLAGS = \
 	-I $(top_srcdir)/src/network \
 	-I $(top_srcdir)/src/login \
 	-I $(top_srcdir)/src/journal \
+	-I $(top_srcdir)/src/timedate \
 	-I $(top_srcdir)/src/systemd \
 	-I $(top_builddir)/src/core \
 	-I $(top_srcdir)/src/core \
@@ -3893,13 +3894,24 @@ EXTRA_DIST += \
 
 # ------------------------------------------------------------------------------
 if ENABLE_TIMEDATED
+libsystemd_timedated_core_la_SOURCES = \
+	src/timedate/timedate-sntp.c \
+	src/timedate/timedate-sntp.h
+
+libsystemd_timedated_core_la_LIBADD = \
+	libsystemd-label.la \
+	libsystemd-internal.la \
+	libsystemd-shared.la \
+	-lm
+
+noinst_LTLIBRARIES += \
+	libsystemd-timedated-core.la
+
 systemd_timedated_SOURCES = \
 	src/timedate/timedated.c
 
 systemd_timedated_LDADD = \
-	libsystemd-label.la \
-	libsystemd-internal.la \
-	libsystemd-shared.la
+	libsystemd-timedated-core.la
 
 rootlibexec_PROGRAMS += \
 	systemd-timedated
@@ -3944,6 +3956,15 @@ dist_bashcompletion_DATA += \
 
 dist_zshcompletion_DATA += \
 	shell-completion/zsh/_timedatectl
+
+test_timedate_sntp_SOURCES = \
+	src/timedate/test-timedate-sntp.c
+
+test_timedate_sntp_LDADD = \
+	libsystemd-timedated-core.la
+
+manual_tests += \
+	test-timedate-sntp
 endif
 
 polkitpolicy_in_files += \
