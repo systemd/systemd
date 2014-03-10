@@ -44,14 +44,12 @@
 #include "gpt.h"
 #include "fileio.h"
 #include "efivars.h"
+#include "blkid-util.h"
 
 static const char *arg_dest = "/tmp";
 static bool arg_enabled = true;
 static bool arg_root_enabled = true;
 static bool arg_root_rw = false;
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(blkid_probe, blkid_free_probe);
-#define _cleanup_blkid_free_probe_ _cleanup_(blkid_free_probep)
 
 static int add_swap(const char *path) {
         _cleanup_free_ char *name = NULL, *unit = NULL, *lnk = NULL;
@@ -464,7 +462,7 @@ static int enumerate_partitions(dev_t devnum) {
                 if (errno == 0)
                         return log_oom();
 
-                log_error("Failed to list of partitions of %s: %m", node);
+                log_error("Failed to list partitions of %s: %m", node);
                 return -errno;
         }
 

@@ -1839,7 +1839,8 @@ systemgenerator_PROGRAMS +=  \
 	systemd-gpt-auto-generator
 
 systemd_gpt_auto_generator_SOURCES = \
-	src/gpt-auto-generator/gpt-auto-generator.c
+	src/gpt-auto-generator/gpt-auto-generator.c \
+	src/shared/blkid-util.h
 
 systemd_gpt_auto_generator_LDADD = \
 	libsystemd-label.la \
@@ -1964,14 +1965,16 @@ systemd_nspawn_SOURCES = \
 
 systemd_nspawn_CFLAGS = \
 	$(AM_CFLAGS) \
-	$(SECCOMP_CFLAGS)
+	$(SECCOMP_CFLAGS) \
+	$(BLKID_CFLAGS)
 
 systemd_nspawn_LDADD = \
 	libsystemd-label.la \
 	libsystemd-capability.la \
 	libsystemd-internal.la \
 	libudev-internal.la \
-	libsystemd-shared.la
+	libsystemd-shared.la \
+	$(BLKID_LIBS)
 
 if HAVE_SECCOMP
 systemd_nspawn_LDADD += \

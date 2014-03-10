@@ -35,6 +35,7 @@
 
 #if defined(__x86_64__)
 #  define GPT_ROOT_NATIVE GPT_ROOT_X86_64
+#  define GPT_ROOT_SECONDARY GPT_ROOT_X86
 #elif defined(__i386__)
 #  define GPT_ROOT_NATIVE GPT_ROOT_X86
 #endif
