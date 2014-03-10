@@ -143,3 +143,33 @@ int socket_address_listen(
 
         return r;
 }
+
+int make_socket_fd(int log_level, const char* address, int flags) {
+        SocketAddress a;
+        int fd, r;
+
+        r = socket_address_parse(&a, address);
+        if (r < 0) {
+                log_error("Failed to parse socket: %s", strerror(-r));
+                return r;
+        }
+
+        fd = socket_address_listen(&a, flags, SOMAXCONN, SOCKET_ADDRESS_DEFAULT,
+                                   NULL, false, false, 0755, 0644, NULL);
+        if (fd < 0 || log_get_max_level() >= log_level) {
+                char _cleanup_free_ *p = NULL;
+
+                r = socket_address_print(&a, &p);
+                if (r < 0) {
+                        log_error("socket_address_print(): %s", strerror(-r));
+                        return r;
+                }
+
+                if (fd < 0)
+                        log_error("Failed to listen on %s: %s", p, strerror(-r));
+                else
+                        log_full(log_level, "Listening on %s", p);
+        }
+
+        return fd;
+}

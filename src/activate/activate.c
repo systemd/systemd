@@ -59,25 +59,6 @@ static int add_epoll(int epoll_fd, int fd) {
         return 0;
 }
 
-static int make_socket_fd(const char* address, int flags) {
-        SocketAddress a;
-        int fd, r;
-
-        r = socket_address_parse(&a, address);
-        if (r < 0) {
-                log_error("Failed to parse socket: %s", strerror(-r));
-                return r;
-        }
-
-        fd = socket_address_listen(&a, flags, SOMAXCONN, SOCKET_ADDRESS_DEFAULT, NULL, false, false, 0755, 0644, NULL);
-        if (fd < 0) {
-                log_error("Failed to listen: %s", strerror(-r));
-                return fd;
-        }
-
-        return fd;
-}
-
 static int open_sockets(int *epoll_fd, bool accept) {
         char **address;
         int n, fd, r;
@@ -119,7 +100,7 @@ static int open_sockets(int *epoll_fd, bool accept) {
 
         STRV_FOREACH(address, arg_listen) {
 
-                fd = make_socket_fd(*address, SOCK_STREAM | (arg_accept*SOCK_CLOEXEC));
+                fd = make_socket_fd(LOG_DEBUG, *address, SOCK_STREAM | (arg_accept*SOCK_CLOEXEC));
                 if (fd < 0) {
                         log_open();
                         log_error("Failed to open '%s': %s", *address, strerror(-fd));
