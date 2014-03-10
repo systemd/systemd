@@ -879,23 +879,19 @@ static int setup_ptmx(const char *dest) {
 }
 
 static int setup_dev_console(const char *dest, const char *console) {
-        struct stat st;
-        _cleanup_free_ char *to = NULL;
-        int r;
         _cleanup_umask_ mode_t u;
+        const char *to;
+        struct stat st;
+        int r;
 
         assert(dest);
         assert(console);
 
         u = umask(0000);
 
-        if (stat(console, &st) < 0) {
-                log_error("Failed to stat %s: %m", console);
+        if (stat("/dev/null", &st) < 0) {
+                log_error("Failed to stat /dev/null: %m");
                 return -errno;
-
-        } else if (!S_ISCHR(st.st_mode)) {
-                log_error("/dev/console is not a char device");
-                return -EIO;
         }
 
         r = chmod_and_chown(console, 0600, 0, 0);
@@ -904,16 +900,15 @@ static int setup_dev_console(const char *dest, const char *console) {
                 return r;
         }
 
-        if (asprintf(&to, "%s/dev/console", dest) < 0)
-                return log_oom();
-
         /* We need to bind mount the right tty to /dev/console since
          * ptys can only exist on pts file systems. To have something
-         * to bind mount things on we create a device node first, that
-         * has the right major/minor (note that the major minor
-         * doesn't actually matter here, since we mount it over
-         * anyway). */
+         * to bind mount things on we create a device node first, and
+         * use /dev/null for that since we the cgroups device policy
+         * allows us to create that freely, while we cannot create
+         * /dev/console. (Note that the major minor doesn't actually
+         * matter here, since we mount it over anyway). */
 
+        to = strappenda(dest, "/dev/console");
         if (mknod(to, (st.st_mode & ~07777) | 0600, st.st_rdev) < 0) {
                 log_error("mknod() for /dev/console failed: %m");
                 return -errno;
