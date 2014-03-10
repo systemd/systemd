@@ -178,6 +178,7 @@ Features:
        - NameLost/NameAcquired obsolete
        - GVariant
        - "const" properties (posted)
+       - path escaping
   - port exit-on-idle logic to byebye ioctl
   - update systemd.special(7) to mention that dbus.socket is only about the compatibility socket now
   - allow updating attach flags during runtime
@@ -456,7 +457,6 @@ Features:
   - refuses to boot containers without /etc/machine-id (OK?), and with empty /etc/machine-id (not OK).
   - support taking a btrfs snapshot at startup and dropping it afterwards
   - maybe: hookup nspawn and PrivateNetwork=yes with "ip netns"
-  - allow booting disk images with a GPT signature using the bootloaderspec partition uuids
   - generate predictable mac addresses for the netdev we create (host0), maybe based on guest's machine
     name and machine-id of host (?)
 
