@@ -1,5 +1,129 @@
 systemd System and Service Manager
 
+CHANGES WITH 211:
+
+        * A new unit file setting RestrictAddressFamilies= has been
+          added to restrict which socket address families unit
+          processes gain access to. This takes address family names
+          like "AF_INET" or "AF_UNIX", and is useful to minimize the
+          attack surface of services via exotic protocol stacks. This
+          is built on seccomp system call filters.
+
+        * Two new unit file settings RuntimeDirectory= and
+          RuntimeDirectoryMode= have been added that may be used to
+          manage a per-daemon runtime directories below /run. This is
+          an alternative for setting up directory permissions with
+          tmpfiles snippets, and has the advantage that the runtime
+          directory's lifetime is bound to the daemon runtime and that
+          the daemon starts up with an empty directory each time. This
+          is particularly useful when writing services that drop
+          priviliges using the User= or Group= setting.
+
+        * The DeviceAllow= unit setting now supports globbing for
+          matching against device group names.
+
+        * The systemd configuration file system.conf gained new
+          settings DefaultCPUAccounting=, DefaultBlockIOAccounting=,
+          DefaultMemoryAccounting= to globally turn on/off accounting
+          for specific resources (cgroups) for all units. These
+          sittings may still be overriden individually in each unit
+          though.
+
+        * systemd-gpt-auto-generator is now able to discover /srv and
+          root partitions in addition to /home and swap partitions. It
+          also supports LUKS-encrypted partitions now. With this in
+          place automatic discovery of partitions to mount following
+          the Discoverable Partitions Specification
+          (http://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec)
+          is now a lot more complete. This allows booting without
+          /etc/fstab and without root= on the kernel command line on
+          appropriately prepared systems.
+
+        * systemd-nspawn gained a new --image= switch which allows
+          booting up disk images and Linux installations on any block
+          device that follow the Discoverable Partitions Specification
+          (see above). This means that installations made with
+          appropriately updated installers may now be started and
+          deployed using container managers, completely
+          unmodified. (We hope that libvirt-lxc will add support for
+          this feature soon, too.)
+
+        * systemd-nspawn gained a new --network-macvlan= setting to
+          set up a private macvlan interface for the
+          container. Similar, systemd-networkd gained a new
+          Kind=macvlan setting in .netdev files.
+
+        * systemd-networkd now supports configuring local addresses
+          using IPv4LL.
+
+        * A new tool systemd-network-wait-online has been added to
+          synchronously wait for network connectivity using
+          systemd-networkd.
+
+        * The sd-bus.h bus API gained a new sd_bus_track object for
+          tracking the life-cycle of bus peers. Note that sd-bus.h is
+          still not a public API though (unless you specify
+          --enable-kdbus on the configure command line, which however
+          voids your warranty and you get no API stability guarantee).
+
+        * The $XDG_RUNTIME_DIR runtime directories for each user are
+          now individual tmpfs instances, which has the benefit of
+          introducing separate pools for each user, with individual
+          size limits, and thus making sure that unpriviliged clients
+          can no longer negatively impact the system or other users by
+          filling up their $XDG_RUNTIME_DIR. A new logind.conf setting
+          RuntimeDirectorySize= has been introduced that allows
+          controlling the default size limit for all users. It
+          defaults to 10% of the available physical memory. This is no
+          replacement for quotas on tmpfs though (which the kernel
+          still does not support), as /dev/shm and /tmp are still
+          shared resources used by both the system and unpriviliged
+          users.
+
+        * logind will now automatically turn off automatic suspending
+          on laptop lid close when more than one display is
+          connected. This was previously expected to be implemented
+          individually in desktop environments (such as GNOME),
+          however has been added to logind now, in order to fix a
+          boot-time race where a desktop environment might not have
+          been started yet and thus not been able to take an inhibitor
+          lock at the time where logind already suspends the system
+          due to a closed lid.
+
+        * logind will now wait at least 30s after each system
+          suspend/resume cycle, and 3min after system boot before
+          suspending the system due to a closed laptop lid. This
+          should give USB docking stations and similar enough time to
+          be probed and configured after system resume and bood in
+          order to then act as suspend blocker.
+
+        * systemd-run gained a new --property= setting which allows
+          initialization of resource control properties (and others)
+          for the created scope or service unit. Example: "systemd-run
+          --property=BlockIOWeight=10 updatedb" may be used to run
+          updatedb at a low block IO scheduling weight.
+
+        * systemd-run's --uid=, --gid=, --setenv=, --setenv= switches
+          now also work in --scope mode.
+
+        * When systemd is compiled with kdbus support, basic support
+          for enforced policies is now in place. (Note that enabling
+          kdbus still voids your warranty and no API compatibility
+          promises are made.)
+
+        Contributions from: Andrey Borzenkov, Ansgar Burchardt, Armin
+        K., Daniel Mack, Dave Reisner, David Herrmann, Djalal Harouni,
+        Harald Hoyer, Henrik Grindal Bakken, Jasper St. Pierre, Kay
+        Sievers, Kieran Clancy, Lennart Poettering, Lukas Nykryn,
+        Mantas Mikulėnas, Marcel Holtmann, Mark Oteiza, Martin Pitt,
+        Mike Gilbert, Peter Rajnoha, poma, Samuli Suominen, Stef
+        Walter, Susant Sahani, Tero Roponen, Thomas Andersen, Thomas
+        Bächler, Thomas Hindoe Paaboel Andersen, Tomasz Torcz, Tom
+        Gundersen, Umut Tezduyar Lindskog, Uoti Urpala, Zachary Cook,
+        Zbigniew Jędrzejewski-Szmek
+
+        -- Berlin, 2014-03-11
+
 CHANGES WITH 210:
 
         * systemd will now relabel /dev after loading the SMACK policy
