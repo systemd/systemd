@@ -35,6 +35,7 @@
 #include "fileio.h"
 #include "generator.h"
 #include "strv.h"
+#include "virt.h"
 
 static const char *arg_dest = "/tmp";
 static bool arg_fstab_enabled = true;
@@ -76,6 +77,11 @@ static int add_swap(const char *what, struct mntent *me) {
 
         assert(what);
         assert(me);
+
+        if (detect_container(NULL) > 0) {
+                log_info("Running in a container, ignoring fstab swap entry for %s.", what);
+                return 0;
+        }
 
         r = mount_find_pri(me, &pri);
         if (r < 0) {
@@ -340,6 +346,11 @@ static int parse_fstab(bool initrd) {
                 what = fstab_node_to_udev_node(me->mnt_fsname);
                 if (!what)
                         return log_oom();
+
+                if (detect_container(NULL) > 0 && is_device_path(what)) {
+                        log_info("Running in a container, ignoring fstab device entry for %s.", what);
+                        continue;
+                }
 
                 where = initrd ? strappend("/sysroot/", me->mnt_dir) : strdup(me->mnt_dir);
                 if (!where)
