@@ -89,6 +89,13 @@ REQUIREMENTS:
         runtime using the kernel command line option "audit=0", or
         turn it off at kernel compile time using:
           CONFIG_AUDIT=n
+        If systemd is compiled with libseccomp support on
+        architectures which do not use socketcall() and where seccomp
+        is supported (this effectively means x86-64 and ARM, but
+        excludes 32bit x86!), then nspawn will now install a
+        work-around seccomp filter that makes containers boot even
+        with audit being enabled. This works correctly only on kernels
+        3.14 and newer though. TL;DR: turn audit off, still.
 
         glibc >= 2.14
         libcap
