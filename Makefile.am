@@ -4963,7 +4963,7 @@ kdbus-update:
 	wget -N https://d-bus.googlecode.com/git/kdbus.h )
 
 .PHONY: upload
-upload: all distcheck
+upload: all check
 	cp -v systemd-$(VERSION).tar.xz /home/lennart/git.fedora/systemd/
 	scp systemd-$(VERSION).tar.xz fdo:/srv/www.freedesktop.org/www/software/systemd/
 	scp man/*.html tango:public/systemd-man/
