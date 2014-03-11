@@ -27,6 +27,8 @@ External:
 
 Features:
 
+* fstab-generator: in a container, simply skip entries referencing physical devices
+
 * mount /sys/fs/cgroup read-only (but leave the subdirs writable)
 
 * gpt-auto-generator:
