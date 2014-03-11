@@ -1305,6 +1305,46 @@ static int bus_manager_log_shutdown(
                           q, NULL);
 }
 
+static int lid_switch_ignore_handler(sd_event_source *e, uint64_t usec, void *userdata) {
+        Manager *m = userdata;
+
+        assert(e);
+        assert(m);
+
+        m->lid_switch_ignore_event_source = sd_event_source_unref(m->lid_switch_ignore_event_source);
+        return 0;
+}
+
+int manager_set_lid_switch_ignore(Manager *m, usec_t until) {
+        int r;
+
+        assert(m);
+
+        if (until <= now(CLOCK_MONOTONIC))
+                return 0;
+
+        /* We want to ignore the lid switch for a while after each
+         * suspend, and after boot-up. Hence let's install a timer for
+         * this. As long as the event source exists we ignore the lid
+         * switch. */
+
+        if (m->lid_switch_ignore_event_source) {
+                usec_t u;
+
+                r = sd_event_source_get_time(m->lid_switch_ignore_event_source, &u);
+                if (r < 0)
+                        return r;
+
+                if (until <= u)
+                        return 0;
+
+                r = sd_event_source_set_time(m->lid_switch_ignore_event_source, until);
+        } else
+                r = sd_event_add_monotonic(m->event, &m->lid_switch_ignore_event_source, until, 0, lid_switch_ignore_handler, m);
+
+        return r;
+}
+
 static int execute_shutdown_or_sleep(
                 Manager *m,
                 InhibitWhat w,
