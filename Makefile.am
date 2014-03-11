@@ -2453,6 +2453,7 @@ libsystemd_network_la_SOURCES = \
 	src/libsystemd-network/ipv4ll-internal.h
 
 libsystemd_network_la_LIBADD = \
+	libsystemd-label.la \
 	libsystemd-internal.la \
 	libsystemd-shared.la
 
@@ -2474,6 +2475,7 @@ test_dhcp_client_SOURCES = \
 
 test_dhcp_client_LDADD = \
 	libsystemd-network.la \
+	libsystemd-label.la \
 	libsystemd-internal.la \
 	libsystemd-shared.la
 

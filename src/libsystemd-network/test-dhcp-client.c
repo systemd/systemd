@@ -150,7 +150,7 @@ int dhcp_network_send_raw_socket(int s, const union sockaddr_union *link,
                                  const void *packet, size_t len)
 {
         size_t size;
-        _cleanup_free_ DHCPPacket *discover;
+        _cleanup_free_ DHCPPacket *discover = NULL;
         uint16_t ip_check, udp_check;
 
         assert_se(s >= 0);
