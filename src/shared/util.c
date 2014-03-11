@@ -921,16 +921,9 @@ char *delete_chars(char *s, const char *bad) {
 }
 
 bool in_charset(const char *s, const char* charset) {
-        const char *i;
-
         assert(s);
         assert(charset);
-
-        for (i = s; *i; i++)
-                if (!strchr(charset, *i))
-                        return false;
-
-        return true;
+        return s[strspn(s, charset)] == '\0';
 }
 
 char *file_in_same_dir(const char *path, const char *filename) {
