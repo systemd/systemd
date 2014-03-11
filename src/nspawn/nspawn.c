@@ -2222,7 +2222,7 @@ static void loop_remove(int nr, int *image_fd) {
 int main(int argc, char *argv[]) {
 
         _cleanup_free_ char *kdbus_domain = NULL, *device_path = NULL, *root_device = NULL, *home_device = NULL, *srv_device = NULL;
-        _cleanup_close_ int master = -1, kdbus_fd = -1, sync_fd = -1, image_fd = -1;
+        _cleanup_close_ int master = -1, kdbus_fd = -1, image_fd = -1;
         _cleanup_close_pipe_ int kmsg_socket_pair[2] = { -1, -1 };
         _cleanup_fdset_free_ FDSet *fds = NULL;
         int r = EXIT_FAILURE, k, n_fd_passed, loop_nr = -1;
@@ -2396,10 +2396,18 @@ int main(int argc, char *argv[]) {
         assert_se(sigprocmask(SIG_BLOCK, &mask, NULL) == 0);
 
         for (;;) {
+                int parent_ready_fd = -1, child_ready_fd = -1;
                 siginfo_t status;
+                eventfd_t x;
 
-                sync_fd = eventfd(0, EFD_CLOEXEC);
-                if (sync_fd < 0) {
+                parent_ready_fd = eventfd(0, EFD_CLOEXEC);
+                if (parent_ready_fd < 0) {
+                        log_error("Failed to create event fd: %m");
+                        goto finish;
+                }
+
+                child_ready_fd = eventfd(0, EFD_CLOEXEC);
+                if (child_ready_fd < 0) {
                         log_error("Failed to create event fd: %m");
                         goto finish;
                 }
@@ -2436,7 +2444,6 @@ int main(int argc, char *argv[]) {
                                 NULL
                         };
                         char **env_use;
-                        eventfd_t x;
 
                         envp[n_env] = strv_find_prefix(environ, "TERM=");
                         if (envp[n_env])
@@ -2553,6 +2560,13 @@ int main(int argc, char *argv[]) {
 
                         if (setup_kdbus(arg_directory, kdbus_domain) < 0)
                                 goto child_fail;
+
+                        /* Tell the parent that we are ready, and that
+                         * it can cgroupify us to that we lack access
+                         * to certain devices and resources. */
+                        eventfd_write(child_ready_fd, 1);
+                        close_nointr_nofail(child_ready_fd);
+                        child_ready_fd = -1;
 
                         if (chdir(arg_directory) < 0) {
                                 log_error("chdir(%s) failed: %m", arg_directory);
@@ -2682,9 +2696,11 @@ int main(int argc, char *argv[]) {
                                 }
                         }
 
-                        eventfd_read(sync_fd, &x);
-                        close_nointr_nofail(sync_fd);
-                        sync_fd = -1;
+#ifdef HAVE_SELINUX
+                        if (arg_selinux_context)
+                                if (setexeccon((security_context_t) arg_selinux_context) < 0)
+                                        log_error("setexeccon(\"%s\") failed: %m", arg_selinux_context);
+#endif
 
                         if (!strv_isempty(arg_setenv)) {
                                 char **n;
@@ -2699,11 +2715,11 @@ int main(int argc, char *argv[]) {
                         } else
                                 env_use = (char**) envp;
 
-#ifdef HAVE_SELINUX
-                        if (arg_selinux_context)
-                                if (setexeccon((security_context_t) arg_selinux_context) < 0)
-                                        log_error("setexeccon(\"%s\") failed: %m", arg_selinux_context);
-#endif
+                        /* Wait until the parent is ready with the setup, too... */
+                        eventfd_read(parent_ready_fd, &x);
+                        close_nointr_nofail(parent_ready_fd);
+                        parent_ready_fd = -1;
+
                         if (arg_boot) {
                                 char **a;
                                 size_t l;
@@ -2739,6 +2755,12 @@ int main(int argc, char *argv[]) {
                 fdset_free(fds);
                 fds = NULL;
 
+                /* Wait until the child reported that it is ready with
+                 * all it needs to do with priviliges. After we got
+                 * the notification we can make the process join its
+                 * cgroup which might limit what it can do */
+                eventfd_read(child_ready_fd, &x);
+
                 r = register_machine(pid);
                 if (r < 0)
                         goto finish;
@@ -2759,9 +2781,10 @@ int main(int argc, char *argv[]) {
                 if (r < 0)
                         goto finish;
 
-                eventfd_write(sync_fd, 1);
-                close_nointr_nofail(sync_fd);
-                sync_fd = -1;
+                /* Notify the child that the parent is ready with all
+                 * its setup, and thtat the child can now hand over
+                 * control to the code to run inside the container. */
+                eventfd_write(parent_ready_fd, 1);
 
                 k = process_pty(master, &mask, arg_boot ? pid : 0, SIGRTMIN+3);
                 if (k < 0) {
