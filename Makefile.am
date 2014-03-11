@@ -4980,7 +4980,7 @@ doc-sync: all destdir-sphinx
 
 .PHONY: git-tag
 git-tag:
-	git tag "v$(VERSION)" -m "systemd $(VERSION)"
+	git tag -s "v$(VERSION)" -m "systemd $(VERSION)"
 
 .PHONY: install-tree
 install-tree: all
