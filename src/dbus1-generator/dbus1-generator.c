@@ -169,7 +169,7 @@ static int add_dbus(const char *path, const char *fname, const char *type) {
         assert(path);
         assert(fname);
 
-        p = strappenda3(path, "/", fname);
+        p = strappenda(path, "/", fname);
         r = config_parse(NULL, p, NULL,
                          "D-BUS Service\0",
                          config_item_table_lookup, table,

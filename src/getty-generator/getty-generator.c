@@ -42,7 +42,7 @@ static int add_symlink(const char *fservice, const char *tservice) {
         assert(tservice);
 
         from = strappenda(SYSTEM_DATA_UNIT_PATH "/", fservice);
-        to = strappenda3(arg_dest, "/getty.target.wants/", tservice);
+        to = strappenda(arg_dest, "/getty.target.wants/", tservice);
 
         mkdir_parents_label(to, 0755);
 

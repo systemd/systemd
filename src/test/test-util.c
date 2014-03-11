@@ -907,6 +907,19 @@ static void test_strshorten(void) {
         assert_se(strlen(strshorten(s, 0)) == 0);
 }
 
+static void test_strappenda(void) {
+        char *actual;
+
+        actual = strappenda("", "foo", "bar");
+        assert_se(streq(actual, "foobar"));
+
+        actual = strappenda("foo", "bar", "baz");
+        assert_se(streq(actual, "foobarbaz"));
+
+        actual = strappenda("foo", "", "bar", "baz");
+        assert_se(streq(actual, "foobarbaz"));
+}
+
 int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
@@ -965,6 +978,7 @@ int main(int argc, char *argv[]) {
         test_read_one_char();
         test_ignore_signals();
         test_strshorten();
+        test_strappenda();
 
         return 0;
 }

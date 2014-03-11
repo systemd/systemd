@@ -432,7 +432,7 @@ static int add_root_mount(void) {
         else if (arg_root_rw >= 0 ||
                  (!mount_test_option(arg_root_options, "ro") &&
                   !mount_test_option(arg_root_options, "rw")))
-                opts = strappenda3(arg_root_options, ",", arg_root_rw > 0 ? "rw" : "ro");
+                opts = strappenda(arg_root_options, ",", arg_root_rw > 0 ? "rw" : "ro");
         else
                 opts = arg_root_options;
 

@@ -845,29 +845,19 @@ int unlink_noerrno(const char *path);
                 (void *) memset(_new_, 0, _len_);       \
         })
 
-#define strappenda(a, b)                                \
-        ({                                              \
-                const char *_a_ = (a), *_b_ = (b);      \
-                char *_c_;                              \
-                size_t _x_, _y_;                        \
-                _x_ = strlen(_a_);                      \
-                _y_ = strlen(_b_);                      \
-                _c_ = alloca(_x_ + _y_ + 1);            \
-                strcpy(stpcpy(_c_, _a_), _b_);          \
-                _c_;                                    \
-        })
-
-#define strappenda3(a, b, c)                                    \
-        ({                                                      \
-                const char *_a_ = (a), *_b_ = (b), *_c_ = (c);  \
-                char *_d_;                                      \
-                size_t _x_, _y_, _z_;                           \
-                _x_ = strlen(_a_);                              \
-                _y_ = strlen(_b_);                              \
-                _z_ = strlen(_c_);                              \
-                _d_ = alloca(_x_ + _y_ + _z_ + 1);              \
-                strcpy(stpcpy(stpcpy(_d_, _a_), _b_), _c_);     \
-                _d_;                                            \
+#define strappenda(a, ...)                                       \
+        ({                                                       \
+                int _len = strlen(a);                            \
+                unsigned _i;                                     \
+                char *_d_, *_p_;                                 \
+                const char *_appendees_[] = { __VA_ARGS__ };     \
+                for (_i = 0; _i < ELEMENTSOF(_appendees_); _i++) \
+                        _len += strlen(_appendees_[_i]);         \
+                _d_ = alloca(_len + 1);                          \
+                _p_ = stpcpy(_d_, a);                            \
+                for (_i = 0; _i < ELEMENTSOF(_appendees_); _i++) \
+                        _p_ = stpcpy(_p_, _appendees_[_i]);      \
+                _d_;                                             \
         })
 
 #define procfs_file_alloca(pid, field)                                  \

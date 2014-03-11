@@ -4827,7 +4827,7 @@ static int switch_root(sd_bus *bus, char **args) {
                 const char *root_systemd_path = NULL, *root_init_path = NULL;
 
                 root_systemd_path = strappenda(root, "/" SYSTEMD_BINARY_PATH);
-                root_init_path = strappenda3(root, "/", init);
+                root_init_path = strappenda(root, "/", init);
 
                 /* If the passed init is actually the same as the
                  * systemd binary, then let's suppress it. */

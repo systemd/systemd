@@ -1061,7 +1061,7 @@ static int unit_file_load(
         assert(path);
 
         if (!isempty(root_dir))
-                path = strappenda3(root_dir, "/", path);
+                path = strappenda(root_dir, "/", path);
 
         fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY|(allow_symlink ? 0 : O_NOFOLLOW));
         if (fd < 0)
