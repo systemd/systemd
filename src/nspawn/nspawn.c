@@ -2219,6 +2219,272 @@ static void loop_remove(int nr, int *image_fd) {
         ioctl(control, LOOP_CTL_REMOVE, nr);
 }
 
+static int spawn_getent(const char *database, const char *key, pid_t *rpid) {
+        int pipe_fds[2];
+        pid_t pid;
+
+        assert(database);
+        assert(key);
+        assert(rpid);
+
+        if (pipe2(pipe_fds, O_CLOEXEC) < 0) {
+                log_error("Failed to allocate pipe: %m");
+                return -errno;
+        }
+
+        pid = fork();
+        if (pid < 0) {
+                log_error("Failed to fork getent child: %m");
+                return -errno;
+        } else if (pid == 0) {
+                int nullfd;
+                char *empty_env = NULL;
+
+                if (dup3(pipe_fds[1], STDOUT_FILENO, 0) < 0)
+                        _exit(EXIT_FAILURE);
+
+                if (pipe_fds[0] > 2)
+                        close_nointr_nofail(pipe_fds[0]);
+                if (pipe_fds[1] > 2)
+                        close_nointr_nofail(pipe_fds[1]);
+
+                nullfd = open("/dev/null", O_RDWR);
+                if (nullfd < 0)
+                        _exit(EXIT_FAILURE);
+
+                if (dup3(nullfd, STDIN_FILENO, 0) < 0)
+                        _exit(EXIT_FAILURE);
+
+                if (dup3(nullfd, STDERR_FILENO, 0) < 0)
+                        _exit(EXIT_FAILURE);
+
+                if (nullfd > 2)
+                        close_nointr_nofail(nullfd);
+
+                reset_all_signal_handlers();
+                close_all_fds(NULL, 0);
+
+                execle("/usr/bin/getent", "getenv", database, key, NULL, &empty_env);
+                execle("/usr/getent", "getenv", database, key, NULL, &empty_env);
+                _exit(EXIT_FAILURE);
+        }
+
+        close_nointr_nofail(pipe_fds[1]);
+        pipe_fds[1] = -1;
+
+        *rpid = pid;
+
+        return pipe_fds[0];
+}
+
+static int change_uid_gid(char **_home) {
+
+        _cleanup_strv_free_ char **passwd = NULL;
+        char line[LINE_MAX], *w, *x, *state, *u, *g, *h;
+        _cleanup_free_ uid_t *uids = NULL;
+        _cleanup_free_ char *home = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_close_ int fd = -1;
+        unsigned n_uids = 0;
+        size_t sz, l;
+        uid_t uid;
+        gid_t gid;
+        pid_t pid;
+        int r;
+
+        assert(_home);
+
+        if (!arg_user || streq(arg_user, "root") || streq(arg_user, "0")) {
+                /* Reset everything fully to 0, just in case */
+
+                if (setgroups(0, NULL) < 0) {
+                        log_error("setgroups() failed: %m");
+                        return -errno;
+                }
+
+                if (setresgid(0, 0, 0) < 0) {
+                        log_error("setregid() failed: %m");
+                        return -errno;
+                }
+
+                if (setresuid(0, 0, 0) < 0) {
+                        log_error("setreuid() failed: %m");
+                        return -errno;
+                }
+
+                *_home = NULL;
+                return 0;
+        }
+
+        /* First, get user credentials */
+        fd = spawn_getent("passwd", arg_user, &pid);
+        if (fd < 0)
+                return fd;
+
+        f = fdopen(fd, "r");
+        if (!f)
+                return log_oom();
+        fd = -1;
+
+        if (!fgets(line, sizeof(line), f)) {
+
+                if (!ferror(f)) {
+                        log_error("Failed to resolve user %s.", arg_user);
+                        return -ESRCH;
+                }
+
+                log_error("Failed to read from getent: %m");
+                return -errno;
+        }
+
+        truncate_nl(line);
+
+        wait_for_terminate_and_warn("getent passwd", pid);
+
+        x = strchr(line, ':');
+        if (!x) {
+                log_error("/etc/passwd entry has invalid user field.");
+                return -EIO;
+        }
+
+        u = strchr(x+1, ':');
+        if (!u) {
+                log_error("/etc/passwd entry has invalid password field.");
+                return -EIO;
+        }
+
+        u++;
+        g = strchr(u, ':');
+        if (!g) {
+                log_error("/etc/passwd entry has invalid UID field.");
+                return -EIO;
+        }
+
+        *g = 0;
+        g++;
+        x = strchr(g, ':');
+        if (!x) {
+                log_error("/etc/passwd entry has invalid GID field.");
+                return -EIO;
+        }
+
+        *x = 0;
+        h = strchr(x+1, ':');
+        if (!h) {
+                log_error("/etc/passwd entry has invalid GECOS field.");
+                return -EIO;
+        }
+
+        h++;
+        x = strchr(h, ':');
+        if (!x) {
+                log_error("/etc/passwd entry has invalid home directory field.");
+                return -EIO;
+        }
+
+        *x = 0;
+
+        r = parse_uid(u, &uid);
+        if (r < 0) {
+                log_error("Failed to parse UID of user.");
+                return -EIO;
+        }
+
+        r = parse_gid(g, &gid);
+        if (r < 0) {
+                log_error("Failed to parse GID of user.");
+                return -EIO;
+        }
+
+        home = strdup(h);
+        if (!home)
+                return log_oom();
+
+        /* Second, get group memberships */
+        fd = spawn_getent("initgroups", arg_user, &pid);
+        if (fd < 0)
+                return fd;
+
+        fclose(f);
+        f = fdopen(fd, "r");
+        if (!f)
+                return log_oom();
+        fd = -1;
+
+        if (!fgets(line, sizeof(line), f)) {
+                if (!ferror(f)) {
+                        log_error("Failed to resolve user %s.", arg_user);
+                        return -ESRCH;
+                }
+
+                log_error("Failed to read from getent: %m");
+                return -errno;
+        }
+
+        truncate_nl(line);
+
+        wait_for_terminate_and_warn("getent initgroups", pid);
+
+        /* Skip over the username and subsequent separator whitespace */
+        x = line;
+        x += strcspn(x, WHITESPACE);
+        x += strspn(x, WHITESPACE);
+
+        FOREACH_WORD(w, l, x, state) {
+                char c[l+1];
+
+                memcpy(c, w, l);
+                c[l] = 0;
+
+                if (!GREEDY_REALLOC(uids, sz, n_uids+1))
+                        return log_oom();
+
+                r = parse_uid(c, &uids[n_uids++]);
+                if (r < 0) {
+                        log_error("Failed to parse group data from getent.");
+                        return -EIO;
+                }
+        }
+
+        r = mkdir_parents(home, 0775);
+        if (r < 0) {
+                log_error("Failed to make home root directory: %s", strerror(-r));
+                return r;
+        }
+
+        r = mkdir_safe(home, 0755, uid, gid);
+        if (r < 0) {
+                log_error("Failed to make home directory: %s", strerror(-r));
+                return r;
+        }
+
+        fchown(STDIN_FILENO, uid, gid);
+        fchown(STDOUT_FILENO, uid, gid);
+        fchown(STDERR_FILENO, uid, gid);
+
+        if (setgroups(n_uids, uids) < 0) {
+                log_error("Failed to set auxiliary groups: %m");
+                return -errno;
+        }
+
+        if (setresgid(gid, gid, gid) < 0) {
+                log_error("setregid() failed: %m");
+                return -errno;
+        }
+
+        if (setresuid(uid, uid, uid) < 0) {
+                log_error("setreuid() failed: %m");
+                return -errno;
+        }
+
+        if (_home) {
+                *_home = home;
+                home = NULL;
+        }
+
+        return 0;
+}
+
 int main(int argc, char *argv[]) {
 
         _cleanup_free_ char *kdbus_domain = NULL, *device_path = NULL, *root_device = NULL, *home_device = NULL, *srv_device = NULL;
@@ -2427,9 +2693,7 @@ int main(int argc, char *argv[]) {
 
                 if (pid == 0) {
                         /* child */
-                        const char *home = NULL;
-                        uid_t uid = (uid_t) -1;
-                        gid_t gid = (gid_t) -1;
+                        _cleanup_free_ char *home = NULL;
                         unsigned n_env = 2;
                         const char *envp[] = {
                                 "PATH=" DEFAULT_PATH_SPLIT_USR,
@@ -2598,61 +2862,9 @@ int main(int argc, char *argv[]) {
                                 goto child_fail;
                         }
 
-                        if (arg_user) {
-
-                                /* Note that this resolves user names
-                                 * inside the container, and hence
-                                 * accesses the NSS modules from the
-                                 * container and not the host. This is
-                                 * a bit weird... */
-
-                                if (get_user_creds((const char**)&arg_user, &uid, &gid, &home, NULL) < 0) {
-                                        log_error("get_user_creds() failed: %m");
-                                        goto child_fail;
-                                }
-
-                                if (mkdir_parents_label(home, 0775) < 0) {
-                                        log_error("mkdir_parents_label() failed: %m");
-                                        goto child_fail;
-                                }
-
-                                if (mkdir_safe_label(home, 0775, uid, gid) < 0) {
-                                        log_error("mkdir_safe_label() failed: %m");
-                                        goto child_fail;
-                                }
-
-                                if (initgroups((const char*)arg_user, gid) < 0) {
-                                        log_error("initgroups() failed: %m");
-                                        goto child_fail;
-                                }
-
-                                if (setresgid(gid, gid, gid) < 0) {
-                                        log_error("setregid() failed: %m");
-                                        goto child_fail;
-                                }
-
-                                if (setresuid(uid, uid, uid) < 0) {
-                                        log_error("setreuid() failed: %m");
-                                        goto child_fail;
-                                }
-                        } else {
-                                /* Reset everything fully to 0, just in case */
-
-                                if (setgroups(0, NULL) < 0) {
-                                        log_error("setgroups() failed: %m");
-                                        goto child_fail;
-                                }
-
-                                if (setresgid(0, 0, 0) < 0) {
-                                        log_error("setregid() failed: %m");
-                                        goto child_fail;
-                                }
-
-                                if (setresuid(0, 0, 0) < 0) {
-                                        log_error("setreuid() failed: %m");
-                                        goto child_fail;
-                                }
-                        }
+                        r = change_uid_gid(&home);
+                        if (r < 0)
+                                goto child_fail;
 
                         if ((asprintf((char**)(envp + n_env++), "HOME=%s", home ? home: "/root") < 0) ||
                             (asprintf((char**)(envp + n_env++), "USER=%s", arg_user ? arg_user : "root") < 0) ||
@@ -2698,8 +2910,10 @@ int main(int argc, char *argv[]) {
 
 #ifdef HAVE_SELINUX
                         if (arg_selinux_context)
-                                if (setexeccon((security_context_t) arg_selinux_context) < 0)
+                                if (setexeccon((security_context_t) arg_selinux_context) < 0) {
                                         log_error("setexeccon(\"%s\") failed: %m", arg_selinux_context);
+                                        goto child_fail;
+                                }
 #endif
 
                         if (!strv_isempty(arg_setenv)) {
