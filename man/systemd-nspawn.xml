@@ -219,13 +219,15 @@
                                 <term><option>-u</option></term>
                                 <term><option>--user=</option></term>
 
-                                <listitem><para>Run the command
-                                under specified user, create home
-                                directory and cd into it. As rest
-                                of systemd-nspawn, this is not
-                                the security feature and limits
-                                against accidental changes only.
-                                </para></listitem>
+                                <listitem><para>After transitioning
+                                into the container, change to the
+                                specified user defined in the
+                                container's user database. Like all
+                                other systemd-nspawn features, this is
+                                not a security feature and provides
+                                protection against accidental
+                                destructive operations
+                                only.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
