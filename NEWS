@@ -26,7 +26,7 @@ CHANGES WITH 211:
           settings DefaultCPUAccounting=, DefaultBlockIOAccounting=,
           DefaultMemoryAccounting= to globally turn on/off accounting
           for specific resources (cgroups) for all units. These
-          sittings may still be overridden individually in each unit
+          settings may still be overridden individually in each unit
           though.
 
         * systemd-gpt-auto-generator is now able to discover /srv and
