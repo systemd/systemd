@@ -520,7 +520,7 @@ int manager_count_displays(Manager *m) {
 
                 p = udev_device_get_parent(d);
                 if (!p)
-                        return -ENOMEM;
+                        continue;
 
                 /* If the parent shares the same subsystem as the
                  * device we are looking at then it is a connector,
