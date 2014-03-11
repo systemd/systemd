@@ -7,7 +7,7 @@
 
 ACTION=="remove", GOTO="systemd_end"
 
-SUBSYSTEM=="tty", KERNEL=="tty[a-zA-Z]*|hvc*|xvc*|hvsi*|ttysclp*|sclp_line*", TAG+="systemd"
+SUBSYSTEM=="tty", KERNEL=="tty[a-zA-Z]*|hvc*|xvc*|hvsi*|ttysclp*|sclp_line*|3270/tty[0-9]*", TAG+="systemd"
 
 KERNEL=="vport*", TAG+="systemd"
 

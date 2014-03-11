@@ -124,7 +124,8 @@ int main(int argc, char *argv[]) {
                 "xvc0\0"
                 "hvsi0\0"
                 "sclp_line0\0"
-                "ttysclp0\0";
+                "ttysclp0\0"
+                "3270!tty1\0";
 
         _cleanup_free_ char *active = NULL;
         const char *j;
