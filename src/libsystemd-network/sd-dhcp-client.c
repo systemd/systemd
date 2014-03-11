@@ -185,7 +185,7 @@ static int client_stop(sd_dhcp_client *client, int error) {
                 sd_event_source_unref(client->receive_message);
 
         if (client->fd >= 0)
-                close(client->fd);
+                close_nointr_nofail(client->fd);
         client->fd = -1;
 
         client->timeout_resend = sd_event_source_unref(client->timeout_resend);
@@ -546,7 +546,7 @@ static int client_timeout_t2(sd_event_source *s, uint64_t usec, void *userdata) 
         if (client->fd >= 0) {
                 client->receive_message =
                         sd_event_source_unref(client->receive_message);
-                close(client->fd);
+                close_nointr_nofail(client->fd);
                 client->fd = -1;
         }
 
@@ -848,7 +848,7 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message,
 
                         client->receive_message =
                                 sd_event_source_unref(client->receive_message);
-                        close(client->fd);
+                        close_nointr_nofail(client->fd);
                         client->fd = -1;
                 }
 
