@@ -911,3 +911,15 @@ bluetooth:v012C*
 
 bluetooth:v012D*
  ID_VENDOR_FROM_DATABASE=Sony Corporation
+
+bluetooth:v012E*
+ ID_VENDOR_FROM_DATABASE=ASSA ABLOY
+
+bluetooth:v012F*
+ ID_VENDOR_FROM_DATABASE=Clarion Co., Ltd.
+
+bluetooth:v0130*
+ ID_VENDOR_FROM_DATABASE=Warehouse Innovations
+
+bluetooth:v0131*
+ ID_VENDOR_FROM_DATABASE=Cypress Semiconductor Corporation
