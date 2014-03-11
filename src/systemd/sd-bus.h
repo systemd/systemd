@@ -349,8 +349,8 @@ int sd_bus_error_has_name(const sd_bus_error *e, const char *name);
 
 /* Label escaping */
 
-char *sd_bus_label_escape(const char *s);
-char *sd_bus_label_unescape(const char *f);
+int sd_bus_path_encode(const char *prefix, const char *external_id, char **ret_path);
+int sd_bus_path_decode(const char *path, const char *prefix, char **ret_external_id);
 
 /* Tracking peers */
 

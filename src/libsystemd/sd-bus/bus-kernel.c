@@ -36,6 +36,7 @@
 #include "bus-kernel.h"
 #include "bus-bloom.h"
 #include "bus-util.h"
+#include "bus-label.h"
 #include "cgroup-util.h"
 
 #define UNIQUE_NAME_MAX (3+DECIMAL_STR_MAX(uint64_t))
@@ -658,7 +659,7 @@ int bus_kernel_take_fd(sd_bus *b) {
         b->use_memfd = 1;
 
         if (b->connection_name) {
-                g = sd_bus_label_escape(b->connection_name);
+                g = bus_label_escape(b->connection_name);
                 if (!g)
                         return -ENOMEM;
 
@@ -678,7 +679,7 @@ int bus_kernel_take_fd(sd_bus *b) {
                 } else {
                         _cleanup_free_ char *e = NULL;
 
-                        e = sd_bus_label_escape(pr);
+                        e = bus_label_escape(pr);
                         if (!e)
                                 return -ENOMEM;
 
@@ -691,7 +692,7 @@ int bus_kernel_take_fd(sd_bus *b) {
                         name = g;
                 }
 
-                b->connection_name = sd_bus_label_unescape(name);
+                b->connection_name = bus_label_unescape(name);
                 if (!b->connection_name)
                         return -ENOMEM;
         }
@@ -1119,7 +1120,7 @@ int bus_kernel_pop_memfd(sd_bus *bus, void **address, size_t *mapped, size_t *al
 
                 assert(bus->connection_name);
 
-                g = sd_bus_label_escape(bus->connection_name);
+                g = bus_label_escape(bus->connection_name);
                 if (!g)
                         return -ENOMEM;
 

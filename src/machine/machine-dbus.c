@@ -24,6 +24,7 @@
 #include <sys/capability.h>
 
 #include "bus-util.h"
+#include "bus-label.h"
 #include "strv.h"
 #include "machine.h"
 
@@ -182,7 +183,7 @@ int machine_object_find(sd_bus *bus, const char *path, const char *interface, vo
                 if (!p)
                         return 0;
 
-                e = sd_bus_label_unescape(p);
+                e = bus_label_unescape(p);
                 if (!e)
                         return -ENOMEM;
 
@@ -200,7 +201,7 @@ char *machine_bus_path(Machine *m) {
 
         assert(m);
 
-        e = sd_bus_label_escape(m->name);
+        e = bus_label_escape(m->name);
         if (!e)
                 return NULL;
 

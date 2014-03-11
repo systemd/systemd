@@ -27,6 +27,7 @@
 #include "strv.h"
 #include "bus-util.h"
 #include "bus-errors.h"
+#include "bus-label.h"
 
 #include "logind.h"
 #include "logind-session.h"
@@ -515,7 +516,7 @@ int session_object_find(sd_bus *bus, const char *path, const char *interface, vo
                 if (!p)
                         return 0;
 
-                e = sd_bus_label_unescape(p);
+                e = bus_label_unescape(p);
                 if (!e)
                         return -ENOMEM;
 
@@ -533,7 +534,7 @@ char *session_bus_path(Session *s) {
 
         assert(s);
 
-        t = sd_bus_label_escape(s->id);
+        t = bus_label_escape(s->id);
         if (!t)
                 return NULL;
 

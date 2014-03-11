@@ -691,7 +691,6 @@ MANPAGES += \
 	man/sd_bus_creds_get_pid.3 \
 	man/sd_bus_creds_new_from_pid.3 \
 	man/sd_bus_error.3 \
-	man/sd_bus_label_escape.3 \
 	man/sd_bus_message_append.3 \
 	man/sd_bus_message_append_array.3 \
 	man/sd_bus_message_append_basic.3 \
@@ -701,6 +700,7 @@ MANPAGES += \
 	man/sd_bus_message_get_monotonic_usec.3 \
 	man/sd_bus_new.3 \
 	man/sd_bus_open_user.3 \
+	man/sd_bus_path_encode.3 \
 	man/sd_bus_request_name.3 \
 	man/systemd-bus-proxyd.8 \
 	man/systemd-bus-proxyd@.service.8
@@ -742,7 +742,6 @@ MANPAGES_ALIAS += \
 	man/sd_bus_error_set_const.3 \
 	man/sd_bus_error_set_errno.3 \
 	man/sd_bus_error_set_errnof.3 \
-	man/sd_bus_label_unescape.3 \
 	man/sd_bus_message_append_array_iovec.3 \
 	man/sd_bus_message_append_array_memfd.3 \
 	man/sd_bus_message_append_array_space.3 \
@@ -754,6 +753,7 @@ MANPAGES_ALIAS += \
 	man/sd_bus_open_system.3 \
 	man/sd_bus_open_system_container.3 \
 	man/sd_bus_open_system_remote.3 \
+	man/sd_bus_path_decode.3 \
 	man/sd_bus_ref.3 \
 	man/sd_bus_release_name.3 \
 	man/sd_bus_unref.3 \
@@ -795,7 +795,6 @@ man/sd_bus_error_set.3: man/sd_bus_error.3
 man/sd_bus_error_set_const.3: man/sd_bus_error.3
 man/sd_bus_error_set_errno.3: man/sd_bus_error.3
 man/sd_bus_error_set_errnof.3: man/sd_bus_error.3
-man/sd_bus_label_unescape.3: man/sd_bus_label_escape.3
 man/sd_bus_message_append_array_iovec.3: man/sd_bus_message_append_array.3
 man/sd_bus_message_append_array_memfd.3: man/sd_bus_message_append_array.3
 man/sd_bus_message_append_array_space.3: man/sd_bus_message_append_array.3
@@ -807,6 +806,7 @@ man/sd_bus_message_get_seqnum.3: man/sd_bus_message_get_monotonic_usec.3
 man/sd_bus_open_system.3: man/sd_bus_open_user.3
 man/sd_bus_open_system_container.3: man/sd_bus_open_user.3
 man/sd_bus_open_system_remote.3: man/sd_bus_open_user.3
+man/sd_bus_path_decode.3: man/sd_bus_path_encode.3
 man/sd_bus_ref.3: man/sd_bus_new.3
 man/sd_bus_release_name.3: man/sd_bus_request_name.3
 man/sd_bus_unref.3: man/sd_bus_new.3
@@ -922,9 +922,6 @@ man/sd_bus_error_set_errno.html: man/sd_bus_error.html
 man/sd_bus_error_set_errnof.html: man/sd_bus_error.html
 	$(html-alias)
 
-man/sd_bus_label_unescape.html: man/sd_bus_label_escape.html
-	$(html-alias)
-
 man/sd_bus_message_append_array_iovec.html: man/sd_bus_message_append_array.html
 	$(html-alias)
 
@@ -956,6 +953,9 @@ man/sd_bus_open_system_container.html: man/sd_bus_open_user.html
 	$(html-alias)
 
 man/sd_bus_open_system_remote.html: man/sd_bus_open_user.html
+	$(html-alias)
+
+man/sd_bus_path_decode.html: man/sd_bus_path_encode.html
 	$(html-alias)
 
 man/sd_bus_ref.html: man/sd_bus_new.html
@@ -1392,7 +1392,6 @@ EXTRA_DIST += \
 	man/sd_bus_creds_get_pid.xml \
 	man/sd_bus_creds_new_from_pid.xml \
 	man/sd_bus_error.xml \
-	man/sd_bus_label_escape.xml \
 	man/sd_bus_message_append.xml \
 	man/sd_bus_message_append_array.xml \
 	man/sd_bus_message_append_basic.xml \
@@ -1402,6 +1401,7 @@ EXTRA_DIST += \
 	man/sd_bus_message_get_monotonic_usec.xml \
 	man/sd_bus_new.xml \
 	man/sd_bus_open_user.xml \
+	man/sd_bus_path_encode.xml \
 	man/sd_bus_request_name.xml \
 	man/sd_get_seats.xml \
 	man/sd_id128_get_machine.xml \

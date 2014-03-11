@@ -1,0 +1,150 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+This file is part of systemd.
+
+Copyright 2014 Zbigniew Jędrzejewski-Szmek
+
+systemd is free software; you can redistribute it and/or modify it
+under the terms of the GNU Lesser General Public License as published by
+the Free Software Foundation; either version 2.1 of the License, or
+(at your option) any later version.
+
+systemd is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public License
+along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="sd_bus_path_encode" conditional="ENABLE_KDBUS">
+
+  <refentryinfo>
+    <title>sd_bus_path_encode</title>
+    <productname>systemd</productname>
+
+    <authorgroup>
+      <author>
+        <contrib>A monkey with a typewriter</contrib>
+        <firstname>Zbigniew</firstname>
+        <surname>Jędrzejewski-Szmek</surname>
+        <email>zbyszek@in.waw.pl</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_bus_path_encode</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_bus_path_encode</refname>
+    <refname>sd_bus_path_decode</refname>
+
+    <refpurpose>Convert an external identifier into an object path and back</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_path_encode</function></funcdef>
+        <paramdef>const char *<parameter>prefix</parameter></paramdef>
+        <paramdef>const char *<parameter>external_id</parameter></paramdef>
+        <paramdef>char **<parameter>ret_path</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_path_decode</function></funcdef>
+        <paramdef>const char *<parameter>prefix</parameter></paramdef>
+        <paramdef>const char *<parameter>path</parameter></paramdef>
+        <paramdef>char **<parameter>ret_external_id</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_bus_path_encode()</function> and
+    <function>sd_bus_path_decode()</function> convert external
+    identifier strings into object paths and back. These functions are
+    useful to map application-specific string identifiers of any kind
+    into bus object paths in a simple, reversible and safe way.</para>
+
+    <para><function>sd_bus_path_encode()</function> takes a bus path
+    prefix and an external identifier string as arguments, plus a
+    place to store the returned bus path string. The bus path prefix
+    must be a valid bus path, starting with a slash
+    <literal>/</literal>, but not ending in one. The external
+    identifier string may be in any format, may be the empty string
+    and no restrictions on the charset are made - however it must
+    always be <constant>NUL</constant>-terminated. The returned string
+    will be the concatenation of the bus path prefix plus an escaped
+    version of the external identifier string. This operation may be
+    reversed with <function>sd_bus_decode()</function>. It is
+    recommended to only use external identifiers here that generally
+    require little escaping to be turned into valid bus path
+    identifiers (for example by sticking to a 7bit ASCII character
+    set), in order to ensure the resulting bus path is still short and
+    easily processed.</para>
+
+    <para><function>sd_bus_path_decode()</function> reverses the
+    operation of <function>sd_bus_path_encode()</function> and thus
+    regenerates an external identifier string from a bus path. It
+    takes a bus path and a prefix string, plus a place to store the
+    returned external identifier string. If the bus path does not
+    start with the specified prefix, 0 is returned and the returned
+    string is set to <constant>NULL</constant>. Otherwise the the
+    string following the prefix is unescaped and returned in the
+    external identifier string.</para>
+
+    <para>The escaping used will will replace all characters which are
+    invalid in a bus object path by <literal>_</literal> followed by a
+    hexadecimal value. As a special case, the empty string will be
+    replaced by a lone <literal>_</literal>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, <function>sd_bus_path_encode()</function>
+    returns positive or 0, and a valid bus path in the return
+    argument. On success, <function>sd_bus_path_decode()</function>
+    returns a positive value if the prefixed matched, or 0 if it
+    didn't. If the prefix matched the external identifier is returned
+    in the return parameter. If it did not match NULL is returned in
+    the return parameter. On failure, a negative errno-style error
+    number is returned by either function. The returned strings must
+    be
+    <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>'d
+    by the caller.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Notes</title>
+
+    <para><function>sd_bus_path_encode()</function> and
+    <function>sd_bus_path_decode()</function> are available as a
+    shared library, which can be compiled and linked to with the
+    <constant>libsystemd</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    file.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>

@@ -30,6 +30,7 @@
 #include "time-util.h"
 #include "strv.h"
 #include "bus-creds.h"
+#include "bus-label.h"
 
 enum {
         CAP_OFFSET_INHERITABLE = 0,
@@ -474,7 +475,7 @@ _public_ int sd_bus_creds_get_connection_name(sd_bus_creds *c, const char **ret)
         assert(c->conn_name);
 
         if (!c->unescaped_conn_name) {
-                c->unescaped_conn_name = sd_bus_label_unescape(c->conn_name);
+                c->unescaped_conn_name = bus_label_unescape(c->conn_name);
                 if (!c->unescaped_conn_name)
                         return -ENOMEM;
         }

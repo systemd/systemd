@@ -311,8 +311,8 @@ m4_ifdef(`ENABLE_KDBUS',
         sd_bus_error_copy;
         sd_bus_error_is_set;
         sd_bus_error_has_name;
-        sd_bus_label_escape;
-        sd_bus_label_unescape;
+        sd_bus_path_encode;
+        sd_bus_path_decode;
         sd_bus_track_new;
         sd_bus_track_ref;
         sd_bus_track_unref;

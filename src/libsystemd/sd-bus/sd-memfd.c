@@ -27,6 +27,7 @@
 
 #include "util.h"
 #include "kdbus.h"
+#include "bus-label.h"
 
 #include "sd-memfd.h"
 #include "sd-bus.h"
@@ -56,7 +57,7 @@ _public_ int sd_memfd_new(sd_memfd **m, const char *name) {
                  * set here, let's do the usual bus escaping to deal
                  * with that. */
 
-                g = sd_bus_label_escape(name);
+                g = bus_label_escape(name);
                 if (!g)
                         return -ENOMEM;
 
@@ -76,7 +77,7 @@ _public_ int sd_memfd_new(sd_memfd **m, const char *name) {
                 else {
                         _cleanup_free_ char *e = NULL;
 
-                        e = sd_bus_label_escape(pr);
+                        e = bus_label_escape(pr);
                         if (!e)
                                 return -ENOMEM;
 
@@ -311,7 +312,7 @@ _public_ int sd_memfd_get_name(sd_memfd *m, char **name) {
         if (!n)
                 return -ENOMEM;
 
-        e = sd_bus_label_unescape(n);
+        e = bus_label_unescape(n);
         if (!e)
                 return -ENOMEM;
 

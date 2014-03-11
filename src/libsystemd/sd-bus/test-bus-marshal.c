@@ -38,17 +38,35 @@
 #include "bus-message.h"
 #include "bus-util.h"
 #include "bus-dump.h"
+#include "bus-label.h"
+
+static void test_bus_path_encode(void) {
+        _cleanup_free_ char *a = NULL, *b = NULL, *c = NULL, *d = NULL, *e = NULL, *f = NULL;
+
+        assert_se(sd_bus_path_encode("/foo/bar", "waldo", &a) >= 0 && streq(a, "/foo/bar/waldo"));
+        assert_se(sd_bus_path_decode(a, "/waldo", &b) == 0 && b == NULL);
+        assert_se(sd_bus_path_decode(a, "/foo/bar", &b) > 0 && streq(b, "waldo"));
+
+        assert_se(sd_bus_path_encode("xxxx", "waldo", &c) < 0);
+        assert_se(sd_bus_path_encode("/foo/", "waldo", &c) < 0);
+
+        assert_se(sd_bus_path_encode("/foo/bar", "", &c) >= 0 && streq(c, "/foo/bar/_"));
+        assert_se(sd_bus_path_decode(c, "/foo/bar", &d) > 0 && streq(d, ""));
+
+        assert_se(sd_bus_path_encode("/foo/bar", "foo.bar", &e) >= 0 && streq(e, "/foo/bar/foo_2ebar"));
+        assert_se(sd_bus_path_decode(e, "/foo/bar", &f) > 0 && streq(f, "foo.bar"));
+}
 
 static void test_bus_label_escape_one(const char *a, const char *b) {
         _cleanup_free_ char *t = NULL, *x = NULL, *y = NULL;
 
-        assert_se(t = sd_bus_label_escape(a));
+        assert_se(t = bus_label_escape(a));
         assert_se(streq(t, b));
 
-        assert_se(x = sd_bus_label_unescape(t));
+        assert_se(x = bus_label_unescape(t));
         assert_se(streq(a, x));
 
-        assert_se(y = sd_bus_label_unescape(b));
+        assert_se(y = bus_label_unescape(b));
         assert_se(streq(a, y));
 }
 
@@ -322,6 +340,7 @@ int main(int argc, char *argv[]) {
         assert_se(streq(d, "3"));
 
         test_bus_label_escape();
+        test_bus_path_encode();
 
         return 0;
 }

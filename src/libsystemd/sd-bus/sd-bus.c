@@ -3063,12 +3063,46 @@ _public_ int sd_bus_get_tid(sd_bus *b, pid_t *tid) {
         return -ENXIO;
 }
 
-_public_ char *sd_bus_label_escape(const char *s) {
-        return bus_label_escape(s);
+_public_ int sd_bus_path_encode(const char *prefix, const char *external_id, char **ret_path) {
+        _cleanup_free_ char *e = NULL;
+        char *ret;
+
+        assert_return(object_path_is_valid(prefix), -EINVAL);
+        assert_return(external_id, -EINVAL);
+        assert_return(ret_path, -EINVAL);
+
+        e = bus_label_escape(external_id);
+        if (!e)
+                return -ENOMEM;
+
+        ret = strjoin(prefix, "/", e, NULL);
+        if (!ret)
+                return -ENOMEM;
+
+        *ret_path = ret;
+        return 0;
 }
 
-_public_ char *sd_bus_label_unescape(const char *f) {
-        return bus_label_unescape(f);
+_public_ int sd_bus_path_decode(const char *path, const char *prefix, char **external_id) {
+        const char *e;
+        char *ret;
+
+        assert_return(object_path_is_valid(path), -EINVAL);
+        assert_return(object_path_is_valid(prefix), -EINVAL);
+        assert_return(external_id, -EINVAL);
+
+        e = object_path_startswith(path, prefix);
+        if (!e) {
+                *external_id = NULL;
+                return 0;
+        }
+
+        ret = bus_label_unescape(e);
+        if (!ret)
+                return -ENOMEM;
+
+        *external_id = ret;
+        return 1;
 }
 
 _public_ int sd_bus_get_peer_creds(sd_bus *bus, uint64_t mask, sd_bus_creds **ret) {
