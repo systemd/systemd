@@ -26,7 +26,7 @@ CHANGES WITH 211:
           settings DefaultCPUAccounting=, DefaultBlockIOAccounting=,
           DefaultMemoryAccounting= to globally turn on/off accounting
           for specific resources (cgroups) for all units. These
-          sittings may still be overriden individually in each unit
+          sittings may still be overridden individually in each unit
           though.
 
         * systemd-gpt-auto-generator is now able to discover /srv and
@@ -69,7 +69,7 @@ CHANGES WITH 211:
         * The $XDG_RUNTIME_DIR runtime directories for each user are
           now individual tmpfs instances, which has the benefit of
           introducing separate pools for each user, with individual
-          size limits, and thus making sure that unpriviliged clients
+          size limits, and thus making sure that unprivileged clients
           can no longer negatively impact the system or other users by
           filling up their $XDG_RUNTIME_DIR. A new logind.conf setting
           RuntimeDirectorySize= has been introduced that allows
@@ -77,7 +77,7 @@ CHANGES WITH 211:
           defaults to 10% of the available physical memory. This is no
           replacement for quotas on tmpfs though (which the kernel
           still does not support), as /dev/shm and /tmp are still
-          shared resources used by both the system and unpriviliged
+          shared resources used by both the system and unprivileged
           users.
 
         * logind will now automatically turn off automatic suspending
@@ -94,7 +94,7 @@ CHANGES WITH 211:
           suspend/resume cycle, and 3min after system boot before
           suspending the system due to a closed laptop lid. This
           should give USB docking stations and similar enough time to
-          be probed and configured after system resume and bood in
+          be probed and configured after system resume and boot in
           order to then act as suspend blocker.
 
         * systemd-run gained a new --property= setting which allows
