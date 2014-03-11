@@ -275,12 +275,16 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           followed by a device group name, as listed in
           <filename>/proc/devices</filename>. The latter is useful to
           whitelist all current and future devices belonging to a
-          specific device group at once. Examples:
-          <filename>/dev/sda5</filename> is a path to a device node,
-          referring to an ATA or SCSI block
+          specific device group at once. The device group is matched
+          according to file name globbing rules, you may hence use the
+          <literal>*</literal> and <literal>?</literal>
+          wildcards. Examples: <filename>/dev/sda5</filename> is a
+          path to a device node, referring to an ATA or SCSI block
           device. <literal>char-pts</literal> and
           <literal>char-alsa</literal> are specifiers for all pseudo
-          TTYs and all ALSA sound devices, respectively.</para>
+          TTYs and all ALSA sound devices,
+          respectively. <literal>char-cpu/*</literal> is a specifier
+          matching all CPU related device groups.</para>
         </listitem>
       </varlistentry>
 

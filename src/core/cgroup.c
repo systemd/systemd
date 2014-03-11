@@ -20,6 +20,7 @@
 ***/
 
 #include <fcntl.h>
+#include <fnmatch.h>
 
 #include "path-util.h"
 #include "special.h"
@@ -246,7 +247,8 @@ static int whitelist_major(const char *path, const char *name, char type, const 
 
                 w++;
                 w += strspn(w, WHITESPACE);
-                if (!streq(w, name))
+
+                if (fnmatch(name, w, 0) != 0)
                         continue;
 
                 sprintf(buf,
