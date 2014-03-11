@@ -67,6 +67,8 @@ typedef struct StatusInfo {
         char *pretty_hostname;
         char *icon_name;
         char *chassis;
+        char *os_pretty_name;
+        char *os_cpe_name;
         char *virtualization;
         char *architecture;
 } StatusInfo;
@@ -74,7 +76,6 @@ typedef struct StatusInfo {
 static void print_status_info(StatusInfo *i) {
         sd_id128_t mid = {}, bid = {};
         int r;
-        _cleanup_free_ char *pretty_name = NULL, *cpe_name = NULL;
         struct utsname u;
 
         assert(i);
@@ -105,18 +106,11 @@ static void print_status_info(StatusInfo *i) {
         if (!isempty(i->virtualization))
                 printf("    Virtualization: %s\n", i->virtualization);
 
-        r = parse_env_file("/etc/os-release", NEWLINE,
-                           "PRETTY_NAME", &pretty_name,
-                           "CPE_NAME", &cpe_name,
-                           NULL);
-        if (r < 0)
-                log_warning("Failed to read /etc/os-release: %s", strerror(-r));
+        if (!isempty(i->os_pretty_name))
+                printf("  Operating System: %s\n", i->os_pretty_name);
 
-        if (!isempty(pretty_name))
-                printf("  Operating System: %s\n", pretty_name);
-
-        if (!isempty(cpe_name))
-                printf("       CPE OS Name: %s\n", cpe_name);
+        if (!isempty(i->os_cpe_name))
+                printf("       CPE OS Name: %s\n", i->os_cpe_name);
 
         assert_se(uname(&u) >= 0);
         printf("            Kernel: %s %s\n", u.sysname, u.release);
@@ -162,6 +156,8 @@ static int show_all_names(sd_bus *bus) {
                 { "PrettyHostname", "s", NULL, offsetof(StatusInfo, pretty_hostname) },
                 { "IconName",       "s", NULL, offsetof(StatusInfo, icon_name) },
                 { "Chassis",        "s", NULL, offsetof(StatusInfo, chassis) },
+                { "OperatingSystemPrettyName",     "s", NULL, offsetof(StatusInfo, os_pretty_name) },
+                { "OperatingSystemCPEName",        "s", NULL, offsetof(StatusInfo, os_cpe_name) },
                 {}
         };
 
@@ -195,6 +191,8 @@ fail:
         free(info.pretty_hostname);
         free(info.icon_name);
         free(info.chassis);
+        free(info.os_pretty_name);
+        free(info.os_cpe_name);
         free(info.virtualization);
         free(info.architecture);
 
