@@ -2275,8 +2275,8 @@ static int spawn_getent(const char *database, const char *key, pid_t *rpid) {
                 reset_all_signal_handlers();
                 close_all_fds(NULL, 0);
 
-                execle("/usr/bin/getent", "getenv", database, key, NULL, &empty_env);
-                execle("/bin/getent", "getenv", database, key, NULL, &empty_env);
+                execle("/usr/bin/getent", "getent", database, key, NULL, &empty_env);
+                execle("/bin/getent", "getent", database, key, NULL, &empty_env);
                 _exit(EXIT_FAILURE);
         }
 
