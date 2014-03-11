@@ -1258,7 +1258,7 @@ static int register_machine(pid_t pid) {
                         return r;
                 }
 
-                r = sd_bus_message_append(m, "(sv)", "DeviceAllow", "a(ss)", 8,
+                r = sd_bus_message_append(m, "(sv)", "DeviceAllow", "a(ss)", 10,
                                           /* Allow the container to
                                            * access and create the API
                                            * device nodes, so that
@@ -1277,7 +1277,18 @@ static int register_machine(pid_t pid) {
                                            * container to ever create
                                            * these device nodes. */
                                           "/dev/pts/ptmx", "rw",
-                                          "char-pts", "rw");
+                                          "char-pts", "rw",
+                                          /* Allow the container
+                                           * access to all kdbus
+                                           * devices. Again, the
+                                           * container cannot create
+                                           * these nodes, only use
+                                           * them. We use a pretty
+                                           * open match here, so that
+                                           * the kernel API can still
+                                           * change. */
+                                          "char-kdbus", "rw",
+                                          "char-kdbus/*", "rw");
                 if (r < 0) {
                         log_error("Failed to add device whitelist: %s", strerror(-r));
                         return r;
