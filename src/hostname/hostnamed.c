@@ -258,7 +258,7 @@ static int context_write_data_static_hostname(Context *c) {
         return write_string_file_atomic_label("/etc/hostname", c->data[PROP_STATIC_HOSTNAME]);
 }
 
-static int context_write_data_other(Context *c) {
+static int context_write_data_machine_info(Context *c) {
 
         static const char * const name[_PROP_MAX] = {
                 [PROP_PRETTY_HOSTNAME] = "PRETTY_HOSTNAME",
@@ -275,7 +275,7 @@ static int context_write_data_other(Context *c) {
         if (r < 0 && r != -ENOENT)
                 return r;
 
-        for (p = 2; p < _PROP_MAX; p++) {
+        for (p = PROP_PRETTY_HOSTNAME; p <= PROP_CHASSIS; p++) {
                 char *t, **u;
 
                 assert(name[p]);
@@ -510,7 +510,7 @@ static int set_machine_info(Context *c, sd_bus *bus, sd_bus_message *m, int prop
                 c->data[prop] = h;
         }
 
-        r = context_write_data_other(c);
+        r = context_write_data_machine_info(c);
         if (r < 0) {
                 log_error("Failed to write machine info: %s", strerror(-r));
                 return sd_bus_error_set_errnof(error, r, "Failed to write machine info: %s", strerror(-r));
