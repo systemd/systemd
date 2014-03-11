@@ -40,6 +40,8 @@ enum {
         PROP_PRETTY_HOSTNAME,
         PROP_ICON_NAME,
         PROP_CHASSIS,
+        PROP_OS_PRETTY_NAME,
+        PROP_OS_CPE_NAME,
         _PROP_MAX
 };
 
@@ -85,6 +87,13 @@ static int context_read_data(Context *c) {
                            "PRETTY_HOSTNAME", &c->data[PROP_PRETTY_HOSTNAME],
                            "ICON_NAME", &c->data[PROP_ICON_NAME],
                            "CHASSIS", &c->data[PROP_CHASSIS],
+                           NULL);
+        if (r < 0 && r != -ENOENT)
+                return r;
+
+        r = parse_env_file("/etc/os-release", NEWLINE,
+                           "PRETTY_NAME", &c->data[PROP_OS_PRETTY_NAME],
+                           "CPE_NAME", &c->data[PROP_OS_CPE_NAME],
                            NULL);
         if (r < 0 && r != -ENOENT)
                 return r;
@@ -546,6 +555,8 @@ static const sd_bus_vtable hostname_vtable[] = {
         SD_BUS_PROPERTY("PrettyHostname", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_PRETTY_HOSTNAME, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("IconName", "s", property_get_icon_name, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Chassis", "s", property_get_chassis, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("OperatingSystemPrettyName", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_OS_PRETTY_NAME, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("OperatingSystemCPEName", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_OS_CPE_NAME, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_METHOD("SetHostname", "sb", NULL, method_set_hostname, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetStaticHostname", "sb", NULL, method_set_static_hostname, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetPrettyHostname", "sb", NULL, method_set_pretty_hostname, SD_BUS_VTABLE_UNPRIVILEGED),
