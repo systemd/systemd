@@ -190,6 +190,7 @@ Features:
   - port to sd-resolve for connecting to TCP dbus servers
   - constructors for bus messages should probably not be OK with a NULL bus pointer
   - sd_bus_escape_label() should probably be reworked into sd_bus_make_bus_path(prefix, external_id)
+  - .busname units should not use get_user_creds()/get_cgroup_creds() but instead do NSS only in temporarily forked off child
 
 * sd-event
   - allow multiple signal handlers per signal?
