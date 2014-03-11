@@ -450,7 +450,6 @@ Features:
 * currently x-systemd.timeout is lost in the initrd, since crypttab is copied into dracut, but fstab isn't
 
 * nspawn:
-  - nspawn: consider changing users for -u with /usr/bin/getent, so that NSS resolving works correctly
   - nspawn: --read-only is not applied recursively to submounts
   - bind mount read-only the cgroup tree higher than nspawn
   - nspawn: make it work for dwalsh and shared /usr containers -- tmpfs mounts as command line parameters
