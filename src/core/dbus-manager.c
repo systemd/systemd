@@ -1386,8 +1386,11 @@ static int reply_unit_file_changes_and_free(
         unsigned i;
         int r;
 
-        if (n_changes > 0)
-                bus_foreach_bus(m, NULL, send_unit_files_changed, NULL);
+        if (n_changes > 0) {
+                r = bus_foreach_bus(m, NULL, send_unit_files_changed, NULL);
+                if (r < 0)
+                        log_debug("Failed to send UnitFilesChanged signal: %s", strerror(-r));
+        }
 
         r = sd_bus_message_new_method_return(message, &reply);
         if (r < 0)

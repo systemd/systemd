@@ -638,21 +638,13 @@ static int send_changed_signal(sd_bus *bus, void *userdata) {
                         bus, p,
                         UNIT_VTABLE(u)->bus_interface,
                         NULL);
-        if (r < 0) {
-                log_warning("Failed to send out specific PropertiesChanged signal for %s: %s", u->id, strerror(-r));
+        if (r < 0)
                 return r;
-        }
 
-        r = sd_bus_emit_properties_changed_strv(
+        return sd_bus_emit_properties_changed_strv(
                         bus, p,
                         "org.freedesktop.systemd1.Unit",
                         NULL);
-        if (r < 0) {
-                log_warning("Failed to send out generic PropertiesChanged signal for %s: %s", u->id, strerror(-r));
-                return r;
-        }
-
-        return 0;
 }
 
 void bus_unit_send_change_signal(Unit *u) {
