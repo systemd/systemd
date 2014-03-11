@@ -702,7 +702,7 @@ static int add_root_mount(void) {
 
         return add_mount(
                         "root",
-                        "/dev/disk/by-id/gpt-auto-root",
+                        "/dev/gpt-auto-root",
                         in_initrd() ? "/sysroot" : "/",
                         NULL,
                         arg_root_rw ? "rw" : "ro",
