@@ -322,7 +322,7 @@ int main(int argc, char *argv[]) {
 
                 value = udev_device_get_sysattr_value(device, "brightness");
                 if (!value) {
-                        log_error("Failed to read system attribute: %s", strerror(-r));
+                        log_error("Failed to read system attribute");
                         return EXIT_FAILURE;
                 }
 
