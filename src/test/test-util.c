@@ -574,7 +574,6 @@ static void test_fstab_node_to_udev_node(void) {
         assert_se(streq(n, "/dev/disk/by-partuuid/037b9d94-148e-4ee4-8d38-67bfe15bb535"));
         free(n);
 
-
         n = fstab_node_to_udev_node("PONIES=awesome");
         puts(n);
         assert_se(streq(n, "PONIES=awesome"));
