@@ -122,7 +122,7 @@ CHANGES WITH 211:
         Gundersen, Umut Tezduyar Lindskog, Uoti Urpala, Zachary Cook,
         Zbigniew Jędrzejewski-Szmek
 
-        -- Berlin, 2014-03-11
+        -- Berlin, 2014-03-12
 
 CHANGES WITH 210:
 
@@ -218,7 +218,7 @@ CHANGES WITH 210:
           IFUNC. Please make sure to use --enable-compat-libs only
           during a transitional period!
 
-        Contributions from: Andreas Fuchs, Armin K, Colin Walters,
+        Contributions from: Andreas Fuchs, Armin K., Colin Walters,
         Daniel Mack, Dave Reisner, David Herrmann, Djalal Harouni,
         Holger Schurig, Jason A. Donenfeld, Jason St. John, Jasper
         St. Pierre, Kay Sievers, Lennart Poettering, Łukasz Stelmach,
