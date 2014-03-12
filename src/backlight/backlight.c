@@ -192,6 +192,48 @@ static bool validate_device(struct udev *udev, struct udev_device *device) {
         return true;
 }
 
+/* Some systems turn the backlight all the way off at the lowest levels.
+ * clamp_brightness clamps the saved brightness to at least 1 or 5% of
+ * max_brightness.  This avoids preserving an unreadably dim screen, which
+ * would otherwise force the user to disable state restoration. */
+static void clamp_brightness(struct udev_device *device, char **value) {
+        int r;
+        const char *max_brightness_str;
+        unsigned brightness, max_brightness, new_brightness;
+
+        max_brightness_str = udev_device_get_sysattr_value(device, "max_brightness");
+        if (!max_brightness_str) {
+                log_warning("Failed to read max_brightness attribute; not checking saved brightness");
+                return;
+        }
+
+        r = safe_atou(*value, &brightness);
+        if (r < 0) {
+                log_warning("Failed to parse brightness \"%s\": %s", *value, strerror(-r));
+                return;
+        }
+
+        r = safe_atou(max_brightness_str, &max_brightness);
+        if (r < 0) {
+                log_warning("Failed to parse max_brightness \"%s\": %s", max_brightness_str, strerror(-r));
+                return;
+        }
+
+        new_brightness = MAX3(brightness, 1U, max_brightness/20);
+        if (new_brightness != brightness) {
+                char *old_value = *value;
+
+                r = asprintf(value, "%u", new_brightness);
+                if (r < 0) {
+                        log_oom();
+                        return;
+                }
+
+                log_debug("Saved brightness %s too low; increasing to %s.", old_value, *value);
+                free(old_value);
+        }
+}
+
 int main(int argc, char *argv[]) {
         _cleanup_udev_unref_ struct udev *udev = NULL;
         _cleanup_udev_device_unref_ struct udev_device *device = NULL;
@@ -305,6 +347,8 @@ int main(int argc, char *argv[]) {
                         log_error("Failed to read %s: %s", saved, strerror(-r));
                         return EXIT_FAILURE;
                 }
+
+                clamp_brightness(device, &value);
 
                 r = udev_device_set_sysattr_value(device, "brightness", value);
                 if (r < 0) {
