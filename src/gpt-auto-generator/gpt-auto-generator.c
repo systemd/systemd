@@ -395,7 +395,7 @@ static int enumerate_partitions(dev_t devnum) {
 
         parent = udev_device_get_parent(d);
         if (!parent)
-                return log_oom();
+                return 0;
 
         /* Does it have a devtype? */
         devtype = udev_device_get_devtype(parent);
