@@ -2414,23 +2414,6 @@ int manager_reload(Manager *m) {
         return r;
 }
 
-static bool manager_is_booting_or_shutting_down(Manager *m) {
-        Unit *u;
-
-        assert(m);
-
-        /* Is the initial job still around? */
-        if (manager_get_job(m, m->default_unit_job_id))
-                return true;
-
-        /* Is there a job for the shutdown target? */
-        u = manager_get_unit(m, SPECIAL_SHUTDOWN_TARGET);
-        if (u)
-                return !!u->job;
-
-        return false;
-}
-
 bool manager_is_reloading_or_reexecuting(Manager *m) {
         assert(m);
 
@@ -2804,6 +2787,9 @@ static bool manager_get_show_status(Manager *m) {
         if (m->no_console_output)
                 return false;
 
+        if (!IN_SET(manager_state(m), MANAGER_STARTING, MANAGER_STOPPING))
+                return false;
+
         if (m->show_status > 0)
                 return true;
 
@@ -2822,9 +2808,6 @@ void manager_status_printf(Manager *m, bool ephemeral, const char *status, const
         /* XXX We should totally drop the check for ephemeral here
          * and thus effectively make 'Type=idle' pointless. */
         if (ephemeral && m->n_on_console > 0)
-                return;
-
-        if (!manager_is_booting_or_shutting_down(m))
                 return;
 
         va_start(ap, format);
