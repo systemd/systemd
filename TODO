@@ -27,12 +27,19 @@ External:
 
 Features:
 
+* consider adding RuntimeDirectoryUser= + RuntimeDirectoryGroup=
+
+* sd-event: define more intervals where we will shift wakeup intervals around in, 1h, 6h, 24h, ...
+
+* maybe add DefaultTimerAccuracySec= as global config option to set AccuracySec='s default value in .timer units
+
 * mount /sys/fs/cgroup read-only (but leave the subdirs writable)
 
 * gpt-auto-generator:
   - Support LUKS for root devices
   - Define new partition type for encrypted swap? Support probed LUKS for encrypted swap?
   - Make /home automount rather than mount?
+  - honour partition flags
 
 * improve journalctl performance by loading journal files
   lazily. Encode just enough information in the file name, so that we
