@@ -239,6 +239,24 @@ static int property_get_n_names(
         return sd_bus_message_append(reply, "u", (uint32_t) hashmap_size(m->units));
 }
 
+static int property_get_n_failed_units(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Manager *m = userdata;
+
+        assert(bus);
+        assert(reply);
+        assert(m);
+
+        return sd_bus_message_append(reply, "u", (uint32_t) set_size(m->failed_units));
+}
+
 static int property_get_n_jobs(
                 sd_bus *bus,
                 const char *path,
@@ -279,6 +297,24 @@ static int property_get_progress(
                 d = 1.0 - ((double) hashmap_size(m->jobs) / (double) m->n_installed_jobs);
 
         return sd_bus_message_append(reply, "d", d);
+}
+
+static int property_get_system_state(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Manager *m = userdata;
+
+        assert(bus);
+        assert(reply);
+        assert(m);
+
+        return sd_bus_message_append(reply, "s", manager_state_to_string(manager_state(m)));
 }
 
 static int property_set_runtime_watchdog(
@@ -1598,6 +1634,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_WRITABLE_PROPERTY("LogLevel", "s", property_get_log_level, property_set_log_level, 0, 0),
         SD_BUS_WRITABLE_PROPERTY("LogTarget", "s", property_get_log_target, property_set_log_target, 0, 0),
         SD_BUS_PROPERTY("NNames", "u", property_get_n_names, 0, 0),
+        SD_BUS_PROPERTY("NFailedUnits", "u", property_get_n_failed_units, 0, 0),
         SD_BUS_PROPERTY("NJobs", "u", property_get_n_jobs, 0, 0),
         SD_BUS_PROPERTY("NInstalledJobs", "u", bus_property_get_unsigned, offsetof(Manager, n_installed_jobs), 0),
         SD_BUS_PROPERTY("NFailedJobs", "u", bus_property_get_unsigned, offsetof(Manager, n_failed_jobs), 0),
@@ -1611,6 +1648,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_WRITABLE_PROPERTY("RuntimeWatchdogUSec", "t", bus_property_get_usec, property_set_runtime_watchdog, offsetof(Manager, runtime_watchdog), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_WRITABLE_PROPERTY("ShutdownWatchdogUSec", "t", bus_property_get_usec, bus_property_set_usec, offsetof(Manager, shutdown_watchdog), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ControlGroup", "s", NULL, offsetof(Manager, cgroup_root), 0),
+        SD_BUS_PROPERTY("SystemState", "s", property_get_system_state, 0, 0),
 
         SD_BUS_METHOD("GetUnit", "s", "o", method_get_unit, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetUnitByPID", "u", "o", method_get_unit_by_pid, SD_BUS_VTABLE_UNPRIVILEGED),

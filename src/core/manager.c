@@ -140,6 +140,8 @@ static void draw_cylon(char buffer[], size_t buflen, unsigned width, unsigned po
 }
 
 void manager_flip_auto_status(Manager *m, bool enable) {
+        assert(m);
+
         if (enable) {
                 if (m->show_status == SHOW_STATUS_AUTO)
                         manager_set_show_status(m, SHOW_STATUS_TEMPORARY);
@@ -448,6 +450,10 @@ int manager_new(SystemdRunningAs running_as, Manager **_m) {
                 goto fail;
 
         r = hashmap_ensure_allocated(&m->watch_bus, string_hash_func, string_compare_func);
+        if (r < 0)
+                goto fail;
+
+        r = set_ensure_allocated(&m->failed_units, trivial_hash_func, trivial_compare_func);
         if (r < 0)
                 goto fail;
 
@@ -777,6 +783,8 @@ void manager_free(Manager *m) {
         hashmap_free(m->watch_pids1);
         hashmap_free(m->watch_pids2);
         hashmap_free(m->watch_bus);
+
+        set_free(m->failed_units);
 
         sd_event_source_unref(m->signal_event_source);
         sd_event_source_unref(m->notify_event_source);
@@ -1799,7 +1807,7 @@ int manager_loop(Manager *m) {
         RATELIMIT_DEFINE(rl, 1*USEC_PER_SEC, 50000);
 
         assert(m);
-        m->exit_code = MANAGER_RUNNING;
+        m->exit_code = MANAGER_OK;
 
         /* Release the path cache */
         set_free_free(m->unit_path_cache);
@@ -1813,7 +1821,7 @@ int manager_loop(Manager *m) {
         if (r < 0)
                 return r;
 
-        while (m->exit_code == MANAGER_RUNNING) {
+        while (m->exit_code == MANAGER_OK) {
                 usec_t wait_usec;
 
                 if (m->runtime_watchdog > 0 && m->running_as == SYSTEMD_SYSTEM)
@@ -2463,10 +2471,12 @@ void manager_check_finished(Manager *m) {
                 m->jobs_in_progress_event_source = sd_event_source_unref(m->jobs_in_progress_event_source);
 
         if (hashmap_size(m->jobs) > 0) {
+
                 if (m->jobs_in_progress_event_source) {
-                        uint64_t next = now(CLOCK_MONOTONIC) + JOBS_IN_PROGRESS_WAIT_USEC;
-                        sd_event_source_set_time(m->jobs_in_progress_event_source, next);
+                        sd_event_source_set_time(m->jobs_in_progress_event_source,
+                                                 now(CLOCK_MONOTONIC) + JOBS_IN_PROGRESS_WAIT_USEC);
                 }
+
                 return;
         }
 
@@ -2858,8 +2868,51 @@ Set *manager_get_units_requiring_mounts_for(Manager *m, const char *path) {
 }
 
 const char *manager_get_runtime_prefix(Manager *m) {
+        assert(m);
 
         return m->running_as == SYSTEMD_SYSTEM ?
                "/run" :
                getenv("XDG_RUNTIME_DIR");
 }
+
+ManagerState manager_state(Manager *m) {
+        Unit *u;
+
+        assert(m);
+
+        /* Did we ever finish booting? If not then we are still starting up */
+        if (!dual_timestamp_is_set(&m->finish_timestamp))
+                return MANAGER_STARTING;
+
+        /* Is the special shutdown target queued? If so, we are in shutdown state */
+        u = manager_get_unit(m, SPECIAL_SHUTDOWN_TARGET);
+        if (u && u->job && IN_SET(u->job->type, JOB_START, JOB_RESTART, JOB_TRY_RESTART, JOB_RELOAD_OR_START))
+                return MANAGER_STOPPING;
+
+        /* Are the rescue or emergency targets active or queued? If so we are in maintenance state */
+        u = manager_get_unit(m, SPECIAL_RESCUE_TARGET);
+        if (u && (UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(u)) ||
+                  (u->job && IN_SET(u->job->type, JOB_START, JOB_RESTART, JOB_TRY_RESTART, JOB_RELOAD_OR_START))))
+                return MANAGER_MAINTENANCE;
+
+        u = manager_get_unit(m, SPECIAL_EMERGENCY_TARGET);
+        if (u && (UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(u)) ||
+                  (u->job && IN_SET(u->job->type, JOB_START, JOB_RESTART, JOB_TRY_RESTART, JOB_RELOAD_OR_START))))
+                return MANAGER_MAINTENANCE;
+
+        /* Are there any failed units? If so, we are in degraded mode */
+        if (set_size(m->failed_units) > 0)
+                return MANAGER_DEGRADED;
+
+        return MANAGER_RUNNING;
+}
+
+static const char *const manager_state_table[_MANAGER_STATE_MAX] = {
+        [MANAGER_STARTING] = "starting",
+        [MANAGER_RUNNING] = "running",
+        [MANAGER_DEGRADED] = "degraded",
+        [MANAGER_MAINTENANCE] = "maintenance",
+        [MANAGER_STOPPING] = "stopping",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(manager_state, ManagerState);

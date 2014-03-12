@@ -471,6 +471,8 @@ void unit_free(Unit *u) {
                 free(u->cgroup_path);
         }
 
+        set_remove(u->manager->failed_units, u);
+
         free(u->description);
         strv_free(u->documentation);
         free(u->fragment_path);
@@ -1507,6 +1509,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 
         m = u->manager;
 
+        /* Update timestamps for state changes */
         if (m->n_reloading <= 0) {
                 dual_timestamp ts;
 
@@ -1523,6 +1526,13 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
                         u->active_exit_timestamp = ts;
         }
 
+        /* Keep track of failed of units */
+        if (ns == UNIT_FAILED && os != UNIT_FAILED)
+                set_put(u->manager->failed_units, u);
+        else if (os == UNIT_FAILED && ns != UNIT_FAILED)
+                set_remove(u->manager->failed_units, u);
+
+        /* Make sure the cgroup is always removed when we become inactive */
         if (UNIT_IS_INACTIVE_OR_FAILED(ns))
                 unit_destroy_cgroup(u);
 

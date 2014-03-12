@@ -35,8 +35,18 @@
 
 typedef struct Manager Manager;
 
-typedef enum ManagerExitCode {
+typedef enum ManagerState {
+        MANAGER_STARTING,
         MANAGER_RUNNING,
+        MANAGER_DEGRADED,
+        MANAGER_MAINTENANCE,
+        MANAGER_STOPPING,
+        _MANAGER_STATE_MAX,
+        _MANAGER_STATE_INVALID = -1
+} ManagerState;
+
+typedef enum ManagerExitCode {
+        MANAGER_OK,
         MANAGER_EXIT,
         MANAGER_RELOAD,
         MANAGER_REEXECUTE,
@@ -105,6 +115,9 @@ struct Manager {
          * here. */
         Hashmap *watch_pids1;  /* pid => Unit object n:1 */
         Hashmap *watch_pids2;  /* pid => Unit object n:1 */
+
+        /* A set which contains all currently failed units */
+        Set *failed_units;
 
         sd_event_source *run_queue_event_source;
 
@@ -321,3 +334,8 @@ void manager_flip_auto_status(Manager *m, bool enable);
 Set *manager_get_units_requiring_mounts_for(Manager *m, const char *path);
 
 const char *manager_get_runtime_prefix(Manager *m);
+
+ManagerState manager_state(Manager *m);
+
+const char *manager_state_to_string(ManagerState m) _const_;
+ManagerState manager_state_from_string(const char *s) _pure_;
