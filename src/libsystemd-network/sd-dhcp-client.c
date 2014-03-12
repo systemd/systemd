@@ -178,7 +178,7 @@ static int client_notify(sd_dhcp_client *client, int event) {
         return 0;
 }
 
-static int client_stop(sd_dhcp_client *client, int error) {
+static int client_initialize(sd_dhcp_client *client) {
         assert_return(client, -EINVAL);
 
         client->receive_message =
@@ -194,14 +194,23 @@ static int client_stop(sd_dhcp_client *client, int error) {
 
         client->attempt = 1;
 
-        client_notify(client, error);
-
         client->start_time = 0;
         client->secs = 0;
         client->state = DHCP_STATE_INIT;
+        client->xid = 0;
 
         if (client->lease)
                 client->lease = sd_dhcp_lease_unref(client->lease);
+
+        return 0;
+}
+
+static int client_stop(sd_dhcp_client *client, int error) {
+        assert_return(client, -EINVAL);
+
+        client_notify(client, error);
+
+        client_initialize(client);
 
         log_dhcp_client(client, "STOPPED");
 
@@ -529,13 +538,46 @@ error:
 
 }
 
+static int client_start(sd_dhcp_client *client) {
+        int r;
+
+        assert_return(client, -EINVAL);
+        assert_return(client->event, -EINVAL);
+        assert_return(client->index > 0, -EINVAL);
+        assert_return(client->fd < 0, -EBUSY);
+        assert_return(client->xid == 0, -EINVAL);
+        assert_return(client->state == DHCP_STATE_INIT ||
+                      client->state == DHCP_STATE_INIT_REBOOT, -EBUSY);
+
+        client->xid = random_u32();
+
+        r = dhcp_network_bind_raw_socket(client->index, &client->link);
+
+        if (r < 0) {
+                client_stop(client, r);
+                return r;
+        }
+
+        client->fd = r;
+        client->start_time = now(CLOCK_MONOTONIC);
+        client->secs = 0;
+
+        log_dhcp_client(client, "STARTED");
+
+        return client_initialize_events(client, client_receive_message_raw);
+}
+
 static int client_timeout_expire(sd_event_source *s, uint64_t usec,
                                  void *userdata) {
         sd_dhcp_client *client = userdata;
 
         log_dhcp_client(client, "EXPIRED");
 
-        client_stop(client, DHCP_EVENT_EXPIRED);
+        client_notify(client, DHCP_EVENT_EXPIRED);
+
+        /* start over as the lease was lost */
+        client_initialize(client);
+        client_start(client);
 
         return 0;
 }
@@ -961,27 +1003,15 @@ int sd_dhcp_client_start(sd_dhcp_client *client) {
         int r;
 
         assert_return(client, -EINVAL);
-        assert_return(client->event, -EINVAL);
-        assert_return(client->index > 0, -EINVAL);
-        assert_return(client->state == DHCP_STATE_INIT ||
-                      client->state == DHCP_STATE_INIT_REBOOT, -EBUSY);
 
-        client->xid = random_u32();
-
-        r = dhcp_network_bind_raw_socket(client->index, &client->link);
-
-        if (r < 0) {
-                client_stop(client, r);
+        r = client_initialize(client);
+        if (r < 0)
                 return r;
-        }
 
-        client->fd = r;
-        client->start_time = now(CLOCK_MONOTONIC);
-        client->secs = 0;
+        if (client->last_addr)
+                client->state = DHCP_STATE_INIT_REBOOT;
 
-        log_dhcp_client(client, "STARTED");
-
-        return client_initialize_events(client, client_receive_message_raw);
+        return client_start(client);
 }
 
 int sd_dhcp_client_stop(sd_dhcp_client *client) {
