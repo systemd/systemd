@@ -44,6 +44,15 @@ static bool verbose = false;
 static int test_fd[2];
 static test_callback_recv_t callback_recv;
 static be32_t xid;
+static sd_event_source *test_hangcheck;
+
+static int test_dhcp_hangcheck(sd_event_source *s, uint64_t usec,
+                               void *userdata)
+{
+        assert_not_reached("Test case should have completed in 2 seconds");
+
+        return 0;
+}
 
 static void test_request_basic(sd_event *e)
 {
@@ -419,6 +428,7 @@ static int test_addr_acq_recv_discover(size_t size, DHCPMessage *discover)
 
 static void test_addr_acq(sd_event *e)
 {
+        usec_t time_now = now(CLOCK_MONOTONIC);
         sd_dhcp_client *client;
         int res, r;
 
@@ -440,10 +450,16 @@ static void test_addr_acq(sd_event *e)
 
         callback_recv = test_addr_acq_recv_discover;
 
+        assert_se(sd_event_add_monotonic(e, &test_hangcheck,
+                                         time_now + 2 * USEC_PER_SEC, 0,
+                                         test_dhcp_hangcheck, NULL) >= 0);
+
         res = sd_dhcp_client_start(client);
         assert_se(res == 0 || res == -EINPROGRESS);
 
         sd_event_loop(e);
+
+        test_hangcheck = sd_event_source_unref(test_hangcheck);
 
         sd_dhcp_client_set_callback(client, NULL, NULL);
         sd_dhcp_client_stop(client);
