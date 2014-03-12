@@ -597,13 +597,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
 static int instance_from_socket(int fd, unsigned nr, char **instance) {
         socklen_t l;
         char *r;
-        union {
-                struct sockaddr sa;
-                struct sockaddr_un un;
-                struct sockaddr_in in;
-                struct sockaddr_in6 in6;
-                struct sockaddr_storage storage;
-        } local, remote;
+        union sockaddr_union local, remote;
 
         assert(fd >= 0);
         assert(instance);
