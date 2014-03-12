@@ -1031,7 +1031,7 @@ static bool output_show_unit_file(const UnitFileList *u, char **patterns) {
 }
 
 static void output_unit_file_list(const UnitFileList *units, unsigned c) {
-        unsigned max_id_len, id_cols, state_cols, n_shown = 0;
+        unsigned max_id_len, id_cols, state_cols;
         const UnitFileList *u;
 
         max_id_len = sizeof("UNIT FILE")-1;
@@ -1062,8 +1062,6 @@ static void output_unit_file_list(const UnitFileList *units, unsigned c) {
                 const char *on, *off;
                 const char *id;
 
-                n_shown++;
-
                 if (u->state == UNIT_FILE_MASKED ||
                     u->state == UNIT_FILE_MASKED_RUNTIME ||
                     u->state == UNIT_FILE_DISABLED ||
@@ -1086,7 +1084,7 @@ static void output_unit_file_list(const UnitFileList *units, unsigned c) {
         }
 
         if (!arg_no_legend)
-                printf("\n%u unit files listed.\n", n_shown);
+                printf("\n%u unit files listed.\n", c);
 }
 
 static int list_unit_files(sd_bus *bus, char **args) {
@@ -1414,6 +1412,223 @@ static int list_dependencies(sd_bus *bus, char **args) {
         return list_dependencies_one(bus, u, 0, &units, 0);
 }
 
+struct machine_info {
+        bool is_host;
+        char *name;
+        unsigned n_failed_units;
+        unsigned n_jobs;
+        char *state;
+};
+
+static void free_machines_list(struct machine_info *machine_infos, int n) {
+        int i;
+
+        if (!machine_infos)
+                return;
+
+        for (i = 0; i < n; i++) {
+                free(machine_infos[i].name);
+                free(machine_infos[i].state);
+        }
+
+        free(machine_infos);
+}
+
+static int compare_machine_info(const void *a, const void *b) {
+        const struct machine_info *u = a, *v = b;
+
+        if (u->is_host != v->is_host)
+                return u->is_host > v->is_host ? 1 : -1;
+
+        return strcasecmp(u->name, v->name);
+}
+
+static int get_machine_properties(sd_bus *bus, struct machine_info *mi) {
+        static const struct bus_properties_map map[] = {
+                { "SystemState",  "s", NULL, offsetof(struct machine_info, state)          },
+                { "NJobs",        "u", NULL, offsetof(struct machine_info, n_jobs)         },
+                { "NFailedUnits", "u", NULL, offsetof(struct machine_info, n_failed_units) },
+                {}
+        };
+
+        _cleanup_bus_unref_ sd_bus *container = NULL;
+        int r;
+
+        assert(mi);
+
+        if (!bus) {
+                r = sd_bus_open_system_container(&container, mi->name);
+                if (r < 0)
+                        return r;
+
+                bus = container;
+        }
+
+        r = bus_map_all_properties(bus, "org.freedesktop.systemd1", "/org/freedesktop/systemd1", map, mi);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static bool output_show_machine(const char *name, char **patterns) {
+        char **i;
+
+        assert(name);
+
+        if (strv_isempty(patterns))
+                return true;
+
+        STRV_FOREACH(i, patterns)
+                if (fnmatch(*i, name, FNM_NOESCAPE) == 0)
+                        return true;
+
+        return false;
+}
+
+static int get_machine_list(
+                sd_bus *bus,
+                struct machine_info **_machine_infos,
+                char **patterns) {
+
+        struct machine_info *machine_infos = NULL;
+        _cleanup_strv_free_ char **m = NULL;
+        _cleanup_free_ char *hn = NULL;
+        size_t sz = 0;
+        char **i;
+        int c = 0;
+
+        hn = gethostname_malloc();
+        if (!hn)
+                return log_oom();
+
+        if (output_show_machine(hn, patterns)) {
+                if (!GREEDY_REALLOC0(machine_infos, sz, c+1))
+                        return log_oom();
+
+                machine_infos[c].is_host = true;
+                machine_infos[c].name = hn;
+                hn = NULL;
+
+                get_machine_properties(bus, &machine_infos[c]);
+                c++;
+        }
+
+        sd_get_machine_names(&m);
+        STRV_FOREACH(i, m) {
+                _cleanup_free_ char *class = NULL;
+
+                if (!output_show_machine(*i, patterns))
+                        continue;
+
+                sd_machine_get_class(*i, &class);
+                if (!streq_ptr(class, "container"))
+                        continue;
+
+                if (!GREEDY_REALLOC0(machine_infos, sz, c+1)) {
+                        free_machines_list(machine_infos, c);
+                        return log_oom();
+                }
+
+                machine_infos[c].is_host = false;
+                machine_infos[c].name = strdup(*i);
+                if (!machine_infos[c].name) {
+                        free_machines_list(machine_infos, c);
+                        return log_oom();
+                }
+
+                get_machine_properties(NULL, &machine_infos[c]);
+                c++;
+        }
+
+        *_machine_infos = machine_infos;
+        return c;
+}
+
+static void output_machines_list(struct machine_info *machine_infos, unsigned n) {
+        struct machine_info *m;
+        unsigned
+                namelen = sizeof("NAME") - 1,
+                statelen = sizeof("STATE") - 1,
+                failedlen = sizeof("FAILED") - 1,
+                jobslen = sizeof("JOBS") - 1;
+
+        assert(machine_infos || n == 0);
+
+        for (m = machine_infos; m < machine_infos + n; m++) {
+                namelen = MAX(namelen, strlen(m->name) + (m->is_host ? sizeof(" (host)") - 1 : 0));
+                statelen = MAX(statelen, m->state ? strlen(m->state) : 0);
+                failedlen = MAX(failedlen, DECIMAL_STR_WIDTH(m->n_failed_units));
+                jobslen = MAX(jobslen, DECIMAL_STR_WIDTH(m->n_jobs));
+        }
+
+        if (!arg_no_legend)
+                printf("%-*s %-*s %-*s %-*s\n",
+                         namelen, "NAME",
+                        statelen, "STATE",
+                       failedlen, "FAILED",
+                         jobslen, "JOBS");
+
+        for (m = machine_infos; m < machine_infos + n; m++) {
+                const char *on_state, *off_state, *on_failed, *off_failed;
+
+                if (streq_ptr(m->state, "degraded")) {
+                        on_state = ansi_highlight_red();
+                        off_state = ansi_highlight_off();
+                } else if (!streq_ptr(m->state, "running")) {
+                        on_state = ansi_highlight_yellow();
+                        off_state = ansi_highlight_off();
+                } else
+                        on_state = off_state = "";
+
+                if (m->n_failed_units > 0) {
+                        on_failed = ansi_highlight_red();
+                        off_failed = ansi_highlight_off();
+                } else
+                        on_failed = off_failed = "";
+
+                if (m->is_host)
+                        printf("%-*s (host) %s%-*s%s %s%*u%s %*u\n",
+                               (int) (namelen - (sizeof(" (host)")-1)), strna(m->name),
+                               on_state, statelen, strna(m->state), off_state,
+                               on_failed, failedlen, m->n_failed_units, off_failed,
+                               jobslen, m->n_jobs);
+                else
+                        printf("%-*s %s%-*s%s %s%*u%s %*u\n",
+                               namelen, strna(m->name),
+                               on_state, statelen, strna(m->state), off_state,
+                               on_failed, failedlen, m->n_failed_units, off_failed,
+                               jobslen, m->n_jobs);
+        }
+
+        if (!arg_no_legend)
+                printf("\n%u machines listed.\n", n);
+}
+
+static int list_machines(sd_bus *bus, char **args) {
+        struct machine_info *machine_infos = NULL;
+        int r;
+
+        assert(bus);
+
+        if (geteuid() != 0) {
+                log_error("Must be root.");
+                return -EPERM;
+        }
+
+        pager_open_if_enabled();
+
+        r = get_machine_list(bus, &machine_infos, strv_skip_first(args));
+        if (r < 0)
+                return r;
+
+        qsort_safe(machine_infos, r, sizeof(struct machine_info), compare_machine_info);
+        output_machines_list(machine_infos, r);
+        free_machines_list(machine_infos, r);
+
+        return 0;
+}
+
 static int get_default(sd_bus *bus, char **args) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1625,16 +1840,17 @@ static void output_jobs_list(const struct job_info* jobs, unsigned n, bool skipp
 }
 
 static bool output_show_job(struct job_info *job, char **patterns) {
-        if (!strv_isempty(patterns)) {
-                char **pattern;
+        char **pattern;
 
-                STRV_FOREACH(pattern, patterns)
-                        if (fnmatch(*pattern, job->name, FNM_NOESCAPE) == 0)
-                                return true;
-                return false;
-        }
+        assert(job);
 
-        return true;
+        if (strv_isempty(patterns))
+                return true;
+
+        STRV_FOREACH(pattern, patterns)
+                if (fnmatch(*pattern, job->name, FNM_NOESCAPE) == 0)
+                        return true;
+        return false;
 }
 
 static int list_jobs(sd_bus *bus, char **args) {
@@ -4940,6 +5156,8 @@ static int systemctl_help(void) {
                "                                  the search path\n"
                "  get-default                     Get the name of the default target\n"
                "  set-default NAME                Set the default target\n\n"
+               "Machine Commands:\n"
+               "  list-machines [PATTERN...]      List local containers and host\n\n"
                "Job Commands:\n"
                "  list-jobs [PATTERN...]          List jobs\n"
                "  cancel [JOB...]                 Cancel all, one, or more jobs\n\n"
@@ -5882,6 +6100,7 @@ static int systemctl_main(sd_bus *bus, int argc, char *argv[], int bus_error) {
                 { "list-sockets",          MORE,  1, list_sockets      },
                 { "list-timers",           MORE,  1, list_timers       },
                 { "list-jobs",             MORE,  1, list_jobs         },
+                { "list-machines",         MORE,  1, list_machines     },
                 { "clear-jobs",            EQUAL, 1, daemon_reload     },
                 { "cancel",                MORE,  2, cancel_job        },
                 { "start",                 MORE,  2, start_unit        },

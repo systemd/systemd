@@ -1042,6 +1042,24 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
     </refsect2>
 
     <refsect2>
+      <title>Machine Commands</title>
+
+      <variablelist>
+        <varlistentry>
+          <term><command>list-machines <optional><replaceable>PATTERN</replaceable>...</optional></command></term>
+
+          <listitem>
+            <para>List the host and all running local containers with
+            their state. If one or more
+            <replaceable>PATTERN</replaceable>s are specified, only
+            containers matching one of them are shown.
+            </para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
       <title>Job Commands</title>
 
       <variablelist>
