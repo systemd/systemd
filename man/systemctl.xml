@@ -672,10 +672,11 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           <listitem>
             <para>Show terse runtime status information about one or
             more units, followed by most recent log data from the
-            journal. If no units are specified, show all units (subject
-            to limitations specified with <option>-t</option>). If a PID
-            is passed, show information about the unit the process
-            belongs to.</para>
+            journal. If no units are specified, show system status. If
+            combined with <option>--all</option> also shows status of
+            all units (subject to limitations specified with
+            <option>-t</option>). If a PID is passed, show information
+            about the unit the process belongs to.</para>
 
             <para>This function is intended to generate human-readable
             output. If you are looking for computer-parsable output,

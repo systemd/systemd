@@ -1415,9 +1415,20 @@ static int list_dependencies(sd_bus *bus, char **args) {
 struct machine_info {
         bool is_host;
         char *name;
-        unsigned n_failed_units;
-        unsigned n_jobs;
         char *state;
+        char *control_group;
+        uint32_t n_failed_units;
+        uint32_t n_jobs;
+        usec_t timestamp;
+};
+
+static const struct bus_properties_map machine_info_property_map[] = {
+        { "SystemState",        "s", NULL, offsetof(struct machine_info, state)          },
+        { "NJobs",              "u", NULL, offsetof(struct machine_info, n_jobs)         },
+        { "NFailedUnits",       "u", NULL, offsetof(struct machine_info, n_failed_units) },
+        { "ControlGroup",       "s", NULL, offsetof(struct machine_info, control_group)  },
+        { "UserspaceTimestamp", "t", NULL, offsetof(struct machine_info, timestamp)      },
+        {}
 };
 
 static void free_machines_list(struct machine_info *machine_infos, int n) {
@@ -1429,6 +1440,7 @@ static void free_machines_list(struct machine_info *machine_infos, int n) {
         for (i = 0; i < n; i++) {
                 free(machine_infos[i].name);
                 free(machine_infos[i].state);
+                free(machine_infos[i].control_group);
         }
 
         free(machine_infos);
@@ -1444,13 +1456,6 @@ static int compare_machine_info(const void *a, const void *b) {
 }
 
 static int get_machine_properties(sd_bus *bus, struct machine_info *mi) {
-        static const struct bus_properties_map map[] = {
-                { "SystemState",  "s", NULL, offsetof(struct machine_info, state)          },
-                { "NJobs",        "u", NULL, offsetof(struct machine_info, n_jobs)         },
-                { "NFailedUnits", "u", NULL, offsetof(struct machine_info, n_failed_units) },
-                {}
-        };
-
         _cleanup_bus_unref_ sd_bus *container = NULL;
         int r;
 
@@ -1464,7 +1469,7 @@ static int get_machine_properties(sd_bus *bus, struct machine_info *mi) {
                 bus = container;
         }
 
-        r = bus_map_all_properties(bus, "org.freedesktop.systemd1", "/org/freedesktop/systemd1", map, mi);
+        r = bus_map_all_properties(bus, "org.freedesktop.systemd1", "/org/freedesktop/systemd1", machine_info_property_map, mi);
         if (r < 0)
                 return r;
 
@@ -3194,7 +3199,8 @@ static void print_status_info(
                 printf("   Status: \"%s\"\n", i->status_text);
 
         if (i->control_group &&
-            (i->main_pid > 0 || i->control_pid > 0 || cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, i->control_group, false) == 0)) {
+            (i->main_pid > 0 || i->control_pid > 0 ||
+             ((arg_transport != BUS_TRANSPORT_LOCAL && arg_transport != BUS_TRANSPORT_CONTAINER) || cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, i->control_group, false) == 0))) {
                 unsigned c;
 
                 printf("   CGroup: %s\n", i->control_group);
@@ -3202,7 +3208,7 @@ static void print_status_info(
                 if (arg_transport == BUS_TRANSPORT_LOCAL || arg_transport == BUS_TRANSPORT_CONTAINER) {
                         unsigned k = 0;
                         pid_t extra[2];
-                        char prefix[] = "           ";
+                        static const char prefix[] = "           ";
 
                         c = columns();
                         if (c > sizeof(prefix) - 1)
@@ -3216,8 +3222,7 @@ static void print_status_info(
                         if (i->control_pid > 0)
                                 extra[k++] = i->control_pid;
 
-                        show_cgroup_and_extra(SYSTEMD_CGROUP_CONTROLLER, i->control_group, prefix,
-                                                      c, false, extra, k, flags);
+                        show_cgroup_and_extra(SYSTEMD_CGROUP_CONTROLLER, i->control_group, prefix, c, false, extra, k, flags);
                 }
         }
 
@@ -4159,6 +4164,71 @@ static int cat(sd_bus *bus, char **args) {
         return r < 0 ? r : 0;
 }
 
+static int show_system_status(sd_bus *bus) {
+        char since1[FORMAT_TIMESTAMP_RELATIVE_MAX], since2[FORMAT_TIMESTAMP_MAX];
+        _cleanup_free_ char *hn = NULL;
+        struct machine_info mi = {};
+        const char *on, *off;
+        int r;
+
+        hn = gethostname_malloc();
+        if (!hn)
+                return log_oom();
+
+        r = bus_map_all_properties(bus, "org.freedesktop.systemd1", "/org/freedesktop/systemd1", machine_info_property_map, &mi);
+        if (r < 0) {
+                log_error("Failed to read server status: %s", strerror(-r));
+                return r;
+        }
+
+        printf("%s\n", arg_host ? arg_host : hn);
+
+        if (streq_ptr(mi.state, "degraded")) {
+                on = ansi_highlight_red();
+                off = ansi_highlight_off();
+        } else if (!streq_ptr(mi.state, "running")) {
+                on = ansi_highlight_yellow();
+                off = ansi_highlight_off();
+        } else
+                on = off = "";
+
+        printf("    State: %s%s%s\n",
+               on, strna(mi.state), off);
+
+        printf("     Jobs: %u queued\n", mi.n_jobs);
+        printf("   Failed: %u units\n", mi.n_failed_units);
+
+        printf("    Since: %s; %s\n",
+               format_timestamp(since2, sizeof(since2), mi.timestamp),
+               format_timestamp_relative(since1, sizeof(since1), mi.timestamp));
+
+        printf("   CGroup: %s\n", mi.control_group ?: "/");
+        if (arg_transport == BUS_TRANSPORT_LOCAL || arg_transport == BUS_TRANSPORT_CONTAINER) {
+                int flags =
+                        arg_all * OUTPUT_SHOW_ALL |
+                        (!on_tty() || pager_have()) * OUTPUT_FULL_WIDTH |
+                        on_tty() * OUTPUT_COLOR |
+                        !arg_quiet * OUTPUT_WARN_CUTOFF |
+                        arg_full * OUTPUT_FULL_WIDTH;
+
+                static const char prefix[] = "           ";
+                unsigned c;
+
+                c = columns();
+                if (c > sizeof(prefix) - 1)
+                        c -= sizeof(prefix) - 1;
+                else
+                        c = 0;
+
+                show_cgroup(SYSTEMD_CGROUP_CONTROLLER, strempty(mi.control_group), prefix, c, false, flags);
+        }
+
+        free(mi.state);
+        free(mi.control_group);
+
+        return 0;
+}
+
 static int show(sd_bus *bus, char **args) {
         bool show_properties, show_status, new_line = false;
         bool ellipsized = false;
@@ -4178,9 +4248,17 @@ static int show(sd_bus *bus, char **args) {
         if (show_properties && strv_length(args) <= 1)
                 return show_one(args[0], bus, "/org/freedesktop/systemd1", show_properties, &new_line, &ellipsized);
 
-        if (show_status && strv_length(args) <= 1)
-                ret = show_all(args[0], bus, false, &new_line, &ellipsized);
-        else {
+        if (show_status && strv_length(args) <= 1) {
+
+                if (arg_all)
+                        pager_open_if_enabled();
+
+                show_system_status(bus);
+                new_line = true;
+
+                if (arg_all)
+                        ret = show_all(args[0], bus, false, &new_line, &ellipsized);
+        } else {
                 _cleanup_free_ char **patterns = NULL;
                 char **name;
 
