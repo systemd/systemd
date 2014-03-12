@@ -531,7 +531,11 @@ char *strjoin(const char *x, ...) _sentinel_;
 
 bool is_main_thread(void);
 
-bool in_charset(const char *s, const char* charset) _pure_;
+static inline bool _pure_ in_charset(const char *s, const char* charset) {
+        assert(s);
+        assert(charset);
+        return s[strspn(s, charset)] == '\0';
+}
 
 int block_get_whole_disk(dev_t d, dev_t *ret);
 

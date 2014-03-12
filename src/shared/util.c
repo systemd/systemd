@@ -920,12 +920,6 @@ char *delete_chars(char *s, const char *bad) {
         return s;
 }
 
-bool in_charset(const char *s, const char* charset) {
-        assert(s);
-        assert(charset);
-        return s[strspn(s, charset)] == '\0';
-}
-
 char *file_in_same_dir(const char *path, const char *filename) {
         char *e, *r;
         size_t k;
