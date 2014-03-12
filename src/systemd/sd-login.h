@@ -153,6 +153,9 @@ int sd_seat_can_tty(const char *seat);
 /* Return whether the seat is graphics capable, i.e. suitable for showing graphical UIs */
 int sd_seat_can_graphical(const char *seat);
 
+/* Return the class of machine */
+int sd_machine_get_class(const char *machine, char **class);
+
 /* Get all seats, store in *seats. Returns the number of seats. If
  * seats is NULL only returns number of seats. */
 int sd_get_seats(char ***seats);

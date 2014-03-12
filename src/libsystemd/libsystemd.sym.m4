@@ -122,6 +122,13 @@ global:
         sd_session_is_remote;
         sd_session_get_remote_user;
         sd_session_get_remote_host;
+local:
+       *;
+};
+
+LIBSYSTEMD_211 {
+global:
+        sd_machine_get_class;
 
 m4_ifdef(`ENABLE_KDBUS',
         /* sd-bus */
@@ -389,6 +396,4 @@ m4_ifdef(`ENABLE_KDBUS',
         sd_utf8_is_valid;
         sd_ascii_is_valid;
 )
-local:
-       *;
-};
+} LIBSYSTEMD_209;

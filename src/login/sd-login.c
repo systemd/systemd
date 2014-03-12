@@ -249,9 +249,7 @@ _public_ int sd_session_is_active(const char *session) {
         if (!s)
                 return -EIO;
 
-        r = parse_boolean(s);
-
-        return r;
+        return parse_boolean(s);
 }
 
 _public_ int sd_session_is_remote(const char *session) {
@@ -269,9 +267,7 @@ _public_ int sd_session_is_remote(const char *session) {
         if (!s)
                 return -EIO;
 
-        r = parse_boolean(s);
-
-        return r;
+        return parse_boolean(s);
 }
 
 _public_ int sd_session_get_state(const char *session, char **state) {
@@ -308,16 +304,13 @@ _public_ int sd_session_get_uid(const char *session, uid_t *uid) {
                 return r;
 
         r = parse_env_file(p, NEWLINE, "UID", &s, NULL);
-
         if (r < 0)
                 return r;
 
         if (!s)
                 return -EIO;
 
-        r = parse_uid(s, uid);
-
-        return r;
+        return parse_uid(s, uid);
 }
 
 static int session_get_string(const char *session, const char *field, char **value) {
@@ -533,6 +526,8 @@ static int seat_get_can(const char *seat, const char *variable) {
         _cleanup_free_ char *p = NULL, *s = NULL;
         int r;
 
+        assert_return(variable, -EINVAL);
+
         r = file_of_seat(seat, &p);
         if (r < 0)
                 return r;
@@ -542,13 +537,10 @@ static int seat_get_can(const char *seat, const char *variable) {
                            NULL);
         if (r < 0)
                 return r;
+        if (!s)
+                return 0;
 
-        if (s)
-                r = parse_boolean(s);
-        else
-                r = 0;
-
-        return r;
+        return parse_boolean(s);
 }
 
 _public_ int sd_seat_can_multi_session(const char *seat) {
@@ -633,6 +625,8 @@ _public_ int sd_get_machine_names(char ***machines) {
         char **l = NULL, **a, **b;
         int r;
 
+        assert_return(machines, -EINVAL);
+
         r = get_files_in_directory("/run/systemd/machines/", &l);
         if (r < 0)
                 return r;
@@ -656,6 +650,27 @@ _public_ int sd_get_machine_names(char ***machines) {
 
         *machines = l;
         return r;
+}
+
+_public_ int sd_machine_get_class(const char *machine, char **class) {
+        _cleanup_free_ char *c = NULL;
+        const char *p;
+        int r;
+
+        assert_return(filename_is_safe(machine), -EINVAL);
+        assert_return(class, -EINVAL);
+
+        p = strappenda("/run/systemd/machines/", machine);
+        r = parse_env_file(p, NEWLINE, "CLASS", &c, NULL);
+        if (r < 0)
+                return r;
+        if (!c)
+                return -EIO;
+
+        *class = c;
+        c = NULL;
+
+        return 0;
 }
 
 static inline int MONITOR_TO_FD(sd_login_monitor *m) {
