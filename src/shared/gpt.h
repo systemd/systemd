@@ -39,3 +39,10 @@
 #elif defined(__i386__)
 #  define GPT_ROOT_NATIVE GPT_ROOT_X86
 #endif
+
+/* Flags we recognize on the root, swap, home and srv partitions when
+ * doing auto-discovery. These happen to be identical to what
+ * Microsoft defines for its own Basic Data Partitions, but that's
+ * just because we saw no point in defining any other values here. */
+#define GPT_FLAG_READ_ONLY (1ULL << 60)
+#define GPT_FLAG_NO_AUTO (1ULL << 63)

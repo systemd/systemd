@@ -101,7 +101,7 @@ static int add_swap(const char *path) {
         return 0;
 }
 
-static int add_cryptsetup(const char *id, const char *what, char **device) {
+static int add_cryptsetup(const char *id, const char *what, bool rw, char **device) {
         _cleanup_free_ char *e = NULL, *n = NULL, *p = NULL, *d = NULL, *to = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         char *from, *ret;
@@ -149,10 +149,10 @@ static int add_cryptsetup(const char *id, const char *what, char **device) {
                 "Type=oneshot\n"
                 "RemainAfterExit=yes\n"
                 "TimeoutSec=0\n" /* the binary handles timeouts anyway */
-                "ExecStart=" SYSTEMD_CRYPTSETUP_PATH " attach '%s' '%s'\n"
+                "ExecStart=" SYSTEMD_CRYPTSETUP_PATH " attach '%s' '%s' '' '%s'\n"
                 "ExecStop=" SYSTEMD_CRYPTSETUP_PATH " detach '%s'\n",
                 d, d,
-                id, what,
+                id, what, rw ? "" : "read-only",
                 id);
 
         fflush(f);
@@ -223,7 +223,7 @@ static int add_mount(
                 const char *what,
                 const char *where,
                 const char *fstype,
-                const char *options,
+                bool rw,
                 const char *description,
                 const char *post) {
 
@@ -240,7 +240,7 @@ static int add_mount(
 
         if (streq_ptr(fstype, "crypto_LUKS")) {
 
-                r = add_cryptsetup(id, what, &crypto_what);
+                r = add_cryptsetup(id, what, rw, &crypto_what);
                 if (r < 0)
                         return r;
 
@@ -286,8 +286,7 @@ static int add_mount(
         if (fstype)
                 fprintf(f, "Type=%s\n", fstype);
 
-        if (options)
-                fprintf(f, "Options=%s\n", options);
+        fprintf(f, "Options=%s\n", rw ? "rw" : "ro");
 
         fflush(f);
         if (ferror(f)) {
@@ -314,6 +313,7 @@ static int probe_and_add_mount(
                 const char *id,
                 const char *what,
                 const char *where,
+                bool rw,
                 const char *description,
                 const char *post) {
 
@@ -365,7 +365,7 @@ static int probe_and_add_mount(
                         what,
                         where,
                         fstype,
-                        NULL,
+                        rw,
                         description,
                         post);
 }
@@ -381,6 +381,7 @@ static int enumerate_partitions(dev_t devnum) {
         struct udev_device *parent = NULL;
         const char *node, *pttype, *devtype;
         int home_nr = -1, srv_nr = -1;
+        bool home_rw = true, srv_rw = true;
         blkid_partlist pl;
         int r, k;
         dev_t pn;
@@ -492,6 +493,7 @@ static int enumerate_partitions(dev_t devnum) {
                 blkid_partition pp;
                 dev_t qn;
                 int nr;
+                unsigned long long flags;
 
                 q = udev_device_new_from_syspath(udev, udev_list_entry_get_name(item));
                 if (!q)
@@ -515,6 +517,13 @@ static int enumerate_partitions(dev_t devnum) {
                 if (!pp)
                         continue;
 
+                flags = blkid_partition_get_flags(pp);
+
+                /* Ignore partitions that are not marked for automatic
+                 * mounting on discovery */
+                if (flags & GPT_FLAG_NO_AUTO)
+                        continue;
+
                 nr = blkid_partition_get_partno(pp);
                 if (nr < 0)
                         continue;
@@ -528,6 +537,11 @@ static int enumerate_partitions(dev_t devnum) {
 
                 if (sd_id128_equal(type_id, GPT_SWAP)) {
 
+                        if (flags & GPT_FLAG_READ_ONLY) {
+                                log_debug("%s marked as read-only swap partition, which is bogus, ignoring.", subnode);
+                                continue;
+                        }
+
                         k = add_swap(subnode);
                         if (k < 0)
                                 r = k;
@@ -539,6 +553,7 @@ static int enumerate_partitions(dev_t devnum) {
                                 continue;
 
                         home_nr = nr;
+                        home_rw = !(flags & GPT_FLAG_READ_ONLY),
 
                         free(home);
                         home = strdup(subnode);
@@ -552,6 +567,7 @@ static int enumerate_partitions(dev_t devnum) {
                                 continue;
 
                         srv_nr = nr;
+                        srv_rw = !(flags & GPT_FLAG_READ_ONLY),
 
                         free(srv);
                         srv = strdup(node);
@@ -561,13 +577,13 @@ static int enumerate_partitions(dev_t devnum) {
         }
 
         if (home) {
-                k = probe_and_add_mount("home", home, "/home", "Home Partition", SPECIAL_LOCAL_FS_TARGET);
+                k = probe_and_add_mount("home", home, "/home", home_rw, "Home Partition", SPECIAL_LOCAL_FS_TARGET);
                 if (k < 0)
                         r = k;
         }
 
         if (srv) {
-                k = probe_and_add_mount("srv", srv, "/srv", "Server Data Partition", SPECIAL_LOCAL_FS_TARGET);
+                k = probe_and_add_mount("srv", srv, "/srv", srv_rw, "Server Data Partition", SPECIAL_LOCAL_FS_TARGET);
                 if (k < 0)
                         r = k;
         }
@@ -705,7 +721,7 @@ static int add_root_mount(void) {
                         "/dev/gpt-auto-root",
                         in_initrd() ? "/sysroot" : "/",
                         NULL,
-                        arg_root_rw ? "rw" : "ro",
+                        arg_root_rw,
                         "Root Partition",
                         in_initrd() ? SPECIAL_INITRD_ROOT_FS_TARGET : SPECIAL_LOCAL_FS_TARGET);
 #else
