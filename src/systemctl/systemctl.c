@@ -4069,100 +4069,6 @@ static int show_all(
         return 0;
 }
 
-static int cat(sd_bus *bus, char **args) {
-        _cleanup_free_ char *unit = NULL;
-        _cleanup_strv_free_ char **names = NULL;
-        char **name;
-        bool first = true;
-        int r = 0;
-
-        assert(bus);
-        assert(args);
-
-        r = expand_names(bus, args + 1, NULL, &names);
-        if (r < 0)
-                log_error("Failed to expand names: %s", strerror(-r));
-
-        pager_open_if_enabled();
-
-        STRV_FOREACH(name, names) {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_strv_free_ char **dropin_paths = NULL;
-                _cleanup_free_ char *fragment_path = NULL;
-                char **path;
-
-                unit = unit_dbus_path_from_name(*name);
-                if (!unit)
-                        return log_oom();
-
-                if (need_daemon_reload(bus, *name) > 0)
-                        log_warning("Unit file of %s changed on disk. Run 'systemctl%s daemon-reload'.",
-                                    *name, arg_scope == UNIT_FILE_SYSTEM ? "" : " --user");
-
-                r = sd_bus_get_property_string(
-                                bus,
-                                "org.freedesktop.systemd1",
-                                unit,
-                                "org.freedesktop.systemd1.Unit",
-                                "FragmentPath",
-                                &error,
-                                &fragment_path);
-                if (r < 0) {
-                        log_warning("Failed to get FragmentPath: %s", bus_error_message(&error, r));
-                        continue;
-                }
-
-                r = sd_bus_get_property_strv(
-                                bus,
-                                "org.freedesktop.systemd1",
-                                unit,
-                                "org.freedesktop.systemd1.Unit",
-                                "DropInPaths",
-                                &error,
-                                &dropin_paths);
-                if (r < 0) {
-                        log_warning("Failed to get DropInPaths: %s", bus_error_message(&error, r));
-                        continue;
-                }
-
-                if (first)
-                        first = false;
-                else
-                        puts("");
-
-                if (!isempty(fragment_path)) {
-                        printf("%s# %s%s\n",
-                               ansi_highlight_blue(),
-                               fragment_path,
-                               ansi_highlight_off());
-                        fflush(stdout);
-
-                        r = sendfile_full(STDOUT_FILENO, fragment_path);
-                        if (r < 0) {
-                                log_warning("Failed to cat %s: %s", fragment_path, strerror(-r));
-                                continue;
-                        }
-                }
-
-                STRV_FOREACH(path, dropin_paths) {
-                        printf("%s%s# %s%s\n",
-                               isempty(fragment_path) && path == dropin_paths ? "" : "\n",
-                               ansi_highlight_blue(),
-                               *path,
-                               ansi_highlight_off());
-                        fflush(stdout);
-
-                        r = sendfile_full(STDOUT_FILENO, *path);
-                        if (r < 0) {
-                                log_warning("Failed to cat %s: %s", *path, strerror(-r));
-                                continue;
-                        }
-                }
-        }
-
-        return r < 0 ? r : 0;
-}
-
 static int show_system_status(sd_bus *bus) {
         char since1[FORMAT_TIMESTAMP_RELATIVE_MAX], since2[FORMAT_TIMESTAMP_MAX];
         _cleanup_free_ char *hn = NULL;
@@ -4310,6 +4216,100 @@ static int show(sd_bus *bus, char **args) {
                 printf("Hint: Some lines were ellipsized, use -l to show in full.\n");
 
         return ret;
+}
+
+static int cat(sd_bus *bus, char **args) {
+        _cleanup_free_ char *unit = NULL;
+        _cleanup_strv_free_ char **names = NULL;
+        char **name;
+        bool first = true;
+        int r = 0;
+
+        assert(bus);
+        assert(args);
+
+        r = expand_names(bus, args + 1, NULL, &names);
+        if (r < 0)
+                log_error("Failed to expand names: %s", strerror(-r));
+
+        pager_open_if_enabled();
+
+        STRV_FOREACH(name, names) {
+                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_strv_free_ char **dropin_paths = NULL;
+                _cleanup_free_ char *fragment_path = NULL;
+                char **path;
+
+                unit = unit_dbus_path_from_name(*name);
+                if (!unit)
+                        return log_oom();
+
+                if (need_daemon_reload(bus, *name) > 0)
+                        log_warning("Unit file of %s changed on disk. Run 'systemctl%s daemon-reload'.",
+                                    *name, arg_scope == UNIT_FILE_SYSTEM ? "" : " --user");
+
+                r = sd_bus_get_property_string(
+                                bus,
+                                "org.freedesktop.systemd1",
+                                unit,
+                                "org.freedesktop.systemd1.Unit",
+                                "FragmentPath",
+                                &error,
+                                &fragment_path);
+                if (r < 0) {
+                        log_warning("Failed to get FragmentPath: %s", bus_error_message(&error, r));
+                        continue;
+                }
+
+                r = sd_bus_get_property_strv(
+                                bus,
+                                "org.freedesktop.systemd1",
+                                unit,
+                                "org.freedesktop.systemd1.Unit",
+                                "DropInPaths",
+                                &error,
+                                &dropin_paths);
+                if (r < 0) {
+                        log_warning("Failed to get DropInPaths: %s", bus_error_message(&error, r));
+                        continue;
+                }
+
+                if (first)
+                        first = false;
+                else
+                        puts("");
+
+                if (!isempty(fragment_path)) {
+                        printf("%s# %s%s\n",
+                               ansi_highlight_blue(),
+                               fragment_path,
+                               ansi_highlight_off());
+                        fflush(stdout);
+
+                        r = sendfile_full(STDOUT_FILENO, fragment_path);
+                        if (r < 0) {
+                                log_warning("Failed to cat %s: %s", fragment_path, strerror(-r));
+                                continue;
+                        }
+                }
+
+                STRV_FOREACH(path, dropin_paths) {
+                        printf("%s%s# %s%s\n",
+                               isempty(fragment_path) && path == dropin_paths ? "" : "\n",
+                               ansi_highlight_blue(),
+                               *path,
+                               ansi_highlight_off());
+                        fflush(stdout);
+
+                        r = sendfile_full(STDOUT_FILENO, *path);
+                        if (r < 0) {
+                                log_warning("Failed to cat %s: %s", *path, strerror(-r));
+                                continue;
+                        }
+                }
+        }
+
+        return r < 0 ? r : 0;
 }
 
 static int set_property(sd_bus *bus, char **args) {
