@@ -4062,7 +4062,7 @@ static int show_all(
                         return log_oom();
 
                 r = show_one(verb, bus, p, show_properties, new_line, ellipsized);
-                if (r != 0)
+                if (r < 0)
                         return r;
         }
 
