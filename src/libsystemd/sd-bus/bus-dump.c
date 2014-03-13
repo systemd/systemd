@@ -69,10 +69,10 @@ int bus_message_dump(sd_bus_message *m, FILE *f, bool with_header) {
                 if (BUS_MESSAGE_COOKIE(m) == 0xFFFFFFFFULL)
                         fprintf(f, " Cookie=-1");
                 else
-                        fprintf(f, " Cookie=%lu", (unsigned long) BUS_MESSAGE_COOKIE(m));
+                        fprintf(f, " Cookie=%" PRIu64, BUS_MESSAGE_COOKIE(m));
 
                 if (m->reply_cookie != 0)
-                        fprintf(f, "  ReplyCookie=%lu", (unsigned long) m->reply_cookie);
+                        fprintf(f, "  ReplyCookie=%" PRIu64, m->reply_cookie);
 
                 fputs("\n", f);
 

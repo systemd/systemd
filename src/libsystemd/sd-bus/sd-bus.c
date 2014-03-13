@@ -1486,15 +1486,15 @@ static int bus_write_message(sd_bus *bus, sd_bus_message *m, bool hint_sync_call
                 return r;
 
         if (bus->is_kernel || *idx >= BUS_MESSAGE_SIZE(m))
-                log_debug("Sent message type=%s sender=%s destination=%s object=%s interface=%s member=%s cookie=%lu reply_cookie=%lu error=%s",
+                log_debug("Sent message type=%s sender=%s destination=%s object=%s interface=%s member=%s cookie=%" PRIu64 " reply_cookie=%" PRIu64 " error=%s",
                           bus_message_type_to_string(m->header->type),
                           strna(sd_bus_message_get_sender(m)),
                           strna(sd_bus_message_get_destination(m)),
                           strna(sd_bus_message_get_path(m)),
                           strna(sd_bus_message_get_interface(m)),
                           strna(sd_bus_message_get_member(m)),
-                          (unsigned long) BUS_MESSAGE_COOKIE(m),
-                          (unsigned long) m->reply_cookie,
+                          BUS_MESSAGE_COOKIE(m),
+                          m->reply_cookie,
                           strna(m->error.message));
 
         return r;
@@ -2253,15 +2253,15 @@ static int process_message(sd_bus *bus, sd_bus_message *m) {
         bus->current = m;
         bus->iteration_counter++;
 
-        log_debug("Got message type=%s sender=%s destination=%s object=%s interface=%s member=%s cookie=%lu reply_cookie=%lu error=%s",
+        log_debug("Got message type=%s sender=%s destination=%s object=%s interface=%s member=%s cookie=%" PRIu64 " reply_cookie=%" PRIu64 " error=%s",
                   bus_message_type_to_string(m->header->type),
                   strna(sd_bus_message_get_sender(m)),
                   strna(sd_bus_message_get_destination(m)),
                   strna(sd_bus_message_get_path(m)),
                   strna(sd_bus_message_get_interface(m)),
                   strna(sd_bus_message_get_member(m)),
-                  (unsigned long) BUS_MESSAGE_COOKIE(m),
-                  (unsigned long) m->reply_cookie,
+                  BUS_MESSAGE_COOKIE(m),
+                  m->reply_cookie,
                   strna(m->error.message));
 
         r = process_hello(bus, m);

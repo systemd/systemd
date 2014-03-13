@@ -84,7 +84,7 @@ struct sd_bus_message {
 
         sd_bus *bus;
 
-        uint32_t reply_cookie;
+        uint64_t reply_cookie;
 
         const char *path;
         const char *interface;
@@ -162,7 +162,8 @@ static inline uint64_t BUS_MESSAGE_BSWAP64(sd_bus_message *m, uint64_t u) {
         return BUS_MESSAGE_NEED_BSWAP(m) ? bswap_64(u) : u;
 }
 
-static inline uint32_t BUS_MESSAGE_COOKIE(sd_bus_message *m) {
+static inline uint64_t BUS_MESSAGE_COOKIE(sd_bus_message *m) {
+        /* Note that we return the serial converted to a 64bit value here */
         return BUS_MESSAGE_BSWAP32(m, m->header->serial);
 }
 

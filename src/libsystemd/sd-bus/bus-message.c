@@ -617,7 +617,7 @@ static int message_new_reply(
         t->header->flags |= BUS_MESSAGE_NO_REPLY_EXPECTED;
         t->reply_cookie = BUS_MESSAGE_COOKIE(call);
 
-        r = message_append_field_uint32(t, BUS_MESSAGE_HEADER_REPLY_SERIAL, t->reply_cookie);
+        r = message_append_field_uint32(t, BUS_MESSAGE_HEADER_REPLY_SERIAL, (uint32_t) t->reply_cookie);
         if (r < 0)
                 goto fail;
 
@@ -752,7 +752,7 @@ int bus_message_new_synthetic_error(
         t->header->flags |= BUS_MESSAGE_NO_REPLY_EXPECTED;
         t->reply_cookie = cookie;
 
-        r = message_append_field_uint32(t, BUS_MESSAGE_HEADER_REPLY_SERIAL, t->reply_cookie);
+        r = message_append_field_uint32(t, BUS_MESSAGE_HEADER_REPLY_SERIAL, (uint32_t) t->reply_cookie);
         if (r < 0)
                 goto fail;
 
@@ -5075,21 +5075,26 @@ int bus_message_parse_fields(sd_bus_message *m) {
                         break;
                 }
 
-                case BUS_MESSAGE_HEADER_REPLY_SERIAL:
+                case BUS_MESSAGE_HEADER_REPLY_SERIAL: {
+                        uint32_t serial;
+
                         if (m->reply_cookie != 0)
                                 return -EBADMSG;
 
                         if (!streq(signature, "u"))
                                 return -EBADMSG;
 
-                        r = message_peek_field_uint32(m, &ri, item_size, &m->reply_cookie);
+                        r = message_peek_field_uint32(m, &ri, item_size, &serial);
                         if (r < 0)
                                 return r;
+
+                        m->reply_cookie = serial;
 
                         if (m->reply_cookie == 0)
                                 return -EBADMSG;
 
                         break;
+                }
 
                 case BUS_MESSAGE_HEADER_UNIX_FDS:
                         if (unix_fds != 0)
@@ -5489,7 +5494,7 @@ int bus_message_remarshal(sd_bus *bus, sd_bus_message **m) {
                         return -ENOMEM;
 
                 n->reply_cookie = (*m)->reply_cookie;
-                r = message_append_field_uint32(n, BUS_MESSAGE_HEADER_REPLY_SERIAL, n->reply_cookie);
+                r = message_append_field_uint32(n, BUS_MESSAGE_HEADER_REPLY_SERIAL, (uint32_t) n->reply_cookie);
                 if (r < 0)
                         return r;
 
