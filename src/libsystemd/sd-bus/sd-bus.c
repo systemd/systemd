@@ -1189,7 +1189,8 @@ _public_ int sd_bus_open_user(sd_bus **ret) {
 #ifdef ENABLE_KDBUS
                         asprintf(&b->address, KERNEL_USER_BUS_FMT, (unsigned long) getuid());
 #else
-                        return -ECONNREFUSED;
+                        r = -ECONNREFUSED;
+                        goto fail;
 #endif
                 }
 
