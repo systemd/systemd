@@ -3226,7 +3226,6 @@ static void print_status_info(
         }
 
         if (i->id && arg_transport == BUS_TRANSPORT_LOCAL) {
-                printf("\n");
                 show_journal_by_unit(stdout,
                                      i->id,
                                      arg_output,
@@ -3234,7 +3233,7 @@ static void print_status_info(
                                      i->inactive_exit_timestamp_monotonic,
                                      arg_lines,
                                      getuid(),
-                                     flags,
+                                     flags | OUTPUT_BEGIN_NEWLINE,
                                      arg_scope == UNIT_FILE_SYSTEM,
                                      ellipsized);
         }

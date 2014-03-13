@@ -927,6 +927,21 @@ int output_journal(
         return ret;
 }
 
+static int maybe_print_begin_newline(FILE *f, OutputFlags *flags) {
+        assert(f);
+        assert(flags);
+
+        if (!(*flags & OUTPUT_BEGIN_NEWLINE))
+                return 0;
+
+        /* Print a beginning new line if that's request, but only once
+         * on the first line we print. */
+
+        fputc('\n', f);
+        *flags &= ~OUTPUT_BEGIN_NEWLINE;
+        return 0;
+}
+
 static int show_journal(FILE *f,
                         sd_journal *j,
                         OutputMode mode,
@@ -984,6 +999,7 @@ static int show_journal(FILE *f,
                         }
 
                         line ++;
+                        maybe_print_begin_newline(f, &flags);
 
                         r = output_journal(f, j, mode, n_columns, flags, ellipsized);
                         if (r < 0)
@@ -1004,8 +1020,10 @@ static int show_journal(FILE *f,
                         if (r < 0)
                                 goto finish;
 
-                        if (r > 0 && not_before < cutoff)
+                        if (r > 0 && not_before < cutoff) {
+                                maybe_print_begin_newline(f, &flags);
                                 fprintf(f, "Warning: Journal has been rotated since unit was started. Log output is incomplete or unavailable.\n");
+                        }
 
                         warn_cutoff = false;
                 }
