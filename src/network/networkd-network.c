@@ -69,6 +69,10 @@ static int network_load_one(Manager *manager, const char *filename) {
         if (!network->routes_by_section)
                 return log_oom();
 
+        network->dns = set_new(NULL, NULL);
+        if (!network->dns)
+                return log_oom();
+
         network->filename = strdup(filename);
         if (!network->filename)
                 return log_oom();
@@ -136,6 +140,7 @@ int network_load(Manager *manager) {
 void network_free(Network *network) {
         Route *route;
         Address *address;
+        Iterator i;
 
         if (!network)
                 return;
@@ -150,7 +155,10 @@ void network_free(Network *network) {
 
         free(network->description);
 
-        address_free(network->dns);
+        SET_FOREACH(address, network->dns, i)
+                address_free(address);
+
+        set_free(network->dns);
 
         hashmap_free(network->vlans);
 

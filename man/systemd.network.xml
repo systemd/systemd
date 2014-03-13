@@ -221,8 +221,8 @@
                                         <term><varname>DNS=</varname></term>
                                         <listitem>
                                                 <para>A DNS server address, which must be in the format described in
-                                                <citerefentry><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-                                                .</para>
+                                                <citerefentry><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+                                                This option may be specified repeatedly.</para>
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>

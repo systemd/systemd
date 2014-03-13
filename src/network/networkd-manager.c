@@ -442,10 +442,17 @@ int manager_update_resolv_conf(Manager *m) {
                 }
         }
 
-        HASHMAP_FOREACH(link, m->links, i)
-                if (link->network && link->network->dns)
-                        append_dns(f, &link->network->dns->in_addr.in,
-                                   link->network->dns->family, &count);
+        HASHMAP_FOREACH(link, m->links, i) {
+                if (link->network && link->network->dns) {
+                        Address *address;
+                        Iterator j;
+
+                        SET_FOREACH(address, link->network->dns, j) {
+                                append_dns(f, &address->in_addr.in,
+                                           address->family, &count);
+                        }
+                }
+        }
 
         fflush(f);
 

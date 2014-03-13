@@ -33,6 +33,7 @@
 #include "rtnl-util.h"
 #include "hashmap.h"
 #include "list.h"
+#include "set.h"
 #include "condition-util.h"
 
 typedef struct NetDev NetDev;
@@ -130,10 +131,11 @@ struct Network {
 
         LIST_HEAD(Address, static_addresses);
         LIST_HEAD(Route, static_routes);
-        Address *dns;
 
         Hashmap *addresses_by_section;
         Hashmap *routes_by_section;
+
+        Set *dns;
 
         LIST_FIELDS(Network, networks);
 };

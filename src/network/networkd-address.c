@@ -225,7 +225,7 @@ int config_parse_dns(const char *unit,
                 const char *rvalue,
                 void *data,
                 void *userdata) {
-        Address **dns = data;
+        Set **dns = data;
         _cleanup_address_free_ Address *n = NULL;
         int r;
 
@@ -246,7 +246,7 @@ int config_parse_dns(const char *unit,
                 return 0;
         }
 
-        *dns = n;
+        set_put(*dns, n);
         n = NULL;
 
         return 0;
