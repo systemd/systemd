@@ -395,22 +395,30 @@ static int enumerate_partitions(dev_t devnum) {
                 return log_oom();
 
         parent = udev_device_get_parent(d);
-        if (!parent)
+        if (!parent) {
+                log_debug("Not a partitioned device, ignoring.");
                 return 0;
+        }
 
         /* Does it have a devtype? */
         devtype = udev_device_get_devtype(parent);
-        if (!devtype)
+        if (!devtype) {
+                log_debug("Parent doesn't have a device type, ignoring.");
                 return 0;
+        }
 
         /* Is this a disk or a partition? We only care for disks... */
-        if (!streq(devtype, "disk"))
+        if (!streq(devtype, "disk")) {
+                log_debug("Parent isn't a raw disk, ignoring.");
                 return 0;
+        }
 
         /* Does it have a device node? */
         node = udev_device_get_devnode(parent);
-        if (!node)
+        if (!node) {
+                log_debug("Parent device does not have device node, ignoring.");
                 return 0;
+        }
 
         log_debug("Root device %s.", node);
 
@@ -454,8 +462,10 @@ static int enumerate_partitions(dev_t devnum) {
         }
 
         /* We only do this all for GPT... */
-        if (!streq_ptr(pttype, "gpt"))
+        if (!streq_ptr(pttype, "gpt")) {
+                log_debug("Not a GPT partition table, ignoring.");
                 return 0;
+        }
 
         errno = 0;
         pl = blkid_probe_get_partitions(b);
