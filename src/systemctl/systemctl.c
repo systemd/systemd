@@ -2963,7 +2963,7 @@ static void print_status_info(
                 bool *ellipsized) {
 
         ExecStatusInfo *p;
-        const char *on, *off, *ss;
+        const char *active_on, *active_off, *on, *off, *ss;
         usec_t timestamp;
         char since1[FORMAT_TIMESTAMP_RELATIVE_MAX], *s1;
         char since2[FORMAT_TIMESTAMP_MAX], *s2;
@@ -2981,7 +2981,16 @@ static void print_status_info(
         /* This shows pretty information about a unit. See
          * print_property() for a low-level property printer */
 
-        printf("%s", strna(i->id));
+        if (streq_ptr(i->active_state, "failed")) {
+                active_on = ansi_highlight_red();
+                active_off = ansi_highlight_off();
+        } else if (streq_ptr(i->active_state, "active") || streq_ptr(i->active_state, "reloading")) {
+                active_on = ansi_highlight_green();
+                active_off = ansi_highlight_off();
+        } else
+                active_on = active_off = "";
+
+        printf("%s%s%s%s", active_on, draw_special_char(DRAW_BLACK_CIRCLE), active_off, strna(i->id));
 
         if (i->description && !streq_ptr(i->id, i->description))
                 printf(" - %s", i->description);
@@ -3040,22 +3049,12 @@ static void print_status_info(
         }
 
         ss = streq_ptr(i->active_state, i->sub_state) ? NULL : i->sub_state;
-
-        if (streq_ptr(i->active_state, "failed")) {
-                on = ansi_highlight_red();
-                off = ansi_highlight_off();
-        } else if (streq_ptr(i->active_state, "active") || streq_ptr(i->active_state, "reloading")) {
-                on = ansi_highlight_green();
-                off = ansi_highlight_off();
-        } else
-                on = off = "";
-
         if (ss)
                 printf("   Active: %s%s (%s)%s",
-                       on, strna(i->active_state), ss, off);
+                       active_on, strna(i->active_state), ss, active_off);
         else
                 printf("   Active: %s%s%s",
-                       on, strna(i->active_state), off);
+                       active_on, strna(i->active_state), active_off);
 
         if (!isempty(i->result) && !streq(i->result, "success"))
                 printf(" (Result: %s)", i->result);
@@ -4181,8 +4180,6 @@ static int show_system_status(sd_bus *bus) {
                 return r;
         }
 
-        printf("%s\n", arg_host ? arg_host : hn);
-
         if (streq_ptr(mi.state, "degraded")) {
                 on = ansi_highlight_red();
                 off = ansi_highlight_off();
@@ -4191,6 +4188,8 @@ static int show_system_status(sd_bus *bus) {
                 off = ansi_highlight_off();
         } else
                 on = off = "";
+
+        printf("%s%s%s%s\n", on, draw_special_char(DRAW_BLACK_CIRCLE), off, arg_host ? arg_host : hn);
 
         printf("    State: %s%s%s\n",
                on, strna(mi.state), off);
