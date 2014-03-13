@@ -35,6 +35,7 @@
 #include "journald-syslog.h"
 #include "journald-kmsg.h"
 #include "journald-console.h"
+#include "journald-wall.h"
 
 #define STDOUT_STREAMS_MAX 4096
 
@@ -105,6 +106,9 @@ static int stdout_stream_log(StdoutStream *s, const char *p) {
 
         if (s->forward_to_console || s->server->forward_to_console)
                 server_forward_console(s->server, priority, s->identifier, p, &s->ucred);
+
+        if (s->server->forward_to_wall)
+                server_forward_wall(s->server, priority, s->identifier, p, &s->ucred);
 
         IOVEC_SET_STRING(iovec[n++], "_TRANSPORT=stdout");
 

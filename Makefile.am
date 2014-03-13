@@ -3247,6 +3247,8 @@ libsystemd_journal_core_la_SOURCES = \
 	src/journal/journald-server.h \
 	src/journal/journald-console.c \
 	src/journal/journald-console.h \
+	src/journal/journald-wall.c \
+	src/journal/journald-wall.h \
 	src/journal/journald-native.c \
 	src/journal/journald-native.h \
 	src/journal/journald-rate-limit.c \

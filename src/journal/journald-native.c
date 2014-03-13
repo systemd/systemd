@@ -31,6 +31,7 @@
 #include "journald-kmsg.h"
 #include "journald-console.h"
 #include "journald-syslog.h"
+#include "journald-wall.h"
 
 /* Make sure not to make this smaller than the maximum coredump
  * size. See COREDUMP_MAX in coredump.c */
@@ -265,6 +266,9 @@ void server_process_native_message(
 
                 if (s->forward_to_console)
                         server_forward_console(s, priority, identifier, message, ucred);
+
+                if (s->forward_to_wall)
+                        server_forward_wall(s, priority, identifier, message, ucred);
         }
 
         server_dispatch_message(s, iovec, n, m, ucred, tv, label, label_len, NULL, priority, object_pid);

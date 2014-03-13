@@ -381,24 +381,28 @@
                                 <term><varname>ForwardToSyslog=</varname></term>
                                 <term><varname>ForwardToKMsg=</varname></term>
                                 <term><varname>ForwardToConsole=</varname></term>
+                                <term><varname>ForwardToWall=</varname></term>
 
                                 <listitem><para>Control whether log
                                 messages received by the journal
                                 daemon shall be forwarded to a
                                 traditional syslog daemon, to the
-                                kernel log buffer (kmsg), or to the
-                                system console. These options take
-                                boolean arguments. If forwarding to
-                                syslog is enabled but no syslog daemon
-                                is running, the respective option has
-                                no effect. By default, only forwarding
-                                to syslog is enabled. These settings
-                                may be overridden at boot time with
-                                the kernel command line options
+                                kernel log buffer (kmsg), to the
+                                system console, or sent as wall
+                                messages to all logged-in users. These
+                                options take boolean arguments. If
+                                forwarding to syslog is enabled but no
+                                syslog daemon is running, the
+                                respective option has no effect. By
+                                default, only forwarding to syslog and
+                                wall is enabled. These settings may be
+                                overridden at boot time with the
+                                kernel command line options
                                 <literal>systemd.journald.forward_to_syslog=</literal>,
-                                <literal>systemd.journald.forward_to_kmsg=</literal>
+                                <literal>systemd.journald.forward_to_kmsg=</literal>,
+                                <literal>systemd.journald.forward_to_console=</literal>
                                 and
-                                <literal>systemd.journald.forward_to_console=</literal>.
+                                <literal>systemd.journald.forward_to_wall=</literal>.
                                 When forwarding to the console, the
                                 TTY to log to can be changed
                                 with <varname>TTYPath=</varname>,
@@ -410,12 +414,14 @@
                                 <term><varname>MaxLevelSyslog=</varname></term>
                                 <term><varname>MaxLevelKMsg=</varname></term>
                                 <term><varname>MaxLevelConsole=</varname></term>
+                                <term><varname>MaxLevelWall=</varname></term>
 
                                 <listitem><para>Controls the maximum
                                 log level of messages that are stored
-                                on disk, forwarded to syslog, kmsg or
-                                the console (if that is enabled, see
-                                above). As argument, takes one of
+                                on disk, forwarded to syslog, kmsg,
+                                the console or wall (if that is
+                                enabled, see above). As argument,
+                                takes one of
                                 <literal>emerg</literal>,
                                 <literal>alert</literal>,
                                 <literal>crit</literal>,
@@ -436,9 +442,11 @@
                                 written to disk and forwarded to
                                 syslog. Defaults to
                                 <literal>notice</literal> for
-                                <varname>MaxLevelKMsg=</varname> and
+                                <varname>MaxLevelKMsg=</varname>,
                                 <literal>info</literal> for
-                                <varname>MaxLevelConsole=</varname>.</para></listitem>
+                                <varname>MaxLevelConsole=</varname> and
+                                <literal>emerg</literal> for
+                                <varname>MaxLevelWall=</varname>.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

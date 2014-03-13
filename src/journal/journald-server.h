@@ -97,6 +97,7 @@ typedef struct Server {
         bool forward_to_kmsg;
         bool forward_to_syslog;
         bool forward_to_console;
+        bool forward_to_wall;
 
         unsigned n_forward_syslog_missed;
         usec_t last_warn_forward_syslog_missed;
@@ -119,6 +120,7 @@ typedef struct Server {
         int max_level_syslog;
         int max_level_kmsg;
         int max_level_console;
+        int max_level_wall;
 
         Storage storage;
         SplitMode split_mode;

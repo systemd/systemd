@@ -142,11 +142,12 @@
                                 <term><varname>systemd.journald.forward_to_syslog=</varname></term>
                                 <term><varname>systemd.journald.forward_to_kmsg=</varname></term>
                                 <term><varname>systemd.journald.forward_to_console=</varname></term>
+                                <term><varname>systemd.journald.forward_to_wall=</varname></term>
 
                                 <listitem><para>Enables/disables
                                 forwarding of collected log messages
-                                to syslog, the kernel log buffer or
-                                the system console.
+                                to syslog, the kernel log buffer, the
+                                system console or wall.
                                 </para>
 
                                 <para>See

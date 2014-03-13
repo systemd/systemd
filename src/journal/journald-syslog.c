@@ -30,6 +30,7 @@
 #include "journald-syslog.h"
 #include "journald-kmsg.h"
 #include "journald-console.h"
+#include "journald-wall.h"
 
 /* Warn once every 30s if we missed syslog message */
 #define WARN_FORWARD_SYSLOG_MISSED_USEC (30 * USEC_PER_SEC)
@@ -379,6 +380,9 @@ void server_process_syslog_message(
 
         if (s->forward_to_console)
                 server_forward_console(s, priority, identifier, buf, ucred);
+
+        if (s->forward_to_wall)
+                server_forward_wall(s, priority, identifier, buf, ucred);
 
         IOVEC_SET_STRING(iovec[n++], "_TRANSPORT=syslog");
 
