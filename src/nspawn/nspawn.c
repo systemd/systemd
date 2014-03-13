@@ -2543,7 +2543,7 @@ static int change_uid_gid(char **_home) {
         }
 
         r = mkdir_safe(home, 0755, uid, gid);
-        if (r < 0) {
+        if (r < 0 && r != -EEXIST) {
                 log_error("Failed to make home directory: %s", strerror(-r));
                 return r;
         }
