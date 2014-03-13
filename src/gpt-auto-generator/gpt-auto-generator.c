@@ -436,8 +436,6 @@ static int enumerate_partitions(dev_t devnum) {
                 return -errno;
         }
 
-        blkid_probe_enable_superblocks(b, 1);
-        blkid_probe_set_superblocks_flags(b, BLKID_SUBLKS_TYPE);
         blkid_probe_enable_partitions(b, 1);
         blkid_probe_set_partitions_flags(b, BLKID_PARTS_ENTRY_DETAILS);
 
