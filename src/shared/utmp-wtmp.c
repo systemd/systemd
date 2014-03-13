@@ -347,16 +347,20 @@ static int write_to_terminal(const char *tty, const char *message) {
         return 0;
 }
 
-int utmp_wall(const char *message, bool (*match_tty)(const char *tty)) {
+int utmp_wall(const char *message, const char *username, bool (*match_tty)(const char *tty)) {
         _cleanup_free_ char *text = NULL, *hn = NULL, *un = NULL, *tty = NULL;
         char date[FORMAT_TIMESTAMP_MAX];
         struct utmpx *u;
         int r;
 
         hn = gethostname_malloc();
-        un = getlogname_malloc();
-        if (!hn || !un)
+        if (!hn)
                 return -ENOMEM;
+        if (!username) {
+                un = getlogname_malloc();
+                if (!un)
+                        return -ENOMEM;
+        }
 
         getttyname_harder(STDIN_FILENO, &tty);
 
@@ -364,7 +368,7 @@ int utmp_wall(const char *message, bool (*match_tty)(const char *tty)) {
                      "\a\r\n"
                      "Broadcast message from %s@%s%s%s (%s):\r\n\r\n"
                      "%s\r\n\r\n",
-                     un, hn,
+                     un ?: username, hn,
                      tty ? " on " : "", strempty(tty),
                      format_timestamp(date, sizeof(date), now(CLOCK_REALTIME)),
                      message) < 0)

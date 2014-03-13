@@ -32,4 +32,4 @@ int utmp_put_runlevel(int runlevel, int previous);
 int utmp_put_dead_process(const char *id, pid_t pid, int code, int status);
 int utmp_put_init_process(const char *id, pid_t pid, pid_t sid, const char *line);
 
-int utmp_wall(const char *message, bool (*match_tty)(const char *tty));
+int utmp_wall(const char *message, const char *username, bool (*match_tty)(const char *tty));

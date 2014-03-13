@@ -538,7 +538,7 @@ static int show_passwords(void) {
                 free(p);
 
                 if (wall) {
-                        utmp_wall(wall, wall_tty_match);
+                        utmp_wall(wall, NULL, wall_tty_match);
                         free(wall);
                 }
         }
