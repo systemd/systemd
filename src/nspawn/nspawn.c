@@ -1891,9 +1891,9 @@ static int setup_image(char **device_path, int *loop_nr) {
 
 static int dissect_image(
                 int fd,
-                char **root_device,
-                char **home_device,
-                char **srv_device,
+                char **root_device, bool *root_device_rw,
+                char **home_device, bool *home_device_rw,
+                char **srv_device, bool *srv_device_rw,
                 bool *secondary) {
 
 #ifdef HAVE_BLKID
@@ -1904,6 +1904,7 @@ static int dissect_image(
         _cleanup_blkid_free_probe_ blkid_probe b = NULL;
         _cleanup_udev_unref_ struct udev *udev = NULL;
         struct udev_list_entry *first, *item;
+        bool home_rw = true, root_rw = true, secondary_root_rw = true, srv_rw = true;
         const char *pttype = NULL;
         blkid_partlist pl;
         struct stat st;
@@ -1993,6 +1994,7 @@ static int dissect_image(
         udev_list_entry_foreach(item, first) {
                 _cleanup_udev_device_unref_ struct udev_device *q;
                 const char *stype, *node;
+                unsigned long long flags;
                 sd_id128_t type_id;
                 blkid_partition pp;
                 dev_t qn;
@@ -2023,6 +2025,10 @@ static int dissect_image(
                 if (!pp)
                         continue;
 
+                flags = blkid_partition_get_flags(pp);
+                if (flags & GPT_FLAG_NO_AUTO)
+                        continue;
+
                 nr = blkid_partition_get_partno(pp);
                 if (nr < 0)
                         continue;
@@ -2040,6 +2046,8 @@ static int dissect_image(
                                 continue;
 
                         home_nr = nr;
+                        home_rw = !(flags & GPT_FLAG_READ_ONLY);
+
                         free(home);
                         home = strdup(node);
                         if (!home)
@@ -2050,6 +2058,8 @@ static int dissect_image(
                                 continue;
 
                         srv_nr = nr;
+                        srv_rw = !(flags & GPT_FLAG_READ_ONLY);
+
                         free(srv);
                         srv = strdup(node);
                         if (!srv)
@@ -2062,6 +2072,8 @@ static int dissect_image(
                                 continue;
 
                         root_nr = nr;
+                        root_rw = !(flags & GPT_FLAG_READ_ONLY);
+
                         free(root);
                         root = strdup(node);
                         if (!root)
@@ -2075,6 +2087,9 @@ static int dissect_image(
                                 continue;
 
                         secondary_root_nr = nr;
+                        secondary_root_rw = !(flags & GPT_FLAG_READ_ONLY);
+
+
                         free(secondary_root);
                         secondary_root = strdup(node);
                         if (!secondary_root)
@@ -2092,21 +2107,29 @@ static int dissect_image(
         if (root) {
                 *root_device = root;
                 root = NULL;
+
+                *root_device_rw = root_rw;
                 *secondary = false;
         } else if (secondary_root) {
                 *root_device = secondary_root;
                 secondary_root = NULL;
+
+                *root_device_rw = secondary_root_rw;
                 *secondary = true;
         }
 
         if (home) {
                 *home_device = home;
                 home = NULL;
+
+                *home_device_rw = home_rw;
         }
 
         if (srv) {
                 *srv_device = srv;
                 srv = NULL;
+
+                *srv_device_rw = srv_rw;
         }
 
         return 0;
@@ -2116,7 +2139,7 @@ static int dissect_image(
 #endif
 }
 
-static int mount_device(const char *what, const char *where, const char *directory) {
+static int mount_device(const char *what, const char *where, const char *directory, bool rw) {
 #ifdef HAVE_BLKID
         _cleanup_blkid_free_probe_ blkid_probe b = NULL;
         const char *fstype, *p;
@@ -2124,6 +2147,9 @@ static int mount_device(const char *what, const char *where, const char *directo
 
         assert(what);
         assert(where);
+
+        if (arg_read_only)
+                rw = false;
 
         if (directory)
                 p = strappenda(where, directory);
@@ -2167,7 +2193,7 @@ static int mount_device(const char *what, const char *where, const char *directo
                 return -ENOTSUP;
         }
 
-        if (mount(what, p, fstype, arg_read_only ? MS_NODEV|MS_RDONLY : 0, NULL) < 0) {
+        if (mount(what, p, fstype, MS_NODEV|(rw ? 0 : MS_RDONLY), NULL) < 0) {
                 log_error("Failed to mount %s: %m", what);
                 return -errno;
         }
@@ -2179,13 +2205,17 @@ static int mount_device(const char *what, const char *where, const char *directo
 #endif
 }
 
-static int mount_devices(const char *where, const char *root_device, const char *home_device, const char *srv_device) {
+static int mount_devices(
+                const char *where,
+                const char *root_device, bool root_device_rw,
+                const char *home_device, bool home_device_rw,
+                const char *srv_device, bool srv_device_rw) {
         int r;
 
         assert(where);
 
         if (root_device) {
-                r = mount_device(root_device, arg_directory, NULL);
+                r = mount_device(root_device, arg_directory, NULL, root_device_rw);
                 if (r < 0) {
                         log_error("Failed to mount root directory: %s", strerror(-r));
                         return r;
@@ -2193,7 +2223,7 @@ static int mount_devices(const char *where, const char *root_device, const char 
         }
 
         if (home_device) {
-                r = mount_device(home_device, arg_directory, "/home");
+                r = mount_device(home_device, arg_directory, "/home", home_device_rw);
                 if (r < 0) {
                         log_error("Failed to mount home directory: %s", strerror(-r));
                         return r;
@@ -2201,7 +2231,7 @@ static int mount_devices(const char *where, const char *root_device, const char 
         }
 
         if (srv_device) {
-                r = mount_device(srv_device, arg_directory, "/srv");
+                r = mount_device(srv_device, arg_directory, "/srv", srv_device_rw);
                 if (r < 0) {
                         log_error("Failed to mount server data directory: %s", strerror(-r));
                         return r;
@@ -2499,6 +2529,7 @@ static int change_uid_gid(char **_home) {
 int main(int argc, char *argv[]) {
 
         _cleanup_free_ char *kdbus_domain = NULL, *device_path = NULL, *root_device = NULL, *home_device = NULL, *srv_device = NULL;
+        bool root_device_rw = true, home_device_rw = true, srv_device_rw = true;
         _cleanup_close_ int master = -1, kdbus_fd = -1, image_fd = -1;
         _cleanup_close_pipe_ int kmsg_socket_pair[2] = { -1, -1 };
         _cleanup_fdset_free_ FDSet *fds = NULL;
@@ -2616,7 +2647,7 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
 
-                r = dissect_image(image_fd, &root_device, &home_device, &srv_device, &secondary);
+                r = dissect_image(image_fd, &root_device, &root_device_rw, &home_device, &home_device_rw, &srv_device, &srv_device_rw, &secondary);
                 if (r < 0)
                         goto finish;
         }
@@ -2777,7 +2808,10 @@ int main(int argc, char *argv[]) {
                                 goto child_fail;
                         }
 
-                        if (mount_devices(arg_directory, root_device, home_device, srv_device) < 0)
+                        if (mount_devices(arg_directory,
+                                          root_device, root_device_rw,
+                                          home_device, home_device_rw,
+                                          srv_device, srv_device_rw) < 0)
                                 goto child_fail;
 
                         /* Turn directory into bind mount */
