@@ -1383,7 +1383,12 @@ int link_save(Link *link) {
                 link_state_to_string(link->state));
 
         if (link->dhcp_lease) {
-                const char *lease_file = "/run/systemd/network/leases/test.lease";
+                char *lease_file;
+
+                r = asprintf(&lease_file, "/run/systemd/network/leases/%u",
+                             (unsigned) link->ifindex);
+                if (r < 0)
+                        return r;
 
                 r = dhcp_lease_save(link->dhcp_lease, lease_file);
                 if (r < 0)
