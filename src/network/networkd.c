@@ -42,8 +42,20 @@ int main(int argc, char *argv[]) {
 
         /* Always create the directories people can create inotify
          * watches in. */
-        mkdir_label("/run/systemd/network/links", 0755);
-        mkdir_label("/run/systemd/network/leases", 0755);
+        r = mkdir_label("/run/systemd/network", 0755);
+        if (r < 0)
+                log_error("Could not create runtime directory: %s",
+                          strerror(-r));
+
+        r = mkdir_label("/run/systemd/network/links", 0755);
+        if (r < 0)
+                log_error("Could not create runtime directory 'links': %s",
+                          strerror(-r));
+
+        r = mkdir_label("/run/systemd/network/leases", 0755);
+        if (r < 0)
+                log_error("Could not create runtime directory 'leases': %s",
+                          strerror(-r));
 
         r = manager_new(&m);
         if (r < 0) {

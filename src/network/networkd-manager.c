@@ -407,10 +407,6 @@ int manager_update_resolv_conf(Manager *m) {
 
         assert(m);
 
-        r = mkdir_safe_label("/run/systemd/network", 0755, 0, 0);
-        if (r < 0)
-                return r;
-
         r = fopen_temporary("/run/systemd/network/resolv.conf", &f, &temp_path);
         if (r < 0)
                 return r;

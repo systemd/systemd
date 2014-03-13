@@ -297,10 +297,6 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
         assert(lease);
         assert(lease_file);
 
-        r = mkdir_safe_label("/run/systemd/network/leases", 0755, 0, 0);
-        if (r < 0)
-                goto finish;
-
         r = fopen_temporary(lease_file, &f, &temp_path);
         if (r < 0)
                 goto finish;

@@ -1367,10 +1367,6 @@ int link_save(Link *link) {
         assert(link);
         assert(link->state_file);
 
-        r = mkdir_safe_label("/run/systemd/network/links", 0755, 0, 0);
-        if (r < 0)
-                goto finish;
-
         r = fopen_temporary(link->state_file, &f, &temp_path);
         if (r < 0)
                 goto finish;
