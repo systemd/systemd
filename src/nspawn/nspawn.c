@@ -86,6 +86,7 @@
 #include "udev-util.h"
 #include "blkid-util.h"
 #include "gpt.h"
+#include "siphash24.h"
 
 #ifdef HAVE_SECCOMP
 #include "seccomp-util.h"
@@ -1399,9 +1400,46 @@ static int reset_audit_loginuid(void) {
         return 0;
 }
 
+#define HASH_KEY SD_ID128_MAKE(c3,c4,f9,19,b5,57,b2,1c,e6,cf,14,27,03,9c,ee,a2)
+
+static int get_mac(struct ether_addr *mac) {
+        int r;
+
+        uint8_t result[8];
+        size_t l, sz;
+        uint8_t *v;
+
+        l = strlen(arg_machine);
+        sz = sizeof(sd_id128_t) + l;
+        v = alloca(sz);
+
+        /* fetch some persistent data unique to the host */
+        r = sd_id128_get_machine((sd_id128_t*) v);
+        if (r < 0)
+                return r;
+
+        /* combine with some data unique (on this host) to this
+         * container instance */
+        memcpy(v + sizeof(sd_id128_t), arg_machine, l);
+
+        /* Let's hash the host machine ID plus the container name. We
+         * use a fixed, but originally randomly created hash key here. */
+        siphash24(result, v, sz, HASH_KEY.bytes);
+
+        assert_cc(ETH_ALEN <= sizeof(result));
+        memcpy(mac->ether_addr_octet, result, ETH_ALEN);
+
+        /* see eth_random_addr in the kernel */
+        mac->ether_addr_octet[0] &= 0xfe;        /* clear multicast bit */
+        mac->ether_addr_octet[0] |= 0x02;        /* set local assignment bit (IEEE802) */
+
+        return 0;
+}
+
 static int setup_veth(pid_t pid, char iface_name[IFNAMSIZ]) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
         _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
+        struct ether_addr mac;
         int r;
 
         if (!arg_private_network)
@@ -1416,8 +1454,13 @@ static int setup_veth(pid_t pid, char iface_name[IFNAMSIZ]) {
                 memcpy(iface_name, "vb-", 3);
         else
                 memcpy(iface_name, "ve-", 3);
-
         strncpy(iface_name+3, arg_machine, IFNAMSIZ - 3);
+
+        r = get_mac(&mac);
+        if (r < 0) {
+                log_error("Failed to generate predictable MAC address for host0");
+                return r;
+        }
 
         r = sd_rtnl_open(&rtnl, 0);
         if (r < 0) {
@@ -1464,6 +1507,12 @@ static int setup_veth(pid_t pid, char iface_name[IFNAMSIZ]) {
         r = sd_rtnl_message_append_string(m, IFLA_IFNAME, "host0");
         if (r < 0) {
                 log_error("Failed to add netlink interface name: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_append_ether_addr(m, IFLA_ADDRESS, &mac);
+        if (r < 0) {
+                log_error("Failed to add netlink MAC address: %s", strerror(-r));
                 return r;
         }
 
