@@ -4154,9 +4154,7 @@ static int show(sd_bus *bus, char **args) {
 
         if (show_status && strv_length(args) <= 1) {
 
-                if (arg_all)
-                        pager_open_if_enabled();
-
+                pager_open_if_enabled();
                 show_system_status(bus);
                 new_line = true;
 
