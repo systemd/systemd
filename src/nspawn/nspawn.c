@@ -2368,8 +2368,6 @@ static int spawn_getent(const char *database, const char *key, pid_t *rpid) {
 }
 
 static int change_uid_gid(char **_home) {
-
-        _cleanup_strv_free_ char **passwd = NULL;
         char line[LINE_MAX], *w, *x, *state, *u, *g, *h;
         _cleanup_free_ uid_t *uids = NULL;
         _cleanup_free_ char *home = NULL;
