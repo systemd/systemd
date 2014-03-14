@@ -4885,6 +4885,7 @@ int bus_message_parse_fields(sd_bus_message *m) {
         size_t ri;
         int r;
         uint32_t unix_fds = 0;
+        bool unix_fds_set = false;
         void *offsets = NULL;
         unsigned n_offsets = 0;
         size_t sz = 0;
@@ -5097,7 +5098,7 @@ int bus_message_parse_fields(sd_bus_message *m) {
                 }
 
                 case BUS_MESSAGE_HEADER_UNIX_FDS:
-                        if (unix_fds != 0)
+                        if (unix_fds_set)
                                 return -EBADMSG;
 
                         if (!streq(signature, "u"))
@@ -5107,9 +5108,7 @@ int bus_message_parse_fields(sd_bus_message *m) {
                         if (r < 0)
                                 return -EBADMSG;
 
-                        if (unix_fds == 0)
-                                return -EBADMSG;
-
+                        unix_fds_set = true;
                         break;
 
                 default:
