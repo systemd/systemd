@@ -27,6 +27,8 @@ External:
 
 Features:
 
+* add bus api to query unit file's X fields.
+
 * consider adding RuntimeDirectoryUser= + RuntimeDirectoryGroup=
 
 * sd-event: define more intervals where we will shift wakeup intervals around in, 1h, 6h, 24h, ...
