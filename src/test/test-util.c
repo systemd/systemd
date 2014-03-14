@@ -626,6 +626,25 @@ static void test_writing_tmpfile(void) {
         assert(streq(contents, "abc\n" ALPHANUMERICAL "\n"));
 }
 
+static void test_hexdump(void) {
+        uint8_t data[146];
+        unsigned i;
+
+        hexdump(stdout, NULL, 0);
+        hexdump(stdout, "", 0);
+        hexdump(stdout, "", 1);
+        hexdump(stdout, "x", 1);
+        hexdump(stdout, "x", 2);
+        hexdump(stdout, "foobar", 7);
+        hexdump(stdout, "f\nobar", 7);
+        hexdump(stdout, "xxxxxxxxxxxxxxxxxxxxyz", 23);
+
+        for (i = 0; i < ELEMENTSOF(data); i++)
+                data[i] = i*2;
+
+        hexdump(stdout, data, sizeof(data));
+}
+
 int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
@@ -667,6 +686,7 @@ int main(int argc, char *argv[]) {
         test_get_files_in_directory();
         test_in_set();
         test_writing_tmpfile();
+        test_hexdump();
 
         return 0;
 }

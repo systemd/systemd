@@ -914,3 +914,5 @@ const char *personality_to_string(unsigned long);
 uint64_t physical_memory(void);
 
 char* mount_test_option(const char *haystack, const char *needle);
+
+void hexdump(FILE *f, const void *p, size_t s);
