@@ -27,8 +27,6 @@ External:
 
 Features:
 
-* maybe support GPT partition read-only flags for all mounts?
-
 * consider adding RuntimeDirectoryUser= + RuntimeDirectoryGroup=
 
 * sd-event: define more intervals where we will shift wakeup intervals around in, 1h, 6h, 24h, ...
@@ -291,7 +289,6 @@ Features:
   - logind: allow showing logout dialog from system?
   - logind: add equivalent to sd_pid_get_owner_uid() to the D-Bus API
   - we should probably handle SIGTERM/SIGINT to not leave dot files around, just in case
-  - when logging out, remove user-owned sysv and posix IPC objects
   - session scopes/user unit: add RequiresMountsFor for the home directory of the user
   - add Suspend() bus calls which take timestamps to fix double suspend issues when somebody hits suspend and closes laptop quickly.
   - if pam_systemd is invoked by su from a process that is outside of a
