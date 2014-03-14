@@ -198,16 +198,14 @@ static int socket_instantiate_service(Socket *s) {
 
         assert(s->accept);
 
-        if (!(prefix = unit_name_to_prefix(UNIT(s)->id)))
+        prefix = unit_name_to_prefix(UNIT(s)->id);
+        if (!prefix)
                 return -ENOMEM;
 
-        r = asprintf(&name, "%s@%u.service", prefix, s->n_accepted);
-
-        if (r < 0)
+        if (asprintf(&name, "%s@%u.service", prefix, s->n_accepted) < 0)
                 return -ENOMEM;
 
         r = manager_load_unit(UNIT(s)->manager, name, NULL, NULL, &u);
-
         if (r < 0)
                 return r;
 

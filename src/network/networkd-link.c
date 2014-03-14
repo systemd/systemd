@@ -53,10 +53,10 @@ int link_new(Manager *manager, struct udev_device *device, Link **ret) {
         if (link->ifindex <= 0)
                 return -EINVAL;
 
-        r = asprintf(&link->state_file, "/run/systemd/network/links/%u",
-                     (unsigned) link->ifindex);
+        r = asprintf(&link->state_file, "/run/systemd/network/links/%"PRIu64,
+                     link->ifindex);
         if (r < 0)
-                return r;
+                return -ENOMEM;
 
         mac = udev_device_get_sysattr_value(device, "address");
         if (mac) {
@@ -1381,10 +1381,10 @@ int link_save(Link *link) {
         if (link->dhcp_lease) {
                 char *lease_file;
 
-                r = asprintf(&lease_file, "/run/systemd/network/leases/%u",
-                             (unsigned) link->ifindex);
+                r = asprintf(&lease_file, "/run/systemd/network/leases/%"PRIu64,
+                             link->ifindex);
                 if (r < 0)
-                        return r;
+                        return -ENOMEM;
 
                 r = dhcp_lease_save(link->dhcp_lease, lease_file);
                 if (r < 0)
