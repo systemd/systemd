@@ -37,7 +37,7 @@ static int help(void) {
                "Initialize /etc/machine-id from a random source.\n\n"
                "  -h --help             Show this help\n"
                "     --version          Show package version\n"
-               "     --root             Filesystem root\n",
+               "     --root=ROOT        Filesystem root\n",
                program_invocation_short_name);
 
         return 0;
@@ -87,7 +87,7 @@ static int parse_argv(int argc, char *argv[]) {
         }
 
         if (optind < argc) {
-                help();
+                log_error("Extraneous arguments");
                 return -EINVAL;
         }
 

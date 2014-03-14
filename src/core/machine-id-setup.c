@@ -36,6 +36,7 @@
 #include "log.h"
 #include "virt.h"
 #include "fileio.h"
+#include "path-util.h"
 
 static int shorten_uuid(char destination[36], const char *source) {
         unsigned i, j;
@@ -160,14 +161,13 @@ int machine_id_setup(const char *root) {
         bool writable = false;
         struct stat st;
         char id[34]; /* 32 + \n + \0 */
-        _cleanup_free_ char *etc_machine_id = NULL;
-        _cleanup_free_ char *run_machine_id = NULL;
+        char *etc_machine_id, *run_machine_id;
 
-        if (asprintf(&etc_machine_id, "%s/etc/machine-id", root) < 0)
-                return log_oom();
+        etc_machine_id = strappenda(root, "/etc/machine-id");
+        path_kill_slashes(etc_machine_id);
 
-        if (asprintf(&run_machine_id, "%s/run/machine-id", root) < 0)
-                return log_oom();
+        run_machine_id = strappenda(root, "/run/machine-id");
+        path_kill_slashes(run_machine_id);
 
         RUN_WITH_UMASK(0000) {
                 /* We create this 0444, to indicate that this isn't really
