@@ -21,4 +21,4 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-int machine_id_setup(void);
+int machine_id_setup(const char *root);

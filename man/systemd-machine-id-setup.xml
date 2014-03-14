@@ -96,6 +96,14 @@
                 <para>The following options are understood:</para>
 
                 <variablelist>
+                        <varlistentry>
+                                <term><option>--root=ROOT</option></term>
+                                <listitem><para>Takes a directory path
+                                as an argument. All paths will be
+                                prefixed with the given alternate ROOT
+                                path, including config search paths.
+                                </para></listitem>
+                        </varlistentry>
                         <xi:include href="standard-options.xml" xpointer="help" />
                         <xi:include href="standard-options.xml" xpointer="version" />
                 </variablelist>

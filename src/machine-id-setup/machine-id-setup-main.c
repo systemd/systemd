@@ -29,12 +29,15 @@
 #include "log.h"
 #include "build.h"
 
+static const char *arg_root = "";
+
 static int help(void) {
 
         printf("%s [OPTIONS...]\n\n"
                "Initialize /etc/machine-id from a random source.\n\n"
                "  -h --help             Show this help\n"
-               "     --version          Show package version\n",
+               "     --version          Show package version\n"
+               "     --root             Filesystem root\n",
                program_invocation_short_name);
 
         return 0;
@@ -43,12 +46,14 @@ static int help(void) {
 static int parse_argv(int argc, char *argv[]) {
 
         enum {
-                ARG_VERSION = 0x100
+                ARG_VERSION = 0x100,
+                ARG_ROOT,
         };
 
         static const struct option options[] = {
                 { "help",      no_argument,       NULL, 'h'           },
                 { "version",   no_argument,       NULL, ARG_VERSION   },
+                { "root",      required_argument, NULL, ARG_ROOT      },
                 {}
         };
 
@@ -68,6 +73,10 @@ static int parse_argv(int argc, char *argv[]) {
                         puts(PACKAGE_STRING);
                         puts(SYSTEMD_FEATURES);
                         return 0;
+
+                case ARG_ROOT:
+                        arg_root = optarg;
+                        break;
 
                 case '?':
                         return -EINVAL;
@@ -95,5 +104,5 @@ int main(int argc, char *argv[]) {
         if (r <= 0)
                 return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 
-        return machine_id_setup() < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return machine_id_setup(arg_root) < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
