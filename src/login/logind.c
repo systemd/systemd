@@ -49,6 +49,7 @@ Manager *manager_new(void) {
 
         m->n_autovts = 6;
         m->reserve_vt = 6;
+        m->remove_ipc = true;
         m->inhibit_delay_max = 5 * USEC_PER_SEC;
         m->handle_power_key = HANDLE_POWEROFF;
         m->handle_suspend_key = HANDLE_SUSPEND;

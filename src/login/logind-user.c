@@ -35,6 +35,7 @@
 #include "bus-util.h"
 #include "bus-error.h"
 #include "conf-parser.h"
+#include "clean-ipc.h"
 #include "logind-user.h"
 
 User* user_new(Manager *m, uid_t uid, gid_t gid, const char *name) {
@@ -571,6 +572,13 @@ int user_finalize(User *u) {
         k = user_remove_runtime_path(u);
         if (k < 0)
                 r = k;
+
+        /* Clean SysV + POSIX IPC objects */
+        if (u->manager->remove_ipc) {
+                k = clean_ipc(u->uid);
+                if (k < 0)
+                        r = k;
+        }
 
         unlink(u->state_file);
         user_add_to_gc_queue(u);

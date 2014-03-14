@@ -795,7 +795,9 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/bus-label.h \
 	src/shared/gpt.h \
 	src/shared/generator.h \
-	src/shared/generator.c
+	src/shared/generator.c \
+	src/shared/clean-ipc.h \
+	src/shared/clean-ipc.c
 
 nodist_libsystemd_shared_la_SOURCES = \
 	src/shared/errno-from-name.h \
@@ -1176,7 +1178,8 @@ manual_tests += \
 	test-cgroup \
 	test-install \
 	test-watchdog \
-	test-log
+	test-log \
+	test-ipcrm
 
 tests += \
 	test-job-type \
@@ -1391,6 +1394,13 @@ test_log_SOURCES = \
 
 test_log_LDADD = \
 	libsystemd-core.la
+
+test_ipcrm_SOURCES = \
+	src/test/test-ipcrm.c
+
+test_ipcrm_LDADD = \
+	libsystemd-shared.la \
+	-lrt
 
 test_ellipsize_SOURCES = \
 	src/test/test-ellipsize.c

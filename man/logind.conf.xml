@@ -317,6 +317,26 @@
                                 to.</para></listitem>
                         </varlistentry>
 
+                        <varlistentry>
+                                <term><varname>RemoveIPC=</varname></term>
+
+                                <listitem><para>Controls whether
+                                System V and POSIX IPC objects
+                                belonging to the user shall be removed
+                                when she or he fully logs out. Takes a
+                                boolean argument. If enabled the user
+                                may not consume IPC resources after
+                                the last of his sessions
+                                terminated. This covers System V
+                                semaphores, shared memory and message
+                                queues, as well as POSIX shared memory
+                                and message queues. Note that IPC
+                                objects of the root user are excluded
+                                from the effect of this
+                                setting. Defaults to
+                                on.</para></listitem>
+                        </varlistentry>
+
                 </variablelist>
         </refsect1>
 

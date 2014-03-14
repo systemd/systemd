@@ -120,6 +120,8 @@ struct Manager {
         bool hibernate_key_ignore_inhibited;
         bool lid_switch_ignore_inhibited;
 
+        bool remove_ipc;
+
         Hashmap *polkit_registry;
 
         sd_event_source *lid_switch_ignore_event_source;
