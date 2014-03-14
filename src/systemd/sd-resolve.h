@@ -129,7 +129,7 @@ int sd_resolve_get_next(sd_resolve *resolve, sd_resolve_query **q);
 int sd_resolve_get_n_queries(sd_resolve *resolve);
 
 /** Cancel a currently running query. q is is destroyed by this call
- * and may not be used any futher. */
+ * and may not be used any further. */
 int sd_resolve_cancel(sd_resolve_query* q);
 
 /** Returns non-zero when the query operation specified by q has been completed */

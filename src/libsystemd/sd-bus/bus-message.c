@@ -4215,7 +4215,7 @@ static int message_read_ap(
          * in a single stackframe. We hence implement our own
          * home-grown stack in an array. */
 
-        n_array = (unsigned) -1; /* lenght of current array entries */
+        n_array = (unsigned) -1; /* length of current array entries */
         n_struct = strlen(types); /* length of current struct contents signature */
 
         for (;;) {

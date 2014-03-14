@@ -1447,7 +1447,7 @@ static int bus_seal_message(sd_bus *b, sd_bus_message *m, usec_t timeout) {
 static int bus_remarshal_message(sd_bus *b, sd_bus_message **m) {
         assert(b);
 
-        /* Do packet version and endianess already match? */
+        /* Do packet version and endianness already match? */
         if ((b->message_version == 0 || b->message_version == (*m)->header->version) &&
             (b->message_endian == 0 || b->message_endian == (*m)->header->endian))
                 return 0;
@@ -1464,7 +1464,7 @@ int bus_seal_synthetic_message(sd_bus *b, sd_bus_message *m) {
          * hence let's fill something in for synthetic messages. Since
          * synthetic messages might have a fake sender and we don't
          * want to interfere with the real sender's serial numbers we
-         * pick a fixed, artifical one. We use (uint32_t) -1 rather
+         * pick a fixed, artificial one. We use (uint32_t) -1 rather
          * than (uint64_t) -1 since dbus1 only had 32bit identifiers,
          * even though kdbus can do 64bit. */
 

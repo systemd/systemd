@@ -3416,7 +3416,7 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags) {
                         free(t);
         }
 
-        /* Interpet WATCHDOG= */
+        /* Interpret WATCHDOG= */
         if (strv_find(tags, "WATCHDOG=1")) {
                 log_debug_unit(u->id, "%s: got WATCHDOG=1", u->id);
                 service_reset_watchdog(s);

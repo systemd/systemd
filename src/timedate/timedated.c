@@ -468,7 +468,7 @@ static int property_get_rtc_time(
         zero(tm);
         r = hwclock_get_time(&tm);
         if (r == -EBUSY) {
-                log_warning("/dev/rtc is busy, is somebody keeping it open continously? That's not a good idea... Returning a bogus RTC timestamp.");
+                log_warning("/dev/rtc is busy, is somebody keeping it open continuously? That's not a good idea... Returning a bogus RTC timestamp.");
                 t = 0;
         } else if (r == -ENOENT) {
                 log_debug("Not /dev/rtc found.");

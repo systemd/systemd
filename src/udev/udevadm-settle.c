@@ -100,7 +100,7 @@ static int adm_settle(struct udev *udev, int argc, char *argv[])
                 case '?':
                         exit(EXIT_FAILURE);
                 default:
-                        assert_not_reached("Unkown argument");
+                        assert_not_reached("Unknown argument");
                 }
 
         if (optind < argc) {
