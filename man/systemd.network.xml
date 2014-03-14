@@ -204,8 +204,10 @@
                                                 separated by a <literal>/</literal> character. Specify this
                                                 key more than once to configure several addresses.
                                                 The format of the address must be as described in
-                                                <citerefentry><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-                                                . This is a short-hand for an [Address] section only containing an Address key (see below).
+                                                <citerefentry><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+                                                This is a short-hand for an [Address] section only containing
+                                                an Address key (see below). This option may be specified
+                                                more than once.
                                                 </para>
                                         </listitem>
                                 </varlistentry>
@@ -213,8 +215,9 @@
                                         <term><varname>Gateway=</varname></term>
                                         <listitem>
                                                 <para>The gateway address, which must be in the format described in
-                                                <citerefentry><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-                                                . This is a short-hand for a [Route] section only containing a Gateway key.</para>
+                                                <citerefentry><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+                                                This is a short-hand for a [Route] section only containing a Gateway
+                                                key. This option may be specified more than once.</para>
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
@@ -222,7 +225,7 @@
                                         <listitem>
                                                 <para>A DNS server address, which must be in the format described in
                                                 <citerefentry><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
-                                                This option may be specified repeatedly.</para>
+                                                This option may be specified more than once.</para>
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
