@@ -21,7 +21,7 @@ You should have received a copy of the GNU Lesser General Public License
 along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="systemd-journal-remote">
+<refentry id="systemd-journal-remote" conditional='HAVE_MICROHTTPD'>
 
   <refentryinfo>
     <title>systemd-journal-remote</title>
@@ -130,12 +130,27 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       <varlistentry>
         <term><option>--listen-raw=<replaceable>ADDRESS</replaceable></option></term>
 
-        <listitem><para><option>ADDRESS</option> must be an address
-        suitable for <option>ListenStream=</option> (c.f.
+        <listitem><para><replaceable>ADDRESS</replaceable> must be an
+        address suitable for <option>ListenStream=</option> (c.f.
         <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
         <command>systemd-journal-remote</command> will listen on this
         socket for connections. Each connection is expected to be a
         stream of journal events.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--listen-http=<replaceable>ADDRESS</replaceable></option></term>
+        <term><option>--listen-https=<replaceable>ADDRESS</replaceable></option></term>
+
+        <listitem><para><replaceable>ADDRESS</replaceable> must be an
+        address suitable for <option>ListenStream=</option> (c.f.
+        <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
+        HTTP or HTTPS server will be spawned on this port,
+        respectively, for the first and second options. Currenntly
+        Only POST requests to <filename>/upload</filename> with
+        <literal>Content-Type: application/vnd.fdo.journal</literal>
+        are supported.</para>
         </listitem>
       </varlistentry>
 

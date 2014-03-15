@@ -100,6 +100,20 @@ static int get_line(RemoteSource *source, char **line, size_t *size) {
         return 1;
 }
 
+int push_data(RemoteSource *source, const char *data, size_t size) {
+        assert(source);
+        assert(source->state != STATE_EOF);
+
+        if (!GREEDY_REALLOC(source->buf, source->size,
+                            source->filled + size))
+                return log_oom();
+
+        memcpy(source->buf + source->filled, data, size);
+        source->filled += size;
+
+        return 0;
+}
+
 static int fill_fixed_size(RemoteSource *source, void **data, size_t size) {
         int n;
         char *newbuf = NULL;

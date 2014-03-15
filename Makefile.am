@@ -3130,6 +3130,10 @@ systemd_cat_SOURCES = \
 systemd_cat_LDADD = \
 	libsystemd-journal-core.la
 
+if HAVE_MICROHTTPD
+rootlibexec_PROGRAMS += \
+	systemd-journal-remote
+
 systemd_journal_remote_SOURCES = \
 	src/journal/journal-remote-parse.h \
 	src/journal/journal-remote-parse.c \
@@ -3140,6 +3144,23 @@ systemd_journal_remote_SOURCES = \
 systemd_journal_remote_LDADD = \
 	libsystemd-internal.la \
 	libsystemd-journal-core.la
+
+systemd_journal_remote_SOURCES += \
+	src/journal/microhttpd-util.h \
+	src/journal/microhttpd-util.c
+
+systemd_journal_remote_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(MICROHTTPD_CFLAGS)
+
+systemd_journal_remote_LDADD += \
+	$(MICROHTTPD_LIBS)
+
+if HAVE_GNUTLS
+systemd_journal_remote_LDADD += \
+	$(GNUTLS_LIBS)
+endif
+endif
 
 # using _CFLAGS = in the conditional below would suppress AM_CFLAGS
 journalctl_CFLAGS = \
@@ -3391,8 +3412,7 @@ noinst_LTLIBRARIES += \
 	libsystemd-journal-internal.la
 
 rootlibexec_PROGRAMS += \
-	systemd-journald \
-	systemd-journal-remote
+	systemd-journald
 
 rootbin_PROGRAMS += \
 	journalctl

@@ -68,7 +68,6 @@ MANPAGES += \
 	man/systemd-halt.service.8 \
 	man/systemd-inhibit.1 \
 	man/systemd-initctl.service.8 \
-	man/systemd-journal-remote.8 \
 	man/systemd-journald.service.8 \
 	man/systemd-machine-id-setup.1 \
 	man/systemd-notify.1 \
@@ -1135,7 +1134,8 @@ endif
 
 if HAVE_MICROHTTPD
 MANPAGES += \
-	man/systemd-journal-gatewayd.service.8
+	man/systemd-journal-gatewayd.service.8 \
+	man/systemd-journal-remote.8
 MANPAGES_ALIAS += \
 	man/systemd-journal-gatewayd.8 \
 	man/systemd-journal-gatewayd.socket.8

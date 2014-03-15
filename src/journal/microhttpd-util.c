@@ -49,13 +49,14 @@ void microhttpd_logger(void *arg, const char *fmt, va_list ap) {
 
 
 int respond_oom_internal(struct MHD_Connection *connection) {
+        const char *m = "Out of memory.\n";
+
         struct MHD_Response *response;
-        const char m[] = "Out of memory.\n";
         int ret;
 
         assert(connection);
 
-        response = MHD_create_response_from_buffer(sizeof(m)-1, (char*) m, MHD_RESPMEM_PERSISTENT);
+        response = MHD_create_response_from_buffer(strlen(m), (char*) m, MHD_RESPMEM_PERSISTENT);
         if (!response)
                 return MHD_NO;
 
@@ -92,7 +93,7 @@ int respond_error(struct MHD_Connection *connection,
                 return respond_oom(connection);
         }
 
-        log_debug("queing response %u: %s", code, m);
+        log_debug("Queing response %u: %s", code, m);
         MHD_add_response_header(response, "Content-Type", "text/plain");
         r = MHD_queue_response(connection, code, response);
         MHD_destroy_response(response);
@@ -227,8 +228,10 @@ int check_permissions(struct MHD_Connection *connection, int *code) {
         ci = MHD_get_connection_info(connection,
                                      MHD_CONNECTION_INFO_GNUTLS_SESSION);
         if (!ci) {
-                log_error("MHD_get_connection_info failed");
-                return -EINVAL;
+                log_error("MHD_get_connection_info failed: session is unencrypted");
+                *code = respond_error(connection, MHD_HTTP_FORBIDDEN,
+                                      "Encrypted connection is required");
+                return -EPERM;
         }
         session = ci->tls_session;
         assert(session);
@@ -247,11 +250,11 @@ int check_permissions(struct MHD_Connection *connection, int *code) {
                 return -EPERM;
         }
 
-        log_info("Connection from %s", buf);
+        log_info("Connection from DN %s", buf);
 
         r = verify_cert_authorized(session);
         if (r < 0) {
-                log_error("Client is not authorized");
+                log_warning("Client is not authorized");
                 *code = respond_error(connection, MHD_HTTP_UNAUTHORIZED,
                                       "Client certificate not signed by recognized authority");
         }
