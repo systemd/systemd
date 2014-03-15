@@ -65,7 +65,7 @@ static int apply_sysctl(const char *property, const char *value) {
 
         log_debug("Setting '%s' to '%s'", property, value);
 
-        p = new(char, sizeof("/proc/sys/") + strlen(property));
+        p = new(char, strlen("/proc/sys/") + strlen(property) + 1);
         if (!p)
                 return log_oom();
 

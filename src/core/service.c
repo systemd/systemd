@@ -361,7 +361,7 @@ static int service_arm_timer(Service *s, usec_t usec) {
 static char *sysv_translate_name(const char *name) {
         char *r;
 
-        r = new(char, strlen(name) + sizeof(".service"));
+        r = new(char, strlen(name) + strlen(".service") + 1);
         if (!r)
                 return NULL;
 

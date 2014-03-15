@@ -686,7 +686,7 @@ static void dispatch_message_real(
 #ifdef HAVE_SELINUX
                 if (use_selinux()) {
                         if (label) {
-                                x = alloca(sizeof("_SELINUX_CONTEXT=") + label_len);
+                                x = alloca(strlen("_SELINUX_CONTEXT=") + label_len + 1);
 
                                 *((char*) mempcpy(stpcpy(x, "_SELINUX_CONTEXT="), label, label_len)) = 0;
                                 IOVEC_SET_STRING(iovec[n++], x);

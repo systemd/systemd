@@ -333,11 +333,11 @@ static void output_units_list(const UnitInfo *unit_infos, unsigned c) {
         unsigned n_shown = 0;
         int job_count = 0;
 
-        max_id_len = sizeof("UNIT")-1;
-        load_len = sizeof("LOAD")-1;
-        active_len = sizeof("ACTIVE")-1;
-        sub_len = sizeof("SUB")-1;
-        job_len = sizeof("JOB")-1;
+        max_id_len = strlen("UNIT");
+        load_len = strlen("LOAD");
+        active_len = strlen("ACTIVE");
+        sub_len = strlen("SUB");
+        job_len = strlen("JOB");
         desc_len = 0;
 
         for (u = unit_infos; u < unit_infos + c; u++) {
@@ -639,10 +639,10 @@ static int socket_info_compare(const struct socket_info *a, const struct socket_
 
 static int output_sockets_list(struct socket_info *socket_infos, unsigned cs) {
         struct socket_info *s;
-        unsigned pathlen = sizeof("LISTEN") - 1,
-                typelen = (sizeof("TYPE") - 1) * arg_show_types,
-                socklen = sizeof("UNIT") - 1,
-                servlen = sizeof("ACTIVATES") - 1;
+        unsigned pathlen = strlen("LISTEN"),
+                typelen = strlen("TYPE") * arg_show_types,
+                socklen = strlen("UNIT"),
+                servlen = strlen("ACTIVATES");
         const char *on, *off;
 
         for (s = socket_infos; s < socket_infos + cs; s++) {
@@ -836,10 +836,10 @@ static int timer_info_compare(const struct timer_info *a, const struct timer_inf
 static int output_timers_list(struct timer_info *timer_infos, unsigned n) {
         struct timer_info *t;
         unsigned
-                nextlen = sizeof("NEXT") - 1,
-                leftlen = sizeof("LEFT") - 1,
-                unitlen = sizeof("UNIT") - 1,
-                activatelen = sizeof("ACTIVATES") - 1;
+                nextlen = strlen("NEXT"),
+                leftlen = strlen("LEFT"),
+                unitlen = strlen("UNIT"),
+                activatelen = strlen("ACTIVATES");
 
         const char *on, *off;
 
@@ -1034,8 +1034,8 @@ static void output_unit_file_list(const UnitFileList *units, unsigned c) {
         unsigned max_id_len, id_cols, state_cols;
         const UnitFileList *u;
 
-        max_id_len = sizeof("UNIT FILE")-1;
-        state_cols = sizeof("STATE")-1;
+        max_id_len = strlen("UNIT FILE");
+        state_cols = strlen("STATE");
 
         for (u = units; u < units + c; u++) {
                 max_id_len = MAX(max_id_len, strlen(basename(u->path)));
@@ -1792,10 +1792,10 @@ static void output_jobs_list(const struct job_info* jobs, unsigned n, bool skipp
 
         pager_open_if_enabled();
 
-        id_len = sizeof("JOB")-1;
-        unit_len = sizeof("UNIT")-1;
-        type_len = sizeof("TYPE")-1;
-        state_len = sizeof("STATE")-1;
+        id_len = strlen("JOB");
+        unit_len = strlen("UNIT");
+        type_len = strlen("TYPE");
+        state_len = strlen("STATE");
 
         for (j = jobs; j < jobs + n; j++) {
                 uint32_t id = j->id;
@@ -6332,7 +6332,7 @@ static int send_shutdownd(usec_t t, char mode, bool dry_run, bool warn, const ch
         struct msghdr msghdr = {
                 .msg_name = &sockaddr,
                 .msg_namelen = offsetof(struct sockaddr_un, sun_path)
-                               + sizeof("/run/systemd/shutdownd") - 1,
+                               + strlen("/run/systemd/shutdownd"),
                 .msg_iov = iovec,
                 .msg_iovlen = 1,
         };

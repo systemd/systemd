@@ -1142,7 +1142,7 @@ static int add_rule(struct udev_rules *rules, char *line,
                 }
 
                 if (startswith(key, "ATTR{")) {
-                        attr = get_key_attribute(rules->udev, key + sizeof("ATTR")-1);
+                        attr = get_key_attribute(rules->udev, key + strlen("ATTR"));
                         if (attr == NULL) {
                                 log_error("error parsing ATTR attribute");
                                 goto invalid;
@@ -1156,7 +1156,7 @@ static int add_rule(struct udev_rules *rules, char *line,
                 }
 
                 if (startswith(key, "SECLABEL{")) {
-                        attr = get_key_attribute(rules->udev, key + sizeof("SECLABEL")-1);
+                        attr = get_key_attribute(rules->udev, key + strlen("SECLABEL"));
                         if (!attr) {
                                 log_error("error parsing SECLABEL attribute");
                                 goto invalid;
@@ -1198,7 +1198,7 @@ static int add_rule(struct udev_rules *rules, char *line,
                                 log_error("invalid ATTRS operation");
                                 goto invalid;
                         }
-                        attr = get_key_attribute(rules->udev, key + sizeof("ATTRS")-1);
+                        attr = get_key_attribute(rules->udev, key + strlen("ATTRS"));
                         if (attr == NULL) {
                                 log_error("error parsing ATTRS attribute");
                                 goto invalid;
@@ -1223,7 +1223,7 @@ static int add_rule(struct udev_rules *rules, char *line,
                 }
 
                 if (startswith(key, "ENV{")) {
-                        attr = get_key_attribute(rules->udev, key + sizeof("ENV")-1);
+                        attr = get_key_attribute(rules->udev, key + strlen("ENV"));
                         if (attr == NULL) {
                                 log_error("error parsing ENV attribute");
                                 goto invalid;
@@ -1282,7 +1282,7 @@ static int add_rule(struct udev_rules *rules, char *line,
                 }
 
                 if (startswith(key, "IMPORT")) {
-                        attr = get_key_attribute(rules->udev, key + sizeof("IMPORT")-1);
+                        attr = get_key_attribute(rules->udev, key + strlen("IMPORT"));
                         if (attr == NULL) {
                                 log_error("IMPORT{} type missing, ignoring IMPORT %s:%u", filename, lineno);
                                 continue;
@@ -1328,7 +1328,7 @@ static int add_rule(struct udev_rules *rules, char *line,
                                 log_error("invalid TEST operation");
                                 goto invalid;
                         }
-                        attr = get_key_attribute(rules->udev, key + sizeof("TEST")-1);
+                        attr = get_key_attribute(rules->udev, key + strlen("TEST"));
                         if (attr != NULL) {
                                 mode = strtol(attr, NULL, 8);
                                 rule_add_key(&rule_tmp, TK_M_TEST, op, value, &mode);
@@ -1339,7 +1339,7 @@ static int add_rule(struct udev_rules *rules, char *line,
                 }
 
                 if (startswith(key, "RUN")) {
-                        attr = get_key_attribute(rules->udev, key + sizeof("RUN")-1);
+                        attr = get_key_attribute(rules->udev, key + strlen("RUN"));
                         if (attr == NULL)
                                 attr = "program";
 

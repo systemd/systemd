@@ -46,7 +46,7 @@ static void forward_syslog_iovec(Server *s, const struct iovec *iovec, unsigned 
                 .msg_iovlen = n_iovec,
                 .msg_name = &sa,
                 .msg_namelen = offsetof(union sockaddr_union, un.sun_path)
-                               + sizeof("/run/systemd/journal/syslog") - 1,
+                               + strlen("/run/systemd/journal/syslog"),
         };
         struct cmsghdr *cmsg;
         union {

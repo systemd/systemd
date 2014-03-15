@@ -1390,7 +1390,7 @@ int bus_kernel_create_starter(const char *bus, const char *name, BusNamePolicy *
         assert(bus);
         assert(name);
 
-        p = alloca(sizeof("/dev/kdbus/") - 1 + DECIMAL_STR_MAX(uid_t) + 1 + strlen(bus) + sizeof("/bus"));
+        p = alloca(strlen("/dev/kdbus/") + DECIMAL_STR_MAX(uid_t) + 1 + strlen(bus) + strlen("/bus") + 1);
         sprintf(p, "/dev/kdbus/%lu-%s/bus", (unsigned long) getuid(), bus);
 
         fd = open(p, O_RDWR|O_NOCTTY|O_CLOEXEC);
@@ -1502,7 +1502,7 @@ int bus_kernel_create_monitor(const char *bus) {
 
         assert(bus);
 
-        p = alloca(sizeof("/dev/kdbus/") - 1 + DECIMAL_STR_MAX(uid_t) + 1 + strlen(bus) + sizeof("/bus"));
+        p = alloca(strlen("/dev/kdbus/") + DECIMAL_STR_MAX(uid_t) + 1 + strlen(bus) + strlen("/bus") + 1);
         sprintf(p, "/dev/kdbus/%lu-%s/bus", (unsigned long) getuid(), bus);
 
         fd = open(p, O_RDWR|O_NOCTTY|O_CLOEXEC);

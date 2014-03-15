@@ -953,7 +953,7 @@ static int bus_init_private(Manager *m) {
                         return 0;
 
                 strcpy(sa.un.sun_path, "/run/systemd/private");
-                salen = offsetof(union sockaddr_union, un.sun_path) + sizeof("/run/systemd/private") - 1;
+                salen = offsetof(union sockaddr_union, un.sun_path) + strlen("/run/systemd/private");
         } else {
                 size_t left = sizeof(sa.un.sun_path);
                 char *p = sa.un.sun_path;
