@@ -71,7 +71,7 @@
  */
 #define NTP_POLL_INTERVAL_MIN_SEC       16
 #define NTP_POLL_INTERVAL_MAX_SEC       2048
-#define NTP_POLL_ACCURACY_SEC           0.1
+#define NTP_ACCURACY_SEC                0.1
 
 #define NTP_LEAP_PLUSSEC                1
 #define NTP_LEAP_MINUSSEC               2
@@ -337,7 +337,7 @@ static bool sntp_sample_spike_detection(SNTPContext *sntp, double offset, double
         return spike;
 }
 
-static void snmp_adjust_poll(SNTPContext *sntp, double offset, bool spike) {
+static void sntp_adjust_poll(SNTPContext *sntp, double offset, bool spike) {
         double delta;
 
         if (spike) {
@@ -349,20 +349,20 @@ static void snmp_adjust_poll(SNTPContext *sntp, double offset, bool spike) {
         delta = fabs(offset);
 
         /* set to minimal poll interval */
-        if (delta > NTP_POLL_ACCURACY_SEC) {
+        if (delta > NTP_ACCURACY_SEC) {
                 sntp->poll_interval = NTP_POLL_INTERVAL_MIN_SEC * USEC_PER_SEC;
                 return;
         }
 
         /* increase polling interval */
-        if (delta < NTP_POLL_ACCURACY_SEC * 0.25) {
+        if (delta < NTP_ACCURACY_SEC * 0.25) {
                 if (sntp->poll_interval < NTP_POLL_INTERVAL_MAX_SEC * USEC_PER_SEC)
                         sntp->poll_interval *= 2;
                 return;
         }
 
         /* decrease polling interval */
-        if (delta > NTP_POLL_ACCURACY_SEC * 0.75) {
+        if (delta > NTP_ACCURACY_SEC * 0.75) {
                 if (sntp->poll_interval > NTP_POLL_INTERVAL_MIN_SEC * USEC_PER_SEC)
                         sntp->poll_interval /= 2;
                 return;
@@ -394,7 +394,7 @@ static int sntp_receive_response(sd_event_source *source, int fd, uint32_t reven
         struct timeval *recv_time;
         ssize_t len;
         struct ntp_msg *ntpmsg;
-        double origin, recv, trans, dest;
+        double origin, receive, trans, dest;
         double delay, offset;
         bool spike;
         int leap_sec;
@@ -488,16 +488,16 @@ static int sntp_receive_response(sd_event_source *source, int fd, uint32_t reven
          */
         clock_gettime(CLOCK_MONOTONIC, &now);
         origin = tv_to_d(recv_time) - (ts_to_d(&now) - ts_to_d(&sntp->trans_time_mon)) + OFFSET_1900_1970;
-        recv = ntp_ts_to_d(&ntpmsg->recv_time);
+        receive = ntp_ts_to_d(&ntpmsg->recv_time);
         trans = ntp_ts_to_d(&ntpmsg->trans_time);
         dest = tv_to_d(recv_time) + OFFSET_1900_1970;
 
-        offset = ((recv - origin) + (trans - dest)) / 2;
-        delay = (dest - origin) - (trans - recv);
+        offset = ((receive - origin) + (trans - dest)) / 2;
+        delay = (dest - origin) - (trans - receive);
 
         spike = sntp_sample_spike_detection(sntp, offset, delay);
 
-        snmp_adjust_poll(sntp, offset, spike);
+        sntp_adjust_poll(sntp, offset, spike);
 
         log_debug("NTP response:\n"
                   "  leap         : %u\n"
@@ -507,7 +507,7 @@ static int sntp_receive_response(sd_event_source *source, int fd, uint32_t reven
                   "  precision    : %f sec (%d)\n"
                   "  reference    : %.4s\n"
                   "  origin       : %f\n"
-                  "  recv         : %f\n"
+                  "  receive      : %f\n"
                   "  transmit     : %f\n"
                   "  dest         : %f\n"
                   "  offset       : %+f sec\n"
@@ -522,7 +522,7 @@ static int sntp_receive_response(sd_event_source *source, int fd, uint32_t reven
                   exp2(ntpmsg->precision), ntpmsg->precision,
                   ntpmsg->stratum == 1 ? ntpmsg->refid : "n/a",
                   origin - OFFSET_1900_1970,
-                  recv - OFFSET_1900_1970,
+                  receive - OFFSET_1900_1970,
                   trans - OFFSET_1900_1970,
                   dest - OFFSET_1900_1970,
                   offset, delay,
@@ -530,7 +530,8 @@ static int sntp_receive_response(sd_event_source *source, int fd, uint32_t reven
                   sntp->samples_jitter, spike ? "yes" : "no",
                   sntp->poll_interval / USEC_PER_SEC);
 
-        log_info("%4llu %s %+12f", sntp->poll_interval / USEC_PER_SEC, spike ? "y" : "n", offset);
+        log_info("%4llu %+10f %10f %10f %s",
+                 sntp->poll_interval / USEC_PER_SEC, offset, delay, sntp->samples_jitter, spike ? "spike" : "");
 
         if (!spike) {
                 r = sntp_adjust_clock(sntp, offset, leap_sec);
