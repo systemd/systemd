@@ -782,6 +782,12 @@ static inline unsigned u32ctz(uint32_t n) {
 #endif
 }
 
+static inline int log2i(int x) {
+        assert(x > 0);
+
+        return __SIZEOF_INT__ * 8 - __builtin_clz(x) - 1;
+}
+
 static inline bool logind_running(void) {
         return access("/run/systemd/seats/", F_OK) >= 0;
 }

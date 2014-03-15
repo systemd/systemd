@@ -645,6 +645,17 @@ static void test_hexdump(void) {
         hexdump(stdout, data, sizeof(data));
 }
 
+static void test_log2i(void) {
+        assert_se(log2i(1) == 0);
+        assert_se(log2i(2) == 1);
+        assert_se(log2i(3) == 1);
+        assert_se(log2i(4) == 2);
+        assert_se(log2i(32) == 5);
+        assert_se(log2i(33) == 5);
+        assert_se(log2i(63) == 5);
+        assert_se(log2i(INT_MAX) == sizeof(int)*8-2);
+}
+
 int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
@@ -687,6 +698,7 @@ int main(int argc, char *argv[]) {
         test_in_set();
         test_writing_tmpfile();
         test_hexdump();
+        test_log2i();
 
         return 0;
 }

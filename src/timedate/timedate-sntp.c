@@ -138,25 +138,6 @@ struct SNTPContext {
 
 static int sntp_arm_timer(SNTPContext *sntp);
 
-static int log2i(int a) {
-        int exp = 0;
-
-        assert(a > 0);
-
-        while (a > 0) {
-                a >>= 1;
-                exp++;
-        }
-
-        return exp;
-}
-
-static double log2d(int a) {
-        if (a < 0)
-                return 1.0 / (1UL << - a);
-        return 1UL << a;
-}
-
 static double ntp_ts_to_d(const struct ntp_ts *ts) {
         return be32toh(ts->sec) + ((double)be32toh(ts->frac) / UINT_MAX);
 }
@@ -531,21 +512,21 @@ static int sntp_receive_response(sd_event_source *source, int fd, uint32_t reven
                   "  dest         : %f\n"
                   "  offset       : %+f sec\n"
                   "  delay        : %+f sec\n"
-                  "  packet count : %llu\n"
+                  "  packet count : %"PRIu64"\n"
                   "  jitter/spike : %f (%s)\n"
                   "  poll interval: %llu\n",
                   NTP_FIELD_LEAP(ntpmsg->field),
                   NTP_FIELD_VERSION(ntpmsg->field),
                   NTP_FIELD_MODE(ntpmsg->field),
                   ntpmsg->stratum,
-                  log2d(ntpmsg->precision), ntpmsg->precision,
+                  exp2(ntpmsg->precision), ntpmsg->precision,
                   ntpmsg->stratum == 1 ? ntpmsg->refid : "n/a",
                   origin - OFFSET_1900_1970,
                   recv - OFFSET_1900_1970,
                   trans - OFFSET_1900_1970,
                   dest - OFFSET_1900_1970,
                   offset, delay,
-                  (unsigned long long)sntp->packet_count,
+                  sntp->packet_count,
                   sntp->samples_jitter, spike ? "yes" : "no",
                   sntp->poll_interval / USEC_PER_SEC);
 
