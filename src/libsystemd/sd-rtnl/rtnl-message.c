@@ -166,8 +166,7 @@ int sd_rtnl_message_new_link(sd_rtnl *rtnl, sd_rtnl_message **ret,
         int r;
 
         assert_return(rtnl_message_type_is_link(nlmsg_type), -EINVAL);
-        assert_return(nlmsg_type == RTM_NEWLINK ||
-                      nlmsg_type == RTM_SETLINK || index > 0, -EINVAL);
+        assert_return(nlmsg_type != RTM_DELLINK || index > 0, -EINVAL);
         assert_return(ret, -EINVAL);
 
         r = message_new(rtnl, ret, NLMSG_SPACE(sizeof(struct ifinfomsg)));
@@ -177,7 +176,7 @@ int sd_rtnl_message_new_link(sd_rtnl *rtnl, sd_rtnl_message **ret,
         (*ret)->hdr->nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
         (*ret)->hdr->nlmsg_type = nlmsg_type;
         if (nlmsg_type == RTM_NEWLINK)
-                (*ret)->hdr->nlmsg_flags |= NLM_F_CREATE;
+                (*ret)->hdr->nlmsg_flags |= NLM_F_CREATE | NLM_F_EXCL;
 
         ifi = NLMSG_DATA((*ret)->hdr);
 
