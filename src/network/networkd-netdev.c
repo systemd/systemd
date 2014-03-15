@@ -154,6 +154,78 @@ static int netdev_enter_ready(NetDev *netdev) {
         return 0;
 }
 
+static int netdev_getlink_handler(sd_rtnl *rtnl, sd_rtnl_message *m,
+                                void *userdata) {
+        NetDev *netdev = userdata;
+        int r, ifindex;
+
+        assert(netdev);
+
+        if (netdev->state == NETDEV_STATE_FAILED)
+                return 1;
+
+        r = sd_rtnl_message_get_errno(m);
+        if (r < 0) {
+                log_struct_netdev(LOG_ERR, netdev,
+                                "MESSAGE=%s: could not get link: %s",
+                                netdev->name, strerror(-r),
+                                "ERRNO=%d", -r,
+                                NULL);
+                return 1;
+        }
+
+        r = sd_rtnl_message_link_get_ifindex(m, &ifindex);
+        if (r < 0) {
+                log_struct_netdev(LOG_ERR, netdev,
+                                "MESSAGE=%s: could not get ifindex: %s",
+                                netdev->name, strerror(-r),
+                                "ERRNO=%d", -r,
+                                NULL);
+                return 1;
+        }
+
+        r = netdev_set_ifindex(netdev, ifindex);
+        if (r < 0)
+                log_warning_netdev(netdev, "could not set ifindex to %d", ifindex);
+
+        return 1;
+}
+
+static int netdev_getlink(NetDev *netdev) {
+        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL;
+        int r;
+
+        assert(netdev->manager);
+        assert(netdev->manager->rtnl);
+        assert(netdev->name);
+
+        log_debug_netdev(netdev, "requesting netdev status");
+
+        r = sd_rtnl_message_new_link(netdev->manager->rtnl, &req,
+                                     RTM_GETLINK, 0);
+        if (r < 0) {
+                log_error_netdev(netdev, "Could not allocate RTM_GETLINK message");
+                return r;
+        }
+
+        r = sd_rtnl_message_append_string(req, IFLA_IFNAME, netdev->name);
+        if (r < 0) {
+                log_error_netdev(netdev, "Colud not append ifname to message: %s",
+                                 strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_call_async(netdev->manager->rtnl, req, netdev_getlink_handler,
+                               netdev, 0, NULL);
+        if (r < 0) {
+                log_error_netdev(netdev,
+                               "Could not send rtnetlink message: %s", strerror(-r));
+                return r;
+        }
+
+        return 0;
+}
+
 static int netdev_create_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
         NetDev *netdev = userdata;
         int r;
@@ -161,6 +233,9 @@ static int netdev_create_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userda
         assert(netdev->state != _NETDEV_STATE_INVALID);
 
         r = sd_rtnl_message_get_errno(m);
+        if (r == -EEXIST)
+                r = netdev_getlink(netdev);
+
         if (r < 0) {
                 log_warning_netdev(netdev, "netdev failed: %s", strerror(-r));
                 netdev_enter_failed(netdev);
