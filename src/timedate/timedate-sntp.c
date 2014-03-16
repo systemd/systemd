@@ -404,18 +404,6 @@ static bool sntp_sample_spike_detection(SNTPContext *sntp, double offset, double
         sntp->packet_count++;
         jitter = sntp->samples_jitter;
 
-        /* ignore samples when resyncing */
-        if (sntp->poll_resync)
-                return false;
-
-        /* we need a few samples before we calculate anything */
-        if (sntp->packet_count < 3)
-                return false;
-
-        /* always accept sample if we are farther off than the round trip delay */
-        if (fabs(offset) > delay)
-                return false;
-
         /* calculate new jitter value from the RMS differences relative to the lowest delay sample */
         for (idx_min = idx_cur, i = 0; i < ELEMENTSOF(sntp->samples); i++)
                 if (sntp->samples[i].delay > 0 && sntp->samples[i].delay < sntp->samples[idx_min].delay)
@@ -426,8 +414,20 @@ static bool sntp_sample_spike_detection(SNTPContext *sntp, double offset, double
                 j += square(sntp->samples[i].offset - sntp->samples[idx_min].offset);
         sntp->samples_jitter = sqrt(j / (ELEMENTSOF(sntp->samples) - 1));
 
+        /* ignore samples when resyncing */
+        if (sntp->poll_resync)
+                return false;
+
+        /* always accept offset if we are farther off than the round-trip delay */
+        if (fabs(offset) > delay)
+                return false;
+
+        /* we need a few samples before looking at them */
+        if (sntp->packet_count < 4)
+                return false;
+
         /* do not accept anything worse than the maximum possible error of the best sample */
-        if (abs(offset) > sntp->samples[idx_min].delay)
+        if (fabs(offset) > sntp->samples[idx_min].delay)
                 return true;
 
         /* compare the difference between the current offset to the previous offset and jitter */
