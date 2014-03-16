@@ -133,10 +133,10 @@ struct SNTPContext {
 
         /* poll timer */
         sd_event_source *event_timer;
-        usec_t poll_interval;
+        usec_t poll_interval_usec;
         bool poll_resync;
 
-        /* statistics data */
+        /* history data */
         struct {
                 double offset;
                 double delay;
@@ -347,7 +347,7 @@ static int sntp_adjust_clock(SNTPContext *sntp, double offset, int leap_sec) {
         if (offset < NTP_MAX_ADJUST && offset > -NTP_MAX_ADJUST) {
                 int constant;
 
-                constant = log2i(sntp->poll_interval / USEC_PER_SEC) - 5;
+                constant = log2i(sntp->poll_interval_usec / USEC_PER_SEC) - 6;
 
                 tmx.modes |= ADJ_STATUS | ADJ_OFFSET | ADJ_TIMECONST;
                 tmx.status = STA_PLL;
@@ -392,7 +392,7 @@ static int sntp_adjust_clock(SNTPContext *sntp, double offset, int leap_sec) {
 static bool sntp_sample_spike_detection(SNTPContext *sntp, double offset, double delay) {
         unsigned int i, idx_cur, idx_new, idx_min;
         double jitter;
-        bool spike;
+        double j;
 
         /* store the current data in our samples array */
         idx_cur = sntp->samples_idx;
@@ -402,61 +402,62 @@ static bool sntp_sample_spike_detection(SNTPContext *sntp, double offset, double
         sntp->samples[idx_new].delay = delay;
 
         sntp->packet_count++;
+        jitter = sntp->samples_jitter;
 
-       /*
-        * Spike detection; compare the difference between the current offset to
-        * the previous offset and jitter.
-        */
-        spike = !sntp->poll_resync &&
-                sntp->packet_count > 2 &&
-                fabs(offset - sntp->samples[idx_cur].offset) > sntp->samples_jitter * 3;
+        /* ignore samples when resyncing */
+        if (sntp->poll_resync)
+                return false;
+
+        /* we need a few samples before we calculate anything */
+        if (sntp->packet_count < 3)
+                return false;
+
+        /* always accept sample if we are farther off than the round trip delay */
+        if (fabs(offset) > delay)
+                return false;
 
         /* calculate new jitter value from the RMS differences relative to the lowest delay sample */
         for (idx_min = idx_cur, i = 0; i < ELEMENTSOF(sntp->samples); i++)
                 if (sntp->samples[i].delay > 0 && sntp->samples[i].delay < sntp->samples[idx_min].delay)
                         idx_min = i;
 
-        for (jitter = 0, i = 0; i < ELEMENTSOF(sntp->samples); i++)
-                jitter += square(sntp->samples[i].offset - sntp->samples[idx_min].offset);
-        sntp->samples_jitter = sqrt(jitter / (ELEMENTSOF(sntp->samples) - 1));
+        j = 0;
+        for (i = 0; i < ELEMENTSOF(sntp->samples); i++)
+                j += square(sntp->samples[i].offset - sntp->samples[idx_min].offset);
+        sntp->samples_jitter = sqrt(j / (ELEMENTSOF(sntp->samples) - 1));
 
-        return spike;
+        /* do not accept anything worse than the maximum possible error of the best sample */
+        if (abs(offset) > sntp->samples[idx_min].delay)
+                return true;
+
+        /* compare the difference between the current offset to the previous offset and jitter */
+        return fabs(offset - sntp->samples[idx_cur].offset) > 3 * jitter;
 }
 
 static void sntp_adjust_poll(SNTPContext *sntp, double offset, bool spike) {
-        double delta;
-
         if (sntp->poll_resync) {
-                sntp->poll_interval = NTP_POLL_INTERVAL_MIN_SEC * USEC_PER_SEC;
+                sntp->poll_interval_usec = NTP_POLL_INTERVAL_MIN_SEC * USEC_PER_SEC;
                 sntp->poll_resync = false;
                 return;
         }
 
-        if (spike) {
-                if (sntp->poll_interval > NTP_POLL_INTERVAL_MIN_SEC * USEC_PER_SEC)
-                        sntp->poll_interval /= 2;
-                return;
-        }
-
-        delta = fabs(offset);
-
         /* set to minimal poll interval */
-        if (delta > NTP_ACCURACY_SEC) {
-                sntp->poll_interval = NTP_POLL_INTERVAL_MIN_SEC * USEC_PER_SEC;
+        if (fabs(offset) > NTP_ACCURACY_SEC) {
+                sntp->poll_interval_usec = NTP_POLL_INTERVAL_MIN_SEC * USEC_PER_SEC;
                 return;
         }
 
         /* increase polling interval */
-        if (delta < NTP_ACCURACY_SEC * 0.25) {
-                if (sntp->poll_interval < NTP_POLL_INTERVAL_MAX_SEC * USEC_PER_SEC)
-                        sntp->poll_interval *= 2;
+        if (fabs(offset) < NTP_ACCURACY_SEC * 0.25) {
+                if (sntp->poll_interval_usec < NTP_POLL_INTERVAL_MAX_SEC * USEC_PER_SEC)
+                        sntp->poll_interval_usec *= 2;
                 return;
         }
 
         /* decrease polling interval */
-        if (delta > NTP_ACCURACY_SEC * 0.75) {
-                if (sntp->poll_interval > NTP_POLL_INTERVAL_MIN_SEC * USEC_PER_SEC)
-                        sntp->poll_interval /= 2;
+        if (spike || fabs(offset) > NTP_ACCURACY_SEC * 0.75) {
+                if (sntp->poll_interval_usec > NTP_POLL_INTERVAL_MIN_SEC * USEC_PER_SEC)
+                        sntp->poll_interval_usec /= 2;
                 return;
         }
 }
@@ -482,7 +483,7 @@ static int sntp_receive_response(sd_event_source *source, int fd, uint32_t reven
                 .msg_namelen = sizeof(server_addr),
         };
         struct cmsghdr *cmsg;
-        struct timespec now;
+        struct timespec now_ts;
         struct timeval *recv_time;
         ssize_t len;
         struct ntp_msg *ntpmsg;
@@ -581,8 +582,8 @@ static int sntp_receive_response(sd_event_source *source, int fd, uint32_t reven
          *  The roundtrip delay d and system clock offset t are defined as:
          *  d = (T4 - T1) - (T3 - T2)     t = ((T2 - T1) + (T3 - T4)) / 2"
          */
-        clock_gettime(CLOCK_MONOTONIC, &now);
-        origin = tv_to_d(recv_time) - (ts_to_d(&now) - ts_to_d(&sntp->trans_time_mon)) + OFFSET_1900_1970;
+        clock_gettime(CLOCK_MONOTONIC, &now_ts);
+        origin = tv_to_d(recv_time) - (ts_to_d(&now_ts) - ts_to_d(&sntp->trans_time_mon)) + OFFSET_1900_1970;
         receive = ntp_ts_to_d(&ntpmsg->recv_time);
         trans = ntp_ts_to_d(&ntpmsg->trans_time);
         dest = tv_to_d(recv_time) + OFFSET_1900_1970;
@@ -608,7 +609,7 @@ static int sntp_receive_response(sd_event_source *source, int fd, uint32_t reven
                   "  offset       : %+f sec\n"
                   "  delay        : %+f sec\n"
                   "  packet count : %"PRIu64"\n"
-                  "  jitter/spike : %f (%s)\n"
+                  "  jitter       : %f%s\n"
                   "  poll interval: %llu\n",
                   NTP_FIELD_LEAP(ntpmsg->field),
                   NTP_FIELD_VERSION(ntpmsg->field),
@@ -622,11 +623,12 @@ static int sntp_receive_response(sd_event_source *source, int fd, uint32_t reven
                   dest - OFFSET_1900_1970,
                   offset, delay,
                   sntp->packet_count,
-                  sntp->samples_jitter, spike ? "yes" : "no",
-                  sntp->poll_interval / USEC_PER_SEC);
+                  sntp->samples_jitter, spike ? " spike" : "",
+                  sntp->poll_interval_usec / USEC_PER_SEC);
 
-        log_info("%4llu %+10f %10f %10f %s",
-                 sntp->poll_interval / USEC_PER_SEC, offset, delay, sntp->samples_jitter, spike ? "spike" : "");
+        log_info("%4llu %+10f %10f %10f%s",
+                 sntp->poll_interval_usec / USEC_PER_SEC, offset, delay,
+                 sntp->samples_jitter, spike ? " spike" : "");
 
         if (!spike) {
                 r = sntp_adjust_clock(sntp, offset, leap_sec);
@@ -634,7 +636,7 @@ static int sntp_receive_response(sd_event_source *source, int fd, uint32_t reven
                         log_error("Failed to call clock_adjtime(): %m");
         }
 
-        r = sntp_arm_timer(sntp, sntp->poll_interval);
+        r = sntp_arm_timer(sntp, sntp->poll_interval_usec);
         if (r < 0)
                 return r;
 
@@ -660,7 +662,7 @@ int sntp_server_connect(SNTPContext *sntp, const char *server) {
         sntp->server_addr.sin_family = AF_INET;
         sntp->server_addr.sin_addr.s_addr = inet_addr(server);
 
-        sntp->poll_interval = 2 * NTP_POLL_INTERVAL_MIN_SEC * USEC_PER_SEC;
+        sntp->poll_interval_usec = 2 * NTP_POLL_INTERVAL_MIN_SEC * USEC_PER_SEC;
 
         return sntp_send_request(sntp);
 }
