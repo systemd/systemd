@@ -78,6 +78,7 @@ sd_rtnl_message *sd_rtnl_message_unref(sd_rtnl_message *m);
 
 int sd_rtnl_message_get_errno(sd_rtnl_message *m);
 int sd_rtnl_message_get_type(sd_rtnl_message *m, uint16_t *type);
+int sd_rtnl_message_is_broadcast(sd_rtnl_message *m);
 
 int sd_rtnl_message_addr_set_prefixlen(sd_rtnl_message *m, unsigned char prefixlen);
 int sd_rtnl_message_addr_set_scope(sd_rtnl_message *m, unsigned char scope);

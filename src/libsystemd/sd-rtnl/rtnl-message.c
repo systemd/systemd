@@ -295,6 +295,12 @@ int sd_rtnl_message_get_type(sd_rtnl_message *m, uint16_t *type) {
         return 0;
 }
 
+int sd_rtnl_message_is_broadcast(sd_rtnl_message *m) {
+        assert_return(m, -EINVAL);
+
+        return !m->hdr->nlmsg_pid;
+}
+
 int sd_rtnl_message_link_get_ifindex(sd_rtnl_message *m, int *ifindex) {
         struct ifinfomsg *ifi;
 
