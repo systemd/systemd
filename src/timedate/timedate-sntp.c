@@ -118,6 +118,8 @@ struct ntp_msg {
 } _packed_;
 
 struct SNTPContext {
+        void (*report)(usec_t poll, double offset, double delay, double jitter, bool spike);
+
         /* peer */
         sd_event_source *event_receive;
         char *server;
@@ -218,7 +220,7 @@ static int sntp_send_request(SNTPContext *sntp) {
                 sntp->pending = true;
                 log_debug("Sent NTP request to: %s", sntp->server);
         } else
-                log_info("Sending NTP request to %s failed: %m", sntp->server);
+                log_debug("Sending NTP request to %s failed: %m", sntp->server);
 
         /* re-arm timer with incresing timeout, in case the packets never arrive back */
         if (sntp->retry_interval > 0) {
@@ -626,9 +628,8 @@ static int sntp_receive_response(sd_event_source *source, int fd, uint32_t reven
                   sntp->samples_jitter, spike ? " spike" : "",
                   sntp->poll_interval_usec / USEC_PER_SEC);
 
-        log_info("%4llu %+10f %10f %10f%s",
-                 sntp->poll_interval_usec / USEC_PER_SEC, offset, delay,
-                 sntp->samples_jitter, spike ? " spike" : "");
+        if (sntp->report)
+                sntp->report(sntp->poll_interval_usec, offset, delay, sntp->samples_jitter, spike);
 
         if (!spike) {
                 r = sntp_adjust_clock(sntp, offset, leap_sec);
@@ -721,6 +722,10 @@ static int sntp_listen_setup(SNTPContext *sntp, sd_event *e) {
         fd = -1;
 
         return 0;
+}
+
+void sntp_report_register(SNTPContext *sntp, void (*report)(usec_t poll_usec, double offset, double delay, double jitter, bool spike)) {
+        sntp->report = report;
 }
 
 int sntp_new(SNTPContext **sntp, sd_event *e) {

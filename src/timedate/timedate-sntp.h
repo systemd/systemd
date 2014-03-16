@@ -31,3 +31,4 @@ int sntp_new(SNTPContext **sntp, sd_event *e);
 SNTPContext *sntp_unref(SNTPContext *sntp);
 int sntp_server_connect(SNTPContext *sntp, const char *server);
 void sntp_server_disconnect(SNTPContext *sntp);
+void sntp_report_register(SNTPContext *sntp, void (*report)(usec_t poll_usec, double offset, double delay, double jitter, bool spike));

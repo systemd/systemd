@@ -74,13 +74,15 @@ static void manager_free(Manager *m) {
         free(m);
 }
 
+static void manager_report(usec_t poll_usec, double offset, double delay, double jitter, bool spike) {
+        log_info("%4llu %+10f %10f %10f%s",
+                 poll_usec / USEC_PER_SEC, offset, delay, jitter, spike ? " spike" : "");
+}
+
 int main(int argc, char *argv[]) {
         _cleanup_manager_free_ Manager *m = NULL;
         const char *server;
         int r;
-
-        if (argv[1])
-                log_set_max_level(LOG_DEBUG);
 
         r = manager_new(&m);
         if (r < 0)
@@ -89,6 +91,11 @@ int main(int argc, char *argv[]) {
         r = sntp_new(&m->sntp, m->event);
         if (r < 0)
                 goto out;
+
+        if (argv[1])
+                log_set_max_level(LOG_DEBUG);
+        else
+                sntp_report_register(m->sntp, manager_report);
 
         //server = "216.239.32.15";       /* time1.google.com */
         //server = "192.53.103.108";      /* ntp1.ptb.de */
