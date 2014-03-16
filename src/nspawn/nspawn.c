@@ -1581,6 +1581,12 @@ static int setup_bridge(const char veth_name[]) {
                 return r;
         }
 
+        r = sd_rtnl_message_link_set_flags(m, IFF_UP, IFF_UP);
+        if (r < 0) {
+                log_error("Failed to set IFF_UP flag: %s", strerror(-r));
+                return r;
+        }
+
         r = sd_rtnl_message_append_string(m, IFLA_IFNAME, veth_name);
         if (r < 0) {
                 log_error("Failed to add netlink interface name field: %s", strerror(-r));
