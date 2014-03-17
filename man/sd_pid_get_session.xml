@@ -49,9 +49,15 @@
                 <refname>sd_pid_get_owner_uid</refname>
                 <refname>sd_pid_get_machine_name</refname>
                 <refname>sd_pid_get_slice</refname>
+                <refname>sd_peer_get_session</refname>
+                <refname>sd_peer_get_unit</refname>
+                <refname>sd_peer_get_user_unit</refname>
+                <refname>sd_peer_get_owner_uid</refname>
+                <refname>sd_peer_get_machine_name</refname>
+                <refname>sd_peer_get_slice</refname>
                 <refpurpose>Determine session, service, owner of a
                 session, container/VM or slice of a specific
-                PID</refpurpose>
+                PID or socket peer</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
@@ -91,6 +97,42 @@
                         <funcprototype>
                                 <funcdef>int <function>sd_pid_get_slice</function></funcdef>
                                 <paramdef>pid_t <parameter>pid</parameter></paramdef>
+                                <paramdef>char** <parameter>slice</parameter></paramdef>
+                        </funcprototype>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_peer_get_session</function></funcdef>
+                                <paramdef>int <parameter>fd</parameter></paramdef>
+                                <paramdef>char** <parameter>session</parameter></paramdef>
+                        </funcprototype>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_peer_get_unit</function></funcdef>
+                                <paramdef>int <parameter>fd</parameter></paramdef>
+                                <paramdef>char** <parameter>unit</parameter></paramdef>
+                        </funcprototype>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_peer_get_user_unit</function></funcdef>
+                                <paramdef>int <parameter>fd</parameter></paramdef>
+                                <paramdef>char** <parameter>unit</parameter></paramdef>
+                        </funcprototype>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_peer_get_owner_uid</function></funcdef>
+                                <paramdef>int <parameter>fd</parameter></paramdef>
+                                <paramdef>uid_t* <parameter>uid</parameter></paramdef>
+                        </funcprototype>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_peer_get_machine_name</function></funcdef>
+                                <paramdef>int <parameter>fd</parameter></paramdef>
+                                <paramdef>char** <parameter>name</parameter></paramdef>
+                        </funcprototype>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_peer_get_slice</function></funcdef>
+                                <paramdef>int <parameter>fd</parameter></paramdef>
                                 <paramdef>char** <parameter>slice</parameter></paramdef>
                         </funcprototype>
                 </funcsynopsis>
@@ -167,6 +209,16 @@
                 <para>If the <varname>pid</varname> parameter of any
                 of these functions is passed as 0, the operation is
                 executed for the calling process.</para>
+
+                <para>The <function>sd_peer_get_session()</function>,
+                <function>sd_peer_get_unit()</function>,
+                <function>sd_peer_get_user_unit()</function>,
+                <function>sd_peer_get_owner_uid()</function>,
+                <function>sd_peer_get_machine_name()</function> and
+                <function>sd_peer_get_slice()</function> calls operate
+                similar to their PID counterparts, but operate on a
+                connected AF_UNIX socket and retrieve information
+                about the connected peer process.</para>
         </refsect1>
 
         <refsect1>
@@ -184,10 +236,16 @@
                 <function>sd_pid_get_unit()</function>,
                 <function>sd_pid_get_user_unit()</function>,
                 <function>sd_pid_get_owner_uid()</function>,
-                <function>sd_pid_get_machine_name()</function> and
-                <function>sd_pid_get_slice()</function> interfaces are
-                available as a shared library, which can be compiled and
-                linked to with the
+                <function>sd_pid_get_machine_name()</function>,
+                <function>sd_pid_get_slice()</function>,
+                <function>sd_peer_get_session()</function>,
+                <function>sd_peer_get_unit()</function>,
+                <function>sd_peer_get_user_unit()</function>,
+                <function>sd_peer_get_owner_uid()</function>,
+                <function>sd_peer_get_machine_name()</function> and
+                <function>sd_peer_get_slice()</function> interfaces are
+                available as a shared library, which can be compiled
+                and linked to with the
                 <constant>libsystemd</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>
 

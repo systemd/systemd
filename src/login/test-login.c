@@ -28,6 +28,8 @@
 #include "strv.h"
 
 static void test_login(void) {
+        _cleanup_close_pipe_ int pair[2] = { -1, -1 };
+        _cleanup_free_ char *pp = NULL, *qq = NULL;
         int r, k;
         uid_t u, u2;
         char *seat, *type, *class, *display, *remote_user, *remote_host;
@@ -46,6 +48,11 @@ static void test_login(void) {
 
         assert_se(sd_pid_get_owner_uid(0, &u2) == 0);
         printf("user = %lu\n", (unsigned long) u2);
+
+        assert_se(socketpair(AF_UNIX, SOCK_STREAM, 0, pair) == 0);
+        sd_peer_get_session(pair[0], &pp);
+        sd_peer_get_session(pair[1], &qq);
+        assert_se(streq_ptr(pp, qq));
 
         r = sd_uid_get_sessions(u2, false, &sessions);
         assert_se(r >= 0);

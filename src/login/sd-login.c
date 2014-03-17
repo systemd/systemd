@@ -81,8 +81,93 @@ _public_ int sd_pid_get_owner_uid(pid_t pid, uid_t *uid) {
         return cg_pid_get_owner_uid(pid, uid);
 }
 
+_public_ int sd_peer_get_session(int fd, char **session) {
+        struct ucred ucred;
+        int r;
+
+        assert_return(fd >= 0, -EINVAL);
+        assert_return(session, -EINVAL);
+
+        r = getpeercred(fd, &ucred);
+        if (r < 0)
+                return r;
+
+        return cg_pid_get_session(ucred.pid, session);
+}
+
+_public_ int sd_peer_get_owner_uid(int fd, uid_t *uid) {
+        struct ucred ucred;
+        int r;
+
+        assert_return(fd >= 0, -EINVAL);
+        assert_return(uid, -EINVAL);
+
+        r = getpeercred(fd, &ucred);
+        if (r < 0)
+                return r;
+
+        return cg_pid_get_owner_uid(ucred.pid, uid);
+}
+
+_public_ int sd_peer_get_unit(int fd, char **unit) {
+        struct ucred ucred;
+        int r;
+
+        assert_return(fd >= 0, -EINVAL);
+        assert_return(unit, -EINVAL);
+
+        r = getpeercred(fd, &ucred);
+        if (r < 0)
+                return r;
+
+        return cg_pid_get_unit(ucred.pid, unit);
+}
+
+_public_ int sd_peer_get_user_unit(int fd, char **unit) {
+        struct ucred ucred;
+        int r;
+
+        assert_return(fd >= 0, -EINVAL);
+        assert_return(unit, -EINVAL);
+
+        r = getpeercred(fd, &ucred);
+        if (r < 0)
+                return r;
+
+        return cg_pid_get_user_unit(ucred.pid, unit);
+}
+
+_public_ int sd_peer_get_machine_name(int fd, char **machine) {
+        struct ucred ucred;
+        int r;
+
+        assert_return(fd >= 0, -EINVAL);
+        assert_return(machine, -EINVAL);
+
+        r = getpeercred(fd, &ucred);
+        if (r < 0)
+                return r;
+
+        return cg_pid_get_machine_name(ucred.pid, machine);
+}
+
+_public_ int sd_peer_get_slice(int fd, char **slice) {
+        struct ucred ucred;
+        int r;
+
+        assert_return(fd >= 0, -EINVAL);
+        assert_return(slice, -EINVAL);
+
+        r = getpeercred(fd, &ucred);
+        if (r < 0)
+                return r;
+
+        return cg_pid_get_slice(ucred.pid, slice);
+}
+
 _public_ int sd_uid_get_state(uid_t uid, char**state) {
-        char *p, *s = NULL;
+        _cleanup_free_ char *p = NULL;
+        char *s = NULL;
         int r;
 
         assert_return(state, -EINVAL);
@@ -91,16 +176,12 @@ _public_ int sd_uid_get_state(uid_t uid, char**state) {
                 return -ENOMEM;
 
         r = parse_env_file(p, NEWLINE, "STATE", &s, NULL);
-        free(p);
-
         if (r == -ENOENT) {
                 free(s);
                 s = strdup("offline");
                 if (!s)
                         return -ENOMEM;
 
-                *state = s;
-                return 0;
         } else if (r < 0) {
                 free(s);
                 return r;

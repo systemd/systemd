@@ -129,6 +129,12 @@ local:
 LIBSYSTEMD_211 {
 global:
         sd_machine_get_class;
+        sd_peer_get_session;
+        sd_peer_get_owner_uid;
+        sd_peer_get_unit;
+        sd_peer_get_user_unit;
+        sd_peer_get_machine_name;
+        sd_peer_get_slice;
 
 m4_ifdef(`ENABLE_KDBUS',
         /* sd-bus */

@@ -73,10 +73,34 @@ int sd_pid_get_user_unit(pid_t pid, char **unit);
 
 /* Get machine name from PID, for processes assigned to VM or
  * container. This will return an error for non-machine processes. */
-int sd_pid_get_machine_name(pid_t pid, char **name);
+int sd_pid_get_machine_name(pid_t pid, char **machine);
 
 /* Get slice name from PID. */
-int sd_pid_get_slice(pid_t pid, char **name);
+int sd_pid_get_slice(pid_t pid, char **slice);
+
+/* Similar to sd_pid_get_session(), but retrieves data about peer of
+ * connected AF_UNIX socket */
+int sd_peer_get_session(int fd, char **session);
+
+/* Similar to sd_pid_get_owner_uid(), but retrieves data about peer of
+ * connected AF_UNIX socket */
+int sd_peer_get_owner_uid(int fd, uid_t *uid);
+
+/* Similar to sd_pid_get_unit(), but retrieves data about peer of
+ * connected AF_UNIX socket */
+int sd_peer_get_unit(int fd, char **unit);
+
+/* Similar to sd_pid_get_user_unit(), but retrieves data about peer of
+ * connected AF_UNIX socket */
+int sd_peer_get_user_unit(int fd, char **unit);
+
+/* Similar to sd_pid_get_machine_name(), but retrieves data about peer
+ * of connected AF_UNIX socket */
+int sd_peer_get_machine_name(int fd, char **machine);
+
+/* Similar to sd_pid_get_slice(), but retrieves data about peer of
+ * connected AF_UNIX socket */
+int sd_peer_get_slice(int fd, char **slice);
 
 /* Get state from uid. Possible states: offline, lingering, online, active, closing */
 int sd_uid_get_state(uid_t uid, char**state);
