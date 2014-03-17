@@ -797,7 +797,9 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/generator.h \
 	src/shared/generator.c \
 	src/shared/clean-ipc.h \
-	src/shared/clean-ipc.c
+	src/shared/clean-ipc.c \
+	src/shared/login-shared.c \
+	src/shared/login-shared.h
 
 nodist_libsystemd_shared_la_SOURCES = \
 	src/shared/errno-from-name.h \
@@ -2108,9 +2110,7 @@ libsystemd_internal_la_SOURCES = \
 	src/libsystemd/sd-resolve/resolve-util.h \
 	src/libsystemd/sd-id128/sd-id128.c \
 	src/libsystemd/sd-daemon/sd-daemon.c \
-	src/login/sd-login.c \
-	src/login/login-shared.c \
-	src/login/login-shared.h
+	src/libsystemd/sd-login/sd-login.c
 
 nodist_libsystemd_internal_la_SOURCES = \
 	src/libsystemd/libsystemd.sym \
@@ -2753,10 +2753,8 @@ if HAVE_ACL
 libudev_core_la_SOURCES += \
 	src/udev/udev-builtin-uaccess.c \
 	src/login/logind-acl.c \
-	src/login/sd-login.c \
-	src/systemd/sd-login.h \
-	src/login/login-shared.c \
-	src/login/login-shared.h
+	src/libsystemd/sd-login/sd-login.c \
+	src/systemd/sd-login.h
 
 libudev_core_la_LIBADD += \
 	libsystemd-acl.la
@@ -4221,9 +4219,7 @@ libsystemd_logind_core_la_SOURCES = \
 	src/login/logind-session-dbus.c \
 	src/login/logind-seat-dbus.c \
 	src/login/logind-user-dbus.c \
-	src/login/logind-acl.h \
-	src/login/login-shared.c \
-	src/login/login-shared.h
+	src/login/logind-acl.h
 
 libsystemd_logind_core_la_LIBADD = \
 	libsystemd-label.la \
@@ -4283,7 +4279,7 @@ rootbin_PROGRAMS += \
 	systemd-inhibit
 
 test_login_SOURCES = \
-	src/login/test-login.c
+	src/libsystemd/sd-login/test-login.c
 
 test_login_LDADD = \
 	libsystemd-internal.la \
