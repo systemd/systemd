@@ -143,14 +143,19 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <term><option>--listen-http=<replaceable>ADDRESS</replaceable></option></term>
         <term><option>--listen-https=<replaceable>ADDRESS</replaceable></option></term>
 
-        <listitem><para><replaceable>ADDRESS</replaceable> must be an
+        <listitem><para><replaceable>ADDRESS</replaceable> must be
+        either a negative integer, in which case it will be
+        interpreted as the (negated) file descriptor number, or an
         address suitable for <option>ListenStream=</option> (c.f.
         <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
-        HTTP or HTTPS server will be spawned on this port,
-        respectively, for the first and second options. Currenntly
-        Only POST requests to <filename>/upload</filename> with
-        <literal>Content-Type: application/vnd.fdo.journal</literal>
-        are supported.</para>
+        In the first case, matching file descriptor must be inherited
+        through
+        <varname>$LISTEN_FDS</varname>/<varname>$LISTEN_PID</varname>.
+        In the second case, an HTTP or HTTPS server will be spawned on
+        this port, respectively for <option>--listen-http</option> and
+        <option>--listen-https</option>. Currenntly Only POST requests
+        to <filename>/upload</filename> with <literal>Content-Type:
+        application/vnd.fdo.journal</literal> are supported.</para>
         </listitem>
       </varlistentry>
 
@@ -160,10 +165,15 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <listitem><para><command>systemd-journal-remote</command>
         supports the
         <varname>$LISTEN_FDS</varname>/<varname>$LISTEN_PID</varname>
-        protocol. Open sockets inherited through socket
-        activation behave like those opened with
-        <option>--listen-raw=</option> described above.
-        </para>
+        protocol. Open sockets inherited through socket activation
+        behave like those opened with <option>--listen-raw=</option>
+        described above, unless they are specified as an argument in
+        <option>--listen-http=-<replaceable>n</replaceable></option>
+        or
+        <option>--listen-https=-<replaceable>n</replaceable></option>
+        above. In this later case, an HTTP or HTTPS server will be
+        spawned using this descriptor and connections must be made
+        over the HTTP protocol.</para>
         </listitem>
       </varlistentry>
 

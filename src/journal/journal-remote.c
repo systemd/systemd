@@ -57,12 +57,13 @@
 static char* arg_output = NULL;
 static char* arg_url = NULL;
 static char* arg_getter = NULL;
-static bool arg_stdin = false;
 static char* arg_listen_raw = NULL;
 static char* arg_listen_http = NULL;
 static char* arg_listen_https = NULL;
+static char** arg_files = NULL;
 static int arg_compress = true;
 static int arg_seal = false;
+static int http_socket = -1, https_socket = -1;
 
 static char *key_pem = NULL;
 static char *cert_pem = NULL;
@@ -336,12 +337,8 @@ static int add_source(RemoteServer *s, int fd, const char* name) {
         return r;
 }
 
-static int setup_raw_socket(RemoteServer *s, const char *address) {
-        int fd, r;
-
-        fd = make_socket_fd(LOG_INFO, address, SOCK_STREAM | SOCK_CLOEXEC);
-        if (fd < 0)
-                return fd;
+static int add_raw_socket(RemoteServer *s, int fd) {
+        int r;
 
         r = sd_event_add_io(s->events, &s->listen_event, fd, EPOLLIN,
                             dispatch_raw_connection_event, s);
@@ -352,6 +349,16 @@ static int setup_raw_socket(RemoteServer *s, const char *address) {
 
         s->active ++;
         return 0;
+}
+
+static int setup_raw_socket(RemoteServer *s, const char *address) {
+        int fd;
+
+        fd = make_socket_fd(LOG_INFO, address, SOCK_STREAM | SOCK_CLOEXEC);
+        if (fd < 0)
+                return fd;
+
+        return add_raw_socket(s, fd);
 }
 
 /**********************************************************************
@@ -671,9 +678,24 @@ static int setup_signals(RemoteServer *s) {
         return 0;
 }
 
+static int fd_fd(const char *spec) {
+        int fd, r;
+
+        r = safe_atoi(spec, &fd);
+        if (r < 0)
+                return r;
+
+        if (fd >= 0)
+                return -ENOENT;
+
+        return -fd;
+}
+
+
 static int remoteserver_init(RemoteServer *s) {
         int r, n, fd;
         const char *output_name = NULL;
+        char **file;
 
         assert(s);
 
@@ -692,18 +714,38 @@ static int remoteserver_init(RemoteServer *s) {
         } else
                 log_info("Received %d descriptors", n);
 
+        if (MAX(http_socket, https_socket) >= SD_LISTEN_FDS_START + n) {
+                log_error("Received fewer sockets than expected");
+                return -EBADFD;
+        }
+
         for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd++) {
                 if (sd_is_socket(fd, AF_UNSPEC, 0, false)) {
-                        assert_not_reached("not implemented");
+                        log_info("Received a listening socket (fd:%d)", fd);
+
+                        if (fd == http_socket)
+                                r = setup_microhttpd_server(s, fd, false);
+                        else if (fd == https_socket)
+                                r = setup_microhttpd_server(s, fd, true);
+                        else
+                                r = add_raw_socket(s, fd);
                 } else if (sd_is_socket(fd, AF_UNSPEC, 0, true)) {
                         log_info("Received a connection socket (fd:%d)", fd);
 
                         r = add_source(s, fd, NULL);
-                        output_name = "socket";
                 } else {
                         log_error("Unknown socket passed on fd:%d", fd);
+
                         return -EINVAL;
                 }
+
+                if(r < 0) {
+                        log_error("Failed to register socket (fd:%d): %s",
+                                  fd, strerror(-r));
+                        return r;
+                }
+
+                output_name = "socket";
         }
 
         if (arg_url) {
@@ -757,13 +799,26 @@ static int remoteserver_init(RemoteServer *s) {
                 output_name = arg_listen_https;
         }
 
-        if (arg_stdin) {
-                log_info("Reading standard input...");
-                r = add_source(s, STDIN_FILENO, "stdin");
+        STRV_FOREACH(file, arg_files) {
+                if (streq(*file, "-")) {
+                        log_info("Reading standard input...");
+
+                        fd = STDIN_FILENO;
+                        output_name = "stdin";
+                } else {
+                        log_info("Reading file %s...", *file);
+
+                        fd = open(*file, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+                        if (fd < 0) {
+                                log_error("Failed to open %s: %m", *file);
+                                return -errno;
+                        }
+                        output_name = *file;
+                }
+
+                r = add_source(s, fd, output_name);
                 if (r < 0)
                         return r;
-
-                output_name = "stdin";
         }
 
         if (s->active == 0) {
@@ -771,7 +826,7 @@ static int remoteserver_init(RemoteServer *s) {
                 return -EINVAL;
         }
 
-        if (!!n + !!arg_url + !!arg_listen_raw + !!arg_stdin > 1)
+        if (!!n + !!arg_url + !!arg_listen_raw + !!arg_files)
                 output_name = "multiple";
 
         r = writer_init(&s->writer);
@@ -907,7 +962,7 @@ static int dispatch_raw_connection_event(sd_event_source *event,
  **********************************************************************/
 
 static int help(void) {
-        printf("%s [OPTIONS...]\n\n"
+        printf("%s [OPTIONS...] {FILE|-}...\n\n"
                "Write external journal events to a journal file.\n\n"
                "Options:\n"
                "  --url=URL            Read events from systemd-journal-gatewayd at URL\n"
@@ -915,7 +970,6 @@ static int help(void) {
                "  --listen-raw=ADDR    Listen for connections at ADDR\n"
                "  --listen-http=ADDR   Listen for HTTP connections at ADDR\n"
                "  --listen-https=ADDR  Listen for HTTPS connections at ADDR\n"
-               "  --stdin              Read events from standard input\n"
                "  -o --output=FILE|DIR Write output to FILE or DIR/external-*.journal\n"
                "  --[no-]compress      Use XZ-compression in the output journal (default: yes)\n"
                "  --[no-]seal          Use Event sealing in the output journal (default: no)\n"
@@ -935,7 +989,6 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_LISTEN_RAW,
                 ARG_LISTEN_HTTP,
                 ARG_LISTEN_HTTPS,
-                ARG_STDIN,
                 ARG_GETTER,
                 ARG_COMPRESS,
                 ARG_NO_COMPRESS,
@@ -954,7 +1007,6 @@ static int parse_argv(int argc, char *argv[]) {
                 { "listen-raw",   required_argument, NULL, ARG_LISTEN_RAW   },
                 { "listen-http",  required_argument, NULL, ARG_LISTEN_HTTP  },
                 { "listen-https", required_argument, NULL, ARG_LISTEN_HTTPS },
-                { "stdin",        no_argument,       NULL, ARG_STDIN        },
                 { "output",       required_argument, NULL, 'o'              },
                 { "compress",     no_argument,       NULL, ARG_COMPRESS     },
                 { "no-compress",  no_argument,       NULL, ARG_NO_COMPRESS  },
@@ -1010,21 +1062,41 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_LISTEN_HTTP:
-                        if (arg_listen_http) {
+                        if (arg_listen_http || http_socket >= 0) {
                                 log_error("cannot currently use --listen-http more than once");
                                 return -EINVAL;
                         }
 
-                        arg_listen_http = optarg;
+                        r = fd_fd(optarg);
+                        if (r >= 0)
+                                http_socket = r;
+                        else if (r == -ENOENT)
+                                arg_listen_http = optarg;
+                        else {
+                                log_error("Invalid port/fd specification %s: %s",
+                                          optarg, strerror(-r));
+                                return -EINVAL;
+                        }
+
                         break;
 
                 case ARG_LISTEN_HTTPS:
-                        if (arg_listen_https) {
+                        if (arg_listen_https || https_socket >= 0) {
                                 log_error("cannot currently use --listen-https more than once");
                                 return -EINVAL;
                         }
 
-                        arg_listen_https = optarg;
+                        r = fd_fd(optarg);
+                        if (r >= 0)
+                                https_socket = r;
+                        else if (r == -ENOENT)
+                                arg_listen_https = optarg;
+                        else {
+                                log_error("Invalid port/fd specification %s: %s",
+                                          optarg, strerror(-r));
+                                return -EINVAL;
+                        }
+
                         break;
 
                 case ARG_KEY:
@@ -1070,10 +1142,6 @@ static int parse_argv(int argc, char *argv[]) {
                         log_error("Option --trust is not available.");
 #endif
 
-                case ARG_STDIN:
-                        arg_stdin = true;
-                        break;
-
                 case 'o':
                         if (arg_output) {
                                 log_error("cannot use --output/-o more than once");
@@ -1109,10 +1177,8 @@ static int parse_argv(int argc, char *argv[]) {
                 return -EINVAL;
         }
 
-        if (optind < argc) {
-                log_error("This program takes no positional arguments");
-                return -EINVAL;
-        }
+        if (optind < argc)
+                arg_files = argv + optind;
 
         return 1 /* work to do */;
 }
