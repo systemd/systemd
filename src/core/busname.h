@@ -28,6 +28,7 @@ typedef struct BusNamePolicy BusNamePolicy;
 
 typedef enum BusNameState {
         BUSNAME_DEAD,
+        BUSNAME_REGISTERED,
         BUSNAME_LISTENING,
         BUSNAME_RUNNING,
         BUSNAME_FAILED,
@@ -48,6 +49,7 @@ struct BusName {
 
         char *name;
         int starter_fd;
+        bool activating;
 
         UnitRef service;
 

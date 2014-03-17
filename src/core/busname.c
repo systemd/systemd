@@ -29,6 +29,7 @@
 
 static const UnitActiveState state_translation_table[_BUSNAME_STATE_MAX] = {
         [BUSNAME_DEAD] = UNIT_INACTIVE,
+        [BUSNAME_REGISTERED] = UNIT_ACTIVE,
         [BUSNAME_LISTENING] = UNIT_ACTIVE,
         [BUSNAME_RUNNING] = UNIT_ACTIVE,
         [BUSNAME_FAILED] = UNIT_FAILED
@@ -96,19 +97,21 @@ static int busname_add_extras(BusName *n) {
                         return r;
         }
 
-        if (!UNIT_DEREF(n->service)) {
-                Unit *x;
+        if (n->activating) {
+                if (!UNIT_DEREF(n->service)) {
+                        Unit *x;
 
-                r = unit_load_related_unit(u, ".service", &x);
+                        r = unit_load_related_unit(u, ".service", &x);
+                        if (r < 0)
+                                return r;
+
+                        unit_ref_set(&n->service, x);
+                }
+
+                r = unit_add_two_dependencies(u, UNIT_BEFORE, UNIT_TRIGGERS, UNIT_DEREF(n->service), true);
                 if (r < 0)
                         return r;
-
-                unit_ref_set(&n->service, x);
         }
-
-        r = unit_add_two_dependencies(u, UNIT_BEFORE, UNIT_TRIGGERS, UNIT_DEREF(n->service), true);
-        if (r < 0)
-                return r;
 
         if (u->default_dependencies) {
                 r = busname_add_default_default_dependencies(n);
@@ -172,10 +175,12 @@ static void busname_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sBus Name State: %s\n"
                 "%sResult: %s\n"
                 "%sName: %s\n"
+                "%sActivating: %s\n"
                 "%sAccept FD: %s\n",
                 prefix, busname_state_to_string(n->state),
                 prefix, busname_result_to_string(n->result),
                 prefix, n->name,
+                prefix, yes_no(n->activating),
                 prefix, yes_no(n->accept_fd));
 }
 
@@ -231,7 +236,7 @@ static int busname_open_fd(BusName *n) {
 
         n->starter_fd = bus_kernel_create_starter(
                         UNIT(n)->manager->running_as == SYSTEMD_SYSTEM ? "system" : "user",
-                        n->name, n->accept_fd, n->policy);
+                        n->name, n->activating, n->accept_fd, n->policy);
 
         if (n->starter_fd < 0) {
                 log_warning_unit(UNIT(n)->id, "Failed to create starter fd: %s", strerror(-n->starter_fd));
@@ -251,7 +256,7 @@ static void busname_set_state(BusName *n, BusNameState state) {
         if (state != BUSNAME_LISTENING)
                 busname_unwatch_fd(n);
 
-        if (!IN_SET(state, BUSNAME_LISTENING, BUSNAME_RUNNING))
+        if (!IN_SET(state, BUSNAME_LISTENING, BUSNAME_REGISTERED, BUSNAME_RUNNING))
                 busname_close_fd(n);
 
         if (state != old_state)
@@ -271,7 +276,7 @@ static int busname_coldplug(Unit *u) {
         if (n->deserialized_state == n->state)
                 return 0;
 
-        if (IN_SET(n->deserialized_state, BUSNAME_LISTENING, BUSNAME_RUNNING)) {
+        if (IN_SET(n->deserialized_state, BUSNAME_LISTENING, BUSNAME_REGISTERED, BUSNAME_RUNNING)) {
                 r = busname_open_fd(n);
                 if (r < 0)
                         return r;
@@ -303,17 +308,23 @@ static void busname_enter_listening(BusName *n) {
 
         r = busname_open_fd(n);
         if (r < 0) {
-                log_warning_unit(UNIT(n)->id, "%s failed to listen on bus names: %s", UNIT(n)->id, strerror(-r));
+                log_warning_unit(UNIT(n)->id, "%s failed to %s: %s", UNIT(n)->id,
+                                 n->activating ? "listen on bus name" : "register policy for name",
+                                 strerror(-r));
                 goto fail;
         }
 
-        r = busname_watch_fd(n);
-        if (r < 0) {
-                log_warning_unit(UNIT(n)->id, "%s failed to watch names: %s", UNIT(n)->id, strerror(-r));
-                goto fail;
-        }
+        if (n->activating) {
+                r = busname_watch_fd(n);
+                if (r < 0) {
+                        log_warning_unit(UNIT(n)->id, "%s failed to watch names: %s", UNIT(n)->id, strerror(-r));
+                        goto fail;
+                }
 
-        busname_set_state(n, BUSNAME_LISTENING);
+                busname_set_state(n, BUSNAME_LISTENING);
+        } else
+                busname_set_state(n, BUSNAME_REGISTERED);
+
         return;
 
 fail:
@@ -328,6 +339,9 @@ static void busname_enter_running(BusName *n) {
         int r;
 
         assert(n);
+
+        if (!n->activating)
+                return;
 
         /* We don't take conenctions anymore if we are supposed to
          * shut down anyway */
@@ -369,7 +383,7 @@ static int busname_start(Unit *u) {
 
         assert(n);
 
-        if (UNIT_ISSET(n->service)) {
+        if (n->activating && UNIT_ISSET(n->service)) {
                 Service *service;
 
                 service = SERVICE(UNIT_DEREF(n->service));
@@ -392,7 +406,7 @@ static int busname_stop(Unit *u) {
         BusName *n = BUSNAME(u);
 
         assert(n);
-        assert(n->state == BUSNAME_LISTENING || n->state == BUSNAME_RUNNING);
+        assert(IN_SET(n->state, BUSNAME_REGISTERED, BUSNAME_LISTENING, BUSNAME_RUNNING));
 
         busname_enter_dead(n, BUSNAME_SUCCESS);
         return 0;
@@ -536,6 +550,7 @@ static void busname_trigger_notify(Unit *u, Unit *other) {
 
 static const char* const busname_state_table[_BUSNAME_STATE_MAX] = {
         [BUSNAME_DEAD] = "dead",
+        [BUSNAME_REGISTERED] = "registered",
         [BUSNAME_LISTENING] = "listening",
         [BUSNAME_RUNNING] = "running",
         [BUSNAME_FAILED] = "failed"

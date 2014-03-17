@@ -251,6 +251,7 @@ CGROUP_CONTEXT_CONFIG_ITEMS(Socket)m4_dnl
 KILL_CONTEXT_CONFIG_ITEMS(Socket)m4_dnl
 m4_dnl
 BusName.Name,                    config_parse_string,                0,                             offsetof(BusName, name)
+BusName.Activating,              config_parse_bool,                  0,                             offsetof(BusName, activating)
 BusName.Service,                 config_parse_busname_service,       0,                             0
 BusName.AllowUser,               config_parse_bus_policy,            0,                             0
 BusName.AllowGroup,              config_parse_bus_policy,            0,                             0
