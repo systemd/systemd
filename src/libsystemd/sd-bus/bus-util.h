@@ -123,6 +123,7 @@ int bus_log_parse_error(int r);
 int bus_log_create_error(int r);
 
 typedef struct UnitInfo {
+        const char *machine;
         const char *id;
         const char *description;
         const char *load_state;

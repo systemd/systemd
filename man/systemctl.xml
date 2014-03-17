@@ -132,6 +132,18 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       </varlistentry>
 
       <varlistentry>
+        <term><option>-r</option></term>
+        <term><option>--recursive</option></term>
+
+        <listitem>
+          <para>When listing units, also show units of local
+          containers. Units of local containers will be prefixed with
+          the container name, separated by a single colon character
+          (<literal>:</literal>).</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--reverse</option></term>
 
         <listitem>

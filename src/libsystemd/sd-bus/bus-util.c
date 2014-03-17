@@ -1192,6 +1192,8 @@ int bus_parse_unit_info(sd_bus_message *message, UnitInfo *u) {
         assert(message);
         assert(u);
 
+        u->machine = NULL;
+
         return sd_bus_message_read(
                         message,
                         "(ssssssouso)",

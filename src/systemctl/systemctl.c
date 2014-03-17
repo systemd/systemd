@@ -77,7 +77,6 @@ static char **arg_types = NULL;
 static char **arg_states = NULL;
 static char **arg_properties = NULL;
 static bool arg_all = false;
-static bool original_stdout_is_tty;
 static enum dependency {
         DEPENDENCY_FORWARD,
         DEPENDENCY_REVERSE,
@@ -98,6 +97,7 @@ static bool arg_ignore_inhibitors = false;
 static bool arg_dry = false;
 static bool arg_quiet = false;
 static bool arg_full = false;
+static bool arg_recursive = false;
 static int arg_force = 0;
 static bool arg_ask_password = true;
 static bool arg_runtime = false;
@@ -135,6 +135,7 @@ static char *arg_host = NULL;
 static unsigned arg_lines = 10;
 static OutputMode arg_output = OUTPUT_SHORT;
 static bool arg_plain = false;
+
 static const struct {
         const char *verb;
         const char *method;
@@ -152,9 +153,10 @@ static const struct {
         { "force-reload",          "ReloadOrTryRestartUnit" }
 };
 
+static bool original_stdout_is_tty;
+
 static int daemon_reload(sd_bus *bus, char **args);
 static int halt_now(enum action a);
-
 static int check_one_unit(sd_bus *bus, const char *name, const char *good_states, bool quiet);
 
 static char** strv_skip_first(char **strv) {
@@ -288,18 +290,29 @@ static bool avoid_bus(void) {
 static int compare_unit_info(const void *a, const void *b) {
         const UnitInfo *u = a, *v = b;
         const char *d1, *d2;
+        int r;
 
+        /* First, order by machine */
+        if (!u->machine && v->machine)
+                return -1;
+        if (u->machine && !v->machine)
+                return 1;
+        if (u->machine && v->machine) {
+                r = strcasecmp(u->machine, v->machine);
+                if (r != 0)
+                        return r;
+        }
+
+        /* Second, order by unit type */
         d1 = strrchr(u->id, '.');
         d2 = strrchr(v->id, '.');
-
         if (d1 && d2) {
-                int r;
-
                 r = strcasecmp(d1, d2);
                 if (r != 0)
                         return r;
         }
 
+        /* Third, order by name */
         return strcasecmp(u->id, v->id);
 }
 
@@ -327,7 +340,7 @@ static bool output_show_unit(const UnitInfo *u, char **patterns) {
                               || u->following[0]) || u->job_id > 0);
 }
 
-static void output_units_list(const UnitInfo *unit_infos, unsigned c) {
+static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
         unsigned id_len, max_id_len, load_len, active_len, sub_len, job_len, desc_len;
         const UnitInfo *u;
         unsigned n_shown = 0;
@@ -341,7 +354,7 @@ static void output_units_list(const UnitInfo *unit_infos, unsigned c) {
         desc_len = 0;
 
         for (u = unit_infos; u < unit_infos + c; u++) {
-                max_id_len = MAX(max_id_len, strlen(u->id));
+                max_id_len = MAX(max_id_len, strlen(u->id) + (u->machine ? strlen(u->machine)+1 : 0));
                 load_len = MAX(load_len, strlen(u->load_state));
                 active_len = MAX(active_len, strlen(u->active_state));
                 sub_len = MAX(sub_len, strlen(u->sub_state));
@@ -383,9 +396,10 @@ static void output_units_list(const UnitInfo *unit_infos, unsigned c) {
                 id_len = max_id_len;
 
         for (u = unit_infos; u < unit_infos + c; u++) {
-                _cleanup_free_ char *e = NULL;
+                _cleanup_free_ char *e = NULL, *j = NULL;
                 const char *on_loaded, *off_loaded, *on = "";
                 const char *on_active, *off_active, *off = "";
+                const char *id;
 
                 if (!n_shown && !arg_no_legend) {
                         printf("%-*s %-*s %-*s %-*s ",
@@ -418,10 +432,25 @@ static void output_units_list(const UnitInfo *unit_infos, unsigned c) {
                 } else
                         on_active = off_active = "";
 
-                e = arg_full ? NULL : ellipsize(u->id, id_len, 33);
+                if (u->machine) {
+                        j = strjoin(u->machine, ":", u->id, NULL);
+                        if (!j)
+                                return log_oom();
+
+                        id = j;
+                } else
+                        id = u->id;
+
+                if (arg_full) {
+                        e = ellipsize(id, id_len, 33);
+                        if (!e)
+                                return log_oom();
+
+                        id = e;
+                }
 
                 printf("%s%-*s%s %s%-*s%s %s%-*s %-*s%s %-*s",
-                       on, id_len, e ? e : u->id, off,
+                       on, id_len, id, off,
                        on_loaded, load_len, u->load_state, off_loaded,
                        on_active, active_len, u->active_state,
                        sub_len, u->sub_state, off_active,
@@ -457,24 +486,29 @@ static void output_units_list(const UnitInfo *unit_infos, unsigned c) {
                                "To show all installed unit files use 'systemctl list-unit-files'.\n",
                                on, n_shown, off);
         }
+
+        return 0;
 }
 
 static int get_unit_list(
                 sd_bus *bus,
-                sd_bus_message **_reply,
-                UnitInfo **_unit_infos,
-                char **patterns) {
+                const char *machine,
+                char **patterns,
+                UnitInfo **unit_infos,
+                int c,
+                sd_bus_message **_reply) {
 
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        _cleanup_free_ UnitInfo *unit_infos = NULL;
-        size_t size = 0;
-        int r, c = 0;
+        size_t size;
+        int r;
         UnitInfo u;
 
         assert(bus);
+        assert(unit_infos);
         assert(_reply);
-        assert(_unit_infos);
+
+        size = sizeof(UnitInfo) * c;
 
         r = sd_bus_call_method(
                         bus,
@@ -495,13 +529,15 @@ static int get_unit_list(
                 return bus_log_parse_error(r);
 
         while ((r = bus_parse_unit_info(reply, &u)) > 0) {
+                u.machine = machine;
+
                 if (!output_show_unit(&u, patterns))
                         continue;
 
-                if (!GREEDY_REALLOC(unit_infos, size, c+1))
+                if (!GREEDY_REALLOC(*unit_infos, size, c+1))
                         return log_oom();
 
-                unit_infos[c++] = u;
+                (*unit_infos)[c++] = u;
         }
         if (r < 0)
                 return bus_log_parse_error(r);
@@ -513,27 +549,108 @@ static int get_unit_list(
         *_reply = reply;
         reply = NULL;
 
+        return c;
+}
+
+static void message_set_freep(Set **set) {
+        sd_bus_message *m;
+
+        while ((m = set_steal_first(*set)))
+                sd_bus_message_unref(m);
+
+        set_free(*set);
+}
+
+static int get_unit_list_recursive(
+                sd_bus *bus,
+                char **patterns,
+                UnitInfo **_unit_infos,
+                Set **_replies,
+                char ***_machines) {
+
+        _cleanup_free_ UnitInfo *unit_infos = NULL;
+        _cleanup_(message_set_freep) Set *replies;
+        sd_bus_message *reply;
+        int c, r;
+
+        assert(bus);
+        assert(_replies);
+        assert(_unit_infos);
+        assert(_machines);
+
+        replies = set_new(NULL, NULL);
+        if (!replies)
+                return log_oom();
+
+        c = get_unit_list(bus, NULL, patterns, &unit_infos, 0, &reply);
+        if (c < 0)
+                return c;
+
+        r = set_put(replies, reply);
+        if (r < 0) {
+                sd_bus_message_unref(reply);
+                return r;
+        }
+
+        if (arg_recursive) {
+                _cleanup_strv_free_ char **machines = NULL;
+                char **i;
+
+                r = sd_get_machine_names(&machines);
+                if (r < 0)
+                        return r;
+
+                STRV_FOREACH(i, machines) {
+                        _cleanup_bus_unref_ sd_bus *container = NULL;
+                        int k;
+
+                        r = sd_bus_open_system_container(&container, *i);
+                        if (r < 0) {
+                                log_error("Failed to connect to container %s: %s", *i, strerror(-r));
+                                continue;
+                        }
+
+                        k = get_unit_list(container, *i, patterns, &unit_infos, c, &reply);
+                        if (k < 0)
+                                return k;
+
+                        c = k;
+
+                        r = set_put(replies, reply);
+                        if (r < 0) {
+                                sd_bus_message_unref(reply);
+                                return r;
+                        }
+                }
+
+                *_machines = machines;
+                machines = NULL;
+        } else
+                *_machines = NULL;
+
         *_unit_infos = unit_infos;
         unit_infos = NULL;
+
+        *_replies = replies;
+        replies = NULL;
 
         return c;
 }
 
 static int list_units(sd_bus *bus, char **args) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_free_ UnitInfo *unit_infos = NULL;
+        _cleanup_(message_set_freep) Set *replies = NULL;
+        _cleanup_strv_free_ char **machines = NULL;
         int r;
 
         pager_open_if_enabled();
 
-        r = get_unit_list(bus, &reply, &unit_infos, strv_skip_first(args));
+        r = get_unit_list_recursive(bus, strv_skip_first(args), &unit_infos, &replies, &machines);
         if (r < 0)
                 return r;
 
         qsort_safe(unit_infos, r, sizeof(UnitInfo), compare_unit_info);
-        output_units_list(unit_infos, r);
-
-        return 0;
+        return output_units_list(unit_infos, r);
 }
 
 static int get_triggered_units(
@@ -712,7 +829,7 @@ static int list_sockets(sd_bus *bus, char **args) {
 
         pager_open_if_enabled();
 
-        n = get_unit_list(bus, &reply, &unit_infos, strv_skip_first(args));
+        n = get_unit_list(bus, NULL, strv_skip_first(args), &unit_infos, 0, &reply);
         if (n < 0)
                 return n;
 
@@ -947,7 +1064,7 @@ static int list_timers(sd_bus *bus, char **args) {
 
         pager_open_if_enabled();
 
-        n = get_unit_list(bus, &reply, &unit_infos, strv_skip_first(args));
+        n = get_unit_list(bus, NULL, strv_skip_first(args), &unit_infos, 0, &reply);
         if (n < 0)
                 return n;
 
@@ -2372,7 +2489,6 @@ static int start_unit_one(
 
 static int expand_names(sd_bus *bus, char **names, const char* suffix, char ***ret) {
 
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_strv_free_ char **mangled = NULL, **globs = NULL;
         char **name;
         int r = 0, i;
@@ -2398,9 +2514,10 @@ static int expand_names(sd_bus *bus, char **names, const char* suffix, char ***r
         /* Query the manager only if any of the names are a glob, since
          * this is fairly expensive */
         if (!strv_isempty(globs)) {
+                _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
                 _cleanup_free_ UnitInfo *unit_infos = NULL;
 
-                r = get_unit_list(bus, &reply, &unit_infos, globs);
+                r = get_unit_list(bus, NULL, globs, &unit_infos, 0, &reply);
                 if (r < 0)
                         return r;
 
@@ -2411,6 +2528,7 @@ static int expand_names(sd_bus *bus, char **names, const char* suffix, char ***r
 
         *ret = mangled;
         mangled = NULL; /* do not free */
+
         return 0;
 }
 
@@ -4043,7 +4161,7 @@ static int show_all(
         unsigned c;
         int r;
 
-        r = get_unit_list(bus, &reply, &unit_infos, NULL);
+        r = get_unit_list(bus, NULL, NULL, &unit_infos, 0, &reply);
         if (r < 0)
                 return r;
 
@@ -5162,6 +5280,7 @@ static int systemctl_help(void) {
                "                      ones. To list all units installed on the system, use\n"
                "                      the 'list-unit-files' command instead.\n"
                "  -l --full           Don't ellipsize unit names on output\n"
+               "  -r --recursive      Show unit list of host and local containers\n"
                "     --reverse        Show reverse dependencies with 'list-dependencies'\n"
                "     --job-mode=MODE  Specify how to deal with already queued jobs, when\n"
                "                      queueing a new job\n"
@@ -5412,6 +5531,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "output",              required_argument, NULL, 'o'                     },
                 { "plain",               no_argument,       NULL, ARG_PLAIN               },
                 { "state",               required_argument, NULL, ARG_STATE               },
+                { "recursive",           no_argument,       NULL, 'r'                     },
                 {}
         };
 
@@ -5420,7 +5540,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "ht:p:alqfs:H:M:n:o:i", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "ht:p:alqfs:H:M:n:o:ir", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -5667,6 +5787,15 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         }
                         break;
                 }
+
+                case 'r':
+                        if (geteuid() != 0) {
+                                log_error("--recursive requires root priviliges.");
+                                return -EPERM;
+                        }
+
+                        arg_recursive = true;
+                        break;
 
                 case '?':
                         return -EINVAL;
