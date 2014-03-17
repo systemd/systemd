@@ -411,7 +411,7 @@ static int process_http_upload(
                 if (r < 0) {
                         log_error("Failed to store received data of size %zu: %s",
                                   *upload_data_size, strerror(-r));
-                        return respond_oom_internal(connection);
+                        return mhd_respond_oom(connection);
                 }
                 *upload_data_size = 0;
         } else
@@ -425,8 +425,8 @@ static int process_http_upload(
                         break;
                 else if (r < 0) {
                         log_warning("Failed to process data for connection %p", connection);
-                        return respond_error(connection, MHD_HTTP_UNPROCESSABLE_ENTITY,
-                                             "Processing failed: %s", strerror(-r));
+                        return mhd_respondf(connection, MHD_HTTP_UNPROCESSABLE_ENTITY,
+                                            "Processing failed: %s", strerror(-r));
                 }
         }
 
@@ -437,11 +437,11 @@ static int process_http_upload(
 
         if (source_non_empty(source)) {
                 log_warning("EOF reached with incomplete data");
-                return respond_error(connection, MHD_HTTP_EXPECTATION_FAILED,
-                                     "Trailing data not processed.");
+                return mhd_respond(connection, MHD_HTTP_EXPECTATION_FAILED,
+                                   "Trailing data not processed.");
         }
 
-        return respond_error(connection, MHD_HTTP_ACCEPTED, "OK.\n");
+        return mhd_respond(connection, MHD_HTTP_ACCEPTED, "OK.\n");
 };
 
 static int request_handler(
@@ -470,19 +470,19 @@ static int request_handler(
                                            *connection_cls);
 
         if (!streq(method, "POST"))
-                return respond_error(connection, MHD_HTTP_METHOD_NOT_ACCEPTABLE,
-                                     "Unsupported method.\n");
+                return mhd_respond(connection, MHD_HTTP_METHOD_NOT_ACCEPTABLE,
+                                   "Unsupported method.\n");
 
         if (!streq(url, "/upload"))
-                return respond_error(connection, MHD_HTTP_NOT_FOUND,
-                                     "Not found.\n");
+                return mhd_respond(connection, MHD_HTTP_NOT_FOUND,
+                                   "Not found.\n");
 
         header = MHD_lookup_connection_value(connection,
                                              MHD_HEADER_KIND, "Content-Type");
         if (!header || !streq(header, "application/vnd.fdo.journal"))
-                return respond_error(connection, MHD_HTTP_UNSUPPORTED_MEDIA_TYPE,
-                                     "Content-Type: application/vnd.fdo.journal"
-                                     " is required.\n");
+                return mhd_respond(connection, MHD_HTTP_UNSUPPORTED_MEDIA_TYPE,
+                                   "Content-Type: application/vnd.fdo.journal"
+                                   " is required.\n");
 
         if (trust_pem) {
                 r = check_permissions(connection, &code);

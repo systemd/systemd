@@ -450,20 +450,20 @@ static int request_handler_entries(
 
         r = open_journal(m);
         if (r < 0)
-                return respond_error(connection, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to open journal: %s\n", strerror(-r));
+                return mhd_respondf(connection, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to open journal: %s\n", strerror(-r));
 
         if (request_parse_accept(m, connection) < 0)
-                return respond_error(connection, MHD_HTTP_BAD_REQUEST, "Failed to parse Accept header.\n");
+                return mhd_respond(connection, MHD_HTTP_BAD_REQUEST, "Failed to parse Accept header.\n");
 
         if (request_parse_range(m, connection) < 0)
-                return respond_error(connection, MHD_HTTP_BAD_REQUEST, "Failed to parse Range header.\n");
+                return mhd_respond(connection, MHD_HTTP_BAD_REQUEST, "Failed to parse Range header.\n");
 
         if (request_parse_arguments(m, connection) < 0)
-                return respond_error(connection, MHD_HTTP_BAD_REQUEST, "Failed to parse URL arguments.\n");
+                return mhd_respond(connection, MHD_HTTP_BAD_REQUEST, "Failed to parse URL arguments.\n");
 
         if (m->discrete) {
                 if (!m->cursor)
-                        return respond_error(connection, MHD_HTTP_BAD_REQUEST, "Discrete seeks require a cursor specification.\n");
+                        return mhd_respond(connection, MHD_HTTP_BAD_REQUEST, "Discrete seeks require a cursor specification.\n");
 
                 m->n_entries = 1;
                 m->n_entries_set = true;
@@ -476,7 +476,7 @@ static int request_handler_entries(
         else if (m->n_skip < 0)
                 r = sd_journal_seek_tail(m->journal);
         if (r < 0)
-                return respond_error(connection, MHD_HTTP_BAD_REQUEST, "Failed to seek in journal.\n");
+                return mhd_respond(connection, MHD_HTTP_BAD_REQUEST, "Failed to seek in journal.\n");
 
         response = MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 4*1024, request_reader_entries, m, NULL);
         if (!response)
@@ -612,14 +612,14 @@ static int request_handler_fields(
 
         r = open_journal(m);
         if (r < 0)
-                return respond_error(connection, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to open journal: %s\n", strerror(-r));
+                return mhd_respondf(connection, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to open journal: %s\n", strerror(-r));
 
         if (request_parse_accept(m, connection) < 0)
-                return respond_error(connection, MHD_HTTP_BAD_REQUEST, "Failed to parse Accept header.\n");
+                return mhd_respond(connection, MHD_HTTP_BAD_REQUEST, "Failed to parse Accept header.\n");
 
         r = sd_journal_query_unique(m->journal, field);
         if (r < 0)
-                return respond_error(connection, MHD_HTTP_BAD_REQUEST, "Failed to query unique fields.\n");
+                return mhd_respond(connection, MHD_HTTP_BAD_REQUEST, "Failed to query unique fields.\n");
 
         response = MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 4*1024, request_reader_fields, m, NULL);
         if (!response)
@@ -678,10 +678,10 @@ static int request_handler_file(
 
         fd = open(path, O_RDONLY|O_CLOEXEC);
         if (fd < 0)
-                return respond_error(connection, MHD_HTTP_NOT_FOUND, "Failed to open file %s: %m\n", path);
+                return mhd_respondf(connection, MHD_HTTP_NOT_FOUND, "Failed to open file %s: %m\n", path);
 
         if (fstat(fd, &st) < 0)
-                return respond_error(connection, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to stat file: %m\n");
+                return mhd_respondf(connection, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to stat file: %m\n");
 
         response = MHD_create_response_from_fd_at_offset(st.st_size, fd, 0);
         if (!response)
@@ -745,15 +745,15 @@ static int request_handler_machine(
 
         r = open_journal(m);
         if (r < 0)
-                return respond_error(connection, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to open journal: %s\n", strerror(-r));
+                return mhd_respondf(connection, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to open journal: %s\n", strerror(-r));
 
         r = sd_id128_get_machine(&mid);
         if (r < 0)
-                return respond_error(connection, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to determine machine ID: %s\n", strerror(-r));
+                return mhd_respondf(connection, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to determine machine ID: %s\n", strerror(-r));
 
         r = sd_id128_get_boot(&bid);
         if (r < 0)
-                return respond_error(connection, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to determine boot ID: %s\n", strerror(-r));
+                return mhd_respondf(connection, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to determine boot ID: %s\n", strerror(-r));
 
         hostname = gethostname_malloc();
         if (!hostname)
@@ -761,11 +761,11 @@ static int request_handler_machine(
 
         r = sd_journal_get_usage(m->journal, &usage);
         if (r < 0)
-                return respond_error(connection, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to determine disk usage: %s\n", strerror(-r));
+                return mhd_respondf(connection, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to determine disk usage: %s\n", strerror(-r));
 
         r = sd_journal_get_cutoff_realtime_usec(m->journal, &cutoff_from, &cutoff_to);
         if (r < 0)
-                return respond_error(connection, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to determine disk usage: %s\n", strerror(-r));
+                return mhd_respondf(connection, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to determine disk usage: %s\n", strerror(-r));
 
         parse_env_file("/etc/os-release", NEWLINE, "PRETTY_NAME", &os_name, NULL);
 
@@ -822,8 +822,8 @@ static int request_handler(
         assert(method);
 
         if (!streq(method, "GET"))
-                return respond_error(connection, MHD_HTTP_METHOD_NOT_ACCEPTABLE,
-                                     "Unsupported method.\n");
+                return mhd_respond(connection, MHD_HTTP_METHOD_NOT_ACCEPTABLE,
+                                   "Unsupported method.\n");
 
 
         if (!*connection_cls) {
@@ -853,7 +853,7 @@ static int request_handler(
         if (streq(url, "/machine"))
                 return request_handler_machine(connection, *connection_cls);
 
-        return respond_error(connection, MHD_HTTP_NOT_FOUND, "Not found.\n");
+        return mhd_respond(connection, MHD_HTTP_NOT_FOUND, "Not found.\n");
 }
 
 static int help(void) {

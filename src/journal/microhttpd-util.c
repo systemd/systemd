@@ -48,31 +48,45 @@ void microhttpd_logger(void *arg, const char *fmt, va_list ap) {
 }
 
 
-int respond_oom_internal(struct MHD_Connection *connection) {
-        const char *m = "Out of memory.\n";
-
+static int mhd_respond_internal(struct MHD_Connection *connection,
+                                enum MHD_RequestTerminationCode code,
+                                char *buffer,
+                                size_t size,
+                                enum MHD_ResponseMemoryMode mode) {
         struct MHD_Response *response;
-        int ret;
+        int r;
 
         assert(connection);
 
-        response = MHD_create_response_from_buffer(strlen(m), (char*) m, MHD_RESPMEM_PERSISTENT);
+        response = MHD_create_response_from_buffer(size, buffer, mode);
         if (!response)
                 return MHD_NO;
 
+        log_debug("Queing response %u: %s", code, buffer);
         MHD_add_response_header(response, "Content-Type", "text/plain");
-        ret = MHD_queue_response(connection, MHD_HTTP_SERVICE_UNAVAILABLE, response);
+        r = MHD_queue_response(connection, code, response);
         MHD_destroy_response(response);
 
-        return ret;
+        return r;
 }
 
-_printf_(3,4)
-int respond_error(struct MHD_Connection *connection,
-                  unsigned code,
-                  const char *format, ...) {
+int mhd_respond(struct MHD_Connection *connection,
+                enum MHD_RequestTerminationCode code,
+                const char *message) {
 
-        struct MHD_Response *response;
+        return mhd_respond_internal(connection, code,
+                                    (char*) message, strlen(message),
+                                    MHD_RESPMEM_PERSISTENT);
+}
+
+int mhd_respond_oom(struct MHD_Connection *connection) {
+        return mhd_respond(connection, MHD_HTTP_SERVICE_UNAVAILABLE,  "Out of memory.\n");
+}
+
+int mhd_respondf(struct MHD_Connection *connection,
+                 enum MHD_RequestTerminationCode code,
+                 const char *format, ...) {
+
         char *m;
         int r;
         va_list ap;
@@ -87,17 +101,9 @@ int respond_error(struct MHD_Connection *connection,
         if (r < 0)
                 return respond_oom(connection);
 
-        response = MHD_create_response_from_buffer(strlen(m), m, MHD_RESPMEM_MUST_FREE);
-        if (!response) {
+        r = mhd_respond_internal(connection, code, m, r, MHD_RESPMEM_MUST_FREE);
+        if (r == MHD_NO)
                 free(m);
-                return respond_oom(connection);
-        }
-
-        log_debug("Queing response %u: %s", code, m);
-        MHD_add_response_header(response, "Content-Type", "text/plain");
-        r = MHD_queue_response(connection, code, response);
-        MHD_destroy_response(response);
-
         return r;
 }
 
@@ -229,8 +235,8 @@ int check_permissions(struct MHD_Connection *connection, int *code) {
                                      MHD_CONNECTION_INFO_GNUTLS_SESSION);
         if (!ci) {
                 log_error("MHD_get_connection_info failed: session is unencrypted");
-                *code = respond_error(connection, MHD_HTTP_FORBIDDEN,
-                                      "Encrypted connection is required");
+                *code = mhd_respond(connection, MHD_HTTP_FORBIDDEN,
+                                    "Encrypted connection is required");
                 return -EPERM;
         }
         session = ci->tls_session;
@@ -238,15 +244,15 @@ int check_permissions(struct MHD_Connection *connection, int *code) {
 
         r = get_client_cert(session, &client_cert);
         if (r < 0) {
-                *code = respond_error(connection, MHD_HTTP_UNAUTHORIZED,
-                                      "Authorization through certificate is required");
+                *code = mhd_respond(connection, MHD_HTTP_UNAUTHORIZED,
+                                    "Authorization through certificate is required");
                 return -EPERM;
         }
 
         r = get_auth_dn(client_cert, &buf);
         if (r < 0) {
-                *code = respond_error(connection, MHD_HTTP_UNAUTHORIZED,
-                                      "Failed to determine distinguished name from certificate");
+                *code = mhd_respond(connection, MHD_HTTP_UNAUTHORIZED,
+                                    "Failed to determine distinguished name from certificate");
                 return -EPERM;
         }
 
@@ -255,8 +261,8 @@ int check_permissions(struct MHD_Connection *connection, int *code) {
         r = verify_cert_authorized(session);
         if (r < 0) {
                 log_warning("Client is not authorized");
-                *code = respond_error(connection, MHD_HTTP_UNAUTHORIZED,
-                                      "Client certificate not signed by recognized authority");
+                *code = mhd_respond(connection, MHD_HTTP_UNAUTHORIZED,
+                                    "Client certificate not signed by recognized authority");
         }
         return r;
 }

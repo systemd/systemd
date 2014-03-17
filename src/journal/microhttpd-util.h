@@ -28,14 +28,18 @@
 
 void microhttpd_logger(void *arg, const char *fmt, va_list ap) _printf_(2, 0);
 
-int respond_oom_internal(struct MHD_Connection *connection);
-
 /* respond_oom() must be usable with return, hence this form. */
-#define respond_oom(connection) log_oom(), respond_oom_internal(connection)
+#define respond_oom(connection) log_oom(), mhd_respond_oom(connection)
 
-int respond_error(struct MHD_Connection *connection,
-                  unsigned code,
-                  const char *format, ...);
+int mhd_respondf(struct MHD_Connection *connection,
+                 unsigned code,
+                 const char *format, ...) _printf_(3,4);
+
+int mhd_respond(struct MHD_Connection *connection,
+                unsigned code,
+                const char *message);
+
+int mhd_respond_oom(struct MHD_Connection *connection);
 
 int check_permissions(struct MHD_Connection *connection, int *code);
 
