@@ -49,7 +49,7 @@ Features:
 
 * support transient mount units
 
-* Imply DevicePolicy=closed when PrivateDevices= is used
+* Imply DevicePolicy=closed and CapabilityBoundingSet=~CAP_SYS_MKNOD when PrivateDevices= is used
 
 * add an "input" group to udev logic and add all input devices to it
 
