@@ -362,13 +362,35 @@ Name=en*
 DHCP=yes</programlisting>
                 </example>
 
+                <example>
+                        <title>/etc/systemd/network/bridge-static.network</title>
+
+                        <programlisting>[Match]
+Name=bridge0
+
+[Network]
+Address=192.168.0.15/24
+Gateway=192.168.0.1
+DNS=192.168.0.1</programlisting>
+                </example>
+
+                <example>
+                        <title>/etc/systemd/network/bridge-slave-interface.network</title>
+
+                        <programlisting>[Match]
+Name=enp2s0
+
+[Network]
+Bridge=bridge0</programlisting>
+                </example>
         </refsect1>
 
         <refsect1>
                 <title>See Also</title>
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 </para>
         </refsect1>
 
