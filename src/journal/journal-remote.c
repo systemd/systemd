@@ -142,7 +142,7 @@ static int spawn_curl(char* url) {
 
 static int spawn_getter(char *getter, char *url) {
         int r;
-        char _cleanup_strv_free_ **words = NULL, **words2 = NULL;
+        char _cleanup_strv_free_ **words = NULL;
 
         assert(getter);
         words = strv_split_quoted(getter);
