@@ -157,12 +157,27 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
       <varlistentry>
         <term><option>--after</option></term>
+
+        <listitem>
+          <para>With <command>list-dependencies</command>, show the
+          units that are ordered before the specified unit. In other
+          words, list the units that are in the <varname>After=</varname>
+          directive of the specified unit, have the specified unit in
+          their <varname>Before=</varname> directive, or are otherwise
+          implicit dependencies of the specified unit.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--before</option></term>
 
         <listitem>
-          <para>Show after (before) which units the specified unit is started
-          with <command>list-dependencies</command>.
-          </para>
+          <para>With <command>list-dependencies</command>, show the
+          units that are ordered after the specified unit. In other
+          words, list the units that are in the <varname>Before=</varname>
+          directive of the specified unit, have the specified unit in
+          their <varname>After=</varname> directive, or otherwise depend
+          on the specified unit.</para>
         </listitem>
       </varlistentry>
 
