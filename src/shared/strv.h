@@ -119,3 +119,15 @@ void strv_print(char **l);
         })
 
 #define STR_IN_SET(x, ...) strv_contains(STRV_MAKE(__VA_ARGS__), x)
+
+#define FOREACH_STRING(x, ...)                               \
+        for (char **_l = ({                                  \
+                char **_ll = STRV_MAKE(__VA_ARGS__);         \
+                x = _ll ? _ll[0] : NULL;                     \
+                _ll;                                         \
+        });                                                  \
+        _l && *_l;                                           \
+        x = ({                                               \
+                _l ++;                                       \
+                _l[0];                                       \
+        }))
