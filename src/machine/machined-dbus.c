@@ -655,7 +655,7 @@ int manager_stop_unit(Manager *manager, const char *unit, sd_bus_error *error, c
         return 1;
 }
 
-int manager_kill_unit(Manager *manager, const char *unit, KillWho who, int signo, sd_bus_error *error) {
+int manager_kill_unit(Manager *manager, const char *unit, int signo, sd_bus_error *error) {
         assert(manager);
         assert(unit);
 
@@ -667,7 +667,7 @@ int manager_kill_unit(Manager *manager, const char *unit, KillWho who, int signo
                         "KillUnit",
                         error,
                         NULL,
-                        "ssi", unit, who == KILL_LEADER ? "main" : "all", signo);
+                        "ssi", unit, "all", signo);
 }
 
 int manager_unit_is_active(Manager *manager, const char *unit) {

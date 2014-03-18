@@ -410,7 +410,15 @@ int machine_kill(Machine *m, KillWho who, int signo) {
         if (!m->unit)
                 return -ESRCH;
 
-        return manager_kill_unit(m->manager, m->unit, who, signo, NULL);
+        if (who == KILL_LEADER) {
+                /* If we shall simply kill the leader, do so directly */
+
+                if (kill(m->leader, signo) < 0)
+                        return -errno;
+        }
+
+        /* Otherwise make PID 1 do it for us, for the entire cgroup */
+        return manager_kill_unit(m->manager, m->unit, signo, NULL);
 }
 
 static const char* const machine_class_table[_MACHINE_CLASS_MAX] = {
