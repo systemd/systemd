@@ -377,12 +377,17 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec,
                                  void *userdata) {
         sd_dhcp_client *client = userdata;
         usec_t next_timeout = 0;
+        uint64_t time_now;
         uint32_t time_left;
-        int r = 0;
+        int r;
 
         assert(s);
         assert(client);
         assert(client->event);
+
+        r = sd_event_get_now_monotonic(client->event, &time_now);
+        if (r < 0)
+                goto error;
 
         switch (client->state) {
         case DHCP_STATE_RENEWING:
@@ -391,7 +396,7 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec,
                 if (time_left < 60)
                         time_left = 60;
 
-                next_timeout = usec + time_left * USEC_PER_SEC;
+                next_timeout = time_now + time_left * USEC_PER_SEC;
 
                 break;
 
@@ -401,7 +406,7 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec,
                 if (time_left < 60)
                         time_left = 60;
 
-                next_timeout = usec + time_left * USEC_PER_SEC;
+                next_timeout = time_now + time_left * USEC_PER_SEC;
                 break;
 
         case DHCP_STATE_INIT:
@@ -414,7 +419,7 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec,
                 if (client->attempt < 64)
                         client->attempt *= 2;
 
-                next_timeout = usec + (client->attempt - 1) * USEC_PER_SEC;
+                next_timeout = time_now + (client->attempt - 1) * USEC_PER_SEC;
 
                 break;
         }
@@ -439,7 +444,7 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec,
         switch (client->state) {
         case DHCP_STATE_INIT:
 
-                client_update_secs(client, usec);
+                client_update_secs(client, time_now);
 
                 r = client_send_discover(client, client->secs);
                 if (r >= 0) {
@@ -453,7 +458,7 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec,
                 break;
 
         case DHCP_STATE_SELECTING:
-                client_update_secs(client, usec);
+                client_update_secs(client, time_now);
 
                 r = client_send_discover(client, client->secs);
                 if (r < 0 && client->attempt >= 64)
@@ -468,7 +473,7 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec,
                 if (r < 0 && client->attempt >= 64)
                          goto error;
 
-                client->request_sent = usec;
+                client->request_sent = time_now;
 
                 break;
 
@@ -490,8 +495,7 @@ error:
 }
 
 static int client_initialize_events(sd_dhcp_client *client,
-                                    sd_event_io_handler_t io_callback,
-                                    usec_t usec) {
+                                    sd_event_io_handler_t io_callback) {
         int r;
 
         assert(client);
@@ -511,8 +515,7 @@ static int client_initialize_events(sd_dhcp_client *client,
         client->timeout_resend = sd_event_source_unref(client->timeout_resend);
 
         r = sd_event_add_monotonic(client->event,
-                                   &client->timeout_resend,
-                                   usec, 0,
+                                   &client->timeout_resend, 0, 0,
                                    client_timeout_resend, client);
         if (r < 0)
                 goto error;
@@ -563,8 +566,7 @@ static int client_timeout_t2(sd_event_source *s, uint64_t usec, void *userdata) 
 
         log_dhcp_client(client, "TIMEOUT T2");
 
-        return client_initialize_events(client, client_receive_message_raw,
-                                        usec);
+        return client_initialize_events(client, client_receive_message_raw);
 }
 
 static int client_timeout_t1(sd_event_source *s, uint64_t usec,
@@ -587,7 +589,7 @@ static int client_timeout_t1(sd_event_source *s, uint64_t usec,
 
         log_dhcp_client(client, "TIMEOUT T1");
 
-        return client_initialize_events(client, client_receive_message_udp, usec);
+        return client_initialize_events(client, client_receive_message_udp);
 }
 
 static int client_handle_offer(sd_dhcp_client *client, DHCPMessage *offer,
@@ -696,10 +698,10 @@ static int client_set_lease_timeouts(sd_dhcp_client *client, uint64_t usec) {
                 return -EINVAL;
 
         r = sd_event_add_monotonic(client->event,
-                                     &client->timeout_t1,
-                                     next_timeout,
-                                     10 * USEC_PER_MSEC,
-                                     client_timeout_t1, client);
+                                   &client->timeout_t1,
+                                   next_timeout,
+                                   10 * USEC_PER_MSEC,
+                                   client_timeout_t1, client);
         if (r < 0)
                 return r;
 
@@ -723,10 +725,10 @@ static int client_set_lease_timeouts(sd_dhcp_client *client, uint64_t usec) {
                 return -EINVAL;
 
         r = sd_event_add_monotonic(client->event,
-                                     &client->timeout_t2,
-                                     next_timeout,
-                                     10 * USEC_PER_MSEC,
-                                     client_timeout_t2, client);
+                                   &client->timeout_t2,
+                                   next_timeout,
+                                   10 * USEC_PER_MSEC,
+                                   client_timeout_t2, client);
         if (r < 0)
                 return r;
 
@@ -741,9 +743,9 @@ static int client_set_lease_timeouts(sd_dhcp_client *client, uint64_t usec) {
                 return -EINVAL;
 
         r = sd_event_add_monotonic(client->event,
-                                     &client->timeout_expire, next_timeout,
-                                     10 * USEC_PER_MSEC,
-                                     client_timeout_expire, client);
+                                   &client->timeout_expire, next_timeout,
+                                   10 * USEC_PER_MSEC,
+                                   client_timeout_expire, client);
         if (r < 0)
                 return r;
 
@@ -801,9 +803,8 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message,
                         client->attempt = 1;
 
                         r = sd_event_add_monotonic(client->event,
-                                                   &client->timeout_resend,
-                                                   time_now, 0,
-                                                   client_timeout_resend,
+                                                   &client->timeout_resend, 0,
+                                                   0, client_timeout_resend,
                                                    client);
                         if (r < 0)
                                 goto error;
@@ -987,8 +988,7 @@ int sd_dhcp_client_start(sd_dhcp_client *client) {
 
         log_dhcp_client(client, "STARTED");
 
-        return client_initialize_events(client, client_receive_message_raw,
-                                        client->start_time);
+        return client_initialize_events(client, client_receive_message_raw);
 }
 
 int sd_dhcp_client_stop(sd_dhcp_client *client) {
