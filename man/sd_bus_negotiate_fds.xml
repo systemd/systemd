@@ -1,0 +1,176 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+This file is part of systemd.
+
+Copyright 2014 Lennart Poettering
+
+systemd is free software; you can redistribute it and/or modify it
+under the terms of the GNU Lesser General Public License as published by
+the Free Software Foundation; either version 2.1 of the License, or
+(at your option) any later version.
+
+systemd is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public License
+along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="sd_bus_negotiate_fds" conditional="ENABLE_KDBUS">
+
+  <refentryinfo>
+    <title>sd_bus_new</title>
+    <productname>systemd</productname>
+
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Lennart</firstname>
+        <surname>Poettering</surname>
+        <email>lennart@poettering.net</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_bus_negotiate_fds</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_bus_negotiate_fds</refname>
+    <refname>sd_bus_negotiate_timestamps</refname>
+    <refname>sd_bus_negotiate_creds</refname>
+
+    <refpurpose>Control feature negotiation on bus connections</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_negotiate_fds</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>int <parameter>b</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_negotiate_timestamp</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>int <parameter>b</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_negotiate_creds</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>int <parameter>b</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_bus_negotiate_fds()</function> controls whether
+    file descriptor passing shall be negotiated for the specified bus
+    connection. Takes a bus object and a boolean, which when true
+    enables file descriptor passing, and when false disables it. Note
+    that not all transports and servers support file descriptor
+    passing. To find out whether file descriptor passing is available
+    after negotiation use
+    <citerefentry><refentrytitle>sd_bus_can_send</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    and pass <constant>SD_BUS_TYPE_UNIX_FD</constant>. Note that file
+    descriptor passing is always enabled for both sending and
+    receiving or for neither, but never only in one direction. By
+    default file descriptor passing is negotiated for all
+    connections.</para>
+
+    <para>Note that when bus activation is used it is highly
+    recommended to set the <option>AcceptFileDescriptors=</option>
+    setting in the <filename>.busname</filename> unit file to the same
+    setting as negotiated by the program ultimately activated. By
+    default file descriptor passing is enabled for both.</para>
+
+    <para><function>sd_bus_negotiate_timestamps()</function> controls
+    whether implicit sender timestamps shall be attached automatically
+    to all incoming messages. Takes a bus object and a boolean, which
+    when true enables timestamping, and when false disables it. If
+    this is disabled,
+    <citerefentry><refentrytitle>sd_bus_message_get_monotonic_usec</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd_bus_message_get_realtime_usec</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd_bus_message_get_seqno</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    fail with <constant>-ENODATA</constant> on incoming messages. Note
+    that not all transports support timestamping of messages. On local
+    transports the timestamping is applied by the kernel and cannot be
+    manipulated by userspace.</para>
+
+    <para><function>sd_bus_negotiate_creds()</function> controls
+    whether implicit sender credentials shall be attached
+    automatically to all incoming messages. Takes a bus object and a
+    bit mask value, which controls which credential parameters are
+    attached. If this is not used,
+    <citerefentry><refentrytitle>sd_bus_message_get_creds</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    fails with <constant>-ENODATA</constant> on incoming
+    messages. Note that not all transports support attaching sender
+    credentials to messages, or do not support all types of sender
+    credential parameters. On local transports the sender credentials
+    are attached by the kernel and cannot be manipulated by
+    userspace. By default no sender credentials are attached.</para>
+
+    <para>These functions may be called only before the connection has
+    been started with
+    <citerefentry><refentrytitle>sd_bus_start</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, these functions returns 0 or a
+    positive integer. On failure, it returns a negative errno-style
+    error code.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Errors</title>
+
+    <para>Returned errors may indicate the following problems:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><varname>-EPERM</varname></term>
+
+        <listitem><para>The bus connection has already been started.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Notes</title>
+
+    <para><function>sd_bus_negotiate_fs()</function> and the other
+    functions described here are available as a shared library, which
+    can be compiled and linked to with the
+    <constant>libsystemd</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    file.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_start</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_message_can_send</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_message_get_monotonic_usec</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_message_get_creds</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>
