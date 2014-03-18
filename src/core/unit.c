@@ -2830,6 +2830,9 @@ int unit_exec_context_patch_defaults(Unit *u, ExecContext *c) {
              !set_isempty(c->address_families)))
                 c->no_new_privileges = true;
 
+        if (c->private_devices)
+                c->capability_bounding_set_drop |= (uint64_t) 1ULL << (uint64_t) CAP_MKNOD;
+
         return 0;
 }
 

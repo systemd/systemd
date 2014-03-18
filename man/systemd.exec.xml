@@ -908,8 +908,11 @@
                                 <filename>/dev/sda</filename>. This is
                                 useful to securely turn off physical
                                 device access by the executed
-                                process. Defaults to
-                                false.</para></listitem>
+                                process. Defaults to false. Note that
+                                enabling this option implies that
+                                <constant>CAP_MKNOD</constant> is
+                                removed from the capability bounding
+                                set for the unit.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
