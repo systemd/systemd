@@ -54,6 +54,10 @@ static int get_line(RemoteSource *source, char **line, size_t *size) {
                 goto docopy;
 
  resize:
+        if (source->fd < 0)
+                /* we have to wait for some data to come to us */
+                return -EWOULDBLOCK;
+
         if (source->size - source->filled < LINE_CHUNK) {
                 // XXX: add check for maximum line length
 
@@ -130,6 +134,10 @@ static int fill_fixed_size(RemoteSource *source, void **data, size_t size) {
         assert(data);
 
         while(source->filled < size) {
+                if (source->fd < 0)
+                        /* we have to wait for some data to come to us */
+                        return -EWOULDBLOCK;
+
                 if (!GREEDY_REALLOC(source->buf, source->size, size))
                         return log_oom();
 
