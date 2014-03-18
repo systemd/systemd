@@ -3476,6 +3476,24 @@ systemd_journal_remote_LDADD += \
 endif
 endif
 
+if HAVE_LIBCURL
+rootlibexec_PROGRAMS += \
+	systemd-journal-upload
+
+systemd_journal_upload_SOURCES = \
+	src/journal-remote/journal-upload.h \
+	src/journal-remote/journal-upload.c
+
+systemd_journal_upload_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(LIBCURL_CFLAGS)
+
+systemd_journal_upload_LDADD = \
+	libsystemd-core.la \
+	libsystemd-internal.la \
+	$(LIBCURL_LIBS)
+endif
+
 # using _CFLAGS = in the conditional below would suppress AM_CFLAGS
 journalctl_CFLAGS = \
 	$(AM_CFLAGS)

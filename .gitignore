@@ -77,14 +77,15 @@
 /systemd-hostnamed
 /systemd-inhibit
 /systemd-initctl
-/systemd-journald
 /systemd-journal-gatewayd
 /systemd-journal-remote
+/systemd-journal-upload
+/systemd-journald
 /systemd-kmsg-syslogd
 /systemd-localed
 /systemd-logind
-/systemd-machined
 /systemd-machine-id-setup
+/systemd-machined
 /systemd-modules-load
 /systemd-multi-seat-x
 /systemd-networkd
