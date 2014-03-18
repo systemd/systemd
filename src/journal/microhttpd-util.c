@@ -35,12 +35,9 @@
 #endif
 
 void microhttpd_logger(void *arg, const char *fmt, va_list ap) {
-        _cleanup_free_ char *f = NULL;
+        char *f;
 
-        if (asprintf(&f, "microhttpd: %s", fmt) <= 0) {
-                log_oom();
-                return;
-        }
+        f = strappenda("microhttpd: ", fmt);
 
         DISABLE_WARNING_FORMAT_NONLITERAL;
         log_metav(LOG_INFO, NULL, 0, NULL, f, ap);
@@ -101,10 +98,7 @@ int mhd_respondf(struct MHD_Connection *connection,
         if (r < 0)
                 return respond_oom(connection);
 
-        r = mhd_respond_internal(connection, code, m, r, MHD_RESPMEM_MUST_FREE);
-        if (r == MHD_NO)
-                free(m);
-        return r;
+        return mhd_respond_internal(connection, code, m, r, MHD_RESPMEM_MUST_FREE);
 }
 
 #ifdef HAVE_GNUTLS
@@ -256,7 +250,7 @@ int check_permissions(struct MHD_Connection *connection, int *code) {
                 return -EPERM;
         }
 
-        log_info("Connection from DN %s", buf);
+        log_info("Connection from %s", buf);
 
         r = verify_cert_authorized(session);
         if (r < 0) {
