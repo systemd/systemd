@@ -56,6 +56,8 @@ struct BusName {
 
         sd_event_source *event_source;
 
+        bool accept_fd;
+
         LIST_HEAD(BusNamePolicy, policy);
 };
 

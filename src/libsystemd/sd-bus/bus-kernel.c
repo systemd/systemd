@@ -1378,7 +1378,7 @@ static void bus_kernel_translate_policy(const BusNamePolicy *policy, struct kdbu
         }
 }
 
-int bus_kernel_create_starter(const char *bus, const char *name, BusNamePolicy *policy) {
+int bus_kernel_create_starter(const char *bus, const char *name, bool accept_fd, BusNamePolicy *policy) {
         struct kdbus_cmd_hello *hello;
         struct kdbus_item *n;
         size_t policy_cnt = 0;
@@ -1420,7 +1420,7 @@ int bus_kernel_create_starter(const char *bus, const char *name, BusNamePolicy *
         }
 
         hello->size = size;
-        hello->conn_flags = KDBUS_HELLO_ACTIVATOR|KDBUS_HELLO_ACCEPT_FD;
+        hello->conn_flags = KDBUS_HELLO_ACTIVATOR | (accept_fd ? KDBUS_HELLO_ACCEPT_FD : 0);
         hello->pool_size = KDBUS_POOL_SIZE;
 
         if (ioctl(fd, KDBUS_CMD_HELLO, hello) < 0) {
