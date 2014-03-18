@@ -338,6 +338,10 @@ int mount_cgroup_controllers(char ***join_controllers) {
                 }
         }
 
+        /* Now that we mounted everything, let's make the tmpfs the
+         * cgroup file systems are mounted into read-only. */
+        mount("tmpfs", "/sys/fs/cgroup", "tmpfs", MS_REMOUNT|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME|MS_RDONLY, "mode=755");
+
         return 0;
 }
 
