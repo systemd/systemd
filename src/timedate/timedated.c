@@ -126,7 +126,7 @@ static int context_read_data(Context *c) {
         r = readlink_malloc("/etc/localtime", &t);
         if (r < 0) {
                 if (r == -EINVAL)
-                        log_warning("/etc/localtime should be a symbolic link to a timezone data file in /usr/share/zoneinfo/.");
+                        log_warning("/etc/localtime should be a symbolic link to a time zone data file in /usr/share/zoneinfo/.");
                 else
                         log_warning("Failed to get target of /etc/localtime: %s", strerror(-r));
         } else {
@@ -137,7 +137,7 @@ static int context_read_data(Context *c) {
                         e = path_startswith(t, "../usr/share/zoneinfo/");
 
                 if (!e)
-                        log_warning("/etc/localtime should be a symbolic link to a timezone data file in /usr/share/zoneinfo/.");
+                        log_warning("/etc/localtime should be a symbolic link to a time zone data file in /usr/share/zoneinfo/.");
                 else {
                         c->zone = strdup(e);
                         if (!c->zone)
@@ -263,9 +263,8 @@ static char** get_ntp_services(void) {
                         char line[PATH_MAX], *l;
 
                         if (!fgets(line, sizeof(line), f)) {
-
                                 if (ferror(f))
-                                        log_error("Failed to read NTP units file: %m");
+                                        log_error("Failed to read NTP unit file: %m");
 
                                 break;
                         }
@@ -313,7 +312,7 @@ static int context_read_ntp(Context *c, sd_bus *bus) {
                                 *i);
 
                 if (r < 0) {
-                        /* This implementation does not exist, try next one */
+                        /* This implementation does not exist. Try the next one. */
                         if (sd_bus_error_has_name(&error, SD_BUS_ERROR_FILE_NOT_FOUND))
                                 continue;
 
@@ -376,7 +375,7 @@ static int context_start_ntp(Context *c, sd_bus *bus, sd_bus_error *error) {
                         if (sd_bus_error_has_name(error, SD_BUS_ERROR_FILE_NOT_FOUND) ||
                             sd_bus_error_has_name(error, "org.freedesktop.systemd1.LoadFailed") ||
                             sd_bus_error_has_name(error, "org.freedesktop.systemd1.NoSuchUnit")) {
-                                /* This implementation does not exist, try next one */
+                                /* This implementation does not exist. Try the next one. */
                                 sd_bus_error_free(error);
                                 continue;
                         }
@@ -425,7 +424,7 @@ static int context_enable_ntp(Context*c, sd_bus *bus, sd_bus_error *error) {
 
                 if (r < 0) {
                         if (sd_bus_error_has_name(error, SD_BUS_ERROR_FILE_NOT_FOUND)) {
-                                /* This implementation does not exist, try next one */
+                                /* This implementation does not exist. Try the next one. */
                                 sd_bus_error_free(error);
                                 continue;
                         }
@@ -468,10 +467,10 @@ static int property_get_rtc_time(
         zero(tm);
         r = hwclock_get_time(&tm);
         if (r == -EBUSY) {
-                log_warning("/dev/rtc is busy, is somebody keeping it open continuously? That's not a good idea... Returning a bogus RTC timestamp.");
+                log_warning("/dev/rtc is busy. Is somebody keeping it open continuously? That's not a good idea... Returning a bogus RTC timestamp.");
                 t = 0;
         } else if (r == -ENOENT) {
-                log_debug("Not /dev/rtc found.");
+                log_debug("/dev/rtc not found.");
                 t = 0; /* no RTC found */
         } else if (r < 0)
                 return sd_bus_error_set_errnof(error, r, "Failed to read RTC: %s", strerror(-r));
@@ -542,8 +541,8 @@ static int method_set_timezone(sd_bus *bus, sd_bus_message *m, void *userdata, s
         /* 1. Write new configuration file */
         r = context_write_data_timezone(c);
         if (r < 0) {
-                log_error("Failed to set timezone: %s", strerror(-r));
-                return sd_bus_error_set_errnof(error, r, "Failed to set timezone: %s", strerror(-r));
+                log_error("Failed to set time zone: %s", strerror(-r));
+                return sd_bus_error_set_errnof(error, r, "Failed to set time zone: %s", strerror(-r));
         }
 
         /* 2. Tell the kernel our timezone */
@@ -562,7 +561,7 @@ static int method_set_timezone(sd_bus *bus, sd_bus_message *m, void *userdata, s
         log_struct(LOG_INFO,
                    MESSAGE_ID(SD_MESSAGE_TIMEZONE_CHANGE),
                    "TIMEZONE=%s", c->zone,
-                   "MESSAGE=Changed timezone to '%s'.", c->zone,
+                   "MESSAGE=Changed time zone to '%s'.", c->zone,
                    NULL);
 
         sd_bus_emit_properties_changed(bus, "/org/freedesktop/timedate1", "org.freedesktop.timedate1", "Timezone", NULL);
@@ -847,7 +846,7 @@ int main(int argc, char *argv[]) {
 
         r = context_read_data(&context);
         if (r < 0) {
-                log_error("Failed to read timezone data: %s", strerror(-r));
+                log_error("Failed to read time zone data: %s", strerror(-r));
                 goto finish;
         }
 

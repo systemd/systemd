@@ -205,7 +205,7 @@ static int sntp_send_request(SNTPContext *sntp) {
          * matching answer to our request.
          *
          * The actual value does not matter, We do not care about the correct
-         * NTP UINT_MAX fraction, we just pass the plain nanosecond value.
+         * NTP UINT_MAX fraction; we just pass the plain nanosecond value.
          */
         clock_gettime(CLOCK_MONOTONIC, &sntp->trans_time_mon);
         clock_gettime(CLOCK_REALTIME, &sntp->trans_time);
@@ -293,7 +293,7 @@ static int sntp_clock_watch(sd_event_source *source, int fd, uint32_t revents, v
         }
 
         /* resync */
-        log_info("System time changed, resyncing.");
+        log_info("System time changed. Resyncing.");
         sntp->poll_resync = true;
         sntp_send_request(sntp);
 
@@ -499,24 +499,24 @@ static int sntp_receive_response(sd_event_source *source, int fd, uint32_t reven
         int r;
 
         if (revents & (EPOLLHUP|EPOLLERR)) {
-                log_debug("Server connection returned error, closing.");
+                log_debug("Server connection returned error. Closing.");
                 sntp_server_disconnect(sntp);
                 return -ENOTCONN;
         }
 
         len = recvmsg(fd, &msghdr, MSG_DONTWAIT);
         if (len < 0) {
-                log_debug("Error receiving message, disconnecting");
+                log_debug("Error receiving message. Disconnecting.");
                 return -EINVAL;
         }
 
         if (iov.iov_len < sizeof(struct ntp_msg)) {
-                log_debug("Invalid response from server, disconnecting");
+                log_debug("Invalid response from server. Disconnecting.");
                 return -EINVAL;
         }
 
         if (sntp->server_addr.sin_addr.s_addr != server_addr.sin_addr.s_addr) {
-                log_debug("Response from unknown server, disconnecting");
+                log_debug("Response from unknown server. Disconnecting.");
                 return -EINVAL;
         }
 
@@ -532,35 +532,35 @@ static int sntp_receive_response(sd_event_source *source, int fd, uint32_t reven
                 }
         }
         if (!recv_time) {
-                log_debug("Invalid packet timestamp, disconnecting");
+                log_debug("Invalid packet timestamp. Disconnecting.");
                 return -EINVAL;
         }
 
         ntpmsg = iov.iov_base;
         if (!sntp->pending) {
-                log_debug("Unexpected reply, ignoring");
+                log_debug("Unexpected reply. Ignoring.");
                 return 0;
         }
 
         /* check our "time cookie" (we just stored nanoseconds in the fraction field) */
-        if (be32toh(ntpmsg->origin_time.sec) != sntp->trans_time.tv_sec + OFFSET_1900_1970||
+        if (be32toh(ntpmsg->origin_time.sec) != sntp->trans_time.tv_sec + OFFSET_1900_1970 ||
             be32toh(ntpmsg->origin_time.frac) != sntp->trans_time.tv_nsec) {
-                log_debug("Invalid reply, not our transmit time, ignoring");
+                log_debug("Invalid reply; not our transmit time. Ignoring.");
                 return 0;
         }
 
         if (NTP_FIELD_LEAP(ntpmsg->field) == NTP_LEAP_NOTINSYNC) {
-                log_debug("Server is not synchronized, disconnecting");
+                log_debug("Server is not synchronized. Disconnecting.");
                 return -EINVAL;
         }
 
         if (NTP_FIELD_VERSION(ntpmsg->field) != 4) {
-                log_debug("Response NTPv%d, disconnecting", NTP_FIELD_VERSION(ntpmsg->field));
+                log_debug("Response NTPv%d. Disconnecting.", NTP_FIELD_VERSION(ntpmsg->field));
                 return -EINVAL;
         }
 
         if (NTP_FIELD_MODE(ntpmsg->field) != NTP_MODE_SERVER) {
-                log_debug("Unsupported mode %d, disconnecting", NTP_FIELD_MODE(ntpmsg->field));
+                log_debug("Unsupported mode %d. Disconnecting.", NTP_FIELD_MODE(ntpmsg->field));
                 return -EINVAL;
         }
 
@@ -584,7 +584,7 @@ static int sntp_receive_response(sd_event_source *source, int fd, uint32_t reven
          *  Transmit Timestamp      T3   time reply sent by server
          *  Destination Timestamp   T4   time reply received by client
          *
-         *  The roundtrip delay d and system clock offset t are defined as:
+         *  The round-trip delay, d, and system clock offset, t, are defined as:
          *  d = (T4 - T1) - (T3 - T2)     t = ((T2 - T1) + (T3 - T4)) / 2"
          */
         clock_gettime(CLOCK_MONOTONIC, &now_ts);

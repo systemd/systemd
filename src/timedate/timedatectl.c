@@ -109,7 +109,7 @@ static void print_status_info(const StatusInfo *i) {
 
         /* Enforce the values of /etc/localtime */
         if (getenv("TZ")) {
-                fprintf(stderr, "Warning: ignoring the TZ variable, reading the system's timezone setting only.\n\n");
+                fprintf(stderr, "Warning: Ignoring the TZ variable. Reading the system's time zone setting only.\n\n");
                 unsetenv("TZ");
         }
 
@@ -120,7 +120,7 @@ static void print_status_info(const StatusInfo *i) {
                 sec = time(NULL);
                 have_time = true;
         } else
-                fprintf(stderr, "Warning: could not get time from timedated and not operating locally.\n\n");
+                fprintf(stderr, "Warning: Could not get time from timedated and not operating locally.\n\n");
 
         if (have_time) {
                 zero(tm);
@@ -151,7 +151,7 @@ static void print_status_info(const StatusInfo *i) {
         zero(tm);
         assert_se(strftime(a, sizeof(a), "%Z, %z", localtime_r(&sec, &tm)) > 0);
         char_array_0(a);
-        printf("        Timezone: %s (%s)\n"
+        printf("       Time zone: %s (%s)\n"
                "     NTP enabled: %s\n"
                "NTP synchronized: %s\n"
                " RTC in local TZ: %s\n",
@@ -198,10 +198,10 @@ static void print_status_info(const StatusInfo *i) {
 
         if (i->rtc_local)
                 fputs("\n" ANSI_HIGHLIGHT_ON
-                      "Warning: The RTC is configured to maintain time in the local timezone. This\n"
+                      "Warning: The RTC is configured to maintain time in the local time zone. This\n"
                       "         mode is not fully supported and will create various problems with time\n"
-                      "         zone changes and daylight saving adjustments. If at all possible use\n"
-                      "         RTC in UTC, by calling 'timedatectl set-local-rtc 0'" ANSI_HIGHLIGHT_OFF ".\n", stdout);
+                      "         zone changes and daylight saving time adjustments. If at all possible, use\n"
+                      "         RTC in UTC by calling 'timedatectl set-local-rtc 0'" ANSI_HIGHLIGHT_OFF ".\n", stdout);
 }
 
 static int show_status(sd_bus *bus, char **args, unsigned n) {
@@ -286,7 +286,7 @@ static int set_timezone(sd_bus *bus, char **args, unsigned n) {
                                NULL,
                                "sb", args[1], arg_ask_password);
         if (r < 0)
-                log_error("Failed to set timezone: %s", bus_error_message(&error, -r));
+                log_error("Failed to set time zone: %s", bus_error_message(&error, -r));
 
         return r;
 }
@@ -359,7 +359,7 @@ static int list_timezones(sd_bus *bus, char **args, unsigned n) {
 
         f = fopen("/usr/share/zoneinfo/zone.tab", "re");
         if (!f) {
-                log_error("Failed to open timezone database: %m");
+                log_error("Failed to open time zone database: %m");
                 return -errno;
         }
 
@@ -371,7 +371,7 @@ static int list_timezones(sd_bus *bus, char **args, unsigned n) {
                         if (feof(f))
                                 break;
 
-                        log_error("Failed to read timezone database: %m");
+                        log_error("Failed to read time zone database: %m");
                         return -errno;
                 }
 
@@ -379,7 +379,6 @@ static int list_timezones(sd_bus *bus, char **args, unsigned n) {
 
                 if (isempty(p) || *p == '#')
                         continue;
-
 
                 /* Skip over country code */
                 p += strcspn(p, WHITESPACE);
@@ -423,7 +422,7 @@ static int help(void) {
 
         printf("%s [OPTIONS...] COMMAND ...\n\n"
                "Query or change system time and date settings.\n\n"
-               "  -h --help                Show this help\n"
+               "  -h --help                Show this help message\n"
                "     --version             Show package version\n"
                "     --no-pager            Do not pipe output into a pager\n"
                "     --no-ask-password     Do not prompt for password\n"
@@ -433,8 +432,8 @@ static int help(void) {
                "Commands:\n"
                "  status                   Show current time settings\n"
                "  set-time TIME            Set system time\n"
-               "  set-timezone ZONE        Set system timezone\n"
-               "  list-timezones           Show known timezones\n"
+               "  set-timezone ZONE        Set system time zone\n"
+               "  list-timezones           Show known time zones\n"
                "  set-local-rtc BOOL       Control whether RTC is in local time\n"
                "  set-ntp BOOL             Control whether NTP is enabled\n",
                program_invocation_short_name);
