@@ -370,6 +370,20 @@ static int kill_machine(sd_bus *bus, char **args, unsigned n) {
         return 0;
 }
 
+static int reboot_machine(sd_bus *bus, char **args, unsigned n) {
+        arg_kill_who = "leader";
+        arg_signal = SIGINT; /* sysvinit + systemd */
+
+        return kill_machine(bus, args, n);
+}
+
+static int poweroff_machine(sd_bus *bus, char **args, unsigned n) {
+        arg_kill_who = "leader";
+        arg_signal = SIGRTMIN+4; /* only systemd */
+
+        return kill_machine(bus, args, n);
+}
+
 static int terminate_machine(sd_bus *bus, char **args, unsigned n) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         unsigned i;
@@ -391,69 +405,6 @@ static int terminate_machine(sd_bus *bus, char **args, unsigned n) {
                 if (r < 0) {
                         log_error("Could not terminate machine: %s", bus_error_message(&error, -r));
                         return r;
-                }
-        }
-
-        return 0;
-}
-
-static int reboot_machine(sd_bus *bus, char **args, unsigned n) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        unsigned i;
-        int r;
-
-        assert(args);
-
-        if (arg_transport != BUS_TRANSPORT_LOCAL) {
-                log_error("Reboot only supported on local machines.");
-                return -ENOTSUP;
-        }
-
-        for (i = 1; i < n; i++) {
-                _cleanup_bus_message_unref_ sd_bus_message *reply = NULL, *reply2 = NULL;
-                const char *path;
-                uint32_t leader;
-
-                r = sd_bus_call_method(
-                                bus,
-                                "org.freedesktop.machine1",
-                                "/org/freedesktop/machine1",
-                                "org.freedesktop.machine1.Manager",
-                                "GetMachine",
-                                &error,
-                                &reply,
-                                "s", args[i]);
-
-                if (r < 0) {
-                        log_error("Could not get path to machine: %s", bus_error_message(&error, -r));
-                        return r;
-                }
-
-                r = sd_bus_message_read(reply, "o", &path);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                r = sd_bus_get_property(
-                                bus,
-                                "org.freedesktop.machine1",
-                                path,
-                                "org.freedesktop.machine1.Machine",
-                                "Leader",
-                                &error,
-                                &reply2,
-                                "u");
-                if (r < 0) {
-                        log_error("Failed to retrieve PID of leader: %s", strerror(-r));
-                        return r;
-                }
-
-                r = sd_bus_message_read(reply2, "u", &leader);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                if (kill(leader, SIGINT) < 0) {
-                        log_error("Failed to kill init process " PID_FMT ": %m", (pid_t) leader);
-                        return -errno;
                 }
         }
 
@@ -687,10 +638,11 @@ static int help(void) {
                "  list                   List running VMs and containers\n"
                "  status NAME...         Show VM/container status\n"
                "  show NAME...           Show properties of one or more VMs/containers\n"
-               "  terminate NAME...      Terminate one or more VMs/containers\n"
-               "  kill NAME...           Send signal to processes of a VM/container\n"
+               "  login NAME             Get a login prompt on a container\n"
+               "  poweroff NAME...       Power off one or more containers\n"
                "  reboot NAME...         Reboot one or more containers\n"
-               "  login NAME             Get a login prompt on a container\n",
+               "  kill NAME...           Send signal to processes of a VM/container\n"
+               "  terminate NAME...      Terminate one or more VMs/containers\n",
                program_invocation_short_name);
 
         return 0;
@@ -814,6 +766,7 @@ static int machinectl_main(sd_bus *bus, int argc, char *argv[]) {
                 { "show",                  MORE,   1, show              },
                 { "terminate",             MORE,   2, terminate_machine },
                 { "reboot",                MORE,   2, reboot_machine    },
+                { "poweroff",              MORE,   2, poweroff_machine  },
                 { "kill",                  MORE,   2, kill_machine      },
                 { "login",                 MORE,   2, login_machine     },
         };

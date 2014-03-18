@@ -203,14 +203,45 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>terminate</command> <replaceable>ID</replaceable>...</term>
+                                <term><command>login</command> <replaceable>ID</replaceable></term>
 
-                                <listitem><para>Terminates a virtual
-                                machine or container. This kills all
-                                processes of the virtual machine or
-                                container and deallocates all
-                                resources attached to that
-                                instance.</para></listitem>
+                                <listitem><para>Open a terminal login
+                                session to a container. This will
+                                create a TTY connection to a specific
+                                container and asks for the execution of a
+                                getty on it. Note that this is only
+                                supported for containers running
+                                <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                                as init system.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><command>reboot</command> <replaceable>ID</replaceable>...</term>
+
+                                <listitem><para>Reboot one or more
+                                containers. This will trigger a reboot
+                                by sending SIGINT to the container's
+                                init process, which is roughly
+                                equivalent to pressing Ctrl+Alt+Del on
+                                a non-containerized system, and is
+                                compatible with containers running any
+                                init system.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><command>poweroff</command> <replaceable>ID</replaceable>...</term>
+
+                                <listitem><para>Power off one or more
+                                containers. This will trigger a reboot
+                                by sending SIGRTMIN+4 to the
+                                container's init process, which causes
+                                systemd-compatible init systems to
+                                shut down cleanly. This operation does
+                                not work on containers that do not run
+                                a
+                                <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>-compatible
+                                init system, such as
+                                sysvinit.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -229,29 +260,16 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>reboot</command> <replaceable>ID</replaceable>...</term>
+                                <term><command>terminate</command> <replaceable>ID</replaceable>...</term>
 
-                                <listitem><para>Reboot one or more
-                                containers. This will trigger a reboot
-                                by sending SIGINT to the container's
-                                init process, which is roughly
-                                equivalent to pressing Ctrl+Alt+Del on
-                                a non-containerized
-                                system.</para></listitem>
+                                <listitem><para>Terminates a virtual
+                                machine or container. This kills all
+                                processes of the virtual machine or
+                                container and deallocates all
+                                resources attached to that
+                                instance.</para></listitem>
                         </varlistentry>
 
-                        <varlistentry>
-                                <term><command>login</command> <replaceable>ID</replaceable></term>
-
-                                <listitem><para>Open a terminal login
-                                session to a container. This will
-                                create a TTY connection to a specific
-                                container and asks for the execution of a
-                                getty on it. Note that this is only
-                                supported for containers running
-                                <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-                                as init system.</para></listitem>
-                        </varlistentry>
                 </variablelist>
 
         </refsect1>
