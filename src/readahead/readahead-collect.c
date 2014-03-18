@@ -176,8 +176,7 @@ finish:
         if (start != MAP_FAILED)
                 munmap(start, l);
 
-        if (fd >= 0)
-                close_nointr_nofail(fd);
+        safe_close(fd);
 
         return r;
 }
@@ -493,16 +492,12 @@ static int collect(const char *root) {
                                 log_warning("readlink(%s) failed: %s", fn, strerror(-k));
 
                 next_iteration:
-                        if (m->fd >= 0)
-                                close_nointr_nofail(m->fd);
+                        safe_close(m->fd);
                 }
         }
 
 done:
-        if (fanotify_fd >= 0) {
-                close_nointr_nofail(fanotify_fd);
-                fanotify_fd = -1;
-        }
+        fanotify_fd = safe_close(fanotify_fd);
 
         log_debug("Writing Pack File...");
 
@@ -592,14 +587,9 @@ done:
         log_debug("Done.");
 
 finish:
-        if (fanotify_fd >= 0)
-                close_nointr_nofail(fanotify_fd);
-
-        if (signal_fd >= 0)
-                close_nointr_nofail(signal_fd);
-
-        if (inotify_fd >= 0)
-                close_nointr_nofail(inotify_fd);
+        safe_close(fanotify_fd);
+        safe_close(signal_fd);
+        safe_close(inotify_fd);
 
         if (pack) {
                 fclose(pack);

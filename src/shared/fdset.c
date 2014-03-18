@@ -82,7 +82,7 @@ int fdset_put_dup(FDSet *s, int fd) {
 
         r = fdset_put(s, copy);
         if (r < 0) {
-                close_nointr_nofail(copy);
+                safe_close(copy);
                 return r;
         }
 

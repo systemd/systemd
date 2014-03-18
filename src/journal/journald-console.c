@@ -107,5 +107,5 @@ void server_forward_console(
         if (writev(fd, iovec, n) < 0)
                 log_debug("Failed to write to %s for logging: %m", tty);
 
-        close_nointr_nofail(fd);
+        safe_close(fd);
 }

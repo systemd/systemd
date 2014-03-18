@@ -407,8 +407,7 @@ int session_load(Session *s) {
                    trigger the EOF. */
 
                 fd = session_create_fifo(s);
-                if (fd >= 0)
-                        close_nointr_nofail(fd);
+                safe_close(fd);
         }
 
         if (realtime) {
@@ -864,13 +863,8 @@ int session_create_fifo(Session *s) {
 static void session_remove_fifo(Session *s) {
         assert(s);
 
-        if (s->fifo_event_source)
-                s->fifo_event_source = sd_event_source_unref(s->fifo_event_source);
-
-        if (s->fifo_fd >= 0) {
-                close_nointr_nofail(s->fifo_fd);
-                s->fifo_fd = -1;
-        }
+        s->fifo_event_source = sd_event_source_unref(s->fifo_event_source);
+        s->fifo_fd = safe_close(s->fifo_fd);
 
         if (s->fifo_path) {
                 unlink(s->fifo_path);
@@ -950,7 +944,7 @@ static int session_open_vt(Session *s) {
         s->vtfd = open(path, O_RDWR | O_CLOEXEC | O_NONBLOCK | O_NOCTTY);
         if (s->vtfd < 0) {
                 log_error("cannot open VT %s of session %s: %m", path, s->id);
-                return -1;
+                return -errno;
         }
 
         return s->vtfd;
@@ -1022,13 +1016,13 @@ void session_restore_vt(Session *s) {
 
         if (read_one_line_file("/sys/module/vt/parameters/default_utf8", &utf8) >= 0 && *utf8 == '1')
                 kb = K_UNICODE;
+
         ioctl(vt, KDSKBMODE, kb);
 
         mode.mode = VT_AUTO;
         ioctl(vt, VT_SETMODE, &mode);
 
-        close_nointr_nofail(vt);
-        s->vtfd = -1;
+        s->vtfd = safe_close(s->vtfd);
 }
 
 bool session_is_controller(Session *s, const char *sender) {

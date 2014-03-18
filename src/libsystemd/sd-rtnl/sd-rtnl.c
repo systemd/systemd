@@ -132,9 +132,7 @@ sd_rtnl *sd_rtnl_unref(sd_rtnl *rtnl) {
                         free(f);
                 }
 
-                if (rtnl->fd >= 0)
-                        close_nointr_nofail(rtnl->fd);
-
+                safe_close(rtnl->fd);
                 free(rtnl);
         }
 

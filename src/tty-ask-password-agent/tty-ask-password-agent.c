@@ -234,11 +234,8 @@ static int ask_password_plymouth(
         r = 0;
 
 finish:
-        if (notify >= 0)
-                close_nointr_nofail(notify);
-
-        if (fd >= 0)
-                close_nointr_nofail(fd);
+        safe_close(notify);
+        safe_close(fd);
 
         free(packet);
 
@@ -372,7 +369,7 @@ static int parse_password(const char *filename, char **wall) {
                         r = ask_password_tty(message, not_after, filename, &password);
 
                         if (arg_console) {
-                                close_nointr_nofail(tty_fd);
+                                safe_close(tty_fd);
                                 release_terminal();
                         }
 
@@ -419,8 +416,7 @@ static int parse_password(const char *filename, char **wall) {
 finish:
         fclose(f);
 
-        if (socket_fd >= 0)
-                close_nointr_nofail(socket_fd);
+        safe_close(socket_fd);
 
         free(packet);
         free(socket_name);
@@ -492,7 +488,7 @@ static bool wall_tty_match(const char *path) {
                 return true;
 
         /* What, we managed to open the pipe? Then this tty is filtered. */
-        close_nointr_nofail(fd);
+        safe_close(fd);
         return false;
 }
 
@@ -614,14 +610,9 @@ static int watch_passwords(void) {
         r = 0;
 
 finish:
-        if (notify >= 0)
-                close_nointr_nofail(notify);
-
-        if (signal_fd >= 0)
-                close_nointr_nofail(signal_fd);
-
-        if (tty_block_fd >= 0)
-                close_nointr_nofail(tty_block_fd);
+        safe_close(notify);
+        safe_close(signal_fd);
+        safe_close(tty_block_fd);
 
         return r;
 }

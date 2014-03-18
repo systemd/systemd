@@ -137,14 +137,12 @@ int main(int argc, char *argv[]) {
 
         assert_se(write(pipe_fds[1], "x", 1) == 1);
 
-        close_nointr_nofail(pipe_fds[1]);
-        pipe_fds[1] = -1;
+        pipe_fds[1] = safe_close(pipe_fds[1]);
 
         r = sd_bus_message_append(m, "h", pipe_fds[0]);
         assert_se(r >= 0);
 
-        close_nointr_nofail(pipe_fds[0]);
-        pipe_fds[0] = -1;
+        pipe_fds[0] = safe_close(pipe_fds[0]);
 
         r = sd_bus_send(b, m, NULL);
         assert_se(r >= 0);

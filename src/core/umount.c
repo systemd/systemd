@@ -329,14 +329,14 @@ static int dm_list_get(MountPoint **head) {
 }
 
 static int delete_loopback(const char *device) {
-        int fd, r;
+        _cleanup_close_ int fd = -1;
+        int r;
 
-        if ((fd = open(device, O_RDONLY|O_CLOEXEC)) < 0)
+        fd = open(device, O_RDONLY|O_CLOEXEC);
+        if (fd < 0)
                 return errno == ENOENT ? 0 : -errno;
 
         r = ioctl(fd, LOOP_CLR_FD, 0);
-        close_nointr_nofail(fd);
-
         if (r >= 0)
                 return 1;
 

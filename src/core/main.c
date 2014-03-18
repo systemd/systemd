@@ -240,7 +240,7 @@ static int console_setup(bool do_reset) {
         if (r < 0)
                 log_error("Failed to reset /dev/console: %s", strerror(-r));
 
-        close_nointr_nofail(tty_fd);
+        safe_close(tty_fd);
         return r;
 }
 

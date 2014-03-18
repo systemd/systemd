@@ -70,7 +70,7 @@ static void message_free_part(sd_bus_message *m, struct bus_body_part *part) {
                         if (part->mapped > 0)
                                 assert_se(munmap(part->data, part->mapped) == 0);
 
-                        close_nointr_nofail(part->memfd);
+                        safe_close(part->memfd);
                 }
 
         } else if (part->munmap_this)
@@ -1274,7 +1274,7 @@ static int message_push_fd(sd_bus_message *m, int fd) {
         f = realloc(m->fds, sizeof(int) * (m->n_fds + 1));
         if (!f) {
                 m->poisoned = true;
-                close_nointr_nofail(copy);
+                safe_close(copy);
                 return -ENOMEM;
         }
 

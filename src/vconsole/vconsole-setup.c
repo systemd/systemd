@@ -301,8 +301,7 @@ finish:
         free(vc_font_map);
         free(vc_font_unimap);
 
-        if (fd >= 0)
-                close_nointr_nofail(fd);
+        safe_close(fd);
 
         return r;
 }

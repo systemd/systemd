@@ -232,7 +232,7 @@ static int server(sd_bus *bus) {
 
                         if (write(fd, &x, 1) < 0) {
                                 log_error("Failed to write to fd: %m");
-                                close_nointr_nofail(fd);
+                                safe_close(fd);
                                 goto fail;
                         }
 

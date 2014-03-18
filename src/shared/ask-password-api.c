@@ -226,8 +226,7 @@ int ask_password_tty(
         r = 0;
 
 finish:
-        if (notify >= 0)
-                close_nointr_nofail(notify);
+        safe_close(notify);
 
         if (ttyfd >= 0) {
 
@@ -236,7 +235,7 @@ finish:
                         tcsetattr(ttyfd, TCSADRAIN, &old_termios);
                 }
 
-                close_nointr_nofail(ttyfd);
+                safe_close(ttyfd);
         }
 
         return r;
@@ -290,7 +289,7 @@ static int create_socket(char **name) {
         return fd;
 
 fail:
-        close_nointr_nofail(fd);
+        safe_close(fd);
 
         return r;
 }
@@ -521,19 +520,15 @@ int ask_password_agent(
         r = 0;
 
 finish:
-        if (fd >= 0)
-                close_nointr_nofail(fd);
+        safe_close(fd);
 
         if (socket_name) {
                 unlink(socket_name);
                 free(socket_name);
         }
 
-        if (socket_fd >= 0)
-                close_nointr_nofail(socket_fd);
-
-        if (signal_fd >= 0)
-                close_nointr_nofail(signal_fd);
+        safe_close(socket_fd);
+        safe_close(signal_fd);
 
         if (f)
                 fclose(f);

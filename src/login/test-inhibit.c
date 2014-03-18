@@ -101,11 +101,11 @@ int main(int argc, char*argv[]) {
         assert(fd2 >= 0);
         print_inhibitors(bus);
 
-        close_nointr_nofail(fd1);
+        safe_close(fd1);
         sleep(1);
         print_inhibitors(bus);
 
-        close_nointr_nofail(fd2);
+        safe_close(fd2);
         sleep(1);
         print_inhibitors(bus);
 

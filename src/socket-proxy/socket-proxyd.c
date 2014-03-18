@@ -76,10 +76,8 @@ static void connection_free(Connection *c) {
         sd_event_source_unref(c->server_event_source);
         sd_event_source_unref(c->client_event_source);
 
-        if (c->server_fd >= 0)
-                close_nointr_nofail(c->server_fd);
-        if (c->client_fd >= 0)
-                close_nointr_nofail(c->client_fd);
+        safe_close(c->server_fd);
+        safe_close(c->client_fd);
 
         close_pipe(c->server_to_client_buffer);
         close_pipe(c->client_to_server_buffer);
@@ -224,8 +222,7 @@ static int connection_shovel(
                                 shoveled = true;
                         } else if (z == 0 || errno == EPIPE || errno == ECONNRESET) {
                                 *from_source = sd_event_source_unref(*from_source);
-                                close_nointr_nofail(*from);
-                                *from = -1;
+                                *from = safe_close(*from);
                         } else if (errno != EAGAIN && errno != EINTR) {
                                 log_error("Failed to splice: %m");
                                 return -errno;
@@ -239,8 +236,7 @@ static int connection_shovel(
                                 shoveled = true;
                         } else if (z == 0 || errno == EPIPE || errno == ECONNRESET) {
                                 *to_source = sd_event_source_unref(*to_source);
-                                close_nointr_nofail(*to);
-                                *to = -1;
+                                *to = safe_close(*to);
                         } else if (errno != EAGAIN && errno != EINTR) {
                                 log_error("Failed to splice: %m");
                                 return -errno;
@@ -396,7 +392,7 @@ static int add_connection_socket(Context *context, sd_event *event, int fd) {
 
         if (set_size(context->connections) > CONNECTIONS_MAX) {
                 log_warning("Hit connection limit, refusing connection.");
-                close_nointr_nofail(fd);
+                safe_close(fd);
                 return 0;
         }
 
@@ -482,7 +478,7 @@ static int accept_cb(sd_event_source *s, int fd, uint32_t revents, void *userdat
                 r = add_connection_socket(context, sd_event_source_get_event(s), nfd);
                 if (r < 0) {
                         log_error("Failed to accept connection, ignoring: %s", strerror(-r));
-                        close_nointr_nofail(fd);
+                        safe_close(fd);
                 }
         }
 

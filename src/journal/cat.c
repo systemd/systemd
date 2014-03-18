@@ -152,7 +152,7 @@ int main(int argc, char *argv[]) {
         }
 
         if (fd >= 3)
-                close_nointr_nofail(fd);
+                safe_close(fd);
 
         fd = -1;
 
@@ -170,11 +170,8 @@ int main(int argc, char *argv[]) {
         log_error("Failed to execute process: %s", strerror(-r));
 
 finish:
-        if (fd >= 0)
-                close_nointr_nofail(fd);
-
-        if (saved_stderr >= 0)
-                close_nointr_nofail(saved_stderr);
+        safe_close(fd);
+        safe_close(saved_stderr);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

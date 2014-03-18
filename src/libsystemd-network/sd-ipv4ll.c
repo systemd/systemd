@@ -113,9 +113,7 @@ static int ipv4ll_stop(sd_ipv4ll *ll, int event) {
         assert(ll);
 
         ll->receive_message = sd_event_source_unref(ll->receive_message);
-        if (ll->fd >= 0)
-                close_nointr_nofail(ll->fd);
-        ll->fd = -1;
+        ll->fd = safe_close(ll->fd);
 
         ll->timer = sd_event_source_unref(ll->timer);
 

@@ -593,8 +593,7 @@ _public_ sd_resolve* sd_resolve_unref(sd_resolve *resolve) {
 
         /* Close all communication channels */
         for (i = 0; i < _FD_MAX; i++)
-                if (resolve->fds[i] >= 0)
-                        close_nointr_nofail(resolve->fds[i]);
+                safe_close(resolve->fds[i]);
 
         for (i = 0; i < QUERIES_MAX && resolve->n_queries > 0; i++)
                 if (resolve->queries[i])

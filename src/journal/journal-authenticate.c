@@ -418,10 +418,9 @@ finish:
         if (m)
                 munmap(m, PAGE_ALIGN(sizeof(FSSHeader)));
 
-        if (fd >= 0)
-                close_nointr_nofail(fd);
-
+        safe_close(fd);
         free(p);
+
         return r;
 }
 

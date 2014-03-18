@@ -862,8 +862,7 @@ int manager_setup_cgroup(Manager *m) {
         }
 
         /* 5. And pin it, so that it cannot be unmounted */
-        if (m->pin_cgroupfs_fd >= 0)
-                close_nointr_nofail(m->pin_cgroupfs_fd);
+        safe_close(m->pin_cgroupfs_fd);
 
         m->pin_cgroupfs_fd = open(path, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY|O_NONBLOCK);
         if (r < 0) {
@@ -888,10 +887,7 @@ void manager_shutdown_cgroup(Manager *m, bool delete) {
         if (delete && m->cgroup_root)
                 cg_trim(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_root, false);
 
-        if (m->pin_cgroupfs_fd >= 0) {
-                close_nointr_nofail(m->pin_cgroupfs_fd);
-                m->pin_cgroupfs_fd = -1;
-        }
+        m->pin_cgroupfs_fd = safe_close(m->pin_cgroupfs_fd);
 
         free(m->cgroup_root);
         m->cgroup_root = NULL;

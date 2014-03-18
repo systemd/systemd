@@ -66,7 +66,7 @@ retry:
         fd_inc_sndbuf(fd, SNDBUF_SIZE);
 
         if (!__sync_bool_compare_and_swap(&fd_plus_one, 0, fd+1)) {
-                close_nointr_nofail(fd);
+                safe_close(fd);
                 goto retry;
         }
 
@@ -316,7 +316,7 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
 
         n = writev(buffer_fd, w, j);
         if (n < 0) {
-                close_nointr_nofail(buffer_fd);
+                safe_close(buffer_fd);
                 return -errno;
         }
 
@@ -336,7 +336,7 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
         mh.msg_controllen = cmsg->cmsg_len;
 
         k = sendmsg(fd, &mh, MSG_NOSIGNAL);
-        close_nointr_nofail(buffer_fd);
+        safe_close(buffer_fd);
 
         if (k < 0)
                 return -errno;
@@ -412,12 +412,12 @@ _public_ int sd_journal_stream_fd(const char *identifier, int priority, int leve
 
         r = connect(fd, &sa.sa, offsetof(union sockaddr_union, un.sun_path) + strlen(sa.un.sun_path));
         if (r < 0) {
-                close_nointr_nofail(fd);
+                safe_close(fd);
                 return -errno;
         }
 
         if (shutdown(fd, SHUT_RD) < 0) {
-                close_nointr_nofail(fd);
+                safe_close(fd);
                 return -errno;
         }
 
@@ -445,12 +445,12 @@ _public_ int sd_journal_stream_fd(const char *identifier, int priority, int leve
 
         r = loop_write(fd, header, l, false);
         if (r < 0) {
-                close_nointr_nofail(fd);
+                safe_close(fd);
                 return (int) r;
         }
 
         if ((size_t) r != l) {
-                close_nointr_nofail(fd);
+                safe_close(fd);
                 return -errno;
         }
 

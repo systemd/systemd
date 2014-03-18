@@ -149,8 +149,7 @@ void manager_free(Manager *m) {
         sd_event_source_unref(m->udev_button_event_source);
         sd_event_source_unref(m->lid_switch_ignore_event_source);
 
-        if (m->console_active_fd >= 0)
-                close_nointr_nofail(m->console_active_fd);
+        safe_close(m->console_active_fd);
 
         if (m->udev_seat_monitor)
                 udev_monitor_unref(m->udev_seat_monitor);
@@ -169,8 +168,7 @@ void manager_free(Manager *m) {
         sd_bus_unref(m->bus);
         sd_event_unref(m->event);
 
-        if (m->reserve_vt_fd >= 0)
-                close_nointr_nofail(m->reserve_vt_fd);
+        safe_close(m->reserve_vt_fd);
 
         strv_free(m->kill_only_users);
         strv_free(m->kill_exclude_users);

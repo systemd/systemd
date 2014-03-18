@@ -331,20 +331,11 @@ static void event_free(sd_event *e) {
         if (e->default_event_ptr)
                 *(e->default_event_ptr) = NULL;
 
-        if (e->epoll_fd >= 0)
-                close_nointr_nofail(e->epoll_fd);
-
-        if (e->signal_fd >= 0)
-                close_nointr_nofail(e->signal_fd);
-
-        if (e->realtime_fd >= 0)
-                close_nointr_nofail(e->realtime_fd);
-
-        if (e->monotonic_fd >= 0)
-                close_nointr_nofail(e->monotonic_fd);
-
-        if (e->watchdog_fd >= 0)
-                close_nointr_nofail(e->watchdog_fd);
+        safe_close(e->epoll_fd);
+        safe_close(e->signal_fd);
+        safe_close(e->realtime_fd);
+        safe_close(e->monotonic_fd);
+        safe_close(e->watchdog_fd);
 
         prioq_free(e->pending);
         prioq_free(e->prepare);
@@ -673,7 +664,7 @@ static int event_setup_timer_fd(
 
         r = epoll_ctl(e->epoll_fd, EPOLL_CTL_ADD, fd, &ev);
         if (r < 0) {
-                close_nointr_nofail(fd);
+                safe_close(fd);
                 return -errno;
         }
 
@@ -809,9 +800,7 @@ static int event_update_signal_fd(sd_event *e) {
 
         r = epoll_ctl(e->epoll_fd, EPOLL_CTL_ADD, e->signal_fd, &ev);
         if (r < 0) {
-                close_nointr_nofail(e->signal_fd);
-                e->signal_fd = -1;
-
+                e->signal_fd = safe_close(e->signal_fd);
                 return -errno;
         }
 
@@ -2272,8 +2261,7 @@ _public_ int sd_event_set_watchdog(sd_event *e, int b) {
         } else {
                 if (e->watchdog_fd >= 0) {
                         epoll_ctl(e->epoll_fd, EPOLL_CTL_DEL, e->watchdog_fd, NULL);
-                        close_nointr_nofail(e->watchdog_fd);
-                        e->watchdog_fd = -1;
+                        e->watchdog_fd = safe_close(e->watchdog_fd);
                 }
         }
 
@@ -2281,8 +2269,7 @@ _public_ int sd_event_set_watchdog(sd_event *e, int b) {
         return e->watchdog;
 
 fail:
-        close_nointr_nofail(e->watchdog_fd);
-        e->watchdog_fd = -1;
+        e->watchdog_fd = safe_close(e->watchdog_fd);
         return r;
 }
 

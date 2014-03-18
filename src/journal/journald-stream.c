@@ -341,8 +341,7 @@ void stdout_stream_free(StdoutStream *s) {
                 s->event_source = sd_event_source_unref(s->event_source);
         }
 
-        if (s->fd >= 0)
-                close_nointr_nofail(s->fd);
+        safe_close(s->fd);
 
 #ifdef HAVE_SELINUX
         if (s->security_context)
@@ -377,13 +376,13 @@ static int stdout_stream_new(sd_event_source *es, int listen_fd, uint32_t revent
 
         if (s->n_stdout_streams >= STDOUT_STREAMS_MAX) {
                 log_warning("Too many stdout streams, refusing connection.");
-                close_nointr_nofail(fd);
+                safe_close(fd);
                 return 0;
         }
 
         stream = new0(StdoutStream, 1);
         if (!stream) {
-                close_nointr_nofail(fd);
+                safe_close(fd);
                 return log_oom();
         }
 

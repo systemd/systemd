@@ -1171,8 +1171,7 @@ static int get_boot_id_for_machine(const char *machine, sd_id128_t *boot_id) {
         if (child == 0) {
                 int fd;
 
-                close_nointr_nofail(pair[0]);
-                pair[0] = -1;
+                pair[0] = safe_close(pair[0]);
 
                 r = namespace_enter(pidnsfd, mntnsfd, rootfd);
                 if (r < 0)
@@ -1183,7 +1182,7 @@ static int get_boot_id_for_machine(const char *machine, sd_id128_t *boot_id) {
                         _exit(EXIT_FAILURE);
 
                 k = loop_read(fd, buf, 36, false);
-                close_nointr_nofail(fd);
+                safe_close(fd);
                 if (k != 36)
                         _exit(EXIT_FAILURE);
 
@@ -1194,8 +1193,7 @@ static int get_boot_id_for_machine(const char *machine, sd_id128_t *boot_id) {
                 _exit(EXIT_SUCCESS);
         }
 
-        close_nointr_nofail(pair[1]);
-        pair[1] = -1;
+        pair[1] = safe_close(pair[1]);
 
         r = wait_for_terminate(child, &si);
         if (r < 0 || si.si_code != CLD_EXITED || si.si_status != EXIT_SUCCESS)

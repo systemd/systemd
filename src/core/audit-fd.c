@@ -55,7 +55,7 @@ int get_audit_fd(void) {
 void close_audit_fd(void) {
 
         if (initialized && audit_fd >= 0)
-                close_nointr_nofail(audit_fd);
+                safe_close(audit_fd);
 
         initialized = true;
         audit_fd = -ECONNRESET;

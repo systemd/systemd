@@ -1086,10 +1086,7 @@ void bus_done(Manager *m) {
         if (m->private_listen_event_source)
                 m->private_listen_event_source = sd_event_source_unref(m->private_listen_event_source);
 
-        if (m->private_listen_fd >= 0) {
-                close_nointr_nofail(m->private_listen_fd);
-                m->private_listen_fd = -1;
-        }
+        m->private_listen_fd = safe_close(m->private_listen_fd);
 }
 
 int bus_fdset_add_all(Manager *m, FDSet *fds) {

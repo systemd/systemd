@@ -47,7 +47,7 @@ int ima_setup(void) {
        struct stat st;
        ssize_t policy_size = 0, written = 0;
        char *policy;
-       int policyfd = -1, imafd = -1;
+       _cleanup_close_ int policyfd = -1, imafd = -1;
        int result = 0;
 
        if (stat(IMA_POLICY_PATH, &st) < 0)
@@ -98,10 +98,6 @@ int ima_setup(void) {
 out_mmap:
        munmap(policy, policy_size);
 out:
-       if (policyfd >= 0)
-                close_nointr_nofail(policyfd);
-       if (imafd >= 0)
-                close_nointr_nofail(imafd);
        if (result)
                 return result;
 #endif /* HAVE_IMA */

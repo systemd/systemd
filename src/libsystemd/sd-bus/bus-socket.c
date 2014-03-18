@@ -750,7 +750,7 @@ int bus_socket_exec(sd_bus *b) {
                 assert_se(dup3(s[1], STDOUT_FILENO, 0) == STDOUT_FILENO);
 
                 if (s[1] != STDIN_FILENO && s[1] != STDOUT_FILENO)
-                        close_nointr_nofail(s[1]);
+                        safe_close(s[1]);
 
                 fd_cloexec(STDIN_FILENO, false);
                 fd_cloexec(STDOUT_FILENO, false);
@@ -767,7 +767,7 @@ int bus_socket_exec(sd_bus *b) {
                 _exit(EXIT_FAILURE);
         }
 
-        close_nointr_nofail(s[1]);
+        safe_close(s[1]);
         b->output_fd = b->input_fd = s[0];
 
         bus_socket_setup(b);

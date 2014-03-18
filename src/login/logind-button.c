@@ -72,7 +72,7 @@ void button_free(Button *b) {
         if (b->fd >= 0) {
                 /* If the device has been unplugged close() returns
                  * ENODEV, let's ignore this, hence we don't use
-                 * close_nointr_nofail() */
+                 * safe_close() */
                 close(b->fd);
         }
 

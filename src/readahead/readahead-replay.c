@@ -67,10 +67,8 @@ static int unpack_file(FILE *pack) {
                 if (errno != ENOENT && errno != EPERM && errno != EACCES && errno != ELOOP)
                         log_warning("open(%s) failed: %m", fn);
 
-        } else if (file_verify(fd, fn, arg_file_size_max, &st) <= 0) {
-                close_nointr_nofail(fd);
-                fd = -1;
-        }
+        } else if (file_verify(fd, fn, arg_file_size_max, &st) <= 0)
+                fd = safe_close(fd);
 
         if (fread(&inode, sizeof(inode), 1, pack) != 1) {
                 log_error("Premature end of pack file.");
@@ -81,10 +79,8 @@ static int unpack_file(FILE *pack) {
         if (fd >= 0) {
                 /* If the inode changed the file got deleted, so just
                  * ignore this entry */
-                if (st.st_ino != (uint64_t) inode) {
-                        close_nointr_nofail(fd);
-                        fd = -1;
-                }
+                if (st.st_ino != (uint64_t) inode)
+                        fd = safe_close(fd);
         }
 
         for (;;) {
@@ -129,8 +125,7 @@ static int unpack_file(FILE *pack) {
         }
 
 finish:
-        if (fd >= 0)
-                close_nointr_nofail(fd);
+        safe_close(fd);
 
         return r;
 }
@@ -279,8 +274,7 @@ finish:
         if (pack)
                 fclose(pack);
 
-        if (inotify_fd >= 0)
-                close_nointr_nofail(inotify_fd);
+        safe_close(inotify_fd);
 
         free(pack_fn);
 

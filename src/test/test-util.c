@@ -67,7 +67,7 @@ static void test_close_many(void) {
         assert_se(fcntl(fds[1], F_GETFD) == -1);
         assert_se(fcntl(fds[2], F_GETFD) >= 0);
 
-        close_nointr_nofail(fds[2]);
+        safe_close(fds[2]);
 
         unlink(name0);
         unlink(name1);

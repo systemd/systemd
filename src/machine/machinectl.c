@@ -439,8 +439,7 @@ static int openpt_in_namespace(pid_t pid, int flags) {
                 return -errno;
 
         if (child == 0) {
-                close_nointr_nofail(pair[0]);
-                pair[0] = -1;
+                pair[0] = safe_close(pair[0]);
 
                 r = namespace_enter(pidnsfd, mntnsfd, rootfd);
                 if (r < 0)
@@ -464,8 +463,7 @@ static int openpt_in_namespace(pid_t pid, int flags) {
                 _exit(EXIT_SUCCESS);
         }
 
-        close_nointr_nofail(pair[1]);
-        pair[1] = -1;
+        pair[1] = safe_close(pair[1]);
 
         r = wait_for_terminate(child, &si);
         if (r < 0 || si.si_code != CLD_EXITED || si.si_status != EXIT_SUCCESS) {

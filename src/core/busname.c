@@ -56,11 +56,7 @@ static void busname_done(Unit *u) {
         unit_ref_unset(&n->service);
 
         n->event_source = sd_event_source_unref(n->event_source);
-
-        if (n->starter_fd >= 0) {
-                close_nointr_nofail(n->starter_fd);
-                n->starter_fd = -1;
-        }
+        n->starter_fd = safe_close(n->starter_fd);
 }
 
 static int busname_add_default_default_dependencies(BusName *n) {
@@ -121,8 +117,6 @@ static int busname_add_extras(BusName *n) {
 
         return 0;
 }
-
-
 
 static int busname_verify(BusName *n) {
         char *e;
@@ -202,8 +196,7 @@ static void busname_close_fd(BusName *n) {
         if (n->starter_fd <= 0)
                 return;
 
-        close_nointr_nofail(n->starter_fd);
-        n->starter_fd = -1;
+        n->starter_fd = safe_close(n->starter_fd);
 }
 
 static int busname_watch_fd(BusName *n) {
@@ -454,8 +447,7 @@ static int busname_deserialize_item(Unit *u, const char *key, const char *value,
                 if (safe_atoi(value, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
                         log_debug_unit(u->id, "Failed to parse starter fd value %s", value);
                 else {
-                        if (n->starter_fd >= 0)
-                                close_nointr_nofail(n->starter_fd);
+                        safe_close(n->starter_fd);
                         n->starter_fd = fdset_remove(fds, fd);
                 }
         } else

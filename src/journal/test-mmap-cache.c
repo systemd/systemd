@@ -72,9 +72,9 @@ int main(int argc, char *argv[]) {
 
         mmap_cache_unref(m);
 
-        close_nointr_nofail(x);
-        close_nointr_nofail(y);
-        close_nointr_nofail(z);
+        safe_close(x);
+        safe_close(y);
+        safe_close(z);
 
         return 0;
 }

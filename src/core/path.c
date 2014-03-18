@@ -152,11 +152,7 @@ void path_spec_unwatch(PathSpec *s) {
         assert(s);
 
         s->event_source = sd_event_source_unref(s->event_source);
-
-        if (s->inotify_fd >= 0) {
-                close_nointr_nofail(s->inotify_fd);
-                s->inotify_fd = -1;
-        }
+        s->inotify_fd = safe_close(s->inotify_fd);
 }
 
 int path_spec_fd_event(PathSpec *s, uint32_t revents) {

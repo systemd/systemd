@@ -1432,8 +1432,7 @@ static int server_open_hostname(Server *s) {
                 if (r == -EPERM) {
                         log_warning("Failed to register hostname fd in event loop: %s. Ignoring.",
                                         strerror(-r));
-                        close_nointr_nofail(s->hostname_fd);
-                        s->hostname_fd = -1;
+                        s->hostname_fd = safe_close(s->hostname_fd);
                         return 0;
                 }
 
@@ -1643,20 +1642,11 @@ void server_done(Server *s) {
         sd_event_source_unref(s->hostname_event_source);
         sd_event_unref(s->event);
 
-        if (s->syslog_fd >= 0)
-                close_nointr_nofail(s->syslog_fd);
-
-        if (s->native_fd >= 0)
-                close_nointr_nofail(s->native_fd);
-
-        if (s->stdout_fd >= 0)
-                close_nointr_nofail(s->stdout_fd);
-
-        if (s->dev_kmsg_fd >= 0)
-                close_nointr_nofail(s->dev_kmsg_fd);
-
-        if (s->hostname_fd >= 0)
-                close_nointr_nofail(s->hostname_fd);
+        safe_close(s->syslog_fd);
+        safe_close(s->native_fd);
+        safe_close(s->stdout_fd);
+        safe_close(s->dev_kmsg_fd);
+        safe_close(s->hostname_fd);
 
         if (s->rate_limit)
                 journal_rate_limit_free(s->rate_limit);

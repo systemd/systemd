@@ -484,7 +484,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 r = pam_set_data(handle, "systemd.session-fd", INT_TO_PTR(session_fd+1), NULL);
                 if (r != PAM_SUCCESS) {
                         pam_syslog(handle, LOG_ERR, "Failed to install session fd.");
-                        close_nointr_nofail(session_fd);
+                        safe_close(session_fd);
                         return r;
                 }
         }

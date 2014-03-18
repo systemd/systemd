@@ -164,6 +164,5 @@ void watchdog_close(bool disarm) {
                 }
         }
 
-        close_nointr_nofail(watchdog_fd);
-        watchdog_fd = -1;
+        watchdog_fd = safe_close(watchdog_fd);
 }

@@ -226,8 +226,7 @@ static void service_close_socket_fd(Service *s) {
         if (s->socket_fd < 0)
                 return;
 
-        close_nointr_nofail(s->socket_fd);
-        s->socket_fd = -1;
+        s->socket_fd = safe_close(s->socket_fd);
 }
 
 static void service_connection_unref(Service *s) {
@@ -2684,8 +2683,7 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                         log_debug_unit(u->id, "Failed to parse socket-fd value %s", value);
                 else {
 
-                        if (s->socket_fd >= 0)
-                                close_nointr_nofail(s->socket_fd);
+                        safe_close(s->socket_fd);
                         s->socket_fd = fdset_remove(fds, fd);
                 }
         } else if (streq(key, "main-exec-status-pid")) {

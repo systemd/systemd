@@ -48,7 +48,7 @@ static void bit_toggle(const char *fn, uint64_t p) {
         r = pwrite(fd, &b, 1, p/8);
         assert(r == 1);
 
-        close_nointr_nofail(fd);
+        safe_close(fd);
 }
 
 static int raw_verify(const char *fn, const char *verification_key) {

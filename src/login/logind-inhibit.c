@@ -253,8 +253,7 @@ int inhibitor_load(Inhibitor *i) {
                 int fd;
 
                 fd = inhibitor_create_fifo(i);
-                if (fd >= 0)
-                        close_nointr_nofail(fd);
+                safe_close(fd);
         }
 
         return 0;
@@ -320,13 +319,8 @@ int inhibitor_create_fifo(Inhibitor *i) {
 void inhibitor_remove_fifo(Inhibitor *i) {
         assert(i);
 
-        if (i->event_source)
-                i->event_source = sd_event_source_unref(i->event_source);
-
-        if (i->fifo_fd >= 0) {
-                close_nointr_nofail(i->fifo_fd);
-                i->fifo_fd = -1;
-        }
+        i->event_source = sd_event_source_unref(i->event_source);
+        i->fifo_fd = safe_close(i->fifo_fd);
 
         if (i->fifo_path) {
                 unlink(i->fifo_path);

@@ -87,7 +87,7 @@ static int write_rules(const char* dstpath, const char* srcdir) {
                 if (!policy) {
                         if (r == 0)
                                 r = -errno;
-                        close_nointr_nofail(fd);
+                        safe_close(fd);
                         log_error("Failed to open %s: %m", entry->d_name);
                         continue;
                 }

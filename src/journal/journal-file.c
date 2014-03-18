@@ -133,9 +133,7 @@ void journal_file_close(JournalFile *f) {
         if (f->header)
                 munmap(f->header, PAGE_ALIGN(sizeof(Header)));
 
-        if (f->fd >= 0)
-                close_nointr_nofail(f->fd);
-
+        safe_close(f->fd);
         free(f->path);
 
         if (f->mmap)

@@ -61,7 +61,7 @@ int polkit_agent_open(void) {
                        POLKIT_AGENT_BINARY_PATH, "--notify-fd", notify_fd, "--fallback", NULL);
 
         /* Close the writing side, because that's the one for the agent */
-        close_nointr_nofail(pipe_fd[1]);
+        safe_close(pipe_fd[1]);
 
         if (r < 0)
                 log_error("Failed to fork TTY ask password agent: %s", strerror(-r));
@@ -69,7 +69,7 @@ int polkit_agent_open(void) {
                 /* Wait until the agent closes the fd */
                 fd_wait_for_event(pipe_fd[0], POLLHUP, (usec_t) -1);
 
-        close_nointr_nofail(pipe_fd[0]);
+        safe_close(pipe_fd[0]);
 
         return r;
 }

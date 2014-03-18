@@ -469,18 +469,18 @@ static int open_mmap(const char *database, int *_fd, struct stat *_st, void **_p
                 return -errno;
 
         if (fstat(fd, &st) < 0) {
-                close_nointr_nofail(fd);
+                safe_close(fd);
                 return -errno;
         }
 
         if (st.st_size < (off_t) sizeof(CatalogHeader)) {
-                close_nointr_nofail(fd);
+                safe_close(fd);
                 return -EINVAL;
         }
 
         p = mmap(NULL, PAGE_ALIGN(st.st_size), PROT_READ, MAP_SHARED, fd, 0);
         if (p == MAP_FAILED) {
-                close_nointr_nofail(fd);
+                safe_close(fd);
                 return -errno;
         }
 
@@ -491,7 +491,7 @@ static int open_mmap(const char *database, int *_fd, struct stat *_st, void **_p
             h->incompatible_flags != 0 ||
             le64toh(h->n_items) <= 0 ||
             st.st_size < (off_t) (le64toh(h->header_size) + le64toh(h->catalog_item_size) * le64toh(h->n_items))) {
-                close_nointr_nofail(fd);
+                safe_close(fd);
                 munmap(p, st.st_size);
                 return -EBADMSG;
         }

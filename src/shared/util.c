@@ -183,13 +183,22 @@ int close_nointr(int fd) {
                 return -errno;
 }
 
-void close_nointr_nofail(int fd) {
-        PROTECT_ERRNO;
+int safe_close(int fd) {
 
-        /* like close_nointr() but cannot fail, and guarantees errno
-         * is unchanged */
+        /*
+         * Like close_nointr() but cannot fail. Guarantees errno is
+         * unchanged. Is a NOP with negative fds passed, and returns
+         * -1, so that it can be used in this syntax:
+         *
+         * fd = safe_close(fd);
+         */
 
-        assert_se(close_nointr(fd) == 0);
+        if (fd >= 0) {
+                PROTECT_ERRNO;
+                assert_se(close_nointr(fd) == 0);
+        }
+
+        return -1;
 }
 
 void close_many(const int fds[], unsigned n_fd) {
@@ -198,7 +207,7 @@ void close_many(const int fds[], unsigned n_fd) {
         assert(fds || n_fd <= 0);
 
         for (i = 0; i < n_fd; i++)
-                close_nointr_nofail(fds[i]);
+                safe_close(fds[i]);
 }
 
 int unlink_noerrno(const char *path) {
@@ -1693,16 +1702,13 @@ finish:
 }
 
 int reset_terminal(const char *name) {
-        int fd, r;
+        _cleanup_close_ int fd = -1;
 
         fd = open_terminal(name, O_RDWR|O_NOCTTY|O_CLOEXEC);
         if (fd < 0)
                 return fd;
 
-        r = reset_terminal_fd(fd, true);
-        close_nointr_nofail(fd);
-
-        return r;
+        return reset_terminal_fd(fd, true);
 }
 
 int open_terminal(const char *name, int mode) {
@@ -1741,12 +1747,12 @@ int open_terminal(const char *name, int mode) {
 
         r = isatty(fd);
         if (r < 0) {
-                close_nointr_nofail(fd);
+                safe_close(fd);
                 return -errno;
         }
 
         if (!r) {
-                close_nointr_nofail(fd);
+                safe_close(fd);
                 return -ENOTTY;
         }
 
@@ -1935,11 +1941,10 @@ int acquire_terminal(
                  * ended our handle will be dead. It's important that
                  * we do this after sleeping, so that we don't enter
                  * an endless loop. */
-                close_nointr_nofail(fd);
+                safe_close(fd);
         }
 
-        if (notify >= 0)
-                close_nointr_nofail(notify);
+        safe_close(notify);
 
         r = reset_terminal_fd(fd, true);
         if (r < 0)
@@ -1948,11 +1953,8 @@ int acquire_terminal(
         return fd;
 
 fail:
-        if (fd >= 0)
-                close_nointr_nofail(fd);
-
-        if (notify >= 0)
-                close_nointr_nofail(notify);
+        safe_close(fd);
+        safe_close(notify);
 
         return r;
 }
@@ -2262,7 +2264,7 @@ int make_stdio(int fd) {
         t = dup3(fd, STDERR_FILENO, 0);
 
         if (fd >= 3)
-                close_nointr_nofail(fd);
+                safe_close(fd);
 
         if (r < 0 || s < 0 || t < 0)
                 return -errno;
@@ -2640,7 +2642,7 @@ int rm_rf_children_dangerous(int fd, bool only_dirs, bool honour_sticky, struct 
 
         d = fdopendir(fd);
         if (!d) {
-                close_nointr_nofail(fd);
+                safe_close(fd);
 
                 return errno == ENOENT ? 0 : -errno;
         }
@@ -2736,7 +2738,7 @@ int rm_rf_children(int fd, bool only_dirs, bool honour_sticky, struct stat *root
         assert(fd >= 0);
 
         if (fstatfs(fd, &s) < 0) {
-                close_nointr_nofail(fd);
+                safe_close(fd);
                 return -errno;
         }
 
@@ -2745,7 +2747,7 @@ int rm_rf_children(int fd, bool only_dirs, bool honour_sticky, struct stat *root
          * non-state data */
         if (!is_temporary_fs(&s)) {
                 log_error("Attempted to remove disk file system, and we can't allow that.");
-                close_nointr_nofail(fd);
+                safe_close(fd);
                 return -EPERM;
         }
 
@@ -2791,13 +2793,13 @@ static int rm_rf_internal(const char *path, bool only_dirs, bool delete_root, bo
 
         if (!dangerous) {
                 if (fstatfs(fd, &s) < 0) {
-                        close_nointr_nofail(fd);
+                        safe_close(fd);
                         return -errno;
                 }
 
                 if (!is_temporary_fs(&s)) {
                         log_error("Attempted to remove disk file system, and we can't allow that.");
-                        close_nointr_nofail(fd);
+                        safe_close(fd);
                         return -EPERM;
                 }
         }
@@ -3318,7 +3320,7 @@ char *ellipsize(const char *s, size_t length, unsigned percent) {
 }
 
 int touch(const char *path) {
-        int fd;
+        _cleanup_close_ int fd;
 
         assert(path);
 
@@ -3330,7 +3332,6 @@ int touch(const char *path) {
         if (fd < 0)
                 return -errno;
 
-        close_nointr_nofail(fd);
         return 0;
 }
 
@@ -3493,7 +3494,7 @@ DIR *xopendirat(int fd, const char *name, int flags) {
 
         d = fdopendir(nfd);
         if (!d) {
-                close_nointr_nofail(nfd);
+                safe_close(nfd);
                 return NULL;
         }
 
@@ -3987,16 +3988,13 @@ int terminal_vhangup_fd(int fd) {
 }
 
 int terminal_vhangup(const char *name) {
-        int fd, r;
+        _cleanup_close_ int fd;
 
         fd = open_terminal(name, O_RDWR|O_NOCTTY|O_CLOEXEC);
         if (fd < 0)
                 return fd;
 
-        r = terminal_vhangup_fd(fd);
-        close_nointr_nofail(fd);
-
-        return r;
+        return terminal_vhangup_fd(fd);
 }
 
 int vt_disallocate(const char *name) {
@@ -4023,7 +4021,7 @@ int vt_disallocate(const char *name) {
                            "\033[H"    /* move home */
                            "\033[2J",  /* clear screen */
                            10, false);
-                close_nointr_nofail(fd);
+                safe_close(fd);
 
                 return 0;
         }
@@ -4044,7 +4042,7 @@ int vt_disallocate(const char *name) {
                 return fd;
 
         r = ioctl(fd, VT_DISALLOCATE, u);
-        close_nointr_nofail(fd);
+        safe_close(fd);
 
         if (r >= 0)
                 return 0;
@@ -4063,7 +4061,7 @@ int vt_disallocate(const char *name) {
                    "\033[H"   /* move home */
                    "\033[3J", /* clear screen including scrollback, requires Linux 2.6.40 */
                    10, false);
-        close_nointr_nofail(fd);
+        safe_close(fd);
 
         return 0;
 }
@@ -5640,7 +5638,7 @@ int on_ac_power(void) {
                 if (n != 6 || memcmp(contents, "Mains\n", 6))
                         continue;
 
-                close_nointr_nofail(fd);
+                safe_close(fd);
                 fd = openat(device, "online", O_RDONLY|O_CLOEXEC|O_NOCTTY);
                 if (fd < 0) {
                         if (errno == ENOENT)

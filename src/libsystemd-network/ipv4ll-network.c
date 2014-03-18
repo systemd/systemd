@@ -48,7 +48,7 @@ int arp_network_bind_raw_socket(int index, union sockaddr_union *link) {
         link->ll.sll_halen = ETH_ALEN;
 
         if (bind(s, &link->sa, sizeof(link->ll)) < 0) {
-                close_nointr_nofail(s);
+                safe_close(s);
                 return -errno;
         }
 

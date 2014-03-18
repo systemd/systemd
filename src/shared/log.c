@@ -62,7 +62,7 @@ void log_close_console(void) {
 
         if (getpid() == 1) {
                 if (console_fd >= 3)
-                        close_nointr_nofail(console_fd);
+                        safe_close(console_fd);
 
                 console_fd = -1;
         }
@@ -84,12 +84,7 @@ static int log_open_console(void) {
 }
 
 void log_close_kmsg(void) {
-
-        if (kmsg_fd < 0)
-                return;
-
-        close_nointr_nofail(kmsg_fd);
-        kmsg_fd = -1;
+        kmsg_fd = safe_close(kmsg_fd);
 }
 
 static int log_open_kmsg(void) {
@@ -105,12 +100,7 @@ static int log_open_kmsg(void) {
 }
 
 void log_close_syslog(void) {
-
-        if (syslog_fd < 0)
-                return;
-
-        close_nointr_nofail(syslog_fd);
-        syslog_fd = -1;
+        syslog_fd = safe_close(syslog_fd);
 }
 
 static int create_log_socket(int type) {
@@ -152,7 +142,7 @@ static int log_open_syslog(void) {
         }
 
         if (connect(syslog_fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path)) < 0) {
-                close_nointr_nofail(syslog_fd);
+                safe_close(syslog_fd);
 
                 /* Some legacy syslog systems still use stream
                  * sockets. They really shouldn't. But what can we
@@ -180,12 +170,7 @@ fail:
 }
 
 void log_close_journal(void) {
-
-        if (journal_fd < 0)
-                return;
-
-        close_nointr_nofail(journal_fd);
-        journal_fd = -1;
+        journal_fd = safe_close(journal_fd);
 }
 
 static int log_open_journal(void) {

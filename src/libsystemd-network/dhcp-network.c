@@ -52,7 +52,7 @@ int dhcp_network_bind_raw_socket(int index, union sockaddr_union *link)
                 return -errno;
 
         if (bind(s, &link->sa, sizeof(link->ll)) < 0) {
-                close_nointr_nofail(s);
+                safe_close(s);
                 return -errno;
         }
 
@@ -73,7 +73,7 @@ int dhcp_network_bind_udp_socket(int index, be32_t address, uint16_t port)
                 return -errno;
 
         if (bind(s, &src.sa, sizeof(src.in)) < 0) {
-                close_nointr_nofail(s);
+                safe_close(s);
                 return -errno;
         }
 

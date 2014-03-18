@@ -142,7 +142,7 @@ static int process_progress(int fd) {
 
         f = fdopen(fd, "r");
         if (!f) {
-                close_nointr_nofail(fd);
+                safe_close(fd);
                 return -errno;
         }
 
@@ -329,15 +329,12 @@ int main(int argc, char *argv[]) {
         } else if (pid == 0) {
                 /* Child */
                 if (progress_pipe[0] >= 0)
-                        close_nointr_nofail(progress_pipe[0]);
+                        safe_close(progress_pipe[0]);
                 execv(cmdline[0], (char**) cmdline);
                 _exit(8); /* Operational error */
         }
 
-        if (progress_pipe[1] >= 0) {
-                close_nointr_nofail(progress_pipe[1]);
-                progress_pipe[1] = -1;
-        }
+        progress_pipe[1] = safe_close(progress_pipe[1]);
 
         if (progress_pipe[0] >= 0) {
                 process_progress(progress_pipe[0]);

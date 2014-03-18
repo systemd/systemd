@@ -1222,9 +1222,9 @@ int journal_file_verify(
         mmap_cache_close_fd(f->mmap, entry_fd);
         mmap_cache_close_fd(f->mmap, entry_array_fd);
 
-        close_nointr_nofail(data_fd);
-        close_nointr_nofail(entry_fd);
-        close_nointr_nofail(entry_array_fd);
+        safe_close(data_fd);
+        safe_close(entry_fd);
+        safe_close(entry_array_fd);
 
         if (first_contained)
                 *first_contained = le64toh(f->header->head_entry_realtime);
@@ -1247,17 +1247,17 @@ fail:
 
         if (data_fd >= 0) {
                 mmap_cache_close_fd(f->mmap, data_fd);
-                close_nointr_nofail(data_fd);
+                safe_close(data_fd);
         }
 
         if (entry_fd >= 0) {
                 mmap_cache_close_fd(f->mmap, entry_fd);
-                close_nointr_nofail(entry_fd);
+                safe_close(entry_fd);
         }
 
         if (entry_array_fd >= 0) {
                 mmap_cache_close_fd(f->mmap, entry_array_fd);
-                close_nointr_nofail(entry_array_fd);
+                safe_close(entry_array_fd);
         }
 
         return r;

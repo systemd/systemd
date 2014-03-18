@@ -250,8 +250,7 @@ static int manager_setup_time_change(Manager *m) {
 
         if (timerfd_settime(m->time_change_fd, TFD_TIMER_ABSTIME|TFD_TIMER_CANCEL_ON_SET, &its, NULL) < 0) {
                 log_debug("Failed to set up TFD_TIMER_CANCEL_ON_SET, ignoring: %m");
-                close_nointr_nofail(m->time_change_fd);
-                m->time_change_fd = -1;
+                m->time_change_fd = safe_close(m->time_change_fd);
                 return 0;
         }
 
@@ -793,14 +792,10 @@ void manager_free(Manager *m) {
         sd_event_source_unref(m->idle_pipe_event_source);
         sd_event_source_unref(m->run_queue_event_source);
 
-        if (m->signal_fd >= 0)
-                close_nointr_nofail(m->signal_fd);
-        if (m->notify_fd >= 0)
-                close_nointr_nofail(m->notify_fd);
-        if (m->time_change_fd >= 0)
-                close_nointr_nofail(m->time_change_fd);
-        if (m->kdbus_fd >= 0)
-                close_nointr_nofail(m->kdbus_fd);
+        safe_close(m->signal_fd);
+        safe_close(m->notify_fd);
+        safe_close(m->time_change_fd);
+        safe_close(m->kdbus_fd);
 
         manager_close_idle_pipe(m);
 
@@ -1756,9 +1751,7 @@ static int manager_dispatch_time_change_fd(sd_event_source *source, int fd, uint
 
         /* Restart the watch */
         m->time_change_event_source = sd_event_source_unref(m->time_change_event_source);
-
-        close_nointr_nofail(m->time_change_fd);
-        m->time_change_fd = -1;
+        m->time_change_fd = safe_close(m->time_change_fd);
 
         manager_setup_time_change(m);
 
@@ -2042,7 +2035,7 @@ int manager_open_serialization(Manager *m, FILE **_f) {
 
         f = fdopen(fd, "w+");
         if (!f) {
-                close_nointr_nofail(fd);
+                safe_close(fd);
                 return -errno;
         }
 
@@ -2263,11 +2256,8 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         if (safe_atoi(l + 10, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
                                 log_debug("Failed to parse notify fd: %s", l + 10);
                         else {
-                                if (m->notify_fd >= 0) {
-                                        m->notify_event_source = sd_event_source_unref(m->notify_event_source);
-                                        close_nointr_nofail(m->notify_fd);
-                                }
-
+                                m->notify_event_source = sd_event_source_unref(m->notify_event_source);
+                                safe_close(m->notify_fd);
                                 m->notify_fd = fdset_remove(fds, fd);
                         }
 
@@ -2289,9 +2279,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         if (safe_atoi(l + 9, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
                                 log_debug("Failed to parse kdbus fd: %s", l + 9);
                         else {
-                                if (m->kdbus_fd >= 0)
-                                        close_nointr_nofail(m->kdbus_fd);
-
+                                safe_close(m->kdbus_fd);
                                 m->kdbus_fd = fdset_remove(fds, fd);
                         }
 

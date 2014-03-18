@@ -986,7 +986,7 @@ static int setup_kmsg(const char *dest, int kmsg_socket) {
         /* Store away the fd in the socket, so that it stays open as
          * long as we run the child */
         k = sendmsg(kmsg_socket, &mh, MSG_DONTWAIT|MSG_NOSIGNAL);
-        close_nointr_nofail(fd);
+        safe_close(fd);
 
         if (k < 0) {
                 log_error("Failed to send FIFO fd: %m");
@@ -2304,8 +2304,7 @@ static void loop_remove(int nr, int *image_fd) {
 
         if (image_fd && *image_fd >= 0) {
                 ioctl(*image_fd, LOOP_CLR_FD);
-                close_nointr_nofail(*image_fd);
-                *image_fd = -1;
+                *image_fd = safe_close(*image_fd);
         }
 
         control = open("/dev/loop-control", O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
@@ -2340,9 +2339,9 @@ static int spawn_getent(const char *database, const char *key, pid_t *rpid) {
                         _exit(EXIT_FAILURE);
 
                 if (pipe_fds[0] > 2)
-                        close_nointr_nofail(pipe_fds[0]);
+                        safe_close(pipe_fds[0]);
                 if (pipe_fds[1] > 2)
-                        close_nointr_nofail(pipe_fds[1]);
+                        safe_close(pipe_fds[1]);
 
                 nullfd = open("/dev/null", O_RDWR);
                 if (nullfd < 0)
@@ -2355,7 +2354,7 @@ static int spawn_getent(const char *database, const char *key, pid_t *rpid) {
                         _exit(EXIT_FAILURE);
 
                 if (nullfd > 2)
-                        close_nointr_nofail(nullfd);
+                        safe_close(nullfd);
 
                 reset_all_signal_handlers();
                 close_all_fds(NULL, 0);
@@ -2365,8 +2364,7 @@ static int spawn_getent(const char *database, const char *key, pid_t *rpid) {
                 _exit(EXIT_FAILURE);
         }
 
-        close_nointr_nofail(pipe_fds[1]);
-        pipe_fds[1] = -1;
+        pipe_fds[1] = safe_close(pipe_fds[1]);
 
         *rpid = pid;
 
@@ -2808,15 +2806,13 @@ int main(int argc, char *argv[]) {
                         if (envp[n_env])
                                 n_env ++;
 
-                        close_nointr_nofail(master);
-                        master = -1;
+                        master = safe_close(master);
 
                         close_nointr(STDIN_FILENO);
                         close_nointr(STDOUT_FILENO);
                         close_nointr(STDERR_FILENO);
 
-                        close_nointr_nofail(kmsg_socket_pair[0]);
-                        kmsg_socket_pair[0] = -1;
+                        kmsg_socket_pair[0] = safe_close(kmsg_socket_pair[0]);
 
                         reset_all_signal_handlers();
 
@@ -2826,7 +2822,7 @@ int main(int argc, char *argv[]) {
                         k = open_terminal(console, O_RDWR);
                         if (k != STDIN_FILENO) {
                                 if (k >= 0) {
-                                        close_nointr_nofail(k);
+                                        safe_close(k);
                                         k = -EINVAL;
                                 }
 
@@ -2899,8 +2895,7 @@ int main(int argc, char *argv[]) {
                         if (setup_kmsg(arg_directory, kmsg_socket_pair[1]) < 0)
                                 goto child_fail;
 
-                        close_nointr_nofail(kmsg_socket_pair[1]);
-                        kmsg_socket_pair[1] = -1;
+                        kmsg_socket_pair[1] = safe_close(kmsg_socket_pair[1]);
 
                         if (setup_boot_id(arg_directory) < 0)
                                 goto child_fail;
@@ -2927,8 +2922,7 @@ int main(int argc, char *argv[]) {
                          * it can cgroupify us to that we lack access
                          * to certain devices and resources. */
                         eventfd_write(child_ready_fd, 1);
-                        close_nointr_nofail(child_ready_fd);
-                        child_ready_fd = -1;
+                        child_ready_fd = safe_close(child_ready_fd);
 
                         if (chdir(arg_directory) < 0) {
                                 log_error("chdir(%s) failed: %m", arg_directory);
@@ -3029,8 +3023,7 @@ int main(int argc, char *argv[]) {
 
                         /* Wait until the parent is ready with the setup, too... */
                         eventfd_read(parent_ready_fd, &x);
-                        close_nointr_nofail(parent_ready_fd);
-                        parent_ready_fd = -1;
+                        parent_ready_fd = safe_close(parent_ready_fd);
 
                         if (arg_boot) {
                                 char **a;

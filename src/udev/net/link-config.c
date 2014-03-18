@@ -127,8 +127,7 @@ void link_config_ctx_free(link_config_ctx *ctx) {
         if (!ctx)
                 return;
 
-        if (ctx->ethtool_fd >= 0)
-                close_nointr_nofail(ctx->ethtool_fd);
+        safe_close(ctx->ethtool_fd);
 
         sd_rtnl_unref(ctx->rtnl);
 

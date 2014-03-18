@@ -811,7 +811,7 @@ static void close_kdbus_msg(sd_bus *bus, struct kdbus_msg *k) {
                 if (d->type == KDBUS_ITEM_FDS)
                         close_many(d->fds, (d->size - offsetof(struct kdbus_item, fds)) / sizeof(int));
                 else if (d->type == KDBUS_ITEM_PAYLOAD_MEMFD)
-                        close_nointr_nofail(d->memfd.fd);
+                        safe_close(d->memfd.fd);
         }
 }
 
@@ -1165,7 +1165,7 @@ static void close_and_munmap(int fd, void *address, size_t size) {
         if (size > 0)
                 assert_se(munmap(address, PAGE_ALIGN(size)) >= 0);
 
-        close_nointr_nofail(fd);
+        safe_close(fd);
 }
 
 void bus_kernel_push_memfd(sd_bus *bus, int fd, void *address, size_t mapped, size_t allocated) {
@@ -1313,14 +1313,14 @@ int bus_kernel_create_bus(const char *name, bool world, char **s) {
         make->flags = world ? KDBUS_MAKE_ACCESS_WORLD : 0;
 
         if (ioctl(fd, KDBUS_CMD_BUS_MAKE, make) < 0) {
-                close_nointr_nofail(fd);
+                safe_close(fd);
                 return -errno;
         }
 
         /* The higher 32bit of the flags field are considered
          * 'incompatible flags'. Refuse them all for now. */
         if (make->flags > 0xFFFFFFFFULL) {
-                close_nointr_nofail(fd);
+                safe_close(fd);
                 return -ENOTSUP;
         }
 
@@ -1329,7 +1329,7 @@ int bus_kernel_create_bus(const char *name, bool world, char **s) {
 
                 p = strjoin("/dev/kdbus/", n->str, "/bus", NULL);
                 if (!p) {
-                        close_nointr_nofail(fd);
+                        safe_close(fd);
                         return -ENOMEM;
                 }
 
@@ -1424,7 +1424,7 @@ int bus_kernel_create_starter(const char *bus, const char *name, BusNamePolicy *
         hello->pool_size = KDBUS_POOL_SIZE;
 
         if (ioctl(fd, KDBUS_CMD_HELLO, hello) < 0) {
-                close_nointr_nofail(fd);
+                safe_close(fd);
                 return -errno;
         }
 
@@ -1432,12 +1432,12 @@ int bus_kernel_create_starter(const char *bus, const char *name, BusNamePolicy *
          * 'incompatible flags'. Refuse them all for now. */
         if (hello->bus_flags > 0xFFFFFFFFULL ||
             hello->conn_flags > 0xFFFFFFFFULL) {
-                close_nointr_nofail(fd);
+                safe_close(fd);
                 return -ENOTSUP;
         }
 
         if (!bloom_validate_parameters((size_t) hello->bloom.size, (unsigned) hello->bloom.n_hash)) {
-                close_nointr_nofail(fd);
+                safe_close(fd);
                 return -ENOTSUP;
         }
 
@@ -1469,14 +1469,14 @@ int bus_kernel_create_domain(const char *name, char **s) {
         make->flags = KDBUS_MAKE_ACCESS_WORLD;
 
         if (ioctl(fd, KDBUS_CMD_DOMAIN_MAKE, make) < 0) {
-                close_nointr_nofail(fd);
+                safe_close(fd);
                 return -errno;
         }
 
         /* The higher 32bit of the flags field are considered
          * 'incompatible flags'. Refuse them all for now. */
         if (make->flags > 0xFFFFFFFFULL) {
-                close_nointr_nofail(fd);
+                safe_close(fd);
                 return -ENOTSUP;
         }
 
@@ -1485,7 +1485,7 @@ int bus_kernel_create_domain(const char *name, char **s) {
 
                 p = strappend("/dev/kdbus/domain/", name);
                 if (!p) {
-                        close_nointr_nofail(fd);
+                        safe_close(fd);
                         return -ENOMEM;
                 }
 
@@ -1515,7 +1515,7 @@ int bus_kernel_create_monitor(const char *bus) {
         hello->pool_size = KDBUS_POOL_SIZE;
 
         if (ioctl(fd, KDBUS_CMD_HELLO, hello) < 0) {
-                close_nointr_nofail(fd);
+                safe_close(fd);
                 return -errno;
         }
 
@@ -1523,7 +1523,7 @@ int bus_kernel_create_monitor(const char *bus) {
          * 'incompatible flags'. Refuse them all for now. */
         if (hello->bus_flags > 0xFFFFFFFFULL ||
             hello->conn_flags > 0xFFFFFFFFULL) {
-                close_nointr_nofail(fd);
+                safe_close(fd);
                 return -ENOTSUP;
         }
 

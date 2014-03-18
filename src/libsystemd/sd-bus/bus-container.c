@@ -154,8 +154,7 @@ int bus_container_connect_kernel(sd_bus *b) {
         if (child == 0) {
                 pid_t grandchild;
 
-                close_nointr_nofail(pair[0]);
-                pair[0] = -1;
+                pair[0] = safe_close(pair[0]);
 
                 r = namespace_enter(pidnsfd, mntnsfd, rootfd);
                 if (r < 0)
@@ -202,8 +201,7 @@ int bus_container_connect_kernel(sd_bus *b) {
                 _exit(si.si_status);
         }
 
-        close_nointr_nofail(pair[1]);
-        pair[1] = -1;
+        pair[1] = safe_close(pair[1]);
 
         r = wait_for_terminate(child, &si);
         if (r < 0)

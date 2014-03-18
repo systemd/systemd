@@ -490,8 +490,7 @@ static int run_gdb(sd_journal *j) {
                 goto finish;
         }
 
-        close_nointr_nofail(fd);
-        fd = -1;
+        fd = safe_close(fd);
 
         pid = fork();
         if (pid < 0) {

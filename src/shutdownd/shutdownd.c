@@ -430,8 +430,7 @@ int main(int argc, char *argv[]) {
 finish:
 
         for (i = 0; i < _FD_MAX; i++)
-                if (pollfd[i].fd >= 0)
-                        close_nointr_nofail(pollfd[i].fd);
+                safe_close(pollfd[i].fd);
 
         if (unlink_nologin)
                 unlink("/run/nologin");

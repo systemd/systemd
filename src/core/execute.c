@@ -123,7 +123,7 @@ static int shift_fds(int fds[], unsigned n_fds) {
                         if ((nfd = fcntl(fds[i], F_DUPFD, i+3)) < 0)
                                 return -errno;
 
-                        close_nointr_nofail(fds[i]);
+                        safe_close(fds[i]);
                         fds[i] = nfd;
 
                         /* Hmm, the fd we wanted isn't free? Then
@@ -209,7 +209,7 @@ static int open_null_as(int flags, int nfd) {
 
         if (fd != nfd) {
                 r = dup2(fd, nfd) < 0 ? -errno : nfd;
-                close_nointr_nofail(fd);
+                safe_close(fd);
         } else
                 r = nfd;
 
@@ -234,12 +234,12 @@ static int connect_logger_as(const ExecContext *context, ExecOutput output, cons
 
         r = connect(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path));
         if (r < 0) {
-                close_nointr_nofail(fd);
+                safe_close(fd);
                 return -errno;
         }
 
         if (shutdown(fd, SHUT_RD) < 0) {
-                close_nointr_nofail(fd);
+                safe_close(fd);
                 return -errno;
         }
 
@@ -263,7 +263,7 @@ static int connect_logger_as(const ExecContext *context, ExecOutput output, cons
 
         if (fd != nfd) {
                 r = dup2(fd, nfd) < 0 ? -errno : nfd;
-                close_nointr_nofail(fd);
+                safe_close(fd);
         } else
                 r = nfd;
 
@@ -280,7 +280,7 @@ static int open_terminal_as(const char *path, mode_t mode, int nfd) {
 
         if (fd != nfd) {
                 r = dup2(fd, nfd) < 0 ? -errno : nfd;
-                close_nointr_nofail(fd);
+                safe_close(fd);
         } else
                 r = nfd;
 
@@ -340,7 +340,7 @@ static int setup_input(const ExecContext *context, int socket_fd, bool apply_tty
 
                 if (fd != STDIN_FILENO) {
                         r = dup2(fd, STDIN_FILENO) < 0 ? -errno : STDIN_FILENO;
-                        close_nointr_nofail(fd);
+                        safe_close(fd);
                 } else
                         r = STDIN_FILENO;
 
@@ -504,7 +504,7 @@ static int setup_confirm_stdio(int *_saved_stdin,
         }
 
         if (fd >= 2)
-                close_nointr_nofail(fd);
+                safe_close(fd);
 
         *_saved_stdin = saved_stdin;
         *_saved_stdout = saved_stdout;
@@ -512,20 +512,15 @@ static int setup_confirm_stdio(int *_saved_stdin,
         return 0;
 
 fail:
-        if (saved_stdout >= 0)
-                close_nointr_nofail(saved_stdout);
-
-        if (saved_stdin >= 0)
-                close_nointr_nofail(saved_stdin);
-
-        if (fd >= 0)
-                close_nointr_nofail(fd);
+        safe_close(saved_stdout);
+        safe_close(saved_stdin);
+        safe_close(fd);
 
         return r;
 }
 
 _printf_(1, 2) static int write_confirm_message(const char *format, ...) {
-        int fd;
+        _cleanup_close_ int fd = -1;
         va_list ap;
 
         assert(format);
@@ -537,8 +532,6 @@ _printf_(1, 2) static int write_confirm_message(const char *format, ...) {
         va_start(ap, format);
         vdprintf(fd, format, ap);
         va_end(ap);
-
-        close_nointr_nofail(fd);
 
         return 0;
 }
@@ -561,11 +554,8 @@ static int restore_confirm_stdio(int *saved_stdin,
                 if (dup2(*saved_stdout, STDOUT_FILENO) < 0)
                         r = -errno;
 
-        if (*saved_stdin >= 0)
-                close_nointr_nofail(*saved_stdin);
-
-        if (*saved_stdout >= 0)
-                close_nointr_nofail(*saved_stdout);
+        safe_close(*saved_stdin);
+        safe_close(*saved_stdout);
 
         return r;
 }
@@ -1125,10 +1115,9 @@ finish:
 static void do_idle_pipe_dance(int idle_pipe[4]) {
         assert(idle_pipe);
 
-        if (idle_pipe[1] >= 0)
-                close_nointr_nofail(idle_pipe[1]);
-        if (idle_pipe[2] >= 0)
-                close_nointr_nofail(idle_pipe[2]);
+
+        safe_close(idle_pipe[1]);
+        safe_close(idle_pipe[2]);
 
         if (idle_pipe[0] >= 0) {
                 int r;
@@ -1143,12 +1132,11 @@ static void do_idle_pipe_dance(int idle_pipe[4]) {
                         fd_wait_for_event(idle_pipe[0], POLLHUP, IDLE_TIMEOUT2_USEC);
                 }
 
-                close_nointr_nofail(idle_pipe[0]);
+                safe_close(idle_pipe[0]);
 
         }
 
-        if (idle_pipe[3] >= 0)
-                close_nointr_nofail(idle_pipe[3]);
+        safe_close(idle_pipe[3]);
 }
 
 static int build_environment(
@@ -2730,9 +2718,7 @@ int exec_runtime_deserialize_item(ExecRuntime **rt, Unit *u, const char *key, co
                 if (safe_atoi(value, &fd) < 0 || !fdset_contains(fds, fd))
                         log_debug_unit(u->id, "Failed to parse netns socket value %s", value);
                 else {
-                        if ((*rt)->netns_storage_socket[0] >= 0)
-                                close_nointr_nofail((*rt)->netns_storage_socket[0]);
-
+                        safe_close((*rt)->netns_storage_socket[0]);
                         (*rt)->netns_storage_socket[0] = fdset_remove(fds, fd);
                 }
         } else if (streq(key, "netns-socket-1")) {
@@ -2745,9 +2731,7 @@ int exec_runtime_deserialize_item(ExecRuntime **rt, Unit *u, const char *key, co
                 if (safe_atoi(value, &fd) < 0 || !fdset_contains(fds, fd))
                         log_debug_unit(u->id, "Failed to parse netns socket value %s", value);
                 else {
-                        if ((*rt)->netns_storage_socket[1] >= 0)
-                                close_nointr_nofail((*rt)->netns_storage_socket[1]);
-
+                        safe_close((*rt)->netns_storage_socket[1]);
                         (*rt)->netns_storage_socket[1] = fdset_remove(fds, fd);
                 }
         } else

@@ -775,7 +775,7 @@ _public_ int sd_login_monitor_new(const char *category, sd_login_monitor **m) {
         if (!category || streq(category, "seat")) {
                 k = inotify_add_watch(fd, "/run/systemd/seats/", IN_MOVED_TO|IN_DELETE);
                 if (k < 0) {
-                        close_nointr_nofail(fd);
+                        safe_close(fd);
                         return -errno;
                 }
 
@@ -785,7 +785,7 @@ _public_ int sd_login_monitor_new(const char *category, sd_login_monitor **m) {
         if (!category || streq(category, "session")) {
                 k = inotify_add_watch(fd, "/run/systemd/sessions/", IN_MOVED_TO|IN_DELETE);
                 if (k < 0) {
-                        close_nointr_nofail(fd);
+                        safe_close(fd);
                         return -errno;
                 }
 
@@ -795,7 +795,7 @@ _public_ int sd_login_monitor_new(const char *category, sd_login_monitor **m) {
         if (!category || streq(category, "uid")) {
                 k = inotify_add_watch(fd, "/run/systemd/users/", IN_MOVED_TO|IN_DELETE);
                 if (k < 0) {
-                        close_nointr_nofail(fd);
+                        safe_close(fd);
                         return -errno;
                 }
 
@@ -805,7 +805,7 @@ _public_ int sd_login_monitor_new(const char *category, sd_login_monitor **m) {
         if (!category || streq(category, "machine")) {
                 k = inotify_add_watch(fd, "/run/systemd/machines/", IN_MOVED_TO|IN_DELETE);
                 if (k < 0) {
-                        close_nointr_nofail(fd);
+                        safe_close(fd);
                         return -errno;
                 }
 

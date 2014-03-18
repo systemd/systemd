@@ -169,7 +169,7 @@ _public_ int sd_network_monitor_new(const char *category, sd_network_monitor **m
         if (!category || streq(category, "netif")) {
                 k = inotify_add_watch(fd, "/run/systemd/network/links/", IN_MOVED_TO|IN_DELETE);
                 if (k < 0) {
-                        close_nointr_nofail(fd);
+                        safe_close(fd);
                         return -errno;
                 }
 

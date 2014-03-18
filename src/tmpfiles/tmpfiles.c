@@ -496,7 +496,7 @@ static int write_one_file(Item *i, const char *path) {
 
                 unescaped = cunescape(i->argument);
                 if (unescaped == NULL) {
-                        close_nointr_nofail(fd);
+                        safe_close(fd);
                         return log_oom();
                 }
 
@@ -505,12 +505,12 @@ static int write_one_file(Item *i, const char *path) {
 
                 if (n < 0 || (size_t) n < l) {
                         log_error("Failed to write file %s: %s", path, n < 0 ? strerror(-n) : "Short write");
-                        close_nointr_nofail(fd);
+                        safe_close(fd);
                         return n < 0 ? n : -EIO;
                 }
         }
 
-        close_nointr_nofail(fd);
+        safe_close(fd);
 
         if (stat(path, &st) < 0) {
                 log_error("stat(%s) failed: %m", path);

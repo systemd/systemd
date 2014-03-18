@@ -149,7 +149,8 @@ char *endswith(const char *s, const char *postfix) _pure_;
 bool first_word(const char *s, const char *word) _pure_;
 
 int close_nointr(int fd);
-void close_nointr_nofail(int fd);
+int safe_close(int fd);
+
 void close_many(const int fds[], unsigned n_fd);
 
 int parse_size(const char *t, off_t base, off_t *size);
@@ -620,8 +621,7 @@ static inline void freep(void *p) {
         struct __useless_struct_to_allow_trailing_semicolon__
 
 static inline void closep(int *fd) {
-        if (*fd >= 0)
-                close_nointr_nofail(*fd);
+        safe_close(*fd);
 }
 
 static inline void umaskp(mode_t *u) {
