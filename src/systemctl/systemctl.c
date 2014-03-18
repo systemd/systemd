@@ -1582,7 +1582,7 @@ static int compare_machine_info(const void *a, const void *b) {
         const struct machine_info *u = a, *v = b;
 
         if (u->is_host != v->is_host)
-                return u->is_host > v->is_host ? 1 : -1;
+                return u->is_host > v->is_host ? -1 : 1;
 
         return strcasecmp(u->name, v->name);
 }
