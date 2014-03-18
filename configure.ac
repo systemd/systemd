@@ -788,6 +788,18 @@ fi
 AM_CONDITIONAL(HAVE_GNUTLS, [test "$have_gnutls" = "yes"])
 
 # ------------------------------------------------------------------------------
+have_libcurl=no
+AC_ARG_ENABLE(libcurl, AS_HELP_STRING([--disable-libcurl], [disable libcurl support]))
+if test "x$enable_libcurl" != "xno"; then
+        PKG_CHECK_MODULES(LIBCURL, [libcurl],
+                [AC_DEFINE(HAVE_LIBCURL, 1, [Define if libcurl is available]) have_libcurl=yes], have_libcurl=no)
+        if test "x$have_libcurl" = xno -a "x$enable_libcurl" = xyes; then
+                AC_MSG_ERROR([*** libcurl support requested but libraries not found])
+        fi
+fi
+AM_CONDITIONAL(HAVE_LIBCURL, [test "$have_libcurl" = "yes"])
+
+# ------------------------------------------------------------------------------
 have_binfmt=no
 AC_ARG_ENABLE(binfmt, AS_HELP_STRING([--disable-binfmt], [disable binfmt tool]))
 if test "x$enable_binfmt" != "xno"; then
@@ -1293,6 +1305,7 @@ AC_MSG_RESULT([
         MICROHTTPD:              ${have_microhttpd}
         CHKCONFIG:               ${have_chkconfig}
         GNUTLS:                  ${have_gnutls}
+        libcurl:                 ${have_libcurl}
         ELFUTILS:                ${have_elfutils}
         binfmt:                  ${have_binfmt}
         vconsole:                ${have_vconsole}
