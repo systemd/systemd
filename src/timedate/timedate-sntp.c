@@ -347,14 +347,12 @@ static int sntp_adjust_clock(SNTPContext *sntp, double offset, int leap_sec) {
          * syncs the system time periodically to the hardware clock.
          */
         if (offset < NTP_MAX_ADJUST && offset > -NTP_MAX_ADJUST) {
-                int constant;
-
-                constant = log2i(sntp->poll_interval_usec / USEC_PER_SEC) - 6;
-
-                tmx.modes |= ADJ_STATUS | ADJ_OFFSET | ADJ_TIMECONST;
+                tmx.modes |= ADJ_STATUS | ADJ_OFFSET | ADJ_TIMECONST | ADJ_MAXERROR | ADJ_ESTERROR;
                 tmx.status = STA_PLL;
                 tmx.offset = offset * 1000 * 1000;
-                tmx.constant = constant;
+                tmx.constant = log2i(sntp->poll_interval_usec / USEC_PER_SEC) - 6;
+                tmx.maxerror = 0;
+                tmx.esterror = 0;
                 log_debug("  adjust (slew): %+f sec\n", (double)tmx.offset / USEC_PER_SEC);
         } else {
                 tmx.modes = ADJ_SETOFFSET;
