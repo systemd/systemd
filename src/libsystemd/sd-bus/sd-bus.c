@@ -1885,12 +1885,17 @@ _public_ int sd_bus_call(
 
                                 if (incoming->header->type == SD_BUS_MESSAGE_METHOD_RETURN) {
 
-                                        if (reply)
-                                                *reply = incoming;
-                                        else
-                                                sd_bus_message_unref(incoming);
+                                        if (incoming->n_fds <= 0 || (bus->hello_flags & KDBUS_HELLO_ACCEPT_FD)) {
+                                                if (reply)
+                                                        *reply = incoming;
+                                                else
+                                                        sd_bus_message_unref(incoming);
 
-                                        return 1;
+                                                return 1;
+                                        }
+
+                                        r = sd_bus_error_setf(error, SD_BUS_ERROR_INCONSISTENT_MESSAGE, "Reply message contained file descriptors which I couldn't accept. Sorry.");
+
                                 } else if (incoming->header->type == SD_BUS_MESSAGE_METHOD_ERROR)
                                         r = sd_bus_error_copy(error, &incoming->error);
                                 else
@@ -2108,8 +2113,9 @@ static int process_hello(sd_bus *bus, sd_bus_message *m) {
 }
 
 static int process_reply(sd_bus *bus, sd_bus_message *m) {
+        _cleanup_bus_message_unref_ sd_bus_message *synthetic_reply = NULL;
         _cleanup_bus_error_free_ sd_bus_error error_buffer = SD_BUS_ERROR_NULL;
-        struct reply_callback *c;
+        _cleanup_free_ struct reply_callback *c = NULL;
         int r;
 
         assert(bus);
@@ -2126,13 +2132,32 @@ static int process_reply(sd_bus *bus, sd_bus_message *m) {
         if (c->timeout != 0)
                 prioq_remove(bus->reply_callbacks_prioq, c, &c->prioq_idx);
 
-        r = sd_bus_message_rewind(m, true);
-        if (r < 0)
-                return r;
+        if (m->n_fds > 0 && !(bus->hello_flags & KDBUS_HELLO_ACCEPT_FD)) {
+
+                /* If the reply contained a file descriptor which we
+                 * didn't want we pass an error instead. */
+
+                r = bus_message_new_synthetic_error(
+                                bus,
+                                m->reply_cookie,
+                                &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_INCONSISTENT_MESSAGE, "Reply message contained file descriptor"),
+                                &synthetic_reply);
+                if (r < 0)
+                        return r;
+
+                r = bus_seal_synthetic_message(bus, synthetic_reply);
+                if (r < 0)
+                        return r;
+
+                m = synthetic_reply;
+        } else {
+                r = sd_bus_message_rewind(m, true);
+                if (r < 0)
+                        return r;
+        }
 
         r = c->callback(bus, m, c->userdata, &error_buffer);
         r = bus_maybe_reply_error(m, r, &error_buffer);
-        free(c);
 
         return r;
 }
@@ -2244,6 +2269,29 @@ static int process_builtin(sd_bus *bus, sd_bus_message *m) {
         return 1;
 }
 
+static int process_fd_check(sd_bus *bus, sd_bus_message *m) {
+        assert(bus);
+        assert(m);
+
+        /* If we got a message with a file descriptor which we didn't
+         * want to accept, then let's drop it. How can this even
+         * happen? For example, when the kernel queues a message into
+         * an activatable names's queue which allows fds, and then is
+         * delivered to us later even though we ourselves did not
+         * negotiate it. */
+
+        if (m->n_fds <= 0)
+                return 0;
+
+        if (bus->hello_flags & KDBUS_HELLO_ACCEPT_FD)
+                return 0;
+
+        if (m->header->type != SD_BUS_MESSAGE_METHOD_CALL)
+                return 1; /* just eat it up */
+
+        return sd_bus_reply_method_errorf(m, SD_BUS_ERROR_INCONSISTENT_MESSAGE, "Message contains file descriptors, which I cannot accept. Sorry.");
+}
+
 static int process_message(sd_bus *bus, sd_bus_message *m) {
         int r;
 
@@ -2269,6 +2317,10 @@ static int process_message(sd_bus *bus, sd_bus_message *m) {
                 goto finish;
 
         r = process_reply(bus, m);
+        if (r != 0)
+                goto finish;
+
+        r = process_fd_check(bus, m);
         if (r != 0)
                 goto finish;
 
