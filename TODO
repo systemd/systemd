@@ -47,7 +47,8 @@ Features:
 
 * support transient mount units
 
-* Imply DevicePolicy=closed and CapabilityBoundingSet=~CAP_SYS_MKNOD when PrivateDevices= is used
+* Imply DevicePolicy=closed when PrivateDevices= is used. Mount
+  pts+kdbus+shm+mqueue into /dev namespace
 
 * add an "input" group to udev logic and add all input devices to it
 
