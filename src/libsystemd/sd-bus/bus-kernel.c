@@ -1420,7 +1420,7 @@ int bus_kernel_create_starter(const char *bus, const char *name, BusNamePolicy *
         }
 
         hello->size = size;
-        hello->conn_flags = KDBUS_HELLO_ACTIVATOR;
+        hello->conn_flags = KDBUS_HELLO_ACTIVATOR|KDBUS_HELLO_ACCEPT_FD;
         hello->pool_size = KDBUS_POOL_SIZE;
 
         if (ioctl(fd, KDBUS_CMD_HELLO, hello) < 0) {
