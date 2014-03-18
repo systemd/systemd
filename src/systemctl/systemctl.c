@@ -341,7 +341,7 @@ static bool output_show_unit(const UnitInfo *u, char **patterns) {
 }
 
 static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
-        unsigned id_len, max_id_len, load_len, active_len, sub_len, job_len, desc_len;
+        unsigned circle_len = 0, id_len, max_id_len, load_len, active_len, sub_len, job_len, desc_len;
         const UnitInfo *u;
         unsigned n_shown = 0;
         int job_count = 0;
@@ -363,13 +363,18 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
                         job_len = MAX(job_len, strlen(u->job_type));
                         job_count++;
                 }
+
+                if (!arg_no_legend &&
+                    (streq(u->active_state, "failed") ||
+                     STR_IN_SET(u->load_state, "error", "not-found", "masked")))
+                        circle_len = 2;
         }
 
         if (!arg_full && original_stdout_is_tty) {
                 unsigned basic_len;
 
                 id_len = MIN(max_id_len, 25u);
-                basic_len = 5 + id_len + 5 + active_len + sub_len;
+                basic_len = circle_len + 5 + id_len + 5 + active_len + sub_len;
 
                 if (job_count)
                         basic_len += job_len + 1;
@@ -397,11 +402,17 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
 
         for (u = unit_infos; u < unit_infos + c; u++) {
                 _cleanup_free_ char *e = NULL, *j = NULL;
-                const char *on_loaded, *off_loaded, *on = "";
-                const char *on_active, *off_active, *off = "";
+                const char *on_loaded = "", *off_loaded = "";
+                const char *on_active = "", *off_active = "";
+                const char *on_circle = "", *off_circle = "";
                 const char *id;
+                bool circle = false;
 
                 if (!n_shown && !arg_no_legend) {
+
+                        if (circle_len > 0)
+                                fputs("  ", stdout);
+
                         printf("%-*s %-*s %-*s %-*s ",
                                id_len, "UNIT",
                                load_len, "LOAD",
@@ -419,18 +430,18 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
 
                 n_shown++;
 
-                if (streq(u->load_state, "error") ||
-                    streq(u->load_state, "not-found")) {
-                        on_loaded = on = ansi_highlight_red();
-                        off_loaded = off = ansi_highlight_off();
-                } else
-                        on_loaded = off_loaded = "";
+                if (STR_IN_SET(u->load_state, "error", "not-found", "masked")) {
+                        on_loaded = ansi_highlight_red();
+                        on_circle = ansi_highlight_yellow();
+                        off_loaded = off_circle = ansi_highlight_off();
+                        circle = true;
+                }
 
                 if (streq(u->active_state, "failed")) {
-                        on_active = on = ansi_highlight_red();
-                        off_active = off = ansi_highlight_off();
-                } else
-                        on_active = off_active = "";
+                        on_circle = on_active = ansi_highlight_red();
+                        off_circle = off_active = ansi_highlight_off();
+                        circle = true;
+                }
 
                 if (u->machine) {
                         j = strjoin(u->machine, ":", u->id, NULL);
@@ -449,8 +460,11 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
                         id = e;
                 }
 
+                if (circle_len > 0)
+                        printf("%s%s%s", on_circle, circle ? draw_special_char(DRAW_BLACK_CIRCLE) : "  ", off_circle);
+
                 printf("%s%-*s%s %s%-*s%s %s%-*s %-*s%s %-*s",
-                       on, id_len, id, off,
+                       on_active, id_len, id, off_active,
                        on_loaded, load_len, u->load_state, off_loaded,
                        on_active, active_len, u->active_state,
                        sub_len, u->sub_state, off_active,
@@ -466,7 +480,8 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
                 const char *on, *off;
 
                 if (n_shown) {
-                        puts("\nLOAD   = Reflects whether the unit definition was properly loaded.\n"
+                        puts("\n"
+                             "LOAD   = Reflects whether the unit definition was properly loaded.\n"
                              "ACTIVE = The high-level unit activation state, i.e. generalization of SUB.\n"
                              "SUB    = The low-level unit activation state, values depend on unit type.");
                         puts(job_count ? "JOB    = Pending job for the unit.\n" : "");
@@ -1670,6 +1685,7 @@ static int get_machine_list(
 static void output_machines_list(struct machine_info *machine_infos, unsigned n) {
         struct machine_info *m;
         unsigned
+                circle_len = 0,
                 namelen = sizeof("NAME") - 1,
                 statelen = sizeof("STATE") - 1,
                 failedlen = sizeof("FAILED") - 1,
@@ -1682,32 +1698,45 @@ static void output_machines_list(struct machine_info *machine_infos, unsigned n)
                 statelen = MAX(statelen, m->state ? strlen(m->state) : 0);
                 failedlen = MAX(failedlen, DECIMAL_STR_WIDTH(m->n_failed_units));
                 jobslen = MAX(jobslen, DECIMAL_STR_WIDTH(m->n_jobs));
+
+                if (!arg_no_legend && !streq_ptr(m->state, "running"))
+                        circle_len = 2;
         }
 
-        if (!arg_no_legend)
+        if (!arg_no_legend) {
+                if (circle_len > 0)
+                        fputs("  ", stdout);
+
                 printf("%-*s %-*s %-*s %-*s\n",
                          namelen, "NAME",
                         statelen, "STATE",
                        failedlen, "FAILED",
                          jobslen, "JOBS");
+        }
 
         for (m = machine_infos; m < machine_infos + n; m++) {
-                const char *on_state, *off_state, *on_failed, *off_failed;
+                const char *on_state = "", *off_state = "";
+                const char *on_failed = "", *off_failed = "";
+                bool circle = false;
 
                 if (streq_ptr(m->state, "degraded")) {
                         on_state = ansi_highlight_red();
                         off_state = ansi_highlight_off();
+                        circle = true;
                 } else if (!streq_ptr(m->state, "running")) {
                         on_state = ansi_highlight_yellow();
                         off_state = ansi_highlight_off();
-                } else
-                        on_state = off_state = "";
+                        circle = true;
+                }
 
                 if (m->n_failed_units > 0) {
                         on_failed = ansi_highlight_red();
                         off_failed = ansi_highlight_off();
                 } else
                         on_failed = off_failed = "";
+
+                if (circle_len > 0)
+                        printf("%s%s%s", on_state, circle ? draw_special_char(DRAW_BLACK_CIRCLE) : "  ", off_state);
 
                 if (m->is_host)
                         printf("%-*s (host) %s%-*s%s %s%*u%s %*u\n",
