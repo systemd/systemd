@@ -99,7 +99,7 @@ int main(int argc, char *argv[]) {
 
         //server = "216.239.32.15";       /* time1.google.com */
         //server = "192.53.103.108";      /* ntp1.ptb.de */
-        server = "130.102.2.123";       /* 0.au.pool.ntp.org */
+        server = "27.54.95.11";         /* au.pool.ntp.org */
         r = sntp_server_connect(m->sntp, server);
 
         if (r < 0)
