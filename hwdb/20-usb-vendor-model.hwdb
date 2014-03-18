@@ -20,6 +20,12 @@ usb:v0003*
 usb:v0004*
  ID_VENDOR_FROM_DATABASE=Nebraska Furniture Mart
 
+usb:v0011*
+ ID_VENDOR_FROM_DATABASE=Unknown manufacturer
+
+usb:v0011p7788*
+ ID_MODEL_FROM_DATABASE=Flash mass storage drive
+
 usb:v0053*
  ID_VENDOR_FROM_DATABASE=Planex
 
@@ -30,7 +36,7 @@ usb:v0079*
  ID_VENDOR_FROM_DATABASE=DragonRise Inc.
 
 usb:v0079p0006*
- ID_MODEL_FROM_DATABASE=Generic USB Joystick
+ ID_MODEL_FROM_DATABASE=PC TWIN SHOCK Gamepad
 
 usb:v0079p0011*
  ID_MODEL_FROM_DATABASE=Gamepad
@@ -63,7 +69,7 @@ usb:v0204*
  ID_VENDOR_FROM_DATABASE=Chipsbank Microelectronics Co., Ltd
 
 usb:v0204p6025*
- ID_MODEL_FROM_DATABASE=CBM2080 Flash drive controller
+ ID_MODEL_FROM_DATABASE=CBM2080 / CBM2090 Flash drive controller
 
 usb:v0204p6026*
  ID_MODEL_FROM_DATABASE=CBM1180 Flash drive controller
@@ -262,6 +268,9 @@ usb:v03EBp2109*
 
 usb:v03EBp210D*
  ID_MODEL_FROM_DATABASE=XPLAIN evaluation kit (CDC ACM)
+
+usb:v03EBp2110*
+ ID_MODEL_FROM_DATABASE=AVR JTAGICE3 Debugger and Programmer
 
 usb:v03EBp2122*
  ID_MODEL_FROM_DATABASE=XMEGA-A1 Explained evaluation kit
@@ -1001,6 +1010,9 @@ usb:v03F0p2505*
 usb:v03F0p2512*
  ID_MODEL_FROM_DATABASE=OfficeJet Pro L7300
 
+usb:v03F0p2514*
+ ID_MODEL_FROM_DATABASE=4-port hub
+
 usb:v03F0p2517*
  ID_MODEL_FROM_DATABASE=LaserJet 2410
 
@@ -1375,6 +1387,9 @@ usb:v03F0p5111*
 
 usb:v03F0p5211*
  ID_MODEL_FROM_DATABASE=PhotoSmart 3300 series
+
+usb:v03F0p5307*
+ ID_MODEL_FROM_DATABASE=v165w Stick
 
 usb:v03F0p5311*
  ID_MODEL_FROM_DATABASE=OfficeJet 6300
@@ -2054,6 +2069,21 @@ usb:v0403p8A28*
 usb:v0403p8A98*
  ID_MODEL_FROM_DATABASE=TIAO Multi-Protocol Adapter
 
+usb:v0403p8B28*
+ ID_MODEL_FROM_DATABASE=Alpermann+Velte TCI70
+
+usb:v0403p8B29*
+ ID_MODEL_FROM_DATABASE=Alpermann+Velte TC60 CLS
+
+usb:v0403p8B2A*
+ ID_MODEL_FROM_DATABASE=Alpermann+Velte Rubidium Q1
+
+usb:v0403p8B2B*
+ ID_MODEL_FROM_DATABASE=Alpermann+Velte TCD
+
+usb:v0403p8B2C*
+ ID_MODEL_FROM_DATABASE=Alpermann+Velte TCC70
+
 usb:v0403p9133*
  ID_MODEL_FROM_DATABASE=CallerID
 
@@ -2155,6 +2185,9 @@ usb:v0403pC8BD*
 
 usb:v0403pC8BE*
  ID_MODEL_FROM_DATABASE=Alpermann+Velte Rubidium D1
+
+usb:v0403pC8BF*
+ ID_MODEL_FROM_DATABASE=Alpermann+Velte TC60 RLV
 
 usb:v0403pCC48*
  ID_MODEL_FROM_DATABASE=Tactrix OpenPort 1.3 Mitsubishi
@@ -2965,6 +2998,9 @@ usb:v040Ap4021*
 
 usb:v040Ap4022*
  ID_MODEL_FROM_DATABASE=1400 Digital Photo Printer
+
+usb:v040Ap402E*
+ ID_MODEL_FROM_DATABASE=605 Photo Printer
 
 usb:v040Ap4034*
  ID_MODEL_FROM_DATABASE=805 Photo Printer
@@ -4949,6 +4985,9 @@ usb:v043Ep7001*
 usb:v043Ep7013*
  ID_MODEL_FROM_DATABASE=MP3 Player
 
+usb:v043Ep70D7*
+ ID_MODEL_FROM_DATABASE=Mouse Scanner LSM-150 [LG Smart Scan Mouse]
+
 usb:v043Ep70F5*
  ID_MODEL_FROM_DATABASE=External HDD
 
@@ -5113,6 +5152,9 @@ usb:v044FpB203*
 
 usb:v044FpB300*
  ID_MODEL_FROM_DATABASE=Firestorm Dual Power
+
+usb:v044FpB303*
+ ID_MODEL_FROM_DATABASE=FireStorm Dual Analog 2
 
 usb:v044FpB304*
  ID_MODEL_FROM_DATABASE=Firestorm Dual Power
@@ -6437,6 +6479,9 @@ usb:v045Ep0772*
 usb:v045Ep0779*
  ID_MODEL_FROM_DATABASE=LifeCam HD-3000
 
+usb:v045Ep0780*
+ ID_MODEL_FROM_DATABASE=Comfort Curve Keyboard 3000
+
 usb:v045Ep0797*
  ID_MODEL_FROM_DATABASE=Optical Mouse 200
 
@@ -7313,6 +7358,9 @@ usb:v046DpC062*
 usb:v046DpC063*
  ID_MODEL_FROM_DATABASE=DELL Laser Mouse
 
+usb:v046DpC064*
+ ID_MODEL_FROM_DATABASE=M110 corded optical mouse (M-B0001)
+
 usb:v046DpC066*
  ID_MODEL_FROM_DATABASE=G9x Laser Mouse
 
@@ -7330,6 +7378,9 @@ usb:v046DpC06B*
 
 usb:v046DpC06C*
  ID_MODEL_FROM_DATABASE=Optical Mouse
+
+usb:v046DpC077*
+ ID_MODEL_FROM_DATABASE=M105 Optical Mouse
 
 usb:v046DpC101*
  ID_MODEL_FROM_DATABASE=UltraX Media Remote
@@ -7360,6 +7411,9 @@ usb:v046DpC125*
 
 usb:v046DpC126*
  ID_MODEL_FROM_DATABASE=Harmony Link
+
+usb:v046DpC12B*
+ ID_MODEL_FROM_DATABASE=Harmony Touch Remote
 
 usb:v046DpC201*
  ID_MODEL_FROM_DATABASE=WingMan Extreme Joystick with Throttle
@@ -7448,6 +7502,12 @@ usb:v046DpC226*
 usb:v046DpC227*
  ID_MODEL_FROM_DATABASE=G15 Refresh Keyboard
 
+usb:v046DpC228*
+ ID_MODEL_FROM_DATABASE=G19 Gaming Keyboard
+
+usb:v046DpC229*
+ ID_MODEL_FROM_DATABASE=G19 Gaming Keyboard Macro Interface
+
 usb:v046DpC22A*
  ID_MODEL_FROM_DATABASE=Gaming Keyboard G110
 
@@ -7465,6 +7525,18 @@ usb:v046DpC245*
 
 usb:v046DpC246*
  ID_MODEL_FROM_DATABASE=Gaming Mouse G300
+
+usb:v046DpC248*
+ ID_MODEL_FROM_DATABASE=G105 Gaming Keyboard
+
+usb:v046DpC24A*
+ ID_MODEL_FROM_DATABASE=G600 Gaming Mouse
+
+usb:v046DpC24D*
+ ID_MODEL_FROM_DATABASE=G710 Gaming Keyboard
+
+usb:v046DpC24E*
+ ID_MODEL_FROM_DATABASE=G500s Laser Gaming Mouse
 
 usb:v046DpC281*
  ID_MODEL_FROM_DATABASE=WingMan Force
@@ -8542,6 +8614,9 @@ usb:v0480pA006*
 
 usb:v0480pA007*
  ID_MODEL_FROM_DATABASE=External Disk USB 3.0
+
+usb:v0480pA009*
+ ID_MODEL_FROM_DATABASE=Stor.E Basics
 
 usb:v0480pD010*
  ID_MODEL_FROM_DATABASE=External Disk 3TB
@@ -10814,6 +10889,9 @@ usb:v04A9p31E5*
 usb:v04A9p31E6*
  ID_MODEL_FROM_DATABASE=PowerShot SD940 IS DIGITAL ELPH / Digital IXUS 120 IS / IXY DIGITAL 220 IS
 
+usb:v04A9p31E7*
+ ID_MODEL_FROM_DATABASE=SELPHY CP790
+
 usb:v04A9p31EA*
  ID_MODEL_FROM_DATABASE=EOS Rebel T2i / EOS 550D / EOS Kiss X4
 
@@ -10985,6 +11063,9 @@ usb:v04A9p325F*
 usb:v04A9p3260*
  ID_MODEL_FROM_DATABASE=PowerShot SX270 HS
 
+usb:v04A9p3262*
+ ID_MODEL_FROM_DATABASE=PowerShot A2600
+
 usb:v04A9p3264*
  ID_MODEL_FROM_DATABASE=PowerShot A1400
 
@@ -10999,6 +11080,9 @@ usb:v04A9p3271*
 
 usb:v04A9p3276*
  ID_MODEL_FROM_DATABASE=PowerShot SX170 IS
+
+usb:v04A9p3277*
+ ID_MODEL_FROM_DATABASE=PowerShot SX510 HS
 
 usb:v04A9p327D*
  ID_MODEL_FROM_DATABASE=Powershot ELPH 115 IS / IXUS 132
@@ -11311,6 +11395,9 @@ usb:v04B3p4482*
 
 usb:v04B3p4485*
  ID_MODEL_FROM_DATABASE=Serial Converter
+
+usb:v04B3p4524*
+ ID_MODEL_FROM_DATABASE=40 Character Vacuum Fluorescent Display
 
 usb:v04B3p4525*
  ID_MODEL_FROM_DATABASE=Double sided CRT
@@ -12335,6 +12422,9 @@ usb:v04C5p10FE*
 usb:v04C5p1150*
  ID_MODEL_FROM_DATABASE=fi-6230
 
+usb:v04C5p201D*
+ ID_MODEL_FROM_DATABASE=SATA 3.0 6Gbit/s Adaptor [GROOVY]
+
 usb:v04C6*
  ID_VENDOR_FROM_DATABASE=Toshiba America Electronic Components
 
@@ -12373,6 +12463,9 @@ usb:v04C8p072D*
 
 usb:v04CA*
  ID_VENDOR_FROM_DATABASE=Lite-On Technology Corp.
+
+usb:v04CAp004F*
+ ID_MODEL_FROM_DATABASE=SK-9020 keyboard
 
 usb:v04CAp1766*
  ID_MODEL_FROM_DATABASE=HID Monitor Controls
@@ -13346,6 +13439,9 @@ usb:v04E6p5292*
 usb:v04E6p5410*
  ID_MODEL_FROM_DATABASE=SCR35xx Smart Card Reader
 
+usb:v04E6p5591*
+ ID_MODEL_FROM_DATABASE=SCL3711-NFC&RW
+
 usb:v04E6pE000*
  ID_MODEL_FROM_DATABASE=SCRx31 Reader
 
@@ -14137,6 +14233,9 @@ usb:v04F2p0841*
 
 usb:v04F2p0860*
  ID_MODEL_FROM_DATABASE=2.4G Multimedia Wireless Kit
+
+usb:v04F2p1121*
+ ID_MODEL_FROM_DATABASE=Periboard 717 Mini Wireless Keyboard
 
 usb:v04F2pA001*
  ID_MODEL_FROM_DATABASE=E-Video DC-100 Camera
@@ -28935,10 +29034,10 @@ usb:v0906*
  ID_VENDOR_FROM_DATABASE=Faraday Technology Corp.
 
 usb:v0908*
- ID_VENDOR_FROM_DATABASE=ShenZhen SANZHAI Technology Co.,Ltd
+ ID_VENDOR_FROM_DATABASE=Siemens AG
 
 usb:v0908p2701*
- ID_MODEL_FROM_DATABASE=Spy Pen VGA
+ ID_MODEL_FROM_DATABASE=ShenZhen SANZHAI Technology Co.,Ltd Spy Pen VGA
 
 usb:v0909*
  ID_VENDOR_FROM_DATABASE=Audio-Technica Corp.
@@ -38360,6 +38459,12 @@ usb:v0FFC*
 usb:v0FFCp0021*
  ID_MODEL_FROM_DATABASE=Nord Stage 2
 
+usb:v0FFD*
+ ID_VENDOR_FROM_DATABASE=EarlySense
+
+usb:v0FFDpFF00*
+ ID_MODEL_FROM_DATABASE=OEM
+
 usb:v0FFF*
  ID_VENDOR_FROM_DATABASE=Aopen, Inc.
 
@@ -47761,6 +47866,12 @@ usb:v2237*
 
 usb:v2237p4161*
  ID_MODEL_FROM_DATABASE=eReader White
+
+usb:v228D*
+ ID_VENDOR_FROM_DATABASE=8D Technologies inc.
+
+usb:v228Dp0001*
+ ID_MODEL_FROM_DATABASE=Terminal Bike Key Reader
 
 usb:v22A6*
  ID_VENDOR_FROM_DATABASE=Pie Digital, Inc.
