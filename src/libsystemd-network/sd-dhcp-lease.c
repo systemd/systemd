@@ -481,3 +481,29 @@ int dhcp_lease_load(const char *lease_file, sd_dhcp_lease **ret) {
 
         return 0;
 }
+
+int dhcp_lease_set_default_subnet_mask(sd_dhcp_lease *lease) {
+        uint32_t address;
+
+        assert(lease);
+        assert(lease->address != INADDR_ANY);
+
+        address = be32toh(lease->address);
+
+        /* fall back to the default subnet masks based on address class */
+
+        if ((address >> 31) == 0x0)
+                /* class A, leading bits: 0 */
+                lease->subnet_mask = htobe32(0xff000000);
+        else if ((address >> 30) == 0x2)
+                /* class B, leading bits 10 */
+                lease->subnet_mask = htobe32(0xffff0000);
+        else if ((address >> 29) == 0x6)
+                /* class C, leading bits 110 */
+                lease->subnet_mask = htobe32(0xffffff00);
+        else
+                /* class D or E, no default mask. give up */
+                return -ERANGE;
+
+        return 0;
+}

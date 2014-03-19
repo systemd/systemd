@@ -673,8 +673,10 @@ static int client_handle_offer(sd_dhcp_client *client, DHCPMessage *offer,
                 return r;
 
         r = dhcp_option_parse(offer, len, dhcp_lease_parse_options, lease);
-        if (r != DHCP_OFFER)
+        if (r != DHCP_OFFER) {
+                log_dhcp_client(client, "receieved message was not an OFFER, ignoring");
                 return -ENOMSG;
+        }
 
         lease->next_server = offer->siaddr;
 
@@ -682,9 +684,21 @@ static int client_handle_offer(sd_dhcp_client *client, DHCPMessage *offer,
 
         if (lease->address == INADDR_ANY ||
             lease->server_address == INADDR_ANY ||
-            lease->subnet_mask == INADDR_ANY ||
-            lease->lifetime == 0)
+            lease->lifetime == 0) {
+                log_dhcp_client(client, "receieved lease lacks address, server "
+                                "address or lease lifetime, ignoring");
                 return -ENOMSG;
+        }
+
+        if (lease->subnet_mask == INADDR_ANY) {
+                r = dhcp_lease_set_default_subnet_mask(lease);
+                if (r < 0) {
+                        log_dhcp_client(client, "receieved lease lacks subnet "
+                                        "mask, and a fallback one can not be "
+                                        "generated, ignoring");
+                        return -ENOMSG;
+                }
+        }
 
         client->lease = lease;
         lease = NULL;
@@ -709,8 +723,10 @@ static int client_handle_ack(sd_dhcp_client *client, DHCPMessage *ack,
                 return DHCP_EVENT_NO_LEASE;
         }
 
-        if (r != DHCP_ACK)
+        if (r != DHCP_ACK) {
+                log_dhcp_client(client, "receieved message was not an ACK, ignoring");
                 return -ENOMSG;
+        }
 
         lease->next_server = ack->siaddr;
 
@@ -718,8 +734,21 @@ static int client_handle_ack(sd_dhcp_client *client, DHCPMessage *ack,
 
         if (lease->address == INADDR_ANY ||
             lease->server_address == INADDR_ANY ||
-            lease->subnet_mask == INADDR_ANY || lease->lifetime == 0)
+            lease->lifetime == 0) {
+                log_dhcp_client(client, "receieved lease lacks address, server "
+                                "address or lease lifetime, ignoring");
                 return -ENOMSG;
+        }
+
+        if (lease->subnet_mask == INADDR_ANY) {
+                r = dhcp_lease_set_default_subnet_mask(lease);
+                if (r < 0) {
+                        log_dhcp_client(client, "receieved lease lacks subnet "
+                                        "mask, and a fallback one can not be "
+                                        "generated, ignoring");
+                        return -ENOMSG;
+                }
+        }
 
         r = DHCP_EVENT_IP_ACQUIRE;
         if (client->lease) {
@@ -940,7 +969,9 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message,
                                                          client->event_priority);
                         if (r < 0)
                                 goto error;
-                }
+                } else if (r == -ENOMSG)
+                        /* invalid message, let's ignore it */
+                        return 0;
 
                 break;
 
@@ -950,7 +981,6 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message,
         case DHCP_STATE_REBINDING:
 
                 r = client_handle_ack(client, message, len);
-
                 if (r == DHCP_EVENT_NO_LEASE) {
 
                         client->timeout_resend =
@@ -967,9 +997,7 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message,
                         }
 
                         goto error;
-                }
-
-                if (r >= 0) {
+                } else if (r >= 0) {
                         client->timeout_resend =
                                 sd_event_source_unref(client->timeout_resend);
 
@@ -994,9 +1022,9 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message,
                         client->receive_message =
                                 sd_event_source_unref(client->receive_message);
                         client->fd = safe_close(client->fd);
-                }
-
-                r = 0;
+                } else if (r == -ENOMSG)
+                        /* invalid message, let's ignore it */
+                        return 0;
 
                 break;
 
