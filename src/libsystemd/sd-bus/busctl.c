@@ -494,29 +494,57 @@ int main(int argc, char *argv[]) {
         if (r <= 0)
                 goto finish;
 
-        if (arg_address) {
-                r = sd_bus_new(&bus);
+        r = sd_bus_new(&bus);
+        if (r < 0) {
+                log_error("Failed to allocate bus: %s", strerror(-r));
+                goto finish;
+        }
+
+        if (streq_ptr(argv[optind], "monitor")) {
+
+                r = sd_bus_set_monitor(bus, true);
                 if (r < 0) {
-                        log_error("Failed to allocate bus: %s", strerror(-r));
+                        log_error("Failed to set monitor mode: %s", strerror(-r));
                         goto finish;
                 }
+        }
 
+        if (arg_address)
                 r = sd_bus_set_address(bus, arg_address);
-                if (r < 0) {
-                        log_error("Failed to set address: %s", strerror(-r));
-                        goto finish;
+        else {
+                switch (arg_transport) {
+
+                case BUS_TRANSPORT_LOCAL:
+                        if (arg_user)
+                                r = bus_set_address_user(bus);
+                        else
+                                r = bus_set_address_system(bus);
+                        break;
+
+                case BUS_TRANSPORT_REMOTE:
+                        r = bus_set_address_system_remote(bus, arg_host);
+                        break;
+
+                case BUS_TRANSPORT_CONTAINER:
+                        r = bus_set_address_system_container(bus, arg_host);
+                        break;
+
+                default:
+                        assert_not_reached("Hmm, unknown transport type.");
                 }
+        }
+        if (r < 0) {
+                log_error("Failed to set address: %s", strerror(-r));
+                goto finish;
+        }
 
-                r = sd_bus_set_bus_client(bus, true);
-                if (r < 0) {
-                        log_error("Failed to set bus client: %s", strerror(-r));
-                        goto finish;
-                }
+        r = sd_bus_set_bus_client(bus, true);
+        if (r < 0) {
+                log_error("Failed to set bus client: %s", strerror(-r));
+                goto finish;
+        }
 
-                r = sd_bus_start(bus);
-        } else
-                r = bus_open_transport(arg_transport, arg_host, arg_user, &bus);
-
+        r = sd_bus_start(bus);
         if (r < 0) {
                 log_error("Failed to connect to bus: %s", strerror(-r));
                 goto finish;

@@ -154,6 +154,7 @@ m4_ifdef(`ENABLE_KDBUS',
         sd_bus_set_server;
         sd_bus_set_anonymous;
         sd_bus_set_trusted;
+        sd_bus_set_monitor;
         sd_bus_set_name;
         sd_bus_negotiate_fds;
         sd_bus_negotiate_timestamp;

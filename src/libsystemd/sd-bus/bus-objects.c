@@ -1304,6 +1304,9 @@ int bus_process_object(sd_bus *bus, sd_bus_message *m) {
         assert(bus);
         assert(m);
 
+        if (bus->hello_flags & KDBUS_HELLO_MONITOR)
+                return 0;
+
         if (m->header->type != SD_BUS_MESSAGE_METHOD_CALL)
                 return 0;
 

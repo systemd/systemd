@@ -1098,12 +1098,21 @@ int bus_add_match_internal_kernel(
         return 0;
 }
 
+#define internal_match(bus, m)                                          \
+        ((bus)->hello_flags & KDBUS_HELLO_MONITOR                       \
+         ? (isempty(m) ? "eavesdrop='true'" : strappenda((m), ",eavesdrop='true'")) \
+         : (m))
+
 static int bus_add_match_internal_dbus1(
                 sd_bus *bus,
                 const char *match) {
 
+        const char *e;
+
         assert(bus);
         assert(match);
+
+        e = internal_match(bus, match);
 
         return sd_bus_call_method(
                         bus,
@@ -1114,7 +1123,7 @@ static int bus_add_match_internal_dbus1(
                         NULL,
                         NULL,
                         "s",
-                        match);
+                        e);
 }
 
 int bus_add_match_internal(
@@ -1159,8 +1168,12 @@ static int bus_remove_match_internal_dbus1(
                 sd_bus *bus,
                 const char *match) {
 
+        const char *e;
+
         assert(bus);
         assert(match);
+
+        e = internal_match(bus, match);
 
         return sd_bus_call_method(
                         bus,
@@ -1171,7 +1184,7 @@ static int bus_remove_match_internal_dbus1(
                         NULL,
                         NULL,
                         "s",
-                        match);
+                        e);
 }
 
 int bus_remove_match_internal(

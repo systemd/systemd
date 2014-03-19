@@ -284,6 +284,15 @@ _public_ int sd_bus_set_bus_client(sd_bus *bus, int b) {
         return 0;
 }
 
+_public_ int sd_bus_set_monitor(sd_bus *bus, int b) {
+        assert_return(bus, -EINVAL);
+        assert_return(bus->state == BUS_UNSET, -EPERM);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
+
+        SET_FLAG(bus->hello_flags, KDBUS_HELLO_MONITOR, b);
+        return 0;
+}
+
 _public_ int sd_bus_negotiate_fds(sd_bus *bus, int b) {
         assert_return(bus, -EINVAL);
         assert_return(bus->state == BUS_UNSET, -EPERM);
@@ -1075,7 +1084,7 @@ _public_ int sd_bus_open(sd_bus **ret) {
         if (e) {
                 if (streq(e, "system"))
                         return sd_bus_open_system(ret);
-                else if (streq(e, "session") || streq(e, "user"))
+                else if (STR_IN_SET(e, "session", "user"))
                         return sd_bus_open_user(ret);
         }
 
@@ -1114,8 +1123,18 @@ fail:
         return r;
 }
 
-_public_ int sd_bus_open_system(sd_bus **ret) {
+int bus_set_address_system(sd_bus *b) {
         const char *e;
+        assert(b);
+
+        e = secure_getenv("DBUS_SYSTEM_BUS_ADDRESS");
+        if (e)
+                return sd_bus_set_address(b, e);
+
+        return sd_bus_set_address(b, DEFAULT_SYSTEM_BUS_PATH);
+}
+
+_public_ int sd_bus_open_system(sd_bus **ret) {
         sd_bus *b;
         int r;
 
@@ -1125,11 +1144,7 @@ _public_ int sd_bus_open_system(sd_bus **ret) {
         if (r < 0)
                 return r;
 
-        e = secure_getenv("DBUS_SYSTEM_BUS_ADDRESS");
-        if (e)
-                r = sd_bus_set_address(b, e);
-        else
-                r = sd_bus_set_address(b, DEFAULT_SYSTEM_BUS_PATH);
+        r = bus_set_address_system(b);
         if (r < 0)
                 goto fail;
 
@@ -1153,8 +1168,43 @@ fail:
         return r;
 }
 
-_public_ int sd_bus_open_user(sd_bus **ret) {
+int bus_set_address_user(sd_bus *b) {
         const char *e;
+
+        assert(b);
+
+        e = secure_getenv("DBUS_SESSION_BUS_ADDRESS");
+        if (e)
+                return sd_bus_set_address(b, e);
+
+        e = secure_getenv("XDG_RUNTIME_DIR");
+        if (e) {
+                _cleanup_free_ char *ee = NULL;
+
+                ee = bus_address_escape(e);
+                if (!ee)
+                        return -ENOMEM;
+
+#ifdef ENABLE_KDBUS
+                asprintf(&b->address, KERNEL_USER_BUS_FMT ";" UNIX_USER_BUS_FMT, (unsigned long) getuid(), ee);
+#else
+                asprintf(&b->address, UNIX_USER_BUS_FMT, ee);
+#endif
+        } else {
+#ifdef ENABLE_KDBUS
+                asprintf(&b->address, KERNEL_USER_BUS_FMT, (unsigned long) getuid());
+#else
+                return -ECONNREFUSED;
+#endif
+        }
+
+        if (!b->address)
+                return -ENOMEM;
+
+        return 0;
+}
+
+_public_ int sd_bus_open_user(sd_bus **ret) {
         sd_bus *b;
         int r;
 
@@ -1164,41 +1214,9 @@ _public_ int sd_bus_open_user(sd_bus **ret) {
         if (r < 0)
                 return r;
 
-        e = secure_getenv("DBUS_SESSION_BUS_ADDRESS");
-        if (e) {
-                r = sd_bus_set_address(b, e);
-                if (r < 0)
-                        goto fail;
-        } else {
-                e = secure_getenv("XDG_RUNTIME_DIR");
-                if (e) {
-                        _cleanup_free_ char *ee = NULL;
-
-                        ee = bus_address_escape(e);
-                        if (!ee) {
-                                r = -ENOMEM;
-                                goto fail;
-                        }
-
-#ifdef ENABLE_KDBUS
-                        asprintf(&b->address, KERNEL_USER_BUS_FMT ";" UNIX_USER_BUS_FMT, (unsigned long) getuid(), ee);
-#else
-                        asprintf(&b->address, UNIX_USER_BUS_FMT, ee);
-#endif
-                } else {
-#ifdef ENABLE_KDBUS
-                        asprintf(&b->address, KERNEL_USER_BUS_FMT, (unsigned long) getuid());
-#else
-                        r = -ECONNREFUSED;
-                        goto fail;
-#endif
-                }
-
-                if (!b->address) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
-        }
+        r = bus_set_address_user(b);
+        if (r < 0)
+                return r;
 
         b->bus_client = true;
         b->is_user = true;
@@ -1219,81 +1237,103 @@ fail:
         return r;
 }
 
-_public_ int sd_bus_open_system_remote(sd_bus **ret, const char *host) {
+int bus_set_address_system_remote(sd_bus *b, const char *host) {
         _cleanup_free_ char *e = NULL;
-        char *p = NULL;
+
+        assert(b);
+        assert(host);
+
+        e = bus_address_escape(host);
+        if (!e)
+                return -ENOMEM;
+
+        b->address = strjoin("unixexec:path=ssh,argv1=-xT,argv2=", e, ",argv3=systemd-stdio-bridge", NULL);
+        if (!b->address)
+                return -ENOMEM;
+
+        return 0;
+ }
+
+_public_ int sd_bus_open_system_remote(sd_bus **ret, const char *host) {
         sd_bus *bus;
         int r;
 
         assert_return(host, -EINVAL);
         assert_return(ret, -EINVAL);
 
-        e = bus_address_escape(host);
-        if (!e)
-                return -ENOMEM;
-
-        p = strjoin("unixexec:path=ssh,argv1=-xT,argv2=", e, ",argv3=systemd-stdio-bridge", NULL);
-        if (!p)
-                return -ENOMEM;
-
         r = sd_bus_new(&bus);
-        if (r < 0) {
-                free(p);
+        if (r < 0)
                 return r;
-        }
 
-        bus->address = p;
+        r = bus_set_address_system_remote(bus, host);
+        if (r < 0)
+                goto fail;
+
         bus->bus_client = true;
+        bus->trusted = false;
 
         r = sd_bus_start(bus);
-        if (r < 0) {
-                bus_free(bus);
-                return r;
-        }
+        if (r < 0)
+                goto fail;
 
         *ret = bus;
         return 0;
+
+fail:
+        bus_free(bus);
+        return r;
 }
 
-_public_ int sd_bus_open_system_container(sd_bus **ret, const char *machine) {
+int bus_set_address_system_container(sd_bus *b, const char *machine) {
         _cleanup_free_ char *e = NULL;
-        sd_bus *bus;
-        char *p;
-        int r;
 
-        assert_return(machine, -EINVAL);
-        assert_return(ret, -EINVAL);
-        assert_return(filename_is_safe(machine), -EINVAL);
+        assert(b);
+        assert(machine);
 
         e = bus_address_escape(machine);
         if (!e)
                 return -ENOMEM;
 
 #ifdef ENABLE_KDBUS
-        p = strjoin("x-container-kernel:machine=", e, ";x-container-unix:machine=", e, NULL);
+        b->address = strjoin("x-container-kernel:machine=", e, ";x-container-unix:machine=", e, NULL);
 #else
-        p = strjoin("x-container-unix:machine=", e, NULL);
+        b->address = strjoin("x-container-unix:machine=", e, NULL);
 #endif
-        if (!p)
+        if (!b->address)
                 return -ENOMEM;
 
-        r = sd_bus_new(&bus);
-        if (r < 0) {
-                free(p);
-                return r;
-        }
+        return 0;
+}
 
-        bus->address = p;
+_public_ int sd_bus_open_system_container(sd_bus **ret, const char *machine) {
+        sd_bus *bus;
+        int r;
+
+        assert_return(machine, -EINVAL);
+        assert_return(ret, -EINVAL);
+        assert_return(filename_is_safe(machine), -EINVAL);
+
+        r = sd_bus_new(&bus);
+        if (r < 0)
+                return r;
+
+        r = bus_set_address_system_container(bus, machine);
+        if (r < 0)
+                goto fail;
+
         bus->bus_client = true;
+        bus->trusted = false;
 
         r = sd_bus_start(bus);
-        if (r < 0) {
-                bus_free(bus);
-                return r;
-        }
+        if (r < 0)
+                goto fail;
 
         *ret = bus;
         return 0;
+
+fail:
+        bus_free(bus);
+        return r;
 }
 
 _public_ void sd_bus_close(sd_bus *bus) {
@@ -1396,6 +1436,9 @@ _public_ int sd_bus_can_send(sd_bus *bus, char type) {
         assert_return(bus, -EINVAL);
         assert_return(bus->state != BUS_UNSET, -ENOTCONN);
         assert_return(!bus_pid_changed(bus), -ECHILD);
+
+        if (bus->hello_flags & KDBUS_HELLO_MONITOR)
+                return 0;
 
         if (type == SD_BUS_TYPE_UNIX_FD) {
                 if (!(bus->hello_flags & KDBUS_HELLO_ACCEPT_FD))
@@ -1598,6 +1641,7 @@ static int bus_send_internal(sd_bus *bus, sd_bus_message *_m, uint64_t *cookie, 
         assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
         assert_return(m, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus->is_kernel || !(bus->hello_flags & KDBUS_HELLO_MONITOR), -EROFS);
 
         if (m->n_fds > 0) {
                 r = sd_bus_can_send(bus, SD_BUS_TYPE_UNIX_FD);
@@ -1735,6 +1779,7 @@ _public_ int sd_bus_call_async(
         assert_return(!(m->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED), -EINVAL);
         assert_return(callback, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus->is_kernel || !(bus->hello_flags & KDBUS_HELLO_MONITOR), -EROFS);
 
         r = hashmap_ensure_allocated(&bus->reply_callbacks, uint64_hash_func, uint64_compare_func);
         if (r < 0)
@@ -1848,6 +1893,7 @@ _public_ int sd_bus_call(
         assert_return(!(m->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED), -EINVAL);
         assert_return(!bus_error_is_dirty(error), -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus->is_kernel || !(bus->hello_flags & KDBUS_HELLO_MONITOR), -EROFS);
 
         r = bus_ensure_running(bus);
         if (r < 0)
@@ -2125,6 +2171,12 @@ static int process_reply(sd_bus *bus, sd_bus_message *m) {
             m->header->type != SD_BUS_MESSAGE_METHOD_ERROR)
                 return 0;
 
+        if (bus->is_kernel && (bus->hello_flags & KDBUS_HELLO_MONITOR))
+                return 0;
+
+        if (m->destination && bus->unique_name && !streq_ptr(m->destination, bus->unique_name))
+                return 0;
+
         c = hashmap_remove(bus->reply_callbacks, &m->reply_cookie);
         if (!c)
                 return 0;
@@ -2225,6 +2277,9 @@ static int process_builtin(sd_bus *bus, sd_bus_message *m) {
         assert(bus);
         assert(m);
 
+        if (bus->hello_flags & KDBUS_HELLO_MONITOR)
+                return 0;
+
         if (bus->manual_peer_interface)
                 return 0;
 
@@ -2279,6 +2334,9 @@ static int process_fd_check(sd_bus *bus, sd_bus_message *m) {
          * an activatable names's queue which allows fds, and then is
          * delivered to us later even though we ourselves did not
          * negotiate it. */
+
+        if (bus->hello_flags & KDBUS_HELLO_MONITOR)
+                return 0;
 
         if (m->n_fds <= 0)
                 return 0;
@@ -3077,7 +3135,7 @@ _public_ int sd_bus_default(sd_bus **ret) {
         if (e) {
                 if (streq(e, "system"))
                         return sd_bus_default_system(ret);
-                else if (streq(e, "user") || streq(e, "session"))
+                else if (STR_IN_SET(e, "user", "session"))
                         return sd_bus_default_user(ret);
         }
 

@@ -1339,9 +1339,13 @@ int bus_kernel_create_bus(const char *name, bool world, char **s) {
         return fd;
 }
 
-static void bus_kernel_translate_policy(const BusNamePolicy *policy, struct kdbus_item *item)
-{
+static void bus_kernel_translate_policy(const BusNamePolicy *policy, struct kdbus_item *item) {
+
+        assert(policy);
+        assert(item);
+
         switch (policy->type) {
+
         case BUSNAME_POLICY_TYPE_USER:
                 item->policy_access.type = KDBUS_POLICY_ACCESS_USER;
                 item->policy_access.id = policy->uid;
@@ -1361,6 +1365,7 @@ static void bus_kernel_translate_policy(const BusNamePolicy *policy, struct kdbu
         }
 
         switch (policy->access) {
+
         case BUSNAME_POLICY_ACCESS_SEE:
                 item->policy_access.access = KDBUS_POLICY_SEE;
                 break;
