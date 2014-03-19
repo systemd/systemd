@@ -159,9 +159,15 @@ Features:
 
 * sd-bus:
   - when kdbus doesn't take our message without memfds, try again with memfds
+  - systemd-bus-proxyd needs to enforce good old XML policy
+  - port exit-on-idle logic to byebye ioctl
+  - allow updating attach flags during runtime
+  - pid1: peek into activating message when activating a service
+  - introduce sd_bus_emit_object_added()/sd_bus_emit_object_removed() that automatically includes the build-in interfaces in the list
+  - constructors for bus messages should probably not be OK with a NULL bus pointer
+  - .busname units should not use get_user_creds()/get_cgroup_creds() but instead do NSS only in temporarily forked off child
   - see if we can drop more message validation on the sending side
   - add API to clone sd_bus_message objects
-  - systemd-bus-proxyd needs to enforce good old XML policy
   - kdbus: matches against source or destination pids for an "strace -p"-like feel. Problem: The PID info needs to be available in userspace too...
   - longer term: priority inheritance
   - dbus spec updates:
@@ -170,15 +176,9 @@ Features:
        - GVariant
        - "const" properties (posted)
        - path escaping
-  - port exit-on-idle logic to byebye ioctl
   - update systemd.special(7) to mention that dbus.socket is only about the compatibility socket now
-  - allow updating attach flags during runtime
-  - pid1: peek into activating message when activating a service
   - test bloom filter generation indexes
-  - introduce sd_bus_emit_object_added()/sd_bus_emit_object_removed() that automatically includes the build-in interfaces in the list
   - port to sd-resolve for connecting to TCP dbus servers
-  - constructors for bus messages should probably not be OK with a NULL bus pointer
-  - .busname units should not use get_user_creds()/get_cgroup_creds() but instead do NSS only in temporarily forked off child
 
 * sd-event
   - allow multiple signal handlers per signal?
