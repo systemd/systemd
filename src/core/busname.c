@@ -45,6 +45,7 @@ static void busname_init(Unit *u) {
 
         n->starter_fd = -1;
         n->accept_fd = true;
+        n->activating = true;
 }
 
 static void busname_done(Unit *u) {
