@@ -163,7 +163,6 @@ Features:
   - see if we can drop more message validation on the sending side
   - add API to clone sd_bus_message objects
   - systemd-bus-proxyd needs to enforce good old XML policy
-  - upload minimal kdbus policy into the kernel at boot
   - kdbus: matches against source or destination pids for an "strace -p"-like feel. Problem: The PID info needs to be available in userspace too...
   - longer term: priority inheritance
   - check sender of response messages
