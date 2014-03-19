@@ -740,85 +740,89 @@ static int client_handle_ack(sd_dhcp_client *client, DHCPMessage *ack,
         return r;
 }
 
-static uint64_t client_compute_timeout(uint64_t request_sent,
-                                       uint32_t lifetime) {
-        return request_sent + (lifetime - 3) * USEC_PER_SEC +
+static uint64_t client_compute_timeout(sd_dhcp_client *client,
+                                       uint32_t lifetime, double factor) {
+        assert(client);
+        assert(client->request_sent);
+        assert(lifetime);
+
+        return client->request_sent + ((lifetime - 3) * USEC_PER_SEC * factor) +
                 + (random_u32() & 0x1fffff);
 }
 
-static int client_set_lease_timeouts(sd_dhcp_client *client, uint64_t usec) {
-        uint64_t next_timeout;
+static int client_set_lease_timeouts(sd_dhcp_client *client) {
+        usec_t time_now;
+        uint64_t lifetime_timeout;
+        uint64_t t2_timeout;
+        uint64_t t1_timeout;
+        char time_string[FORMAT_TIMESPAN_MAX];
         int r;
 
         assert(client);
         assert(client->event);
-
-        /* don't set timers for infinite leases */
-        if (client->lease->lifetime == 0xffffffff)
-                return 0;
-
-        if (client->lease->lifetime < 10)
-                return -EINVAL;
+        assert(client->lease);
+        assert(client->lease->lifetime);
 
         client->timeout_t1 = sd_event_source_unref(client->timeout_t1);
         client->timeout_t2 = sd_event_source_unref(client->timeout_t2);
         client->timeout_expire = sd_event_source_unref(client->timeout_expire);
 
-        if (!client->lease->t1)
+        /* don't set timers for infinite leases */
+        if (client->lease->lifetime == 0xffffffff)
+                return 0;
+
+        r = sd_event_get_now_monotonic(client->event, &time_now);
+        if (r < 0)
+                return r;
+        assert(client->request_sent <= time_now);
+
+        /* convert the various timeouts from relative (secs) to absolute (usecs) */
+        lifetime_timeout = client_compute_timeout(client, client->lease->lifetime, 1);
+        if (client->lease->t1 && client->lease->t2) {
+                /* both T1 and T2 are given */
+                if (client->lease->t1 < client->lease->t2 &&
+                    client->lease->t2 < client->lease->lifetime) {
+                        /* they are both valid */
+                        t2_timeout = client_compute_timeout(client, client->lease->t2, 1);
+                        t1_timeout = client_compute_timeout(client, client->lease->t1, 1);
+                } else {
+                        /* discard both */
+                        t2_timeout = client_compute_timeout(client, client->lease->lifetime, 7.0 / 8.0);
+                        client->lease->t2 = (client->lease->lifetime * 7) / 8;
+                        t1_timeout = client_compute_timeout(client, client->lease->lifetime, 0.5);
+                        client->lease->t1 = client->lease->lifetime / 2;
+                }
+        } else if (client->lease->t2 && client->lease->t2 < client->lease->lifetime) {
+                /* only T2 is given, and it is valid */
+                t2_timeout = client_compute_timeout(client, client->lease->t2, 1);
+                t1_timeout = client_compute_timeout(client, client->lease->lifetime, 0.5);
                 client->lease->t1 = client->lease->lifetime / 2;
+                if (t2_timeout <= t1_timeout) {
+                        /* the computed T1 would be invalid, so discard T2 */
+                        t2_timeout = client_compute_timeout(client, client->lease->lifetime, 7.0 / 8.0);
+                        client->lease->t2 = (client->lease->lifetime * 7) / 8;
+                }
+        } else if (client->lease->t1 && client->lease->t1 < client->lease->lifetime) {
+                /* only T1 is given, and it is valid */
+                t1_timeout = client_compute_timeout(client, client->lease->t1, 1);
+                t2_timeout = client_compute_timeout(client, client->lease->lifetime, 7.0 / 8.0);
+                client->lease->t2 = (client->lease->lifetime * 7) / 8;
+                if (t2_timeout <= t1_timeout) {
+                        /* the computed T2 would be invalid, so discard T1 */
+                        t2_timeout = client_compute_timeout(client, client->lease->lifetime, 0.5);
+                        client->lease->t2 = client->lease->lifetime / 2;
+                }
+        } else {
+                /* fall back to the default timeouts */
+                t1_timeout = client_compute_timeout(client, client->lease->lifetime, 0.5);
+                client->lease->t1 = client->lease->lifetime / 2;
+                t2_timeout = client_compute_timeout(client, client->lease->lifetime, 7.0 / 8.0);
+                client->lease->t2 = (client->lease->lifetime * 7) / 8;
+        }
 
-        next_timeout = client_compute_timeout(client->request_sent,
-                                              client->lease->t1);
-        if (next_timeout < usec)
-                return -EINVAL;
-
+        /* arm lifetime timeout */
         r = sd_event_add_monotonic(client->event,
-                                   &client->timeout_t1,
-                                   next_timeout,
-                                   10 * USEC_PER_MSEC,
-                                   client_timeout_t1, client);
-        if (r < 0)
-                return r;
-
-        r = sd_event_source_set_priority(client->timeout_t1,
-                                         client->event_priority);
-        if (r < 0)
-                return r;
-
-        if (!client->lease->t2)
-                client->lease->t2 = client->lease->lifetime * 7 / 8;
-
-        if (client->lease->t2 < client->lease->t1)
-                return -EINVAL;
-
-        if (client->lease->lifetime < client->lease->t2)
-                return -EINVAL;
-
-        next_timeout = client_compute_timeout(client->request_sent,
-                                              client->lease->t2);
-        if (next_timeout < usec)
-                return -EINVAL;
-
-        r = sd_event_add_monotonic(client->event,
-                                   &client->timeout_t2,
-                                   next_timeout,
-                                   10 * USEC_PER_MSEC,
-                                   client_timeout_t2, client);
-        if (r < 0)
-                return r;
-
-        r = sd_event_source_set_priority(client->timeout_t2,
-                                         client->event_priority);
-        if (r < 0)
-                return r;
-
-        next_timeout = client_compute_timeout(client->request_sent,
-                                              client->lease->lifetime);
-        if (next_timeout < usec)
-                return -EINVAL;
-
-        r = sd_event_add_monotonic(client->event,
-                                   &client->timeout_expire, next_timeout,
+                                   &client->timeout_expire, lifetime_timeout,
                                    10 * USEC_PER_MSEC,
                                    client_timeout_expire, client);
         if (r < 0)
@@ -829,11 +833,59 @@ static int client_set_lease_timeouts(sd_dhcp_client *client, uint64_t usec) {
         if (r < 0)
                 return r;
 
+        log_dhcp_client(client, "lease expires in %s",
+                        format_timespan(time_string, FORMAT_TIMESPAN_MAX,
+                        lifetime_timeout - time_now, 0));
+
+        /* don't arm earlier timeouts if this has already expired */
+        if (lifetime_timeout <= time_now)
+                return 0;
+
+        /* arm T2 timeout */
+        r = sd_event_add_monotonic(client->event,
+                                   &client->timeout_t2,
+                                   t2_timeout,
+                                   10 * USEC_PER_MSEC,
+                                   client_timeout_t2, client);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_priority(client->timeout_t2,
+                                         client->event_priority);
+        if (r < 0)
+                return r;
+
+        log_dhcp_client(client, "T2 expires in %s",
+                        format_timespan(time_string, FORMAT_TIMESPAN_MAX,
+                        t2_timeout - time_now, 0));
+
+        /* don't arm earlier timeout if this has already expired */
+        if (t2_timeout <= time_now)
+                return 0;
+
+        /* arm T1 timeout */
+        r = sd_event_add_monotonic(client->event,
+                                   &client->timeout_t1,
+                                   t1_timeout,
+                                   10 * USEC_PER_MSEC,
+                                   client_timeout_t1, client);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_priority(client->timeout_t1,
+                                         client->event_priority);
+        if (r < 0)
+                return r;
+
+        log_dhcp_client(client, "T1 expires in %s",
+                        format_timespan(time_string, FORMAT_TIMESPAN_MAX,
+                        t1_timeout - time_now, 0));
+
         return 0;
 }
 
 static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message,
-                                 int len, usec_t time_now) {
+                                 int len) {
         int r = 0, notify_event = 0;
 
         assert(client);
@@ -932,7 +984,7 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message,
 
                         client->last_addr = client->lease->address;
 
-                        r = client_set_lease_timeouts(client, time_now);
+                        r = client_set_lease_timeouts(client);
                         if (r < 0)
                                 goto error;
 
@@ -967,11 +1019,9 @@ static int client_receive_message_udp(sd_event_source *s, int fd,
         sd_dhcp_client *client = userdata;
         _cleanup_free_ DHCPMessage *message = NULL;
         int buflen = 0, len, r;
-        usec_t time_now;
 
         assert(s);
         assert(client);
-        assert(client->event);
 
         r = ioctl(fd, FIONREAD, &buflen);
         if (r < 0 || buflen <= 0)
@@ -985,19 +1035,13 @@ static int client_receive_message_udp(sd_event_source *s, int fd,
         if (len < 0)
                 return 0;
 
-        r = sd_event_get_now_monotonic(client->event, &time_now);
-        if (r < 0)
-                return client_stop(client, r);
-
-        return client_handle_message(client, message, len,
-                                     time_now);
+        return client_handle_message(client, message, len);
 }
 
 static int client_receive_message_raw(sd_event_source *s, int fd,
                                       uint32_t revents, void *userdata) {
         sd_dhcp_client *client = userdata;
         _cleanup_free_ DHCPPacket *packet = NULL;
-        usec_t time_now;
         uint8_t cmsgbuf[CMSG_LEN(sizeof(struct tpacket_auxdata))];
         struct iovec iov = {};
         struct msghdr msg = {
@@ -1012,7 +1056,6 @@ static int client_receive_message_raw(sd_event_source *s, int fd,
 
         assert(s);
         assert(client);
-        assert(client->event);
 
         r = ioctl(fd, FIONREAD, &buflen);
         if (r < 0 || buflen <= 0)
@@ -1047,11 +1090,7 @@ static int client_receive_message_raw(sd_event_source *s, int fd,
 
         len -= DHCP_IP_UDP_SIZE;
 
-        r = sd_event_get_now_monotonic(client->event, &time_now);
-        if (r < 0)
-                return client_stop(client, r);
-
-        return client_handle_message(client, &packet->dhcp, len, time_now);
+        return client_handle_message(client, &packet->dhcp, len);
 }
 
 int sd_dhcp_client_start(sd_dhcp_client *client) {
