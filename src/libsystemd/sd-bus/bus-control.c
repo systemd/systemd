@@ -128,11 +128,13 @@ _public_ int sd_bus_request_name(sd_bus *bus, const char *name, uint64_t flags) 
         assert_return(bus, -EINVAL);
         assert_return(name, -EINVAL);
         assert_return(bus->bus_client, -EINVAL);
-        assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
         assert_return(!bus_pid_changed(bus), -ECHILD);
         assert_return(!(flags & ~(SD_BUS_NAME_ALLOW_REPLACEMENT|SD_BUS_NAME_REPLACE_EXISTING|SD_BUS_NAME_QUEUE)), -EINVAL);
         assert_return(service_name_is_valid(name), -EINVAL);
         assert_return(name[0] != ':', -EINVAL);
+
+        if (!BUS_IS_OPEN(bus->state))
+                return -ENOTCONN;
 
         if (bus->is_kernel)
                 return bus_request_name_kernel(bus, name, flags);
@@ -201,10 +203,12 @@ _public_ int sd_bus_release_name(sd_bus *bus, const char *name) {
         assert_return(bus, -EINVAL);
         assert_return(name, -EINVAL);
         assert_return(bus->bus_client, -EINVAL);
-        assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
         assert_return(!bus_pid_changed(bus), -ECHILD);
         assert_return(service_name_is_valid(name), -EINVAL);
         assert_return(name[0] != ':', -EINVAL);
+
+        if (!BUS_IS_OPEN(bus->state))
+                return -ENOTCONN;
 
         if (bus->is_kernel)
                 return bus_release_name_kernel(bus, name);
@@ -342,8 +346,10 @@ static int bus_list_names_dbus1(sd_bus *bus, char ***acquired, char ***activatab
 _public_ int sd_bus_list_names(sd_bus *bus, char ***acquired, char ***activatable) {
         assert_return(bus, -EINVAL);
         assert_return(acquired || activatable, -EINVAL);
-        assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
         assert_return(!bus_pid_changed(bus), -ECHILD);
+
+        if (!BUS_IS_OPEN(bus->state))
+                return -ENOTCONN;
 
         if (bus->is_kernel)
                 return bus_list_names_kernel(bus, acquired, activatable);
@@ -735,10 +741,12 @@ _public_ int sd_bus_get_owner(
         assert_return(name, -EINVAL);
         assert_return(mask <= _SD_BUS_CREDS_ALL, -ENOTSUP);
         assert_return(mask == 0 || creds, -EINVAL);
-        assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
         assert_return(!bus_pid_changed(bus), -ECHILD);
         assert_return(service_name_is_valid(name), -EINVAL);
         assert_return(bus->bus_client, -ENODATA);
+
+        if (!BUS_IS_OPEN(bus->state))
+                return -ENOTCONN;
 
         if (bus->is_kernel)
                 return bus_get_owner_kdbus(bus, name, mask, creds);
@@ -1209,9 +1217,11 @@ _public_ int sd_bus_get_owner_machine_id(sd_bus *bus, const char *name, sd_id128
         assert_return(bus, -EINVAL);
         assert_return(name, -EINVAL);
         assert_return(machine, -EINVAL);
-        assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
         assert_return(!bus_pid_changed(bus), -ECHILD);
         assert_return(service_name_is_valid(name), -EINVAL);
+
+        if (!BUS_IS_OPEN(bus->state))
+                return -ENOTCONN;
 
         if (streq_ptr(name, bus->unique_name))
                 return sd_id128_get_machine(machine);
