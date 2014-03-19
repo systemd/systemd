@@ -103,13 +103,13 @@ int sd_resolve_getnameinfo_done(sd_resolve_query* q, char **ret_host, char **ret
  * compatible with the ones of libc's res_query(3). The function returns a new
  * query object. When the query is completed you may retrieve the results using
  * sd_resolve_res_done().  */
-int sd_resolve_res_query(sd_resolve *resolve, sd_resolve_query **q, const char *dname, int class, int type);
+int sd_resolve_res_query(sd_resolve *resolve, sd_resolve_query **q, const char *dname, int clazz, int type);
 
 /** Issue an resolver query on the specified session. The arguments are
  * compatible with the ones of libc's res_search(3). The function returns a new
  * query object. When the query is completed you may retrieve the results using
  * sd_resolve_res_done().  */
-int sd_resolve_res_search(sd_resolve *resolve, sd_resolve_query **q, const char *dname, int class, int type);
+int sd_resolve_res_search(sd_resolve *resolve, sd_resolve_query **q, const char *dname, int clazz, int type);
 
 /** Retrieve the results of a preceding sd_resolve_res_query() or
  * resolve_res_search call.  The query object q is destroyed by this

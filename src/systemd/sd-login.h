@@ -178,7 +178,7 @@ int sd_seat_can_tty(const char *seat);
 int sd_seat_can_graphical(const char *seat);
 
 /* Return the class of machine */
-int sd_machine_get_class(const char *machine, char **class);
+int sd_machine_get_class(const char *machine, char **clazz);
 
 /* Get all seats, store in *seats. Returns the number of seats. If
  * seats is NULL only returns number of seats. */
