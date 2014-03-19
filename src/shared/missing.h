@@ -365,3 +365,7 @@ static inline int setns(int fd, int nstype) {
         return syscall(__NR_setns, fd, nstype);
 }
 #endif
+
+#if !HAVE_DECL_LO_FLAGS_PARTSCAN
+#define LO_FLAGS_PARTSCAN 8
+#endif
