@@ -19,3 +19,4 @@ CapabilityBoundingSet=CAP_KILL
 WatchdogSec=1min
 PrivateTmp=yes
 PrivateDevices=yes
+PrivateNetwork=yes

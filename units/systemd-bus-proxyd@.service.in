@@ -17,3 +17,4 @@ NotifyAccess=main
 CapabilityBoundingSet=CAP_IPC_OWNER
 PrivateTmp=yes
 PrivateDevices=yes
+PrivateNetwork=yes

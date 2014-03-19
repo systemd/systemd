@@ -14,6 +14,9 @@ ExecStart=@rootlibexecdir@/systemd-journal-gatewayd
 User=systemd-journal-gateway
 Group=systemd-journal-gateway
 SupplementaryGroups=systemd-journal
+PrivateTmp=yes
+PrivateDevices=yes
+PrivateNetwork=yes
 
 [Install]
 Also=systemd-journal-gatewayd.socket

@@ -15,3 +15,4 @@ WatchdogSec=1min
 CapabilityBoundingSet=CAP_IPC_OWNER
 PrivateTmp=yes
 PrivateDevices=yes
+PrivateNetwork=yes
