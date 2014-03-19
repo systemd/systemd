@@ -36,24 +36,6 @@ static const UnitActiveState state_translation_table[_SLICE_STATE_MAX] = {
         [SLICE_ACTIVE] = UNIT_ACTIVE
 };
 
-static void slice_init(Unit *u) {
-        Slice *s = SLICE(u);
-
-        assert(u);
-        assert(u->load_state == UNIT_STUB);
-
-        cgroup_context_init(&s->cgroup_context);
-        unit_cgroup_context_init_defaults(u, &s->cgroup_context);
-}
-
-static void slice_done(Unit *u) {
-        Slice *s = SLICE(u);
-
-        assert(u);
-
-        cgroup_context_done(&s->cgroup_context);
-}
-
 static void slice_set_state(Slice *t, SliceState state) {
         SliceState old_state;
         assert(t);
@@ -152,6 +134,10 @@ static int slice_load(Unit *u) {
 
         /* This is a new unit? Then let's add in some extras */
         if (u->load_state == UNIT_LOADED) {
+
+                r = unit_patch_contexts(u);
+                if (r < 0)
+                        return r;
 
                 r = slice_add_parent_slice(s);
                 if (r < 0)
@@ -287,9 +273,7 @@ const UnitVTable slice_vtable = {
         .no_alias = true,
         .no_instances = true,
 
-        .init = slice_init,
         .load = slice_load,
-        .done = slice_done,
 
         .coldplug = slice_coldplug,
 

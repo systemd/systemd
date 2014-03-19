@@ -519,7 +519,7 @@ int unit_load_fragment_and_dropin(Unit *u);
 int unit_load_fragment_and_dropin_optional(Unit *u);
 int unit_load(Unit *unit);
 
-int unit_add_default_slice(Unit *u);
+int unit_add_default_slice(Unit *u, CGroupContext *c);
 
 const char *unit_description(Unit *u) _pure_;
 
@@ -602,12 +602,12 @@ void unit_ref_unset(UnitRef *ref);
 #define UNIT_DEREF(ref) ((ref).unit)
 #define UNIT_ISSET(ref) (!!(ref).unit)
 
-int unit_exec_context_patch_defaults(Unit *u, ExecContext *c);
-int unit_cgroup_context_init_defaults(Unit *u, CGroupContext *c);
+int unit_patch_contexts(Unit *u);
 
 ExecContext *unit_get_exec_context(Unit *u) _pure_;
 KillContext *unit_get_kill_context(Unit *u) _pure_;
 CGroupContext *unit_get_cgroup_context(Unit *u) _pure_;
+
 ExecRuntime *unit_get_exec_runtime(Unit *u) _pure_;
 
 int unit_setup_exec_runtime(Unit *u);

@@ -90,13 +90,8 @@ static void socket_init(Unit *u) {
         s->ip_ttl = -1;
         s->mark = -1;
 
-        exec_context_init(&s->exec_context);
         s->exec_context.std_output = u->manager->default_std_output;
         s->exec_context.std_error = u->manager->default_std_error;
-        kill_context_init(&s->kill_context);
-        cgroup_context_init(&s->cgroup_context);
-
-        unit_cgroup_context_init_defaults(u, &s->cgroup_context);
 
         s->control_command_id = _SOCKET_EXEC_COMMAND_INVALID;
 }
@@ -134,8 +129,6 @@ static void socket_done(Unit *u) {
 
         socket_free_ports(s);
 
-        cgroup_context_done(&s->cgroup_context);
-        exec_context_done(&s->exec_context);
         s->exec_runtime = exec_runtime_unref(s->exec_runtime);
         exec_command_free_array(s->exec_command, _SOCKET_EXEC_COMMAND_MAX);
         s->control_command = NULL;
@@ -336,7 +329,7 @@ static int socket_add_extras(Socket *s) {
         if (r < 0)
                 return r;
 
-        r = unit_exec_context_patch_defaults(u, &s->exec_context);
+        r = unit_patch_contexts(u);
         if (r < 0)
                 return r;
 
@@ -345,7 +338,7 @@ static int socket_add_extras(Socket *s) {
                 if (r < 0)
                         return r;
 
-                r = unit_add_default_slice(u);
+                r = unit_add_default_slice(u, &s->cgroup_context);
                 if (r < 0)
                         return r;
         }

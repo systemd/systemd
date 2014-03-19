@@ -101,104 +101,122 @@ bool unit_has_name(Unit *u, const char *name) {
         return !!set_get(u->names, (char*) name);
 }
 
+static void unit_init(Unit *u) {
+        CGroupContext *cc;
+        ExecContext *ec;
+        KillContext *kc;
+
+        assert(u);
+        assert(u->manager);
+        assert(u->type >= 0);
+
+        cc = unit_get_cgroup_context(u);
+        if (cc) {
+                cgroup_context_init(cc);
+
+                /* Copy in the manager defaults into the cgroup
+                 * context, _before_ the rest of the settings have
+                 * been initialized */
+
+                cc->cpu_accounting = u->manager->default_cpu_accounting;
+                cc->blockio_accounting = u->manager->default_blockio_accounting;
+                cc->memory_accounting = u->manager->default_memory_accounting;
+        }
+
+        ec = unit_get_exec_context(u);
+        if (ec)
+                exec_context_init(ec);
+
+        kc = unit_get_kill_context(u);
+        if (kc)
+                kill_context_init(kc);
+
+        if (UNIT_VTABLE(u)->init)
+                UNIT_VTABLE(u)->init(u);
+}
+
 int unit_add_name(Unit *u, const char *text) {
+        _cleanup_free_ char *s = NULL, *i = NULL;
         UnitType t;
-        char *s, *i = NULL;
         int r;
 
         assert(u);
         assert(text);
 
         if (unit_name_is_template(text)) {
+
                 if (!u->instance)
                         return -EINVAL;
 
                 s = unit_name_replace_instance(text, u->instance);
         } else
                 s = strdup(text);
-
         if (!s)
                 return -ENOMEM;
 
-        if (!unit_name_is_valid(s, TEMPLATE_INVALID)) {
-                r = -EINVAL;
-                goto fail;
-        }
+        if (!unit_name_is_valid(s, TEMPLATE_INVALID))
+                return -EINVAL;
 
         assert_se((t = unit_name_to_type(s)) >= 0);
 
-        if (u->type != _UNIT_TYPE_INVALID && t != u->type) {
-                r = -EINVAL;
-                goto fail;
-        }
+        if (u->type != _UNIT_TYPE_INVALID && t != u->type)
+                return -EINVAL;
 
         r = unit_name_to_instance(s, &i);
         if (r < 0)
-                goto fail;
+                return r;
 
-        if (i && unit_vtable[t]->no_instances) {
-                r = -EINVAL;
-                goto fail;
-        }
+        if (i && unit_vtable[t]->no_instances)
+                return -EINVAL;
 
         /* Ensure that this unit is either instanced or not instanced,
          * but not both. */
-        if (u->type != _UNIT_TYPE_INVALID && !u->instance != !i) {
-                r = -EINVAL;
-                goto fail;
-        }
+        if (u->type != _UNIT_TYPE_INVALID && !u->instance != !i)
+                return -EINVAL;
 
         if (unit_vtable[t]->no_alias &&
             !set_isempty(u->names) &&
-            !set_get(u->names, s)) {
-                r = -EEXIST;
-                goto fail;
-        }
+            !set_get(u->names, s))
+                return -EEXIST;
 
-        if (hashmap_size(u->manager->units) >= MANAGER_MAX_NAMES) {
-                r = -E2BIG;
-                goto fail;
-        }
+        if (hashmap_size(u->manager->units) >= MANAGER_MAX_NAMES)
+                return -E2BIG;
 
         r = set_put(u->names, s);
         if (r < 0) {
                 if (r == -EEXIST)
-                        r = 0;
-                goto fail;
+                        return 0;
+
+                return r;
         }
 
         r = hashmap_put(u->manager->units, s, u);
         if (r < 0) {
                 set_remove(u->names, s);
-                goto fail;
+                return r;
         }
 
         if (u->type == _UNIT_TYPE_INVALID) {
-
                 u->type = t;
                 u->id = s;
                 u->instance = i;
 
                 LIST_PREPEND(units_by_type, u->manager->units_by_type[t], u);
 
-                if (UNIT_VTABLE(u)->init)
-                        UNIT_VTABLE(u)->init(u);
-        } else
-                free(i);
+                unit_init(u);
+
+                i = NULL;
+        }
+
+        s = NULL;
 
         unit_add_to_dbus_queue(u);
         return 0;
-
-fail:
-        free(s);
-        free(i);
-
-        return r;
 }
 
 int unit_choose_id(Unit *u, const char *name) {
-        char *s, *i;
         _cleanup_free_ char *t = NULL;
+        char *s, *i;
         int r;
 
         assert(u);
@@ -218,7 +236,6 @@ int unit_choose_id(Unit *u, const char *name) {
 
         /* Selects one of the names of this unit as the id */
         s = set_get(u->names, (char*) name);
-
         if (!s)
                 return -ENOENT;
 
@@ -410,6 +427,27 @@ static void unit_free_requires_mounts_for(Unit *u) {
         u->requires_mounts_for = NULL;
 }
 
+static void unit_done(Unit *u) {
+        ExecContext *ec;
+        CGroupContext *cc;
+
+        assert(u);
+
+        if (u->type < 0)
+                return;
+
+        if (UNIT_VTABLE(u)->done)
+                UNIT_VTABLE(u)->done(u);
+
+        ec = unit_get_exec_context(u);
+        if (ec)
+                exec_context_done(ec);
+
+        cc = unit_get_cgroup_context(u);
+        if (cc)
+                cgroup_context_done(cc);
+}
+
 void unit_free(Unit *u) {
         UnitDependency d;
         Iterator i;
@@ -422,9 +460,7 @@ void unit_free(Unit *u) {
 
         bus_unit_send_removed_signal(u);
 
-        if (u->load_state != UNIT_STUB)
-                if (UNIT_VTABLE(u)->done)
-                        UNIT_VTABLE(u)->done(u);
+        unit_done(u);
 
         unit_free_requires_mounts_for(u);
 
@@ -2148,18 +2184,16 @@ char *unit_default_cgroup_path(Unit *u) {
                 return strjoin(u->manager->cgroup_root, "/", escaped, NULL);
 }
 
-int unit_add_default_slice(Unit *u) {
+int unit_add_default_slice(Unit *u, CGroupContext *c) {
         _cleanup_free_ char *b = NULL;
         const char *slice_name;
         Unit *slice;
         int r;
 
         assert(u);
+        assert(c);
 
         if (UNIT_ISSET(u->slice))
-                return 0;
-
-        if (!unit_get_cgroup_context(u))
                 return 0;
 
         if (u->instance) {
@@ -2793,56 +2827,56 @@ void unit_ref_unset(UnitRef *ref) {
         ref->unit = NULL;
 }
 
-int unit_cgroup_context_init_defaults(Unit *u, CGroupContext *c) {
-        assert(u);
-        assert(c);
-
-        /* Copy in the manager defaults into the cgroup context,
-         * _before_ the rest of the settings have been initialized */
-
-        c->cpu_accounting = u->manager->default_cpu_accounting;
-        c->blockio_accounting = u->manager->default_blockio_accounting;
-        c->memory_accounting = u->manager->default_memory_accounting;
-
-        return 0;
-}
-
-int unit_exec_context_patch_defaults(Unit *u, ExecContext *c) {
+int unit_patch_contexts(Unit *u) {
+        CGroupContext *cc;
+        ExecContext *ec;
         unsigned i;
         int r;
 
         assert(u);
-        assert(c);
 
-        /* Patch in the manager defaults into the exec context,
-         * _after_ the rest of the settings have been initialized */
+        /* Patch in the manager defaults into the exec and cgroup
+         * contexts, _after_ the rest of the settings have been
+         * initialized */
 
-        /* This only copies in the ones that need memory */
-        for (i = 0; i < _RLIMIT_MAX; i++)
-                if (u->manager->rlimit[i] && !c->rlimit[i]) {
-                        c->rlimit[i] = newdup(struct rlimit, u->manager->rlimit[i], 1);
-                        if (!c->rlimit[i])
-                                return -ENOMEM;
+        ec = unit_get_exec_context(u);
+        if (ec) {
+                /* This only copies in the ones that need memory */
+                for (i = 0; i < _RLIMIT_MAX; i++)
+                        if (u->manager->rlimit[i] && !ec->rlimit[i]) {
+                                ec->rlimit[i] = newdup(struct rlimit, u->manager->rlimit[i], 1);
+                                if (!ec->rlimit[i])
+                                        return -ENOMEM;
+                        }
+
+                if (u->manager->running_as == SYSTEMD_USER &&
+                    !ec->working_directory) {
+
+                        r = get_home_dir(&ec->working_directory);
+                        if (r < 0)
+                                return r;
                 }
 
-        if (u->manager->running_as == SYSTEMD_USER &&
-            !c->working_directory) {
+                if (u->manager->running_as == SYSTEMD_USER &&
+                    (ec->syscall_whitelist ||
+                     !set_isempty(ec->syscall_filter) ||
+                     !set_isempty(ec->syscall_archs) ||
+                     ec->address_families_whitelist ||
+                     !set_isempty(ec->address_families)))
+                        ec->no_new_privileges = true;
 
-                r = get_home_dir(&c->working_directory);
-                if (r < 0)
-                        return r;
+                if (ec->private_devices)
+                        ec->capability_bounding_set_drop |= (uint64_t) 1ULL << (uint64_t) CAP_MKNOD;
         }
 
-        if (u->manager->running_as == SYSTEMD_USER &&
-            (c->syscall_whitelist ||
-             !set_isempty(c->syscall_filter) ||
-             !set_isempty(c->syscall_archs) ||
-             c->address_families_whitelist ||
-             !set_isempty(c->address_families)))
-                c->no_new_privileges = true;
+        cc = unit_get_cgroup_context(u);
+        if (cc) {
 
-        if (c->private_devices)
-                c->capability_bounding_set_drop |= (uint64_t) 1ULL << (uint64_t) CAP_MKNOD;
+                if (ec &&
+                    ec->private_devices &&
+                    cc->device_policy == CGROUP_AUTO)
+                        cc->device_policy = CGROUP_CLOSED;
+        }
 
         return 0;
 }
@@ -2850,6 +2884,9 @@ int unit_exec_context_patch_defaults(Unit *u, ExecContext *c) {
 ExecContext *unit_get_exec_context(Unit *u) {
         size_t offset;
         assert(u);
+
+        if (u->type < 0)
+                return NULL;
 
         offset = UNIT_VTABLE(u)->exec_context_offset;
         if (offset <= 0)
@@ -2862,6 +2899,9 @@ KillContext *unit_get_kill_context(Unit *u) {
         size_t offset;
         assert(u);
 
+        if (u->type < 0)
+                return NULL;
+
         offset = UNIT_VTABLE(u)->kill_context_offset;
         if (offset <= 0)
                 return NULL;
@@ -2872,6 +2912,9 @@ KillContext *unit_get_kill_context(Unit *u) {
 CGroupContext *unit_get_cgroup_context(Unit *u) {
         size_t offset;
 
+        if (u->type < 0)
+                return NULL;
+
         offset = UNIT_VTABLE(u)->cgroup_context_offset;
         if (offset <= 0)
                 return NULL;
@@ -2881,6 +2924,9 @@ CGroupContext *unit_get_cgroup_context(Unit *u) {
 
 ExecRuntime *unit_get_exec_runtime(Unit *u) {
         size_t offset;
+
+        if (u->type < 0)
+                return NULL;
 
         offset = UNIT_VTABLE(u)->exec_runtime_offset;
         if (offset <= 0)

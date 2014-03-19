@@ -51,11 +51,6 @@ static void scope_init(Unit *u) {
 
         s->timeout_stop_usec = u->manager->default_timeout_stop_usec;
 
-        cgroup_context_init(&s->cgroup_context);
-        kill_context_init(&s->kill_context);
-
-        unit_cgroup_context_init_defaults(u, &s->cgroup_context);
-
         UNIT(s)->ignore_on_isolate = true;
         UNIT(s)->ignore_on_snapshot = true;
 }
@@ -64,8 +59,6 @@ static void scope_done(Unit *u) {
         Scope *s = SCOPE(u);
 
         assert(u);
-
-        cgroup_context_done(&s->cgroup_context);
 
         free(s->controller);
 
@@ -158,7 +151,11 @@ static int scope_load(Unit *u) {
         if (r < 0)
                 return r;
 
-        r = unit_add_default_slice(u);
+        r = unit_patch_contexts(u);
+        if (r < 0)
+                return r;
+
+        r = unit_add_default_slice(u, &s->cgroup_context);
         if (r < 0)
                 return r;
 

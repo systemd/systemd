@@ -118,13 +118,8 @@ static void swap_init(Unit *u) {
 
         s->timeout_usec = u->manager->default_timeout_start_usec;
 
-        exec_context_init(&s->exec_context);
         s->exec_context.std_output = u->manager->default_std_output;
         s->exec_context.std_error = u->manager->default_std_error;
-        kill_context_init(&s->kill_context);
-        cgroup_context_init(&s->cgroup_context);
-
-        unit_cgroup_context_init_defaults(u, &s->cgroup_context);
 
         s->parameters_proc_swaps.priority = s->parameters_fragment.priority = -1;
 
@@ -157,8 +152,6 @@ static void swap_done(Unit *u) {
         free(s->parameters_fragment.what);
         s->parameters_fragment.what = NULL;
 
-        cgroup_context_done(&s->cgroup_context);
-        exec_context_done(&s->exec_context);
         s->exec_runtime = exec_runtime_unref(s->exec_runtime);
         exec_command_done_array(s->exec_command, _SWAP_EXEC_COMMAND_MAX);
         s->control_command = NULL;
@@ -305,9 +298,6 @@ static int swap_load(Unit *u) {
                 return r;
 
         if (u->load_state == UNIT_LOADED) {
-                r = unit_add_exec_dependencies(u, &s->exec_context);
-                if (r < 0)
-                        return r;
 
                 if (UNIT(s)->fragment_path)
                         s->from_fragment = true;
@@ -344,7 +334,15 @@ static int swap_load(Unit *u) {
                 if (r < 0)
                         return r;
 
-                r = unit_add_default_slice(u);
+                r = unit_patch_contexts(u);
+                if (r < 0)
+                        return r;
+
+                r = unit_add_exec_dependencies(u, &s->exec_context);
+                if (r < 0)
+                        return r;
+
+                r = unit_add_default_slice(u, &s->cgroup_context);
                 if (r < 0)
                         return r;
 
@@ -353,10 +351,6 @@ static int swap_load(Unit *u) {
                         if (r < 0)
                                 return r;
                 }
-
-                r = unit_exec_context_patch_defaults(u, &s->exec_context);
-                if (r < 0)
-                        return r;
         }
 
         return swap_verify(s);

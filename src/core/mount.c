@@ -123,12 +123,6 @@ static void mount_init(Unit *u) {
         m->timeout_usec = u->manager->default_timeout_start_usec;
         m->directory_mode = 0755;
 
-        exec_context_init(&m->exec_context);
-        kill_context_init(&m->kill_context);
-        cgroup_context_init(&m->cgroup_context);
-
-        unit_cgroup_context_init_defaults(u, &m->cgroup_context);
-
         if (unit_has_name(u, "-.mount")) {
                 /* Don't allow start/stop for root directory */
                 u->refuse_manual_start = true;
@@ -203,8 +197,6 @@ static void mount_done(Unit *u) {
         mount_parameters_done(&m->parameters_proc_self_mountinfo);
         mount_parameters_done(&m->parameters_fragment);
 
-        cgroup_context_done(&m->cgroup_context);
-        exec_context_done(&m->exec_context);
         m->exec_runtime = exec_runtime_unref(m->exec_runtime);
         exec_command_done_array(m->exec_command, _MOUNT_EXEC_COMMAND_MAX);
         m->control_command = NULL;
@@ -529,10 +521,6 @@ static int mount_add_extras(Mount *m) {
 
         path_kill_slashes(m->where);
 
-        r = unit_add_exec_dependencies(u, &m->exec_context);
-        if (r < 0)
-                return r;
-
         if (!u->description) {
                 r = unit_set_description(u, m->where);
                 if (r < 0)
@@ -551,13 +539,15 @@ static int mount_add_extras(Mount *m) {
         if (r < 0)
                 return r;
 
-        if (u->default_dependencies) {
-                r = mount_add_default_dependencies(m);
-                if (r < 0)
-                        return r;
-        }
+        r = unit_patch_contexts(u);
+        if (r < 0)
+                return r;
 
-        r = unit_add_default_slice(u);
+        r = unit_add_exec_dependencies(u, &m->exec_context);
+        if (r < 0)
+                return r;
+
+        r = unit_add_default_slice(u, &m->cgroup_context);
         if (r < 0)
                 return r;
 
@@ -565,9 +555,11 @@ static int mount_add_extras(Mount *m) {
         if (r < 0)
                 return r;
 
-        r = unit_exec_context_patch_defaults(u, &m->exec_context);
-        if (r < 0)
-                return r;
+        if (u->default_dependencies) {
+                r = mount_add_default_dependencies(m);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }
