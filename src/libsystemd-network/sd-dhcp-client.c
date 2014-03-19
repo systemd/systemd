@@ -315,7 +315,7 @@ static int client_send_discover(sd_dhcp_client *client, uint16_t secs) {
         if (err < 0)
                 return err;
 
-        err = dhcp_client_send_raw(client, discover, len);
+        err = dhcp_client_send_raw(client, discover, len - optlen);
         if (err < 0)
                 return err;
 
@@ -385,9 +385,9 @@ static int client_send_request(sd_dhcp_client *client, uint16_t secs) {
                                                    client->lease->server_address,
                                                    DHCP_PORT_SERVER,
                                                    &request->dhcp,
-                                                   len - DHCP_IP_UDP_SIZE);
+                                                   len - optlen - DHCP_IP_UDP_SIZE);
         } else {
-                err = dhcp_client_send_raw(client, request, len);
+                err = dhcp_client_send_raw(client, request, len - optlen);
         }
         if (err < 0)
                 return err;
