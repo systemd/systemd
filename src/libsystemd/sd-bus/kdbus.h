@@ -173,8 +173,8 @@ struct kdbus_memfd {
 
 /**
  * struct kdbus_name - a registered well-known name with its flags
- * @flags:		flags from KDBUS_NAME_*
- * @name:		well-known name
+ * @flags:		Flags from KDBUS_NAME_*
+ * @name:		Well-known name
  *
  * Attached to:
  *   KDBUS_ITEM_NAME
@@ -187,7 +187,7 @@ struct kdbus_name {
 /**
  * struct kdbus_policy_access - policy access item
  * @type:		One of KDBUS_POLICY_ACCESS_* types
- * @bits:		Access to grant. One of KDBUS_POLICY_*
+ * @access:		Access to grant
  * @id:			For KDBUS_POLICY_ACCESS_USER, the uid
  *			For KDBUS_POLICY_ACCESS_GROUP, the gid
  */
@@ -520,6 +520,7 @@ enum kdbus_attach_flags {
 	KDBUS_ATTACH_SECLABEL		=  1 <<  8,
 	KDBUS_ATTACH_AUDIT		=  1 <<  9,
 	KDBUS_ATTACH_CONN_NAME		=  1 << 10,
+	_KDBUS_ATTACH_ALL		=  (1 << 11) - 1,
 };
 
 /**
