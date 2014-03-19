@@ -46,7 +46,10 @@ struct sd_dhcp_client {
         size_t req_opts_allocated;
         size_t req_opts_size;
         be32_t last_addr;
-        struct ether_addr mac_addr;
+        struct {
+                uint8_t type;
+                struct ether_addr mac_addr;
+        } _packed_ client_id;
         uint32_t xid;
         usec_t start_time;
         uint16_t secs;
@@ -152,7 +155,8 @@ int sd_dhcp_client_set_mac(sd_dhcp_client *client,
                         addr->ether_addr_octet[4],
                         addr->ether_addr_octet[5]);
 
-        memcpy(&client->mac_addr, addr, ETH_ALEN);
+        memcpy(&client->client_id.mac_addr, addr, ETH_ALEN);
+        client->client_id.type = 0x01;
 
         return 0;
 }
@@ -233,7 +237,7 @@ static int client_message_init(sd_dhcp_client *client, DHCPMessage *message,
            refuse to issue an DHCP lease if 'secs' is set to zero */
         message->secs = htobe16(secs);
 
-        memcpy(&message->chaddr, &client->mac_addr, ETH_ALEN);
+        memcpy(&message->chaddr, &client->client_id.mac_addr, ETH_ALEN);
 
         if (client->state == DHCP_STATE_RENEWING ||
             client->state == DHCP_STATE_REBINDING)
@@ -242,7 +246,7 @@ static int client_message_init(sd_dhcp_client *client, DHCPMessage *message,
         /* Some DHCP servers will refuse to issue an DHCP lease if the Client
            Identifier option is not set */
         r = dhcp_option_append(opt, optlen, DHCP_OPTION_CLIENT_IDENTIFIER,
-                               ETH_ALEN, &client->mac_addr);
+                               sizeof(client->client_id), &client->client_id);
         if (r < 0)
                 return r;
 
@@ -852,8 +856,8 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message,
                 return 0;
         }
 
-        if (memcmp(&message->chaddr[0], &client->mac_addr.ether_addr_octet,
-                   ETHER_ADDR_LEN)) {
+        if (memcmp(&message->chaddr[0], &client->client_id.mac_addr,
+                   ETH_ALEN)) {
                 log_dhcp_client(client, "received chaddr does not match "
                                 "expected: ignoring");
                 return 0;
