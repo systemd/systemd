@@ -142,9 +142,8 @@ static int mount_dev(BindMount *m) {
                 "/dev/urandom\0"
                 "/dev/tty\0";
 
-        struct stat devnodes_stat[6] = {};
-        const char *d;
-        unsigned n = 0;
+        char temporary_mount[] = "/tmp/namespace-dev-XXXXXX";
+        const char *d, *dev = NULL, *devpts = NULL, *devshm = NULL, *devkdbus = NULL, *devhugepages = NULL, *devmqueue = NULL;
         _cleanup_umask_ mode_t u;
         int r;
 
@@ -152,56 +151,115 @@ static int mount_dev(BindMount *m) {
 
         u = umask(0000);
 
-        /* First: record device mode_t and dev_t */
+        if (!mkdtemp(temporary_mount))
+                return -errno;
+
+        dev = strappenda(temporary_mount, "/dev");
+        mkdir(dev, 0755);
+        if (mount("tmpfs", dev, "tmpfs", MS_NOSUID|MS_STRICTATIME, "mode=755") < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        devpts = strappenda(temporary_mount, "/dev/pts");
+        mkdir(devpts, 0755);
+        if (mount("/dev/pts", devpts, NULL, MS_BIND, NULL) < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        devshm = strappenda(temporary_mount, "/dev/shm");
+        mkdir(devshm, 01777);
+        r = mount("/dev/shm", devshm, NULL, MS_BIND, NULL);
+        if (r < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        devmqueue = strappenda(temporary_mount, "/dev/mqueue");
+        mkdir(devmqueue, 0755);
+        mount("/dev/mqueue", devmqueue, NULL, MS_BIND, NULL);
+
+        devkdbus = strappenda(temporary_mount, "/dev/kdbus");
+        mkdir(devkdbus, 0755);
+        mount("/dev/kdbus", devkdbus, NULL, MS_BIND, NULL);
+
+        devhugepages = strappenda(temporary_mount, "/dev/hugepages");
+        mkdir(devhugepages, 0755);
+        mount("/dev/hugepages", devhugepages, NULL, MS_BIND, NULL);
+
         NULSTR_FOREACH(d, devnodes) {
-                r = stat(d, &devnodes_stat[n]);
+                _cleanup_free_ char *dn = NULL;
+                struct stat st;
+
+                r = stat(d, &st);
                 if (r < 0) {
-                        if (errno != ENOENT)
-                                return -errno;
-                } else {
-                        if (!S_ISBLK(devnodes_stat[n].st_mode) &&
-                            !S_ISCHR(devnodes_stat[n].st_mode))
-                                return -EINVAL;
+
+                        if (errno == ENOENT)
+                                continue;
+
+                        r = -errno;
+                        goto fail;
                 }
 
-                n++;
-        }
+                if (!S_ISBLK(st.st_mode) &&
+                    !S_ISCHR(st.st_mode)) {
+                        r = -EINVAL;
+                        goto fail;
+                }
 
-        assert(n == ELEMENTSOF(devnodes_stat));
-
-        r = mount("tmpfs", "/dev", "tmpfs", MS_NOSUID|MS_STRICTATIME, "mode=755");
-        if (r < 0)
-                return m->ignore ? 0 : -errno;
-
-
-        mkdir_p("/dev/pts", 0755);
-
-        r = mount("devpts", "/dev/pts", "devpts", MS_NOSUID|MS_NOEXEC, "newinstance,ptmxmode=0666,mode=620,gid=" STRINGIFY(TTY_GID));
-        if (r < 0)
-                return m->ignore ? 0 : -errno;
-
-        mkdir_p("/dev/shm", 0755);
-
-        r = mount("tmpfs", "/dev/shm", "tmpfs", MS_NOSUID|MS_NODEV|MS_STRICTATIME, "mode=1777");
-        if (r < 0)
-                return m->ignore ? 0 : -errno;
-
-        /* Second: actually create it */
-        n = 0;
-        NULSTR_FOREACH(d, devnodes) {
-                if (devnodes_stat[n].st_rdev == 0)
+                if (st.st_rdev == 0)
                         continue;
 
-                r = mknod(d, devnodes_stat[n].st_mode, devnodes_stat[n].st_rdev);
-                if (r < 0)
-                        return m->ignore ? 0 : -errno;
+                dn = strappend(temporary_mount, d);
+                if (!dn) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
 
-                n++;
+                r = mknod(dn, st.st_mode, st.st_rdev);
+                if (r < 0) {
+                        r = -errno;
+                        goto fail;
+                }
         }
 
-        dev_setup(NULL);
+        dev_setup(temporary_mount);
+
+        if (mount(dev, "/dev/", NULL, MS_MOVE, NULL) < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        rmdir(dev);
+        rmdir(temporary_mount);
 
         return 0;
+
+fail:
+        if (devpts)
+                umount(devpts);
+
+        if (devshm)
+                umount(devshm);
+
+        if (devkdbus)
+                umount(devkdbus);
+
+        if (devhugepages)
+                umount(devhugepages);
+
+        if (devmqueue)
+                umount(devmqueue);
+
+        if (dev) {
+                umount(dev);
+                rmdir(dev);
+        }
+
+        rmdir(temporary_mount);
+
+        return r;
 }
 
 static int apply_mount(

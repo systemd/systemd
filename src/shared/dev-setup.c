@@ -64,7 +64,7 @@ int dev_setup(const char *prefix) {
                 if (j[0] == '-') {
                         j++;
 
-                        if (access(j, F_OK))
+                        if (access(j, F_OK) < 0)
                                 continue;
                 }
 
