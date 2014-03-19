@@ -686,6 +686,19 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
                         return r;
         }
 
+        if (u->manager->running_as != SYSTEMD_SYSTEM)
+                return 0;
+
+        if (c->private_tmp) {
+                r = unit_require_mounts_for(u, "/tmp");
+                if (r < 0)
+                        return r;
+
+                r = unit_require_mounts_for(u, "/var/tmp");
+                if (r < 0)
+                        return r;
+        }
+
         if (c->std_output != EXEC_OUTPUT_KMSG &&
             c->std_output != EXEC_OUTPUT_SYSLOG &&
             c->std_output != EXEC_OUTPUT_JOURNAL &&
@@ -703,11 +716,9 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
         /* If syslog or kernel logging is requested, make sure our own
          * logging daemon is run first. */
 
-        if (u->manager->running_as == SYSTEMD_SYSTEM) {
-                r = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_JOURNALD_SOCKET, NULL, true);
-                if (r < 0)
-                        return r;
-        }
+        r = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_JOURNALD_SOCKET, NULL, true);
+        if (r < 0)
+                return r;
 
         return 0;
 }
