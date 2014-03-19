@@ -49,7 +49,9 @@ struct BusName {
 
         char *name;
         int starter_fd;
+
         bool activating;
+        bool accept_fd;
 
         UnitRef service;
 
@@ -57,8 +59,6 @@ struct BusName {
         BusNameResult result;
 
         sd_event_source *event_source;
-
-        bool accept_fd;
 
         LIST_HEAD(BusNamePolicy, policy);
 };

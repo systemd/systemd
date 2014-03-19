@@ -31,5 +31,7 @@ const sd_bus_vtable bus_busname_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Name", "s", NULL, offsetof(BusName, name), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Result", "s", property_get_result, offsetof(BusName, result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("Activating", "b", bus_property_get_bool, offsetof(BusName, activating), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("AcceptFileDescriptors", "b", bus_property_get_bool, offsetof(BusName, accept_fd), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_VTABLE_END
 };
