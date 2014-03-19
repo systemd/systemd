@@ -364,16 +364,22 @@ void cgroup_context_apply(CGroupContext *c, CGroupControllerMask mask, const cha
                 if (c->device_policy == CGROUP_CLOSED ||
                     (c->device_policy == CGROUP_AUTO && c->device_allow)) {
                         static const char auto_devices[] =
-                                "/dev/null\0" "rw\0"
-                                "/dev/zero\0" "rw\0"
-                                "/dev/full\0" "rw\0"
-                                "/dev/random\0" "rw\0"
-                                "/dev/urandom\0" "rw\0";
+                                "/dev/null\0" "rwm\0"
+                                "/dev/zero\0" "rwm\0"
+                                "/dev/full\0" "rwm\0"
+                                "/dev/random\0" "rwm\0"
+                                "/dev/urandom\0" "rwm\0"
+                                "/dev/tty\0" "rwm\0"
+                                "/dev/pts/ptmx\0" "rw\0"; /* /dev/pts/ptmx may not be duplicated, but accessed */
 
                         const char *x, *y;
 
                         NULSTR_FOREACH_PAIR(x, y, auto_devices)
                                 whitelist_device(path, x, y);
+
+                        whitelist_major(path, "pts", 'c', "rw");
+                        whitelist_major(path, "kdbus", 'c', "rw");
+                        whitelist_major(path, "kdbus/*", 'c', "rw");
                 }
 
                 LIST_FOREACH(device_allow, a, c->device_allow) {
