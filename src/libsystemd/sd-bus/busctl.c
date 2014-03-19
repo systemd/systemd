@@ -507,6 +507,24 @@ int main(int argc, char *argv[]) {
                         log_error("Failed to set monitor mode: %s", strerror(-r));
                         goto finish;
                 }
+
+                r = sd_bus_negotiate_creds(bus, _SD_BUS_CREDS_ALL);
+                if (r < 0) {
+                        log_error("Failed to enable credentials: %s", strerror(-r));
+                        goto finish;
+                }
+
+                r = sd_bus_negotiate_timestamp(bus, true);
+                if (r < 0) {
+                        log_error("Failed to enable timestamps: %s", strerror(-r));
+                        goto finish;
+                }
+
+                r = sd_bus_negotiate_fds(bus, true);
+                if (r < 0) {
+                        log_error("Failed to enable fds: %s", strerror(-r));
+                        goto finish;
+                }
         }
 
         if (arg_address)
