@@ -747,6 +747,10 @@ static int client_set_lease_timeouts(sd_dhcp_client *client, uint64_t usec) {
         assert(client);
         assert(client->event);
 
+        /* don't set timers for infinite leases */
+        if (client->lease->lifetime == 0xffffffff)
+                return 0;
+
         if (client->lease->lifetime < 10)
                 return -EINVAL;
 
