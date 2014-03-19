@@ -1422,6 +1422,7 @@ int bus_kernel_create_starter(const char *bus, const char *name, bool accept_fd,
         hello->size = size;
         hello->conn_flags = KDBUS_HELLO_ACTIVATOR | (accept_fd ? KDBUS_HELLO_ACCEPT_FD : 0);
         hello->pool_size = KDBUS_POOL_SIZE;
+        hello->attach_flags = _KDBUS_ATTACH_ALL;
 
         if (ioctl(fd, KDBUS_CMD_HELLO, hello) < 0) {
                 safe_close(fd);
