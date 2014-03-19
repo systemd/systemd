@@ -84,9 +84,6 @@
 #define JOBS_IN_PROGRESS_PERIOD_USEC (USEC_PER_SEC / 3)
 #define JOBS_IN_PROGRESS_PERIOD_DIVISOR 3
 
-/* Where clients shall send notification messages to */
-#define NOTIFY_SOCKET "@/org/freedesktop/systemd1/notify"
-
 #define TIME_T_MAX (time_t)((1UL << ((sizeof(time_t) << 3) - 1)) - 1)
 
 static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata);
@@ -505,16 +502,17 @@ fail:
 }
 
 static int manager_setup_notify(Manager *m) {
-        union {
-                struct sockaddr sa;
-                struct sockaddr_un un;
-        } sa = {
-                .sa.sa_family = AF_UNIX,
-        };
-        int one = 1, r;
+        int r;
 
         if (m->notify_fd < 0) {
                 _cleanup_close_ int fd = -1;
+                union {
+                        struct sockaddr sa;
+                        struct sockaddr_un un;
+                } sa = {
+                        .sa.sa_family = AF_UNIX,
+                };
+                int one = 1;
 
                 /* First free all secondary fields */
                 free(m->notify_socket);
@@ -527,13 +525,24 @@ static int manager_setup_notify(Manager *m) {
                         return -errno;
                 }
 
-                if (getpid() != 1 || detect_container(NULL) > 0)
-                        snprintf(sa.un.sun_path, sizeof(sa.un.sun_path), NOTIFY_SOCKET "/%" PRIx64, random_u64());
-                else
-                        strncpy(sa.un.sun_path, NOTIFY_SOCKET, sizeof(sa.un.sun_path));
-                sa.un.sun_path[0] = 0;
+                if (m->running_as == SYSTEMD_SYSTEM)
+                        m->notify_socket = strdup("/run/systemd/notify");
+                else {
+                        const char *e;
 
-                r = bind(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + 1 + strlen(sa.un.sun_path+1));
+                        e = getenv("XDG_RUNTIME_DIR");
+                        if (!e) {
+                                log_error("XDG_RUNTIME_DIR is not set: %m");
+                                return -EINVAL;
+                        }
+
+                        m->notify_socket = strappend(e, "/systemd/notify");
+                }
+                if (!m->notify_socket)
+                        return log_oom();
+
+                strncpy(sa.un.sun_path, m->notify_socket, sizeof(sa.un.sun_path)-1);
+                r = bind(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path));
                 if (r < 0) {
                         log_error("bind() failed: %m");
                         return -errno;
@@ -544,11 +553,6 @@ static int manager_setup_notify(Manager *m) {
                         log_error("SO_PASSCRED failed: %m");
                         return -errno;
                 }
-
-                sa.un.sun_path[0] = '@';
-                m->notify_socket = strdup(sa.un.sun_path);
-                if (!m->notify_socket)
-                        return log_oom();
 
                 m->notify_fd = fd;
                 fd = -1;
