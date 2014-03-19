@@ -13,3 +13,5 @@ ExecStart=@rootlibexecdir@/systemd-bus-driverd
 BusName=org.freedesktop.DBus
 WatchdogSec=1min
 CapabilityBoundingSet=CAP_IPC_OWNER
+PrivateTmp=yes
+PrivateDevices=yes

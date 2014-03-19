@@ -15,3 +15,5 @@ ExecStart=@rootlibexecdir@/systemd-localed
 BusName=org.freedesktop.locale1
 CapabilityBoundingSet=
 WatchdogSec=1min
+PrivateTmp=yes
+PrivateDevices=yes

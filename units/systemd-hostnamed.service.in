@@ -15,3 +15,5 @@ ExecStart=@rootlibexecdir@/systemd-hostnamed
 BusName=org.freedesktop.hostname1
 CapabilityBoundingSet=CAP_SYS_ADMIN CAP_DAC_OVERRIDE CAP_SYS_PTRACE
 WatchdogSec=1min
+PrivateTmp=yes
+PrivateDevices=yes

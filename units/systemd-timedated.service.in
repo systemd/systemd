@@ -15,3 +15,4 @@ ExecStart=@rootlibexecdir@/systemd-timedated
 BusName=org.freedesktop.timedate1
 CapabilityBoundingSet=CAP_SYS_TIME
 WatchdogSec=1min
+PrivateTmp=yes

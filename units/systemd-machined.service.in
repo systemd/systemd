@@ -17,3 +17,5 @@ ExecStart=@rootlibexecdir@/systemd-machined
 BusName=org.freedesktop.machine1
 CapabilityBoundingSet=CAP_KILL
 WatchdogSec=1min
+PrivateTmp=yes
+PrivateDevices=yes
