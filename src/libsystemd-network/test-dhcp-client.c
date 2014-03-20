@@ -128,6 +128,17 @@ static void test_checksum(void)
 static int check_options(uint8_t code, uint8_t len, const uint8_t *option,
                 void *user_data)
 {
+        switch(code) {
+        case DHCP_OPTION_CLIENT_IDENTIFIER:
+                assert_se(len == 7);
+                assert_se(option[0] == 0x01);
+                assert_se(memcmp(&option[1], &mac_addr, ETH_ALEN) == 0);
+                break;
+
+        default:
+                break;
+        }
+
         return 0;
 }
 
@@ -370,11 +381,14 @@ static void test_addr_acq_acquired(sd_dhcp_client *client, int event,
 static int test_addr_acq_recv_request(size_t size, DHCPMessage *request)
 {
         uint16_t udp_check = 0;
+        uint8_t *msg_bytes = (uint8_t *)request;
         int res;
 
         res = dhcp_option_parse(request, size, check_options, NULL);
         assert_se(res == DHCP_REQUEST);
         assert_se(xid == request->xid);
+
+        assert_se(msg_bytes[size - 1] == DHCP_OPTION_END);
 
         if (verbose)
                 printf("  recv DHCP Request  0x%08x\n", be32toh(xid));
@@ -399,10 +413,13 @@ static int test_addr_acq_recv_request(size_t size, DHCPMessage *request)
 static int test_addr_acq_recv_discover(size_t size, DHCPMessage *discover)
 {
         uint16_t udp_check = 0;
+        uint8_t *msg_bytes = (uint8_t *)discover;
         int res;
 
         res = dhcp_option_parse(discover, size, check_options, NULL);
         assert_se(res == DHCP_DISCOVER);
+
+        assert_se(msg_bytes[size - 1] == DHCP_OPTION_END);
 
         xid = discover->xid;
 
