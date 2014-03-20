@@ -883,27 +883,7 @@ static int link_acquire_conf(Link *link) {
         assert(link->manager->event);
 
         if (link->network->ipv4ll) {
-                if (!link->ipv4ll) {
-                        r = sd_ipv4ll_new(&link->ipv4ll);
-                        if (r < 0)
-                                return r;
-
-                        r = sd_ipv4ll_attach_event(link->ipv4ll, NULL, 0);
-                        if (r < 0)
-                                return r;
-
-                        r = sd_ipv4ll_set_index(link->ipv4ll, link->ifindex);
-                        if (r < 0)
-                                return r;
-
-                        r = sd_ipv4ll_set_mac(link->ipv4ll, &link->mac);
-                        if (r < 0)
-                                return r;
-
-                        r = sd_ipv4ll_set_callback(link->ipv4ll, ipv4ll_handler, link);
-                        if (r < 0)
-                                return r;
-                }
+                assert(link->ipv4ll);
 
                 log_debug_link(link, "acquiring IPv4 link-local address");
 
@@ -913,33 +893,7 @@ static int link_acquire_conf(Link *link) {
         }
 
         if (link->network->dhcp) {
-                if (!link->dhcp_client) {
-                        r = sd_dhcp_client_new(&link->dhcp_client);
-                        if (r < 0)
-                                return r;
-
-                        r = sd_dhcp_client_attach_event(link->dhcp_client, NULL, 0);
-                        if (r < 0)
-                                return r;
-
-                        r = sd_dhcp_client_set_index(link->dhcp_client, link->ifindex);
-                        if (r < 0)
-                                return r;
-
-                        r = sd_dhcp_client_set_mac(link->dhcp_client, &link->mac);
-                        if (r < 0)
-                                return r;
-
-                        r = sd_dhcp_client_set_callback(link->dhcp_client, dhcp_handler, link);
-                        if (r < 0)
-                                return r;
-
-                        if (link->network->dhcp_mtu) {
-                                r = sd_dhcp_client_set_request_option(link->dhcp_client, 26);
-                                if (r < 0)
-                                        return r;
-                        }
-                }
+                assert(link->dhcp_client);
 
                 log_debug_link(link, "acquiring DHCPv4 lease");
 
@@ -1302,6 +1256,48 @@ int link_add(Manager *m, struct udev_device *device, Link **ret) {
         r = network_apply(m, network, link);
         if (r < 0)
                 return r;
+
+        if (link->network->ipv4ll) {
+                r = sd_ipv4ll_new(&link->ipv4ll);
+                if (r < 0)
+                        return r;
+
+                r = sd_ipv4ll_attach_event(link->ipv4ll, NULL, 0);
+                if (r < 0)
+                        return r;
+
+                r = sd_ipv4ll_set_index(link->ipv4ll, link->ifindex);
+                if (r < 0)
+                        return r;
+
+                r = sd_ipv4ll_set_callback(link->ipv4ll, ipv4ll_handler, link);
+                if (r < 0)
+                        return r;
+        }
+
+        if (link->network->dhcp) {
+                r = sd_dhcp_client_new(&link->dhcp_client);
+                if (r < 0)
+                        return r;
+
+                r = sd_dhcp_client_attach_event(link->dhcp_client, NULL, 0);
+                if (r < 0)
+                        return r;
+
+                r = sd_dhcp_client_set_index(link->dhcp_client, link->ifindex);
+                if (r < 0)
+                        return r;
+
+                r = sd_dhcp_client_set_callback(link->dhcp_client, dhcp_handler, link);
+                if (r < 0)
+                        return r;
+
+                if (link->network->dhcp_mtu) {
+                        r = sd_dhcp_client_set_request_option(link->dhcp_client, 26);
+                        if (r < 0)
+                                return r;
+                }
+        }
 
         r = link_configure(link);
         if (r < 0)
