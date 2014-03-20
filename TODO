@@ -665,6 +665,9 @@ Features:
    - change LL address generation and make it predictable like get_mac() (link-config.c)
    - have smooth transition from LL to routable address, without disconnecting clients.
 
+* sd-network:
+   - make sure ipv4ll and dhcp clients can handle changing mac addresses while running
+
 External:
 
 * dbus:
