@@ -32,8 +32,6 @@
 
 int link_new(Manager *manager, struct udev_device *device, Link **ret) {
         _cleanup_link_free_ Link *link = NULL;
-        const char *mac;
-        struct ether_addr *mac_addr;
         const char *ifname;
         int r;
 
@@ -57,13 +55,6 @@ int link_new(Manager *manager, struct udev_device *device, Link **ret) {
                      link->ifindex);
         if (r < 0)
                 return -ENOMEM;
-
-        mac = udev_device_get_sysattr_value(device, "address");
-        if (mac) {
-                mac_addr = ether_aton(mac);
-                if (mac_addr)
-                        memcpy(&link->mac, mac_addr, sizeof(struct ether_addr));
-        }
 
         ifname = udev_device_get_sysname(device);
         link->ifname = strdup(ifname);
@@ -972,6 +963,9 @@ static int link_update_flags(Link *link, unsigned flags) {
         if (link->flags == flags)
                 return 0;
 
+        log_debug_link(link, "link status updated: %#.8x -> %#.8x",
+                       link->flags, flags);
+
         if ((link->flags & IFF_UP) != (flags & IFF_UP))
                 log_info_link(link,
                               "link is %s", flags & IFF_UP ? "up": "down");
@@ -1010,9 +1004,6 @@ static int link_update_flags(Link *link, unsigned flags) {
                         }
                 }
         }
-
-        log_debug_link(link, "link status updated: %#.8x -> %#.8x",
-                       link->flags, flags);
 
         link->flags = flags;
 
@@ -1321,6 +1312,7 @@ int link_add(Manager *m, struct udev_device *device, Link **ret) {
 
 int link_update(Link *link, sd_rtnl_message *m) {
         unsigned flags;
+        struct ether_addr mac;
         int r;
 
         assert(link);
@@ -1338,16 +1330,39 @@ int link_update(Link *link, sd_rtnl_message *m) {
                                        PRIu16, link->original_mtu);
         }
 
-        r = sd_rtnl_message_read_ether_addr(m, IFLA_ADDRESS, &link->mac);
-        if (r >= 0) {
+        r = sd_rtnl_message_read_ether_addr(m, IFLA_ADDRESS, &mac);
+        if (r >= 0 && memcmp(&link->mac.ether_addr_octet, &mac.ether_addr_octet, ETH_ALEN)) {
+
+                memcpy(&link->mac.ether_addr_octet, &mac.ether_addr_octet, ETH_ALEN);
+
                 log_debug_link(link, "MAC address: "
                                "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",
-                                link->mac.ether_addr_octet[0],
-                                link->mac.ether_addr_octet[1],
-                                link->mac.ether_addr_octet[2],
-                                link->mac.ether_addr_octet[3],
-                                link->mac.ether_addr_octet[4],
-                                link->mac.ether_addr_octet[5]);
+                                mac.ether_addr_octet[0],
+                                mac.ether_addr_octet[1],
+                                mac.ether_addr_octet[2],
+                                mac.ether_addr_octet[3],
+                                mac.ether_addr_octet[4],
+                                mac.ether_addr_octet[5]);
+
+                if (link->ipv4ll) {
+                        r = sd_ipv4ll_set_mac(link->ipv4ll, &link->mac);
+                        if (r < 0) {
+                                log_warning_link(link, "Could not update MAC "
+                                                 "address in IPv4LL client: %s",
+                                                 strerror(-r));
+                                return r;
+                        }
+                }
+
+                if (link->dhcp_client) {
+                        r = sd_dhcp_client_set_mac(link->dhcp_client, &link->mac);
+                        if (r < 0) {
+                                log_warning_link(link, "Could not update MAC "
+                                                 "address in DHCP client: %s",
+                                                 strerror(-r));
+                                return r;
+                        }
+                }
         }
 
         r = sd_rtnl_message_link_get_flags(m, &flags);

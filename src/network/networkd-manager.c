@@ -312,13 +312,13 @@ static int manager_rtnl_process_link(sd_rtnl *rtnl, sd_rtnl_message *message, vo
 
         r = sd_rtnl_message_link_get_ifindex(message, &ifindex);
         if (r < 0 || ifindex <= 0) {
-                log_debug("received RTM_NEWLINK message without valid ifindex");
+                log_warning("received RTM_NEWLINK message without valid ifindex");
                 return 0;
         }
 
         r = sd_rtnl_message_read_string(message, IFLA_IFNAME, &name);
         if (r < 0)
-                log_debug("received RTM_NEWLINK message without valid IFLA_IFNAME");
+                log_warning("received RTM_NEWLINK message without valid ifname");
         else {
                 NetDev *netdev;
 
