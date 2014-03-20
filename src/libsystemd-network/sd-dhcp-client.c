@@ -198,8 +198,6 @@ static int client_initialize(sd_dhcp_client *client) {
 
         client->attempt = 1;
 
-        client->start_time = 0;
-        client->secs = 0;
         client->state = DHCP_STATE_INIT;
         client->xid = 0;
 
@@ -592,10 +590,12 @@ static int client_start(sd_dhcp_client *client) {
                 client_stop(client, r);
                 return r;
         }
-
         client->fd = r;
-        client->start_time = now(CLOCK_MONOTONIC);
-        client->secs = 0;
+
+        if (client->state == DHCP_STATE_INIT) {
+                client->start_time = now(CLOCK_MONOTONIC);
+                client->secs = 0;
+        }
 
         log_dhcp_client(client, "STARTED");
 
