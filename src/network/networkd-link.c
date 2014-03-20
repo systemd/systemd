@@ -228,6 +228,7 @@ static int link_enter_set_routes(Link *link) {
 
         if (link->dhcp_lease) {
                 _cleanup_route_free_ Route *route = NULL;
+                _cleanup_route_free_ Route *route_gw = NULL;
                 struct in_addr gateway;
 
                 r = sd_dhcp_lease_get_router(link->dhcp_lease, &gateway);
@@ -243,6 +244,30 @@ static int link_enter_set_routes(Link *link) {
                                        strerror(-r));
                         return r;
                 }
+
+                r = route_new_dynamic(&route_gw);
+                if (r < 0) {
+                        log_error_link(link, "Could not allocate route: %s",
+                                       strerror(-r));
+                        return r;
+                }
+
+                /* The dhcp netmask may mask out the gateway. Add an explicit
+                 * route for the gw host so that we can route no matter the
+                 * netmask or existing kernel route tables. */
+                route_gw->family = AF_INET;
+                route_gw->dst_addr.in = gateway;
+                route_gw->dst_prefixlen = 32;
+                route_gw->scope = RT_SCOPE_LINK;
+
+                r = route_configure(route_gw, link, &route_handler);
+                if (r < 0) {
+                        log_warning_link(link,
+                                         "could not set host route: %s", strerror(-r));
+                        return r;
+                }
+
+                link->route_messages ++;
 
                 route->family = AF_INET;
                 route->in_addr.in = gateway;
