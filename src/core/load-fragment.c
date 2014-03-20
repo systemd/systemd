@@ -1125,15 +1125,13 @@ int config_parse_exec_mount_flags(const char *unit,
                         return log_oom();
 
                 if (streq(t, "shared"))
-                        flags |= MS_SHARED;
+                        flags = MS_SHARED;
                 else if (streq(t, "slave"))
-                        flags |= MS_SLAVE;
+                        flags = MS_SLAVE;
                 else if (streq(w, "private"))
-                        flags |= MS_PRIVATE;
+                        flags = MS_PRIVATE;
                 else {
-                        log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                                   "Failed to parse mount flag %s, ignoring: %s",
-                                   t, rvalue);
+                        log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Failed to parse mount flag %s, ignoring: %s", t, rvalue);
                         return 0;
                 }
         }

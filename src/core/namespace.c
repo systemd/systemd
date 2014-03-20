@@ -387,24 +387,28 @@ int setup_namespace(
                 drop_duplicates(mounts, &n);
         }
 
-        /* Remount / as SLAVE so that nothing now mounted in the namespace
-           shows up in the parent */
-        if (mount(NULL, "/", NULL, MS_SLAVE|MS_REC, NULL) < 0)
-                return -errno;
+        if (n > 0) {
+                /* Remount / as SLAVE so that nothing now mounted in the namespace
+                   shows up in the parent */
+                if (mount(NULL, "/", NULL, MS_SLAVE|MS_REC, NULL) < 0)
+                        return -errno;
 
-        for (m = mounts; m < mounts + n; ++m) {
-                r = apply_mount(m, tmp_dir, var_tmp_dir);
-                if (r < 0)
-                        goto fail;
+                for (m = mounts; m < mounts + n; ++m) {
+                        r = apply_mount(m, tmp_dir, var_tmp_dir);
+                        if (r < 0)
+                                goto fail;
+                }
+
+                for (m = mounts; m < mounts + n; ++m) {
+                        r = make_read_only(m);
+                        if (r < 0)
+                                goto fail;
+                }
         }
 
-        for (m = mounts; m < mounts + n; ++m) {
-                r = make_read_only(m);
-                if (r < 0)
-                        goto fail;
-        }
-
-        /* Remount / as the desired mode */
+        /* Remount / as the desired mode. Not that this will not
+         * reestablish propagation from our side to the host, since
+         * what's disconnected is disconnected. */
         if (mount(NULL, "/", NULL, mount_flags | MS_REC, NULL) < 0) {
                 r = -errno;
                 goto fail;
@@ -413,9 +417,11 @@ int setup_namespace(
         return 0;
 
 fail:
-        for (m = mounts; m < mounts + n; ++m)
-                if (m->done)
-                        umount2(m->path, MNT_DETACH);
+        if (n > 0) {
+                for (m = mounts; m < mounts + n; ++m)
+                        if (m->done)
+                                umount2(m->path, MNT_DETACH);
+        }
 
         return r;
 }
