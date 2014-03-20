@@ -27,8 +27,6 @@ External:
 
 Features:
 
-* make MountFlags= useful as a simple switch to disconnect mount propagation
-
 * add bus api to query unit file's X fields.
 
 * consider adding RuntimeDirectoryUser= + RuntimeDirectoryGroup=
