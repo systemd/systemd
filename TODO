@@ -224,10 +224,10 @@ Features:
 * after all byte-wise realloc() is slow, even on glibc, so i guess we
   need manual exponential loops after all
 
-* BootLoaderSpec: drop allowing ext234 for $BOOT. Clarify that the
-  kernel has to be in $BOOT. Clarify that the boot loader should be
-  installed to the ESP. Define a way how an installer can figure out
-  whether a BLS compliant boot loader is installed.
+* BootLoaderSpec: Clarify that the kernel has to be in $BOOT. Clarify
+  that the boot loader should be installed to the ESP. Define a way
+  how an installer can figure out whether a BLS compliant boot loader
+  is installed.
 
 * think about requeuing jobs when daemon-reload is issued? usecase:
   the initrd issues a reload after fstab from the host is accessible
@@ -277,7 +277,6 @@ Features:
   - logind: wakelock/opportunistic suspend support
   - Add pretty name for seats in logind
   - logind: allow showing logout dialog from system?
-  - logind: add equivalent to sd_pid_get_owner_uid() to the D-Bus API
   - we should probably handle SIGTERM/SIGINT to not leave dot files around, just in case
   - session scopes/user unit: add RequiresMountsFor for the home directory of the user
   - add Suspend() bus calls which take timestamps to fix double suspend issues when somebody hits suspend and closes laptop quickly.
@@ -390,7 +389,6 @@ Features:
   - calendarspec: support value ranges with ".." notation. Example: 2013-4..8-1
   - when parsing calendar timestamps support the UTC timezone (even if we won't support arbitrary timezone specs, support UTC itself certainly makes sense), also support syntaxes such as +0200
   - Modulate timer frequency based on battery state
-  - anacron-like feature
 
 * update the kernel's TZ (sys_tz) when DST changes
 
