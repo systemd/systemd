@@ -442,7 +442,7 @@ static void sntp_adjust_poll(SNTPContext *sntp, double offset, bool spike) {
         }
 
         /* set to minimal poll interval */
-        if (fabs(offset) > NTP_ACCURACY_SEC) {
+        if (!spike && fabs(offset) > NTP_ACCURACY_SEC) {
                 sntp->poll_interval_usec = NTP_POLL_INTERVAL_MIN_SEC * USEC_PER_SEC;
                 return;
         }
