@@ -42,6 +42,7 @@ int sd_ipv4ll_get_address(sd_ipv4ll *ll, struct in_addr *address);
 int sd_ipv4ll_set_callback(sd_ipv4ll *ll, sd_ipv4ll_cb_t cb, void *userdata);
 int sd_ipv4ll_set_mac(sd_ipv4ll *ll, const struct ether_addr *addr);
 int sd_ipv4ll_set_index(sd_ipv4ll *ll, int interface_index);
+int sd_ipv4ll_set_address_seed (sd_ipv4ll *ll, uint8_t seed[8]);
 int sd_ipv4ll_start (sd_ipv4ll *ll);
 int sd_ipv4ll_stop (sd_ipv4ll *ll);
 void sd_ipv4ll_free (sd_ipv4ll *ll);

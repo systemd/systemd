@@ -24,12 +24,51 @@
 #include <arpa/inet.h>
 #include <fnmatch.h>
 
+#include "strv.h"
+#include "siphash24.h"
+#include "libudev-private.h"
 #include "net-util.h"
 #include "log.h"
 #include "utf8.h"
 #include "util.h"
 #include "conf-parser.h"
 #include "condition.h"
+
+#define HASH_KEY SD_ID128_MAKE(d3,1e,48,fa,90,fe,4b,4c,9d,af,d5,d7,a1,b1,2e,8a)
+
+int net_get_unique_predictable_data(struct udev_device *device, uint8_t result[8]) {
+        size_t l, sz = 0;
+        const char *name, *field = NULL;
+        int r;
+        uint8_t *v;
+
+        /* fetch some persistent data unique (on this machine) to this device */
+        FOREACH_STRING(field, "ID_NET_NAME_ONBOARD", "ID_NET_NAME_SLOT", "ID_NET_NAME_PATH", "ID_NET_NAME_MAC") {
+                name = udev_device_get_property_value(device, field);
+                if (name)
+                        break;
+        }
+
+        if (!name)
+                return -ENOENT;
+
+        l = strlen(name);
+        sz = sizeof(sd_id128_t) + l;
+        v = alloca(sz);
+
+        /* fetch some persistent data unique to this machine */
+        r = sd_id128_get_machine((sd_id128_t*) v);
+        if (r < 0)
+                 return r;
+        memcpy(v + sizeof(sd_id128_t), name, l);
+
+        /* Let's hash the machine ID plus the device name. We
+        * use a fixed, but originally randomly created hash
+        * key here. */
+        siphash24(result, v, sz, HASH_KEY.bytes);
+
+        return 0;
+}
 
 bool net_match_config(const struct ether_addr *match_mac,
                       const char *match_path,

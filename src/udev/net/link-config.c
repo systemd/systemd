@@ -294,44 +294,17 @@ static bool mac_is_permanent(struct udev_device *device) {
         return type == 0;
 }
 
-#define HASH_KEY SD_ID128_MAKE(d3,1e,48,fa,90,fe,4b,4c,9d,af,d5,d7,a1,b1,2e,8a)
-
 static int get_mac(struct udev_device *device, bool want_random, struct ether_addr *mac) {
         int r;
 
         if (want_random)
                 random_bytes(mac->ether_addr_octet, ETH_ALEN);
         else {
-                const char *name;
                 uint8_t result[8];
-                size_t l, sz;
-                uint8_t *v;
 
-                /* fetch some persistent data unique (on this machine) to this device */
-                name = udev_device_get_property_value(device, "ID_NET_NAME_ONBOARD");
-                if (!name) {
-                        name = udev_device_get_property_value(device, "ID_NET_NAME_SLOT");
-                        if (!name) {
-                                name = udev_device_get_property_value(device, "ID_NET_NAME_PATH");
-                                if (!name)
-                                        return -ENOENT;
-                        }
-                }
-
-                l = strlen(name);
-                sz = sizeof(sd_id128_t) + l;
-                v = alloca(sz);
-
-                /* fetch some persistent data unique to this machine */
-                r = sd_id128_get_machine((sd_id128_t*) v);
+                r = net_get_unique_predictable_data(device, result);
                 if (r < 0)
                         return r;
-                memcpy(v + sizeof(sd_id128_t), name, l);
-
-                /* Let's hash the machine ID plus the device name. We
-                 * use a fixed, but originally randomly created hash
-                 * key here. */
-                siphash24(result, v, sz, HASH_KEY.bytes);
 
                 assert_cc(ETH_ALEN <= sizeof(result));
                 memcpy(mac->ether_addr_octet, result, ETH_ALEN);

@@ -63,6 +63,8 @@ int link_new(Manager *manager, struct udev_device *device, Link **ret) {
         if (r < 0)
                 return r;
 
+        link->udev_device = udev_device_ref(device);
+
         *ret = link;
         link = NULL;
 
@@ -84,6 +86,8 @@ void link_free(Link *link) {
 
         free(link->ifname);
         free(link->state_file);
+
+        udev_device_unref(link->udev_device);
 
         free(link);
 }
@@ -1283,9 +1287,17 @@ int link_add(Manager *m, struct udev_device *device, Link **ret) {
                 return r;
 
         if (link->network->ipv4ll) {
+                uint8_t seed[8];
                 r = sd_ipv4ll_new(&link->ipv4ll);
                 if (r < 0)
                         return r;
+
+                r = net_get_unique_predictable_data(link->udev_device, seed);
+                if (r >= 0) {
+                        r = sd_ipv4ll_set_address_seed(link->ipv4ll, seed);
+                        if (r < 0)
+                                return r;
+                }
 
                 r = sd_ipv4ll_attach_event(link->ipv4ll, NULL, 0);
                 if (r < 0)

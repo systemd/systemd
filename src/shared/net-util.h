@@ -62,3 +62,5 @@ int config_parse_ifalias(const char *unit, const char *filename, unsigned line,
                          int ltype, const char *rvalue, void *data, void *userdata);
 
 int net_parse_inaddr(const char *address, unsigned char *family, void *dst);
+
+int net_get_unique_predictable_data(struct udev_device *device, uint8_t result[8]);

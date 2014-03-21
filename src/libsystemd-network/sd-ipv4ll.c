@@ -24,6 +24,7 @@
 #include <arpa/inet.h>
 
 #include "util.h"
+#include "siphash24.h"
 #include "list.h"
 
 #include "ipv4ll-internal.h"
@@ -76,6 +77,8 @@ struct sd_ipv4ll {
         usec_t defend_window;
         int next_wakeup_valid;
         be32_t address;
+        struct random_data *random_data;
+        char *random_data_state;
         /* External */
         be32_t claimed_address;
         struct ether_addr mac_addr;
@@ -128,30 +131,27 @@ static int ipv4ll_stop(sd_ipv4ll *ll, int event) {
         return 0;
 }
 
-static be32_t ipv4ll_pick_address(sd_ipv4ll *ll) {
+static int ipv4ll_pick_address(sd_ipv4ll *ll, be32_t *address) {
         be32_t addr;
+        int r;
+        int32_t random;
 
         assert(ll);
+        assert(address);
+        assert(ll->random_data);
 
-        if (ll->address) {
-                do {
-                        uint32_t r = random_u32() & 0x0000FFFF;
-                        addr = htonl(IPV4LL_NETWORK | r);
-                } while (addr == ll->address ||
-                        (ntohl(addr) & IPV4LL_NETMASK) != IPV4LL_NETWORK ||
-                        (ntohl(addr) & 0x0000FF00) == 0x0000 ||
-                        (ntohl(addr) & 0x0000FF00) == 0xFF00);
-        } else {
-                uint32_t a = 1;
-                int i;
+        do {
+                r = random_r(ll->random_data, &random);
+                if (r < 0)
+                        return r;
+                addr = htonl((random & 0x0000FFFF) | IPV4LL_NETWORK);
+        } while (addr == ll->address ||
+                (ntohl(addr) & IPV4LL_NETMASK) != IPV4LL_NETWORK ||
+                (ntohl(addr) & 0x0000FF00) == 0x0000 ||
+                (ntohl(addr) & 0x0000FF00) == 0xFF00);
 
-                for (i = 0; i < ETH_ALEN; i++)
-                        a += ll->mac_addr.ether_addr_octet[i]*i;
-                a = (a % 0xFE00) + 0x0100;
-                addr = htonl(IPV4LL_NETWORK | (uint32_t) a);
-        }
-
-        return addr;
+        *address = addr;
+        return 0;
 }
 
 static int ipv4ll_timer(sd_event_source *s, uint64_t usec, void *userdata) {
@@ -304,7 +304,9 @@ static void ipv4ll_run_state_machine(sd_ipv4ll *ll, IPv4LLTrigger trigger, void 
                         ll->claimed_address = 0;
 
                         /* Pick a new address */
-                        ll->address = ipv4ll_pick_address(ll);
+                        r = ipv4ll_pick_address(ll, &ll->address);
+                        if (r < 0)
+                                goto out;
                         ll->conflict++;
                         ll->defend_window = 0;
                         ipv4ll_set_state(ll, IPV4LL_STATE_WAITING_PROBE, 1);
@@ -448,6 +450,39 @@ int sd_ipv4ll_get_address(sd_ipv4ll *ll, struct in_addr *address){
         return 0;
 }
 
+int sd_ipv4ll_set_address_seed (sd_ipv4ll *ll, uint8_t seed[8]) {
+        unsigned int entropy = *seed;
+        int r;
+
+        assert_return(ll, -EINVAL);
+
+        free(ll->random_data);
+        free(ll->random_data_state);
+
+        ll->random_data = new0(struct random_data, 1);
+        ll->random_data_state = new0(char, 128);
+
+        if (!ll->random_data || !ll->random_data_state) {
+                r = -ENOMEM;
+                goto error;
+        }
+
+        r = initstate_r((unsigned int)entropy, ll->random_data_state, 128, ll->random_data);
+        if (r < 0)
+                goto error;
+
+error:
+        if (r < 0){
+                free(ll->random_data);
+                free(ll->random_data_state);
+                ll->random_data = NULL;
+                ll->random_data_state = NULL;
+        }
+        return r;
+}
+
+#define HASH_KEY SD_ID128_MAKE(df,04,22,98,3f,ad,14,52,f9,87,2e,d1,9c,70,e2,f2)
+
 int sd_ipv4ll_start (sd_ipv4ll *ll) {
         int r;
 
@@ -466,8 +501,23 @@ int sd_ipv4ll_start (sd_ipv4ll *ll) {
         ll->defend_window = 0;
         ll->claimed_address = 0;
 
-        if (ll->address == 0)
-                ll->address = ipv4ll_pick_address(ll);
+        if (!ll->random_data) {
+                uint8_t seed[8];
+
+                /* Fallback to mac */
+                siphash24(seed, &ll->mac_addr.ether_addr_octet,
+                          ETH_ALEN, HASH_KEY.bytes);
+
+                r = sd_ipv4ll_set_address_seed(ll, seed);
+                if (r < 0)
+                        goto out;
+        }
+
+        if (ll->address == 0) {
+                r = ipv4ll_pick_address(ll, &ll->address);
+                if (r < 0)
+                        goto out;
+        }
 
         ipv4ll_set_state (ll, IPV4LL_STATE_INIT, 1);
 
@@ -506,6 +556,8 @@ void sd_ipv4ll_free (sd_ipv4ll *ll) {
         sd_ipv4ll_stop(ll);
         sd_ipv4ll_detach_event(ll);
 
+        free(ll->random_data);
+        free(ll->random_data_state);
         free(ll);
 }
 
