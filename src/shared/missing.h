@@ -32,6 +32,7 @@
 #include <linux/oom.h>
 #include <linux/input.h>
 #include <linux/if_link.h>
+#include <linux/loop.h>
 
 #ifdef HAVE_AUDIT
 #include <libaudit.h>
@@ -368,4 +369,12 @@ static inline int setns(int fd, int nstype) {
 
 #if !HAVE_DECL_LO_FLAGS_PARTSCAN
 #define LO_FLAGS_PARTSCAN 8
+#endif
+
+#ifndef LOOP_CTL_REMOVE
+#define LOOP_CTL_REMOVE 0x4C81
+#endif
+
+#ifndef LOOP_CTL_GET_FREE
+#define LOOP_CTL_GET_FREE 0x4C82
 #endif
