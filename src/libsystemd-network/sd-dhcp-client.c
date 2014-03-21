@@ -143,20 +143,26 @@ int sd_dhcp_client_set_index(sd_dhcp_client *client, int interface_index) {
 
 int sd_dhcp_client_set_mac(sd_dhcp_client *client,
                            const struct ether_addr *addr) {
-        assert_return(client, -EINVAL);
-        assert_return(client->state == DHCP_STATE_INIT, -EBUSY);
+        bool need_restart = false;
 
-        log_dhcp_client(client, "set MAC address to "
-                        "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",
-                        addr->ether_addr_octet[0],
-                        addr->ether_addr_octet[1],
-                        addr->ether_addr_octet[2],
-                        addr->ether_addr_octet[3],
-                        addr->ether_addr_octet[4],
-                        addr->ether_addr_octet[5]);
+        assert_return(client, -EINVAL);
+        assert_return(addr, -EINVAL);
+
+        if (memcmp(&client->client_id.mac_addr, addr, ETH_ALEN) == 0)
+                return 0;
+
+        if (client->state != DHCP_STATE_INIT) {
+                log_dhcp_client(client, "Changing MAC address on running DHCP "
+                                "client, restarting");
+                sd_dhcp_client_stop(client);
+                need_restart = true;
+        }
 
         memcpy(&client->client_id.mac_addr, addr, ETH_ALEN);
         client->client_id.type = 0x01;
+
+        if (need_restart)
+                sd_dhcp_client_start(client);
 
         return 0;
 }

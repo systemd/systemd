@@ -375,10 +375,25 @@ int sd_ipv4ll_set_index(sd_ipv4ll *ll, int interface_index) {
 }
 
 int sd_ipv4ll_set_mac(sd_ipv4ll *ll, const struct ether_addr *addr) {
-        assert_return(ll, -EINVAL);
-        assert_return(ll->state == IPV4LL_STATE_INIT, -EBUSY);
+        bool need_restart = false;
 
-        memcpy(&ll->mac_addr.ether_addr_octet, addr, ETH_ALEN);
+        assert_return(ll, -EINVAL);
+        assert_return(addr, -EINVAL);
+
+        if (memcmp(&ll->mac_addr, addr, ETH_ALEN) == 0)
+                return 0;
+
+        if (ll->state != IPV4LL_STATE_INIT) {
+                log_ipv4ll(ll, "Changing MAC address on running IPv4LL "
+                           "client, restarting");
+                sd_ipv4ll_stop(ll);
+                need_restart = true;
+        }
+
+        memcpy(&ll->mac_addr, addr, ETH_ALEN);
+
+        if (need_restart)
+                sd_ipv4ll_start(ll);
 
         return 0;
 }
