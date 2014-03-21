@@ -779,8 +779,6 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/ima-util.h \
 	src/shared/ptyfwd.c \
 	src/shared/ptyfwd.h \
-	src/shared/net-util.c \
-	src/shared/net-util.h \
 	src/shared/errno-list.c \
 	src/shared/errno-list.h \
 	src/shared/af-list.c \
@@ -2460,7 +2458,9 @@ libsystemd_network_la_SOURCES = \
 	src/libsystemd-network/sd-ipv4ll.c \
 	src/libsystemd-network/ipv4ll-network.c \
 	src/libsystemd-network/ipv4ll-packet.c \
-	src/libsystemd-network/ipv4ll-internal.h
+	src/libsystemd-network/ipv4ll-internal.h \
+	src/libsystemd-network/network-internal.c \
+	src/libsystemd-network/network-internal.h
 
 libsystemd_network_la_LIBADD = \
 	libsystemd-label.la \
@@ -2720,6 +2720,7 @@ libudev_core_la_LIBADD = \
 	libudev-internal.la \
 	libsystemd-label.la \
 	libsystemd-internal.la \
+	libsystemd-network.la \
 	libsystemd-shared.la \
 	$(BLKID_LIBS) \
 	$(KMOD_LIBS)

@@ -26,7 +26,7 @@
 #include "libudev-private.h"
 #include "util.h"
 #include "bus-util.h"
-#include "net-util.h"
+#include "network-internal.h"
 
 #include "dhcp-lease-internal.h"
 

@@ -26,7 +26,7 @@
 #include "utf8.h"
 #include "util.h"
 #include "conf-parser.h"
-#include "net-util.h"
+#include "network-internal.h"
 
 int address_new_static(Network *network, unsigned section, Address **ret) {
         _cleanup_address_free_ Address *address = NULL;

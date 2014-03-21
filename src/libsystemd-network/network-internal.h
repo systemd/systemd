@@ -25,6 +25,7 @@
 #include <netinet/in.h>
 #include <stdbool.h>
 
+#include "udev.h"
 #include "condition-util.h"
 
 bool net_match_config(const struct ether_addr *match_mac,

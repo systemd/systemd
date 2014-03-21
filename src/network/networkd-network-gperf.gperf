@@ -2,7 +2,7 @@
 #include <stddef.h>
 #include "conf-parser.h"
 #include "networkd.h"
-#include "net-util.h"
+#include "network-internal.h"
 %}
 struct ConfigPerfItem;
 %null_strings

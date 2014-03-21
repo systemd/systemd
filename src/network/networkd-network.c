@@ -20,7 +20,7 @@
 ***/
 
 #include "networkd.h"
-#include "net-util.h"
+#include "network-internal.h"
 #include "path-util.h"
 #include "conf-files.h"
 #include "conf-parser.h"

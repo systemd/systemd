@@ -38,7 +38,7 @@
 #include "fileio.h"
 #include "hashmap.h"
 #include "rtnl-util.h"
-#include "net-util.h"
+#include "network-internal.h"
 #include "siphash24.h"
 
 struct link_config_ctx {

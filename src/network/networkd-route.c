@@ -26,7 +26,7 @@
 #include "utf8.h"
 #include "util.h"
 #include "conf-parser.h"
-#include "net-util.h"
+#include "network-internal.h"
 
 int route_new_static(Network *network, unsigned section, Route **ret) {
         _cleanup_route_free_ Route *route = NULL;
