@@ -249,6 +249,28 @@
                                 are named identically, except for the
                                 suffix.</para></listitem>
                         </varlistentry>
+
+
+                        <varlistentry>
+                                <term><varname>Persistent=</varname></term>
+
+                                <listitem><para>Takes a boolean
+                                argument. If true the service unit is
+                                immediately triggered when the timer
+                                unit is activated and the timer
+                                elapsed at least once since the last
+                                time the service unit has been
+                                triggered by the timer unit. The time
+                                when the service unit was last
+                                triggered is stored on disk. This is
+                                useful to catch up for missed timers
+                                when a machine is shutdown temporarily
+                                and then is powered up again. Note
+                                that this setting only has an effect
+                                on timers configured with
+                                <varname>OnCalendar=</varname>.
+                                </para></listitem>
+                        </varlistentry>
                 </variablelist>
         </refsect1>
 

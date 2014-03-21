@@ -82,7 +82,11 @@ struct Timer {
 
         TimerResult result;
 
-        usec_t last_trigger_monotonic;
+        bool persistent;
+
+        dual_timestamp last_trigger;
+
+        char *stamp_path;
 };
 
 void timer_free_values(Timer *t);

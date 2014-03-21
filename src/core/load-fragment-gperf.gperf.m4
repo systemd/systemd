@@ -285,6 +285,7 @@ Timer.OnBootSec,                 config_parse_timer,                 0,         
 Timer.OnStartupSec,              config_parse_timer,                 0,                             0
 Timer.OnUnitActiveSec,           config_parse_timer,                 0,                             0
 Timer.OnUnitInactiveSec,         config_parse_timer,                 0,                             0
+Timer.Persistent,                config_parse_bool,                  0,                             offsetof(Timer, persistent)
 Timer.AccuracySec,               config_parse_sec,                   0,                             offsetof(Timer, accuracy_usec)
 Timer.Unit,                      config_parse_trigger_unit,          0,                             0
 m4_dnl
