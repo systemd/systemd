@@ -38,6 +38,10 @@ LICENSE:
 
 REQUIREMENTS:
         Linux kernel >= 3.0
+        Linux kernel >= 3.3 for loop device partition support features with nspawn
+        Linux kernel >= 3.8 for Smack support
+
+        Kernel Config Options:
           CONFIG_DEVTMPFS
           CONFIG_CGROUPS (it's OK to disable all controllers)
           CONFIG_INOTIFY_USER
@@ -48,8 +52,6 @@ REQUIREMENTS:
           CONFIG_SYSFS
           CONFIG_PROC_FS
           CONFIG_FHANDLE (libudev, mount and bind mount handling)
-
-        Linux kernel >= 3.8 for Smack support
 
         Udev will fail to work with the legacy layout:
           CONFIG_SYSFS_DEPRECATED=n
@@ -115,8 +117,6 @@ REQUIREMENTS:
         libmicrohttpd (optional)
         libpython (optional)
         make, gcc, and similar tools
-
-        To sucessfully use --compat-libs, gcc >= 4.8 seems necessary.
 
         During runtime, you need the following additional
         dependencies:
