@@ -16,6 +16,9 @@ Bugfixes:
 
 * systemctl --root=container/ set-default ... is totally borked.
 
+* sd_bus_unref() is broken regarding self-references and "pseudo thread-safety".
+  See the comment in sd_bus_unref() for more..
+
 External:
 
 * Fedora: when installing fedora with yum --installroot /var/run is a directory, not a symlink

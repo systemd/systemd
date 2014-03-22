@@ -1394,6 +1394,24 @@ _public_ sd_bus *sd_bus_unref(sd_bus *bus) {
         if (!bus)
                 return NULL;
 
+        /* TODO/FIXME: It's naive to think REFCNT_GET() is thread-safe in any
+         * way but exclusive REFCNT_DEC(). The current logic _must_ lock around
+         * REFCNT_GET() until REFCNT_DEC() or two threads might end up in
+         * parallel in bus_reset_queues(). But locking would totally break the
+         * recursion we introduce by bus_reset_queues()...
+         * (Imagine one thread in sd_bus_message_unref() setting n_ref to 0 and
+         * thus calling into sd_bus_unref(). If at the same time the real
+         * thread calls sd_bus_unref(), both end up with "q == true" and will
+         * call into bus_reset_queues().
+         * If we require the main bus to be alive until all dispatch threads
+         * are done, there is no need to do ref-counts at all. So in both ways,
+         * the REFCNT thing is humbug.)
+         *
+         * On a second note: messages are *not* required to have ->bus set nor
+         * does it have to be _this_ bus that they're assigned to. This whole
+         * ref-cnt checking breaks apart if a message is not assigned to us.
+         * (which is _very_ easy to trigger with the current API). */
+
         if (REFCNT_GET(bus->n_ref) == bus->rqueue_size + bus->wqueue_size + 1) {
                 bool q = true;
 
