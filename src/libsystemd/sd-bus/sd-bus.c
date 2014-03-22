@@ -111,6 +111,12 @@ static void bus_node_destroy(sd_bus *b, struct node *n) {
 static void bus_reset_queues(sd_bus *b) {
         assert(b);
 
+        /* NOTE: We _must_ decrement b->Xqueue_size before calling
+         * sd_bus_message_unref() for _each_ message. Otherwise the
+         * self-reference checks in sd_bus_unref() will fire for each message.
+         * We would thus recurse into sd_bus_message_unref() and trigger the
+         * assert(m->n_ref > 0) */
+
         while (b->rqueue_size > 0)
                 sd_bus_message_unref(b->rqueue[--b->rqueue_size]);
 
@@ -1408,7 +1414,10 @@ _public_ sd_bus *sd_bus_unref(sd_bus *bus) {
                 /* We are the only holders on the messages, and the
                  * messages are the only holders on us, so let's drop
                  * the messages and thus implicitly also kill our own
-                 * last references */
+                 * last references.
+                 * bus_reset_queues() decrements the queue-size before
+                 * calling into sd_bus_message_unref(). Thus, it
+                 * protects us from recursion. */
 
                 if (q)
                         bus_reset_queues(bus);
