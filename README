@@ -80,7 +80,7 @@ REQUIREMENTS:
           CONFIG_SCHED_DEBUG
 
         For UEFI systems:
-          CONFIG_EFI_VARS
+          CONFIG_EFIVAR_FS
           CONFIG_EFI_PARTITION
 
         Note that kernel auditing is broken when used with systemd's
