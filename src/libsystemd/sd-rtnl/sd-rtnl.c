@@ -111,30 +111,81 @@ sd_rtnl *sd_rtnl_ref(sd_rtnl *rtnl) {
 }
 
 sd_rtnl *sd_rtnl_unref(sd_rtnl *rtnl) {
+        unsigned long refs;
 
-        if (rtnl && REFCNT_DEC(rtnl->n_ref) <= 0) {
+        if (!rtnl)
+                return NULL;
+
+        /*
+         * If our ref-cnt is exactly the number of internally queued messages
+         * plus the ref-cnt to be dropped, then we know there's no external
+         * reference to us. Hence, we look through all queued messages and if
+         * they also have no external references, we're about to drop the last
+         * ref. Flush the queues so the REFCNT_DEC() below will drop to 0.
+         * We must be careful not to introduce inter-message references or this
+         * logic will fall apart..
+         */
+
+        refs = rtnl->rqueue_size + rtnl->wqueue_size + 1;
+
+        if (REFCNT_GET(rtnl->n_ref) <= refs) {
                 struct match_callback *f;
+                bool q = true;
                 unsigned i;
 
-                for (i = 0; i < rtnl->rqueue_size; i++)
-                        sd_rtnl_message_unref(rtnl->rqueue[i]);
-                free(rtnl->rqueue);
-
-                for (i = 0; i < rtnl->wqueue_size; i++)
-                        sd_rtnl_message_unref(rtnl->wqueue[i]);
-                free(rtnl->wqueue);
-
-                hashmap_free_free(rtnl->reply_callbacks);
-                prioq_free(rtnl->reply_callbacks_prioq);
-
-                while ((f = rtnl->match_callbacks)) {
-                        LIST_REMOVE(match_callbacks, rtnl->match_callbacks, f);
-                        free(f);
+                for (i = 0; i < rtnl->rqueue_size; i++) {
+                        if (REFCNT_GET(rtnl->rqueue[i]->n_ref) > 1) {
+                                q = false;
+                                break;
+                        } else if (rtnl->rqueue[i]->rtnl != rtnl)
+                                --refs;
                 }
 
-                safe_close(rtnl->fd);
-                free(rtnl);
+                if (q) {
+                        for (i = 0; i < rtnl->wqueue_size; i++) {
+                                if (REFCNT_GET(rtnl->wqueue[i]->n_ref) > 1) {
+                                        q = false;
+                                        break;
+                                } else if (rtnl->wqueue[i]->rtnl != rtnl)
+                                        --refs;
+                        }
+                }
+
+                if (q && REFCNT_GET(rtnl->n_ref) == refs) {
+                        /* Drop our own ref early to avoid recursion from:
+                         *   sd_rtnl_message_unref()
+                         *     sd_rtnl_unref()
+                         * These must enter sd_rtnl_unref() with a ref-cnt
+                         * smaller than us. */
+                        REFCNT_DEC(rtnl->n_ref);
+
+                        for (i = 0; i < rtnl->rqueue_size; i++)
+                                sd_rtnl_message_unref(rtnl->rqueue[i]);
+                        free(rtnl->rqueue);
+
+                        for (i = 0; i < rtnl->wqueue_size; i++)
+                                sd_rtnl_message_unref(rtnl->wqueue[i]);
+                        free(rtnl->wqueue);
+
+                        assert_se(REFCNT_GET(rtnl->n_ref) == 0);
+
+                        hashmap_free_free(rtnl->reply_callbacks);
+                        prioq_free(rtnl->reply_callbacks_prioq);
+
+                        while ((f = rtnl->match_callbacks)) {
+                                LIST_REMOVE(match_callbacks, rtnl->match_callbacks, f);
+                                free(f);
+                        }
+
+                        safe_close(rtnl->fd);
+                        free(rtnl);
+
+                        return NULL;
+                }
         }
+
+        assert_se(REFCNT_GET(rtnl->n_ref) > 0);
+        REFCNT_DEC(rtnl->n_ref);
 
         return NULL;
 }
