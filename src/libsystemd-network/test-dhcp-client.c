@@ -253,8 +253,7 @@ static void test_discover_message(sd_event *e)
         sd_dhcp_client_stop(client);
         sd_dhcp_client_free(client);
 
-        close(test_fd[0]);
-        close(test_fd[1]);
+        test_fd[1] = safe_close(test_fd[1]);
 
         callback_recv = NULL;
 }
@@ -482,8 +481,7 @@ static void test_addr_acq(sd_event *e)
         sd_dhcp_client_stop(client);
         sd_dhcp_client_free(client);
 
-        close(test_fd[0]);
-        close(test_fd[1]);
+        test_fd[1] = safe_close(test_fd[1]);
 
         callback_recv = NULL;
         xid = 0;
