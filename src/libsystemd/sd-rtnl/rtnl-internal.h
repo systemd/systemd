@@ -94,8 +94,8 @@ struct sd_rtnl_message {
         size_t container_offsets[RTNL_CONTAINER_DEPTH]; /* offset from hdr to each container's start */
         unsigned n_containers; /* number of containers */
         size_t next_rta_offset; /* offset from hdr to next rta */
-        size_t *rta_offset_tb;
-        unsigned short rta_tb_size;
+        size_t *rta_offset_tb[RTNL_CONTAINER_DEPTH];
+        unsigned short rta_tb_size[RTNL_CONTAINER_DEPTH];
         bool sealed:1;
 };
 

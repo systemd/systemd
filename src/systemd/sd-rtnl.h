@@ -103,7 +103,6 @@ int sd_rtnl_message_append_ether_addr(sd_rtnl_message *m, unsigned short type, c
 int sd_rtnl_message_open_container(sd_rtnl_message *m, unsigned short type);
 int sd_rtnl_message_close_container(sd_rtnl_message *m);
 
-int sd_rtnl_message_read(sd_rtnl_message *m, unsigned short *type, void **data);
 int sd_rtnl_message_read_string(sd_rtnl_message *m, unsigned short type, char **data);
 int sd_rtnl_message_read_u8(sd_rtnl_message *m, unsigned short type, uint8_t *data);
 int sd_rtnl_message_read_u16(sd_rtnl_message *m, unsigned short type, uint16_t *data);
@@ -111,6 +110,7 @@ int sd_rtnl_message_read_u32(sd_rtnl_message *m, unsigned short type, uint32_t *
 int sd_rtnl_message_read_ether_addr(sd_rtnl_message *m, unsigned short type, struct ether_addr *data);
 int sd_rtnl_message_read_in_addr(sd_rtnl_message *m, unsigned short type, struct in_addr *data);
 int sd_rtnl_message_read_in6_addr(sd_rtnl_message *m, unsigned short type, struct in6_addr *data);
+int sd_rtnl_message_enter_container(sd_rtnl_message *m, unsigned short type);
 int sd_rtnl_message_exit_container(sd_rtnl_message *m);
 
 int sd_rtnl_message_rewind(sd_rtnl_message *m);

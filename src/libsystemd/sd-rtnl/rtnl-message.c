@@ -24,6 +24,7 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <linux/veth.h>
+#include <linux/if_bridge.h>
 
 #include "util.h"
 #include "refcnt.h"
@@ -34,8 +35,6 @@
 #include "rtnl-internal.h"
 
 #define GET_CONTAINER(m, i) ((i) < (m)->n_containers ? (struct rtattr*)((uint8_t*)(m)->hdr + (m)->container_offsets[i]) : NULL)
-#define NEXT_RTA(m) ((struct rtattr*)((uint8_t*)(m)->hdr + (m)->next_rta_offset))
-#define UPDATE_RTA(m, new) (m)->next_rta_offset = (uint8_t*)(new) - (uint8_t*)(m)->hdr;
 #define PUSH_CONTAINER(m, new) (m)->container_offsets[(m)->n_containers ++] = (uint8_t*)(new) - (uint8_t*)(m)->hdr;
 
 int message_new(sd_rtnl *rtnl, sd_rtnl_message **ret, size_t initial_size) {
@@ -119,8 +118,6 @@ int sd_rtnl_message_new_route(sd_rtnl *rtnl, sd_rtnl_message **ret,
 
         rtm = NLMSG_DATA((*ret)->hdr);
 
-        UPDATE_RTA(*ret, RTM_RTA(rtm));
-
         rtm->rtm_family = rtm_family;
         rtm->rtm_scope = RT_SCOPE_UNIVERSE;
         rtm->rtm_type = RTN_UNICAST;
@@ -182,8 +179,6 @@ int sd_rtnl_message_new_link(sd_rtnl *rtnl, sd_rtnl_message **ret,
 
         ifi->ifi_family = AF_UNSPEC;
         ifi->ifi_index = index;
-
-        UPDATE_RTA(*ret, IFLA_RTA(ifi));
 
         return 0;
 }
@@ -263,8 +258,6 @@ int sd_rtnl_message_new_addr(sd_rtnl *rtnl, sd_rtnl_message **ret,
         else if (family == AF_INET6)
                 ifa->ifa_prefixlen = 128;
 
-        UPDATE_RTA(*ret, IFA_RTA(ifa));
-
         return 0;
 }
 
@@ -277,9 +270,14 @@ sd_rtnl_message *sd_rtnl_message_ref(sd_rtnl_message *m) {
 
 sd_rtnl_message *sd_rtnl_message_unref(sd_rtnl_message *m) {
         if (m && REFCNT_DEC(m->n_ref) <= 0) {
+                unsigned i;
+
                 sd_rtnl_unref(m->rtnl);
                 free(m->hdr);
-                free(m->rta_offset_tb);
+
+                for (i = 0; i < m->n_containers; i++)
+                        free(m->rta_offset_tb[i]);
+
                 free(m);
         }
 
@@ -762,63 +760,19 @@ int sd_rtnl_message_close_container(sd_rtnl_message *m) {
         return 0;
 }
 
-int sd_rtnl_message_read(sd_rtnl_message *m, unsigned short *type, void **data) {
-        size_t remaining_size;
-        uint16_t rtm_type;
-        int r;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->sealed, -EPERM);
-        assert_return(m->next_rta_offset, -EINVAL);
-        assert_return(type, -EINVAL);
-        assert_return(data, -EINVAL);
-
-        /* only read until the end of the current container */
-        if (m->n_containers)
-                remaining_size = GET_CONTAINER(m, m->n_containers - 1)->rta_len -
-                                 (m->next_rta_offset -
-                                  m->container_offsets[m->n_containers - 1]);
-        else
-                remaining_size = m->hdr->nlmsg_len - m->next_rta_offset;
-
-        if (!RTA_OK(NEXT_RTA(m), remaining_size))
-                return 0;
-
-        /* if we read a container, return its type, but do not enter it*/
-        r = sd_rtnl_message_get_type(m, &rtm_type);
-        if (r < 0)
-                return r;
-
-        *type = NEXT_RTA(m)->rta_type;
-
-        if (rtnl_message_type_is_link(rtm_type) &&
-            ((m->n_containers == 0 &&
-              NEXT_RTA(m)->rta_type == IFLA_LINKINFO) ||
-             (m->n_containers == 1 &&
-              GET_CONTAINER(m, 0)->rta_type == IFLA_LINKINFO &&
-              NEXT_RTA(m)->rta_type == IFLA_INFO_DATA)))
-                *data = NULL;
-        else
-                *data = RTA_DATA(NEXT_RTA(m));
-
-        UPDATE_RTA(m, RTA_NEXT(NEXT_RTA(m), remaining_size));
-
-        return 1;
-}
-
 int rtnl_message_read_internal(sd_rtnl_message *m, unsigned short type, void **data) {
         struct rtattr *rta;
 
         assert_return(m, -EINVAL);
         assert_return(m->sealed, -EPERM);
         assert_return(data, -EINVAL);
-        assert_return(m->rta_offset_tb, -EINVAL);
-        assert_return(type < m->rta_tb_size, -EINVAL);
+        assert_return(m->rta_offset_tb[m->n_containers], -EINVAL);
+        assert_return(type < m->rta_tb_size[m->n_containers], -EINVAL);
 
-        if(!m->rta_offset_tb[type])
+        if(!m->rta_offset_tb[m->n_containers][type])
                 return -ENODATA;
 
-        rta = (struct rtattr*)((uint8_t *) m->hdr + m->rta_offset_tb[type]);
+        rta = (struct rtattr*)((uint8_t *) m->hdr + m->rta_offset_tb[m->n_containers][type]);
 
         *data = RTA_DATA(rta);
 
@@ -934,10 +888,94 @@ int sd_rtnl_message_read_in6_addr(sd_rtnl_message *m, unsigned short type, struc
         assert_return(data, -EINVAL);
 
         r = rtnl_message_read_internal(m, type, &attr_data);
-        if(r < 0)
+        if (r < 0)
                 return r;
+        else if ((size_t)r < sizeof(struct in6_addr))
+                return -EIO;
 
         memcpy(data, attr_data, sizeof(struct in6_addr));
+
+        return 0;
+}
+
+int sd_rtnl_message_enter_container(sd_rtnl_message *m, unsigned short type) {
+        uint16_t rtm_type;
+        unsigned short parent_type;
+        void *container;
+        size_t container_length;
+        int max, r;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->n_containers < RTNL_CONTAINER_DEPTH, -EINVAL);
+
+        r = rtnl_message_read_internal(m, type, &container);
+        if (r < 0)
+                return r;
+        else
+                container_length = r;
+
+        r = sd_rtnl_message_get_type(m, &rtm_type);
+        if (r < 0)
+                return r;
+
+        if (rtnl_message_type_is_link(rtm_type)) {
+                switch (m->n_containers) {
+                        case 0:
+                                switch (type) {
+                                        case IFLA_LINKINFO:
+                                                max = IFLA_INFO_MAX;
+                                                break;
+                                        default:
+                                                return -ENOTSUP;
+                                }
+                                break;
+                        case 1:
+                                parent_type = GET_CONTAINER(m, 0)->rta_type;
+                                switch (parent_type) {
+                                        case IFLA_LINKINFO:
+                                                switch (type) {
+                                                        case IFLA_INFO_DATA: {
+                                                                char *kind;
+
+                                                                r = sd_rtnl_message_read_string(m, IFLA_INFO_KIND, &kind);
+                                                                if (r < 0)
+                                                                        return r;
+
+                                                                if (streq(kind, "vlan")) {
+                                                                        max = IFLA_VLAN_MAX;
+                                                                } else if (streq(kind, "bridge")) {
+                                                                        max = IFLA_BRIDGE_MAX;
+                                                                } else if (streq(kind, "veth")) {
+                                                                        max = VETH_INFO_MAX;
+                                                                        container = IFLA_RTA(container);
+                                                                } else
+                                                                        return -ENOTSUP;
+
+                                                                break;
+                                                        }
+                                                        default:
+                                                                return -ENOTSUP;
+                                                }
+                                                break;
+                                        default:
+                                                return -ENOTSUP;
+                                }
+                                break;
+                        default:
+                                return -ENOTSUP;
+                }
+        }
+
+        r = rtnl_message_parse(m,
+                               &m->rta_offset_tb[m->n_containers + 1],
+                               &m->rta_tb_size[m->n_containers + 1],
+                               max,
+                               container,
+                               container_length);
+        if (r < 0)
+                return r;
+
+        m->n_containers ++;
 
         return 0;
 }
@@ -946,6 +984,9 @@ int sd_rtnl_message_exit_container(sd_rtnl_message *m) {
         assert_return(m, -EINVAL);
         assert_return(m->sealed, -EINVAL);
         assert_return(m->n_containers > 0, -EINVAL);
+
+        free(m->rta_offset_tb[m->n_containers]);
+        m->rta_offset_tb[m->n_containers] = NULL;
 
         m->n_containers --;
 
@@ -971,27 +1012,6 @@ int sd_rtnl_message_get_errno(sd_rtnl_message *m) {
         err = NLMSG_DATA(m->hdr);
 
         return err->error;
-}
-
-int rtnl_message_seal(sd_rtnl *nl, sd_rtnl_message *m) {
-        int r;
-
-        assert(m);
-        assert(m->hdr);
-
-        if (m->sealed)
-                return -EPERM;
-
-        if (nl)
-                m->hdr->nlmsg_seq = nl->serial++;
-
-        m->sealed = true;
-
-        r = sd_rtnl_message_rewind(m);
-        if (r < 0)
-                return r;
-
-        return 0;
 }
 
 static int message_receive_need(sd_rtnl *rtnl, size_t *need) {
@@ -1069,15 +1089,15 @@ int socket_write_message(sd_rtnl *nl, sd_rtnl_message *m) {
  * On failure, a negative error code is returned.
  */
 int socket_read_message(sd_rtnl *nl, sd_rtnl_message **ret) {
-        sd_rtnl_message *m;
+        _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
+        struct nlmsghdr *new_hdr;
         union {
                 struct sockaddr sa;
                 struct sockaddr_nl nl;
         } addr;
         socklen_t addr_len;
+        size_t need, len;
         int r;
-        ssize_t k;
-        size_t need;
 
         assert(nl);
         assert(ret);
@@ -1090,149 +1110,165 @@ int socket_read_message(sd_rtnl *nl, sd_rtnl_message **ret) {
         if (r < 0)
                 return r;
 
-        /* don't allow sealing/appending to received messages */
-        m->sealed = true;
-
         addr_len = sizeof(addr);
 
-        k = recvfrom(nl->fd, m->hdr, need,
+        r = recvfrom(nl->fd, m->hdr, need,
                         0, &addr.sa, &addr_len);
-        if (k < 0)
-                k = (errno == EAGAIN) ? 0 : -errno; /* no data */
-        else if (k == 0)
-                k = -ECONNRESET; /* connection was closed by the kernel */
+        if (r < 0)
+                return (errno == EAGAIN) ? 0 : -errno; /* no data */
+        else if (r == 0)
+                return -ECONNRESET; /* connection was closed by the kernel */
         else if (addr_len != sizeof(addr.nl) ||
                         addr.nl.nl_family != AF_NETLINK)
-                k = -EIO; /* not a netlink message */
+                return -EIO; /* not a netlink message */
         else if (addr.nl.nl_pid != 0)
-                k = 0; /* not from the kernel */
-        else if ((size_t) k < sizeof(struct nlmsghdr) ||
-                        (size_t) k < m->hdr->nlmsg_len)
-                k = -EIO; /* too small (we do accept too big though) */
+                return 0; /* not from the kernel */
+        else if ((size_t) r < sizeof(struct nlmsghdr) ||
+                        (size_t) r < m->hdr->nlmsg_len)
+                return -EIO; /* too small (we do accept too big though) */
         else if (m->hdr->nlmsg_pid && m->hdr->nlmsg_pid != nl->sockaddr.nl.nl_pid)
-                k = 0; /* not broadcast and not for us */
+                return 0; /* not broadcast and not for us */
+        else
+                len = (size_t) r;
 
-        if (k > 0)
-                switch (m->hdr->nlmsg_type) {
-                        /* check that the size matches the message type */
-                        case NLMSG_ERROR:
-                                if (m->hdr->nlmsg_len < NLMSG_LENGTH(sizeof(struct nlmsgerr)))
-                                        k = -EIO;
-                                break;
-                        case RTM_NEWLINK:
-                        case RTM_SETLINK:
-                        case RTM_DELLINK:
-                        case RTM_GETLINK:
-                                if (m->hdr->nlmsg_len < NLMSG_LENGTH(sizeof(struct ifinfomsg)))
-                                        k = -EIO;
-                                else {
-                                        struct ifinfomsg *ifi;
+        /* check that the size matches the message type */
+        switch (m->hdr->nlmsg_type) {
 
-                                        ifi = NLMSG_DATA(m->hdr);
-                                        UPDATE_RTA(m, IFLA_RTA(ifi));
+        case NLMSG_ERROR:
+                if (len < NLMSG_LENGTH(sizeof(struct nlmsgerr)))
+                        return -EIO;
+                break;
 
-                                        r = rtnl_message_parse(m,
-                                                               &m->rta_offset_tb,
-                                                               &m->rta_tb_size,
-                                                               IFLA_MAX,
-                                                               IFLA_RTA(ifi),
-                                                               IFLA_PAYLOAD(m->hdr));
+        case RTM_NEWLINK:
+        case RTM_SETLINK:
+        case RTM_DELLINK:
+        case RTM_GETLINK:
+                if (len < NLMSG_LENGTH(sizeof(struct ifinfomsg)))
+                        return -EIO;
+                break;
 
-                                }
-                                break;
-                        case RTM_NEWADDR:
-                        case RTM_DELADDR:
-                        case RTM_GETADDR:
-                                if (m->hdr->nlmsg_len < NLMSG_LENGTH(sizeof(struct ifaddrmsg)))
-                                        k = -EIO;
-                                else {
-                                        struct ifaddrmsg *ifa;
-
-                                        ifa = NLMSG_DATA(m->hdr);
-                                        UPDATE_RTA(m, IFA_RTA(ifa));
-
-                                        r = rtnl_message_parse(m,
-                                                               &m->rta_offset_tb,
-                                                               &m->rta_tb_size,
-                                                               IFA_MAX,
-                                                               IFA_RTA(ifa),
-                                                               IFA_PAYLOAD(m->hdr));
-                                }
-                                break;
-                        case RTM_NEWROUTE:
-                        case RTM_DELROUTE:
-                        case RTM_GETROUTE:
-                                if (m->hdr->nlmsg_len < NLMSG_LENGTH(sizeof(struct rtmsg)))
-                                        k = -EIO;
-                                else {
-                                        struct rtmsg *rtm;
-
-                                        rtm = NLMSG_DATA(m->hdr);
-                                        UPDATE_RTA(m, RTM_RTA(rtm));
-
-                                        r = rtnl_message_parse(m,
-                                                               &m->rta_offset_tb,
-                                                               &m->rta_tb_size,
-                                                               RTA_MAX,
-                                                               RTM_RTA(rtm),
-                                                               RTM_PAYLOAD(m->hdr));
-                                }
-                                break;
-                        case NLMSG_NOOP:
-                                k = 0;
-                                break;
-                        default:
-                                k = 0; /* ignoring message of unknown type */
-                }
-
-        if (k <= 0)
-                sd_rtnl_message_unref(m);
-        else {
-                /* we probably allocated way too much memory, give it back */
-                m->hdr = realloc(m->hdr, m->hdr->nlmsg_len);
-                *ret = m;
+        case RTM_NEWADDR:
+        case RTM_DELADDR:
+        case RTM_GETADDR:
+                if (len < NLMSG_LENGTH(sizeof(struct ifaddrmsg)))
+                        return -EIO;
+                break;
+        case RTM_NEWROUTE:
+        case RTM_DELROUTE:
+        case RTM_GETROUTE:
+                if (len < NLMSG_LENGTH(sizeof(struct rtmsg)))
+                        return -EIO;
+                break;
+        case NLMSG_NOOP:
+                return 0;
+        default:
+                log_debug("sd-rtnl: ignored message with unknown type");
+                return 0;
         }
 
-        return k;
+        /* we probably allocated way too much memory, give it back */
+        new_hdr = realloc(m->hdr, len);
+        if (!new_hdr)
+                return -ENOMEM;
+        m->hdr = new_hdr;
+
+        /* seal and parse the top-level message */
+        r = sd_rtnl_message_rewind(m);
+        if (r < 0)
+                return r;
+
+        *ret = m;
+        m = NULL;
+
+        return len;
 }
 
 int sd_rtnl_message_rewind(sd_rtnl_message *m) {
         struct ifinfomsg *ifi;
         struct ifaddrmsg *ifa;
         struct rtmsg *rtm;
+        unsigned i;
+        int r;
 
         assert_return(m, -EINVAL);
-        assert_return(m->sealed, -EPERM);
         assert_return(m->hdr, -EINVAL);
 
+        /* don't allow appending to message once parsed */
+        if (!m->sealed)
+                rtnl_message_seal(m);
+
+        for (i = 1; i <= m->n_containers; i++) {
+                free(m->rta_offset_tb[i]);
+                m->rta_offset_tb[i] = NULL;
+                m->rta_tb_size[i] = 0;
+        }
+
+        m->n_containers = 0;
+
+        if (m->rta_offset_tb[0]) {
+                /* top-level attributes have already been parsed */
+                return 0;
+        }
+
+        /* parse top-level attributes */
         switch(m->hdr->nlmsg_type) {
+                case NLMSG_NOOP:
+                case NLMSG_ERROR:
+                        break;
                 case RTM_NEWLINK:
                 case RTM_SETLINK:
                 case RTM_GETLINK:
                 case RTM_DELLINK:
                         ifi = NLMSG_DATA(m->hdr);
-                        UPDATE_RTA(m, IFLA_RTA(ifi));
+
+                        r = rtnl_message_parse(m,
+                                               &m->rta_offset_tb[0],
+                                               &m->rta_tb_size[0],
+                                               IFLA_MAX,
+                                               IFLA_RTA(ifi),
+                                               IFLA_PAYLOAD(m->hdr));
+                        if (r < 0)
+                                return r;
 
                         break;
                 case RTM_NEWADDR:
                 case RTM_GETADDR:
                 case RTM_DELADDR:
                         ifa = NLMSG_DATA(m->hdr);
-                        UPDATE_RTA(m, IFA_RTA(ifa));
+
+                        r = rtnl_message_parse(m,
+                                               &m->rta_offset_tb[0],
+                                               &m->rta_tb_size[0],
+                                               IFA_MAX,
+                                               IFA_RTA(ifa),
+                                               IFA_PAYLOAD(m->hdr));
+                        if (r < 0)
+                                return r;
 
                         break;
                 case RTM_NEWROUTE:
                 case RTM_GETROUTE:
                 case RTM_DELROUTE:
                         rtm = NLMSG_DATA(m->hdr);
-                        UPDATE_RTA(m, RTM_RTA(rtm));
+
+                        r = rtnl_message_parse(m,
+                                               &m->rta_offset_tb[0],
+                                               &m->rta_tb_size[0],
+                                               RTA_MAX,
+                                               RTM_RTA(rtm),
+                                               RTM_PAYLOAD(m->hdr));
 
                         break;
                 default:
                         return -ENOTSUP;
         }
 
-        m->n_containers = 0;
-
         return 0;
+}
+
+void rtnl_message_seal(sd_rtnl_message *m) {
+        assert(m);
+        assert(!m->sealed);
+
+        m->sealed = true;
 }

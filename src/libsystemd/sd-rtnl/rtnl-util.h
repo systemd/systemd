@@ -28,7 +28,7 @@
 
 int rtnl_message_new_synthetic_error(int error, uint32_t serial, sd_rtnl_message **ret);
 uint32_t rtnl_message_get_serial(sd_rtnl_message *m);
-int rtnl_message_seal(sd_rtnl *nl, sd_rtnl_message *m);
+void rtnl_message_seal(sd_rtnl_message *m);
 
 bool rtnl_message_type_is_link(uint16_t type);
 bool rtnl_message_type_is_addr(uint16_t type);

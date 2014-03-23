@@ -190,6 +190,19 @@ sd_rtnl *sd_rtnl_unref(sd_rtnl *rtnl) {
         return NULL;
 }
 
+static void rtnl_seal_message(sd_rtnl *rtnl, sd_rtnl_message *m) {
+        assert(rtnl);
+        assert(!rtnl_pid_changed(rtnl));
+        assert(m);
+        assert(m->hdr);
+
+        m->hdr->nlmsg_seq = rtnl->serial++;
+
+        rtnl_message_seal(m);
+
+        return;
+}
+
 int sd_rtnl_send(sd_rtnl *nl,
                  sd_rtnl_message *message,
                  uint32_t *serial) {
@@ -198,10 +211,9 @@ int sd_rtnl_send(sd_rtnl *nl,
         assert_return(nl, -EINVAL);
         assert_return(!rtnl_pid_changed(nl), -ECHILD);
         assert_return(message, -EINVAL);
+        assert_return(!message->sealed, -EPERM);
 
-        r = rtnl_message_seal(nl, message);
-        if (r < 0)
-                return r;
+        rtnl_seal_message(nl, message);
 
         if (nl->wqueue_size <= 0) {
                 /* send directly */
@@ -254,10 +266,8 @@ static int dispatch_rqueue(sd_rtnl *rtnl, sd_rtnl_message **message) {
 
         /* Try to read a new message */
         r = socket_read_message(rtnl, &z);
-        if (r < 0)
+        if (r <= 0)
                 return r;
-        if (r == 0)
-                return 0;
 
         *message = z;
 

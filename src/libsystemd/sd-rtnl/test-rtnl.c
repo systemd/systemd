@@ -32,10 +32,10 @@
 
 static void test_link_configure(sd_rtnl *rtnl, int ifindex) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *message;
-        uint16_t type;
         const char *mac = "98:fe:94:3f:c6:18", *name = "test";
-        unsigned int mtu = 1450;
-        void *data;
+        unsigned int mtu = 1450, mtu_out;
+        char *name_out;
+        struct ether_addr mac_out;
 
         /* we'd really like to test NEWLINK, but let's not mess with the running kernel */
         assert_se(sd_rtnl_message_new_link(rtnl, &message, RTM_GETLINK, ifindex) >= 0);
@@ -44,28 +44,23 @@ static void test_link_configure(sd_rtnl *rtnl, int ifindex) {
         assert_se(sd_rtnl_message_append_u32(message, IFLA_MTU, mtu) >= 0);
 
         assert_se(sd_rtnl_call(rtnl, message, 0, NULL) == 1);
+        assert_se(sd_rtnl_message_rewind(message) >= 0);
 
-        assert_se(sd_rtnl_message_read(message, &type, &data) > 0);
-        assert_se(type == IFLA_IFNAME);
-        assert_se(streq(name, (char *) data));
+        assert_se(sd_rtnl_message_read_string(message, IFLA_IFNAME, &name_out) >= 0);
+        assert_se(streq(name, name_out));
 
-        assert_se(sd_rtnl_message_read(message, &type, &data) > 0);
-        assert_se(type == IFLA_ADDRESS);
-        assert_se(streq(mac, ether_ntoa(data)));
+        assert_se(sd_rtnl_message_read_ether_addr(message, IFLA_ADDRESS, &mac_out) >= 0);
+        assert_se(streq(mac, ether_ntoa(&mac_out)));
 
-        assert_se(sd_rtnl_message_read(message, &type, &data) > 0);
-        assert_se(type == IFLA_MTU);
-        assert_se(mtu == *(unsigned int *) data);
+        assert_se(sd_rtnl_message_read_u32(message, IFLA_MTU, &mtu_out) >= 0);
+        assert_se(mtu == mtu_out);
 }
 
 static void test_link_get(sd_rtnl *rtnl, int ifindex) {
         sd_rtnl_message *m;
         sd_rtnl_message *r;
         unsigned int mtu = 1500;
-        unsigned int *mtu_reply;
-        void *data;
         char *str_data;
-        uint16_t type;
         uint8_t u8_data;
         uint32_t u32_data;
         struct ether_addr eth_data;
@@ -86,47 +81,6 @@ static void test_link_get(sd_rtnl *rtnl, int ifindex) {
         assert_se(sd_rtnl_message_append_u32(m, IFLA_NUM_RX_QUEUES, 0) >= 0);
 
         assert_se(sd_rtnl_call(rtnl, m, -1, &r) == 1);
-
-        /* u8 read back */
-        assert_se(sd_rtnl_message_read(m, &type, &data) == 1);
-        assert_se(type == IFLA_CARRIER);
-
-        assert_se(sd_rtnl_message_read(m, &type, &data) == 1);
-        assert_se(type == IFLA_OPERSTATE);
-
-        assert_se(sd_rtnl_message_read(m, &type, &data) == 1);
-        assert_se(type == IFLA_LINKMODE);
-
-        /* u32 read back */
-        assert_se(sd_rtnl_message_read(m, &type, (void **) &mtu_reply) == 1);
-        assert_se(type == IFLA_MTU);
-        assert_se(*mtu_reply == mtu);
-
-        assert_se(sd_rtnl_message_read(m, &type, &data) == 1);
-        assert_se(type == IFLA_GROUP);
-
-        assert_se(sd_rtnl_message_read(m, &type, &data) == 1);
-        assert_se(type == IFLA_TXQLEN);
-
-        assert_se(sd_rtnl_message_read(m, &type, &data) == 1);
-        assert_se(type == IFLA_NUM_TX_QUEUES);
-
-        assert_se(sd_rtnl_message_read(m, &type, &data) == 1);
-        assert_se(type == IFLA_NUM_RX_QUEUES);
-
-        while (sd_rtnl_message_read(r, &type, &data) > 0) {
-                switch (type) {
-//                        case IFLA_MTU:
-//                                assert_se(*(unsigned int *) data == 65536);
-//                                break;
-//                        case IFLA_QDISC:
-//                                assert_se(streq((char *) data, "noqueue"));
-//                                break;
-                        case IFLA_IFNAME:
-                                assert_se(streq((char *) data, "lo"));
-                                break;
-                }
-        }
 
         assert_se(sd_rtnl_message_read_string(r, IFLA_IFNAME, &str_data) == 0);
 
@@ -171,13 +125,10 @@ static void test_address_get(sd_rtnl *rtnl, int ifindex) {
 
 static void test_route(void) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *req;
-        struct in_addr addr;
-        uint32_t index = 2;
-        uint16_t type;
-        void *data;
-        uint32_t u32_data;
-        int r;
         struct rtmsg *rtm;
+        struct in_addr addr, addr_data;
+        uint32_t index = 2, u32_data;
+        int r;
 
         r = sd_rtnl_message_new_route(NULL, &req, RTM_NEWROUTE, AF_INET);
         if (r < 0) {
@@ -199,15 +150,13 @@ static void test_route(void) {
                 return;
         }
 
-        assert_se(rtnl_message_seal(NULL, req) >= 0);
+        assert_se(sd_rtnl_message_rewind(req) >= 0);
 
-        assert_se(sd_rtnl_message_read(req, &type, &data) > 0);
-        assert_se(type == RTA_GATEWAY);
-        assert_se(((struct in_addr *)data)->s_addr == addr.s_addr);
+        assert_se(sd_rtnl_message_read_in_addr(req, RTA_GATEWAY, &addr_data) >= 0);
+        assert_se(addr_data.s_addr == addr.s_addr);
 
-        assert_se(sd_rtnl_message_read(req, &type, &data) > 0);
-        assert_se(type == RTA_OIF);
-        assert_se(*(uint32_t *) data == index);
+        assert_se(sd_rtnl_message_read_u32(req, RTA_OIF, &u32_data) >= 0);
+        assert_se(u32_data == index);
 
         rtm = NLMSG_DATA(req->hdr);
         r = rtnl_message_parse(req,
@@ -234,9 +183,7 @@ static void test_multiple(void) {
 }
 
 static int link_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
-        void *data;
-        uint16_t type;
-        char *ifname = userdata;
+        char *ifname = userdata, *data;
 
         assert_se(rtnl);
         assert_se(m);
@@ -244,19 +191,8 @@ static int link_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
         log_info("got link info about %s", ifname);
         free(ifname);
 
-        while (sd_rtnl_message_read(m, &type, &data) > 0) {
-                switch (type) {
-//                        case IFLA_MTU:
-//                                assert_se(*(unsigned int *) data == 65536);
-//                                break;
-//                        case IFLA_QDISC:
-//                                assert_se(streq((char *) data, "noqueue"));
-//                                break;
-                        case IFLA_IFNAME:
-                                assert_se(streq((char *) data, "lo"));
-                                break;
-                }
-        }
+        assert_se(sd_rtnl_message_read_string(m, IFLA_IFNAME, &data) >= 0);
+        assert_se(streq(data, "lo"));
 
         return 1;
 }
@@ -288,12 +224,17 @@ static void test_event_loop(int ifindex) {
 
 static int pipe_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
         int *counter = userdata;
+        int r;
 
         (*counter) --;
 
-        log_info("got reply, %d left in pipe", *counter);
+        r = sd_rtnl_message_get_errno(m);
 
-        return sd_rtnl_message_get_errno(m);
+        log_info("%d left in pipe. got reply: %s", *counter, strerror(-r));
+
+        assert_se(r >= 0);
+
+        return 1;
 }
 
 static void test_async(int ifindex) {
@@ -343,48 +284,38 @@ static void test_pipe(int ifindex) {
 
 static void test_container(void) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
-        uint16_t type;
-        uint32_t u32_data;
-        void *data;
-        int r;
         struct ifinfomsg *ifi;
+        uint16_t u16_data;
+        uint32_t u32_data;
+        char *string_data;
+        int r;
 
         assert_se(sd_rtnl_message_new_link(NULL, &m, RTM_NEWLINK, 0) >= 0);
 
         assert_se(sd_rtnl_message_open_container(m, IFLA_LINKINFO) >= 0);
         assert_se(sd_rtnl_message_open_container(m, IFLA_LINKINFO) == -ENOTSUP);
-        assert_se(sd_rtnl_message_append_string(m, IFLA_INFO_KIND, "kind") >= 0);
+        assert_se(sd_rtnl_message_append_string(m, IFLA_INFO_KIND, "vlan") >= 0);
         assert_se(sd_rtnl_message_open_container(m, IFLA_INFO_DATA) >= 0);
         assert_se(sd_rtnl_message_open_container(m, IFLA_INFO_DATA) == -ENOTSUP);
         assert_se(sd_rtnl_message_append_u16(m, IFLA_VLAN_ID, 100) >= 0);
         assert_se(sd_rtnl_message_close_container(m) >= 0);
-        assert_se(sd_rtnl_message_append_string(m, IFLA_INFO_KIND, "kind") >= 0);
+        assert_se(sd_rtnl_message_append_string(m, IFLA_INFO_KIND, "vlan") >= 0);
         assert_se(sd_rtnl_message_close_container(m) >= 0);
         assert_se(sd_rtnl_message_close_container(m) == -EINVAL);
 
-        assert_se(rtnl_message_seal(NULL, m) >= 0);
+        assert_se(sd_rtnl_message_rewind(m) >= 0);
 
-        assert_se(sd_rtnl_message_read(m, &type, &data) >= 0);
-        assert_se(type == IFLA_LINKINFO);
-        assert_se(data == NULL);
-/*
-        assert_se(sd_rtnl_message_read(m, &type, &data) >= 0);
-        assert_se(type == IFLA_INFO_KIND);
-        assert_se(streq("kind", (char *)data));
-        assert_se(sd_rtnl_message_read(m, &type, &data) >= 0);
-        assert_se(type == IFLA_INFO_DATA);
-        assert_se(data == NULL);
-        assert_se(sd_rtnl_message_read(m, &type, &data) >= 0);
-        assert_se(type == IFLA_VLAN_ID);
-        assert_se(*(uint16_t *)data == 100);
-        assert_se(sd_rtnl_message_read(m, &type, &data) == 0);
+        assert_se(sd_rtnl_message_enter_container(m, IFLA_LINKINFO) >= 0);
+        assert_se(sd_rtnl_message_read_string(m, IFLA_INFO_KIND, &string_data) >= 0);
+        assert_se(streq("vlan", string_data));
+
+        assert_se(sd_rtnl_message_enter_container(m, IFLA_INFO_DATA) >= 0);
+        assert_se(sd_rtnl_message_read_u16(m, IFLA_VLAN_ID, &u16_data) >= 0);
         assert_se(sd_rtnl_message_exit_container(m) >= 0);
-        assert_se(sd_rtnl_message_read(m, &type, &data) >= 0);
-        assert_se(type == IFLA_INFO_KIND);
-        assert_se(streq("kind", (char *)data));
-        assert_se(sd_rtnl_message_read(m, &type, &data) == 0);
+
+        assert_se(sd_rtnl_message_read_string(m, IFLA_INFO_KIND, &string_data) >= 0);
+        assert_se(streq("vlan", string_data));
         assert_se(sd_rtnl_message_exit_container(m) >= 0);
-*/
 
         ifi = NLMSG_DATA(m->hdr);
         r = rtnl_message_parse(m,
@@ -420,7 +351,7 @@ int main(void) {
         sd_rtnl *rtnl;
         sd_rtnl_message *m;
         sd_rtnl_message *r;
-        void *data;
+        char *string_data;
         int if_loopback;
         uint16_t type;
 
@@ -452,13 +383,12 @@ int main(void) {
         assert_se(sd_rtnl_message_get_type(m, &type) >= 0);
         assert_se(type == RTM_GETLINK);
 
-        assert_se(sd_rtnl_message_read(m, &type, &data) == -EPERM);
+        assert_se(sd_rtnl_message_read_string(m, IFLA_IFNAME, &string_data) == -EPERM);
 
         assert_se(sd_rtnl_call(rtnl, m, 0, &r) == 1);
         assert_se(sd_rtnl_message_get_type(r, &type) >= 0);
         assert_se(type == RTM_NEWLINK);
 
-        assert_se(sd_rtnl_message_read(m, &type, &data) == 0);
         assert_se((r = sd_rtnl_message_unref(r)) == NULL);
 
         assert_se(sd_rtnl_call(rtnl, m, -1, &r) == -EPERM);
