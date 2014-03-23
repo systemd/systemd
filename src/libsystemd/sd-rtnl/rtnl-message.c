@@ -807,6 +807,8 @@ int sd_rtnl_message_read(sd_rtnl_message *m, unsigned short *type, void **data) 
 }
 
 int rtnl_message_read_internal(sd_rtnl_message *m, unsigned short type, void **data) {
+        struct rtattr *rta;
+
         assert_return(m, -EINVAL);
         assert_return(m->sealed, -EPERM);
         assert_return(data, -EINVAL);
@@ -816,9 +818,11 @@ int rtnl_message_read_internal(sd_rtnl_message *m, unsigned short type, void **d
         if(!m->rta_offset_tb[type])
                 return -ENODATA;
 
-        *data = RTA_DATA((struct rtattr *)((uint8_t *) m->hdr + m->rta_offset_tb[type]));
+        rta = (struct rtattr*)((uint8_t *) m->hdr + m->rta_offset_tb[type]);
 
-        return 0;
+        *data = RTA_DATA(rta);
+
+        return RTA_PAYLOAD(rta);
 }
 
 int sd_rtnl_message_read_string(sd_rtnl_message *m, unsigned short type, char **data) {
@@ -828,8 +832,10 @@ int sd_rtnl_message_read_string(sd_rtnl_message *m, unsigned short type, char **
         assert_return(data, -EINVAL);
 
         r = rtnl_message_read_internal(m, type, &attr_data);
-        if(r < 0)
+        if (r < 0)
                 return r;
+        else if (strnlen(attr_data, r) >= (size_t) r)
+                return -EIO;
 
         *data = (char *) attr_data;
 
@@ -843,8 +849,10 @@ int sd_rtnl_message_read_u8(sd_rtnl_message *m, unsigned short type, uint8_t *da
         assert_return(data, -EINVAL);
 
         r = rtnl_message_read_internal(m, type, &attr_data);
-        if(r < 0)
+        if (r < 0)
                 return r;
+        else if ((size_t) r < sizeof(uint8_t))
+                return -EIO;
 
         *data = *(uint8_t *) attr_data;
 
@@ -858,8 +866,10 @@ int sd_rtnl_message_read_u16(sd_rtnl_message *m, unsigned short type, uint16_t *
         assert_return(data, -EINVAL);
 
         r = rtnl_message_read_internal(m, type, &attr_data);
-        if(r < 0)
+        if (r < 0)
                 return r;
+        else if ((size_t) r < sizeof(uint16_t))
+                return -EIO;
 
         *data = *(uint16_t *) attr_data;
 
@@ -873,8 +883,10 @@ int sd_rtnl_message_read_u32(sd_rtnl_message *m, unsigned short type, uint32_t *
         assert_return(data, -EINVAL);
 
         r = rtnl_message_read_internal(m, type, &attr_data);
-        if(r < 0)
+        if (r < 0)
                 return r;
+        else if ((size_t)r < sizeof(uint32_t))
+                return -EIO;
 
         *data = *(uint32_t *) attr_data;
 
@@ -888,8 +900,10 @@ int sd_rtnl_message_read_ether_addr(sd_rtnl_message *m, unsigned short type, str
         assert_return(data, -EINVAL);
 
         r = rtnl_message_read_internal(m, type, &attr_data);
-        if(r < 0)
+        if (r < 0)
                 return r;
+        else if ((size_t)r < sizeof(struct ether_addr))
+                return -EIO;
 
         memcpy(data, attr_data, sizeof(struct ether_addr));
 
@@ -903,8 +917,10 @@ int sd_rtnl_message_read_in_addr(sd_rtnl_message *m, unsigned short type, struct
         assert_return(data, -EINVAL);
 
         r = rtnl_message_read_internal(m, type, &attr_data);
-        if(r < 0)
+        if (r < 0)
                 return r;
+        else if ((size_t)r < sizeof(struct in_addr))
+                return -EIO;
 
         memcpy(data, attr_data, sizeof(struct in_addr));
 
