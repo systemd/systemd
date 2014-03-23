@@ -958,7 +958,7 @@ static int dispatch_raw_connection_event(sd_event_source *event,
  **********************************************************************
  **********************************************************************/
 
-static int help(void) {
+static void help(void) {
         printf("%s [OPTIONS...] {FILE|-}...\n\n"
                "Write external journal events to a journal file.\n\n"
                "Options:\n"
@@ -980,8 +980,6 @@ static int help(void) {
                "\n"
                "Note: file descriptors from sd_listen_fds() will be consumed, too.\n"
                , program_invocation_short_name);
-
-        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -1239,7 +1237,6 @@ int main(int argc, char **argv) {
         RemoteServer s = {};
         int r, r2;
 
-        log_set_max_level(LOG_DEBUG);
         log_show_color(true);
         log_parse_environment();
 
