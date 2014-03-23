@@ -264,7 +264,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(NetDev*, netdev_free);
 #define _cleanup_netdev_free_ _cleanup_(netdev_freep)
 
 int netdev_get(Manager *manager, const char *name, NetDev **ret);
-int netdev_set_ifindex(NetDev *netdev, int ifindex);
+int netdev_set_ifindex(NetDev *netdev, sd_rtnl_message *newlink);
 int netdev_enslave(NetDev *netdev, Link *link, sd_rtnl_message_handler_t cb);
 
 const char *netdev_kind_to_string(NetDevKind d) _const_;

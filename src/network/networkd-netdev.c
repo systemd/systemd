@@ -157,7 +157,7 @@ static int netdev_enter_ready(NetDev *netdev) {
 static int netdev_getlink_handler(sd_rtnl *rtnl, sd_rtnl_message *m,
                                 void *userdata) {
         NetDev *netdev = userdata;
-        int r, ifindex;
+        int r;
 
         assert(netdev);
 
@@ -174,19 +174,7 @@ static int netdev_getlink_handler(sd_rtnl *rtnl, sd_rtnl_message *m,
                 return 1;
         }
 
-        r = sd_rtnl_message_link_get_ifindex(m, &ifindex);
-        if (r < 0) {
-                log_struct_netdev(LOG_ERR, netdev,
-                                "MESSAGE=%s: could not get ifindex: %s",
-                                netdev->name, strerror(-r),
-                                "ERRNO=%d", -r,
-                                NULL);
-                return 1;
-        }
-
-        r = netdev_set_ifindex(netdev, ifindex);
-        if (r < 0)
-                log_warning_netdev(netdev, "could not set ifindex to %d", ifindex);
+        netdev_set_ifindex(netdev, m);
 
         return 1;
 }
@@ -392,9 +380,45 @@ int netdev_enslave(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callbac
         return 0;
 }
 
-int netdev_set_ifindex(NetDev *netdev, int ifindex) {
+int netdev_set_ifindex(NetDev *netdev, sd_rtnl_message *message) {
+        const char *kind;
+        char *received_kind;
+        int r, ifindex;
+
         assert(netdev);
         assert(ifindex > 0);
+
+        kind = netdev_kind_to_string(netdev->kind);
+        if (!kind)
+                log_error_netdev(netdev, "Could not get kind");
+
+        r = sd_rtnl_message_enter_container(message, IFLA_LINKINFO);
+        if (r < 0) {
+                log_error_netdev(netdev, "Could not get LINKINFO");
+                return r;
+        }
+
+        r = sd_rtnl_message_read_string(message, IFLA_INFO_KIND, &received_kind);
+        if (r < 0) {
+                log_error_netdev(netdev, "Could not get KIND");
+                return r;
+        }
+
+        if (!streq(kind, received_kind)) {
+                log_error_netdev(netdev, "Received newlink with wrong KIND");
+                netdev_enter_failed(netdev);
+                return r;
+        }
+
+        r = sd_rtnl_message_link_get_ifindex(message, &ifindex);
+        if (r < 0) {
+                log_struct_netdev(LOG_ERR, netdev,
+                                "MESSAGE=%s: could not get ifindex: %s",
+                                netdev->name, strerror(-r),
+                                "ERRNO=%d", -r,
+                                NULL);
+                return r;
+        }
 
         if (netdev->ifindex > 0) {
                 if (netdev->ifindex == ifindex)
