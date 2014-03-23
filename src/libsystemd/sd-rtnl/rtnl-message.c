@@ -46,6 +46,11 @@ int message_new(sd_rtnl *rtnl, sd_rtnl_message **ret, size_t initial_size) {
         assert_return(ret, -EINVAL);
         assert_return(initial_size >= sizeof(struct nlmsghdr), -EINVAL);
 
+        /* Note that 'rtnl' is curretly unused, if we start using it internally
+           we must take care to avoid problems due to mutual references between
+           busses and their queued messages. See sd-bus.
+         */
+
         m = new0(sd_rtnl_message, 1);
         if (!m)
                 return -ENOMEM;
@@ -60,9 +65,6 @@ int message_new(sd_rtnl *rtnl, sd_rtnl_message **ret, size_t initial_size) {
 
         m->hdr->nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
         m->sealed = false;
-
-        if (rtnl)
-                m->rtnl = sd_rtnl_ref(rtnl);
 
         *ret = m;
 
@@ -275,7 +277,6 @@ sd_rtnl_message *sd_rtnl_message_unref(sd_rtnl_message *m) {
         if (m && REFCNT_DEC(m->n_ref) <= 0) {
                 unsigned i;
 
-                sd_rtnl_unref(m->rtnl);
                 free(m->hdr);
 
                 for (i = 0; i < m->n_containers; i++)
