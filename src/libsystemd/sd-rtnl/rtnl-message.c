@@ -1016,7 +1016,7 @@ int rtnl_message_parse(sd_rtnl_message *m,
         for (; RTA_OK(rta, rt_len); rta = RTA_NEXT(rta, rt_len)) {
                 type = rta->rta_type;
 
-                if (type < max && !tb[type])
+                if (type <= max)
                         tb[type] = (uint8_t *) rta - (uint8_t *) m->hdr;
         }
 
