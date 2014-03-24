@@ -36,8 +36,6 @@ Features:
 
 * sd-event: define more intervals where we will shift wakeup intervals around in, 1h, 6h, 24h, ...
 
-* maybe add DefaultTimerAccuracySec= as global config option to set AccuracySec='s default value in .timer units
-
 * gpt-auto-generator:
   - Support LUKS for root devices
   - Define new partition type for encrypted swap? Support probed LUKS for encrypted swap?
@@ -368,7 +366,6 @@ Features:
   - rework wait filter to not require match callback
   - better error message if you run systemctl without systemd running
   - systemctl status output should should include list of triggering units and their status
-  - in systemctl list-timers show time triggering units ran last
 
 * unit install:
   - "systemctl mask" should find all names by which a unit is accessible
@@ -384,7 +381,6 @@ Features:
 * deal with sendmail/postfix exclusivity
 
 * timer units:
-  - timer events with system resume
   - timer units should get the ability to trigger when:
     o CLOCK_REALTIME makes jumps (TFD_TIMER_CANCEL_ON_SET)
     o DST changes
