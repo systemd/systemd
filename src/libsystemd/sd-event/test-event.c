@@ -239,10 +239,10 @@ int main(int argc, char *argv[]) {
 
         sd_event_unref(e);
 
-        close_pipe(a);
-        close_pipe(b);
-        close_pipe(d);
-        close_pipe(k);
+        safe_close_pair(a);
+        safe_close_pair(b);
+        safe_close_pair(d);
+        safe_close_pair(k);
 
         return 0;
 }

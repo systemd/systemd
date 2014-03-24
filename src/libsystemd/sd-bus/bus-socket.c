@@ -736,7 +736,7 @@ int bus_socket_exec(sd_bus *b) {
 
         pid = fork();
         if (pid < 0) {
-                close_pipe(s);
+                safe_close_pair(s);
                 return -errno;
         }
         if (pid == 0) {

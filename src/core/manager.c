@@ -225,8 +225,8 @@ static int manager_watch_idle_pipe(Manager *m) {
 static void manager_close_idle_pipe(Manager *m) {
         assert(m);
 
-        close_pipe(m->idle_pipe);
-        close_pipe(m->idle_pipe + 2);
+        safe_close_pair(m->idle_pipe);
+        safe_close_pair(m->idle_pipe + 2);
 }
 
 static int manager_setup_time_change(Manager *m) {

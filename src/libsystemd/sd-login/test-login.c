@@ -28,7 +28,7 @@
 #include "strv.h"
 
 static void test_login(void) {
-        _cleanup_close_pipe_ int pair[2] = { -1, -1 };
+        _cleanup_close_pair_ int pair[2] = { -1, -1 };
         _cleanup_free_ char *pp = NULL, *qq = NULL;
         int r, k;
         uid_t u, u2;

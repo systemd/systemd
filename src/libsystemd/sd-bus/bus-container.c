@@ -116,7 +116,7 @@ int bus_container_connect_socket(sd_bus *b) {
 }
 
 int bus_container_connect_kernel(sd_bus *b) {
-        _cleanup_close_pipe_ int pair[2] = { -1, -1 };
+        _cleanup_close_pair_ int pair[2] = { -1, -1 };
         _cleanup_close_ int pidnsfd = -1, mntnsfd = -1, rootfd = -1;
         union {
                 struct cmsghdr cmsghdr;

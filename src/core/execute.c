@@ -2629,7 +2629,7 @@ ExecRuntime *exec_runtime_unref(ExecRuntime *r) {
         if (r->n_ref <= 0) {
                 free(r->tmp_dir);
                 free(r->var_tmp_dir);
-                close_pipe(r->netns_storage_socket);
+                safe_close_pair(r->netns_storage_socket);
                 free(r);
         }
 
@@ -2781,7 +2781,7 @@ void exec_runtime_destroy(ExecRuntime *rt) {
                 rt->var_tmp_dir = NULL;
         }
 
-        close_pipe(rt->netns_storage_socket);
+        safe_close_pair(rt->netns_storage_socket);
 }
 
 static const char* const exec_input_table[_EXEC_INPUT_MAX] = {

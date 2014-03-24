@@ -374,7 +374,7 @@ int main(int argc, char *argv[]) {
                 touch("/run/systemd/quotacheck");
 
 finish:
-        close_pipe(progress_pipe);
+        safe_close_pair(progress_pipe);
 
         return r;
 }

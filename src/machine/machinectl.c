@@ -412,7 +412,7 @@ static int terminate_machine(sd_bus *bus, char **args, unsigned n) {
 }
 
 static int openpt_in_namespace(pid_t pid, int flags) {
-        _cleanup_close_pipe_ int pair[2] = { -1, -1 };
+        _cleanup_close_pair_ int pair[2] = { -1, -1 };
         _cleanup_close_ int pidnsfd = -1, mntnsfd = -1, rootfd = -1;
         union {
                 struct cmsghdr cmsghdr;

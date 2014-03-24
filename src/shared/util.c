@@ -2037,22 +2037,18 @@ int default_signals(int sig, ...) {
         return r;
 }
 
-int close_pipe(int p[]) {
-        int a = 0, b = 0;
-
+void safe_close_pair(int p[]) {
         assert(p);
 
-        if (p[0] >= 0) {
-                a = close_nointr(p[0]);
-                p[0] = -1;
+        if (p[0] == p[1]) {
+                /* Special case pairs which use the same fd in both
+                 * directions... */
+                p[0] = p[1] = safe_close(p[0]);
+                return;
         }
 
-        if (p[1] >= 0) {
-                b = close_nointr(p[1]);
-                p[1] = -1;
-        }
-
-        return a < 0 ? a : b;
+        p[0] = safe_close(p[0]);
+        p[1] = safe_close(p[1]);
 }
 
 ssize_t loop_read(int fd, void *buf, size_t nbytes, bool do_poll) {

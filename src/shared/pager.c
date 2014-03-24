@@ -78,7 +78,7 @@ int pager_open(bool jump_to_end) {
         if (pager_pid < 0) {
                 r = -errno;
                 log_error("Failed to fork pager: %m");
-                close_pipe(fd);
+                safe_close_pair(fd);
                 return r;
         }
 
@@ -87,7 +87,7 @@ int pager_open(bool jump_to_end) {
                 const char* less_opts;
 
                 dup2(fd[0], STDIN_FILENO);
-                close_pipe(fd);
+                safe_close_pair(fd);
 
                 less_opts = getenv("SYSTEMD_LESS");
                 if (!less_opts)
@@ -131,7 +131,7 @@ int pager_open(bool jump_to_end) {
                 return -errno;
         }
 
-        close_pipe(fd);
+        safe_close_pair(fd);
         return 1;
 }
 

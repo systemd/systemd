@@ -150,6 +150,7 @@ bool first_word(const char *s, const char *word) _pure_;
 
 int close_nointr(int fd);
 int safe_close(int fd);
+void safe_close_pair(int p[]);
 
 void close_many(const int fds[], unsigned n_fd);
 
@@ -378,7 +379,6 @@ int ignore_signals(int sig, ...);
 int default_signals(int sig, ...);
 int sigaction_many(const struct sigaction *sa, ...);
 
-int close_pipe(int p[]);
 int fopen_temporary(const char *path, FILE **_f, char **_temp_path);
 
 ssize_t loop_read(int fd, void *buf, size_t nbytes, bool do_poll);
@@ -628,8 +628,8 @@ static inline void umaskp(mode_t *u) {
         umask(*u);
 }
 
-static inline void close_pipep(int (*p)[2]) {
-        close_pipe(*p);
+static inline void close_pairp(int (*p)[2]) {
+        safe_close_pair(*p);
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(FILE*, fclose);
@@ -645,7 +645,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(FILE*, endmntent);
 #define _cleanup_pclose_ _cleanup_(pclosep)
 #define _cleanup_closedir_ _cleanup_(closedirp)
 #define _cleanup_endmntent_ _cleanup_(endmntentp)
-#define _cleanup_close_pipe_ _cleanup_(close_pipep)
+#define _cleanup_close_pair_ _cleanup_(close_pairp)
 
 _malloc_  _alloc_(1, 2) static inline void *malloc_multiply(size_t a, size_t b) {
         if (_unlikely_(b == 0 || a > ((size_t) -1) / b))

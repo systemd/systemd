@@ -532,7 +532,7 @@ static void automount_enter_waiting(Automount *a) {
         return;
 
 fail:
-        close_pipe(p);
+        safe_close_pair(p);
 
         if (mounted)
                 repeat_unmount(a->where);

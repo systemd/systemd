@@ -79,8 +79,8 @@ static void connection_free(Connection *c) {
         safe_close(c->server_fd);
         safe_close(c->client_fd);
 
-        close_pipe(c->server_to_client_buffer);
-        close_pipe(c->client_to_server_buffer);
+        safe_close_pair(c->server_to_client_buffer);
+        safe_close_pair(c->client_to_server_buffer);
 
         free(c);
 }

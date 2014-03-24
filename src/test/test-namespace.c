@@ -63,7 +63,7 @@ static void test_tmpdir(const char *id, const char *A, const char *B) {
 }
 
 static void test_netns(void) {
-        _cleanup_close_pipe_ int s[2] = { -1, -1 };
+        _cleanup_close_pair_ int s[2] = { -1, -1 };
         pid_t pid1, pid2, pid3;
         int r, n = 0;
         siginfo_t si;

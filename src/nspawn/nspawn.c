@@ -2582,7 +2582,7 @@ int main(int argc, char *argv[]) {
         _cleanup_free_ char *kdbus_domain = NULL, *device_path = NULL, *root_device = NULL, *home_device = NULL, *srv_device = NULL;
         bool root_device_rw = true, home_device_rw = true, srv_device_rw = true;
         _cleanup_close_ int master = -1, kdbus_fd = -1, image_fd = -1;
-        _cleanup_close_pipe_ int kmsg_socket_pair[2] = { -1, -1 };
+        _cleanup_close_pair_ int kmsg_socket_pair[2] = { -1, -1 };
         _cleanup_fdset_free_ FDSet *fds = NULL;
         int r = EXIT_FAILURE, k, n_fd_passed, loop_nr = -1;
         const char *console = NULL;

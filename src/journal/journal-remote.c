@@ -89,7 +89,7 @@ static int spawn_child(const char* child, char** argv) {
         if (child_pid < 0) {
                 r = -errno;
                 log_error("Failed to fork: %m");
-                close_pipe(fd);
+                safe_close_pair(fd);
                 return r;
         }
 
@@ -101,9 +101,7 @@ static int spawn_child(const char* child, char** argv) {
                         _exit(EXIT_FAILURE);
                 }
 
-                r = close_pipe(fd);
-                if (r < 0)
-                        log_warning("Failed to close pipe fds: %m");
+                safe_close_pair(fd);
 
                 /* Make sure the child goes away when the parent dies */
                 if (prctl(PR_SET_PDEATHSIG, SIGTERM) < 0)

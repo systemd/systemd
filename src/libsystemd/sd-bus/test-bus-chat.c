@@ -356,7 +356,7 @@ finish:
 
         sd_bus_error_free(&error);
 
-        close_pipe(pp);
+        safe_close_pair(pp);
 
         return INT_TO_PTR(r);
 }
