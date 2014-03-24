@@ -172,7 +172,10 @@ static int mount_one(const MountPoint *p, bool relabel) {
 
         /* The access mode here doesn't really matter too much, since
          * the mounted file system will take precedence anyway. */
-        mkdir_p_label(p->where, 0755);
+        if (relabel)
+                mkdir_p_label(p->where, 0755);
+        else
+                mkdir_p(p->where, 0755);
 
         log_debug("Mounting %s to %s of type %s with options %s.",
                   p->what,
