@@ -20,7 +20,6 @@ Restart=always
 RestartSec=0
 ExecStart=@rootlibexecdir@/systemd-networkd
 WatchdogSec=1min
-PrivateTmp=yes
 
 [Install]
 WantedBy=multi-user.target
