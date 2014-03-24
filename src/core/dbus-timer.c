@@ -135,17 +135,51 @@ static int property_get_unit(
         return sd_bus_message_append(reply, "s", trigger ? trigger->id : "");
 }
 
+static int property_get_next_elapse_monotonic(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Timer *t = userdata;
+        usec_t x;
+
+        assert(bus);
+        assert(reply);
+        assert(t);
+
+        if (t->next_elapse_monotonic_or_boottime <= 0)
+                x = 0;
+        else if (t->wake_system) {
+                usec_t a, b;
+
+                a = now(CLOCK_MONOTONIC);
+                b = now(CLOCK_BOOTTIME);
+
+                if (t->next_elapse_monotonic_or_boottime + a > b)
+                        x = t->next_elapse_monotonic_or_boottime + a - b;
+                else
+                        x = 0;
+        } else
+                x = t->next_elapse_monotonic_or_boottime;
+
+        return sd_bus_message_append(reply, "t", x);
+}
+
 const sd_bus_vtable bus_timer_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Unit", "s", property_get_unit, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("TimersMonotonic", "a(stt)", property_get_monotonic_timers, 0, SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
         SD_BUS_PROPERTY("TimersCalendar", "a(sst)", property_get_calendar_timers, 0, SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
         SD_BUS_PROPERTY("NextElapseUSecRealtime", "t", bus_property_get_usec, offsetof(Timer, next_elapse_realtime), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("NextElapseUSecMonotonic", "t", bus_property_get_usec, offsetof(Timer, next_elapse_monotonic), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("LastTriggerUSecRealtime", "t", bus_property_get_usec, offsetof(Timer, last_trigger.realtime), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("LastTriggerUSecMonotonic", "t", bus_property_get_usec, offsetof(Timer, last_trigger.monotonic), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("NextElapseUSecMonotonic", "t", property_get_next_elapse_monotonic, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        BUS_PROPERTY_DUAL_TIMESTAMP("LastTriggerUSec", offsetof(Timer, last_trigger), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Result", "s", property_get_result, offsetof(Timer, result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("AccuracyUSec", "t", bus_property_get_usec, offsetof(Timer, accuracy_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Persistent", "b", bus_property_get_bool, offsetof(Timer, persistent), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("WakeSystem", "b", bus_property_get_bool, offsetof(Timer, wake_system), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_VTABLE_END
 };

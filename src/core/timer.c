@@ -46,7 +46,7 @@ static void timer_init(Unit *u) {
         assert(u);
         assert(u->load_state == UNIT_STUB);
 
-        t->next_elapse_monotonic = (usec_t) -1;
+        t->next_elapse_monotonic_or_boottime = (usec_t) -1;
         t->next_elapse_realtime = (usec_t) -1;
         t->accuracy_usec = USEC_PER_MINUTE;
 }
@@ -203,10 +203,14 @@ static void timer_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sTimer State: %s\n"
                 "%sResult: %s\n"
                 "%sUnit: %s\n"
+                "%sPersistent: %s\n"
+                "%sWakeSystem: %s\n"
                 "%sAccuracy: %s\n",
                 prefix, timer_state_to_string(t->state),
                 prefix, timer_result_to_string(t->result),
                 prefix, trigger ? trigger->id : "n/a",
+                prefix, yes_no(t->persistent),
+                prefix, yes_no(t->wake_system),
                 prefix, format_timespan(buf, sizeof(buf), t->accuracy_usec, 1));
 
         LIST_FOREACH(value, v, t->values) {
@@ -282,15 +286,34 @@ static void timer_enter_dead(Timer *t, TimerResult f) {
         timer_set_state(t, t->result != TIMER_SUCCESS ? TIMER_FAILED : TIMER_DEAD);
 }
 
+static usec_t monotonic_to_boottime(usec_t t) {
+        usec_t a, b;
+
+        if (t <= 0)
+                return 0;
+
+        a = now(CLOCK_BOOTTIME);
+        b = now(CLOCK_MONOTONIC);
+
+        if (t + a > b)
+                return t + a - b;
+        else
+                return 0;
+}
+
 static void timer_enter_waiting(Timer *t, bool initial) {
-        TimerValue *v;
-        usec_t base = 0;
-        dual_timestamp ts;
         bool found_monotonic = false, found_realtime = false;
+        usec_t ts_realtime, ts_monotonic;
+        usec_t base = 0;
+        TimerValue *v;
         int r;
 
-        dual_timestamp_get(&ts);
-        t->next_elapse_monotonic = t->next_elapse_realtime = 0;
+        /* If we shall wake the system we use the boottime clock
+         * rather than the monotonic clock. */
+
+        ts_realtime = now(CLOCK_REALTIME);
+        ts_monotonic = now(t->wake_system ? CLOCK_BOOTTIME : CLOCK_MONOTONIC);
+        t->next_elapse_monotonic_or_boottime = t->next_elapse_realtime = 0;
 
         LIST_FOREACH(value, v, t->values) {
 
@@ -305,7 +328,7 @@ static void timer_enter_waiting(Timer *t, bool initial) {
                          * to that. If we don't just start from
                          * now. */
 
-                        b = t->last_trigger.realtime > 0 ? t->last_trigger.realtime : ts.realtime;
+                        b = t->last_trigger.realtime > 0 ? t->last_trigger.realtime : ts_realtime;
 
                         r = calendar_spec_next_usec(v->calendar_spec, b, &v->next_elapse);
                         if (r < 0)
@@ -325,7 +348,7 @@ static void timer_enter_waiting(Timer *t, bool initial) {
                                 if (state_translation_table[t->state] == UNIT_ACTIVE)
                                         base = UNIT(t)->inactive_exit_timestamp.monotonic;
                                 else
-                                        base = ts.monotonic;
+                                        base = ts_monotonic;
                                 break;
 
                         case TIMER_BOOT:
@@ -365,18 +388,21 @@ static void timer_enter_waiting(Timer *t, bool initial) {
                                 assert_not_reached("Unknown timer base");
                         }
 
+                        if (t->wake_system)
+                                base = monotonic_to_boottime(base);
+
                         v->next_elapse = base + v->value;
 
-                        if (!initial && v->next_elapse < ts.monotonic && IN_SET(v->base, TIMER_ACTIVE, TIMER_BOOT, TIMER_STARTUP)) {
+                        if (!initial && v->next_elapse < ts_monotonic && IN_SET(v->base, TIMER_ACTIVE, TIMER_BOOT, TIMER_STARTUP)) {
                                 /* This is a one time trigger, disable it now */
                                 v->disabled = true;
                                 continue;
                         }
 
                         if (!found_monotonic)
-                                t->next_elapse_monotonic = v->next_elapse;
+                                t->next_elapse_monotonic_or_boottime = v->next_elapse;
                         else
-                                t->next_elapse_monotonic = MIN(t->next_elapse_monotonic, v->next_elapse);
+                                t->next_elapse_monotonic_or_boottime = MIN(t->next_elapse_monotonic_or_boottime, v->next_elapse);
 
                         found_monotonic = true;
                 }
@@ -390,10 +416,13 @@ static void timer_enter_waiting(Timer *t, bool initial) {
 
         if (found_monotonic) {
                 char buf[FORMAT_TIMESPAN_MAX];
-                log_debug_unit(UNIT(t)->id, "%s: Monotonic timer elapses in %s.", UNIT(t)->id, format_timespan(buf, sizeof(buf), t->next_elapse_monotonic > ts.monotonic ? t->next_elapse_monotonic - ts.monotonic : 0, 0));
+
+                log_debug_unit(UNIT(t)->id, "%s: Monotonic timer elapses in %s.",
+                               UNIT(t)->id,
+                               format_timespan(buf, sizeof(buf), t->next_elapse_monotonic_or_boottime > ts_monotonic ? t->next_elapse_monotonic_or_boottime - ts_monotonic : 0, 0));
 
                 if (t->monotonic_event_source) {
-                        r = sd_event_source_set_time(t->monotonic_event_source, t->next_elapse_monotonic);
+                        r = sd_event_source_set_time(t->monotonic_event_source, t->next_elapse_monotonic_or_boottime);
                         if (r < 0)
                                 goto fail;
 
@@ -402,8 +431,8 @@ static void timer_enter_waiting(Timer *t, bool initial) {
                         r = sd_event_add_time(
                                         UNIT(t)->manager->event,
                                         &t->monotonic_event_source,
-                                        CLOCK_MONOTONIC,
-                                        t->next_elapse_monotonic, t->accuracy_usec,
+                                        t->wake_system ? CLOCK_BOOTTIME_ALARM : CLOCK_MONOTONIC,
+                                        t->next_elapse_monotonic_or_boottime, t->accuracy_usec,
                                         timer_dispatch, t);
                 if (r < 0)
                         goto fail;
@@ -429,7 +458,7 @@ static void timer_enter_waiting(Timer *t, bool initial) {
                         r = sd_event_add_time(
                                         UNIT(t)->manager->event,
                                         &t->realtime_event_source,
-                                        CLOCK_REALTIME,
+                                        t->wake_system ? CLOCK_REALTIME_ALARM : CLOCK_REALTIME,
                                         t->next_elapse_realtime, t->accuracy_usec,
                                         timer_dispatch, t);
                 if (r < 0)

@@ -1254,7 +1254,6 @@ int config_parse_timer(const char *unit,
         TimerValue *v;
         TimerBase b;
         CalendarSpec *c = NULL;
-        clockid_t id;
 
         assert(filename);
         assert(lvalue);
@@ -1281,8 +1280,6 @@ int config_parse_timer(const char *unit,
                                    rvalue);
                         return 0;
                 }
-
-                id = CLOCK_REALTIME;
         } else {
                 if (parse_sec(rvalue, &u) < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, EINVAL,
@@ -1290,8 +1287,6 @@ int config_parse_timer(const char *unit,
                                    rvalue);
                         return 0;
                 }
-
-                id = CLOCK_MONOTONIC;
         }
 
         v = new0(TimerValue, 1);
@@ -1299,7 +1294,6 @@ int config_parse_timer(const char *unit,
                 return log_oom();
 
         v->base = b;
-        v->clock_id = id;
         v->value = u;
         v->calendar_spec = c;
 

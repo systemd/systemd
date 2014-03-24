@@ -964,7 +964,7 @@ static int get_last_trigger(
                         "org.freedesktop.systemd1",
                         path,
                         "org.freedesktop.systemd1.Timer",
-                        "LastTriggerUSecRealtime",
+                        "LastTriggerUSec",
                         &error,
                         't',
                         last);
