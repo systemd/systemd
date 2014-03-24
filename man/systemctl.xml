@@ -371,11 +371,36 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
         <listitem>
           <para>When used with <command>kill</command>, choose which
-          processes to kill. Must be one of <option>main</option>,
-          <option>control</option> or <option>all</option> to select
-          whether to kill only the main process of the unit, the
-          control process or all processes of the unit. If omitted,
-          defaults to <option>all</option>.</para>
+          processes to send a signal to. Must be one of
+          <option>main</option>, <option>control</option> or
+          <option>all</option> to select whether to kill only the main
+          process, the control process or all processes of the
+          unit. The main process of the unit is the one that defines
+          the life-time of it. A control process of a unit is one that
+          is invoked by the manager to induce state changes of it. For
+          example, all processes started due to the
+          <varname>ExecStartPre=</varname>,
+          <varname>ExecStop=</varname> or
+          <varname>ExecReload=</varname> settings of service units are
+          control processes. Note that there is only one control
+          process per unit at a time, as only one state change is
+          executed at a time. For services of type
+          <varname>Type=forking</varname> the initial process started
+          by the manager for <varname>ExecStart=</varname> is a
+          control process, while the process ultimately forked off by
+          that one is then considered the main process of the unit (if
+          it can be determined). This is different for service units
+          of other types, where the process forked off by the manager
+          for <varname>ExecStart=</varname> is always the main process
+          itself. A service unit consists of no or one main process,
+          no or one control process plus any number of additional
+          processes. Not all unit types manage processes of these
+          types however. For example for mount units control processes
+          are defined (which are the invocations of
+          <filename>/usr/bin/mount</filename> and
+          <filename>/usr/bin/umount</filename>), but no main process
+          is defined. If omitted, defaults to
+          <option>all</option>.</para>
         </listitem>
 
       </varlistentry>
