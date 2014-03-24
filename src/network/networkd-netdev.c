@@ -381,16 +381,20 @@ int netdev_enslave(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callbac
 }
 
 int netdev_set_ifindex(NetDev *netdev, sd_rtnl_message *message) {
+        uint16_t type;
         const char *kind;
         char *received_kind;
         int r, ifindex;
 
         assert(netdev);
-        assert(ifindex > 0);
+        assert(message);
 
-        kind = netdev_kind_to_string(netdev->kind);
-        if (!kind)
-                log_error_netdev(netdev, "Could not get kind");
+        r = sd_rtnl_message_get_type(message, &type);
+        if (r < 0)
+                return r;
+
+        if (type != RTM_NEWLINK)
+                return -EINVAL;
 
         r = sd_rtnl_message_enter_container(message, IFLA_LINKINFO);
         if (r < 0) {
@@ -404,6 +408,13 @@ int netdev_set_ifindex(NetDev *netdev, sd_rtnl_message *message) {
                 return r;
         }
 
+        kind = netdev_kind_to_string(netdev->kind);
+        if (!kind) {
+                log_error_netdev(netdev, "Could not get kind");
+                netdev_enter_failed(netdev);
+                return -EINVAL;
+        }
+
         if (!streq(kind, received_kind)) {
                 log_error_netdev(netdev, "Received newlink with wrong KIND");
                 netdev_enter_failed(netdev);
@@ -412,11 +423,12 @@ int netdev_set_ifindex(NetDev *netdev, sd_rtnl_message *message) {
 
         r = sd_rtnl_message_link_get_ifindex(message, &ifindex);
         if (r < 0) {
-                log_struct_netdev(LOG_ERR, netdev,
-                                "MESSAGE=%s: could not get ifindex: %s",
-                                netdev->name, strerror(-r),
-                                "ERRNO=%d", -r,
-                                NULL);
+                log_error_netdev(netdev, "Could not get ifindex: %s", strerror(-r));
+                netdev_enter_failed(netdev);
+                return r;
+        } else if (ifindex <= 0) {
+                log_error_netdev(netdev, "Got invalid ifindex: %d", ifindex);
+                netdev_enter_failed(netdev);
                 return r;
         }
 
