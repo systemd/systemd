@@ -48,7 +48,7 @@ static void timer_init(Unit *u) {
 
         t->next_elapse_monotonic_or_boottime = (usec_t) -1;
         t->next_elapse_realtime = (usec_t) -1;
-        t->accuracy_usec = USEC_PER_MINUTE;
+        t->accuracy_usec = u->manager->default_timer_accuracy_usec;
 }
 
 void timer_free_values(Timer *t) {

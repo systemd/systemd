@@ -108,6 +108,7 @@ static char **arg_default_environment = NULL;
 static struct rlimit *arg_default_rlimit[_RLIMIT_MAX] = {};
 static uint64_t arg_capability_bounding_set_drop = 0;
 static nsec_t arg_timer_slack_nsec = (nsec_t) -1;
+static usec_t arg_default_timer_accuracy_usec = 1 * USEC_PER_MINUTE;
 static Set* arg_syscall_archs = NULL;
 static FILE* arg_serialization = NULL;
 static bool arg_default_cpu_accounting = false;
@@ -686,6 +687,7 @@ static int parse_config_file(void) {
                 { "Manager", "SystemCallArchitectures",   config_parse_syscall_archs,    0, &arg_syscall_archs                     },
 #endif
                 { "Manager", "TimerSlackNSec",            config_parse_nsec,             0, &arg_timer_slack_nsec                  },
+                { "Manager", "DefaultTimerAccuracySec",   config_parse_sec,              0, &arg_default_timer_accuracy_usec       },
                 { "Manager", "DefaultStandardOutput",     config_parse_output,           0, &arg_default_std_output                },
                 { "Manager", "DefaultStandardError",      config_parse_output,           0, &arg_default_std_error                 },
                 { "Manager", "DefaultTimeoutStartSec",    config_parse_sec,              0, &arg_default_timeout_start_usec        },
@@ -1635,6 +1637,7 @@ int main(int argc, char *argv[]) {
         }
 
         m->confirm_spawn = arg_confirm_spawn;
+        m->default_timer_accuracy_usec = arg_default_timer_accuracy_usec;
         m->default_std_output = arg_default_std_output;
         m->default_std_error = arg_default_std_error;
         m->default_restart_usec = arg_default_restart_usec;

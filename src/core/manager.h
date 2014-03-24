@@ -241,6 +241,8 @@ struct Manager {
         bool default_memory_accounting;
         bool default_blockio_accounting;
 
+        usec_t default_timer_accuracy_usec;
+
         struct rlimit *rlimit[_RLIMIT_MAX];
 
         /* non-zero if we are reloading or reexecuting, */

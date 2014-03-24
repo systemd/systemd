@@ -259,8 +259,8 @@
                                 <term><varname>TimerSlackNSec=</varname></term>
 
                                 <listitem><para>Sets the timer slack
-                                in nanoseconds for PID 1 which is then
-                                inherited to all executed processes,
+                                in nanoseconds for PID 1, which is
+                                inherited by all executed processes,
                                 unless overridden individually, for
                                 example with the
                                 <varname>TimerSlackNSec=</varname>
@@ -268,7 +268,8 @@
                                 see
                                 <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>). The
                                 timer slack controls the accuracy of
-                                wake-ups triggered by timers. See
+                                wake-ups triggered by system
+                                timers. See
                                 <citerefentry><refentrytitle>prctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>
                                 for more information. Note that in
                                 contrast to most other time span
@@ -277,6 +278,27 @@
                                 unit is specified. The usual time
                                 units are understood
                                 too.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>DefaultTimerAccuracySec=</varname></term>
+
+                                <listitem><para>Sets the default
+                                accuracy of timer units. This controls
+                                the global default for the
+                                <varname>AccuracySec=</varname>
+                                setting of timer units, see
+                                <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                for
+                                details. <varname>AccuracySec=</varname>
+                                set in individual units override the
+                                global default for the specific
+                                unit. Defaults to 1min. Note that the
+                                accuracy of timer units is also
+                                affected by the configured timer slack
+                                for PID 1, see
+                                <varname>TimerSlackNSec=</varname>
+                                above.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
