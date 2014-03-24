@@ -156,7 +156,10 @@
                                         (formatted as decimal string),
                                         the identifier string
                                         (i.e. "tag"), and the client
-                                        PID.</para>
+                                        PID. (Note that the tag is
+                                        usually derived from glibc's
+                                        <varname>program_invocation_short_name</varname>
+                                        variable, see <citerefentry><refentrytitle>program_invocation_short_name</refentrytitle><manvolnum>3</manvolnum></citerefentry>.)</para>
                                 </listitem>
 
                         </varlistentry>
