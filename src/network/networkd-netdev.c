@@ -67,6 +67,11 @@ void netdev_free(NetDev *netdev) {
         free(netdev->description);
         free(netdev->name);
 
+        condition_free_list(netdev->match_host);
+        condition_free_list(netdev->match_virt);
+        condition_free_list(netdev->match_kernel);
+        condition_free_list(netdev->match_arch);
+
         free(netdev);
 }
 

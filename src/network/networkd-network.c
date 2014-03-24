@@ -176,6 +176,11 @@ void network_free(Network *network) {
         if (network->manager && network->manager->networks)
                 LIST_REMOVE(networks, network->manager->networks, network);
 
+        condition_free_list(network->match_host);
+        condition_free_list(network->match_virt);
+        condition_free_list(network->match_kernel);
+        condition_free_list(network->match_arch);
+
         free(network);
 }
 

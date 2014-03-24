@@ -2170,7 +2170,7 @@ _public_ int sd_event_run(sd_event *e, uint64_t timeout) {
                         r = flush_timer(e, e->boottime_alarm.fd, ev_queue[i].events, &e->boottime_alarm.next);
                 else if (ev_queue[i].data.ptr == INT_TO_PTR(SOURCE_SIGNAL))
                         r = process_signal(e, ev_queue[i].events);
-                else if (ev_queue[i].data.ptr ==  INT_TO_PTR(SOURCE_WATCHDOG))
+                else if (ev_queue[i].data.ptr == INT_TO_PTR(SOURCE_WATCHDOG))
                         r = flush_timer(e, e->watchdog_fd, ev_queue[i].events, NULL);
                 else
                         r = process_io(e, ev_queue[i].data.ptr, ev_queue[i].events);

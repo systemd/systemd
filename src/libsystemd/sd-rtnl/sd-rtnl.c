@@ -178,6 +178,12 @@ sd_rtnl *sd_rtnl_unref(sd_rtnl *rtnl) {
                         }
 
                         safe_close(rtnl->fd);
+
+                        sd_event_source_unref(rtnl->io_event_source);
+                        sd_event_source_unref(rtnl->time_event_source);
+                        sd_event_source_unref(rtnl->exit_event_source);
+                        sd_event_unref(rtnl->event);
+
                         free(rtnl);
 
                         return NULL;
