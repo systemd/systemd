@@ -2087,6 +2087,11 @@ static int arm_watchdog(sd_event *e) {
 
         timespec_store(&its.it_value, t);
 
+        /* Make sure we never set the watchdog to 0, which tells the
+         * kernel to disable it. */
+        if (its.it_value.tv_sec == 0 && its.it_value.tv_nsec == 0)
+                its.it_value.tv_nsec = 1;
+
         r = timerfd_settime(e->watchdog_fd, TFD_TIMER_ABSTIME, &its, NULL);
         if (r < 0)
                 return -errno;
