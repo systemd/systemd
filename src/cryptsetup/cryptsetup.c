@@ -356,7 +356,7 @@ static int attach_tcrypt(struct crypt_device *cd,
                 return r;
         }
 
-        return crypt_activate_by_volume_key(cd, name, NULL, 0, flags);;
+        return crypt_activate_by_volume_key(cd, name, NULL, 0, flags);
 }
 
 static int attach_luks_or_plain(struct crypt_device *cd,
