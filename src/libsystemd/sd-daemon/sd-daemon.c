@@ -517,7 +517,7 @@ _public_ int sd_watchdog_enabled(int unset_environment, uint64_t *usec) {
                 r = -errno;
                 goto finish;
         }
-        if (!p || p == e || *p || l <= 0) {
+        if (!p || p == e || *p || ll <= 0) {
                 r = -EINVAL;
                 goto finish;
         }
