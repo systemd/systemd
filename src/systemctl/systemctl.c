@@ -947,9 +947,39 @@ static int get_next_elapse(
         return 0;
 }
 
+static int get_last_trigger(
+                sd_bus *bus,
+                const char *path,
+                usec_t *last) {
+
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        assert(bus);
+        assert(path);
+        assert(last);
+
+        r = sd_bus_get_property_trivial(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        path,
+                        "org.freedesktop.systemd1.Timer",
+                        "LastTriggerUSecRealtime",
+                        &error,
+                        't',
+                        last);
+        if (r < 0) {
+                log_error("Failed to get last trigger time: %s", bus_error_message(&error, r));
+                return r;
+        }
+
+        return 0;
+}
+
 struct timer_info {
         const char* id;
         usec_t next_elapse;
+        usec_t last_trigger;
         char** triggered;
 };
 
@@ -970,6 +1000,8 @@ static int output_timers_list(struct timer_info *timer_infos, unsigned n) {
         unsigned
                 nextlen = strlen("NEXT"),
                 leftlen = strlen("LEFT"),
+                lastlen = strlen("LAST"),
+                passedlen = strlen("PASSED"),
                 unitlen = strlen("UNIT"),
                 activatelen = strlen("ACTIVATES");
 
@@ -991,30 +1023,47 @@ static int output_timers_list(struct timer_info *timer_infos, unsigned n) {
                         leftlen = MAX(leftlen, strlen(trel));
                 }
 
+                if (t->last_trigger > 0) {
+                        char tstamp[FORMAT_TIMESTAMP_MAX] = "", trel[FORMAT_TIMESTAMP_RELATIVE_MAX] = "";
+
+                        format_timestamp(tstamp, sizeof(tstamp), t->last_trigger);
+                        lastlen = MAX(lastlen, strlen(tstamp) + 1);
+
+                        format_timestamp_relative(trel, sizeof(trel), t->last_trigger);
+                        passedlen = MAX(passedlen, strlen(trel));
+                }
+
                 unitlen = MAX(unitlen, strlen(t->id));
 
                 STRV_FOREACH(a, t->triggered)
                         ul += strlen(*a) + 2*(a != t->triggered);
+
                 activatelen = MAX(activatelen, ul);
         }
 
         if (n > 0) {
                 if (!arg_no_legend)
-                        printf("%-*s %-*s %-*s %s\n",
-                               nextlen, "NEXT",
-                               leftlen, "LEFT",
-                               unitlen, "UNIT",
-                                        "ACTIVATES");
+                        printf("%-*s %-*s %-*s %-*s %-*s %s\n",
+                               nextlen,   "NEXT",
+                               leftlen,   "LEFT",
+                               lastlen,   "LAST",
+                               passedlen, "PASSED",
+                               unitlen,   "UNIT",
+                                          "ACTIVATES");
 
                 for (t = timer_infos; t < timer_infos + n; t++) {
-                        char tstamp[FORMAT_TIMESTAMP_MAX] = "n/a", trel[FORMAT_TIMESTAMP_RELATIVE_MAX] = "n/a";
+                        char tstamp1[FORMAT_TIMESTAMP_MAX] = "n/a", trel1[FORMAT_TIMESTAMP_RELATIVE_MAX] = "n/a";
+                        char tstamp2[FORMAT_TIMESTAMP_MAX] = "n/a", trel2[FORMAT_TIMESTAMP_RELATIVE_MAX] = "n/a";
                         char **a;
 
-                        format_timestamp(tstamp, sizeof(tstamp), t->next_elapse);
-                        format_timestamp_relative(trel, sizeof(trel), t->next_elapse);
+                        format_timestamp(tstamp1, sizeof(tstamp1), t->next_elapse);
+                        format_timestamp_relative(trel1, sizeof(trel1), t->next_elapse);
 
-                        printf("%-*s %-*s %-*s",
-                               nextlen, tstamp, leftlen, trel, unitlen, t->id);
+                        format_timestamp(tstamp2, sizeof(tstamp2), t->last_trigger);
+                        format_timestamp_relative(trel2, sizeof(trel2), t->last_trigger);
+
+                        printf("%-*s %-*s %-*s %-*s %-*s",
+                               nextlen, tstamp1, leftlen, trel1, lastlen, tstamp2, passedlen, trel2, unitlen, t->id);
 
                         STRV_FOREACH(a, t->triggered)
                                 printf("%s %s",
@@ -1088,7 +1137,7 @@ static int list_timers(sd_bus *bus, char **args) {
         for (u = unit_infos; u < unit_infos + n; u++) {
                 _cleanup_strv_free_ char **triggered = NULL;
                 dual_timestamp next = {};
-                usec_t m;
+                usec_t m, last = 0;
 
                 if (!endswith(u->id, ".timer"))
                         continue;
@@ -1101,6 +1150,8 @@ static int list_timers(sd_bus *bus, char **args) {
                 if (r < 0)
                         goto cleanup;
 
+                get_last_trigger(bus, u->unit_path, &last);
+
                 if (!GREEDY_REALLOC(timer_infos, size, c+1)) {
                         r = log_oom();
                         goto cleanup;
@@ -1111,6 +1162,7 @@ static int list_timers(sd_bus *bus, char **args) {
                 timer_infos[c++] = (struct timer_info) {
                         .id = u->id,
                         .next_elapse = m,
+                        .last_trigger = last,
                         .triggered = triggered,
                 };
 
