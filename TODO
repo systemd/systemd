@@ -30,6 +30,8 @@ External:
 
 Features:
 
+* expose "Locked" property on logind sesison objects
+
 * add bus api to query unit file's X fields.
 
 * consider adding RuntimeDirectoryUser= + RuntimeDirectoryGroup=
