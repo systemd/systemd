@@ -74,7 +74,7 @@ _systemctl () {
                [STANDALONE]='--all -a --reverse --after --before --defaults --fail --ignore-dependencies --failed --force -f --full -l --global
                              --help -h --no-ask-password --no-block --no-legend --no-pager --no-reload --no-wall
                              --quiet -q --privileged -P --system --user --version --runtime'
-                      [ARG]='--host -H --kill-mode --kill-who --property -p --signal -s --type -t --state --root'
+                      [ARG]='--host -H --kill-who --property -p --signal -s --type -t --state --root'
         )
 
         if __contains_word "--user" ${COMP_WORDS[*]}; then
@@ -98,9 +98,6 @@ _systemctl () {
                         ;;
                         --kill-who)
                                 comps='all control main'
-                        ;;
-                        --kill-mode)
-                                comps='control-group process'
                         ;;
                         --root)
                                 comps=$(compgen -A directory -- "$cur" )

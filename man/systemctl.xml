@@ -664,9 +664,8 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           <listitem>
             <para>Send a signal to one or more processes of the
             unit. Use <option>--kill-who=</option> to select which
-            process to kill. Use <option>--kill-mode=</option> to select
-            the kill mode and <option>--signal=</option> to select the
-            signal to send.</para>
+            process to kill. Use <option>--signal=</option> to select
+            the signal to send.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
