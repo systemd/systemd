@@ -1040,7 +1040,7 @@ int rtnl_message_parse(sd_rtnl_message *m,
                        int max,
                        struct rtattr *rta,
                        unsigned int rt_len) {
-        int type;
+        unsigned short type;
         size_t *tb;
 
         tb = (size_t *) new0(size_t *, max);
@@ -1052,8 +1052,15 @@ int rtnl_message_parse(sd_rtnl_message *m,
         for (; RTA_OK(rta, rt_len); rta = RTA_NEXT(rta, rt_len)) {
                 type = rta->rta_type;
 
-                if (type <= max)
-                        tb[type] = (uint8_t *) rta - (uint8_t *) m->hdr;
+                if (type > max) {
+                        log_debug("rtnl: message parse - ignore out of range attribute type");
+                        continue;
+                }
+
+                if (tb[type])
+                        log_debug("rtnl: message parse - overwriting repeated attribute");
+
+                tb[type] = (uint8_t *) rta - (uint8_t *) m->hdr;
         }
 
         *rta_offset_tb = tb;
