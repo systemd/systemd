@@ -1019,8 +1019,6 @@ libsystemd_core_la_SOURCES = \
 	src/core/condition.h \
 	src/core/namespace.c \
 	src/core/namespace.h \
-	src/core/tcpwrap.c \
-	src/core/tcpwrap.h \
 	src/core/build.h \
 	src/core/sysfs-show.h \
 	src/core/switch-root.h \
@@ -1046,7 +1044,6 @@ nodist_libsystemd_core_la_SOURCES = \
 
 libsystemd_core_la_CFLAGS = \
 	$(AM_CFLAGS) \
-	$(LIBWRAP_CFLAGS) \
 	$(PAM_CFLAGS) \
 	$(AUDIT_CFLAGS) \
 	$(CAP_CFLAGS) \
@@ -1062,7 +1059,6 @@ libsystemd_core_la_LIBADD = \
 	libudev-internal.la \
 	libsystemd-shared.la \
 	libsystemd-internal.la \
-	$(LIBWRAP_LIBS) \
 	$(PAM_LIBS) \
 	$(AUDIT_LIBS) \
 	$(CAP_LIBS) \

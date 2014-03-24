@@ -64,7 +64,7 @@ typedef enum ExitStatus {
         EXIT_SETSID,   /* 220 */
         EXIT_CONFIRM,
         EXIT_STDERR,
-        EXIT_TCPWRAP,
+        _EXIT_RESERVED, /* used to be tcpwrap, don't reuse! */
         EXIT_PAM,
         EXIT_NETWORK,
         EXIT_NAMESPACE,

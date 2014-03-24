@@ -111,7 +111,6 @@ REQUIREMENTS:
         libattr (optional)
         libselinux (optional)
         liblzma (optional)
-        tcpwrappers (optional)
         libgcrypt (optional)
         libqrencode (optional)
         libmicrohttpd (optional)

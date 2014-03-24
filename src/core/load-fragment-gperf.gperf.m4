@@ -84,9 +84,6 @@ $1.MountFlags,                   config_parse_exec_mount_flags,      0,         
 $1.Personality,                  config_parse_personality,           0,                             offsetof($1, exec_context.personality)
 $1.RuntimeDirectoryMode,         config_parse_mode,                  0,                             offsetof($1, exec_context.runtime_directory_mode)
 $1.RuntimeDirectory,             config_parse_runtime_directory,     0,                             offsetof($1, exec_context.runtime_directory)
-m4_ifdef(`HAVE_LIBWRAP',
-`$1.TCPWrapName,                 config_parse_unit_string_printf,    0,                             offsetof($1, exec_context.tcpwrap_name)',
-`$1.TCPWrapName,                 config_parse_warn_compat,           0,                             0')
 m4_ifdef(`HAVE_PAM',
 `$1.PAMName,                     config_parse_unit_string_printf,    0,                             offsetof($1, exec_context.pam_name)',
 `$1.PAMName,                     config_parse_warn_compat,           0,                             0')

@@ -113,8 +113,6 @@ struct ExecContext {
 
         nsec_t timer_slack_nsec;
 
-        char *tcpwrap_name;
-
         char *tty_path;
 
         bool tty_reset;

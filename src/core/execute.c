@@ -69,7 +69,6 @@
 #include "ioprio.h"
 #include "securebits.h"
 #include "namespace.h"
-#include "tcpwrap.h"
 #include "exit-status.h"
 #include "missing.h"
 #include "utmp-wtmp.h"
@@ -1362,23 +1361,6 @@ int exec_spawn(ExecCommand *command,
                                 goto fail_child;
                         }
 
-                if (context->tcpwrap_name) {
-                        if (socket_fd >= 0)
-                                if (!socket_tcpwrap(socket_fd, context->tcpwrap_name)) {
-                                        err = -EACCES;
-                                        r = EXIT_TCPWRAP;
-                                        goto fail_child;
-                                }
-
-                        for (i = 0; i < (int) n_fds; i++) {
-                                if (!socket_tcpwrap(fds[i], context->tcpwrap_name)) {
-                                        err = -EACCES;
-                                        r = EXIT_TCPWRAP;
-                                        goto fail_child;
-                                }
-                        }
-                }
-
                 exec_context_tty_reset(context);
 
                 if (confirm_spawn) {
@@ -1878,9 +1860,6 @@ void exec_context_done(ExecContext *c) {
         free(c->tty_path);
         c->tty_path = NULL;
 
-        free(c->tcpwrap_name);
-        c->tcpwrap_name = NULL;
-
         free(c->syslog_identifier);
         c->syslog_identifier = NULL;
 
@@ -2147,11 +2126,6 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
 
         STRV_FOREACH(e, c->environment_files)
                 fprintf(f, "%sEnvironmentFile: %s\n", prefix, *e);
-
-        if (c->tcpwrap_name)
-                fprintf(f,
-                        "%sTCPWrapName: %s\n",
-                        prefix, c->tcpwrap_name);
 
         if (c->nice_set)
                 fprintf(f,

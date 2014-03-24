@@ -687,31 +687,6 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>TCPWrapName=</varname></term>
-                                <listitem><para>If this is a
-                                socket-activated service, this sets the
-                                tcpwrap service name to check the
-                                permission for the current connection
-                                with. This is only useful in
-                                conjunction with socket-activated
-                                services, and stream sockets (TCP) in
-                                particular. It has no effect on other
-                                socket types (e.g. datagram/UDP) and
-                                on processes unrelated to socket-based
-                                activation. If the tcpwrap
-                                verification fails, daemon start-up
-                                will fail and the connection is
-                                terminated. See
-                                <citerefentry><refentrytitle>tcpd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-                                for details. Note that this option may
-                                be used to do access control checks
-                                only. Shell commands and commands
-                                described in
-                                <citerefentry><refentrytitle>hosts_options</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                                are not supported.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
                                 <term><varname>CapabilityBoundingSet=</varname></term>
 
                                 <listitem><para>Controls which

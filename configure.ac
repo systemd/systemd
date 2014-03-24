@@ -431,32 +431,6 @@ fi
 AM_CONDITIONAL(HAVE_XZ, [test "$have_xz" = "yes"])
 
 # ------------------------------------------------------------------------------
-AC_ARG_ENABLE([tcpwrap],
-        AS_HELP_STRING([--disable-tcpwrap],[Disable optional TCP wrappers support]),
-                [case "${enableval}" in
-                        yes) have_tcpwrap=yes ;;
-                        no) have_tcpwrap=no ;;
-                        *) AC_MSG_ERROR(bad value ${enableval} for --disable-tcpwrap) ;;
-                esac],
-                [have_tcpwrap=auto])
-
-if test "x${have_tcpwrap}" != xno ; then
-        ACX_LIBWRAP
-        if test "x${LIBWRAP_LIBS}" = x ; then
-                if test "x$have_tcpwrap" = xyes ; then
-                        AC_MSG_ERROR([*** TCP wrappers support not found.])
-                fi
-                have_tcpwrap=no
-        else
-                M4_DEFINES="$M4_DEFINES -DHAVE_LIBWRAP"
-                have_tcpwrap=yes
-        fi
-else
-        LIBWRAP_LIBS=
-fi
-AC_SUBST(LIBWRAP_LIBS)
-
-# ------------------------------------------------------------------------------
 AC_ARG_ENABLE([pam],
         AS_HELP_STRING([--disable-pam],[Disable optional PAM support]),
                 [case "${enableval}" in
@@ -1130,7 +1104,6 @@ AC_MSG_RESULT([
         $PACKAGE_NAME $VERSION
 
         libcryptsetup:           ${have_libcryptsetup}
-        tcpwrap:                 ${have_tcpwrap}
         PAM:                     ${have_pam}
         AUDIT:                   ${have_audit}
         IMA:                     ${have_ima}

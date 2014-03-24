@@ -113,9 +113,6 @@ const char* exit_status_to_string(ExitStatus status, ExitStatusLevel level) {
                 case EXIT_STDERR:
                         return "STDERR";
 
-                case EXIT_TCPWRAP:
-                        return "TCPWRAP";
-
                 case EXIT_PAM:
                         return "PAM";
 
