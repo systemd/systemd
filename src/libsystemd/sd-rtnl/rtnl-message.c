@@ -964,7 +964,8 @@ int sd_rtnl_message_enter_container(sd_rtnl_message *m, unsigned short type) {
                         default:
                                 return -ENOTSUP;
                 }
-        }
+        } else
+                return -ENOTSUP;
 
         r = rtnl_message_parse(m,
                                &m->rta_offset_tb[m->n_containers + 1],
