@@ -3268,7 +3268,7 @@ _public_ int sd_bus_get_peer_creds(sd_bus *bus, uint64_t mask, sd_bus_creds **re
         assert_return(ret, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
-        if (!bus->is_kernel)
+        if (bus->is_kernel)
                 return -ENOTSUP;
 
         if (!BUS_IS_OPEN(bus->state))
