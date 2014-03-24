@@ -933,7 +933,12 @@ static int manager_dispatch_idle_action(sd_event_source *s, uint64_t t, void *us
 
         if (!m->idle_action_event_source) {
 
-                r = sd_event_add_monotonic(m->event, &m->idle_action_event_source, elapse, USEC_PER_SEC*30, manager_dispatch_idle_action, m);
+                r = sd_event_add_time(
+                                m->event,
+                                &m->idle_action_event_source,
+                                CLOCK_MONOTONIC,
+                                elapse, USEC_PER_SEC*30,
+                                manager_dispatch_idle_action, m);
                 if (r < 0) {
                         log_error("Failed to add idle event source: %s", strerror(-r));
                         return r;

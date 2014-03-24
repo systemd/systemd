@@ -838,7 +838,7 @@ int sd_rtnl_attach_event(sd_rtnl *rtnl, sd_event *event, int priority) {
         if (r < 0)
                 goto fail;
 
-        r = sd_event_add_monotonic(rtnl->event, &rtnl->time_event_source, 0, 0, time_callback, rtnl);
+        r = sd_event_add_time(rtnl->event, &rtnl->time_event_source, CLOCK_MONOTONIC, 0, 0, time_callback, rtnl);
         if (r < 0)
                 goto fail;
 

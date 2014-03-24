@@ -1340,7 +1340,12 @@ int manager_set_lid_switch_ignore(Manager *m, usec_t until) {
 
                 r = sd_event_source_set_time(m->lid_switch_ignore_event_source, until);
         } else
-                r = sd_event_add_monotonic(m->event, &m->lid_switch_ignore_event_source, until, 0, lid_switch_ignore_handler, m);
+                r = sd_event_add_time(
+                                m->event,
+                                &m->lid_switch_ignore_event_source,
+                                CLOCK_MONOTONIC,
+                                until, 0,
+                                lid_switch_ignore_handler, m);
 
         return r;
 }

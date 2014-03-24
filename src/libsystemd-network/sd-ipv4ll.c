@@ -165,7 +165,7 @@ static int ipv4ll_timer(sd_event_source *s, uint64_t usec, void *userdata) {
         return 0;
 }
 
-static void ipv4ll_set_next_wakeup (sd_ipv4ll *ll, int sec, int random_sec) {
+static void ipv4ll_set_next_wakeup(sd_ipv4ll *ll, int sec, int random_sec) {
         usec_t next_timeout = 0;
         usec_t time_now = 0;
 
@@ -178,7 +178,7 @@ static void ipv4ll_set_next_wakeup (sd_ipv4ll *ll, int sec, int random_sec) {
         if (random_sec)
                 next_timeout += random_u32() % (random_sec * USEC_PER_SEC);
 
-        if (sd_event_get_now_monotonic(ll->event, &time_now) < 0)
+        if (sd_event_now(ll->event, CLOCK_MONOTONIC, &time_now) < 0)
                 time_now = now(CLOCK_MONOTONIC);
 
         ll->next_wakeup = time_now + next_timeout;
@@ -278,7 +278,7 @@ static void ipv4ll_run_state_machine(sd_ipv4ll *ll, IPv4LLTrigger trigger, void 
 
                         if (ipv4ll_arp_conflict(ll, in_packet)) {
 
-                                r = sd_event_get_now_monotonic(ll->event, &time_now);
+                                r = sd_event_now(ll->event, CLOCK_MONOTONIC, &time_now);
                                 if (r < 0)
                                         goto out;
 
@@ -330,8 +330,8 @@ static void ipv4ll_run_state_machine(sd_ipv4ll *ll, IPv4LLTrigger trigger, void 
 
         if (ll->next_wakeup_valid) {
                 ll->timer = sd_event_source_unref(ll->timer);
-                r = sd_event_add_monotonic(ll->event, &ll->timer,
-                                   ll->next_wakeup, 0, ipv4ll_timer, ll);
+                r = sd_event_add_time(ll->event, &ll->timer, CLOCK_MONOTONIC,
+                                      ll->next_wakeup, 0, ipv4ll_timer, ll);
                 if (r < 0)
                         goto out;
 
@@ -530,8 +530,11 @@ int sd_ipv4ll_start (sd_ipv4ll *ll) {
         if (r < 0)
                 goto out;
 
-        r = sd_event_add_monotonic(ll->event, &ll->timer, now(CLOCK_MONOTONIC), 0,
-                                   ipv4ll_timer, ll);
+        r = sd_event_add_time(ll->event,
+                              &ll->timer,
+                              CLOCK_MONOTONIC,
+                              now(CLOCK_MONOTONIC), 0,
+                              ipv4ll_timer, ll);
 
         if (r < 0)
                 goto out;

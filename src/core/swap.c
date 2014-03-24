@@ -179,7 +179,12 @@ static int swap_arm_timer(Swap *s) {
                 return sd_event_source_set_enabled(s->timer_event_source, SD_EVENT_ONESHOT);
         }
 
-        return sd_event_add_monotonic(UNIT(s)->manager->event, &s->timer_event_source, now(CLOCK_MONOTONIC) + s->timeout_usec, 0, swap_dispatch_timer, s);
+        return sd_event_add_time(
+                        UNIT(s)->manager->event,
+                        &s->timer_event_source,
+                        CLOCK_MONOTONIC,
+                        now(CLOCK_MONOTONIC) + s->timeout_usec, 0,
+                        swap_dispatch_timer, s);
 }
 
 static int swap_add_device_links(Swap *s) {

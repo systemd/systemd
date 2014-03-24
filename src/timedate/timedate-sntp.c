@@ -265,7 +265,12 @@ static int sntp_arm_timer(SNTPContext *sntp, usec_t next) {
         }
 
         e = sd_event_source_get_event(sntp->event_receive);
-        r = sd_event_add_monotonic(e, &sntp->event_timer, now(CLOCK_MONOTONIC) + next, 0, sntp_timer, sntp);
+        r = sd_event_add_time(
+                        e,
+                        &sntp->event_timer,
+                        CLOCK_MONOTONIC,
+                        now(CLOCK_MONOTONIC) + next, 0,
+                        sntp_timer, sntp);
         if (r < 0)
                 return r;
 

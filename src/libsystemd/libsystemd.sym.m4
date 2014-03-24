@@ -360,8 +360,7 @@ m4_ifdef(`ENABLE_KDBUS',
         sd_event_ref;
         sd_event_unref;
         sd_event_add_io;
-        sd_event_add_monotonic;
-        sd_event_add_realtime;
+        sd_event_add_time;
         sd_event_add_signal;
         sd_event_add_child;
         sd_event_add_defer;
@@ -369,11 +368,10 @@ m4_ifdef(`ENABLE_KDBUS',
         sd_event_run;
         sd_event_loop;
         sd_event_exit;
+        sd_event_now;
         sd_event_get_state;
         sd_event_get_tid;
         sd_event_get_exit_code;
-        sd_event_get_now_realtime;
-        sd_event_get_now_monotonic;
         sd_event_set_watchdog;
         sd_event_get_watchdog;
         sd_event_source_ref;
@@ -395,6 +393,7 @@ m4_ifdef(`ENABLE_KDBUS',
         sd_event_source_set_time;
         sd_event_source_set_time_accuracy;
         sd_event_source_get_time_accuracy;
+        sd_event_source_get_time_clock;
         sd_event_source_get_signal;
         sd_event_source_get_child_pid;
         sd_event_source_get_event;

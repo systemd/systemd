@@ -873,7 +873,12 @@ int job_start_timer(Job *j) {
         if (j->unit->job_timeout <= 0)
                 return 0;
 
-        r = sd_event_add_monotonic(j->manager->event, &j->timer_event_source, j->begin_usec + j->unit->job_timeout, 0, job_dispatch_timer, j);
+        r = sd_event_add_time(
+                        j->manager->event,
+                        &j->timer_event_source,
+                        CLOCK_MONOTONIC,
+                        j->begin_usec + j->unit->job_timeout, 0,
+                        job_dispatch_timer, j);
         if (r < 0)
                 return r;
 
@@ -1061,7 +1066,12 @@ int job_coldplug(Job *j) {
         if (j->timer_event_source)
                 j->timer_event_source = sd_event_source_unref(j->timer_event_source);
 
-        r = sd_event_add_monotonic(j->manager->event, &j->timer_event_source, j->begin_usec + j->unit->job_timeout, 0, job_dispatch_timer, j);
+        r = sd_event_add_time(
+                        j->manager->event,
+                        &j->timer_event_source,
+                        CLOCK_MONOTONIC,
+                        j->begin_usec + j->unit->job_timeout, 0,
+                        job_dispatch_timer, j);
         if (r < 0)
                 log_debug("Failed to restart timeout for job: %s", strerror(-r));
 

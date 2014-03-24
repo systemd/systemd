@@ -3065,7 +3065,7 @@ _public_ int sd_bus_attach_event(sd_bus *bus, sd_event *event, int priority) {
 
         bus->event_priority = priority;
 
-        r = sd_event_add_monotonic(bus->event, &bus->time_event_source, 0, 0, time_callback, bus);
+        r = sd_event_add_time(bus->event, &bus->time_event_source, CLOCK_MONOTONIC, 0, 0, time_callback, bus);
         if (r < 0)
                 goto fail;
 

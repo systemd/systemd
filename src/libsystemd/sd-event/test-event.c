@@ -196,7 +196,7 @@ int main(int argc, char *argv[]) {
 
         assert_se(sd_event_add_io(e, &x, a[0], EPOLLIN, io_handler, INT_TO_PTR('a')) >= 0);
         assert_se(sd_event_add_io(e, &y, b[0], EPOLLIN, io_handler, INT_TO_PTR('b')) >= 0);
-        assert_se(sd_event_add_monotonic(e, &z, 0, 0, time_handler, INT_TO_PTR('c')) >= 0);
+        assert_se(sd_event_add_time(e, &z, CLOCK_MONOTONIC, 0, 0, time_handler, INT_TO_PTR('c')) >= 0);
         assert_se(sd_event_add_exit(e, &q, exit_handler, INT_TO_PTR('g')) >= 0);
 
         assert_se(sd_event_source_set_priority(x, 99) >= 0);

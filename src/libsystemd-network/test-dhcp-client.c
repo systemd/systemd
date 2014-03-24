@@ -466,9 +466,10 @@ static void test_addr_acq(sd_event *e)
 
         callback_recv = test_addr_acq_recv_discover;
 
-        assert_se(sd_event_add_monotonic(e, &test_hangcheck,
-                                         time_now + 2 * USEC_PER_SEC, 0,
-                                         test_dhcp_hangcheck, NULL) >= 0);
+        assert_se(sd_event_add_time(e, &test_hangcheck,
+                                    CLOCK_MONOTONIC,
+                                    time_now + 2 * USEC_PER_SEC, 0,
+                                    test_dhcp_hangcheck, NULL) >= 0);
 
         res = sd_dhcp_client_start(client);
         assert_se(res == 0 || res == -EINPROGRESS);

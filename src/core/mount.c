@@ -163,7 +163,12 @@ static int mount_arm_timer(Mount *m) {
                 return sd_event_source_set_enabled(m->timer_event_source, SD_EVENT_ONESHOT);
         }
 
-        return sd_event_add_monotonic(UNIT(m)->manager->event, &m->timer_event_source, now(CLOCK_MONOTONIC) + m->timeout_usec, 0, mount_dispatch_timer, m);
+        return sd_event_add_time(
+                        UNIT(m)->manager->event,
+                        &m->timer_event_source,
+                        CLOCK_MONOTONIC,
+                        now(CLOCK_MONOTONIC) + m->timeout_usec, 0,
+                        mount_dispatch_timer, m);
 }
 
 static void mount_unwatch_control_pid(Mount *m) {

@@ -168,7 +168,12 @@ static int socket_arm_timer(Socket *s) {
                 return sd_event_source_set_enabled(s->timer_event_source, SD_EVENT_ONESHOT);
         }
 
-        return sd_event_add_monotonic(UNIT(s)->manager->event, &s->timer_event_source, now(CLOCK_MONOTONIC) + s->timeout_usec, 0, socket_dispatch_timer, s);
+        return sd_event_add_time(
+                        UNIT(s)->manager->event,
+                        &s->timer_event_source,
+                        CLOCK_MONOTONIC,
+                        now(CLOCK_MONOTONIC) + s->timeout_usec, 0,
+                        socket_dispatch_timer, s);
 }
 
 static int socket_instantiate_service(Socket *s) {

@@ -1377,14 +1377,19 @@ int server_schedule_sync(Server *s, int priority) {
         if (s->sync_interval_usec > 0) {
                 usec_t when;
 
-                r = sd_event_get_now_monotonic(s->event, &when);
+                r = sd_event_now(s->event, CLOCK_MONOTONIC, &when);
                 if (r < 0)
                         return r;
 
                 when += s->sync_interval_usec;
 
                 if (!s->sync_event_source) {
-                        r = sd_event_add_monotonic(s->event, &s->sync_event_source, when, 0, server_dispatch_sync, s);
+                        r = sd_event_add_time(
+                                        s->event,
+                                        &s->sync_event_source,
+                                        CLOCK_MONOTONIC,
+                                        when, 0,
+                                        server_dispatch_sync, s);
                         if (r < 0)
                                 return r;
 

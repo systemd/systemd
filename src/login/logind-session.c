@@ -682,7 +682,11 @@ void session_release(Session *s) {
                 return;
 
         if (!s->timer_event_source)
-                sd_event_add_monotonic(s->manager->event, &s->timer_event_source, now(CLOCK_MONOTONIC) + RELEASE_USEC, 0, release_timeout_callback, s);
+                sd_event_add_time(s->manager->event,
+                                  &s->timer_event_source,
+                                  CLOCK_MONOTONIC,
+                                  now(CLOCK_MONOTONIC) + RELEASE_USEC, 0,
+                                  release_timeout_callback, s);
 }
 
 bool session_is_active(Session *s) {
