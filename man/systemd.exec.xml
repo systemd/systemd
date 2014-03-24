@@ -340,9 +340,14 @@
 
                                 <para>The files listed with this
                                 directive will be read shortly before
-                                the process is executed. Settings from
-                                these files override settings made
-                                with
+                                the process is executed (more
+                                specifically, this means after all
+                                processes from a previous unit state
+                                terminated. This means you can
+                                generate these files in one unit
+                                state, and read it with this option in
+                                the next). Settings from these files
+                                override settings made with
                                 <varname>Environment=</varname>. If
                                 the same variable is set twice from
                                 these files, the files will be read in
