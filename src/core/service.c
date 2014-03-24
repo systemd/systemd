@@ -664,13 +664,8 @@ static int service_load_sysv_path(Service *s, const char *path) {
 
                                 state = NORMAL;
 
-                                if (sscanf(t+10, "%15s %i %*i",
-                                           runlevels,
-                                           &start_priority) != 2) {
-
-                                        log_warning_unit(u->id,
-                                                         "[%s:%u] Failed to parse chkconfig line. Ignoring.",
-                                                         path, line);
+                                if (sscanf(t+10, "%15s %i %*i", runlevels, &start_priority) != 2) {
+                                        log_warning_unit(u->id, "[%s:%u] Failed to parse chkconfig line. Ignoring.", path, line);
                                         continue;
                                 }
 
@@ -678,19 +673,17 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                  * symlink farms is preferred over the
                                  * data from the LSB header. */
                                 if (start_priority < 0 || start_priority > 99)
-                                        log_warning_unit(u->id,
-                                                         "[%s:%u] Start priority out of range. Ignoring.",
-                                                         path, line);
+                                        log_warning_unit(u->id, "[%s:%u] Start priority out of range. Ignoring.", path, line);
                                 else
-                                        s->sysv_start_priority = start_priority;
+                                        log_debug_unit(u->id, "[%s:%u] Ignoring start priority set in the chkconfig file.", path, line);
 
                                 char_array_0(runlevels);
                                 k = delete_chars(runlevels, WHITESPACE "-");
-
                                 if (k[0]) {
                                         char *d;
 
-                                        if (!(d = strdup(k))) {
+                                        d = strdup(k);
+                                        if (!d) {
                                                 r = -ENOMEM;
                                                 goto finish;
                                         }
@@ -992,9 +985,9 @@ static int service_load_sysv_path(Service *s, const char *path) {
                 u->description = d;
         }
 
-        /* The priority that has been set in /etc/rcN.d/ hierarchies
-         * takes precedence over what is stored as default in the LSB
-         * header */
+        /* Initialize the start priority from what has been set in the
+         * /etc/rcN.d/ hierarchies if we load the unit file as SysV
+         * init script. */
         if (s->sysv_start_priority_from_rcnd >= 0)
                 s->sysv_start_priority = s->sysv_start_priority_from_rcnd;
 
