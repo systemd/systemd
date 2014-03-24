@@ -125,7 +125,6 @@ static void test_address_get(sd_rtnl *rtnl, int ifindex) {
 
 static void test_route(void) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *req;
-        struct rtmsg *rtm;
         struct in_addr addr, addr_data;
         uint32_t index = 2, u32_data;
         int r;
@@ -157,17 +156,6 @@ static void test_route(void) {
 
         assert_se(sd_rtnl_message_read_u32(req, RTA_OIF, &u32_data) >= 0);
         assert_se(u32_data == index);
-
-        rtm = NLMSG_DATA(req->hdr);
-        r = rtnl_message_parse(req,
-                               &req->rta_offset_tb,
-                               &req->rta_tb_size,
-                               RTA_MAX,
-                               RTM_RTA(rtm),
-                               RTM_PAYLOAD(req->hdr));
-
-        assert_se(sd_rtnl_message_read_u32(req, RTA_GATEWAY, &u32_data) == 0);
-        assert_se(sd_rtnl_message_read_u32(req, RTA_OIF, &u32_data) == 0);
 
         assert_se((req = sd_rtnl_message_unref(req)) == NULL);
 }
@@ -284,11 +272,9 @@ static void test_pipe(int ifindex) {
 
 static void test_container(void) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
-        struct ifinfomsg *ifi;
         uint16_t u16_data;
         uint32_t u32_data;
         char *string_data;
-        int r;
 
         assert_se(sd_rtnl_message_new_link(NULL, &m, RTM_NEWLINK, 0) >= 0);
 
@@ -316,16 +302,6 @@ static void test_container(void) {
         assert_se(sd_rtnl_message_read_string(m, IFLA_INFO_KIND, &string_data) >= 0);
         assert_se(streq("vlan", string_data));
         assert_se(sd_rtnl_message_exit_container(m) >= 0);
-
-        ifi = NLMSG_DATA(m->hdr);
-        r = rtnl_message_parse(m,
-                               &m->rta_offset_tb,
-                               &m->rta_tb_size,
-                               IFLA_MAX,
-                               IFLA_RTA(ifi),
-                               IFLA_PAYLOAD(m->hdr));
-        if(r < 0)
-                return;
 
         assert_se(sd_rtnl_message_read_u32(m, IFLA_LINKINFO, &u32_data) == 0);
 
