@@ -189,6 +189,7 @@ struct Service {
 
         RateLimit start_limit;
         StartLimitAction start_limit_action;
+        char *reboot_arg;
 
         UnitRef accept_socket;
 

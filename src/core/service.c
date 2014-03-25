@@ -24,6 +24,8 @@
 #include <dirent.h>
 #include <unistd.h>
 #include <sys/reboot.h>
+#include <linux/reboot.h>
+#include <sys/syscall.h>
 
 #include "manager.h"
 #include "unit.h"
@@ -299,6 +301,9 @@ static void service_done(Unit *u) {
 
         free(s->status_text);
         s->status_text = NULL;
+
+        free(s->reboot_arg);
+        s->reboot_arg = NULL;
 
         s->exec_runtime = exec_runtime_unref(s->exec_runtime);
         exec_command_free_array(s->exec_command, _SERVICE_EXEC_COMMAND_MAX);
@@ -2372,6 +2377,10 @@ static int service_start_limit_test(Service *s) {
         if (ratelimit_test(&s->start_limit))
                 return 0;
 
+        if (s->start_limit_action == SERVICE_START_LIMIT_REBOOT ||
+            s->start_limit_action == SERVICE_START_LIMIT_REBOOT_FORCE)
+                update_reboot_param_file(s->reboot_arg);
+
         switch (s->start_limit_action) {
 
         case SERVICE_START_LIMIT_NONE:
@@ -2407,6 +2416,13 @@ static int service_start_limit_test(Service *s) {
                 log_warning_unit(UNIT(s)->id,
                                  "%s start request repeated too quickly, rebooting immediately.", UNIT(s)->id);
                 sync();
+                if (s->reboot_arg) {
+                        log_info("Rebooting with argument '%s'.", s->reboot_arg);
+                        syscall(SYS_reboot, LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2,
+                                LINUX_REBOOT_CMD_RESTART2, s->reboot_arg);
+                }
+
+                log_info("Rebooting.");
                 reboot(RB_AUTOBOOT);
                 break;
 
