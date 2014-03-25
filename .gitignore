@@ -73,6 +73,7 @@
 /systemd-inhibit
 /systemd-initctl
 /systemd-journal-gatewayd
+/systemd-journal-remote
 /systemd-journald
 /systemd-kmsg-syslogd
 /systemd-localed
@@ -186,6 +187,7 @@
 /test-strv
 /test-strxcpyx
 /test-tables
+/test-rtnl-manual
 /test-time
 /test-timedate-sntp
 /test-tmpfiles
