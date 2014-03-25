@@ -64,6 +64,10 @@ _localectl_command() {
         'set-keymap:Set virtual console keyboard mapping'
         'list-keymaps:Show known virtual console keyboard mappings'
         'set-x11-keymap:Set X11 keyboard mapping'
+        'list-x11-keymap-models:Show known X11 keyboard mapping models'
+        'list-x11-keymap-layouts:Show known X11 keyboard mapping layouts'
+        'list-x11-keymap-variants:Show known X11 keyboard mapping variants'
+        'list-x11-keymap-options:Show known X11 keyboard mapping options'
     )
     if (( CURRENT == 1 )); then
         _describe -t commands 'localectl command' _localectl_cmds
@@ -85,4 +89,5 @@ _arguments \
     '--no-pager[Do not pipe output into a pager]' \
     '--no-ask-password[Do not prompt for password]' \
     {-H+,--host=}'[Operate on remote host]:userathost:_sd_hosts_or_user_at_host' \
+    {-M+,--machine=}'[Operate on local container]:machine' \
     '*::localectl commands:_localectl_command'

@@ -56,6 +56,8 @@ done
     "activate:Activate a session"
     "lock-session:Screen lock one or more sessions"
     "unlock-session:Screen unlock one or more sessions"
+    "lock-sessions:Screen lock all current sessions"
+    "unlock-sessions:Screen unlock all current sessions"
     "terminate-session:Terminate one or more sessions"
     "kill-session:Send signal to processes of a session"
     "list-users:List users"
@@ -99,8 +101,11 @@ _arguments -s \
     {-a,--all}'[Show all properties, including empty ones]' \
     '--kill-who=[Who to send signal to]:killwho:(main control all)' \
     {-s+,--signal=}'[Which signal to send]:signal:_signals' \
-    '--no-ask-password[Do not ask for system passwords]' \
     {-H+,--host=}'[Operate on remote host]:userathost:_sd_hosts_or_user_at_host' \
+    {-M+,--machine=}'[Operate on local container]:machine' \
     {-P,--privileged}'[Acquire privileges before execution]' \
+    {-l,--full}'[Do not ellipsize output]' \
     '--no-pager[Do not pipe output into a pager]' \
+    '--no-legend[Do not show the headers and footers]' \
+    '--no-ask-password[Do not ask for system passwords]' \
     '*::loginctl command:_loginctl_command'

@@ -7,6 +7,9 @@
     "list:List currently running VMs/containers"
     "status:Show VM/container status"
     "show:Show properties of one or more VMs/containers"
+    "login:Get a login prompt on a VM/container"
+    "poweroff:Power off one or more VMs/containers"
+    "reboot:Reboot one or more VMs/containers"
     "terminate:Terminate one or more VMs/containers"
     "kill:Send signal to process or a VM/container"
   )

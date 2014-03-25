@@ -96,8 +96,6 @@ Features:
   on screen, not unlike how job control works on the shell
 
 * completions:
- - busctl zsh completion is outdated
- - systemd-nspawn -Z/-L/-q is missing for zsh
  - manager property enumeration was broken when systemd moved to /usr/lib/
 
 * cgroups:

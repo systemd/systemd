@@ -6,6 +6,7 @@ _hostnamectl_command() {
         "status:Show current hostname settings"
         "set-hostname:Set system hostname"
         "set-icon-name:Set icon name for host"
+        "set-chassis:Set chassis type for host"
     )
     if (( CURRENT == 1 )); then
         _describe -t commands 'hostnamectl commands' _hostnamectl_cmds || compadd "$@"
