@@ -30,6 +30,10 @@ External:
 
 Features:
 
+* add "M" as recursive version of "m" to tmpfiles, then use it for
+  chowning /run/log/journal (but not /var/log/journal), so that we
+  adjust the perms of journal files created before tmpfiles ran.
+
 * expose "Locked" property on logind sesison objects
 
 * add bus api to query unit file's X fields.
