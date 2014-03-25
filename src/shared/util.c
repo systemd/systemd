@@ -1500,7 +1500,14 @@ bool fstype_is_network(const char *fstype) {
                 "nfs\0"
                 "nfs4\0"
                 "gfs\0"
-                "gfs2\0";
+                "gfs2\0"
+                "glusterfs\0";
+
+        const char *x;
+
+        x = startswith(fstype, "fuse.");
+        if (x)
+                fstype = x;
 
         return nulstr_contains(table, fstype);
 }
