@@ -3528,8 +3528,8 @@ systemd_coredump_SOURCES = \
 systemd_coredump_LDADD = \
 	libsystemd-journal-internal.la \
 	libsystemd-label.la \
-	libsystemd-shared.la \
-	libsystemd-internal.la
+	libsystemd-internal.la \
+	libsystemd-shared.la
 
 rootlibexec_PROGRAMS += \
 	systemd-coredump
