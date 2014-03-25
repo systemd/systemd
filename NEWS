@@ -1,5 +1,154 @@
 systemd System and Service Manager
 
+CHANGES WITH 212:
+
+        * When restoring the screen brightness at boot, stay away from
+          the darkest setting or from the lowest 5% of the available
+          range, depending on which is the larger value of both. This
+          should effectively protect the user from rebooting into a
+          black screen, should the brightness have been set to minimum
+          by accident.
+
+        * sd-login gained a new sd_machine_get_class() call to
+          determine the class ("vm" or "container") of a machine
+          registered with machined.
+
+        * sd-login gained new calls
+          sd_peer_get_{session,owner_uid,unit,user_unit,slice,machine_name}(),
+          to query the identity of the peer of a local AF_UNIX
+          connection. They operate similar to their sd_pid_get_xyz()
+          counterparts.
+
+        * PID 1 will now maintain a system-wide system state engine
+          with the states "starting", "running", "degraded",
+          "maintenance", "stopping". These states are bound to system
+          startup, normal runtime, runtime with at least one failed
+          service, rescue/emergency mode and system shutdown. This
+          state is shown in the "systemctl status" output when no unit
+          name is passed. It is useful to determine system state, in
+          particularly when doing so for many systems or containers at
+          once.
+
+        * A new command "list-machines" has been added to "systemctl"
+          that lists all local OS containers and shows their system
+          state (see above), if systemd runs inside of them.
+
+        * systemctl gained a new "-r" switch to recursively enumerate
+          units on all local containers, when used with the
+          "list-unit" command (which is the default one that is
+          executed when no parameters are specified).
+
+        * The GPT automatic partition discovery logic will now honour
+          two GPT partition flags: one may be set on a partition to
+          cause it to be mounted read-only, and the other may be set
+          on a partition to ignore it during automatic discovery.
+
+        * Two new GPT type UUIDs have been added for automatic root
+          partition discovery, for 32bit and 64bit ARM. This is not
+          particularly useful for discovering the root directory on
+          these architectures during bare-metal boots (since UEFI is
+          not common there), but still very useful to allow booting of
+          ARM disk images in nspawn with the -i option.
+
+        * MAC addresses of interfaces created with nspawn's
+          --network-interface= switch will now be generated from the
+          machine name, and thus be stable between multiple invocations
+          of the container.
+
+        * logind will now automatically remove all IPC objects owned
+          by a user if she or he fully logs out. This makes sure that
+          users who are logged out cannot continue to consume IPC
+          resources. This covers SysV memory, semaphores and message
+          queues as well as POSIX shared memory and message
+          queues. Traditionally SysV and POSIX IPC had no life-cycle
+          limits, with this functionality this is corrected. This may
+          be turned off using the RemoveIPC= switch of logind.conf.
+
+        * The systemd-machine-id-setup and tmpfiles tools gained a
+          --root= switch to operate on a specific root directory,
+          instead of /.
+
+        * journald can now forward logged messages to the TTYs of all
+          logged in users ("wall"). This is the default for all
+          emergency messages now.
+
+        * A new tool systemd-journal-remote has been added to stream
+          journal log messages across the network.
+
+        * /sys/fs/cgroup/ is now mounted read-only after all cgroup
+          controller trees are mounted into it. Note that the
+          directories mounted beneath it are not read-only. This is a
+          security measure and is particularly useful because glibc
+          actually includes a search logic to pick any tmpfs it can
+          find to implement shm_open() if /dev/shm is not available
+          (which it might very well be in namespaced setups).
+
+        * machinectl gained a new "poweroff" command to cleanly power
+          down a local OS container.
+
+        * The PrivateDevices= unit file setting will now also drop the
+          CAP_MKNOD capability from the capability bound set, and
+          imply DevicePolicy=closed.
+
+        * PrivateDevices=, PrivateNetwork= and PrivateTmp= is now used
+          comprehensively on all long-running systemd services where
+          this is appropriate.
+
+        * systemd-udevd will now run in a disassociated mount
+          namespace. To mount directories from udev rules make sure to
+          pull in mount units via SYSTEMD_WANTS properties.
+
+        * The kdbus support gained support for uploading policy into
+          the kernel. sd-bus gained support for creating "monitoring"
+          connections that can eavesdrop into all bus communication
+          for debugging purposes.
+
+        * Timestamps may now be specified in seconds since the UNIX
+          epoch Jan 1st, 1970 by specifying "@" followed by the value
+          in seconds.
+
+        * Native tcpwrap support in systemd has been removed. tcpwrap
+          is old code, not really maintained anymore and has serious
+          shortcomings, and better options such as firewalls
+          exist. For setups that require tcpwrap usage, please
+          consider invoking your socket-activated service via tcpd,
+          like on traditional inetd.
+
+        * A new system.conf configuration option
+          DefaultTimerAccuracySec= has been added that controls the
+          default AccuracySec= setting of .timer units.
+
+        * Timer units gained a new WakeSystem= switch. If enabled
+          timers configured this way will cause the system to resume
+          from system suspend (if the system supports that, which most
+          do these days).
+
+        * Timer units gained a new Persistent= switch. If enabled
+          timers configured this way will save to disk when they have
+          been last triggered. This information is then used on next
+          reboot to possible execute overdue timer events, that
+          couldn't take place because the system was powered off. This
+          enables simple anacron-like behaviour for timer units.
+
+        * systemctl's "list-timers" will now also list the time a
+          timer unit was last triggered in addition to the next time
+          it will be triggered.
+
+        * systemd-networkd will now assign predictable IPv4LL
+          addresses to its local interfaces.
+
+        Contributions from: Brandon Philips, Daniel Buch, Daniel Mack,
+        Dave Reisner, David Herrmann, Gerd Hoffmann, Greg
+        Kroah-Hartman, Hendrik Brueckner, Jason St. John, Josh
+        Triplett, Kay Sievers, Lennart Poettering, Marc-Antoine
+        Perennou, Michael Marineau, Michael Olbrich, Miklos Vajna,
+        Patrik Flykt, poma, Sebastian Thorarensen, Thomas Bächler,
+        Thomas Hindoe Paaboel Andersen, Tomasz Torcz, Tom Gundersen,
+        Umut Tezduyar Lindskog, Wieland Hoffmann, Zbigniew
+        Jędrzejewski-Szmek
+
+        -- Berlin, 2014-03-25
+
 CHANGES WITH 211:
 
         * A new unit file setting RestrictAddressFamilies= has been
