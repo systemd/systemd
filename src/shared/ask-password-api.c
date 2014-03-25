@@ -207,6 +207,11 @@ int ask_password_tty(
                         if (ttyfd >= 0)
                                 loop_write(ttyfd, "(no echo) ", 10, false);
                 } else {
+                        if (p >= sizeof(passphrase)-1) {
+                                loop_write(ttyfd, "\a", 1, false);
+                                continue;
+                        }
+
                         passphrase[p++] = c;
 
                         if (!silent_mode && ttyfd >= 0)
