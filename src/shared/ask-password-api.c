@@ -56,9 +56,10 @@ int ask_password_tty(
                 char **_passphrase) {
 
         struct termios old_termios, new_termios;
-        char passphrase[LINE_MAX];
+        char passphrase[LINE_MAX], *x;
         size_t p = 0;
-        int r, ttyfd = -1, notify = -1;
+        int r;
+        _cleanup_close_ int ttyfd = -1, notify = -1;
         struct pollfd pollfd[2];
         bool reset_tty = false;
         bool silent_mode = false;
@@ -72,7 +73,8 @@ int ask_password_tty(
         assert(_passphrase);
 
         if (flag_file) {
-                if ((notify = inotify_init1(IN_CLOEXEC|IN_NONBLOCK)) < 0) {
+                notify = inotify_init1(IN_CLOEXEC|IN_NONBLOCK);
+                if (notify < 0) {
                         r = -errno;
                         goto finish;
                 }
@@ -83,7 +85,8 @@ int ask_password_tty(
                 }
         }
 
-        if ((ttyfd = open("/dev/tty", O_RDWR|O_NOCTTY|O_CLOEXEC)) >= 0) {
+        ttyfd = open("/dev/tty", O_RDWR|O_NOCTTY|O_CLOEXEC);
+        if (ttyfd >= 0) {
 
                 if (tcgetattr(ttyfd, &old_termios) < 0) {
                         r = -errno;
@@ -138,8 +141,8 @@ int ask_password_tty(
                                 goto finish;
                         }
 
-                if ((k = poll(pollfd, notify > 0 ? 2 : 1, sleep_for)) < 0) {
-
+                k = poll(pollfd, notify > 0 ? 2 : 1, sleep_for);
+                if (k < 0) {
                         if (errno == EINTR)
                                 continue;
 
@@ -156,8 +159,8 @@ int ask_password_tty(
                 if (pollfd[POLL_TTY].revents == 0)
                         continue;
 
-                if ((n = read(ttyfd >= 0 ? ttyfd : STDIN_FILENO, &c, 1)) < 0) {
-
+                n = read(ttyfd >= 0 ? ttyfd : STDIN_FILENO, &c, 1);
+                if (n < 0) {
                         if (errno == EINTR || errno == EAGAIN)
                                 continue;
 
@@ -221,26 +224,19 @@ int ask_password_tty(
                 }
         }
 
-        passphrase[p] = 0;
-
-        if (!(*_passphrase = strdup(passphrase))) {
+        x = strndup(passphrase, p);
+        if (!x) {
                 r = -ENOMEM;
                 goto finish;
         }
 
+        *_passphrase = x;
         r = 0;
 
 finish:
-        safe_close(notify);
-
-        if (ttyfd >= 0) {
-
-                if (reset_tty) {
-                        loop_write(ttyfd, "\n", 1, false);
-                        tcsetattr(ttyfd, TCSADRAIN, &old_termios);
-                }
-
-                safe_close(ttyfd);
+        if (ttyfd >= 0 && reset_tty) {
+                loop_write(ttyfd, "\n", 1, false);
+                tcsetattr(ttyfd, TCSADRAIN, &old_termios);
         }
 
         return r;
@@ -314,12 +310,12 @@ int ask_password_agent(
 
         char temp[] = "/run/systemd/ask-password/tmp.XXXXXX";
         char final[sizeof(temp)] = "";
-        int fd = -1, r;
-        FILE *f = NULL;
-        char *socket_name = NULL;
-        int socket_fd = -1, signal_fd = -1;
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *socket_name = NULL;
+        _cleanup_close_ int socket_fd = -1, signal_fd = -1, fd = -1;
         sigset_t mask, oldmask;
         struct pollfd pollfd[_FD_MAX];
+        int r;
 
         assert(_passphrases);
 
@@ -338,7 +334,8 @@ int ask_password_agent(
 
         fchmod(fd, 0644);
 
-        if (!(f = fdopen(fd, "w"))) {
+        f = fdopen(fd, "w");
+        if (!f) {
                 log_error("Failed to allocate FILE: %m");
                 r = -errno;
                 goto finish;
@@ -346,13 +343,15 @@ int ask_password_agent(
 
         fd = -1;
 
-        if ((signal_fd = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC)) < 0) {
+        signal_fd = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC);
+        if (signal_fd < 0) {
                 log_error("signalfd(): %m");
                 r = -errno;
                 goto finish;
         }
 
-        if ((socket_fd = create_socket(&socket_name)) < 0) {
+        socket_fd = create_socket(&socket_name);
+        if (socket_fd < 0) {
                 r = socket_fd;
                 goto finish;
         }
@@ -421,8 +420,8 @@ int ask_password_agent(
                         goto finish;
                 }
 
-                if ((k = poll(pollfd, _FD_MAX, until > 0 ? (int) ((until-t)/USEC_PER_MSEC) : -1)) < 0) {
-
+                k = poll(pollfd, _FD_MAX, until > 0 ? (int) ((until-t)/USEC_PER_MSEC) : -1);
+                if (k < 0) {
                         if (errno == EINTR)
                                 continue;
 
@@ -459,8 +458,8 @@ int ask_password_agent(
                 msghdr.msg_control = &control;
                 msghdr.msg_controllen = sizeof(control);
 
-                if ((n = recvmsg(socket_fd, &msghdr, 0)) < 0) {
-
+                n = recvmsg(socket_fd, &msghdr, 0);
+                if (n < 0) {
                         if (errno == EAGAIN ||
                             errno == EINTR)
                                 continue;
@@ -525,18 +524,8 @@ int ask_password_agent(
         r = 0;
 
 finish:
-        safe_close(fd);
-
-        if (socket_name) {
+        if (socket_name)
                 unlink(socket_name);
-                free(socket_name);
-        }
-
-        safe_close(socket_fd);
-        safe_close(signal_fd);
-
-        if (f)
-                fclose(f);
 
         unlink(temp);
 
@@ -556,18 +545,16 @@ int ask_password_auto(const char *message, const char *icon, usec_t until, bool 
                 int r;
                 char *s = NULL, **l = NULL;
 
-                if ((r = ask_password_tty(message, until, NULL, &s)) < 0)
+                r = ask_password_tty(message, until, NULL, &s);
+                if (r < 0)
                         return r;
 
-                l = strv_new(s, NULL);
-                free(s);
-
-                if (!l)
-                        return -ENOMEM;
+                r = strv_consume(&l, s);
+                if (r < 0)
+                        return r;
 
                 *_passphrases = l;
                 return r;
-
         } else
                 return ask_password_agent(message, icon, until, accept_cached, _passphrases);
 }
