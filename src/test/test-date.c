@@ -56,6 +56,7 @@ int main(int argc, char *argv[]) {
         test_one("+2d");
         test_one("+2y 4d");
         test_one("5months ago");
+        test_one("@1395716396");
 
         return 0;
 }

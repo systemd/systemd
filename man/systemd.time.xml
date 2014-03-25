@@ -153,13 +153,18 @@
                 <para>When parsing, systemd will also accept relative
                 time specifications. A time span (see above) that is
                 prefixed with <literal>+</literal> is evaluated to the
-                current time plus the specified
-                time span. Correspondingly, a time span that is prefixed
+                current time plus the specified time
+                span. Correspondingly, a time span that is prefixed
                 with <literal>-</literal> is evaluated to the current
                 time minus the specified time span. Instead of
-                prefixing the time span with <literal>-</literal>, it
-                may also be suffixed with a space and the word
+                prefixing the time span with <literal>+</literal> or
+                <literal>-</literal>, it may also be suffixed with a
+                space and the word <literal>left</literal> or
                 <literal>ago</literal>.</para>
+
+                <para>Finally, a timespan prefixed with
+                <literal>@</literal> is evaluated relative to the UNIX
+                time epoch 1st Jan, 1970, 00:00.</para>
 
                 <para>Examples for valid timestamps and their
                 normalized form (assuming the current time was
@@ -177,7 +182,8 @@
                tomorrow → Fri 2012-11-24 00:00:00
                +3h30min → Fri 2012-11-23 21:45:22
                     -5s → Fri 2012-11-23 18:15:17
-              11min ago → Fri 2012-11-23 18:04:22</programlisting>
+              11min ago → Fri 2012-11-23 18:04:22
+            @1395716396 → Tue 2014-03-25 03:59:56</programlisting>
 
                 <para>Note that timestamps printed by systemd will not
                 be parsed correctly by systemd, as the timezone

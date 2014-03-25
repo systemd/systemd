@@ -432,6 +432,7 @@ int parse_timestamp(const char *t, usec_t *usec) {
          *   tomorrow             (time is set to 00:00:00)
          *   +5min
          *   -5days
+         *   @2147483647          (seconds since epoch)
          *
          */
 
@@ -460,21 +461,23 @@ int parse_timestamp(const char *t, usec_t *usec) {
                 goto finish;
 
         } else if (t[0] == '+') {
-
                 r = parse_sec(t+1, &plus);
                 if (r < 0)
                         return r;
 
                 goto finish;
-        } else if (t[0] == '-') {
 
+        } else if (t[0] == '-') {
                 r = parse_sec(t+1, &minus);
                 if (r < 0)
                         return r;
 
                 goto finish;
 
-        } else if (endswith(t, " ago")) {
+        } else if (t[0] == '@')
+                return parse_sec(t + 1, usec);
+
+        else if (endswith(t, " ago")) {
                 _cleanup_free_ char *z;
 
                 z = strndup(t, strlen(t) - 4);

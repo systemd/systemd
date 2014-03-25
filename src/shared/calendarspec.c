@@ -938,7 +938,6 @@ int calendar_spec_next_usec(const CalendarSpec *spec, usec_t usec, usec_t *next)
         if (t == (time_t) -1)
                 return -EINVAL;
 
-
         *next = (usec_t) t * USEC_PER_SEC;
         return 0;
 }
