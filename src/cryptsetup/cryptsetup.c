@@ -88,6 +88,13 @@ static int parse_one_option(const char *option) {
                         return 0;
                 }
 
+                if (arg_key_size % 8) {
+                        log_error("size= not a multiple of 8, ignoring.");
+                        return 0;
+                }
+
+                arg_key_size /= 8;
+
         } else if (startswith(option, "key-slot=")) {
 
                 arg_type = CRYPT_LUKS1;
@@ -414,7 +421,7 @@ static int attach_luks_or_plain(struct crypt_device *cd,
                 /* for CRYPT_PLAIN limit reads
                  * from keyfile to key length, and
                  * ignore keyfile-size */
-                arg_keyfile_size = arg_key_size / 8;
+                arg_keyfile_size = arg_key_size;
 
                 /* In contrast to what the name
                  * crypt_setup() might suggest this
@@ -577,7 +584,7 @@ int main(int argc, char *argv[]) {
                 else
                         until = 0;
 
-                arg_key_size = (arg_key_size > 0 ? arg_key_size : 256);
+                arg_key_size = (arg_key_size > 0 ? arg_key_size : (256 / 8));
 
                 if (key_file) {
                         struct stat st;
