@@ -298,6 +298,7 @@ fail:
 int ask_password_agent(
                 const char *message,
                 const char *icon,
+                const char *id,
                 usec_t until,
                 bool accept_cached,
                 char ***_passphrases) {
@@ -372,6 +373,9 @@ int ask_password_agent(
 
         if (icon)
                 fprintf(f, "Icon=%s\n", icon);
+
+        if (id)
+                fprintf(f, "Id=%s\n", id);
 
         fflush(f);
 
@@ -537,7 +541,8 @@ finish:
         return r;
 }
 
-int ask_password_auto(const char *message, const char *icon, usec_t until, bool accept_cached, char ***_passphrases) {
+int ask_password_auto(const char *message, const char *icon, const char *id,
+                      usec_t until, bool accept_cached, char ***_passphrases) {
         assert(message);
         assert(_passphrases);
 
@@ -556,5 +561,5 @@ int ask_password_auto(const char *message, const char *icon, usec_t until, bool 
                 *_passphrases = l;
                 return r;
         } else
-                return ask_password_agent(message, icon, until, accept_cached, _passphrases);
+                return ask_password_agent(message, icon, id, until, accept_cached, _passphrases);
 }

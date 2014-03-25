@@ -257,6 +257,8 @@ static int get_password(const char *name, usec_t until, bool accept_cached, char
         int r;
         char **p;
         _cleanup_free_ char *text = NULL;
+        _cleanup_free_ char *escaped_name = NULL;
+        char *id;
 
         assert(name);
         assert(passwords);
@@ -264,7 +266,13 @@ static int get_password(const char *name, usec_t until, bool accept_cached, char
         if (asprintf(&text, "Please enter passphrase for disk %s!", name) < 0)
                 return log_oom();
 
-        r = ask_password_auto(text, "drive-harddisk", until, accept_cached, passwords);
+        escaped_name = cescape(name);
+        if (!escaped_name)
+                return log_oom();
+
+        id = strappenda("cryptsetup:", escaped_name);
+
+        r = ask_password_auto(text, "drive-harddisk", id, until, accept_cached, passwords);
         if (r < 0) {
                 log_error("Failed to query password: %s", strerror(-r));
                 return r;
@@ -278,7 +286,9 @@ static int get_password(const char *name, usec_t until, bool accept_cached, char
                 if (asprintf(&text, "Please enter passphrase for disk %s! (verification)", name) < 0)
                         return log_oom();
 
-                r = ask_password_auto(text, "drive-harddisk", until, false, &passwords2);
+                id = strappenda("cryptsetup-verification:", escaped_name);
+
+                r = ask_password_auto(text, "drive-harddisk", id, until, false, &passwords2);
                 if (r < 0) {
                         log_error("Failed to query verification password: %s", strerror(-r));
                         return r;

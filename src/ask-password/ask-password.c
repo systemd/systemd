@@ -43,6 +43,7 @@
 #include "def.h"
 
 static const char *arg_icon = NULL;
+static const char *arg_id = NULL;
 static const char *arg_message = NULL;
 static bool arg_use_tty = true;
 static usec_t arg_timeout = DEFAULT_TIMEOUT_USEC;
@@ -58,7 +59,8 @@ static int help(void) {
                "     --timeout=SEC   Timeout in sec\n"
                "     --no-tty        Ask question via agent even on TTY\n"
                "     --accept-cached Accept cached passwords\n"
-               "     --multiple      List multiple passwords if available\n",
+               "     --multiple      List multiple passwords if available\n"
+               "     --id=ID         Query identifier (e.g. cryptsetup:/dev/sda5)\n",
                program_invocation_short_name);
 
         return 0;
@@ -71,7 +73,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_TIMEOUT,
                 ARG_NO_TTY,
                 ARG_ACCEPT_CACHED,
-                ARG_MULTIPLE
+                ARG_MULTIPLE,
+                ARG_ID
         };
 
         static const struct option options[] = {
@@ -81,6 +84,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "no-tty",        no_argument,       NULL, ARG_NO_TTY        },
                 { "accept-cached", no_argument,       NULL, ARG_ACCEPT_CACHED },
                 { "multiple",      no_argument,       NULL, ARG_MULTIPLE      },
+                { "id",            required_argument, NULL, ARG_ID            },
                 {}
         };
 
@@ -117,6 +121,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_MULTIPLE:
                         arg_multiple = true;
+                        break;
+
+                case ARG_ID:
+                        arg_id = optarg;
                         break;
 
                 case '?':
@@ -162,7 +170,7 @@ int main(int argc, char *argv[]) {
         } else {
                 char **l;
 
-                if ((r = ask_password_agent(arg_message, arg_icon, timeout, arg_accept_cached, &l)) >= 0) {
+                if ((r = ask_password_agent(arg_message, arg_icon, arg_id, timeout, arg_accept_cached, &l)) >= 0) {
                         char **p;
 
                         STRV_FOREACH(p, l) {
