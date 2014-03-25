@@ -71,46 +71,45 @@ struct sd_shutdown_command {
  * AF_UNIX/SOCK_DGRAM datagram with the structure above suffixed with
  * the wall message to the socket /run/systemd/shutdownd (leave an
  * empty wall message for the default shutdown message). To calculate
- * the size of the message use "offsetof(struct sd_shutdown_command,
+ * the size of the message, use "offsetof(struct sd_shutdown_command,
  * wall_message) + strlen(command.wall_message)".
  *
- * To cancel a shutdown, do the same, but send an fully zeroed out
+ * To cancel a shutdown, do the same, but send a fully zeroed-out
  * structure.
  *
  * To be notified about scheduled shutdowns, create an inotify watch
- * on /run/shutdown/. Whenever a file called "scheduled" appears a
- * shutdown is scheduled. If it is removed it is canceled. It is
- * replaced the scheduled shutdown has been changed. The file contains
- * a simple environment-like block, that contains information about
+ * on /run/shutdown/. Whenever a file called "scheduled" appears, a
+ * shutdown is scheduled. If it is removed, it is canceled. If it is
+ * replaced, the scheduled shutdown has been changed. The file contains
+ * a simple, environment-like block that contains information about
  * the scheduled shutdown:
  *
  * USEC=
  * encodes the time for the shutdown in usecs since the epoch UTC,
- * formatted as numeric string.
+ * formatted as a numeric string.
  *
  * WARN_WALL=
  * is 1 if a wall message shall be sent
  *
  * DRY_RUN=
- * is 1 if a dry run shutdown is scheduled
+ * is 1 if a dry-run shutdown is scheduled
  *
  * MODE=
  * is the shutdown mode, one of "poweroff", "reboot", "halt", "kexec"
  *
  * WALL_MESSAGE=
- * is the wall message to use, with all special characters escape in C style.
+ * is the wall message to use, with all special characters escaped in C-style.
  *
  * Note that some fields might be missing if they do not apply.
  *
  * Note that the file is first written to a temporary file and then
  * renamed, in order to provide atomic properties for readers: if the
- * file exists under the name "scheduled" it is guaranteed to be fully
+ * file exists under the name "scheduled", it is guaranteed to be fully
  * written. A reader should ignore all files in that directory by any
  * other name.
  *
  * Scheduled shutdowns are only accepted from privileged processes,
- * but the directory may be watched and the file in it read by
- * anybody.
+ * but anyone may watch the directory and the file in it.
  */
 
 #ifdef __cplusplus

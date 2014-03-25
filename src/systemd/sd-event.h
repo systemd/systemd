@@ -33,8 +33,8 @@
 /*
   Why is this better than pure epoll?
 
-  - Supports event source priorisation
-  - Scales better with a large number of time events, since it doesn't require one timerfd each
+  - Supports event source prioritization
+  - Scales better with a large number of time events because it does not require one timerfd each
   - Automatically tries to coalesce timer events system-wide
   - Handles signals and child PIDs
 */
@@ -58,7 +58,7 @@ enum {
 };
 
 enum {
-        /* And everything inbetween and outside is good too */
+        /* And everything in-between and outside is good too */
         SD_EVENT_PRIORITY_IMPORTANT = -100,
         SD_EVENT_PRIORITY_NORMAL = 0,
         SD_EVENT_PRIORITY_IDLE = 100

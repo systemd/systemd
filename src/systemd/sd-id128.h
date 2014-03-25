@@ -29,7 +29,7 @@
 
 _SD_BEGIN_DECLARATIONS;
 
-/* 128 Bit ID APIs. See sd-id128(3) for more information. */
+/* 128-bit ID APIs. See sd-id128(3) for more information. */
 
 typedef union sd_id128 sd_id128_t;
 

@@ -22,10 +22,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-/* This is a private header, never even think of including this directly! */
+/* This is a private header; never even think of including this directly! */
 
 #if __INCLUDE_LEVEL__ <= 1
-#error "Do not include _sd-common.h directly, it is a private header."
+#error "Do not include _sd-common.h directly; it is a private header."
 #endif
 
 #ifndef _sd_printf_

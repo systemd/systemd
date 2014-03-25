@@ -37,14 +37,14 @@
  * may return NULL.
  *
  * Free the data the library returns with libc free(). String arrays
- * are NULL terminated and you need to free the array itself in
+ * are NULL terminated, and you need to free the array itself in
  * addition to the strings contained.
  *
- * We return error codes as negative errno, kernel-style. 0 or
- * positive on success.
+ * We return error codes as negative errno, kernel-style. On success, we
+ * return 0 or positive.
  *
- * These functions access data in /run. This is a virtual file systems,
- * hence the accesses is relatively cheap.
+ * These functions access data in /run. This is a virtual file system;
+ * therefore, accesses are relatively cheap.
  *
  * See sd-network(3) for more information.
  */
@@ -57,8 +57,8 @@ int sd_network_get_link_state(unsigned index, char**state);
 /* Get DHCPv4 lease from ifindex. */
 int sd_network_get_dhcp_lease(unsigned index, sd_dhcp_lease **ret);
 
-/* Get all network interfaces indices, store in *indices. Returns the
- * number of indices. If indices is NULL only returns the number of indices. */
+/* Get all network interfaces' indices, and store them in *indices. Returns
+ * the number of indices. If indices is NULL, only returns the number of indices. */
 int sd_network_get_ifindices(unsigned **indices);
 
 /* Monitor object */

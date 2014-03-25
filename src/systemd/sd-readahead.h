@@ -32,17 +32,17 @@ extern "C" {
 #endif
 
 /*
-  Reference implementation of a few boot readahead related
+  Reference implementation of a few boot read-ahead-related
   interfaces. These interfaces are trivial to implement. To simplify
-  porting, we provide this reference implementation.  Applications are
+  porting, we provide this reference implementation. Applications are
   welcome to reimplement the algorithms described here if they do not
   want to include these two source files.
 
   You may compile this with -DDISABLE_SYSTEMD to disable systemd
   support. This makes all calls NOPs.
 
-  Since this is drop-in code we don't want any of our symbols to be
-  exported in any case. Hence we declare hidden visibility for all of
+  Because this is drop-in code, we don't want any of our symbols to be
+  exported in any case. Hence, we declare hidden visibility for all of
   them.
 
   You may find an up-to-date version of these source files online:
@@ -50,18 +50,18 @@ extern "C" {
   http://cgit.freedesktop.org/systemd/systemd/plain/src/systemd/sd-readahead.h
   http://cgit.freedesktop.org/systemd/systemd/plain/src/readahead/sd-readahead.c
 
-  This should compile on non-Linux systems, too, but all functions
+  This should compile on non-Linux systems too, but all functions
   will become NOPs.
 
   See sd-readahead(3) for more information.
 */
 
 /*
-  Controls ongoing disk read-ahead operations during boot-up. The argument
-  must be a string, and either "cancel", "done" or "noreplay".
+  Controls on-going disk read-ahead operations during boot-up. The argument
+  must be one of the following strings: "cancel", "done", or "noreplay".
 
-  cancel = terminate read-ahead data collection, drop collected information
-  done = terminate read-ahead data collection, keep collected information
+  cancel = terminate read-ahead data collection, and drop collected information
+  done = terminate read-ahead data collection, and keep collected information
   noreplay = terminate read-ahead replay
 */
 int sd_readahead(const char *action);
