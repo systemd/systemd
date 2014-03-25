@@ -6018,13 +6018,10 @@ static int halt_parse_argv(int argc, char *argv[]) {
                 }
         }
 
-        if (arg_action == ACTION_REBOOT && argc == optind + 1) {
-                r = write_string_file(REBOOT_PARAM_FILE, argv[optind]);
-                if (r < 0) {
-                        log_error("Failed to write reboot param to "
-                                  REBOOT_PARAM_FILE": %s", strerror(-r));
+        if (arg_action == ACTION_REBOOT && (argc == optind || argc == optind + 1)) {
+                r = update_reboot_param_file(argc == optind + 1 ? argv[optind] : NULL);
+                if (r < 0)
                         return r;
-                }
         } else if (optind < argc) {
                 log_error("Too many arguments.");
                 return -EINVAL;

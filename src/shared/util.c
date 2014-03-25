@@ -6397,3 +6397,19 @@ void hexdump(FILE *f, const void *p, size_t s) {
                 s -= 16;
         }
 }
+
+int update_reboot_param_file(const char *param)
+{
+        int r = 0;
+
+        if (param) {
+
+                r = write_string_file(REBOOT_PARAM_FILE, param);
+                if (r < 0)
+                        log_error("Failed to write reboot param to "
+                                  REBOOT_PARAM_FILE": %s", strerror(-r));
+        } else
+                unlink(REBOOT_PARAM_FILE);
+
+        return r;
+}
