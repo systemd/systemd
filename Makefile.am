@@ -2109,8 +2109,6 @@ libsystemd_internal_la_SOURCES = \
 	src/libsystemd/sd-rtnl/rtnl-message.c \
 	src/libsystemd/sd-rtnl/rtnl-util.h \
 	src/libsystemd/sd-rtnl/rtnl-util.c \
-	src/libsystemd/sd-resolve/sd-resolve.c \
-	src/libsystemd/sd-resolve/resolve-util.h \
 	src/libsystemd/sd-id128/sd-id128.c \
 	src/libsystemd/sd-daemon/sd-daemon.c \
 	src/libsystemd/sd-login/sd-login.c
@@ -2126,8 +2124,17 @@ libsystemd_internal_la_CFLAGS = \
 libsystemd_internal_la_LIBADD = \
 	$(RT_LIBS)
 
+libsystemd_resolve_la_SOURCES = \
+	src/libsystemd/sd-resolve/sd-resolve.c \
+	src/libsystemd/sd-resolve/resolve-util.h
+
+libsystemd_resolve_la_CFLAGS = \
+	$(AM_CFLAGS) \
+	-pthread
+
 noinst_LTLIBRARIES += \
-	libsystemd-internal.la
+	libsystemd-internal.la \
+	libsystemd-resolve.la
 
 libsystemd_dump_la_SOURCES = \
 	src/libsystemd/sd-bus/bus-dump.c \
@@ -2156,6 +2163,7 @@ BUILT_SOURCES += \
 
 libsystemd_la_SOURCES = \
 	$(libsystemd_internal_la_SOURCES) \
+	$(libsystemd_resolve_la_SOURCES) \
 	$(libsystemd_journal_internal_la_SOURCES)
 
 nodist_libsystemd_la_SOURCES = \
@@ -2420,6 +2428,7 @@ test_resolve_SOURCES = \
 
 test_resolve_LDADD = \
 	libsystemd-internal.la \
+	libsystemd-resolve.la \
 	libsystemd-shared.la \
 	-lresolv
 
