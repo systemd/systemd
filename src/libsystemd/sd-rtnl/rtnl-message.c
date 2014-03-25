@@ -24,6 +24,9 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <linux/veth.h>
+#include <linux/if.h>
+#include <linux/ip.h>
+#include <linux/if_tunnel.h>
 #include <linux/if_bridge.h>
 
 #include "util.h"
@@ -456,6 +459,12 @@ int sd_rtnl_message_append_u8(sd_rtnl_message *m, unsigned short type, uint8_t d
                                 case IFLA_CARRIER:
                                 case IFLA_OPERSTATE:
                                 case IFLA_LINKMODE:
+                                case IFLA_IPTUN_TTL:
+                                case IFLA_IPTUN_TOS:
+                                case IFLA_IPTUN_PROTO:
+                                case IFLA_IPTUN_PMTUDISC:
+                                case IFLA_IPTUN_ENCAP_LIMIT:
+                                case IFLA_GRE_TTL:
                                 break;
                         default:
                                 return -ENOTSUP;
@@ -493,12 +502,22 @@ int sd_rtnl_message_append_u16(sd_rtnl_message *m, unsigned short type, uint16_t
                 case RTM_DELLINK:
                         if (m->n_containers == 2 &&
                             GET_CONTAINER(m, 0)->rta_type == IFLA_LINKINFO &&
-                            GET_CONTAINER(m, 1)->rta_type == IFLA_INFO_DATA &&
-                            type == IFLA_VLAN_ID)
-                                break;
-                        else
+                            GET_CONTAINER(m, 1)->rta_type == IFLA_INFO_DATA) {
+                                switch (type) {
+                                       case IFLA_VLAN_ID:
+                                       case IFLA_IPTUN_FLAGS:
+                                       case IFLA_GRE_IFLAGS:
+                                       case IFLA_GRE_OFLAGS:
+                                       case IFLA_IPTUN_6RD_PREFIXLEN:
+                                       case IFLA_IPTUN_6RD_RELAY_PREFIXLEN:
+                                               break;
+                                       default:
+                                            return -ENOTSUP;
+                                }
+                        } else
                                 return -ENOTSUP;
 
+                        break;
                 default:
                         return -ENOTSUP;
         }
@@ -539,7 +558,12 @@ int sd_rtnl_message_append_u32(sd_rtnl_message *m, unsigned short type, uint32_t
                                 case IFLA_PROMISCUITY:
                                 case IFLA_NUM_TX_QUEUES:
                                 case IFLA_NUM_RX_QUEUES:
+                                case IFLA_IPTUN_LOCAL:
+                                case IFLA_IPTUN_REMOTE:
                                 case IFLA_MACVLAN_MODE:
+                                case IFLA_IPTUN_FLAGS:
+                                case IFLA_IPTUN_FLOWINFO:
+                                case IFLA_GRE_FLOWINFO:
                                         break;
                                 default:
                                         return -ENOTSUP;
@@ -594,6 +618,8 @@ int sd_rtnl_message_append_in_addr(sd_rtnl_message *m, unsigned short type, cons
                                 case IFA_LOCAL:
                                 case IFA_BROADCAST:
                                 case IFA_ANYCAST:
+                                case IFLA_GRE_LOCAL:
+                                case IFLA_GRE_REMOTE:
                                         ifa = NLMSG_DATA(m->hdr);
 
                                         if (ifa->ifa_family != AF_INET)
@@ -656,6 +682,9 @@ int sd_rtnl_message_append_in6_addr(sd_rtnl_message *m, unsigned short type, con
                                 case IFA_LOCAL:
                                 case IFA_BROADCAST:
                                 case IFA_ANYCAST:
+                                case IFLA_GRE_LOCAL:
+                                case IFLA_GRE_REMOTE:
+                                case IFLA_IPTUN_6RD_PREFIX:
                                         ifa = NLMSG_DATA(m->hdr);
 
                                         if (ifa->ifa_family != AF_INET6)

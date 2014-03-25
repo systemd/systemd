@@ -1175,7 +1175,8 @@ manual_tests += \
 	test-install \
 	test-watchdog \
 	test-log \
-	test-ipcrm
+	test-ipcrm \
+	test-rtnl-manual
 
 tests += \
 	test-job-type \
@@ -1397,6 +1398,14 @@ test_ipcrm_SOURCES = \
 test_ipcrm_LDADD = \
 	libsystemd-shared.la \
 	-lrt
+
+test_rtnl_manual_SOURCES = \
+	src/test/test-rtnl-manual.c
+
+test_rtnl_manual_LDADD = \
+	libsystemd-internal.la \
+	libsystemd-shared.la \
+	-lkmod
 
 test_ellipsize_SOURCES = \
 	src/test/test-ellipsize.c
