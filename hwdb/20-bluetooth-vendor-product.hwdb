@@ -923,3 +923,21 @@ bluetooth:v0130*
 
 bluetooth:v0131*
  ID_VENDOR_FROM_DATABASE=Cypress Semiconductor Corporation
+
+bluetooth:v0132*
+ ID_VENDOR_FROM_DATABASE=MADS Inc
+
+bluetooth:v0133*
+ ID_VENDOR_FROM_DATABASE=Blue Maestro Limited
+
+bluetooth:v0134*
+ ID_VENDOR_FROM_DATABASE=Resolution Products, Inc.
+
+bluetooth:v0135*
+ ID_VENDOR_FROM_DATABASE=Airewear LLC
+
+bluetooth:v0136*
+ ID_VENDOR_FROM_DATABASE=ETC sp. z.o.o.
+
+bluetooth:v0137*
+ ID_VENDOR_FROM_DATABASE=Prestigio Plaza Ltd.
