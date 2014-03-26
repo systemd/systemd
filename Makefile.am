@@ -1172,6 +1172,7 @@ manual_tests += \
 	test-hostname \
 	test-daemon \
 	test-cgroup \
+	test-cgroup-mask \
 	test-install \
 	test-watchdog \
 	test-log \
@@ -1199,7 +1200,6 @@ tests += \
 	test-calendarspec \
 	test-strip-tab-ansi \
 	test-cgroup-util \
-	test-cgroup-mask \
 	test-prioq \
 	test-fileio \
 	test-time \
