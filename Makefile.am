@@ -3449,19 +3449,19 @@ rootlibexec_PROGRAMS += \
 	systemd-journal-remote
 
 systemd_journal_remote_SOURCES = \
-	src/journal/journal-remote-parse.h \
-	src/journal/journal-remote-parse.c \
-	src/journal/journal-remote-write.h \
-	src/journal/journal-remote-write.c \
-	src/journal/journal-remote.c
+	src/journal-remote/journal-remote-parse.h \
+	src/journal-remote/journal-remote-parse.c \
+	src/journal-remote/journal-remote-write.h \
+	src/journal-remote/journal-remote-write.c \
+	src/journal-remote/journal-remote.c
 
 systemd_journal_remote_LDADD = \
 	libsystemd-internal.la \
 	libsystemd-journal-core.la
 
 systemd_journal_remote_SOURCES += \
-	src/journal/microhttpd-util.h \
-	src/journal/microhttpd-util.c
+	src/journal-remote/microhttpd-util.h \
+	src/journal-remote/microhttpd-util.c
 
 systemd_journal_remote_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -3803,9 +3803,9 @@ rootlibexec_PROGRAMS += \
 	systemd-journal-gatewayd
 
 systemd_journal_gatewayd_SOURCES = \
-	src/journal/journal-gatewayd.c \
-	src/journal/microhttpd-util.h \
-	src/journal/microhttpd-util.c
+	src/journal-remote/journal-gatewayd.c \
+	src/journal-remote/microhttpd-util.h \
+	src/journal-remote/microhttpd-util.c
 
 systemd_journal_gatewayd_LDADD = \
 	libsystemd-logs.la \
@@ -3834,7 +3834,7 @@ nodist_systemunit_DATA += \
 	units/systemd-journal-gatewayd.service
 
 dist_gatewayddocumentroot_DATA = \
-	src/journal/browse.html
+	src/journal-remote/browse.html
 
 endif
 
