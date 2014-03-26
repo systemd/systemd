@@ -4,6 +4,7 @@
   This file is part of systemd.
 
   Copyright 2005-2008 Lennart Poettering
+  Copyright 2014 Daniel Buch
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -31,36 +32,39 @@
 #include <signal.h>
 #include <errno.h>
 
+#include "socket-util.h"
 #include "sd-resolve.h"
 #include "resolve-util.h"
 #include "macro.h"
 
 int main(int argc, char *argv[]) {
-        int r = 1;
+        int r = 0;
         _cleanup_resolve_unref_ sd_resolve *resolve = NULL;
         _cleanup_resolve_addrinfo_free_ struct addrinfo *ai = NULL;
         _cleanup_free_ unsigned char *srv = NULL;
-        sd_resolve_query *q1 = NULL, *q2 = NULL, *q3 = NULL;
-        struct addrinfo hints = {};
-        struct sockaddr_in sa = {};
         _cleanup_free_ char *host = NULL, *serv = NULL;
+        sd_resolve_query *q1 = NULL, *q2 = NULL, *q3 = NULL;
+
+        struct addrinfo hints = {
+                .ai_family = PF_UNSPEC,
+                .ai_socktype = SOCK_STREAM,
+                .ai_flags = AI_CANONNAME
+        };
+
+        struct sockaddr_in sa = {
+                .sin_family = AF_INET,
+                .sin_port = htons(80)
+        };
 
         assert_se(sd_resolve_new(&resolve) >= 0);
 
         /* Make a name -> address query */
-        hints.ai_family = PF_UNSPEC;
-        hints.ai_socktype = SOCK_STREAM;
-        hints.ai_flags = AI_CANONNAME;
-
         r = sd_resolve_getaddrinfo(resolve, &q1, argc >= 2 ? argv[1] : "www.heise.de", NULL, &hints);
         if (r < 0)
                 log_error("sd_resolve_getaddrinfo(): %s\n", strerror(-r));
 
         /* Make an address -> name query */
-        sa.sin_family = AF_INET;
-        sa.sin_addr.s_addr = inet_addr(argc >= 3 ? argv[2] : "193.99.144.71");
-        sa.sin_port = htons(80);
-
+        sa.sin_addr.s_addr = inet_addr(argc >= 3 ? argv[2] : "193.99.144.71"),
         r = sd_resolve_getnameinfo(resolve, &q2, (struct sockaddr*) &sa, sizeof(sa), 0, true, true);
         if (r < 0)
                 log_error("sd_resolve_getnameinfo(): %s\n", strerror(-r));
@@ -90,15 +94,11 @@ int main(int argc, char *argv[]) {
                 struct addrinfo *i;
 
                 for (i = ai; i; i = i->ai_next) {
-                        char t[256];
-                        const char *p = NULL;
+                        _cleanup_free_ char *addr = NULL;
 
-                        if (i->ai_family == PF_INET)
-                                p = inet_ntop(AF_INET, &((struct sockaddr_in*) i->ai_addr)->sin_addr, t, sizeof(t));
-                        else if (i->ai_family == PF_INET6)
-                                p = inet_ntop(AF_INET6, &((struct sockaddr_in6*) i->ai_addr)->sin6_addr, t, sizeof(t));
+                        assert_se(sockaddr_pretty(i->ai_addr, i->ai_addrlen, false, &addr) == 0);
 
-                        printf("%s\n", p);
+                        puts(addr);
                 }
 
                 printf("canonical name: %s\n", strna(ai->ai_canonname));
@@ -109,7 +109,7 @@ int main(int argc, char *argv[]) {
         if (r)
                 log_error("error: %s %i\n", gai_strerror(r), r);
         else
-                printf("%s -- %s\n", host, serv);
+                printf("Host: %s -- Serv: %s\n", host, serv);
 
         /* Interpret the result of the SRV lookup */
         r = sd_resolve_res_done(q3, &srv);
@@ -118,9 +118,7 @@ int main(int argc, char *argv[]) {
         else if (r == 0)
                 log_error("No reply for SRV lookup\n");
         else {
-                int qdcount;
-                int ancount;
-                int len;
+                int qdcount, ancount, len;
                 const unsigned char *pos = srv + sizeof(HEADER);
                 unsigned char *end = srv + r;
                 HEADER *head = (HEADER *)srv;
@@ -157,7 +155,5 @@ int main(int argc, char *argv[]) {
                 }
         }
 
-        r = 0;
-
-        return r;
+        return 0;
 }
