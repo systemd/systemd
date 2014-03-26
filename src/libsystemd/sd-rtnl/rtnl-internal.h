@@ -29,6 +29,8 @@
 
 #include "sd-rtnl.h"
 
+#include "rtnl-types.h"
+
 #define RTNL_DEFAULT_TIMEOUT ((usec_t) (25 * USEC_PER_SEC))
 
 #define RTNL_WQUEUE_MAX 1024
@@ -91,6 +93,7 @@ struct sd_rtnl_message {
         sd_rtnl *rtnl;
 
         struct nlmsghdr *hdr;
+        const struct NLTypeSystem *(container_type_system[RTNL_CONTAINER_DEPTH]); /* the type of the container and all its parents */
         size_t container_offsets[RTNL_CONTAINER_DEPTH]; /* offset from hdr to each container's start */
         unsigned n_containers; /* number of containers */
         size_t next_rta_offset; /* offset from hdr to next rta */
@@ -99,7 +102,7 @@ struct sd_rtnl_message {
         bool sealed:1;
 };
 
-int message_new(sd_rtnl *rtnl, sd_rtnl_message **ret, size_t initial_size);
+int message_new(sd_rtnl *rtnl, sd_rtnl_message **ret, uint16_t type);
 
 int socket_write_message(sd_rtnl *nl, sd_rtnl_message *m);
 int socket_read_message(sd_rtnl *nl, sd_rtnl_message **ret);

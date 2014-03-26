@@ -2107,6 +2107,8 @@ libsystemd_internal_la_SOURCES = \
 	src/libsystemd/sd-rtnl/sd-rtnl.c \
 	src/libsystemd/sd-rtnl/rtnl-internal.h \
 	src/libsystemd/sd-rtnl/rtnl-message.c \
+	src/libsystemd/sd-rtnl/rtnl-types.h \
+	src/libsystemd/sd-rtnl/rtnl-types.c \
 	src/libsystemd/sd-rtnl/rtnl-util.h \
 	src/libsystemd/sd-rtnl/rtnl-util.c \
 	src/libsystemd/sd-id128/sd-id128.c \

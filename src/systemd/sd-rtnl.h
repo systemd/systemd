@@ -101,6 +101,7 @@ int sd_rtnl_message_append_in6_addr(sd_rtnl_message *m, unsigned short type, con
 int sd_rtnl_message_append_ether_addr(sd_rtnl_message *m, unsigned short type, const struct ether_addr *data);
 
 int sd_rtnl_message_open_container(sd_rtnl_message *m, unsigned short type);
+int sd_rtnl_message_open_container_union(sd_rtnl_message *m, unsigned short type, const char *key);
 int sd_rtnl_message_close_container(sd_rtnl_message *m);
 
 int sd_rtnl_message_read_string(sd_rtnl_message *m, unsigned short type, char **data);

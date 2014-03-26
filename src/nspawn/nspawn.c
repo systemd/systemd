@@ -1486,13 +1486,7 @@ static int setup_veth(pid_t pid, char iface_name[IFNAMSIZ]) {
                 return r;
         }
 
-        r = sd_rtnl_message_append_string(m, IFLA_INFO_KIND, "veth");
-        if (r < 0) {
-                log_error("Failed to append netlink kind: %s", strerror(-r));
-                return r;
-        }
-
-        r = sd_rtnl_message_open_container(m, IFLA_INFO_DATA);
+        r = sd_rtnl_message_open_container_union(m, IFLA_INFO_DATA, "veth");
         if (r < 0) {
                 log_error("Failed to open netlink container: %s", strerror(-r));
                 return r;
@@ -1757,13 +1751,7 @@ static int setup_macvlan(pid_t pid) {
                         return r;
                 }
 
-                r = sd_rtnl_message_append_string(m, IFLA_INFO_KIND, "macvlan");
-                if (r < 0) {
-                        log_error("Failed to append netlink kind: %s", strerror(-r));
-                        return r;
-                }
-
-                r = sd_rtnl_message_open_container(m, IFLA_INFO_DATA);
+                r = sd_rtnl_message_open_container_union(m, IFLA_INFO_DATA, "macvlan");
                 if (r < 0) {
                         log_error("Failed to open netlink container: %s", strerror(-r));
                         return r;

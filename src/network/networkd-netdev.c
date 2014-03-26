@@ -291,50 +291,40 @@ static int netdev_create(NetDev *netdev, Link *link, sd_rtnl_message_handler_t c
                 return -EINVAL;
         }
 
-        r = sd_rtnl_message_append_string(req, IFLA_INFO_KIND, kind);
+        r = sd_rtnl_message_open_container_union(req, IFLA_INFO_DATA, kind);
         if (r < 0) {
                 log_error_netdev(netdev,
-                                 "Could not append IFLA_INFO_KIND attribute: %s",
-                                 strerror(-r));
+                                 "Could not open IFLA_INFO_DATA container: %s",
+                                  strerror(-r));
                 return r;
         }
 
-        if (netdev->vlanid <= VLANID_MAX || netdev->macvlan_mode != _NETDEV_MACVLAN_MODE_INVALID) {
-                r = sd_rtnl_message_open_container(req, IFLA_INFO_DATA);
+        if (netdev->vlanid <= VLANID_MAX) {
+                r = sd_rtnl_message_append_u16(req, IFLA_VLAN_ID, netdev->vlanid);
                 if (r < 0) {
                         log_error_netdev(netdev,
-                                         "Could not open IFLA_INFO_DATA container: %s",
+                                         "Could not append IFLA_VLAN_ID attribute: %s",
                                          strerror(-r));
                         return r;
                 }
+        }
 
-                if (netdev->vlanid <= VLANID_MAX) {
-                        r = sd_rtnl_message_append_u16(req, IFLA_VLAN_ID, netdev->vlanid);
-                        if (r < 0) {
-                                log_error_netdev(netdev,
-                                                 "Could not append IFLA_VLAN_ID attribute: %s",
-                                                 strerror(-r));
-                                return r;
-                        }
-                }
-
-                if (netdev->macvlan_mode != _NETDEV_MACVLAN_MODE_INVALID) {
-                        r = sd_rtnl_message_append_u32(req, IFLA_MACVLAN_MODE, netdev->macvlan_mode);
-                        if (r < 0) {
-                                log_error_netdev(netdev,
-                                                 "Could not append IFLA_MACVLAN_MODE attribute: %s",
-                                                 strerror(-r));
-                                return r;
-                        }
-                }
-
-                r = sd_rtnl_message_close_container(req);
-                if (r < 0) {
-                        log_error_netdev(netdev,
-                                         "Could not close IFLA_INFO_DATA container %s",
-                                         strerror(-r));
+        if (netdev->macvlan_mode != _NETDEV_MACVLAN_MODE_INVALID) {
+        r = sd_rtnl_message_append_u32(req, IFLA_MACVLAN_MODE, netdev->macvlan_mode);
+        if (r < 0) {
+                log_error_netdev(netdev,
+                                 "Could not append IFLA_MACVLAN_MODE attribute: %s",
+                                 strerror(-r));
                         return r;
                 }
+        }
+
+        r = sd_rtnl_message_close_container(req);
+        if (r < 0) {
+                log_error_netdev(netdev,
+                                 "Could not close IFLA_INFO_DATA container %s",
+                                 strerror(-r));
+                return r;
         }
 
         r = sd_rtnl_message_close_container(req);

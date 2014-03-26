@@ -279,10 +279,7 @@ static void test_container(void) {
         assert_se(sd_rtnl_message_new_link(NULL, &m, RTM_NEWLINK, 0) >= 0);
 
         assert_se(sd_rtnl_message_open_container(m, IFLA_LINKINFO) >= 0);
-        assert_se(sd_rtnl_message_open_container(m, IFLA_LINKINFO) == -ENOTSUP);
-        assert_se(sd_rtnl_message_append_string(m, IFLA_INFO_KIND, "vlan") >= 0);
-        assert_se(sd_rtnl_message_open_container(m, IFLA_INFO_DATA) >= 0);
-        assert_se(sd_rtnl_message_open_container(m, IFLA_INFO_DATA) == -ENOTSUP);
+        assert_se(sd_rtnl_message_open_container_union(m, IFLA_INFO_DATA, "vlan") >= 0);
         assert_se(sd_rtnl_message_append_u16(m, IFLA_VLAN_ID, 100) >= 0);
         assert_se(sd_rtnl_message_close_container(m) >= 0);
         assert_se(sd_rtnl_message_append_string(m, IFLA_INFO_KIND, "vlan") >= 0);
@@ -303,7 +300,7 @@ static void test_container(void) {
         assert_se(streq("vlan", string_data));
         assert_se(sd_rtnl_message_exit_container(m) >= 0);
 
-        assert_se(sd_rtnl_message_read_u32(m, IFLA_LINKINFO, &u32_data) == 0);
+        assert_se(sd_rtnl_message_read_u32(m, IFLA_LINKINFO, &u32_data) < 0);
 
         assert_se(sd_rtnl_message_exit_container(m) == -EINVAL);
 }
