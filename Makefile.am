@@ -5038,7 +5038,7 @@ endif
 # check "broken" platforms limited toolchains for link breakage before we release
 .PHONY: linkcheck
 linkcheck:
-	$(MAKE) CFLAGS='-fno-lto' LDFLAGS='-Wl,--no-as-needed -Wl,--no-gc-sections' distcheck
+	$(MAKE) CFLAGS='-fno-lto' LDFLAGS='-Wl,-fuse-ld=gold -Wl,--as-needed -Wl,--no-gc-sections' distcheck
 
 .PHONY: hwdb-update
 hwdb-update:
