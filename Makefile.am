@@ -5054,13 +5054,15 @@ kdbus-update:
 	( cd $(top_srcdir)/src/libsystemd/ && \
 	wget -N https://d-bus.googlecode.com/git/kdbus.h )
 
-.PHONY: upload
-upload: all check dist
-	cp -v systemd-$(VERSION).tar.xz /home/lennart/git.fedora/systemd/
-	scp systemd-$(VERSION).tar.xz fdo:/srv/www.freedesktop.org/www/software/systemd/
-	scp man/*.html tango:public/systemd-man/
+.PHONY: git-tag
+git-tag:
+	git tag -s "v$(VERSION)" -m "systemd $(VERSION)"
 
 www_target = www.freedesktop.org:/srv/www.freedesktop.org/www/software/systemd
+.PHONY: upload
+upload: all check dist
+	scp systemd-$(VERSION).tar.xz $(www_target)
+
 .PHONY: doc-sync
 doc-sync: all destdir-sphinx
 	gtkdoc-rebase --html-dir=docs/libudev/html --online
@@ -5070,9 +5072,10 @@ doc-sync: all destdir-sphinx
 	rsync -rlv --delete-excluded --include="*.html" --exclude="*" --omit-dir-times man/ $(www_target)/man/
 	rsync -rlv --delete --omit-dir-times docs/html/python-systemd/ $(www_target)/python-systemd/
 
-.PHONY: git-tag
-git-tag:
-	git tag -s "v$(VERSION)" -m "systemd $(VERSION)"
+.PHONY: tango
+tango: upload
+	cp -v systemd-$(VERSION).tar.xz /home/lennart/git.fedora/systemd/
+	scp man/*.html tango:public/systemd-man/
 
 .PHONY: install-tree
 install-tree: all
