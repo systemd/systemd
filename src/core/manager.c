@@ -422,7 +422,7 @@ int manager_new(SystemdRunningAs running_as, Manager **_m) {
                 return -ENOMEM;
 
 #ifdef ENABLE_EFI
-        if (detect_container(NULL) <= 0)
+        if (running_as == SYSTEMD_SYSTEM && detect_container(NULL) <= 0)
                 boot_timestamps(&m->userspace_timestamp, &m->firmware_timestamp, &m->loader_timestamp);
 #endif
 
