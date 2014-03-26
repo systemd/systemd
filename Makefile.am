@@ -5036,8 +5036,8 @@ DISTCHECK_CONFIGURE_FLAGS += \
 endif
 
 # check "broken" platforms limited toolchains for link breakage before we release
-.PHONY: check-broken
-check-broken:
+.PHONY: linkcheck
+linkcheck:
 	$(MAKE) CFLAGS='-fno-lto' LDFLAGS='-Wl,--no-as-needed -Wl,--no-gc-sections' distcheck
 
 .PHONY: hwdb-update
