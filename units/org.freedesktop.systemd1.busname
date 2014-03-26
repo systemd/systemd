@@ -7,7 +7,7 @@
 
 [Unit]
 Description=systemd busname unit
-Documentation=man:systemd-hostnamed.service(8)
+Documentation=man:systemd(1)
 Documentation=http://www.freedesktop.org/wiki/Software/systemd
 
 [BusName]

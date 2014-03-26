@@ -3866,21 +3866,23 @@ nodist_systemunit_DATA += \
 	units/systemd-bus-driverd.service
 
 dist_systemunit_DATA += \
-	units/org.freedesktop.DBus.busname	\
+	units/org.freedesktop.DBus.busname \
 	units/org.freedesktop.systemd1.busname
 
 BUSNAMES_TARGET_WANTS += \
-	org.freedesktop.DBus.busname	\
+	org.freedesktop.DBus.busname \
 	org.freedesktop.systemd1.busname
 
 nodist_userunit_DATA += \
 	units/user/systemd-bus-driverd.service
 
 USER_BUSNAMES_TARGET_WANTS += \
-	org.freedesktop.DBus.busname
+	org.freedesktop.DBus.busname \
+	org.freedesktop.systemd1.busname
 
 USER_UNIT_ALIASES += \
-	$(systemunitdir)/org.freedesktop.DBus.busname org.freedesktop.DBus.busname
+	$(systemunitdir)/org.freedesktop.DBus.busname org.freedesktop.DBus.busname \
+	$(systemunitdir)/org.freedesktop.systemd1.busname org.freedesktop.systemd1.busname
 endif
 
 EXTRA_DIST += \
