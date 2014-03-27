@@ -279,7 +279,7 @@ sd_rtnl_message *sd_rtnl_message_unref(sd_rtnl_message *m) {
 
                 free(m->hdr);
 
-                for (i = 0; i < m->n_containers; i++)
+                for (i = 0; i <= m->n_containers; i++)
                         free(m->rta_offset_tb[i]);
 
                 free(m);
