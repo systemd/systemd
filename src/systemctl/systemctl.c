@@ -1955,7 +1955,7 @@ static int set_default(sd_bus *bus, char **args) {
                 if (r < 0)
                         return r;
 
-                /* Try to reload if enabeld */
+                /* Try to reload if enabled */
                 if (!arg_no_reload)
                         r = daemon_reload(bus, args);
                 else
@@ -5242,7 +5242,7 @@ static int enable_unit(sd_bus *bus, char **args) {
                 if (r < 0)
                         return r;
 
-                /* Try to reload if enabeld */
+                /* Try to reload if enabled */
                 if (!arg_no_reload)
                         r = daemon_reload(bus, args);
                 else
