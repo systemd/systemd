@@ -37,7 +37,6 @@
  *   ccw<name>                             -- CCW bus group name
  *   o<index>                              -- on-board device index number
  *   s<slot>[f<function>][d<dev_id>]       -- hotplug slot index number
- *   v<number>                             -- virtio number
  *   x<MAC>                                -- MAC address
  *   [P<domain>]p<bus>s<slot>[f<function>][d<dev_id>]
  *                                         -- PCI geographical location
@@ -123,7 +122,6 @@ struct netnames {
 
         char usb_ports[IFNAMSIZ];
         char bcma_core[IFNAMSIZ];
-        char virtio[IFNAMSIZ];
         char ccw_group[IFNAMSIZ];
 };
 
@@ -351,24 +349,6 @@ static int names_bcma(struct udev_device *dev, struct netnames *names) {
         return 0;
 }
 
-static int names_virtio(struct udev_device *dev, struct netnames *names) {
-        struct udev_device *virtdev;
-        unsigned int num;
-
-        virtdev = udev_device_get_parent_with_subsystem_devtype(dev, "virtio", NULL);
-        if (!virtdev)
-                return -ENOENT;
-
-        if (sscanf(udev_device_get_sysname(virtdev), "virtio%u", &num) != 1)
-                return -EINVAL;
-        /* suppress the common num == 0 */
-        if (num > 0)
-                snprintf(names->virtio, sizeof(names->virtio), "v%u", num);
-
-        names->type = NET_VIRTIO;
-        return 0;
-}
-
 static int names_ccw(struct  udev_device *dev, struct netnames *names) {
         struct udev_device *cdev;
         const char *bus_id;
@@ -577,22 +557,6 @@ static int builtin_net_id(struct udev_device *dev, int argc, char *argv[], bool 
                                 udev_builtin_add_property(dev, test, "ID_NET_NAME_SLOT", str);
                 goto out;
         }
-
-        /* virtio bus */
-        err = names_virtio(dev, &names);
-        if (err >= 0 && names.type == NET_VIRTIO) {
-                char str[IFNAMSIZ];
-
-                if (names.pci_path[0])
-                        if (snprintf(str, sizeof(str), "%s%s%s", prefix, names.pci_path, names.virtio) < (int)sizeof(str))
-                                udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
-
-                if (names.pci_slot[0])
-                        if (snprintf(str, sizeof(str), "%s%s%s", prefix, names.pci_slot, names.virtio) < (int)sizeof(str))
-                                udev_builtin_add_property(dev, test, "ID_NET_NAME_SLOT", str);
-                goto out;
-        }
-
 out:
         return EXIT_SUCCESS;
 }
