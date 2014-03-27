@@ -192,30 +192,37 @@ static bool validate_device(struct udev *udev, struct udev_device *device) {
         return true;
 }
 
-/* Some systems turn the backlight all the way off at the lowest levels.
- * clamp_brightness clamps the saved brightness to at least 1 or 5% of
- * max_brightness.  This avoids preserving an unreadably dim screen, which
- * would otherwise force the user to disable state restoration. */
-static void clamp_brightness(struct udev_device *device, char **value) {
+static unsigned get_max_brightness(struct udev_device *device) {
         int r;
         const char *max_brightness_str;
-        unsigned brightness, max_brightness, new_brightness;
+        unsigned max_brightness;
 
         max_brightness_str = udev_device_get_sysattr_value(device, "max_brightness");
         if (!max_brightness_str) {
-                log_warning("Failed to read max_brightness attribute; not checking saved brightness");
-                return;
-        }
-
-        r = safe_atou(*value, &brightness);
-        if (r < 0) {
-                log_warning("Failed to parse brightness \"%s\": %s", *value, strerror(-r));
-                return;
+                log_warning("Failed to read max_brightness attribute");
+                return 0;
         }
 
         r = safe_atou(max_brightness_str, &max_brightness);
         if (r < 0) {
                 log_warning("Failed to parse max_brightness \"%s\": %s", max_brightness_str, strerror(-r));
+                return 0;
+        }
+
+        return max_brightness;
+}
+
+/* Some systems turn the backlight all the way off at the lowest levels.
+ * clamp_brightness clamps the saved brightness to at least 1 or 5% of
+ * max_brightness.  This avoids preserving an unreadably dim screen, which
+ * would otherwise force the user to disable state restoration. */
+static void clamp_brightness(struct udev_device *device, char **value, unsigned max_brightness) {
+        int r;
+        unsigned brightness, new_brightness;
+
+        r = safe_atou(*value, &brightness);
+        if (r < 0) {
+                log_warning("Failed to parse brightness \"%s\": %s", *value, strerror(-r));
                 return;
         }
 
@@ -239,6 +246,7 @@ int main(int argc, char *argv[]) {
         _cleanup_udev_device_unref_ struct udev_device *device = NULL;
         _cleanup_free_ char *saved = NULL, *ss = NULL, *escaped_ss = NULL, *escaped_sysname = NULL, *escaped_path_id = NULL;
         const char *sysname, *path_id;
+        unsigned max_brightness;
         int r;
 
         if (argc != 3) {
@@ -294,6 +302,14 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
+        /* If max_brightness is 0, then there is no actual backlight
+         * device. This happens on desktops with Asus mainboards
+         * that load the eeepc-wmi module.
+         */
+        max_brightness = get_max_brightness(device);
+        if (max_brightness == 0)
+                return EXIT_SUCCESS;
+
         escaped_ss = cescape(ss);
         if (!escaped_ss) {
                 log_oom();
@@ -348,7 +364,7 @@ int main(int argc, char *argv[]) {
                         return EXIT_FAILURE;
                 }
 
-                clamp_brightness(device, &value);
+                clamp_brightness(device, &value, max_brightness);
 
                 r = udev_device_set_sysattr_value(device, "brightness", value);
                 if (r < 0) {
