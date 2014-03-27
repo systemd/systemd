@@ -292,7 +292,7 @@ static int dhcp_client_send_raw(sd_dhcp_client *client, DHCPPacket *packet,
 }
 
 static int client_send_discover(sd_dhcp_client *client) {
-        _cleanup_free_ DHCPPacket *discover;
+        _cleanup_free_ DHCPPacket *discover = NULL;
         size_t optlen, len;
         uint8_t *opt;
         usec_t time_now;

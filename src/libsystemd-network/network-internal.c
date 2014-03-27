@@ -38,7 +38,7 @@
 
 int net_get_unique_predictable_data(struct udev_device *device, uint8_t result[8]) {
         size_t l, sz = 0;
-        const char *name, *field = NULL;
+        const char *name = NULL, *field = NULL;
         int r;
         uint8_t *v;
 

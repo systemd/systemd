@@ -1983,6 +1983,8 @@ static int source_dispatch(sd_event_source *s) {
                 break;
 
         case SOURCE_WATCHDOG:
+        case _SOUFCE_EVENT_SOURCE_TYPE_MAX:
+        case _SOURCE_EVENT_SOURCE_TYPE_INVALID:
                 assert_not_reached("Wut? I shouldn't exist.");
         }
 
