@@ -146,6 +146,9 @@ static int netdev_enter_ready(NetDev *netdev) {
         assert(netdev);
         assert(netdev->name);
 
+        if (netdev->state != NETDEV_STATE_CREATING)
+                return 0;
+
         netdev->state = NETDEV_STATE_READY;
 
         log_info_netdev(netdev, "netdev ready");
@@ -385,11 +388,15 @@ int netdev_set_ifindex(NetDev *netdev, sd_rtnl_message *message) {
         assert(message);
 
         r = sd_rtnl_message_get_type(message, &type);
-        if (r < 0)
+        if (r < 0) {
+                log_error_netdev(netdev, "Could not get rtnl message type");
                 return r;
+        }
 
-        if (type != RTM_NEWLINK)
+        if (type != RTM_NEWLINK) {
+                log_error_netdev(netdev, "Can not set ifindex from unexpected rtnl message type");
                 return -EINVAL;
+        }
 
         r = sd_rtnl_message_enter_container(message, IFLA_LINKINFO);
         if (r < 0) {
@@ -427,11 +434,11 @@ int netdev_set_ifindex(NetDev *netdev, sd_rtnl_message *message) {
                 return r;
         }
 
-        if (netdev->ifindex > 0) {
-                if (netdev->ifindex == ifindex)
-                        return 0;
-                else
-                        return -EEXIST;
+        if (netdev->ifindex > 0 && netdev->ifindex != ifindex) {
+                log_error_netdev(netdev, "Could not set ifindex to %d, already set to %d",
+                                 ifindex, netdev->ifindex);
+                netdev_enter_failed(netdev);
+                return -EEXIST;
         }
 
         netdev->ifindex = ifindex;

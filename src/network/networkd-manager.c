@@ -323,12 +323,8 @@ static int manager_rtnl_process_link(sd_rtnl *rtnl, sd_rtnl_message *message, vo
                 NetDev *netdev;
 
                 r = netdev_get(m, name, &netdev);
-                if (r >= 0) {
-                        r = netdev_set_ifindex(netdev, message);
-                        if (r < 0)
-                                log_debug("could not set ifindex of netdev '%s' to %d: %s",
-                                          name, ifindex, strerror(-r));
-                }
+                if (r >= 0)
+                        netdev_set_ifindex(netdev, message);
         }
 
         r = link_get(m, ifindex, &link);
