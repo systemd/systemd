@@ -920,10 +920,11 @@ int rtnl_message_parse(sd_rtnl_message *m,
         for (; RTA_OK(rta, rt_len); rta = RTA_NEXT(rta, rt_len)) {
                 type = rta->rta_type;
 
-                if (type > max) {
-                        log_debug("rtnl: message parse - ignore out of range attribute type");
+                /* if the kernel is newer than the headers we used
+                   when building, we ignore out-of-range attributes
+                 */
+                if (type > max)
                         continue;
-                }
 
                 if (tb[type])
                         log_debug("rtnl: message parse - overwriting repeated attribute");
