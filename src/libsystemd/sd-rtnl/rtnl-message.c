@@ -1085,7 +1085,8 @@ int sd_rtnl_message_rewind(sd_rtnl_message *m) {
                                        &m->rta_offset_tb[m->n_containers],
                                        &m->rta_tb_size[m->n_containers],
                                        type_system->max,
-                                       (char*)NLMSG_DATA(m->hdr) + NLMSG_ALIGN(type->size),
+                                       (struct rtattr*)((uint8_t*)NLMSG_DATA(m->hdr) +
+                                                        NLMSG_ALIGN(type->size)),
                                        NLMSG_PAYLOAD(m->hdr, type->size));
                 if (r < 0)
                         return r;
