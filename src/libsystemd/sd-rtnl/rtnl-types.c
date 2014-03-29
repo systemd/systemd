@@ -122,6 +122,8 @@ static const char* const nl_union_link_info_data_table[_NL_UNION_LINK_INFO_DATA_
 DEFINE_STRING_TABLE_LOOKUP(nl_union_link_info_data, NLUnionLinkInfoData);
 
 static const NLTypeSystem rtnl_link_info_data_type_systems[_NL_UNION_LINK_INFO_DATA_MAX] = {
+        [NL_UNION_LINK_INFO_DATA_BOND] =    { .max = ELEMENTSOF(rtnl_link_info_data_bond_types) - 1,
+                                              .types = rtnl_link_info_data_bond_types },
         [NL_UNION_LINK_INFO_DATA_BRIDGE] =  { .max = ELEMENTSOF(rtnl_link_info_data_bridge_types) - 1,
                                               .types = rtnl_link_info_data_bridge_types },
         [NL_UNION_LINK_INFO_DATA_VLAN] =    { .max = ELEMENTSOF(rtnl_link_info_data_vlan_types) - 1,
