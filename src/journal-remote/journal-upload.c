@@ -36,6 +36,10 @@ static const char* arg_url;
 
 static void close_fd_input(Uploader *u);
 
+static const char *arg_key = NULL;
+static const char *arg_cert = NULL;
+static const char *arg_trust = NULL;
+
 #define easy_setopt(curl, opt, value, level, cmd)                       \
         {                                                               \
                 code = curl_easy_setopt(curl, opt, value);              \
@@ -110,6 +114,23 @@ int start_upload(Uploader *u,
                 easy_setopt(curl, CURLOPT_USERAGENT,
                             "systemd-journal-upload " PACKAGE_STRING,
                             LOG_WARNING, );
+
+                if (arg_key) {
+                        assert(arg_cert);
+
+                        easy_setopt(curl, CURLOPT_SSLKEY, arg_key,
+                                    LOG_ERR, return -EXFULL);
+                        easy_setopt(curl, CURLOPT_SSLCERT, arg_cert,
+                                    LOG_ERR, return -EXFULL);
+                }
+
+                if (arg_trust)
+                        easy_setopt(curl, CURLOPT_CAINFO, arg_trust,
+                                    LOG_ERR, return -EXFULL);
+
+                if (arg_key || arg_trust)
+                        easy_setopt(curl, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1,
+                                    LOG_WARNING, );
 
                 u->easy = curl;
         }
@@ -248,6 +269,9 @@ static void help(void) {
                "Upload journal events to a remote server.\n\n"
                "Options:\n"
                "  --url=URL                Upload to this address\n"
+               "  --key=FILENAME           Specify key in PEM format\n"
+               "  --cert=FILENAME          Specify certificate in PEM format\n"
+               "  --trust=FILENAME         Specify CA certificate in PEM format\n"
                "  -h --help                Show this help and exit\n"
                "  --version                Print version string and exit\n"
                , program_invocation_short_name);
@@ -256,12 +280,18 @@ static void help(void) {
 static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
+                ARG_KEY,
+                ARG_CERT,
+                ARG_TRUST,
         };
 
         static const struct option options[] = {
                 { "help",         no_argument,       NULL, 'h'                },
                 { "version",      no_argument,       NULL, ARG_VERSION        },
                 { "url",          required_argument, NULL, 'u'                },
+                { "key",          required_argument, NULL, ARG_KEY            },
+                { "cert",         required_argument, NULL, ARG_CERT           },
+                { "trust",        required_argument, NULL, ARG_TRUST          },
                 {}
         };
 
@@ -292,6 +322,33 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_url = optarg;
                         break;
 
+                case ARG_KEY:
+                        if (arg_key) {
+                                log_error("cannot use more than one --key");
+                                return -EINVAL;
+                        }
+
+                        arg_key = optarg;
+                        break;
+
+                case ARG_CERT:
+                        if (arg_cert) {
+                                log_error("cannot use more than one --cert");
+                                return -EINVAL;
+                        }
+
+                        arg_cert = optarg;
+                        break;
+
+                case ARG_TRUST:
+                        if (arg_trust) {
+                                log_error("cannot use more than one --trust");
+                                return -EINVAL;
+                        }
+
+                        arg_trust = optarg;
+                        break;
+
                 case '?':
                         log_error("Unknown option %s.", argv[optind-1]);
                         return -EINVAL;
@@ -306,6 +363,11 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (!arg_url) {
                 log_error("Required --url/-u option missing.");
+                return -EINVAL;
+        }
+
+        if (!!arg_key != !!arg_cert) {
+                log_error("Options --key and --cert must be used together.");
                 return -EINVAL;
         }
 

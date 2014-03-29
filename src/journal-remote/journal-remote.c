@@ -1201,7 +1201,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
         if (arg_listen_https && !(key_pem && cert_pem)) {
-                log_error("Options --key and --cert must be used when https sources are specified");
+                log_error("Options --key and --cert must be used when using HTTPS.");
                 return -EINVAL;
         }
 
