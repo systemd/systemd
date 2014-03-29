@@ -40,6 +40,17 @@ static const char *arg_key = NULL;
 static const char *arg_cert = NULL;
 static const char *arg_trust = NULL;
 
+static const char *arg_directory = NULL;
+static char **arg_file = NULL;
+static const char *arg_cursor = NULL;
+static bool arg_after_cursor = false;
+static int arg_journal_type = 0;
+static const char *arg_machine = NULL;
+static bool arg_merge = false;
+static int arg_follow = -1;
+
+#define SERVER_ANSWER_KEEP 2048
+
 #define easy_setopt(curl, opt, value, level, cmd)                       \
         {                                                               \
                 code = curl_easy_setopt(curl, opt, value);              \
@@ -50,6 +61,27 @@ static const char *arg_trust = NULL;
                         cmd;                                            \
                 }                                                       \
         }
+
+static size_t output_callback(char *buf,
+                              size_t size,
+                              size_t nmemb,
+                              void *userp) {
+        Uploader *u = userp;
+
+        assert(u);
+
+        log_debug("The server answers (%zu bytes): %.*s",
+                  size*nmemb, (int)(size*nmemb), buf);
+
+        if (nmemb && !u->answer) {
+                u->answer = strndup(buf, size*nmemb);
+                if (!u->answer)
+                        log_warning("Failed to store server answer (%zu bytes): %s",
+                                    size*nmemb, strerror(ENOMEM));
+        }
+
+        return size * nmemb;
+}
 
 int start_upload(Uploader *u,
                  size_t (*input_callback)(void *ptr,
@@ -97,6 +129,16 @@ int start_upload(Uploader *u,
                 easy_setopt(curl, CURLOPT_POST, 1L,
                             LOG_ERR, return -EXFULL);
 
+                easy_setopt(curl, CURLOPT_ERRORBUFFER, &u->error,
+                            LOG_ERR, return -EXFULL);
+
+                /* set where to write to */
+                easy_setopt(curl, CURLOPT_WRITEFUNCTION, output_callback,
+                            LOG_ERR, return -EXFULL);
+
+                easy_setopt(curl, CURLOPT_WRITEDATA, data,
+                            LOG_ERR, return -EXFULL);
+
                 /* set where to read from */
                 easy_setopt(curl, CURLOPT_READFUNCTION, input_callback,
                             LOG_ERR, return -EXFULL);
@@ -133,6 +175,12 @@ int start_upload(Uploader *u,
                                     LOG_WARNING, );
 
                 u->easy = curl;
+        } else {
+                /* truncate the potential old error message */
+                u->error[0] = '\0';
+
+                free(u->answer);
+                u->answer = 0;
         }
 
         /* upload to this place */
@@ -182,6 +230,7 @@ static void close_fd_input(Uploader *u) {
         if (u->input >= 0)
                 close_nointr(u->input);
         u->input = -1;
+        u->timeout = 0;
 }
 
 static int dispatch_fd_input(sd_event_source *event,
@@ -217,17 +266,20 @@ static int open_file_for_upload(Uploader *u, const char *filename) {
 
         u->input = fd;
 
-        r = sd_event_add_io(u->events, &u->input_event,
-                            fd, EPOLLIN, dispatch_fd_input, u);
-        if (r < 0) {
-                if (r != -EPERM) {
-                        log_error("Failed to register input event: %s", strerror(-r));
-                        return r;
-                }
+        if (arg_follow) {
+                r = sd_event_add_io(u->events, &u->input_event,
+                                    fd, EPOLLIN, dispatch_fd_input, u);
+                if (r < 0) {
+                        if (r != -EPERM || arg_follow > 0) {
+                                log_error("Failed to register input event: %s", strerror(-r));
+                                return r;
+                        }
 
-                /* Normal files should just be consumed without polling. */
-                r = start_upload(u, fd_input_callback, u);
+                        /* Normal files should just be consumed without polling. */
+                        r = start_upload(u, fd_input_callback, u);
+                }
         }
+
         return r;
 }
 
@@ -256,12 +308,52 @@ static void destroy_uploader(Uploader *u) {
 
         curl_easy_cleanup(u->easy);
         curl_slist_free_all(u->header);
+        free(u->answer);
+
+        free(u->last_cursor);
 
         u->input_event = sd_event_source_unref(u->input_event);
 
         close_fd_input(u);
+        close_journal_input(u);
 
         sd_event_unref(u->events);
+}
+
+static int perform_upload(Uploader *u) {
+        CURLcode code;
+        long status;
+
+        assert(u);
+
+        code = curl_easy_perform(u->easy);
+        if (code) {
+                log_error("Upload to %s failed: %.*s",
+                          u->url,
+                          u->error[0] ? (int) sizeof(u->error) : INT_MAX,
+                          u->error[0] ? u->error : curl_easy_strerror(code));
+                return -EIO;
+        }
+
+        code = curl_easy_getinfo(u->easy, CURLINFO_RESPONSE_CODE, &status);
+        if (code) {
+                log_error("Failed to retrieve response code: %s",
+                          curl_easy_strerror(code));
+                return -EUCLEAN;
+        }
+
+        if (status >= 300) {
+                log_error("Upload to %s failed with code %lu: %s",
+                          u->url, status, strna(u->answer));
+                return -EIO;
+        } else if (status < 200) {
+                log_error("Upload to %s finished with unexpected code %lu: %s",
+                          u->url, status, strna(u->answer));
+                return -EIO;
+        } else
+                log_debug("Upload finished successfully with code %lu: %s",
+                          status, strna(u->answer));
+        return 0;
 }
 
 static void help(void) {
@@ -272,6 +364,15 @@ static void help(void) {
                "  --key=FILENAME           Specify key in PEM format\n"
                "  --cert=FILENAME          Specify certificate in PEM format\n"
                "  --trust=FILENAME         Specify CA certificate in PEM format\n"
+               "     --system              Use the system journal\n"
+               "     --user                Use the user journal for the current user\n"
+               "  -m --merge               Use  all available journals\n"
+               "  -M --machine=CONTAINER   Operate on local container\n"
+               "  -D --directory=PATH      Use journal files from directory\n"
+               "     --file=PATH           Use this journal file\n"
+               "  --cursor=CURSOR          Start at the specified cursor\n"
+               "  --after-cursor=CURSOR    Start after the specified cursor\n"
+               "  --[no-]follow            Do [not] wait for input\n"
                "  -h --help                Show this help and exit\n"
                "  --version                Print version string and exit\n"
                , program_invocation_short_name);
@@ -283,6 +384,13 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_KEY,
                 ARG_CERT,
                 ARG_TRUST,
+                ARG_USER,
+                ARG_SYSTEM,
+                ARG_FILE,
+                ARG_CURSOR,
+                ARG_AFTER_CURSOR,
+                ARG_FOLLOW,
+                ARG_NO_FOLLOW,
         };
 
         static const struct option options[] = {
@@ -292,17 +400,27 @@ static int parse_argv(int argc, char *argv[]) {
                 { "key",          required_argument, NULL, ARG_KEY            },
                 { "cert",         required_argument, NULL, ARG_CERT           },
                 { "trust",        required_argument, NULL, ARG_TRUST          },
+                { "system",       no_argument,       NULL, ARG_SYSTEM         },
+                { "user",         no_argument,       NULL, ARG_USER           },
+                { "merge",        no_argument,       NULL, 'm'                },
+                { "machine",      required_argument, NULL, 'M'                },
+                { "directory",    required_argument, NULL, 'D'                },
+                { "file",         required_argument, NULL, ARG_FILE           },
+                { "cursor",       required_argument, NULL, ARG_CURSOR         },
+                { "after-cursor", required_argument, NULL, ARG_AFTER_CURSOR   },
+                { "follow",       no_argument,       NULL, ARG_FOLLOW         },
+                { "no-follow",    no_argument,       NULL, ARG_NO_FOLLOW      },
                 {}
         };
 
-        int c;
+        int c, r;
 
         assert(argc >= 0);
         assert(argv);
 
         opterr = 0;
 
-        while ((c = getopt_long(argc, argv, "hu:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hu:mM:D:", options, NULL)) >= 0)
                 switch(c) {
                 case 'h':
                         help();
@@ -349,6 +467,71 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_trust = optarg;
                         break;
 
+                case ARG_SYSTEM:
+                        arg_journal_type |= SD_JOURNAL_SYSTEM;
+                        break;
+
+                case ARG_USER:
+                        arg_journal_type |= SD_JOURNAL_CURRENT_USER;
+                        break;
+
+                case 'm':
+                        arg_merge = true;
+                        break;
+
+                case 'M':
+                        if (arg_machine) {
+                                log_error("cannot use more than one --machine/-M");
+                                return -EINVAL;
+                        }
+
+                        arg_machine = optarg;
+                        break;
+
+                case 'D':
+                        if (arg_directory) {
+                                log_error("cannot use more than one --directory/-D");
+                                return -EINVAL;
+                        }
+
+                        arg_directory = optarg;
+                        break;
+
+                case ARG_FILE:
+                        r = glob_extend(&arg_file, optarg);
+                        if (r < 0) {
+                                log_error("Failed to add paths: %s", strerror(-r));
+                                return r;
+                        };
+                        break;
+
+                case ARG_CURSOR:
+                        if (arg_cursor) {
+                                log_error("cannot use more than one --cursor/--after-cursor");
+                                return -EINVAL;
+                        }
+
+                        arg_cursor = optarg;
+                        break;
+
+                case ARG_AFTER_CURSOR:
+                        if (arg_cursor) {
+                                log_error("cannot use more than one --cursor/--after-cursor");
+                                return -EINVAL;
+                        }
+
+                        arg_cursor = optarg;
+                        arg_after_cursor = true;
+                        break;
+
+                case ARG_FOLLOW:
+                        arg_follow = true;
+                        break;
+
+                case ARG_NO_FOLLOW:
+                        arg_follow = false;
+                        break;
+
                 case '?':
                         log_error("Unknown option %s.", argv[optind-1]);
                         return -EINVAL;
@@ -371,18 +554,36 @@ static int parse_argv(int argc, char *argv[]) {
                 return -EINVAL;
         }
 
-        if (optind >= argc) {
-                log_error("Input argument missing.");
+        if (optind < argc && (arg_directory || arg_file || arg_machine || arg_journal_type)) {
+                log_error("Input arguments make no sense with journal input.");
                 return -EINVAL;
         }
 
         return 1;
 }
 
+static int open_journal(sd_journal **j) {
+        int r;
+
+        if (arg_directory)
+                r = sd_journal_open_directory(j, arg_directory, arg_journal_type);
+        else if (arg_file)
+                r = sd_journal_open_files(j, (const char**) arg_file, 0);
+        else if (arg_machine)
+                r = sd_journal_open_container(j, arg_machine, 0);
+        else
+                r = sd_journal_open(j, !arg_merge*SD_JOURNAL_LOCAL_ONLY + arg_journal_type);
+        if (r < 0)
+                log_error("Failed to open %s: %s",
+                          arg_directory ? arg_directory : arg_file ? "files" : "journal",
+                          strerror(-r));
+        return r;
+}
 
 int main(int argc, char **argv) {
         Uploader u;
         int r;
+        bool use_journal;
 
         log_show_color(true);
         log_parse_environment();
@@ -397,22 +598,39 @@ int main(int argc, char **argv) {
 
         log_debug("%s running as pid "PID_FMT,
                   program_invocation_short_name, getpid());
+
+        use_journal = optind >= argc;
+        if (use_journal) {
+                sd_journal *j;
+                r = open_journal(&j);
+                if (r < 0)
+                        goto finish;
+                r = open_journal_for_upload(&u, j,
+                                            arg_cursor, arg_after_cursor,
+                                            !!arg_follow);
+                if (r < 0)
+                        goto finish;
+        }
+
         sd_notify(false,
                   "READY=1\n"
                   "STATUS=Processing input...");
 
         while (true) {
-                if (u.input < 0) {
+                if (use_journal) {
+                        if (!u.journal)
+                                break;
+
+                        r = check_journal_input(&u);
+                } else if (u.input < 0 && !use_journal) {
                         if (optind >= argc)
                                 break;
 
                         log_debug("Using %s as input.", argv[optind]);
-
                         r = open_file_for_upload(&u, argv[optind++]);
-                        if (r < 0)
-                                goto cleanup;
-
                 }
+                if (r < 0)
+                        goto cleanup;
 
                 r = sd_event_get_state(u.events);
                 if (r < 0)
@@ -421,21 +639,12 @@ int main(int argc, char **argv) {
                         break;
 
                 if (u.uploading) {
-                        CURLcode code;
-
-                        assert(u.easy);
-
-                        code = curl_easy_perform(u.easy);
-                        if (code) {
-                                log_error("Upload to %s failed: %s",
-                                          u.url, curl_easy_strerror(code));
-                                r = -EIO;
+                        r = perform_upload(&u);
+                        if (r < 0)
                                 break;
-                        } else
-                                log_debug("Upload finished successfully.");
                 }
 
-                r = sd_event_run(u.events, u.input >= 0 ? -1 : 0);
+                r = sd_event_run(u.events, u.timeout);
                 if (r < 0) {
                         log_error("Failed to run event loop: %s", strerror(-r));
                         break;

@@ -3482,7 +3482,8 @@ rootlibexec_PROGRAMS += \
 
 systemd_journal_upload_SOURCES = \
 	src/journal-remote/journal-upload.h \
-	src/journal-remote/journal-upload.c
+	src/journal-remote/journal-upload.c \
+	src/journal-remote/journal-upload-journal.c
 
 systemd_journal_upload_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -3491,6 +3492,8 @@ systemd_journal_upload_CFLAGS = \
 systemd_journal_upload_LDADD = \
 	libsystemd-core.la \
 	libsystemd-internal.la \
+	libsystemd-journal-internal.la \
+	libsystemd-shared.la \
 	$(LIBCURL_LIBS)
 endif
 

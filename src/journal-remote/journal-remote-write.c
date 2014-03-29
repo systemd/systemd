@@ -81,8 +81,10 @@ int writer_init(Writer *s) {
 }
 
 int writer_close(Writer *s) {
-        if (s->journal)
+        if (s->journal) {
                 journal_file_close(s->journal);
+                log_debug("Journal has been closed.");
+        }
         if (s->mmap)
                 mmap_cache_unref(s->mmap);
         return 0;

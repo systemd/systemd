@@ -628,8 +628,6 @@ static int dispatch_http_event(sd_event_source *event,
 
         assert(d);
 
-        log_info("%s", __func__);
-
         r = MHD_run(d->daemon);
         if (r == MHD_NO) {
                 log_error("MHD_run failed!");

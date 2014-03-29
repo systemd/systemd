@@ -167,8 +167,8 @@ static int help(void) {
         printf("%s [OPTIONS...] [MATCHES...]\n\n"
                "Query the journal.\n\n"
                "Flags:\n"
-               "     --system              Show only the system journal\n"
-               "     --user                Show only the user journal for the current user\n"
+               "     --system              Show the system journal\n"
+               "     --user                Show the user journal for the current user\n"
                "  -M --machine=CONTAINER   Operate on local container\n"
                "     --since=DATE          Start showing entries on or newer than the specified date\n"
                "     --until=DATE          Stop showing entries on or older than the specified date\n"
@@ -1752,7 +1752,7 @@ int main(int argc, char *argv[]) {
         }
 
         if (arg_cursor || arg_after_cursor) {
-                r = sd_journal_seek_cursor(j, arg_cursor ? arg_cursor : arg_after_cursor);
+                r = sd_journal_seek_cursor(j, arg_cursor ?: arg_after_cursor);
                 if (r < 0) {
                         log_error("Failed to seek to cursor: %s", strerror(-r));
                         return EXIT_FAILURE;
