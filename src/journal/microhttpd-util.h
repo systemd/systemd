@@ -45,10 +45,11 @@ int check_permissions(struct MHD_Connection *connection, int *code);
 
 #ifdef HAVE_GNUTLS
 void log_func_gnutls(int level, const char *message);
+int log_enable_gnutls_category(const char *cat);
+void log_reset_gnutls_level(void);
 
 /* This is additionally filtered by our internal log level, so it
  * should be set fairly high to capture all potentially interesting
  * events without overwhelming detail.
  */
-#define GNUTLS_LOG_LEVEL 6
 #endif

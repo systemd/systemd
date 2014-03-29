@@ -989,7 +989,7 @@ int main(int argc, char *argv[]) {
 
 #ifdef HAVE_GNUTLS
         gnutls_global_set_log_function(log_func_gnutls);
-        gnutls_global_set_log_level(GNUTLS_LOG_LEVEL);
+        log_reset_gnutls_level();
 #endif
 
         n = sd_listen_fds(1);

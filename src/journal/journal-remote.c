@@ -63,6 +63,7 @@ static char** arg_files = NULL;
 static int arg_compress = true;
 static int arg_seal = false;
 static int http_socket = -1, https_socket = -1;
+static char** arg_gnutls_log = NULL;
 
 static char *key_pem = NULL;
 static char *cert_pem = NULL;
@@ -969,6 +970,11 @@ static int help(void) {
                "  -o --output=FILE|DIR Write output to FILE or DIR/external-*.journal\n"
                "  --[no-]compress      Use XZ-compression in the output journal (default: yes)\n"
                "  --[no-]seal          Use Event sealing in the output journal (default: no)\n"
+               "  --key=FILENAME       Specify key in PEM format\n"
+               "  --cert=FILENAME      Specify certificate in PEM format\n"
+               "  --trust=FILENAME     Specify CA certificate in PEM format\n"
+               "  --gnutls-log=CATEGORY...\n"
+               "                       Specify a list of gnutls logging categories\n"
                "  -h --help            Show this help and exit\n"
                "  --version            Print version string and exit\n"
                "\n"
@@ -993,6 +999,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_KEY,
                 ARG_CERT,
                 ARG_TRUST,
+                ARG_GNUTLS_LOG,
         };
 
         static const struct option options[] = {
@@ -1011,6 +1018,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "key",          required_argument, NULL, ARG_KEY          },
                 { "cert",         required_argument, NULL, ARG_CERT         },
                 { "trust",        required_argument, NULL, ARG_TRUST        },
+                { "gnutls-log",   required_argument, NULL, ARG_GNUTLS_LOG   },
                 {}
         };
 
@@ -1136,6 +1144,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 #else
                         log_error("Option --trust is not available.");
+                        return -EINVAL;
 #endif
 
                 case 'o':
@@ -1160,6 +1169,28 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_seal = false;
                         break;
 
+                case ARG_GNUTLS_LOG: {
+#ifdef HAVE_GNUTLS
+                        char *word, *state;
+                        size_t size;
+
+                        FOREACH_WORD_SEPARATOR(word, size, optarg, ",", state) {
+                                char *cat;
+
+                                cat = strndup(word, size);
+                                if (!cat)
+                                        return log_oom();
+
+                                if (strv_consume(&arg_gnutls_log, cat) < 0)
+                                        return log_oom();
+                        }
+                        break;
+#else
+                        log_error("Option --gnutls-log is not available.");
+                        return -EINVAL;
+#endif
+                }
+
                 case '?':
                         return -EINVAL;
 
@@ -1179,13 +1210,26 @@ static int parse_argv(int argc, char *argv[]) {
         return 1 /* work to do */;
 }
 
-static int setup_gnutls_logger(void) {
+static int setup_gnutls_logger(char **categories) {
         if (!arg_listen_http && !arg_listen_https)
                 return 0;
 
 #ifdef HAVE_GNUTLS
-        gnutls_global_set_log_function(log_func_gnutls);
-        gnutls_global_set_log_level(GNUTLS_LOG_LEVEL);
+        {
+                char **cat;
+                int r;
+
+                gnutls_global_set_log_function(log_func_gnutls);
+
+                if (categories)
+                        STRV_FOREACH(cat, categories) {
+                                r = log_enable_gnutls_category(*cat);
+                                if (r < 0)
+                                        return r;
+                        }
+                else
+                        log_reset_gnutls_level();
+        }
 #endif
 
         return 0;
@@ -1203,7 +1247,7 @@ int main(int argc, char **argv) {
         if (r <= 0)
                 return r == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 
-        r = setup_gnutls_logger();
+        r = setup_gnutls_logger(arg_gnutls_log);
         if (r < 0)
                 return EXIT_FAILURE;
 

@@ -28,6 +28,7 @@
 #include "log.h"
 #include "macro.h"
 #include "util.h"
+#include "strv.h"
 
 #ifdef HAVE_GNUTLS
 #include <gnutls/gnutls.h>
@@ -103,35 +104,64 @@ int mhd_respondf(struct MHD_Connection *connection,
 
 #ifdef HAVE_GNUTLS
 
-static int log_level_map[] = {
-        LOG_DEBUG,
-        LOG_WARNING, /* gnutls session audit */
-        LOG_DEBUG,   /* gnutls debug log */
-        LOG_WARNING, /* gnutls assert log */
-        LOG_INFO,    /* gnutls handshake log */
-        LOG_DEBUG,   /* gnutls record log */
-        LOG_DEBUG,   /* gnutls dtls log */
-        LOG_DEBUG,
-        LOG_DEBUG,
-        LOG_DEBUG,
-        LOG_DEBUG,   /* gnutls hard log */
-        LOG_DEBUG,   /* gnutls read log */
-        LOG_DEBUG,   /* gnutls write log */
-        LOG_DEBUG,   /* gnutls io log */
-        LOG_DEBUG,   /* gnutls buffers log */
+static struct {
+        const char *const names[4];
+        int level;
+        bool enabled;
+} gnutls_log_map[] = {
+        { {"0"},                  LOG_DEBUG },
+        { {"1", "audit"},         LOG_WARNING, true}, /* gnutls session audit */
+        { {"2", "assert"},        LOG_DEBUG },        /* gnutls assert log */
+        { {"3", "hsk", "ext"},    LOG_DEBUG },        /* gnutls handshake log */
+        { {"4", "rec"},           LOG_DEBUG },        /* gnutls record log */
+        { {"5", "dtls"},          LOG_DEBUG },        /* gnutls DTLS log */
+        { {"6", "buf"},           LOG_DEBUG },
+        { {"7", "write", "read"}, LOG_DEBUG },
+        { {"8"},                  LOG_DEBUG },
+        { {"9", "enc", "int"},    LOG_DEBUG },
 };
 
 void log_func_gnutls(int level, const char *message) {
-        int ourlevel;
-
         assert_se(message);
 
-        if (0 <= level && level < (int) ELEMENTSOF(log_level_map))
-                ourlevel = log_level_map[level];
-        else
-                ourlevel = LOG_DEBUG;
+        if (0 <= level && level < (int) ELEMENTSOF(gnutls_log_map)) {
+                if (gnutls_log_map[level].enabled)
+                        log_meta(gnutls_log_map[level].level, NULL, 0, NULL,
+                                 "gnutls %d/%s: %s", level, gnutls_log_map[level].names[1], message);
+        } else {
+                log_debug("Received GNUTLS message with unknown level %d.", level);
+                log_meta(LOG_DEBUG, NULL, 0, NULL, "gnutls: %s", message);
+        }
+}
 
-        log_meta(ourlevel, NULL, 0, NULL, "gnutls: %s", message);
+int log_enable_gnutls_category(const char *cat) {
+        unsigned i;
+
+        if (streq(cat, "all")) {
+                for (i = 0; i < ELEMENTSOF(gnutls_log_map); i++)
+                        gnutls_log_map[i].enabled = true;
+                log_reset_gnutls_level();
+                return 0;
+        } else
+                for (i = 0; i < ELEMENTSOF(gnutls_log_map); i++)
+                        if (strv_contains((char**)gnutls_log_map[i].names, cat)) {
+                                gnutls_log_map[i].enabled = true;
+                                log_reset_gnutls_level();
+                                return 0;
+                        }
+        log_error("No such log category: %s", cat);
+        return -EINVAL;
+}
+
+void log_reset_gnutls_level(void) {
+        int i;
+
+        for (i = ELEMENTSOF(gnutls_log_map) - 1; i >= 0; i--)
+                if (gnutls_log_map[i].enabled) {
+                        log_debug("Setting gnutls log level to %d", i);
+                        gnutls_global_set_log_level(i);
+                        break;
+                }
 }
 
 static int verify_cert_authorized(gnutls_session_t session) {
