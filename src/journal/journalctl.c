@@ -1937,5 +1937,7 @@ int main(int argc, char *argv[]) {
 finish:
         pager_close();
 
+        strv_free(arg_file);
+
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
