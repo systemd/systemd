@@ -157,6 +157,11 @@ int dhcp_packet_verify_headers(DHCPPacket *packet, size_t len, bool checksum) {
 
         /* UDP */
 
+        if (packet->ip.protocol != IPPROTO_UDP) {
+                log_dhcp_client(client, "ignoring packet: not UDP");
+                return -EINVAL;
+        }
+
         if (len < DHCP_IP_UDP_SIZE) {
                 log_dhcp_client(client, "ignoring packet: packet (%zu bytes) "
                                 " smaller than IP+UDP header (%u bytes)", len,
