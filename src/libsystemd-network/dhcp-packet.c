@@ -155,11 +155,6 @@ int dhcp_packet_verify_headers(DHCPPacket *packet, size_t len, bool checksum) {
                 return -EINVAL;
         }
 
-        if (dhcp_packet_checksum(&packet->ip, hdrlen)) {
-                log_dhcp_client(client, "ignoring packet: invalid IP checksum");
-                return -EINVAL;
-        }
-
         /* UDP */
 
         if (packet->ip.protocol != IPPROTO_UDP) {
@@ -181,6 +176,22 @@ int dhcp_packet_verify_headers(DHCPPacket *packet, size_t len, bool checksum) {
                 return -EINVAL;
         }
 
+        if (be16toh(packet->udp.dest) != DHCP_PORT_CLIENT) {
+                log_dhcp_client(client, "ignoring packet: to port %u, which "
+                                "is not the DHCP client port (%u)",
+                                be16toh(packet->udp.dest), DHCP_PORT_CLIENT);
+                return -EINVAL;
+        }
+
+        /* checksums - computing these is relatively expensive, so only do it
+           if all the other checks have passed
+         */
+
+        if (dhcp_packet_checksum(&packet->ip, hdrlen)) {
+                log_dhcp_client(client, "ignoring packet: invalid IP checksum");
+                return -EINVAL;
+        }
+
         if (checksum && packet->udp.check) {
                 packet->ip.check = packet->udp.len;
                 packet->ip.ttl = 0;
@@ -190,13 +201,6 @@ int dhcp_packet_verify_headers(DHCPPacket *packet, size_t len, bool checksum) {
                         log_dhcp_client(client, "ignoring packet: invalid UDP checksum");
                         return -EINVAL;
                 }
-        }
-
-        if (be16toh(packet->udp.dest) != DHCP_PORT_CLIENT) {
-                log_dhcp_client(client, "ignoring packet: to port %u, which "
-                                "is not the DHCP client port (%u)",
-                                be16toh(packet->udp.dest), DHCP_PORT_CLIENT);
-                return -EINVAL;
         }
 
         return 0;
