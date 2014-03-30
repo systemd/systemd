@@ -130,6 +130,11 @@ int dhcp_packet_verify_headers(DHCPPacket *packet, size_t len, bool checksum) {
                 return -EINVAL;
         }
 
+        if (packet->ip.version != IPVERSION) {
+                log_dhcp_client(client, "ignoring packet: not IPv4");
+                return -EINVAL;
+        }
+
         if (packet->ip.ihl < 5) {
                 log_dhcp_client(client, "ignoring packet: IPv4 IHL (%u words) invalid",
                                 packet->ip.ihl);
