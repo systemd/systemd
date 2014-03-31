@@ -145,12 +145,12 @@ void manager_free(Manager *m) {
         sd_event_source_unref(m->sigint_event_source);
         sd_event_unref(m->event);
 
-        while ((network = m->networks))
-                network_free(network);
-
         while ((link = hashmap_first(m->links)))
                 link_free(link);
         hashmap_free(m->links);
+
+        while ((network = m->networks))
+                network_free(network);
 
         while ((netdev = hashmap_first(m->netdevs)))
                 netdev_free(netdev);
