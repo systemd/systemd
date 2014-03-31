@@ -37,8 +37,7 @@ int dhcp_network_bind_raw_socket(int index, union sockaddr_union *link)
         assert(index > 0);
         assert(link);
 
-        s = socket(AF_PACKET, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK,
-                   htons(ETH_P_IP));
+        s = socket(AF_PACKET, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
         if (s < 0)
                 return -errno;
 
