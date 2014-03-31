@@ -38,6 +38,7 @@ typedef struct RemoteSource {
 
         char *buf;
         size_t size;
+        size_t scanned;
         size_t filled;
         size_t data_size;
 

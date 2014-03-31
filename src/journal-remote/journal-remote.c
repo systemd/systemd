@@ -412,25 +412,28 @@ static int process_http_upload(
                 log_info("Received %zu bytes", *upload_data_size);
 
                 r = push_data(source, upload_data, *upload_data_size);
-                if (r < 0) {
-                        log_error("Failed to store received data of size %zu: %s",
-                                  *upload_data_size, strerror(-r));
+                if (r < 0)
                         return mhd_respond_oom(connection);
-                }
+
                 *upload_data_size = 0;
         } else
                 finished = true;
 
         while (true) {
                 r = process_source(source, &server->writer, arg_compress, arg_seal);
-                if (r == -E2BIG)
-                        log_warning("Entry too big, skipped");
-                else if (r == -EAGAIN || r == -EWOULDBLOCK)
+                if (r == -EAGAIN || r == -EWOULDBLOCK)
                         break;
                 else if (r < 0) {
                         log_warning("Failed to process data for connection %p", connection);
-                        return mhd_respondf(connection, MHD_HTTP_UNPROCESSABLE_ENTITY,
-                                            "Processing failed: %s", strerror(-r));
+                        if (r == -E2BIG)
+                                return mhd_respondf(connection,
+                                                    MHD_HTTP_REQUEST_ENTITY_TOO_LARGE,
+                                                    "Entry is too large, maximum is %u bytes.\n",
+                                                    DATA_SIZE_MAX);
+                        else
+                                return mhd_respondf(connection,
+                                                    MHD_HTTP_UNPROCESSABLE_ENTITY,
+                                                    "Processing failed: %s.", strerror(-r));
                 }
         }
 

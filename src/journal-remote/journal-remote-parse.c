@@ -49,43 +49,43 @@ static int get_line(RemoteSource *source, char **line, size_t *size) {
         assert(source->filled <= source->size);
         assert(source->buf == NULL || source->size > 0);
 
-        if (source->buf)
-                c = memchr(source->buf, '\n', source->filled);
+        while (true) {
+                if (source->buf)
+                        c = memchr(source->buf + source->scanned, '\n',
+                                   source->filled - source->scanned);
+                if (c != NULL)
+                        break;
 
-        if (c != NULL)
-                goto docopy;
+                source->scanned = source->filled;
+                if (source->scanned >= DATA_SIZE_MAX) {
+                        log_error("Entry is bigger than %u bytes.", DATA_SIZE_MAX);
+                        return -E2BIG;
+                }
 
- resize:
-        if (source->fd < 0)
-                /* we have to wait for some data to come to us */
-                return -EWOULDBLOCK;
+                if (source->fd < 0)
+                        /* we have to wait for some data to come to us */
+                        return -EWOULDBLOCK;
 
-        if (source->size - source->filled < LINE_CHUNK) {
-                // XXX: add check for maximum line length
+                if (source->size - source->filled < LINE_CHUNK &&
+                    !GREEDY_REALLOC(source->buf, source->size,
+                                    MAX(source->filled + LINE_CHUNK, DATA_SIZE_MAX)))
+                                return log_oom();
 
-                if (!GREEDY_REALLOC(source->buf, source->size,
-                                    source->filled + LINE_CHUNK))
-                        return log_oom();
+                assert(source->size - source->filled >= LINE_CHUNK);
+
+                n = read(source->fd, source->buf + source->filled,
+                         MAX(source->size, DATA_SIZE_MAX) - source->filled);
+                if (n < 0) {
+                        if (errno != EAGAIN && errno != EWOULDBLOCK)
+                                log_error("read(%d, ..., %zd): %m", source->fd,
+                                          source->size - source->filled);
+                        return -errno;
+                } else if (n == 0)
+                        return 0;
+
+                source->filled += n;
         }
-        assert(source->size - source->filled >= LINE_CHUNK);
 
-        n = read(source->fd, source->buf + source->filled,
-                 source->size - source->filled);
-        if (n < 0) {
-                if (errno != EAGAIN && errno != EWOULDBLOCK)
-                        log_error("read(%d, ..., %zd): %m", source->fd,
-                                  source->size - source->filled);
-                return -errno;
-        } else if (n == 0)
-                return 0;
-
-        c = memchr(source->buf + source->filled, '\n', n);
-        source->filled += n;
-
-        if (c == NULL)
-                goto resize;
-
- docopy:
         *line = source->buf;
         *size = c + 1 - source->buf;
 
@@ -102,6 +102,7 @@ static int get_line(RemoteSource *source, char **line, size_t *size) {
         source->buf = newbuf;
         source->size = newsize;
         source->filled = remain;
+        source->scanned = 0;
 
         return 1;
 }
@@ -111,8 +112,12 @@ int push_data(RemoteSource *source, const char *data, size_t size) {
         assert(source->state != STATE_EOF);
 
         if (!GREEDY_REALLOC(source->buf, source->size,
-                            source->filled + size))
-                return log_oom();
+                            source->filled + size)) {
+                log_error("Failed to store received data of size %zu "
+                          "(in addition to existing %zu bytes with %zu filled): %s",
+                          size, source->size, source->filled, strerror(ENOMEM));
+                return -ENOMEM;
+        }
 
         memcpy(source->buf + source->filled, data, size);
         source->filled += size;
@@ -131,6 +136,7 @@ static int fill_fixed_size(RemoteSource *source, void **data, size_t size) {
                source->state == STATE_DATA_FINISH);
         assert(size <= DATA_SIZE_MAX);
         assert(source->filled <= source->size);
+        assert(source->scanned <= source->filled);
         assert(source->buf != NULL || source->size == 0);
         assert(source->buf == NULL || source->size > 0);
         assert(data);
@@ -171,6 +177,7 @@ static int fill_fixed_size(RemoteSource *source, void **data, size_t size) {
         source->buf = newbuf;
         source->size = newsize;
         source->filled = remain;
+        source->scanned = 0;
 
         return 1;
 }
