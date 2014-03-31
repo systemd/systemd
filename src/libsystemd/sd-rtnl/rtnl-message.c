@@ -911,11 +911,11 @@ int rtnl_message_parse(sd_rtnl_message *m,
         unsigned short type;
         size_t *tb;
 
-        tb = (size_t *) new0(size_t *, max);
+        tb = new0(size_t, max + 1);
         if(!tb)
                 return -ENOMEM;
 
-        *rta_tb_size = max;
+        *rta_tb_size = max + 1;
 
         for (; RTA_OK(rta, rt_len); rta = RTA_NEXT(rta, rt_len)) {
                 type = rta->rta_type;
