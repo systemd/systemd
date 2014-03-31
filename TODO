@@ -652,11 +652,13 @@ Features:
      on Path= matching
 
 * sd-rtnl:
-   - add support for exiting containers without reading them fully first
    - add support for more attribute types
+   - inbuilt piping support (essentially degenerate async)? see loopback-setup.c and other places
+   - add support for multi-part messages (simply call the same callback repeatedly?)
 
 * networkd:
-   - make sure RTM_NEWLINK messages match both the ifname and kind when setting the ifindex of a netdev
+   - change from udev to rtnl being the main events we listen to devices on, udev will then simply
+     be used for synchronization
    - add more keys to [Route] and [Address] sections
    - add support for more DHCPv4 options (and, longer term, other kinds of dynamic config)
    - add proper initrd support (in particular generate .network/.link files based on /proc/cmdline)
