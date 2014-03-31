@@ -59,24 +59,24 @@
 #define ADJ_SETOFFSET                   0x0100  /* add 'time' to current time */
 #endif
 
-/* Maximum delta in seconds which the system clock is gradually adjusted
- * to approach the network time. Deltas larger that this are set by letting
- * the system time jump. The maximum for adjtime is 500ms.
- */
-#define NTP_MAX_ADJUST                  0.2
+/* expected accuracy of time synchronization; used to adjust the poll interval */
+#define NTP_ACCURACY_SEC                0.2
 
 /*
- * "Define the required accuracy of the system clock, then calculate the
- * maximum timeout. Use the longest maximum timeout possible given the system
- * constraints to minimize time server aggregate load."
- *
  * "A client MUST NOT under any conditions use a poll interval less
  * than 15 seconds."
  */
-#define NTP_POLL_INTERVAL_MIN_SEC       16
+#define NTP_POLL_INTERVAL_MIN_SEC       32
 #define NTP_POLL_INTERVAL_MAX_SEC       2048
-#define NTP_ACCURACY_SEC                0.1
 
+/*
+ * Maximum delta in seconds which the system clock is gradually adjusted
+ * (slew) to approach the network time. Deltas larger that this are set by
+ * letting the system time jump. The kernel's limit for adjtime is 0.5s.
+ */
+#define NTP_MAX_ADJUST                  0.4
+
+/* NTP protocol, packet header */
 #define NTP_LEAP_PLUSSEC                1
 #define NTP_LEAP_MINUSSEC               2
 #define NTP_LEAP_NOTINSYNC              3
@@ -666,7 +666,7 @@ int sntp_server_connect(SNTPContext *sntp, const char *server) {
         sntp->server_addr.sin_family = AF_INET;
         sntp->server_addr.sin_addr.s_addr = inet_addr(server);
 
-        sntp->poll_interval_usec = 2 * NTP_POLL_INTERVAL_MIN_SEC * USEC_PER_SEC;
+        sntp->poll_interval_usec = NTP_POLL_INTERVAL_MIN_SEC * USEC_PER_SEC;
 
         return sntp_send_request(sntp);
 }
