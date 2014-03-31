@@ -123,8 +123,8 @@ at the same time!
 This pretty much explains the ioctl header. The actual payload of the
 data is now referenced in additional items that are attached to this
 ioctl header structure at the end. When sending a message, you attach
-items of the type PAYLOAD_VEC, PAYLOAD_MEMFD, FDS, BLOOM, DST_NAME to
-it:
+items of the type PAYLOAD_VEC, PAYLOAD_MEMFD, FDS, BLOOM_FILTER,
+DST_NAME to it:
 
    KDBUS_ITEM_PAYLOAD_VEC: contains a pointer + length pair for
    referencing arbitrary user memory. This is how you reference most
@@ -134,15 +134,15 @@ it:
    to send prepared "memfds" (see below) over. This item contains an
    fd for a memfd plus a size.
 
-   KDBUS_ITEM_PAYLOAD_FDS: for sending over fds attach an item of this
-   type with an array of fds.
+   KDBUS_ITEM_FDS: for sending over fds attach an item of this type with
+   an array of fds.
 
-   KDBUS_ITEM_BLOOM: the calculated bloom filter of this message, only
-   for undirected (broadcast) message.
+   KDBUS_ITEM_BLOOM_FILTER: the calculated bloom filter of this message,
+   only for undirected (broadcast) message.
 
-   KDBUS_DST_NAME: for messages that are directed to a well-known name
-   (instead of a unique name), this item contains the well-known name
-   field.
+   KDBUS_ITEM_DST_NAME: for messages that are directed to a well-known
+   name (instead of a unique name), this item contains the well-known
+   name field.
 
 A single message may consists of no, one or more payload items of type
 PAYLOAD_VEC or PAYLOAD_MEMFD. D-Bus protocol implementations should
