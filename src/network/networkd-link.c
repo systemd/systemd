@@ -1364,36 +1364,40 @@ int link_update(Link *link, sd_rtnl_message *m) {
         }
 
         r = sd_rtnl_message_read_ether_addr(m, IFLA_ADDRESS, &mac);
-        if (r >= 0 && memcmp(&link->mac.ether_addr_octet, &mac.ether_addr_octet, ETH_ALEN)) {
+        if (r < 0)
+                log_debug_link(link, "Could not get MAC address: %s", strerror(-r));
+        else {
+                if (memcmp(link->mac.ether_addr_octet, mac.ether_addr_octet, ETH_ALEN)) {
 
-                memcpy(&link->mac.ether_addr_octet, &mac.ether_addr_octet, ETH_ALEN);
+                        memcpy(link->mac.ether_addr_octet, mac.ether_addr_octet, ETH_ALEN);
 
-                log_debug_link(link, "MAC address: "
-                               "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",
-                                mac.ether_addr_octet[0],
-                                mac.ether_addr_octet[1],
-                                mac.ether_addr_octet[2],
-                                mac.ether_addr_octet[3],
-                                mac.ether_addr_octet[4],
-                                mac.ether_addr_octet[5]);
+                        log_debug_link(link, "MAC address: "
+                                       "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",
+                                       mac.ether_addr_octet[0],
+                                       mac.ether_addr_octet[1],
+                                       mac.ether_addr_octet[2],
+                                       mac.ether_addr_octet[3],
+                                       mac.ether_addr_octet[4],
+                                       mac.ether_addr_octet[5]);
 
-                if (link->ipv4ll) {
-                        r = sd_ipv4ll_set_mac(link->ipv4ll, &link->mac);
-                        if (r < 0) {
-                                log_warning_link(link, "Could not update MAC "
-                                                 "address in IPv4LL client: %s",
-                                                 strerror(-r));
-                                return r;
+                        if (link->ipv4ll) {
+                                r = sd_ipv4ll_set_mac(link->ipv4ll, &link->mac);
+                                if (r < 0) {
+                                        log_warning_link(link, "Could not update MAC "
+                                                         "address in IPv4LL client: %s",
+                                                         strerror(-r));
+                                        return r;
+                                }
                         }
-                }
 
-                if (link->dhcp_client) {
-                        r = sd_dhcp_client_set_mac(link->dhcp_client, &link->mac);
-                        if (r < 0) {
-                                log_warning_link(link, "Could not update MAC "
-                                                 "address in DHCP client: %s",
-                                                 strerror(-r));
-                                return r;
+                        if (link->dhcp_client) {
+                                r = sd_dhcp_client_set_mac(link->dhcp_client, &link->mac);
+                                if (r < 0) {
+                                        log_warning_link(link, "Could not update MAC "
+                                                         "address in DHCP client: %s",
+                                                         strerror(-r));
+                                        return r;
+                                }
                         }
                 }
         }

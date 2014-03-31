@@ -323,8 +323,14 @@ static int manager_rtnl_process_link(sd_rtnl *rtnl, sd_rtnl_message *message, vo
                 NetDev *netdev;
 
                 r = netdev_get(m, name, &netdev);
-                if (r >= 0)
+                if (r >= 0) {
                         netdev_set_ifindex(netdev, message);
+                        r = sd_rtnl_message_rewind(message);
+                        if (r < 0) {
+                                log_debug("could not rewind rtnl message");
+                                return 0;
+                        }
+                }
         }
 
         r = link_get(m, ifindex, &link);
