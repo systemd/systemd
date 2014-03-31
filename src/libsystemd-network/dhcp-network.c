@@ -25,6 +25,7 @@
 #include <net/ethernet.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <linux/filter.h>
 
 #include "socket-util.h"
 
@@ -32,6 +33,19 @@
 
 int dhcp_network_bind_raw_socket(int index, union sockaddr_union *link)
 {
+        struct sock_filter filter[] = {
+            BPF_STMT(BPF_LD + BPF_B + BPF_ABS, offsetof(DHCPPacket, ip.protocol)), /* A <- IP protocol */
+            BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, IPPROTO_UDP, 1, 0),                /* IP protocol = UDP? */
+            BPF_STMT(BPF_RET + BPF_K, 0),                                          /* ignore */
+            BPF_STMT(BPF_LD + BPF_H + BPF_ABS, offsetof(DHCPPacket, udp.dest)),    /* A <- UDP destination port */
+            BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, DHCP_PORT_CLIENT, 1, 0),           /* UDP destination port = DHCP client? */
+            BPF_STMT(BPF_RET + BPF_K, 0),                                          /* ignore */
+            BPF_STMT(BPF_RET + BPF_K, 65535),                                      /* return all */
+        };
+        struct sock_fprog fprog = {
+            .len = ELEMENTSOF(filter),
+            .filter = filter
+        };
         int s, one = 1;
 
         assert(index > 0);
@@ -49,6 +63,10 @@ int dhcp_network_bind_raw_socket(int index, union sockaddr_union *link)
 
         if (setsockopt (s, SOL_PACKET, PACKET_AUXDATA, &one, sizeof(one)) < 0)
                 return -errno;
+
+        if (setsockopt(s, SOL_SOCKET, SO_ATTACH_FILTER, &fprog, sizeof(fprog)) < 0) {
+                return -errno;
+        }
 
         if (bind(s, &link->sa, sizeof(link->ll)) < 0) {
                 safe_close(s);
