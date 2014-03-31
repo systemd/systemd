@@ -547,7 +547,9 @@ static int output_export(
                     startswith(data, "_BOOT_ID="))
                         continue;
 
-                if (!utf8_is_printable(data, length)) {
+                if (utf8_is_printable_newline(data, length, false))
+                        fwrite(data, length, 1, f);
+                else {
                         const char *c;
                         uint64_t le64;
 
@@ -562,8 +564,7 @@ static int output_export(
                         le64 = htole64(length - (c - (const char*) data) - 1);
                         fwrite(&le64, sizeof(le64), 1, f);
                         fwrite(c + 1, length - (c - (const char*) data) - 1, 1, f);
-                } else
-                        fwrite(data, length, 1, f);
+                }
 
                 fputc('\n', f);
         }

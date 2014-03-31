@@ -31,7 +31,10 @@ const char *utf8_is_valid(const char *s) _pure_;
 char *ascii_is_valid(const char *s) _pure_;
 char *utf8_escape_invalid(const char *s);
 
-bool utf8_is_printable(const char* str, size_t length) _pure_;
+bool utf8_is_printable_newline(const char* str, size_t length, bool newline) _pure_;
+_pure_ static inline bool utf8_is_printable(const char* str, size_t length) {
+        return utf8_is_printable_newline(str, length, true);
+}
 
 char *utf16_to_utf8(const void *s, size_t length);
 
