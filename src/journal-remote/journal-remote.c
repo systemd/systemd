@@ -42,6 +42,7 @@
 #include "macro.h"
 #include "strv.h"
 #include "fileio.h"
+#include "conf-parser.h"
 #include "microhttpd-util.h"
 
 #ifdef HAVE_GNUTLS
@@ -52,6 +53,10 @@
 #include "journal-remote-write.h"
 
 #define REMOTE_JOURNAL_PATH "/var/log/journal/" SD_ID128_FORMAT_STR "/remote-%s.journal"
+
+#define KEY_FILE   CERTIFICATE_ROOT "/private/journal-remote.pem"
+#define CERT_FILE  CERTIFICATE_ROOT "/certs/journal-remote.pem"
+#define TRUST_FILE CERTIFICATE_ROOT "/ca/trusted.pem"
 
 static char* arg_output = NULL;
 static char* arg_url = NULL;
@@ -65,9 +70,10 @@ static int arg_seal = false;
 static int http_socket = -1, https_socket = -1;
 static char** arg_gnutls_log = NULL;
 
-static char *key_pem = NULL;
-static char *cert_pem = NULL;
-static char *trust_pem = NULL;
+static char *arg_key = NULL;
+static char *arg_cert = NULL;
+static char *arg_trust = NULL;
+static bool arg_trust_all = false;
 
 /**********************************************************************
  **********************************************************************
@@ -234,6 +240,7 @@ typedef struct RemoteServer {
 
         Writer writer;
 
+        bool check_trust;
         Hashmap *daemons;
 } RemoteServer;
 
@@ -491,7 +498,7 @@ static int request_handler(
                                    "Content-Type: application/vnd.fdo.journal"
                                    " is required.\n");
 
-        if (trust_pem) {
+        if (server->check_trust) {
                 r = check_permissions(connection, &code);
                 if (r < 0)
                         return code;
@@ -502,7 +509,11 @@ static int request_handler(
         return MHD_YES;
 }
 
-static int setup_microhttpd_server(RemoteServer *s, int fd, bool https) {
+static int setup_microhttpd_server(RemoteServer *s,
+                                   int fd,
+                                   const char *key,
+                                   const char *cert,
+                                   const char *trust) {
         struct MHD_OptionItem opts[] = {
                 { MHD_OPTION_NOTIFY_COMPLETED, (intptr_t) request_meta_free},
                 { MHD_OPTION_EXTERNAL_LOGGER, (intptr_t) microhttpd_logger},
@@ -530,17 +541,19 @@ static int setup_microhttpd_server(RemoteServer *s, int fd, bool https) {
                 return r;
         }
 
-        if (https) {
+        if (key) {
+                assert(cert);
+
                 opts[opts_pos++] = (struct MHD_OptionItem)
-                        {MHD_OPTION_HTTPS_MEM_KEY, 0, key_pem};
+                        {MHD_OPTION_HTTPS_MEM_KEY, 0, (char*) key};
                 opts[opts_pos++] = (struct MHD_OptionItem)
-                        {MHD_OPTION_HTTPS_MEM_CERT, 0, cert_pem};
+                        {MHD_OPTION_HTTPS_MEM_CERT, 0, (char*) cert};
 
                 flags |= MHD_USE_SSL;
 
-                if (trust_pem)
+                if (trust)
                         opts[opts_pos++] = (struct MHD_OptionItem)
-                                {MHD_OPTION_HTTPS_MEM_TRUST, 0, trust_pem};
+                                {MHD_OPTION_HTTPS_MEM_TRUST, 0, (char*) trust};
         }
 
         d = new(MHDDaemonWrapper, 1);
@@ -561,7 +574,7 @@ static int setup_microhttpd_server(RemoteServer *s, int fd, bool https) {
         }
 
         log_debug("Started MHD %s daemon on fd:%d (wrapper @ %p)",
-                  https ? "HTTPS" : "HTTP", fd, d);
+                  key ? "HTTPS" : "HTTP", fd, d);
 
 
         info = MHD_get_daemon_info(d->daemon, MHD_DAEMON_INFO_EPOLL_FD_LINUX_ONLY);
@@ -609,14 +622,16 @@ error:
 
 static int setup_microhttpd_socket(RemoteServer *s,
                                    const char *address,
-                                   bool https) {
+                                   const char *key,
+                                   const char *cert,
+                                   const char *trust) {
         int fd;
 
         fd = make_socket_fd(LOG_INFO, address, SOCK_STREAM | SOCK_CLOEXEC);
         if (fd < 0)
                 return fd;
 
-        return setup_microhttpd_server(s, fd, https);
+        return setup_microhttpd_server(s, fd, key, cert, trust);
 }
 
 static int dispatch_http_event(sd_event_source *event,
@@ -690,12 +705,21 @@ static int fd_fd(const char *spec) {
 }
 
 
-static int remoteserver_init(RemoteServer *s) {
+static int remoteserver_init(RemoteServer *s,
+                             const char* key,
+                             const char* cert,
+                             const char* trust) {
         int r, n, fd;
         const char *output_name = NULL;
         char **file;
 
         assert(s);
+
+
+        if ((arg_listen_raw || arg_listen_http) && trust) {
+                log_error("Option --trust makes all non-HTTPS connections untrusted.");
+                return -EINVAL;
+        }
 
         sd_event_default(&s->events);
 
@@ -722,9 +746,9 @@ static int remoteserver_init(RemoteServer *s) {
                         log_info("Received a listening socket (fd:%d)", fd);
 
                         if (fd == http_socket)
-                                r = setup_microhttpd_server(s, fd, false);
+                                r = setup_microhttpd_server(s, fd, NULL, NULL, NULL);
                         else if (fd == https_socket)
-                                r = setup_microhttpd_server(s, fd, true);
+                                r = setup_microhttpd_server(s, fd, key, cert, trust);
                         else
                                 r = add_raw_socket(s, fd);
                 } else if (sd_is_socket(fd, AF_UNSPEC, 0, true)) {
@@ -782,7 +806,7 @@ static int remoteserver_init(RemoteServer *s) {
         }
 
         if (arg_listen_http) {
-                r = setup_microhttpd_socket(s, arg_listen_http, false);
+                r = setup_microhttpd_socket(s, arg_listen_http, NULL, NULL, NULL);
                 if (r < 0)
                         return r;
 
@@ -790,7 +814,7 @@ static int remoteserver_init(RemoteServer *s) {
         }
 
         if (arg_listen_https) {
-                r = setup_microhttpd_socket(s, arg_listen_https, true);
+                r = setup_microhttpd_socket(s, arg_listen_https, key, cert, trust);
                 if (r < 0)
                         return r;
 
@@ -959,6 +983,24 @@ static int dispatch_raw_connection_event(sd_event_source *event,
  **********************************************************************
  **********************************************************************/
 
+static int parse_config(void) {
+        const ConfigTableItem items[] = {
+                { "Remote",  "ServerKeyFile",          config_parse_path,       0, &arg_key        },
+                { "Remote",  "ServerCertificateFile",  config_parse_path,       0, &arg_cert       },
+                { "Remote",  "TrustedCertificateFile", config_parse_path,       0, &arg_trust      },
+                {}};
+        int r;
+
+        r = config_parse(NULL, PKGSYSCONFDIR "/journal-remote.conf", NULL,
+                         "Remote\0",
+                         config_item_table_lookup, items,
+                         false, false, NULL);
+        if (r < 0)
+                log_error("Failed to parse configuration file: %s", strerror(-r));
+
+        return r;
+}
+
 static void help(void) {
         printf("%s [OPTIONS...] {FILE|-}...\n\n"
                "Write external journal events to a journal file.\n\n"
@@ -971,9 +1013,12 @@ static void help(void) {
                "  -o --output=FILE|DIR Write output to FILE or DIR/external-*.journal\n"
                "  --[no-]compress      Use XZ-compression in the output journal (default: yes)\n"
                "  --[no-]seal          Use Event sealing in the output journal (default: no)\n"
-               "  --key=FILENAME       Specify key in PEM format\n"
-               "  --cert=FILENAME      Specify certificate in PEM format\n"
-               "  --trust=FILENAME     Specify CA certificate in PEM format\n"
+               "  --key=FILENAME       Specify key in PEM format (default:\n"
+               "                           \"" KEY_FILE "\")\n"
+               "  --cert=FILENAME      Specify certificate in PEM format (default:\n"
+               "                           \"" CERT_FILE "\")\n"
+               "  --trust=FILENAME|all Specify CA certificate or disable checking (default:\n"
+               "                           \"" TRUST_FILE "\")\n"
                "  --gnutls-log=CATEGORY...\n"
                "                       Specify a list of gnutls logging categories\n"
                "  -h --help            Show this help and exit\n"
@@ -1103,48 +1148,49 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_KEY:
-                        if (key_pem) {
+                        if (arg_key) {
                                 log_error("Key file specified twice");
                                 return -EINVAL;
                         }
-                        r = read_full_file(optarg, &key_pem, NULL);
-                        if (r < 0) {
-                                log_error("Failed to read key file: %s", strerror(-r));
-                                return r;
-                        }
-                        assert(key_pem);
+
+                        arg_key = strdup(optarg);
+                        if (!arg_key)
+                                return log_oom();
+
                         break;
 
                 case ARG_CERT:
-                        if (cert_pem) {
+                        if (arg_cert) {
                                 log_error("Certificate file specified twice");
                                 return -EINVAL;
                         }
-                        r = read_full_file(optarg, &cert_pem, NULL);
-                        if (r < 0) {
-                                log_error("Failed to read certificate file: %s", strerror(-r));
-                                return r;
-                        }
-                        assert(cert_pem);
+
+                        arg_cert = strdup(optarg);
+                        if (!arg_cert)
+                                return log_oom();
+
                         break;
 
                 case ARG_TRUST:
-#ifdef HAVE_GNUTLS
-                        if (trust_pem) {
-                                log_error("CA certificate file specified twice");
+                        if (arg_trust || arg_trust_all) {
+                                log_error("Confusing trusted CA configuration");
                                 return -EINVAL;
                         }
-                        r = read_full_file(optarg, &trust_pem, NULL);
-                        if (r < 0) {
-                                log_error("Failed to read CA certificate file: %s", strerror(-r));
-                                return r;
-                        }
-                        assert(trust_pem);
-                        break;
+
+                        if (streq(optarg, "all"))
+                                arg_trust_all = true;
+                        else {
+#ifdef HAVE_GNUTLS
+                                arg_trust = strdup(optarg);
+                                if (!arg_trust)
+                                        return log_oom();
 #else
-                        log_error("Option --trust is not available.");
-                        return -EINVAL;
+                                log_error("Option --trust is not available.");
+                                return -EINVAL;
 #endif
+                        }
+
+                        break;
 
                 case 'o':
                         if (arg_output) {
@@ -1198,15 +1244,41 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
                 }
 
-        if (arg_listen_https && !(key_pem && cert_pem)) {
-                log_error("Options --key and --cert must be used when using HTTPS.");
-                return -EINVAL;
-        }
-
         if (optind < argc)
                 arg_files = argv + optind;
 
         return 1 /* work to do */;
+}
+
+static int load_certificates(char **key, char **cert, char **trust) {
+        int r;
+
+        r = read_full_file(arg_key ?: KEY_FILE, key, NULL);
+        if (r < 0) {
+                log_error("Failed to read key from file '%s': %s",
+                          arg_key ?: KEY_FILE, strerror(-r));
+                return r;
+        }
+
+        r = read_full_file(arg_cert ?: CERT_FILE, cert, NULL);
+        if (r < 0) {
+                log_error("Failed to read certificate from file '%s': %s",
+                          arg_cert ?: CERT_FILE, strerror(-r));
+                return r;
+        }
+
+        if (arg_trust_all)
+                log_info("Certificate checking disabled.");
+        else {
+                r = read_full_file(arg_trust ?: TRUST_FILE, trust, NULL);
+                if (r < 0) {
+                        log_error("Failed to read CA certificate file '%s': %s",
+                                  arg_trust ?: TRUST_FILE, strerror(-r));
+                        return r;
+                }
+        }
+
+        return 0;
 }
 
 static int setup_gnutls_logger(char **categories) {
@@ -1237,9 +1309,14 @@ static int setup_gnutls_logger(char **categories) {
 int main(int argc, char **argv) {
         RemoteServer s = {};
         int r, r2;
+        _cleanup_free_ char *key = NULL, *cert = NULL, *trust = NULL;
 
         log_show_color(true);
         log_parse_environment();
+
+        r = parse_config();
+        if (r < 0)
+                return EXIT_FAILURE;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -1249,7 +1326,10 @@ int main(int argc, char **argv) {
         if (r < 0)
                 return EXIT_FAILURE;
 
-        if (remoteserver_init(&s) < 0)
+        if (load_certificates(&key, &cert, &trust) < 0)
+                return EXIT_FAILURE;
+
+        if (remoteserver_init(&s, key, cert, trust) < 0)
                 return EXIT_FAILURE;
 
         sd_event_set_watchdog(s.events, true);
@@ -1278,6 +1358,10 @@ int main(int argc, char **argv) {
         r2 = server_destroy(&s);
 
         sd_notify(false, "STATUS=Shutting down...");
+
+        free(arg_key);
+        free(arg_cert);
+        free(arg_trust);
 
         return r >= 0 && r2 >= 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }

@@ -498,6 +498,14 @@ AC_ARG_WITH([debug-tty],
 
 AC_SUBST(DEBUGTTY)
 
+AC_ARG_WITH([certificate-root],
+        AS_HELP_STRING([--with-certificate-root=PATH],
+                [Specify the prefix for TLS certificates [/etc/ssl]]),
+        [CERTIFICATEROOT="$withval"],
+        [CERTIFICATEROOT="/etc/ssl"])
+
+AC_SUBST(CERTIFICATEROOT)
+
 # ------------------------------------------------------------------------------
 have_xz=no
 AC_ARG_ENABLE(xz, AS_HELP_STRING([--disable-xz], [Disable optional XZ support]))
@@ -1377,6 +1385,7 @@ AC_MSG_RESULT([
         TTY GID:                 ${TTY_GID}
         Maximum System UID:      ${SYSTEM_UID_MAX}
         Maximum System GID:      ${SYSTEM_GID_MAX}
+        Certificate root:        ${CERTIFICATEROOT}
 
         CFLAGS:                  ${OUR_CFLAGS} ${CFLAGS}
         CPPFLAGS:                ${OUR_CPPFLAGS} ${CPPFLAGS}

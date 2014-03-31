@@ -133,8 +133,8 @@ polkitpolicy_in_files =
 polkitpolicy_files =
 dist_udevrules_DATA =
 nodist_udevrules_DATA =
-nodist_pkgsysconf_DATA =
 dist_pkgsysconf_DATA =
+nodist_pkgsysconf_DATA =
 dist_pkgdata_DATA =
 dist_dbuspolicy_DATA =
 dist_dbussystemservice_DATA =
@@ -164,6 +164,7 @@ AM_CPPFLAGS = \
 	-DSYSTEM_SYSVRCND_PATH=\"$(SYSTEM_SYSVRCND_PATH)\" \
 	-DUSER_CONFIG_UNIT_PATH=\"$(pkgsysconfdir)/user\" \
 	-DUSER_DATA_UNIT_PATH=\"$(userunitdir)\" \
+	-DCERTIFICATE_ROOT=\"$(CERTIFICATEROOT)\" \
 	-DCATALOG_DATABASE=\"$(catalogstatedir)/database\" \
 	-DSYSTEMD_CGROUP_AGENT_PATH=\"$(rootlibexecdir)/systemd-cgroups-agent\" \
 	-DSYSTEMD_BINARY_PATH=\"$(rootlibexecdir)/systemd\" \
@@ -1818,6 +1819,7 @@ nodist_systemunit_DATA += \
 dist_tmpfiles_DATA = \
 	tmpfiles.d/systemd.conf \
 	tmpfiles.d/systemd-nologin.conf \
+	tmpfiles.d/systemd-remote.conf \
 	tmpfiles.d/tmp.conf \
 	tmpfiles.d/x11.conf \
 	tmpfiles.d/var.conf \
@@ -3473,7 +3475,34 @@ systemd_journal_remote_LDADD += \
 if HAVE_GNUTLS
 systemd_journal_remote_LDADD += \
 	$(GNUTLS_LIBS)
+
+# systemd-journal-remote make sense mostly with full crypto stack
+dist_systemunit_DATA += \
+	units/systemd-journal-remote.socket
+
+nodist_systemunit_DATA += \
+	units/systemd-journal-remote.service
+
+EXTRA_DIST += \
+	units/systemd-journal-remote.service.in
+
+journal-remote-install-hook: journal-install-hook
+	-$(MKDIR_P) $(DESTDIR)/var/log/journal/remote
+	-chown 0:0 $(DESTDIR)/var/log/journal/remote
+	-chmod 755 $(DESTDIR)/var/log/journal/remote
+
+INSTALL_EXEC_HOOKS += journal-remote-install-hook
+
 endif
+
+nodist_pkgsysconf_DATA += \
+	src/journal-remote/journal-remote.conf
+
+EXTRA_DIST += \
+	src/journal-remote/journal-remote.conf.in
+
+CLEANFILES += \
+	src/journal-remote/journal-remote.conf
 endif
 
 if HAVE_LIBCURL
@@ -3495,6 +3524,12 @@ systemd_journal_upload_LDADD = \
 	libsystemd-journal-internal.la \
 	libsystemd-shared.la \
 	$(LIBCURL_LIBS)
+
+nodist_systemunit_DATA += \
+	units/systemd-journal-upload.service
+
+EXTRA_DIST += \
+	units/systemd-journal-upload.service.in
 endif
 
 # using _CFLAGS = in the conditional below would suppress AM_CFLAGS
@@ -3663,6 +3698,7 @@ journal-install-hook:
 	-setfacl -nm g:wheel:rx,d:g:wheel:rx $(DESTDIR)/var/log/journal/
 
 journal-uninstall-hook:
+	-rmdir $(DESTDIR)/var/log/journal/remote
 	-rmdir $(DESTDIR)/var/log/journal/
 
 INSTALL_EXEC_HOOKS += journal-install-hook
@@ -5300,6 +5336,7 @@ substitutions = \
        '|sysctldir=$(sysctldir)|' \
        '|systemgeneratordir=$(systemgeneratordir)|' \
        '|usergeneratordir=$(usergeneratordir)|' \
+       '|CERTIFICATEROOT=$(CERTIFICATEROOT)|' \
        '|PACKAGE_VERSION=$(PACKAGE_VERSION)|' \
        '|PACKAGE_NAME=$(PACKAGE_NAME)|' \
        '|PACKAGE_URL=$(PACKAGE_URL)|' \
@@ -5350,6 +5387,9 @@ sysctl.d/%: sysctl.d/%.in
 	$(SED_PROCESS)
 
 %.pc: %.pc.in
+	$(SED_PROCESS)
+
+%.conf: %.conf.in
 	$(SED_PROCESS)
 
 src/core/macros.%: src/core/macros.%.in

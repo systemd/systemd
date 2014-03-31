@@ -1,0 +1,24 @@
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Journal Remote Sink Service
+Requires=systemd-journal-remote.socket
+
+[Service]
+ExecStart=@rootlibexecdir@/systemd-journal-remote \
+          --listen-https=-3 \
+          --output=/var/log/journal/remote/
+User=systemd-journal-remote
+Group=systemd-journal-remote
+PrivateTmp=yes
+PrivateDevices=yes
+PrivateNetwork=yes
+WatchdogSec=10min
+
+[Install]
+Also=systemd-journal-remote.socket
