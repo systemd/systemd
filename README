@@ -70,6 +70,9 @@ REQUIREMENTS:
         create additional symlinks in /dev/disk/ and /dev/tape:
           CONFIG_BLK_DEV_BSG
 
+        Required for PrivateNetwork in service units:
+          CONFIG_NET_NS
+
         Optional but strongly recommended:
           CONFIG_IPV6
           CONFIG_AUTOFS4_FS
