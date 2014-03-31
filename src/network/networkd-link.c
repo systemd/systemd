@@ -1427,7 +1427,7 @@ int link_save(Link *link) {
                 link_state_to_string(link->state));
 
         if (link->dhcp_lease) {
-                char *lease_file;
+                _cleanup_free_ char *lease_file = NULL;
 
                 r = asprintf(&lease_file, "/run/systemd/network/leases/%"PRIu64,
                              link->ifindex);
