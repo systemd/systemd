@@ -31,7 +31,7 @@
 #include "rtnl-util.h"
 
 static int sd_rtnl_new(sd_rtnl **ret) {
-        sd_rtnl *rtnl;
+        _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
 
         assert_return(ret, -EINVAL);
 
@@ -52,12 +52,12 @@ static int sd_rtnl_new(sd_rtnl **ret) {
         /* We guarantee that wqueue always has space for at least
          * one entry */
         rtnl->wqueue = new(sd_rtnl_message*, 1);
-        if (!rtnl->wqueue) {
-                free(rtnl);
+        if (!rtnl->wqueue)
                 return -ENOMEM;
-        }
 
         *ret = rtnl;
+        rtnl = NULL;
+
         return 0;
 }
 
