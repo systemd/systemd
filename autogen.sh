@@ -72,7 +72,7 @@ elif [ "x$1" = "xl" ]; then
         $topdir/configure CC=clang CFLAGS='-g -O0 -ftrapv -Wno-gnu' --enable-compat-libs --enable-kdbus $args
         make clean
 elif [ "x$1" = "xs" ]; then
-        scan-build $topdir/configure CFLAGS='-g -O0 -ftrapv' --enable-compat-libs --enable-kdbus $args
+        scan-build $topdir/configure CFLAGS='-std=gnu99 -g -O0 -ftrapv' --enable-compat-libs --enable-kdbus $args
         scan-build make
 else
         echo
