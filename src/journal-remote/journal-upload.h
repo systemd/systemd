@@ -43,8 +43,10 @@ typedef struct Uploader {
         size_t field_pos, field_length;
 
         /* general metrics */
+        const char *state_file;
+
         size_t entries_sent;
-        char *last_cursor;
+        char *last_cursor, *current_cursor;
 } Uploader;
 
 #define JOURNAL_UPLOAD_POLL_TIMEOUT (10 * USEC_PER_SEC)

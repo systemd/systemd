@@ -21,17 +21,17 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
 
                 switch(u->entry_state) {
                 case ENTRY_CURSOR: {
-                        free(u->last_cursor);
-                        u->last_cursor = NULL;
+                        free(u->current_cursor);
+                        u->current_cursor = NULL;
 
-                        r = sd_journal_get_cursor(u->journal, &u->last_cursor);
+                        r = sd_journal_get_cursor(u->journal, &u->current_cursor);
                         if (r < 0) {
                                 log_error("Failed to get cursor: %s", strerror(-r));
                                 return r;
                         }
 
                         r = snprintf(buf + pos, size - pos,
-                                     "__CURSOR=%s\n", u->last_cursor);
+                                     "__CURSOR=%s\n", u->current_cursor);
                         if (pos + r > size)
                                 /* not enough space */
                                 return pos;
@@ -282,7 +282,7 @@ static size_t journal_input_callback(void *buf, size_t size, size_t nmemb, void 
                         break;
 
                 log_debug("Entry %zu (%s) has been uploaded.",
-                          u->entries_sent, u->last_cursor);
+                          u->entries_sent, u->current_cursor);
         }
 
         return filled;

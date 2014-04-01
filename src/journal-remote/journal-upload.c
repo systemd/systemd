@@ -30,6 +30,7 @@
 #include "log.h"
 #include "util.h"
 #include "build.h"
+#include "fileio.h"
 #include "journal-upload.h"
 
 static const char* arg_url;
@@ -48,8 +49,11 @@ static int arg_journal_type = 0;
 static const char *arg_machine = NULL;
 static bool arg_merge = false;
 static int arg_follow = -1;
+static const char *arg_save_state = NULL;
 
 #define SERVER_ANSWER_KEEP 2048
+
+#define STATE_FILE "/var/lib/systemd/journal-upload/state"
 
 #define easy_setopt(curl, opt, value, level, cmd)                       \
         {                                                               \
@@ -82,6 +86,59 @@ static size_t output_callback(char *buf,
 
         return size * nmemb;
 }
+
+static int update_cursor_state(Uploader *u) {
+        _cleanup_free_ char *temp_path = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        int r;
+
+        if (!u->state_file || !u->last_cursor)
+                return 0;
+
+        r = fopen_temporary(u->state_file, &f, &temp_path);
+        if (r < 0)
+                goto finish;
+
+        fprintf(f,
+                "# This is private data. Do not parse.\n"
+                "LAST_CURSOR=%s\n",
+                u->last_cursor);
+
+        fflush(f);
+
+        if (ferror(f) || rename(temp_path, u->state_file) < 0) {
+                r = -errno;
+                unlink(u->state_file);
+                unlink(temp_path);
+        }
+
+finish:
+        if (r < 0)
+                log_error("Failed to save state %s: %s", u->state_file, strerror(-r));
+
+        return r;
+}
+
+static int load_cursor_state(Uploader *u) {
+        int r;
+
+        if (!u->state_file)
+                return 0;
+
+        r = parse_env_file(u->state_file, NEWLINE,
+                           "LAST_CURSOR",  &u->last_cursor,
+                           NULL);
+
+        if (r < 0 && r != -ENOENT) {
+                log_error("Failed to read state file %s: %s",
+                          u->state_file, strerror(-r));
+                return r;
+        }
+
+        return 0;
+}
+
+
 
 int start_upload(Uploader *u,
                  size_t (*input_callback)(void *ptr,
@@ -283,7 +340,7 @@ static int open_file_for_upload(Uploader *u, const char *filename) {
         return r;
 }
 
-static int setup_uploader(Uploader *u, const char *url) {
+static int setup_uploader(Uploader *u, const char *url, const char *state_file) {
         int r;
 
         assert(u);
@@ -293,6 +350,7 @@ static int setup_uploader(Uploader *u, const char *url) {
         u->input = -1;
 
         u->url = url;
+        u->state_file = state_file;
 
         r = sd_event_default(&u->events);
         if (r < 0) {
@@ -300,7 +358,7 @@ static int setup_uploader(Uploader *u, const char *url) {
                 return r;
         }
 
-        return 0;
+        return load_cursor_state(u);
 }
 
 static void destroy_uploader(Uploader *u) {
@@ -311,6 +369,7 @@ static void destroy_uploader(Uploader *u) {
         free(u->answer);
 
         free(u->last_cursor);
+        free(u->current_cursor);
 
         u->input_event = sd_event_source_unref(u->input_event);
 
@@ -353,7 +412,12 @@ static int perform_upload(Uploader *u) {
         } else
                 log_debug("Upload finished successfully with code %lu: %s",
                           status, strna(u->answer));
-        return 0;
+
+        free(u->last_cursor);
+        u->last_cursor = u->current_cursor;
+        u->current_cursor = NULL;
+
+        return update_cursor_state(u);
 }
 
 static void help(void) {
@@ -373,6 +437,8 @@ static void help(void) {
                "  --cursor=CURSOR          Start at the specified cursor\n"
                "  --after-cursor=CURSOR    Start after the specified cursor\n"
                "  --[no-]follow            Do [not] wait for input\n"
+               "  --save-state[=FILE]      Save uploaded cursors (default \n"
+               "                           " STATE_FILE ")\n"
                "  -h --help                Show this help and exit\n"
                "  --version                Print version string and exit\n"
                , program_invocation_short_name);
@@ -391,6 +457,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_AFTER_CURSOR,
                 ARG_FOLLOW,
                 ARG_NO_FOLLOW,
+                ARG_SAVE_STATE,
         };
 
         static const struct option options[] = {
@@ -410,6 +477,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "after-cursor", required_argument, NULL, ARG_AFTER_CURSOR   },
                 { "follow",       no_argument,       NULL, ARG_FOLLOW         },
                 { "no-follow",    no_argument,       NULL, ARG_NO_FOLLOW      },
+                { "save-state",   optional_argument, NULL, ARG_SAVE_STATE     },
                 {}
         };
 
@@ -532,6 +600,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_follow = false;
                         break;
 
+                case ARG_SAVE_STATE:
+                        arg_save_state = optarg ?: STATE_FILE;
+                        break;
+
                 case '?':
                         log_error("Unknown option %s.", argv[optind-1]);
                         return -EINVAL;
@@ -592,7 +664,7 @@ int main(int argc, char **argv) {
         if (r <= 0)
                 goto finish;
 
-        r = setup_uploader(&u, arg_url);
+        r = setup_uploader(&u, arg_url, arg_save_state);
         if (r < 0)
                 goto cleanup;
 
@@ -606,7 +678,8 @@ int main(int argc, char **argv) {
                 if (r < 0)
                         goto finish;
                 r = open_journal_for_upload(&u, j,
-                                            arg_cursor, arg_after_cursor,
+                                            arg_cursor ?: u.last_cursor,
+                                            arg_cursor ? arg_after_cursor : true,
                                             !!arg_follow);
                 if (r < 0)
                         goto finish;
