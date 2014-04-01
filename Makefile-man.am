@@ -703,6 +703,7 @@ MANPAGES += \
 	man/sd_bus_open_user.3 \
 	man/sd_bus_path_encode.3 \
 	man/sd_bus_request_name.3 \
+	man/sd_event_new.3 \
 	man/systemd-bus-proxyd.8 \
 	man/systemd-bus-proxyd@.service.8
 MANPAGES_ALIAS += \
@@ -760,6 +761,9 @@ MANPAGES_ALIAS += \
 	man/sd_bus_ref.3 \
 	man/sd_bus_release_name.3 \
 	man/sd_bus_unref.3 \
+	man/sd_event_default.3 \
+	man/sd_event_ref.3 \
+	man/sd_event_unref.3 \
 	man/systemd-bus-proxyd.socket.8
 man/sd_bus_creds_get_audit_login_uid.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_audit_session_id.3: man/sd_bus_creds_get_pid.3
@@ -815,6 +819,9 @@ man/sd_bus_path_decode.3: man/sd_bus_path_encode.3
 man/sd_bus_ref.3: man/sd_bus_new.3
 man/sd_bus_release_name.3: man/sd_bus_request_name.3
 man/sd_bus_unref.3: man/sd_bus_new.3
+man/sd_event_default.3: man/sd_event_new.3
+man/sd_event_ref.3: man/sd_event_new.3
+man/sd_event_unref.3: man/sd_event_new.3
 man/systemd-bus-proxyd.socket.8: man/systemd-bus-proxyd@.service.8
 man/sd_bus_creds_get_audit_login_uid.html: man/sd_bus_creds_get_pid.html
 	$(html-alias)
@@ -976,6 +983,15 @@ man/sd_bus_release_name.html: man/sd_bus_request_name.html
 	$(html-alias)
 
 man/sd_bus_unref.html: man/sd_bus_new.html
+	$(html-alias)
+
+man/sd_event_default.html: man/sd_event_new.html
+	$(html-alias)
+
+man/sd_event_ref.html: man/sd_event_new.html
+	$(html-alias)
+
+man/sd_event_unref.html: man/sd_event_new.html
 	$(html-alias)
 
 man/systemd-bus-proxyd.socket.html: man/systemd-bus-proxyd@.service.html
@@ -1446,6 +1462,7 @@ EXTRA_DIST += \
 	man/sd_bus_open_user.xml \
 	man/sd_bus_path_encode.xml \
 	man/sd_bus_request_name.xml \
+	man/sd_event_new.xml \
 	man/sd_get_seats.xml \
 	man/sd_id128_get_machine.xml \
 	man/sd_id128_randomize.xml \

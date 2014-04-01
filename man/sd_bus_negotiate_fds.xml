@@ -24,7 +24,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 <refentry id="sd_bus_negotiate_fds" conditional="ENABLE_KDBUS">
 
   <refentryinfo>
-    <title>sd_bus_new</title>
+    <title>sd_bus_negotiate_fds</title>
     <productname>systemd</productname>
 
     <authorgroup>
@@ -132,7 +132,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <title>Return Value</title>
 
     <para>On success, these functions returns 0 or a
-    positive integer. On failure, it returns a negative errno-style
+    positive integer. On failure, they return a negative errno-style
     error code.</para>
   </refsect1>
 
