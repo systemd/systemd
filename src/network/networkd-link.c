@@ -579,8 +579,11 @@ static int link_set_mtu(Link *link, uint32_t mtu) {
 
 static int dhcp_lease_lost(Link *link) {
         _cleanup_address_free_ Address *address = NULL;
+        _cleanup_route_free_ Route *route_gw = NULL;
+        _cleanup_route_free_ Route *route = NULL;
         struct in_addr addr;
         struct in_addr netmask;
+        struct in_addr gateway;
         unsigned prefixlen;
         int r;
 
@@ -593,7 +596,26 @@ static int dhcp_lease_lost(Link *link) {
         if (r >= 0) {
                 sd_dhcp_lease_get_address(link->dhcp_lease, &addr);
                 sd_dhcp_lease_get_netmask(link->dhcp_lease, &netmask);
+                sd_dhcp_lease_get_router(link->dhcp_lease, &gateway);
                 prefixlen = net_netmask_to_prefixlen(&netmask);
+
+                r = route_new_dynamic(&route_gw);
+                if (r >= 0) {
+                        route_gw->family = AF_INET;
+                        route_gw->dst_addr.in = gateway;
+                        route_gw->dst_prefixlen = 32;
+                        route_gw->scope = RT_SCOPE_LINK;
+
+                        route_drop(route_gw, link, &route_drop_handler);
+                }
+
+                r = route_new_dynamic(&route);
+                if (r >= 0) {
+                        route->family = AF_INET;
+                        route->in_addr.in = gateway;
+
+                        route_drop(route, link, &route_drop_handler);
+                }
 
                 address->family = AF_INET;
                 address->in_addr.in = addr;
