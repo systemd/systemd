@@ -32,6 +32,8 @@ External:
 
 Features:
 
+* sd-event: generate a failure of a default event loop is executed out-of-thread
+
 * add "M" as recursive version of "m" to tmpfiles, then use it for
   chowning /run/log/journal (but not /var/log/journal), so that we
   adjust the perms of journal files created before tmpfiles ran.
