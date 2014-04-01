@@ -120,9 +120,9 @@ int seat_save(Seat *s) {
 
                 fprintf(f,
                         "ACTIVE=%s\n"
-                        "ACTIVE_UID=%lu\n",
+                        "ACTIVE_UID="UID_FMT"\n",
                         s->active->id,
-                        (unsigned long) s->active->user->uid);
+                        s->active->user->uid);
         }
 
         if (s->sessions) {
