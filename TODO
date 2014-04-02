@@ -1,4 +1,6 @@
 Bugfixes:
+* Should systemctl status \* work on all unit types, not just .service?
+
 * enabling an instance unit creates a pointless link, and
   the unit will be started with getty@getty.service:
     $ systemctl enable getty@.service
