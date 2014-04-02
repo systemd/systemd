@@ -340,6 +340,43 @@ static int open_file_for_upload(Uploader *u, const char *filename) {
         return r;
 }
 
+static int dispatch_sigterm(sd_event_source *event,
+                            const struct signalfd_siginfo *si,
+                            void *userdata) {
+        Uploader *u = userdata;
+
+        assert(u);
+
+        log_received_signal(LOG_INFO, si);
+
+        close_fd_input(u);
+        close_journal_input(u);
+
+        sd_event_exit(u->events, 0);
+        return 0;
+}
+
+static int setup_signals(Uploader *u) {
+        sigset_t mask;
+        int r;
+
+        assert(u);
+
+        assert_se(sigemptyset(&mask) == 0);
+        sigset_add_many(&mask, SIGINT, SIGTERM, -1);
+        assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) == 0);
+
+        r = sd_event_add_signal(u->events, &u->sigterm_event, SIGTERM, dispatch_sigterm, u);
+        if (r < 0)
+                return r;
+
+        r = sd_event_add_signal(u->events, &u->sigint_event, SIGINT, dispatch_sigterm, u);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static int setup_uploader(Uploader *u, const char *url, const char *state_file) {
         int r;
 
@@ -355,6 +392,12 @@ static int setup_uploader(Uploader *u, const char *url, const char *state_file) 
         r = sd_event_default(&u->events);
         if (r < 0) {
                 log_error("sd_event_default failed: %s", strerror(-r));
+                return r;
+        }
+
+        r = setup_signals(u);
+        if (r < 0) {
+                log_error("Failed to set up signals: %s", strerror(-r));
                 return r;
         }
 
@@ -376,6 +419,8 @@ static void destroy_uploader(Uploader *u) {
         close_fd_input(u);
         close_journal_input(u);
 
+        sd_event_source_unref(u->sigterm_event);
+        sd_event_source_unref(u->sigint_event);
         sd_event_unref(u->events);
 }
 
@@ -667,6 +712,8 @@ int main(int argc, char **argv) {
         r = setup_uploader(&u, arg_url, arg_save_state);
         if (r < 0)
                 goto cleanup;
+
+        sd_event_set_watchdog(u.events, true);
 
         log_debug("%s running as pid "PID_FMT,
                   program_invocation_short_name, getpid());

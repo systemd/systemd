@@ -21,6 +21,7 @@ typedef enum {
 
 typedef struct Uploader {
         sd_event *events;
+        sd_event_source *sigint_event, *sigterm_event;
 
         const char *url;
         CURL *easy;

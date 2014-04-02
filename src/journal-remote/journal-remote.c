@@ -1252,6 +1252,8 @@ int main(int argc, char **argv) {
         if (remoteserver_init(&s) < 0)
                 return EXIT_FAILURE;
 
+        sd_event_set_watchdog(s.events, true);
+
         log_debug("%s running as pid "PID_FMT,
                   program_invocation_short_name, getpid());
         sd_notify(false,
