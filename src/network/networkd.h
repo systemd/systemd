@@ -36,6 +36,8 @@
 #include "set.h"
 #include "condition-util.h"
 
+#define CACHE_INFO_INFINITY_LIFE_TIME 0xFFFFFFFFU
+
 typedef struct NetDev NetDev;
 typedef struct Network Network;
 typedef struct Link Link;
@@ -150,6 +152,7 @@ struct Address {
         char *label;
 
         struct in_addr broadcast;
+        struct ifa_cacheinfo cinfo;
 
         union {
                 struct in_addr in;
@@ -335,6 +338,7 @@ int address_new_static(Network *network, unsigned section, Address **ret);
 int address_new_dynamic(Address **ret);
 void address_free(Address *address);
 int address_configure(Address *address, Link *link, sd_rtnl_message_handler_t callback);
+int address_update(Address *address, Link *link, sd_rtnl_message_handler_t callback);
 int address_drop(Address *address, Link *link, sd_rtnl_message_handler_t callback);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Address*, address_free);

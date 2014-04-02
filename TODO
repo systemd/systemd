@@ -665,7 +665,6 @@ Features:
    - add reduced [Link] support to .network files
    - add IPv4LL tests (inspire by DHCP)
    - add Scope= parsing option for [Network]
-   - have smooth transition from LL to routable address, without disconnecting clients.
 
 * sd-network:
    - make sure ipv4ll and dhcp clients can handle changing mac addresses while running

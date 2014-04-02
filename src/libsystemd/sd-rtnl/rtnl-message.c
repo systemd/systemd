@@ -286,6 +286,19 @@ int sd_rtnl_message_new_addr(sd_rtnl *rtnl, sd_rtnl_message **ret,
         return 0;
 }
 
+int sd_rtnl_message_new_addr_update(sd_rtnl *rtnl, sd_rtnl_message **ret,
+                             int index, unsigned char family) {
+        int r;
+
+        r = sd_rtnl_message_new_addr(rtnl, ret, RTM_NEWADDR, index, family);
+        if (r < 0)
+                return r;
+
+        (*ret)->hdr->nlmsg_flags |= NLM_F_REPLACE;
+
+        return 0;
+}
+
 sd_rtnl_message *sd_rtnl_message_ref(sd_rtnl_message *m) {
         if (m)
                 assert_se(REFCNT_INC(m->n_ref) >= 2);
@@ -559,6 +572,24 @@ int sd_rtnl_message_append_ether_addr(sd_rtnl_message *m, unsigned short type, c
         return 0;
 }
 
+int sd_rtnl_message_append_cache_info(sd_rtnl_message *m, unsigned short type, const struct ifa_cacheinfo *info) {
+        int r;
+
+        assert_return(m, -EINVAL);
+        assert_return(!m->sealed, -EPERM);
+        assert_return(info, -EINVAL);
+
+        r = message_attribute_has_type(m, type, NLA_CACHE_INFO);
+        if (r < 0)
+                return r;
+
+        r = add_rtattr(m, type, info, sizeof(struct ifa_cacheinfo));
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 int sd_rtnl_message_open_container(sd_rtnl_message *m, unsigned short type) {
         size_t size;
         int r;
@@ -737,6 +768,25 @@ int sd_rtnl_message_read_ether_addr(sd_rtnl_message *m, unsigned short type, str
                 return -EIO;
 
         memcpy(data, attr_data, sizeof(struct ether_addr));
+
+        return 0;
+}
+
+int sd_rtnl_message_read_cache_info(sd_rtnl_message *m, unsigned short type, struct ifa_cacheinfo *info) {
+        int r;
+        void *attr_data;
+
+        r = message_attribute_has_type(m, type, NLA_CACHE_INFO);
+        if (r < 0)
+                return r;
+
+        r = rtnl_message_read_internal(m, type, &attr_data);
+        if (r < 0)
+                return r;
+        else if ((size_t)r < sizeof(struct ifa_cacheinfo))
+                return -EIO;
+
+        memcpy(info, attr_data, sizeof(struct ifa_cacheinfo));
 
         return 0;
 }

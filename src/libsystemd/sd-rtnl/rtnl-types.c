@@ -216,9 +216,9 @@ static const NLType rtnl_address_types[IFA_MAX + 1] = {
         [IFA_LOCAL]             = { .type = NLA_IN_ADDR },
         [IFA_LABEL]             = { .type = NLA_STRING, .size = IFNAMSIZ - 1 },
         [IFA_BROADCAST]         = { .type = NLA_IN_ADDR }, /* 6? */
+        [IFA_CACHEINFO]         = { .type = NLA_CACHE_INFO, .size = sizeof(struct ifa_cacheinfo) },
 /*
         [IFA_ANYCAST],
-        [IFA_CACHEINFO]         = { .len = sizeof(struct ifa_cacheinfo) },
         [IFA_MULTICAST],
 */
 #ifdef IFA_FLAGS

@@ -481,6 +481,12 @@ error:
         return r;
 }
 
+bool sd_ipv4ll_is_running(sd_ipv4ll *ll) {
+        assert_return(ll, -EINVAL);
+
+        return ll->state != IPV4LL_STATE_INIT;
+}
+
 #define HASH_KEY SD_ID128_MAKE(df,04,22,98,3f,ad,14,52,f9,87,2e,d1,9c,70,e2,f2)
 
 int sd_ipv4ll_start (sd_ipv4ll *ll) {

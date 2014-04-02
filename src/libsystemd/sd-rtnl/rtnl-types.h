@@ -31,6 +31,7 @@ enum {
         NLA_STRING,
         NLA_IN_ADDR,
         NLA_ETHER_ADDR,
+        NLA_CACHE_INFO,
         NLA_NESTED,
         NLA_UNION,
 };

@@ -106,6 +106,7 @@ static void test_address_get(sd_rtnl *rtnl, int ifindex) {
         sd_rtnl_message *m;
         sd_rtnl_message *r;
         struct in_addr in_data;
+        struct ifa_cacheinfo cache;
         char *label;
 
         assert_se(sd_rtnl_message_new_addr(rtnl, &m, RTM_GETADDR, ifindex, AF_INET) >= 0);
@@ -116,6 +117,7 @@ static void test_address_get(sd_rtnl *rtnl, int ifindex) {
         assert_se(sd_rtnl_message_read_in_addr(r, IFA_LOCAL, &in_data) == 0);
         assert_se(sd_rtnl_message_read_in_addr(r, IFA_ADDRESS, &in_data) == 0);
         assert_se(sd_rtnl_message_read_string(r, IFA_LABEL, &label) == 0);
+        assert_se(sd_rtnl_message_read_cache_info(r, IFA_CACHEINFO, &cache) == 0);
 
         assert_se(sd_rtnl_flush(rtnl) >= 0);
         assert_se((m = sd_rtnl_message_unref(m)) == NULL);

@@ -68,6 +68,7 @@ int sd_rtnl_detach_event(sd_rtnl *nl);
 
 /* messages */
 int sd_rtnl_message_new_link(sd_rtnl *rtnl, sd_rtnl_message **ret, uint16_t msg_type, int index);
+int sd_rtnl_message_new_addr_update(sd_rtnl *rtnl, sd_rtnl_message **ret, int index, unsigned char family);
 int sd_rtnl_message_new_addr(sd_rtnl *rtnl, sd_rtnl_message **ret, uint16_t msg_type, int index,
                              unsigned char family);
 int sd_rtnl_message_new_route(sd_rtnl *rtnl, sd_rtnl_message **ret, uint16_t nlmsg_type,
@@ -99,6 +100,7 @@ int sd_rtnl_message_append_u32(sd_rtnl_message *m, unsigned short type, uint32_t
 int sd_rtnl_message_append_in_addr(sd_rtnl_message *m, unsigned short type, const struct in_addr *data);
 int sd_rtnl_message_append_in6_addr(sd_rtnl_message *m, unsigned short type, const struct in6_addr *data);
 int sd_rtnl_message_append_ether_addr(sd_rtnl_message *m, unsigned short type, const struct ether_addr *data);
+int sd_rtnl_message_append_cache_info(sd_rtnl_message *m, unsigned short type, const struct ifa_cacheinfo *info);
 
 int sd_rtnl_message_open_container(sd_rtnl_message *m, unsigned short type);
 int sd_rtnl_message_open_container_union(sd_rtnl_message *m, unsigned short type, const char *key);
@@ -109,6 +111,7 @@ int sd_rtnl_message_read_u8(sd_rtnl_message *m, unsigned short type, uint8_t *da
 int sd_rtnl_message_read_u16(sd_rtnl_message *m, unsigned short type, uint16_t *data);
 int sd_rtnl_message_read_u32(sd_rtnl_message *m, unsigned short type, uint32_t *data);
 int sd_rtnl_message_read_ether_addr(sd_rtnl_message *m, unsigned short type, struct ether_addr *data);
+int sd_rtnl_message_read_cache_info(sd_rtnl_message *m, unsigned short type, struct ifa_cacheinfo *info);
 int sd_rtnl_message_read_in_addr(sd_rtnl_message *m, unsigned short type, struct in_addr *data);
 int sd_rtnl_message_read_in6_addr(sd_rtnl_message *m, unsigned short type, struct in6_addr *data);
 int sd_rtnl_message_enter_container(sd_rtnl_message *m, unsigned short type);

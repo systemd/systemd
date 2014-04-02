@@ -28,6 +28,15 @@
 #include "conf-parser.h"
 #include "network-internal.h"
 
+static void address_init(Address *address) {
+        assert(address);
+
+        address->family = AF_UNSPEC;
+        address->scope = RT_SCOPE_UNIVERSE;
+        address->cinfo.ifa_prefered = CACHE_INFO_INFINITY_LIFE_TIME;
+        address->cinfo.ifa_valid = CACHE_INFO_INFINITY_LIFE_TIME;
+}
+
 int address_new_static(Network *network, unsigned section, Address **ret) {
         _cleanup_address_free_ Address *address = NULL;
 
@@ -46,8 +55,7 @@ int address_new_static(Network *network, unsigned section, Address **ret) {
         if (!address)
                 return -ENOMEM;
 
-        address->family = AF_UNSPEC;
-        address->scope = RT_SCOPE_UNIVERSE;
+        address_init(address);
 
         address->network = network;
 
@@ -71,8 +79,7 @@ int address_new_dynamic(Address **ret) {
         if (!address)
                 return -ENOMEM;
 
-        address->family = AF_UNSPEC;
-        address->scope = RT_SCOPE_UNIVERSE;
+        address_init(address);
 
         *ret = address;
         address = NULL;
@@ -127,6 +134,87 @@ int address_drop(Address *address, Link *link,
                 r = sd_rtnl_message_append_in6_addr(req, IFA_LOCAL, &address->in_addr.in6);
         if (r < 0) {
                 log_error("Could not append IFA_LOCAL attribute: %s",
+                          strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_call_async(link->manager->rtnl, req, callback, link, 0, NULL);
+        if (r < 0) {
+                log_error("Could not send rtnetlink message: %s", strerror(-r));
+                return r;
+        }
+
+        return 0;
+}
+
+int address_update(Address *address, Link *link,
+                   sd_rtnl_message_handler_t callback) {
+        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL;
+        int r;
+
+        assert(address);
+        assert(address->family == AF_INET || address->family == AF_INET6);
+        assert(link->ifindex > 0);
+        assert(link->manager);
+        assert(link->manager->rtnl);
+
+        r = sd_rtnl_message_new_addr_update(link->manager->rtnl, &req,
+                                     link->ifindex, address->family);
+        if (r < 0) {
+                log_error("Could not allocate RTM_NEWADDR message: %s",
+                          strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_addr_set_prefixlen(req, address->prefixlen);
+        if (r < 0) {
+                log_error("Could not set prefixlen: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_addr_set_flags(req, IFA_F_PERMANENT);
+        if (r < 0) {
+                log_error("Could not set flags: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_addr_set_scope(req, address->scope);
+        if (r < 0) {
+                log_error("Could not set scope: %s", strerror(-r));
+                return r;
+        }
+
+        if (address->family == AF_INET)
+                r = sd_rtnl_message_append_in_addr(req, IFA_LOCAL, &address->in_addr.in);
+        else if (address->family == AF_INET6)
+                r = sd_rtnl_message_append_in6_addr(req, IFA_LOCAL, &address->in_addr.in6);
+        if (r < 0) {
+                log_error("Could not append IFA_LOCAL attribute: %s",
+                          strerror(-r));
+                return r;
+        }
+
+        if (address->family == AF_INET) {
+                r = sd_rtnl_message_append_in_addr(req, IFA_BROADCAST, &address->broadcast);
+                if (r < 0) {
+                        log_error("Could not append IFA_BROADCAST attribute: %s",
+                                  strerror(-r));
+                        return r;
+                }
+        }
+
+        if (address->label) {
+                r = sd_rtnl_message_append_string(req, IFA_LABEL, address->label);
+                if (r < 0) {
+                        log_error("Could not append IFA_LABEL attribute: %s",
+                                  strerror(-r));
+                        return r;
+                }
+        }
+
+        r = sd_rtnl_message_append_cache_info(req, IFA_CACHEINFO, &address->cinfo);
+        if (r < 0) {
+                log_error("Could not append IFA_CACHEINFO attribute: %s",
                           strerror(-r));
                 return r;
         }

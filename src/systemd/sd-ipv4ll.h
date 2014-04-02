@@ -22,6 +22,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <stdbool.h>
 #include <netinet/in.h>
 #include <net/ethernet.h>
 
@@ -42,10 +43,11 @@ int sd_ipv4ll_get_address(sd_ipv4ll *ll, struct in_addr *address);
 int sd_ipv4ll_set_callback(sd_ipv4ll *ll, sd_ipv4ll_cb_t cb, void *userdata);
 int sd_ipv4ll_set_mac(sd_ipv4ll *ll, const struct ether_addr *addr);
 int sd_ipv4ll_set_index(sd_ipv4ll *ll, int interface_index);
-int sd_ipv4ll_set_address_seed (sd_ipv4ll *ll, uint8_t seed[8]);
-int sd_ipv4ll_start (sd_ipv4ll *ll);
-int sd_ipv4ll_stop (sd_ipv4ll *ll);
-void sd_ipv4ll_free (sd_ipv4ll *ll);
-int sd_ipv4ll_new (sd_ipv4ll **ret);
+int sd_ipv4ll_set_address_seed(sd_ipv4ll *ll, uint8_t seed[8]);
+bool sd_ipv4ll_is_running(sd_ipv4ll *ll);
+int sd_ipv4ll_start(sd_ipv4ll *ll);
+int sd_ipv4ll_stop(sd_ipv4ll *ll);
+void sd_ipv4ll_free(sd_ipv4ll *ll);
+int sd_ipv4ll_new(sd_ipv4ll **ret);
 
 #endif
