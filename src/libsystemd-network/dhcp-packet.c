@@ -59,21 +59,48 @@ int dhcp_message_init(DHCPMessage *message, uint8_t op, uint32_t xid,
         return 0;
 }
 
-uint16_t dhcp_packet_checksum(void *buf, int len) {
-        uint32_t sum;
-        uint16_t *check;
-        int i;
-        uint8_t *odd;
+uint16_t dhcp_packet_checksum(void *buf, size_t len) {
+        uint64_t *buf_64 = buf;
+        uint64_t *end_64 = (uint64_t*)buf + (len / sizeof(uint64_t));
+        uint32_t *buf_32;
+        uint16_t *buf_16;
+        uint8_t *buf_8;
+        uint64_t sum = 0;
 
-        sum = 0;
-        check = buf;
+        while (buf_64 < end_64) {
+                sum += *buf_64;
+                if (sum < *buf_64)
+                        sum++;
 
-        for (i = 0; i < len / 2 ; i++)
-                sum += check[i];
+                buf_64 ++;
+        }
 
-        if (len & 0x01) {
-                odd = buf;
-                sum += odd[len - 1];
+        buf_32 = (uint32_t*)buf_64;
+
+        if (len & sizeof(uint32_t)) {
+                sum += *buf_32;
+                if (sum < *buf_32)
+                        sum++;
+
+                buf_32 ++;
+        }
+
+        buf_16 = (uint16_t*)buf_32;
+
+        if (len & sizeof(uint16_t)) {
+                sum += *buf_16;
+                if (sum < *buf_16)
+                        sum ++;
+
+                buf_16 ++;
+        }
+
+        buf_8 = (uint8_t*)buf_16;
+
+        if (len & sizeof(uint8_t)) {
+                sum += *buf_8;
+                if (sum < *buf_8)
+                        sum++;
         }
 
         while (sum >> 16)
