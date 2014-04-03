@@ -4,3 +4,4 @@ Name=host0
 
 [Network]
 DHCP=yes
+IPv4LL=yes
