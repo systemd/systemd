@@ -139,7 +139,7 @@ void link_config_ctx_free(link_config_ctx *ctx) {
 }
 
 static int load_link(link_config_ctx *ctx, const char *filename) {
-        link_config *link;
+        _cleanup_free_ link_config *link = NULL;
         _cleanup_fclose_ FILE *file;
         int r;
 
@@ -151,14 +151,12 @@ static int load_link(link_config_ctx *ctx, const char *filename) {
                 if (errno == ENOENT)
                         return 0;
                 else
-                        return errno;
+                        return -errno;
         }
 
         link = new0(link_config, 1);
-        if (!link) {
-                r = log_oom();
-                goto failure;
-        }
+        if (!link)
+                return log_oom();
 
         link->mac_policy = _MACPOLICY_INVALID;
         link->wol = _WOL_INVALID;
@@ -168,19 +166,16 @@ static int load_link(link_config_ctx *ctx, const char *filename) {
                          (void*) link_config_gperf_lookup, false, false, link);
         if (r < 0) {
                 log_warning("Could not parse config file %s: %s", filename, strerror(-r));
-                goto failure;
+                return r;
         } else
                 log_debug("Parsed configuration file %s", filename);
 
         link->filename = strdup(filename);
 
         LIST_PREPEND(links, ctx->links, link);
+        link = NULL;
 
         return 0;
-
-failure:
-        free(link);
-        return r;
 }
 
 static bool enable_name_policy(void) {

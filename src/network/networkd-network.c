@@ -41,7 +41,7 @@ static int network_load_one(Manager *manager, const char *filename) {
                 if (errno == ENOENT)
                         return 0;
                 else
-                        return errno;
+                        return -errno;
         }
 
         network = new0(Network, 1);
