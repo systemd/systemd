@@ -30,6 +30,9 @@
 #include <linux/if_addr.h>
 #include <linux/if.h>
 
+#include <linux/ip.h>
+#include <linux/if_tunnel.h>
+
 #include "macro.h"
 #include "util.h"
 
@@ -98,12 +101,29 @@ static const NLType rtnl_link_info_data_bond_types[IFLA_BOND_MAX + 1] = {
 #endif
 };
 
+static const NLType rtnl_link_info_data_iptun_types[IFLA_IPTUN_MAX + 1] = {
+        [IFLA_IPTUN_LINK]                = { .type = NLA_U32 },
+        [IFLA_IPTUN_LOCAL]               = { .type = NLA_U32 },
+        [IFLA_IPTUN_REMOTE]              = { .type = NLA_U32 },
+        [IFLA_IPTUN_TTL]                 = { .type = NLA_U8 },
+        [IFLA_IPTUN_TOS]                 = { .type = NLA_U8 },
+        [IFLA_IPTUN_PMTUDISC]            = { .type = NLA_U8 },
+        [IFLA_IPTUN_FLAGS]               = { .type = NLA_U16 },
+        [IFLA_IPTUN_PROTO]               = { .type = NLA_U8 },
+        [IFLA_IPTUN_6RD_PREFIX]          = { .type = NLA_IN_ADDR },
+        [IFLA_IPTUN_6RD_RELAY_PREFIX]    = { .type = NLA_U32 },
+        [IFLA_IPTUN_6RD_PREFIXLEN]       = { .type = NLA_U16 },
+        [IFLA_IPTUN_6RD_RELAY_PREFIXLEN] = { .type = NLA_U16 },
+};
+
 typedef enum NLUnionLinkInfoData {
         NL_UNION_LINK_INFO_DATA_BOND,
         NL_UNION_LINK_INFO_DATA_BRIDGE,
         NL_UNION_LINK_INFO_DATA_VLAN,
         NL_UNION_LINK_INFO_DATA_VETH,
         NL_UNION_LINK_INFO_DATA_MACVLAN,
+        NL_UNION_LINK_INFO_DATA_IPIP_TUNNEL,
+        NL_UNION_LINK_INFO_DATA_SIT_TUNNEL,
         _NL_UNION_LINK_INFO_DATA_MAX,
         _NL_UNION_LINK_INFO_DATA_INVALID = -1
 } NLUnionLinkInfoData;
@@ -111,27 +131,34 @@ typedef enum NLUnionLinkInfoData {
 const char *nl_union_link_info_data_to_string(NLUnionLinkInfoData p) _const_;
 NLUnionLinkInfoData nl_union_link_info_data_from_string(const char *p) _pure_;
 
+/* these strings must match the .kind entries in the kernel */
 static const char* const nl_union_link_info_data_table[_NL_UNION_LINK_INFO_DATA_MAX] = {
         [NL_UNION_LINK_INFO_DATA_BOND] = "bond",
         [NL_UNION_LINK_INFO_DATA_BRIDGE] = "bridge",
         [NL_UNION_LINK_INFO_DATA_VLAN] = "vlan",
         [NL_UNION_LINK_INFO_DATA_VETH] = "veth",
         [NL_UNION_LINK_INFO_DATA_MACVLAN] = "macvlan",
+        [NL_UNION_LINK_INFO_DATA_IPIP_TUNNEL] = "ipip",
+        [NL_UNION_LINK_INFO_DATA_SIT_TUNNEL] = "sit",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(nl_union_link_info_data, NLUnionLinkInfoData);
 
 static const NLTypeSystem rtnl_link_info_data_type_systems[_NL_UNION_LINK_INFO_DATA_MAX] = {
-        [NL_UNION_LINK_INFO_DATA_BOND] =    { .max = ELEMENTSOF(rtnl_link_info_data_bond_types) - 1,
-                                              .types = rtnl_link_info_data_bond_types },
-        [NL_UNION_LINK_INFO_DATA_BRIDGE] =  { .max = ELEMENTSOF(rtnl_link_info_data_bridge_types) - 1,
-                                              .types = rtnl_link_info_data_bridge_types },
-        [NL_UNION_LINK_INFO_DATA_VLAN] =    { .max = ELEMENTSOF(rtnl_link_info_data_vlan_types) - 1,
-                                              .types = rtnl_link_info_data_vlan_types },
-        [NL_UNION_LINK_INFO_DATA_VETH] =    { .max = ELEMENTSOF(rtnl_link_info_data_veth_types) - 1,
-                                              .types = rtnl_link_info_data_veth_types },
-        [NL_UNION_LINK_INFO_DATA_MACVLAN] = { .max = ELEMENTSOF(rtnl_link_info_data_macvlan_types) - 1,
-                                              .types = rtnl_link_info_data_macvlan_types },
+        [NL_UNION_LINK_INFO_DATA_BOND] =        { .max = ELEMENTSOF(rtnl_link_info_data_bond_types) - 1,
+                                                  .types = rtnl_link_info_data_bond_types },
+        [NL_UNION_LINK_INFO_DATA_BRIDGE] =      { .max = ELEMENTSOF(rtnl_link_info_data_bridge_types) - 1,
+                                                  .types = rtnl_link_info_data_bridge_types },
+        [NL_UNION_LINK_INFO_DATA_VLAN] =        { .max = ELEMENTSOF(rtnl_link_info_data_vlan_types) - 1,
+                                                  .types = rtnl_link_info_data_vlan_types },
+        [NL_UNION_LINK_INFO_DATA_VETH] =        { .max = ELEMENTSOF(rtnl_link_info_data_veth_types) - 1,
+                                                  .types = rtnl_link_info_data_veth_types },
+        [NL_UNION_LINK_INFO_DATA_MACVLAN] =     { .max = ELEMENTSOF(rtnl_link_info_data_macvlan_types) - 1,
+                                                  .types = rtnl_link_info_data_macvlan_types },
+        [NL_UNION_LINK_INFO_DATA_IPIP_TUNNEL] = { .max = ELEMENTSOF(rtnl_link_info_data_iptun_types) - 1,
+                                                  .types = rtnl_link_info_data_iptun_types },
+        [NL_UNION_LINK_INFO_DATA_SIT_TUNNEL] =  { .max = ELEMENTSOF(rtnl_link_info_data_iptun_types) - 1,
+                                                  .types = rtnl_link_info_data_iptun_types },
 };
 
 static const NLTypeSystemUnion rtnl_link_info_data_type_system_union = {
