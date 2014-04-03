@@ -31,18 +31,25 @@ __get_machines() {
 }
 
 __get_endpoints() {
+        local mode=$1
         local a b
-        busctl list --no-legend --no-pager | { while read a b; do echo " $a"; done; };
+        busctl $mode list --no-legend --no-pager | { while read a b; do echo " $a"; done; };
 }
 
 _busctl() {
-        local i verb comps
+        local i verb comps mode
         local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
         local -A OPTS=(
                [STANDALONE]='-h --help --version --no-pager --no-legend --system --user
                              --show-machine --unique --acquired --activatable'
                       [ARG]='-H --host -M --machine --address --match'
         )
+
+        if __contains_word "--user" ${COMP_WORDS[*]}; then
+            mode=--user
+        else
+            mode=--system
+        fi
 
         if __contains_word "$prev" ${OPTS[ARG]}; then
                 case $prev in
@@ -79,7 +86,7 @@ _busctl() {
         elif __contains_word "$verb" ${VERBS[STANDALONE]}; then
                 comps=''
         elif __contains_word "$verb" ${VERBS[ENDPOINT]}; then
-                comps=$( __get_endpoints )
+                comps=$( __get_endpoints $mode)
         fi
 
         COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
