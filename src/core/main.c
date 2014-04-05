@@ -412,18 +412,13 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
                 }
 
         } else if (streq(key, "quiet") && !value) {
-
                 if (arg_show_status == _SHOW_STATUS_UNSET)
                         arg_show_status = SHOW_STATUS_AUTO;
 
         } else if (streq(key, "debug") && !value) {
-
-                /* Log to kmsg, the journal socket will fill up before the
-                 * journal is started and tools running during that time
-                 * will block with every log message for for 60 seconds,
-                 * before they give up. */
                 log_set_max_level(LOG_DEBUG);
-                log_set_target(detect_container(NULL) > 0 ? LOG_TARGET_CONSOLE : LOG_TARGET_KMSG);
+                if (detect_container(NULL) > 0)
+                        log_set_target(LOG_TARGET_CONSOLE);
 
         } else if (!in_initrd() && !value) {
                 unsigned i;
