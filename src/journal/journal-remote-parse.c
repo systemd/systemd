@@ -40,7 +40,7 @@ void source_free(RemoteSource *source) {
 
 static int get_line(RemoteSource *source, char **line, size_t *size) {
         ssize_t n, remain;
-        char *c;
+        char *c = NULL;
         char *newbuf = NULL;
         size_t newsize = 0;
 
@@ -49,7 +49,9 @@ static int get_line(RemoteSource *source, char **line, size_t *size) {
         assert(source->filled <= source->size);
         assert(source->buf == NULL || source->size > 0);
 
-        c = memchr(source->buf, '\n', source->filled);
+        if (source->buf)
+                c = memchr(source->buf, '\n', source->filled);
+
         if (c != NULL)
                 goto docopy;
 
