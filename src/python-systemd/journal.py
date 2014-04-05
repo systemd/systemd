@@ -293,7 +293,7 @@ class Reader(_Reader):
             monotonic = monotonic.totalseconds()
         monotonic = int(monotonic * 1000000)
         if isinstance(bootid, _uuid.UUID):
-            bootid = bootid.get_hex()
+            bootid = bootid.hex
         return super(Reader, self).seek_monotonic(monotonic, bootid)
 
     def log_level(self, level):
@@ -314,7 +314,7 @@ class Reader(_Reader):
         Equivalent to add_match(MESSAGE_ID=`messageid`).
         """
         if isinstance(messageid, _uuid.UUID):
-            messageid = messageid.get_hex()
+            messageid = messageid.hex
         self.add_match(MESSAGE_ID=messageid)
 
     def this_boot(self, bootid=None):
@@ -346,7 +346,7 @@ class Reader(_Reader):
 
 def get_catalog(mid):
     if isinstance(mid, _uuid.UUID):
-        mid = mid.get_hex()
+        mid = mid.hex
     return _get_catalog(mid)
 
 def _make_line(field, value):
