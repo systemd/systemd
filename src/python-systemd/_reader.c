@@ -902,7 +902,6 @@ static PyObject* get_catalog(PyObject *self, PyObject *args) {
         sd_id128_t id;
         _cleanup_free_ char *msg = NULL;
 
-        assert(!self);
         assert(args);
 
         if (!PyArg_ParseTuple(args, "z:get_catalog", &id_))
