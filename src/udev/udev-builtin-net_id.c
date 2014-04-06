@@ -94,6 +94,7 @@
 #include <string.h>
 #include <errno.h>
 #include <net/if.h>
+#include <net/if_arp.h>
 #include <linux/pci_regs.h>
 
 #include "udev.h"
@@ -451,10 +452,10 @@ static int builtin_net_id(struct udev_device *dev, int argc, char *argv[], bool 
                 return EXIT_FAILURE;
         i = strtoul(s, NULL, 0);
         switch (i) {
-        case 1: /* ARPHRD_ETHER */
+        case ARPHRD_ETHER:
                 prefix = "en";
                 break;
-        case 256: /* ARPHRD_SLIP */
+        case ARPHRD_SLIP:
                 prefix = "sl";
                 break;
         default:
