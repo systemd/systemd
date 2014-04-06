@@ -931,12 +931,6 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message,
         assert(client->event);
         assert(message);
 
-        if (len < DHCP_MESSAGE_SIZE) {
-                log_dhcp_client(client, "message too small (%d bytes): "
-                                "ignoring", len);
-                return 0;
-        }
-
         if (be32toh(message->magic) != DHCP_MAGIC_COOKIE) {
                 log_dhcp_client(client, "not a DHCP message: ignoring");
                 return 0;
@@ -1081,7 +1075,11 @@ static int client_receive_message_udp(sd_event_source *s, int fd,
                 return -ENOMEM;
 
         len = read(fd, message, buflen);
-        if (len < 0)
+        if (len < 0) {
+                log_dhcp_client(client, "could not receive message from UDP "
+                                "socket: %s", strerror(errno));
+                return 0;
+        } else if ((size_t)len < sizeof(DHCPMessage))
                 return 0;
 
         return client_handle_message(client, message, len);
@@ -1122,7 +1120,8 @@ static int client_receive_message_raw(sd_event_source *s, int fd,
                 log_dhcp_client(client, "could not receive message from raw "
                                 "socket: %s", strerror(errno));
                 return 0;
-        }
+        } else if ((size_t)len < sizeof(DHCPPacket))
+                return 0;
 
         for (cmsg = CMSG_FIRSTHDR(&msg); cmsg; cmsg = CMSG_NXTHDR(&msg, cmsg)) {
                 if (cmsg->cmsg_level == SOL_PACKET && cmsg->cmsg_type == PACKET_AUXDATA) {

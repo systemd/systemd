@@ -113,13 +113,6 @@ int dhcp_packet_verify_headers(DHCPPacket *packet, size_t len, bool checksum) {
 
         /* IP */
 
-        if (len < DHCP_IP_SIZE) {
-                log_dhcp_client(client, "ignoring packet: packet (%zu bytes) "
-                                " smaller than IP header (%u bytes)", len,
-                                DHCP_IP_SIZE);
-                return -EINVAL;
-        }
-
         if (packet->ip.version != IPVERSION) {
                 log_dhcp_client(client, "ignoring packet: not IPv4");
                 return -EINVAL;
@@ -149,13 +142,6 @@ int dhcp_packet_verify_headers(DHCPPacket *packet, size_t len, bool checksum) {
 
         if (packet->ip.protocol != IPPROTO_UDP) {
                 log_dhcp_client(client, "ignoring packet: not UDP");
-                return -EINVAL;
-        }
-
-        if (len < DHCP_IP_UDP_SIZE) {
-                log_dhcp_client(client, "ignoring packet: packet (%zu bytes) "
-                                " smaller than IP+UDP header (%u bytes)", len,
-                                DHCP_IP_UDP_SIZE);
                 return -EINVAL;
         }
 

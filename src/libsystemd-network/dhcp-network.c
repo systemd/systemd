@@ -34,11 +34,14 @@
 int dhcp_network_bind_raw_socket(int index, union sockaddr_union *link)
 {
         struct sock_filter filter[] = {
+            BPF_STMT(BPF_LD + BPF_W + BPF_LEN, 0),                                 /* A <- packet length */
+            BPF_JUMP(BPF_JMP + BPF_JGE + BPF_K, sizeof(DHCPPacket), 1, 0),         /* packet >= DHCPPacket ? */
+            BPF_STMT(BPF_RET + BPF_K, 0),                                          /* ignore */
             BPF_STMT(BPF_LD + BPF_B + BPF_ABS, offsetof(DHCPPacket, ip.protocol)), /* A <- IP protocol */
-            BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, IPPROTO_UDP, 1, 0),                /* IP protocol = UDP? */
+            BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, IPPROTO_UDP, 1, 0),                /* IP protocol == UDP ? */
             BPF_STMT(BPF_RET + BPF_K, 0),                                          /* ignore */
             BPF_STMT(BPF_LD + BPF_H + BPF_ABS, offsetof(DHCPPacket, udp.dest)),    /* A <- UDP destination port */
-            BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, DHCP_PORT_CLIENT, 1, 0),           /* UDP destination port = DHCP client? */
+            BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, DHCP_PORT_CLIENT, 1, 0),           /* UDP destination port == DHCP client port ? */
             BPF_STMT(BPF_RET + BPF_K, 0),                                          /* ignore */
             BPF_STMT(BPF_RET + BPF_K, 65535),                                      /* return all */
         };
