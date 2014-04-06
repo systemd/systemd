@@ -43,23 +43,13 @@ int dhcp_message_init(DHCPMessage *message, uint8_t op, uint32_t xid,
 
         assert(op == BOOTREQUEST || op == BOOTREPLY);
 
-        *opt = (uint8_t *)(message + 1);
-
-        if (*optlen < 4)
-                return -ENOBUFS;
-        *optlen -= 4;
-
         message->op = op;
         message->htype = ARPHRD_ETHER;
         message->hlen = ETHER_ADDR_LEN;
         message->xid = htobe32(xid);
+        message->magic = htobe32(DHCP_MAGIC_COOKIE);
 
-        (*opt)[0] = 0x63;
-        (*opt)[1] = 0x82;
-        (*opt)[2] = 0x53;
-        (*opt)[3] = 0x63;
-
-        *opt += 4;
+        *opt = (uint8_t *)(message + 1);
 
         err = dhcp_option_append(opt, optlen, DHCP_OPTION_MESSAGE_TYPE, 1,
                                  &type);

@@ -22,6 +22,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <net/ethernet.h>
+#include <net/if_arp.h>
 #include <sys/param.h>
 #include <sys/ioctl.h>
 
@@ -936,6 +937,11 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message,
                 return 0;
         }
 
+        if (be32toh(message->magic) != DHCP_MAGIC_COOKIE) {
+                log_dhcp_client(client, "not a DHCP message: ignoring");
+                return 0;
+        }
+
         if (message->op != BOOTREPLY) {
                 log_dhcp_client(client, "not a BOOTREPLY message: ignoring");
                 return 0;
@@ -945,6 +951,11 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message,
                 log_dhcp_client(client, "received xid (%u) does not match "
                                 "expected (%u): ignoring",
                                 be32toh(message->xid), client->xid);
+                return 0;
+        }
+
+        if (message->htype != ARPHRD_ETHER || message->hlen != ETHER_ADDR_LEN) {
+                log_dhcp_client(client, "not an ethernet packet");
                 return 0;
         }
 

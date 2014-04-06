@@ -43,6 +43,7 @@ struct DHCPMessage {
         uint8_t chaddr[16];
         uint8_t sname[64];
         uint8_t file[128];
+        be32_t magic;
 } _packed_;
 
 typedef struct DHCPMessage DHCPMessage;
@@ -58,7 +59,8 @@ typedef struct DHCPPacket DHCPPacket;
 #define DHCP_IP_SIZE            (int32_t)(sizeof(struct iphdr))
 #define DHCP_IP_UDP_SIZE        (int32_t)(sizeof(struct udphdr) + DHCP_IP_SIZE)
 #define DHCP_MESSAGE_SIZE       (int32_t)(sizeof(DHCPMessage))
-#define DHCP_MIN_OPTIONS_SIZE   312
+#define DHCP_MIN_OPTIONS_SIZE   308
+#define DHCP_MAGIC_COOKIE       (uint32_t)(0x63825363)
 
 enum {
         DHCP_PORT_SERVER                        = 67,

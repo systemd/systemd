@@ -149,17 +149,13 @@ int dhcp_option_parse(DHCPMessage *message, size_t len,
         if (!message)
                 return -EINVAL;
 
-        if (len < sizeof(DHCPMessage) + 4)
+        if (len < sizeof(DHCPMessage))
                 return -EINVAL;
 
-        len -= sizeof(DHCPMessage) + 4;
+        len -= sizeof(DHCPMessage);
 
-        if (opt[0] != 0x63 && opt[1] != 0x82 && opt[2] != 0x53 &&
-                        opt[3] != 0x63)
-                return -EINVAL;
-
-        res = parse_options(&opt[4], len, &overload, &message_type,
-                        cb, user_data);
+        res = parse_options(opt, len, &overload, &message_type,
+                            cb, user_data);
         if (res < 0)
                 return res;
 
