@@ -190,7 +190,7 @@ int dhcp_network_send_raw_socket(int s, const union sockaddr_union *link,
         return 575;
 }
 
-int dhcp_network_bind_raw_socket(int index, union sockaddr_union *link)
+int dhcp_network_bind_raw_socket(int index, union sockaddr_union *link, uint32_t id)
 {
         if (socketpair(AF_UNIX, SOCK_STREAM, 0, test_fd) < 0)
                 return -errno;

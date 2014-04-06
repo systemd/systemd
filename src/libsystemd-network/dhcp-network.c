@@ -23,6 +23,7 @@
 #include <string.h>
 #include <linux/if_packet.h>
 #include <net/ethernet.h>
+#include <net/if_arp.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <linux/filter.h>
@@ -31,17 +32,33 @@
 
 #include "dhcp-internal.h"
 
-int dhcp_network_bind_raw_socket(int index, union sockaddr_union *link)
-{
+int dhcp_network_bind_raw_socket(int index, union sockaddr_union *link, uint32_t xid) {
         struct sock_filter filter[] = {
             BPF_STMT(BPF_LD + BPF_W + BPF_LEN, 0),                                 /* A <- packet length */
             BPF_JUMP(BPF_JMP + BPF_JGE + BPF_K, sizeof(DHCPPacket), 1, 0),         /* packet >= DHCPPacket ? */
             BPF_STMT(BPF_RET + BPF_K, 0),                                          /* ignore */
+            /* TODO: match ip.version */
             BPF_STMT(BPF_LD + BPF_B + BPF_ABS, offsetof(DHCPPacket, ip.protocol)), /* A <- IP protocol */
             BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, IPPROTO_UDP, 1, 0),                /* IP protocol == UDP ? */
             BPF_STMT(BPF_RET + BPF_K, 0),                                          /* ignore */
             BPF_STMT(BPF_LD + BPF_H + BPF_ABS, offsetof(DHCPPacket, udp.dest)),    /* A <- UDP destination port */
             BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, DHCP_PORT_CLIENT, 1, 0),           /* UDP destination port == DHCP client port ? */
+            BPF_STMT(BPF_RET + BPF_K, 0),                                          /* ignore */
+            BPF_STMT(BPF_LD + BPF_B + BPF_ABS, offsetof(DHCPPacket, dhcp.op)),     /* A <- DHCP op */
+            BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, BOOTREPLY, 1, 0),                  /* op == BOOTREPLY ? */
+            BPF_STMT(BPF_RET + BPF_K, 0),                                          /* ignore */
+            BPF_STMT(BPF_LD + BPF_B + BPF_ABS, offsetof(DHCPPacket, dhcp.htype)),  /* A <- DHCP header type */
+            BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, ARPHRD_ETHER, 1, 0),               /* header type == ARPHRD_ETHER ? */
+            BPF_STMT(BPF_RET + BPF_K, 0),                                          /* ignore */
+            BPF_STMT(BPF_LD + BPF_B + BPF_ABS, offsetof(DHCPPacket, dhcp.hlen)),   /* A <- mac address length */
+            BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, ETHER_ADDR_LEN, 1, 0),             /* address length == ETHER_ADDR_LEN ? */
+            BPF_STMT(BPF_RET + BPF_K, 0),                                          /* ignore */
+            BPF_STMT(BPF_LD + BPF_W + BPF_ABS, offsetof(DHCPPacket, dhcp.xid)),    /* A <- client identifier */
+            BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, xid, 1, 0),                        /* client identifier == xid ? */
+            BPF_STMT(BPF_RET + BPF_K, 0),                                          /* ignore */
+            /* TODO: match chaddr */
+            BPF_STMT(BPF_LD + BPF_W + BPF_ABS, offsetof(DHCPPacket, dhcp.magic)),  /* A <- DHCP magic cookie */
+            BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, DHCP_MAGIC_COOKIE, 1, 0),          /* cookie == DHCP magic cookie ? */
             BPF_STMT(BPF_RET + BPF_K, 0),                                          /* ignore */
             BPF_STMT(BPF_RET + BPF_K, 65535),                                      /* return all */
         };
