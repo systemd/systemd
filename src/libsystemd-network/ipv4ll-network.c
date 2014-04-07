@@ -43,9 +43,10 @@ int arp_network_bind_raw_socket(int index, union sockaddr_union *link) {
                 return -errno;
 
         link->ll.sll_family = AF_PACKET;
-        link->ll.sll_ifindex = index;
         link->ll.sll_protocol = htons(ETH_P_ARP);
+        link->ll.sll_ifindex = index;
         link->ll.sll_halen = ETH_ALEN;
+        memset(link->ll.sll_addr, 0xff, ETH_ALEN);
 
         if (bind(s, &link->sa, sizeof(link->ll)) < 0) {
                 safe_close(s);
