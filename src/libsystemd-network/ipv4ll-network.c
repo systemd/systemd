@@ -17,6 +17,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <linux/filter.h>
+
 #include "util.h"
 #include "ipv4ll-internal.h"
 
@@ -33,6 +35,27 @@ int arp_network_send_raw_socket(int fd, const union sockaddr_union *link,
 }
 
 int arp_network_bind_raw_socket(int index, union sockaddr_union *link) {
+        struct sock_filter filter[] = {
+            BPF_STMT(BPF_LD + BPF_W + BPF_LEN, 0),                                         /* A <- packet length */
+            BPF_JUMP(BPF_JMP + BPF_JGE + BPF_K, sizeof(struct ether_arp), 1, 0),           /* packet >= arp packet ? */
+            BPF_STMT(BPF_RET + BPF_K, 0),                                                  /* ignore */
+            BPF_STMT(BPF_LD + BPF_H + BPF_ABS, offsetof(struct ether_arp, ea_hdr.ar_hrd)), /* A <- header */
+            BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, ARPHRD_ETHER, 1, 0),                       /* header == ethernet ? */
+            BPF_STMT(BPF_RET + BPF_K, 0),                                                  /* ignore */
+            BPF_STMT(BPF_LD + BPF_H + BPF_ABS, offsetof(struct ether_arp, ea_hdr.ar_pro)), /* A <- protocol */
+            BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, ETHERTYPE_IP, 1, 0),                       /* protocol == IP ? */
+            BPF_STMT(BPF_RET + BPF_K, 0),                                                  /* ignore */
+            BPF_STMT(BPF_LD + BPF_H + BPF_ABS, offsetof(struct ether_arp, ea_hdr.ar_op)),  /* A <- operation */
+            BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, ARPOP_REQUEST, 0, 1),                      /* protocol == request ? */
+            BPF_STMT(BPF_RET + BPF_K, 65535),                                              /* return all */
+            BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, ARPOP_REPLY, 0, 1),                        /* protocol == reply ? */
+            BPF_STMT(BPF_RET + BPF_K, 65535),                                              /* return all */
+            BPF_STMT(BPF_RET + BPF_K, 0),                                                  /* ignore */
+        };
+        struct sock_fprog fprog = {
+            .len = ELEMENTSOF(filter),
+            .filter = filter
+        };
         int s;
 
         assert(index > 0);
@@ -41,6 +64,10 @@ int arp_network_bind_raw_socket(int index, union sockaddr_union *link) {
         s = socket(PF_PACKET, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
         if (s < 0)
                 return -errno;
+
+        if (setsockopt(s, SOL_SOCKET, SO_ATTACH_FILTER, &fprog, sizeof(fprog)) < 0) {
+                return -errno;
+        }
 
         link->ll.sll_family = AF_PACKET;
         link->ll.sll_protocol = htons(ETH_P_ARP);
