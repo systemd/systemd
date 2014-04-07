@@ -56,4 +56,4 @@ void dhcp_packet_append_ip_headers(DHCPPacket *packet, be32_t source_addr,
 
 int dhcp_packet_verify_headers(DHCPPacket *packet, size_t len, bool checksum);
 
-#define log_dhcp_client(client, fmt, ...) log_meta(LOG_DEBUG, __FILE__, __LINE__, __func__, "DHCP CLIENT: " fmt, ##__VA_ARGS__)
+#define log_dhcp_client(client, fmt, ...) log_meta(LOG_DEBUG, __FILE__, __LINE__, __func__, "DHCP CLIENT (0x%x): " fmt, client->xid, ##__VA_ARGS__)

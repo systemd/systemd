@@ -141,48 +141,48 @@ int dhcp_packet_verify_headers(DHCPPacket *packet, size_t len, bool checksum) {
         /* IP */
 
         if (packet->ip.version != IPVERSION) {
-                log_dhcp_client(client, "ignoring packet: not IPv4");
+                log_debug("ignoring packet: not IPv4");
                 return -EINVAL;
         }
 
         if (packet->ip.ihl < 5) {
-                log_dhcp_client(client, "ignoring packet: IPv4 IHL (%u words) invalid",
-                                packet->ip.ihl);
+                log_debug("ignoring packet: IPv4 IHL (%u words) invalid",
+                          packet->ip.ihl);
                 return -EINVAL;
         }
 
         hdrlen = packet->ip.ihl * 4;
         if (hdrlen < 20) {
-                log_dhcp_client(client, "ignoring packet: IPv4 IHL (%zu bytes) "
-                                "smaller than minimum (20 bytes)", hdrlen);
+                log_debug("ignoring packet: IPv4 IHL (%zu bytes) "
+                          "smaller than minimum (20 bytes)", hdrlen);
                 return -EINVAL;
         }
 
         if (len < hdrlen) {
-                log_dhcp_client(client, "ignoring packet: packet (%zu bytes) "
-                                "smaller than expected (%zu) by IP header", len,
-                                hdrlen);
+                log_debug("ignoring packet: packet (%zu bytes) "
+                          "smaller than expected (%zu) by IP header", len,
+                          hdrlen);
                 return -EINVAL;
         }
 
         /* UDP */
 
         if (packet->ip.protocol != IPPROTO_UDP) {
-                log_dhcp_client(client, "ignoring packet: not UDP");
+                log_debug("ignoring packet: not UDP");
                 return -EINVAL;
         }
 
         if (len < hdrlen + be16toh(packet->udp.len)) {
-                log_dhcp_client(client, "ignoring packet: packet (%zu bytes) "
-                                "smaller than expected (%zu) by UDP header", len,
-                                hdrlen + be16toh(packet->udp.len));
+                log_debug("ignoring packet: packet (%zu bytes) "
+                          "smaller than expected (%zu) by UDP header", len,
+                          hdrlen + be16toh(packet->udp.len));
                 return -EINVAL;
         }
 
         if (be16toh(packet->udp.dest) != DHCP_PORT_CLIENT) {
-                log_dhcp_client(client, "ignoring packet: to port %u, which "
-                                "is not the DHCP client port (%u)",
-                                be16toh(packet->udp.dest), DHCP_PORT_CLIENT);
+                log_debug("ignoring packet: to port %u, which "
+                          "is not the DHCP client port (%u)",
+                          be16toh(packet->udp.dest), DHCP_PORT_CLIENT);
                 return -EINVAL;
         }
 
@@ -191,7 +191,7 @@ int dhcp_packet_verify_headers(DHCPPacket *packet, size_t len, bool checksum) {
          */
 
         if (dhcp_packet_checksum(&packet->ip, hdrlen)) {
-                log_dhcp_client(client, "ignoring packet: invalid IP checksum");
+                log_debug("ignoring packet: invalid IP checksum");
                 return -EINVAL;
         }
 
@@ -201,7 +201,7 @@ int dhcp_packet_verify_headers(DHCPPacket *packet, size_t len, bool checksum) {
 
                 if (dhcp_packet_checksum(&packet->ip.ttl,
                                   be16toh(packet->udp.len) + 12)) {
-                        log_dhcp_client(client, "ignoring packet: invalid UDP checksum");
+                        log_debug("ignoring packet: invalid UDP checksum");
                         return -EINVAL;
                 }
         }
