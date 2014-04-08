@@ -347,8 +347,7 @@ static uint8_t test_addr_acq_ack[] = {
 };
 
 static void test_addr_acq_acquired(sd_dhcp_client *client, int event,
-                                   void *userdata)
-{
+                                   void *userdata) {
         sd_event *e = userdata;
         sd_dhcp_lease *lease;
         struct in_addr addr;
@@ -377,8 +376,7 @@ static void test_addr_acq_acquired(sd_dhcp_client *client, int event,
         sd_event_exit(e, 0);
 }
 
-static int test_addr_acq_recv_request(size_t size, DHCPMessage *request)
-{
+static int test_addr_acq_recv_request(size_t size, DHCPMessage *request) {
         uint16_t udp_check = 0;
         uint8_t *msg_bytes = (uint8_t *)request;
         int res;
@@ -409,8 +407,7 @@ static int test_addr_acq_recv_request(size_t size, DHCPMessage *request)
         return 0;
 };
 
-static int test_addr_acq_recv_discover(size_t size, DHCPMessage *discover)
-{
+static int test_addr_acq_recv_discover(size_t size, DHCPMessage *discover) {
         uint16_t udp_check = 0;
         uint8_t *msg_bytes = (uint8_t *)discover;
         int res;
@@ -437,13 +434,12 @@ static int test_addr_acq_recv_discover(size_t size, DHCPMessage *discover)
         assert_se(res == sizeof(test_addr_acq_offer));
 
         if (verbose)
-                printf("  send DHCP Offer\n");
+                printf("  sent DHCP Offer\n");
 
         return 0;
 }
 
-static void test_addr_acq(sd_event *e)
-{
+static void test_addr_acq(sd_event *e) {
         usec_t time_now = now(CLOCK_MONOTONIC);
         sd_dhcp_client *client;
         int res, r;
@@ -488,8 +484,7 @@ static void test_addr_acq(sd_event *e)
         xid = 0;
 }
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
         sd_event *e;
 
         assert_se(sd_event_new(&e) >= 0);
