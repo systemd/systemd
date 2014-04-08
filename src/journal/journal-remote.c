@@ -42,7 +42,6 @@
 #include "macro.h"
 #include "strv.h"
 #include "fileio.h"
-#include "socket-util.h"
 #include "microhttpd-util.h"
 
 #ifdef HAVE_GNUTLS

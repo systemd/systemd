@@ -83,7 +83,6 @@
 #include "gunicode.h"
 #include "virt.h"
 #include "def.h"
-#include "missing.h"
 
 int saved_argc = 0;
 char **saved_argv = NULL;
