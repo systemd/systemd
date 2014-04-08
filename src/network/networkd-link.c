@@ -1299,6 +1299,7 @@ static int link_getlink_handler(sd_rtnl *rtnl, sd_rtnl_message *m,
         int r;
 
         assert(link);
+        assert(link->ifname);
 
         if (link->state == LINK_STATE_FAILED)
                 return 1;
@@ -1510,10 +1511,15 @@ int link_update(Link *link, sd_rtnl_message *m) {
 int link_save(Link *link) {
         _cleanup_free_ char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
+        const char *state;
         int r;
 
         assert(link);
         assert(link->state_file);
+
+        state = link_state_to_string(link->state);
+        if (!state)
+                goto finish;
 
         r = fopen_temporary(link->state_file, &f, &temp_path);
         if (r < 0)
@@ -1523,8 +1529,7 @@ int link_save(Link *link) {
 
         fprintf(f,
                 "# This is private data. Do not parse.\n"
-                "STATE=%s\n",
-                link_state_to_string(link->state));
+                "STATE=%s\n", state);
 
         if (link->dhcp_lease) {
                 _cleanup_free_ char *lease_file = NULL;
