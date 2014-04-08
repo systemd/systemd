@@ -24,6 +24,7 @@
 #include "fileio.h"
 #include "libudev.h"
 #include "udev-util.h"
+#include "def.h"
 
 static struct udev_device *find_pci_or_platform_parent(struct udev_device *device) {
         struct udev_device *parent;
@@ -50,7 +51,7 @@ static struct udev_device *find_pci_or_platform_parent(struct udev_device *devic
                 if (!c)
                         return NULL;
 
-                c += strspn(c, "0123456789");
+                c += strspn(c, DIGITS);
                 if (*c == '-') {
                         /* A connector DRM device, let's ignore all but LVDS and eDP! */
 
@@ -67,7 +68,8 @@ static struct udev_device *find_pci_or_platform_parent(struct udev_device *devic
                         unsigned long class = 0;
 
                         if (safe_atolu(value, &class) < 0) {
-                                log_warning("Cannot parse PCI class %s of device %s:%s.", value, subsystem, sysname);
+                                log_warning("Cannot parse PCI class %s of device %s:%s.",
+                                            value, subsystem, sysname);
                                 return NULL;
                         }
 
@@ -175,7 +177,9 @@ static bool validate_device(struct udev *udev, struct udev_device *device) {
                 if (same_device(parent, other_parent)) {
                         /* Both have the same PCI parent, that means
                          * we are out. */
-                        log_debug("Skipping backlight device %s, since backlight device %s is on same PCI device and, takes precedence.", udev_device_get_sysname(device), udev_device_get_sysname(other));
+                        log_debug("Skipping backlight device %s, since device %s is on same PCI device and takes precedence.",
+                                  udev_device_get_sysname(device),
+                                  udev_device_get_sysname(other));
                         return false;
                 }
 
@@ -184,7 +188,9 @@ static bool validate_device(struct udev *udev, struct udev_device *device) {
                         /* The other is connected to the platform bus
                          * and we are a PCI device, that also means we
                          * are out. */
-                        log_debug("Skipping backlight device %s, since backlight device %s is a platform device and takes precedence.", udev_device_get_sysname(device), udev_device_get_sysname(other));
+                        log_debug("Skipping backlight device %s, since device %s is a platform device and takes precedence.",
+                                  udev_device_get_sysname(device),
+                                  udev_device_get_sysname(other));
                         return false;
                 }
         }
@@ -199,13 +205,14 @@ static unsigned get_max_brightness(struct udev_device *device) {
 
         max_brightness_str = udev_device_get_sysattr_value(device, "max_brightness");
         if (!max_brightness_str) {
-                log_warning("Failed to read max_brightness attribute");
+                log_warning("Failed to read 'max_brightness' attribute");
                 return 0;
         }
 
         r = safe_atou(max_brightness_str, &max_brightness);
         if (r < 0) {
-                log_warning("Failed to parse max_brightness \"%s\": %s", max_brightness_str, strerror(-r));
+                log_warning("Failed to parse 'max_brightness' \"%s\": %s",
+                            max_brightness_str, strerror(-r));
                 return 0;
         }
 
@@ -262,7 +269,8 @@ int main(int argc, char *argv[]) {
 
         r = mkdir_p("/var/lib/systemd/backlight", 0755);
         if (r < 0) {
-                log_error("Failed to create backlight directory: %s", strerror(-r));
+                log_error("Failed to create backlight directory /var/lib/systemd/backlight: %s",
+                          strerror(-r));
                 return EXIT_FAILURE;
         }
 
@@ -274,7 +282,7 @@ int main(int argc, char *argv[]) {
 
         sysname = strchr(argv[2], ':');
         if (!sysname) {
-                log_error("Requires pair of subsystem and sysname for specifying backlight device.");
+                log_error("Requires a subsystem and sysname pair specifying a backlight device.");
                 return EXIT_FAILURE;
         }
 
@@ -368,7 +376,8 @@ int main(int argc, char *argv[]) {
 
                 r = udev_device_set_sysattr_value(device, "brightness", value);
                 if (r < 0) {
-                        log_error("Failed to write system attribute: %s", strerror(-r));
+                        log_error("Failed to write system 'brightness' attribute: %s",
+                                  strerror(-r));
                         return EXIT_FAILURE;
                 }
 
@@ -382,7 +391,7 @@ int main(int argc, char *argv[]) {
 
                 value = udev_device_get_sysattr_value(device, "brightness");
                 if (!value) {
-                        log_error("Failed to read system attribute");
+                        log_error("Failed to read system 'brightness' attribute");
                         return EXIT_FAILURE;
                 }
 
