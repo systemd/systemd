@@ -2366,7 +2366,7 @@ static int change_uid_gid(char **_home) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_close_ int fd = -1;
         unsigned n_uids = 0;
-        size_t sz, l;
+        size_t sz = 0, l;
         uid_t uid;
         gid_t gid;
         pid_t pid;
