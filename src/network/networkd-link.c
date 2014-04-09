@@ -80,7 +80,7 @@ void link_free(Link *link) {
 
         assert(link->manager);
 
-        sd_dhcp_client_free(link->dhcp_client);
+        sd_dhcp_client_unref(link->dhcp_client);
         sd_dhcp_lease_unref(link->dhcp_lease);
 
         sd_ipv4ll_free(link->ipv4ll);

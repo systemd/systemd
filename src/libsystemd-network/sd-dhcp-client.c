@@ -28,6 +28,7 @@
 
 #include "util.h"
 #include "list.h"
+#include "refcnt.h"
 
 #include "dhcp-protocol.h"
 #include "dhcp-internal.h"
@@ -35,6 +36,8 @@
 #include "sd-dhcp-client.h"
 
 struct sd_dhcp_client {
+        RefCount n_ref;
+
         DHCPState state;
         sd_event *event;
         int event_priority;
@@ -77,6 +80,7 @@ static int client_receive_message_raw(sd_event_source *s, int fd,
                                       uint32_t revents, void *userdata);
 static int client_receive_message_udp(sd_event_source *s, int fd,
                                       uint32_t revents, void *userdata);
+static sd_dhcp_client *client_stop(sd_dhcp_client *client, int error);
 
 int sd_dhcp_client_set_callback(sd_dhcp_client *client, sd_dhcp_client_cb_t cb,
                                 void *userdata) {
@@ -155,9 +159,12 @@ int sd_dhcp_client_set_mac(sd_dhcp_client *client,
         if (client->state != DHCP_STATE_INIT) {
                 log_dhcp_client(client, "Changing MAC address on running DHCP "
                                 "client, restarting");
-                sd_dhcp_client_stop(client);
                 need_restart = true;
+                client = client_stop(client, DHCP_EVENT_STOP);
         }
+
+        if (!client)
+                return 0;
 
         memcpy(&client->client_id.mac_addr, addr, ETH_ALEN);
         client->client_id.type = 0x01;
@@ -182,11 +189,14 @@ int sd_dhcp_client_get_lease(sd_dhcp_client *client, sd_dhcp_lease **ret) {
         return 0;
 }
 
-static int client_notify(sd_dhcp_client *client, int event) {
-        if (client->cb)
+static sd_dhcp_client *client_notify(sd_dhcp_client *client, int event) {
+        if (client->cb) {
+                client = sd_dhcp_client_ref(client);
                 client->cb(client, event, client->userdata);
+                client = sd_dhcp_client_unref(client);
+        }
 
-        return 0;
+        return client;
 }
 
 static int client_initialize(sd_dhcp_client *client) {
@@ -214,16 +224,17 @@ static int client_initialize(sd_dhcp_client *client) {
         return 0;
 }
 
-static int client_stop(sd_dhcp_client *client, int error) {
-        assert_return(client, -EINVAL);
+static sd_dhcp_client *client_stop(sd_dhcp_client *client, int error) {
+        assert_return(client, NULL);
 
-        client_notify(client, error);
+        log_dhcp_client(client, "STOPPED %d", error);
 
-        client_initialize(client);
+        client = client_notify(client, error);
 
-        log_dhcp_client(client, "STOPPED");
+        if (client)
+                client_initialize(client);
 
-        return 0;
+        return client;
 }
 
 static int client_message_init(sd_dhcp_client *client, DHCPMessage *message,
@@ -617,11 +628,13 @@ static int client_timeout_expire(sd_event_source *s, uint64_t usec,
 
         log_dhcp_client(client, "EXPIRED");
 
-        client_notify(client, DHCP_EVENT_EXPIRED);
+        client = client_notify(client, DHCP_EVENT_EXPIRED);
 
-        /* start over as the lease was lost */
-        client_initialize(client);
-        client_start(client);
+        /* lease was lost, start over if not freed */
+        if (client) {
+                client_initialize(client);
+                client_start(client);
+        }
 
         return 0;
 }
@@ -1031,8 +1044,11 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message,
                         if (r < 0)
                                 goto error;
 
-                        if (notify_event)
-                                client_notify(client, notify_event);
+                        if (notify_event) {
+                                client = client_notify(client, notify_event);
+                                if (!client)
+                                        return 0;
+                        }
 
                         client->receive_message =
                                 sd_event_source_unref(client->receive_message);
@@ -1052,9 +1068,9 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message,
 
 error:
         if (r < 0 || r == DHCP_EVENT_NO_LEASE)
-                return client_stop(client, r);
+                client_stop(client, r);
 
-        return 0;
+        return r;
 }
 
 static int client_receive_message_udp(sd_event_source *s, int fd,
@@ -1159,7 +1175,11 @@ int sd_dhcp_client_start(sd_dhcp_client *client) {
 }
 
 int sd_dhcp_client_stop(sd_dhcp_client *client) {
-        return client_stop(client, DHCP_EVENT_STOP);
+        assert_return(client, -EINVAL);
+
+        client_stop(client, DHCP_EVENT_STOP);
+
+        return 0;
 }
 
 int sd_dhcp_client_attach_event(sd_dhcp_client *client, sd_event *event,
@@ -1197,19 +1217,35 @@ sd_event *sd_dhcp_client_get_event(sd_dhcp_client *client) {
         return client->event;
 }
 
-void sd_dhcp_client_free(sd_dhcp_client *client) {
-        if (!client)
-                return;
+sd_dhcp_client *sd_dhcp_client_ref(sd_dhcp_client *client) {
+        if (client)
+                assert_se(REFCNT_INC(client->n_ref) >= 2);
 
-        sd_dhcp_client_stop(client);
-        sd_dhcp_client_detach_event(client);
-
-        free(client->req_opts);
-        free(client);
+        return client;
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(sd_dhcp_client*, sd_dhcp_client_free);
-#define _cleanup_dhcp_client_free_ _cleanup_(sd_dhcp_client_freep)
+sd_dhcp_client *sd_dhcp_client_unref(sd_dhcp_client *client) {
+        if (client && REFCNT_DEC(client->n_ref) <= 0) {
+                log_dhcp_client(client, "UNREF");
+
+                client_initialize(client);
+
+                client->receive_message =
+                        sd_event_source_unref(client->receive_message);
+
+                sd_dhcp_client_detach_event(client);
+
+                free(client->req_opts);
+                free(client);
+
+                return NULL;
+        }
+
+        return client;
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(sd_dhcp_client*, sd_dhcp_client_unref);
+#define _cleanup_dhcp_client_free_ _cleanup_(sd_dhcp_client_unrefp)
 
 int sd_dhcp_client_new(sd_dhcp_client **ret) {
         _cleanup_dhcp_client_free_ sd_dhcp_client *client = NULL;
@@ -1220,6 +1256,7 @@ int sd_dhcp_client_new(sd_dhcp_client **ret) {
         if (!client)
                 return -ENOMEM;
 
+        client->n_ref = REFCNT_INIT;
         client->state = DHCP_STATE_INIT;
         client->index = -1;
         client->fd = -1;

@@ -251,7 +251,7 @@ static void test_discover_message(sd_event *e)
         sd_event_run(e, (uint64_t) -1);
 
         sd_dhcp_client_stop(client);
-        sd_dhcp_client_free(client);
+        sd_dhcp_client_unref(client);
 
         test_fd[1] = safe_close(test_fd[1]);
 
@@ -476,7 +476,7 @@ static void test_addr_acq(sd_event *e) {
 
         sd_dhcp_client_set_callback(client, NULL, NULL);
         sd_dhcp_client_stop(client);
-        sd_dhcp_client_free(client);
+        sd_dhcp_client_unref(client);
 
         test_fd[1] = safe_close(test_fd[1]);
 
