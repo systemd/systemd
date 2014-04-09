@@ -47,7 +47,8 @@ int sd_ipv4ll_set_address_seed(sd_ipv4ll *ll, uint8_t seed[8]);
 bool sd_ipv4ll_is_running(sd_ipv4ll *ll);
 int sd_ipv4ll_start(sd_ipv4ll *ll);
 int sd_ipv4ll_stop(sd_ipv4ll *ll);
-void sd_ipv4ll_free(sd_ipv4ll *ll);
-int sd_ipv4ll_new(sd_ipv4ll **ret);
+sd_ipv4ll *sd_ipv4ll_ref(sd_ipv4ll *ll);
+sd_ipv4ll *sd_ipv4ll_unref(sd_ipv4ll *ll);
+int sd_ipv4ll_new (sd_ipv4ll **ret);
 
 #endif

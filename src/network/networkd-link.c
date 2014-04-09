@@ -83,7 +83,7 @@ void link_free(Link *link) {
         sd_dhcp_client_unref(link->dhcp_client);
         sd_dhcp_lease_unref(link->dhcp_lease);
 
-        sd_ipv4ll_free(link->ipv4ll);
+        sd_ipv4ll_unref(link->ipv4ll);
 
         hashmap_remove(link->manager->links, &link->ifindex);
 
