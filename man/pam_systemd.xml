@@ -145,8 +145,9 @@
                                 variable takes precedence. One of
                                 <literal>unspecified</literal>,
                                 <literal>tty</literal>,
-                                <literal>x11</literal> or
-                                <literal>wayland</literal>. See
+                                <literal>x11</literal>,
+                                <literal>wayland</literal> or
+                                <literal>mir</literal>. See
                                 <citerefentry><refentrytitle>sd_session_get_type</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                                 for details about the session type.</para></listitem>
                         </varlistentry>

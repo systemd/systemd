@@ -201,9 +201,9 @@
                 be used to determine the type of the session
                 identified by the specified session identifier. The
                 returned string is one of <literal>x11</literal>,
-                <literal>wayland</literal>, <literal>tty</literal> or
-                <literal>unspecified</literal> and needs to be freed
-                with the libc
+                <literal>wayland</literal>, <literal>tty</literal>,
+                <literal>mir</literal> or <literal>unspecified</literal> and
+                needs to be freed with the libc
                 <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 call after use.</para>
 
