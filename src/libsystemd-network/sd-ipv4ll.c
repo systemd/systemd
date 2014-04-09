@@ -61,6 +61,7 @@ typedef enum IPv4LLState {
         IPV4LL_STATE_WAITING_ANNOUNCE,
         IPV4LL_STATE_ANNOUNCING,
         IPV4LL_STATE_RUNNING,
+        IPV4LL_STATE_STOPPED,
         _IPV4LL_STATE_MAX,
         _IPV4LL_STATE_INVALID = -1
 } IPv4LLState;
@@ -264,7 +265,7 @@ static void ipv4ll_run_state_machine(sd_ipv4ll *ll, IPv4LLTrigger trigger, void 
                         log_ipv4ll(ll, "ANNOUNCE");
                         ll->claimed_address = ll->address;
                         ll = ipv4ll_client_notify(ll, IPV4LL_EVENT_BIND);
-                        if (!ll)
+                        if (!ll || ll->state == IPV4LL_STATE_STOPPED)
                                 goto out;
 
                         ll->conflict = 0;
@@ -311,7 +312,7 @@ static void ipv4ll_run_state_machine(sd_ipv4ll *ll, IPv4LLTrigger trigger, void 
                 if (conflicted) {
                         log_ipv4ll(ll, "CONFLICT");
                         ll = ipv4ll_client_notify(ll, IPV4LL_EVENT_CONFLICT);
-                        if (!ll)
+                        if (!ll || ll->state == IPV4LL_STATE_STOPPED)
                                 goto out;
 
                         ll->claimed_address = 0;
@@ -382,7 +383,8 @@ static int ipv4ll_receive_message(sd_event_source *s, int fd,
 int sd_ipv4ll_set_index(sd_ipv4ll *ll, int interface_index) {
         assert_return(ll, -EINVAL);
         assert_return(interface_index >= -1, -EINVAL);
-        assert_return(ll->state == IPV4LL_STATE_INIT, -EBUSY);
+        assert_return(IN_SET(ll->state, IPV4LL_STATE_INIT,
+                             IPV4LL_STATE_STOPPED), -EBUSY);
 
         ll->index = interface_index;
 
@@ -398,7 +400,7 @@ int sd_ipv4ll_set_mac(sd_ipv4ll *ll, const struct ether_addr *addr) {
         if (memcmp(&ll->mac_addr, addr, ETH_ALEN) == 0)
                 return 0;
 
-        if (ll->state != IPV4LL_STATE_INIT) {
+        if (!IN_SET(ll->state, IPV4LL_STATE_INIT, IPV4LL_STATE_STOPPED)) {
                 log_ipv4ll(ll, "Changing MAC address on running IPv4LL "
                            "client, restarting");
                 ll = ipv4ll_stop(ll, IPV4LL_EVENT_STOP);
@@ -500,7 +502,7 @@ error:
 bool sd_ipv4ll_is_running(sd_ipv4ll *ll) {
         assert_return(ll, -EINVAL);
 
-        return ll->state != IPV4LL_STATE_INIT;
+        return !IN_SET(ll->state, IPV4LL_STATE_INIT, IPV4LL_STATE_STOPPED);
 }
 
 #define HASH_KEY SD_ID128_MAKE(df,04,22,98,3f,ad,14,52,f9,87,2e,d1,9c,70,e2,f2)
@@ -511,7 +513,10 @@ int sd_ipv4ll_start (sd_ipv4ll *ll) {
         assert_return(ll, -EINVAL);
         assert_return(ll->event, -EINVAL);
         assert_return(ll->index > 0, -EINVAL);
-        assert_return(ll->state == IPV4LL_STATE_INIT, -EBUSY);
+        assert_return(IN_SET(ll->state, IPV4LL_STATE_INIT,
+                             IPV4LL_STATE_STOPPED), -EBUSY);
+
+        ll->state = IPV4LL_STATE_INIT;
 
         r = arp_network_bind_raw_socket(ll->index, &ll->link);
 
@@ -572,6 +577,8 @@ out:
 
 int sd_ipv4ll_stop(sd_ipv4ll *ll) {
         ipv4ll_stop(ll, IPV4LL_EVENT_STOP);
+        if (ll)
+                ipv4ll_set_state(ll, IPV4LL_STATE_STOPPED, 1);
 
         return 0;
 }
