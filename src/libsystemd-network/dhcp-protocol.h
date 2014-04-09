@@ -76,6 +76,7 @@ enum DHCPState {
         DHCP_STATE_BOUND                        = 5,
         DHCP_STATE_RENEWING                     = 6,
         DHCP_STATE_REBINDING                    = 7,
+        DHCP_STATE_STOPPED                      = 8,
 };
 
 typedef enum DHCPState DHCPState;

@@ -96,7 +96,8 @@ int sd_dhcp_client_set_request_option(sd_dhcp_client *client, uint8_t option) {
         size_t i;
 
         assert_return(client, -EINVAL);
-        assert_return (client->state == DHCP_STATE_INIT, -EBUSY);
+        assert_return (IN_SET(client->state, DHCP_STATE_INIT,
+                              DHCP_STATE_STOPPED), -EBUSY);
 
         switch(option) {
         case DHCP_OPTION_PAD:
@@ -126,7 +127,8 @@ int sd_dhcp_client_set_request_option(sd_dhcp_client *client, uint8_t option) {
 int sd_dhcp_client_set_request_address(sd_dhcp_client *client,
                                        const struct in_addr *last_addr) {
         assert_return(client, -EINVAL);
-        assert_return(client->state == DHCP_STATE_INIT, -EBUSY);
+        assert_return (IN_SET(client->state, DHCP_STATE_INIT,
+                              DHCP_STATE_STOPPED), -EBUSY);
 
         if (last_addr)
                 client->last_addr = last_addr->s_addr;
@@ -138,7 +140,8 @@ int sd_dhcp_client_set_request_address(sd_dhcp_client *client,
 
 int sd_dhcp_client_set_index(sd_dhcp_client *client, int interface_index) {
         assert_return(client, -EINVAL);
-        assert_return(client->state == DHCP_STATE_INIT, -EBUSY);
+        assert_return (IN_SET(client->state, DHCP_STATE_INIT,
+                              DHCP_STATE_STOPPED), -EBUSY);
         assert_return(interface_index >= -1, -EINVAL);
 
         client->index = interface_index;
@@ -156,7 +159,7 @@ int sd_dhcp_client_set_mac(sd_dhcp_client *client,
         if (memcmp(&client->client_id.mac_addr, addr, ETH_ALEN) == 0)
                 return 0;
 
-        if (client->state != DHCP_STATE_INIT) {
+        if (!IN_SET(client->state, DHCP_STATE_INIT, DHCP_STATE_STOPPED)) {
                 log_dhcp_client(client, "Changing MAC address on running DHCP "
                                 "client, restarting");
                 need_restart = true;
@@ -169,7 +172,7 @@ int sd_dhcp_client_set_mac(sd_dhcp_client *client,
         memcpy(&client->client_id.mac_addr, addr, ETH_ALEN);
         client->client_id.type = 0x01;
 
-        if (need_restart)
+        if (need_restart && client->state != DHCP_STATE_STOPPED)
                 sd_dhcp_client_start(client);
 
         return 0;
@@ -404,6 +407,9 @@ static int client_send_request(sd_dhcp_client *client) {
         case DHCP_STATE_REBINDING:
 
                 break;
+
+        case DHCP_STATE_STOPPED:
+                return -EINVAL;
         }
 
         r = dhcp_option_append(&opt, &optlen, DHCP_OPTION_END, 0, NULL);
@@ -482,6 +488,10 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec,
                 next_timeout = time_now + (client->attempt - 1) * USEC_PER_SEC;
 
                 break;
+
+        case DHCP_STATE_STOPPED:
+                r = -EINVAL;
+                goto error;
         }
 
         next_timeout += (random_u32() & 0x1fffff);
@@ -540,6 +550,10 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec,
         case DHCP_STATE_BOUND:
 
                 break;
+
+        case DHCP_STATE_STOPPED:
+                r = -EINVAL;
+                goto error;
         }
 
         return 0;
@@ -630,8 +644,8 @@ static int client_timeout_expire(sd_event_source *s, uint64_t usec,
 
         client = client_notify(client, DHCP_EVENT_EXPIRED);
 
-        /* lease was lost, start over if not freed */
-        if (client) {
+        /* lease was lost, start over if not freed or stopped in callback */
+        if (client && client->state != DHCP_STATE_STOPPED) {
                 client_initialize(client);
                 client_start(client);
         }
@@ -1046,7 +1060,8 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message,
 
                         if (notify_event) {
                                 client = client_notify(client, notify_event);
-                                if (!client)
+                                if (!client ||
+                                    client->state == DHCP_STATE_STOPPED)
                                         return 0;
                         }
 
@@ -1064,6 +1079,10 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message,
         case DHCP_STATE_BOUND:
 
                 break;
+
+        case DHCP_STATE_STOPPED:
+                r = -EINVAL;
+                goto error;
         }
 
 error:
@@ -1177,7 +1196,8 @@ int sd_dhcp_client_start(sd_dhcp_client *client) {
 int sd_dhcp_client_stop(sd_dhcp_client *client) {
         assert_return(client, -EINVAL);
 
-        client_stop(client, DHCP_EVENT_STOP);
+        if (client_stop(client, DHCP_EVENT_STOP))
+                client->state = DHCP_STATE_STOPPED;
 
         return 0;
 }
