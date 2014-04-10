@@ -107,7 +107,9 @@ struct sd_rtnl_message {
 int message_new(sd_rtnl *rtnl, sd_rtnl_message **ret, uint16_t type);
 
 int socket_write_message(sd_rtnl *nl, sd_rtnl_message *m);
-int socket_read_message(sd_rtnl *nl, sd_rtnl_message **ret);
+int socket_read_message(sd_rtnl *nl);
+
+int rtnl_rqueue_make_room(sd_rtnl *rtnl);
 
 int rtnl_message_read_internal(sd_rtnl_message *m, unsigned short type, void **data);
 int rtnl_message_parse(sd_rtnl_message *m,

@@ -203,29 +203,35 @@ int sd_rtnl_send(sd_rtnl *nl,
         return 1;
 }
 
+int rtnl_rqueue_make_room(sd_rtnl *rtnl) {
+        assert(rtnl);
+
+        if (rtnl->rqueue_size >= RTNL_RQUEUE_MAX)
+                return -ENOBUFS;
+
+        if (!GREEDY_REALLOC(rtnl->rqueue, rtnl->rqueue_allocated, rtnl->rqueue_size + 1))
+                return -ENOMEM;
+
+        return 0;
+}
+
 static int dispatch_rqueue(sd_rtnl *rtnl, sd_rtnl_message **message) {
-        sd_rtnl_message *z = NULL;
         int r;
 
         assert(rtnl);
         assert(message);
 
-        if (rtnl->rqueue_size > 0) {
-                /* Dispatch a queued message */
-
-                *message = rtnl->rqueue[0];
-                rtnl->rqueue_size --;
-                memmove(rtnl->rqueue, rtnl->rqueue + 1, sizeof(sd_rtnl_message*) * rtnl->rqueue_size);
-
-                return 1;
+        if (rtnl->rqueue_size <= 0) {
+                /* Try to read a new message */
+                r = socket_read_message(rtnl);
+                if (r <= 0)
+                        return r;
         }
 
-        /* Try to read a new message */
-        r = socket_read_message(rtnl, &z);
-        if (r <= 0)
-                return r;
-
-        *message = z;
+        /* Dispatch a queued message */
+        *message = rtnl->rqueue[0];
+        rtnl->rqueue_size --;
+        memmove(rtnl->rqueue, rtnl->rqueue + 1, sizeof(sd_rtnl_message*) * rtnl->rqueue_size);
 
         return 1;
 }
@@ -554,20 +560,20 @@ int sd_rtnl_call_async_cancel(sd_rtnl *nl, uint32_t serial) {
         return 1;
 }
 
-int sd_rtnl_call(sd_rtnl *nl,
+int sd_rtnl_call(sd_rtnl *rtnl,
                 sd_rtnl_message *message,
                 uint64_t usec,
                 sd_rtnl_message **ret) {
         usec_t timeout;
         uint32_t serial;
-        bool room = false;
+        unsigned i = 0;
         int r;
 
-        assert_return(nl, -EINVAL);
-        assert_return(!rtnl_pid_changed(nl), -ECHILD);
+        assert_return(rtnl, -EINVAL);
+        assert_return(!rtnl_pid_changed(rtnl), -ECHILD);
         assert_return(message, -EINVAL);
 
-        r = sd_rtnl_send(nl, message, &serial);
+        r = sd_rtnl_send(rtnl, message, &serial);
         if (r < 0)
                 return r;
 
@@ -575,53 +581,43 @@ int sd_rtnl_call(sd_rtnl *nl,
 
         for (;;) {
                 usec_t left;
-                _cleanup_rtnl_message_unref_ sd_rtnl_message *incoming = NULL;
 
-                if (!room) {
-                        sd_rtnl_message **q;
+                while (i < rtnl->rqueue_size) {
+                        sd_rtnl_message *incoming;
+                        uint32_t received_serial;
 
-                        if (nl->rqueue_size >= RTNL_RQUEUE_MAX)
-                                return -ENOBUFS;
-
-                        /* Make sure there's room for queueing this
-                         * locally, before we read the message */
-
-                        q = realloc(nl->rqueue, (nl->rqueue_size + 1) * sizeof(sd_rtnl_message*));
-                        if (!q)
-                                return -ENOMEM;
-
-                        nl->rqueue = q;
-                        room = true;
-                }
-
-                r = socket_read_message(nl, &incoming);
-                if (r < 0)
-                        return r;
-                if (incoming) {
-                        uint32_t received_serial = rtnl_message_get_serial(incoming);
+                        incoming = rtnl->rqueue[i];
+                        received_serial = rtnl_message_get_serial(incoming);
 
                         if (received_serial == serial) {
+                                /* found a match, remove from rqueue and return it */
+                                memmove(rtnl->rqueue + i,rtnl->rqueue + i + 1,
+                                        sizeof(sd_rtnl_message*) * (rtnl->rqueue_size - i - 1));
+                                rtnl->rqueue_size--;
+
                                 r = sd_rtnl_message_get_errno(incoming);
-                                if (r < 0)
+                                if (r < 0) {
+                                        sd_rtnl_message_unref(incoming);
                                         return r;
+                                }
 
                                 if (ret) {
                                         *ret = incoming;
-                                        incoming = NULL;
-                                }
+                                } else
+                                        sd_rtnl_message_unref(incoming);
 
                                 return 1;
                         }
 
-                        /* Room was allocated on the queue above */
-                        nl->rqueue[nl->rqueue_size ++] = incoming;
-                        incoming = NULL;
-                        room = false;
-
                         /* Try to read more, right away */
-                        continue;
+                        i ++;
                 }
-                if (r != 0)
+
+                r = socket_read_message(rtnl);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        /* receieved message, so try to process straight away */
                         continue;
 
                 if (timeout > 0) {
@@ -635,11 +631,11 @@ int sd_rtnl_call(sd_rtnl *nl,
                 } else
                         left = (uint64_t) -1;
 
-                r = rtnl_poll(nl, true, left);
+                r = rtnl_poll(rtnl, true, left);
                 if (r < 0)
                         return r;
 
-                r = dispatch_wqueue(nl);
+                r = dispatch_wqueue(rtnl);
                 if (r < 0)
                         return r;
         }

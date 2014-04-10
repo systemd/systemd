@@ -42,11 +42,10 @@
 #define GET_CONTAINER(m, i) ((i) < (m)->n_containers ? (struct rtattr*)((uint8_t*)(m)->hdr + (m)->container_offsets[i]) : NULL)
 #define PUSH_CONTAINER(m, new) (m)->container_offsets[(m)->n_containers ++] = (uint8_t*)(new) - (uint8_t*)(m)->hdr;
 
-static int message_new_empty(sd_rtnl *rtnl, sd_rtnl_message **ret, size_t initial_size) {
+static int message_new_empty(sd_rtnl *rtnl, sd_rtnl_message **ret) {
         sd_rtnl_message *m;
 
         assert_return(ret, -EINVAL);
-        assert_return(initial_size >= sizeof(struct nlmsghdr), -EINVAL);
 
         /* Note that 'rtnl' is curretly unused, if we start using it internally
            we must take care to avoid problems due to mutual references between
@@ -57,15 +56,8 @@ static int message_new_empty(sd_rtnl *rtnl, sd_rtnl_message **ret, size_t initia
         if (!m)
                 return -ENOMEM;
 
-        m->hdr = malloc0(initial_size);
-        if (!m->hdr) {
-                free(m);
-                return -ENOMEM;
-        }
-
         m->n_ref = REFCNT_INIT;
 
-        m->hdr->nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
         m->sealed = false;
 
         *ret = m;
@@ -74,6 +66,7 @@ static int message_new_empty(sd_rtnl *rtnl, sd_rtnl_message **ret, size_t initia
 }
 
 int message_new(sd_rtnl *rtnl, sd_rtnl_message **ret, uint16_t type) {
+        _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
         const NLType *nl_type;
         size_t size;
         int r;
@@ -84,15 +77,25 @@ int message_new(sd_rtnl *rtnl, sd_rtnl_message **ret, uint16_t type) {
 
         assert(nl_type->type == NLA_NESTED);
 
-        size = NLMSG_SPACE(nl_type->size);
-
-        r = message_new_empty(rtnl, ret, size);
+        r = message_new_empty(rtnl, &m);
         if (r < 0)
                 return r;
 
-        (*ret)->container_type_system[0] = nl_type->type_system;
-        (*ret)->hdr->nlmsg_len = size;
-        (*ret)->hdr->nlmsg_type = type;
+        size = NLMSG_SPACE(nl_type->size);
+
+        assert(size >= sizeof(struct nlmsghdr));
+        m->hdr = malloc0(size);
+        if (!m->hdr)
+                return -ENOMEM;
+
+        m->hdr->nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
+
+        m->container_type_system[0] = nl_type->type_system;
+        m->hdr->nlmsg_len = size;
+        m->hdr->nlmsg_type = type;
+
+        *ret = m;
+        m = NULL;
 
         return 0;
 }
@@ -1014,33 +1017,28 @@ int socket_write_message(sd_rtnl *nl, sd_rtnl_message *m) {
  * If nothing useful was received 0 is returned.
  * On failure, a negative error code is returned.
  */
-int socket_read_message(sd_rtnl *nl, sd_rtnl_message **ret) {
-        _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
-        const NLType *nl_type;
-        struct nlmsghdr *new_hdr;
+int socket_read_message(sd_rtnl *rtnl) {
+        _cleanup_free_ void *buffer = NULL;
+        struct nlmsghdr *new_msg;
         union {
                 struct sockaddr sa;
                 struct sockaddr_nl nl;
         } addr;
-        socklen_t addr_len;
+        socklen_t addr_len = sizeof(addr);
         size_t need, len;
-        int r;
+        int r, ret = 0;
 
-        assert(nl);
-        assert(ret);
+        assert(rtnl);
 
-        r = message_receive_need(nl, &need);
+        r = message_receive_need(rtnl, &need);
         if (r < 0)
                 return r;
 
-        r = message_new_empty(nl, &m, need);
-        if (r < 0)
-                return r;
+        buffer = malloc0(need);
+        if (!buffer)
+                return -ENOMEM;
 
-        addr_len = sizeof(addr);
-
-        r = recvfrom(nl->fd, m->hdr, need,
-                        0, &addr.sa, &addr_len);
+        r = recvfrom(rtnl->fd, buffer, need, 0, &addr.sa, &addr_len);
         if (r < 0)
                 return (errno == EAGAIN) ? 0 : -errno; /* no data */
         else if (r == 0)
@@ -1050,47 +1048,64 @@ int socket_read_message(sd_rtnl *nl, sd_rtnl_message **ret) {
                 return -EIO; /* not a netlink message */
         else if (addr.nl.nl_pid != 0)
                 return 0; /* not from the kernel */
-        else if ((size_t) r < sizeof(struct nlmsghdr) ||
-                        (size_t) r < m->hdr->nlmsg_len)
-                return -EIO; /* too small (we do accept too big though) */
-        else if (m->hdr->nlmsg_pid && m->hdr->nlmsg_pid != nl->sockaddr.nl.nl_pid)
-                return 0; /* not broadcast and not for us */
         else
-                len = (size_t) r;
+                len = (size_t)r;
 
-        /* silently drop noop messages */
-        if (m->hdr->nlmsg_type == NLMSG_NOOP)
-                return 0;
+        for (new_msg = buffer; NLMSG_OK(new_msg, len); new_msg = NLMSG_NEXT(new_msg, len)) {
+                _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
+                const NLType *nl_type;
 
-        /* check that we support this message type */
-        r = type_system_get_type(NULL, &nl_type, m->hdr->nlmsg_type);
-        if (r < 0) {
-                if (r == -ENOTSUP)
-                        log_debug("sd-rtnl: ignored message with unknown type: %u",
-                                  m->hdr->nlmsg_type);
+                if (new_msg->nlmsg_pid && new_msg->nlmsg_pid != rtnl->sockaddr.nl.nl_pid)
+                        /* not broadcast and not for us */
+                        continue;
 
-                return 0;
+                /* silently drop noop messages */
+                if (new_msg->nlmsg_type == NLMSG_NOOP)
+                        continue;
+
+                /* check that we support this message type */
+                r = type_system_get_type(NULL, &nl_type, new_msg->nlmsg_type);
+                if (r < 0) {
+                        if (r == -ENOTSUP)
+                                log_debug("sd-rtnl: ignored message with unknown type: %u",
+                                          new_msg->nlmsg_type);
+
+                        continue;
+                }
+
+                /* check that the size matches the message type */
+                if (new_msg->nlmsg_len < NLMSG_LENGTH(nl_type->size))
+                        continue;
+
+                r = message_new_empty(rtnl, &m);
+                if (r < 0)
+                        return r;
+
+                m->hdr = memdup(new_msg, new_msg->nlmsg_len);
+                if (!m->hdr)
+                        return -ENOMEM;
+
+                /* seal and parse the top-level message */
+                r = sd_rtnl_message_rewind(m);
+                if (r < 0)
+                        return r;
+
+                r = rtnl_rqueue_make_room(rtnl);
+                if (r < 0)
+                        return r;
+
+                rtnl->rqueue[rtnl->rqueue_size ++] = m;
+                m = NULL;
+                ret += new_msg->nlmsg_len;
+
+                /* reached end of multi-part message, or not a multi-part
+                   message at all */
+                if (new_msg->nlmsg_type == NLMSG_DONE ||
+                    !(new_msg->nlmsg_flags & NLM_F_MULTI))
+                        break;
         }
 
-        /* check that the size matches the message type */
-        if (len < NLMSG_LENGTH(nl_type->size))
-                        return -EIO;
-
-        /* we probably allocated way too much memory, give it back */
-        new_hdr = realloc(m->hdr, len);
-        if (!new_hdr)
-                return -ENOMEM;
-        m->hdr = new_hdr;
-
-        /* seal and parse the top-level message */
-        r = sd_rtnl_message_rewind(m);
-        if (r < 0)
-                return r;
-
-        *ret = m;
-        m = NULL;
-
-        return len;
+        return ret;
 }
 
 int sd_rtnl_message_rewind(sd_rtnl_message *m) {
