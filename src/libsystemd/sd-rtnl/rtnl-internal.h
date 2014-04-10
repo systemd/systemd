@@ -66,9 +66,11 @@ struct sd_rtnl {
 
         sd_rtnl_message **rqueue;
         unsigned rqueue_size;
+        size_t rqueue_allocated;
 
         sd_rtnl_message **wqueue;
         unsigned wqueue_size;
+        size_t wqueue_allocated;
 
         bool processing:1;
 

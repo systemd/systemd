@@ -51,8 +51,7 @@ static int sd_rtnl_new(sd_rtnl **ret) {
 
         /* We guarantee that wqueue always has space for at least
          * one entry */
-        rtnl->wqueue = new(sd_rtnl_message*, 1);
-        if (!rtnl->wqueue)
+        if (!GREEDY_REALLOC(rtnl->wqueue, rtnl->wqueue_allocated, 1))
                 return -ENOMEM;
 
         *ret = rtnl;
@@ -188,18 +187,14 @@ int sd_rtnl_send(sd_rtnl *nl,
                         nl->wqueue_size = 1;
                 }
         } else {
-                sd_rtnl_message **q;
-
                 /* append to queue */
                 if (nl->wqueue_size >= RTNL_WQUEUE_MAX)
                         return -ENOBUFS;
 
-                q = realloc(nl->wqueue, sizeof(sd_rtnl_message*) * (nl->wqueue_size + 1));
-                if (!q)
+                if (!GREEDY_REALLOC(nl->wqueue, nl->wqueue_allocated, nl->wqueue_size + 1))
                         return -ENOMEM;
 
-                nl->wqueue = q;
-                q[nl->wqueue_size ++] = sd_rtnl_message_ref(message);
+                nl->wqueue[nl->wqueue_size ++] = sd_rtnl_message_ref(message);
         }
 
         if (serial)
