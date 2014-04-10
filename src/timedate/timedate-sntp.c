@@ -399,6 +399,12 @@ static bool sntp_sample_spike_detection(SNTPContext *sntp, double offset, double
         double jitter;
         double j;
 
+        sntp->packet_count++;
+
+        /* ignore initial sample */
+        if (sntp->packet_count == 1)
+                return false;
+
         /* store the current data in our samples array */
         idx_cur = sntp->samples_idx;
         idx_new = (idx_cur + 1) % ELEMENTSOF(sntp->samples);
@@ -406,10 +412,8 @@ static bool sntp_sample_spike_detection(SNTPContext *sntp, double offset, double
         sntp->samples[idx_new].offset = offset;
         sntp->samples[idx_new].delay = delay;
 
-        sntp->packet_count++;
-        jitter = sntp->samples_jitter;
-
         /* calculate new jitter value from the RMS differences relative to the lowest delay sample */
+        jitter = sntp->samples_jitter;
         for (idx_min = idx_cur, i = 0; i < ELEMENTSOF(sntp->samples); i++)
                 if (sntp->samples[i].delay > 0 && sntp->samples[i].delay < sntp->samples[idx_min].delay)
                         idx_min = i;
