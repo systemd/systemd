@@ -35,6 +35,10 @@
 #include "build.h"
 #include "output-mode.h"
 #include "fileio.h"
+#include "sd-bus.h"
+#include "bus-util.h"
+#include "bus-error.h"
+#include "unit-name.h"
 
 static bool arg_no_pager = false;
 static bool arg_kernel_threads = false;
@@ -127,6 +131,7 @@ int main(int argc, char *argv[]) {
         int r = 0, retval = EXIT_FAILURE;
         int output_flags;
         char _cleanup_free_ *root = NULL;
+        _cleanup_bus_unref_ sd_bus *bus = NULL;
 
         log_parse_environment();
         log_open();
@@ -150,6 +155,12 @@ int main(int argc, char *argv[]) {
         output_flags =
                 arg_all * OUTPUT_SHOW_ALL |
                 (arg_full > 0) * OUTPUT_FULL_WIDTH;
+
+        r = bus_open_transport(BUS_TRANSPORT_LOCAL, NULL, false, &bus);
+        if (r < 0) {
+                log_error("Failed to create bus connection: %s", strerror(-r));
+                goto finish;
+        }
 
         if (optind < argc) {
                 int i;
@@ -189,8 +200,52 @@ int main(int argc, char *argv[]) {
                 } else {
                         if (arg_machine) {
                                 char *m;
+                                const char *cgroup;
+                                _cleanup_free_ char *scope = NULL;
+                                _cleanup_free_ char *path = NULL;
+                                _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+                                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+
                                 m = strappenda("/run/systemd/machines/", arg_machine);
-                                r = parse_env_file(m, NEWLINE, "CGROUP", &root, NULL);
+                                r = parse_env_file(m, NEWLINE, "SCOPE", &scope, NULL);
+                                if (r < 0) {
+                                        log_error("Failed to get machine path: %s", strerror(-r));
+                                        goto finish;
+                                }
+
+                                path = unit_dbus_path_from_name(scope);
+                                if (!path) {
+                                        r = log_oom();
+                                        goto finish;
+                                }
+
+                                r = sd_bus_get_property(
+                                                bus,
+                                                "org.freedesktop.systemd1",
+                                                path,
+                                                "org.freedesktop.systemd1.Scope",
+                                                "ControlGroup",
+                                                &error,
+                                                &reply,
+                                                "s");
+
+                                if (r < 0) {
+                                        log_error("Failed to query ControlGroup: %s", bus_error_message(&error, -r));
+                                        goto finish;
+                                }
+
+                                r = sd_bus_message_read(reply, "s", &cgroup);
+                                if (r < 0) {
+                                        bus_log_parse_error(r);
+                                        goto finish;
+                                }
+
+                                root = strdup(cgroup);
+                                if (!root) {
+                                        r = log_oom();
+                                        goto finish;
+                                }
+
                         } else
                                 r = cg_get_root_path(&root);
                         if (r < 0) {
