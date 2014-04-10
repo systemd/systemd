@@ -42,7 +42,7 @@ _systemd_nspawn() {
                [STANDALONE]='-h --help --version --private-network -b --boot --read-only -q --quiet --share-system --keep-unit --network-veth -j'
                       [ARG]='-D --directory -u --user --uuid --capability --drop-capability --link-journal --bind --bind-ro -M --machine
                              -S --slice --setenv -Z --selinux-context -L --selinux-apifs-context --register --network-interface --network-bridge
-                             --personality'
+                             --personality -i --image'
         )
 
         _init_completion || return
@@ -100,6 +100,9 @@ _systemd_nspawn() {
                         ;;
                         --personality)
                                 comps='x86 x86-64'
+                        ;;
+                        --image|-i)
+                                comps=$( compgen -A file -- "$cur" )
                         ;;
                 esac
                 COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
