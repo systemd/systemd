@@ -1019,12 +1019,17 @@ int socket_write_message(sd_rtnl *nl, sd_rtnl_message *m) {
  */
 int socket_read_message(sd_rtnl *rtnl) {
         _cleanup_free_ void *buffer = NULL;
+        uint8_t cred_buffer[CMSG_SPACE(sizeof(struct ucred))];
+        struct iovec iov = {};
+        struct msghdr msg = {
+                .msg_iov = &iov,
+                .msg_iovlen = 1,
+                .msg_control = cred_buffer,
+                .msg_controllen = sizeof(cred_buffer),
+        };
+        struct cmsghdr *cmsg;
+        bool auth = false;
         struct nlmsghdr *new_msg;
-        union {
-                struct sockaddr sa;
-                struct sockaddr_nl nl;
-        } addr;
-        socklen_t addr_len = sizeof(addr);
         size_t need, len;
         int r, ret = 0;
 
@@ -1038,18 +1043,36 @@ int socket_read_message(sd_rtnl *rtnl) {
         if (!buffer)
                 return -ENOMEM;
 
-        r = recvfrom(rtnl->fd, buffer, need, 0, &addr.sa, &addr_len);
+        iov.iov_base = buffer;
+        iov.iov_len = need;
+
+        r = recvmsg(rtnl->fd, &msg, 0);
         if (r < 0)
-                return (errno == EAGAIN) ? 0 : -errno; /* no data */
+                /* no data */
+                return (errno == EAGAIN) ? 0 : -errno;
         else if (r == 0)
-                return -ECONNRESET; /* connection was closed by the kernel */
-        else if (addr_len != sizeof(addr.nl) ||
-                        addr.nl.nl_family != AF_NETLINK)
-                return -EIO; /* not a netlink message */
-        else if (addr.nl.nl_pid != 0)
-                return 0; /* not from the kernel */
+                /* connection was closed by the kernel */
+                return -ECONNRESET;
         else
                 len = (size_t)r;
+
+        for (cmsg = CMSG_FIRSTHDR(&msg); cmsg; cmsg = CMSG_NXTHDR(&msg, cmsg)) {
+                if (cmsg->cmsg_level == SOL_SOCKET &&
+                    cmsg->cmsg_type == SCM_CREDENTIALS &&
+                    cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred))) {
+                        struct ucred *ucred = (void *)CMSG_DATA(cmsg);
+
+                        /* from the kernel */
+                        if (ucred->uid == 0 && ucred->pid == 0) {
+                                auth = true;
+                                break;
+                        }
+                }
+        }
+
+        if (!auth)
+                /* not from the kernel, ignore */
+                return 0;
 
         for (new_msg = buffer; NLMSG_OK(new_msg, len); new_msg = NLMSG_NEXT(new_msg, len)) {
                 _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;

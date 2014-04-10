@@ -72,7 +72,7 @@ static bool rtnl_pid_changed(sd_rtnl *rtnl) {
 int sd_rtnl_open(sd_rtnl **ret, uint32_t groups) {
         _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
         socklen_t addrlen;
-        int r;
+        int r, one = 1;
 
         assert_return(ret, -EINVAL);
 
@@ -82,6 +82,9 @@ int sd_rtnl_open(sd_rtnl **ret, uint32_t groups) {
 
         rtnl->fd = socket(PF_NETLINK, SOCK_RAW|SOCK_CLOEXEC|SOCK_NONBLOCK, NETLINK_ROUTE);
         if (rtnl->fd < 0)
+                return -errno;
+
+        if (setsockopt(rtnl->fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one)) < 0)
                 return -errno;
 
         rtnl->sockaddr.nl.nl_groups = groups;
