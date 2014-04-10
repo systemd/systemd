@@ -294,7 +294,7 @@ static int parse_env_file_internal(
                                 state = KEY;
                                 last_key_whitespace = (size_t) -1;
 
-                                if (!greedy_realloc((void**) &key, &key_alloc, n_key+2)) {
+                                if (!GREEDY_REALLOC(key, key_alloc, n_key+2)) {
                                         r = -ENOMEM;
                                         goto fail;
                                 }
@@ -317,7 +317,7 @@ static int parse_env_file_internal(
                                 else if (last_key_whitespace == (size_t) -1)
                                          last_key_whitespace = n_key;
 
-                                if (!greedy_realloc((void**) &key, &key_alloc, n_key+2)) {
+                                if (!GREEDY_REALLOC(key, key_alloc, n_key+2)) {
                                         r = -ENOMEM;
                                         goto fail;
                                 }
@@ -357,7 +357,7 @@ static int parse_env_file_internal(
                         else if (!strchr(WHITESPACE, c)) {
                                 state = VALUE;
 
-                                if (!greedy_realloc((void**) &value, &value_alloc, n_value+2)) {
+                                if (!GREEDY_REALLOC(value, value_alloc, n_value+2)) {
                                         r = -ENOMEM;
                                         goto fail;
                                 }
@@ -402,7 +402,7 @@ static int parse_env_file_internal(
                                 else if (last_value_whitespace == (size_t) -1)
                                         last_value_whitespace = n_value;
 
-                                if (!greedy_realloc((void**) &value, &value_alloc, n_value+2)) {
+                                if (!GREEDY_REALLOC(value, value_alloc, n_value+2)) {
                                         r = -ENOMEM;
                                         goto fail;
                                 }
@@ -417,7 +417,7 @@ static int parse_env_file_internal(
 
                         if (!strchr(newline, c)) {
                                 /* Escaped newlines we eat up entirely */
-                                if (!greedy_realloc((void**) &value, &value_alloc, n_value+2)) {
+                                if (!GREEDY_REALLOC(value, value_alloc, n_value+2)) {
                                         r = -ENOMEM;
                                         goto fail;
                                 }
@@ -432,7 +432,7 @@ static int parse_env_file_internal(
                         else if (c == '\\')
                                 state = SINGLE_QUOTE_VALUE_ESCAPE;
                         else {
-                                if (!greedy_realloc((void**) &value, &value_alloc, n_value+2)) {
+                                if (!GREEDY_REALLOC(value, value_alloc, n_value+2)) {
                                         r = -ENOMEM;
                                         goto fail;
                                 }
@@ -446,7 +446,7 @@ static int parse_env_file_internal(
                         state = SINGLE_QUOTE_VALUE;
 
                         if (!strchr(newline, c)) {
-                                if (!greedy_realloc((void**) &value, &value_alloc, n_value+2)) {
+                                if (!GREEDY_REALLOC(value, value_alloc, n_value+2)) {
                                         r = -ENOMEM;
                                         goto fail;
                                 }
@@ -461,7 +461,7 @@ static int parse_env_file_internal(
                         else if (c == '\\')
                                 state = DOUBLE_QUOTE_VALUE_ESCAPE;
                         else {
-                                if (!greedy_realloc((void**) &value, &value_alloc, n_value+2)) {
+                                if (!GREEDY_REALLOC(value, value_alloc, n_value+2)) {
                                         r = -ENOMEM;
                                         goto fail;
                                 }
@@ -475,7 +475,7 @@ static int parse_env_file_internal(
                         state = DOUBLE_QUOTE_VALUE;
 
                         if (!strchr(newline, c)) {
-                                if (!greedy_realloc((void**) &value, &value_alloc, n_value+2)) {
+                                if (!GREEDY_REALLOC(value, value_alloc, n_value+2)) {
                                         r = -ENOMEM;
                                         goto fail;
                                 }

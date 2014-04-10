@@ -5819,8 +5819,8 @@ char *strrep(const char *s, unsigned n) {
         return r;
 }
 
-void* greedy_realloc(void **p, size_t *allocated, size_t need) {
-        size_t a;
+void* greedy_realloc(void **p, size_t *allocated, size_t need, size_t size) {
+        size_t a, newalloc;
         void *q;
 
         assert(p);
@@ -5829,10 +5829,11 @@ void* greedy_realloc(void **p, size_t *allocated, size_t need) {
         if (*allocated >= need)
                 return *p;
 
-        a = MAX(64u, need * 2);
+        newalloc = MAX(need * 2, 64u / size);
+        a = newalloc * size;
 
         /* check for overflows */
-        if (a < need)
+        if (a < size * need)
                 return NULL;
 
         q = realloc(*p, a);
@@ -5840,11 +5841,11 @@ void* greedy_realloc(void **p, size_t *allocated, size_t need) {
                 return NULL;
 
         *p = q;
-        *allocated = a;
+        *allocated = newalloc;
         return q;
 }
 
-void* greedy_realloc0(void **p, size_t *allocated, size_t need) {
+void* greedy_realloc0(void **p, size_t *allocated, size_t need, size_t size) {
         size_t prev;
         uint8_t *q;
 
@@ -5853,12 +5854,12 @@ void* greedy_realloc0(void **p, size_t *allocated, size_t need) {
 
         prev = *allocated;
 
-        q = greedy_realloc(p, allocated, need);
+        q = greedy_realloc(p, allocated, need, size);
         if (!q)
                 return NULL;
 
         if (*allocated > prev)
-                memzero(&q[prev], *allocated - prev);
+                memzero(q + prev * size, (*allocated - prev) * size);
 
         return q;
 }

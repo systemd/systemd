@@ -515,15 +515,13 @@ static int get_unit_list(
 
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        size_t size;
+        size_t size = c;
         int r;
         UnitInfo u;
 
         assert(bus);
         assert(unit_infos);
         assert(_reply);
-
-        size = sizeof(UnitInfo) * c;
 
         r = sd_bus_call_method(
                         bus,

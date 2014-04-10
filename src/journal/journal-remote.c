@@ -226,8 +226,8 @@ typedef struct MHDDaemonWrapper {
 
 typedef struct RemoteServer {
         RemoteSource **sources;
-        ssize_t sources_size;
-        ssize_t active;
+        size_t sources_size;
+        size_t active;
 
         sd_event *events;
         sd_event_source *sigterm_event, *sigint_event, *listen_event;
@@ -257,7 +257,7 @@ static int get_source_for_fd(RemoteServer *s, int fd, RemoteSource **source) {
         assert(fd >= 0);
         assert(source);
 
-        if (!GREEDY_REALLOC0_T(s->sources, s->sources_size, fd + 1))
+        if (!GREEDY_REALLOC0(s->sources, s->sources_size, fd + 1))
                 return log_oom();
 
         if (s->sources[fd] == NULL) {
@@ -276,8 +276,7 @@ static int remove_source(RemoteServer *s, int fd) {
         RemoteSource *source;
 
         assert(s);
-        assert(fd >= 0);
-        assert(fd < s->sources_size);
+        assert(fd >= 0 && fd < (ssize_t) s->sources_size);
 
         source = s->sources[fd];
         if (source) {
@@ -837,7 +836,7 @@ static int remoteserver_init(RemoteServer *s) {
 
 static int server_destroy(RemoteServer *s) {
         int r;
-        ssize_t i;
+        size_t i;
         MHDDaemonWrapper *d;
 
         r = writer_close(&s->writer);
@@ -879,7 +878,7 @@ static int dispatch_raw_source_event(sd_event_source *event,
         RemoteSource *source;
         int r;
 
-        assert(fd < s->sources_size);
+        assert(fd >= 0 && fd < (ssize_t) s->sources_size);
         source = s->sources[fd];
         assert(source->fd == fd);
 

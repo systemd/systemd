@@ -730,21 +730,13 @@ void *unhexmem(const char *p, size_t l);
 char *strextend(char **x, ...) _sentinel_;
 char *strrep(const char *s, unsigned n);
 
-void* greedy_realloc(void **p, size_t *allocated, size_t need);
-void* greedy_realloc0(void **p, size_t *allocated, size_t need);
-#define GREEDY_REALLOC(array, allocated, need) \
-        greedy_realloc((void**) &(array), &(allocated), sizeof((array)[0]) * (need))
-#define GREEDY_REALLOC0(array, allocated, need) \
-        greedy_realloc0((void**) &(array), &(allocated), sizeof((array)[0]) * (need))
+void* greedy_realloc(void **p, size_t *allocated, size_t need, size_t size);
+void* greedy_realloc0(void **p, size_t *allocated, size_t need, size_t size);
+#define GREEDY_REALLOC(array, allocated, need)                          \
+        greedy_realloc((void**) &(array), &(allocated), (need), sizeof((array)[0]))
 
-#define GREEDY_REALLOC0_T(array, count, need)                           \
-        ({                                                              \
-                size_t _size = (count) * sizeof((array)[0]);            \
-                void *_ptr = GREEDY_REALLOC0((array), _size, (need));   \
-                if (_ptr)                                               \
-                        (count) = _size / sizeof((array)[0]);           \
-                _ptr;                                                   \
-        })
+#define GREEDY_REALLOC0(array, allocated, need)                         \
+        greedy_realloc0((void**) &(array), &(allocated), (need), sizeof((array)[0]))
 
 static inline void _reset_errno_(int *saved_errno) {
         errno = *saved_errno;
