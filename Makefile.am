@@ -5052,7 +5052,7 @@ hwdb-update:
 
 .PHONY: kdbus-update
 kdbus-update:
-	( cd $(top_srcdir)/src/libsystemd/ && \
+	( cd $(top_srcdir)/src/libsystemd/sd-bus/ && \
 	wget -N https://d-bus.googlecode.com/git/kdbus.h )
 
 .PHONY: git-tag
