@@ -1124,8 +1124,10 @@ static int client_receive_message_raw(sd_event_source *s, int fd,
                 return 0;
 
         for (cmsg = CMSG_FIRSTHDR(&msg); cmsg; cmsg = CMSG_NXTHDR(&msg, cmsg)) {
-                if (cmsg->cmsg_level == SOL_PACKET && cmsg->cmsg_type == PACKET_AUXDATA) {
-                        struct tpacket_auxdata *aux = (void *)CMSG_DATA(cmsg);
+                if (cmsg->cmsg_level == SOL_PACKET &&
+                    cmsg->cmsg_type == PACKET_AUXDATA &&
+                    cmsg->cmsg_len == CMSG_LEN(sizeof(struct tpacket_auxdata))) {
+                        struct tpacket_auxdata *aux = (struct tpacket_auxdata*)CMSG_DATA(cmsg);
 
                         checksum = !(aux->tp_status & TP_STATUS_CSUMNOTREADY);
                         break;
