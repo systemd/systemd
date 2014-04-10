@@ -342,7 +342,7 @@ items of the same type as the kernel messages include,
 i.e. KDBUS_ITEM_NAME_ADD, KDBUS_ITEM_NAME_REMOVE,
 KDBUS_ITEM_NAME_CHANGE, KDBUS_ITEM_ID_ADD, KDBUS_ITEM_ID_REMOVE and
 fill them out. Note however, that you have some wildcards in this
-case, for example the .id field of KDBUS_ITEM_ADD/KDBUS_ITEM_REMOVE
+case, for example the .id field of KDBUS_ITEM_ID_ADD/KDBUS_ITEM_ID_REMOVE
 structures may be set to 0 to match against any id addition/removal.
 
 Note that dbus match strings do no map 1:1 to these ioctl() calls. In
