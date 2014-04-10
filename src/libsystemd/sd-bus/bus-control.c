@@ -395,7 +395,7 @@ static int bus_get_owner_kdbus(
 
         /* Non-activated names are considered not available */
         if (conn_info->flags & KDBUS_HELLO_ACTIVATOR)
-                return name[0] == ':' ? -ENXIO : -ENOENT;
+                return name[0] == ':' ? -ENXIO : -ESRCH;
 
         c = bus_creds_new();
         if (!c)

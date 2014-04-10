@@ -375,7 +375,7 @@ static int get_creds_by_name(sd_bus *bus, const char *name, uint64_t mask, sd_bu
         assert_return(service_name_is_valid(name), -EINVAL);
 
         r = sd_bus_get_owner(bus, name, mask, &c);
-        if (r == -ENOENT || r == -ENXIO)
+        if (r == -ESRCH || r == -ENXIO)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NAME_HAS_NO_OWNER, "Name %s is currently not owned by anyone.", name);
         if (r < 0)
                 return r;
@@ -585,7 +585,7 @@ static int driver_name_has_owner(sd_bus *bus, sd_bus_message *m, void *userdata,
         assert_return(service_name_is_valid(name), -EINVAL);
 
         r = sd_bus_get_owner(bus, name, 0, NULL);
-        if (r < 0 && r != -ENOENT && r != -ENXIO)
+        if (r < 0 && r != -ESRCH && r != -ENXIO)
                 return r;
 
         return sd_bus_reply_method_return(m, "b", r >= 0);
@@ -694,7 +694,7 @@ static int driver_start_service_by_name(sd_bus *bus, sd_bus_message *m, void *us
         r = sd_bus_get_owner(bus, name, 0, NULL);
         if (r >= 0)
                 return sd_bus_reply_method_return(m, "u", BUS_START_REPLY_ALREADY_RUNNING);
-        if (r != -ENOENT)
+        if (r != -ESRCH)
                 return r;
 
         u = strappenda(name, ".busname");
