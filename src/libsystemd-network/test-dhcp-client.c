@@ -29,6 +29,8 @@
 
 #include "util.h"
 #include "socket-util.h"
+#include "sd-event.h"
+#include "event-util.h"
 
 #include "dhcp-protocol.h"
 #include "dhcp-internal.h"
@@ -109,6 +111,8 @@ static void test_request_basic(sd_event *e)
         assert_se(sd_dhcp_client_set_request_option(client, 33) == -EEXIST);
         assert_se(sd_dhcp_client_set_request_option(client, 44) == 0);
         assert_se(sd_dhcp_client_set_request_option(client, 33) == -EEXIST);
+
+        sd_dhcp_client_unref(client);
 }
 
 static void test_checksum(void)
@@ -373,6 +377,7 @@ static void test_addr_acq_acquired(sd_dhcp_client *client, int event,
         if (verbose)
                 printf("  DHCP address acquired\n");
 
+        sd_dhcp_lease_unref(lease);
         sd_event_exit(e, 0);
 }
 
@@ -485,7 +490,11 @@ static void test_addr_acq(sd_event *e) {
 }
 
 int main(int argc, char *argv[]) {
-        sd_event *e;
+        _cleanup_event_unref_ sd_event *e;
+
+        log_set_max_level(LOG_DEBUG);
+        log_parse_environment();
+        log_open();
 
         assert_se(sd_event_new(&e) >= 0);
 

@@ -805,6 +805,7 @@ static int client_handle_offer(sd_dhcp_client *client, DHCPMessage *offer,
                 }
         }
 
+        sd_dhcp_lease_unref(client->lease);
         client->lease = lease;
         lease = NULL;
 
@@ -1329,6 +1330,8 @@ sd_dhcp_client *sd_dhcp_client_unref(sd_dhcp_client *client) {
                         sd_event_source_unref(client->receive_message);
 
                 sd_dhcp_client_detach_event(client);
+
+                sd_dhcp_lease_unref(client->lease);
 
                 free(client->req_opts);
                 free(client);

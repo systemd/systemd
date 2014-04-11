@@ -271,7 +271,7 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const uint8_t *option,
 }
 
 int dhcp_lease_new(sd_dhcp_lease **ret) {
-        _cleanup_dhcp_lease_unref_ sd_dhcp_lease *lease = NULL;
+        sd_dhcp_lease *lease;
 
         lease = new0(sd_dhcp_lease, 1);
         if (!lease)
@@ -280,8 +280,6 @@ int dhcp_lease_new(sd_dhcp_lease **ret) {
         lease->n_ref = REFCNT_INIT;
 
         *ret = lease;
-        lease = NULL;
-
         return 0;
 }
 
