@@ -485,6 +485,8 @@ static int client_send_request(sd_dhcp_client *client) {
         return 0;
 }
 
+static int client_start(sd_dhcp_client *client);
+
 static int client_timeout_resend(sd_event_source *s, uint64_t usec,
                                  void *userdata) {
         sd_dhcp_client *client = userdata;
@@ -523,17 +525,14 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec,
 
         case DHCP_STATE_REBOOTING:
                 /* start over as we did not receive a timely ack or nak */
-                client->state = DHCP_STATE_INIT;
-                client->attempt = 1;
-
-                client->fd = safe_close(client->fd);
-                client->xid = random_u32();
-                r = dhcp_network_bind_raw_socket(client->index, &client->link, client->xid);
+                r = client_initialize(client);
                 if (r < 0)
                         goto error;
-                client->fd = r;
 
-                /* fall through */
+                return client_start(client);
+
+                break;
+
         case DHCP_STATE_INIT:
         case DHCP_STATE_INIT_REBOOT:
         case DHCP_STATE_SELECTING:
@@ -677,7 +676,6 @@ static int client_start(sd_dhcp_client *client) {
         client->xid = random_u32();
 
         r = dhcp_network_bind_raw_socket(client->index, &client->link, client->xid);
-
         if (r < 0) {
                 client_stop(client, r);
                 return r;
@@ -726,7 +724,6 @@ static int client_timeout_t2(sd_event_source *s, uint64_t usec, void *userdata) 
                 client_stop(client, r);
                 return 0;
         }
-
         client->fd = r;
 
         log_dhcp_client(client, "TIMEOUT T2");
