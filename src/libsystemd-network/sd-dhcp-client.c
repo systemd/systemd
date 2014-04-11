@@ -261,11 +261,11 @@ static int client_message_init(sd_dhcp_client *client, DHCPMessage *message,
            refuse to issue an DHCP lease if 'secs' is set to zero */
         message->secs = htobe16(client->secs);
 
+        /* RFC2132 section 4.1.1:
+           The client MUST include its hardware address in the ’chaddr’ field, if
+           necessary for delivery of DHCP reply messages.
+         */
         memcpy(&message->chaddr, &client->client_id.mac_addr, ETH_ALEN);
-
-        if (client->state == DHCP_STATE_RENEWING ||
-            client->state == DHCP_STATE_REBINDING)
-                message->ciaddr = client->lease->address;
 
         /* Some DHCP servers will refuse to issue an DHCP lease if the Client
            Identifier option is not set */
@@ -274,6 +274,15 @@ static int client_message_init(sd_dhcp_client *client, DHCPMessage *message,
         if (r < 0)
                 return r;
 
+
+        /* RFC2131 section 3.5:
+           in its initial DHCPDISCOVER or DHCPREQUEST message, a
+           client may provide the server with a list of specific
+           parameters the client is interested in. If the client
+           includes a list of parameters in a DHCPDISCOVER message,
+           it MUST include that list in any subsequent DHCPREQUEST
+           messages.
+         */
         r = dhcp_option_append(opt, optlen,
                                DHCP_OPTION_PARAMETER_REQUEST_LIST,
                                client->req_opts_size,
@@ -281,9 +290,14 @@ static int client_message_init(sd_dhcp_client *client, DHCPMessage *message,
         if (r < 0)
                 return r;
 
-        /* Some DHCP servers will send bigger DHCP packets than the
-           defined default size unless the Maximum Messge Size option
-           is explicitely set */
+        /* RFC2131 section 3.5:
+           The client SHOULD include the ’maximum DHCP message size’ option to
+           let the server know how large the server may make its DHCP messages.
+
+           Note (from ConnMan): Some DHCP servers will send bigger DHCP packets
+           than the defined default size unless the Maximum Messge Size option
+           is explicitely set
+         */
         max_size = htobe16(DHCP_IP_UDP_SIZE + DHCP_MESSAGE_SIZE +
                            DHCP_MIN_OPTIONS_SIZE);
         r = dhcp_option_append(opt, optlen,
@@ -312,6 +326,10 @@ static int client_send_discover(sd_dhcp_client *client) {
         int r;
 
         assert(client);
+        assert(client->state == DHCP_STATE_INIT ||
+               client->state == DHCP_STATE_SELECTING);
+
+        /* See RFC2131 section 4.4.1 */
 
         r = sd_event_now(client->event, CLOCK_MONOTONIC, &time_now);
         if (r < 0)
@@ -334,6 +352,12 @@ static int client_send_discover(sd_dhcp_client *client) {
         if (r < 0)
                 return r;
 
+        /* the client may suggest values for the network address
+           and lease time in the DHCPDISCOVER message. The client may include
+           the ’requested IP address’ option to suggest that a particular IP
+           address be assigned, and may include the ’IP address lease time’
+           option to suggest the lease time it would like.
+         */
         if (client->last_addr != INADDR_ANY) {
                 r = dhcp_option_append(&opt, &optlen,
                                          DHCP_OPTION_REQUESTED_IP_ADDRESS,
@@ -346,6 +370,10 @@ static int client_send_discover(sd_dhcp_client *client) {
         if (r < 0)
                 return r;
 
+        /* We currently ignore:
+           The client SHOULD wait a random time between one and ten seconds to
+           desynchronize the use of DHCP at startup.
+         */
         r = dhcp_client_send_raw(client, discover, len - optlen);
         if (r < 0)
                 return r;
@@ -374,38 +402,64 @@ static int client_send_request(sd_dhcp_client *client) {
                 return r;
 
         switch (client->state) {
-
-        case DHCP_STATE_INIT_REBOOT:
-                r = dhcp_option_append(&opt, &optlen,
-                                         DHCP_OPTION_REQUESTED_IP_ADDRESS,
-                                         4, &client->last_addr);
-                if (r < 0)
-                        return r;
-                break;
+        /* See RFC2131 section 4.3.2 (note that there is a typo in the RFC,
+           SELECTING should be REQUESTING)
+         */
 
         case DHCP_STATE_REQUESTING:
-                r = dhcp_option_append(&opt, &optlen,
-                                       DHCP_OPTION_REQUESTED_IP_ADDRESS,
-                                       4, &client->lease->address);
-                if (r < 0)
-                        return r;
+                /* Client inserts the address of the selected server in ’server
+                   identifier’, ’ciaddr’ MUST be zero, ’requested IP address’ MUST be
+                   filled in with the yiaddr value from the chosen DHCPOFFER.
+                 */
 
                 r = dhcp_option_append(&opt, &optlen,
                                        DHCP_OPTION_SERVER_IDENTIFIER,
                                        4, &client->lease->server_address);
                 if (r < 0)
                         return r;
+
+                r = dhcp_option_append(&opt, &optlen,
+                                       DHCP_OPTION_REQUESTED_IP_ADDRESS,
+                                       4, &client->lease->address);
+                if (r < 0)
+                        return r;
+
+                break;
+
+        case DHCP_STATE_INIT_REBOOT:
+                /* ’server identifier’ MUST NOT be filled in, ’requested IP address’
+                   option MUST be filled in with client’s notion of its previously
+                   assigned address. ’ciaddr’ MUST be zero.
+                 */
+                r = dhcp_option_append(&opt, &optlen,
+                                       DHCP_OPTION_REQUESTED_IP_ADDRESS,
+                                       4, &client->last_addr);
+                if (r < 0)
+                        return r;
+                break;
+
+        case DHCP_STATE_RENEWING:
+                /* ’server identifier’ MUST NOT be filled in, ’requested IP address’
+                   option MUST NOT be filled in, ’ciaddr’ MUST be filled in with
+                   client’s IP address.
+                */
+
+                /* fall through */
+        case DHCP_STATE_REBINDING:
+                /* ’server identifier’ MUST NOT be filled in, ’requested IP address’
+                   option MUST NOT be filled in, ’ciaddr’ MUST be filled in with
+                   client’s IP address.
+
+                   This message MUST be broadcast to the 0xffffffff IP broadcast address.
+                 */
+                request->dhcp.ciaddr = client->lease->address;
+
                 break;
 
         case DHCP_STATE_INIT:
         case DHCP_STATE_SELECTING:
         case DHCP_STATE_REBOOTING:
         case DHCP_STATE_BOUND:
-        case DHCP_STATE_RENEWING:
-        case DHCP_STATE_REBINDING:
-
-                break;
-
         case DHCP_STATE_STOPPED:
                 return -EINVAL;
         }
