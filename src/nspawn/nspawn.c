@@ -1143,11 +1143,6 @@ static int setup_journal(const char *directory) {
         } else if (access(p, F_OK) < 0)
                 return 0;
 
-        if (dir_is_empty(q) == 0) {
-                log_error("%s not empty.", q);
-                return -ENOTEMPTY;
-        }
-
         r = mkdir_p(q, 0755);
         if (r < 0) {
                 log_error("Failed to create %s: %m", q);
