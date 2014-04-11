@@ -157,7 +157,8 @@ int main(int argc, char *argv[]) {
 
         setlocale(LC_ALL, "de_DE.UTF-8");
 
-        log_set_max_level(LOG_DEBUG);
+        log_parse_environment();
+        log_open();
 
         test_catalog_file_lang();
 
