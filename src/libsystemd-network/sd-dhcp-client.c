@@ -230,7 +230,7 @@ static int client_initialize(sd_dhcp_client *client) {
 static sd_dhcp_client *client_stop(sd_dhcp_client *client, int error) {
         assert_return(client, NULL);
 
-        log_dhcp_client(client, "STOPPED %d", error);
+        log_dhcp_client(client, "STOPPED: %s", strerror(-error));
 
         client = client_notify(client, error);
 
@@ -480,7 +480,23 @@ static int client_send_request(sd_dhcp_client *client) {
         if (r < 0)
                 return r;
 
-        log_dhcp_client(client, "REQUEST");
+        switch (client->state) {
+        case DHCP_STATE_REQUESTING:
+                log_dhcp_client(client, "REQUEST (requesting)");
+                break;
+        case DHCP_STATE_INIT_REBOOT:
+                log_dhcp_client(client, "REQUEST (init-reboot)");
+                break;
+        case DHCP_STATE_RENEWING:
+                log_dhcp_client(client, "REQUEST (renewing)");
+                break;
+        case DHCP_STATE_REBINDING:
+                log_dhcp_client(client, "REQUEST (rebinding)");
+                break;
+        default:
+                log_dhcp_client(client, "REQUEST (invalid)");
+                break;
+        }
 
         return 0;
 }
@@ -529,9 +545,13 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec,
                 if (r < 0)
                         goto error;
 
-                return client_start(client);
-
-                break;
+                r = client_start(client);
+                if (r < 0)
+                        goto error;
+                else {
+                        log_dhcp_client(client, "REBOOTED");
+                        return 0;
+                }
 
         case DHCP_STATE_INIT:
         case DHCP_STATE_INIT_REBOOT:
@@ -686,8 +706,6 @@ static int client_start(sd_dhcp_client *client) {
                 client->start_time = now(CLOCK_MONOTONIC);
                 client->secs = 0;
         }
-
-        log_dhcp_client(client, "STARTED");
 
         return client_initialize_events(client, client_receive_message_raw);
 }
@@ -1091,6 +1109,8 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message,
                                 r = client_start(client);
                                 if (r < 0)
                                         goto error;
+
+                                log_dhcp_client(client, "REBOOTED");
                         }
 
                         goto error;
@@ -1245,7 +1265,11 @@ int sd_dhcp_client_start(sd_dhcp_client *client) {
         if (client->last_addr)
                 client->state = DHCP_STATE_INIT_REBOOT;
 
-        return client_start(client);
+        r = client_start(client);
+        if (r >= 0)
+                log_dhcp_client(client, "STARTED");
+
+        return r;
 }
 
 int sd_dhcp_client_stop(sd_dhcp_client *client) {
