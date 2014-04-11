@@ -1518,8 +1518,7 @@ int link_save(Link *link) {
         assert(link->state_file);
 
         state = link_state_to_string(link->state);
-        if (!state)
-                goto finish;
+        assert(state);
 
         r = fopen_temporary(link->state_file, &f, &temp_path);
         if (r < 0)
