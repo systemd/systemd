@@ -19,6 +19,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <string.h>
 #include <unistd.h>
 
 #include "util.h"
@@ -26,6 +27,7 @@
 #include "mkdir.h"
 #include "unit-name.h"
 #include "generator.h"
+#include "path-util.h"
 
 int generator_write_fsck_deps(
                 FILE *f,
@@ -45,16 +47,12 @@ int generator_write_fsck_deps(
         }
 
         if (!isempty(fstype) && !streq(fstype, "auto")) {
-                const char *checker;
                 int r;
-
-                checker = strappenda("/sbin/fsck.", fstype);
-                r = access(checker, X_OK);
+                r = fsck_exists(fstype);
                 if (r < 0) {
-                        log_warning("Checking was requested for %s, but %s cannot be used: %m", what, checker);
-
+                        log_warning("Checking was requested for %s, but fsck.%s cannot be used: %s", what, fstype, strerror(-r));
                         /* treat missing check as essentially OK */
-                        return errno == ENOENT ? 0 : -errno;
+                        return r == -ENOENT ? 0 : r;
                 }
         }
 

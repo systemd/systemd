@@ -37,6 +37,7 @@
 #include "bus-errors.h"
 #include "fileio.h"
 #include "udev-util.h"
+#include "path-util.h"
 
 static bool arg_skip = false;
 static bool arg_force = false;
@@ -285,14 +286,13 @@ int main(int argc, char *argv[]) {
 
         type = udev_device_get_property_value(udev_device, "ID_FS_TYPE");
         if (type) {
-                const char *checker = strappenda("/sbin/fsck.", type);
-                r = access(checker, X_OK);
+                r = fsck_exists(type);
                 if (r < 0) {
-                        if (errno == ENOENT) {
-                                log_info("%s doesn't exist, not checking file system.", checker);
+                        if (r == -ENOENT) {
+                                log_info("fsck.%s doesn't exist, not checking file system.", type);
                                 return EXIT_SUCCESS;
                         } else
-                                log_warning("%s cannot be used: %m", checker);
+                                log_warning("fsck.%s cannot be used: %s", type, strerror(-r));
                 }
         }
 

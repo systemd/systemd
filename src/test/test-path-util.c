@@ -158,9 +158,20 @@ static void test_prefixes(void) {
         }
 }
 
+static void test_fsck_exists(void) {
+        /* Ensure we use a sane default for PATH. */
+        unsetenv("PATH");
+
+        /* fsck.minix is provided by util-linux and will probably exist. */
+        assert_se(fsck_exists("minix") == 0);
+
+        assert_se(fsck_exists("AbCdE") == -ENOENT);
+}
+
 int main(void) {
         test_path();
         test_find_binary();
         test_prefixes();
+        test_fsck_exists();
         return 0;
 }

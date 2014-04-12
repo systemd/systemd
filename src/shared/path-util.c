@@ -425,19 +425,20 @@ int path_is_os_tree(const char *path) {
 
 int find_binary(const char *name, char **filename) {
         assert(name);
-        assert(filename);
 
         if (strchr(name, '/')) {
-                char *p;
+                if (filename) {
+                        char *p;
 
-                if (path_is_absolute(name))
-                        p = strdup(name);
-                else
-                        p = path_make_absolute_cwd(name);
-                if (!p)
-                        return -ENOMEM;
+                        if (path_is_absolute(name))
+                                p = strdup(name);
+                        else
+                                p = path_make_absolute_cwd(name);
+                        if (!p)
+                                return -ENOMEM;
+                        *filename = p;
+                }
 
-                *filename = p;
                 return 0;
         } else {
                 const char *path;
@@ -453,18 +454,19 @@ int find_binary(const char *name, char **filename) {
                         path = DEFAULT_PATH;
 
                 FOREACH_WORD_SEPARATOR(w, l, path, ":", state) {
-                        char *p;
+                        _cleanup_free_ char *p = NULL;
 
                         if (asprintf(&p, "%.*s/%s", (int) l, w, name) < 0)
                                 return -ENOMEM;
 
-                        if (access(p, X_OK) < 0) {
-                                free(p);
+                        if (access(p, X_OK) < 0)
                                 continue;
-                        }
 
-                        path_kill_slashes(p);
-                        *filename = p;
+                        if (filename) {
+                                path_kill_slashes(p);
+                                *filename = p;
+                                p = NULL;
+                        }
 
                         return 0;
                 }
@@ -506,4 +508,11 @@ bool paths_check_timestamp(const char* const* paths, usec_t *timestamp, bool upd
         }
 
         return changed;
+}
+
+int fsck_exists(const char *fstype) {
+        const char *checker;
+
+        checker = strappenda("fsck.", fstype);
+        return find_binary(checker, NULL);
 }
