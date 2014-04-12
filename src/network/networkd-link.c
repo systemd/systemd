@@ -1032,6 +1032,7 @@ static int link_acquire_conf(Link *link) {
 
 static int link_update_flags(Link *link, unsigned flags) {
         unsigned flags_added, flags_removed, generic_flags;
+        bool carrier_gained, carrier_lost;
         int r;
 
         assert(link);
@@ -1047,6 +1048,18 @@ static int link_update_flags(Link *link, unsigned flags) {
         flags_removed = (link->flags ^ flags) & link->flags;
         generic_flags = ~(IFF_UP | IFF_LOWER_UP | IFF_RUNNING);
 
+        /* consider link to have carrier when both RUNNING and LOWER_UP, as RUNNING
+           may mean that the oper state is unknown, in which case we should fall back to
+           simply trust LOWER_UP, even thought that is less reliable
+         */
+        carrier_gained = ((flags_added & IFF_LOWER_UP) && (flags & IFF_RUNNING)) ||
+                         ((flags_added & IFF_RUNNING) && (flags & IFF_LOWER_UP));
+        carrier_lost = ((link->flags & (IFF_RUNNING | IFF_LOWER_UP)) ==
+                        (IFF_RUNNING | IFF_LOWER_UP)) &&
+                       (flags_removed & (IFF_LOWER_UP | IFF_RUNNING));
+
+        link->flags = flags;
+
         if (flags_added & generic_flags)
                 log_debug_link(link, "link flags gained: %#.8x",
                                flags_added & generic_flags);
@@ -1061,13 +1074,17 @@ static int link_update_flags(Link *link, unsigned flags) {
                 log_info_link(link, "link is down");
 
         if (flags_added & IFF_LOWER_UP)
-                log_info_link(link, "carrier on");
+                log_info_link(link, "link is lower up");
         else if (flags_removed & IFF_LOWER_UP)
-                log_info_link(link, "carrier off");
+                log_info_link(link, "link is lower down");
 
+        if (flags_added & IFF_RUNNING)
+                log_info_link(link, "link is running");
+        else if (flags_removed & IFF_RUNNING)
+                log_info_link(link, "link is not running");
 
-        if (flags_added & IFF_RUNNING) {
-                log_info_link(link, "running");
+        if (carrier_gained) {
+                log_info_link(link, "gained carrier");
 
                 if (link->network->dhcp || link->network->ipv4ll) {
                         r = link_acquire_conf(link);
@@ -1077,8 +1094,8 @@ static int link_update_flags(Link *link, unsigned flags) {
                                 return r;
                         }
                 }
-        } else if (flags_removed & IFF_RUNNING) {
-                log_info_link(link, "not running");
+        } else if (carrier_lost) {
+                log_info_link(link, "lost carrier");
 
                 if (link->network->dhcp) {
                         r = sd_dhcp_client_stop(link->dhcp_client);
@@ -1098,8 +1115,6 @@ static int link_update_flags(Link *link, unsigned flags) {
                         }
                 }
         }
-
-        link->flags = flags;
 
         return 0;
 }
