@@ -156,6 +156,7 @@ CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -ffunction-sections \
         -fdata-sections \
         -fstack-protector \
+        -fstack-protector-strong \
         --param=ssp-buffer-size=4])
 AS_CASE([$CFLAGS], [*-O[[12345\ ]]*],
         [CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
