@@ -733,7 +733,7 @@ bluetooth:v00F1*
  ID_VENDOR_FROM_DATABASE=Witron Technology Limited
 
 bluetooth:v00F2*
- ID_VENDOR_FROM_DATABASE=Morse Project Inc.
+ ID_VENDOR_FROM_DATABASE=Aether Things Inc. (formerly Morse Project Inc.)
 
 bluetooth:v00F3*
  ID_VENDOR_FROM_DATABASE=Kent Displays Inc.
@@ -941,3 +941,24 @@ bluetooth:v0136*
 
 bluetooth:v0137*
  ID_VENDOR_FROM_DATABASE=Prestigio Plaza Ltd.
+
+bluetooth:v0138*
+ ID_VENDOR_FROM_DATABASE=NTEO Inc.
+
+bluetooth:v0139*
+ ID_VENDOR_FROM_DATABASE=Focus Systems Corporation
+
+bluetooth:v013A*
+ ID_VENDOR_FROM_DATABASE=Tencent Holdings Limited
+
+bluetooth:v013B*
+ ID_VENDOR_FROM_DATABASE=Allegion
+
+bluetooth:v013C*
+ ID_VENDOR_FROM_DATABASE=Murata Manufacuring Co., Ltd.
+
+bluetooth:v013D*
+ ID_VENDOR_FROM_DATABASE=WirelessWERX
+
+bluetooth:v013E*
+ ID_VENDOR_FROM_DATABASE=nimai
