@@ -70,7 +70,8 @@
 <filename>...</filename>
                 </literallayout></para>
 
-                <para><literallayout><filename>$HOME/.config/systemd/user/*</filename>
+                <para><literallayout><filename>$XDG_CONFIG_HOME/systemd/user/*</filename>
+<filename>$HOME/.config/systemd/user/*</filename>
 <filename>/etc/systemd/user/*</filename>
 <filename>/run/systemd/user/*</filename>
 <filename>/usr/lib/systemd/user/*</filename>
@@ -320,8 +321,12 @@
                     </thead>
                     <tbody>
                       <row>
+                        <entry><filename>$XDG_CONFIG_HOME/systemd/user</filename></entry>
+                        <entry>User configuration (only used when $XDG_CONFIG_HOME is set)</entry>
+                      </row>
+                      <row>
                         <entry><filename>$HOME/.config/systemd/user</filename></entry>
-                        <entry>User configuration</entry>
+                        <entry>User configuration (only used when $XDG_CONFIG_HOME is not set)</entry>
                       </row>
                       <row>
                         <entry><filename>/etc/systemd/user</filename></entry>
