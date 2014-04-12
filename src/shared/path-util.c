@@ -427,15 +427,16 @@ int find_binary(const char *name, char **filename) {
         assert(name);
 
         if (strchr(name, '/')) {
+                if (access(name, X_OK) < 0)
+                        return -errno;
+
                 if (filename) {
                         char *p;
 
-                        if (path_is_absolute(name))
-                                p = strdup(name);
-                        else
-                                p = path_make_absolute_cwd(name);
+                        p = path_make_absolute_cwd(name);
                         if (!p)
                                 return -ENOMEM;
+
                         *filename = p;
                 }
 

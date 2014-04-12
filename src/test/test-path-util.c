@@ -104,6 +104,8 @@ static void test_find_binary(void) {
         free(p);
 
         assert(find_binary("xxxx-xxxx", &p) == -ENOENT);
+
+        assert(find_binary("/some/dir/xxxx-xxxx", &p) == -ENOENT);
 }
 
 static void test_prefixes(void) {
