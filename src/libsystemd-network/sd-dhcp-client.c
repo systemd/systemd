@@ -744,8 +744,6 @@ static int client_timeout_t2(sd_event_source *s, uint64_t usec, void *userdata) 
         }
         client->fd = r;
 
-        log_dhcp_client(client, "TIMEOUT T2");
-
         return client_initialize_events(client, client_receive_message_raw);
 }
 
@@ -766,8 +764,6 @@ static int client_timeout_t1(sd_event_source *s, uint64_t usec,
         }
 
         client->fd = r;
-
-        log_dhcp_client(client, "TIMEOUT T1");
 
         return client_initialize_events(client, client_receive_message_udp);
 }
