@@ -1031,6 +1031,7 @@ static int link_acquire_conf(Link *link) {
 }
 
 static int link_update_flags(Link *link, unsigned flags) {
+        unsigned flags_added, flags_removed, generic_flags;
         int r;
 
         assert(link);
@@ -1042,44 +1043,58 @@ static int link_update_flags(Link *link, unsigned flags) {
         if (link->flags == flags)
                 return 0;
 
-        log_debug_link(link, "link status updated: %#.8x -> %#.8x",
-                       link->flags, flags);
+        flags_added = (link->flags ^ flags) & flags;
+        flags_removed = (link->flags ^ flags) & link->flags;
+        generic_flags = ~(IFF_UP | IFF_LOWER_UP | IFF_RUNNING);
 
-        if ((link->flags & IFF_UP) != (flags & IFF_UP))
-                log_info_link(link,
-                              "link is %s", flags & IFF_UP ? "up": "down");
+        if (flags_added & generic_flags)
+                log_debug_link(link, "link flags gained: %#.8x",
+                               flags_added & generic_flags);
 
-        if ((link->flags & IFF_LOWER_UP) != (flags & IFF_LOWER_UP)) {
-                if (flags & IFF_LOWER_UP) {
-                        log_info_link(link, "carrier on");
+        if (flags_removed & generic_flags)
+                log_debug_link(link, "link flags lost: %#.8x",
+                                flags_removed & generic_flags);
 
-                        if (link->network->dhcp || link->network->ipv4ll) {
-                                r = link_acquire_conf(link);
-                                if (r < 0) {
-                                        log_warning_link(link, "Could not acquire configuration: %s", strerror(-r));
-                                        link_enter_failed(link);
-                                        return r;
-                                }
+        if (flags_added & IFF_UP)
+                log_info_link(link, "link is up");
+        else if (flags_removed & IFF_UP)
+                log_info_link(link, "link is down");
+
+        if (flags_added & IFF_LOWER_UP)
+                log_info_link(link, "carrier on");
+        else if (flags_removed & IFF_LOWER_UP)
+                log_info_link(link, "carrier off");
+
+
+        if (flags_added & IFF_RUNNING) {
+                log_info_link(link, "running");
+
+                if (link->network->dhcp || link->network->ipv4ll) {
+                        r = link_acquire_conf(link);
+                        if (r < 0) {
+                                log_warning_link(link, "Could not acquire configuration: %s", strerror(-r));
+                                link_enter_failed(link);
+                                return r;
                         }
-                } else {
-                        log_info_link(link, "carrier off");
+                }
+        } else if (flags_removed & IFF_RUNNING) {
+                log_info_link(link, "not running");
 
-                        if (link->network->dhcp) {
-                                r = sd_dhcp_client_stop(link->dhcp_client);
-                                if (r < 0) {
-                                        log_warning_link(link, "Could not stop DHCPv4 client: %s", strerror(-r));
-                                        link_enter_failed(link);
-                                        return r;
-                                }
+                if (link->network->dhcp) {
+                        r = sd_dhcp_client_stop(link->dhcp_client);
+                        if (r < 0) {
+                                log_warning_link(link, "Could not stop DHCPv4 client: %s", strerror(-r));
+                                link_enter_failed(link);
+                                return r;
                         }
+                }
 
-                        if (link->network->ipv4ll) {
-                                r = sd_ipv4ll_stop(link->ipv4ll);
-                                if (r < 0) {
-                                        log_warning_link(link, "Could not stop IPv4 link-local: %s", strerror(-r));
-                                        link_enter_failed(link);
-                                        return r;
-                                }
+                if (link->network->ipv4ll) {
+                        r = sd_ipv4ll_stop(link->ipv4ll);
+                        if (r < 0) {
+                                log_warning_link(link, "Could not stop IPv4 link-local: %s", strerror(-r));
+                                link_enter_failed(link);
+                                return r;
                         }
                 }
         }
