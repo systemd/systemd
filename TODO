@@ -709,6 +709,8 @@ External:
 
 * fedora: update policy to declare access mode and ownership of unit files to root:root 0644, and add an rpmlint check for it
 
+* register catalog database signature as file magic
+
 Regularly:
 
 * look for close() vs. close_nointr() vs. close_nointr_nofail()

@@ -159,6 +159,37 @@ int catalog_file_lang(const char* filename, char **lang) {
         return 1;
 }
 
+static int catalog_entry_lang(const char* filename, int line,
+                              const char* t, const char* deflang, char **lang) {
+        size_t c;
+
+        c = strlen(t);
+        if (c == 0) {
+                log_error("[%s:%u] Language too short.", filename, line);
+                return -EINVAL;
+        }
+        if (c > 31) {
+                log_error("[%s:%u] language too long.", filename, line);
+                return -EINVAL;
+        }
+
+        if (deflang) {
+                if (streq(t, deflang)) {
+                        log_warning("[%s:%u] language specified unnecessarily",
+                                    filename, line);
+                        return 0;
+                } else
+                        log_warning("[%s:%u] language differs from default for file",
+                                    filename, line);
+        }
+
+        *lang = strdup(t);
+        if (!*lang)
+                        return -ENOMEM;
+
+        return 0;
+}
+
 int catalog_import_file(Hashmap *h, struct strbuf *sb, const char *path) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *payload = NULL;
@@ -238,25 +269,9 @@ int catalog_import_file(Hashmap *h, struct strbuf *sb, const char *path) {
                                 if (with_language) {
                                         t = strstrip(line + 2 + 1 + 32 + 1);
 
-                                        c = strlen(t);
-                                        if (c <= 0) {
-                                                log_error("[%s:%u] Language too short.", path, n);
-                                                return -EINVAL;
-                                        }
-                                        if (c > 31) {
-                                                log_error("[%s:%u] language too long.", path, n);
-                                                return -EINVAL;
-                                        }
-
-                                        if (deflang) {
-                                                log_warning("[%s:%u] language %s", path, n,
-                                                            streq(t, deflang) ?
-                                                            "specified unnecessarily" :
-                                                            "differs from default for file");
-                                                lang = strdup(t);
-                                                if (!lang)
-                                                        return -ENOMEM;
-                                        }
+                                        r = catalog_entry_lang(path, n, t, deflang, &lang);
+                                        if (r < 0)
+                                                return r;
                                 }
 
                                 got_id = true;
