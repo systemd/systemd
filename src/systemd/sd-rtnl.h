@@ -123,6 +123,8 @@ int sd_rtnl_message_exit_container(sd_rtnl_message *m);
 
 int sd_rtnl_message_rewind(sd_rtnl_message *m);
 
+sd_rtnl_message *sd_rtnl_message_next(sd_rtnl_message *m);
+
 _SD_END_DECLARATIONS;
 
 #endif

@@ -378,6 +378,8 @@ sd_rtnl_message *sd_rtnl_message_unref(sd_rtnl_message *m) {
                 for (i = 0; i <= m->n_containers; i++)
                         free(m->rta_offset_tb[i]);
 
+                sd_rtnl_message_unref(m->next);
+
                 free(m);
         }
 
@@ -1078,6 +1080,8 @@ int socket_write_message(sd_rtnl *nl, sd_rtnl_message *m) {
  * On failure, a negative error code is returned.
  */
 int socket_read_message(sd_rtnl *rtnl) {
+        _cleanup_rtnl_message_unref_ sd_rtnl_message *first = NULL;
+        sd_rtnl_message *previous = NULL;
         _cleanup_free_ void *buffer = NULL;
         uint8_t cred_buffer[CMSG_SPACE(sizeof(struct ucred))];
         struct iovec iov = {};
@@ -1146,6 +1150,10 @@ int socket_read_message(sd_rtnl *rtnl) {
                 if (new_msg->nlmsg_type == NLMSG_NOOP)
                         continue;
 
+                /* finished reading multi-part message */
+                if (new_msg->nlmsg_type == NLMSG_DONE)
+                        break;
+
                 /* check that we support this message type */
                 r = type_system_get_type(NULL, &nl_type, new_msg->nlmsg_type);
                 if (r < 0) {
@@ -1173,20 +1181,29 @@ int socket_read_message(sd_rtnl *rtnl) {
                 if (r < 0)
                         return r;
 
-                r = rtnl_rqueue_make_room(rtnl);
-                if (r < 0)
-                        return r;
+                if (!first)
+                        first = m;
+                else {
+                        assert(previous);
 
-                rtnl->rqueue[rtnl->rqueue_size ++] = m;
+                        previous->next = m;
+                }
+                previous = m;
                 m = NULL;
+
                 ret += new_msg->nlmsg_len;
 
-                /* reached end of multi-part message, or not a multi-part
-                   message at all */
-                if (new_msg->nlmsg_type == NLMSG_DONE ||
-                    !(new_msg->nlmsg_flags & NLM_F_MULTI))
+                /* not a multi-part message, so stop reading*/
+                if (!(new_msg->nlmsg_flags & NLM_F_MULTI))
                         break;
         }
+
+        r = rtnl_rqueue_make_room(rtnl);
+        if (r < 0)
+                return r;
+
+        rtnl->rqueue[rtnl->rqueue_size ++] = first;
+        first = NULL;
 
         return ret;
 }
@@ -1248,4 +1265,10 @@ void rtnl_message_seal(sd_rtnl_message *m) {
         assert(!m->sealed);
 
         m->sealed = true;
+}
+
+sd_rtnl_message *sd_rtnl_message_next(sd_rtnl_message *m) {
+        assert_return(m, NULL);
+
+        return m->next;
 }

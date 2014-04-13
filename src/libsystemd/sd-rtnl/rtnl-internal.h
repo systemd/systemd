@@ -102,6 +102,8 @@ struct sd_rtnl_message {
         size_t *rta_offset_tb[RTNL_CONTAINER_DEPTH];
         unsigned short rta_tb_size[RTNL_CONTAINER_DEPTH];
         bool sealed:1;
+
+        sd_rtnl_message *next; /* next in a chain of multi-part messages */
 };
 
 int message_new(sd_rtnl *rtnl, sd_rtnl_message **ret, uint16_t type);
