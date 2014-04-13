@@ -2587,8 +2587,7 @@ noinst_LTLIBRARIES += \
 
 libudev_internal_la_SOURCES =\
 	$(libudev_la_SOURCES) \
-	src/libudev/libudev-device-private.c \
-	src/libudev/libudev-queue-private.c
+	src/libudev/libudev-device-private.c
 
 libudev_internal_la_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -5169,6 +5168,9 @@ test_libsystemd_sym_LDADD = \
 
 test_libudev_sym_SOURCES = \
 	test-libudev-sym.c
+test_libudev_sym_CFLAGS = \
+	$(AM_CFLAGS) \
+	-Wno-deprecated-declarations
 test_libudev_sym_LDADD = \
 	libudev.la
 

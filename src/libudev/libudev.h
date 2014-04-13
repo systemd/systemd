@@ -170,14 +170,14 @@ struct udev_queue *udev_queue_ref(struct udev_queue *udev_queue);
 struct udev_queue *udev_queue_unref(struct udev_queue *udev_queue);
 struct udev *udev_queue_get_udev(struct udev_queue *udev_queue);
 struct udev_queue *udev_queue_new(struct udev *udev);
-unsigned long long int udev_queue_get_kernel_seqnum(struct udev_queue *udev_queue);
-unsigned long long int udev_queue_get_udev_seqnum(struct udev_queue *udev_queue);
+unsigned long long int udev_queue_get_kernel_seqnum(struct udev_queue *udev_queue) __attribute__ ((deprecated));
+unsigned long long int udev_queue_get_udev_seqnum(struct udev_queue *udev_queue) __attribute__ ((deprecated));
 int udev_queue_get_udev_is_active(struct udev_queue *udev_queue);
 int udev_queue_get_queue_is_empty(struct udev_queue *udev_queue);
-int udev_queue_get_seqnum_is_finished(struct udev_queue *udev_queue, unsigned long long int seqnum);
+int udev_queue_get_seqnum_is_finished(struct udev_queue *udev_queue, unsigned long long int seqnum) __attribute__ ((deprecated));
 int udev_queue_get_seqnum_sequence_is_finished(struct udev_queue *udev_queue,
-                                               unsigned long long int start, unsigned long long int end);
-struct udev_list_entry *udev_queue_get_queued_list_entry(struct udev_queue *udev_queue);
+                                               unsigned long long int start, unsigned long long int end) __attribute__ ((deprecated));
+struct udev_list_entry *udev_queue_get_queued_list_entry(struct udev_queue *udev_queue) __attribute__ ((deprecated));
 
 /*
  *  udev_hwdb

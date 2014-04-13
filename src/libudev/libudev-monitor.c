@@ -146,21 +146,6 @@ static bool udev_has_devtmpfs(struct udev *udev) {
         return false;
 }
 
-/* we consider udev running when we have running udev service */
-static bool udev_has_service(struct udev *udev) {
-        struct udev_queue *queue;
-        bool active;
-
-        queue = udev_queue_new(udev);
-        if (!queue)
-                return false;
-
-        active = udev_queue_get_udev_is_active(queue);
-        udev_queue_unref(queue);
-
-        return active;
-}
-
 struct udev_monitor *udev_monitor_new_from_netlink_fd(struct udev *udev, const char *name, int fd)
 {
         struct udev_monitor *udev_monitor;
@@ -184,7 +169,7 @@ struct udev_monitor *udev_monitor_new_from_netlink_fd(struct udev *udev, const c
                  * We do not set a netlink multicast group here, so the socket
                  * will not receive any messages.
                  */
-                if (!udev_has_service(udev) && !udev_has_devtmpfs(udev)) {
+                if (access("/run/udev/control", F_OK) < 0 && !udev_has_devtmpfs(udev)) {
                         udev_dbg(udev, "the udev service seems not to be active, disable the monitor\n");
                         group = UDEV_MONITOR_NONE;
                 } else

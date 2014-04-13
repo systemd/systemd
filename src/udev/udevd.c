@@ -60,7 +60,6 @@ void udev_main_log(struct udev *udev, int priority,
 }
 
 static struct udev_rules *rules;
-static struct udev_queue_export *udev_queue_export;
 static struct udev_ctrl *udev_ctrl;
 static struct udev_monitor *monitor;
 static int worker_watch[2] = { -1, -1 };
@@ -139,14 +138,9 @@ static inline struct worker *node_to_worker(struct udev_list_node *node)
         return container_of(node, struct worker, node);
 }
 
-static void event_queue_delete(struct event *event, bool export)
+static void event_queue_delete(struct event *event)
 {
         udev_list_node_remove(&event->node);
-
-        if (export) {
-                udev_queue_export_device_finished(udev_queue_export, event->dev);
-                log_debug("seq %llu done with %i", udev_device_get_seqnum(event->dev), event->exitcode);
-        }
         udev_device_unref(event->dev);
         free(event);
 }
@@ -225,7 +219,6 @@ static void worker_new(struct event *event)
                 free(worker);
                 worker_list_cleanup(udev);
                 event_queue_cleanup(udev, EVENT_UNDEF);
-                udev_queue_export_unref(udev_queue_export);
                 udev_monitor_unref(monitor);
                 udev_ctrl_unref(udev_ctrl);
                 close(fd_signal);
@@ -449,7 +442,6 @@ static int event_queue_insert(struct udev_device *dev)
                 event->nodelay = true;
 #endif
 
-        udev_queue_export_device_queued(udev_queue_export, dev);
         log_debug("seq %llu queued, '%s' '%s'", udev_device_get_seqnum(dev),
              udev_device_get_action(dev), udev_device_get_subsystem(dev));
 
@@ -580,7 +572,7 @@ static void event_queue_cleanup(struct udev *udev, enum event_state match_type)
                 if (match_type != EVENT_UNDEF && match_type != event->state)
                         continue;
 
-                event_queue_delete(event, false);
+                event_queue_delete(event);
         }
 }
 
@@ -605,7 +597,7 @@ static void worker_returned(int fd_worker)
                         /* worker returned */
                         if (worker->event) {
                                 worker->event->exitcode = msg.exitcode;
-                                event_queue_delete(worker->event, true);
+                                event_queue_delete(worker->event);
                                 worker->event = NULL;
                         }
                         if (worker->state != WORKER_KILLED)
@@ -797,7 +789,8 @@ static void handle_signal(struct udev *udev, int signo)
                                                 log_error("worker [%u] failed while handling '%s'",
                                                           pid, worker->event->devpath);
                                                 worker->event->exitcode = -32;
-                                                event_queue_delete(worker->event, true);
+                                                event_queue_delete(worker->event);
+
                                                 /* drop reference taken for state 'running' */
                                                 worker_unref(worker);
                                         }
@@ -1076,14 +1069,7 @@ int main(int argc, char *argv[])
                 goto exit;
         }
 
-        udev_monitor_set_receive_buffer_size(monitor, 128*1024*1024);
-
-        /* create queue file before signalling 'ready', to make sure we block 'settle' */
-        udev_queue_export = udev_queue_export_new(udev);
-        if (udev_queue_export == NULL) {
-                log_error("error creating queue file");
-                goto exit;
-        }
+        udev_monitor_set_receive_buffer_size(monitor, 128 * 1024 * 1024);
 
         if (daemonize) {
                 pid_t pid;
@@ -1241,12 +1227,12 @@ int main(int argc, char *argv[])
                         worker_kill(udev);
 
                         /* exit after all has cleaned up */
-                        if (udev_list_node_is_empty(&event_list) && udev_list_node_is_empty(&worker_list))
+                        if (udev_list_node_is_empty(&event_list) && children == 0)
                                 break;
 
                         /* timeout at exit for workers to finish */
-                        timeout = 30 * 1000;
-                } else if (udev_list_node_is_empty(&event_list) && !children) {
+                        timeout = 30 * MSEC_PER_SEC;
+                } else if (udev_list_node_is_empty(&event_list) && children == 0) {
                         /* we are idle */
                         timeout = -1;
 
@@ -1255,8 +1241,20 @@ int main(int argc, char *argv[])
                                 cg_kill(SYSTEMD_CGROUP_CONTROLLER, udev_cgroup, SIGKILL, false, true, NULL);
                 } else {
                         /* kill idle or hanging workers */
-                        timeout = 3 * 1000;
+                        timeout = 3 * MSEC_PER_SEC;
                 }
+
+                /* tell settle that we are busy or idle */
+                if (!udev_list_node_is_empty(&event_list)) {
+                        int fd;
+
+                        fd = open("/run/udev/queue", O_WRONLY|O_CREAT|O_CLOEXEC|O_TRUNC|O_NOFOLLOW, 0444);
+                        if (fd >= 0)
+                                close(fd);
+                } else {
+                        unlink("/run/udev/queue");
+                }
+
                 fdcount = epoll_wait(fd_ep, ev, ELEMENTSOF(ev), timeout);
                 if (fdcount < 0)
                         continue;
@@ -1283,18 +1281,18 @@ int main(int argc, char *argv[])
                                 if (worker->state != WORKER_RUNNING)
                                         continue;
 
-                                if ((now(CLOCK_MONOTONIC) - worker->event_start_usec) > 30 * 1000 * 1000) {
+                                if ((now(CLOCK_MONOTONIC) - worker->event_start_usec) > 30 * USEC_PER_SEC) {
                                         log_error("worker [%u] %s timeout; kill it", worker->pid,
                                             worker->event ? worker->event->devpath : "<idle>");
                                         kill(worker->pid, SIGKILL);
                                         worker->state = WORKER_KILLED;
+
                                         /* drop reference taken for state 'running' */
                                         worker_unref(worker);
                                         if (worker->event) {
-                                                log_error("seq %llu '%s' killed",
-                                                          udev_device_get_seqnum(worker->event->dev), worker->event->devpath);
+                                                log_error("seq %llu '%s' killed", udev_device_get_seqnum(worker->event->dev), worker->event->devpath);
                                                 worker->event->exitcode = -64;
-                                                event_queue_delete(worker->event, true);
+                                                event_queue_delete(worker->event);
                                                 worker->event = NULL;
                                         }
                                 }
@@ -1317,7 +1315,7 @@ int main(int argc, char *argv[])
                 }
 
                 /* check for changed config, every 3 seconds at most */
-                if ((now(CLOCK_MONOTONIC) - last_usec) > 3 * 1000 * 1000) {
+                if ((now(CLOCK_MONOTONIC) - last_usec) > 3 * USEC_PER_SEC) {
                         if (udev_rules_check_timestamp(rules))
                                 reload = true;
                         if (udev_builtin_validate(udev))
@@ -1390,8 +1388,8 @@ int main(int argc, char *argv[])
 
         rc = EXIT_SUCCESS;
 exit:
-        udev_queue_export_cleanup(udev_queue_export);
         udev_ctrl_cleanup(udev_ctrl);
+        unlink("/run/udev/queue");
 exit_daemonize:
         if (fd_ep >= 0)
                 close(fd_ep);
@@ -1406,7 +1404,6 @@ exit_daemonize:
         if (worker_watch[WRITE_END] >= 0)
                 close(worker_watch[WRITE_END]);
         udev_monitor_unref(monitor);
-        udev_queue_export_unref(udev_queue_export);
         udev_ctrl_connection_unref(ctrl_conn);
         udev_ctrl_unref(udev_ctrl);
         label_finish();

@@ -303,38 +303,14 @@ out:
 
 static int test_queue(struct udev *udev) {
         struct udev_queue *udev_queue;
-        unsigned long long int seqnum;
-        struct udev_list_entry *list_entry;
 
         udev_queue = udev_queue_new(udev);
         if (udev_queue == NULL)
                 return -1;
-        seqnum = udev_queue_get_kernel_seqnum(udev_queue);
-        printf("seqnum kernel: %llu\n", seqnum);
-        seqnum = udev_queue_get_udev_seqnum(udev_queue);
-        printf("seqnum udev  : %llu\n", seqnum);
 
         if (udev_queue_get_queue_is_empty(udev_queue))
                 printf("queue is empty\n");
-        printf("get queue list\n");
-        udev_list_entry_foreach(list_entry, udev_queue_get_queued_list_entry(udev_queue))
-                printf("queued: '%s' [%s]\n", udev_list_entry_get_name(list_entry), udev_list_entry_get_value(list_entry));
-        printf("\n");
-        printf("get queue list again\n");
-        udev_list_entry_foreach(list_entry, udev_queue_get_queued_list_entry(udev_queue))
-                printf("queued: '%s' [%s]\n", udev_list_entry_get_name(list_entry), udev_list_entry_get_value(list_entry));
-        printf("\n");
 
-        list_entry = udev_queue_get_queued_list_entry(udev_queue);
-        if (list_entry != NULL) {
-                printf("event [%llu] is queued\n", seqnum);
-                seqnum = strtoull(udev_list_entry_get_value(list_entry), NULL, 10);
-                if (udev_queue_get_seqnum_is_finished(udev_queue, seqnum))
-                        printf("event [%llu] is not finished\n", seqnum);
-                else
-                        printf("event [%llu] is finished\n", seqnum);
-        }
-        printf("\n");
         udev_queue_unref(udev_queue);
         return 0;
 }
