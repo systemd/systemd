@@ -1490,10 +1490,10 @@ int link_update(Link *link, sd_rtnl_message *m) {
                                        PRIu16, link->original_mtu);
         }
 
+        /* The kernel may broadcast NEWLINK messages without the MAC address
+           set, simply ignore them. */
         r = sd_rtnl_message_read_ether_addr(m, IFLA_ADDRESS, &mac);
-        if (r < 0)
-                log_debug_link(link, "Could not get MAC address: %s", strerror(-r));
-        else {
+        if (r >= 0) {
                 if (memcmp(link->mac.ether_addr_octet, mac.ether_addr_octet, ETH_ALEN)) {
 
                         memcpy(link->mac.ether_addr_octet, mac.ether_addr_octet, ETH_ALEN);
