@@ -92,7 +92,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     to the default event loop object of the calling thread, possibly
     allocating a new object if no default event loop object has been
     allocated yet for the thread. After use drop the returned
-    referened with <function>sd_event_unref()</function>. When the
+    reference with <function>sd_event_unref()</function>. When the
     last reference is dropped the event loop is freed. If this
     function is called while the object returned from a previous call
     from the same thread is still referenced, the same object is
@@ -108,7 +108,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
     <para><function>sd_event_unref()</function> decreases the
     reference counter of the specified event loop object by one. If
-    the counter hits zero the event loop object is freed. Not that it
+    the counter hits zero the event loop object is freed. Note that it
     is freed regardless if it is the default event loop object of a
     thread or not. This means that allocating an event loop with
     <function>sd_event_default()</function>, then releasing it and
