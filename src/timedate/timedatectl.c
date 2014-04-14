@@ -148,51 +148,56 @@ static void print_status_info(const StatusInfo *i) {
         } else
                 printf("        RTC time: %s\n", "n/a");
 
-        zero(tm);
-        assert_se(strftime(a, sizeof(a), "%Z, %z", localtime_r(&sec, &tm)) > 0);
-        char_array_0(a);
+        if (have_time) {
+                zero(tm);
+                assert_se(strftime(a, sizeof(a), "%Z, %z", localtime_r(&sec, &tm)) > 0);
+                char_array_0(a);
+        }
+
         printf("       Time zone: %s (%s)\n"
                "     NTP enabled: %s\n"
                "NTP synchronized: %s\n"
                " RTC in local TZ: %s\n",
-               strna(i->timezone), a,
+               strna(i->timezone), have_time ? a : "n/a",
                i->ntp_capable ? yes_no(i->ntp_enabled) : "n/a",
                yes_no(i->ntp_synced),
                yes_no(i->rtc_local));
 
-        r = time_get_dst(sec, "/etc/localtime",
-                         &tc, &zc, &is_dstc,
-                         &tn, &dn, &zn, &is_dstn);
-        if (r < 0)
-                printf("      DST active: %s\n", "n/a");
-        else if (have_time) {
-                printf("      DST active: %s\n", yes_no(is_dstc));
+        if (have_time) {
+                r = time_get_dst(sec, "/etc/localtime",
+                                 &tc, &zc, &is_dstc,
+                                 &tn, &dn, &zn, &is_dstn);
+                if (r < 0)
+                        printf("      DST active: %s\n", "n/a");
+                else {
+                        printf("      DST active: %s\n", yes_no(is_dstc));
 
-                t = tc - 1;
-                zero(tm);
-                assert_se(strftime(a, sizeof(a), "%a %Y-%m-%d %H:%M:%S %Z", localtime_r(&t, &tm)) > 0);
-                char_array_0(a);
+                        t = tc - 1;
+                        zero(tm);
+                        assert_se(strftime(a, sizeof(a), "%a %Y-%m-%d %H:%M:%S %Z", localtime_r(&t, &tm)) > 0);
+                        char_array_0(a);
 
-                zero(tm);
-                assert_se(strftime(b, sizeof(b), "%a %Y-%m-%d %H:%M:%S %Z", localtime_r(&tc, &tm)) > 0);
-                char_array_0(b);
-                printf(" Last DST change: DST %s at\n"
-                       "                  %s\n"
-                       "                  %s\n",
-                       is_dstc ? "began" : "ended", a, b);
+                        zero(tm);
+                        assert_se(strftime(b, sizeof(b), "%a %Y-%m-%d %H:%M:%S %Z", localtime_r(&tc, &tm)) > 0);
+                        char_array_0(b);
+                        printf(" Last DST change: DST %s at\n"
+                               "                  %s\n"
+                               "                  %s\n",
+                               is_dstc ? "began" : "ended", a, b);
 
-                t = tn - 1;
-                zero(tm);
-                assert_se(strftime(a, sizeof(a), "%a %Y-%m-%d %H:%M:%S %Z", localtime_r(&t, &tm)) > 0);
-                char_array_0(a);
+                        t = tn - 1;
+                        zero(tm);
+                        assert_se(strftime(a, sizeof(a), "%a %Y-%m-%d %H:%M:%S %Z", localtime_r(&t, &tm)) > 0);
+                        char_array_0(a);
 
-                zero(tm);
-                assert_se(strftime(b, sizeof(b), "%a %Y-%m-%d %H:%M:%S %Z", localtime_r(&tn, &tm)) > 0);
-                char_array_0(b);
-                printf(" Next DST change: DST %s (the clock jumps %s) at\n"
-                       "                  %s\n"
-                       "                  %s\n",
-                       is_dstn ? "begins" : "ends", jump_str(dn, s, sizeof(s)), a, b);
+                        zero(tm);
+                        assert_se(strftime(b, sizeof(b), "%a %Y-%m-%d %H:%M:%S %Z", localtime_r(&tn, &tm)) > 0);
+                        char_array_0(b);
+                        printf(" Next DST change: DST %s (the clock jumps %s) at\n"
+                               "                  %s\n"
+                               "                  %s\n",
+                               is_dstn ? "begins" : "ends", jump_str(dn, s, sizeof(s)), a, b);
+                }
         } else
                 printf("      DST active: %s\n", yes_no(is_dstc));
 
