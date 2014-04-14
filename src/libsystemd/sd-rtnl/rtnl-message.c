@@ -213,6 +213,22 @@ int sd_rtnl_message_new_link(sd_rtnl *rtnl, sd_rtnl_message **ret,
         return 0;
 }
 
+int sd_rtnl_message_request_dump(sd_rtnl_message *m, int dump) {
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(m->hdr->nlmsg_type == RTM_GETLINK ||
+                      m->hdr->nlmsg_type == RTM_GETADDR ||
+                      m->hdr->nlmsg_type == RTM_GETROUTE,
+                      -EINVAL);
+
+        if (dump)
+                m->hdr->nlmsg_flags |= NLM_F_DUMP;
+        else
+                m->hdr->nlmsg_flags &= ~NLM_F_DUMP;
+
+        return 0;
+}
+
 int sd_rtnl_message_addr_set_prefixlen(sd_rtnl_message *m, unsigned char prefixlen) {
         struct ifaddrmsg *ifa;
 

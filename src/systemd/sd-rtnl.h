@@ -77,6 +77,7 @@ int sd_rtnl_message_new_route(sd_rtnl *rtnl, sd_rtnl_message **ret, uint16_t nlm
 sd_rtnl_message *sd_rtnl_message_ref(sd_rtnl_message *m);
 sd_rtnl_message *sd_rtnl_message_unref(sd_rtnl_message *m);
 
+int sd_rtnl_message_request_dump(sd_rtnl_message *m, int dump);
 int sd_rtnl_message_get_errno(sd_rtnl_message *m);
 int sd_rtnl_message_get_type(sd_rtnl_message *m, uint16_t *type);
 int sd_rtnl_message_is_broadcast(sd_rtnl_message *m);
