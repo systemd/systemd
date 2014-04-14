@@ -259,6 +259,66 @@ int sd_rtnl_message_addr_set_scope(sd_rtnl_message *m, unsigned char scope) {
         return 0;
 }
 
+int sd_rtnl_message_addr_get_family(sd_rtnl_message *m, unsigned char *family) {
+        struct ifaddrmsg *ifa;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(rtnl_message_type_is_addr(m->hdr->nlmsg_type), -EINVAL);
+        assert_return(family, -EINVAL);
+
+        ifa = NLMSG_DATA(m->hdr);
+
+        *family = ifa->ifa_family;
+
+        return 0;
+}
+
+int sd_rtnl_message_addr_get_scope(sd_rtnl_message *m, unsigned char *scope) {
+        struct ifaddrmsg *ifa;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(rtnl_message_type_is_addr(m->hdr->nlmsg_type), -EINVAL);
+        assert_return(scope, -EINVAL);
+
+        ifa = NLMSG_DATA(m->hdr);
+
+        *scope = ifa->ifa_scope;
+
+        return 0;
+}
+
+int sd_rtnl_message_addr_get_flags(sd_rtnl_message *m, unsigned char *flags) {
+        struct ifaddrmsg *ifa;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(rtnl_message_type_is_addr(m->hdr->nlmsg_type), -EINVAL);
+        assert_return(flags, -EINVAL);
+
+        ifa = NLMSG_DATA(m->hdr);
+
+        *flags = ifa->ifa_flags;
+
+        return 0;
+}
+
+int sd_rtnl_message_addr_get_ifindex(sd_rtnl_message *m, int *ifindex) {
+        struct ifaddrmsg *ifa;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(rtnl_message_type_is_addr(m->hdr->nlmsg_type), -EINVAL);
+        assert_return(ifindex, -EINVAL);
+
+        ifa = NLMSG_DATA(m->hdr);
+
+        *ifindex = ifa->ifa_index;
+
+        return 0;
+}
+
 int sd_rtnl_message_new_addr(sd_rtnl *rtnl, sd_rtnl_message **ret,
                              uint16_t nlmsg_type, int index,
                              unsigned char family) {
