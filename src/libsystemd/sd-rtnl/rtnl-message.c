@@ -997,26 +997,6 @@ int sd_rtnl_message_get_errno(sd_rtnl_message *m) {
         return err->error;
 }
 
-static int message_receive_need(sd_rtnl *rtnl, size_t *need) {
-        assert(rtnl);
-        assert(need);
-
-        /* ioctl(rtnl->fd, FIONREAD, &need)
-           Does not appear to work on netlink sockets. libnl uses
-           MSG_PEEK instead. I don't know if that is worth the
-           extra roundtrip.
-
-           For now we simply use the maximum message size the kernel
-           may use (NLMSG_GOODSIZE), and then realloc to the actual
-           size after reading the message (hence avoiding huge memory
-           usage in case many small messages are kept around) */
-        *need = page_size();
-        if (*need > 8192UL)
-                *need = 8192UL;
-
-        return 0;
-}
-
 int rtnl_message_parse(sd_rtnl_message *m,
                        size_t **rta_offset_tb,
                        unsigned short *rta_tb_size,
@@ -1082,7 +1062,6 @@ int socket_write_message(sd_rtnl *nl, sd_rtnl_message *m) {
 int socket_read_message(sd_rtnl *rtnl) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *first = NULL;
         sd_rtnl_message *previous = NULL;
-        _cleanup_free_ void *buffer = NULL;
         uint8_t cred_buffer[CMSG_SPACE(sizeof(struct ucred))];
         struct iovec iov = {};
         struct msghdr msg = {
@@ -1094,23 +1073,37 @@ int socket_read_message(sd_rtnl *rtnl) {
         struct cmsghdr *cmsg;
         bool auth = false;
         struct nlmsghdr *new_msg;
-        size_t need, len;
+        size_t len;
         int r, ret = 0;
 
         assert(rtnl);
+        assert(rtnl->rbuffer);
 
-        r = message_receive_need(rtnl, &need);
+        iov.iov_base = rtnl->rbuffer;
+        iov.iov_len = rtnl->rbuffer_allocated;
+
+        /* peek at the pending message header to get the message size */
+        r = recvmsg(rtnl->fd, &msg, MSG_PEEK);
         if (r < 0)
-                return r;
+                /* no data */
+                return (errno == EAGAIN) ? 0 : -errno;
+        else if (r == 0)
+                /* connection was closed by the kernel */
+                return -ECONNRESET;
+        else if ((size_t)r < sizeof(struct nlmsghdr))
+                return -EIO;
 
-        buffer = malloc0(need);
-        if (!buffer)
+        /* make room for the pending message */
+        if (!greedy_realloc((void **)&rtnl->rbuffer,
+                            &rtnl->rbuffer_allocated,
+                            rtnl->rbuffer->nlmsg_len,
+                            sizeof(uint8_t)))
                 return -ENOMEM;
 
-        iov.iov_base = buffer;
-        iov.iov_len = need;
+        iov.iov_base = rtnl->rbuffer;
+        iov.iov_len = rtnl->rbuffer_allocated;
 
-        r = recvmsg(rtnl->fd, &msg, 0);
+        r = recvmsg(rtnl->fd, &msg, MSG_TRUNC);
         if (r < 0)
                 /* no data */
                 return (errno == EAGAIN) ? 0 : -errno;
@@ -1119,6 +1112,10 @@ int socket_read_message(sd_rtnl *rtnl) {
                 return -ECONNRESET;
         else
                 len = (size_t)r;
+
+        if (len > rtnl->rbuffer_allocated)
+                /* message did not fit in read buffer */
+                return -EIO;
 
         for (cmsg = CMSG_FIRSTHDR(&msg); cmsg; cmsg = CMSG_NXTHDR(&msg, cmsg)) {
                 if (cmsg->cmsg_level == SOL_SOCKET &&
@@ -1138,7 +1135,7 @@ int socket_read_message(sd_rtnl *rtnl) {
                 /* not from the kernel, ignore */
                 return 0;
 
-        for (new_msg = buffer; NLMSG_OK(new_msg, len); new_msg = NLMSG_NEXT(new_msg, len)) {
+        for (new_msg = rtnl->rbuffer; NLMSG_OK(new_msg, len); new_msg = NLMSG_NEXT(new_msg, len)) {
                 _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
                 const NLType *nl_type;
 

@@ -54,6 +54,12 @@ static int sd_rtnl_new(sd_rtnl **ret) {
         if (!GREEDY_REALLOC(rtnl->wqueue, rtnl->wqueue_allocated, 1))
                 return -ENOMEM;
 
+        /* We guarantee that the read buffer has at least space for
+         * a message header */
+        if (!greedy_realloc((void**)&rtnl->rbuffer, &rtnl->rbuffer_allocated,
+                            sizeof(struct nlmsghdr), sizeof(uint8_t)))
+                return -ENOMEM;
+
         *ret = rtnl;
         rtnl = NULL;
 
@@ -132,6 +138,8 @@ sd_rtnl *sd_rtnl_unref(sd_rtnl *rtnl) {
                 for (i = 0; i < rtnl->wqueue_size; i++)
                         sd_rtnl_message_unref(rtnl->wqueue[i]);
                 free(rtnl->wqueue);
+
+                free(rtnl->rbuffer);
 
                 hashmap_free_free(rtnl->reply_callbacks);
                 prioq_free(rtnl->reply_callbacks_prioq);

@@ -72,6 +72,9 @@ struct sd_rtnl {
         unsigned wqueue_size;
         size_t wqueue_allocated;
 
+        struct nlmsghdr *rbuffer;
+        size_t rbuffer_allocated;
+
         bool processing:1;
 
         uint32_t serial;
