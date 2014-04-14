@@ -4062,6 +4062,10 @@ libnss_myhostname_la_LDFLAGS = \
 	-shared \
 	-shrext .so.2
 
+libnss_myhostname_la_LIBADD = \
+	libsystemd-shared.la \
+	libsystemd-internal.la
+
 lib_LTLIBRARIES += \
 	libnss_myhostname.la
 endif
