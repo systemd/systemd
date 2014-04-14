@@ -289,6 +289,77 @@ static int process_policy(sd_bus *a, sd_bus *b, sd_bus_message *m) {
         return 1;
 }
 
+static int synthetic_driver_send(sd_bus *b, sd_bus_message *m) {
+        int r;
+
+        assert(b);
+        assert(m);
+
+        r = bus_message_append_sender(m, "org.freedesktop.DBus");
+        if (r < 0)
+                return r;
+
+        r = bus_seal_synthetic_message(b, m);
+        if (r < 0)
+                return r;
+
+        return sd_bus_send(b, m, NULL);
+}
+
+static int synthetic_reply_method_error(sd_bus_message *call, const sd_bus_error *e) {
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        int r;
+
+        if (call->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED)
+                return 0;
+
+        r = sd_bus_message_new_method_error(call, &m, e);
+        if (r < 0)
+                return r;
+
+        return synthetic_driver_send(call->bus, m);
+}
+
+static int synthetic_reply_method_errno(sd_bus_message *call, int error, const sd_bus_error *p) {
+
+        _cleanup_bus_error_free_ sd_bus_error berror = SD_BUS_ERROR_NULL;
+
+        if (call->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED)
+                return 0;
+
+        if (sd_bus_error_is_set(p))
+                return synthetic_reply_method_error(call, p);
+
+        sd_bus_error_set_errno(&berror, error);
+
+        return synthetic_reply_method_error(call, &berror);
+}
+
+static int synthetic_reply_method_return(sd_bus_message *call, const char *types, ...) {
+
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        int r;
+
+        if (call->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED)
+                return 0;
+
+        r = sd_bus_message_new_method_return(call, &m);
+        if (r < 0)
+                return r;
+
+        if (!isempty(types)) {
+                va_list ap;
+
+                va_start(ap, types);
+                r = bus_message_append_ap(m, types, ap);
+                va_end(ap);
+                if (r < 0)
+                        return r;
+        }
+
+        return synthetic_driver_send(call->bus, m);
+}
+
 static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
         int r;
 
@@ -300,34 +371,34 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
                 return 0;
 
         if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "AddMatch")) {
+                _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
                 const char *match;
 
                 r = sd_bus_message_read(m, "s", &match);
                 if (r < 0)
-                        return r;
+                        return synthetic_reply_method_errno(m, r, NULL);
 
                 r = sd_bus_add_match(a, match, NULL, NULL);
                 if (r < 0)
-                        return r;
+                        return synthetic_reply_method_errno(m, r, NULL);
 
-                return sd_bus_reply_method_return(m, NULL);
+                return synthetic_reply_method_return(m, NULL);
 
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "RemoveMatch")) {
                 const char *match;
 
                 r = sd_bus_message_read(m, "s", &match);
                 if (r < 0)
-                        return r;
+                        return synthetic_reply_method_errno(m, r, NULL);
 
                 r = sd_bus_remove_match(a, match, NULL, NULL);
                 if (r < 0)
-                        return r;
+                        return synthetic_reply_method_errno(m, r, NULL);
 
-                return sd_bus_reply_method_return(m, NULL);
-        } else
-                return 0;
+                return synthetic_reply_method_return(m, NULL);
+        }
 
-        return r;
+        return 0;
 }
 
 static int process_hello(sd_bus *a, sd_bus *b, sd_bus_message *m, bool *got_hello) {
