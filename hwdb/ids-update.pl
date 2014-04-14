@@ -107,6 +107,7 @@ sub usb_classes {
 sub pci_vendor {
         my $vendor;
         my $device;
+        my $device_text;
 
         open(IN, "<", "pci.ids");
         open(OUT, ">", "20-pci-vendor-model.hwdb");
@@ -130,10 +131,10 @@ sub pci_vendor {
                 $line =~ m/^\t([0-9a-f]{4})\s*(.+)$/;
                 if (defined $1) {
                         $device = uc $1;
-                        my $text = $2;
+                        $device_text = $2;
                         print(OUT "\n");
                         print(OUT "pci:v0000" . $vendor . "d0000" . $device . "*\n");
-                        print(OUT " ID_MODEL_FROM_DATABASE=" . $text . "\n");
+                        print(OUT " ID_MODEL_FROM_DATABASE=" . $device_text . "\n");
                         next;
                 }
 
@@ -141,10 +142,12 @@ sub pci_vendor {
                 if (defined $1) {
                         my $sub_vendor = uc $1;
                         my $sub_device = uc $2;
-                        my $text = $3;
+                        my $sub_text = $3;
+                        $sub_text =~ s/^\Q$device_text\E\s*//;
+                        $sub_text =~ s/(.+)/\ (\1\)/;
                         print(OUT "\n");
                         print(OUT "pci:v0000" . $vendor . "d0000" . $device . "sv0000" . $sub_vendor . "sd0000" . $sub_device . "*\n");
-                        print(OUT " ID_MODEL_FROM_DATABASE=" . $text . "\n");
+                        print(OUT " ID_MODEL_FROM_DATABASE=" . $device_text . $sub_text . "\n");
                 }
         }
 
