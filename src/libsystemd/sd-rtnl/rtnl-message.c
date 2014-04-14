@@ -326,15 +326,17 @@ int sd_rtnl_message_new_addr(sd_rtnl *rtnl, sd_rtnl_message **ret,
         int r;
 
         assert_return(rtnl_message_type_is_addr(nlmsg_type), -EINVAL);
-        assert_return(index > 0, -EINVAL);
-        assert_return(family == AF_INET || family == AF_INET6, -EINVAL);
+        assert_return((nlmsg_type == RTM_GETADDR && index == 0) ||
+                      index > 0, -EINVAL);
+        assert_return((nlmsg_type == RTM_GETADDR && family == AF_UNSPEC) ||
+                      family == AF_INET || family == AF_INET6, -EINVAL);
         assert_return(ret, -EINVAL);
 
         r = message_new(rtnl, ret, nlmsg_type);
         if (r < 0)
                 return r;
 
-        if (nlmsg_type == RTM_GETADDR && family == AF_INET)
+        if (nlmsg_type == RTM_GETADDR)
                 (*ret)->hdr->nlmsg_flags |= NLM_F_DUMP;
 
         ifa = NLMSG_DATA((*ret)->hdr);
