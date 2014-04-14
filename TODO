@@ -32,6 +32,14 @@ External:
 
 Features:
 
+* sd-resolve: add callback api
+
+* ImmutableSystem=yes/no or so to mount /usr, /boot read-only/invisible, and leave /var and /etc writable
+
+* InaccessibleHome=yes/no or so to hide /home and /run/user from a service
+
+* Run most system services with cgroupfs read-only and procfs with a more secure mode
+
 * sd-event: generate a failure of a default event loop is executed out-of-thread
 
 * add "M" as recursive version of "m" to tmpfiles, then use it for
