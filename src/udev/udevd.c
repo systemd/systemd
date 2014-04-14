@@ -31,6 +31,7 @@
 #include <time.h>
 #include <getopt.h>
 #include <dirent.h>
+#include <sys/file.h>
 #include <sys/time.h>
 #include <sys/prctl.h>
 #include <sys/socket.h>
@@ -265,6 +266,7 @@ static void worker_new(struct event *event)
                 for (;;) {
                         struct udev_event *udev_event;
                         struct worker_message msg;
+                        int fd_lock = -1;
                         int err;
 
                         log_debug("seq %llu running", udev_device_get_seqnum(dev));
@@ -280,6 +282,30 @@ static void worker_new(struct event *event)
                         if (exec_delay > 0)
                                 udev_event->exec_delay = exec_delay;
 
+                        /*
+                         * Take a "read lock" on the device node; this establishes
+                         * a concept of device "ownership" to serialize device
+                         * access. External processes holding a "write lock" will
+                         * cause udev to skip the event handling; in the case udev
+                         * acquired the lock, the external process will block until
+                         * udev has finished its event handling.
+                         */
+                        if (streq_ptr("block", udev_device_get_subsystem(dev))) {
+                                struct udev_device *d = dev;
+
+                                if (streq_ptr("partition", udev_device_get_devtype(d)))
+                                        d = udev_device_get_parent(d);
+
+                                if (d) {
+                                        fd_lock = open(udev_device_get_devnode(d), O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NONBLOCK);
+                                        if (fd_lock >= 0 && flock(fd_lock, LOCK_SH|LOCK_NB) < 0) {
+                                                log_debug("Unable to flock(%s), skipping event handling: %m", udev_device_get_devnode(d));
+                                                err = -EWOULDBLOCK;
+                                                goto skip;
+                                        }
+                                }
+                        }
+
                         /* apply rules, create node, symlinks */
                         err = udev_event_execute_rules(udev_event, rules, &sigmask_orig);
 
@@ -292,13 +318,16 @@ static void worker_new(struct event *event)
                                 udev_device_update_db(dev);
                         }
 
+                        if (fd_lock >= 0)
+                                close(fd_lock);
+
                         /* send processed event back to libudev listeners */
                         udev_monitor_send_device(worker_monitor, NULL, dev);
 
+skip:
                         /* send udevd the result of the event execution */
                         memzero(&msg, sizeof(struct worker_message));
-                        if (err != 0)
-                                msg.exitcode = err;
+                        msg.exitcode = err;
                         msg.pid = getpid();
                         send(worker_watch[WRITE_END], &msg, sizeof(struct worker_message), 0);
 
