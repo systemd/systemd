@@ -1968,7 +1968,7 @@ static int set_default(sd_bus *bus, char **args) {
                 return log_oom();
 
         if (!bus || avoid_bus()) {
-                r = unit_file_set_default(arg_scope, arg_root, unit, arg_force, &changes, &n_changes);
+                r = unit_file_set_default(arg_scope, arg_root, unit, true, &changes, &n_changes);
                 if (r < 0) {
                         log_error("Failed to set default target: %s", strerror(-r));
                         return r;
@@ -1990,7 +1990,7 @@ static int set_default(sd_bus *bus, char **args) {
                                 "SetDefaultTarget",
                                 &error,
                                 &reply,
-                                "sb", unit, arg_force);
+                                "sb", unit, true);
                 if (r < 0) {
                         log_error("Failed to set default target: %s", bus_error_message(&error, -r));
                         return r;
