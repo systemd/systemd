@@ -289,6 +289,47 @@ static int process_policy(sd_bus *a, sd_bus *b, sd_bus_message *m) {
         return 1;
 }
 
+static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
+        int r;
+
+        assert(a);
+        assert(b);
+        assert(m);
+
+        if (!streq_ptr(sd_bus_message_get_destination(m), "org.freedesktop.DBus"))
+                return 0;
+
+        if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "AddMatch")) {
+                const char *match;
+
+                r = sd_bus_message_read(m, "s", &match);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_add_match(a, match, NULL, NULL);
+                if (r < 0)
+                        return r;
+
+                return sd_bus_reply_method_return(m, NULL);
+
+        } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "RemoveMatch")) {
+                const char *match;
+
+                r = sd_bus_message_read(m, "s", &match);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_remove_match(a, match, NULL, NULL);
+                if (r < 0)
+                        return r;
+
+                return sd_bus_reply_method_return(m, NULL);
+        } else
+                return 0;
+
+        return r;
+}
+
 static int process_hello(sd_bus *a, sd_bus *b, sd_bus_message *m, bool *got_hello) {
         _cleanup_bus_message_unref_ sd_bus_message *n = NULL;
         bool is_hello;
@@ -696,16 +737,27 @@ int main(int argc, char *argv[]) {
                                         goto finish;
                                 }
 
-                                k = sd_bus_send(a, m, NULL);
+                                k = process_driver(a, b, m);
                                 if (k < 0) {
-                                        if (r == -ECONNRESET)
-                                                r = 0;
-                                        else {
-                                                r = k;
-                                                log_error("Failed to send message: %s", strerror(-r));
-                                        }
-
+                                        r = k;
+                                        log_error("Failed to process driver calls: %s", strerror(-r));
                                         goto finish;
+                                }
+
+                                if (k > 0)
+                                        r = k;
+                                else {
+                                        k = sd_bus_send(a, m, NULL);
+                                        if (k < 0) {
+                                                if (r == -ECONNRESET)
+                                                        r = 0;
+                                                else {
+                                                        r = k;
+                                                        log_error("Failed to send message: %s", strerror(-r));
+                                                }
+
+                                                goto finish;
+                                        }
                                 }
                         }
                 }

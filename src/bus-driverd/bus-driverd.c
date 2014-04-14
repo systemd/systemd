@@ -800,6 +800,7 @@ static int driver_unsupported(sd_bus *bus, sd_bus_message *m, void *userdata, sd
 static const sd_bus_vtable driver_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_METHOD("AddMatch", "s", NULL, driver_add_match, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("RemoveMatch", "s", NULL, driver_remove_match, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetConnectionSELinuxSecurityContext", "s", "ay", driver_get_security_context, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetConnectionUnixProcessID", "s", "u", driver_get_pid, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetConnectionUnixUser", "s", "u", driver_get_user, SD_BUS_VTABLE_UNPRIVILEGED),
@@ -812,7 +813,6 @@ static const sd_bus_vtable driver_vtable[] = {
         SD_BUS_METHOD("NameHasOwner", "s", "b", driver_name_has_owner, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ReleaseName", "s", "u", driver_release_name, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ReloadConfig", NULL, NULL, driver_unsupported, SD_BUS_VTABLE_DEPRECATED),
-        SD_BUS_METHOD("RemoveMatch", "s", NULL, driver_remove_match, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("RequestName", "su", "u", driver_request_name, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("StartServiceByName", "su", "u", driver_start_service_by_name, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("UpdateActivationEnvironment", "a{ss}", NULL, driver_update_environment, 0),
