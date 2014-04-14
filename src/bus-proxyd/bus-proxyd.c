@@ -371,7 +371,6 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
                 return 0;
 
         if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "AddMatch")) {
-                _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
                 const char *match;
 
                 r = sd_bus_message_read(m, "s", &match);
