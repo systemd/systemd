@@ -1074,14 +1074,14 @@ static int link_update_flags(Link *link, unsigned flags) {
                 log_info_link(link, "link is down");
 
         if (flags_added & IFF_LOWER_UP)
-                log_info_link(link, "link is lower up");
+                log_debug_link(link, "link is lower up");
         else if (flags_removed & IFF_LOWER_UP)
-                log_info_link(link, "link is lower down");
+                log_debug_link(link, "link is lower down");
 
         if (flags_added & IFF_RUNNING)
-                log_info_link(link, "link is running");
+                log_debug_link(link, "link is running");
         else if (flags_removed & IFF_RUNNING)
-                log_info_link(link, "link is not running");
+                log_debug_link(link, "link is not running");
 
         if (carrier_gained) {
                 log_info_link(link, "gained carrier");
