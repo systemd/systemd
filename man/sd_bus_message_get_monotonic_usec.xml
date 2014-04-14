@@ -92,15 +92,22 @@
 
                 <para><function>sd_bus_message_get_seqnum()</function>
                 returns the kernel-assigned sequence number of the
-                message. The kernel assigns a global monotonically increasing
-                sequence number to all messages sent on the local
-                system. This sequence number is useful for determining
+                message. The kernel assigns a global, monotonically
+                increasing sequence number to all messages transmitted
+                on the local system, at the time the message was
+                sent. This sequence number is useful for determining
                 message send order, even across different busses of
                 the local system. The sequence number combined with
                 the boot ID of the system (as returned by
                 <citerefentry><refentrytitle>sd_id128_get_boot</refentrytitle><manvolnum>3</manvolnum></citerefentry>)
                 is a suitable globally unique identifier for bus
                 messages.</para>
+
+                <para>Note that the sending order and receiving order
+                of messages might differ, in particular for broadcast
+                messages. This means that the sequence number and the
+                timestamps of messages a client reads are not
+                necessarily monotonically increasing.</para>
 
                 <para>These timestamps and the sequence number are
                 attached to each message by the kernel and cannot be
