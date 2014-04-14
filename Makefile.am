@@ -1402,10 +1402,14 @@ test_ipcrm_LDADD = \
 test_rtnl_manual_SOURCES = \
 	src/test/test-rtnl-manual.c
 
+test_rtnl_manual_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(KMOD_CFLAGS)
+
 test_rtnl_manual_LDADD = \
 	libsystemd-internal.la \
 	libsystemd-shared.la \
-	-lkmod
+	$(KMOD_LIBS)
 
 test_ellipsize_SOURCES = \
 	src/test/test-ellipsize.c
