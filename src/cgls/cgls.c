@@ -215,7 +215,7 @@ int main(int argc, char *argv[]) {
 
                                 path = unit_dbus_path_from_name(scope);
                                 if (!path) {
-                                        r = log_oom();
+                                        log_oom();
                                         goto finish;
                                 }
 
@@ -242,7 +242,7 @@ int main(int argc, char *argv[]) {
 
                                 root = strdup(cgroup);
                                 if (!root) {
-                                        r = log_oom();
+                                        log_oom();
                                         goto finish;
                                 }
 
