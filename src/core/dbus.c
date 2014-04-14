@@ -918,7 +918,7 @@ static int bus_init_system(Manager *m) {
 
         r = bus_setup_system(m, bus);
         if (r < 0) {
-                log_error("Fauiled to set up system bus: %s", strerror(-r));
+                log_error("Failed to set up system bus: %s", strerror(-r));
                 return 0;
         }
 
