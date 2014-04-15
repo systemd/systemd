@@ -21,13 +21,6 @@
 
 #include "networkd.h"
 
-static void test_link(Manager *manager, struct udev_device *loopback) {
-        Link *link = NULL;
-
-        assert_se(link_new(manager, loopback, &link) >= 0);
-        assert_se(link);
-}
-
 static void test_load_config(Manager *manager) {
 /*  TODO: should_reload, is false if the config dirs do not exist, so
  *        so we can't do this test here, move it to a test for paths_check_timestamps
@@ -41,10 +34,11 @@ static void test_load_config(Manager *manager) {
 
 static void test_network_get(Manager *manager, struct udev_device *loopback) {
         Network *network;
+        const struct ether_addr mac = {};
 
         /* let's assume that the test machine does not have a .network file
            that applies to the loopback device... */
-        assert_se(network_get(manager, loopback, &network) == -ENOENT);
+        assert_se(network_get(manager, loopback, "lo", &mac, &network) == -ENOENT);
         assert_se(!network);
 }
 
@@ -66,11 +60,9 @@ int main(void) {
 
         test_network_get(manager, loopback);
 
-        test_link(manager, loopback);
-
         assert_se(manager_udev_listen(manager) >= 0);
-        assert_se(manager_udev_enumerate_links(manager) >= 0);
         assert_se(manager_rtnl_listen(manager) >= 0);
+        assert_se(manager_rtnl_enumerate_links(manager) >= 0);
 
         udev_device_unref(loopback);
         udev_unref(udev);

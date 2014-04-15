@@ -24,7 +24,9 @@
 
 #include "networkd.h"
 #include "libudev-private.h"
+#include "udev-util.h"
 #include "util.h"
+#include "virt.h"
 #include "bus-util.h"
 #include "network-internal.h"
 
@@ -33,40 +35,52 @@
 static int ipv4ll_address_update(Link *link, bool deprecate);
 static bool ipv4ll_is_bound(sd_ipv4ll *ll);
 
-int link_new(Manager *manager, struct udev_device *device, Link **ret) {
+static int link_new(Manager *manager, sd_rtnl_message *message, Link **ret) {
         _cleanup_link_free_ Link *link = NULL;
-        const char *ifname;
-        int r;
+        uint16_t type;
+        char *ifname;
+        int r, ifindex;
 
         assert(manager);
         assert(manager->links);
-        assert(device);
+        assert(message);
         assert(ret);
+
+        r = sd_rtnl_message_get_type(message, &type);
+        if (r < 0)
+                return r;
+        else if (type != RTM_NEWLINK)
+                return -EINVAL;
+
+        r = sd_rtnl_message_link_get_ifindex(message, &ifindex);
+        if (r < 0)
+                return r;
+        else if (ifindex <= 0)
+                return -EINVAL;
+
+        r = sd_rtnl_message_read_string(message, IFLA_IFNAME, &ifname);
+        if (r < 0)
+                return r;
 
         link = new0(Link, 1);
         if (!link)
                 return -ENOMEM;
 
         link->manager = manager;
-        link->state = _LINK_STATE_INVALID;
-
-        link->ifindex = udev_device_get_ifindex(device);
-        if (link->ifindex <= 0)
-                return -EINVAL;
+        link->state = LINK_STATE_INITIALIZING;
+        link->ifindex = ifindex;
+        link->ifname = strdup(ifname);
+        if (!link->ifname)
+                return -ENOMEM;
 
         r = asprintf(&link->state_file, "/run/systemd/network/links/%"PRIu64,
                      link->ifindex);
         if (r < 0)
                 return -ENOMEM;
 
-        ifname = udev_device_get_sysname(device);
-        link->ifname = strdup(ifname);
-
         r = hashmap_put(manager->links, &link->ifindex, link);
         if (r < 0)
                 return r;
-
-        link->udev_device = udev_device_ref(device);
 
         *ret = link;
         link = NULL;
@@ -1036,7 +1050,6 @@ static int link_update_flags(Link *link, unsigned flags) {
         int r;
 
         assert(link);
-        assert(link->network);
 
         if (link->state == LINK_STATE_FAILED)
                 return 0;
@@ -1060,13 +1073,12 @@ static int link_update_flags(Link *link, unsigned flags) {
 
         link->flags = flags;
 
-        if (flags_added & generic_flags)
-                log_debug_link(link, "link flags gained: %#.8x",
-                               flags_added & generic_flags);
-
-        if (flags_removed & generic_flags)
-                log_debug_link(link, "link flags lost: %#.8x",
-                                flags_removed & generic_flags);
+        if (!link->network)
+                /* not currently managing this link
+                   we track state changes, but don't log them
+                   they will be logged if and when a network is
+                   applied */
+                return 0;
 
         if (flags_added & IFF_UP)
                 log_info_link(link, "link is up");
@@ -1082,6 +1094,14 @@ static int link_update_flags(Link *link, unsigned flags) {
                 log_debug_link(link, "link is running");
         else if (flags_removed & IFF_RUNNING)
                 log_debug_link(link, "link is not running");
+
+        if (flags_added & generic_flags)
+                log_debug_link(link, "ignored link flags gained: %#.8x",
+                               flags_added & generic_flags);
+
+        if (flags_removed & generic_flags)
+                log_debug_link(link, "ignored link flags lost: %#.8x",
+                                flags_removed & generic_flags);
 
         if (carrier_gained) {
                 log_info_link(link, "gained carrier");
@@ -1180,10 +1200,12 @@ static int link_enslaved(Link *link) {
         assert(link->state == LINK_STATE_ENSLAVING);
         assert(link->network);
 
-        r = link_up(link);
-        if (r < 0) {
-                link_enter_failed(link);
-                return r;
+        if (!(link->flags & IFF_UP)) {
+                r = link_up(link);
+                if (r < 0) {
+                        link_enter_failed(link);
+                        return r;
+                }
         }
 
         if (!link->network->dhcp && !link->network->ipv4ll)
@@ -1231,7 +1253,7 @@ static int link_enter_enslave(Link *link) {
 
         assert(link);
         assert(link->network);
-        assert(link->state == _LINK_STATE_INVALID);
+        assert(link->state == LINK_STATE_INITIALIZING);
 
         link->state = LINK_STATE_ENSLAVING;
 
@@ -1323,95 +1345,11 @@ static int link_enter_enslave(Link *link) {
         return 0;
 }
 
-static int link_getlink_handler(sd_rtnl *rtnl, sd_rtnl_message *m,
-                                void *userdata) {
-        Link *link = userdata;
-        int r;
-
-        assert(link);
-        assert(link->ifname);
-
-        if (link->state == LINK_STATE_FAILED)
-                return 1;
-
-        r = sd_rtnl_message_get_errno(m);
-        if (r < 0) {
-                log_struct_link(LOG_ERR, link,
-                                "MESSAGE=%s: could not get state: %s",
-                                link->ifname, strerror(-r),
-                                "ERRNO=%d", -r,
-                                NULL);
-                link_enter_failed(link);
-                return 1;
-        }
-
-        link_update(link, m);
-
-        return 1;
-}
-
-static int link_getlink(Link *link) {
-        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL;
-        int r;
-
-        assert(link);
-        assert(link->manager);
-        assert(link->manager->rtnl);
-
-        log_debug_link(link, "requesting link status");
-
-        r = sd_rtnl_message_new_link(link->manager->rtnl, &req,
-                                     RTM_GETLINK, link->ifindex);
-        if (r < 0) {
-                log_error_link(link, "Could not allocate RTM_GETLINK message");
-                return r;
-        }
-
-        r = sd_rtnl_call_async(link->manager->rtnl, req, link_getlink_handler,
-                               link, 0, NULL);
-        if (r < 0) {
-                log_error_link(link,
-                               "Could not send rtnetlink message: %s", strerror(-r));
-                return r;
-        }
-
-        return 0;
-}
-
 static int link_configure(Link *link) {
         int r;
 
         assert(link);
-        assert(link->state == _LINK_STATE_INVALID);
-
-        r = link_getlink(link);
-        if (r < 0)
-                return r;
-
-        return link_enter_enslave(link);
-}
-
-int link_add(Manager *m, struct udev_device *device, Link **ret) {
-        Link *link = NULL;
-        Network *network;
-        int r;
-
-        assert(m);
-        assert(device);
-
-        r = link_new(m, device, &link);
-        if (r < 0)
-                return r;
-
-        *ret = link;
-
-        r = network_get(m, device, &network);
-        if (r < 0)
-                return r == -ENOENT ? 0 : r;
-
-        r = network_apply(m, network, link);
-        if (r < 0)
-                return r;
+        assert(link->state == LINK_STATE_INITIALIZING);
 
         if (link->network->ipv4ll) {
                 uint8_t seed[8];
@@ -1419,11 +1357,13 @@ int link_add(Manager *m, struct udev_device *device, Link **ret) {
                 if (r < 0)
                         return r;
 
-                r = net_get_unique_predictable_data(link->udev_device, seed);
-                if (r >= 0) {
-                        r = sd_ipv4ll_set_address_seed(link->ipv4ll, seed);
-                        if (r < 0)
-                                return r;
+                if (link->udev_device) {
+                        r = net_get_unique_predictable_data(link->udev_device, seed);
+                        if (r >= 0) {
+                                r = sd_ipv4ll_set_address_seed(link->ipv4ll, seed);
+                                if (r < 0)
+                                        return r;
+                        }
                 }
 
                 r = sd_ipv4ll_attach_event(link->ipv4ll, NULL, 0);
@@ -1463,7 +1403,81 @@ int link_add(Manager *m, struct udev_device *device, Link **ret) {
                 }
         }
 
+        return link_enter_enslave(link);
+}
+
+int link_initialized(Link *link, struct udev_device *device) {
+        Network *network;
+        unsigned flags;
+        int r;
+
+        assert(link);
+        assert(link->ifname);
+        assert(link->manager);
+
+        if (link->state != LINK_STATE_INITIALIZING)
+                return 0;
+
+        if (device)
+                link->udev_device = udev_device_ref(device);
+
+        log_debug_link(link, "link initialized");
+
+        r = network_get(link->manager, device, link->ifname, &link->mac, &network);
+        if (r < 0)
+                return r == -ENOENT ? 0 : r;
+
+        r = network_apply(link->manager, network, link);
+        if (r < 0)
+                return r;
+
         r = link_configure(link);
+        if (r < 0)
+                return r;
+
+        /* re-trigger all state updates */
+        flags = link->flags;
+        link->flags = 0;
+        r = link_update_flags(link, flags);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+int link_add(Manager *m, sd_rtnl_message *message, Link **ret) {
+        Link *link;
+        _cleanup_udev_device_unref_ struct udev_device *device = NULL;
+        char ifindex_str[2 + DECIMAL_STR_MAX(int)];
+        int r;
+
+        assert(m);
+        assert(message);
+        assert(ret);
+
+        r = link_new(m, message, ret);
+        if (r < 0)
+                return r;
+
+        link = *ret;
+
+        log_info_link(link, "link added");
+
+        if (detect_container(NULL) <= 0) {
+                /* not in a container, udev will be around */
+                sprintf(ifindex_str, "n%"PRIu64, link->ifindex);
+                device = udev_device_new_from_device_id(m->udev, ifindex_str);
+                if (!device) {
+                        log_warning_link(link, "could not find udev device");
+                        return -errno;
+                }
+
+                if (udev_device_get_is_initialized(device) <= 0)
+                        /* not yet ready */
+                        return 0;
+        }
+
+        r = link_initialized(link, device);
         if (r < 0)
                 return r;
 
@@ -1476,14 +1490,12 @@ int link_update(Link *link, sd_rtnl_message *m) {
         int r;
 
         assert(link);
-        assert(link->network);
         assert(m);
 
         if (link->state == LINK_STATE_FAILED)
                 return 0;
 
-        if (link->network->dhcp && link->network->dhcp_mtu &&
-            !link->original_mtu) {
+        if (!link->original_mtu) {
                 r = sd_rtnl_message_read_u16(m, IFLA_MTU, &link->original_mtu);
                 if (r >= 0)
                         log_debug_link(link, "saved original MTU: %"
@@ -1591,6 +1603,7 @@ finish:
 }
 
 static const char* const link_state_table[_LINK_STATE_MAX] = {
+        [LINK_STATE_INITIALIZING] = "configuring",
         [LINK_STATE_ENSLAVING] = "configuring",
         [LINK_STATE_SETTING_ADDRESSES] = "configuring",
         [LINK_STATE_SETTING_ROUTES] = "configuring",

@@ -185,6 +185,7 @@ struct Route {
 };
 
 typedef enum LinkState {
+        LINK_STATE_INITIALIZING,
         LINK_STATE_ENSLAVING,
         LINK_STATE_SETTING_ADDRESSES,
         LINK_STATE_SETTING_ROUTES,
@@ -246,10 +247,10 @@ void manager_free(Manager *m);
 int manager_load_config(Manager *m);
 bool manager_should_reload(Manager *m);
 
-int manager_udev_enumerate_links(Manager *m);
-int manager_udev_listen(Manager *m);
+int manager_rtnl_enumerate_links(Manager *m);
 
 int manager_rtnl_listen(Manager *m);
+int manager_udev_listen(Manager *m);
 int manager_bus_listen(Manager *m);
 
 int manager_update_resolv_conf(Manager *m);
@@ -292,7 +293,9 @@ void network_free(Network *network);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Network*, network_free);
 #define _cleanup_network_free_ _cleanup_(network_freep)
 
-int network_get(Manager *manager, struct udev_device *device, Network **ret);
+int network_get(Manager *manager, struct udev_device *device,
+                const char *ifname, const struct ether_addr *mac,
+                Network **ret);
 int network_apply(Manager *manager, Network *network, Link *link);
 
 int config_parse_bridge(const char *unit, const char *filename, unsigned line,
@@ -362,12 +365,13 @@ int config_parse_label(const char *unit, const char *filename, unsigned line,
 
 /* Link */
 
-int link_new(Manager *manager, struct udev_device *device, Link **ret);
 void link_free(Link *link);
 int link_get(Manager *m, int ifindex, Link **ret);
-int link_add(Manager *manager, struct udev_device *device, Link **ret);
+int link_add(Manager *manager, sd_rtnl_message *message, Link **ret);
 
 int link_update(Link *link, sd_rtnl_message *message);
+
+int link_initialized(Link *link, struct udev_device *device);
 
 int link_save(Link *link);
 

@@ -79,7 +79,7 @@ bool net_match_config(const struct ether_addr *match_mac,
                       Condition *match_virt,
                       Condition *match_kernel,
                       Condition *match_arch,
-                      const char *dev_mac,
+                      const struct ether_addr *dev_mac,
                       const char *dev_path,
                       const char *dev_parent_driver,
                       const char *dev_driver,
@@ -98,7 +98,7 @@ bool net_match_config(const struct ether_addr *match_mac,
         if (match_arch && !condition_test_architecture(match_arch))
                 return 0;
 
-        if (match_mac && (!dev_mac || memcmp(match_mac, ether_aton(dev_mac), ETH_ALEN)))
+        if (match_mac && (!dev_mac || memcmp(match_mac, dev_mac, ETH_ALEN)))
                 return 0;
 
         if (match_path && (!dev_path || fnmatch(match_path, dev_path, 0)))

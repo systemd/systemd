@@ -87,7 +87,7 @@ int main(int argc, char *argv[]) {
                 goto out;
         }
 
-        r = manager_udev_enumerate_links(m);
+        r = manager_rtnl_enumerate_links(m);
         if (r < 0) {
                 log_error("Could not enumerate links: %s", strerror(-r));
                 goto out;

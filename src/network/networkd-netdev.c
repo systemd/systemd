@@ -161,67 +161,6 @@ static int netdev_enter_ready(NetDev *netdev) {
 
         return 0;
 }
-
-static int netdev_getlink_handler(sd_rtnl *rtnl, sd_rtnl_message *m,
-                                void *userdata) {
-        NetDev *netdev = userdata;
-        int r;
-
-        assert(netdev);
-
-        if (netdev->state == NETDEV_STATE_FAILED)
-                return 1;
-
-        r = sd_rtnl_message_get_errno(m);
-        if (r < 0) {
-                log_struct_netdev(LOG_ERR, netdev,
-                                "MESSAGE=%s: could not get link: %s",
-                                netdev->name, strerror(-r),
-                                "ERRNO=%d", -r,
-                                NULL);
-                return 1;
-        }
-
-        netdev_set_ifindex(netdev, m);
-
-        return 1;
-}
-
-static int netdev_getlink(NetDev *netdev) {
-        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL;
-        int r;
-
-        assert(netdev->manager);
-        assert(netdev->manager->rtnl);
-        assert(netdev->name);
-
-        log_debug_netdev(netdev, "requesting netdev status");
-
-        r = sd_rtnl_message_new_link(netdev->manager->rtnl, &req,
-                                     RTM_GETLINK, 0);
-        if (r < 0) {
-                log_error_netdev(netdev, "Could not allocate RTM_GETLINK message");
-                return r;
-        }
-
-        r = sd_rtnl_message_append_string(req, IFLA_IFNAME, netdev->name);
-        if (r < 0) {
-                log_error_netdev(netdev, "Colud not append ifname to message: %s",
-                                 strerror(-r));
-                return r;
-        }
-
-        r = sd_rtnl_call_async(netdev->manager->rtnl, req, netdev_getlink_handler,
-                               netdev, 0, NULL);
-        if (r < 0) {
-                log_error_netdev(netdev,
-                               "Could not send rtnetlink message: %s", strerror(-r));
-                return r;
-        }
-
-        return 0;
-}
-
 static int netdev_create_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
         NetDev *netdev = userdata;
         int r;
@@ -230,9 +169,8 @@ static int netdev_create_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userda
 
         r = sd_rtnl_message_get_errno(m);
         if (r == -EEXIST)
-                r = netdev_getlink(netdev);
-
-        if (r < 0) {
+                log_debug_netdev(netdev, "netdev exists, using existing");
+        else if (r < 0) {
                 log_warning_netdev(netdev, "netdev failed: %s", strerror(-r));
                 netdev_enter_failed(netdev);
 
@@ -407,6 +345,12 @@ int netdev_set_ifindex(NetDev *netdev, sd_rtnl_message *message) {
         r = sd_rtnl_message_read_string(message, IFLA_INFO_KIND, &received_kind);
         if (r < 0) {
                 log_error_netdev(netdev, "Could not get KIND");
+                return r;
+        }
+
+        r = sd_rtnl_message_exit_container(message);
+        if (r < 0) {
+                log_error_netdev(netdev, "Could not exit container");
                 return r;
         }
 

@@ -29,6 +29,8 @@
 #include "mkdir.h"
 #include "virt.h"
 
+#include "sd-rtnl.h"
+
 const char* const network_dirs[] = {
         "/etc/systemd/network",
         "/run/systemd/network",
@@ -96,18 +98,14 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        m->udev = udev_new();
-        if (!m->udev)
-                return -ENOMEM;
-
         /* udev does not initialize devices inside containers,
          * so we rely on them being already initialized before
          * entering the container */
-        if (detect_container(NULL) > 0) {
-                m->udev_monitor = udev_monitor_new_from_netlink(m->udev, "kernel");
-                if (!m->udev_monitor)
+        if (detect_container(NULL) <= 0) {
+                m->udev = udev_new();
+                if (!m->udev)
                         return -ENOMEM;
-        } else {
+
                 m->udev_monitor = udev_monitor_new_from_netlink(m->udev, "udev");
                 if (!m->udev_monitor)
                         return -ENOMEM;
@@ -182,15 +180,30 @@ bool manager_should_reload(Manager *m) {
         return paths_check_timestamp(network_dirs, &m->network_dirs_ts_usec, false);
 }
 
-static int manager_process_link(Manager *m, struct udev_device *device) {
+static int manager_udev_process_link(Manager *m, struct udev_device *device) {
         Link *link = NULL;
         int r;
 
         assert(m);
         assert(device);
 
-        link_get(m, udev_device_get_ifindex(device), &link);
+        if (!streq_ptr(udev_device_get_action(device), "add"))
+                return 0;
 
+        r = link_get(m, udev_device_get_ifindex(device), &link);
+        if (r < 0)
+                return r;
+
+        if (!link)
+                return 0;
+
+        r = link_initialized(link, device);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+/*
         if (streq_ptr(udev_device_get_action(device), "remove")) {
                 log_debug("%s: link removed", udev_device_get_sysname(device));
 
@@ -215,45 +228,87 @@ static int manager_process_link(Manager *m, struct udev_device *device) {
 
         return 0;
 }
+*/
+static int manager_rtnl_process_link(sd_rtnl *rtnl, sd_rtnl_message *message, void *userdata) {
+        Manager *m = userdata;
+        Link *link = NULL;
+        char *name;
+        int r, ifindex;
 
-int manager_udev_enumerate_links(Manager *m) {
-        _cleanup_udev_enumerate_unref_ struct udev_enumerate *e = NULL;
-        struct udev_list_entry *item = NULL, *first = NULL;
-        int r;
-
+        assert(rtnl);
+        assert(message);
         assert(m);
 
-        e = udev_enumerate_new(m->udev);
-        if (!e)
-                return -ENOMEM;
-
-        r = udev_enumerate_add_match_subsystem(e, "net");
-        if (r < 0)
-                return r;
-
-        /* udev does not initialize devices inside containers,
-         * so we rely on them being already initialized before
-         * entering the container */
-        if (detect_container(NULL) <= 0) {
-                r = udev_enumerate_add_match_is_initialized(e);
-                if (r < 0)
-                        return r;
+        r = sd_rtnl_message_link_get_ifindex(message, &ifindex);
+        if (r < 0 || ifindex <= 0) {
+                log_warning("rtnl: received link message without valid ifindex");
+                return 0;
         }
 
-        r = udev_enumerate_scan_devices(e);
+        link_get(m, ifindex, &link);
+        if (!link) {
+                /* link is new, so add it */
+                r = link_add(m, message, &link);
+                if (r < 0) {
+                        log_debug("could not add new link");
+                        return 0;
+                }
+        }
+
+        r = sd_rtnl_message_read_string(message, IFLA_IFNAME, &name);
+        if (r < 0)
+                log_warning("rtnl: received link message without valid ifname");
+        else {
+                NetDev *netdev;
+
+                r = netdev_get(m, name, &netdev);
+                if (r >= 0) {
+                        r = netdev_set_ifindex(netdev, message);
+                        if (r < 0) {
+                                log_debug("could not set ifindex on netdev");
+                                return 0;
+                        }
+                }
+        }
+
+        r = link_update(link, message);
+        if (r < 0)
+                return 0;
+
+        return 1;
+}
+
+int manager_rtnl_enumerate_links(Manager *m) {
+        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *reply = NULL;
+        sd_rtnl_message *link;
+        int r, k;
+
+        assert(m);
+        assert(m->rtnl);
+
+        r = sd_rtnl_message_new_link(m->rtnl, &req, RTM_GETLINK, 0);
         if (r < 0)
                 return r;
 
-        first = udev_enumerate_get_list_entry(e);
-        udev_list_entry_foreach(item, first) {
-                _cleanup_udev_device_unref_ struct udev_device *d = NULL;
-                int k;
+        r = sd_rtnl_message_request_dump(req, true);
+        if (r < 0)
+                return r;
 
-                d = udev_device_new_from_syspath(m->udev, udev_list_entry_get_name(item));
-                if (!d)
-                        return -ENOMEM;
+        r = sd_rtnl_call(m->rtnl, req, 0, &reply);
+        if (r < 0)
+                return r;
 
-                k = manager_process_link(m, d);
+        for (link = reply; link; link = sd_rtnl_message_next(link)) {
+                uint16_t type;
+
+                k = sd_rtnl_message_get_type(link, &type);
+                if (k < 0)
+                        return k;
+
+                if (type != RTM_NEWLINK)
+                        continue;
+
+                k = manager_rtnl_process_link(m->rtnl, link, m);
                 if (k < 0)
                         r = k;
         }
@@ -270,12 +325,17 @@ static int manager_dispatch_link_udev(sd_event_source *source, int fd, uint32_t 
         if (!device)
                 return -ENOMEM;
 
-        manager_process_link(m, device);
+        manager_udev_process_link(m, device);
         return 0;
 }
 
 int manager_udev_listen(Manager *m) {
         int r;
+
+        if (detect_container(NULL) > 0)
+                return 0;
+
+        assert(m->udev_monitor);
 
         r = udev_monitor_filter_add_match_subsystem_devtype(m->udev_monitor, "net", NULL);
         if (r < 0) {
@@ -298,56 +358,6 @@ int manager_udev_listen(Manager *m) {
                 return r;
 
         return 0;
-}
-
-static int manager_rtnl_process_link(sd_rtnl *rtnl, sd_rtnl_message *message, void *userdata) {
-        Manager *m = userdata;
-        Link *link;
-        char *name;
-        int r, ifindex;
-
-        assert(rtnl);
-        assert(message);
-        assert(m);
-
-        r = sd_rtnl_message_link_get_ifindex(message, &ifindex);
-        if (r < 0 || ifindex <= 0) {
-                log_warning("received RTM_NEWLINK message without valid ifindex");
-                return 0;
-        }
-
-        r = sd_rtnl_message_read_string(message, IFLA_IFNAME, &name);
-        if (r < 0)
-                log_warning("received RTM_NEWLINK message without valid ifname");
-        else {
-                NetDev *netdev;
-
-                r = netdev_get(m, name, &netdev);
-                if (r >= 0) {
-                        netdev_set_ifindex(netdev, message);
-                        r = sd_rtnl_message_rewind(message);
-                        if (r < 0) {
-                                log_debug("could not rewind rtnl message");
-                                return 0;
-                        }
-                }
-        }
-
-        r = link_get(m, ifindex, &link);
-        if (r < 0) {
-                log_debug("received RTM_NEWLINK message for untracked ifindex %d", ifindex);
-                return 0;
-        }
-
-        /* only track the status of links we want to manage */
-        if (link->network) {
-                r = link_update(link, message);
-                if (r < 0)
-                        return 0;
-        } else
-                log_debug("%s: received RTM_NEWLINK message for unmanaged link", link->ifname);
-
-        return 1;
 }
 
 int manager_rtnl_listen(Manager *m) {

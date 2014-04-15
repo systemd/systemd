@@ -184,28 +184,28 @@ void network_free(Network *network) {
         free(network);
 }
 
-int network_get(Manager *manager, struct udev_device *device, Network **ret) {
+int network_get(Manager *manager, struct udev_device *device,
+                const char *ifname, const struct ether_addr *address,
+                Network **ret) {
         Network *network;
 
         assert(manager);
-        assert(device);
         assert(ret);
 
         LIST_FOREACH(networks, network, manager->networks) {
                 if (net_match_config(network->match_mac, network->match_path,
-                                        network->match_driver, network->match_type,
-                                        network->match_name, network->match_host,
-                                        network->match_virt, network->match_kernel,
-                                        network->match_arch,
-                                        udev_device_get_sysattr_value(device, "address"),
-                                        udev_device_get_property_value(device, "ID_PATH"),
-                                        udev_device_get_driver(udev_device_get_parent(device)),
-                                        udev_device_get_property_value(device, "ID_NET_DRIVER"),
-                                        udev_device_get_devtype(device),
-                                        udev_device_get_sysname(device))) {
-                        log_debug("%s: found matching network '%s'",
-                                        udev_device_get_sysname(device),
-                                        network->filename);
+                                     network->match_driver, network->match_type,
+                                     network->match_name, network->match_host,
+                                     network->match_virt, network->match_kernel,
+                                     network->match_arch,
+                                     address,
+                                     udev_device_get_property_value(device, "ID_PATH"),
+                                     udev_device_get_driver(udev_device_get_parent(device)),
+                                     udev_device_get_property_value(device, "ID_NET_DRIVER"),
+                                     udev_device_get_devtype(device),
+                                     ifname)) {
+                        log_debug("%s: found matching network '%s'", ifname,
+                                  network->filename);
                         *ret = network;
                         return 0;
                 }
