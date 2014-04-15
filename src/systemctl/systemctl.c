@@ -740,6 +740,7 @@ static int get_listening(
 }
 
 struct socket_info {
+        const char *machine;
         const char* id;
 
         char* type;
@@ -759,6 +760,16 @@ static int socket_info_compare(const struct socket_info *a, const struct socket_
 
         assert(a);
         assert(b);
+
+        if (!a->machine && b->machine)
+                return -1;
+        if (a->machine && !b->machine)
+                return 1;
+        if (a->machine && b->machine) {
+                o = strcasecmp(a->machine, b->machine);
+                if (o != 0)
+                        return o;
+        }
 
         o = strcmp(a->path, b->path);
         if (o == 0)
@@ -782,7 +793,7 @@ static int output_sockets_list(struct socket_info *socket_infos, unsigned cs) {
                 socklen = MAX(socklen, strlen(s->id));
                 if (arg_show_types)
                         typelen = MAX(typelen, strlen(s->type));
-                pathlen = MAX(pathlen, strlen(s->path));
+                pathlen = MAX(pathlen, strlen(s->path) + (s->machine ? strlen(s->machine)+1 : 0));
 
                 STRV_FOREACH(a, s->triggered)
                         tmp += strlen(*a) + 2*(a != s->triggered);
@@ -798,14 +809,24 @@ static int output_sockets_list(struct socket_info *socket_infos, unsigned cs) {
                                "ACTIVATES");
 
                 for (s = socket_infos; s < socket_infos + cs; s++) {
+                        _cleanup_free_ char *j = NULL;
+                        const char *path;
                         char **a;
+
+                        if (s->machine) {
+                                j = strjoin(s->machine, ":", s->path, NULL);
+                                if (!j)
+                                        return log_oom();
+                                path = j;
+                        } else
+                                path = s->path;
 
                         if (arg_show_types)
                                 printf("%-*s %-*s %-*s",
-                                       pathlen, s->path, typelen, s->type, socklen, s->id);
+                                       pathlen, path, typelen, s->type, socklen, s->id);
                         else
                                 printf("%-*s %-*s",
-                                       pathlen, s->path, socklen, s->id);
+                                       pathlen, path, socklen, s->id);
                         STRV_FOREACH(a, s->triggered)
                                 printf("%s %s",
                                        a == s->triggered ? "" : ",", *a);
@@ -831,7 +852,8 @@ static int output_sockets_list(struct socket_info *socket_infos, unsigned cs) {
 }
 
 static int list_sockets(sd_bus *bus, char **args) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(message_set_freep) Set *replies = NULL;
+        _cleanup_strv_free_ char **machines = NULL;
         _cleanup_free_ UnitInfo *unit_infos = NULL;
         _cleanup_free_ struct socket_info *socket_infos = NULL;
         const UnitInfo *u;
@@ -842,7 +864,7 @@ static int list_sockets(sd_bus *bus, char **args) {
 
         pager_open_if_enabled();
 
-        n = get_unit_list(bus, NULL, strv_skip_first(args), &unit_infos, 0, &reply);
+        n = get_unit_list_recursive(bus, strv_skip_first(args), &unit_infos, &replies, &machines);
         if (n < 0)
                 return n;
 
@@ -870,6 +892,7 @@ static int list_sockets(sd_bus *bus, char **args) {
 
                 for (i = 0; i < c; i++)
                         socket_infos[cs + i] = (struct socket_info) {
+                                .machine = u->machine,
                                 .id = u->id,
                                 .type = listening[i*2],
                                 .path = listening[i*2 + 1],
