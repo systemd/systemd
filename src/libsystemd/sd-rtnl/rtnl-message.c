@@ -1080,26 +1080,23 @@ int socket_read_message(sd_rtnl *rtnl) {
 
         assert(rtnl);
         assert(rtnl->rbuffer);
+        assert(rtnl->rbuffer_allocated >= sizeof(struct nlmsghdr));
 
-        iov.iov_base = rtnl->rbuffer;
-        iov.iov_len = rtnl->rbuffer_allocated;
-
-        /* peek at the pending message header to get the message size */
-        r = recvmsg(rtnl->fd, &msg, MSG_PEEK);
+        /* read nothing, just get the pending message size */
+        r = recvmsg(rtnl->fd, &msg, MSG_PEEK | MSG_TRUNC);
         if (r < 0)
                 /* no data */
                 return (errno == EAGAIN) ? 0 : -errno;
         else if (r == 0)
                 /* connection was closed by the kernel */
                 return -ECONNRESET;
-        else if ((size_t)r < sizeof(struct nlmsghdr))
-                return -EIO;
+        else
+                len = (size_t)r;
 
         /* make room for the pending message */
         if (!greedy_realloc((void **)&rtnl->rbuffer,
                             &rtnl->rbuffer_allocated,
-                            rtnl->rbuffer->nlmsg_len,
-                            sizeof(uint8_t)))
+                            len, sizeof(uint8_t)))
                 return -ENOMEM;
 
         iov.iov_base = rtnl->rbuffer;
