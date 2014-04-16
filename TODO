@@ -85,9 +85,6 @@ Features:
 * "busctl status" works only as root on dbus1, since we cannot read
   /proc/$PID/exe
 
-* systemctl: support --recursive for list-sockets, list-timers,
-  ... too, not just for list-units.
-
 * implement Distribute= in socket units to allow running multiple
   service instances processing the listening socket, and open this up
   for ReusePort=

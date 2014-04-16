@@ -998,6 +998,7 @@ static int get_last_trigger(
 }
 
 struct timer_info {
+        const char* machine;
         const char* id;
         usec_t next_elapse;
         usec_t last_trigger;
@@ -1005,8 +1006,20 @@ struct timer_info {
 };
 
 static int timer_info_compare(const struct timer_info *a, const struct timer_info *b) {
+        int o;
+
         assert(a);
         assert(b);
+
+        if (!a->machine && b->machine)
+                return -1;
+        if (a->machine && !b->machine)
+                return 1;
+        if (a->machine && b->machine) {
+                o = strcasecmp(a->machine, b->machine);
+                if (o != 0)
+                        return o;
+        }
 
         if (a->next_elapse < b->next_elapse)
                 return -1;
@@ -1054,7 +1067,7 @@ static int output_timers_list(struct timer_info *timer_infos, unsigned n) {
                         passedlen = MAX(passedlen, strlen(trel));
                 }
 
-                unitlen = MAX(unitlen, strlen(t->id));
+                unitlen = MAX(unitlen, strlen(t->id) + (t->machine ? strlen(t->machine)+1 : 0));
 
                 STRV_FOREACH(a, t->triggered)
                         ul += strlen(*a) + 2*(a != t->triggered);
@@ -1073,6 +1086,8 @@ static int output_timers_list(struct timer_info *timer_infos, unsigned n) {
                                           "ACTIVATES");
 
                 for (t = timer_infos; t < timer_infos + n; t++) {
+                        _cleanup_free_ char *j = NULL;
+                        const char *unit;
                         char tstamp1[FORMAT_TIMESTAMP_MAX] = "n/a", trel1[FORMAT_TIMESTAMP_RELATIVE_MAX] = "n/a";
                         char tstamp2[FORMAT_TIMESTAMP_MAX] = "n/a", trel2[FORMAT_TIMESTAMP_RELATIVE_MAX] = "n/a";
                         char **a;
@@ -1083,8 +1098,16 @@ static int output_timers_list(struct timer_info *timer_infos, unsigned n) {
                         format_timestamp(tstamp2, sizeof(tstamp2), t->last_trigger);
                         format_timestamp_relative(trel2, sizeof(trel2), t->last_trigger);
 
+                        if (t->machine) {
+                                j = strjoin(t->machine, ":", t->id, NULL);
+                                if (!j)
+                                        return log_oom();
+                                unit = j;
+                        } else
+                                unit = t->id;
+
                         printf("%-*s %-*s %-*s %-*s %-*s",
-                               nextlen, tstamp1, leftlen, trel1, lastlen, tstamp2, passedlen, trel2, unitlen, t->id);
+                               nextlen, tstamp1, leftlen, trel1, lastlen, tstamp2, passedlen, trel2, unitlen, unit);
 
                         STRV_FOREACH(a, t->triggered)
                                 printf("%s %s",
@@ -1136,8 +1159,8 @@ static usec_t calc_next_elapse(dual_timestamp *nw, dual_timestamp *next) {
 }
 
 static int list_timers(sd_bus *bus, char **args) {
-
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(message_set_freep) Set *replies = NULL;
+        _cleanup_strv_free_ char **machines = NULL;
         _cleanup_free_ struct timer_info *timer_infos = NULL;
         _cleanup_free_ UnitInfo *unit_infos = NULL;
         struct timer_info *t;
@@ -1149,7 +1172,7 @@ static int list_timers(sd_bus *bus, char **args) {
 
         pager_open_if_enabled();
 
-        n = get_unit_list(bus, NULL, strv_skip_first(args), &unit_infos, 0, &reply);
+        n = get_unit_list_recursive(bus, strv_skip_first(args), &unit_infos, &replies, &machines);
         if (n < 0)
                 return n;
 
@@ -1181,6 +1204,7 @@ static int list_timers(sd_bus *bus, char **args) {
                 m = calc_next_elapse(&nw, &next);
 
                 timer_infos[c++] = (struct timer_info) {
+                        .machine = u->machine,
                         .id = u->id,
                         .next_elapse = m,
                         .last_trigger = last,
