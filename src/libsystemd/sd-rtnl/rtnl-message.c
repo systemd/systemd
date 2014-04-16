@@ -1194,12 +1194,17 @@ int socket_read_message(sd_rtnl *rtnl) {
                         break;
         }
 
-        r = rtnl_rqueue_make_room(rtnl);
-        if (r < 0)
-                return r;
+        if (first) {
+                r = rtnl_rqueue_make_room(rtnl);
+                if (r < 0)
+                        return r;
 
-        rtnl->rqueue[rtnl->rqueue_size ++] = first;
-        first = NULL;
+                rtnl->rqueue[rtnl->rqueue_size ++] = first;
+                first = NULL;
+        }
+
+        if (len)
+                log_debug("sd-rtnl: discarding %zu bytes of incoming message", len);
 
         return ret;
 }
