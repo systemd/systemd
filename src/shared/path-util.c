@@ -464,8 +464,7 @@ int find_binary(const char *name, char **filename) {
                                 continue;
 
                         if (filename) {
-                                path_kill_slashes(p);
-                                *filename = p;
+                                *filename = path_kill_slashes(p);
                                 p = NULL;
                         }
 
