@@ -85,6 +85,10 @@ static void pager_open_if_enabled(void) {
         pager_open(false);
 }
 
+static inline const char* arrow(void) {
+        return is_locale_utf8() ? "→" : "->";
+}
+
 static int equivalent(const char *a, const char *b) {
         _cleanup_free_ char *x = NULL, *y = NULL;
 
@@ -103,8 +107,9 @@ static int notify_override_masked(const char *top, const char *bottom) {
         if (!(arg_flags & SHOW_MASKED))
                 return 0;
 
-        printf("%s%s%s     %s → %s\n",
-               ansi_highlight_red(), "[MASKED]", ansi_highlight_off(), top, bottom);
+        printf("%s%s%s     %s %s %s\n",
+               ansi_highlight_red(), "[MASKED]", ansi_highlight_off(),
+               top, arrow(), bottom);
         return 1;
 }
 
@@ -112,8 +117,9 @@ static int notify_override_equivalent(const char *top, const char *bottom) {
         if (!(arg_flags & SHOW_EQUIVALENT))
                 return 0;
 
-        printf("%s%s%s %s → %s\n",
-               ansi_highlight_green(), "[EQUIVALENT]", ansi_highlight_off(), top, bottom);
+        printf("%s%s%s %s %s %s\n",
+               ansi_highlight_green(), "[EQUIVALENT]", ansi_highlight_off(),
+               top, arrow(), bottom);
         return 1;
 }
 
@@ -121,8 +127,9 @@ static int notify_override_redirected(const char *top, const char *bottom) {
         if (!(arg_flags & SHOW_REDIRECTED))
                 return 0;
 
-        printf("%s%s%s   %s → %s\n",
-               ansi_highlight(), "[REDIRECTED]", ansi_highlight_off(), top, bottom);
+        printf("%s%s%s   %s %s %s\n",
+               ansi_highlight(), "[REDIRECTED]", ansi_highlight_off(),
+               top, arrow(), bottom);
         return 1;
 }
 
@@ -130,8 +137,9 @@ static int notify_override_overridden(const char *top, const char *bottom) {
         if (!(arg_flags & SHOW_OVERRIDDEN))
                 return 0;
 
-        printf("%s%s%s %s → %s\n",
-               ansi_highlight(), "[OVERRIDDEN]", ansi_highlight_off(), top, bottom);
+        printf("%s%s%s %s %s %s\n",
+               ansi_highlight(), "[OVERRIDDEN]", ansi_highlight_off(),
+               top, arrow(), bottom);
         return 1;
 }
 
@@ -139,8 +147,9 @@ static int notify_override_extended(const char *top, const char *bottom) {
         if (!(arg_flags & SHOW_EXTENDED))
                return 0;
 
-        printf("%s%s%s   %s → %s\n",
-               ansi_highlight(), "[EXTENDED]", ansi_highlight_off(), top, bottom);
+        printf("%s%s%s   %s %s %s\n",
+               ansi_highlight(), "[EXTENDED]", ansi_highlight_off(),
+               top, arrow(), bottom);
         return 1;
 }
 
@@ -241,7 +250,7 @@ static int enumerate_dir_d(Hashmap *top, Hashmap *bottom, Hashmap *drops, const 
                         return -ENOMEM;
                 d = p + strlen(toppath) + 1;
 
-                log_debug("Adding at top: %s → %s", d, p);
+                log_debug("Adding at top: %s %s %s", d, arrow(), p);
                 k = hashmap_put(top, d, p);
                 if (k >= 0) {
                         p = strdup(p);
@@ -253,7 +262,7 @@ static int enumerate_dir_d(Hashmap *top, Hashmap *bottom, Hashmap *drops, const 
                         return k;
                 }
 
-                log_debug("Adding at bottom: %s → %s", d, p);
+                log_debug("Adding at bottom: %s %s %s", d, arrow(), p);
                 free(hashmap_remove(bottom, d));
                 k = hashmap_put(bottom, d, p);
                 if (k < 0) {
@@ -276,7 +285,8 @@ static int enumerate_dir_d(Hashmap *top, Hashmap *bottom, Hashmap *drops, const 
                 if (!p)
                         return -ENOMEM;
 
-                log_debug("Adding to drops: %s → %s → %s", unit, basename(p), p);
+                log_debug("Adding to drops: %s %s %s %s %s",
+                          unit, arrow(), basename(p), arrow(), p);
                 k = hashmap_put(h, basename(p), p);
                 if (k < 0) {
                         free(p);
@@ -328,7 +338,7 @@ static int enumerate_dir(Hashmap *top, Hashmap *bottom, Hashmap *drops, const ch
                 if (!p)
                         return -ENOMEM;
 
-                log_debug("Adding at top: %s → %s", basename(p), p);
+                log_debug("Adding at top: %s %s %s", basename(p), arrow(), p);
                 k = hashmap_put(top, basename(p), p);
                 if (k >= 0) {
                         p = strdup(p);
@@ -339,7 +349,7 @@ static int enumerate_dir(Hashmap *top, Hashmap *bottom, Hashmap *drops, const ch
                         return k;
                 }
 
-                log_debug("Adding at bottom: %s → %s", basename(p), p);
+                log_debug("Adding at bottom: %s %s %s", basename(p), arrow(), p);
                 free(hashmap_remove(bottom, basename(p)));
                 k = hashmap_put(bottom, basename(p), p);
                 if (k < 0) {
