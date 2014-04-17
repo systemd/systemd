@@ -135,6 +135,10 @@ sd_rtnl *sd_rtnl_unref(sd_rtnl *rtnl) {
                         sd_rtnl_message_unref(rtnl->rqueue[i]);
                 free(rtnl->rqueue);
 
+                for (i = 0; i < rtnl->rqueue_partial_size; i++)
+                        sd_rtnl_message_unref(rtnl->rqueue_partial[i]);
+                free(rtnl->rqueue_partial);
+
                 for (i = 0; i < rtnl->wqueue_size; i++)
                         sd_rtnl_message_unref(rtnl->wqueue[i]);
                 free(rtnl->wqueue);
@@ -221,6 +225,19 @@ int rtnl_rqueue_make_room(sd_rtnl *rtnl) {
                 return -ENOBUFS;
 
         if (!GREEDY_REALLOC(rtnl->rqueue, rtnl->rqueue_allocated, rtnl->rqueue_size + 1))
+                return -ENOMEM;
+
+        return 0;
+}
+
+int rtnl_rqueue_partial_make_room(sd_rtnl *rtnl) {
+        assert(rtnl);
+
+        if (rtnl->rqueue_partial_size >= RTNL_RQUEUE_MAX)
+                return -ENOBUFS;
+
+        if (!GREEDY_REALLOC(rtnl->rqueue_partial, rtnl->rqueue_partial_allocated,
+                            rtnl->rqueue_partial_size + 1))
                 return -ENOMEM;
 
         return 0;

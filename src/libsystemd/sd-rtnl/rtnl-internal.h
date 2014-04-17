@@ -68,6 +68,10 @@ struct sd_rtnl {
         unsigned rqueue_size;
         size_t rqueue_allocated;
 
+        sd_rtnl_message **rqueue_partial;
+        unsigned rqueue_partial_size;
+        size_t rqueue_partial_allocated;
+
         sd_rtnl_message **wqueue;
         unsigned wqueue_size;
         size_t wqueue_allocated;
@@ -115,6 +119,7 @@ int socket_write_message(sd_rtnl *nl, sd_rtnl_message *m);
 int socket_read_message(sd_rtnl *nl);
 
 int rtnl_rqueue_make_room(sd_rtnl *rtnl);
+int rtnl_rqueue_partial_make_room(sd_rtnl *rtnl);
 
 int rtnl_message_read_internal(sd_rtnl_message *m, unsigned short type, void **data);
 int rtnl_message_parse(sd_rtnl_message *m,

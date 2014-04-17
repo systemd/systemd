@@ -1063,7 +1063,6 @@ int socket_write_message(sd_rtnl *nl, sd_rtnl_message *m) {
  */
 int socket_read_message(sd_rtnl *rtnl) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *first = NULL;
-        sd_rtnl_message *previous = NULL;
         uint8_t cred_buffer[CMSG_SPACE(sizeof(struct ucred))];
         struct iovec iov = {};
         struct msghdr msg = {
@@ -1073,10 +1072,11 @@ int socket_read_message(sd_rtnl *rtnl) {
                 .msg_controllen = sizeof(cred_buffer),
         };
         struct cmsghdr *cmsg;
-        bool auth = false;
+        bool auth = false, multi_part = false, done = false;
         struct nlmsghdr *new_msg;
         size_t len;
-        int r, ret = 0;
+        int r;
+        unsigned i;
 
         assert(rtnl);
         assert(rtnl->rbuffer);
@@ -1134,6 +1134,18 @@ int socket_read_message(sd_rtnl *rtnl) {
                 /* not from the kernel, ignore */
                 return 0;
 
+        if (NLMSG_OK(rtnl->rbuffer, len) && rtnl->rbuffer->nlmsg_flags & NLM_F_MULTI) {
+                multi_part = true;
+
+                for (i = 0; i < rtnl->rqueue_partial_size; i++) {
+                        if (rtnl_message_get_serial(rtnl->rqueue_partial[i]) ==
+                            rtnl->rbuffer->nlmsg_seq) {
+                                first = rtnl->rqueue_partial[i];
+                                break;
+                        }
+                }
+        }
+
         for (new_msg = rtnl->rbuffer; NLMSG_OK(new_msg, len); new_msg = NLMSG_NEXT(new_msg, len)) {
                 _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
                 const NLType *nl_type;
@@ -1142,13 +1154,15 @@ int socket_read_message(sd_rtnl *rtnl) {
                         /* not broadcast and not for us */
                         continue;
 
-                /* silently drop noop messages */
                 if (new_msg->nlmsg_type == NLMSG_NOOP)
+                        /* silently drop noop messages */
                         continue;
 
-                /* finished reading multi-part message */
-                if (new_msg->nlmsg_type == NLMSG_DONE)
+                if (new_msg->nlmsg_type == NLMSG_DONE) {
+                        /* finished reading multi-part message */
+                        done = true;
                         break;
+                }
 
                 /* check that we support this message type */
                 r = type_system_get_type(NULL, &nl_type, new_msg->nlmsg_type);
@@ -1177,36 +1191,52 @@ int socket_read_message(sd_rtnl *rtnl) {
                 if (r < 0)
                         return r;
 
-                if (!first)
-                        first = m;
-                else {
-                        assert(previous);
-
-                        previous->next = m;
-                }
-                previous = m;
+                /* push the message onto the multi-part message stack */
+                if (first)
+                        m->next = first;
+                first = m;
                 m = NULL;
-
-                ret += new_msg->nlmsg_len;
-
-                /* not a multi-part message, so stop reading*/
-                if (!(new_msg->nlmsg_flags & NLM_F_MULTI))
-                        break;
-        }
-
-        if (first) {
-                r = rtnl_rqueue_make_room(rtnl);
-                if (r < 0)
-                        return r;
-
-                rtnl->rqueue[rtnl->rqueue_size ++] = first;
-                first = NULL;
         }
 
         if (len)
                 log_debug("sd-rtnl: discarding %zu bytes of incoming message", len);
 
-        return ret;
+        if (!first)
+                return 0;
+
+        if (!multi_part || done) {
+                /* we got a complete message, push it on the read queue */
+                r = rtnl_rqueue_make_room(rtnl);
+                if (r < 0)
+                        return r;
+
+                if (i < rtnl->rqueue_partial_size) {
+                        /* remove the message form the partial read queue */
+                        memmove(rtnl->rqueue_partial + i,rtnl->rqueue_partial + i + 1,
+                                sizeof(sd_rtnl_message*) * (rtnl->rqueue_partial_size - i - 1));
+                        rtnl->rqueue_partial_size --;
+                }
+
+                rtnl->rqueue[rtnl->rqueue_size ++] = first;
+                first = NULL;
+
+                return 1;
+        } else {
+                /* we only got a partial multi-part message, push it on the
+                   partial read queue */
+                if (i < rtnl->rqueue_partial_size) {
+                        rtnl->rqueue_partial[i] = first;
+                } else {
+                        r = rtnl_rqueue_partial_make_room(rtnl);
+                        if (r < 0)
+                                return r;
+
+                        rtnl->rqueue_partial[rtnl->rqueue_partial_size ++] = first;
+                }
+                first = NULL;
+
+                return 0;
+        }
 }
 
 int sd_rtnl_message_rewind(sd_rtnl_message *m) {
