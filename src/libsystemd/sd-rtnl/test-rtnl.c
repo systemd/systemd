@@ -322,6 +322,34 @@ static void test_match(void) {
         assert_se((rtnl = sd_rtnl_unref(rtnl)) == NULL);
 }
 
+static void test_get_addresses(sd_rtnl *rtnl) {
+        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *reply = NULL;
+        sd_rtnl_message *m;
+
+        assert_se(sd_rtnl_message_new_addr(rtnl, &req, RTM_GETADDR, 0, AF_UNSPEC) >= 0);
+
+        assert_se(sd_rtnl_call(rtnl, req, 0, &reply) >= 0);
+
+        for (m = reply; m; m = sd_rtnl_message_next(m)) {
+                uint16_t type;
+                unsigned char family, scope, flags;
+                int ifindex;
+
+                assert_se(sd_rtnl_message_get_type(m, &type) >= 0);
+                assert_se(type == RTM_NEWADDR);
+
+                assert_se(sd_rtnl_message_addr_get_ifindex(m, &ifindex) >= 0);
+                assert_se(sd_rtnl_message_addr_get_family(m, &family) >= 0);
+                assert_se(sd_rtnl_message_addr_get_scope(m, &scope) >= 0);
+                assert_se(sd_rtnl_message_addr_get_flags(m, &flags) >= 0);
+
+                assert_se(ifindex > 0);
+                assert_se(family == AF_INET || family == AF_INET6);
+
+                log_info("got IPv%u address on ifindex %i", family == AF_INET ? 4: 6, ifindex);
+        }
+}
+
 int main(void) {
         sd_rtnl *rtnl;
         sd_rtnl_message *m;
@@ -351,6 +379,8 @@ int main(void) {
         test_event_loop(if_loopback);
 
         test_link_configure(rtnl, if_loopback);
+
+        test_get_addresses(rtnl);
 
         assert_se(sd_rtnl_message_new_link(rtnl, &m, RTM_GETLINK, if_loopback) >= 0);
         assert_se(m);
