@@ -1170,7 +1170,9 @@ static int create_symlink(
         if (!force)
                 return -EEXIST;
 
-        unlink(new_path);
+        r = unlink(new_path);
+        if (r < 0 && errno != ENOENT)
+                return -errno;
 
         if (symlink(old_path, new_path) >= 0) {
                 add_file_change(changes, n_changes, UNIT_FILE_UNLINK, new_path, NULL);
