@@ -705,13 +705,26 @@
                         <varlistentry>
                                 <term><varname>RequiresMountsFor=</varname></term>
 
-                                <listitem><para>Takes a space-separated
-                                list of absolute paths. Automatically
-                                adds dependencies of type
-                                <varname>Requires=</varname> and
-                                <varname>After=</varname> for all
+                                <listitem><para>Takes a
+                                space-separated list of absolute
+                                paths. Automatically adds dependencies
+                                of type <varname>Requires=</varname>
+                                and <varname>After=</varname> for all
                                 mount units required to access the
-                                specified path.</para></listitem>
+                                specified path.</para>
+
+                                <para>Mount points marked with
+                                <option>noauto</option> are not
+                                mounted automatically and will be
+                                ignored for the purposes of this
+                                option. If such a mount should be a
+                                requirement for this unit,
+                                direct dependencies on the mount
+                                units may be added
+                                (<varname>Requires=</varname> and
+                                <varname>After=</varname> or
+                                some other combination).
+                                </para></listitem>
                         </varlistentry>
 
                         <varlistentry>
