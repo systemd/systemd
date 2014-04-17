@@ -83,7 +83,7 @@ static void test_path(void) {
         }
 }
 
-static void test_find_binary(void) {
+static void test_find_binary(const char *self) {
         char *p;
 
         assert(find_binary("/bin/sh", &p) == 0);
@@ -91,7 +91,7 @@ static void test_find_binary(void) {
         assert(streq(p, "/bin/sh"));
         free(p);
 
-        assert(find_binary("./test-path-util", &p) == 0);
+        assert(find_binary(self, &p) == 0);
         puts(p);
         assert(endswith(p, "/test-path-util"));
         assert(path_is_absolute(p));
@@ -170,9 +170,9 @@ static void test_fsck_exists(void) {
         assert_se(fsck_exists("AbCdE") == -ENOENT);
 }
 
-int main(void) {
+int main(int argc, char **argv) {
         test_path();
-        test_find_binary();
+        test_find_binary(argv[0]);
         test_prefixes();
         test_fsck_exists();
         return 0;
