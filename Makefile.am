@@ -1176,8 +1176,12 @@ manual_tests += \
 	test-install \
 	test-watchdog \
 	test-log \
-	test-ipcrm \
+	test-ipcrm
+
+if HAVE_KMOD
+manual_tests += \
 	test-rtnl-manual
+endif
 
 tests += \
 	test-job-type \
