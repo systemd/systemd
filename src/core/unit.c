@@ -2488,10 +2488,18 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                         if (!s)
                                 return -ENOMEM;
 
-                        free(u->cgroup_path);
-                        u->cgroup_path = s;
+                        if (u->cgroup_path) {
+                                void *p;
 
+                                p = hashmap_remove(u->manager->cgroup_unit, u->cgroup_path);
+                                log_info("Removing cgroup_path %s from hashmap (%p)",
+                                         u->cgroup_path, p);
+                                free(u->cgroup_path);
+                        }
+
+                        u->cgroup_path = s;
                         assert(hashmap_put(u->manager->cgroup_unit, s, u) == 1);
+
                         continue;
                 }
 
