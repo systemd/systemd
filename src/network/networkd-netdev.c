@@ -475,6 +475,11 @@ static int netdev_load_one(Manager *manager, const char *filename) {
         assert(manager);
         assert(filename);
 
+        if (null_or_empty_path(filename)) {
+                log_debug("skipping empty file: %s", filename);
+                return 0;
+        }
+
         file = fopen(filename, "re");
         if (!file) {
                 if (errno == ENOENT)

@@ -44,6 +44,11 @@ static int network_load_one(Manager *manager, const char *filename) {
                         return -errno;
         }
 
+        if (null_or_empty_path(filename)) {
+                log_debug("skipping empty file: %s", filename);
+                return 0;
+        }
+
         network = new0(Network, 1);
         if (!network)
                 return log_oom();
