@@ -1487,13 +1487,25 @@ int link_add(Manager *m, sd_rtnl_message *message, Link **ret) {
 int link_update(Link *link, sd_rtnl_message *m) {
         unsigned flags;
         struct ether_addr mac;
+        char *ifname;
         int r;
 
         assert(link);
+        assert(link->ifname);
         assert(m);
 
         if (link->state == LINK_STATE_FAILED)
                 return 0;
+
+        r = sd_rtnl_message_read_string(m, IFLA_IFNAME, &ifname);
+        if (r >= 0 && !streq(ifname, link->ifname)) {
+                log_info_link(link, "renamed to %s", ifname);
+
+                free(link->ifname);
+                link->ifname = strdup(ifname);
+                if (!link->ifname)
+                        return -ENOMEM;
+        }
 
         if (!link->original_mtu) {
                 r = sd_rtnl_message_read_u16(m, IFLA_MTU, &link->original_mtu);
