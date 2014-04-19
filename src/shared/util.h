@@ -22,6 +22,7 @@
 ***/
 
 #include <alloca.h>
+#include <fcntl.h>
 #include <inttypes.h>
 #include <time.h>
 #include <sys/time.h>
@@ -914,3 +915,8 @@ uint64_t physical_memory(void);
 char* mount_test_option(const char *haystack, const char *needle);
 
 void hexdump(FILE *f, const void *p, size_t s);
+
+union file_handle_union {
+  struct file_handle handle;
+  char padding[sizeof(struct file_handle) + MAX_HANDLE_SZ];
+};

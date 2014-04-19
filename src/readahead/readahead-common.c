@@ -75,7 +75,7 @@ int fs_on_ssd(const char *p) {
         if (major(st.st_dev) == 0) {
                 _cleanup_fclose_ FILE *f = NULL;
                 int mount_id;
-                struct file_handle *h;
+                union file_handle_union h = { .handle.handle_bytes = MAX_HANDLE_SZ, };
 
                 /* Might be btrfs, which exposes "ssd" as mount flag if it is on ssd.
                  *
@@ -83,9 +83,7 @@ int fs_on_ssd(const char *p) {
                  * and then lookup the mount ID in mountinfo to find
                  * the mount options. */
 
-                h = alloca(MAX_HANDLE_SZ);
-                h->handle_bytes = MAX_HANDLE_SZ;
-                r = name_to_handle_at(AT_FDCWD, p, h, &mount_id, AT_SYMLINK_FOLLOW);
+                r = name_to_handle_at(AT_FDCWD, p, &h.handle, &mount_id, AT_SYMLINK_FOLLOW);
                 if (r < 0)
                         return false;
 

@@ -108,15 +108,13 @@ static struct udev_monitor *udev_monitor_new(struct udev *udev)
 
 /* we consider udev running when /dev is on devtmpfs */
 static bool udev_has_devtmpfs(struct udev *udev) {
-        struct file_handle *h;
+        union file_handle_union h = { .handle.handle_bytes = MAX_HANDLE_SZ, };
         int mount_id;
         _cleanup_fclose_ FILE *f = NULL;
         char line[LINE_MAX], *e;
         int r;
 
-        h = alloca(MAX_HANDLE_SZ);
-        h->handle_bytes = MAX_HANDLE_SZ;
-        r = name_to_handle_at(AT_FDCWD, "/dev", h, &mount_id, 0);
+        r = name_to_handle_at(AT_FDCWD, "/dev", &h.handle, &mount_id, 0);
         if (r < 0)
                 return false;
 
