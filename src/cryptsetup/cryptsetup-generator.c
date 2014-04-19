@@ -287,7 +287,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
         } else if (STR_IN_SET(key, "luks.key", "rd.luks.key") && value) {
 
                 free(arg_keyfile);
-                arg_keyfile = strdup(key);
+                arg_keyfile = strdup(value);
                 if (!arg_keyfile)
                         return log_oom();
 
