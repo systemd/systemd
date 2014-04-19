@@ -182,7 +182,7 @@ bool manager_should_reload(Manager *m) {
 
 static int manager_udev_process_link(Manager *m, struct udev_device *device) {
         Link *link = NULL;
-        int r;
+        int r, ifindex;
 
         assert(m);
         assert(device);
@@ -190,12 +190,17 @@ static int manager_udev_process_link(Manager *m, struct udev_device *device) {
         if (!streq_ptr(udev_device_get_action(device), "add"))
                 return 0;
 
-        r = link_get(m, udev_device_get_ifindex(device), &link);
-        if (r < 0)
-                return r;
-
-        if (!link)
+        ifindex = udev_device_get_ifindex(device);
+        if (ifindex <= 0) {
+                log_debug("ignoring udev ADD event for device with invalid ifindex");
                 return 0;
+        }
+
+        r = link_get(m, ifindex, &link);
+        if (r == -ENODEV)
+                return 0;
+        else if (r < 0)
+                return r;
 
         r = link_initialized(link, device);
         if (r < 0)
@@ -203,32 +208,7 @@ static int manager_udev_process_link(Manager *m, struct udev_device *device) {
 
         return 0;
 }
-/*
-        if (streq_ptr(udev_device_get_action(device), "remove")) {
-                log_debug("%s: link removed", udev_device_get_sysname(device));
 
-                if (link)
-                        link_free(link);
-        } else {
-                if (link) {
-                        log_debug("%s: link already exists, ignoring",
-                                  link->ifname);
-                        return 0;
-                }
-
-                r = link_add(m, device, &link);
-                if (r < 0) {
-                        log_error("%s: could not handle link: %s",
-                                  udev_device_get_sysname(device),
-                                  strerror(-r));
-                } else
-                        log_debug("%s: link (with ifindex %" PRIu64") added",
-                                  link->ifname, link->ifindex);
-        }
-
-        return 0;
-}
-*/
 static int manager_rtnl_process_link(sd_rtnl *rtnl, sd_rtnl_message *message, void *userdata) {
         Manager *m = userdata;
         Link *link = NULL;
