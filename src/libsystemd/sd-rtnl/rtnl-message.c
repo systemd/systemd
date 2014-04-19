@@ -1226,15 +1226,15 @@ int socket_read_message(sd_rtnl *rtnl) {
                 if (r < 0)
                         return r;
 
-                if (i < rtnl->rqueue_partial_size) {
+                rtnl->rqueue[rtnl->rqueue_size ++] = first;
+                first = NULL;
+
+                if (multi_part && (i < rtnl->rqueue_partial_size)) {
                         /* remove the message form the partial read queue */
                         memmove(rtnl->rqueue_partial + i,rtnl->rqueue_partial + i + 1,
                                 sizeof(sd_rtnl_message*) * (rtnl->rqueue_partial_size - i - 1));
                         rtnl->rqueue_partial_size --;
                 }
-
-                rtnl->rqueue[rtnl->rqueue_size ++] = first;
-                first = NULL;
 
                 return 1;
         } else {
