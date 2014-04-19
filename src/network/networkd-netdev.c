@@ -392,6 +392,29 @@ int netdev_set_ifindex(NetDev *netdev, sd_rtnl_message *message) {
                 return -EINVAL;
         }
 
+        r = sd_rtnl_message_link_get_ifindex(message, &ifindex);
+        if (r < 0) {
+                log_error_netdev(netdev, "Could not get ifindex: %s", strerror(-r));
+                netdev_enter_failed(netdev);
+                return r;
+        } else if (ifindex <= 0) {
+                log_error_netdev(netdev, "Got invalid ifindex: %d", ifindex);
+                netdev_enter_failed(netdev);
+                return r;
+        }
+
+
+        if (netdev->ifindex > 0) {
+                if (netdev->ifindex != ifindex) {
+                        log_error_netdev(netdev, "Could not set ifindex to %d, already set to %d",
+                                         ifindex, netdev->ifindex);
+                        netdev_enter_failed(netdev);
+                        return -EEXIST;
+                } else
+                        /* ifindex already set to the same for this netdev */
+                        return 0;
+        }
+
         r = sd_rtnl_message_read_string(message, IFLA_IFNAME, &received_name);
         if (r < 0) {
                 log_error_netdev(netdev, "Could not get IFNAME");
@@ -435,24 +458,6 @@ int netdev_set_ifindex(NetDev *netdev, sd_rtnl_message *message) {
                                  "expected %s", received_kind, kind);
                 netdev_enter_failed(netdev);
                 return r;
-        }
-
-        r = sd_rtnl_message_link_get_ifindex(message, &ifindex);
-        if (r < 0) {
-                log_error_netdev(netdev, "Could not get ifindex: %s", strerror(-r));
-                netdev_enter_failed(netdev);
-                return r;
-        } else if (ifindex <= 0) {
-                log_error_netdev(netdev, "Got invalid ifindex: %d", ifindex);
-                netdev_enter_failed(netdev);
-                return r;
-        }
-
-        if (netdev->ifindex > 0 && netdev->ifindex != ifindex) {
-                log_error_netdev(netdev, "Could not set ifindex to %d, already set to %d",
-                                 ifindex, netdev->ifindex);
-                netdev_enter_failed(netdev);
-                return -EEXIST;
         }
 
         netdev->ifindex = ifindex;
