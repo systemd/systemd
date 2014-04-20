@@ -278,22 +278,6 @@ static bool mac_is_random(struct udev_device *device) {
         return type == 1;
 }
 
-static bool mac_is_permanent(struct udev_device *device) {
-        const char *s;
-        unsigned type;
-        int r;
-
-        s = udev_device_get_sysattr_value(device, "addr_assign_type");
-        if (!s)
-                return true; /* if we don't know, assume it is permanent */
-        r = safe_atou(s, &type);
-        if (r < 0)
-                return true;
-
-        /* check for NET_ADDR_PERM */
-        return type == 0;
-}
-
 static int get_mac(struct udev_device *device, bool want_random, struct ether_addr *mac) {
         int r;
 
@@ -389,7 +373,7 @@ int link_config_apply(link_config_ctx *ctx, link_config *config, struct udev_dev
 
         switch (config->mac_policy) {
                 case MACPOLICY_PERSISTENT:
-                        if (!mac_is_permanent(device)) {
+                        if (mac_is_random(device)) {
                                 r = get_mac(device, false, &generated_mac);
                                 if (r < 0)
                                         return r;
