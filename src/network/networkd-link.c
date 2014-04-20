@@ -1409,6 +1409,10 @@ static int link_configure(Link *link) {
                 if (r < 0)
                         return r;
 
+                r = sd_ipv4ll_set_mac(link->ipv4ll, &link->mac);
+                if (r < 0)
+                        return r;
+
                 r = sd_ipv4ll_set_index(link->ipv4ll, link->ifindex);
                 if (r < 0)
                         return r;
@@ -1424,6 +1428,10 @@ static int link_configure(Link *link) {
                         return r;
 
                 r = sd_dhcp_client_attach_event(link->dhcp_client, NULL, 0);
+                if (r < 0)
+                        return r;
+
+                r = sd_dhcp_client_set_mac(link->dhcp_client, &link->mac);
                 if (r < 0)
                         return r;
 
