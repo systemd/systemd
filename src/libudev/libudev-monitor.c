@@ -119,8 +119,11 @@ static bool udev_has_devtmpfs(struct udev *udev) {
         int r;
 
         r = name_to_handle_at(AT_FDCWD, "/dev", &h.handle, &mount_id, 0);
-        if (r < 0)
+        if (r < 0) {
+                if (errno != EOPNOTSUPP)
+                        udev_err(udev, "name_to_handle_at on /dev: %m\n");
                 return false;
+        }
 
         f = fopen("/proc/self/mountinfo", "re");
         if (!f)
