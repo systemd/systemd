@@ -1092,7 +1092,7 @@ int socket_read_message(sd_rtnl *rtnl) {
         struct nlmsghdr *new_msg;
         size_t len;
         int r;
-        unsigned i;
+        unsigned i = 0;
 
         assert(rtnl);
         assert(rtnl->rbuffer);

@@ -140,7 +140,7 @@ void link_config_ctx_free(link_config_ctx *ctx) {
 
 static int load_link(link_config_ctx *ctx, const char *filename) {
         _cleanup_free_ link_config *link = NULL;
-        _cleanup_fclose_ FILE *file;
+        _cleanup_fclose_ FILE *file = NULL;
         int r;
 
         assert(ctx);
