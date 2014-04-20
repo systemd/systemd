@@ -1095,12 +1095,13 @@ static int link_update_flags(Link *link, unsigned flags) {
         else if (flags_removed & IFF_RUNNING)
                 log_debug_link(link, "link is not running");
 
+        /* link flags are currently at most 18 bits, let's default to printing 20 */
         if (flags_added & generic_flags)
-                log_debug_link(link, "ignored link flags gained: %#.8x",
+                log_debug_link(link, "unknown link flags gained: %#.5x (ignoring)",
                                flags_added & generic_flags);
 
         if (flags_removed & generic_flags)
-                log_debug_link(link, "ignored link flags lost: %#.8x",
+                log_debug_link(link, "unknown link flags lost: %#.5x (ignoring)",
                                 flags_removed & generic_flags);
 
         if (carrier_gained) {
