@@ -203,8 +203,10 @@ int sd_rtnl_send(sd_rtnl *nl,
                 }
         } else {
                 /* append to queue */
-                if (nl->wqueue_size >= RTNL_WQUEUE_MAX)
+                if (nl->wqueue_size >= RTNL_WQUEUE_MAX) {
+                        log_debug("rtnl: exhausted the write queue size (%d)", RTNL_WQUEUE_MAX);
                         return -ENOBUFS;
+                }
 
                 if (!GREEDY_REALLOC(nl->wqueue, nl->wqueue_allocated, nl->wqueue_size + 1))
                         return -ENOMEM;
@@ -221,8 +223,10 @@ int sd_rtnl_send(sd_rtnl *nl,
 int rtnl_rqueue_make_room(sd_rtnl *rtnl) {
         assert(rtnl);
 
-        if (rtnl->rqueue_size >= RTNL_RQUEUE_MAX)
+        if (rtnl->rqueue_size >= RTNL_RQUEUE_MAX) {
+                log_debug("rtnl: exhausted the read queue size (%d)", RTNL_RQUEUE_MAX);
                 return -ENOBUFS;
+        }
 
         if (!GREEDY_REALLOC(rtnl->rqueue, rtnl->rqueue_allocated, rtnl->rqueue_size + 1))
                 return -ENOMEM;
@@ -233,8 +237,10 @@ int rtnl_rqueue_make_room(sd_rtnl *rtnl) {
 int rtnl_rqueue_partial_make_room(sd_rtnl *rtnl) {
         assert(rtnl);
 
-        if (rtnl->rqueue_partial_size >= RTNL_RQUEUE_MAX)
+        if (rtnl->rqueue_partial_size >= RTNL_RQUEUE_MAX) {
+                log_debug("rtnl: exhausted the partial read queue size (%d)", RTNL_RQUEUE_MAX);
                 return -ENOBUFS;
+        }
 
         if (!GREEDY_REALLOC(rtnl->rqueue_partial, rtnl->rqueue_partial_allocated,
                             rtnl->rqueue_partial_size + 1))
