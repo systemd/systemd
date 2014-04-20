@@ -1059,7 +1059,9 @@ static int link_update_flags(Link *link, unsigned flags) {
 
         flags_added = (link->flags ^ flags) & flags;
         flags_removed = (link->flags ^ flags) & link->flags;
-        generic_flags = ~(IFF_UP | IFF_LOWER_UP | IFF_DORMANT);
+        generic_flags = ~(IFF_UP | IFF_LOWER_UP | IFF_DORMANT | IFF_DEBUG |
+                          IFF_MULTICAST | IFF_BROADCAST | IFF_PROMISC |
+                          IFF_NOARP | IFF_MASTER | IFF_SLAVE);
 
         /* consider link to have carrier when LOWER_UP and !DORMANT
 
@@ -1095,6 +1097,41 @@ static int link_update_flags(Link *link, unsigned flags) {
                 log_debug_link(link, "link is dormant");
         else if (flags_removed & IFF_DORMANT)
                 log_debug_link(link, "link is not dormant");
+
+        if (flags_added & IFF_DEBUG)
+                log_debug_link(link, "debugging enabled in the kernel");
+        else if (flags_removed & IFF_DEBUG)
+                log_debug_link(link, "debugging disabled in the kernel");
+
+        if (flags_added & IFF_MULTICAST)
+                log_debug_link(link, "multicast enabled");
+        else if (flags_removed & IFF_MULTICAST)
+                log_debug_link(link, "multicast disabled");
+
+        if (flags_added & IFF_BROADCAST)
+                log_debug_link(link, "broadcast enabled");
+        else if (flags_removed & IFF_BROADCAST)
+                log_debug_link(link, "broadcast disabled");
+
+        if (flags_added & IFF_PROMISC)
+                log_debug_link(link, "promiscuous mode enabled");
+        else if (flags_removed & IFF_PROMISC)
+                log_debug_link(link, "promiscuous mode disabled");
+
+        if (flags_added & IFF_NOARP)
+                log_debug_link(link, "ARP protocol disabled");
+        else if (flags_removed & IFF_NOARP)
+                log_debug_link(link, "ARP protocol enabled");
+
+        if (flags_added & IFF_MASTER)
+                log_debug_link(link, "link is master");
+        else if (flags_removed & IFF_MASTER)
+                log_debug_link(link, "link is no longer master");
+
+        if (flags_added & IFF_SLAVE)
+                log_debug_link(link, "link is slave");
+        else if (flags_removed & IFF_SLAVE)
+                log_debug_link(link, "link is no longer slave");
 
         /* link flags are currently at most 18 bits, let's default to printing 20 */
         if (flags_added & generic_flags)
