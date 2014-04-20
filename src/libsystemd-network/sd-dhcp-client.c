@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <net/ethernet.h>
 #include <net/if_arp.h>
+#include <netinet/ether.h>
 #include <sys/param.h>
 #include <sys/ioctl.h>
 
@@ -1264,7 +1265,9 @@ int sd_dhcp_client_start(sd_dhcp_client *client) {
 
         r = client_start(client);
         if (r >= 0)
-                log_dhcp_client(client, "STARTED");
+                log_dhcp_client(client, "STARTED on ifindex %u with address %s",
+                                client->index,
+                                ether_ntoa(&client->client_id.mac_addr));
 
         return r;
 }
