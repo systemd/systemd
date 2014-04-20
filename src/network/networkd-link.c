@@ -1059,17 +1059,18 @@ static int link_update_flags(Link *link, unsigned flags) {
 
         flags_added = (link->flags ^ flags) & flags;
         flags_removed = (link->flags ^ flags) & link->flags;
-        generic_flags = ~(IFF_UP | IFF_LOWER_UP | IFF_RUNNING);
+        generic_flags = ~(IFF_UP | IFF_LOWER_UP | IFF_DORMANT);
 
-        /* consider link to have carrier when both RUNNING and LOWER_UP, as RUNNING
-           may mean that the oper state is unknown, in which case we should fall back to
-           simply trust LOWER_UP, even thought that is less reliable
+        /* consider link to have carrier when LOWER_UP and !DORMANT
+
+           TODO: use proper operstates once we start supporting 802.1X
+
+           see Documentation/networking/operstates.txt in the kernel sources
          */
-        carrier_gained = ((flags_added & IFF_LOWER_UP) && (flags & IFF_RUNNING)) ||
-                         ((flags_added & IFF_RUNNING) && (flags & IFF_LOWER_UP));
-        carrier_lost = ((link->flags & (IFF_RUNNING | IFF_LOWER_UP)) ==
-                        (IFF_RUNNING | IFF_LOWER_UP)) &&
-                       (flags_removed & (IFF_LOWER_UP | IFF_RUNNING));
+        carrier_gained = (((flags_added & IFF_LOWER_UP) && !(flags & IFF_DORMANT)) ||
+                          ((flags_removed & IFF_DORMANT) && (flags & IFF_LOWER_UP)));
+        carrier_lost = ((link->flags & IFF_LOWER_UP) && !(link->flags & IFF_DORMANT)) &&
+                       ((flags_removed & IFF_LOWER_UP) || (flags_added & IFF_DORMANT));
 
         link->flags = flags;
 
@@ -1090,10 +1091,10 @@ static int link_update_flags(Link *link, unsigned flags) {
         else if (flags_removed & IFF_LOWER_UP)
                 log_debug_link(link, "link is lower down");
 
-        if (flags_added & IFF_RUNNING)
-                log_debug_link(link, "link is running");
-        else if (flags_removed & IFF_RUNNING)
-                log_debug_link(link, "link is not running");
+        if (flags_added & IFF_DORMANT)
+                log_debug_link(link, "link is dormant");
+        else if (flags_removed & IFF_DORMANT)
+                log_debug_link(link, "link is not dormant");
 
         /* link flags are currently at most 18 bits, let's default to printing 20 */
         if (flags_added & generic_flags)
@@ -1102,7 +1103,7 @@ static int link_update_flags(Link *link, unsigned flags) {
 
         if (flags_removed & generic_flags)
                 log_debug_link(link, "unknown link flags lost: %#.5x (ignoring)",
-                                flags_removed & generic_flags);
+                               flags_removed & generic_flags);
 
         if (carrier_gained) {
                 log_info_link(link, "gained carrier");
