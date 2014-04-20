@@ -141,6 +141,16 @@ static int link_enter_configured(Link *link) {
         return 0;
 }
 
+static void link_enter_unmanaged(Link *link) {
+        assert(link);
+
+        log_info_link(link, "unmanaged");
+
+        link->state = LINK_STATE_UNMANAGED;
+
+        link_save(link);
+}
+
 static void link_enter_failed(Link *link) {
         assert(link);
 
@@ -1471,8 +1481,11 @@ int link_initialized(Link *link, struct udev_device *device) {
         log_debug_link(link, "link initialized");
 
         r = network_get(link->manager, device, link->ifname, &link->mac, &network);
-        if (r < 0)
-                return r == -ENOENT ? 0 : r;
+        if (r == -ENOENT) {
+                link_enter_unmanaged(link);
+                return 0;
+        } else if (r < 0)
+                return r;
 
         r = network_apply(link->manager, network, link);
         if (r < 0)
@@ -1541,7 +1554,7 @@ int link_update(Link *link, sd_rtnl_message *m) {
         assert(link->ifname);
         assert(m);
 
-        if (link->state == LINK_STATE_FAILED)
+        if (link->state == LINK_STATE_FAILED || link->state == LINK_STATE_UNMANAGED)
                 return 0;
 
         r = sd_rtnl_message_read_string(m, IFLA_IFNAME, &ifname);
@@ -1667,6 +1680,7 @@ static const char* const link_state_table[_LINK_STATE_MAX] = {
         [LINK_STATE_SETTING_ADDRESSES] = "configuring",
         [LINK_STATE_SETTING_ROUTES] = "configuring",
         [LINK_STATE_CONFIGURED] = "configured",
+        [LINK_STATE_UNMANAGED] = "unmanaged",
         [LINK_STATE_FAILED] = "failed",
 };
 
