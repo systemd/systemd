@@ -25,7 +25,6 @@
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "list.h"
-#include "siphash24.h"
 
 #define VLANID_MAX 4094
 
@@ -181,48 +180,8 @@ static int netdev_create_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userda
         return 1;
 }
 
-#define HASH_KEY SD_ID128_MAKE(52,e1,45,bd,00,6f,29,96,21,c6,30,6d,83,71,04,48)
-
-static int netdev_get_mac(NetDev *netdev, struct ether_addr *mac) {
-        uint8_t result[8];
-        size_t l, sz;
-        uint8_t *v;
-        int r;
-
-        assert(netdev);
-        assert(netdev->name);
-        assert(mac);
-
-        l = strlen(netdev->name);
-        sz = sizeof(sd_id128_t) + l;
-        v = alloca(sz);
-
-        /* fetch some persistent data unique to the machine */
-        r = sd_id128_get_machine((sd_id128_t*) v);
-        if (r < 0)
-                return r;
-
-        /* combine with some data unique (on this machine) to this
-         * netdev */
-        memcpy(v + sizeof(sd_id128_t), netdev->name, l);
-
-        /* Let's hash the host machine ID plus the container name. We
-         * use a fixed, but originally randomly created hash key here. */
-        siphash24(result, v, sz, HASH_KEY.bytes);
-
-        assert_cc(ETH_ALEN <= sizeof(result));
-        memcpy(mac->ether_addr_octet, result, ETH_ALEN);
-
-        /* see eth_random_addr in the kernel */
-        mac->ether_addr_octet[0] &= 0xfe;        /* clear multicast bit */
-        mac->ether_addr_octet[0] |= 0x02;        /* set local assignment bit (IEEE802) */
-
-        return 0;
-}
-
 static int netdev_create(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callback) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL;
-        struct ether_addr mac;
         const char *kind;
         int r;
 
@@ -232,12 +191,6 @@ static int netdev_create(NetDev *netdev, Link *link, sd_rtnl_message_handler_t c
         assert(netdev->name);
         assert(netdev->manager);
         assert(netdev->manager->rtnl);
-
-        r = netdev_get_mac(netdev, &mac);
-        if (r < 0) {
-                log_error("Failed to generate predictable MAC address for %s", netdev->name);
-                return r;
-        }
 
         r = sd_rtnl_message_new_link(netdev->manager->rtnl, &req, RTM_NEWLINK, 0);
         if (r < 0) {
@@ -261,14 +214,6 @@ static int netdev_create(NetDev *netdev, Link *link, sd_rtnl_message_handler_t c
         if (r < 0) {
                 log_error_netdev(netdev,
                                  "Could not append IFLA_IFNAME attribute: %s",
-                                 strerror(-r));
-                return r;
-        }
-
-        r = sd_rtnl_message_append_ether_addr(req, IFLA_ADDRESS, &mac);
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Colud not append IFLA_ADDRESS attribute: %s",
                                  strerror(-r));
                 return r;
         }
