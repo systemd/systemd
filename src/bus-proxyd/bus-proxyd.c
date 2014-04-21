@@ -4,6 +4,8 @@
   This file is part of systemd.
 
   Copyright 2010 Lennart Poettering
+  Copyright 2013 Daniel Mack
+  Copyright 2014 Kay Sievers
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -336,7 +338,6 @@ static int synthetic_reply_method_errno(sd_bus_message *call, int error, const s
 }
 
 static int synthetic_reply_method_return(sd_bus_message *call, const char *types, ...) {
-
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         int r;
 
@@ -360,6 +361,85 @@ static int synthetic_reply_method_return(sd_bus_message *call, const char *types
         return synthetic_driver_send(call->bus, m);
 }
 
+static int synthetic_reply_return_strv(sd_bus_message *call, char **l) {
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        int r;
+
+        r = sd_bus_message_new_method_return(call, &m);
+        if (r < 0)
+                return synthetic_reply_method_errno(call, r, NULL);
+
+        r = sd_bus_message_append_strv(m, l);
+        if (r < 0)
+                return synthetic_reply_method_errno(call, r, NULL);
+
+        return synthetic_driver_send(call->bus, m);
+}
+
+static int get_creds_by_name(sd_bus *bus, const char *name, uint64_t mask, sd_bus_creds **_creds, sd_bus_error *error) {
+        _cleanup_bus_creds_unref_ sd_bus_creds *c = NULL;
+        int r;
+
+        assert(bus);
+        assert(name);
+        assert(_creds);
+
+        assert_return(service_name_is_valid(name), -EINVAL);
+
+        r = sd_bus_get_owner(bus, name, mask, &c);
+        if (r == -ESRCH || r == -ENXIO)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NAME_HAS_NO_OWNER, "Name %s is currently not owned by anyone.", name);
+        if (r < 0)
+                return r;
+
+        if ((c->mask & mask) != mask)
+                return -ENOTSUP;
+
+        *_creds = c;
+        c = NULL;
+
+        return 0;
+}
+
+static int get_creds_by_message(sd_bus *bus, sd_bus_message *m, uint64_t mask, sd_bus_creds **_creds, sd_bus_error *error) {
+        const char *name;
+        int r;
+
+        assert(bus);
+        assert(m);
+        assert(_creds);
+
+        r = sd_bus_message_read(m, "s", &name);
+        if (r < 0)
+                return r;
+
+        return get_creds_by_name(bus, name, mask, _creds, error);
+}
+
+static int peer_is_privileged(sd_bus *bus, sd_bus_message *m) {
+        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+        uid_t uid;
+        int r;
+
+        r = get_creds_by_message(bus, m, SD_BUS_CREDS_UID, &creds, NULL);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_creds_get_uid(creds, &uid);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_creds_has_effective_cap(creds, CAP_SYS_ADMIN);
+        if (r > 0)
+                return true;
+
+        if (uid == getuid())
+                return true;
+
+        return false;
+}
+
+
 static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
         int r;
 
@@ -370,7 +450,101 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
         if (!streq_ptr(sd_bus_message_get_destination(m), "org.freedesktop.DBus"))
                 return 0;
 
-        if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "AddMatch")) {
+        if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus.Introspectable", "Introspect")) {
+                if (0 && !isempty(sd_bus_message_get_signature(m, true))) {
+                        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+
+                        r = sd_bus_error_setf(&error, SD_BUS_ERROR_INVALID_ARGS, "Expected no parameters");
+
+                        return synthetic_reply_method_errno(m, r, &error);
+                }
+
+                return synthetic_reply_method_return(m, "s",
+                        "<!DOCTYPE node PUBLIC \"-//freedesktop//DTD D-BUS Object Introspection 1.0//EN\" "
+                          "\"http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd\">\n"
+                        "<node>\n"
+                        " <interface name=\"org.freedesktop.DBus.Introspectable\">\n"
+                        "  <method name=\"Introspect\">\n"
+                        "   <arg name=\"data\" type=\"s\" direction=\"out\"/>\n"
+                        "  </method>\n"
+                        " </interface>\n"
+                        " <interface name=\"org.freedesktop.DBus\">\n"
+                        "  <method name=\"AddMatch\">\n"
+                        "   <arg type=\"s\" direction=\"in\"/>\n"
+                        "  </method>\n"
+                        "  <method name=\"RemoveMatch\">\n"
+                        "   <arg type=\"s\" direction=\"in\"/>\n"
+                        "  </method>\n"
+                        "  <method name=\"GetConnectionSELinuxSecurityContext\">\n"
+                        "   <arg type=\"s\" direction=\"in\"/>\n"
+                        "   <arg type=\"ay\" direction=\"out\"/>\n"
+                        "  </method>\n"
+                        "  <method name=\"GetConnectionUnixProcessID\">\n"
+                        "   <arg type=\"s\" direction=\"in\"/>\n"
+                        "   <arg type=\"u\" direction=\"out\"/>\n"
+                        "  </method>\n"
+                        "  <method name=\"GetConnectionUnixUser\">\n"
+                        "   <arg type=\"s\" direction=\"in\"/>\n"
+                        "   <arg type=\"u\" direction=\"out\"/>\n"
+                        "  </method>\n"
+                        "  <method name=\"GetId\">\n"
+                        "   <arg type=\"s\" direction=\"out\"/>\n"
+                        "  </method>\n"
+                        "  <method name=\"GetNameOwner\">\n"
+                        "   <arg type=\"s\" direction=\"in\"/>\n"
+                        "   <arg type=\"s\" direction=\"out\"/>\n"
+                        "  </method>\n"
+                        "  <method name=\"Hello\">\n"
+                        "   <arg type=\"s\" direction=\"out\"/>\n"
+                        "  </method>\n"
+                        "  <method name=\"ListActivatableNames\">\n"
+                        "   <arg type=\"as\" direction=\"out\"/>\n"
+                        "  </method>\n"
+                        "  <method name=\"ListNames\">\n"
+                        "   <arg type=\"as\" direction=\"out\"/>\n"
+                        "  </method>\n"
+                        "  <method name=\"ListQueuedOwners\">\n"
+                        "   <arg type=\"s\" direction=\"in\"/>\n"
+                        "   <arg type=\"as\" direction=\"out\"/>\n"
+                        "  </method>\n"
+                        "  <method name=\"NameHasOwner\">\n"
+                        "   <arg type=\"s\" direction=\"in\"/>\n"
+                        "   <arg type=\"b\" direction=\"out\"/>\n"
+                        "  </method>\n"
+                        "  <method name=\"ReleaseName\">\n"
+                        "   <arg type=\"s\" direction=\"in\"/>\n"
+                        "   <arg type=\"u\" direction=\"out\"/>\n"
+                        "  </method>\n"
+                        "  <method name=\"ReloadConfig\">\n"
+                        "  </method>\n"
+                        "  <method name=\"RequestName\">\n"
+                        "   <arg type=\"s\" direction=\"in\"/>\n"
+                        "   <arg type=\"u\" direction=\"in\"/>\n"
+                        "   <arg type=\"u\" direction=\"out\"/>\n"
+                        "  </method>\n"
+                        "  <method name=\"StartServiceByName\">\n"
+                        "   <arg type=\"s\" direction=\"in\"/>\n"
+                        "   <arg type=\"u\" direction=\"in\"/>\n"
+                        "   <arg type=\"u\" direction=\"out\"/>\n"
+                        "  </method>\n"
+                        "  <method name=\"UpdateActivationEnvironment\">\n"
+                        "   <arg type=\"a{ss}\" direction=\"in\"/>\n"
+                        "  </method>\n"
+                        "  <signal name=\"NameAcquired\">\n"
+                        "   <arg type=\"s\"/>\n"
+                        "  </signal>\n"
+                        "  <signal name=\"NameLost\">\n"
+                        "   <arg type=\"s\"/>\n"
+                        "  </signal>\n"
+                        "  <signal name=\"NameOwnerChanged\">\n"
+                        "   <arg type=\"s\"/>\n"
+                        "   <arg type=\"s\"/>\n"
+                        "   <arg type=\"s\"/>\n"
+                        "  </signal>\n"
+                        " </interface>\n"
+                        "</node>\n");
+
+        } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "AddMatch")) {
                 const char *match;
 
                 r = sd_bus_message_read(m, "s", &match);
@@ -395,9 +569,321 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
                         return synthetic_reply_method_errno(m, r, NULL);
 
                 return synthetic_reply_method_return(m, NULL);
-        }
 
-        return 0;
+        } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "GetConnectionSELinuxSecurityContext")) {
+                _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+
+                r = get_creds_by_message(a, m, SD_BUS_CREDS_SELINUX_CONTEXT, &creds, NULL);
+                if (r < 0)
+                        return synthetic_reply_method_errno(m, r, NULL);
+
+                return synthetic_reply_method_return(m, "y", creds->label, strlen(creds->label));
+
+        } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "GetConnectionUnixProcessID")) {
+                _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+
+                r = get_creds_by_message(a, m, SD_BUS_CREDS_PID, &creds, NULL);
+                if (r < 0)
+                        return synthetic_reply_method_errno(m, r, NULL);
+
+                return synthetic_reply_method_return(m, "u", (uint32_t) creds->pid);
+
+        } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "GetConnectionUnixUser")) {
+                _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+
+                r = get_creds_by_message(a, m, SD_BUS_CREDS_UID, &creds, NULL);
+                if (r < 0)
+                        return synthetic_reply_method_errno(m, r, NULL);
+
+                return synthetic_reply_method_return(m, "u", (uint32_t) creds->uid);
+
+        } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "GetId")) {
+                sd_id128_t server_id;
+                char buf[SD_ID128_STRING_MAX];
+
+                r = sd_bus_get_server_id(a, &server_id);
+                if (r < 0)
+                        return synthetic_reply_method_errno(m, r, NULL);
+
+                return synthetic_reply_method_return(m, "s", sd_id128_to_string(server_id, buf));
+
+        } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "GetNameOwner")) {
+                const char *name;
+                _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+
+                r = sd_bus_message_read(m, "s", &name);
+                if (r < 0)
+                        return synthetic_reply_method_errno(m, r, NULL);
+
+                if (streq(name, "org.freedesktop.DBus"))
+                        return synthetic_reply_method_return(m, "s", "org.freedesktop.DBus");
+
+                r = get_creds_by_name(a, name, SD_BUS_CREDS_UNIQUE_NAME, &creds, &error);
+                if (r < 0)
+                        return synthetic_reply_method_errno(m, r, &error);
+
+                return synthetic_reply_method_return(m, "s", creds->unique_name);
+
+        /* "Hello" is handled in process_hello() */
+
+        } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "ListActivatableNames")) {
+                _cleanup_strv_free_ char **names = NULL;
+
+                r = sd_bus_list_names(a, NULL, &names);
+                if (r < 0)
+                        return synthetic_reply_method_errno(m, r, NULL);
+
+                /* Let's sort the names list to make it stable */
+                strv_sort(names);
+
+                return synthetic_reply_return_strv(m, names);
+
+        } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "ListNames")) {
+                _cleanup_strv_free_ char **names = NULL;
+
+                r = sd_bus_list_names(a, &names, NULL);
+                if (r < 0)
+                        return synthetic_reply_method_errno(m, r, NULL);
+
+                r = strv_extend(&names, "org.freedesktop.DBus");
+                if (r < 0)
+                        return synthetic_reply_method_errno(m, r, NULL);
+
+                /* Let's sort the names list to make it stable */
+                strv_sort(names);
+
+                return synthetic_reply_return_strv(m, names);
+
+        } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "ListQueuedOwners")) {
+                struct kdbus_cmd_name_list cmd = {};
+                struct kdbus_name_list *name_list;
+                struct kdbus_cmd_name *name;
+                _cleanup_strv_free_ char **owners = NULL;
+                char *arg0;
+                int err = 0;
+
+                r = sd_bus_message_read(m, "s", &arg0);
+                if (r < 0)
+                        return synthetic_reply_method_errno(m, r, NULL);
+
+                if (service_name_is_valid(arg0) < 0)
+                        return synthetic_reply_method_errno(m, -EINVAL, NULL);
+
+                cmd.flags = KDBUS_NAME_LIST_QUEUED;
+                r = ioctl(a->input_fd, KDBUS_CMD_NAME_LIST, &cmd);
+                if (r < 0)
+                        return synthetic_reply_method_errno(m, -errno, NULL);
+
+                name_list = (struct kdbus_name_list *) ((uint8_t *) a->kdbus_buffer + cmd.offset);
+
+                KDBUS_ITEM_FOREACH(name, name_list, names) {
+                        char *n;
+
+                        if (name->size <= sizeof(*name))
+                                continue;
+
+                        if (!streq(name->name, arg0))
+                                continue;
+
+                        if (asprintf(&n, ":1.%llu", (unsigned long long) name->owner_id) < 0) {
+                                err  = -ENOMEM;
+                                break;
+                        }
+
+                        r = strv_consume(&owners, n);
+                        if (r < 0) {
+                                err = r;
+                                break;
+                        }
+                }
+
+                r = ioctl(a->input_fd, KDBUS_CMD_FREE, &cmd.offset);
+                if (r < 0)
+                        return synthetic_reply_method_errno(m, r, NULL);
+
+                if (err > 0)
+                        return synthetic_reply_method_errno(m, err, NULL);
+
+                return synthetic_reply_return_strv(m, owners);
+
+        } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "NameHasOwner")) {
+                const char *name;
+
+                r = sd_bus_message_read(m, "s", &name);
+                if (r < 0)
+                        return synthetic_reply_method_errno(m, r, NULL);
+
+                if (service_name_is_valid(name) < 0)
+                        return synthetic_reply_method_errno(m, -EINVAL, NULL);
+
+                if (streq(name, "org.freedesktop.DBus"))
+                        return synthetic_reply_method_return(m, "b", true);
+
+                r = sd_bus_get_owner(a, name, 0, NULL);
+                if (r < 0 && r != -ESRCH && r != -ENXIO)
+                        return synthetic_reply_method_errno(m, r, NULL);
+
+                return synthetic_reply_method_return(m, "b", r >= 0);
+
+        } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "ReleaseName")) {
+                const char *name;
+
+                r = sd_bus_message_read(m, "s", &name);
+                if (r < 0)
+                        return synthetic_reply_method_errno(m, r, NULL);
+
+                if (service_name_is_valid(name) < 0)
+                        return synthetic_reply_method_errno(m, -EINVAL, NULL);
+
+                r = sd_bus_release_name(a, name);
+                if (r < 0) {
+                        if (r == -ESRCH)
+                                synthetic_reply_method_return(m, "u", BUS_NAME_NON_EXISTENT);
+                        if (r == -EADDRINUSE)
+                                synthetic_reply_method_return(m, "u", BUS_NAME_NOT_OWNER);
+                        return synthetic_reply_method_errno(m, r, NULL);
+                }
+
+                return synthetic_reply_method_return(m, "u", BUS_NAME_RELEASED);
+
+        } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "ReloadConfig")) {
+                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+
+                r = sd_bus_error_setf(&error, SD_BUS_ERROR_NOT_SUPPORTED, "%s() is not supported", sd_bus_message_get_member(m));
+
+                return synthetic_reply_method_errno(m, r, &error);
+
+        } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "RequestName")) {
+                const char *name;
+                uint32_t flags;
+
+                r = sd_bus_message_read(m, "su", &name, &flags);
+                if (r < 0)
+                        return synthetic_reply_method_errno(m, r, NULL);
+
+                if (service_name_is_valid(name) < 0)
+                        return synthetic_reply_method_errno(m, -EINVAL, NULL);
+                if ((flags & ~(BUS_NAME_ALLOW_REPLACEMENT|BUS_NAME_REPLACE_EXISTING|BUS_NAME_DO_NOT_QUEUE)) != 0)
+                        return synthetic_reply_method_errno(m, -EINVAL, NULL);
+
+                r = sd_bus_request_name(a, name, flags);
+                if (r < 0) {
+                        if (r == -EEXIST)
+                                return synthetic_reply_method_return(m, "u", BUS_NAME_EXISTS);
+                        if (r == -EALREADY)
+                                return synthetic_reply_method_return(m, "u", BUS_NAME_ALREADY_OWNER);
+                        return synthetic_reply_method_errno(m, r, NULL);
+                }
+
+                if (r == 0)
+                        return synthetic_reply_method_return(m, "u", BUS_NAME_IN_QUEUE);
+
+                return synthetic_reply_method_return(m, "u", BUS_NAME_PRIMARY_OWNER);
+
+        } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "StartServiceByName")) {
+                _cleanup_bus_message_unref_ sd_bus_message *msg = NULL;
+                const char *name;
+                uint32_t flags;
+
+                r = sd_bus_message_read(m, "su", &name, &flags);
+                if (r < 0)
+                        return synthetic_reply_method_errno(m, r, NULL);
+
+                if (service_name_is_valid(name) < 0)
+                        return synthetic_reply_method_errno(m, -EINVAL, NULL);
+                if (flags != 0)
+                        return synthetic_reply_method_errno(m, -EINVAL, NULL);
+
+                r = sd_bus_get_owner(a, name, 0, NULL);
+                if (r >= 0 || streq(name, "org.freedesktop.DBus"))
+                        return synthetic_reply_method_return(m, "u", BUS_START_REPLY_ALREADY_RUNNING);
+                if (r != -ESRCH)
+                        return synthetic_reply_method_errno(m, r, NULL);
+
+                r = sd_bus_message_new_method_call(
+                                a,
+                                &msg,
+                                name,
+                                "/",
+                                "org.freedesktop.DBus.Peer",
+                                "Ping");
+                if (r < 0)
+                        return synthetic_reply_method_errno(m, r, NULL);
+
+                r = sd_bus_send(a, msg, NULL);
+                if (r < 0)
+                        return synthetic_reply_method_errno(m, r, NULL);
+
+                return synthetic_reply_method_return(m, "u", BUS_START_REPLY_SUCCESS);
+
+        } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "UpdateActivationEnvironment")) {
+                _cleanup_bus_message_unref_ sd_bus_message *msg = NULL;
+                _cleanup_strv_free_ char **args = NULL;
+
+                if (!peer_is_privileged(a, m))
+                        return synthetic_reply_method_errno(m, -EPERM, NULL);
+
+                r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "{ss}");
+                if (r < 0)
+                        return synthetic_reply_method_errno(m, r, NULL);
+
+                while ((r = sd_bus_message_enter_container(m, SD_BUS_TYPE_DICT_ENTRY, "ss")) > 0) {
+                        _cleanup_free_ char *s = NULL;
+                        const char *key;
+                        const char *value;
+
+                        r = sd_bus_message_read(m, "ss", &key, &value);
+                        if (r < 0)
+                                return synthetic_reply_method_errno(m, r, NULL);
+
+                        s = strjoin(key, "=", value, NULL);
+                        if (!s)
+                                return synthetic_reply_method_errno(m, -ENOMEM, NULL);
+
+                        r  = strv_extend(&args, s);
+                        if (r < 0)
+                                return synthetic_reply_method_errno(m, r, NULL);
+
+                        r = sd_bus_message_exit_container(m);
+                        if (r < 0)
+                                return synthetic_reply_method_errno(m, r, NULL);
+                }
+
+                r = sd_bus_message_exit_container(m);
+                if (r < 0)
+                        return synthetic_reply_method_errno(m, r, NULL);
+
+                if (!args)
+                        return synthetic_reply_method_errno(m, -EINVAL, NULL);
+
+                r = sd_bus_message_new_method_call(
+                                a,
+                                &msg,
+                                "org.freedesktop.systemd1",
+                                "/org/freedesktop/systemd1",
+                                "org.freedesktop.systemd1.Manager",
+                                "SetEnvironment");
+                if (r < 0)
+                        return synthetic_reply_method_errno(m, r, NULL);
+
+                r = sd_bus_message_append_strv(msg, args);
+                if (r < 0)
+                        return synthetic_reply_method_errno(m, r, NULL);
+
+                r = sd_bus_call(a, msg, 0, NULL, NULL);
+                if (r < 0)
+                        return synthetic_reply_method_errno(m, r, NULL);
+
+               return synthetic_reply_method_return(m, NULL);
+
+        } else {
+                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+
+                r = sd_bus_error_setf(&error, SD_BUS_ERROR_UNKNOWN_METHOD, "Unknown method '%s'.", m->member);
+
+                return synthetic_reply_method_errno(m, r, &error);
+        }
 }
 
 static int process_hello(sd_bus *a, sd_bus *b, sd_bus_message *m, bool *got_hello) {
