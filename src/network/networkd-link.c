@@ -144,7 +144,7 @@ static int link_enter_configured(Link *link) {
 static void link_enter_unmanaged(Link *link) {
         assert(link);
 
-        log_info_link(link, "unmanaged");
+        log_debug_link(link, "unmanaged");
 
         link->state = LINK_STATE_UNMANAGED;
 
@@ -1145,9 +1145,9 @@ static int link_update_flags(Link *link, sd_rtnl_message *m) {
                           IFF_NOARP | IFF_MASTER | IFF_SLAVE);
 
         if (flags_added & IFF_UP)
-                log_info_link(link, "link is up");
+                log_debug_link(link, "link is up");
         else if (flags_removed & IFF_UP)
-                log_info_link(link, "link is down");
+                log_debug_link(link, "link is down");
 
         if (flags_added & IFF_LOWER_UP)
                 log_debug_link(link, "link is lower up");
@@ -1566,7 +1566,7 @@ int link_add(Manager *m, sd_rtnl_message *message, Link **ret) {
 
         link = *ret;
 
-        log_info_link(link, "link added");
+        log_debug_link(link, "link added");
 
         if (detect_container(NULL) <= 0) {
                 /* not in a container, udev will be around */
