@@ -1242,14 +1242,15 @@ static int link_up_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
                 return 1;
 
         r = sd_rtnl_message_get_errno(m);
-        if (r >= 0)
-                link_update_flags(link, link->flags | IFF_UP);
-        else
+        if (r < 0) {
                 log_struct_link(LOG_WARNING, link,
                                 "MESSAGE=%s: could not bring up interface: %s",
                                 link->ifname, strerror(-r),
                                 "ERRNO=%d", -r,
                                 NULL);
+                link_enter_failed(link);
+        }
+
         return 1;
 }
 
@@ -1446,6 +1447,7 @@ static int link_configure(Link *link) {
 
         if (link->network->ipv4ll) {
                 uint8_t seed[8];
+
                 r = sd_ipv4ll_new(&link->ipv4ll);
                 if (r < 0)
                         return r;
