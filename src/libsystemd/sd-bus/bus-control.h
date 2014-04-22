@@ -26,5 +26,5 @@
 int bus_add_match_internal(sd_bus *bus, const char *match, struct bus_match_component *components, unsigned n_components, uint64_t cookie);
 int bus_remove_match_internal(sd_bus *bus, const char *match, uint64_t cookie);
 
-int bus_add_match_internal_kernel(sd_bus *bus, uint64_t id, struct bus_match_component *components, unsigned n_components, uint64_t cookie);
-int bus_remove_match_internal_kernel(sd_bus *bus, uint64_t id, uint64_t cookie);
+int bus_add_match_internal_kernel(sd_bus *bus, struct bus_match_component *components, unsigned n_components, uint64_t cookie);
+int bus_remove_match_internal_kernel(sd_bus *bus, uint64_t cookie);

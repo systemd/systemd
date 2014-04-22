@@ -925,7 +925,6 @@ static int add_name_change_match(sd_bus *bus,
 
 int bus_add_match_internal_kernel(
                 sd_bus *bus,
-                uint64_t id,
                 struct bus_match_component *components,
                 unsigned n_components,
                 uint64_t cookie) {
@@ -1063,7 +1062,6 @@ int bus_add_match_internal_kernel(
         m = alloca0(sz);
         m->size = sz;
         m->cookie = cookie;
-        m->owner_id = id;
 
         item = m->items;
 
@@ -1145,14 +1143,13 @@ int bus_add_match_internal(
         assert(match);
 
         if (bus->is_kernel)
-                return bus_add_match_internal_kernel(bus, 0, components, n_components, cookie);
+                return bus_add_match_internal_kernel(bus, components, n_components, cookie);
         else
                 return bus_add_match_internal_dbus1(bus, match);
 }
 
 int bus_remove_match_internal_kernel(
                 sd_bus *bus,
-                uint64_t id,
                 uint64_t cookie) {
 
         struct kdbus_cmd_match m;
@@ -1163,7 +1160,6 @@ int bus_remove_match_internal_kernel(
         zero(m);
         m.size = offsetof(struct kdbus_cmd_match, items);
         m.cookie = cookie;
-        m.owner_id = id;
 
         r = ioctl(bus->input_fd, KDBUS_CMD_MATCH_REMOVE, &m);
         if (r < 0)
@@ -1204,7 +1200,7 @@ int bus_remove_match_internal(
         assert(match);
 
         if (bus->is_kernel)
-                return bus_remove_match_internal_kernel(bus, 0, cookie);
+                return bus_remove_match_internal_kernel(bus, cookie);
         else
                 return bus_remove_match_internal_dbus1(bus, match);
 }

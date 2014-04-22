@@ -716,8 +716,6 @@ struct kdbus_cmd_update {
 /**
  * struct kdbus_cmd_match - struct to add or remove matches
  * @size:		The total size of the struct
- * @owner_id:		Privileged users may (de)register matches on behalf
- *			of other peers
  * @cookie:		Userspace supplied cookie. When removing, the cookie
  *			identifies the match to remove
  * @items:		A list of items for additional information
@@ -727,7 +725,6 @@ struct kdbus_cmd_update {
  */
 struct kdbus_cmd_match {
 	__u64 size;
-	__u64 owner_id;
 	__u64 cookie;
 	struct kdbus_item items[0];
 } __attribute__((aligned(8)));
@@ -922,7 +919,7 @@ enum kdbus_ioctl_type {
  *			size.
  * @ENOBUFS:		There is no space left for the submitted data to fit
  *			into the receiver's pool.
- * @ENOENT:		The to be canceled message was not found.
+ * @ENOENT:		The to be cancelled message was not found.
  * @ENOMEM:		Out of memory.
  * @ENOMSG:		The queue is not empty, but no message with a matching
  *			priority is currently queued.
