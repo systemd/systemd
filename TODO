@@ -32,6 +32,8 @@ External:
 
 Features:
 
+* Add timeout to early-boot, and shut down the system if it is hit. Solves the laptop-in-bag problem and is useful for embedded cases
+
 * sd-resolve: add callback api
 
 * ImmutableSystem=yes/no or so to mount /usr, /boot read-only/invisible, and leave /var and /etc writable
@@ -169,6 +171,7 @@ Features:
   ReadOnlyDirectories=... for whitelisting files for a service.
 
 * sd-bus:
+  - make AddMatch calls on dbus1 transports async
   - when kdbus doesn't take our message without memfds, try again with memfds
   - systemd-bus-proxyd needs to enforce good old XML policy
   - port exit-on-idle logic to byebye ioctl
