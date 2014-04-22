@@ -151,12 +151,47 @@ static void link_enter_unmanaged(Link *link) {
         link_save(link);
 }
 
+static int link_stop_clients(Link *link) {
+        int r = 0, k;
+
+        assert(link);
+        assert(link->manager);
+        assert(link->manager->event);
+
+        if (!link->network)
+                return 0;
+
+        if (link->network->dhcp) {
+                assert(link->dhcp_client);
+
+                k = sd_dhcp_client_stop(link->dhcp_client);
+                if (k < 0) {
+                        log_warning_link(link, "Could not stop DHCPv4 client: %s", strerror(-r));
+                        r = k;
+                }
+        }
+
+        if (link->network->ipv4ll) {
+                assert(link->ipv4ll);
+
+                k = sd_ipv4ll_stop(link->ipv4ll);
+                if (k < 0) {
+                        log_warning_link(link, "Could not stop IPv4 link-local: %s", strerror(-r));
+                        r = k;
+                }
+        }
+
+        return r;
+}
+
 static void link_enter_failed(Link *link) {
         assert(link);
 
         log_warning_link(link, "failed");
 
         link->state = LINK_STATE_FAILED;
+
+        link_stop_clients(link);
 
         link_save(link);
 }
