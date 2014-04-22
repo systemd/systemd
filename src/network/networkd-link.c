@@ -187,6 +187,9 @@ static int link_stop_clients(Link *link) {
 static void link_enter_failed(Link *link) {
         assert(link);
 
+        if (link->state == LINK_STATE_FAILED)
+                return;
+
         log_warning_link(link, "failed");
 
         link->state = LINK_STATE_FAILED;
