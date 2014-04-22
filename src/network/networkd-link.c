@@ -1075,8 +1075,11 @@ static int link_acquire_conf(Link *link) {
                 log_debug_link(link, "acquiring IPv4 link-local address");
 
                 r = sd_ipv4ll_start(link->ipv4ll);
-                if (r < 0)
+                if (r < 0) {
+                        log_warning_link(link, "could not acquire IPv4 "
+                                         "link-local address");
                         return r;
+                }
         }
 
         if (link->network->dhcp) {
@@ -1085,8 +1088,11 @@ static int link_acquire_conf(Link *link) {
                 log_debug_link(link, "acquiring DHCPv4 lease");
 
                 r = sd_dhcp_client_start(link->dhcp_client);
-                if (r < 0)
+                if (r < 0) {
+                        log_warning_link(link, "could not acquire DHCPv4 "
+                                         "lease");
                         return r;
+                }
         }
 
         return 0;
