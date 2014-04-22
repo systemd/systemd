@@ -1509,9 +1509,11 @@ static int link_configure(Link *link) {
         }
 
         if (link_has_carrier(link->flags, link->operstate))
+        {
                 r = link_acquire_conf(link);
                 if (r < 0)
                         return r;
+        }
 
         return link_enter_enslave(link);
 }
