@@ -972,6 +972,10 @@ void session_mute_vt(Session *s) {
         if (vt < 0)
                 return;
 
+        r = fchown(vt, s->user->uid, -1);
+        if (r < 0)
+                goto error;
+
         r = ioctl(vt, KDSKBMODE, K_OFF);
         if (r < 0)
                 goto error;
@@ -1025,6 +1029,8 @@ void session_restore_vt(Session *s) {
 
         mode.mode = VT_AUTO;
         ioctl(vt, VT_SETMODE, &mode);
+
+        fchown(vt, 0, -1);
 
         s->vtfd = safe_close(s->vtfd);
 }
