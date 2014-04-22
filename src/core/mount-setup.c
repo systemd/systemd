@@ -67,9 +67,9 @@ typedef struct MountPoint {
 #define N_EARLY_MOUNT 5
 
 static const MountPoint mount_table[] = {
-        { "proc",       "/proc",                     "proc",       NULL, MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          NULL,       MNT_FATAL|MNT_IN_CONTAINER },
         { "sysfs",      "/sys",                      "sysfs",      NULL, MS_NOSUID|MS_NOEXEC|MS_NODEV,
+          NULL,       MNT_FATAL|MNT_IN_CONTAINER },
+        { "proc",       "/proc",                     "proc",       NULL, MS_NOSUID|MS_NOEXEC|MS_NODEV,
           NULL,       MNT_FATAL|MNT_IN_CONTAINER },
         { "devtmpfs",   "/dev",                      "devtmpfs",   "mode=755", MS_NOSUID|MS_STRICTATIME,
           NULL,       MNT_FATAL|MNT_IN_CONTAINER },
