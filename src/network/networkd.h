@@ -206,6 +206,7 @@ struct Link {
         struct udev_device *udev_device;
 
         unsigned flags;
+        uint8_t operstate;
 
         Network *network;
 

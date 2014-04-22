@@ -1098,9 +1098,24 @@ static int link_acquire_conf(Link *link) {
         return 0;
 }
 
-static int link_update_flags(Link *link, unsigned flags) {
-        unsigned flags_added, flags_removed, generic_flags;
-        bool carrier_gained, carrier_lost;
+static bool link_has_carrier(unsigned flags, uint8_t operstate) {
+        /* see Documentation/networking/operstates.txt in the kernel sources */
+
+        if (operstate == IF_OPER_UP)
+                return true;
+
+        if (operstate == IF_OPER_UNKNOWN)
+                /* operstate may not be implemented, so fall back to flags */
+                if ((flags & IFF_LOWER_UP) && !(flags & IFF_DORMANT))
+                        return true;
+
+        return false;
+}
+
+static int link_update_flags(Link *link, sd_rtnl_message *m) {
+        unsigned flags, flags_added, flags_removed, generic_flags;
+        uint8_t operstate;
+        bool carrier_gained = false, carrier_lost = false;
         int r;
 
         assert(link);
@@ -1108,7 +1123,19 @@ static int link_update_flags(Link *link, unsigned flags) {
         if (link->state == LINK_STATE_FAILED)
                 return 0;
 
-        if (link->flags == flags)
+        r = sd_rtnl_message_link_get_flags(m, &flags);
+        if (r < 0) {
+                log_warning_link(link, "Could not get link flags");
+                return r;
+        }
+
+        r = sd_rtnl_message_read_u8(m, IFLA_OPERSTATE, &operstate);
+        if (r < 0)
+                /* if we got a message without operstate, take it to mean
+                   the state was unchanged */
+                operstate = link->operstate;
+
+        if ((link->flags == flags) && (link->operstate == operstate))
                 return 0;
 
         flags_added = (link->flags ^ flags) & flags;
@@ -1116,26 +1143,6 @@ static int link_update_flags(Link *link, unsigned flags) {
         generic_flags = ~(IFF_UP | IFF_LOWER_UP | IFF_DORMANT | IFF_DEBUG |
                           IFF_MULTICAST | IFF_BROADCAST | IFF_PROMISC |
                           IFF_NOARP | IFF_MASTER | IFF_SLAVE);
-
-        /* consider link to have carrier when LOWER_UP and !DORMANT
-
-           TODO: use proper operstates once we start supporting 802.1X
-
-           see Documentation/networking/operstates.txt in the kernel sources
-         */
-        carrier_gained = (((flags_added & IFF_LOWER_UP) && !(flags & IFF_DORMANT)) ||
-                          ((flags_removed & IFF_DORMANT) && (flags & IFF_LOWER_UP)));
-        carrier_lost = ((link->flags & IFF_LOWER_UP) && !(link->flags & IFF_DORMANT)) &&
-                       ((flags_removed & IFF_LOWER_UP) || (flags_added & IFF_DORMANT));
-
-        link->flags = flags;
-
-        if (!link->network)
-                /* not currently managing this link
-                   we track state changes, but don't log them
-                   they will be logged if and when a network is
-                   applied */
-                return 0;
 
         if (flags_added & IFF_UP)
                 log_info_link(link, "link is up");
@@ -1196,13 +1203,20 @@ static int link_update_flags(Link *link, unsigned flags) {
                 log_debug_link(link, "unknown link flags lost: %#.5x (ignoring)",
                                flags_removed & generic_flags);
 
+        carrier_gained = !link_has_carrier(link->flags, link->operstate) &&
+                       link_has_carrier(flags, operstate);
+        carrier_lost = link_has_carrier(link->flags, link->operstate) &&
+                         !link_has_carrier(flags, operstate);
+
+        link->flags = flags;
+        link->operstate = operstate;
+
         if (carrier_gained) {
                 log_info_link(link, "gained carrier");
 
-                if (link->network->dhcp || link->network->ipv4ll) {
+                if (link->network) {
                         r = link_acquire_conf(link);
                         if (r < 0) {
-                                log_warning_link(link, "Could not acquire configuration: %s", strerror(-r));
                                 link_enter_failed(link);
                                 return r;
                         }
@@ -1210,22 +1224,10 @@ static int link_update_flags(Link *link, unsigned flags) {
         } else if (carrier_lost) {
                 log_info_link(link, "lost carrier");
 
-                if (link->network->dhcp) {
-                        r = sd_dhcp_client_stop(link->dhcp_client);
-                        if (r < 0) {
-                                log_warning_link(link, "Could not stop DHCPv4 client: %s", strerror(-r));
-                                link_enter_failed(link);
-                                return r;
-                        }
-                }
-
-                if (link->network->ipv4ll) {
-                        r = sd_ipv4ll_stop(link->ipv4ll);
-                        if (r < 0) {
-                                log_warning_link(link, "Could not stop IPv4 link-local: %s", strerror(-r));
-                                link_enter_failed(link);
-                                return r;
-                        }
+                r = link_stop_clients(link);
+                if (r < 0) {
+                        link_enter_failed(link);
+                        return r;
                 }
         }
 
@@ -1506,12 +1508,16 @@ static int link_configure(Link *link) {
                 }
         }
 
+        if (link_has_carrier(link->flags, link->operstate))
+                r = link_acquire_conf(link);
+                if (r < 0)
+                        return r;
+
         return link_enter_enslave(link);
 }
 
 int link_initialized(Link *link, struct udev_device *device) {
         Network *network;
-        unsigned flags;
         int r;
 
         assert(link);
@@ -1538,13 +1544,6 @@ int link_initialized(Link *link, struct udev_device *device) {
                 return r;
 
         r = link_configure(link);
-        if (r < 0)
-                return r;
-
-        /* re-trigger all state updates */
-        flags = link->flags;
-        link->flags = 0;
-        r = link_update_flags(link, flags);
         if (r < 0)
                 return r;
 
@@ -1591,7 +1590,6 @@ int link_add(Manager *m, sd_rtnl_message *message, Link **ret) {
 }
 
 int link_update(Link *link, sd_rtnl_message *m) {
-        unsigned flags;
         struct ether_addr mac;
         char *ifname;
         int r;
@@ -1659,13 +1657,7 @@ int link_update(Link *link, sd_rtnl_message *m) {
                 }
         }
 
-        r = sd_rtnl_message_link_get_flags(m, &flags);
-        if (r < 0) {
-                log_warning_link(link, "Could not get link flags");
-                return r;
-        }
-
-        return link_update_flags(link, flags);
+        return link_update_flags(link, m);
 }
 
 int link_save(Link *link) {
