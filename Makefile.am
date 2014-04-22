@@ -3862,40 +3862,12 @@ EXTRA_DIST += \
 
 # ------------------------------------------------------------------------------
 if ENABLE_KDBUS
-systemd_bus_driverd_SOURCES = \
-	src/bus-driverd/bus-driverd.c
-
-systemd_bus_driverd_LDADD = \
-	libsystemd-internal.la \
-	libsystemd-shared.la
-
-rootlibexec_PROGRAMS += \
-	systemd-bus-driverd
-
-nodist_systemunit_DATA += \
-	units/systemd-bus-driverd.service
-
 dist_systemunit_DATA += \
-	units/org.freedesktop.DBus.busname \
 	units/org.freedesktop.systemd1.busname
 
 BUSNAMES_TARGET_WANTS += \
-	org.freedesktop.DBus.busname \
 	org.freedesktop.systemd1.busname
-
-nodist_userunit_DATA += \
-	units/user/systemd-bus-driverd.service
-
-USER_BUSNAMES_TARGET_WANTS += \
-	org.freedesktop.DBus.busname
-
-USER_UNIT_ALIASES += \
-	$(systemunitdir)/org.freedesktop.DBus.busname org.freedesktop.DBus.busname
 endif
-
-EXTRA_DIST += \
-	units/systemd-bus-driverd.service.in \
-	units/user/systemd-bus-driverd.service.in
 
 # ------------------------------------------------------------------------------
 if ENABLE_LOCALED
