@@ -326,3 +326,17 @@ int net_parse_inaddr(const char *address, unsigned char *family, void *dst) {
 
         return 0;
 }
+
+bool link_has_carrier(unsigned flags, uint8_t operstate) {
+        /* see Documentation/networking/operstates.txt in the kernel sources */
+
+        if (operstate == IF_OPER_UP)
+                return true;
+
+        if (operstate == IF_OPER_UNKNOWN)
+                /* operstate may not be implemented, so fall back to flags */
+                if ((flags & IFF_LOWER_UP) && !(flags & IFF_DORMANT))
+                        return true;
+
+        return false;
+}

@@ -1,0 +1,81 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2014 Tom Gundersen
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="systemd-networkd-wait-online.service" conditional='ENABLE_NETWORKD'>
+
+        <refentryinfo>
+                <title>systemd-networkd.service</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Tom</firstname>
+                                <surname>Gundersen</surname>
+                                <email>teg@jklm.no</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>systemd-networkd-wait-online.service</refentrytitle>
+                <manvolnum>8</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>systemd-networkd-wait-online.service</refname>
+                <refname>systemd-networkd-wait-online</refname>
+                <refpurpose>Wait for network to become online</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <para><filename>systemd-networkd-wait-online.service</filename></para>
+                <para><filename>/usr/lib/systemd/systemd-networkd-wait-online</filename></para>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para><command>systemd-networkd-wait-online</command> is a
+                one-shot system service that waits for the network to be configured.
+                It will wait for all links managed by
+                <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                to be fully configured. It will wait for at least one link managed by
+                systemd-networkd to appear, or for a link to be brought up by someone else.
+
+                To wait for a specific set of links, see
+                <citerefentry><refentrytitle>systemd-networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+                This may be necessary on systems with more than one active link.
+                </para>
+        </refsect1>
+
+        <refsect1>
+                <title>See Also</title>
+                <para>
+                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd-networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                </para>
+        </refsect1>
+
+</refentry>

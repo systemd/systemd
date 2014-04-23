@@ -1,0 +1,95 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<?xml-stylesheet type="text/xsl" href="http://docbook.sourceforge.net/release/xsl/current/xhtml/docbook.xsl"?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2014 Tom Gundersen
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="networkd-wait-online.conf" conditional='ENABLE_NETWORKD'>
+        <refentryinfo>
+                <title>networkd-wait-online.conf</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Tom</firstname>
+                                <surname>Gundersen</surname>
+                                <email>teg@jklm.no</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>networkd-wait-online.conf</refentrytitle>
+                <manvolnum>5</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>networkd-wait-online.conf</refname>
+                <refpurpose>Network manager configuration file</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <para><filename>/etc/systemd/networkd-wait-online.conf</filename></para>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para>This file configures various parameters of the systemd network manager's wait-online service, <citerefentry><refentrytitle>systemd-networkd-wait-online.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+        </refsect1>
+
+        <refsect1>
+                <title>Options</title>
+
+                <para>All options are configured in the
+                <literal>[WaitOnline]</literal> section:</para>
+
+                <variablelist>
+
+                        <varlistentry>
+                                <term><varname>After=</varname></term>
+
+                                <listitem><para>Takes a white-space
+                                separated list of network interface
+                                names. Configures which network interfaces
+                                to wait for before deciding if the machine
+                                is considered to be online. The default is
+                                to wait for at least one that is managed by
+                                <citerefentry><refentrytitle>systemd-networkd.service
+                                </refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                                or one other which is brought up by someone else.
+                                </para></listitem>
+                        </varlistentry>
+
+                </variablelist>
+        </refsect1>
+
+        <refsect1>
+                  <title>See Also</title>
+                  <para>
+                          <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                  </para>
+        </refsect1>
+
+</refentry>

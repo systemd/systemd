@@ -30,6 +30,7 @@
 #include "bus-util.h"
 #include "network-internal.h"
 
+#include "network-util.h"
 #include "dhcp-lease-internal.h"
 
 static int ipv4ll_address_update(Link *link, bool deprecate);
@@ -1096,20 +1097,6 @@ static int link_acquire_conf(Link *link) {
         }
 
         return 0;
-}
-
-static bool link_has_carrier(unsigned flags, uint8_t operstate) {
-        /* see Documentation/networking/operstates.txt in the kernel sources */
-
-        if (operstate == IF_OPER_UP)
-                return true;
-
-        if (operstate == IF_OPER_UNKNOWN)
-                /* operstate may not be implemented, so fall back to flags */
-                if ((flags & IFF_LOWER_UP) && !(flags & IFF_DORMANT))
-                        return true;
-
-        return false;
 }
 
 static int link_update_flags(Link *link, sd_rtnl_message *m) {

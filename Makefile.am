@@ -4134,6 +4134,7 @@ noinst_LTLIBRARIES += \
 	libsystemd-networkd-core.la
 
 libsystemd_networkd_core_la_SOURCES = \
+	src/libsystemd-network/network-internal.h \
 	src/network/networkd.h \
 	src/network/networkd-link.c \
 	src/network/networkd-netdev.c \
@@ -4154,16 +4155,23 @@ libsystemd_networkd_core_la_LIBADD = \
 	libsystemd-shared.la
 
 nodist_systemunit_DATA += \
-	units/systemd-networkd.service
+	units/systemd-networkd.service \
+	units/systemd-networkd-wait-online.service
 
 GENERAL_ALIASES += \
-	$(systemunitdir)/systemd-networkd.service $(pkgsysconfdir)/system/multi-user.target.wants/systemd-networkd.service
+	$(systemunitdir)/systemd-networkd.service $(pkgsysconfdir)/system/multi-user.target.wants/systemd-networkd.service \
+	$(systemunitdir)/systemd-networkd.service $(pkgsysconfdir)/system/network-online.target.wants/systemd-networkd-wait-online.service
 
 rootlibexec_PROGRAMS += \
 	systemd-networkd-wait-online
 
 systemd_networkd_wait_online_SOURCES = \
-	src/network/networkd-wait-online.c
+	src/libsystemd-network/network-internal.h \
+	src/network/networkd-wait-online.c \
+	src/network/networkd-wait-online.h
+
+nodist_systemd_networkd_wait_online_SOURCES = \
+	src/network/networkd-wait-online-gperf.c
 
 systemd_networkd_wait_online_LDADD = \
 	libsystemd-internal.la \
@@ -4178,14 +4186,19 @@ test_network_LDADD = \
 tests += \
 	test-network
 
+dist_pkgsysconf_DATA += \
+	src/network/networkd-wait-online.conf
+
 EXTRA_DIST += \
 	src/network/networkd-network-gperf.gperf \
 	src/network/networkd-netdev-gperf.gperf \
+	src/network/networkd-wait-online-gperf.gperf \
 	units/systemd-networkd.service.in
 
 CLEANFILES += \
 	src/network/networkd-network-gperf.c \
-	src/network/networkd-netdev-gperf.c
+	src/network/networkd-netdev-gperf.c \
+	src/network/networkd-wait-online-gperf.c
 endif
 
 # ------------------------------------------------------------------------------
