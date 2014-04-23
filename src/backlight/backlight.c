@@ -205,14 +205,18 @@ static unsigned get_max_brightness(struct udev_device *device) {
 
         max_brightness_str = udev_device_get_sysattr_value(device, "max_brightness");
         if (!max_brightness_str) {
-                log_warning("Failed to read 'max_brightness' attribute");
+                log_warning("Failed to read 'max_brightness' attribute.");
                 return 0;
         }
 
         r = safe_atou(max_brightness_str, &max_brightness);
         if (r < 0) {
-                log_warning("Failed to parse 'max_brightness' \"%s\": %s",
-                            max_brightness_str, strerror(-r));
+                log_warning("Failed to parse 'max_brightness' \"%s\": %s", max_brightness_str, strerror(-r));
+                return 0;
+        }
+
+        if (max_brightness <= 0) {
+                log_warning("Maximum brightness is 0, ignoring device.");
                 return 0;
         }
 
