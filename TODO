@@ -32,6 +32,14 @@ External:
 
 Features:
 
+* drop parsing of chkconfig header lines from service.c
+
+* mount_cgroup_controllers(): symlinks need to get the label applied
+
+* For timer units: add some mechanisms so that timer units that trigger immediately on boot don't have the services they run added to the initial transaction and thus confuse Type=idle. Alternatively, split up the boot-up state into two, and make Type=idle only be affected by jobs for the default target, but ignore any further jobs
+
+* Add RPM macros for registering/unregistering binfmt drop-ins
+
 * Add timeout to early-boot, and shut down the system if it is hit. Solves the laptop-in-bag problem and is useful for embedded cases
 
 * sd-resolve: add callback api
