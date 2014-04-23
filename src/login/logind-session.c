@@ -963,7 +963,7 @@ static int session_vt_fn(sd_event_source *source, const struct signalfd_siginfo 
         return 0;
 }
 
-void session_mute_vt(Session *s) {
+void session_prepare_vt(Session *s) {
         int vt, r;
         struct vt_mode mode = { 0 };
         sigset_t mask;
@@ -1095,7 +1095,7 @@ int session_set_controller(Session *s, const char *sender, bool force) {
          * exits.
          * If logind crashes/restarts, we restore the controller during restart
          * or reset the VT in case it crashed/exited, too. */
-        session_mute_vt(s);
+        session_prepare_vt(s);
 
         return 0;
 }
