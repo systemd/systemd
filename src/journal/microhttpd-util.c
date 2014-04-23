@@ -129,7 +129,7 @@ void log_func_gnutls(int level, const char *message) {
         if (0 <= level && level < (int) ELEMENTSOF(log_level_map))
                 ourlevel = log_level_map[level];
         else
-                level = LOG_DEBUG;
+                ourlevel = LOG_DEBUG;
 
         log_meta(ourlevel, NULL, 0, NULL, "gnutls: %s", message);
 }
