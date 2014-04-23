@@ -121,13 +121,13 @@ static int show_sysfs_one(
                 if (!k)
                         return -ENOMEM;
 
-                printf("%s%s%s\n", prefix, lookahead ? draw_special_char(DRAW_TREE_VERT) : "  ", k);
+                printf("%s%s%s\n", prefix, lookahead ? draw_special_char(DRAW_TREE_VERTICAL) : "  ", k);
 
                 *item = next;
                 if (*item) {
                         _cleanup_free_ char *p = NULL;
 
-                        p = strappend(prefix, lookahead ? draw_special_char(DRAW_TREE_VERT) : "  ");
+                        p = strappend(prefix, lookahead ? draw_special_char(DRAW_TREE_VERTICAL) : "  ");
                         if (!p)
                                 return -ENOMEM;
 
