@@ -100,6 +100,16 @@ struct unit_times {
         usec_t time;
 };
 
+struct host_info {
+        char *hostname;
+        char *kernel_name;
+        char *kernel_release;
+        char *kernel_version;
+        char *os_pretty_name;
+        char *virtualization;
+        char *architecture;
+};
+
 static void pager_open_if_enabled(void) {
 
         if (arg_no_pager)
@@ -168,21 +178,6 @@ static int compare_unit_time(const void *a, const void *b) {
 static int compare_unit_start(const void *a, const void *b) {
         return compare(((struct unit_times *)a)->activating,
                        ((struct unit_times *)b)->activating);
-}
-
-static int get_os_name(char **_n) {
-        char *n = NULL;
-        int r;
-
-        r = parse_env_file("/etc/os-release", NEWLINE, "PRETTY_NAME", &n, NULL);
-        if (r < 0)
-                return r;
-
-        if (!n)
-                return -ENOENT;
-
-        *_n = n;
-        return 0;
 }
 
 static void free_unit_times(struct unit_times *t, unsigned n) {
@@ -372,6 +367,63 @@ finish:
         return 0;
 }
 
+static void free_host_info(struct host_info *hi) {
+        free(hi->hostname);
+        free(hi->kernel_name);
+        free(hi->kernel_release);
+        free(hi->kernel_version);
+        free(hi->os_pretty_name);
+        free(hi->virtualization);
+        free(hi->architecture);
+        free(hi);
+}
+
+static int acquire_host_info(sd_bus *bus, struct host_info **hi) {
+        int r;
+        struct host_info *host;
+
+        static const struct bus_properties_map hostname_map[] = {
+                { "Hostname", "s", NULL, offsetof(struct host_info, hostname) },
+                { "KernelName", "s", NULL, offsetof(struct host_info, kernel_name) },
+                { "KernelRelease", "s", NULL, offsetof(struct host_info, kernel_release) },
+                { "KernelVersion", "s", NULL, offsetof(struct host_info, kernel_version) },
+                { "OperatingSystemPrettyName", "s", NULL, offsetof(struct host_info, os_pretty_name) },
+                {}
+        };
+
+        static const struct bus_properties_map manager_map[] = {
+                { "Virtualization", "s", NULL, offsetof(struct host_info, virtualization) },
+                { "Architecture",   "s", NULL, offsetof(struct host_info, architecture) },
+                {}
+        };
+
+        host = new0(struct host_info, 1);
+        if (!host)
+                return log_oom();
+
+        r = bus_map_all_properties(bus,
+                                   "org.freedesktop.hostname1",
+                                   "/org/freedesktop/hostname1",
+                                   hostname_map,
+                                   host);
+        if (r < 0)
+                goto fail;
+
+        r = bus_map_all_properties(bus,
+                                   "org.freedesktop.systemd1",
+                                   "/org/freedesktop/systemd1",
+                                   manager_map,
+                                   host);
+        if (r < 0)
+                goto fail;
+
+        *hi = host;
+        return 0;
+fail:
+        free_host_info(host);
+        return r;
+}
+
 static int pretty_boot_time(sd_bus *bus, char **_buf) {
         char ts[FORMAT_TIMESPAN_MAX];
         struct boot_times *t;
@@ -437,10 +489,10 @@ static void svg_graph_box(double height, double begin, double end) {
 static int analyze_plot(sd_bus *bus) {
         struct unit_times *times;
         struct boot_times *boot;
-        struct utsname name;
+        struct host_info *host = NULL;
         int n, m = 1, y=0;
         double width;
-        _cleanup_free_ char *pretty_times = NULL, *osname = NULL;
+        _cleanup_free_ char *pretty_times = NULL;
         struct unit_times *u;
 
         n = acquire_boot_times(bus, &boot);
@@ -451,12 +503,13 @@ static int analyze_plot(sd_bus *bus) {
         if (n < 0)
                 return n;
 
-        get_os_name(&osname);
-        assert_se(uname(&name) >= 0);
+        n = acquire_host_info(bus, &host);
+        if (n < 0)
+                return n;
 
         n = acquire_time_data(bus, &times);
         if (n <= 0)
-                return n;
+                goto out;
 
         qsort(times, n, sizeof(struct unit_times), compare_unit_start);
 
@@ -551,9 +604,14 @@ static int analyze_plot(sd_bus *bus) {
 
         svg("<rect class=\"background\" width=\"100%%\" height=\"100%%\" />\n");
         svg("<text x=\"20\" y=\"50\">%s</text>", pretty_times);
-        svg("<text x=\"20\" y=\"30\">%s %s (%s %s) %s</text>",
-            isempty(osname) ? "Linux" : osname,
-            name.nodename, name.release, name.version, name.machine);
+        svg("<text x=\"20\" y=\"30\">%s %s (%s %s %s) %s %s</text>",
+            isempty(host->os_pretty_name) ? "Linux" : host->os_pretty_name,
+            isempty(host->hostname) ? "" : host->hostname,
+            isempty(host->kernel_name) ? "" : host->kernel_name,
+            isempty(host->kernel_release) ? "" : host->kernel_release,
+            isempty(host->kernel_version) ? "" : host->kernel_version,
+            isempty(host->architecture) ? "" : host->architecture,
+            isempty(host->virtualization) ? "" : host->virtualization);
 
         svg("<g transform=\"translate(%.3f,100)\">\n", 20.0 + (SCALE_X * boot->firmware_time));
         svg_graph_box(m, -(double) boot->firmware_time, boot->finish_time);
@@ -636,7 +694,10 @@ static int analyze_plot(sd_bus *bus) {
 
         free_unit_times(times, (unsigned) n);
 
-        return 0;
+        n = 0;
+out:
+        free_host_info(host);
+        return n;
 }
 
 static int list_dependencies_print(const char *name, unsigned int level, unsigned int branches,
