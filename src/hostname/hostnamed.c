@@ -23,6 +23,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <dlfcn.h>
+#include <sys/utsname.h>
 
 #include "util.h"
 #include "strv.h"
@@ -40,6 +41,8 @@ enum {
         PROP_PRETTY_HOSTNAME,
         PROP_ICON_NAME,
         PROP_CHASSIS,
+        PROP_KERNEL_NAME,
+        PROP_KERNEL_RELEASE,
         PROP_OS_PRETTY_NAME,
         PROP_OS_CPE_NAME,
         _PROP_MAX
@@ -70,10 +73,17 @@ static void context_free(Context *c, sd_bus *bus) {
 
 static int context_read_data(Context *c) {
         int r;
+        struct utsname u;
 
         assert(c);
 
         context_reset(c);
+
+        assert_se(uname(&u) >= 0);
+        c->data[PROP_KERNEL_NAME] = strdup(u.sysname);
+        c->data[PROP_KERNEL_RELEASE] = strdup(u.release);
+        if (!c->data[PROP_KERNEL_NAME] || !c->data[PROP_KERNEL_RELEASE])
+                return -ENOMEM;
 
         c->data[PROP_HOSTNAME] = gethostname_malloc();
         if (!c->data[PROP_HOSTNAME])
@@ -555,6 +565,8 @@ static const sd_bus_vtable hostname_vtable[] = {
         SD_BUS_PROPERTY("PrettyHostname", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_PRETTY_HOSTNAME, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("IconName", "s", property_get_icon_name, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Chassis", "s", property_get_chassis, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("KernelName", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_KERNEL_NAME, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("KernelRelease", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_KERNEL_RELEASE, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("OperatingSystemPrettyName", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_OS_PRETTY_NAME, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("OperatingSystemCPEName", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_OS_CPE_NAME, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_METHOD("SetHostname", "sb", NULL, method_set_hostname, SD_BUS_VTABLE_UNPRIVILEGED),
