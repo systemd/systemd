@@ -2377,9 +2377,7 @@ _public_ int sd_bus_emit_interfaces_added_strv(sd_bus *bus, const char *path, ch
 
         do {
                 bus->nodes_modified = false;
-
-                if (m)
-                        m = sd_bus_message_unref(m);
+                m = sd_bus_message_unref(m);
 
                 r = sd_bus_message_new_signal(bus, &m, path, "org.freedesktop.DBus.ObjectManager", "InterfacesAdded");
                 if (r < 0)
