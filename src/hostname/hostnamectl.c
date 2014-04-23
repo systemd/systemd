@@ -67,6 +67,8 @@ typedef struct StatusInfo {
         char *pretty_hostname;
         char *icon_name;
         char *chassis;
+        char *kernel_name;
+        char *kernel_release;
         char *os_pretty_name;
         char *os_cpe_name;
         char *virtualization;
@@ -76,7 +78,6 @@ typedef struct StatusInfo {
 static void print_status_info(StatusInfo *i) {
         sd_id128_t mid = {}, bid = {};
         int r;
-        struct utsname u;
 
         assert(i);
 
@@ -112,8 +113,8 @@ static void print_status_info(StatusInfo *i) {
         if (!isempty(i->os_cpe_name))
                 printf("       CPE OS Name: %s\n", i->os_cpe_name);
 
-        assert_se(uname(&u) >= 0);
-        printf("            Kernel: %s %s\n", u.sysname, u.release);
+        if (!isempty(i->kernel_name) && !isempty(i->kernel_release))
+                printf("            Kernel: %s %s\n", i->kernel_name, i->kernel_release);
 
         if (!isempty(i->architecture))
                 printf("      Architecture: %s\n", i->architecture);
@@ -156,6 +157,8 @@ static int show_all_names(sd_bus *bus) {
                 { "PrettyHostname", "s", NULL, offsetof(StatusInfo, pretty_hostname) },
                 { "IconName",       "s", NULL, offsetof(StatusInfo, icon_name) },
                 { "Chassis",        "s", NULL, offsetof(StatusInfo, chassis) },
+                { "KernelName",     "s", NULL, offsetof(StatusInfo, kernel_name) },
+                { "KernelRelease",     "s", NULL, offsetof(StatusInfo, kernel_release) },
                 { "OperatingSystemPrettyName",     "s", NULL, offsetof(StatusInfo, os_pretty_name) },
                 { "OperatingSystemCPEName",        "s", NULL, offsetof(StatusInfo, os_cpe_name) },
                 {}
@@ -191,6 +194,8 @@ fail:
         free(info.pretty_hostname);
         free(info.icon_name);
         free(info.chassis);
+        free(info.kernel_name);
+        free(info.kernel_release);
         free(info.os_pretty_name);
         free(info.os_cpe_name);
         free(info.virtualization);
