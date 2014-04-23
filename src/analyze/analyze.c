@@ -43,7 +43,7 @@
 #include "pager.h"
 
 #define SCALE_X (0.1 / 1000.0)   /* pixels per us */
-#define SCALE_Y 20.0
+#define SCALE_Y (20.0)
 
 #define compare(a, b) (((a) > (b))? 1 : (((b) > (a))? -1 : 0))
 
