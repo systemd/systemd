@@ -78,10 +78,12 @@ static void show_pid_array(int pids[], unsigned n_pids, const char *prefix, unsi
 
                 get_process_cmdline(pids[i], n_columns, true, &t);
 
-                printf("%s%s%*lu %s\n",
-                       prefix,
-                       draw_special_char(extra ? DRAW_TRIANGULAR_BULLET :
-                                         ((more || i < n_pids-1) ? DRAW_TREE_BRANCH : DRAW_TREE_RIGHT)),
+                if (extra)
+                        printf("%s%s ", prefix, draw_special_char(DRAW_TRIANGULAR_BULLET));
+                else
+                        printf("%s%s", prefix, draw_special_char(((more || i < n_pids-1) ? DRAW_TREE_BRANCH : DRAW_TREE_RIGHT)));
+
+                printf("%*lu %s\n",
                        pid_width,
                        (unsigned long) pids[i],
                        strna(t));
@@ -181,7 +183,7 @@ int show_cgroup_by_path(const char *path, const char *prefix, unsigned n_columns
                                            basename(last));
 
                         if (!p1) {
-                                p1 = strappend(prefix, draw_special_char(DRAW_TREE_VERT));
+                                p1 = strappend(prefix, draw_special_char(DRAW_TREE_VERTICAL));
                                 if (!p1)
                                         return -ENOMEM;
                         }

@@ -681,14 +681,16 @@ void *xbsearch_r(const void *key, const void *base, size_t nmemb, size_t size,
 bool is_locale_utf8(void);
 
 typedef enum DrawSpecialChar {
-        DRAW_TREE_VERT,
+        DRAW_TREE_VERTICAL,
         DRAW_TREE_BRANCH,
         DRAW_TREE_RIGHT,
         DRAW_TREE_SPACE,
         DRAW_TRIANGULAR_BULLET,
         DRAW_BLACK_CIRCLE,
+        DRAW_ARROW,
         _DRAW_SPECIAL_CHAR_MAX
 } DrawSpecialChar;
+
 const char *draw_special_char(DrawSpecialChar ch);
 
 char *strreplace(const char *text, const char *old_string, const char *new_string);

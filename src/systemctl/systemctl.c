@@ -1430,7 +1430,7 @@ static int list_dependencies_print(const char *name, int level, unsigned int bra
                                 printf("%s...\n",max_len % 2 ? "" : " ");
                                 return 0;
                         }
-                        printf("%s", draw_special_char(branches & (1 << i) ? DRAW_TREE_VERT : DRAW_TREE_SPACE));
+                        printf("%s", draw_special_char(branches & (1 << i) ? DRAW_TREE_VERTICAL : DRAW_TREE_SPACE));
                 }
                 len += 2;
 
@@ -1598,9 +1598,9 @@ static int list_dependencies_one(
 
                 state = check_one_unit(bus, *c, "activating\0active\0reloading\0", true);
                 if (state > 0)
-                        printf("%s%s%s", ansi_highlight_green(), draw_special_char(DRAW_BLACK_CIRCLE), ansi_highlight_off());
+                        printf("%s%s%s ", ansi_highlight_green(), draw_special_char(DRAW_BLACK_CIRCLE), ansi_highlight_off());
                 else
-                        printf("%s%s%s", ansi_highlight_red(), draw_special_char(DRAW_BLACK_CIRCLE), ansi_highlight_off());
+                        printf("%s%s%s ", ansi_highlight_red(), draw_special_char(DRAW_BLACK_CIRCLE), ansi_highlight_off());
 
                 r = list_dependencies_print(*c, level, branches, c[1] == NULL);
                 if (r < 0)
@@ -1833,7 +1833,7 @@ static void output_machines_list(struct machine_info *machine_infos, unsigned n)
                         on_failed = off_failed = "";
 
                 if (circle_len > 0)
-                        printf("%s%s%s", on_state, circle ? draw_special_char(DRAW_BLACK_CIRCLE) : "  ", off_state);
+                        printf("%s%s%s ", on_state, circle ? draw_special_char(DRAW_BLACK_CIRCLE) : " ", off_state);
 
                 if (m->is_host)
                         printf("%-*s (host) %s%-*s%s %s%*u%s %*u\n",
@@ -3234,7 +3234,7 @@ static void print_status_info(
         } else
                 active_on = active_off = "";
 
-        printf("%s%s%s%s", active_on, draw_special_char(DRAW_BLACK_CIRCLE), active_off, strna(i->id));
+        printf("%s%s%s %s", active_on, draw_special_char(DRAW_BLACK_CIRCLE), active_off, strna(i->id));
 
         if (i->description && !streq_ptr(i->id, i->description))
                 printf(" - %s", i->description);
@@ -4338,7 +4338,7 @@ static int show_system_status(sd_bus *bus) {
         } else
                 on = off = "";
 
-        printf("%s%s%s%s\n", on, draw_special_char(DRAW_BLACK_CIRCLE), off, arg_host ? arg_host : hn);
+        printf("%s%s%s %s\n", on, draw_special_char(DRAW_BLACK_CIRCLE), off, arg_host ? arg_host : hn);
 
         printf("    State: %s%s%s\n",
                on, strna(mi.state), off);

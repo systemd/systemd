@@ -54,7 +54,7 @@ int bus_message_dump(sd_bus_message *m, FILE *f, bool with_header) {
 
         if (with_header) {
                 fprintf(f,
-                        "%s%s%sType=%s%s%s  Endian=%c  Flags=%u  Version=%u  Priority=%lli",
+                        "%s%s%s Type=%s%s%s  Endian=%c  Flags=%u  Version=%u  Priority=%lli",
                         m->header->type == SD_BUS_MESSAGE_METHOD_ERROR ? ansi_highlight_red() :
                         m->header->type == SD_BUS_MESSAGE_METHOD_RETURN ? ansi_highlight_green() :
                         m->header->type != SD_BUS_MESSAGE_SIGNAL ? ansi_highlight() : "", draw_special_char(DRAW_TRIANGULAR_BULLET), ansi_highlight_off(),

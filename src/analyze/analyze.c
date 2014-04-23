@@ -645,7 +645,7 @@ static int list_dependencies_print(const char *name, unsigned int level, unsigne
         char ts[FORMAT_TIMESPAN_MAX], ts2[FORMAT_TIMESPAN_MAX];
 
         for (i = level; i != 0; i--)
-                printf("%s", draw_special_char(branches & (1 << (i-1)) ? DRAW_TREE_VERT : DRAW_TREE_SPACE));
+                printf("%s", draw_special_char(branches & (1 << (i-1)) ? DRAW_TREE_VERTICAL : DRAW_TREE_SPACE));
 
         printf("%s", draw_special_char(last ? DRAW_TREE_RIGHT : DRAW_TREE_BRANCH));
 
