@@ -2027,7 +2027,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
                 case TK_M_PROGRAM: {
                         char program[UTIL_PATH_SIZE];
                         char **envp;
-                        char result[UTIL_PATH_SIZE];
+                        char result[UTIL_LINE_SIZE];
 
                         free(event->program_result);
                         event->program_result = NULL;
