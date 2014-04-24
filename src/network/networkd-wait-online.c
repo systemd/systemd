@@ -21,6 +21,7 @@
 
 #include <netinet/ether.h>
 #include <linux/if.h>
+#include <getopt.h>
 
 #include "sd-event.h"
 #include "event-util.h"
@@ -35,6 +36,75 @@
 #include "conf-parser.h"
 #include "strv.h"
 #include "util.h"
+#include "build.h"
+
+static bool arg_quiet = false;
+static char **arg_interfaces = NULL;
+
+static int help(void) {
+
+        printf("%s [OPTIONS...]\n\n"
+               "Block until network is configured.\n\n"
+               "  -h --help                 Show this help\n"
+               "     --version              Print version string\n"
+               "  -q --quiet                Do not show status information\n"
+               "  -i --interface=INTERFACE  Block until at least these interfaces have appeared\n",
+               program_invocation_short_name);
+
+        return 0;
+}
+
+static int parse_argv(int argc, char *argv[]) {
+
+        enum {
+                ARG_VERSION = 0x100,
+        };
+
+        static const struct option options[] = {
+                { "help",            no_argument,       NULL, 'h'         },
+                { "version",         no_argument,       NULL, ARG_VERSION },
+                { "quiet",           no_argument,       NULL, 'q'         },
+                { "interface",       required_argument, NULL, 'i'         },
+                {}
+        };
+
+        int c;
+
+        assert(argc >= 0);
+        assert(argv);
+
+        while ((c = getopt_long(argc, argv, "+hq", options, NULL)) >= 0) {
+
+                switch (c) {
+
+                case 'h':
+                        return help();
+
+                case 'q':
+                        arg_quiet = true;
+                        break;
+
+                case ARG_VERSION:
+                        puts(PACKAGE_STRING);
+                        puts(SYSTEMD_FEATURES);
+                        return 0;
+
+                case 'i':
+                        if (strv_extend(&arg_interfaces, optarg) < 0)
+                                return log_oom();
+
+                        break;
+
+                case '?':
+                        return -EINVAL;
+
+                default:
+                        assert_not_reached("Unhandled option");
+                }
+        }
+
+        return 1;
+}
 
 static bool all_configured(Manager *m) {
         _cleanup_free_ unsigned *indices = NULL;
@@ -46,7 +116,7 @@ static bool all_configured(Manager *m) {
         if (n <= 0)
                 return false;
 
-        STRV_FOREACH(ifname, m->expected_links) {
+        STRV_FOREACH(ifname, arg_interfaces) {
                 _cleanup_rtnl_message_unref_ sd_rtnl_message *message = NULL, *reply = NULL;
                 bool found = false;
                 int index;
@@ -91,7 +161,7 @@ static bool all_configured(Manager *m) {
                         }
                 }
 
-                if (!found)
+                if (!found) {
                         /* link exists, but networkd is not yet aware of it */
                         return false;
         }
@@ -139,6 +209,7 @@ static bool all_configured(Manager *m) {
 
                         continue;
                 } else if (r < 0 || !streq(state, "configured"))
+                        /* managed by networkd, but not yet configured */
                         return false;
 
                 /* we wait for at least one link to appear */
@@ -173,35 +244,12 @@ static int newlink_event_handler(sd_rtnl *rtnl, sd_rtnl_message *message, void *
         return 1;
 }
 
-static int parse_config_file(Manager *m) {
-        static const char fn[] = "/etc/systemd/networkd-wait-online.conf";
-        _cleanup_fclose_ FILE *f = NULL;
-        int r;
-
-        f = fopen(fn, "re");
-        if (!f) {
-                if (errno == ENOENT)
-                        return 0;
-
-                log_warning("Failed to open configuration file %s: %m", fn);
-                return -errno;
-        }
-
-        r = config_parse(NULL, fn, f, "WaitOnline\0", config_item_perf_lookup,
-                         (void*) wait_online_gperf_lookup, false, false, m);
-        if (r < 0)
-                log_warning("Failed to parse configuration file: %s", strerror(-r));
-
-        return r;
-}
-
 void manager_free(Manager *m) {
         if (!m)
                 return;
 
         sd_event_unref(m->event);
         sd_rtnl_unref(m->rtnl);
-        strv_free(m->expected_links);
 
         free(m);
 }
@@ -212,25 +260,21 @@ int main(int argc, char *argv[]) {
         _cleanup_network_monitor_unref_ sd_network_monitor *monitor = NULL;
         int r, fd, events;
 
-        log_set_target(LOG_TARGET_AUTO);
+        umask(0022);
+
         log_parse_environment();
         log_open();
 
-        umask(0022);
+        r = parse_argv(argc, argv);
+        if (r <= 0)
+                return r;
 
-        if (argc != 1) {
-                log_error("This program takes no arguments.");
-                r = -EINVAL;
-                goto out;
-        }
+        if (arg_quiet)
+                log_set_max_level(LOG_WARNING);
 
         m = new0(Manager, 1);
         if (!m)
                 return log_oom();
-
-        r = parse_config_file(m);
-        if (r < 0)
-                goto out;
 
         r = sd_network_monitor_new(NULL, &monitor);
         if (r < 0) {

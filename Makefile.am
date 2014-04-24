@@ -4170,9 +4170,6 @@ systemd_networkd_wait_online_SOURCES = \
 	src/network/networkd-wait-online.c \
 	src/network/networkd-wait-online.h
 
-nodist_systemd_networkd_wait_online_SOURCES = \
-	src/network/networkd-wait-online-gperf.c
-
 systemd_networkd_wait_online_LDADD = \
 	libsystemd-internal.la \
 	libsystemd-network.la
@@ -4186,19 +4183,14 @@ test_network_LDADD = \
 tests += \
 	test-network
 
-dist_pkgsysconf_DATA += \
-	src/network/networkd-wait-online.conf
-
 EXTRA_DIST += \
 	src/network/networkd-network-gperf.gperf \
 	src/network/networkd-netdev-gperf.gperf \
-	src/network/networkd-wait-online-gperf.gperf \
 	units/systemd-networkd.service.in
 
 CLEANFILES += \
 	src/network/networkd-network-gperf.c \
-	src/network/networkd-netdev-gperf.c \
-	src/network/networkd-wait-online-gperf.c
+	src/network/networkd-netdev-gperf.c
 endif
 
 # ------------------------------------------------------------------------------

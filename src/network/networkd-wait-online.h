@@ -29,13 +29,9 @@
 typedef struct Manager {
         sd_event *event;
         sd_rtnl *rtnl;
-        char **expected_links;
 } Manager;
 
 void manager_free(Manager *m);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 #define _cleanup_manager_free_ _cleanup_(manager_freep)
-
-/* gperf lookup function */
-const struct ConfigPerfItem* wait_online_gperf_lookup(const char *key, unsigned length);
