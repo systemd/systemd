@@ -167,35 +167,62 @@ char **path_strv_canonicalize_absolute(char **l, const char *prefix) {
 
         STRV_FOREACH(s, l) {
                 char *t, *u;
+                _cleanup_free_ char *orig = NULL;
 
-                if (!path_is_absolute(*s))
+                if (!path_is_absolute(*s)) {
+                        free(*s);
                         continue;
+                }
 
                 if (prefix) {
-                        t = strappend(prefix, *s);
-                        free(*s);
-                        *s = NULL;
-
+                        orig = *s;
+                        t = strappend(prefix, orig);
                         if (!t) {
                                 enomem = true;
                                 continue;
                         }
-                } else {
+                } else
                         t = *s;
-                        *s = NULL;
-                }
 
                 errno = 0;
                 u = canonicalize_file_name(t);
                 if (!u) {
-                        if (errno == ENOENT)
-                                u = t;
-                        else {
+                        if (errno == ENOENT) {
+                                if (prefix) {
+                                        u = orig;
+                                        orig = NULL;
+                                        free(t);
+                                } else
+                                        u = t;
+                        } else {
                                 free(t);
                                 if (errno == ENOMEM || errno == 0)
                                         enomem = true;
 
                                 continue;
+                        }
+                } else if (prefix) {
+                        char *x;
+
+                        free(t);
+                        x = path_startswith(u, prefix);
+                        if (x) {
+                                /* restore the slash if it was lost */
+                                if (!startswith(x, "/"))
+                                        *(--x) = '/';
+
+                                t = strdup(x);
+                                free(u);
+                                if (!t) {
+                                        enomem = true;
+                                        continue;
+                                }
+                                u = t;
+                        } else {
+                                /* canonicalized path goes outside of
+                                 * prefix, keep the original path instead */
+                                u = orig;
+                                orig = NULL;
                         }
                 } else
                         free(t);

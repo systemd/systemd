@@ -968,6 +968,7 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
 
         r = lookup_paths_init(
                         &m->lookup_paths, m->running_as, true,
+                        NULL,
                         m->generator_unit_path,
                         m->generator_unit_path_early,
                         m->generator_unit_path_late);
@@ -2374,6 +2375,7 @@ int manager_reload(Manager *m) {
 
         q = lookup_paths_init(
                         &m->lookup_paths, m->running_as, true,
+                        NULL,
                         m->generator_unit_path,
                         m->generator_unit_path_early,
                         m->generator_unit_path_late);

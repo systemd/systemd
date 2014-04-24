@@ -16,8 +16,6 @@ Bugfixes:
 
   Cannot add dependency job for unit display-manager.service, ignoring: Unit display-manager.service failed to load: No such file or directory. See system logs and 'systemctl status display-manager.service' for details.
 
-* systemctl --root=container/ set-default ... is totally borked.
-
 * sd_bus_unref() is broken regarding self-references and "pseudo thread-safety".
   See the comment in sd_bus_unref() for more..
 

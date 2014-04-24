@@ -198,6 +198,7 @@ int lookup_paths_init(
                 LookupPaths *p,
                 SystemdRunningAs running_as,
                 bool personal,
+                const char *root_dir,
                 const char *generator,
                 const char *generator_early,
                 const char *generator_late) {
@@ -275,10 +276,8 @@ int lookup_paths_init(
                 }
         }
 
-        if (!path_strv_canonicalize_absolute(p->unit_path, NULL))
+        if (!path_strv_canonicalize_absolute_uniq(p->unit_path, root_dir))
                 return -ENOMEM;
-
-        strv_uniq(p->unit_path);
 
         if (!strv_isempty(p->unit_path)) {
                 _cleanup_free_ char *t = strv_join(p->unit_path, "\n\t");
@@ -331,14 +330,11 @@ int lookup_paths_init(
                                 return -ENOMEM;
                 }
 
-                if (!path_strv_canonicalize_absolute(p->sysvinit_path, NULL))
+                if (!path_strv_canonicalize_absolute_uniq(p->sysvinit_path, root_dir))
                         return -ENOMEM;
 
-                if (!path_strv_canonicalize_absolute(p->sysvrcnd_path, NULL))
+                if (!path_strv_canonicalize_absolute_uniq(p->sysvrcnd_path, root_dir))
                         return -ENOMEM;
-
-                strv_uniq(p->sysvinit_path);
-                strv_uniq(p->sysvrcnd_path);
 
                 if (!strv_isempty(p->sysvinit_path)) {
                         _cleanup_free_ char *t = strv_join(p->sysvinit_path, "\n\t");
