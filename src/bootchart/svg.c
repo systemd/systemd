@@ -1093,12 +1093,13 @@ static void svg_ps_bars(void) {
                         w = starttime;
 
                 /* text label of process name */
-                svg("  <text x=\"%.03f\" y=\"%.03f\"><![CDATA[%s]]> [%i]<tspan class=\"run\">%.03fs</tspan></text>\n",
+                svg("  <text x=\"%.03f\" y=\"%.03f\"><![CDATA[%s]]> [%i]<tspan class=\"run\">%.03fs</tspan> %s</text>\n",
                     time_to_graph(w - graph_start) + 5.0,
                     ps_to_graph(j) + 14.0,
                     ps->name,
                     ps->pid,
-                    (ps->last->runtime - ps->first->runtime) / 1000000000.0);
+                    (ps->last->runtime - ps->first->runtime) / 1000000000.0,
+                    arg_show_cgroup ? ps->cgroup : "");
                 /* paint lines to the parent process */
                 if (ps->parent) {
                         /* horizontal part */

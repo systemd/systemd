@@ -37,6 +37,7 @@
 #include "strxcpyx.h"
 #include "store.h"
 #include "bootchart.h"
+#include "cgroup-util.h"
 
 /*
  * Alloc a static 4k buffer for stdio - primarily used to increase
@@ -314,6 +315,11 @@ schedstat_next:
                                 continue;
 
                         ps->starttime = strtod(t, NULL) / 1000.0;
+
+                        if (arg_show_cgroup)
+                                /* if this fails, that's OK */
+                                cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER,
+                                                ps->pid, &ps->cgroup);
 
                         /* ppid */
                         sprintf(filename, "%d/stat", pid);

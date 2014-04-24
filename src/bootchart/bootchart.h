@@ -77,6 +77,7 @@ struct ps_struct {
         char name[256];
         int pid;
         int ppid;
+        char *cgroup;
 
         /* cache fd's */
         int sched;
@@ -114,6 +115,7 @@ extern int pscount;
 extern bool arg_relative;
 extern bool arg_filter;
 extern bool arg_show_cmdline;
+extern bool arg_show_cgroup;
 extern bool arg_pss;
 extern bool arg_entropy;
 extern bool initcall;

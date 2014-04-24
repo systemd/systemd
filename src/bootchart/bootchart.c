@@ -78,6 +78,7 @@ bool initcall = true;
 bool arg_relative = false;
 bool arg_filter = true;
 bool arg_show_cmdline = false;
+bool arg_show_cgroup = false;
 bool arg_pss = false;
 int samples;
 int arg_samples_len = 500; /* we record len+1 (1 start sample) */
@@ -113,6 +114,7 @@ static void parse_conf(void) {
                 { "Bootchart", "PlotEntropyGraph", config_parse_bool,   0, &arg_entropy     },
                 { "Bootchart", "ScaleX",           config_parse_double, 0, &arg_scale_x     },
                 { "Bootchart", "ScaleY",           config_parse_double, 0, &arg_scale_y     },
+                { "Bootchart", "ControlGroup",     config_parse_bool,   0, &arg_show_cgroup },
                 { NULL, NULL, NULL, 0, NULL }
         };
         _cleanup_fclose_ FILE *f;
@@ -143,6 +145,7 @@ static int parse_args(int argc, char *argv[]) {
                 {"init",      required_argument,  NULL,  'i'},
                 {"no-filter", no_argument,        NULL,  'F'},
                 {"cmdline",   no_argument,        NULL,  'C'},
+                {"control-group", no_argument,    NULL,  'c'},
                 {"help",      no_argument,        NULL,  'h'},
                 {"scale-x",   required_argument,  NULL,  'x'},
                 {"scale-y",   required_argument,  NULL,  'y'},
@@ -151,7 +154,7 @@ static int parse_args(int argc, char *argv[]) {
         };
         int c;
 
-        while ((c = getopt_long(argc, argv, "erpf:n:o:i:FChx:y:", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "erpf:n:o:i:FCchx:y:", options, NULL)) >= 0) {
                 int r;
 
                 switch (c) {
@@ -169,6 +172,9 @@ static int parse_args(int argc, char *argv[]) {
                         break;
                 case 'C':
                         arg_show_cmdline = true;
+                        break;
+                case 'c':
+                        arg_show_cgroup = true;
                         break;
                 case 'n':
                         r = safe_atoi(optarg, &arg_samples_len);
@@ -217,6 +223,7 @@ static int parse_args(int argc, char *argv[]) {
                         fprintf(stderr, "                          that are of less importance or short-lived\n");
                         fprintf(stderr, " --cmdline,   -C          Display the full command line with arguments\n");
                         fprintf(stderr, "                          of processes, instead of only the process name\n");
+                        fprintf(stderr, " --control-group, -c      Display process control group\n");
                         fprintf(stderr, " --help,      -h          Display this message\n");
                         fprintf(stderr, "See bootchart.conf for more information.\n");
                         exit (EXIT_SUCCESS);
@@ -458,9 +465,11 @@ int main(int argc, char *argv[]) {
                         old->sample = old->sample->next;
                         free(oldsample);
                 }
+                free(old->cgroup);
                 free(old->sample);
                 free(old);
         }
+        free(ps->cgroup);
         free(ps->sample);
         free(ps);
 

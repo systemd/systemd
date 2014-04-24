@@ -145,6 +145,11 @@
                                 graph components.</para></listitem>
                         </varlistentry>
 
+                        <varlistentry>
+                                <term><varname>ControlGroup=no</varname></term>
+                                <listitem><para>Display process control group.</para></listitem>
+                        </varlistentry>
+
                 </variablelist>
         </refsect1>
 

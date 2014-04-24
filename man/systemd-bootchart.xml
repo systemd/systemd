@@ -198,6 +198,13 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>-g</option></term>
+                                <term><option>--control-group</option></term>
+                                <listitem><para>Display process control group
+                                </para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>-o</option></term>
                                 <term><option>--output <replaceable>path</replaceable></option></term>
                                 <listitem><para>Specify the output directory for the
