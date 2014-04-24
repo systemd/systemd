@@ -1840,7 +1840,7 @@ static int cgroup_good(Service *s) {
         return !r;
 }
 
-static int service_execute_action(Service *s, StartLimitAction action, const char *reason, bool log_action_none);
+static int service_execute_action(Service *s, FailureAction action, const char *reason, bool log_action_none);
 
 static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) {
         int r;
@@ -2376,22 +2376,22 @@ fail:
         service_enter_stop(s, SERVICE_FAILURE_RESOURCES);
 }
 
-static int service_execute_action(Service *s, StartLimitAction action, const char *reason, bool log_action_none) {
+static int service_execute_action(Service *s, FailureAction action, const char *reason, bool log_action_none) {
         assert(s);
 
-        if (action == SERVICE_START_LIMIT_REBOOT ||
-            action == SERVICE_START_LIMIT_REBOOT_FORCE)
+        if (action == SERVICE_FAILURE_ACTION_REBOOT ||
+            action == SERVICE_FAILURE_ACTION_REBOOT_FORCE)
                 update_reboot_param_file(s->reboot_arg);
 
         switch (action) {
 
-        case SERVICE_START_LIMIT_NONE:
+        case SERVICE_FAILURE_ACTION_NONE:
                 if (log_action_none)
                         log_warning_unit(UNIT(s)->id,
                                          "%s %s, refusing to start.", UNIT(s)->id, reason);
                 break;
 
-        case SERVICE_START_LIMIT_REBOOT: {
+        case SERVICE_FAILURE_ACTION_REBOOT: {
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
                 int r;
 
@@ -2408,13 +2408,13 @@ static int service_execute_action(Service *s, StartLimitAction action, const cha
                 break;
         }
 
-        case SERVICE_START_LIMIT_REBOOT_FORCE:
+        case SERVICE_FAILURE_ACTION_REBOOT_FORCE:
                 log_warning_unit(UNIT(s)->id,
                                  "%s %s, forcibly rebooting.", UNIT(s)->id, reason);
                 UNIT(s)->manager->exit_code = MANAGER_REBOOT;
                 break;
 
-        case SERVICE_START_LIMIT_REBOOT_IMMEDIATE:
+        case SERVICE_FAILURE_ACTION_REBOOT_IMMEDIATE:
                 log_warning_unit(UNIT(s)->id,
                                  "%s %s, rebooting immediately.", UNIT(s)->id, reason);
                 sync();
@@ -2430,8 +2430,8 @@ static int service_execute_action(Service *s, StartLimitAction action, const cha
 
         default:
                 log_error_unit(UNIT(s)->id,
-                               "start limit action=%i", action);
-                assert_not_reached("Unknown StartLimitAction.");
+                               "failure action=%i", action);
+                assert_not_reached("Unknown FailureAction.");
         }
 
         return -ECANCELED;
@@ -3832,13 +3832,13 @@ static const char* const service_result_table[_SERVICE_RESULT_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(service_result, ServiceResult);
 
-static const char* const start_limit_action_table[_SERVICE_START_LIMIT_MAX] = {
-        [SERVICE_START_LIMIT_NONE] = "none",
-        [SERVICE_START_LIMIT_REBOOT] = "reboot",
-        [SERVICE_START_LIMIT_REBOOT_FORCE] = "reboot-force",
-        [SERVICE_START_LIMIT_REBOOT_IMMEDIATE] = "reboot-immediate"
+static const char* const failure_action_table[_SERVICE_FAILURE_ACTION_MAX] = {
+        [SERVICE_FAILURE_ACTION_NONE] = "none",
+        [SERVICE_FAILURE_ACTION_REBOOT] = "reboot",
+        [SERVICE_FAILURE_ACTION_REBOOT_FORCE] = "reboot-force",
+        [SERVICE_FAILURE_ACTION_REBOOT_IMMEDIATE] = "reboot-immediate"
 };
-DEFINE_STRING_TABLE_LOOKUP(start_limit_action, StartLimitAction);
+DEFINE_STRING_TABLE_LOOKUP(failure_action, FailureAction);
 
 const UnitVTable service_vtable = {
         .object_size = sizeof(Service),

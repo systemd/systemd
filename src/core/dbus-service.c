@@ -34,7 +34,7 @@ static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_type, service_type, ServiceType
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_result, service_result, ServiceResult);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_restart, service_restart, ServiceRestart);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_notify_access, notify_access, NotifyAccess);
-static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_start_limit_action, start_limit_action, StartLimitAction);
+static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_failure_action, failure_action, FailureAction);
 
 const sd_bus_vtable bus_service_vtable[] = {
         SD_BUS_VTABLE_START(0),
@@ -49,9 +49,9 @@ const sd_bus_vtable bus_service_vtable[] = {
         BUS_PROPERTY_DUAL_TIMESTAMP("WatchdogTimestamp", offsetof(Service, watchdog_timestamp), 0),
         SD_BUS_PROPERTY("StartLimitInterval", "t", bus_property_get_usec, offsetof(Service, start_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("StartLimitBurst", "u", bus_property_get_unsigned, offsetof(Service, start_limit.burst), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("StartLimitAction", "s", property_get_start_limit_action, offsetof(Service, start_limit_action), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("StartLimitAction", "s", property_get_failure_action, offsetof(Service, start_limit_action), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RebootArgument", "s", NULL, offsetof(Service, reboot_arg), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("FailureAction", "s", property_get_start_limit_action, offsetof(Service, failure_action), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("FailureAction", "s", property_get_failure_action, offsetof(Service, failure_action), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PermissionsStartOnly", "b", bus_property_get_bool, offsetof(Service, permissions_start_only), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RootDirectoryStartOnly", "b", bus_property_get_bool, offsetof(Service, root_directory_start_only), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RemainAfterExit", "b", bus_property_get_bool, offsetof(Service, remain_after_exit), SD_BUS_VTABLE_PROPERTY_CONST),

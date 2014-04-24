@@ -2000,7 +2000,7 @@ int config_parse_unit_condition_null(const char *unit,
 }
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_notify_access, notify_access, NotifyAccess, "Failed to parse notify access specifier");
-DEFINE_CONFIG_PARSE_ENUM(config_parse_start_limit_action, start_limit_action, StartLimitAction, "Failed to parse start limit action specifier");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_failure_action, failure_action, FailureAction, "Failed to parse failure action specifier");
 
 int config_parse_unit_requires_mounts_for(
                 const char *unit,
@@ -3387,7 +3387,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_unit_slice,            "SLICE" },
                 { config_parse_documentation,         "URL" },
                 { config_parse_service_timeout,       "SECONDS" },
-                { config_parse_start_limit_action,    "ACTION" },
+                { config_parse_failure_action,        "ACTION" },
                 { config_parse_set_status,            "STATUS" },
                 { config_parse_service_sockets,       "SOCKETS" },
                 { config_parse_environ,               "ENVIRON" },

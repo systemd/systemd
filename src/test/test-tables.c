@@ -82,7 +82,7 @@ int main(int argc, char **argv) {
         test_table(socket_exec_command, SOCKET_EXEC_COMMAND);
         test_table(socket_result, SOCKET_RESULT);
         test_table(socket_state, SOCKET_STATE);
-        test_table(start_limit_action, SERVICE_START_LIMIT);
+        test_table(failure_action, SERVICE_FAILURE_ACTION);
         test_table(swap_exec_command, SWAP_EXEC_COMMAND);
         test_table(swap_result, SWAP_RESULT);
         test_table(swap_state, SWAP_STATE);
