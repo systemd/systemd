@@ -114,6 +114,23 @@ AS_IF([test "x$enable_address_sanitizer" = "xyes"], [
             address_sanitizer_ldflags="-Wc,-fsanitize=address"
       ])
 
+undefined_sanitizer_cflags=
+undefined_sanitizer_cppflags=
+undefined_sanitizer_ldflags=
+AC_ARG_ENABLE(undefined-sanitizer, AS_HELP_STRING([--enable-undefined-sanitizer], [enable -fsanitize=undefined]))
+AS_IF([test "x$enable_undefined_sanitizer" = "xyes"], [
+            CC_CHECK_FLAG_APPEND([with_us_cflags], [CFLAGS], [-fsanitize=undefined])
+            AS_IF([test -z "$with_us_cflags"],
+                  [AC_MSG_ERROR([*** -fsanitize=undefined is not supported])])
+            undefined_sanitizer_cflags="$with_us_cflags -fno-omit-frame-pointer -DVALGRIND=1"
+            undefined_sanitizer_cppflags="-DVALGRIND=1"
+            undefined_sanitizer_ldflags="-Wc,-fsanitize=undefined"
+      ])
+
+sanitizer_cflags="$address_sanitizer_cflags $undefined_sanitizer_cflags"
+sanitizer_cppflags="$address_sanitizer_cppflags $undefined_sanitizer_cppflags"
+sanitizer_ldflags="$address_sanitizer_ldflags $undefined_sanitizer_ldflags"
+
 CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -pipe \
         -Wall \
@@ -162,13 +179,13 @@ AS_CASE([$CFLAGS], [*-O[[12345\ ]]*],
         [CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
                -flto])],
         [AC_MSG_RESULT([skipping -flto, optimization not enabled])])
-AC_SUBST([OUR_CFLAGS], "$with_cflags $address_sanitizer_cflags")
+AC_SUBST([OUR_CFLAGS], "$with_cflags $sanitizer_cflags")
 
 AS_CASE([$CFLAGS], [*-O[[12345\ ]]*],
         [CC_CHECK_FLAGS_APPEND([with_cppflags], [CPPFLAGS], [\
                -Wp,-D_FORTIFY_SOURCE=2])],
         [AC_MSG_RESULT([skipping -D_FORTIFY_SOURCE, optimization not enabled])])
-AC_SUBST([OUR_CPPFLAGS], "$with_cppflags $address_sanitizer_cppflags")
+AC_SUBST([OUR_CPPFLAGS], "$with_cppflags $sanitizer_cppflags")
 
 CC_CHECK_FLAGS_APPEND([with_ldflags], [LDFLAGS], [\
         -Wl,--as-needed \
@@ -177,7 +194,7 @@ CC_CHECK_FLAGS_APPEND([with_ldflags], [LDFLAGS], [\
         -Wl,-z,relro \
         -Wl,-z,now \
         -Wl,-fuse-ld=gold])
-AC_SUBST([OUR_LDFLAGS], "$with_ldflags $address_sanitizer_ldflags")
+AC_SUBST([OUR_LDFLAGS], "$with_ldflags $sanitizer_ldflags")
 
 AC_CHECK_SIZEOF(pid_t)
 AC_CHECK_SIZEOF(uid_t)
