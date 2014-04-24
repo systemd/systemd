@@ -924,14 +924,14 @@ enum kdbus_ioctl_type {
  * @ENOMSG:		The queue is not empty, but no message with a matching
  *			priority is currently queued.
  * @ENOSYS:		The requested functionality is not available.
- * @ENOTSUPP:		The feature negotiation failed, a not supported feature
- *			was requested, or an unknown item type was received.
  * @ENOTTY:		An unknown ioctl command was received.
  * @ENOTUNIQ:		A specific data type was addressed to a broadcast
  *			address, but only direct addresses support this kind of
  *			data.
  * @ENXIO:		A unique address does not exist, or an offset in the
  *			receiver's pool does not represent a queued message.
+ * @EOPNOTSUPP:		The feature negotiation failed, a not supported feature
+ *			was requested, or an unknown item type was received.
  * @EPERM:		The policy prevented an operation. The requested
  *			resource is owned by another entity.
  * @EPIPE:		When sending a message, a synchronous reply from the
