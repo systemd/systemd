@@ -5009,11 +5009,11 @@ static int enable_sysv_units(const char *verb, char **args) {
         r = 0;
         for (f = 0; args[f]; f++) {
                 const char *name;
-                _cleanup_free_ char *p = NULL, *q = NULL;
+                _cleanup_free_ char *p = NULL, *q = NULL, *l = NULL;
                 bool found_native = false, found_sysv;
                 unsigned c = 1;
                 const char *argv[6] = { "/sbin/chkconfig", NULL, NULL, NULL, NULL };
-                char **k, *l;
+                char **k;
                 int j;
                 pid_t pid;
                 siginfo_t status;
@@ -5027,6 +5027,8 @@ static int enable_sysv_units(const char *verb, char **args) {
                         continue;
 
                 STRV_FOREACH(k, paths.unit_path) {
+                        _cleanup_free_ char *path = NULL;
+
                         if (!isempty(arg_root))
                                 asprintf(&p, "%s/%s/%s", arg_root, *k, name);
                         else
@@ -5038,9 +5040,6 @@ static int enable_sysv_units(const char *verb, char **args) {
                         }
 
                         found_native = access(p, F_OK) >= 0;
-                        free(p);
-                        p = NULL;
-
                         if (found_native)
                                 break;
                 }
@@ -5057,9 +5056,8 @@ static int enable_sysv_units(const char *verb, char **args) {
                         goto finish;
                 }
 
-                p[strlen(p) - sizeof(".service") + 1] = 0;
+                p[strlen(p) - strlen(".service")] = 0;
                 found_sysv = access(p, F_OK) >= 0;
-
                 if (!found_sysv)
                         continue;
 
@@ -5084,7 +5082,6 @@ static int enable_sysv_units(const char *verb, char **args) {
                 }
 
                 log_info("Executing %s", l);
-                free(l);
 
                 pid = fork();
                 if (pid < 0) {
