@@ -181,6 +181,7 @@ Service.StartLimitInterval,      config_parse_sec,                   0,         
 Service.StartLimitBurst,         config_parse_unsigned,              0,                             offsetof(Service, start_limit.burst)
 Service.StartLimitAction,        config_parse_start_limit_action,    0,                             offsetof(Service, start_limit_action)
 Service.RebootArgument,          config_parse_string,                0,                             offsetof(Service, reboot_arg)
+Service.FailureAction,           config_parse_start_limit_action,    0,                             offsetof(Service, failure_action)
 Service.Type,                    config_parse_service_type,          0,                             offsetof(Service, type)
 Service.Restart,                 config_parse_service_restart,       0,                             offsetof(Service, restart)
 Service.PermissionsStartOnly,    config_parse_bool,                  0,                             offsetof(Service, permissions_start_only)

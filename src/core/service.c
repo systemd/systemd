@@ -1840,6 +1840,8 @@ static int cgroup_good(Service *s) {
         return !r;
 }
 
+static int service_execute_action(Service *s, StartLimitAction action, const char *reason, bool log_action_none);
+
 static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) {
         int r;
         assert(s);
@@ -1848,6 +1850,9 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
                 s->result = f;
 
         service_set_state(s, s->result != SERVICE_SUCCESS ? SERVICE_FAILED : SERVICE_DEAD);
+
+        if (s->result != SERVICE_SUCCESS)
+                service_execute_action(s, s->failure_action, "failed", false);
 
         if (allow_restart &&
             !s->forbid_restart &&
@@ -2371,22 +2376,19 @@ fail:
         service_enter_stop(s, SERVICE_FAILURE_RESOURCES);
 }
 
-static int service_start_limit_test(Service *s) {
+static int service_execute_action(Service *s, StartLimitAction action, const char *reason, bool log_action_none) {
         assert(s);
 
-        if (ratelimit_test(&s->start_limit))
-                return 0;
-
-        if (s->start_limit_action == SERVICE_START_LIMIT_REBOOT ||
-            s->start_limit_action == SERVICE_START_LIMIT_REBOOT_FORCE)
+        if (action == SERVICE_START_LIMIT_REBOOT ||
+            action == SERVICE_START_LIMIT_REBOOT_FORCE)
                 update_reboot_param_file(s->reboot_arg);
 
-        switch (s->start_limit_action) {
+        switch (action) {
 
         case SERVICE_START_LIMIT_NONE:
-                log_warning_unit(UNIT(s)->id,
-                                 "%s start request repeated too quickly, refusing to start.",
-                                 UNIT(s)->id);
+                if (log_action_none)
+                        log_warning_unit(UNIT(s)->id,
+                                         "%s %s, refusing to start.", UNIT(s)->id, reason);
                 break;
 
         case SERVICE_START_LIMIT_REBOOT: {
@@ -2394,7 +2396,7 @@ static int service_start_limit_test(Service *s) {
                 int r;
 
                 log_warning_unit(UNIT(s)->id,
-                                 "%s start request repeated too quickly, rebooting.", UNIT(s)->id);
+                                 "%s %s, rebooting.", UNIT(s)->id, reason);
 
                 r = manager_add_job_by_name(UNIT(s)->manager, JOB_START,
                                             SPECIAL_REBOOT_TARGET, JOB_REPLACE,
@@ -2408,13 +2410,13 @@ static int service_start_limit_test(Service *s) {
 
         case SERVICE_START_LIMIT_REBOOT_FORCE:
                 log_warning_unit(UNIT(s)->id,
-                                 "%s start request repeated too quickly, forcibly rebooting.", UNIT(s)->id);
+                                 "%s %s, forcibly rebooting.", UNIT(s)->id, reason);
                 UNIT(s)->manager->exit_code = MANAGER_REBOOT;
                 break;
 
         case SERVICE_START_LIMIT_REBOOT_IMMEDIATE:
                 log_warning_unit(UNIT(s)->id,
-                                 "%s start request repeated too quickly, rebooting immediately.", UNIT(s)->id);
+                                 "%s %s, rebooting immediately.", UNIT(s)->id, reason);
                 sync();
                 if (s->reboot_arg) {
                         log_info("Rebooting with argument '%s'.", s->reboot_arg);
@@ -2428,11 +2430,20 @@ static int service_start_limit_test(Service *s) {
 
         default:
                 log_error_unit(UNIT(s)->id,
-                               "start limit action=%i", s->start_limit_action);
+                               "start limit action=%i", action);
                 assert_not_reached("Unknown StartLimitAction.");
         }
 
         return -ECANCELED;
+}
+
+static int service_start_limit_test(Service *s) {
+        assert(s);
+
+        if (ratelimit_test(&s->start_limit))
+                return 0;
+
+        return service_execute_action(s, s->start_limit_action, "start request repeated too quickly", true);
 }
 
 static int service_start(Unit *u) {

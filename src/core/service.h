@@ -187,6 +187,8 @@ struct Service {
 
         char *status_text;
 
+        StartLimitAction failure_action;
+
         RateLimit start_limit;
         StartLimitAction start_limit_action;
         char *reboot_arg;

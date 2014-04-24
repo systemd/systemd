@@ -1030,6 +1030,17 @@ ExecStart=/bin/echo $ONE $TWO ${TWO}</programlisting>
                                 command.</para></listitem>
                         </varlistentry>
 
+                        <varlistentry>
+                                <term><varname>FailureAction=</varname></term>
+                                <listitem><para>Configure the action
+                                to take when the service enters a failed
+                                state. Takes the same values as
+                                <varname>StartLimitAction=</varname>
+                                and executes the same actions.
+                                Defaults to <option>none</option>.
+                                </para></listitem>
+                        </varlistentry>
+
                 </variablelist>
 
                 <para>Check
