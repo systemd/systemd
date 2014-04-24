@@ -164,56 +164,51 @@ static bool all_configured(Manager *m) {
                 if (!found) {
                         /* link exists, but networkd is not yet aware of it */
                         return false;
+                }
         }
 
         for (i = 0; i < n; i++) {
                 _cleanup_free_ char *state = NULL;
+                _cleanup_rtnl_message_unref_ sd_rtnl_message *message = NULL, *reply = NULL;
+                unsigned flags;
+                uint8_t operstate;
 
                 r = sd_network_get_link_state(indices[i], &state);
-                if (r == -EUNATCH) {
-                        _cleanup_rtnl_message_unref_ sd_rtnl_message *message = NULL, *reply = NULL;
-                        unsigned flags;
-                        uint8_t operstate;
-
-                        r = sd_rtnl_message_new_link(m->rtnl, &message, RTM_GETLINK, indices[i]);
-                        if (r < 0) {
-                                log_warning("could not create GETLINK message: %s", strerror(-r));
-                                return false;
-                        }
-
-                        r = sd_rtnl_call(m->rtnl, message, 0, &reply);
-                        if (r < 0) {
-                                log_debug("could not get link %u: %s", indices[i], strerror(-r));
-                                continue;
-                        }
-
-                        r = sd_rtnl_message_link_get_flags(reply, &flags);
-                        if (r < 0) {
-                                log_warning("could not get link flags: %s", strerror(-r));
-                                return false;
-                        }
-
-                        r = sd_rtnl_message_read_u8(reply, IFLA_OPERSTATE, &operstate);
-                        if (r < 0) {
-                                log_debug("could not get link operational state: %s", strerror(-r));
-                                operstate = IF_OPER_UNKNOWN;
-                        }
-                        
-                        if (!(flags & IFF_LOOPBACK) &&
-                            link_has_carrier(flags, operstate)) {
-                                /* this link is not managed by us,
-                                   but something else may have
-                                   made it ready, so don't block */
-                                one_ready = true;
-                        }
-
-                        continue;
-                } else if (r < 0 || !streq(state, "configured"))
+                if (r != -EUNATCH && (r < 0 || !streq(state, "configured"))) {
                         /* managed by networkd, but not yet configured */
                         return false;
+                }
 
-                /* we wait for at least one link to appear */
-                one_ready = true;
+                r = sd_rtnl_message_new_link(m->rtnl, &message, RTM_GETLINK, indices[i]);
+                if (r < 0) {
+                        log_warning("could not create GETLINK message: %s", strerror(-r));
+                        return false;
+                }
+
+                r = sd_rtnl_call(m->rtnl, message, 0, &reply);
+                if (r < 0) {
+                        log_debug("could not get link %u: %s", indices[i], strerror(-r));
+                        continue;
+                }
+
+                r = sd_rtnl_message_link_get_flags(reply, &flags);
+                if (r < 0) {
+                        log_warning("could not get link flags: %s", strerror(-r));
+                        return false;
+                }
+
+                r = sd_rtnl_message_read_u8(reply, IFLA_OPERSTATE, &operstate);
+                if (r < 0) {
+                        log_debug("could not get link operational state: %s", strerror(-r));
+                        operstate = IF_OPER_UNKNOWN;
+                }
+
+                if (!(flags & IFF_LOOPBACK) &&
+                    link_has_carrier(flags, operstate)) {
+                        /* we wait for at least one link to be ready,
+                           regardless of who manages it */
+                        one_ready = true;
+                }
         }
 
         return one_ready;
