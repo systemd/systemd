@@ -72,6 +72,13 @@ int overrun = 0;
 static int exiting = 0;
 int sysfd=-1;
 
+#define DEFAULT_SAMPLES_LEN 500
+#define DEFAULT_HZ 25.0
+#define DEFAULT_SCALE_X 100.0 /* 100px = 1sec */
+#define DEFAULT_SCALE_Y 20.0  /* 16px = 1 process bar */
+#define DEFAULT_INIT "/sbin/init"
+#define DEFAULT_OUTPUT "/run/log"
+
 /* graph defaults */
 bool arg_entropy = false;
 bool initcall = true;
@@ -81,15 +88,15 @@ bool arg_show_cmdline = false;
 bool arg_show_cgroup = false;
 bool arg_pss = false;
 int samples;
-int arg_samples_len = 500; /* we record len+1 (1 start sample) */
-double arg_hz = 25.0;   /* 20 seconds log time */
-double arg_scale_x = 100.0; /* 100px = 1sec */
-double arg_scale_y = 20.0;  /* 16px = 1 process bar */
+int arg_samples_len = DEFAULT_SAMPLES_LEN; /* we record len+1 (1 start sample) */
+double arg_hz = DEFAULT_HZ;
+double arg_scale_x = DEFAULT_SCALE_X;
+double arg_scale_y = DEFAULT_SCALE_Y;
 static struct list_sample_data *sampledata;
 struct list_sample_data *head;
 
-char arg_init_path[PATH_MAX] = "/sbin/init";
-char arg_output_path[PATH_MAX] = "/run/log";
+char arg_init_path[PATH_MAX] = DEFAULT_INIT;
+char arg_output_path[PATH_MAX] = DEFAULT_OUTPUT;
 
 static void signal_handler(int sig) {
         if (sig++)
@@ -133,6 +140,33 @@ static void parse_conf(void) {
                 strscpy(arg_init_path, sizeof(arg_init_path), init);
         if (output != NULL)
                 strscpy(arg_output_path, sizeof(arg_output_path), output);
+}
+
+static void help(void) {
+        fprintf(stdout,
+                "Usage: %s [OPTIONS]\n\n"
+                "Options:\n"
+                "  -r, --rel             Record time relative to recording\n"
+                "  -f, --freq=FREQ       Sample frequency [%g]\n"
+                "  -n, --samples=N       Stop sampling at [%d] samples\n"
+                "  -x, --scale-x=N       Scale the graph horizontally [%g] \n"
+                "  -y, --scale-y=N       Scale the graph vertically [%g] \n"
+                "  -p, --pss             Enable PSS graph (CPU intensive)\n"
+                "  -e, --entropy         Enable the entropy_avail graph\n"
+                "  -o, --output=PATH     Path to output files [%s]\n"
+                "  -i, --init=PATH       Path to init executable [%s]\n"
+                "  -F, --no-filter       Disable filtering of unimportant or ephemeral processes\n"
+                "  -C, --cmdline         Display full command lines with arguments\n"
+                "  -c, --control-group   Display process control group\n"
+                "  -h, --help            Display this message\n\n"
+                "See bootchart.conf for more information.\n",
+                program_invocation_short_name,
+                DEFAULT_HZ,
+                DEFAULT_SAMPLES_LEN,
+                DEFAULT_SCALE_X,
+                DEFAULT_SCALE_Y,
+                DEFAULT_OUTPUT,
+                DEFAULT_INIT);
 }
 
 static int parse_args(int argc, char *argv[]) {
@@ -209,24 +243,7 @@ static int parse_args(int argc, char *argv[]) {
                         arg_entropy = true;
                         break;
                 case 'h':
-                        fprintf(stderr, "Usage: %s [OPTIONS]\n\n", argv[0]);
-                        fprintf(stderr, "Options:\n");
-                        fprintf(stderr, "  -r, --rel              Record time relative to recording\n");
-                        fprintf(stderr, "  -f, --freq=FREQ        Sample frequency [%f]\n", arg_hz);
-                        fprintf(stderr, "  -n, --samples=N        Stop sampling at [%d] samples\n", arg_samples_len);
-                        fprintf(stderr, "  -x, --scale-x=N        Scale the graph horizontally [%f] \n", arg_scale_x);
-                        fprintf(stderr, "  -y, --scale-y=N        Scale the graph vertically [%f] \n", arg_scale_y);
-                        fprintf(stderr, "  -p, --pss              Enable PSS graph (CPU intensive)\n");
-                        fprintf(stderr, "  -e, --entropy          Enable the entropy_avail graph\n");
-                        fprintf(stderr, "  -o, --output=PATH      Path to output files [%s]\n", arg_output_path);
-                        fprintf(stderr, "  -i, --init=PATH        Path to init executable [%s]\n", arg_init_path);
-                        fprintf(stderr, "  -F, --no-filter        Disable filtering of processes from the graph\n");
-                        fprintf(stderr, "                           that are of less importance or short-lived\n");
-                        fprintf(stderr, "  -C, --cmdline          Display the full command line with arguments\n");
-                        fprintf(stderr, "                           of processes, instead of only the process name\n");
-                        fprintf(stderr, "  -c, --control-group    Display process control group\n");
-                        fprintf(stderr, "  -h, --help             Display this message\n\n");
-                        fprintf(stderr, "See bootchart.conf for more information.\n");
+                        help();
                         exit (EXIT_SUCCESS);
                 default:
                         break;
