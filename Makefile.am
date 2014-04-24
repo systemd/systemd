@@ -1095,7 +1095,7 @@ BUILT_SOURCES += \
 
 src/shared/errno-list.txt:
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
-	$(AM_V_GEN)$(CPP) $(CFLAGS) $(AM_CPPFLAGS) $(CPPFLAGS) -dM -include errno.h - < /dev/null | $(AWK) '/^#define[ \t]+E[^ _]+[ \t]+[0-9]/ { print $$2; }'  > $@
+	$(AM_V_GEN)$(CPP) $(CFLAGS) $(AM_CPPFLAGS) $(CPPFLAGS) -dM -include errno.h - < /dev/null | $(AWK) '/^#define[ \t]+E[^ _]+[ \t]+/ { print $$2; }'  > $@
 
 src/shared/errno-from-name.gperf: src/shared/errno-list.txt
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
@@ -1107,7 +1107,7 @@ src/shared/errno-from-name.h: src/shared/errno-from-name.gperf
 
 src/shared/errno-to-name.h: src/shared/errno-list.txt
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
-	$(AM_V_GEN)$(AWK) 'BEGIN{ print "static const char* const errno_names[] = { "} { printf "[%s] = \"%s\",\n", $$1, $$1 } END{print "};"}' < $< > $@
+	$(AM_V_GEN)$(AWK) 'BEGIN{ print "static const char* const errno_names[] = { "} !/EDEADLOCK/ && !/EWOULDBLOCK/ && !/ENOTSUP/ { printf "[%s] = \"%s\",\n", $$1, $$1 } END{print "};"}' < $< > $@
 
 src/shared/af-list.txt:
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
