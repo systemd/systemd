@@ -27,13 +27,14 @@
 
 int main(int argc, char *argv[]) {
 
-        char fn[sizeof("/var/tmp/test-journal-flush-")-1 + DECIMAL_STR_MAX(pid_t) + sizeof(".journal")];
+        char dn[] = "/var/tmp/test-journal-flush.XXXXXX", *fn;
         JournalFile *new_journal = NULL;
         sd_journal *j = NULL;
         unsigned n = 0;
         int r;
 
-        sprintf(fn, "/var/tmp/test-journal-flush-%lu.journal", (unsigned long) getpid());
+        assert_se(mkdtemp(dn));
+        fn = strappend(dn, "/test.journal");
 
         r = journal_file_open(fn, O_CREAT|O_RDWR, 0644, false, false, NULL, NULL, NULL, &new_journal);
         assert_se(r >= 0);
@@ -66,6 +67,8 @@ int main(int argc, char *argv[]) {
         sd_journal_close(j);
 
         journal_file_close(new_journal);
+
+        assert_se(rmdir(dn) == 0);
 
         return 0;
 }
