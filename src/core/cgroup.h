@@ -71,6 +71,9 @@ struct CGroupContext {
         bool memory_accounting;
 
         unsigned long cpu_shares;
+        usec_t cpu_quota_per_sec_usec;
+        usec_t cpu_quota_usec;
+        usec_t cpu_quota_period_usec;
 
         unsigned long blockio_weight;
         LIST_HEAD(CGroupBlockIODeviceWeight, blockio_device_weights);
@@ -96,6 +99,9 @@ CGroupControllerMask cgroup_context_get_mask(CGroupContext *c);
 void cgroup_context_free_device_allow(CGroupContext *c, CGroupDeviceAllow *a);
 void cgroup_context_free_blockio_device_weight(CGroupContext *c, CGroupBlockIODeviceWeight *w);
 void cgroup_context_free_blockio_device_bandwidth(CGroupContext *c, CGroupBlockIODeviceBandwidth *b);
+
+usec_t cgroup_context_get_cpu_quota_usec(CGroupContext *c);
+usec_t cgroup_context_get_cpu_quota_per_sec_usec(CGroupContext *c);
 
 CGroupControllerMask unit_get_cgroup_mask(Unit *u);
 CGroupControllerMask unit_get_siblings_mask(Unit *u);

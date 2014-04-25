@@ -117,11 +117,53 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <term><varname>CPUShares=<replaceable>weight</replaceable></varname></term>
 
         <listitem>
-          <para>Assign the specified overall CPU time share weight to
-          the processes executed. Takes an integer value. This
-          controls the <literal>cpu.shares</literal> control group
-          attribute, which defaults to 1024. For details about this
-          control group attribute, see <ulink
+          <para>Assign the specified CPU time share weight to the
+          processes executed. Takes an integer value. This controls
+          the <literal>cpu.shares</literal> control group attribute,
+          which defaults to 1024. For details about this control group
+          attribute, see <ulink
+          url="https://www.kernel.org/doc/Documentation/scheduler/sched-design-CFS.txt">sched-design-CFS.txt</ulink>
+          The available CPU time is split up among all units within a
+          slice relative to their CPU time share weight.</para>
+
+          <para>Implies <literal>CPUAccounting=true</literal>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>CPUQuota=</varname></term>
+
+        <listitem>
+          <para>Assign the specified CPU time quota to the processes
+          executed. Takes a percentage value (suffixed with "%") or an
+          absolute time (suffixed by one of the common time units, us,
+          ms, s, ...). The percentage specifies how much CPU time the
+          unit shall get at maximum, relative to the total CPU time
+          available on one CPU. Use values > 100% for alloting CPU
+          time on more than one CPU. If an absolute time is specified
+          the processes of this unit will get this much absolute time
+          within each quota period, at maximum. This controls the
+          <literal>cpu.cfs_quota_us</literal> control group
+          attribute. For details about this control group attribute,
+          see <ulink
+          url="https://www.kernel.org/doc/Documentation/scheduler/sched-design-CFS.txt">sched-design-CFS.txt</ulink>.</para>
+
+          <para>Example: <varname>CPUShares=20%</varname> ensures that
+          the executed processes will never get more than 20% CPU time
+          on one CPU.</para>
+
+          <para>Implies <literal>CPUAccounting=true</literal>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>CPUQuotaPeriodSec=</varname></term>
+
+        <listitem>
+          <para>Specify the CPU quota period to use. Defaults to
+          100ms. This controls the <literal>cpu.cfs_period_us</literal>
+          control group attribute. For details about this control
+          group attribute, see <ulink
           url="https://www.kernel.org/doc/Documentation/scheduler/sched-design-CFS.txt">sched-design-CFS.txt</ulink>.</para>
 
           <para>Implies <literal>CPUAccounting=true</literal>.</para>

@@ -2455,6 +2455,54 @@ int config_parse_cpu_shares(
         return 0;
 }
 
+int config_parse_cpu_quota(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        CGroupContext *c = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                c->cpu_quota_per_sec_usec = (usec_t) -1;
+                c->cpu_quota_usec = (usec_t) -1;
+                return 0;
+        }
+
+        if (endswith(rvalue, "%")) {
+                double percent;
+
+                if (sscanf(rvalue, "%lf%%", &percent) != 1 || percent <= 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, EINVAL, "CPU quota '%s' invalid. Ignoring.", rvalue);
+                        return 0;
+                }
+
+                c->cpu_quota_per_sec_usec = (usec_t) (percent * USEC_PER_SEC / 100);
+                c->cpu_quota_usec = (usec_t) -1;
+        } else {
+                r = parse_sec(rvalue, &c->cpu_quota_usec);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, EINVAL, "CPU quota '%s' invalid. Ignoring.", rvalue);
+                        return 0;
+                }
+
+                c->cpu_quota_per_sec_usec = (usec_t) -1;
+        }
+
+        return 0;
+}
+
 int config_parse_memory_limit(
                 const char *unit,
                 const char *filename,

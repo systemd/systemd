@@ -240,6 +240,7 @@ struct Manager {
         bool default_cpu_accounting;
         bool default_memory_accounting;
         bool default_blockio_accounting;
+        usec_t default_cpu_quota_period_usec;
 
         usec_t default_timer_accuracy_usec;
 

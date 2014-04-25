@@ -106,6 +106,8 @@ m4_define(`CGROUP_CONTEXT_CONFIG_ITEMS',
 `$1.Slice,                       config_parse_unit_slice,            0,                             0
 $1.CPUAccounting,                config_parse_bool,                  0,                             offsetof($1, cgroup_context.cpu_accounting)
 $1.CPUShares,                    config_parse_cpu_shares,            0,                             offsetof($1, cgroup_context)
+$1.CPUQuota,                     config_parse_cpu_quota,             0,                             offsetof($1, cgroup_context)
+$1.CPUQuotaPeriodSec,            config_parse_sec,                   0,                             offsetof($1, cgroup_context.cpu_quota_period_usec)
 $1.MemoryAccounting,             config_parse_bool,                  0,                             offsetof($1, cgroup_context.memory_accounting)
 $1.MemoryLimit,                  config_parse_memory_limit,          0,                             offsetof($1, cgroup_context)
 $1.DeviceAllow,                  config_parse_device_allow,          0,                             offsetof($1, cgroup_context)

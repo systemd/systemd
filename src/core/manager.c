@@ -429,6 +429,7 @@ int manager_new(SystemdRunningAs running_as, Manager **_m) {
         m->running_as = running_as;
         m->exit_code = _MANAGER_EXIT_CODE_INVALID;
         m->default_timer_accuracy_usec = USEC_PER_MINUTE;
+        m->default_cpu_quota_period_usec = 100 * USEC_PER_MSEC;
 
         m->idle_pipe[0] = m->idle_pipe[1] = m->idle_pipe[2] = m->idle_pipe[3] = -1;
 

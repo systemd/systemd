@@ -133,10 +133,49 @@ static int property_get_device_allow(
         return sd_bus_message_close_container(reply);
 }
 
+static int property_get_cpu_quota_usec(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        CGroupContext *c = userdata;
+
+        assert(bus);
+        assert(reply);
+        assert(c);
+
+        return sd_bus_message_append(reply, "t", cgroup_context_get_cpu_quota_usec(c));
+}
+
+static int property_get_cpu_quota_per_sec_usec(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        CGroupContext *c = userdata;
+
+        assert(bus);
+        assert(reply);
+        assert(c);
+
+        return sd_bus_message_append(reply, "t", cgroup_context_get_cpu_quota_per_sec_usec(c));
+}
+
 const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("CPUAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, cpu_accounting), 0),
         SD_BUS_PROPERTY("CPUShares", "t", bus_property_get_ulong, offsetof(CGroupContext, cpu_shares), 0),
+        SD_BUS_PROPERTY("CPUQuotaPerSecUSec", "t", property_get_cpu_quota_per_sec_usec, 0, 0),
+        SD_BUS_PROPERTY("CPUQuotaUSec", "t", property_get_cpu_quota_usec, 0, 0),
+        SD_BUS_PROPERTY("CPUQuotaPeriodUSec", "t", bus_property_get_usec, offsetof(CGroupContext, cpu_quota_period_usec), 0),
         SD_BUS_PROPERTY("BlockIOAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, blockio_accounting), 0),
         SD_BUS_PROPERTY("BlockIOWeight", "t", bus_property_get_ulong, offsetof(CGroupContext, blockio_weight), 0),
         SD_BUS_PROPERTY("BlockIODeviceWeight", "a(st)", property_get_blockio_device_weight, 0, 0),
@@ -195,6 +234,63 @@ int bus_cgroup_set_property(
                         c->cpu_shares = ul;
                         u->cgroup_realized_mask &= ~CGROUP_CPU;
                         unit_write_drop_in_private_format(u, mode, name, "CPUShares=%lu", ul);
+                }
+
+                return 1;
+
+        } else if (streq(name, "CPUQuotaPerSecUSec")) {
+                uint64_t u64;
+
+                r = sd_bus_message_read(message, "t", &u64);
+                if (r < 0)
+                        return r;
+
+                if (u64 <= 0)
+                        return sd_bus_error_set_errnof(error, EINVAL, "CPUQuotaPerSecUSec value out of range");
+
+                if (mode != UNIT_CHECK) {
+                        c->cpu_quota_per_sec_usec = u64;
+                        c->cpu_quota_usec = (uint64_t) -1;
+                        u->cgroup_realized_mask &= ~CGROUP_CPU;
+                        unit_write_drop_in_private_format(u, mode, "CPUQuota", "CPUQuota=%0.f%%", (double) (c->cpu_quota_per_sec_usec / 10000));
+                }
+
+                return 1;
+
+        } else if (streq(name, "CPUQuotaUSec")) {
+                uint64_t u64;
+
+                r = sd_bus_message_read(message, "t", &u64);
+                if (r < 0)
+                        return r;
+
+                if (u64 <= 0)
+                        return sd_bus_error_set_errnof(error, EINVAL, "CPUQuotaUSec value out of range");
+
+                if (mode != UNIT_CHECK) {
+                        c->cpu_quota_usec = u64;
+                        c->cpu_quota_per_sec_usec = (uint64_t) -1;
+                        u->cgroup_realized_mask &= ~CGROUP_CPU;
+                        unit_write_drop_in_private_format(u, mode, "CPUQuota", "CPUQuota=%" PRIu64 "us", u64);
+                }
+
+                return 1;
+
+        } else if (streq(name, "CPUQuotaPeriodUSec")) {
+
+                uint64_t u64;
+
+                r = sd_bus_message_read(message, "t", &u64);
+                if (r < 0)
+                        return r;
+
+                if (u64 <= 0 || u64 >= (usec_t) -1)
+                        return sd_bus_error_set_errnof(error, EINVAL, "CPUQuotaPeriodUSec value out of range");
+
+                if (mode != UNIT_CHECK) {
+                        c->cpu_quota_period_usec = u64;
+                        u->cgroup_realized_mask &= ~CGROUP_CPU;
+                        unit_write_drop_in_private_format(u, mode, name, "CPUQuotaPeriodSec=%" PRIu64 "us", c->cpu_quota_period_usec);
                 }
 
                 return 1;

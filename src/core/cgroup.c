@@ -36,6 +36,10 @@ void cgroup_context_init(CGroupContext *c) {
         c->cpu_shares = 1024;
         c->memory_limit = (uint64_t) -1;
         c->blockio_weight = 1000;
+
+        c->cpu_quota_per_sec_usec = (usec_t) -1;
+        c->cpu_quota_usec = (usec_t) -1;
+        c->cpu_quota_period_usec = 100*USEC_PER_MSEC;
 }
 
 void cgroup_context_free_device_allow(CGroupContext *c, CGroupDeviceAllow *a) {
@@ -78,10 +82,37 @@ void cgroup_context_done(CGroupContext *c) {
                 cgroup_context_free_device_allow(c, c->device_allow);
 }
 
+usec_t cgroup_context_get_cpu_quota_usec(CGroupContext *c) {
+        assert(c);
+
+        /* Returns the absolute CPU quota */
+
+        if (c->cpu_quota_usec != (usec_t) -1)
+                return c->cpu_quota_usec;
+        else if (c->cpu_quota_per_sec_usec != (usec_t) -1)
+                return c->cpu_quota_per_sec_usec*c->cpu_quota_period_usec/USEC_PER_SEC;
+        else
+                return (usec_t) -1;
+}
+
+usec_t cgroup_context_get_cpu_quota_per_sec_usec(CGroupContext *c) {
+        assert(c);
+
+        /* Returns the CPU quota relative to 1s */
+
+        if (c->cpu_quota_usec != (usec_t) -1)
+                return c->cpu_quota_usec*USEC_PER_SEC/c->cpu_quota_period_usec;
+        else if (c->cpu_quota_per_sec_usec != (usec_t) -1)
+                return c->cpu_quota_per_sec_usec;
+        else
+                return (usec_t) -1;
+}
+
 void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
         CGroupBlockIODeviceBandwidth *b;
         CGroupBlockIODeviceWeight *w;
         CGroupDeviceAllow *a;
+        char t[FORMAT_TIMESPAN_MAX], s[FORMAT_TIMESPAN_MAX], u[FORMAT_TIMESPAN_MAX];
 
         assert(c);
         assert(f);
@@ -93,6 +124,9 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
                 "%sBlockIOAccounting=%s\n"
                 "%sMemoryAccounting=%s\n"
                 "%sCPUShares=%lu\n"
+                "%sCPUQuota=%s\n"
+                "%sCPUQuotaPerSecSec=%s\n"
+                "%sCPUQuotaPeriodSec=%s\n"
                 "%sBlockIOWeight=%lu\n"
                 "%sMemoryLimit=%" PRIu64 "\n"
                 "%sDevicePolicy=%s\n",
@@ -100,6 +134,9 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
                 prefix, yes_no(c->blockio_accounting),
                 prefix, yes_no(c->memory_accounting),
                 prefix, c->cpu_shares,
+                prefix, strna(format_timespan(u, sizeof(u), cgroup_context_get_cpu_quota_usec(c), 1)),
+                prefix, strna(format_timespan(t, sizeof(t), cgroup_context_get_cpu_quota_per_sec_usec(c), 1)),
+                prefix, strna(format_timespan(s, sizeof(s), c->cpu_quota_period_usec, 1)),
                 prefix, c->blockio_weight,
                 prefix, c->memory_limit,
                 prefix, cgroup_device_policy_to_string(c->device_policy));
@@ -284,12 +321,27 @@ void cgroup_context_apply(CGroupContext *c, CGroupControllerMask mask, const cha
         is_root = isempty(path) || path_equal(path, "/");
 
         if ((mask & CGROUP_CPU) && !is_root) {
-                char buf[DECIMAL_STR_MAX(unsigned long) + 1];
+                char buf[MAX(DECIMAL_STR_MAX(unsigned long), DECIMAL_STR_MAX(usec_t)) + 1];
+                usec_t q;
 
                 sprintf(buf, "%lu\n", c->cpu_shares);
                 r = cg_set_attribute("cpu", path, "cpu.shares", buf);
                 if (r < 0)
                         log_warning("Failed to set cpu.shares on %s: %s", path, strerror(-r));
+
+                sprintf(buf, USEC_FMT "\n", c->cpu_quota_period_usec);
+                r = cg_set_attribute("cpu", path, "cpu.cfs_period_us", buf);
+                if (r < 0)
+                        log_warning("Failed to set cpu.cfs_period_us on %s: %s", path, strerror(-r));
+
+                q = cgroup_context_get_cpu_quota_usec(c);
+                if (q != (usec_t) -1) {
+                        sprintf(buf, USEC_FMT "\n", q);
+                        r = cg_set_attribute("cpu", path, "cpu.cfs_quota_us", buf);
+                } else
+                        r = cg_set_attribute("cpu", path, "cpu.cfs_quota_us", "-1");
+                if (r < 0)
+                        log_warning("Failed to set cpu.cfs_quota_us on %s: %s", path, strerror(-r));
         }
 
         if (mask & CGROUP_BLKIO) {
@@ -415,7 +467,10 @@ CGroupControllerMask cgroup_context_get_mask(CGroupContext *c) {
 
         /* Figure out which controllers we need */
 
-        if (c->cpu_accounting || c->cpu_shares != 1024)
+        if (c->cpu_accounting ||
+            c->cpu_shares != 1024 ||
+            c->cpu_quota_usec != (usec_t) -1 ||
+            c->cpu_quota_per_sec_usec != (usec_t) -1)
                 mask |= CGROUP_CPUACCT | CGROUP_CPU;
 
         if (c->blockio_accounting ||

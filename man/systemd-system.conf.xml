@@ -302,6 +302,18 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>DefaultCPUQuotaPeriodSec=</varname></term>
+
+                                <listitem><para>Sets the default CPU
+                                quota period. Defaults to 100ms. This
+                                controls th global default for the
+                                <varname>CPUQuotaPeriodSec=</varname>
+                                setting of units, see
+                                <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                for details.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>DefaultTimeoutStartSec=</varname></term>
                                 <term><varname>DefaultTimeoutStopSec=</varname></term>
                                 <term><varname>DefaultRestartSec=</varname></term>

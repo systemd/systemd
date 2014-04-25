@@ -1250,6 +1250,70 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
         field = strndupa(assignment, eq - assignment);
         eq ++;
 
+        if (streq(field, "CPUQuota")) {
+
+                if (isempty(eq)) {
+
+                        r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, "CPUQuotaPerSecUSec");
+                        if (r < 0)
+                                return bus_log_create_error(r);
+
+                        r = sd_bus_message_append(m, "v", "t", (usec_t) -1);
+
+                } else if (endswith(eq, "%")) {
+                        double percent;
+
+                        if (sscanf(eq, "%lf%%", &percent) != 1 || percent <= 0) {
+                                log_error("CPU quota '%s' invalid.", eq);
+                                return -EINVAL;
+                        }
+
+                        r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, "CPUQuotaPerSecUSec");
+                        if (r < 0)
+                                return bus_log_create_error(r);
+
+                        r = sd_bus_message_append(m, "v", "t", (usec_t) percent * USEC_PER_SEC / 100);
+                } else {
+                        usec_t us;
+
+                        r = parse_sec(eq, &us);
+                        if (r < 0) {
+                                log_error("CPU quota '%s' invalid.", eq);
+                                return -EINVAL;
+                        }
+
+                        r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, "CPUQuotaUSec");
+                        if (r < 0)
+                                return bus_log_create_error(r);
+
+                        r = sd_bus_message_append(m, "v", "t", us);
+                }
+
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                return 0;
+
+        } else if (streq(field, "CPUQuotaPeriodSec")) {
+                usec_t us;
+
+                r = parse_sec(eq, &us);
+                if (r < 0) {
+                        log_error("CPU period '%s' invalid.", eq);
+                        return -EINVAL;
+                }
+
+                r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, "CPUQuotaPeriodUSec");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append(m, "v", "t", us);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                return 0;
+        }
+
         r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, field);
         if (r < 0)
                 return bus_log_create_error(r);
