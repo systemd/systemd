@@ -173,6 +173,7 @@ int bus_cgroup_set_property(
 
                 if (mode != UNIT_CHECK) {
                         c->cpu_accounting = b;
+                        u->cgroup_realized_mask &= ~CGROUP_CPUACCT;
                         unit_write_drop_in_private(u, mode, name, b ? "CPUAccounting=yes" : "CPUAccounting=no");
                 }
 
@@ -192,6 +193,7 @@ int bus_cgroup_set_property(
 
                 if (mode != UNIT_CHECK) {
                         c->cpu_shares = ul;
+                        u->cgroup_realized_mask &= ~CGROUP_CPU;
                         unit_write_drop_in_private_format(u, mode, name, "CPUShares=%lu", ul);
                 }
 
@@ -206,6 +208,7 @@ int bus_cgroup_set_property(
 
                 if (mode != UNIT_CHECK) {
                         c->blockio_accounting = b;
+                        u->cgroup_realized_mask &= ~CGROUP_BLKIO;
                         unit_write_drop_in_private(u, mode, name, b ? "BlockIOAccounting=yes" : "BlockIOAccounting=no");
                 }
 
@@ -225,6 +228,7 @@ int bus_cgroup_set_property(
 
                 if (mode != UNIT_CHECK) {
                         c->blockio_weight = ul;
+                        u->cgroup_realized_mask &= ~CGROUP_BLKIO;
                         unit_write_drop_in_private_format(u, mode, name, "BlockIOWeight=%lu", ul);
                 }
 
@@ -293,6 +297,8 @@ int bus_cgroup_set_property(
                                         if (a->read == read)
                                                 cgroup_context_free_blockio_device_bandwidth(c, a);
                         }
+
+                        u->cgroup_realized_mask &= ~CGROUP_BLKIO;
 
                         f = open_memstream(&buf, &size);
                         if (!f)
@@ -375,6 +381,8 @@ int bus_cgroup_set_property(
                                         cgroup_context_free_blockio_device_weight(c, c->blockio_device_weights);
                         }
 
+                        u->cgroup_realized_mask &= ~CGROUP_BLKIO;
+
                         f = open_memstream(&buf, &size);
                         if (!f)
                                 return -ENOMEM;
@@ -398,6 +406,7 @@ int bus_cgroup_set_property(
 
                 if (mode != UNIT_CHECK) {
                         c->memory_accounting = b;
+                        u->cgroup_realized_mask &= ~CGROUP_MEMORY;
                         unit_write_drop_in_private(u, mode, name, b ? "MemoryAccounting=yes" : "MemoryAccounting=no");
                 }
 
@@ -412,6 +421,7 @@ int bus_cgroup_set_property(
 
                 if (mode != UNIT_CHECK) {
                         c->memory_limit = limit;
+                        u->cgroup_realized_mask &= ~CGROUP_MEMORY;
                         unit_write_drop_in_private_format(u, mode, name, "%s=%" PRIu64, name, limit);
                 }
 
@@ -433,6 +443,7 @@ int bus_cgroup_set_property(
                         char *buf;
 
                         c->device_policy = p;
+                        u->cgroup_realized_mask &= ~CGROUP_DEVICE;
 
                         buf = strappenda("DevicePolicy=", policy);
                         unit_write_drop_in_private(u, mode, name, buf);
@@ -510,6 +521,8 @@ int bus_cgroup_set_property(
                                 while (c->device_allow)
                                         cgroup_context_free_device_allow(c, c->device_allow);
                         }
+
+                        u->cgroup_realized_mask &= ~CGROUP_DEVICE;
 
                         f = open_memstream(&buf, &size);
                         if (!f)
