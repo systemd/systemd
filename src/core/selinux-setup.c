@@ -51,6 +51,7 @@ int selinux_setup(bool *loaded_policy) {
         security_context_t con;
         int r;
         union selinux_callback cb;
+        bool initialized = false;
 
         assert(loaded_policy);
 
@@ -68,13 +69,8 @@ int selinux_setup(bool *loaded_policy) {
         /* Already initialized by somebody else? */
         r = getcon_raw(&con);
         if (r == 0) {
-                bool initialized;
-
                 initialized = !streq(con, "kernel");
                 freecon(con);
-
-                if (initialized)
-                        return 0;
         }
 
         /* Make sure we have no fds open while loading the policy and
@@ -116,8 +112,12 @@ int selinux_setup(bool *loaded_policy) {
                 log_open();
 
                 if (enforce > 0) {
-                        log_error("Failed to load SELinux policy. Freezing.");
-                        return -EIO;
+                        if (!initialized) {
+                                log_error("Failed to load SELinux policy. Freezing.");
+                                return -EIO;
+                        }
+
+                        log_warning("Failed to load new SELinux policy. Continuing with old policy.");
                 } else
                         log_debug("Unable to load SELinux policy. Ignoring.");
         }
