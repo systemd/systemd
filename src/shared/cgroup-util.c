@@ -641,7 +641,7 @@ int cg_attach(const char *controller, const char *path, pid_t pid) {
         if (pid == 0)
                 pid = getpid();
 
-        snprintf(c, sizeof(c), "%lu\n", (unsigned long) pid);
+        snprintf(c, sizeof(c), PID_FMT"\n", pid);
 
         return write_string_file(fs, c);
 }

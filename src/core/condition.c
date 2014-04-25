@@ -59,7 +59,7 @@ static bool condition_test_capability(Condition *c) {
         cap_value_t value;
         FILE *f;
         char line[LINE_MAX];
-        unsigned long long capabilities = (unsigned long long) -1;
+        unsigned long long capabilities = -1;
 
         assert(c);
         assert(c->parameter);

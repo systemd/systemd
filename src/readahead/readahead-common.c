@@ -52,7 +52,7 @@ int file_verify(int fd, const char *fn, off_t file_size_max, struct stat *st) {
         }
 
         if (st->st_size <= 0 || st->st_size > file_size_max) {
-                log_debug("Not preloading file %s with size out of bounds %llu", fn, (unsigned long long) st->st_size);
+                log_debug("Not preloading file %s with size out of bounds %zu", fn, st->st_size);
                 return 0;
         }
 
@@ -255,7 +255,7 @@ ReadaheadShared *shared_get(void) {
    Simply so that it is more unlikely that users end up picking this
    value too so that we can recognize better whether the user changed
    the value while we had it temporarily bumped. */
-#define BUMP_REQUEST_NR (20*1024)
+#define BUMP_REQUEST_NR (20*1024u)
 
 int block_bump_request_nr(const char *p) {
         struct stat st;
@@ -296,7 +296,7 @@ int block_bump_request_nr(const char *p) {
         free(line);
         line = NULL;
 
-        if (asprintf(&line, "%lu", (unsigned long) BUMP_REQUEST_NR) < 0) {
+        if (asprintf(&line, "%u", BUMP_REQUEST_NR) < 0) {
                 r = -ENOMEM;
                 goto finish;
         }
@@ -305,7 +305,7 @@ int block_bump_request_nr(const char *p) {
         if (r < 0)
                 goto finish;
 
-        log_info("Bumped block_nr parameter of %u:%u to %lu. This is a temporary hack and should be removed one day.", major(d), minor(d), (unsigned long) BUMP_REQUEST_NR);
+        log_info("Bumped block_nr parameter of %u:%u to %u. This is a temporary hack and should be removed one day.", major(d), minor(d), BUMP_REQUEST_NR);
         r = 1;
 
 finish:
@@ -379,7 +379,7 @@ int block_set_readahead(const char *p, uint64_t bytes) {
                 goto finish;
         }
 
-        if (asprintf(&line, "%llu", (unsigned long long) bytes / 1024ULL) < 0) {
+        if (asprintf(&line, "%llu", bytes / 1024ULL) < 0) {
                 r = -ENOMEM;
                 goto finish;
         }

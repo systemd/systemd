@@ -48,9 +48,9 @@ static void print_device(struct udev_device *device, const char *source, int pro
         struct timespec ts;
 
         clock_gettime(CLOCK_MONOTONIC, &ts);
-        printf("%-6s[%llu.%06u] %-8s %s (%s)\n",
+        printf("%-6s[%"PRI_TIME".%06ld] %-8s %s (%s)\n",
                source,
-               (unsigned long long) ts.tv_sec, (unsigned int) ts.tv_nsec/1000,
+               ts.tv_sec, ts.tv_nsec/1000,
                udev_device_get_action(device),
                udev_device_get_devpath(device),
                udev_device_get_subsystem(device));

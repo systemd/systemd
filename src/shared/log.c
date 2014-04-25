@@ -378,7 +378,7 @@ static int write_to_syslog(
         if (strftime(header_time, sizeof(header_time), "%h %e %T ", tm) <= 0)
                 return -EINVAL;
 
-        snprintf(header_pid, sizeof(header_pid), "[%lu]: ", (unsigned long) getpid());
+        snprintf(header_pid, sizeof(header_pid), "["PID_FMT"]: ", getpid());
         char_array_0(header_pid);
 
         IOVEC_SET_STRING(iovec[0], header_priority);
@@ -426,7 +426,7 @@ static int write_to_kmsg(
         snprintf(header_priority, sizeof(header_priority), "<%i>", level);
         char_array_0(header_priority);
 
-        snprintf(header_pid, sizeof(header_pid), "[%lu]: ", (unsigned long) getpid());
+        snprintf(header_pid, sizeof(header_pid), "["PID_FMT"]: ", getpid());
         char_array_0(header_pid);
 
         IOVEC_SET_STRING(iovec[0], header_priority);

@@ -162,11 +162,11 @@ static void test_proc(void) {
                 cg_pid_get_machine_name(pid, &machine);
                 cg_pid_get_slice(pid, &slice);
 
-                printf("%lu\t%s\t%s\t%lu\t%s\t%s\t%s\t%s\t%s\n",
-                       (unsigned long) pid,
+                printf(PID_FMT"\t%s\t%s\t"UID_FMT"\t%s\t%s\t%s\t%s\t%s\n",
+                       pid,
                        path,
                        path_shifted,
-                       (unsigned long) uid,
+                       uid,
                        session,
                        unit,
                        user_unit,

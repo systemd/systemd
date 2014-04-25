@@ -71,7 +71,7 @@
 #endif
 
 #define UNIX_USER_BUS_FMT "unix:path=%s/bus"
-#define KERNEL_USER_BUS_FMT "kernel:path=/dev/kdbus/%lu-user/bus"
+#define KERNEL_USER_BUS_FMT "kernel:path=/dev/kdbus/"UID_FMT"-user/bus"
 
 #ifndef TTY_GID
 #define TTY_GID 5

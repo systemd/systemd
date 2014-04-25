@@ -594,7 +594,7 @@ int getpeername_pretty(int fd, char **ret) {
                 if (r < 0)
                         return r;
 
-                if (asprintf(ret, "PID %lu/UID %lu", (unsigned long) ucred.pid, (unsigned long) ucred.uid) < 0)
+                if (asprintf(ret, "PID "PID_FMT"/UID "UID_FMT, ucred.pid, ucred.uid) < 0)
                         return -ENOMEM;
 
                 return 0;

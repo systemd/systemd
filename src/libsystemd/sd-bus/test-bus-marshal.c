@@ -156,7 +156,7 @@ int main(int argc, char *argv[]) {
         h = hexmem(buffer, sz);
         assert_se(h);
 
-        log_info("message size = %lu, contents =\n%s", (unsigned long) sz, h);
+        log_info("message size = %zu, contents =\n%s", sz, h);
         free(h);
 
 #ifdef HAVE_GLIB

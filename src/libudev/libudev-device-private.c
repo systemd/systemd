@@ -154,7 +154,7 @@ int udev_device_update_db(struct udev_device *udev_device)
                 }
 
                 if (udev_device_get_usec_initialized(udev_device) > 0)
-                        fprintf(f, "I:%llu\n", (unsigned long long)udev_device_get_usec_initialized(udev_device));
+                        fprintf(f, "I:"USEC_FMT"\n", udev_device_get_usec_initialized(udev_device));
 
                 udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(udev_device)) {
                         if (!udev_list_entry_get_num(list_entry))

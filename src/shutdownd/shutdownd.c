@@ -305,7 +305,7 @@ int main(int argc, char *argv[]) {
                 }
         }
 
-        log_debug("systemd-shutdownd running as pid %lu", (unsigned long) getpid());
+        log_debug("systemd-shutdownd running as pid "PID_FMT, getpid());
 
         sd_notify(false,
                   "READY=1\n"
@@ -425,7 +425,7 @@ int main(int argc, char *argv[]) {
 
         r = EXIT_SUCCESS;
 
-        log_debug("systemd-shutdownd stopped as pid %lu", (unsigned long) getpid());
+        log_debug("systemd-shutdownd stopped as pid "PID_FMT, getpid());
 
 finish:
 

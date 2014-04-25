@@ -533,7 +533,7 @@ int session_start(Session *s) {
                    MESSAGE_ID(SD_MESSAGE_SESSION_START),
                    "SESSION_ID=%s", s->id,
                    "USER_ID=%s", s->user->name,
-                   "LEADER=%lu", (unsigned long) s->leader,
+                   "LEADER="PID_FMT, s->leader,
                    "MESSAGE=New session %s of user %s.", s->id, s->user->name,
                    NULL);
 
@@ -632,7 +632,7 @@ int session_finalize(Session *s) {
                            MESSAGE_ID(SD_MESSAGE_SESSION_STOP),
                            "SESSION_ID=%s", s->id,
                            "USER_ID=%s", s->user->name,
-                           "LEADER=%lu", (unsigned long) s->leader,
+                           "LEADER="PID_FMT, s->leader,
                            "MESSAGE=Removed session %s.", s->id,
                            NULL);
 

@@ -749,7 +749,7 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
         if (tid > 0 && (missing & SD_BUS_CREDS_TID_COMM)) {
                 _cleanup_free_ char *p = NULL;
 
-                if (asprintf(&p, "/proc/%lu/task/%lu/comm", (unsigned long) pid, (unsigned long) tid) < 0)
+                if (asprintf(&p, "/proc/"PID_FMT"/task/"PID_FMT"/comm", pid, tid) < 0)
                         return -ENOMEM;
 
                 r = read_one_line_file(p, &c->tid_comm);

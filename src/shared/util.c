@@ -2499,7 +2499,7 @@ static char *lookup_uid(uid_t uid) {
         if (getpwuid_r(uid, &pwbuf, buf, bufsize, &pw) == 0 && pw)
                 return strdup(pw->pw_name);
 
-        if (asprintf(&name, "%lu", (unsigned long) uid) < 0)
+        if (asprintf(&name, UID_FMT, uid) < 0)
                 return NULL;
 
         return name;
@@ -2624,7 +2624,7 @@ int get_ctty(pid_t pid, dev_t *_devnr, char **r) {
 
                 /* This is an ugly hack */
                 if (major(devnr) == 136) {
-                        asprintf(&b, "pts/%lu", (unsigned long) minor(devnr));
+                        asprintf(&b, "pts/%u", minor(devnr));
                         goto finish;
                 }
 
@@ -4299,7 +4299,7 @@ char* uid_to_name(uid_t uid) {
         if (p)
                 return strdup(p->pw_name);
 
-        if (asprintf(&r, "%lu", (unsigned long) uid) < 0)
+        if (asprintf(&r, UID_FMT, uid) < 0)
                 return NULL;
 
         return r;
@@ -4316,7 +4316,7 @@ char* gid_to_name(gid_t gid) {
         if (p)
                 return strdup(p->gr_name);
 
-        if (asprintf(&r, "%lu", (unsigned long) gid) < 0)
+        if (asprintf(&r, GID_FMT, gid) < 0)
                 return NULL;
 
         return r;

@@ -160,9 +160,9 @@ static int server(sd_bus *bus) {
 
                 sd_bus_creds_get_pid(sd_bus_message_get_creds(m), &pid);
                 sd_bus_creds_get_selinux_context(sd_bus_message_get_creds(m), &label);
-                log_info("Got message! member=%s pid=%lu label=%s",
+                log_info("Got message! member=%s pid="PID_FMT" label=%s",
                          strna(sd_bus_message_get_member(m)),
-                         (unsigned long) pid,
+                         pid,
                          strna(label));
                 /* bus_message_dump(m); */
                 /* sd_bus_message_rewind(m, true); */

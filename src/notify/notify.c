@@ -184,7 +184,7 @@ int main(int argc, char* argv[]) {
         }
 
         if (arg_pid > 0) {
-                if (asprintf(&cpid, "MAINPID=%lu", (unsigned long) arg_pid) < 0) {
+                if (asprintf(&cpid, "MAINPID="PID_FMT, arg_pid) < 0) {
                         log_error("Failed to allocate MAINPID string.");
                         goto finish;
                 }

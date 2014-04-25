@@ -537,7 +537,7 @@ int bus_open_user_systemd(sd_bus **_bus) {
         if (r < 0)
                 return r;
 
-        if (asprintf(&bus->address, KERNEL_USER_BUS_FMT, (unsigned long) getuid()) < 0)
+        if (asprintf(&bus->address, KERNEL_USER_BUS_FMT, getuid()) < 0)
                 return -ENOMEM;
 
         bus->bus_client = true;

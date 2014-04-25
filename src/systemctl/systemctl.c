@@ -2884,8 +2884,8 @@ static int check_inhibitors(sd_bus *bus, enum action a) {
                 get_process_comm(pid, &comm);
                 user = uid_to_name(uid);
 
-                log_warning("Operation inhibited by \"%s\" (PID %lu \"%s\", user %s), reason is \"%s\".",
-                            who, (unsigned long) pid, strna(comm), strna(user), why);
+                log_warning("Operation inhibited by \"%s\" (PID "PID_FMT" \"%s\", user %s), reason is \"%s\".",
+                            who, pid, strna(comm), strna(user), why);
 
                 c++;
         }
@@ -4256,7 +4256,7 @@ static int get_unit_dbus_path_by_pid(
                         &reply,
                         "u", pid);
         if (r < 0) {
-                log_error("Failed to get unit for PID %lu: %s", (unsigned long) pid, bus_error_message(&error, r));
+                log_error("Failed to get unit for PID "PID_FMT": %s", pid, bus_error_message(&error, r));
                 return r;
         }
 

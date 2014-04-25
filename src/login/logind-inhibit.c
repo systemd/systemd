@@ -151,9 +151,9 @@ int inhibitor_start(Inhibitor *i) {
 
         dual_timestamp_get(&i->since);
 
-        log_debug("Inhibitor %s (%s) pid=%lu uid=%lu mode=%s started.",
+        log_debug("Inhibitor %s (%s) pid="PID_FMT" uid="UID_FMT" mode=%s started.",
                   strna(i->who), strna(i->why),
-                  (unsigned long) i->pid, (unsigned long) i->uid,
+                  i->pid, i->uid,
                   inhibit_mode_to_string(i->mode));
 
         inhibitor_save(i);
@@ -169,9 +169,9 @@ int inhibitor_stop(Inhibitor *i) {
         assert(i);
 
         if (i->started)
-                log_debug("Inhibitor %s (%s) pid=%lu uid=%lu mode=%s stopped.",
+                log_debug("Inhibitor %s (%s) pid="PID_FMT" uid="UID_FMT" mode=%s stopped.",
                           strna(i->who), strna(i->why),
-                          (unsigned long) i->pid, (unsigned long) i->uid,
+                          i->pid, i->uid,
                           inhibit_mode_to_string(i->mode));
 
         if (i->state_file)

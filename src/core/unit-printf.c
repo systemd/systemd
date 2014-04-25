@@ -208,7 +208,7 @@ static int specifier_user_name(char specifier, void *data, void *userdata, char 
                                 if (r < 0)
                                         return -ENODATA;
 
-                                asprintf(&printed, "%lu", (unsigned long) uid);
+                                asprintf(&printed, UID_FMT, uid);
                         }
                 }
 
@@ -231,7 +231,7 @@ static int specifier_user_name(char specifier, void *data, void *userdata, char 
                 if (specifier == 'u')
                         printed = strdup(username);
                 else
-                        asprintf(&printed, "%lu", (unsigned long) uid);
+                        asprintf(&printed, UID_FMT, uid);
         }
 
         if (!printed)

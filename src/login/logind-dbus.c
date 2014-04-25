@@ -189,7 +189,7 @@ static int method_get_session_by_pid(sd_bus *bus, sd_bus_message *message, void 
         if (r < 0)
                 return r;
         if (!session)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SESSION_FOR_PID, "PID %lu does not belong to any known session", (unsigned long) pid);
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SESSION_FOR_PID, "PID "PID_FMT" does not belong to any known session", pid);
 
         p = session_bus_path(session);
         if (!p)
@@ -215,7 +215,7 @@ static int method_get_user(sd_bus *bus, sd_bus_message *message, void *userdata,
 
         user = hashmap_get(m->users, ULONG_TO_PTR((unsigned long) uid));
         if (!user)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_USER, "No user '%lu' known or logged in", (unsigned long) uid);
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_USER, "No user "UID_FMT" known or logged in", uid);
 
         p = user_bus_path(user);
         if (!p)
@@ -257,7 +257,7 @@ static int method_get_user_by_pid(sd_bus *bus, sd_bus_message *message, void *us
         if (r < 0)
                 return r;
         if (!user)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_USER_FOR_PID, "PID %lu does not belong to any known or logged in user", (unsigned long) pid);
+                return sd_bus_error_setf(error, BUS_ERROR_NO_USER_FOR_PID, "PID "PID_FMT" does not belong to any known or logged in user", pid);
 
         p = user_bus_path(user);
         if (!p)
@@ -621,7 +621,7 @@ static int method_create_session(sd_bus *bus, sd_bus_message *message, void *use
         if (audit_id > 0) {
                 /* Keep our session IDs and the audit session IDs in sync */
 
-                if (asprintf(&id, "%lu", (unsigned long) audit_id) < 0)
+                if (asprintf(&id, "%"PRIu32, audit_id) < 0)
                         return -ENOMEM;
 
                 /* Wut? There's already a session by this name and we
@@ -923,7 +923,7 @@ static int method_kill_user(sd_bus *bus, sd_bus_message *message, void *userdata
 
         user = hashmap_get(m->users, ULONG_TO_PTR((unsigned long) uid));
         if (!user)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_USER, "No user '%lu' known or logged in", (unsigned long) uid);
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_USER, "No user "UID_FMT" known or logged in", uid);
 
         r = user_kill(user, signo);
         if (r < 0)
@@ -973,7 +973,7 @@ static int method_terminate_user(sd_bus *bus, sd_bus_message *message, void *use
 
         user = hashmap_get(m->users, ULONG_TO_PTR((unsigned long) uid));
         if (!user)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_USER, "No user '%lu' known or logged in", (unsigned long) uid);
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_USER, "No user "UID_FMT" known or logged in", uid);
 
         r = user_stop(user, true);
         if (r < 0)
@@ -2220,9 +2220,9 @@ int manager_dispatch_delayed(Manager *manager) {
                 if (manager->action_timestamp + manager->inhibit_delay_max > now(CLOCK_MONOTONIC))
                         return 0;
 
-                log_info("Delay lock is active (UID %lu/%s, PID %lu/%s) but inhibitor timeout is reached.",
-                         (unsigned long) offending->uid, strna(u),
-                         (unsigned long) offending->pid, strna(comm));
+                log_info("Delay lock is active (UID "UID_FMT"/%s, PID "PID_FMT"/%s) but inhibitor timeout is reached.",
+                         offending->uid, strna(u),
+                         offending->pid, strna(comm));
         }
 
         /* Actually do the operation */

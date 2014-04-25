@@ -291,7 +291,7 @@ char *user_bus_path(User *u) {
 
         assert(u);
 
-        if (asprintf(&s, "/org/freedesktop/login1/user/_%llu", (unsigned long long) u->uid) < 0)
+        if (asprintf(&s, "/org/freedesktop/login1/user/_"UID_FMT, u->uid) < 0)
                 return NULL;
 
         return s;

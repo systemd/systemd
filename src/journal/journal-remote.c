@@ -1210,8 +1210,8 @@ int main(int argc, char **argv) {
         if (remoteserver_init(&s) < 0)
                 return EXIT_FAILURE;
 
-        log_debug("%s running as pid %lu",
-                  program_invocation_short_name, (unsigned long) getpid());
+        log_debug("%s running as pid "PID_FMT,
+                  program_invocation_short_name, getpid());
         sd_notify(false,
                   "READY=1\n"
                   "STATUS=Processing requests...");

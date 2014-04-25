@@ -47,7 +47,7 @@ static void test_login(void) {
         printf("session = %s\n", session);
 
         assert_se(sd_pid_get_owner_uid(0, &u2) == 0);
-        printf("user = %lu\n", (unsigned long) u2);
+        printf("user = "UID_FMT"\n", u2);
 
         assert_se(socketpair(AF_UNIX, SOCK_STREAM, 0, pair) == 0);
         sd_peer_get_session(pair[0], &pp);
@@ -88,7 +88,7 @@ static void test_login(void) {
         free(state);
 
         assert_se(sd_session_get_uid(session, &u) >= 0);
-        printf("uid = %lu\n", (unsigned long) u);
+        printf("uid = "UID_FMT"\n", u);
         assert_se(u == u2);
 
         assert_se(sd_session_get_type(session, &type) >= 0);
@@ -137,7 +137,7 @@ static void test_login(void) {
 
         assert_se(sd_seat_get_active(seat, &session2, &u2) >= 0);
         printf("session2 = %s\n", session2);
-        printf("uid2 = %lu\n", (unsigned long) u2);
+        printf("uid2 = "UID_FMT"\n", u2);
 
         r = sd_seat_get_sessions(seat, &sessions, &uids, &n);
         assert_se(r >= 0);
@@ -149,7 +149,7 @@ static void test_login(void) {
         free(t);
         printf("uids =");
         for (k = 0; k < (int) n; k++)
-                printf(" %lu", (unsigned long) uids[k]);
+                printf(" "UID_FMT, uids[k]);
         printf("\n");
         free(uids);
 
@@ -192,7 +192,7 @@ static void test_login(void) {
 
         printf("uids =");
         for (k = 0; k < r; k++)
-                printf(" %lu", (unsigned long) uids[k]);
+                printf(" "UID_FMT, uids[k]);
         printf("\n");
         free(uids);
 

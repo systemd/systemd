@@ -96,7 +96,7 @@ static int create_dbus_files(
                                 }
 
                                 fprintf(f, "Environment=DBUS_STARTER_ADDRESS="KERNEL_USER_BUS_FMT ";" UNIX_USER_BUS_FMT "\n",
-                                        (unsigned long) getuid(), run);
+                                        getuid(), run);
                         }
                 }
 

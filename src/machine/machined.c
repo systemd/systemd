@@ -338,7 +338,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        log_debug("systemd-machined running as pid %lu", (unsigned long) getpid());
+        log_debug("systemd-machined running as pid "PID_FMT, getpid());
 
         sd_notify(false,
                   "READY=1\n"
@@ -346,7 +346,7 @@ int main(int argc, char *argv[]) {
 
         r = manager_run(m);
 
-        log_debug("systemd-machined stopped as pid %lu", (unsigned long) getpid());
+        log_debug("systemd-machined stopped as pid "PID_FMT, getpid());
 
 finish:
         sd_notify(false,

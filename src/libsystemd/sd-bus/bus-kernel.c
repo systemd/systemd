@@ -1305,7 +1305,7 @@ int bus_kernel_create_bus(const char *name, bool world, char **s) {
         make->size += ALIGN8(n->size);
 
         n = KDBUS_ITEM_NEXT(n);
-        sprintf(n->str, "%lu-%s", (unsigned long) getuid(), name);
+        sprintf(n->str, UID_FMT"-%s", getuid(), name);
         n->size = offsetof(struct kdbus_item, str) + strlen(n->str) + 1;
         n->type = KDBUS_ITEM_MAKE_NAME;
         make->size += ALIGN8(n->size);
@@ -1396,7 +1396,7 @@ int bus_kernel_create_starter(const char *bus, const char *name, bool activating
         assert(name);
 
         p = alloca(strlen("/dev/kdbus/") + DECIMAL_STR_MAX(uid_t) + 1 + strlen(bus) + strlen("/bus") + 1);
-        sprintf(p, "/dev/kdbus/%lu-%s/bus", (unsigned long) getuid(), bus);
+        sprintf(p, "/dev/kdbus/"UID_FMT"-%s/bus", getuid(), bus);
 
         fd = open(p, O_RDWR|O_NOCTTY|O_CLOEXEC);
         if (fd < 0)
@@ -1511,7 +1511,7 @@ int bus_kernel_create_monitor(const char *bus) {
         assert(bus);
 
         p = alloca(strlen("/dev/kdbus/") + DECIMAL_STR_MAX(uid_t) + 1 + strlen(bus) + strlen("/bus") + 1);
-        sprintf(p, "/dev/kdbus/%lu-%s/bus", (unsigned long) getuid(), bus);
+        sprintf(p, "/dev/kdbus/"UID_FMT"-%s/bus", getuid(), bus);
 
         fd = open(p, O_RDWR|O_NOCTTY|O_CLOEXEC);
         if (fd < 0)

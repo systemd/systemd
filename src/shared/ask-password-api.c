@@ -359,14 +359,14 @@ int ask_password_agent(
 
         fprintf(f,
                 "[Ask]\n"
-                "PID=%lu\n"
+                "PID="PID_FMT"\n"
                 "Socket=%s\n"
                 "AcceptCached=%i\n"
-                "NotAfter=%llu\n",
-                (unsigned long) getpid(),
+                "NotAfter="USEC_FMT"\n",
+                getpid(),
                 socket_name,
                 accept_cached ? 1 : 0,
-                (unsigned long long) until);
+                until);
 
         if (message)
                 fprintf(f, "Message=%s\n", message);

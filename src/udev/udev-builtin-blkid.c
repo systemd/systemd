@@ -274,9 +274,9 @@ static int builtin_blkid(struct udev_device *dev, int argc, char *argv[], bool t
         if (err < 0)
                 goto out;
 
-        log_debug("probe %s %sraid offset=%llu",
+        log_debug("probe %s %sraid offset=%"PRIu64,
                   udev_device_get_devnode(dev),
-                  noraid ? "no" : "", (unsigned long long) offset);
+                  noraid ? "no" : "", offset);
 
         err = probe_superblocks(pr);
         if (err < 0)

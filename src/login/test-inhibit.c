@@ -73,8 +73,8 @@ static void print_inhibitors(sd_bus *bus) {
         assert(r >= 0);
 
         while ((r = sd_bus_message_read(reply, "(ssssuu)", &what, &who, &why, &mode, &uid, &pid)) > 0) {
-                printf("what=<%s> who=<%s> why=<%s> mode=<%s> uid=<%lu> pid=<%lu>\n",
-                       what, who, why, mode, (unsigned long) uid, (unsigned long) pid);
+                printf("what=<%s> who=<%s> why=<%s> mode=<%s> uid=<"UID_FMT"> pid=<"PID_FMT">\n",
+                       what, who, why, mode, uid, pid);
 
                 n++;
         }

@@ -52,7 +52,7 @@ User* user_new(Manager *m, uid_t uid, gid_t gid, const char *name) {
         if (!u->name)
                 goto fail;
 
-        if (asprintf(&u->state_file, "/run/systemd/users/%lu", (unsigned long) uid) < 0)
+        if (asprintf(&u->state_file, "/run/systemd/users/"UID_FMT, uid) < 0)
                 goto fail;
 
         if (hashmap_put(m->users, ULONG_TO_PTR((unsigned long) uid), u) < 0)
@@ -354,8 +354,8 @@ static int user_start_slice(User *u) {
 
         if (!u->slice) {
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-                char lu[DECIMAL_STR_MAX(unsigned long) + 1], *slice;
-                sprintf(lu, "%lu", (unsigned long) u->uid);
+                char lu[DECIMAL_STR_MAX(uid_t) + 1], *slice;
+                sprintf(lu, UID_FMT, u->uid);
 
                 r = build_subslice(SPECIAL_USER_SLICE, lu, &slice);
                 if (r < 0)
@@ -387,8 +387,8 @@ static int user_start_service(User *u) {
         assert(u);
 
         if (!u->service) {
-                char lu[DECIMAL_STR_MAX(unsigned long) + 1], *service;
-                sprintf(lu, "%lu", (unsigned long) u->uid);
+                char lu[DECIMAL_STR_MAX(uid_t) + 1], *service;
+                sprintf(lu, UID_FMT, u->uid);
 
                 service = unit_name_build("user", lu, ".service");
                 if (!service)

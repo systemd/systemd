@@ -172,7 +172,7 @@ _public_ int sd_uid_get_state(uid_t uid, char**state) {
 
         assert_return(state, -EINVAL);
 
-        if (asprintf(&p, "/run/systemd/users/%lu", (unsigned long) uid) < 0)
+        if (asprintf(&p, "/run/systemd/users/"UID_FMT, uid) < 0)
                 return -ENOMEM;
 
         r = parse_env_file(p, NEWLINE, "STATE", &s, NULL);
@@ -215,7 +215,7 @@ _public_ int sd_uid_is_on_seat(uid_t uid, int require_active, const char *seat) 
         if (!s)
                 return -EIO;
 
-        if (asprintf(&t, "%lu", (unsigned long) uid) < 0)
+        if (asprintf(&t, UID_FMT, uid) < 0)
                 return -ENOMEM;
 
         FOREACH_WORD(w, l, s, state) {
@@ -231,7 +231,7 @@ static int uid_get_array(uid_t uid, const char *variable, char ***array) {
         char **a;
         int r;
 
-        if (asprintf(&p, "/run/systemd/users/%lu", (unsigned long) uid) < 0)
+        if (asprintf(&p, "/run/systemd/users/"UID_FMT, uid) < 0)
                 return -ENOMEM;
 
         r = parse_env_file(p, NEWLINE,

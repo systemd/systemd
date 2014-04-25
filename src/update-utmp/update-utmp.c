@@ -270,7 +270,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        log_debug("systemd-update-utmp running as pid %lu", (unsigned long) getpid());
+        log_debug("systemd-update-utmp running as pid "PID_FMT, getpid());
 
         if (streq(argv[1], "reboot"))
                 r = on_reboot(&c);
@@ -283,7 +283,7 @@ int main(int argc, char *argv[]) {
                 r = -EINVAL;
         }
 
-        log_debug("systemd-update-utmp stopped as pid %lu", (unsigned long) getpid());
+        log_debug("systemd-update-utmp stopped as pid "PID_FMT, getpid());
 
 finish:
 #ifdef HAVE_AUDIT

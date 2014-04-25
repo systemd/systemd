@@ -303,7 +303,7 @@ int machine_start(Machine *m, sd_bus_message *properties, sd_bus_error *error) {
         log_struct(LOG_INFO,
                    MESSAGE_ID(SD_MESSAGE_MACHINE_START),
                    "NAME=%s", m->name,
-                   "LEADER=%lu", (unsigned long) m->leader,
+                   "LEADER="PID_FMT, m->leader,
                    "MESSAGE=New machine %s.", m->name,
                    NULL);
 
@@ -350,7 +350,7 @@ int machine_stop(Machine *m) {
                 log_struct(LOG_INFO,
                            MESSAGE_ID(SD_MESSAGE_MACHINE_STOP),
                            "NAME=%s", m->name,
-                           "LEADER=%lu", (unsigned long) m->leader,
+                           "LEADER="PID_FMT, m->leader,
                            "MESSAGE=Machine %s terminated.", m->name,
                            NULL);
 

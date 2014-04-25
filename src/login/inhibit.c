@@ -100,11 +100,11 @@ static int print_inhibitors(sd_bus *bus, sd_bus_error *error) {
                 get_process_comm(pid, &comm);
                 u = uid_to_name(uid);
 
-                printf("     Who: %s (UID %lu/%s, PID %lu/%s)\n"
+                printf("     Who: %s (UID "UID_FMT"/%s, PID "PID_FMT"/%s)\n"
                        "    What: %s\n"
                        "     Why: %s\n"
                        "    Mode: %s\n\n",
-                       who, (unsigned long) uid, strna(u), (unsigned long) pid, strna(comm),
+                       who, uid, strna(u), pid, strna(comm),
                        what,
                        why,
                        mode);

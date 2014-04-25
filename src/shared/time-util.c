@@ -209,44 +209,44 @@ char *format_timestamp_relative(char *buf, size_t l, usec_t t) {
 
         if (d >= USEC_PER_YEAR)
                 snprintf(buf, l, "%llu years %llu months %s",
-                         (unsigned long long) (d / USEC_PER_YEAR),
-                         (unsigned long long) ((d % USEC_PER_YEAR) / USEC_PER_MONTH), s);
+                         d / USEC_PER_YEAR,
+                         (d % USEC_PER_YEAR) / USEC_PER_MONTH, s);
         else if (d >= USEC_PER_MONTH)
                 snprintf(buf, l, "%llu months %llu days %s",
-                         (unsigned long long) (d / USEC_PER_MONTH),
-                         (unsigned long long) ((d % USEC_PER_MONTH) / USEC_PER_DAY), s);
+                         d / USEC_PER_MONTH,
+                         (d % USEC_PER_MONTH) / USEC_PER_DAY, s);
         else if (d >= USEC_PER_WEEK)
                 snprintf(buf, l, "%llu weeks %llu days %s",
-                         (unsigned long long) (d / USEC_PER_WEEK),
-                         (unsigned long long) ((d % USEC_PER_WEEK) / USEC_PER_DAY), s);
+                         d / USEC_PER_WEEK,
+                         (d % USEC_PER_WEEK) / USEC_PER_DAY, s);
         else if (d >= 2*USEC_PER_DAY)
-                snprintf(buf, l, "%llu days %s", (unsigned long long) (d / USEC_PER_DAY), s);
+                snprintf(buf, l, "%llu days %s", d / USEC_PER_DAY, s);
         else if (d >= 25*USEC_PER_HOUR)
                 snprintf(buf, l, "1 day %lluh %s",
-                         (unsigned long long) ((d - USEC_PER_DAY) / USEC_PER_HOUR), s);
+                         (d - USEC_PER_DAY) / USEC_PER_HOUR, s);
         else if (d >= 6*USEC_PER_HOUR)
                 snprintf(buf, l, "%lluh %s",
-                         (unsigned long long) (d / USEC_PER_HOUR), s);
+                         d / USEC_PER_HOUR, s);
         else if (d >= USEC_PER_HOUR)
                 snprintf(buf, l, "%lluh %llumin %s",
-                         (unsigned long long) (d / USEC_PER_HOUR),
-                         (unsigned long long) ((d % USEC_PER_HOUR) / USEC_PER_MINUTE), s);
+                         d / USEC_PER_HOUR,
+                         (d % USEC_PER_HOUR) / USEC_PER_MINUTE, s);
         else if (d >= 5*USEC_PER_MINUTE)
                 snprintf(buf, l, "%llumin %s",
-                         (unsigned long long) (d / USEC_PER_MINUTE), s);
+                         d / USEC_PER_MINUTE, s);
         else if (d >= USEC_PER_MINUTE)
                 snprintf(buf, l, "%llumin %llus %s",
-                         (unsigned long long) (d / USEC_PER_MINUTE),
-                         (unsigned long long) ((d % USEC_PER_MINUTE) / USEC_PER_SEC), s);
+                         d / USEC_PER_MINUTE,
+                         (d % USEC_PER_MINUTE) / USEC_PER_SEC, s);
         else if (d >= USEC_PER_SEC)
                 snprintf(buf, l, "%llus %s",
-                         (unsigned long long) (d / USEC_PER_SEC), s);
+                         d / USEC_PER_SEC, s);
         else if (d >= USEC_PER_MSEC)
                 snprintf(buf, l, "%llums %s",
-                         (unsigned long long) (d / USEC_PER_MSEC), s);
+                         d / USEC_PER_MSEC, s);
         else if (d > 0)
-                snprintf(buf, l, "%lluus %s",
-                         (unsigned long long) d, s);
+                snprintf(buf, l, USEC_FMT"us %s",
+                         d, s);
         else
                 snprintf(buf, l, "now");
 
@@ -325,9 +325,9 @@ char *format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) {
 
                         if (j > 0) {
                                 k = snprintf(p, l,
-                                             "%s%llu.%0*llu%s",
+                                             "%s"USEC_FMT".%0*llu%s",
                                              p > buf ? " " : "",
-                                             (unsigned long long) a,
+                                             a,
                                              j,
                                              (unsigned long long) b,
                                              table[i].suffix);
@@ -340,9 +340,9 @@ char *format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) {
                 /* No? Then let's show it normally */
                 if (!done) {
                         k = snprintf(p, l,
-                                     "%s%llu%s",
+                                     "%s"USEC_FMT"%s",
                                      p > buf ? " " : "",
-                                     (unsigned long long) a,
+                                     a,
                                      table[i].suffix);
 
                         t = b;
@@ -370,10 +370,10 @@ void dual_timestamp_serialize(FILE *f, const char *name, dual_timestamp *t) {
         if (!dual_timestamp_is_set(t))
                 return;
 
-        fprintf(f, "%s=%llu %llu\n",
+        fprintf(f, "%s="USEC_FMT" "USEC_FMT"\n",
                 name,
-                (unsigned long long) t->realtime,
-                (unsigned long long) t->monotonic);
+                t->realtime,
+                t->monotonic);
 }
 
 void dual_timestamp_deserialize(const char *value, dual_timestamp *t) {

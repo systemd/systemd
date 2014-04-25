@@ -434,7 +434,7 @@ static void test_get_process_comm(void) {
         log_info("pid1 cmdline truncated: '%s'", d);
 
         assert_se(get_parent_of_pid(1, &e) >= 0);
-        log_info("pid1 ppid: '%llu'", (unsigned long long) e);
+        log_info("pid1 ppid: "PID_FMT, e);
         assert_se(e == 0);
 
         assert_se(is_kernel_thread(1) == 0);
@@ -444,11 +444,11 @@ static void test_get_process_comm(void) {
         log_info("pid1 exe: '%s'", strna(f));
 
         assert_se(get_process_uid(1, &u) == 0);
-        log_info("pid1 uid: '%llu'", (unsigned long long) u);
+        log_info("pid1 uid: "UID_FMT, u);
         assert_se(u == 0);
 
         assert_se(get_process_gid(1, &g) == 0);
-        log_info("pid1 gid: '%llu'", (unsigned long long) g);
+        log_info("pid1 gid: "GID_FMT, g);
         assert_se(g == 0);
 
         assert(get_ctty_devnr(1, &h) == -ENOENT);

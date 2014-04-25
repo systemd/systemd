@@ -84,7 +84,7 @@ static void test_format_timespan_one(usec_t x, usec_t accuracy) {
         char l[FORMAT_TIMESPAN_MAX];
         usec_t y;
 
-        log_info("%llu     (at accuracy %llu)", (unsigned long long) x, (unsigned long long) accuracy);
+        log_info(USEC_FMT"     (at accuracy "USEC_FMT")", x, accuracy);
 
         r = format_timespan(l, sizeof(l), x, accuracy);
         assert_se(r);
@@ -93,7 +93,7 @@ static void test_format_timespan_one(usec_t x, usec_t accuracy) {
 
         assert_se(parse_sec(l, &y) >= 0);
 
-        log_info(" = %llu", (unsigned long long) y);
+        log_info(" = "USEC_FMT, y);
 
         if (accuracy <= 0)
                 accuracy = 1;

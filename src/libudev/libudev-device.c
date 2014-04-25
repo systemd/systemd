@@ -1341,7 +1341,7 @@ void udev_device_set_usec_initialized(struct udev_device *udev_device, usec_t us
         char num[32];
 
         udev_device->usec_initialized = usec_initialized;
-        snprintf(num, sizeof(num), "%llu", (unsigned long long)usec_initialized);
+        snprintf(num, sizeof(num), USEC_FMT, usec_initialized);
         udev_device_add_property(udev_device, "USEC_INITIALIZED", num);
 }
 

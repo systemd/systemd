@@ -269,8 +269,8 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
         if (f)
                 return f;
 
-        if (asprintf(&p, "/var/log/journal/" SD_ID128_FORMAT_STR "/user-%lu.journal",
-                     SD_ID128_FORMAT_VAL(machine), (unsigned long) uid) < 0)
+        if (asprintf(&p, "/var/log/journal/" SD_ID128_FORMAT_STR "/user-"UID_FMT".journal",
+                     SD_ID128_FORMAT_VAL(machine), uid) < 0)
                 return s->system_journal;
 
         while (hashmap_size(s->user_journals) >= USER_JOURNALS_MAX) {
@@ -576,13 +576,13 @@ static void dispatch_message_real(
         if (ucred) {
                 realuid = ucred->uid;
 
-                sprintf(pid, "_PID=%lu", (unsigned long) ucred->pid);
+                sprintf(pid, "_PID="PID_FMT, ucred->pid);
                 IOVEC_SET_STRING(iovec[n++], pid);
 
-                sprintf(uid, "_UID=%lu", (unsigned long) ucred->uid);
+                sprintf(uid, "_UID="UID_FMT, ucred->uid);
                 IOVEC_SET_STRING(iovec[n++], uid);
 
-                sprintf(gid, "_GID=%lu", (unsigned long) ucred->gid);
+                sprintf(gid, "_GID="GID_FMT, ucred->gid);
                 IOVEC_SET_STRING(iovec[n++], gid);
 
                 r = get_process_comm(ucred->pid, &t);
@@ -616,13 +616,13 @@ static void dispatch_message_real(
 #ifdef HAVE_AUDIT
                 r = audit_session_from_pid(ucred->pid, &audit);
                 if (r >= 0) {
-                        sprintf(audit_session, "_AUDIT_SESSION=%lu", (unsigned long) audit);
+                        sprintf(audit_session, "_AUDIT_SESSION=%"PRIu32, audit);
                         IOVEC_SET_STRING(iovec[n++], audit_session);
                 }
 
                 r = audit_loginuid_from_pid(ucred->pid, &loginuid);
                 if (r >= 0) {
-                        sprintf(audit_loginuid, "_AUDIT_LOGINUID=%lu", (unsigned long) loginuid);
+                        sprintf(audit_loginuid, "_AUDIT_LOGINUID="UID_FMT, loginuid);
                         IOVEC_SET_STRING(iovec[n++], audit_loginuid);
                 }
 #endif
@@ -644,7 +644,7 @@ static void dispatch_message_real(
                         if (cg_path_get_owner_uid(c, &owner) >= 0) {
                                 owner_valid = true;
 
-                                sprintf(owner_uid, "_SYSTEMD_OWNER_UID=%lu", (unsigned long) owner);
+                                sprintf(owner_uid, "_SYSTEMD_OWNER_UID="UID_FMT, owner);
                                 IOVEC_SET_STRING(iovec[n++], owner_uid);
                         }
 
@@ -703,13 +703,13 @@ static void dispatch_message_real(
         if (object_pid) {
                 r = get_process_uid(object_pid, &object_uid);
                 if (r >= 0) {
-                        sprintf(o_uid, "OBJECT_UID=%lu", (unsigned long) object_uid);
+                        sprintf(o_uid, "OBJECT_UID="UID_FMT, object_uid);
                         IOVEC_SET_STRING(iovec[n++], o_uid);
                 }
 
                 r = get_process_gid(object_pid, &object_gid);
                 if (r >= 0) {
-                        sprintf(o_gid, "OBJECT_GID=%lu", (unsigned long) object_gid);
+                        sprintf(o_gid, "OBJECT_GID="GID_FMT, object_gid);
                         IOVEC_SET_STRING(iovec[n++], o_gid);
                 }
 
@@ -737,13 +737,13 @@ static void dispatch_message_real(
 #ifdef HAVE_AUDIT
                 r = audit_session_from_pid(object_pid, &audit);
                 if (r >= 0) {
-                        sprintf(o_audit_session, "OBJECT_AUDIT_SESSION=%lu", (unsigned long) audit);
+                        sprintf(o_audit_session, "OBJECT_AUDIT_SESSION=%"PRIu32, audit);
                         IOVEC_SET_STRING(iovec[n++], o_audit_session);
                 }
 
                 r = audit_loginuid_from_pid(object_pid, &loginuid);
                 if (r >= 0) {
-                        sprintf(o_audit_loginuid, "OBJECT_AUDIT_LOGINUID=%lu", (unsigned long) loginuid);
+                        sprintf(o_audit_loginuid, "OBJECT_AUDIT_LOGINUID="UID_FMT, loginuid);
                         IOVEC_SET_STRING(iovec[n++], o_audit_loginuid);
                 }
 #endif
@@ -761,7 +761,7 @@ static void dispatch_message_real(
                         }
 
                         if (cg_path_get_owner_uid(c, &owner) >= 0) {
-                                sprintf(o_owner_uid, "OBJECT_SYSTEMD_OWNER_UID=%lu", (unsigned long) owner);
+                                sprintf(o_owner_uid, "OBJECT_SYSTEMD_OWNER_UID="UID_FMT, owner);
                                 IOVEC_SET_STRING(iovec[n++], o_owner_uid);
                         }
 

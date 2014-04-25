@@ -648,7 +648,7 @@ static int bus_socket_start_auth_client(sd_bus *b) {
 
                 auth_prefix = "\0AUTH EXTERNAL ";
 
-                snprintf(text, sizeof(text), "%lu", (unsigned long) geteuid());
+                snprintf(text, sizeof(text), UID_FMT, geteuid());
                 char_array_0(text);
 
                 l = strlen(text);

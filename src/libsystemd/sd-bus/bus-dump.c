@@ -98,11 +98,11 @@ int bus_message_dump(sd_bus_message *m, FILE *f, bool with_header) {
                                 ansi_highlight_red(), strna(m->error.message), ansi_highlight_off());
 
                 if (m->monotonic != 0)
-                        fprintf(f, "  Monotonic=%llu", (unsigned long long) m->monotonic);
+                        fprintf(f, "  Monotonic="USEC_FMT, m->monotonic);
                 if (m->realtime != 0)
-                        fprintf(f, "  Realtime=%llu", (unsigned long long) m->realtime);
+                        fprintf(f, "  Realtime="USEC_FMT, m->realtime);
                 if (m->seqnum != 0)
-                        fprintf(f, "  SequenceNumber=%llu", (unsigned long long) m->seqnum);
+                        fprintf(f, "  SequenceNumber=%"PRIu64, m->seqnum);
 
                 if (m->monotonic != 0 || m->realtime != 0 || m->seqnum != 0)
                         fputs("\n", f);
@@ -221,11 +221,11 @@ int bus_message_dump(sd_bus_message *m, FILE *f, bool with_header) {
                         break;
 
                 case SD_BUS_TYPE_INT64:
-                        fprintf(f, "%sINT64 %s%lli%s;\n", prefix, ansi_highlight(), (long long) basic.s64, ansi_highlight_off());
+                        fprintf(f, "%sINT64 %s%"PRIi64"%s;\n", prefix, ansi_highlight(), basic.s64, ansi_highlight_off());
                         break;
 
                 case SD_BUS_TYPE_UINT64:
-                        fprintf(f, "%sUINT64 %s%llu%s;\n", prefix, ansi_highlight(), (unsigned long long) basic.u64, ansi_highlight_off());
+                        fprintf(f, "%sUINT64 %s%"PRIu64"%s;\n", prefix, ansi_highlight(), basic.u64, ansi_highlight_off());
                         break;
 
                 case SD_BUS_TYPE_DOUBLE:
@@ -319,18 +319,18 @@ int bus_creds_dump(sd_bus_creds *c, FILE *f) {
                 f = stdout;
 
         if (c->mask & SD_BUS_CREDS_PID)
-                fprintf(f, "  PID=%lu", (unsigned long) c->pid);
+                fprintf(f, "  PID="PID_FMT, c->pid);
         if (c->mask & SD_BUS_CREDS_PID_STARTTIME)
-                fprintf(f, "  PIDStartTime=%llu", (unsigned long long) c->pid_starttime);
+                fprintf(f, "  PIDStartTime="USEC_FMT, c->pid_starttime);
         if (c->mask & SD_BUS_CREDS_TID)
-                fprintf(f, "  TID=%lu", (unsigned long) c->tid);
+                fprintf(f, "  TID="PID_FMT, c->tid);
         if (c->mask & SD_BUS_CREDS_UID)
-                fprintf(f, "  UID=%lu", (unsigned long) c->uid);
+                fprintf(f, "  UID="UID_FMT, c->uid);
         r = sd_bus_creds_get_owner_uid(c, &owner);
         if (r >= 0)
-                fprintf(f, "  OwnerUID=%lu", (unsigned long) owner);
+                fprintf(f, "  OwnerUID="UID_FMT, owner);
         if (c->mask & SD_BUS_CREDS_GID)
-                fprintf(f, "  GID=%lu", (unsigned long) c->gid);
+                fprintf(f, "  GID="GID_FMT, c->gid);
 
         if ((c->mask & (SD_BUS_CREDS_PID|SD_BUS_CREDS_PID_STARTTIME|SD_BUS_CREDS_TID|SD_BUS_CREDS_UID|SD_BUS_CREDS_GID)) || r >= 0)
                 fputs("\n", f);
@@ -387,11 +387,11 @@ int bus_creds_dump(sd_bus_creds *c, FILE *f) {
 
         if (sd_bus_creds_get_audit_login_uid(c, &audit_loginuid) >= 0) {
                 audit_loginuid_is_set = true;
-                fprintf(f, "  AuditLoginUID=%lu", (unsigned long) audit_loginuid);
+                fprintf(f, "  AuditLoginUID="UID_FMT, audit_loginuid);
         }
         if (sd_bus_creds_get_audit_session_id(c, &audit_sessionid) >= 0) {
                 audit_sessionid_is_set = true;
-                fprintf(f, "  AuditSessionID=%lu", (unsigned long) audit_sessionid);
+                fprintf(f, "  AuditSessionID=%"PRIu32, audit_sessionid);
         }
 
         if (audit_loginuid_is_set || audit_sessionid_is_set)

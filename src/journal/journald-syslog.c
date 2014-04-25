@@ -159,7 +159,7 @@ void server_forward_syslog(Server *s, int priority, const char *identifier, cons
                         identifier = ident_buf;
                 }
 
-                snprintf(header_pid, sizeof(header_pid), "[%lu]: ", (unsigned long) ucred->pid);
+                snprintf(header_pid, sizeof(header_pid), "["PID_FMT"]: ", ucred->pid);
                 char_array_0(header_pid);
 
                 if (identifier)

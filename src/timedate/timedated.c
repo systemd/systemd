@@ -710,7 +710,7 @@ static int method_set_time(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bu
 
         log_struct(LOG_INFO,
                    MESSAGE_ID(SD_MESSAGE_TIME_CHANGE),
-                   "REALTIME=%llu", (unsigned long long) timespec_load(&ts),
+                   "REALTIME="USEC_FMT, timespec_load(&ts),
                    "MESSAGE=Changed local time to %s", ctime(&ts.tv_sec),
                    NULL);
 

@@ -118,7 +118,7 @@ static int method_get_machine_by_pid(sd_bus *bus, sd_bus_message *message, void 
         if (r < 0)
                 return r;
         if (!machine)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_MACHINE_FOR_PID, "PID %lu does not belong to any known machine", (unsigned long) pid);
+                return sd_bus_error_setf(error, BUS_ERROR_NO_MACHINE_FOR_PID, "PID "PID_FMT" does not belong to any known machine", pid);
 
         p = machine_bus_path(machine);
         if (!p)
