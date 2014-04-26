@@ -63,8 +63,7 @@
 
                 <para>To configure low-level link settings independently of
                 networks, see
-                <citerefentry><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                .</para>
+                <citerefentry><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
                 <para>Network configurations applied before networkd is started
                 are not removed, and static configuration applied by networkd
@@ -100,7 +99,7 @@
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd-network-wait-online.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                 </para>
         </refsect1>
