@@ -502,6 +502,8 @@ static int netdev_load_one(Manager *manager, const char *filename) {
                         return r;
         }
 
+        log_debug_netdev(netdev, "loaded %s", netdev_kind_to_string(netdev->kind));
+
         netdev = NULL;
 
         return 0;
