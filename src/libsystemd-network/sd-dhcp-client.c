@@ -231,7 +231,21 @@ static int client_initialize(sd_dhcp_client *client) {
 static sd_dhcp_client *client_stop(sd_dhcp_client *client, int error) {
         assert_return(client, NULL);
 
-        log_dhcp_client(client, "STOPPED: %s", strerror(-error));
+        if (error < 0)
+                log_dhcp_client(client, "STOPPED: %s", strerror(-error));
+        else {
+                switch(error) {
+                case DHCP_EVENT_STOP:
+                        log_dhcp_client(client, "STOPPED: Requested by user");
+                        break;
+                case DHCP_EVENT_NO_LEASE:
+                        log_dhcp_client(client, "STOPPED: No lease");
+                        break;
+                default:
+                        log_dhcp_client(client, "STOPPED: Unknown reason");
+                        break;
+                }
+        }
 
         client = client_notify(client, error);
 
