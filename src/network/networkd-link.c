@@ -1232,12 +1232,13 @@ static int link_up_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 
         r = sd_rtnl_message_get_errno(m);
         if (r < 0) {
+                /* we warn but don't fail the link, as it may
+                   be brought up later */
                 log_struct_link(LOG_WARNING, link,
                                 "MESSAGE=%s: could not bring up interface: %s",
                                 link->ifname, strerror(-r),
                                 "ERRNO=%d", -r,
                                 NULL);
-                link_enter_failed(link);
         }
 
         return 1;
