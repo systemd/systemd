@@ -1129,7 +1129,7 @@ static int link_update_flags(Link *link, sd_rtnl_message *m) {
         flags_removed = (link->flags ^ flags) & link->flags;
         generic_flags = ~(IFF_UP | IFF_LOWER_UP | IFF_DORMANT | IFF_DEBUG |
                           IFF_MULTICAST | IFF_BROADCAST | IFF_PROMISC |
-                          IFF_NOARP | IFF_MASTER | IFF_SLAVE);
+                          IFF_NOARP | IFF_MASTER | IFF_SLAVE | IFF_RUNNING);
 
         if (flags_added & IFF_UP)
                 log_debug_link(link, "link is up");
