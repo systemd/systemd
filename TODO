@@ -678,7 +678,6 @@ Features:
 * sd-rtnl:
    - add support for more attribute types
    - inbuilt piping support (essentially degenerate async)? see loopback-setup.c and other places
-   - add support for multi-part messages (simply call the same callback repeatedly?)
 
 * networkd:
    - add more keys to [Route] and [Address] sections
@@ -690,7 +689,7 @@ Features:
    - set lifetime on the address acquired from dhcp
 
 * sd-network:
-   - make sure ipv4ll and dhcp clients can handle changing mac addresses while running
+   - add veth netdev support (c.f. http://shorewall.net/bridge-Shorewall-perl.html#veth)
 
 External:
 
