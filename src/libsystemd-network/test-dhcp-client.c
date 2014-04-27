@@ -79,7 +79,9 @@ static void test_request_basic(sd_event *e)
 
         assert_se(sd_dhcp_client_set_index(client, 15) == 0);
         assert_se(sd_dhcp_client_set_index(client, -42) == -EINVAL);
-        assert_se(sd_dhcp_client_set_index(client, -1) == 0);
+        assert_se(sd_dhcp_client_set_index(client, -1) == -EINVAL);
+        assert_se(sd_dhcp_client_set_index(client, 0) == -EINVAL);
+        assert_se(sd_dhcp_client_set_index(client, 1) == 0);
 
         assert_se(sd_dhcp_client_set_request_option(client,
                                         DHCP_OPTION_SUBNET_MASK) == -EEXIST);

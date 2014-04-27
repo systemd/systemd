@@ -143,7 +143,7 @@ int sd_dhcp_client_set_index(sd_dhcp_client *client, int interface_index) {
         assert_return(client, -EINVAL);
         assert_return (IN_SET(client->state, DHCP_STATE_INIT,
                               DHCP_STATE_STOPPED), -EBUSY);
-        assert_return(interface_index >= -1, -EINVAL);
+        assert_return(interface_index > 0, -EINVAL);
 
         client->index = interface_index;
 

@@ -2514,9 +2514,21 @@ test_dhcp_client_LDADD = \
 	libsystemd-internal.la \
 	libsystemd-shared.la
 
+test_ipv4ll_SOURCES = \
+        src/systemd/sd-ipv4ll.h \
+        src/libsystemd-network/ipv4ll-internal.h \
+        src/libsystemd-network/test-ipv4ll.c
+
+test_ipv4ll_LDADD = \
+        libsystemd-network.la \
+        libsystemd-label.la \
+        libsystemd-internal.la \
+        libsystemd-shared.la
+
 tests += \
 	test-dhcp-option \
-	test-dhcp-client
+	test-dhcp-client \
+	test-ipv4ll
 
 # ------------------------------------------------------------------------------
 if ENABLE_GTK_DOC

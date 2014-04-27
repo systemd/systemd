@@ -382,7 +382,7 @@ static int ipv4ll_receive_message(sd_event_source *s, int fd,
 
 int sd_ipv4ll_set_index(sd_ipv4ll *ll, int interface_index) {
         assert_return(ll, -EINVAL);
-        assert_return(interface_index >= -1, -EINVAL);
+        assert_return(interface_index > 0, -EINVAL);
         assert_return(IN_SET(ll->state, IPV4LL_STATE_INIT,
                              IPV4LL_STATE_STOPPED), -EBUSY);
 
@@ -469,10 +469,13 @@ int sd_ipv4ll_get_address(sd_ipv4ll *ll, struct in_addr *address){
 }
 
 int sd_ipv4ll_set_address_seed (sd_ipv4ll *ll, uint8_t seed[8]) {
-        unsigned int entropy = *seed;
+        unsigned int entropy;
         int r;
 
         assert_return(ll, -EINVAL);
+        assert_return(seed, -EINVAL);
+
+        entropy = *seed;
 
         free(ll->random_data);
         free(ll->random_data_state);
