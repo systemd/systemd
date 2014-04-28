@@ -52,7 +52,7 @@ typedef struct ConfigTableItem {
 } ConfigTableItem;
 
 /* Wraps information for parsing a specific configuration variable, to
- * ve srored in a gperf perfect hashtable */
+ * be stored in a gperf perfect hashtable */
 typedef struct ConfigPerfItem {
         const char *section_and_lvalue; /* Section + "." + name of the variable */
         ConfigParserCallback parse;     /* Function that is called to parse the variable's value */
