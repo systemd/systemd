@@ -728,7 +728,7 @@ static int method_reset_failed(sd_bus *bus, sd_bus_message *message, void *userd
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_list_units(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int list_units_filtered(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error, char **states) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         Manager *m = userdata;
         const char *k;
@@ -761,6 +761,12 @@ static int method_list_units(sd_bus *bus, sd_bus_message *message, void *userdat
 
                 following = unit_following(u);
 
+                if (!strv_isempty(states) &&
+                    !strv_contains(states, unit_load_state_to_string(u->load_state)) &&
+                    !strv_contains(states, unit_active_state_to_string(unit_active_state(u))) &&
+                    !strv_contains(states, unit_sub_state_to_string(u)))
+                        continue;
+
                 unit_path = unit_dbus_path(u);
                 if (!unit_path)
                         return -ENOMEM;
@@ -792,6 +798,21 @@ static int method_list_units(sd_bus *bus, sd_bus_message *message, void *userdat
                 return r;
 
         return sd_bus_send(bus, reply, NULL);
+}
+
+static int method_list_units(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return list_units_filtered(bus, message, userdata, error, NULL);
+}
+
+static int method_list_units_filtered(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_strv_free_ char **states = NULL;
+        int r;
+
+        r = sd_bus_message_read_strv(message, &states);
+        if (r < 0)
+                return r;
+
+        return list_units_filtered(bus, message, userdata, error, states);
 }
 
 static int method_list_jobs(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -1670,6 +1691,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_METHOD("ClearJobs", NULL, NULL, method_clear_jobs, 0),
         SD_BUS_METHOD("ResetFailed", NULL, NULL, method_reset_failed, 0),
         SD_BUS_METHOD("ListUnits", NULL, "a(ssssssouso)", method_list_units, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("ListUnitsFiltered", "as", "a(ssssssouso)", method_list_units_filtered, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ListJobs", NULL, "a(usssoo)", method_list_jobs, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Subscribe", NULL, NULL, method_subscribe, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Unsubscribe", NULL, NULL, method_unsubscribe, SD_BUS_VTABLE_UNPRIVILEGED),

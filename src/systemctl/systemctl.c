@@ -319,12 +319,6 @@ static int compare_unit_info(const void *a, const void *b) {
 static bool output_show_unit(const UnitInfo *u, char **patterns) {
         const char *dot;
 
-        if (!strv_isempty(arg_states))
-                return
-                        strv_contains(arg_states, u->load_state) ||
-                        strv_contains(arg_states, u->sub_state) ||
-                        strv_contains(arg_states, u->active_state);
-
         if (!strv_isempty(patterns)) {
                 char **pattern;
 
@@ -513,6 +507,7 @@ static int get_unit_list(
                 int c,
                 sd_bus_message **_reply) {
 
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         size_t size = c;
@@ -523,15 +518,22 @@ static int get_unit_list(
         assert(unit_infos);
         assert(_reply);
 
-        r = sd_bus_call_method(
+        r = sd_bus_message_new_method_call(
                         bus,
+                        &m,
                         "org.freedesktop.systemd1",
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
-                        "ListUnits",
-                        &error,
-                        &reply,
-                        NULL);
+                        "ListUnitsFiltered");
+
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append_strv(m, arg_states);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_call(bus, m, 0, &error, &reply);
         if (r < 0) {
                 log_error("Failed to list units: %s", bus_error_message(&error, r));
                 return r;
