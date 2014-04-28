@@ -101,6 +101,7 @@
 /systemd-sysctl
 /systemd-system-update-generator
 /systemd-timedated
+/systemd-timesyncd
 /systemd-tmpfiles
 /systemd-tty-ask-password-agent
 /systemd-uaccess
@@ -149,6 +150,7 @@
 /test-inhibit
 /test-install
 /test-ipcrm
+/test-ipv4ll
 /test-job-type
 /test-journal
 /test-journal-enum
@@ -188,7 +190,6 @@
 /test-tables
 /test-rtnl-manual
 /test-time
-/test-timedate-sntp
 /test-tmpfiles
 /test-udev
 /test-unit-file

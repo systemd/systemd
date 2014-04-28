@@ -19,19 +19,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-/*
- * "Simple Network Time Protocol Version 4 (SNTPv4) is a subset of the
- * Network Time Protocol (NTP) used to synchronize computer clocks in
- * the Internet. SNTPv4 can be used when the ultimate performance of
- * a full NTP implementation based on RFC 1305 is neither needed nor
- * justified."
- *
- * "Unlike most NTP clients, SNTP clients normally operate with only a
- * single server at a time."
- *
- * http://tools.ietf.org/html/rfc4330
- */
-
 #include <stdlib.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -51,7 +38,7 @@
 #include "sparse-endian.h"
 #include "log.h"
 #include "sd-event.h"
-#include "timedate-sntp.h"
+#include "sd-daemon.h"
 
 #define TIME_T_MAX (time_t)((1UL << ((sizeof(time_t) << 3) - 1)) - 1)
 
@@ -117,8 +104,9 @@ struct ntp_msg {
         struct ntp_ts trans_time;
 } _packed_;
 
-struct SNTPContext {
-        void (*report)(usec_t poll, double offset, double delay, double jitter, bool spike);
+typedef struct Manager Manager;
+struct Manager {
+        sd_event *event;
 
         /* peer */
         sd_event_source *event_receive;
@@ -154,8 +142,13 @@ struct SNTPContext {
         int clock_watch_fd;
 };
 
-static int sntp_arm_timer(SNTPContext *sntp, usec_t next);
-static int sntp_clock_watch_setup(SNTPContext *sntp);
+static void manager_free(Manager *m);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
+#define _cleanup_manager_free_ _cleanup_(manager_freep)
+
+static int sntp_arm_timer(Manager *m, usec_t next);
+static int sntp_clock_watch_setup(Manager *m);
+static void sntp_server_disconnect(Manager *m);
 
 static double ntp_ts_to_d(const struct ntp_ts *ts) {
         return be32toh(ts->sec) + ((double)be32toh(ts->frac) / UINT_MAX);
@@ -184,7 +177,7 @@ static double square(double d) {
         return d * d;
 }
 
-static int sntp_send_request(SNTPContext *sntp) {
+static int sntp_send_request(Manager *m) {
         struct ntp_msg ntpmsg = {};
         struct sockaddr_in addr = {};
         ssize_t len;
@@ -207,28 +200,28 @@ static int sntp_send_request(SNTPContext *sntp) {
          * The actual value does not matter, We do not care about the correct
          * NTP UINT_MAX fraction; we just pass the plain nanosecond value.
          */
-        clock_gettime(CLOCK_MONOTONIC, &sntp->trans_time_mon);
-        clock_gettime(CLOCK_REALTIME, &sntp->trans_time);
-        ntpmsg.trans_time.sec = htobe32(sntp->trans_time.tv_sec + OFFSET_1900_1970);
-        ntpmsg.trans_time.frac = htobe32(sntp->trans_time.tv_nsec);
+        clock_gettime(CLOCK_MONOTONIC, &m->trans_time_mon);
+        clock_gettime(CLOCK_REALTIME, &m->trans_time);
+        ntpmsg.trans_time.sec = htobe32(m->trans_time.tv_sec + OFFSET_1900_1970);
+        ntpmsg.trans_time.frac = htobe32(m->trans_time.tv_nsec);
 
         addr.sin_family = AF_INET;
         addr.sin_port = htobe16(123);
-        addr.sin_addr.s_addr = inet_addr(sntp->server);
-        len = sendto(sntp->server_socket, &ntpmsg, sizeof(ntpmsg), MSG_DONTWAIT, &addr, sizeof(addr));
+        addr.sin_addr.s_addr = inet_addr(m->server);
+        len = sendto(m->server_socket, &ntpmsg, sizeof(ntpmsg), MSG_DONTWAIT, &addr, sizeof(addr));
         if (len == sizeof(ntpmsg)) {
-                sntp->pending = true;
-                log_debug("Sent NTP request to: %s", sntp->server);
+                m->pending = true;
+                log_debug("Sent NTP request to: %s", m->server);
         } else
-                log_debug("Sending NTP request to %s failed: %m", sntp->server);
+                log_debug("Sending NTP request to %s failed: %m", m->server);
 
         /* re-arm timer with incresing timeout, in case the packets never arrive back */
-        if (sntp->retry_interval > 0) {
-                if (sntp->retry_interval < NTP_POLL_INTERVAL_MAX_SEC * USEC_PER_SEC)
-                        sntp->retry_interval *= 2;
+        if (m->retry_interval > 0) {
+                if (m->retry_interval < NTP_POLL_INTERVAL_MAX_SEC * USEC_PER_SEC)
+                        m->retry_interval *= 2;
         } else
-                sntp->retry_interval = NTP_POLL_INTERVAL_MIN_SEC * USEC_PER_SEC;
-        r = sntp_arm_timer(sntp, sntp->retry_interval);
+                m->retry_interval = NTP_POLL_INTERVAL_MIN_SEC * USEC_PER_SEC;
+        r = sntp_arm_timer(m, m->retry_interval);
         if (r < 0)
                 return r;
 
@@ -236,41 +229,39 @@ static int sntp_send_request(SNTPContext *sntp) {
 }
 
 static int sntp_timer(sd_event_source *source, usec_t usec, void *userdata) {
-        SNTPContext *sntp = userdata;
+        Manager *m = userdata;
 
-        assert(sntp);
+        assert(m);
 
-        sntp_send_request(sntp);
+        sntp_send_request(m);
         return 0;
 }
 
-static int sntp_arm_timer(SNTPContext *sntp, usec_t next) {
-        sd_event *e;
+static int sntp_arm_timer(Manager *m, usec_t next) {
         int r;
 
-        assert(sntp);
-        assert(sntp->event_receive);
+        assert(m);
+        assert(m->event_receive);
 
         if (next == 0) {
-                sntp->event_timer = sd_event_source_unref(sntp->event_timer);
+                m->event_timer = sd_event_source_unref(m->event_timer);
                 return 0;
         }
 
-        if (sntp->event_timer) {
-                r = sd_event_source_set_time(sntp->event_timer, now(CLOCK_MONOTONIC) + next);
+        if (m->event_timer) {
+                r = sd_event_source_set_time(m->event_timer, now(CLOCK_MONOTONIC) + next);
                 if (r < 0)
                         return r;
 
-                return sd_event_source_set_enabled(sntp->event_timer, SD_EVENT_ONESHOT);
+                return sd_event_source_set_enabled(m->event_timer, SD_EVENT_ONESHOT);
         }
 
-        e = sd_event_source_get_event(sntp->event_receive);
         r = sd_event_add_time(
-                        e,
-                        &sntp->event_timer,
+                        m->event,
+                        &m->event_timer,
                         CLOCK_MONOTONIC,
                         now(CLOCK_MONOTONIC) + next, 0,
-                        sntp_timer, sntp);
+                        sntp_timer, m);
         if (r < 0)
                 return r;
 
@@ -278,38 +269,38 @@ static int sntp_arm_timer(SNTPContext *sntp, usec_t next) {
 }
 
 static int sntp_clock_watch(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
-        SNTPContext *sntp = userdata;
+        Manager *m = userdata;
 
-        assert(sntp);
-        assert(sntp->event_receive);
+        assert(m);
+        assert(m->event_receive);
 
         /* rearm timer */
-        sntp_clock_watch_setup(sntp);
+        sntp_clock_watch_setup(m);
 
         /* skip our own jumps */
-        if (sntp->jumped) {
-                sntp->jumped = false;
+        if (m->jumped) {
+                m->jumped = false;
                 return 0;
         }
 
         /* resync */
         log_info("System time changed. Resyncing.");
-        sntp->poll_resync = true;
-        sntp_send_request(sntp);
+        m->poll_resync = true;
+        sntp_send_request(m);
 
         return 0;
 }
 
 /* wake up when the system time changes underneath us */
-static int sntp_clock_watch_setup(SNTPContext *sntp) {
+static int sntp_clock_watch_setup(Manager *m) {
         struct itimerspec its = { .it_value.tv_sec = TIME_T_MAX };
         _cleanup_close_ int fd = -1;
         sd_event *e;
         sd_event_source *source;
         int r;
 
-        assert(sntp);
-        assert(sntp->event_receive);
+        assert(m);
+        assert(m->event_receive);
 
         fd = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK|TFD_CLOEXEC);
         if (fd < 0) {
@@ -322,25 +313,25 @@ static int sntp_clock_watch_setup(SNTPContext *sntp) {
                 return -errno;
         }
 
-        e = sd_event_source_get_event(sntp->event_receive);
-        r = sd_event_add_io(e, &source, fd, EPOLLIN, sntp_clock_watch, sntp);
+        e = sd_event_source_get_event(m->event_receive);
+        r = sd_event_add_io(e, &source, fd, EPOLLIN, sntp_clock_watch, m);
         if (r < 0) {
                 log_error("Failed to create clock watch event source: %s", strerror(-r));
                 return r;
         }
 
-        sd_event_source_unref(sntp->event_clock_watch);
-        sntp->event_clock_watch = source;
+        sd_event_source_unref(m->event_clock_watch);
+        m->event_clock_watch = source;
 
-        if (sntp->clock_watch_fd >= 0)
-                close(sntp->clock_watch_fd);
-        sntp->clock_watch_fd = fd;
+        if (m->clock_watch_fd >= 0)
+                close(m->clock_watch_fd);
+        m->clock_watch_fd = fd;
         fd = -1;
 
         return 0;
 }
 
-static int sntp_adjust_clock(SNTPContext *sntp, double offset, int leap_sec) {
+static int sntp_adjust_clock(Manager *m, double offset, int leap_sec) {
         struct timex tmx = {};
         int r;
 
@@ -351,11 +342,11 @@ static int sntp_adjust_clock(SNTPContext *sntp, double offset, int leap_sec) {
          * Clear STA_UNSYNC, it will enable the kernel's 11-minute mode, which
          * syncs the system time periodically to the hardware clock.
          */
-        if (offset < NTP_MAX_ADJUST && offset > -NTP_MAX_ADJUST) {
-                tmx.modes |= ADJ_STATUS | ADJ_OFFSET | ADJ_TIMECONST | ADJ_MAXERROR | ADJ_ESTERROR;
+        if (fabs(offset) < NTP_MAX_ADJUST) {
+                tmx.modes = ADJ_STATUS | ADJ_OFFSET | ADJ_TIMECONST | ADJ_MAXERROR | ADJ_ESTERROR;
                 tmx.status = STA_PLL;
-                tmx.offset = offset * 1000 * 1000;
-                tmx.constant = log2i(sntp->poll_interval_usec / USEC_PER_SEC) - 6;
+                tmx.offset = offset * USEC_PER_SEC;
+                tmx.constant = log2i(m->poll_interval_usec / USEC_PER_SEC) - 6;
                 tmx.maxerror = 0;
                 tmx.esterror = 0;
                 log_debug("  adjust (slew): %+f sec\n", (double)tmx.offset / USEC_PER_SEC);
@@ -363,7 +354,7 @@ static int sntp_adjust_clock(SNTPContext *sntp, double offset, int leap_sec) {
                 tmx.modes = ADJ_SETOFFSET;
                 d_to_tv(offset, &tmx.time);
 
-                sntp->jumped = true;
+                m->jumped = true;
                 log_debug("  adjust (jump): %+f sec\n", tv_to_d(&tmx.time));
         }
 
@@ -376,7 +367,8 @@ static int sntp_adjust_clock(SNTPContext *sntp, double offset, int leap_sec) {
                 break;
         }
 
-        r = clock_adjtime(CLOCK_REALTIME, &tmx);
+        //r = clock_adjtime(CLOCK_REALTIME, &tmx);
+        r = adjtimex(&tmx);
         if (r < 0)
                 return r;
 
@@ -394,37 +386,37 @@ static int sntp_adjust_clock(SNTPContext *sntp, double offset, int leap_sec) {
         return 0;
 }
 
-static bool sntp_sample_spike_detection(SNTPContext *sntp, double offset, double delay) {
+static bool sntp_sample_spike_detection(Manager *m, double offset, double delay) {
         unsigned int i, idx_cur, idx_new, idx_min;
         double jitter;
         double j;
 
-        sntp->packet_count++;
+        m->packet_count++;
 
         /* ignore initial sample */
-        if (sntp->packet_count == 1)
+        if (m->packet_count == 1)
                 return false;
 
         /* store the current data in our samples array */
-        idx_cur = sntp->samples_idx;
-        idx_new = (idx_cur + 1) % ELEMENTSOF(sntp->samples);
-        sntp->samples_idx = idx_new;
-        sntp->samples[idx_new].offset = offset;
-        sntp->samples[idx_new].delay = delay;
+        idx_cur = m->samples_idx;
+        idx_new = (idx_cur + 1) % ELEMENTSOF(m->samples);
+        m->samples_idx = idx_new;
+        m->samples[idx_new].offset = offset;
+        m->samples[idx_new].delay = delay;
 
         /* calculate new jitter value from the RMS differences relative to the lowest delay sample */
-        jitter = sntp->samples_jitter;
-        for (idx_min = idx_cur, i = 0; i < ELEMENTSOF(sntp->samples); i++)
-                if (sntp->samples[i].delay > 0 && sntp->samples[i].delay < sntp->samples[idx_min].delay)
+        jitter = m->samples_jitter;
+        for (idx_min = idx_cur, i = 0; i < ELEMENTSOF(m->samples); i++)
+                if (m->samples[i].delay > 0 && m->samples[i].delay < m->samples[idx_min].delay)
                         idx_min = i;
 
         j = 0;
-        for (i = 0; i < ELEMENTSOF(sntp->samples); i++)
-                j += square(sntp->samples[i].offset - sntp->samples[idx_min].offset);
-        sntp->samples_jitter = sqrt(j / (ELEMENTSOF(sntp->samples) - 1));
+        for (i = 0; i < ELEMENTSOF(m->samples); i++)
+                j += square(m->samples[i].offset - m->samples[idx_min].offset);
+        m->samples_jitter = sqrt(j / (ELEMENTSOF(m->samples) - 1));
 
         /* ignore samples when resyncing */
-        if (sntp->poll_resync)
+        if (m->poll_resync)
                 return false;
 
         /* always accept offset if we are farther off than the round-trip delay */
@@ -432,47 +424,47 @@ static bool sntp_sample_spike_detection(SNTPContext *sntp, double offset, double
                 return false;
 
         /* we need a few samples before looking at them */
-        if (sntp->packet_count < 4)
+        if (m->packet_count < 4)
                 return false;
 
         /* do not accept anything worse than the maximum possible error of the best sample */
-        if (fabs(offset) > sntp->samples[idx_min].delay)
+        if (fabs(offset) > m->samples[idx_min].delay)
                 return true;
 
         /* compare the difference between the current offset to the previous offset and jitter */
-        return fabs(offset - sntp->samples[idx_cur].offset) > 3 * jitter;
+        return fabs(offset - m->samples[idx_cur].offset) > 3 * jitter;
 }
 
-static void sntp_adjust_poll(SNTPContext *sntp, double offset, bool spike) {
-        if (sntp->poll_resync) {
-                sntp->poll_interval_usec = NTP_POLL_INTERVAL_MIN_SEC * USEC_PER_SEC;
-                sntp->poll_resync = false;
+static void sntp_adjust_poll(Manager *m, double offset, bool spike) {
+        if (m->poll_resync) {
+                m->poll_interval_usec = NTP_POLL_INTERVAL_MIN_SEC * USEC_PER_SEC;
+                m->poll_resync = false;
                 return;
         }
 
         /* set to minimal poll interval */
         if (!spike && fabs(offset) > NTP_ACCURACY_SEC) {
-                sntp->poll_interval_usec = NTP_POLL_INTERVAL_MIN_SEC * USEC_PER_SEC;
+                m->poll_interval_usec = NTP_POLL_INTERVAL_MIN_SEC * USEC_PER_SEC;
                 return;
         }
 
         /* increase polling interval */
         if (fabs(offset) < NTP_ACCURACY_SEC * 0.25) {
-                if (sntp->poll_interval_usec < NTP_POLL_INTERVAL_MAX_SEC * USEC_PER_SEC)
-                        sntp->poll_interval_usec *= 2;
+                if (m->poll_interval_usec < NTP_POLL_INTERVAL_MAX_SEC * USEC_PER_SEC)
+                        m->poll_interval_usec *= 2;
                 return;
         }
 
         /* decrease polling interval */
         if (spike || fabs(offset) > NTP_ACCURACY_SEC * 0.75) {
-                if (sntp->poll_interval_usec > NTP_POLL_INTERVAL_MIN_SEC * USEC_PER_SEC)
-                        sntp->poll_interval_usec /= 2;
+                if (m->poll_interval_usec > NTP_POLL_INTERVAL_MIN_SEC * USEC_PER_SEC)
+                        m->poll_interval_usec /= 2;
                 return;
         }
 }
 
 static int sntp_receive_response(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
-        SNTPContext *sntp = userdata;
+        Manager *m = userdata;
         unsigned char buf[sizeof(struct ntp_msg)];
         struct iovec iov = {
                 .iov_base = buf,
@@ -504,7 +496,7 @@ static int sntp_receive_response(sd_event_source *source, int fd, uint32_t reven
 
         if (revents & (EPOLLHUP|EPOLLERR)) {
                 log_debug("Server connection returned error. Closing.");
-                sntp_server_disconnect(sntp);
+                sntp_server_disconnect(m);
                 return -ENOTCONN;
         }
 
@@ -519,7 +511,7 @@ static int sntp_receive_response(sd_event_source *source, int fd, uint32_t reven
                 return -EINVAL;
         }
 
-        if (sntp->server_addr.sin_addr.s_addr != server_addr.sin_addr.s_addr) {
+        if (m->server_addr.sin_addr.s_addr != server_addr.sin_addr.s_addr) {
                 log_debug("Response from unknown server. Disconnecting.");
                 return -EINVAL;
         }
@@ -541,14 +533,14 @@ static int sntp_receive_response(sd_event_source *source, int fd, uint32_t reven
         }
 
         ntpmsg = iov.iov_base;
-        if (!sntp->pending) {
+        if (!m->pending) {
                 log_debug("Unexpected reply. Ignoring.");
                 return 0;
         }
 
         /* check our "time cookie" (we just stored nanoseconds in the fraction field) */
-        if (be32toh(ntpmsg->origin_time.sec) != sntp->trans_time.tv_sec + OFFSET_1900_1970 ||
-            be32toh(ntpmsg->origin_time.frac) != sntp->trans_time.tv_nsec) {
+        if (be32toh(ntpmsg->origin_time.sec) != m->trans_time.tv_sec + OFFSET_1900_1970 ||
+            be32toh(ntpmsg->origin_time.frac) != m->trans_time.tv_nsec) {
                 log_debug("Invalid reply; not our transmit time. Ignoring.");
                 return 0;
         }
@@ -569,8 +561,8 @@ static int sntp_receive_response(sd_event_source *source, int fd, uint32_t reven
         }
 
         /* valid packet */
-        sntp->pending = false;
-        sntp->retry_interval = 0;
+        m->pending = false;
+        m->retry_interval = 0;
 
         /* announce leap seconds */
         if (NTP_FIELD_LEAP(ntpmsg->field) & NTP_LEAP_PLUSSEC)
@@ -592,7 +584,7 @@ static int sntp_receive_response(sd_event_source *source, int fd, uint32_t reven
          *  d = (T4 - T1) - (T3 - T2)     t = ((T2 - T1) + (T3 - T4)) / 2"
          */
         clock_gettime(CLOCK_MONOTONIC, &now_ts);
-        origin = tv_to_d(recv_time) - (ts_to_d(&now_ts) - ts_to_d(&sntp->trans_time_mon)) + OFFSET_1900_1970;
+        origin = tv_to_d(recv_time) - (ts_to_d(&now_ts) - ts_to_d(&m->trans_time_mon)) + OFFSET_1900_1970;
         receive = ntp_ts_to_d(&ntpmsg->recv_time);
         trans = ntp_ts_to_d(&ntpmsg->trans_time);
         dest = tv_to_d(recv_time) + OFFSET_1900_1970;
@@ -600,9 +592,9 @@ static int sntp_receive_response(sd_event_source *source, int fd, uint32_t reven
         offset = ((receive - origin) + (trans - dest)) / 2;
         delay = (dest - origin) - (trans - receive);
 
-        spike = sntp_sample_spike_detection(sntp, offset, delay);
+        spike = sntp_sample_spike_detection(m, offset, delay);
 
-        sntp_adjust_poll(sntp, offset, spike);
+        sntp_adjust_poll(m, offset, spike);
 
         log_debug("NTP response:\n"
                   "  leap         : %u\n"
@@ -631,72 +623,72 @@ static int sntp_receive_response(sd_event_source *source, int fd, uint32_t reven
                   trans - OFFSET_1900_1970,
                   dest - OFFSET_1900_1970,
                   offset, delay,
-                  sntp->packet_count,
-                  sntp->samples_jitter, spike ? " spike" : "",
-                  sntp->poll_interval_usec / USEC_PER_SEC);
+                  m->packet_count,
+                  m->samples_jitter, spike ? " spike" : "",
+                  m->poll_interval_usec / USEC_PER_SEC);
 
-        if (sntp->report)
-                sntp->report(sntp->poll_interval_usec, offset, delay, sntp->samples_jitter, spike);
+        log_info("%4llu %+10f %10f %10f%s",
+                 m->poll_interval_usec / USEC_PER_SEC, offset, delay, m->samples_jitter, spike ? " spike" : "");
 
         if (!spike) {
-                r = sntp_adjust_clock(sntp, offset, leap_sec);
+                r = sntp_adjust_clock(m, offset, leap_sec);
                 if (r < 0)
                         log_error("Failed to call clock_adjtime(): %m");
         }
 
-        r = sntp_arm_timer(sntp, sntp->poll_interval_usec);
+        r = sntp_arm_timer(m, m->poll_interval_usec);
         if (r < 0)
                 return r;
 
         return 0;
 }
 
-int sntp_server_connect(SNTPContext *sntp, const char *server) {
+static int sntp_server_connect(Manager *m, const char *server) {
         _cleanup_free_ char *s = NULL;
 
-        assert(sntp);
+        assert(m);
         assert(server);
-        assert(sntp->server_socket >= 0);
+        assert(m->server_socket >= 0);
 
         s = strdup(server);
         if (!s)
                 return -ENOMEM;
 
-        free(sntp->server);
-        sntp->server = s;
+        free(m->server);
+        m->server = s;
         s = NULL;
 
-        zero(sntp->server_addr);
-        sntp->server_addr.sin_family = AF_INET;
-        sntp->server_addr.sin_addr.s_addr = inet_addr(server);
+        zero(m->server_addr);
+        m->server_addr.sin_family = AF_INET;
+        m->server_addr.sin_addr.s_addr = inet_addr(server);
 
-        sntp->poll_interval_usec = NTP_POLL_INTERVAL_MIN_SEC * USEC_PER_SEC;
+        m->poll_interval_usec = NTP_POLL_INTERVAL_MIN_SEC * USEC_PER_SEC;
 
-        return sntp_send_request(sntp);
+        return sntp_send_request(m);
 }
 
-void sntp_server_disconnect(SNTPContext *sntp) {
-        if (!sntp->server)
+static void sntp_server_disconnect(Manager *m) {
+        if (!m->server)
                 return;
 
-        sntp->event_timer = sd_event_source_unref(sntp->event_timer);
+        m->event_timer = sd_event_source_unref(m->event_timer);
 
-        sntp->event_clock_watch = sd_event_source_unref(sntp->event_clock_watch);
-        if (sntp->clock_watch_fd > 0)
-                close(sntp->clock_watch_fd);
-        sntp->clock_watch_fd = -1;
+        m->event_clock_watch = sd_event_source_unref(m->event_clock_watch);
+        if (m->clock_watch_fd > 0)
+                close(m->clock_watch_fd);
+        m->clock_watch_fd = -1;
 
-        sntp->event_receive = sd_event_source_unref(sntp->event_receive);
-        if (sntp->server_socket > 0)
-                close(sntp->server_socket);
-        sntp->server_socket = -1;
+        m->event_receive = sd_event_source_unref(m->event_receive);
+        if (m->server_socket > 0)
+                close(m->server_socket);
+        m->server_socket = -1;
 
-        zero(sntp->server_addr);
-        free(sntp->server);
-        sntp->server = NULL;
+        zero(m->server_addr);
+        free(m->server);
+        m->server = NULL;
 }
 
-static int sntp_listen_setup(SNTPContext *sntp, sd_event *e) {
+static int sntp_listen_setup(Manager *m) {
         _cleanup_close_ int fd = -1;
         struct sockaddr_in addr;
         const int on = 1;
@@ -721,44 +713,80 @@ static int sntp_listen_setup(SNTPContext *sntp, sd_event *e) {
         if (r < 0)
                 return -errno;
 
-        r = sd_event_add_io(e, &sntp->event_receive, fd, EPOLLIN, sntp_receive_response, sntp);
+        r = sd_event_add_io(m->event, &m->event_receive, fd, EPOLLIN, sntp_receive_response, m);
         if (r < 0)
                 return r;
 
-        sntp->server_socket = fd;
+        m->server_socket = fd;
         fd = -1;
 
         return 0;
 }
 
-void sntp_report_register(SNTPContext *sntp, void (*report)(usec_t poll_usec, double offset, double delay, double jitter, bool spike)) {
-        sntp->report = report;
-}
-
-int sntp_new(SNTPContext **sntp, sd_event *e) {
-        _cleanup_free_ SNTPContext *c;
+static int manager_new(Manager **ret) {
+        _cleanup_manager_free_ Manager *m = NULL;
         int r;
 
-        c = new0(SNTPContext, 1);
-        if (!c)
+        m = new0(Manager, 1);
+        if (!m)
                 return -ENOMEM;
 
-        r = sntp_listen_setup(c, e);
+        r = sd_event_default(&m->event);
         if (r < 0)
                 return r;
 
-        r = sntp_clock_watch_setup(c);
+        r = sntp_listen_setup(m);
         if (r < 0)
                 return r;
 
-        *sntp = c;
-        c = NULL;
+        r = sntp_clock_watch_setup(m);
+        if (r < 0)
+                return r;
+
+        *ret = m;
+        m = NULL;
 
         return 0;
 }
 
-SNTPContext *sntp_unref(SNTPContext *sntp) {
-        sntp_server_disconnect(sntp);
-        free(sntp);
-        return NULL;
+static void manager_free(Manager *m) {
+
+        if (!m)
+                return;
+
+        sd_event_unref(m->event);
+        free(m);
+}
+
+int main(int argc, char *argv[]) {
+        _cleanup_manager_free_ Manager *m = NULL;
+        const char *server;
+        int r;
+
+        log_set_target(LOG_TARGET_AUTO);
+        log_parse_environment();
+        log_open();
+
+        r = manager_new(&m);
+        if (r < 0)
+                goto out;
+
+        //server = "216.239.32.15";       /* time1.google.com */
+        //server = "192.53.103.108";      /* ntp1.ptb.de */
+        server = "27.54.95.11";         /* au.pool.ntp.org */
+
+        sd_notifyf(false,
+                  "READY=1\n"
+                  "STATUS=Connecting to %s", server);
+
+        r = sntp_server_connect(m, server);
+        if (r < 0)
+                goto out;
+
+        r = sd_event_loop(m->event);
+        if (r < 0)
+                goto out;
+
+out:
+        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
