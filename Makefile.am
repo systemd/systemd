@@ -4023,8 +4023,14 @@ systemd_timesyncd_LDADD = \
 	libsystemd-shared.la \
 	-lm
 
-noinst_PROGRAMS += \
+rootlibexec_PROGRAMS += \
 	systemd-timesyncd
+
+nodist_systemunit_DATA += \
+	units/systemd-timesyncd.service
+
+EXTRA_DIST += \
+	units/systemd-timesyncd.service.in
 endif
 
 # ------------------------------------------------------------------------------

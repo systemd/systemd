@@ -822,7 +822,7 @@ AM_CONDITIONAL(ENABLE_TIMEDATED, [test "$have_timedated" = "yes"])
 # ------------------------------------------------------------------------------
 have_timesyncd=no
 AC_ARG_ENABLE(timesyncd, AS_HELP_STRING([--disable-timesyncd], [disable timesync daemon]))
-if test "x$enable_timesyncd" != "xno"; then
+if test "x$enable_timesyncd" = "xyes"; then
         have_timesyncd=yes
 fi
 AM_CONDITIONAL(ENABLE_TIMESYNCD, [test "$have_timesyncd" = "yes"])
@@ -1158,6 +1158,7 @@ AC_MSG_RESULT([
         machined:                ${have_machined}
         hostnamed:               ${have_hostnamed}
         timedated:               ${have_timedated}
+        timesyncd:               ${have_timesyncd}
         localed:                 ${have_localed}
         networkd:                ${have_networkd}
         coredump:                ${have_coredump}

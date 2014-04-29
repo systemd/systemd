@@ -627,8 +627,8 @@ static int sntp_receive_response(sd_event_source *source, int fd, uint32_t reven
                   m->samples_jitter, spike ? " spike" : "",
                   m->poll_interval_usec / USEC_PER_SEC);
 
-        log_info("%4llu %+10f %10f %10f%s",
-                 m->poll_interval_usec / USEC_PER_SEC, offset, delay, m->samples_jitter, spike ? " spike" : "");
+        log_info("poll=%llu s offset=%+f s roundtrip=%f s",
+                 m->poll_interval_usec / USEC_PER_SEC, offset, delay);
 
         if (!spike) {
                 r = sntp_adjust_clock(m, offset, leap_sec);
@@ -771,9 +771,7 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 goto out;
 
-        //server = "216.239.32.15";       /* time1.google.com */
-        //server = "192.53.103.108";      /* ntp1.ptb.de */
-        server = "27.54.95.11";         /* au.pool.ntp.org */
+        server = "216.239.32.15";       /* time1.google.com */
 
         sd_notifyf(false,
                   "READY=1\n"

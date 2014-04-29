@@ -1126,6 +1126,17 @@ man/systemd-timedated.html: man/systemd-timedated.service.html
 
 endif
 
+if ENABLE_TIMESYNCD
+MANPAGES += \
+	man/systemd-timesyncd.service.8
+MANPAGES_ALIAS += \
+	man/systemd-timesyncd.8
+man/systemd-timesyncd.8: man/systemd-timesyncd.service.8
+man/systemd-timesyncd.html: man/systemd-timesyncd.service.html
+	$(html-alias)
+
+endif
+
 if ENABLE_VCONSOLE
 MANPAGES += \
 	man/systemd-vconsole-setup.service.8 \
@@ -1550,6 +1561,7 @@ EXTRA_DIST += \
 	man/systemd-system-update-generator.xml \
 	man/systemd-system.conf.xml \
 	man/systemd-timedated.service.xml \
+	man/systemd-timesyncd.service.xml \
 	man/systemd-tmpfiles.xml \
 	man/systemd-tty-ask-password-agent.xml \
 	man/systemd-udevd.service.xml \

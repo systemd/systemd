@@ -54,6 +54,7 @@
 /systemd-suspend.service
 /systemd-sysctl.service
 /systemd-timedated.service
+/systemd-timesyncd.service
 /systemd-tmpfiles-clean.service
 /systemd-tmpfiles-setup-dev.service
 /systemd-tmpfiles-setup.service
