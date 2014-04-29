@@ -301,55 +301,60 @@ static int link_enter_set_routes(Link *link) {
                 struct in_addr gateway;
 
                 r = sd_dhcp_lease_get_router(link->dhcp_lease, &gateway);
-                if (r < 0) {
-                        log_warning_link(link, "DHCP error: no router: %s",
-                                         strerror(-r));
+                if (r < 0 && r != -ENOENT) {
+                        log_warning_link(link, "DHCP error: %s", strerror(-r));
                         return r;
                 }
 
-                r = route_new_dynamic(&route);
-                if (r < 0) {
-                        log_error_link(link, "Could not allocate route: %s",
-                                       strerror(-r));
-                        return r;
+                if (r >= 0) {
+                        r = route_new_dynamic(&route);
+                        if (r < 0) {
+                                log_error_link(link, "Could not allocate route: %s",
+                                               strerror(-r));
+                                return r;
+                        }
+
+                        r = route_new_dynamic(&route_gw);
+                        if (r < 0) {
+                                log_error_link(link, "Could not allocate route: %s",
+                                               strerror(-r));
+                                return r;
+                        }
+
+                        /* The dhcp netmask may mask out the gateway. Add an explicit
+                         * route for the gw host so that we can route no matter the
+                         * netmask or existing kernel route tables. */
+                        route_gw->family = AF_INET;
+                        route_gw->dst_addr.in = gateway;
+                        route_gw->dst_prefixlen = 32;
+                        route_gw->scope = RT_SCOPE_LINK;
+
+                        r = route_configure(route_gw, link, &route_handler);
+                        if (r < 0) {
+                                log_warning_link(link,
+                                                 "could not set host route: %s", strerror(-r));
+                                return r;
+                        }
+
+                        link->route_messages ++;
+
+                        route->family = AF_INET;
+                        route->in_addr.in = gateway;
+
+                        r = route_configure(route, link, &route_handler);
+                        if (r < 0) {
+                                log_warning_link(link,
+                                                 "could not set routes: %s", strerror(-r));
+                                link_enter_failed(link);
+                                return r;
+                        }
+
+                        link->route_messages ++;
                 }
+        }
 
-                r = route_new_dynamic(&route_gw);
-                if (r < 0) {
-                        log_error_link(link, "Could not allocate route: %s",
-                                       strerror(-r));
-                        return r;
-                }
-
-                /* The dhcp netmask may mask out the gateway. Add an explicit
-                 * route for the gw host so that we can route no matter the
-                 * netmask or existing kernel route tables. */
-                route_gw->family = AF_INET;
-                route_gw->dst_addr.in = gateway;
-                route_gw->dst_prefixlen = 32;
-                route_gw->scope = RT_SCOPE_LINK;
-
-                r = route_configure(route_gw, link, &route_handler);
-                if (r < 0) {
-                        log_warning_link(link,
-                                         "could not set host route: %s", strerror(-r));
-                        return r;
-                }
-
-                link->route_messages ++;
-
-                route->family = AF_INET;
-                route->in_addr.in = gateway;
-
-                r = route_configure(route, link, &route_handler);
-                if (r < 0) {
-                        log_warning_link(link,
-                                         "could not set routes: %s", strerror(-r));
-                        link_enter_failed(link);
-                        return r;
-                }
-
-                link->route_messages ++;
+        if (link->route_messages == 0) {
+                link_enter_configured(link);
         }
 
         return 0;
@@ -680,28 +685,30 @@ static int dhcp_lease_lost(Link *link) {
 
         r = address_new_dynamic(&address);
         if (r >= 0) {
+                r = sd_dhcp_lease_get_router(link->dhcp_lease, &gateway);
+                if (r >= 0) {
+                        r = route_new_dynamic(&route_gw);
+                        if (r >= 0) {
+                                route_gw->family = AF_INET;
+                                route_gw->dst_addr.in = gateway;
+                                route_gw->dst_prefixlen = 32;
+                                route_gw->scope = RT_SCOPE_LINK;
+
+                                route_drop(route_gw, link, &route_drop_handler);
+                        }
+
+                        r = route_new_dynamic(&route);
+                        if (r >= 0) {
+                                route->family = AF_INET;
+                                route->in_addr.in = gateway;
+
+                                route_drop(route, link, &route_drop_handler);
+                        }
+                }
+
                 sd_dhcp_lease_get_address(link->dhcp_lease, &addr);
                 sd_dhcp_lease_get_netmask(link->dhcp_lease, &netmask);
-                sd_dhcp_lease_get_router(link->dhcp_lease, &gateway);
                 prefixlen = net_netmask_to_prefixlen(&netmask);
-
-                r = route_new_dynamic(&route_gw);
-                if (r >= 0) {
-                        route_gw->family = AF_INET;
-                        route_gw->dst_addr.in = gateway;
-                        route_gw->dst_prefixlen = 32;
-                        route_gw->scope = RT_SCOPE_LINK;
-
-                        route_drop(route_gw, link, &route_drop_handler);
-                }
-
-                r = route_new_dynamic(&route);
-                if (r >= 0) {
-                        route->family = AF_INET;
-                        route->in_addr.in = gateway;
-
-                        route_drop(route, link, &route_drop_handler);
-                }
 
                 address->family = AF_INET;
                 address->in_addr.in = addr;
@@ -777,25 +784,36 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
         prefixlen = net_netmask_to_prefixlen(&netmask);
 
         r = sd_dhcp_lease_get_router(lease, &gateway);
-        if (r < 0) {
-                log_warning_link(link, "DHCP error: no router: %s",
-                                 strerror(-r));
+        if (r < 0 && r != -ENOENT) {
+                log_warning_link(link, "DHCP error: %s", strerror(-r));
                 return r;
         }
 
-        log_struct_link(LOG_INFO, link,
-                        "MESSAGE=%s: DHCPv4 address %u.%u.%u.%u/%u via %u.%u.%u.%u",
-                         link->ifname,
-                         ADDRESS_FMT_VAL(address),
-                         prefixlen,
-                         ADDRESS_FMT_VAL(gateway),
-                         "ADDRESS=%u.%u.%u.%u",
-                         ADDRESS_FMT_VAL(address),
-                         "PREFIXLEN=%u",
-                         prefixlen,
-                         "GATEWAY=%u.%u.%u.%u",
-                         ADDRESS_FMT_VAL(gateway),
-                         NULL);
+        if (r >= 0)
+                log_struct_link(LOG_INFO, link,
+                                "MESSAGE=%s: DHCPv4 address %u.%u.%u.%u/%u via %u.%u.%u.%u",
+                                 link->ifname,
+                                 ADDRESS_FMT_VAL(address),
+                                 prefixlen,
+                                 ADDRESS_FMT_VAL(gateway),
+                                 "ADDRESS=%u.%u.%u.%u",
+                                 ADDRESS_FMT_VAL(address),
+                                 "PREFIXLEN=%u",
+                                 prefixlen,
+                                 "GATEWAY=%u.%u.%u.%u",
+                                 ADDRESS_FMT_VAL(gateway),
+                                 NULL);
+        else
+                log_struct_link(LOG_INFO, link,
+                                "MESSAGE=%s: DHCPv4 address %u.%u.%u.%u/%u",
+                                 link->ifname,
+                                 ADDRESS_FMT_VAL(address),
+                                 prefixlen,
+                                 "ADDRESS=%u.%u.%u.%u",
+                                 ADDRESS_FMT_VAL(address),
+                                 "PREFIXLEN=%u",
+                                 prefixlen,
+                                 NULL);
 
         link->dhcp_lease = lease;
 

@@ -126,7 +126,10 @@ int sd_dhcp_lease_get_router(sd_dhcp_lease *lease, struct in_addr *addr) {
         assert_return(lease, -EINVAL);
         assert_return(addr, -EINVAL);
 
-        addr->s_addr = lease->router;
+        if (lease->router != INADDR_ANY)
+                addr->s_addr = lease->router;
+        else
+                return -ENOENT;
 
         return 0;
 }
@@ -297,6 +300,7 @@ int dhcp_lease_new(sd_dhcp_lease **ret) {
         if (!lease)
                 return -ENOMEM;
 
+        lease->router = INADDR_ANY;
         lease->n_ref = REFCNT_INIT;
 
         *ret = lease;
@@ -370,17 +374,15 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
                 "# This is private data. Do not parse.\n"
                 "ADDRESS=%s\n", inet_ntoa(address));
 
-        r = sd_dhcp_lease_get_router(lease, &address);
-        if (r < 0)
-                goto finish;
-
-        fprintf(f, "ROUTER=%s\n", inet_ntoa(address));
-
         r = sd_dhcp_lease_get_netmask(lease, &address);
         if (r < 0)
                 goto finish;
 
         fprintf(f, "NETMASK=%s\n", inet_ntoa(address));
+
+        r = sd_dhcp_lease_get_router(lease, &address);
+        if (r >= 0)
+                fprintf(f, "ROUTER=%s\n", inet_ntoa(address));
 
         r = sd_dhcp_lease_get_server_identifier(lease, &address);
         if (r >= 0)
@@ -474,11 +476,13 @@ int dhcp_lease_load(const char *lease_file, sd_dhcp_lease **ret) {
 
         lease->address = addr.s_addr;
 
-        r = inet_pton(AF_INET, router, &addr);
-        if (r < 0)
-                return r;
+        if (router) {
+                r = inet_pton(AF_INET, router, &addr);
+                if (r < 0)
+                        return r;
 
-        lease->router = addr.s_addr;
+                lease->router = addr.s_addr;
+        }
 
         r = inet_pton(AF_INET, netmask, &addr);
         if (r < 0)
