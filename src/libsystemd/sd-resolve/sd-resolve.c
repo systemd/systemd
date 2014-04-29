@@ -45,12 +45,14 @@
 #include "util.h"
 #include "list.h"
 #include "socket-util.h"
+#include "missing.h"
+#include "resolve-util.h"
 #include "sd-resolve.h"
 
-#define WORKERS_MIN 1
-#define WORKERS_MAX 16
-#define QUERIES_MAX 256
-#define BUFSIZE 10240
+#define WORKERS_MIN 1U
+#define WORKERS_MAX 16U
+#define QUERIES_MAX 256U
+#define BUFSIZE 10240U
 
 typedef enum {
         REQUEST_ADDRINFO,
@@ -73,6 +75,8 @@ enum {
 };
 
 struct sd_resolve {
+        unsigned n_ref;
+
         bool dead:1;
         pid_t original_pid;
 
@@ -83,28 +87,40 @@ struct sd_resolve {
 
         unsigned current_id, current_index;
         sd_resolve_query* queries[QUERIES_MAX];
-        unsigned n_queries;
+        unsigned n_queries, n_done;
 
-        LIST_HEAD(sd_resolve_query, done);
-        sd_resolve_query *done_tail;
-        unsigned n_done;
+        sd_event_source *event_source;
+        sd_event *event;
+
+        sd_resolve_query *current;
+
+        sd_resolve **default_resolve_ptr;
+        pid_t tid;
 };
 
 struct sd_resolve_query {
+        unsigned n_ref;
+
         sd_resolve *resolve;
+
+        QueryType type:4;
         bool done:1;
         unsigned id;
-        QueryType type;
 
         int ret;
         int _errno;
         int _h_errno;
         struct addrinfo *addrinfo;
         char *serv, *host;
+        unsigned char *answer;
+
+        union {
+                sd_resolve_getaddrinfo_handler_t getaddrinfo_handler;
+                sd_resolve_getnameinfo_handler_t getnameinfo_handler;
+                sd_resolve_res_handler_t res_handler;
+        };
 
         void *userdata;
-
-        LIST_FIELDS(sd_resolve_query, done);
 };
 
 typedef struct RHeader {
@@ -180,13 +196,21 @@ typedef union Packet {
         ResResponse res_response;
 } Packet;
 
+static int getaddrinfo_done(sd_resolve_query* q);
+static int getnameinfo_done(sd_resolve_query *q);
+static int res_query_done(sd_resolve_query* q);
+
+#define RESOLVE_DONT_DESTROY(resolve) \
+        _cleanup_resolve_unref_ _unused_ sd_resolve *_dont_destroy_##resolve = sd_resolve_ref(resolve)
+
 static int send_died(int out_fd) {
-        RHeader rh = {};
+
+        RHeader rh = {
+                .type = RESPONSE_DIED,
+                .length = sizeof(RHeader),
+        };
 
         assert(out_fd >= 0);
-
-        rh.type = RESPONSE_DIED;
-        rh.length = sizeof(rh);
 
         if (send(out_fd, &rh, rh.length, MSG_NOSIGNAL) < 0)
                 return -errno;
@@ -234,7 +258,15 @@ static int send_addrinfo_reply(
                 int _errno,
                 int _h_errno) {
 
-        AddrInfoResponse resp = {};
+        AddrInfoResponse resp = {
+                .header.type = RESPONSE_ADDRINFO,
+                .header.id = id,
+                .header.length = sizeof(AddrInfoResponse),
+                .ret = ret,
+                ._errno = _errno,
+                ._h_errno = _h_errno,
+        };
+
         struct msghdr mh = {};
         struct iovec iov[2];
         union {
@@ -243,13 +275,6 @@ static int send_addrinfo_reply(
         } buffer;
 
         assert(out_fd >= 0);
-
-        resp.header.type = RESPONSE_ADDRINFO;
-        resp.header.id = id;
-        resp.header.length = sizeof(AddrInfoResponse);
-        resp.ret = ret;
-        resp._errno = _errno;
-        resp._h_errno = _h_errno;
 
         if (ret == 0 && ai) {
                 void *p = &buffer;
@@ -288,7 +313,14 @@ static int send_nameinfo_reply(
                 int _errno,
                 int _h_errno) {
 
-        NameInfoResponse resp = {};
+        NameInfoResponse resp = {
+                .header.type = RESPONSE_NAMEINFO,
+                .header.id = id,
+                .ret = ret,
+                ._errno = _errno,
+                ._h_errno = _h_errno,
+        };
+
         struct msghdr mh = {};
         struct iovec iov[3];
         size_t hl, sl;
@@ -298,12 +330,7 @@ static int send_nameinfo_reply(
         sl = serv ? strlen(serv)+1 : 0;
         hl = host ? strlen(host)+1 : 0;
 
-        resp.header.type = RESPONSE_NAMEINFO;
-        resp.header.id = id;
         resp.header.length = sizeof(NameInfoResponse) + hl + sl;
-        resp.ret = ret;
-        resp._errno = _errno;
-        resp._h_errno = _h_errno;
         resp.hostlen = hl;
         resp.servlen = sl;
 
@@ -321,21 +348,24 @@ static int send_nameinfo_reply(
 }
 
 static int send_res_reply(int out_fd, unsigned id, const unsigned char *answer, int ret, int _errno, int _h_errno) {
+
+        ResResponse resp = {
+                .header.type = RESPONSE_RES,
+                .header.id = id,
+                .ret = ret,
+                ._errno = _errno,
+                ._h_errno = _h_errno,
+        };
+
         struct msghdr mh = {};
         struct iovec iov[2];
-        ResResponse resp = {};
         size_t l;
 
         assert(out_fd >= 0);
 
         l = ret > 0 ? (size_t) ret : 0;
 
-        resp.header.type = RESPONSE_RES;
-        resp.header.id = id;
         resp.header.length = sizeof(ResResponse) + l;
-        resp.ret = ret;
-        resp._errno = _errno;
-        resp._h_errno = _h_errno;
 
         iov[0] = (struct iovec) { .iov_base = &resp, .iov_len = sizeof(ResResponse) };
         iov[1] = (struct iovec) { .iov_base = (void*) answer, .iov_len = l };
@@ -489,12 +519,8 @@ static int start_threads(sd_resolve *resolve, unsigned extra) {
         unsigned n;
         int r;
 
-        n = resolve->n_queries - resolve->n_done + extra;
-
-        if (n < WORKERS_MIN)
-                n = WORKERS_MIN;
-        if (n > WORKERS_MAX)
-                n = WORKERS_MAX;
+        n = resolve->n_queries + extra - resolve->n_done;
+        n = CLAMP(n, WORKERS_MIN, WORKERS_MAX);
 
         while (resolve->n_valid_workers < n) {
 
@@ -527,10 +553,11 @@ _public_ int sd_resolve_new(sd_resolve **ret) {
         if (!resolve)
                 return -ENOMEM;
 
+        resolve->n_ref = 1;
+        resolve->original_pid = getpid();
+
         for (i = 0; i < _FD_MAX; i++)
                 resolve->fds[i] = -1;
-
-        resolve->original_pid = getpid();
 
         r = socketpair(PF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, resolve->fds + REQUEST_RECV_FD);
         if (r < 0) {
@@ -555,21 +582,64 @@ _public_ int sd_resolve_new(sd_resolve **ret) {
         return 0;
 
 fail:
-        if (resolve)
-                sd_resolve_unref(resolve);
-
+        sd_resolve_unref(resolve);
         return r;
 }
 
-_public_ sd_resolve* sd_resolve_unref(sd_resolve *resolve) {
-        PROTECT_ERRNO;
+_public_ int sd_resolve_default(sd_resolve **ret) {
 
+        static thread_local sd_resolve *default_resolve = NULL;
+        sd_resolve *e = NULL;
+        int r;
+
+        if (!ret)
+                return !!default_resolve;
+
+        if (default_resolve) {
+                *ret = sd_resolve_ref(default_resolve);
+                return 0;
+        }
+
+        r = sd_resolve_new(&e);
+        if (r < 0)
+                return r;
+
+        e->default_resolve_ptr = &default_resolve;
+        e->tid = gettid();
+        default_resolve = e;
+
+        *ret = e;
+        return 1;
+}
+
+_public_ int sd_resolve_get_tid(sd_resolve *resolve, pid_t *tid) {
+        assert_return(resolve, -EINVAL);
+        assert_return(tid, -EINVAL);
+        assert_return(!resolve_pid_changed(resolve), -ECHILD);
+
+        if (resolve->tid != 0) {
+                *tid = resolve->tid;
+                return 0;
+        }
+
+        if (resolve->event)
+                return sd_event_get_tid(resolve->event, tid);
+
+        return -ENXIO;
+}
+
+static void resolve_free(sd_resolve *resolve) {
+        PROTECT_ERRNO;
         unsigned i;
 
-        assert_return(resolve, NULL);
-        assert_return(!resolve_pid_changed(resolve), NULL);
+        assert(resolve);
+
+        if (resolve->default_resolve_ptr)
+                *(resolve->default_resolve_ptr) = NULL;
 
         resolve->dead = true;
+
+        sd_resolve_detach_event(resolve);
 
         if (resolve->fds[REQUEST_SEND_FD] >= 0) {
 
@@ -595,11 +665,29 @@ _public_ sd_resolve* sd_resolve_unref(sd_resolve *resolve) {
         for (i = 0; i < _FD_MAX; i++)
                 safe_close(resolve->fds[i]);
 
-        for (i = 0; i < QUERIES_MAX && resolve->n_queries > 0; i++)
-                if (resolve->queries[i])
-                        sd_resolve_cancel(resolve->queries[i]);
-
         free(resolve);
+}
+
+_public_ sd_resolve* sd_resolve_ref(sd_resolve *resolve) {
+        assert_return(resolve, NULL);
+
+        assert(resolve->n_ref >= 1);
+        resolve->n_ref++;
+
+        return resolve;
+}
+
+_public_ sd_resolve* sd_resolve_unref(sd_resolve *resolve) {
+
+        if (!resolve)
+                return NULL;
+
+        assert(resolve->n_ref >= 1);
+        resolve->n_ref--;
+
+        if (resolve->n_ref <= 0)
+                resolve_free(resolve);
+
         return NULL;
 }
 
@@ -639,13 +727,40 @@ static sd_resolve_query *lookup_query(sd_resolve *resolve, unsigned id) {
         return NULL;
 }
 
-static void complete_query(sd_resolve_query *q) {
+static int complete_query(sd_resolve *resolve, sd_resolve_query *q) {
+        int r;
+
         assert(q);
         assert(!q->done);
+        assert(q->resolve == resolve);
 
         q->done = true;
-        LIST_PREPEND(done, q->resolve->done, q);
-        q->resolve->n_done ++;
+        resolve->n_done ++;
+
+        resolve->current = q;
+
+        switch (q->type) {
+
+        case REQUEST_ADDRINFO:
+                r = getaddrinfo_done(q);
+                break;
+
+        case REQUEST_NAMEINFO:
+                r = getnameinfo_done(q);
+                break;
+
+        case REQUEST_RES_QUERY:
+        case REQUEST_RES_SEARCH:
+                r = res_query_done(q);
+                break;
+
+        default:
+                assert_not_reached("Cannot complete unknown query type");
+        }
+
+        resolve->current = NULL;
+
+        return r;
 }
 
 static int unserialize_addrinfo(const void **p, size_t *length, struct addrinfo **ret_ai) {
@@ -761,8 +876,7 @@ static int handle_response(sd_resolve *resolve, const Packet *packet, size_t len
                         prev = ai;
                 }
 
-                complete_query(q);
-                break;
+                return complete_query(resolve, q);
         }
 
         case RESPONSE_NAMEINFO: {
@@ -793,8 +907,7 @@ static int handle_response(sd_resolve *resolve, const Packet *packet, size_t len
                         }
                 }
 
-                complete_query(q);
-                break;
+                return complete_query(resolve, q);
         }
 
         case RESPONSE_RES: {
@@ -808,54 +921,53 @@ static int handle_response(sd_resolve *resolve, const Packet *packet, size_t len
                 q->_h_errno = res_resp->_h_errno;
 
                 if (res_resp->ret >= 0)  {
-                        q->serv = memdup((const char *)resp + sizeof(ResResponse), res_resp->ret);
-                        if (!q->serv) {
+                        q->answer = memdup((const char *)resp + sizeof(ResResponse), res_resp->ret);
+                        if (!q->answer) {
                                 q->ret = -1;
                                 q->_errno = ENOMEM;
                                 q->_h_errno = 0;
                         }
                 }
 
-                complete_query(q);
-                break;
+                return complete_query(resolve, q);
         }
 
         default:
-                ;
+                return 0;
         }
-
-        return 0;
 }
 
 _public_ int sd_resolve_process(sd_resolve *resolve) {
-        int n_processed = 0, r;
+        RESOLVE_DONT_DESTROY(resolve);
+
+        union {
+                Packet packet;
+                uint8_t space[BUFSIZE];
+        } buf;
+        ssize_t l;
+        int r;
 
         assert_return(resolve, -EINVAL);
         assert_return(!resolve_pid_changed(resolve), -ECHILD);
 
-        for (;;) {
-                ssize_t l;
-                union {
-                        Packet packet;
-                        uint8_t space[BUFSIZE];
-                } buf;
+        /* We don't allow recursively invoking sd_resolve_process(). */
+        assert_return(!resolve->current, -EBUSY);
 
-                l = recv(resolve->fds[RESPONSE_RECV_FD], &buf, sizeof(buf), 0);
-                if (l < 0) {
-                        if (errno == EAGAIN)
-                                return n_processed;
+        l = recv(resolve->fds[RESPONSE_RECV_FD], &buf, sizeof(buf), 0);
+        if (l < 0) {
+                if (errno == EAGAIN)
+                        return 0;
 
-                        return -errno;
-                }
-                if (l == 0)
-                        return -ECONNREFUSED;
-
-                r = handle_response(resolve, &buf.packet, (size_t) l);
-                if (r < 0)
-                        return r;
-
-                n_processed++;
+                return -errno;
         }
+        if (l == 0)
+                return -ECONNREFUSED;
+
+        r = handle_response(resolve, &buf.packet, (size_t) l);
+        if (r < 0)
+                return r;
+
+        return 1;
 }
 
 _public_ int sd_resolve_wait(sd_resolve *resolve, uint64_t timeout_usec) {
@@ -864,7 +976,7 @@ _public_ int sd_resolve_wait(sd_resolve *resolve, uint64_t timeout_usec) {
         assert_return(resolve, -EINVAL);
         assert_return(!resolve_pid_changed(resolve), -ECHILD);
 
-        if (resolve->n_queries <= 0)
+        if (resolve->n_done >= resolve->n_queries)
                 return 0;
 
         do {
@@ -902,10 +1014,11 @@ static int alloc_query(sd_resolve *resolve, sd_resolve_query **_q) {
         if (!q)
                 return -ENOMEM;
 
-        resolve->n_queries++;
-
-        q->resolve = resolve;
+        q->n_ref = 1;
+        q->resolve = sd_resolve_ref(resolve);
         q->id = resolve->current_id;
+
+        resolve->n_queries++;
 
         *_q = q;
         return 0;
@@ -914,9 +1027,9 @@ static int alloc_query(sd_resolve *resolve, sd_resolve_query **_q) {
 _public_ int sd_resolve_getaddrinfo(
                 sd_resolve *resolve,
                 sd_resolve_query **_q,
-                const char *node,
-                const char *service,
-                const struct addrinfo *hints) {
+                const char *node, const char *service,
+                const struct addrinfo *hints,
+                sd_resolve_getaddrinfo_handler_t callback, void *userdata) {
 
         AddrInfoRequest req = {};
         struct msghdr mh = {};
@@ -925,19 +1038,24 @@ _public_ int sd_resolve_getaddrinfo(
         int r;
 
         assert_return(resolve, -EINVAL);
-        assert_return(node || service, -EINVAL);
         assert_return(_q, -EINVAL);
+        assert_return(node || service, -EINVAL);
+        assert_return(callback, -EINVAL);
         assert_return(!resolve_pid_changed(resolve), -ECHILD);
 
         r = alloc_query(resolve, &q);
         if (r < 0)
                 return r;
 
+        q->type = REQUEST_ADDRINFO;
+        q->getaddrinfo_handler = callback;
+        q->userdata = userdata;
+
         req.node_len = node ? strlen(node)+1 : 0;
         req.service_len = service ? strlen(service)+1 : 0;
 
         req.header.id = q->id;
-        req.header.type = q->type = REQUEST_ADDRINFO;
+        req.header.type = REQUEST_ADDRINFO;
         req.header.length = sizeof(AddrInfoRequest) + req.node_len + req.service_len;
 
         if (hints) {
@@ -949,17 +1067,14 @@ _public_ int sd_resolve_getaddrinfo(
         }
 
         iov[mh.msg_iovlen++] = (struct iovec) { .iov_base = &req, .iov_len = sizeof(AddrInfoRequest) };
-
         if (node)
                 iov[mh.msg_iovlen++] = (struct iovec) { .iov_base = (void*) node, .iov_len = req.node_len };
-
         if (service)
                 iov[mh.msg_iovlen++] = (struct iovec) { .iov_base = (void*) service, .iov_len = req.service_len };
-
         mh.msg_iov = iov;
 
         if (sendmsg(resolve->fds[REQUEST_SEND_FD], &mh, MSG_NOSIGNAL) < 0) {
-                sd_resolve_cancel(q);
+                sd_resolve_query_unref(q);
                 return -errno;
         }
 
@@ -967,41 +1082,15 @@ _public_ int sd_resolve_getaddrinfo(
         return 0;
 }
 
-_public_ int sd_resolve_getaddrinfo_done(sd_resolve_query* q, struct addrinfo **ret_res) {
-        int ret;
+static int getaddrinfo_done(sd_resolve_query* q) {
+        assert(q);
+        assert(q->done);
+        assert(q->getaddrinfo_handler);
 
-        if (!q) {
-                errno = EINVAL;
-                return EAI_SYSTEM;
-        }
+        errno = q->_errno;
+        h_errno = q->_h_errno;
 
-        if (q->type != REQUEST_ADDRINFO) {
-                errno = ENOTTY;
-                return EAI_SYSTEM;
-        }
-
-        if (resolve_pid_changed(q->resolve)) {
-                errno = ECHILD;
-                return EAI_SYSTEM;
-        }
-        if (!q->done)
-                return EAI_AGAIN;
-
-        if (ret_res) {
-                *ret_res = q->addrinfo;
-                q->addrinfo = NULL;
-        }
-
-        ret = q->ret;
-
-        if (ret != 0) {
-                errno = q->_errno;
-                h_errno = q->_h_errno;
-        }
-
-        sd_resolve_cancel(q);
-
-        return ret;
+        return q->getaddrinfo_handler(q, q->ret, q->addrinfo, q->userdata);
 }
 
 _public_ int sd_resolve_getnameinfo(
@@ -1009,7 +1098,9 @@ _public_ int sd_resolve_getnameinfo(
                 sd_resolve_query**_q,
                 const struct sockaddr *sa, socklen_t salen,
                 int flags,
-                int gethost, int getserv) {
+                uint64_t get,
+                sd_resolve_getnameinfo_handler_t callback,
+                void *userdata) {
 
         NameInfoRequest req = {};
         struct msghdr mh = {};
@@ -1018,24 +1109,30 @@ _public_ int sd_resolve_getnameinfo(
         int r;
 
         assert_return(resolve, -EINVAL);
+        assert_return(_q, -EINVAL);
         assert_return(sa, -EINVAL);
         assert_return(salen >= sizeof(struct sockaddr), -EINVAL);
         assert_return(salen <= sizeof(union sockaddr_union), -EINVAL);
-        assert_return(_q, -EINVAL);
+        assert_return((get & ~SD_RESOLVE_GET_BOTH) == 0, -EINVAL);
+        assert_return(callback, -EINVAL);
         assert_return(!resolve_pid_changed(resolve), -ECHILD);
 
         r = alloc_query(resolve, &q);
         if (r < 0)
                 return r;
 
+        q->type = REQUEST_NAMEINFO;
+        q->getnameinfo_handler = callback;
+        q->userdata = userdata;
+
         req.header.id = q->id;
-        req.header.type = q->type = REQUEST_NAMEINFO;
+        req.header.type = REQUEST_NAMEINFO;
         req.header.length = sizeof(NameInfoRequest) + salen;
 
         req.flags = flags;
         req.sockaddr_len = salen;
-        req.gethost = !!gethost;
-        req.getserv = !!getserv;
+        req.gethost = !!(get & SD_RESOLVE_GET_HOST);
+        req.getserv = !!(get & SD_RESOLVE_GET_SERVICE);
 
         iov[0] = (struct iovec) { .iov_base = &req, .iov_len = sizeof(NameInfoRequest) };
         iov[1] = (struct iovec) { .iov_base = (void*) sa, .iov_len = salen };
@@ -1044,7 +1141,7 @@ _public_ int sd_resolve_getnameinfo(
         mh.msg_iovlen = 2;
 
         if (sendmsg(resolve->fds[REQUEST_SEND_FD], &mh, MSG_NOSIGNAL) < 0) {
-                sd_resolve_cancel(q);
+                sd_resolve_query_unref(q);
                 return -errno;
         }
 
@@ -1052,47 +1149,16 @@ _public_ int sd_resolve_getnameinfo(
         return 0;
 }
 
-_public_ int sd_resolve_getnameinfo_done(sd_resolve_query* q, char **ret_host, char **ret_serv) {
-        int ret;
+static int getnameinfo_done(sd_resolve_query *q) {
 
-        if (!q) {
-                errno = EINVAL;
-                return EAI_SYSTEM;
-        }
+        assert(q);
+        assert(q->done);
+        assert(q->getnameinfo_handler);
 
-        if (q->type != REQUEST_NAMEINFO) {
-                errno = ENOTTY;
-                return EAI_SYSTEM;
-        }
+        errno = q->_errno;
+        h_errno= q->_h_errno;
 
-        if (resolve_pid_changed(q->resolve)) {
-                errno = ECHILD;
-                return EAI_SYSTEM;
-        }
-
-        if (!q->done)
-                return EAI_AGAIN;
-
-        if (ret_host) {
-                *ret_host = q->host;
-                q->host = NULL;
-        }
-
-        if (ret_serv) {
-                *ret_serv = q->serv;
-                q->serv = NULL;
-        }
-
-        ret = q->ret;
-
-        if (ret != 0) {
-                errno = q->_errno;
-                h_errno = q->_h_errno;
-        }
-
-        sd_resolve_cancel(q);
-
-        return ret;
+        return q->getnameinfo_handler(q, q->ret, q->host, q->serv, q->userdata);
 }
 
 static int resolve_res(
@@ -1100,7 +1166,8 @@ static int resolve_res(
                 sd_resolve_query **_q,
                 QueryType qtype,
                 const char *dname,
-                int class, int type) {
+                int class, int type,
+                sd_resolve_res_handler_t callback, void *userdata) {
 
         struct msghdr mh = {};
         struct iovec iov[2];
@@ -1109,20 +1176,25 @@ static int resolve_res(
         int r;
 
         assert_return(resolve, -EINVAL);
-        assert_return(dname, -EINVAL);
         assert_return(_q, -EINVAL);
+        assert_return(dname, -EINVAL);
+        assert_return(callback, -EINVAL);
         assert_return(!resolve_pid_changed(resolve), -ECHILD);
 
         r = alloc_query(resolve, &q);
         if (r < 0)
                 return r;
 
+        q->type = qtype;
+        q->res_handler = callback;
+        q->userdata = userdata;
+
         req.dname_len = strlen(dname) + 1;
         req.class = class;
         req.type = type;
 
         req.header.id = q->id;
-        req.header.type = q->type = qtype;
+        req.header.type = qtype;
         req.header.length = sizeof(ResRequest) + req.dname_len;
 
         iov[0] = (struct iovec) { .iov_base = &req, .iov_len = sizeof(ResRequest) };
@@ -1132,7 +1204,7 @@ static int resolve_res(
         mh.msg_iovlen = 2;
 
         if (sendmsg(resolve->fds[REQUEST_SEND_FD], &mh, MSG_NOSIGNAL) < 0) {
-                sd_resolve_cancel(q);
+                sd_resolve_query_unref(q);
                 return -errno;
         }
 
@@ -1140,70 +1212,54 @@ static int resolve_res(
         return 0;
 }
 
-_public_ int sd_resolve_res_query(sd_resolve *resolve, sd_resolve_query** q, const char *dname, int class, int type) {
-        return resolve_res(resolve, q, REQUEST_RES_QUERY, dname, class, type);
+_public_ int sd_resolve_res_query(sd_resolve *resolve, sd_resolve_query** q, const char *dname, int class, int type, sd_resolve_res_handler_t callback, void *userdata) {
+        return resolve_res(resolve, q, REQUEST_RES_QUERY, dname, class, type, callback, userdata);
 }
 
-_public_ int sd_resolve_res_search(sd_resolve *resolve, sd_resolve_query** q, const char *dname, int class, int type) {
-        return resolve_res(resolve, q, REQUEST_RES_SEARCH, dname, class, type);
+_public_ int sd_resolve_res_search(sd_resolve *resolve, sd_resolve_query** q, const char *dname, int class, int type, sd_resolve_res_handler_t callback, void *userdata) {
+        return resolve_res(resolve, q, REQUEST_RES_SEARCH, dname, class, type, callback, userdata);
 }
 
-_public_ int sd_resolve_res_done(sd_resolve_query* q, unsigned char **answer) {
-        int ret;
+static int res_query_done(sd_resolve_query* q) {
+        assert(q);
+        assert(q->done);
+        assert(q->res_handler);
 
-        assert_return(q, -EINVAL);
-        assert_return(answer, -EINVAL);
-        assert_return(q->type == REQUEST_RES_QUERY || q->type == REQUEST_RES_SEARCH, -ENOTTY);
-        assert_return(!resolve_pid_changed(q->resolve), -ECHILD);
+        errno = q->_errno;
+        h_errno = q->_h_errno;
 
-        if (!q->done)
-                return -EAGAIN;
+        return q->res_handler(q, q->ret, q->answer, q->userdata);
+}
 
-        *answer = (unsigned char *) q->serv;
-        q->serv = NULL;
+_public_ sd_resolve_query* sd_resolve_query_ref(sd_resolve_query *q) {
+        assert_return(q, NULL);
 
-        ret = q->ret;
+        assert(q->n_ref >= 1);
+        q->n_ref++;
 
-        if (ret != 0) {
-                errno = q->_errno;
-                h_errno = q->_h_errno;
+        return q;
+}
+
+static void resolve_freeaddrinfo(struct addrinfo *ai) {
+        while (ai) {
+                struct addrinfo *next = ai->ai_next;
+
+                free(ai->ai_addr);
+                free(ai->ai_canonname);
+                free(ai);
+                ai = next;
         }
-
-        sd_resolve_cancel(q);
-
-        return ret < 0 ? -errno : ret;
 }
 
-_public_ int sd_resolve_get_next(sd_resolve *resolve, sd_resolve_query **q) {
-        assert_return(resolve, -EINVAL);
-        assert_return(q, -EINVAL);
-        assert_return(!resolve_pid_changed(resolve), -ECHILD);
+static void resolve_query_free(sd_resolve_query *q) {
+        unsigned i;
 
-        *q = resolve->done;
-        return !!resolve->done;
-}
-
-_public_ int sd_resolve_get_n_queries(sd_resolve *resolve) {
-        assert_return(resolve, -EINVAL);
-        assert_return(!resolve_pid_changed(resolve), -ECHILD);
-
-        return resolve->n_queries;
-}
-
-_public_ int sd_resolve_cancel(sd_resolve_query* q) {
-        PROTECT_ERRNO;
-        int i;
-
-        if (!q)
-                return 0;
-
-        assert_return(!resolve_pid_changed(q->resolve), -ECHILD);
-
+        assert(q);
         assert(q->resolve);
         assert(q->resolve->n_queries > 0);
 
         if (q->done) {
-                LIST_REMOVE(done, q->resolve->done, q);
+                assert(q->resolve->n_done > 0);
                 q->resolve->n_done--;
         }
 
@@ -1211,36 +1267,36 @@ _public_ int sd_resolve_cancel(sd_resolve_query* q) {
         assert(q->resolve->queries[i] == q);
         q->resolve->queries[i] = NULL;
         q->resolve->n_queries--;
+        sd_resolve_unref(q->resolve);
 
-        sd_resolve_freeaddrinfo(q->addrinfo);
+        resolve_freeaddrinfo(q->addrinfo);
         free(q->host);
         free(q->serv);
+        free(q->answer);
         free(q);
-
-        return 0;
 }
 
-_public_ void sd_resolve_freeaddrinfo(struct addrinfo *ai) {
+_public_ sd_resolve_query* sd_resolve_query_unref(sd_resolve_query* q) {
+        if (!q)
+                return NULL;
 
-        while (ai) {
-                struct addrinfo *next = ai->ai_next;
+        assert(q->n_ref >= 1);
+        q->n_ref--;
 
-                free(ai->ai_addr);
-                free(ai->ai_canonname);
-                free(ai);
+        if (q->n_ref <= 0)
+                resolve_query_free(q);
 
-                ai = next;
-        }
+        return NULL;
 }
 
-_public_ int sd_resolve_is_done(sd_resolve_query *q) {
+_public_ int sd_resolve_query_is_done(sd_resolve_query *q) {
         assert_return(q, -EINVAL);
         assert_return(!resolve_pid_changed(q->resolve), -ECHILD);
 
         return q->done;
 }
 
-_public_ void* sd_resolve_set_userdata(sd_resolve_query *q, void *userdata) {
+_public_ void* sd_resolve_query_set_userdata(sd_resolve_query *q, void *userdata) {
         void *ret;
 
         assert_return(q, NULL);
@@ -1252,9 +1308,81 @@ _public_ void* sd_resolve_set_userdata(sd_resolve_query *q, void *userdata) {
         return ret;
 }
 
-_public_ void* sd_resolve_get_userdata(sd_resolve_query *q) {
+_public_ void* sd_resolve_query_get_userdata(sd_resolve_query *q) {
         assert_return(q, NULL);
         assert_return(!resolve_pid_changed(q->resolve), NULL);
 
         return q->userdata;
+}
+
+_public_ sd_resolve *sd_resolve_query_get_resolve(sd_resolve_query *q) {
+        assert_return(q, NULL);
+        assert_return(!resolve_pid_changed(q->resolve), NULL);
+
+        return q->resolve;
+}
+
+static int io_callback(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        sd_resolve *resolve = userdata;
+        int r;
+
+        assert(resolve);
+
+        r = sd_resolve_process(resolve);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
+_public_ int sd_resolve_attach_event(sd_resolve *resolve, sd_event *event, int priority) {
+        int r;
+
+        assert_return(resolve, -EINVAL);
+        assert_return(!resolve->event, -EBUSY);
+
+        assert(!resolve->event_source);
+
+        if (event)
+                resolve->event = sd_event_ref(event);
+        else {
+                r = sd_event_default(&resolve->event);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_event_add_io(resolve->event, &resolve->event_source, resolve->fds[RESPONSE_RECV_FD], POLLIN, io_callback, resolve);
+        if (r < 0)
+                goto fail;
+
+        r = sd_event_source_set_priority(resolve->event_source, priority);
+        if (r < 0)
+                goto fail;
+
+        return 0;
+
+fail:
+        sd_resolve_detach_event(resolve);
+        return r;
+}
+
+_public_  int sd_resolve_detach_event(sd_resolve *resolve) {
+        assert_return(resolve, -EINVAL);
+
+        if (!resolve->event)
+                return 0;
+
+        if (resolve->event_source) {
+                sd_event_source_set_enabled(resolve->event_source, SD_EVENT_OFF);
+                resolve->event_source = sd_event_source_unref(resolve->event_source);
+        }
+
+        resolve->event = sd_event_unref(resolve->event);
+        return 1;
+}
+
+_public_ sd_event *sd_resolve_get_event(sd_resolve *resolve) {
+        assert_return(resolve, NULL);
+
+        return resolve->event;
 }

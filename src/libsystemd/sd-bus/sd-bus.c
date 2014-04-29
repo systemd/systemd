@@ -3106,9 +3106,7 @@ _public_ int sd_bus_detach_event(sd_bus *bus) {
                 bus->quit_event_source = sd_event_source_unref(bus->quit_event_source);
         }
 
-        if (bus->event)
-                bus->event = sd_event_unref(bus->event);
-
+        bus->event = sd_event_unref(bus->event);
         return 1;
 }
 

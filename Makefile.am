@@ -2144,6 +2144,9 @@ libsystemd_resolve_la_CFLAGS = \
 	$(AM_CFLAGS) \
 	-pthread
 
+libsystemd_resolve_la_LIBADD = \
+	-lresolv
+
 noinst_LTLIBRARIES += \
 	libsystemd-internal.la \
 	libsystemd-resolve.la
@@ -2183,6 +2186,7 @@ nodist_libsystemd_la_SOURCES = \
 
 libsystemd_la_CFLAGS = \
 	$(libsystemd_internal_la_CFLAGS) \
+	$(libsystemd_resolve_la_CFLAGS) \
 	$(libsystemd_journal_internal_la_CFLAGS)
 
 libsystemd_la_LDFLAGS = \
@@ -2192,9 +2196,9 @@ libsystemd_la_LDFLAGS = \
 
 libsystemd_la_LIBADD = \
 	libsystemd-shared.la \
+	$(libsystemd_internal_la_LIBADD) \
 	$(libsystemd_journal_internal_la_LIBADD) \
-	$(RT_LIBS) \
-	-lresolv
+	$(libsystemd_resolve_la_LIBADD)
 
 libsystemd-install-hook:
 	libname=libsystemd.so && $(move-to-rootlibdir)
@@ -2435,14 +2439,12 @@ test_rtnl_LDADD = \
 	libsystemd-shared.la
 
 test_resolve_SOURCES = \
-	src/systemd/sd-resolve.h \
 	src/libsystemd/sd-resolve/test-resolve.c
 
 test_resolve_LDADD = \
-	libsystemd-internal.la \
 	libsystemd-resolve.la \
-	libsystemd-shared.la \
-	-lresolv
+	libsystemd-internal.la \
+	libsystemd-shared.la
 
 test_resolve_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -5157,7 +5159,8 @@ test-libsystemd-sym.c: \
 		src/systemd/sd-daemon.h \
 		src/systemd/sd-login.h \
 		src/systemd/sd-bus.h \
-		src/systemd/sd-utf8.h
+		src/systemd/sd-utf8.h \
+		src/systemd/sd-resolve.h
 	$(generate-sym-test)
 
 test-libudev-sym.c: \

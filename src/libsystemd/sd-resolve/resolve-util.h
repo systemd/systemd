@@ -22,8 +22,10 @@
 ***/
 
 #include "util.h"
+#include "sd-resolve.h"
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(sd_resolve*, sd_resolve_unref);
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct addrinfo*, sd_resolve_freeaddrinfo);
+DEFINE_TRIVIAL_CLEANUP_FUNC(sd_resolve_query*, sd_resolve_query_unref);
+
 #define _cleanup_resolve_unref_ _cleanup_(sd_resolve_unrefp)
-#define _cleanup_resolve_addrinfo_free_ _cleanup_(sd_resolve_freeaddrinfop)
+#define _cleanup_resolve_query_unref_ _cleanup_(sd_resolve_query_unrefp)
