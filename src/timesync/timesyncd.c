@@ -627,8 +627,8 @@ static int sntp_receive_response(sd_event_source *source, int fd, uint32_t reven
                   m->samples_jitter, spike ? " spike" : "",
                   m->poll_interval_usec / USEC_PER_SEC);
 
-        log_info("poll=%llu s offset=%+f s roundtrip=%f s",
-                 m->poll_interval_usec / USEC_PER_SEC, offset, delay);
+        log_info("%s: interval/offset/delay/jitter %llu/%+f/%f/%f",
+                 m->server, m->poll_interval_usec / USEC_PER_SEC, offset, delay, m->samples_jitter);
 
         if (!spike) {
                 r = sntp_adjust_clock(m, offset, leap_sec);
@@ -780,6 +780,9 @@ int main(int argc, char *argv[]) {
         r = sntp_server_connect(m, server);
         if (r < 0)
                 goto out;
+
+        sd_notifyf(false,
+                  "STATUS=Connected to %s", server);
 
         r = sd_event_loop(m->event);
         if (r < 0)
