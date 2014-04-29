@@ -349,13 +349,13 @@ static int sntp_adjust_clock(Manager *m, double offset, int leap_sec) {
                 tmx.constant = log2i(m->poll_interval_usec / USEC_PER_SEC) - 6;
                 tmx.maxerror = 0;
                 tmx.esterror = 0;
-                log_debug("  adjust (slew): %+f sec\n", (double)tmx.offset / USEC_PER_SEC);
+                log_debug("  adjust (slew): %+.3f sec\n", (double)tmx.offset / USEC_PER_SEC);
         } else {
                 tmx.modes = ADJ_SETOFFSET;
                 d_to_tv(offset, &tmx.time);
 
                 m->jumped = true;
-                log_debug("  adjust (jump): %+f sec\n", tv_to_d(&tmx.time));
+                log_debug("  adjust (jump): %+.3f sec\n", tv_to_d(&tmx.time));
         }
 
         switch (leap_sec) {
@@ -373,12 +373,12 @@ static int sntp_adjust_clock(Manager *m, double offset, int leap_sec) {
                 return r;
 
         log_debug("  status       : %04i %s\n"
-                  "  time now     : %li.%06li\n"
+                  "  time now     : %li.%03lli\n"
                   "  constant     : %li\n"
-                  "  offset       : %+f sec\n"
+                  "  offset       : %+.3f sec\n"
                   "  freq offset  : %+li (%+.3f ppm)\n",
                   tmx.status, tmx.status & STA_UNSYNC ? "" : "sync",
-                  tmx.time.tv_sec, tmx.time.tv_usec,
+                  tmx.time.tv_sec, tmx.time.tv_usec / USEC_PER_MSEC,
                   tmx.constant,
                   (double)tmx.offset / USEC_PER_SEC,
                   tmx.freq, (double)tmx.freq / 65536);
@@ -601,16 +601,16 @@ static int sntp_receive_response(sd_event_source *source, int fd, uint32_t reven
                   "  version      : %u\n"
                   "  mode         : %u\n"
                   "  stratum      : %u\n"
-                  "  precision    : %f sec (%d)\n"
+                  "  precision    : %.3f sec (%d)\n"
                   "  reference    : %.4s\n"
-                  "  origin       : %f\n"
-                  "  receive      : %f\n"
-                  "  transmit     : %f\n"
-                  "  dest         : %f\n"
-                  "  offset       : %+f sec\n"
-                  "  delay        : %+f sec\n"
+                  "  origin       : %.3f\n"
+                  "  receive      : %.3f\n"
+                  "  transmit     : %.3f\n"
+                  "  dest         : %.3f\n"
+                  "  offset       : %+.3f sec\n"
+                  "  delay        : %+.3f sec\n"
                   "  packet count : %"PRIu64"\n"
-                  "  jitter       : %f%s\n"
+                  "  jitter       : %.3f%s\n"
                   "  poll interval: %llu\n",
                   NTP_FIELD_LEAP(ntpmsg->field),
                   NTP_FIELD_VERSION(ntpmsg->field),
@@ -627,8 +627,8 @@ static int sntp_receive_response(sd_event_source *source, int fd, uint32_t reven
                   m->samples_jitter, spike ? " spike" : "",
                   m->poll_interval_usec / USEC_PER_SEC);
 
-        log_info("%s: interval/offset/delay/jitter %llu/%+f/%f/%f",
-                 m->server, m->poll_interval_usec / USEC_PER_SEC, offset, delay, m->samples_jitter);
+        log_info("%s: interval/delta/delay/jitter %llu/%+.3f/%.3f/%.3f%s",
+                 m->server, m->poll_interval_usec / USEC_PER_SEC, offset, delay, m->samples_jitter, spike ? " (ignored)" : "");
 
         if (!spike) {
                 r = sntp_adjust_clock(m, offset, leap_sec);
