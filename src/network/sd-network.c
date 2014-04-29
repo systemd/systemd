@@ -166,8 +166,18 @@ _public_ int sd_network_monitor_new(const char *category, sd_network_monitor **m
         if (fd < 0)
                 return -errno;
 
-        if (!category || streq(category, "netif")) {
+        if (!category || streq(category, "links")) {
                 k = inotify_add_watch(fd, "/run/systemd/network/links/", IN_MOVED_TO|IN_DELETE);
+                if (k < 0) {
+                        safe_close(fd);
+                        return -errno;
+                }
+
+                good = true;
+        }
+
+        if (!category || streq(category, "leases")) {
+                k = inotify_add_watch(fd, "/run/systemd/network/leases/", IN_MOVED_TO|IN_DELETE);
                 if (k < 0) {
                         safe_close(fd);
                         return -errno;
