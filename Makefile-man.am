@@ -1046,8 +1046,11 @@ MANPAGES_ALIAS += \
 	man/systemd-networkd.8 \
 	man/systemd-networkd-wait-online.8
 man/systemd-networkd.8: man/systemd-networkd.service.8
-man/systemd-networkd.html: man/systemd-networkd.service.html
 man/systemd-networkd-wait-online.8: man/systemd-networkd-wait-online.service.8
+
+man/systemd-networkd.html: man/systemd-networkd.service.html
+	$(html-alias)
+
 man/systemd-networkd-wait-online.html: man/systemd-networkd-wait-online.service.html
 	$(html-alias)
 
