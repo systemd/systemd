@@ -330,12 +330,13 @@ static int deserialize_addresses(struct in_addr **addresses, size_t *size, const
                 new_addresses = realloc(*addresses, (*size + 1) * sizeof(struct in_addr));
                 if (!new_addresses)
                         return -ENOMEM;
+                else
+                        *addresses = new_addresses;
 
                 r = inet_aton(word, &(new_addresses[*size]));
                 if (r < 0)
                         continue;
 
-                *addresses = new_addresses;
                 (*size)++;
         }
 
