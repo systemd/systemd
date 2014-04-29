@@ -303,11 +303,51 @@ int dhcp_lease_new(sd_dhcp_lease **ret) {
         return 0;
 }
 
+static void serialize_addresses(FILE *f, const char *key, struct in_addr *addresses, size_t size) {
+        unsigned i;
+
+        assert(key);
+        assert(addresses);
+        assert(size);
+
+        fputs("DNS=", f);
+
+        for (i = 0; i < size; i++)
+                fprintf(f, "%s%s", inet_ntoa(addresses[i]),
+                        (i < (size - 1)) ? " ": "");
+
+        fputs("\n", f);
+}
+
+static int deserialize_addresses(struct in_addr **addresses, size_t *size, const char *string) {
+        char *word, *state;
+        size_t len;
+
+        FOREACH_WORD(word, len, string, state) {
+                struct in_addr *new_addresses;
+                int r;
+
+                new_addresses = realloc(*addresses, (*size + 1) * sizeof(struct in_addr));
+                if (!new_addresses)
+                        return -ENOMEM;
+
+                r = inet_aton(word, &(new_addresses[*size]));
+                if (r < 0)
+                        continue;
+
+                *addresses = new_addresses;
+                (*size)++;
+        }
+
+        return 0;
+}
+
 int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
         _cleanup_free_ char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        char buf[INET_ADDRSTRLEN];
         struct in_addr address;
+        struct in_addr *addresses;
+        size_t addresses_size;
         const char *string;
         uint16_t mtu;
         int r;
@@ -325,71 +365,42 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
         if (r < 0)
                 goto finish;
 
-        string = inet_ntop(AF_INET, &address, buf, INET_ADDRSTRLEN);
-        if (!string) {
-                r = -errno;
-                goto finish;
-        }
-
         fprintf(f,
                 "# This is private data. Do not parse.\n"
-                "ADDRESS=%s\n", string);
+                "ADDRESS=%s\n", inet_ntoa(address));
 
         r = sd_dhcp_lease_get_router(lease, &address);
         if (r < 0)
                 goto finish;
 
-        string = inet_ntop(AF_INET, &address, buf, INET_ADDRSTRLEN);
-        if (!string) {
-                r = -errno;
-                goto finish;
-        }
-
-        fprintf(f,
-                "ROUTER=%s\n", string);
+        fprintf(f, "ROUTER=%s\n", inet_ntoa(address));
 
         r = sd_dhcp_lease_get_netmask(lease, &address);
         if (r < 0)
                 goto finish;
 
-        string = inet_ntop(AF_INET, &address, buf, INET_ADDRSTRLEN);
-        if (!string) {
-                r = -errno;
-                goto finish;
-        }
-
-        fprintf(f,
-                "NETMASK=%s\n", string);
+        fprintf(f, "NETMASK=%s\n", inet_ntoa(address));
 
         r = sd_dhcp_lease_get_server_identifier(lease, &address);
-        if (r >= 0) {
-                string = inet_ntop(AF_INET, &address, buf, INET_ADDRSTRLEN);
-                if (!string) {
-                        r = -errno;
-                        goto finish;
-                }
-
-                fprintf(f,
-                        "SERVER_ADDRESS=%s\n", string);
-        }
+        if (r >= 0)
+                fprintf(f, "SERVER_ADDRESS=%s\n",
+                        inet_ntoa(address));
 
         r = sd_dhcp_lease_get_next_server(lease, &address);
-        if (r >= 0) {
-                string = inet_ntop(AF_INET, &address, buf, INET_ADDRSTRLEN);
-                if (!string) {
-                        r = -errno;
-                        goto finish;
-                }
-
-                fprintf(f,
-                        "NEXT_SERVER=%s\n", string);
-        }
+        if (r >= 0)
+                fprintf(f, "NEXT_SERVER=%s\n", inet_ntoa(address));
 
         r = sd_dhcp_lease_get_mtu(lease, &mtu);
         if (r >= 0)
                 fprintf(f, "MTU=%" PRIu16 "\n", mtu);
 
-/* TODO: DNS. See resolv.conf writing in network-manager.c */
+        r = sd_dhcp_lease_get_dns(lease, &addresses, &addresses_size);
+        if (r >= 0)
+                serialize_addresses(f, "DNS", addresses, addresses_size);
+
+        r = sd_dhcp_lease_get_ntp(lease, &addresses, &addresses_size);
+        if (r >= 0)
+                serialize_addresses(f, "NTP", addresses, addresses_size);
 
         r = sd_dhcp_lease_get_domainname(lease, &string);
         if (r >= 0)
@@ -424,7 +435,7 @@ int dhcp_lease_load(const char *lease_file, sd_dhcp_lease **ret) {
         _cleanup_dhcp_lease_unref_ sd_dhcp_lease *lease = NULL;
         _cleanup_free_ char *address = NULL, *router = NULL, *netmask = NULL,
                             *server_address = NULL, *next_server = NULL,
-                            *mtu = NULL;
+                            *dns = NULL, *ntp = NULL, *mtu = NULL;
         struct in_addr addr;
         int r;
 
@@ -441,6 +452,8 @@ int dhcp_lease_load(const char *lease_file, sd_dhcp_lease **ret) {
                            "NETMASK", &netmask,
                            "SERVER_IDENTIFIER", &server_address,
                            "NEXT_SERVER", &next_server,
+                           "DNS", &dns,
+                           "NTP", &ntp,
                            "MTU", &mtu,
                            "DOMAINNAME", &lease->domainname,
                            "HOSTNAME", &lease->hostname,
@@ -486,6 +499,18 @@ int dhcp_lease_load(const char *lease_file, sd_dhcp_lease **ret) {
                         return r;
 
                 lease->next_server = addr.s_addr;
+        }
+
+        if (dns) {
+                r = deserialize_addresses(&lease->dns, &lease->dns_size, dns);
+                if (r < 0)
+                        return r;
+        }
+
+        if (ntp) {
+                r = deserialize_addresses(&lease->ntp, &lease->ntp_size, dns);
+                if (r < 0)
+                        return r;
         }
 
         if (mtu) {
