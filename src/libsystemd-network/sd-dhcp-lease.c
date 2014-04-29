@@ -211,36 +211,24 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const uint8_t *option,
 
         case DHCP_OPTION_DOMAIN_NAME_SERVER:
                 if (len && !(len % 4)) {
-                        unsigned i;
-
                         lease->dns_size = len / 4;
 
                         free(lease->dns);
-                        lease->dns = new0(struct in_addr, lease->dns_size);
+                        lease->dns = newdup(struct in_addr, option, lease->dns_size);
                         if (!lease->dns)
                                 return -ENOMEM;
-
-                        for (i = 0; i < lease->dns_size; i++) {
-                                memcpy(&lease->dns[i].s_addr, option + 4 * i, 4);
-                        }
                 }
 
                 break;
 
         case DHCP_OPTION_NTP_SERVER:
                 if (len && !(len % 4)) {
-                        unsigned i;
-
                         lease->ntp_size = len / 4;
 
                         free(lease->ntp);
-                        lease->ntp = new0(struct in_addr, lease->ntp_size);
+                        lease->ntp = newdup(struct in_addr, option, lease->ntp_size);
                         if (!lease->ntp)
                                 return -ENOMEM;
-
-                        for (i = 0; i < lease->ntp_size; i++) {
-                                memcpy(&lease->ntp[i].s_addr, option + 4 * i, 4);
-                        }
                 }
 
                 break;
