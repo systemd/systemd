@@ -44,6 +44,8 @@ struct sd_dhcp_lease {
         be32_t next_server;
         struct in_addr *dns;
         size_t dns_size;
+        struct in_addr *ntp;
+        size_t ntp_size;
         uint16_t mtu;
         char *domainname;
         char *hostname;

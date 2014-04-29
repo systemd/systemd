@@ -72,6 +72,20 @@ int sd_dhcp_lease_get_dns(sd_dhcp_lease *lease, struct in_addr **addr, size_t *a
         return 0;
 }
 
+int sd_dhcp_lease_get_ntp(sd_dhcp_lease *lease, struct in_addr **addr, size_t *addr_size) {
+        assert_return(lease, -EINVAL);
+        assert_return(addr, -EINVAL);
+        assert_return(addr_size, -EINVAL);
+
+        if (lease->ntp_size) {
+                *addr_size = lease->ntp_size;
+                *addr = lease->ntp;
+        } else
+                return -ENOENT;
+
+        return 0;
+}
+
 int sd_dhcp_lease_get_domainname(sd_dhcp_lease *lease, const char **domainname) {
         assert_return(lease, -EINVAL);
         assert_return(domainname, -EINVAL);
@@ -208,6 +222,24 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const uint8_t *option,
 
                         for (i = 0; i < lease->dns_size; i++) {
                                 memcpy(&lease->dns[i].s_addr, option + 4 * i, 4);
+                        }
+                }
+
+                break;
+
+        case DHCP_OPTION_NTP_SERVER:
+                if (len && !(len % 4)) {
+                        unsigned i;
+
+                        lease->ntp_size = len / 4;
+
+                        free(lease->ntp);
+                        lease->ntp = new0(struct in_addr, lease->ntp_size);
+                        if (!lease->ntp)
+                                return -ENOMEM;
+
+                        for (i = 0; i < lease->ntp_size; i++) {
+                                memcpy(&lease->ntp[i].s_addr, option + 4 * i, 4);
                         }
                 }
 
