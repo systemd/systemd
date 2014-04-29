@@ -4187,8 +4187,10 @@ systemd_networkd_wait_online_SOURCES = \
 	src/network/networkd-wait-online.h
 
 systemd_networkd_wait_online_LDADD = \
+	libsystemd-network.la \
+	libudev-internal.la \
 	libsystemd-internal.la \
-	libsystemd-network.la
+	libsystemd-shared.la
 
 test_network_SOURCES = \
 	src/network/test-network.c
