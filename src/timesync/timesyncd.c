@@ -154,23 +154,12 @@ static double ntp_ts_to_d(const struct ntp_ts *ts) {
         return be32toh(ts->sec) + ((double)be32toh(ts->frac) / UINT_MAX);
 }
 
-static double tv_to_d(const struct timeval *tv) {
-        return tv->tv_sec + (1.0e-6 * tv->tv_usec);
-}
-
 static double ts_to_d(const struct timespec *ts) {
         return ts->tv_sec + (1.0e-9 * ts->tv_nsec);
 }
 
-static void d_to_tv(double d, struct timeval *tv) {
-        tv->tv_sec = (long)d;
-        tv->tv_usec = (d - tv->tv_sec) * 1000 * 1000;
-
-        /* the kernel expects -0.3s as {-1, 7000.000} */
-        if (tv->tv_usec < 0) {
-                tv->tv_sec  -= 1;
-                tv->tv_usec += 1000 * 1000;
-        }
+static double tv_to_d(const struct timeval *tv) {
+        return tv->tv_sec + (1.0e-6 * tv->tv_usec);
 }
 
 static double square(double d) {
@@ -343,19 +332,28 @@ static int sntp_adjust_clock(Manager *m, double offset, int leap_sec) {
          * syncs the system time periodically to the hardware clock.
          */
         if (fabs(offset) < NTP_MAX_ADJUST) {
-                tmx.modes = ADJ_STATUS | ADJ_OFFSET | ADJ_TIMECONST | ADJ_MAXERROR | ADJ_ESTERROR;
+                tmx.modes = ADJ_STATUS | ADJ_NANO | ADJ_OFFSET | ADJ_TIMECONST | ADJ_MAXERROR | ADJ_ESTERROR;
                 tmx.status = STA_PLL;
-                tmx.offset = offset * USEC_PER_SEC;
-                tmx.constant = log2i(m->poll_interval_usec / USEC_PER_SEC) - 6;
+                tmx.offset = offset * NSEC_PER_SEC;
+                tmx.constant = log2i(m->poll_interval_usec / USEC_PER_SEC) - 4;
                 tmx.maxerror = 0;
                 tmx.esterror = 0;
-                log_debug("  adjust (slew): %+.3f sec\n", (double)tmx.offset / USEC_PER_SEC);
+                log_debug("  adjust (slew): %+.3f sec\n", offset);
         } else {
-                tmx.modes = ADJ_SETOFFSET;
-                d_to_tv(offset, &tmx.time);
+                tmx.modes = ADJ_SETOFFSET | ADJ_NANO;
+
+                /* ADJ_NANO uses nanoseconds in the microseconds field */
+                tmx.time.tv_sec = (long)offset;
+                tmx.time.tv_usec = (offset - tmx.time.tv_sec) * NSEC_PER_SEC;
+
+                /* the kernel expects -0.3s as {-1, 7000.000.000} */
+                if (tmx.time.tv_usec < 0) {
+                        tmx.time.tv_usec  -= 1;
+                        tmx.time.tv_usec += NSEC_PER_SEC;
+                }
 
                 m->jumped = true;
-                log_debug("  adjust (jump): %+.3f sec\n", tv_to_d(&tmx.time));
+                log_debug("  adjust (jump): %+.3f sec\n", offset);
         }
 
         switch (leap_sec) {
@@ -375,12 +373,12 @@ static int sntp_adjust_clock(Manager *m, double offset, int leap_sec) {
                   "  time now     : %li.%03lli\n"
                   "  constant     : %li\n"
                   "  offset       : %+.3f sec\n"
-                  "  freq offset  : %+li (%+.3f ppm)\n",
+                  "  freq offset  : %+li (%i ppm)\n",
                   tmx.status, tmx.status & STA_UNSYNC ? "" : "sync",
-                  tmx.time.tv_sec, tmx.time.tv_usec / USEC_PER_MSEC,
+                  tmx.time.tv_sec, tmx.time.tv_usec / NSEC_PER_MSEC,
                   tmx.constant,
-                  (double)tmx.offset / USEC_PER_SEC,
-                  tmx.freq, (double)tmx.freq / 65536);
+                  (double)tmx.offset / NSEC_PER_SEC,
+                  tmx.freq, abs(tmx.freq) / 65536);
 
         return 0;
 }
@@ -600,7 +598,7 @@ static int sntp_receive_response(sd_event_source *source, int fd, uint32_t reven
                   "  version      : %u\n"
                   "  mode         : %u\n"
                   "  stratum      : %u\n"
-                  "  precision    : %.3f sec (%d)\n"
+                  "  precision    : %.6f sec (%d)\n"
                   "  reference    : %.4s\n"
                   "  origin       : %.3f\n"
                   "  receive      : %.3f\n"
@@ -773,15 +771,14 @@ int main(int argc, char *argv[]) {
         server = "216.239.32.15";       /* time1.google.com */
 
         sd_notifyf(false,
-                  "READY=1\n"
-                  "STATUS=Connecting to %s", server);
+                  "READY=1");
 
         r = sntp_server_connect(m, server);
         if (r < 0)
                 goto out;
 
         sd_notifyf(false,
-                  "STATUS=Connected to %s", server);
+                  "STATUS=Using time server: %s", server);
 
         r = sd_event_loop(m->event);
         if (r < 0)
