@@ -367,8 +367,7 @@ static int sntp_adjust_clock(Manager *m, double offset, int leap_sec) {
                 break;
         }
 
-        //r = clock_adjtime(CLOCK_REALTIME, &tmx);
-        r = adjtimex(&tmx);
+        r = clock_adjtime(CLOCK_REALTIME, &tmx);
         if (r < 0)
                 return r;
 
