@@ -24,6 +24,7 @@
 
 #include "async.h"
 #include "log.h"
+#include "util.h"
 
 int asynchronous_job(void* (*func)(void *p), void *arg) {
         pthread_attr_t a;
@@ -69,4 +70,25 @@ int asynchronous_sync(void) {
         log_debug("Spawning new thread for sync");
 
         return asynchronous_job(sync_thread, NULL);
+}
+
+static void *close_thread(void *p) {
+        safe_close(PTR_TO_INT(p));
+        return NULL;
+}
+
+int asynchronous_close(int fd) {
+        int r;
+
+        /* This is supposed to behave similar to safe_close(), but
+         * actually invoke close() asynchronously, so that it will
+         * never block. Ideally the kernel would have an API for this,
+         * but it doesn't, so we work around it, and hide this as a
+         * far away as we can. */
+
+        r = asynchronous_job(close_thread, INT_TO_PTR(fd));
+        if (r < 0)
+                safe_close(fd);
+
+        return -1;
 }

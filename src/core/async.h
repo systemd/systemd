@@ -22,4 +22,6 @@
 ***/
 
 int asynchronous_job(void* (*func)(void *p), void *arg);
+
 int asynchronous_sync(void);
+int asynchronous_close(int fd);
