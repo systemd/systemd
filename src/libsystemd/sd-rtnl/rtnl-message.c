@@ -452,24 +452,28 @@ int sd_rtnl_message_link_get_flags(sd_rtnl_message *m, unsigned *flags) {
 /* If successful the updated message will be correctly aligned, if
    unsuccessful the old message is untouched. */
 static int add_rtattr(sd_rtnl_message *m, unsigned short type, const void *data, size_t data_length) {
-        uint32_t rta_length, message_length;
+        uint32_t rta_length;
+        size_t message_length, padding_length;
         struct nlmsghdr *new_hdr;
         struct rtattr *rta;
         char *padding;
         unsigned i;
+        int offset;
 
         assert(m);
         assert(m->hdr);
         assert(!m->sealed);
         assert(NLMSG_ALIGN(m->hdr->nlmsg_len) == m->hdr->nlmsg_len);
-        assert(!data || data_length > 0);
-        assert(data || m->n_containers < RTNL_CONTAINER_DEPTH);
+        assert(!data || data_length);
+
+        /* get offset of the new attribute */
+        offset = m->hdr->nlmsg_len;
 
         /* get the size of the new rta attribute (with padding at the end) */
         rta_length = RTA_LENGTH(data_length);
 
         /* get the new message size (with padding at the end) */
-        message_length = m->hdr->nlmsg_len + RTA_ALIGN(rta_length);
+        message_length = offset + RTA_ALIGN(rta_length);
 
         /* realloc to fit the new attribute */
         new_hdr = realloc(m->hdr, message_length);
@@ -478,33 +482,35 @@ static int add_rtattr(sd_rtnl_message *m, unsigned short type, const void *data,
         m->hdr = new_hdr;
 
         /* get pointer to the attribute we are about to add */
-        rta = (struct rtattr *) ((uint8_t *) m->hdr + m->hdr->nlmsg_len);
+        rta = (struct rtattr *) ((uint8_t *) m->hdr + offset);
 
         /* if we are inside containers, extend them */
         for (i = 0; i < m->n_containers; i++)
-                GET_CONTAINER(m, i)->rta_len += message_length - m->hdr->nlmsg_len;
+                GET_CONTAINER(m, i)->rta_len += message_length - offset;
 
         /* fill in the attribute */
         rta->rta_type = type;
         rta->rta_len = rta_length;
-        if (!data) {
-                //TODO: simply return this value rather than check for !data
-                /* this is the start of a new container */
-                m->container_offsets[m->n_containers ++] = m->hdr->nlmsg_len;
-        } else {
+        if (data)
                 /* we don't deal with the case where the user lies about the type
                  * and gives us too little data (so don't do that)
-                */
+                 */
                 padding = mempcpy(RTA_DATA(rta), data, data_length);
-                /* make sure also the padding at the end of the message is initialized */
-                memzero(padding,
-                        (uint8_t *) m->hdr + message_length - (uint8_t *) padding);
+        else {
+                /* if no data was passed, make sure we still initialize the padding
+                   note that we can have data_length > 0 (used by some containers) */
+                padding = RTA_DATA(rta);
+                data_length = 0;
         }
+
+        /* make sure also the padding at the end of the message is initialized */
+        padding_length = (uint8_t*)m->hdr + message_length - (uint8_t*)padding;
+        memzero(padding, padding_length);
 
         /* update message size */
         m->hdr->nlmsg_len = message_length;
 
-        return 0;
+        return offset;
 }
 
 static int message_attribute_has_type(sd_rtnl_message *m, uint16_t attribute_type, uint16_t data_type) {
@@ -679,6 +685,7 @@ int sd_rtnl_message_open_container(sd_rtnl_message *m, unsigned short type) {
 
         assert_return(m, -EINVAL);
         assert_return(!m->sealed, -EPERM);
+        assert_return(m->n_containers < RTNL_CONTAINER_DEPTH, -ERANGE);
 
         r = message_attribute_has_type(m, type, NLA_NESTED);
         if (r < 0)
@@ -695,6 +702,8 @@ int sd_rtnl_message_open_container(sd_rtnl_message *m, unsigned short type) {
         r = add_rtattr(m, type, NULL, size);
         if (r < 0)
                 return r;
+
+        m->container_offsets[m->n_containers ++] = r;
 
         return 0;
 }
@@ -724,6 +733,8 @@ int sd_rtnl_message_open_container_union(sd_rtnl_message *m, unsigned short type
         r = add_rtattr(m, type, NULL, 0);
         if (r < 0)
                 return r;
+
+        m->container_offsets[m->n_containers ++] = r;
 
         return 0;
 }
