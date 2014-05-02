@@ -146,7 +146,7 @@ int sd_rtnl_message_new_route(sd_rtnl *rtnl, sd_rtnl_message **ret,
                 return r;
 
         if (nlmsg_type == RTM_NEWROUTE)
-                (*ret)->hdr->nlmsg_flags |= NLM_F_CREATE | NLM_F_EXCL;
+                (*ret)->hdr->nlmsg_flags |= NLM_F_CREATE | NLM_F_APPEND;
 
         rtm = NLMSG_DATA((*ret)->hdr);
 
