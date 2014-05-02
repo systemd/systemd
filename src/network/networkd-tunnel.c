@@ -102,6 +102,14 @@ static int netdev_fill_ipip_rtnl_message(Link *link, sd_rtnl_message *m) {
                 return r;
         }
 
+        r = sd_rtnl_message_append_u8(m, IFLA_IPTUN_TTL, netdev->tunnel_ttl);
+        if (r < 0) {
+                log_error_netdev(netdev,
+                                 "Could not append IFLA_IPTUN_TTL  attribute: %s",
+                                 strerror(-r));
+                return r;
+        }
+
         r = sd_rtnl_message_close_container(m);
         if (r < 0) {
                 log_error_netdev(netdev,
