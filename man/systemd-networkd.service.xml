@@ -68,7 +68,7 @@
                 <para>Network configurations applied before networkd is started
                 are not removed, and static configuration applied by networkd
                 is not removed when networkd exits. Dynamic configuration applied by
-                networkd may also optionally be left in place on shut-down. This ensures
+                networkd may also optionally be left in place on shutdown. This ensures
                 restarting networkd does not cut the network connection, and, in particular,
                 that it is safe to transition between the initrd and the real root,
                 and back.</para>

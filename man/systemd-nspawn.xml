@@ -221,7 +221,7 @@
 
                                 <listitem><para>After transitioning
                                 into the container, change to the
-                                specified user defined in the
+                                specified user-defined in the
                                 container's user database. Like all
                                 other systemd-nspawn features, this is
                                 not a security feature and provides
@@ -600,7 +600,7 @@
                                 <literal>x86</literal> and
                                 <literal>x86-64</literal> are
                                 supported. This is useful when running
-                                a 32bit container on a 64bit
+                                a 32-bit container on a 64-bit
                                 host. If this setting is not used
                                 the personality reported in the
                                 container is the same as the one

@@ -106,22 +106,22 @@
                                         <row>
                                                 <entry>44479540-f297-41b2-9af7-d131d5f0458a</entry>
                                                 <entry><filename>Root Partition (x86)</filename></entry>
-                                                <entry>On 32bit x86 systems the first x86 root partition on the disk the EFI ESP is located on is mounted to the root directory <filename>/</filename>.</entry>
+                                                <entry>On 32-bit x86 systems the first x86 root partition on the disk the EFI ESP is located on is mounted to the root directory <filename>/</filename>.</entry>
                                         </row>
                                         <row>
                                                 <entry>4f68bce3-e8cd-4db1-96e7-fbcaf984b709</entry>
                                                 <entry><filename>Root Partition (x86-64)</filename></entry>
-                                                <entry>On 64bit x86 systems the first x86-64 root partition on the disk the EFI ESP is located on is mounted to the root directory <filename>/</filename>.</entry>
+                                                <entry>On 64-bit x86 systems the first x86-64 root partition on the disk the EFI ESP is located on is mounted to the root directory <filename>/</filename>.</entry>
                                         </row>
                                         <row>
                                                 <entry>69dad710-2ce4-4e3c-b16c-21a1d49abed3</entry>
-                                                <entry><filename>Root Partition (32bit ARM)</filename></entry>
-                                                <entry>On 32bit ARM systems the first ARM root partition on the disk the EFI ESP is located on is mounted to the root directory <filename>/</filename>.</entry>
+                                                <entry><filename>Root Partition (32-bit ARM)</filename></entry>
+                                                <entry>On 32-bit ARM systems the first ARM root partition on the disk the EFI ESP is located on is mounted to the root directory <filename>/</filename>.</entry>
                                         </row>
                                         <row>
                                                 <entry>b921b045-1df0-41c3-af44-4c6f280d3fae</entry>
-                                                <entry><filename>Root Partition (64bit ARM)</filename></entry>
-                                                <entry>On 64bit ARM systems the first ARM root partition on the disk the EFI ESP is located on is mounted to the root directory <filename>/</filename>.</entry>
+                                                <entry><filename>Root Partition (64-bit ARM)</filename></entry>
+                                                <entry>On 64-bit ARM systems the first ARM root partition on the disk the EFI ESP is located on is mounted to the root directory <filename>/</filename>.</entry>
                                         </row>
                                         <row>
                                                 <entry>933ac7e1-2eb4-4f13-b844-0e14e2aef915</entry>

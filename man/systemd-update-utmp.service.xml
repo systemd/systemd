@@ -61,7 +61,7 @@
                 is a service that writes SysV runlevel changes to utmp
                 and wtmp, as well as the audit logs, as they
                 occur. <filename>systemd-update-utmp.service</filename>
-                does the same for system reboots and shut-down requests.</para>
+                does the same for system reboots and shutdown requests.</para>
         </refsect1>
 
         <refsect1>

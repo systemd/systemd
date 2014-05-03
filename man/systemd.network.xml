@@ -272,8 +272,8 @@
                                         <term><varname>Broadcast=</varname></term>
                                         <listitem>
                                                 <para>The broadcast address, which must be in the format described in
-                                                <citerefentry><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-                                                . This key only applies to IPv4 addresses. If it is not given, it is
+                                                <citerefentry><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+                                                This key only applies to IPv4 addresses. If it is not given, it is
                                                 derived from the <literal>Address</literal> key.</para>
                                         </listitem>
                                 </varlistentry>

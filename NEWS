@@ -44,7 +44,7 @@ CHANGES WITH 212:
           on a partition to ignore it during automatic discovery.
 
         * Two new GPT type UUIDs have been added for automatic root
-          partition discovery, for 32bit and 64bit ARM. This is not
+          partition discovery, for 32-bit and 64-bit ARM. This is not
           particularly useful for discovering the root directory on
           these architectures during bare-metal boots (since UEFI is
           not common there), but still very useful to allow booting of
@@ -769,7 +769,7 @@ CHANGES WITH 209:
 
         * systemd-nspawn gained a new --personality= switch for
           setting the kernel personality for the container. This is
-          useful when running a 32bit container on a 64bit host. A
+          useful when running a 32-bit container on a 64-bit host. A
           similar option Personality= is now also available in service
           units.
 

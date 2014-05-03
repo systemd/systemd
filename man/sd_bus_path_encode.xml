@@ -91,7 +91,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     reversed with <function>sd_bus_decode()</function>. It is
     recommended to only use external identifiers here that generally
     require little escaping to be turned into valid bus path
-    identifiers (for example by sticking to a 7bit ASCII character
+    identifiers (for example by sticking to a 7-bit ASCII character
     set), in order to ensure the resulting bus path is still short and
     easily processed.</para>
 

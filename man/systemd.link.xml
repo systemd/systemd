@@ -236,8 +236,8 @@
                                                         <listitem>
                                                                 <para>The name is set based on entries in
                                                                 the udev's Hardware Database with the key
-                                                                <literal>ID_NET_NAME_FROM_DATABASE</literal>
-                                                                .</para>
+                                                                <literal>ID_NET_NAME_FROM_DATABASE</literal>.
+                                                                </para>
                                                         </listitem>
                                                 </varlistentry>
                                                 <varlistentry>
@@ -245,8 +245,8 @@
                                                         <listitem>
                                                                 <para>The name is set based on information given by
                                                                 the firmware for on-board devices, as exported by
-                                                                the udev property <literal>ID_NET_NAME_ONBOARD</literal>
-                                                                .</para>
+                                                                the udev property <literal>ID_NET_NAME_ONBOARD</literal>.
+                                                                </para>
                                                         </listitem>
                                                 </varlistentry>
                                                 <varlistentry>
@@ -254,8 +254,8 @@
                                                         <listitem>
                                                                 <para>The name is set based on information given by
                                                                 the firmware for hot-plug devices, as exported by
-                                                                the udev property <literal>ID_NET_NAME_SLOT</literal>
-                                                                .</para>
+                                                                the udev property <literal>ID_NET_NAME_SLOT</literal>.
+                                                                </para>
                                                         </listitem>
                                                 </varlistentry>
                                                 <varlistentry>
@@ -329,7 +329,7 @@
                                                 <varlistentry>
                                                         <term><literal>magic</literal></term>
                                                         <listitem>
-                                                                <para>Wake on receipt of a magic packet
+                                                                <para>Wake on receipt of a magic packet.
                                                                 </para>
                                                         </listitem>
                                                 </varlistentry>

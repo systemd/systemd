@@ -1204,7 +1204,7 @@
                                 (which creates connected AF_UNIX
                                 sockets only) are unaffected. Note
                                 that this option has no effect on
-                                32bit x86 and is ignored (but works
+                                32-bit x86 and is ignored (but works
                                 correctly on x86-64). If running in user
                                 mode and this option is used,
                                 <varname>NoNewPrivileges=yes</varname>
@@ -1239,8 +1239,8 @@
                                 processes. Takes one of
                                 <constant>x86</constant> and
                                 <constant>x86-64</constant>. This is
-                                useful when running 32bit services on
-                                a 64bit host system. If not specified
+                                useful when running 32-bit services on
+                                a 64-bit host system. If not specified
                                 the personality is left unmodified and
                                 thus reflects the personality of the
                                 host system's
