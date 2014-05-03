@@ -139,7 +139,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           absolute time (suffixed by one of the common time units, us,
           ms, s, ...). The percentage specifies how much CPU time the
           unit shall get at maximum, relative to the total CPU time
-          available on one CPU. Use values > 100% for alloting CPU
+          available on one CPU. Use values &gt; 100% for alloting CPU
           time on more than one CPU. If an absolute time is specified
           the processes of this unit will get this much absolute time
           within each quota period, at maximum. This controls the
