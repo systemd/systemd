@@ -127,8 +127,8 @@ CHANGES WITH 212:
           timers configured this way will save to disk when they have
           been last triggered. This information is then used on next
           reboot to possible execute overdue timer events, that
-          couldn't take place because the system was powered off. This
-          enables simple anacron-like behaviour for timer units.
+          could not take place because the system was powered off.
+          This enables simple anacron-like behaviour for timer units.
 
         * systemctl's "list-timers" will now also list the time a
           timer unit was last triggered in addition to the next time
@@ -359,10 +359,10 @@ CHANGES WITH 210:
           anymore. Instead we now build libsystemd.so multiple times
           under these alternative names. This means that the footprint
           is drastically increased, but given that these are
-          transitional compatibility libraries this shouldn't matter
+          transitional compatibility libraries this should not matter
           much. This change has been made necessary to support the ARM
           platform for these compatibility libraries, as the ARM
-          toolchain isn't really at the same level as the toolchain
+          toolchain is not really at the same level as the toolchain
           for other architectures like x86 and does not support
           IFUNC. Please make sure to use --enable-compat-libs only
           during a transitional period!
@@ -617,7 +617,7 @@ CHANGES WITH 209:
           merged them into a single library, libsystemd.so, which
           provides all symbols. The reason for this is cyclic
           dependencies, as these libraries tend to use each other's
-          symbols. So far, we've managed to workaround that by linking
+          symbols. So far, we have managed to workaround that by linking
           a copy of a good part of our code into each of these
           libraries again and again, which, however, makes certain
           things hard to do, like sharing static variables. Also, it
@@ -861,13 +861,13 @@ CHANGES WITH 208:
 
         * A new tmpfiles.d(5) command "m" has been introduced which
           may be used to change the owner/group/access mode of a file
-          or directory if it exists, but do nothing if it doesn't.
+          or directory if it exists, but do nothing if it does not.
 
         * This release removes high-level support for the
           MemorySoftLimit= cgroup setting. The underlying kernel
           cgroup attribute memory.soft_limit= is currently badly
           designed and likely to be removed from the kernel API in its
-          current form, hence we shouldn't expose it for now.
+          current form, hence we should not expose it for now.
 
         * The memory.use_hierarchy cgroup attribute is now enabled for
           all cgroups systemd creates in the memory cgroup
@@ -950,7 +950,7 @@ CHANGES WITH 207:
 
         * InaccessibleDirectories= and ReadOnlyDirectories= now take
           paths that are optionally prefixed with "-" to indicate that
-          it should not be considered a failure if they don't exist.
+          it should not be considered a failure if they do not exist.
 
         * journalctl -o (and similar commands) now understands a new
           output mode "short-precise", it is similar to "short" but
@@ -1056,7 +1056,7 @@ CHANGES WITH 206:
           databases to pre-generate dead device nodes based on meta
           information contained in kernel modules, so that these would
           be auto-loaded on access rather then at boot. As this
-          doesn't really have much to do with the exposing actual
+          does not really have much to do with the exposing actual
           kernel devices to userspace this has always been slightly
           alien in the udev codebase. Following the new scheme kmod
           will now generate a runtime snippet for tmpfiles from the
@@ -1476,7 +1476,7 @@ CHANGES WITH 201:
 
         * 'systemd-analyze dot' gained the ability to filter for
           specific units via shell-style globs, to create smaller,
-          more useful graphs. I.e. it's now possible to create simple
+          more useful graphs. I.e. it is now possible to create simple
           graphs of all the dependencies between only target units, or
           of all units that Avahi has dependencies with.
 
@@ -1854,8 +1854,8 @@ CHANGES WITH 197:
           http://www.freedesktop.org/wiki/Software/systemd/PredictableNetworkInterfaceNames
 
         * Auke Kok's bootchart implementation has been added to the
-          systemd tree. It's an optional component that can graph the
-          boot in quite some detail. It's one of the best bootchart
+          systemd tree. It is an optional component that can graph the
+          boot in quite some detail. It is one of the best bootchart
           implementations around and minimal in its code and
           dependencies.
 
@@ -2056,7 +2056,7 @@ CHANGES WITH 196:
           PolicyKit-less systems. Quite frankly this should have been
           this way since day one. It is absolutely our intention to
           make systemd work fine on PolicyKit-less systems, and we
-          consider it a bug if something doesn't work as it should if
+          consider it a bug if something does not work as it should if
           PolicyKit is not around.
 
         * For embedded systems it is now possible to build udev and
@@ -2228,7 +2228,7 @@ CHANGES WITH 192:
         * The bash completion logic is now available for journalctl
           too.
 
-        * We don't mount the "cpuset" controller anymore together with
+        * We do not mount the "cpuset" controller anymore together with
           "cpu" and "cpuacct", as "cpuset" groups generally cannot be
           started if no parameters are assigned to it. "cpuset" hence
           broke code that assumed it it could create "cpu" groups and
@@ -2277,7 +2277,7 @@ CHANGES WITH 191:
 
 CHANGES WITH 190:
 
-        * Whenever a unit changes state we'll now log this to the
+        * Whenever a unit changes state we will now log this to the
           journal and show along the unit's own log output in
           "systemctl status".
 
@@ -2347,7 +2347,7 @@ CHANGES WITH 190:
         * There's now a new RPM macro definition for the system preset
           dir: %_presetdir.
 
-        * journald will now warn if it can't forward a message to the
+        * journald will now warn if it ca not forward a message to the
           syslog daemon because it's socket is full.
 
         * timedated will no longer write or process /etc/timezone,
@@ -2876,7 +2876,7 @@ CHANGES WITH 183:
 
         * systemctl will now warn you if .mount units generated from
           /etc/fstab are out of date due to changes in fstab that
-          haven't been read by systemd yet.
+          have not been read by systemd yet.
 
         * systemd is now suitable for usage in initrds. Dracut has
           already been updated to make use of this. With this in place
@@ -2939,7 +2939,7 @@ CHANGES WITH 183:
         * We now mount /tmp as tmpfs by default, but this can be
           masked and /etc/fstab can override it.
 
-        * Since udisks doesn't make use of /media anymore we are not
+        * Since udisks does not make use of /media anymore we are not
           mounting a tmpfs on it anymore.
 
         * journalctl gained a new --local switch to only interleave
@@ -2980,7 +2980,7 @@ CHANGES WITH 44:
           folks
 
         * We now refuse non-UTF8 strings used in various configuration
-          and unit files. This is done to ensure we don't pass invalid
+          and unit files. This is done to ensure we do not pass invalid
           data over D-Bus or expose it elsewhere.
 
         * Register Mimo USB Screens as suitable for automatic seat
@@ -3141,7 +3141,7 @@ CHANGES WITH 39:
           death, since fanotify() will not see accesses done by blkid,
           or fsck.
 
-        * Don't show kernel threads in systemd-cgls anymore, unless
+        * Do not show kernel threads in systemd-cgls anymore, unless
           requested with new -k switch.
 
         Contributions from: Dan Horák, Kay Sievers, Lennart
@@ -3213,7 +3213,7 @@ CHANGES WITH 38:
           --with-rootprefix= to follow the naming used by udev and
           kmod
 
-        * Unless specified otherwise we'll now install to /usr instead
+        * Unless specified otherwise we will now install to /usr instead
           of /usr/local by default.
 
         * Processes with '@' in argv[0][0] are now excluded from the

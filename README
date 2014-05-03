@@ -43,7 +43,7 @@ REQUIREMENTS:
 
         Kernel Config Options:
           CONFIG_DEVTMPFS
-          CONFIG_CGROUPS (it's OK to disable all controllers)
+          CONFIG_CGROUPS (it is OK to disable all controllers)
           CONFIG_INOTIFY_USER
           CONFIG_SIGNALFD
           CONFIG_TIMERFD

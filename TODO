@@ -50,7 +50,7 @@ Features:
 
 * mount_cgroup_controllers(): symlinks need to get the label applied
 
-* For timer units: add some mechanisms so that timer units that trigger immediately on boot don't have the services they run added to the initial transaction and thus confuse Type=idle. Alternatively, split up the boot-up state into two, and make Type=idle only be affected by jobs for the default target, but ignore any further jobs
+* For timer units: add some mechanisms so that timer units that trigger immediately on boot do not have the services they run added to the initial transaction and thus confuse Type=idle. Alternatively, split up the boot-up state into two, and make Type=idle only be affected by jobs for the default target, but ignore any further jobs
 
 * Add RPM macros for registering/unregistering binfmt drop-ins
 
@@ -85,7 +85,7 @@ Features:
 
 * improve journalctl performance by loading journal files
   lazily. Encode just enough information in the file name, so that we
-  don't have to open it to know that it is not interesting for us, for
+  do not have to open it to know that it is not interesting for us, for
   the most common operations.
 
 * support transient mount units
@@ -177,7 +177,7 @@ Features:
 
 * btrfs raid assembly: some .device jobs stay stuck in the queue
 
-* make sure gdm doesn't use multi-user-x but the new default X configuration file, and then remove multi-user-x from systemd
+* make sure gdm does not use multi-user-x but the new default X configuration file, and then remove multi-user-x from systemd
 
 * man: the documentation of Restart= currently is very misleading and suggests the tools from ExecStartPre= might get restarted.
 
@@ -194,7 +194,7 @@ Features:
 
 * sd-bus:
   - make AddMatch calls on dbus1 transports async
-  - when kdbus doesn't take our message without memfds, try again with memfds
+  - when kdbus does not take our message without memfds, try again with memfds
   - systemd-bus-proxyd needs to enforce good old XML policy
   - port exit-on-idle logic to byebye ioctl
   - allow updating attach flags during runtime
@@ -251,7 +251,7 @@ Features:
   file.
 
 * seems that when we follow symlinks to units we prefer the symlink
-  destination path over /etc and /usr. We shouldn't do that. Instead
+  destination path over /etc and /usr. We should not do that. Instead
   /etc should always override /run+/usr and also any symlink
   destination.
 
@@ -277,7 +277,7 @@ Features:
 
 * journal-or-kmsg is currently broken? See reverted commit 4a01181e460686d8b4a543b1dfa7f77c9e3c5ab8.
 
-* remove any syslog support from log.c -- we probably can't do this before split-off udev is gone for good
+* remove any syslog support from log.c -- we probably cannot do this before split-off udev is gone for good
 
 * shutdown logging: store to EFI var, and store to USB stick?
 
@@ -333,7 +333,7 @@ Features:
   - journald: also get thread ID from client, plus thread name
   - journal: when waiting for journal additions in the client always sleep at least 1s or so, in order to minimize wakeups
   - add API to close/reopen/get fd for journal client fd in libsystemd-journal.
-  - fallback to /dev/log based logging in libsystemd-journal, if we can't log natively?
+  - fallback to /dev/log based logging in libsystemd-journal, if we cannot log natively?
   - declare the local journal protocol stable in the wiki interface chart
   - journal: reuse XZ context
   - sd-journal: speed up sd_journal_get_data() with transparent hash table in bg
@@ -369,7 +369,7 @@ Features:
   - journald: make sure ratelimit is actually really per-service with the new cgroup changes
   - change systemd-journal-flush into a service that stays around during
     boot, and causes the journal to be moved back to /run on shutdown,
-    so that we don't keep /var busy. This needs to happen synchronously,
+    so that we do not keep /var busy. This needs to happen synchronously,
     hence doing this via signals is not going to work.
 
 * document:
@@ -397,7 +397,7 @@ Features:
   - print nice message from systemctl --failed if there are no entries shown, and hook that into ExecStartPre of rescue.service/emergency.service
   - add new command to systemctl: "systemctl system-reexec" which reexecs as many daemons as virtually possible
   - systemctl enable: improve the success messages (i.e. more human readable, less shell-like)
-  - systemctl enable: fail if target to alias into doesn't exist? maybe show how many units are enabled afterwards?
+  - systemctl enable: fail if target to alias into does not exist? maybe show how many units are enabled afterwards?
   - systemctl: "Journal has been rotated since unit was started." message is misleading
   - support "systemctl stop foobar@.service" to stop all units matching a certain template
   - Something is wrong with symlink handling of "autovt@.service" in "systemctl list-unit-files"
@@ -424,7 +424,7 @@ Features:
     o DST changes
   - Support 2012-02~4 as syntax for specifying the fourth to last day of the month.
   - calendarspec: support value ranges with ".." notation. Example: 2013-4..8-1
-  - when parsing calendar timestamps support the UTC timezone (even if we won't support arbitrary timezone specs, support UTC itself certainly makes sense), also support syntaxes such as +0200
+  - when parsing calendar timestamps support the UTC timezone (even if we will not support arbitrary timezone specs, support UTC itself certainly makes sense), also support syntaxes such as +0200
   - Modulate timer frequency based on battery state
 
 * update the kernel's TZ (sys_tz) when DST changes
@@ -448,7 +448,7 @@ Features:
 * If we show an error about a unit (such as not showing up) and it has no Description string, then show a description string generated form the reverse of unit_name_mangle().
 
 * fedup: add --unit to systemctl switch-root somehow
-* fedup: don't delete initrd on switch-root
+* fedup: do not delete initrd on switch-root
 * fedup: generator
 
 * timedated: refuse time changes when NTP is on
@@ -469,7 +469,7 @@ Features:
 
 * hostnamed: before returning information from /etc/machine-info.conf check the modification data and reread. Similar for localed, ...
 
-* currently x-systemd.timeout is lost in the initrd, since crypttab is copied into dracut, but fstab isn't
+* currently x-systemd.timeout is lost in the initrd, since crypttab is copied into dracut, but fstab is not
 
 * nspawn:
   - nspawn: --read-only is not applied recursively to submounts
@@ -515,9 +515,9 @@ Features:
 
 * drop PID 1 reloading, only do reexecing (difficult: Reload()
   currently is properly synchronous, Reexec() is weird, because we
-  can't delay the response properly until we are back, so instead of
+  cannot delay the response properly until we are back, so instead of
   being properly synchronous we just keep open the fd and close it
-  when done. That means clients don't get a successful method reply,
+  when done. That means clients do not get a successful method reply,
   but much rather a disconnect on success.
 
 * properly handle loop back mounts via fstab, especially regards to fsck/passno
@@ -531,7 +531,7 @@ Features:
 * rename "userspace" to "core-os"
 
 * load-fragment: when loading a unit file via a chain of symlinks
-  verify that it isn't masked via any of the names traversed.
+  verify that it is not masked via any of the names traversed.
 
 * introduce Type=pid-file
 
@@ -586,7 +586,7 @@ Features:
   - check systemd-tmpfiles for selinux context hookup for mknod(), symlink() and similar
   - apply "x" on "D" too (see patch from William Douglas)
 
-* for services: don't set $HOME in services unless requested
+* for services: do not set $HOME in services unless requested
 
 * hide PAM options in fragment parser when compile time disabled
 
@@ -727,7 +727,7 @@ External:
 
 * drop accountsservice's StandardOutput=syslog and Type=dbus fields
 
-* dbus upstream still refers to dbus.target and shouldn't
+* dbus upstream still refers to dbus.target and should not
 
 * dbus: in fedora, make /var/lib/dbus/machine-id a symlink to /etc/machine-id
 
@@ -755,7 +755,7 @@ Regularly:
 
 * pahole
 
-* set_put(), hashmap_put() return values check. i.e. == 0 doesn't free()!
+* set_put(), hashmap_put() return values check. i.e. == 0 does not free()!
 
 * use secure_getenv() instead of getenv() where appropriate
 

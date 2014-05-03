@@ -118,7 +118,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     returns positive or 0, and a valid bus path in the return
     argument. On success, <function>sd_bus_path_decode()</function>
     returns a positive value if the prefixed matched, or 0 if it
-    didn't. If the prefix matched the external identifier is returned
+    did not. If the prefix matched the external identifier is returned
     in the return parameter. If it did not match NULL is returned in
     the return parameter. On failure, a negative errno-style error
     number is returned by either function. The returned strings must
