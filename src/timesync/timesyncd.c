@@ -136,6 +136,7 @@ struct Manager {
 
         /* last change */
         bool jumped;
+        int drift_ppm;
 
         /* watch for time changes */
         sd_event_source *event_clock_watch;
@@ -284,7 +285,6 @@ static int sntp_clock_watch(sd_event_source *source, int fd, uint32_t revents, v
 static int sntp_clock_watch_setup(Manager *m) {
         struct itimerspec its = { .it_value.tv_sec = TIME_T_MAX };
         _cleanup_close_ int fd = -1;
-        sd_event *e;
         sd_event_source *source;
         int r;
 
@@ -302,8 +302,7 @@ static int sntp_clock_watch_setup(Manager *m) {
                 return -errno;
         }
 
-        e = sd_event_source_get_event(m->event_receive);
-        r = sd_event_add_io(e, &source, fd, EPOLLIN, sntp_clock_watch, m);
+        r = sd_event_add_io(m->event, &source, fd, EPOLLIN, sntp_clock_watch, m);
         if (r < 0) {
                 log_error("Failed to create clock watch event source: %s", strerror(-r));
                 return r;
@@ -348,7 +347,7 @@ static int sntp_adjust_clock(Manager *m, double offset, int leap_sec) {
 
                 /* the kernel expects -0.3s as {-1, 7000.000.000} */
                 if (tmx.time.tv_usec < 0) {
-                        tmx.time.tv_usec  -= 1;
+                        tmx.time.tv_sec  -= 1;
                         tmx.time.tv_usec += NSEC_PER_SEC;
                 }
 
@@ -369,6 +368,8 @@ static int sntp_adjust_clock(Manager *m, double offset, int leap_sec) {
         if (r < 0)
                 return r;
 
+        m->drift_ppm = tmx.freq / 65536;
+
         log_debug("  status       : %04i %s\n"
                   "  time now     : %li.%03lli\n"
                   "  constant     : %li\n"
@@ -378,7 +379,7 @@ static int sntp_adjust_clock(Manager *m, double offset, int leap_sec) {
                   tmx.time.tv_sec, tmx.time.tv_usec / NSEC_PER_MSEC,
                   tmx.constant,
                   (double)tmx.offset / NSEC_PER_SEC,
-                  tmx.freq, abs(tmx.freq) / 65536);
+                  tmx.freq, m->drift_ppm);
 
         return 0;
 }
@@ -624,15 +625,15 @@ static int sntp_receive_response(sd_event_source *source, int fd, uint32_t reven
                   m->samples_jitter, spike ? " spike" : "",
                   m->poll_interval_usec / USEC_PER_SEC);
 
-        log_info("%s: interval/delta/delay/jitter %llu/%+.3f/%.3f/%.3f%s",
-                 m->server, m->poll_interval_usec / USEC_PER_SEC, offset, delay, m->samples_jitter, spike ? " (ignored)" : "");
-
         if (!spike) {
                 r = sntp_adjust_clock(m, offset, leap_sec);
                 if (r < 0)
                         log_error("Failed to call clock_adjtime(): %m");
         }
 
+        log_info("%s: interval/delta/delay/jitter/drift %llus/%+.3fs/%.3fs/%.3fs/%uppm%s",
+                 m->server, m->poll_interval_usec / USEC_PER_SEC, offset, delay, m->samples_jitter, m->drift_ppm,
+                 spike ? " (ignored)" : "");
         r = sntp_arm_timer(m, m->poll_interval_usec);
         if (r < 0)
                 return r;
@@ -770,15 +771,13 @@ int main(int argc, char *argv[]) {
 
         server = "216.239.32.15";       /* time1.google.com */
 
-        sd_notifyf(false,
-                  "READY=1");
+        sd_notify(false, "READY=1");
 
         r = sntp_server_connect(m, server);
         if (r < 0)
                 goto out;
 
-        sd_notifyf(false,
-                  "STATUS=Using time server: %s", server);
+        sd_notifyf(false, "STATUS=Using Time Server: %s", server);
 
         r = sd_event_loop(m->event);
         if (r < 0)
