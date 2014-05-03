@@ -125,6 +125,8 @@ static char** user_dirs(
                         goto fail;
 
         } else if (home) {
+                _cleanup_free_ char *data_home_parent = NULL;
+
                 if (asprintf(&data_home, "%s/.local/share/systemd/user", home) < 0)
                         goto fail;
 
@@ -135,8 +137,14 @@ static char** user_dirs(
                  * then filter out this link, if it is actually is
                  * one. */
 
-                mkdir_parents_label(data_home, 0777);
-                (void) symlink("../../../.config/systemd/user", data_home);
+                if (path_get_parent(data_home, &data_home_parent) >= 0) {
+                        _cleanup_free_ char *config_home_relative = NULL;
+
+                        if (path_make_relative(data_home_parent, config_home, &config_home_relative) >= 0) {
+                                mkdir_parents_label(data_home, 0777);
+                                (void) symlink(config_home_relative, data_home);
+                        }
+                }
         }
 
         e = getenv("XDG_DATA_DIRS");
