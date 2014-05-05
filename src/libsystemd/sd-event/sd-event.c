@@ -886,6 +886,12 @@ static int event_update_signal_fd(sd_event *e) {
         return 0;
 }
 
+static int signal_exit_callback(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
+        assert(s);
+
+        return sd_event_exit(sd_event_source_get_event(s), PTR_TO_INT(userdata));
+}
+
 _public_ int sd_event_add_signal(
                 sd_event *e,
                 sd_event_source **ret,
@@ -900,10 +906,12 @@ _public_ int sd_event_add_signal(
         assert_return(e, -EINVAL);
         assert_return(sig > 0, -EINVAL);
         assert_return(sig < _NSIG, -EINVAL);
-        assert_return(callback, -EINVAL);
         assert_return(ret, -EINVAL);
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_pid_changed(e), -ECHILD);
+
+        if (!callback)
+                callback = signal_exit_callback;
 
         r = pthread_sigmask(SIG_SETMASK, NULL, &ss);
         if (r < 0)
