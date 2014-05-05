@@ -39,6 +39,7 @@
 #include "log.h"
 #include "socket-util.h"
 #include "list.h"
+#include "ratelimit.h"
 #include "sd-event.h"
 #include "sd-resolve.h"
 #include "sd-daemon.h"
@@ -82,6 +83,10 @@
  * in seconds relative to 0h on 1 January 1900."
  */
 #define OFFSET_1900_1970        2208988800UL
+
+#define RETRY_USEC (30*USEC_PER_SEC)
+#define RATELIMIT_INTERVAL_USEC (10*USEC_PER_SEC)
+#define RATELIMIT_BURST 5
 
 struct ntp_ts {
         be32_t sec;
@@ -129,6 +134,8 @@ struct Manager {
 
         LIST_HEAD(ServerName, servers);
 
+        RateLimit ratelimit;
+
         /* peer */
         sd_resolve_query *resolve_query;
         sd_event_source *event_receive;
@@ -163,6 +170,9 @@ struct Manager {
         /* watch for time changes */
         sd_event_source *event_clock_watch;
         int clock_watch_fd;
+
+        /* Retry connections */
+        sd_event_source *event_retry;
 
         /* Handle SIGINT/SIGTERM */
         sd_event_source *sigterm, *sigint;
@@ -847,6 +857,14 @@ static int manager_resolve_handler(sd_resolve_query *q, int ret, const struct ad
         return manager_begin(m);
 }
 
+static int manager_retry(sd_event_source *source, usec_t usec, void *userdata) {
+        Manager *m = userdata;
+
+        assert(m);
+
+        return manager_connect(m);
+}
+
 static int manager_connect(Manager *m) {
 
         struct addrinfo hints = {
@@ -858,6 +876,19 @@ static int manager_connect(Manager *m) {
         assert(m);
 
         manager_disconnect(m);
+
+        m->event_retry = sd_event_source_unref(m->event_retry);
+        if (!ratelimit_test(&m->ratelimit)) {
+                log_debug("Slowing down attempts to contact servers.");
+
+                r = sd_event_add_time(m->event, &m->event_retry, CLOCK_MONOTONIC, now(CLOCK_MONOTONIC) + RETRY_USEC, 0, manager_retry, m);
+                if (r < 0) {
+                        log_error("Failed to create retry timer: %s", strerror(-r));
+                        return r;
+                }
+
+                return 0;
+        }
 
         /* If we already are operating on some address, switch to the
          * next one. */
@@ -939,6 +970,8 @@ static int manager_new(Manager **ret) {
 
         m->server_socket = m->clock_watch_fd = -1;
 
+        RATELIMIT_INIT(m->ratelimit, RATELIMIT_INTERVAL_USEC, RATELIMIT_BURST);
+
         r = sd_event_default(&m->event);
         if (r < 0)
                 return r;
@@ -973,6 +1006,8 @@ static void manager_free(Manager *m) {
 
         sd_event_source_unref(m->sigint);
         sd_event_source_unref(m->sigterm);
+
+        sd_event_source_unref(m->event_retry);
 
         sd_resolve_unref(m->resolve);
         sd_event_unref(m->event);
