@@ -40,6 +40,7 @@
 #include "socket-util.h"
 #include "list.h"
 #include "ratelimit.h"
+#include "strv.h"
 #include "sd-event.h"
 #include "sd-resolve.h"
 #include "sd-daemon.h"
@@ -1019,6 +1020,7 @@ static void manager_free(Manager *m) {
 
 int main(int argc, char *argv[]) {
         _cleanup_manager_free_ Manager *m = NULL;
+        const char *x;
         int r;
 
         log_set_target(LOG_TARGET_AUTO);
@@ -1035,10 +1037,13 @@ int main(int argc, char *argv[]) {
 
         sd_notify(false, "READY=1");
 
-        r = manager_add_server(m, "time1.google.com");
-        if (r < 0) {
-                log_error("Failed to add server: %s", strerror(-r));
-                goto out;
+        FOREACH_STRING(x, "time1.google.com", "time2.google.com", "time3.google.com", "time4.google.com", "0.fedora.pool.ntp.org") {
+
+                r = manager_add_server(m, x);
+                if (r < 0) {
+                        log_error("Failed to add server %s: %s", x, strerror(-r));
+                        goto out;
+                }
         }
 
         r = manager_connect(m);
