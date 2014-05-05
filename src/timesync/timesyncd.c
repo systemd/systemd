@@ -86,7 +86,7 @@
 
 #define RETRY_USEC (30*USEC_PER_SEC)
 #define RATELIMIT_INTERVAL_USEC (10*USEC_PER_SEC)
-#define RATELIMIT_BURST 5
+#define RATELIMIT_BURST 10
 
 struct ntp_ts {
         be32_t sec;
@@ -245,8 +245,10 @@ static int manager_send_request(Manager *m) {
         if (len == sizeof(ntpmsg)) {
                 m->pending = true;
                 log_debug("Sent NTP request to %s (%s)", pretty, m->current_server_name->string);
-        } else
+        } else {
                 log_debug("Sending NTP request to %s (%s) failed: %m", pretty, m->current_server_name->string);
+                return manager_connect(m);
+        }
 
         /* re-arm timer with incresing timeout, in case the packets never arrive back */
         if (m->retry_interval > 0) {
