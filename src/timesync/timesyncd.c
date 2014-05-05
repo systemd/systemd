@@ -319,8 +319,7 @@ static int sntp_clock_watch_setup(Manager *m) {
         sd_event_source_unref(m->event_clock_watch);
         m->event_clock_watch = source;
 
-        if (m->clock_watch_fd >= 0)
-                close(m->clock_watch_fd);
+        safe_close(m->clock_watch_fd);
         m->clock_watch_fd = fd;
         fd = -1;
 
@@ -680,14 +679,10 @@ static void sntp_server_disconnect(Manager *m) {
         m->event_timer = sd_event_source_unref(m->event_timer);
 
         m->event_clock_watch = sd_event_source_unref(m->event_clock_watch);
-        if (m->clock_watch_fd > 0)
-                close(m->clock_watch_fd);
-        m->clock_watch_fd = -1;
+        m->clock_watch_fd = safe_close(m->clock_watch_fd);
 
         m->event_receive = sd_event_source_unref(m->event_receive);
-        if (m->server_socket > 0)
-                close(m->server_socket);
-        m->server_socket = -1;
+        m->server_socket = safe_close(m->server_socket);
 
         zero(m->server_addr);
         free(m->server);
