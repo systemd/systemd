@@ -117,7 +117,6 @@ static int detect_vm_dmi(const char **_id) {
                 /* http://kb.vmware.com/selfservice/microsites/search.do?language=en_US&cmd=displayKC&externalId=1009458 */
                 "VMware\0"                "vmware\0"
                 "VMW\0"                   "vmware\0"
-                "Microsoft Corporation\0" "microsoft\0"
                 "innotek GmbH\0"          "oracle\0"
                 "Xen\0"                   "xen\0"
                 "Bochs\0"                 "bochs\0";
