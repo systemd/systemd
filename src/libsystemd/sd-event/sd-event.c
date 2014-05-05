@@ -1313,8 +1313,12 @@ _public_ int sd_event_source_set_enabled(sd_event_source *s, int m) {
 
         assert_return(s, -EINVAL);
         assert_return(m == SD_EVENT_OFF || m == SD_EVENT_ON || m == SD_EVENT_ONESHOT, -EINVAL);
-        assert_return(s->event->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_pid_changed(s->event), -ECHILD);
+
+        /* If we are dead anyway, we are fine with turning off
+         * sources, but everything else needs to fail. */
+        if (s->event->state == SD_EVENT_FINISHED)
+                return m == SD_EVENT_OFF ? 0 : -ESTALE;
 
         if (s->enabled == m)
                 return 0;
