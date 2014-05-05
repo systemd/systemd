@@ -38,6 +38,7 @@
 #include "sparse-endian.h"
 #include "log.h"
 #include "socket-util.h"
+#include "list.h"
 #include "sd-event.h"
 #include "sd-resolve.h"
 #include "sd-daemon.h"
@@ -107,16 +108,32 @@ struct ntp_msg {
 } _packed_;
 
 typedef struct Manager Manager;
+typedef struct ServerAddress ServerAddress;
+typedef struct ServerName ServerName;
+
+struct ServerAddress {
+        union sockaddr_union sockaddr;
+        socklen_t socklen;
+        LIST_FIELDS(ServerAddress, addresses);
+};
+
+struct ServerName {
+        char *string;
+        LIST_HEAD(ServerAddress, addresses);
+        LIST_FIELDS(ServerName, names);
+};
+
 struct Manager {
         sd_event *event;
         sd_resolve *resolve;
 
+        LIST_HEAD(ServerName, servers);
+
         /* peer */
         sd_resolve_query *resolve_query;
         sd_event_source *event_receive;
-        char *server;
-        union sockaddr_union server_addr;
-        socklen_t server_addr_length;
+        ServerName *current_server_name;
+        ServerAddress *current_server_address;
         int server_socket;
         uint64_t packet_count;
 
@@ -157,6 +174,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 
 static int manager_arm_timer(Manager *m, usec_t next);
 static int manager_clock_watch_setup(Manager *m);
+static int manager_connect(Manager *m);
+static void manager_disconnect(Manager *m);
 
 static double ntp_ts_to_d(const struct ntp_ts *ts) {
         return be32toh(ts->sec) + ((double)be32toh(ts->frac) / UINT_MAX);
@@ -175,6 +194,7 @@ static double square(double d) {
 }
 
 static int manager_send_request(Manager *m) {
+        _cleanup_free_ char *pretty = NULL;
         struct ntp_msg ntpmsg = {
                 /*
                  * "The client initializes the NTP message header, sends the request
@@ -186,6 +206,11 @@ static int manager_send_request(Manager *m) {
                 .field = NTP_FIELD(0, 4, NTP_MODE_CLIENT),
         };
         ssize_t len;
+        int r;
+
+        assert(m);
+        assert(m->current_server_name);
+        assert(m->current_server_address);
 
         /*
          * Set transmit timestamp, remember it; the server will send that back
@@ -200,12 +225,18 @@ static int manager_send_request(Manager *m) {
         ntpmsg.trans_time.sec = htobe32(m->trans_time.tv_sec + OFFSET_1900_1970);
         ntpmsg.trans_time.frac = htobe32(m->trans_time.tv_nsec);
 
-        len = sendto(m->server_socket, &ntpmsg, sizeof(ntpmsg), MSG_DONTWAIT, &m->server_addr.sa, m->server_addr_length);
+        r = sockaddr_pretty(&m->current_server_address->sockaddr.sa, m->current_server_address->socklen, true, &pretty);
+        if (r < 0) {
+                log_error("Failed to format sockaddr: %s", strerror(-r));
+                return r;
+        }
+
+        len = sendto(m->server_socket, &ntpmsg, sizeof(ntpmsg), MSG_DONTWAIT, &m->current_server_address->sockaddr.sa, m->current_server_address->socklen);
         if (len == sizeof(ntpmsg)) {
                 m->pending = true;
-                log_debug("Sent NTP request to: %s", m->server);
+                log_debug("Sent NTP request to %s (%s)", pretty, m->current_server_name->string);
         } else
-                log_debug("Sending NTP request to %s failed: %m", m->server);
+                log_debug("Sending NTP request to %s (%s) failed: %m", pretty, m->current_server_name->string);
 
         /* re-arm timer with incresing timeout, in case the packets never arrive back */
         if (m->retry_interval > 0) {
@@ -214,7 +245,13 @@ static int manager_send_request(Manager *m) {
         } else
                 m->retry_interval = NTP_POLL_INTERVAL_MIN_SEC * USEC_PER_SEC;
 
-        return manager_arm_timer(m, m->retry_interval);
+        r = manager_arm_timer(m, m->retry_interval);
+        if (r < 0) {
+                log_error("Failed to rearm timer: %s", strerror(-r));
+                return r;
+        }
+
+        return 0;
 }
 
 static int manager_timer(sd_event_source *source, usec_t usec, void *userdata) {
@@ -471,6 +508,7 @@ static bool sockaddr_equal(union sockaddr_union *a, union sockaddr_union *b) {
 }
 
 static int manager_receive_response(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
+        _cleanup_free_ char *pretty = NULL;
         Manager *m = userdata;
         struct ntp_msg ntpmsg;
 
@@ -501,9 +539,12 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
         int leap_sec;
         int r;
 
+        assert(source);
+        assert(m);
+
         if (revents & (EPOLLHUP|EPOLLERR)) {
-                log_debug("Server connection returned error.");
-                return -ENOTCONN;
+                log_warning("Server connection returned error.");
+                return manager_connect(m);
         }
 
         len = recvmsg(fd, &msghdr, MSG_DONTWAIT);
@@ -511,18 +552,20 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                 if (errno == EAGAIN)
                         return 0;
 
-                log_debug("Error receiving message. Disconnecting.");
-                return -errno;
+                log_warning("Error receiving message. Disconnecting.");
+                return manager_connect(m);
         }
 
         if (iov.iov_len < sizeof(struct ntp_msg)) {
-                log_debug("Invalid response from server. Disconnecting.");
-                return -EINVAL;
+                log_warning("Invalid response from server. Disconnecting.");
+                return manager_connect(m);
         }
 
-        if (!sockaddr_equal(&server_addr, &m->server_addr)) {
-                log_debug("Response from unknown server. Disconnecting.");
-                return -EINVAL;
+        if (!m->current_server_name ||
+            !m->current_server_address ||
+            !sockaddr_equal(&server_addr, &m->current_server_address->sockaddr)) {
+                log_debug("Response from unknown server.");
+                return 0;
         }
 
         recv_time = NULL;
@@ -537,7 +580,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                 }
         }
         if (!recv_time) {
-                log_debug("Invalid packet timestamp. Disconnecting.");
+                log_error("Invalid packet timestamp.");
                 return -EINVAL;
         }
 
@@ -555,17 +598,17 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
 
         if (NTP_FIELD_LEAP(ntpmsg.field) == NTP_LEAP_NOTINSYNC) {
                 log_debug("Server is not synchronized. Disconnecting.");
-                return -EINVAL;
+                return manager_connect(m);
         }
 
         if (NTP_FIELD_VERSION(ntpmsg.field) != 4) {
                 log_debug("Response NTPv%d. Disconnecting.", NTP_FIELD_VERSION(ntpmsg.field));
-                return -EINVAL;
+                return manager_connect(m);
         }
 
         if (NTP_FIELD_MODE(ntpmsg.field) != NTP_MODE_SERVER) {
                 log_debug("Unsupported mode %d. Disconnecting.", NTP_FIELD_MODE(ntpmsg.field));
-                return -EINVAL;
+                return manager_connect(m);
         }
 
         /* valid packet */
@@ -641,11 +684,23 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                         log_error("Failed to call clock_adjtime(): %m");
         }
 
-        log_info("%s: interval/delta/delay/jitter/drift %llus/%+.3fs/%.3fs/%.3fs/%+ippm%s",
-                 m->server, m->poll_interval_usec / USEC_PER_SEC, offset, delay, m->samples_jitter, m->drift_ppm,
+        r = sockaddr_pretty(&m->current_server_address->sockaddr.sa, m->current_server_address->socklen, true, &pretty);
+        if (r < 0) {
+                log_error("Failed to format socket address: %s", strerror(-r));
+                return r;
+        }
+
+        log_info("%s (%s): interval/delta/delay/jitter/drift %llus/%+.3fs/%.3fs/%.3fs/%+ippm%s",
+                 pretty, m->current_server_name->string, m->poll_interval_usec / USEC_PER_SEC, offset, delay, m->samples_jitter, m->drift_ppm,
                  spike ? " (ignored)" : "");
 
-        return manager_arm_timer(m, m->poll_interval_usec);
+        r = manager_arm_timer(m, m->poll_interval_usec);
+        if (r < 0) {
+                log_error("Failed to rearm timer: %s", strerror(-r));
+                return r;
+        }
+
+        return 0;
 }
 
 static int manager_listen_setup(Manager *m) {
@@ -658,14 +713,15 @@ static int manager_listen_setup(Manager *m) {
 
         assert(m->server_socket < 0);
         assert(!m->event_receive);
+        assert(m->current_server_address);
 
-        addr.sa.sa_family = m->server_addr.sa.sa_family;
+        addr.sa.sa_family = m->current_server_address->sockaddr.sa.sa_family;
 
         m->server_socket = socket(addr.sa.sa_family, SOCK_DGRAM | SOCK_CLOEXEC, 0);
         if (m->server_socket < 0)
                 return -errno;
 
-        r = bind(m->server_socket, &addr.sa, m->server_addr_length);
+        r = bind(m->server_socket, &addr.sa, m->current_server_address->socklen);
         if (r < 0)
                 return -errno;
 
@@ -678,42 +734,24 @@ static int manager_listen_setup(Manager *m) {
         return sd_event_add_io(m->event, &m->event_receive, m->server_socket, EPOLLIN, manager_receive_response, m);
 }
 
-static int manager_resolve_handler(sd_resolve_query *q, int ret, const struct addrinfo *ai, void *userdata) {
+static int manager_begin(Manager *m) {
         _cleanup_free_ char *pretty = NULL;
-        Manager *m = userdata;
         int r;
 
-        assert(q);
         assert(m);
+        assert_return(m->current_server_name, -EHOSTUNREACH);
+        assert_return(m->current_server_address, -EHOSTUNREACH);
 
-        m->resolve_query = sd_resolve_query_unref(m->resolve_query);
+        m->poll_interval_usec = NTP_POLL_INTERVAL_MIN_SEC * USEC_PER_SEC;
 
-        if (ret != 0) {
-                log_error("Failed to resolve %s: %s", m->server, gai_strerror(ret));
-                return -EHOSTUNREACH;
-        }
-
-        assert(ai);
-        assert(ai->ai_addr);
-        assert(ai->ai_addrlen >= offsetof(struct sockaddr, sa_data));
-        assert(ai->ai_addrlen <= sizeof(union sockaddr_union));
-
-        if (!IN_SET(ai->ai_addr->sa_family, AF_INET, AF_INET6)) {
-                log_warning("Failed to find IP address for %s", m->server);
-                return -EHOSTUNREACH;
-        }
-
-        memcpy(&m->server_addr, ai->ai_addr, ai->ai_addrlen);
-        m->server_addr_length = ai->ai_addrlen;
-
-        r = sockaddr_pretty(&m->server_addr.sa, m->server_addr_length, true, &pretty);
+        r = sockaddr_pretty(&m->current_server_address->sockaddr.sa, m->current_server_address->socklen, true, &pretty);
         if (r < 0) {
-                log_warning("Failed to decode address of %s: %s", m->server, strerror(-r));
+                log_warning("Failed to decode address of %s: %s", m->current_server_name->string, strerror(-r));
                 return r;
         }
 
-        log_debug("Connecting to NTP server %s.", pretty);
-        sd_notifyf(false, "STATUS=Using Time Server %s", pretty);
+        log_debug("Connecting to NTP server %s (%s).", pretty, m->current_server_name->string);
+        sd_notifyf(false, "STATUS=Using Time Server %s (%s)", pretty, m->current_server_name->string);
 
         r = manager_listen_setup(m);
         if (r < 0) {
@@ -722,34 +760,159 @@ static int manager_resolve_handler(sd_resolve_query *q, int ret, const struct ad
         }
 
         r = manager_clock_watch_setup(m);
-        if (r < 0) {
-                log_warning("Failed to setup clock watch: %s", strerror(-r));
+        if (r < 0)
                 return r;
-        }
 
         return manager_send_request(m);
 }
 
-static int manager_connect(Manager *m, const char *server) {
+static void server_name_flush_addresses(ServerName *n) {
+        ServerAddress *a;
+
+        assert(n);
+
+        while ((a = n->addresses)) {
+                LIST_REMOVE(addresses, n->addresses, a);
+                free(a);
+        }
+}
+
+static void manager_flush_names(Manager *m) {
+        ServerName *n;
+
+        assert(m);
+
+        while ((n = m->servers)) {
+                LIST_REMOVE(names, m->servers, n);
+                free(n->string);
+                server_name_flush_addresses(n);
+                free(n);
+        }
+}
+
+static int manager_resolve_handler(sd_resolve_query *q, int ret, const struct addrinfo *ai, void *userdata) {
+        Manager *m = userdata;
+        ServerAddress *a, *last = NULL;
+
+        assert(q);
+        assert(m);
+        assert(m->current_server_name);
+
+        m->resolve_query = sd_resolve_query_unref(m->resolve_query);
+
+        if (ret != 0) {
+                log_error("Failed to resolve %s: %s", m->current_server_name->string, gai_strerror(ret));
+
+                /* Try next host */
+                return manager_connect(m);
+        }
+
+        server_name_flush_addresses(m->current_server_name);
+
+        for (; ai; ai = ai->ai_next) {
+                _cleanup_free_ char *pretty = NULL;
+
+                assert(ai->ai_addr);
+                assert(ai->ai_addrlen >= offsetof(struct sockaddr, sa_data));
+                assert(ai->ai_addrlen <= sizeof(union sockaddr_union));
+
+                if (!IN_SET(ai->ai_addr->sa_family, AF_INET, AF_INET6)) {
+                        log_warning("Unsuitable address protocol for %s", m->current_server_name->string);
+                        continue;
+                }
+
+                a = new0(ServerAddress, 1);
+                if (!a)
+                        return log_oom();
+
+                memcpy(&a->sockaddr, ai->ai_addr, ai->ai_addrlen);
+                a->socklen = ai->ai_addrlen;
+
+                LIST_INSERT_AFTER(addresses, m->current_server_name->addresses, last, a);
+                last = a;
+
+                sockaddr_pretty(&a->sockaddr.sa, a->socklen, true, &pretty);
+                log_debug("Found address %s for %s.", pretty, m->current_server_name->string);
+        }
+
+        if (!m->current_server_name->addresses) {
+                log_error("Failed to find suitable address for host %s.", m->current_server_name->string);
+
+                /* Try next host */
+                return manager_connect(m);
+        }
+
+        m->current_server_address = m->current_server_name->addresses;
+
+        return manager_begin(m);
+}
+
+static int manager_connect(Manager *m) {
 
         struct addrinfo hints = {
                 .ai_flags = AI_NUMERICSERV|AI_ADDRCONFIG,
                 .ai_socktype = SOCK_DGRAM,
         };
+        int r;
+
+        assert(m);
+
+        manager_disconnect(m);
+
+        /* If we already are operating on some address, switch to the
+         * next one. */
+        if (m->current_server_address && m->current_server_address->addresses_next)
+                m->current_server_address = m->current_server_address->addresses_next;
+        else {
+                /* Hmm, we are through all addresses, let's look for the next host instead */
+                m->current_server_address = NULL;
+
+                if (m->current_server_name && m->current_server_name->names_next)
+                        m->current_server_name = m->current_server_name->names_next;
+                else {
+                        if (!m->servers) {
+                                m->current_server_name = NULL;
+                                log_debug("No server found.");
+                                return 0;
+                        }
+
+                        m->current_server_name = m->servers;
+                }
+
+                r = sd_resolve_getaddrinfo(m->resolve, &m->resolve_query, m->current_server_name->string, "123", &hints, manager_resolve_handler, m);
+                if (r < 0) {
+                        log_error("Failed to create resolver: %s", strerror(-r));
+                        return r;
+                }
+
+                return 1;
+        }
+
+        r = manager_begin(m);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
+static int manager_add_server(Manager *m, const char *server) {
+        ServerName *n;
 
         assert(m);
         assert(server);
 
-        if (m->server)
-                return -EBUSY;
-
-        m->server = strdup(server);
-        if (!m->server)
+        n = new0(ServerName, 1);
+        if (!n)
                 return -ENOMEM;
 
-        m->poll_interval_usec = NTP_POLL_INTERVAL_MIN_SEC * USEC_PER_SEC;
+        n->string = strdup(server);
+        if (!n->string) {
+                free(n);
+                return -ENOMEM;
+        }
 
-        return sd_resolve_getaddrinfo(m->resolve, &m->resolve_query, m->server, "123", &hints, manager_resolve_handler, m);
+        LIST_PREPEND(names, m->servers, n);
+        return 0;
 }
 
 static void manager_disconnect(Manager *m) {
@@ -761,12 +924,6 @@ static void manager_disconnect(Manager *m) {
 
         m->event_receive = sd_event_source_unref(m->event_receive);
         m->server_socket = safe_close(m->server_socket);
-
-        zero(m->server_addr);
-        m->server_addr_length = 0;
-
-        free(m->server);
-        m->server = NULL;
 
         m->event_clock_watch = sd_event_source_unref(m->event_clock_watch);
         m->clock_watch_fd = safe_close(m->clock_watch_fd);
@@ -812,6 +969,7 @@ static void manager_free(Manager *m) {
                 return;
 
         manager_disconnect(m);
+        manager_flush_names(m);
 
         sd_event_source_unref(m->sigint);
         sd_event_source_unref(m->sigterm);
@@ -840,11 +998,15 @@ int main(int argc, char *argv[]) {
 
         sd_notify(false, "READY=1");
 
-        r = manager_connect(m, "time1.google.com");
+        r = manager_add_server(m, "time1.google.com");
         if (r < 0) {
-                log_error("Failed to initiate connection: %s", strerror(-r));
+                log_error("Failed to add server: %s", strerror(-r));
                 goto out;
         }
+
+        r = manager_connect(m);
+        if (r < 0)
+                goto out;
 
         r = sd_event_loop(m->event);
         if (r < 0) {
