@@ -798,7 +798,9 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/clean-ipc.h \
 	src/shared/clean-ipc.c \
 	src/shared/login-shared.c \
-	src/shared/login-shared.h
+	src/shared/login-shared.h \
+	src/shared/async.c \
+	src/shared/async.h
 
 nodist_libsystemd_shared_la_SOURCES = \
 	src/shared/errno-from-name.h \
@@ -1028,8 +1030,6 @@ libsystemd_core_la_SOURCES = \
 	src/core/killall.c \
 	src/core/audit-fd.c \
 	src/core/audit-fd.h \
-	src/core/async.c \
-	src/core/async.h \
 	src/core/show-status.c \
 	src/core/show-status.h
 
