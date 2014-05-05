@@ -393,6 +393,7 @@ char* dirname_malloc(const char *path);
 void rename_process(const char name[8]);
 
 void sigset_add_many(sigset_t *ss, ...);
+int sigprocmask_many(int how, ...);
 
 bool hostname_is_set(void);
 

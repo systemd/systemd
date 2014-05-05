@@ -2016,7 +2016,6 @@ int ignore_signals(int sig, ...) {
         va_list ap;
         int r = 0;
 
-
         if (sigaction(sig, &sa, NULL) < 0)
                 r = -errno;
 
@@ -2440,6 +2439,24 @@ void sigset_add_many(sigset_t *ss, ...) {
         while ((sig = va_arg(ap, int)) > 0)
                 assert_se(sigaddset(ss, sig) == 0);
         va_end(ap);
+}
+
+int sigprocmask_many(int how, ...) {
+        va_list ap;
+        sigset_t ss;
+        int sig;
+
+        assert_se(sigemptyset(&ss) == 0);
+
+        va_start(ap, how);
+        while ((sig = va_arg(ap, int)) > 0)
+                assert_se(sigaddset(&ss, sig) == 0);
+        va_end(ap);
+
+        if (sigprocmask(how, &ss, NULL) < 0)
+                return -errno;
+
+        return 0;
 }
 
 char* gethostname_malloc(void) {
