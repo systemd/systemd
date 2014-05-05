@@ -37,6 +37,7 @@
 #include "util.h"
 #include "sparse-endian.h"
 #include "log.h"
+#include "socket-util.h"
 #include "sd-event.h"
 #include "sd-daemon.h"
 
@@ -111,7 +112,7 @@ struct Manager {
         /* peer */
         sd_event_source *event_receive;
         char *server;
-        struct sockaddr_in server_addr;
+        union sockaddr_union server_addr;
         int server_socket;
         uint64_t packet_count;
 
@@ -168,19 +169,24 @@ static double square(double d) {
 }
 
 static int sntp_send_request(Manager *m) {
-        struct ntp_msg ntpmsg = {};
-        struct sockaddr_in addr = {};
+        struct ntp_msg ntpmsg = {
+                /*
+                 * "The client initializes the NTP message header, sends the request
+                 * to the server, and strips the time of day from the Transmit
+                 * Timestamp field of the reply.  For this purpose, all the NTP
+                 * header fields are set to 0, except the Mode, VN, and optional
+                 * Transmit Timestamp fields."
+                 */
+                .field = NTP_FIELD(0, 4, NTP_MODE_CLIENT),
+        };
+
+        union sockaddr_union addr = {
+                .in.sin_family = AF_INET,
+                .in.sin_port = htobe16(123),
+        };
         ssize_t len;
         int r;
 
-        /*
-         * "The client initializes the NTP message header, sends the request
-         * to the server, and strips the time of day from the Transmit
-         * Timestamp field of the reply.  For this purpose, all the NTP
-         * header fields are set to 0, except the Mode, VN, and optional
-         * Transmit Timestamp fields."
-         */
-        ntpmsg.field = NTP_FIELD(0, 4, NTP_MODE_CLIENT);
 
         /*
          * Set transmit timestamp, remember it; the server will send that back
@@ -195,10 +201,8 @@ static int sntp_send_request(Manager *m) {
         ntpmsg.trans_time.sec = htobe32(m->trans_time.tv_sec + OFFSET_1900_1970);
         ntpmsg.trans_time.frac = htobe32(m->trans_time.tv_nsec);
 
-        addr.sin_family = AF_INET;
-        addr.sin_port = htobe16(123);
-        addr.sin_addr.s_addr = inet_addr(m->server);
-        len = sendto(m->server_socket, &ntpmsg, sizeof(ntpmsg), MSG_DONTWAIT, &addr, sizeof(addr));
+        addr.in.sin_addr.s_addr = inet_addr(m->server);
+        len = sendto(m->server_socket, &ntpmsg, sizeof(ntpmsg), MSG_DONTWAIT, &addr.sa, sizeof(addr.in));
         if (len == sizeof(ntpmsg)) {
                 m->pending = true;
                 log_debug("Sent NTP request to: %s", m->server);
@@ -283,7 +287,11 @@ static int sntp_clock_watch(sd_event_source *source, int fd, uint32_t revents, v
 
 /* wake up when the system time changes underneath us */
 static int sntp_clock_watch_setup(Manager *m) {
-        struct itimerspec its = { .it_value.tv_sec = TIME_T_MAX };
+
+        struct itimerspec its = {
+                .it_value.tv_sec = TIME_T_MAX
+        };
+
         _cleanup_close_ int fd = -1;
         sd_event_source *source;
         int r;
@@ -472,7 +480,7 @@ static int sntp_receive_response(sd_event_source *source, int fd, uint32_t reven
                 struct cmsghdr cmsghdr;
                 uint8_t buf[CMSG_SPACE(sizeof(struct timeval))];
         } control;
-        struct sockaddr_in server_addr;
+        union sockaddr_union server_addr;
         struct msghdr msghdr = {
                 .msg_iov = &iov,
                 .msg_iovlen = 1,
@@ -509,7 +517,7 @@ static int sntp_receive_response(sd_event_source *source, int fd, uint32_t reven
                 return -EINVAL;
         }
 
-        if (m->server_addr.sin_addr.s_addr != server_addr.sin_addr.s_addr) {
+        if (m->server_addr.in.sin_addr.s_addr != server_addr.in.sin_addr.s_addr) {
                 log_debug("Response from unknown server. Disconnecting.");
                 return -EINVAL;
         }
@@ -657,8 +665,8 @@ static int sntp_server_connect(Manager *m, const char *server) {
         s = NULL;
 
         zero(m->server_addr);
-        m->server_addr.sin_family = AF_INET;
-        m->server_addr.sin_addr.s_addr = inet_addr(server);
+        m->server_addr.in.sin_family = AF_INET;
+        m->server_addr.in.sin_addr.s_addr = inet_addr(server);
 
         m->poll_interval_usec = NTP_POLL_INTERVAL_MIN_SEC * USEC_PER_SEC;
 
@@ -687,8 +695,12 @@ static void sntp_server_disconnect(Manager *m) {
 }
 
 static int sntp_listen_setup(Manager *m) {
+
+        union sockaddr_union addr = {
+                .in.sin_family = AF_INET,
+        };
+
         _cleanup_close_ int fd = -1;
-        struct sockaddr_in addr;
         const int on = 1;
         const int tos = IPTOS_LOWDELAY;
         int r;
@@ -697,9 +709,7 @@ static int sntp_listen_setup(Manager *m) {
         if (fd < 0)
                 return -errno;
 
-        zero(addr);
-        addr.sin_family = AF_INET;
-        r = bind(fd, (struct sockaddr *)&addr, sizeof(addr));
+        r = bind(fd, &addr.sa, sizeof(addr.in));
         if (r < 0)
                 return -errno;
 
