@@ -92,13 +92,13 @@ static const MountPoint mount_table[] = {
         { "tmpfs",      "/run",                      "tmpfs",      "mode=755", MS_NOSUID|MS_NODEV|MS_STRICTATIME,
           NULL,       MNT_FATAL|MNT_IN_CONTAINER },
         { "tmpfs",      "/sys/fs/cgroup",            "tmpfs",      "mode=755", MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME,
-          NULL,       MNT_IN_CONTAINER },
+          NULL,       MNT_FATAL|MNT_IN_CONTAINER },
 #ifdef HAVE_XATTR
         { "cgroup",     "/sys/fs/cgroup/systemd",    "cgroup",     "none,name=systemd,xattr", MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          NULL,       MNT_IN_CONTAINER },
+          NULL,       MNT_FATAL|MNT_IN_CONTAINER },
 #endif
         { "cgroup",     "/sys/fs/cgroup/systemd",    "cgroup",     "none,name=systemd", MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          NULL,       MNT_IN_CONTAINER },
+          NULL,       MNT_FATAL|MNT_IN_CONTAINER },
         { "pstore",     "/sys/fs/pstore",            "pstore",     NULL, MS_NOSUID|MS_NOEXEC|MS_NODEV,
           NULL,       MNT_NONE },
 #ifdef ENABLE_EFI
@@ -188,7 +188,7 @@ static int mount_one(const MountPoint *p, bool relabel) {
                   p->type,
                   p->flags,
                   p->options) < 0) {
-                log_full((p->mode & MNT_FATAL) ? LOG_ERR : LOG_DEBUG, "Failed to mount %s: %m", p->where);
+                log_full((p->mode & MNT_FATAL) ? LOG_ERR : LOG_DEBUG, "Failed to mount %s at %s: %m", p->type, p->where);
                 return (p->mode & MNT_FATAL) ? -errno : 0;
         }
 

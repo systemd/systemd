@@ -862,12 +862,6 @@ int manager_setup_cgroup(Manager *m) {
 
         assert(m);
 
-        /* 0. Be nice to Ingo Molnar #628004 */
-        if (path_is_mount_point("/sys/fs/cgroup/systemd", false) <= 0) {
-                log_warning("No control group support available, not creating root group.");
-                return 0;
-        }
-
         /* 1. Determine hierarchy */
         free(m->cgroup_root);
         m->cgroup_root = NULL;

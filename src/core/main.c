@@ -1184,21 +1184,6 @@ static void test_usr(void) {
                     "Consult http://freedesktop.org/wiki/Software/systemd/separate-usr-is-broken for more information.");
 }
 
-static void test_cgroups(void) {
-
-        if (access("/proc/cgroups", F_OK) >= 0)
-                return;
-
-        log_warning("CONFIG_CGROUPS was not set when your kernel was compiled. "
-                    "Systems without control groups are not supported. "
-                    "We will now sleep for 10s, and then continue boot-up. "
-                    "Expect breakage and please do not file bugs. "
-                    "Instead fix your kernel and enable CONFIG_CGROUPS. "
-                    "Consult http://0pointer.de/blog/projects/cgroups-vs-cgroups.html for more information.");
-
-        sleep(10);
-}
-
 static int initialize_join_controllers(void) {
         /* By default, mount "cpu" + "cpuacct" together, and "net_cls"
          * + "net_prio". We'd like to add "cpuset" to the mix, but
@@ -1586,7 +1571,6 @@ int main(int argc, char *argv[]) {
 
                 test_mtab();
                 test_usr();
-                test_cgroups();
         }
 
         if (arg_running_as == SYSTEMD_SYSTEM && arg_runtime_watchdog > 0)
