@@ -631,7 +631,7 @@ static int sntp_receive_response(sd_event_source *source, int fd, uint32_t reven
                         log_error("Failed to call clock_adjtime(): %m");
         }
 
-        log_info("%s: interval/delta/delay/jitter/drift %llus/%+.3fs/%.3fs/%.3fs/%uppm%s",
+        log_info("%s: interval/delta/delay/jitter/drift %llus/%+.3fs/%.3fs/%.3fs/%+ippm%s",
                  m->server, m->poll_interval_usec / USEC_PER_SEC, offset, delay, m->samples_jitter, m->drift_ppm,
                  spike ? " (ignored)" : "");
         r = sntp_arm_timer(m, m->poll_interval_usec);
