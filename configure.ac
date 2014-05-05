@@ -822,7 +822,7 @@ AM_CONDITIONAL(ENABLE_TIMEDATED, [test "$have_timedated" = "yes"])
 # ------------------------------------------------------------------------------
 have_timesyncd=no
 AC_ARG_ENABLE(timesyncd, AS_HELP_STRING([--disable-timesyncd], [disable timesync daemon]))
-if test "x$enable_timesyncd" = "xyes"; then
+if test "x$enable_timesyncd" != "xno"; then
         have_timesyncd=yes
 fi
 AM_CONDITIONAL(ENABLE_TIMESYNCD, [test "$have_timesyncd" = "yes"])
