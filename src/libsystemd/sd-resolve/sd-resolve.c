@@ -737,7 +737,7 @@ static int complete_query(sd_resolve *resolve, sd_resolve_query *q) {
         q->done = true;
         resolve->n_done ++;
 
-        resolve->current = q;
+        resolve->current = sd_resolve_query_ref(q);
 
         switch (q->type) {
 
@@ -758,7 +758,7 @@ static int complete_query(sd_resolve *resolve, sd_resolve_query *q) {
                 assert_not_reached("Cannot complete unknown query type");
         }
 
-        resolve->current = NULL;
+        resolve->current = sd_resolve_query_unref(q);
 
         return r;
 }
