@@ -90,6 +90,8 @@
 #define RATELIMIT_INTERVAL_USEC (10*USEC_PER_SEC)
 #define RATELIMIT_BURST 10
 
+#define TIMEOUT_USEC (10*USEC_PER_SEC)
+
 struct ntp_ts {
         be32_t sec;
         be32_t frac;
@@ -145,6 +147,7 @@ struct Manager {
         ServerAddress *current_server_address;
         int server_socket;
         uint64_t packet_count;
+        sd_event_source *event_timeout;
 
         /* last sent packet */
         struct timespec trans_time_mon;
@@ -205,6 +208,20 @@ static double square(double d) {
         return d * d;
 }
 
+static int manager_timeout(sd_event_source *source, usec_t usec, void *userdata) {
+        _cleanup_free_ char *pretty = NULL;
+        Manager *m = userdata;
+
+        assert(m);
+        assert(m->current_server_name);
+        assert(m->current_server_address);
+
+        sockaddr_pretty(&m->current_server_address->sockaddr.sa, m->current_server_address->socklen, true, &pretty);
+        log_info("Timed out waiting for reply from %s (%s).", strna(pretty), m->current_server_name->string);
+
+        return manager_connect(m);
+}
+
 static int manager_send_request(Manager *m) {
         _cleanup_free_ char *pretty = NULL;
         struct ntp_msg ntpmsg = {
@@ -224,6 +241,8 @@ static int manager_send_request(Manager *m) {
         assert(m->current_server_name);
         assert(m->current_server_address);
 
+        m->event_timeout = sd_event_source_unref(m->event_timeout);
+
         /*
          * Set transmit timestamp, remember it; the server will send that back
          * as the origin timestamp and we have an indication that this is the
@@ -237,18 +256,14 @@ static int manager_send_request(Manager *m) {
         ntpmsg.trans_time.sec = htobe32(m->trans_time.tv_sec + OFFSET_1900_1970);
         ntpmsg.trans_time.frac = htobe32(m->trans_time.tv_nsec);
 
-        r = sockaddr_pretty(&m->current_server_address->sockaddr.sa, m->current_server_address->socklen, true, &pretty);
-        if (r < 0) {
-                log_error("Failed to format sockaddr: %s", strerror(-r));
-                return r;
-        }
+        sockaddr_pretty(&m->current_server_address->sockaddr.sa, m->current_server_address->socklen, true, &pretty);
 
         len = sendto(m->server_socket, &ntpmsg, sizeof(ntpmsg), MSG_DONTWAIT, &m->current_server_address->sockaddr.sa, m->current_server_address->socklen);
         if (len == sizeof(ntpmsg)) {
                 m->pending = true;
-                log_debug("Sent NTP request to %s (%s)", pretty, m->current_server_name->string);
+                log_debug("Sent NTP request to %s (%s).", strna(pretty), m->current_server_name->string);
         } else {
-                log_debug("Sending NTP request to %s (%s) failed: %m", pretty, m->current_server_name->string);
+                log_debug("Sending NTP request to %s (%s) failed: %m", strna(pretty), m->current_server_name->string);
                 return manager_connect(m);
         }
 
@@ -262,6 +277,17 @@ static int manager_send_request(Manager *m) {
         r = manager_arm_timer(m, m->retry_interval);
         if (r < 0) {
                 log_error("Failed to rearm timer: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_event_add_time(
+                        m->event,
+                        &m->event_timeout,
+                        CLOCK_MONOTONIC,
+                        now(CLOCK_MONOTONIC) + TIMEOUT_USEC, 0,
+                        manager_timeout, m);
+        if (r < 0) {
+                log_error("Failed to arm timeout timer: %s", strerror(-r));
                 return r;
         }
 
@@ -610,6 +636,8 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                 return 0;
         }
 
+        m->event_timeout = sd_event_source_unref(m->event_timeout);
+
         if (NTP_FIELD_LEAP(ntpmsg.field) == NTP_LEAP_NOTINSYNC) {
                 log_debug("Server is not synchronized. Disconnecting.");
                 return manager_connect(m);
@@ -698,14 +726,9 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                         log_error("Failed to call clock_adjtime(): %m");
         }
 
-        r = sockaddr_pretty(&m->current_server_address->sockaddr.sa, m->current_server_address->socklen, true, &pretty);
-        if (r < 0) {
-                log_error("Failed to format socket address: %s", strerror(-r));
-                return r;
-        }
-
+        sockaddr_pretty(&m->current_server_address->sockaddr.sa, m->current_server_address->socklen, true, &pretty);
         log_info("%s (%s): interval/delta/delay/jitter/drift %llus/%+.3fs/%.3fs/%.3fs/%+ippm%s",
-                 pretty, m->current_server_name->string, m->poll_interval_usec / USEC_PER_SEC, offset, delay, m->samples_jitter, m->drift_ppm,
+                 strna(pretty), m->current_server_name->string, m->poll_interval_usec / USEC_PER_SEC, offset, delay, m->samples_jitter, m->drift_ppm,
                  spike ? " (ignored)" : "");
 
         r = manager_arm_timer(m, m->poll_interval_usec);
@@ -758,14 +781,9 @@ static int manager_begin(Manager *m) {
 
         m->poll_interval_usec = NTP_POLL_INTERVAL_MIN_SEC * USEC_PER_SEC;
 
-        r = sockaddr_pretty(&m->current_server_address->sockaddr.sa, m->current_server_address->socklen, true, &pretty);
-        if (r < 0) {
-                log_warning("Failed to decode address of %s: %s", m->current_server_name->string, strerror(-r));
-                return r;
-        }
-
-        log_debug("Connecting to NTP server %s (%s).", pretty, m->current_server_name->string);
-        sd_notifyf(false, "STATUS=Using Time Server %s (%s)", pretty, m->current_server_name->string);
+        sockaddr_pretty(&m->current_server_address->sockaddr.sa, m->current_server_address->socklen, true, &pretty);
+        log_info("Using NTP server %s (%s).", strna(pretty), m->current_server_name->string);
+        sd_notifyf(false, "STATUS=Using Time Server %s (%s).", strna(pretty), m->current_server_name->string);
 
         r = manager_listen_setup(m);
         if (r < 0) {
@@ -846,7 +864,7 @@ static int manager_resolve_handler(sd_resolve_query *q, int ret, const struct ad
                 last = a;
 
                 sockaddr_pretty(&a->sockaddr.sa, a->socklen, true, &pretty);
-                log_debug("Found address %s for %s.", pretty, m->current_server_name->string);
+                log_debug("Resolved address %s for %s.", pretty, m->current_server_name->string);
         }
 
         if (!m->current_server_name->addresses) {
@@ -968,6 +986,10 @@ static void manager_disconnect(Manager *m) {
 
         m->event_clock_watch = sd_event_source_unref(m->event_clock_watch);
         m->clock_watch_fd = safe_close(m->clock_watch_fd);
+
+        m->event_timeout = sd_event_source_unref(m->event_timeout);
+
+        sd_notifyf(false, "STATUS=Idle.");
 }
 
 static int manager_new(Manager **ret) {
@@ -1044,7 +1066,7 @@ int main(int argc, char *argv[]) {
 
         sd_notify(false, "READY=1");
 
-        FOREACH_STRING(x, "time1.google.com", "time2.google.com", "time3.google.com", "time4.google.com", "0.fedora.pool.ntp.org") {
+        FOREACH_STRING(x, "8.8.8.8", "172.31.0.1", "time1.google.com", "time2.google.com", "time3.google.com", "time4.google.com", "0.fedora.pool.ntp.org") {
                 r = manager_add_server(m, x);
                 if (r < 0) {
                         log_error("Failed to add server %s: %s", x, strerror(-r));
