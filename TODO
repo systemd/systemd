@@ -33,9 +33,8 @@ External:
 Features:
 
 * timesyncd:
-  - config file
-  - reconnect on reply timeout
-  - hookup with networkd: dhcp, listen to online/offline state
+  - hookup with networkd: NTP servers from dhcp
+  - hookup with networkd: listen to online/offline state
 
 * a way for container managers to turn off getty starting via $container_headless= or so...
 
