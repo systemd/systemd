@@ -935,7 +935,7 @@ static int manager_connect(Manager *m) {
 }
 
 static int manager_add_server(Manager *m, const char *server) {
-        ServerName *n;
+        ServerName *n, *tail;
 
         assert(m);
         assert(server);
@@ -950,7 +950,12 @@ static int manager_add_server(Manager *m, const char *server) {
                 return -ENOMEM;
         }
 
-        LIST_PREPEND(names, m->servers, n);
+        if (m->servers) {
+                LIST_FIND_TAIL(names, m->servers, tail);
+                LIST_INSERT_AFTER(names, m->servers, tail, n);
+        } else
+                LIST_PREPEND(names, m->servers, n);
+
         return 0;
 }
 
