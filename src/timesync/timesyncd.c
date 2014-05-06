@@ -32,6 +32,7 @@
 #include <sys/timerfd.h>
 #include <sys/timex.h>
 #include <sys/socket.h>
+#include <resolv.h>
 
 #include "missing.h"
 #include "util.h"
@@ -912,6 +913,10 @@ static int manager_connect(Manager *m) {
 
                         m->current_server_name = m->servers;
                 }
+
+                /* Tell the resolver to reread /etc/resolv.conf, in
+                 * case it changed. */
+                res_init();
 
                 r = sd_resolve_getaddrinfo(m->resolve, &m->resolve_query, m->current_server_name->string, "123", &hints, manager_resolve_handler, m);
                 if (r < 0) {
