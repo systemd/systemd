@@ -358,7 +358,10 @@ int sd_bus_path_decode(const char *path, const char *prefix, char **ret_external
 int sd_bus_track_new(sd_bus *bus, sd_bus_track **track, sd_bus_track_handler_t handler, void *userdata);
 sd_bus_track* sd_bus_track_ref(sd_bus_track *track);
 sd_bus_track* sd_bus_track_unref(sd_bus_track *track);
+
 sd_bus* sd_bus_track_get_bus(sd_bus_track *track);
+void *sd_bus_track_get_userdata(sd_bus_track *track);
+void *sd_bus_track_set_userdata(sd_bus_track *track, void *userdata);
 
 int sd_bus_track_add_sender(sd_bus_track *track, sd_bus_message *m);
 int sd_bus_track_remove_sender(sd_bus_track *track, sd_bus_message *m);

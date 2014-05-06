@@ -331,6 +331,8 @@ m4_ifdef(`ENABLE_KDBUS',
         sd_bus_track_ref;
         sd_bus_track_unref;
         sd_bus_track_get_bus;
+        sd_bus_track_get_userdata;
+        sd_bus_track_set_userdata;
         sd_bus_track_add_sender;
         sd_bus_track_remove_sender;
         sd_bus_track_add_name;

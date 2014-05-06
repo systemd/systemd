@@ -312,3 +312,20 @@ void bus_track_dispatch(sd_bus_track *track) {
 
         sd_bus_track_unref(track);
 }
+
+_public_ void *sd_bus_track_get_userdata(sd_bus_track *track) {
+        assert_return(track, NULL);
+
+        return track->userdata;
+}
+
+_public_ void *sd_bus_track_set_userdata(sd_bus_track *track, void *userdata) {
+        void *ret;
+
+        assert_return(track, NULL);
+
+        ret = track->userdata;
+        track->userdata = userdata;
+
+        return ret;
+}
