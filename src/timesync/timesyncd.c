@@ -614,7 +614,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                 return manager_connect(m);
         }
 
-        if (NTP_FIELD_VERSION(ntpmsg.field) != 4) {
+        if (NTP_FIELD_VERSION(ntpmsg.field) != 4 && NTP_FIELD_VERSION(ntpmsg.field) != 3) {
                 log_debug("Response NTPv%d. Disconnecting.", NTP_FIELD_VERSION(ntpmsg.field));
                 return manager_connect(m);
         }
@@ -1038,7 +1038,6 @@ int main(int argc, char *argv[]) {
         sd_notify(false, "READY=1");
 
         FOREACH_STRING(x, "time1.google.com", "time2.google.com", "time3.google.com", "time4.google.com", "0.fedora.pool.ntp.org") {
-
                 r = manager_add_server(m, x);
                 if (r < 0) {
                         log_error("Failed to add server %s: %s", x, strerror(-r));
