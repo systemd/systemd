@@ -98,7 +98,7 @@ int dhcp_network_bind_raw_socket(int index, union sockaddr_union *link, uint32_t
 
 int dhcp_network_bind_udp_socket(be32_t address, uint16_t port)
 {
-        int s;
+        int s, tos = IPTOS_CLASS_CS6;
         union sockaddr_union src = {
                 .in.sin_family = AF_INET,
                 .in.sin_port = htobe16(port),
@@ -107,6 +107,9 @@ int dhcp_network_bind_udp_socket(be32_t address, uint16_t port)
 
         s = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
         if (s < 0)
+                return -errno;
+
+        if (setsockopt(s, IPPROTO_IP, IP_TOS, &tos, sizeof(tos)) < 0)
                 return -errno;
 
         if (bind(s, &src.sa, sizeof(src.in)) < 0) {
