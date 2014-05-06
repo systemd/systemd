@@ -335,7 +335,7 @@ static int manager_clock_watch_setup(Manager *m) {
         assert(m);
 
         m->event_clock_watch = sd_event_source_unref(m->event_clock_watch);
-        m->clock_watch_fd = safe_close(m->clock_watch_fd);
+        safe_close(m->clock_watch_fd);
 
         m->clock_watch_fd = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK|TFD_CLOEXEC);
         if (m->clock_watch_fd < 0) {
@@ -950,11 +950,8 @@ static int manager_add_server(Manager *m, const char *server) {
                 return -ENOMEM;
         }
 
-        if (m->servers) {
-                LIST_FIND_TAIL(names, m->servers, tail);
-                LIST_INSERT_AFTER(names, m->servers, tail, n);
-        } else
-                LIST_PREPEND(names, m->servers, n);
+        LIST_FIND_TAIL(names, m->servers, tail);
+        LIST_INSERT_AFTER(names, m->servers, tail, n);
 
         return 0;
 }

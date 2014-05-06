@@ -75,20 +75,26 @@
 #define LIST_FIND_HEAD(name,item,head)                                  \
         do {                                                            \
                 typeof(*(item)) *_item = (item);                        \
-                assert(_item);                                          \
-                while (_item->name##_prev)                              \
-                       _item = _item->name##_prev;                      \
-                (head) = _item;                                         \
+                if (!_item)                                             \
+                        (head) = NULL;                                  \
+                else {                                                  \
+                        while (_item->name##_prev)                      \
+                                _item = _item->name##_prev;             \
+                        (head) = _item;                                 \
+                }                                                       \
         } while (false)
 
 /* Find the tail of the list */
 #define LIST_FIND_TAIL(name,item,tail)                                  \
         do {                                                            \
                 typeof(*(item)) *_item = (item);                        \
-                assert(_item);                                          \
-                while (_item->name##_next)                              \
-                        _item = _item->name##_next;                     \
-                (tail) = _item;                                         \
+                if (!_item)                                             \
+                        (tail) = NULL;                                  \
+                else {                                                  \
+                        while (_item->name##_next)                      \
+                                _item = _item->name##_next;             \
+                        (tail) = _item;                                 \
+                }                                                       \
         } while (false)
 
 /* Insert an item after another one (a = where, b = what) */
