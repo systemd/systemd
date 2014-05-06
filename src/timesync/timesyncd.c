@@ -573,12 +573,18 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
 
         m->event_timeout = sd_event_source_unref(m->event_timeout);
 
+        if (be32toh(ntpmsg.recv_time.sec) < TIME_EPOCH + OFFSET_1900_1970 ||
+            be32toh(ntpmsg.trans_time.sec) < TIME_EPOCH + OFFSET_1900_1970) {
+                log_debug("Invalid reply, returned times before epoch. Ignoring.");
+                return manager_connect(m);
+        }
+
         if (NTP_FIELD_LEAP(ntpmsg.field) == NTP_LEAP_NOTINSYNC) {
                 log_debug("Server is not synchronized. Disconnecting.");
                 return manager_connect(m);
         }
 
-        if (NTP_FIELD_VERSION(ntpmsg.field) != 4 && NTP_FIELD_VERSION(ntpmsg.field) != 3) {
+        if (!IN_SET(NTP_FIELD_VERSION(ntpmsg.field), 3, 4)) {
                 log_debug("Response NTPv%d. Disconnecting.", NTP_FIELD_VERSION(ntpmsg.field));
                 return manager_connect(m);
         }

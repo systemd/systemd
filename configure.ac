@@ -836,6 +836,14 @@ AC_ARG_WITH(ntp-servers,
 AC_DEFINE_UNQUOTED(NTP_SERVERS, ["$NTP_SERVERS"], [Default NTP Servers])
 AC_SUBST(NTP_SERVERS)
 
+AC_ARG_WITH(time-epoch,
+        AS_HELP_STRING([--with-time-epoch=SECONDS],
+                [TIme epoch for time clients]),
+        [TIME_EPOCH="$withval"],
+        [TIME_EPOCH="`stat -c %Y ${srcdir}/NEWS 2>/dev/null || echo 0`"])
+
+AC_DEFINE_UNQUOTED(TIME_EPOCH, [$TIME_EPOCH], [Time Epoch])
+
 # ------------------------------------------------------------------------------
 have_localed=no
 AC_ARG_ENABLE(localed, AS_HELP_STRING([--disable-localed], [disable locale daemon]))
@@ -1169,6 +1177,7 @@ AC_MSG_RESULT([
         timedated:               ${have_timedated}
         timesyncd:               ${have_timesyncd}
         default NTP servers:     ${NTP_SERVERS}
+        time epoch:              ${TIME_EPOCH}
         localed:                 ${have_localed}
         networkd:                ${have_networkd}
         coredump:                ${have_coredump}
