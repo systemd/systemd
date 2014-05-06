@@ -30,6 +30,7 @@
 #include "util.h"
 #include "list.h"
 #include "refcnt.h"
+#include "async.h"
 
 #include "dhcp-protocol.h"
 #include "dhcp-internal.h"
@@ -209,7 +210,7 @@ static int client_initialize(sd_dhcp_client *client) {
         client->receive_message =
                 sd_event_source_unref(client->receive_message);
 
-        client->fd = safe_close(client->fd);
+        client->fd = asynchronous_close(client->fd);
 
         client->timeout_resend = sd_event_source_unref(client->timeout_resend);
 
@@ -747,7 +748,7 @@ static int client_timeout_t2(sd_event_source *s, uint64_t usec, void *userdata) 
         int r;
 
         client->receive_message = sd_event_source_unref(client->receive_message);
-        client->fd = safe_close(client->fd);
+        client->fd = asynchronous_close(client->fd);
 
         client->state = DHCP_STATE_REBINDING;
         client->attempt = 1;
@@ -1153,7 +1154,7 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message,
 
                         client->receive_message =
                                 sd_event_source_unref(client->receive_message);
-                        client->fd = safe_close(client->fd);
+                        client->fd = asynchronous_close(client->fd);
                 } else if (r == -ENOMSG)
                         /* invalid message, let's ignore it */
                         return 0;
