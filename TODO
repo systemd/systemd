@@ -32,6 +32,12 @@ External:
 
 Features:
 
+* timesyncd:
+  - config file
+  - reconnect on reply timeout
+  - hookup with networkd: dhcp, listen to online/offline state
+  - res_init()
+
 * a way for container managers to turn off getty starting via $container_headless= or so...
 
 * figure out a nice way how we can let the admin know what child/sibling unit causes cgroup membership for a specific unit
