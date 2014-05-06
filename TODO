@@ -36,7 +36,6 @@ Features:
   - config file
   - reconnect on reply timeout
   - hookup with networkd: dhcp, listen to online/offline state
-  - res_init()
 
 * a way for container managers to turn off getty starting via $container_headless= or so...
 
