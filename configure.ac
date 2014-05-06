@@ -827,6 +827,15 @@ if test "x$enable_timesyncd" != "xno"; then
 fi
 AM_CONDITIONAL(ENABLE_TIMESYNCD, [test "$have_timesyncd" = "yes"])
 
+AC_ARG_WITH(ntp-servers,
+        AS_HELP_STRING([--with-ntp-servers=NTPSERVERS],
+                [Space-separated list of default NTP servers]),
+        [NTP_SERVERS="$withval"],
+        [NTP_SERVERS="time1.google.com time2.google.com time3.google.com time4.google.com"])
+
+AC_DEFINE_UNQUOTED(NTP_SERVERS, ["$NTP_SERVERS"], [Default NTP Servers])
+AC_SUBST(NTP_SERVERS)
+
 # ------------------------------------------------------------------------------
 have_localed=no
 AC_ARG_ENABLE(localed, AS_HELP_STRING([--disable-localed], [disable locale daemon]))
@@ -1159,6 +1168,7 @@ AC_MSG_RESULT([
         hostnamed:               ${have_hostnamed}
         timedated:               ${have_timedated}
         timesyncd:               ${have_timesyncd}
+        default NTP servers:     ${NTP_SERVERS}
         localed:                 ${have_localed}
         networkd:                ${have_networkd}
         coredump:                ${have_coredump}

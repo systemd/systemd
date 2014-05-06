@@ -3,7 +3,7 @@
 /***
   This file is part of systemd.
 
-  Copyright 2014 Kay Sievers
+  Copyright 2014 Kay Sievers, Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -42,9 +42,11 @@
 #include "list.h"
 #include "ratelimit.h"
 #include "strv.h"
+#include "conf-parser.h"
 #include "sd-event.h"
 #include "sd-resolve.h"
 #include "sd-daemon.h"
+#include "timesyncd.h"
 
 #define TIME_T_MAX (time_t)((1UL << ((sizeof(time_t) << 3) - 1)) - 1)
 
@@ -115,73 +117,6 @@ struct ntp_msg {
         struct ntp_ts recv_time;
         struct ntp_ts trans_time;
 } _packed_;
-
-typedef struct Manager Manager;
-typedef struct ServerAddress ServerAddress;
-typedef struct ServerName ServerName;
-
-struct ServerAddress {
-        union sockaddr_union sockaddr;
-        socklen_t socklen;
-        LIST_FIELDS(ServerAddress, addresses);
-};
-
-struct ServerName {
-        char *string;
-        LIST_HEAD(ServerAddress, addresses);
-        LIST_FIELDS(ServerName, names);
-};
-
-struct Manager {
-        sd_event *event;
-        sd_resolve *resolve;
-
-        LIST_HEAD(ServerName, servers);
-
-        RateLimit ratelimit;
-
-        /* peer */
-        sd_resolve_query *resolve_query;
-        sd_event_source *event_receive;
-        ServerName *current_server_name;
-        ServerAddress *current_server_address;
-        int server_socket;
-        uint64_t packet_count;
-        sd_event_source *event_timeout;
-
-        /* last sent packet */
-        struct timespec trans_time_mon;
-        struct timespec trans_time;
-        usec_t retry_interval;
-        bool pending;
-
-        /* poll timer */
-        sd_event_source *event_timer;
-        usec_t poll_interval_usec;
-        bool poll_resync;
-
-        /* history data */
-        struct {
-                double offset;
-                double delay;
-        } samples[8];
-        unsigned int samples_idx;
-        double samples_jitter;
-
-        /* last change */
-        bool jumped;
-        int drift_ppm;
-
-        /* watch for time changes */
-        sd_event_source *event_clock_watch;
-        int clock_watch_fd;
-
-        /* Retry connections */
-        sd_event_source *event_retry;
-
-        /* Handle SIGINT/SIGTERM */
-        sd_event_source *sigterm, *sigint;
-};
 
 static void manager_free(Manager *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
@@ -974,6 +909,28 @@ static int manager_add_server(Manager *m, const char *server) {
         return 0;
 }
 
+static int manager_add_server_string(Manager *m, const char *string) {
+        char *w, *state;
+        size_t l;
+        int r;
+
+        assert(m);
+        assert(string);
+
+        FOREACH_WORD_QUOTED(w, l, string, state) {
+                char t[l+1];
+
+                memcpy(t, w, l);
+                t[l] = 0;
+
+                r = manager_add_server(m, t);
+                if (r < 0)
+                        log_error("Failed to add server %s to configuration, ignoring: %s", t, strerror(-r));
+        }
+
+        return 0;
+}
+
 static void manager_disconnect(Manager *m) {
         assert(m);
 
@@ -1047,14 +1004,69 @@ static void manager_free(Manager *m) {
         free(m);
 }
 
-int main(int argc, char *argv[]) {
-        _cleanup_manager_free_ Manager *m = NULL;
-        const char *x;
+int config_parse_servers(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Manager *m = userdata;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        manager_flush_names(m);
+        manager_add_server_string(m, rvalue);
+
+        return 0;
+}
+
+static int manager_parse_config_file(Manager *m) {
+        static const char fn[] = "/etc/systemd/timesyncd.conf";
+        _cleanup_fclose_ FILE *f = NULL;
         int r;
 
+        assert(m);
+
+        f = fopen(fn, "re");
+        if (!f) {
+                if (errno == ENOENT)
+                        return 0;
+
+                log_warning("Failed to open configuration file %s: %m", fn);
+                return -errno;
+        }
+
+        r = config_parse(NULL, fn, f, "Time\0", config_item_perf_lookup,
+                         (void*) timesyncd_gperf_lookup, false, false, m);
+        if (r < 0)
+                log_warning("Failed to parse configuration file: %s", strerror(-r));
+
+        return r;
+}
+
+int main(int argc, char *argv[]) {
+        _cleanup_manager_free_ Manager *m = NULL;
+        int r;
+
+        if (argc > 1) {
+                log_error("This program does not take arguments.");
+                return EXIT_FAILURE;
+        }
+
         log_set_target(LOG_TARGET_AUTO);
+        log_set_facility(LOG_CRON);
         log_parse_environment();
         log_open();
+
+        umask(0022);
 
         assert_se(sigprocmask_many(SIG_BLOCK, SIGTERM, SIGINT, -1) == 0);
 
@@ -1064,15 +1076,11 @@ int main(int argc, char *argv[]) {
                 goto out;
         }
 
-        sd_notify(false, "READY=1");
+        manager_add_server_string(m, NTP_SERVERS);
+        manager_parse_config_file(m);
 
-        FOREACH_STRING(x, "8.8.8.8", "172.31.0.1", "time1.google.com", "time2.google.com", "time3.google.com", "time4.google.com", "0.fedora.pool.ntp.org") {
-                r = manager_add_server(m, x);
-                if (r < 0) {
-                        log_error("Failed to add server %s: %s", x, strerror(-r));
-                        goto out;
-                }
-        }
+        log_debug("systemd-timesyncd running as pid %lu", (unsigned long) getpid());
+        sd_notify(false, "READY=1");
 
         r = manager_connect(m);
         if (r < 0)
@@ -1087,5 +1095,7 @@ int main(int argc, char *argv[]) {
         sd_event_get_exit_code(m->event, &r);
 
 out:
+        sd_notify(false, "STATUS=Shutting down...");
+
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

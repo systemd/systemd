@@ -128,6 +128,7 @@ polkitpolicy_in_files =
 polkitpolicy_files =
 dist_udevrules_DATA =
 nodist_udevrules_DATA =
+nodist_pkgsysconf_DATA =
 dist_pkgsysconf_DATA =
 dist_pkgdata_DATA =
 dist_dbuspolicy_DATA =
@@ -4017,7 +4018,17 @@ EXTRA_DIST += \
 # ------------------------------------------------------------------------------
 if ENABLE_TIMESYNCD
 systemd_timesyncd_SOURCES = \
-	src/timesync/timesyncd.c
+	src/timesync/timesyncd.c \
+	src/timesync/timesyncd.h
+
+nodist_systemd_timesyncd_SOURCES = \
+	src/timesync/timesyncd-gperf.c
+
+EXTRA_DIST += \
+	src/timesync/timesyncd-gperf.gperf
+
+CLEANFILES += \
+	src/timesync/timesyncd-gperf.c
 
 systemd_timesyncd_LDADD = \
 	libsystemd-label.la \
@@ -4034,6 +4045,16 @@ nodist_systemunit_DATA += \
 
 EXTRA_DIST += \
 	units/systemd-timesyncd.service.in
+
+nodist_pkgsysconf_DATA += \
+	src/timesync/timesyncd.conf
+
+EXTRA_DIST += \
+	src/timesync/timesyncd.conf.in
+
+CLEANFILES += \
+	src/timesync/timesyncd.conf
+
 endif
 
 # ------------------------------------------------------------------------------
@@ -4763,7 +4784,8 @@ substitutions = \
        '|RC_LOCAL_SCRIPT_PATH_START=$(RC_LOCAL_SCRIPT_PATH_START)|' \
        '|RC_LOCAL_SCRIPT_PATH_STOP=$(RC_LOCAL_SCRIPT_PATH_STOP)|' \
        '|PYTHON=$(PYTHON)|' \
-       '|PYTHON_BINARY=$(PYTHON_BINARY)|'
+       '|PYTHON_BINARY=$(PYTHON_BINARY)|' \
+       '|NTP_SERVERS=$(NTP_SERVERS)|'
 
 SED_PROCESS = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
@@ -4789,6 +4811,9 @@ src/%.policy.in: src/%.policy.in.in
 	$(SED_PROCESS)
 
 %.rules: %.rules.in
+	$(SED_PROCESS)
+
+%.conf: %.conf.in
 	$(SED_PROCESS)
 
 %.sh: %.sh.in
