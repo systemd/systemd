@@ -37,11 +37,6 @@ int main(int argc, char *argv[]) {
         Server server;
         int r;
 
-        /* if (getppid() != 1) { */
-        /*         log_error("This program should be invoked by init only."); */
-        /*         return EXIT_FAILURE; */
-        /* } */
-
         if (argc > 1) {
                 log_error("This program does not take arguments.");
                 return EXIT_FAILURE;
