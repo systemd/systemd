@@ -97,9 +97,8 @@ int config_parse_unit_deps(const char* unit,
 
         UnitDependency d = ltype;
         Unit *u = userdata;
-        char *w;
+        char *w, *state;
         size_t l;
-        char *state;
 
         assert(filename);
         assert(lvalue);
