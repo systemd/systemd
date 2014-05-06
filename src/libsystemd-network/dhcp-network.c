@@ -32,7 +32,8 @@
 
 #include "dhcp-internal.h"
 
-int dhcp_network_bind_raw_socket(int index, union sockaddr_union *link, uint32_t xid) {
+int dhcp_network_bind_raw_socket(int index, union sockaddr_union *link,
+                                 uint32_t xid) {
         struct sock_filter filter[] = {
             BPF_STMT(BPF_LD + BPF_W + BPF_LEN, 0),                                 /* A <- packet length */
             BPF_JUMP(BPF_JMP + BPF_JGE + BPF_K, sizeof(DHCPPacket), 1, 0),         /* packet >= DHCPPacket ? */
@@ -66,7 +67,8 @@ int dhcp_network_bind_raw_socket(int index, union sockaddr_union *link, uint32_t
             .len = ELEMENTSOF(filter),
             .filter = filter
         };
-        int s, one = 1;
+        _cleanup_close_ int s = -1;
+        int r, one = 1;
 
         assert(index > 0);
         assert(link);
@@ -75,74 +77,87 @@ int dhcp_network_bind_raw_socket(int index, union sockaddr_union *link, uint32_t
         if (s < 0)
                 return -errno;
 
+        r = setsockopt (s, SOL_PACKET, PACKET_AUXDATA, &one, sizeof(one));
+        if (r < 0)
+                return -errno;
+
+        r = setsockopt(s, SOL_SOCKET, SO_ATTACH_FILTER, &fprog, sizeof(fprog));
+        if (r < 0)
+                return -errno;
+
         link->ll.sll_family = AF_PACKET;
         link->ll.sll_protocol = htons(ETH_P_IP);
         link->ll.sll_ifindex =  index;
         link->ll.sll_halen = ETH_ALEN;
         memset(link->ll.sll_addr, 0xff, ETH_ALEN);
 
-        if (setsockopt (s, SOL_PACKET, PACKET_AUXDATA, &one, sizeof(one)) < 0)
+        r = bind(s, &link->sa, sizeof(link->ll));
+        if (r < 0)
                 return -errno;
 
-        if (setsockopt(s, SOL_SOCKET, SO_ATTACH_FILTER, &fprog, sizeof(fprog)) < 0) {
-                return -errno;
-        }
+        r = s;
+        s = -1;
 
-        if (bind(s, &link->sa, sizeof(link->ll)) < 0) {
-                safe_close(s);
-                return -errno;
-        }
-
-        return s;
+        return r;
 }
 
-int dhcp_network_bind_udp_socket(be32_t address, uint16_t port)
-{
-        int s, tos = IPTOS_CLASS_CS6;
+int dhcp_network_bind_udp_socket(be32_t address, uint16_t port) {
         union sockaddr_union src = {
                 .in.sin_family = AF_INET,
                 .in.sin_port = htobe16(port),
                 .in.sin_addr.s_addr = address,
         };
+        _cleanup_close_ int s = -1;
+        int r, tos = IPTOS_CLASS_CS6;
 
         s = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
         if (s < 0)
                 return -errno;
 
-        if (setsockopt(s, IPPROTO_IP, IP_TOS, &tos, sizeof(tos)) < 0)
+        r = setsockopt(s, IPPROTO_IP, IP_TOS, &tos, sizeof(tos));
+        if (r < 0)
                 return -errno;
 
-        if (bind(s, &src.sa, sizeof(src.in)) < 0) {
-                safe_close(s);
+        r = bind(s, &src.sa, sizeof(src.in));
+        if (r < 0)
                 return -errno;
-        }
 
-        return s;
+        r = s;
+        s = -1;
+
+        return r;
 }
 
 int dhcp_network_send_raw_socket(int s, const union sockaddr_union *link,
-                                 const void *packet, size_t len)
-{
+                                 const void *packet, size_t len) {
+        int r;
+
         assert(link);
         assert(packet);
         assert(len);
 
-        if (sendto(s, packet, len, 0, &link->sa, sizeof(link->ll)) < 0)
+        r = sendto(s, packet, len, 0, &link->sa, sizeof(link->ll));
+        if (r < 0)
                 return -errno;
 
         return 0;
 }
 
 int dhcp_network_send_udp_socket(int s, be32_t address, uint16_t port,
-                                 const void *packet, size_t len)
-{
+                                 const void *packet, size_t len) {
         union sockaddr_union dest = {
                 .in.sin_family = AF_INET,
                 .in.sin_port = htobe16(port),
                 .in.sin_addr.s_addr = address,
         };
+        int r;
 
-        if (sendto(s, packet, len, 0, &dest.sa, sizeof(dest.in)) < 0)
+        assert(s >= 0);
+        assert(packet);
+        assert(len);
+
+        r = sendto(s, packet, len, 0, &dest.sa, sizeof(dest.in));
+        if (r < 0)
                 return -errno;
 
         return 0;

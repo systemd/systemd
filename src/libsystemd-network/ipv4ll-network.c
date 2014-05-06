@@ -24,11 +24,14 @@
 
 int arp_network_send_raw_socket(int fd, const union sockaddr_union *link,
                                         const struct ether_arp *arp) {
+        int r;
+
         assert(arp);
         assert(link);
         assert(fd >= 0);
 
-        if (sendto(fd, arp, sizeof(struct ether_arp), 0, &link->sa, sizeof(link->ll)) < 0)
+        r = sendto(fd, arp, sizeof(struct ether_arp), 0, &link->sa, sizeof(link->ll));
+        if (r < 0)
                 return -errno;
 
         return 0;
@@ -56,7 +59,8 @@ int arp_network_bind_raw_socket(int index, union sockaddr_union *link) {
             .len = ELEMENTSOF(filter),
             .filter = filter
         };
-        int s;
+        _cleanup_close_ int s = -1;
+        int r;
 
         assert(index > 0);
         assert(link);
@@ -65,9 +69,9 @@ int arp_network_bind_raw_socket(int index, union sockaddr_union *link) {
         if (s < 0)
                 return -errno;
 
-        if (setsockopt(s, SOL_SOCKET, SO_ATTACH_FILTER, &fprog, sizeof(fprog)) < 0) {
+        r = setsockopt(s, SOL_SOCKET, SO_ATTACH_FILTER, &fprog, sizeof(fprog));
+        if (r < 0)
                 return -errno;
-        }
 
         link->ll.sll_family = AF_PACKET;
         link->ll.sll_protocol = htons(ETH_P_ARP);
@@ -75,10 +79,12 @@ int arp_network_bind_raw_socket(int index, union sockaddr_union *link) {
         link->ll.sll_halen = ETH_ALEN;
         memset(link->ll.sll_addr, 0xff, ETH_ALEN);
 
-        if (bind(s, &link->sa, sizeof(link->ll)) < 0) {
-                safe_close(s);
+        r = bind(s, &link->sa, sizeof(link->ll));
+        if (r < 0)
                 return -errno;
-        }
 
-        return s;
+        r = s;
+        s = -1;
+
+        return r;
 }
