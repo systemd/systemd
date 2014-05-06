@@ -703,6 +703,7 @@ MANPAGES += \
 	man/sd_bus_open_user.3 \
 	man/sd_bus_path_encode.3 \
 	man/sd_bus_request_name.3 \
+	man/sd_event_add_time.3 \
 	man/sd_event_new.3 \
 	man/systemd-bus-proxyd.8 \
 	man/systemd-bus-proxyd@.service.8
@@ -763,6 +764,11 @@ MANPAGES_ALIAS += \
 	man/sd_bus_unref.3 \
 	man/sd_event_default.3 \
 	man/sd_event_ref.3 \
+	man/sd_event_source_get_time.3 \
+	man/sd_event_source_get_time_accuracy.3 \
+	man/sd_event_source_get_time_clock.3 \
+	man/sd_event_source_set_time.3 \
+	man/sd_event_source_set_time_accuracy.3 \
 	man/sd_event_unref.3 \
 	man/systemd-bus-proxyd.socket.8
 man/sd_bus_creds_get_audit_login_uid.3: man/sd_bus_creds_get_pid.3
@@ -821,6 +827,11 @@ man/sd_bus_release_name.3: man/sd_bus_request_name.3
 man/sd_bus_unref.3: man/sd_bus_new.3
 man/sd_event_default.3: man/sd_event_new.3
 man/sd_event_ref.3: man/sd_event_new.3
+man/sd_event_source_get_time.3: man/sd_event_add_time.3
+man/sd_event_source_get_time_accuracy.3: man/sd_event_add_time.3
+man/sd_event_source_get_time_clock.3: man/sd_event_add_time.3
+man/sd_event_source_set_time.3: man/sd_event_add_time.3
+man/sd_event_source_set_time_accuracy.3: man/sd_event_add_time.3
 man/sd_event_unref.3: man/sd_event_new.3
 man/systemd-bus-proxyd.socket.8: man/systemd-bus-proxyd@.service.8
 man/sd_bus_creds_get_audit_login_uid.html: man/sd_bus_creds_get_pid.html
@@ -991,6 +1002,21 @@ man/sd_event_default.html: man/sd_event_new.html
 man/sd_event_ref.html: man/sd_event_new.html
 	$(html-alias)
 
+man/sd_event_source_get_time.html: man/sd_event_add_time.html
+	$(html-alias)
+
+man/sd_event_source_get_time_accuracy.html: man/sd_event_add_time.html
+	$(html-alias)
+
+man/sd_event_source_get_time_clock.html: man/sd_event_add_time.html
+	$(html-alias)
+
+man/sd_event_source_set_time.html: man/sd_event_add_time.html
+	$(html-alias)
+
+man/sd_event_source_set_time_accuracy.html: man/sd_event_add_time.html
+	$(html-alias)
+
 man/sd_event_unref.html: man/sd_event_new.html
 	$(html-alias)
 
@@ -1038,20 +1064,19 @@ endif
 
 if ENABLE_NETWORKD
 MANPAGES += \
-	man/systemd-networkd.service.8 \
 	man/systemd-networkd-wait-online.service.8 \
+	man/systemd-networkd.service.8 \
 	man/systemd.netdev.5 \
 	man/systemd.network.5
 MANPAGES_ALIAS += \
-	man/systemd-networkd.8 \
-	man/systemd-networkd-wait-online.8
-man/systemd-networkd.8: man/systemd-networkd.service.8
+	man/systemd-networkd-wait-online.8 \
+	man/systemd-networkd.8
 man/systemd-networkd-wait-online.8: man/systemd-networkd-wait-online.service.8
-
-man/systemd-networkd.html: man/systemd-networkd.service.html
+man/systemd-networkd.8: man/systemd-networkd.service.8
+man/systemd-networkd-wait-online.html: man/systemd-networkd-wait-online.service.html
 	$(html-alias)
 
-man/systemd-networkd-wait-online.html: man/systemd-networkd-wait-online.service.html
+man/systemd-networkd.html: man/systemd-networkd.service.html
 	$(html-alias)
 
 endif
@@ -1480,6 +1505,7 @@ EXTRA_DIST += \
 	man/sd_bus_open_user.xml \
 	man/sd_bus_path_encode.xml \
 	man/sd_bus_request_name.xml \
+	man/sd_event_add_time.xml \
 	man/sd_event_new.xml \
 	man/sd_get_seats.xml \
 	man/sd_id128_get_machine.xml \
@@ -1547,6 +1573,7 @@ EXTRA_DIST += \
 	man/systemd-machine-id-setup.xml \
 	man/systemd-machined.service.xml \
 	man/systemd-modules-load.service.xml \
+	man/systemd-networkd-wait-online.service.xml \
 	man/systemd-networkd.service.xml \
 	man/systemd-notify.xml \
 	man/systemd-nspawn.xml \
