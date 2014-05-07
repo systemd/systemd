@@ -74,8 +74,8 @@
 
                         <orderedlist>
                                 <listitem><para>Close all open file
-                                descriptors except stdin, stdout,
-                                stderr (i.e. the first three file
+                                descriptors except standard input, output,
+                                and error (i.e. the first three file
                                 descriptors 0, 1, 2). This ensures
                                 that no accidentally passed file
                                 descriptor stays around in the daemon
