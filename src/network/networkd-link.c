@@ -1139,9 +1139,6 @@ static int link_update_flags(Link *link, sd_rtnl_message *m) {
 
         assert(link);
 
-        if (link->state == LINK_STATE_FAILED)
-                return 0;
-
         r = sd_rtnl_message_link_get_flags(m, &flags);
         if (r < 0) {
                 log_warning_link(link, "Could not get link flags");
@@ -1231,6 +1228,10 @@ static int link_update_flags(Link *link, sd_rtnl_message *m) {
         link->operstate = operstate;
 
         link_save(link);
+
+        if (link->state == LINK_STATE_FAILED ||
+            link->state == LINK_STATE_UNMANAGED)
+                return 0;
 
         if (carrier_gained) {
                 log_info_link(link, "gained carrier");
@@ -1620,9 +1621,6 @@ int link_update(Link *link, sd_rtnl_message *m) {
         assert(link);
         assert(link->ifname);
         assert(m);
-
-        if (link->state == LINK_STATE_FAILED || link->state == LINK_STATE_UNMANAGED)
-                return 0;
 
         r = sd_rtnl_message_read_string(m, IFLA_IFNAME, &ifname);
         if (r >= 0 && !streq(ifname, link->ifname)) {
