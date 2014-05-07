@@ -24,6 +24,7 @@
 #include "ratelimit.h"
 #include "sd-event.h"
 #include "sd-resolve.h"
+#include "sd-network.h"
 
 typedef struct Manager Manager;
 typedef struct ServerAddress ServerAddress;
@@ -48,6 +49,10 @@ struct Manager {
         LIST_HEAD(ServerName, servers);
 
         RateLimit ratelimit;
+
+        /* network */
+        sd_event_source *network_event_source;
+        sd_network_monitor *network_monitor;
 
         /* peer */
         sd_resolve_query *resolve_query;

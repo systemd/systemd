@@ -46,6 +46,9 @@
 #include "sd-event.h"
 #include "sd-resolve.h"
 #include "sd-daemon.h"
+#include "sd-network.h"
+#include "event-util.h"
+#include "network-util.h"
 #include "timesyncd.h"
 
 #define TIME_T_MAX (time_t)((1UL << ((sizeof(time_t) << 3) - 1)) - 1)
@@ -1002,6 +1005,9 @@ static void manager_free(Manager *m) {
 
         sd_event_source_unref(m->event_retry);
 
+        sd_event_source_unref(m->network_event_source);
+        sd_network_monitor_unref(m->network_monitor);
+
         sd_resolve_unref(m->resolve);
         sd_event_unref(m->event);
 
@@ -1056,6 +1062,94 @@ static int manager_parse_config_file(Manager *m) {
         return r;
 }
 
+static bool network_is_online(void) {
+        _cleanup_free_ unsigned *indices = NULL;
+        int r, n, i;
+
+        n = sd_network_get_ifindices(&indices);
+        if (n <= 0)
+                return false;
+
+        for (i = 0; i < n; i++) {
+                _cleanup_free_ char *oper_state = NULL;
+
+                if (sd_network_link_is_loopback(indices[i]))
+                        /* ignore loopback devices */
+                        continue;
+
+                r = sd_network_get_link_operational_state(indices[i], &oper_state);
+                if (r >= 0 && streq(oper_state, "carrier"))
+                        return true;
+        }
+
+        return false;
+}
+
+static int manager_network_event_handler(sd_event_source *s, int fd, uint32_t revents,
+                                         void *userdata) {
+        Manager *m = userdata;
+        bool connected, online;
+        int r;
+
+        assert(m);
+
+        /* check if the machine is online */
+        online = network_is_online();
+
+        /* check if the client is currently connected */
+        connected = (m->server_socket != -1);
+
+        if (connected && !online) {
+                log_info("No network connectivity. Suspending.");
+                manager_disconnect(m);
+        } else if (!connected && online) {
+                log_info("Network connectivity detected. Resuming.");
+                if (m->current_server_address) {
+                        r = manager_begin(m);
+                        if (r < 0)
+                                return r;
+                } else {
+                        r = manager_connect(m);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        sd_network_monitor_flush(m->network_monitor);
+
+        return 0;
+}
+
+static int manager_network_monitor_listen(Manager *m) {
+        _cleanup_event_source_unref_ sd_event_source *event_source = NULL;
+        _cleanup_network_monitor_unref_ sd_network_monitor *monitor = NULL;
+        int r, fd, events;
+
+        r = sd_network_monitor_new(NULL, &monitor);
+        if (r < 0)
+                return r;
+
+        fd = sd_network_monitor_get_fd(monitor);
+        if (fd < 0)
+                return fd;
+
+        events = sd_network_monitor_get_events(monitor);
+        if (events < 0)
+                return events;
+
+        r = sd_event_add_io(m->event, &event_source, fd, events,
+                            &manager_network_event_handler, m);
+        if (r < 0)
+                return r;
+
+        m->network_monitor = monitor;
+        m->network_event_source = event_source;
+        monitor = NULL;
+        event_source = NULL;
+
+        return 0;
+}
+
 int main(int argc, char *argv[]) {
         _cleanup_manager_free_ Manager *m = NULL;
         int r;
@@ -1083,12 +1177,20 @@ int main(int argc, char *argv[]) {
         manager_add_server_string(m, NTP_SERVERS);
         manager_parse_config_file(m);
 
+        r = manager_network_monitor_listen(m);
+        if (r < 0) {
+                log_error("Failed to listen to networkd events: %s", strerror(-r));
+                goto out;
+        }
+
         log_debug("systemd-timesyncd running as pid %lu", (unsigned long) getpid());
         sd_notify(false, "READY=1");
 
-        r = manager_connect(m);
-        if (r < 0)
-                goto out;
+        if (network_is_online()) {
+                r = manager_connect(m);
+                if (r < 0)
+                        goto out;
+        }
 
         r = sd_event_loop(m->event);
         if (r < 0) {
