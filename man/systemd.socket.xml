@@ -571,7 +571,7 @@
 
                         <varlistentry>
                                 <term><varname>PipeSize=</varname></term>
-                                <listitem><para>Takes an size in
+                                <listitem><para>Takes a size in
                                 bytes. Controls the pipe buffer size
                                 of FIFOs configured in this socket
                                 unit. See

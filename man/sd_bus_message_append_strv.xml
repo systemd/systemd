@@ -77,8 +77,8 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <para>The memory pointed at by <parameter>p</parameter> and the
     contents of the strings themselves are copied into the memory area
     containing the message and may be changed after this call. Note
-    that the signature of <parameter>l</parameter> parameter is be
-    treated as <type>const char* const*</type>, and the the contents
+    that the signature of <parameter>l</parameter> parameter is to be
+    treated as <type>const char *const *</type>, and the contents
     will not be modified.</para>
   </refsect1>
 

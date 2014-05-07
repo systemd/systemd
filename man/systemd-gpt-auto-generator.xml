@@ -60,7 +60,7 @@
                 is a unit generator that automatically discovers root,
                 <filename>/home</filename>, <filename>/srv</filename>
                 and swap partitions and creates mount and swap units
-                for them, based on the the partition type GUIDs of
+                for them, based on the partition type GUIDs of
                 GUID partition tables (GPT). It implements the <ulink
                 url="http://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec/">Discoverable
                 Partitions Specification</ulink>. Note that this
@@ -75,7 +75,7 @@
                 Partition (ESP) is located on. It will only look for
                 the other partitions on the same physical disk the
                 root file system is located on. These partitions will
-                not be search on systems where the root file system is
+                not be searched on systems where the root file system is
                 distributed on multiple disks, for example via btrfs
                 RAID.</para>
 

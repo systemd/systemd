@@ -121,7 +121,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       <varlistentry>
         <term><option>--description=</option></term>
 
-        <listitem><para>Provide description for the service or scope
+        <listitem><para>Provide a description for the service or scope
         unit. If not specified, the command itself will be used as a
         description.  See <varname>Description=</varname> in
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.

@@ -79,7 +79,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       (<command>systemd-journal-remote</command> requests and pulls
       the data), or "passive"
       (<command>systemd-journal-remote</command> waits for a
-      connection and than receives events pushed by the other side).
+      connection and then receives events pushed by the other side).
     </para>
 
     <para>
@@ -131,7 +131,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <term><option>--listen-raw=<replaceable>ADDRESS</replaceable></option></term>
 
         <listitem><para><replaceable>ADDRESS</replaceable> must be an
-        address suitable for <option>ListenStream=</option> (c.f.
+        address suitable for <option>ListenStream=</option> (cf.
         <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
         <command>systemd-journal-remote</command> will listen on this
         socket for connections. Each connection is expected to be a
@@ -195,8 +195,8 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         end with <filename>.journal</filename>. The file will be
         created if it does not exist. When necessary (journal file
         full, or corrupted) the file will be renamed following normal
-        journald rules and a new journal file will be created in it's
-        stead. </para></listitem>
+        journald rules and a new journal file will be created in its
+        stead.</para></listitem>
       </varlistentry>
 
       <varlistentry>

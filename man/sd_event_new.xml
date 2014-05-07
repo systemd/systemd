@@ -109,7 +109,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <para><function>sd_event_unref()</function> decreases the
     reference counter of the specified event loop object by one. If
     the counter hits zero the event loop object is freed. Note that it
-    is freed regardless if it is the default event loop object of a
+    is freed regardless of whether it is the default event loop object for a
     thread or not. This means that allocating an event loop with
     <function>sd_event_default()</function>, then releasing it and
     then acquiring a new one with

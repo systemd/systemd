@@ -341,7 +341,7 @@
                                 <para>The files listed with this
                                 directive will be read shortly before
                                 the process is executed (more
-                                specifically, this means after all
+                                specifically, after all
                                 processes from a previous unit state
                                 terminated. This means you can
                                 generate these files in one unit
@@ -1022,7 +1022,7 @@
                         <varlistentry>
                                 <term><varname>AppArmorProfile=</varname></term>
 
-                                <listitem><para>Take a profile name as argument.
+                                <listitem><para>Takes a profile name as argument.
                                 The process executed by the unit will switch to
                                 this profile when started. Profiles must already
                                 be loaded in the kernel, or the unit will fail.
@@ -1427,7 +1427,7 @@
                 <varname>systemd.setenv=</varname> (see
                 <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>). Additional
                 variables may also be set through PAM,
-                c.f. <citerefentry><refentrytitle>pam_env</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+                cf. <citerefentry><refentrytitle>pam_env</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
         </refsect1>
 
         <refsect1>

@@ -115,8 +115,8 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     space for a string to message <parameter>m</parameter>. If behaves
     similarly to <function>sd_bus_message_append_basic</function> with
     type <literal>s</literal>, but instead of copying a string into
-    the the message, it returns a pointer to the destination area to
-    the caller in pointer <parameter>p</parameter>. Space for string
+    the message, it returns a pointer to the destination area to
+    the caller in pointer <parameter>p</parameter>. Space for the string
     of length <parameter>size</parameter> plus the terminating
     <constant>NUL</constant> is allocated.</para>
   </refsect1>

@@ -101,11 +101,11 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     takes a bus path and a prefix string, plus a place to store the
     returned external identifier string. If the bus path does not
     start with the specified prefix, 0 is returned and the returned
-    string is set to <constant>NULL</constant>. Otherwise the the
+    string is set to <constant>NULL</constant>. Otherwise the
     string following the prefix is unescaped and returned in the
     external identifier string.</para>
 
-    <para>The escaping used will will replace all characters which are
+    <para>The escaping used will replace all characters which are
     invalid in a bus object path by <literal>_</literal> followed by a
     hexadecimal value. As a special case, the empty string will be
     replaced by a lone <literal>_</literal>.</para>

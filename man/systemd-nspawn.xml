@@ -340,7 +340,7 @@
                                 container's name (as specified with
                                 <option>--machine=</option>), prefixed
                                 with <literal>ve-</literal>. The
-                                container side of the the Ethernet
+                                container side of the Ethernet
                                 link will be named
                                 <literal>host0</literal>. Note that
                                 <option>--network-veth</option>

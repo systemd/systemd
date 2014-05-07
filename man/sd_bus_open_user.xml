@@ -96,13 +96,13 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <title>Description</title>
 
     <para><function>sd_bus_open_user()</function> creates a new bus
-    object and opens a connection to the the user bus.
+    object and opens a connection to the user bus.
     <function>sd_bus_open_system()</function> does the same, but
     connects to the system bus.</para>
 
     <para>If the <varname>$DBUS_SESSION_BUS_ADDRESS</varname> environment
     variable is set
-    (c.f. <citerefentry><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry>),
+    (cf. <citerefentry><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry>),
     it will be used as the address of the user bus. This variable can
     contain multiple addresses separated by <literal>;</literal>. If
     this variable is not set, a suitable default for the default user

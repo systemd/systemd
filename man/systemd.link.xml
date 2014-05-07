@@ -186,7 +186,7 @@
                                                         <listitem>
                                                                 <para>If the hardware has a persistent
                                                                 MAC address, as most hardware should,
-                                                                and this is used by the kernel, nothing
+                                                                and if it is used by the kernel, nothing
                                                                 is done. Otherwise, a new MAC address
                                                                 is generated which is guaranteed to be
                                                                 the same on every boot for the given

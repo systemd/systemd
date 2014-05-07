@@ -2348,7 +2348,7 @@ CHANGES WITH 190:
           dir: %_presetdir.
 
         * journald will now warn if it ca not forward a message to the
-          syslog daemon because it's socket is full.
+          syslog daemon because its socket is full.
 
         * timedated will no longer write or process /etc/timezone,
           except on Debian. As we do not support late mounted /usr

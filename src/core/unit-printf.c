@@ -369,7 +369,7 @@ int unit_full_printf(Unit *u, const char *format, char **ret) {
         /* This is similar to unit_name_printf() but also supports
          * unescaping. Also, adds a couple of additional codes:
          *
-         * %f the the instance if set, otherwise the id
+         * %f the instance if set, otherwise the id
          * %c cgroup path of unit
          * %r where units in this slice are placed in the cgroup tree
          * %R the root of this systemd's instance tree
