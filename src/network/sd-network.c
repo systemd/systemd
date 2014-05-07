@@ -25,6 +25,7 @@
 #include <errno.h>
 #include <sys/inotify.h>
 #include <sys/poll.h>
+#include <net/if.h>
 
 #include "util.h"
 #include "macro.h"
@@ -32,6 +33,38 @@
 #include "fileio.h"
 #include "sd-network.h"
 #include "dhcp-lease-internal.h"
+
+static int link_get_flags(unsigned index, unsigned *flags) {
+        _cleanup_free_ char *s = NULL, *p = NULL;
+        int r;
+
+        assert(index);
+        assert(flags);
+
+        if (asprintf(&p, "/run/systemd/network/links/%u", index) < 0)
+                return -ENOMEM;
+
+        r = parse_env_file(p, NEWLINE, "FLAGS", &s, NULL);
+        if (r == -ENOENT)
+                return -ENODATA;
+        else if (r < 0)
+                return r;
+        else if (!s)
+                return -EIO;
+
+        return safe_atou(s, flags);
+}
+
+_public_ int sd_network_link_is_loopback(unsigned index) {
+        unsigned flags;
+        int r;
+
+        r = link_get_flags(index, &flags);
+        if (r < 0)
+                return 0;
+
+        return flags & IFF_LOOPBACK;
+}
 
 _public_ int sd_network_get_link_state(unsigned index, char **state) {
         _cleanup_free_ char *s = NULL, *p = NULL;
@@ -43,8 +76,7 @@ _public_ int sd_network_get_link_state(unsigned index, char **state) {
         if (asprintf(&p, "/run/systemd/network/links/%u", index) < 0)
                 return -ENOMEM;
 
-        r = parse_env_file(p, NEWLINE, "STATE", &s, NULL);
-
+        r = parse_env_file(p, NEWLINE, "ADMIN_STATE", &s, NULL);
         if (r == -ENOENT)
                 return -ENODATA;
         else if (r < 0)
@@ -54,6 +86,32 @@ _public_ int sd_network_get_link_state(unsigned index, char **state) {
 
         if (streq(s, "unmanaged"))
                 return -EUNATCH;
+        else if (streq(s, "initializing"))
+                return -EBUSY;
+
+        *state = s;
+        s = NULL;
+
+        return 0;
+}
+
+_public_ int sd_network_get_link_operational_state(unsigned index, char **state) {
+        _cleanup_free_ char *s = NULL, *p = NULL;
+        int r;
+
+        assert_return(index, -EINVAL);
+        assert_return(state, -EINVAL);
+
+        if (asprintf(&p, "/run/systemd/network/links/%u", index) < 0)
+                return -ENOMEM;
+
+        r = parse_env_file(p, NEWLINE, "OPER_STATE", &s, NULL);
+        if (r == -ENOENT)
+                return -ENODATA;
+        else if (r < 0)
+                return r;
+        else if (!s)
+                return -EIO;
 
         *state = s;
         s = NULL;

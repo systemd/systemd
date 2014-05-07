@@ -1117,6 +1117,20 @@ static int link_acquire_conf(Link *link) {
         return 0;
 }
 
+static bool link_has_carrier(unsigned flags, uint8_t operstate) {
+        /* see Documentation/networking/operstates.txt in the kernel sources */
+
+        if (operstate == IF_OPER_UP)
+                return true;
+
+        if (operstate == IF_OPER_UNKNOWN)
+                /* operstate may not be implemented, so fall back to flags */
+                if ((flags & IFF_LOWER_UP) && !(flags & IFF_DORMANT))
+                        return true;
+
+        return false;
+}
+
 static int link_update_flags(Link *link, sd_rtnl_message *m) {
         unsigned flags, flags_added, flags_removed, generic_flags;
         uint8_t operstate;
@@ -1215,6 +1229,8 @@ static int link_update_flags(Link *link, sd_rtnl_message *m) {
 
         link->flags = flags;
         link->operstate = operstate;
+
+        link_save(link);
 
         if (carrier_gained) {
                 log_info_link(link, "gained carrier");
@@ -1514,8 +1530,7 @@ static int link_configure(Link *link) {
                 }
         }
 
-        if (link_has_carrier(link->flags, link->operstate))
-        {
+        if (link_has_carrier(link->flags, link->operstate)) {
                 r = link_acquire_conf(link);
                 if (r < 0)
                         return r;
@@ -1669,16 +1684,26 @@ int link_update(Link *link, sd_rtnl_message *m) {
 }
 
 int link_save(Link *link) {
-        _cleanup_free_ char *temp_path = NULL;
+        _cleanup_free_ char *temp_path = NULL, *lease_file = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        const char *state;
+        const char *admin_state, *oper_state = "unknown";
         int r;
 
         assert(link);
         assert(link->state_file);
 
-        state = link_state_to_string(link->state);
-        assert(state);
+        admin_state = link_state_to_string(link->state);
+        assert(admin_state);
+
+        if (link->operstate & IF_OPER_DORMANT)
+                oper_state = "dormant";
+        else if (link_has_carrier(link->flags, link->operstate))
+                oper_state = "carrier";
+
+        r = asprintf(&lease_file, "/run/systemd/network/leases/%"PRIu64,
+                             link->ifindex);
+        if (r < 0)
+                return -ENOMEM;
 
         r = fopen_temporary(link->state_file, &f, &temp_path);
         if (r < 0)
@@ -1688,22 +1713,19 @@ int link_save(Link *link) {
 
         fprintf(f,
                 "# This is private data. Do not parse.\n"
-                "STATE=%s\n", state);
+                "ADMIN_STATE=%s\n"
+                "OPER_STATE=%s\n"
+                "FLAGS=%u\n",
+                admin_state, oper_state, link->flags);
 
         if (link->dhcp_lease) {
-                _cleanup_free_ char *lease_file = NULL;
-
-                r = asprintf(&lease_file, "/run/systemd/network/leases/%"PRIu64,
-                             link->ifindex);
-                if (r < 0)
-                        return -ENOMEM;
-
                 r = dhcp_lease_save(link->dhcp_lease, lease_file);
                 if (r < 0)
                         goto finish;
 
                 fprintf(f, "DHCP_LEASE=%s\n", lease_file);
-        }
+        } else
+                unlink(lease_file);
 
         fflush(f);
 
@@ -1721,7 +1743,7 @@ finish:
 }
 
 static const char* const link_state_table[_LINK_STATE_MAX] = {
-        [LINK_STATE_INITIALIZING] = "configuring",
+        [LINK_STATE_INITIALIZING] = "initializing",
         [LINK_STATE_ENSLAVING] = "configuring",
         [LINK_STATE_SETTING_ADDRESSES] = "configuring",
         [LINK_STATE_SETTING_ROUTES] = "configuring",

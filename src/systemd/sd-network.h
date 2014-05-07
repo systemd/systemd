@@ -51,8 +51,24 @@
 
 _SD_BEGIN_DECLARATIONS;
 
-/* Get state from ifindex. Possible states: unknown, unmanaged, failed, configuring, configured */
-int sd_network_get_link_state(unsigned index, char**state);
+/* Get state from ifindex.
+ * Possible states: failed, configuring, configured
+ * Possible return codes:
+ *   -ENODATA: networkd is not aware of the link
+ *   -EUNATCH: networkd is not managing this link
+ *   -EBUSY: udev is still processing the link, networkd does not yet know if it will manage it
+ */
+int sd_network_get_link_state(unsigned index, char **state);
+
+/* Get operatinal state from ifindex.
+ * Possible states: unknown, dormant, carrier
+ * Possible return codes:
+ *   -ENODATA: networkd is not aware of the link
+ */
+int sd_network_get_link_operational_state(unsigned index, char **state);
+
+/* Returns true if link exists and is loopback, and false otherwise */
+int sd_network_link_is_loopback(unsigned index);
 
 /* Get DHCPv4 lease from ifindex. */
 int sd_network_get_dhcp_lease(unsigned index, sd_dhcp_lease **ret);
@@ -65,7 +81,7 @@ int sd_network_get_ifindices(unsigned **indices);
 typedef struct sd_network_monitor sd_network_monitor;
 
 /* Create a new monitor. Category must be NULL, "links" or "leases". */
-int sd_network_monitor_new(const char *category, sd_network_monitor** ret);
+int sd_network_monitor_new(const char *category, sd_network_monitor **ret);
 
 /* Destroys the passed monitor. Returns NULL. */
 sd_network_monitor* sd_network_monitor_unref(sd_network_monitor *m);
