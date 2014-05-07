@@ -483,7 +483,6 @@ static bool sockaddr_equal(union sockaddr_union *a, union sockaddr_union *b) {
 }
 
 static int manager_receive_response(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
-        _cleanup_free_ char *pretty = NULL;
         Manager *m = userdata;
         struct ntp_msg ntpmsg;
 
@@ -667,9 +666,8 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                         log_error("Failed to call clock_adjtime(): %m");
         }
 
-        sockaddr_pretty(&m->current_server_address->sockaddr.sa, m->current_server_address->socklen, true, &pretty);
-        log_info("%s (%s): interval/delta/delay/jitter/drift %llus/%+.3fs/%.3fs/%.3fs/%+ippm%s",
-                 strna(pretty), m->current_server_name->string, m->poll_interval_usec / USEC_PER_SEC, offset, delay, m->samples_jitter, m->drift_ppm,
+        log_info("interval/delta/delay/jitter/drift %llus/%+.3fs/%.3fs/%.3fs/%+ippm%s",
+                 m->poll_interval_usec / USEC_PER_SEC, offset, delay, m->samples_jitter, m->drift_ppm,
                  spike ? " (ignored)" : "");
 
         r = manager_arm_timer(m, m->poll_interval_usec);
@@ -774,7 +772,7 @@ static int manager_resolve_handler(sd_resolve_query *q, int ret, const struct ad
         m->resolve_query = sd_resolve_query_unref(m->resolve_query);
 
         if (ret != 0) {
-                log_error("Failed to resolve %s: %s", m->current_server_name->string, gai_strerror(ret));
+                log_info("Failed to resolve %s: %s", m->current_server_name->string, gai_strerror(ret));
 
                 /* Try next host */
                 return manager_connect(m);
