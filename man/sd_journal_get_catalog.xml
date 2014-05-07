@@ -54,14 +54,14 @@
 
                         <funcprototype>
                                 <funcdef>int <function>sd_journal_get_catalog</function></funcdef>
-                                <paramdef>sd_journal* <parameter>j</parameter></paramdef>
-                                <paramdef>char** <parameter>ret</parameter></paramdef>
+                                <paramdef>sd_journal *<parameter>j</parameter></paramdef>
+                                <paramdef>char **<parameter>ret</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_journal_get_catalog_for_message_id</function></funcdef>
                                 <paramdef>sd_id128_t <parameter>id</parameter></paramdef>
-                                <paramdef>char** <parameter>ret</parameter></paramdef>
+                                <paramdef>char **<parameter>ret</parameter></paramdef>
                         </funcprototype>
 
 

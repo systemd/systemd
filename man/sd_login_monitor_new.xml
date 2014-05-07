@@ -59,34 +59,34 @@
 
                         <funcprototype>
                                 <funcdef>int <function>sd_login_monitor_new</function></funcdef>
-                                <paramdef>const char* <parameter>category</parameter></paramdef>
-                                <paramdef>sd_login_monitor** <parameter>ret</parameter></paramdef>
+                                <paramdef>const char *<parameter>category</parameter></paramdef>
+                                <paramdef>sd_login_monitor **<parameter>ret</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
-                                <funcdef>sd_login_monitor* <function>sd_login_monitor_unref</function></funcdef>
-                                <paramdef>sd_login_monitor* <parameter>m</parameter></paramdef>
+                                <funcdef>sd_login_monitor *<function>sd_login_monitor_unref</function></funcdef>
+                                <paramdef>sd_login_monitor *<parameter>m</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_login_monitor_flush</function></funcdef>
-                                <paramdef>sd_login_monitor* <parameter>m</parameter></paramdef>
+                                <paramdef>sd_login_monitor *<parameter>m</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_login_monitor_get_fd</function></funcdef>
-                                <paramdef>sd_login_monitor* <parameter>m</parameter></paramdef>
+                                <paramdef>sd_login_monitor *<parameter>m</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_login_monitor_get_events</function></funcdef>
-                                <paramdef>sd_login_monitor* <parameter>m</parameter></paramdef>
+                                <paramdef>sd_login_monitor *<parameter>m</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_login_monitor_get_timeout</function></funcdef>
-                                <paramdef>sd_login_monitor* <parameter>m</parameter></paramdef>
-                                <paramdef>uint64_t* <parameter>timeout_usec</parameter></paramdef>
+                                <paramdef>sd_login_monitor *<parameter>m</parameter></paramdef>
+                                <paramdef>uint64_t *<parameter>timeout_usec</parameter></paramdef>
                         </funcprototype>
 
                 </funcsynopsis>

@@ -53,7 +53,7 @@
 
                         <funcprototype>
                                 <funcdef>int <function>sd_id128_randomize</function></funcdef>
-                                <paramdef>sd_id128_t* <parameter>ret</parameter></paramdef>
+                                <paramdef>sd_id128_t *<parameter>ret</parameter></paramdef>
                         </funcprototype>
 
                 </funcsynopsis>

@@ -62,34 +62,34 @@
 
                         <funcprototype>
                                 <funcdef>int <function>sd_journal_get_fd</function></funcdef>
-                                <paramdef>sd_journal* <parameter>j</parameter></paramdef>
+                                <paramdef>sd_journal *<parameter>j</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_journal_get_events</function></funcdef>
-                                <paramdef>sd_journal* <parameter>j</parameter></paramdef>
+                                <paramdef>sd_journal *<parameter>j</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_journal_get_timeout</function></funcdef>
-                                <paramdef>sd_journal* <parameter>j</parameter></paramdef>
-                                <paramdef>uint64_t* <parameter>timeout_usec</parameter></paramdef>
+                                <paramdef>sd_journal *<parameter>j</parameter></paramdef>
+                                <paramdef>uint64_t *<parameter>timeout_usec</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_journal_process</function></funcdef>
-                                <paramdef>sd_journal* <parameter>j</parameter></paramdef>
+                                <paramdef>sd_journal *<parameter>j</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_journal_wait</function></funcdef>
-                                <paramdef>sd_journal* <parameter>j</parameter></paramdef>
+                                <paramdef>sd_journal *<parameter>j</parameter></paramdef>
                                 <paramdef>uint64_t <parameter>timeout_usec</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_journal_reliable_fd</function></funcdef>
-                                <paramdef>sd_journal* <parameter>j</parameter></paramdef>
+                                <paramdef>sd_journal *<parameter>j</parameter></paramdef>
                         </funcprototype>
 
                 </funcsynopsis>

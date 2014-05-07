@@ -58,41 +58,41 @@
 
                         <funcprototype>
                                 <funcdef>int <function>sd_journal_get_data</function></funcdef>
-                                <paramdef>sd_journal* <parameter>j</parameter></paramdef>
-                                <paramdef>const char* <parameter>field</parameter></paramdef>
-                                <paramdef>const void** <parameter>data</parameter></paramdef>
-                                <paramdef>size_t* <parameter>length</parameter></paramdef>
+                                <paramdef>sd_journal *<parameter>j</parameter></paramdef>
+                                <paramdef>const char *<parameter>field</parameter></paramdef>
+                                <paramdef>const void **<parameter>data</parameter></paramdef>
+                                <paramdef>size_t *<parameter>length</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_journal_enumerate_data</function></funcdef>
-                                <paramdef>sd_journal* <parameter>j</parameter></paramdef>
-                                <paramdef>const void** <parameter>data</parameter></paramdef>
-                                <paramdef>size_t* <parameter>length</parameter></paramdef>
+                                <paramdef>sd_journal *<parameter>j</parameter></paramdef>
+                                <paramdef>const void **<parameter>data</parameter></paramdef>
+                                <paramdef>size_t *<parameter>length</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>void <function>sd_journal_restart_data</function></funcdef>
-                                <paramdef>sd_journal* <parameter>j</parameter></paramdef>
+                                <paramdef>sd_journal *<parameter>j</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef><function>SD_JOURNAL_FOREACH_DATA</function></funcdef>
-                                <paramdef>sd_journal* <parameter>j</parameter></paramdef>
-                                <paramdef>const void* <parameter>data</parameter></paramdef>
+                                <paramdef>sd_journal *<parameter>j</parameter></paramdef>
+                                <paramdef>const void *<parameter>data</parameter></paramdef>
                                 <paramdef>size_t <parameter>length</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_journal_set_data_threshold</function></funcdef>
-                                <paramdef>sd_journal* <parameter>j</parameter></paramdef>
+                                <paramdef>sd_journal *<parameter>j</parameter></paramdef>
                                 <paramdef>size_t <parameter>sz</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_journal_get_data_threshold</function></funcdef>
-                                <paramdef>sd_journal* <parameter>j</parameter></paramdef>
-                                <paramdef>size_t* <parameter>sz</parameter></paramdef>
+                                <paramdef>sd_journal *<parameter>j</parameter></paramdef>
+                                <paramdef>size_t *<parameter>sz</parameter></paramdef>
                         </funcprototype>
                 </funcsynopsis>
         </refsynopsisdiv>

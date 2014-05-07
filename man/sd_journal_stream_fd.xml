@@ -53,7 +53,7 @@
 
                         <funcprototype>
                                 <funcdef>int <function>sd_journal_stream_fd</function></funcdef>
-                                <paramdef>const char* <parameter>identifier</parameter></paramdef>
+                                <paramdef>const char *<parameter>identifier</parameter></paramdef>
                                 <paramdef>int <parameter>priority</parameter></paramdef>
                                 <paramdef>int <parameter>level_prefix</parameter></paramdef>
                         </funcprototype>

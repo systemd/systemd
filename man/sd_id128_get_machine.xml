@@ -54,12 +54,12 @@
 
                         <funcprototype>
                                 <funcdef>int <function>sd_id128_get_machine</function></funcdef>
-                                <paramdef>sd_id128_t* <parameter>ret</parameter></paramdef>
+                                <paramdef>sd_id128_t *<parameter>ret</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_id128_get_boot</function></funcdef>
-                                <paramdef>sd_id128_t* <parameter>ret</parameter></paramdef>
+                                <paramdef>sd_id128_t *<parameter>ret</parameter></paramdef>
                         </funcprototype>
 
                 </funcsynopsis>

@@ -53,8 +53,8 @@
 
                         <funcprototype>
                                 <funcdef>int <function>sd_journal_get_usage</function></funcdef>
-                                <paramdef>sd_journal* <parameter>j</parameter></paramdef>
-                                <paramdef>uint64_t* <parameter>bytes</parameter></paramdef>
+                                <paramdef>sd_journal *<parameter>j</parameter></paramdef>
+                                <paramdef>uint64_t *<parameter>bytes</parameter></paramdef>
                         </funcprototype>
 
                 </funcsynopsis>

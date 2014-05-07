@@ -56,26 +56,26 @@
 
                         <funcprototype>
                                 <funcdef>int <function>sd_journal_query_unique</function></funcdef>
-                                <paramdef>sd_journal* <parameter>j</parameter></paramdef>
-                                <paramdef>const char* <parameter>field</parameter></paramdef>
+                                <paramdef>sd_journal *<parameter>j</parameter></paramdef>
+                                <paramdef>const char *<parameter>field</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_journal_enumerate_unique</function></funcdef>
-                                <paramdef>sd_journal* <parameter>j</parameter></paramdef>
-                                <paramdef>const void** <parameter>data</parameter></paramdef>
-                                <paramdef>size_t* <parameter>length</parameter></paramdef>
+                                <paramdef>sd_journal *<parameter>j</parameter></paramdef>
+                                <paramdef>const void **<parameter>data</parameter></paramdef>
+                                <paramdef>size_t *<parameter>length</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>void <function>sd_journal_restart_unique</function></funcdef>
-                                <paramdef>sd_journal* <parameter>j</parameter></paramdef>
+                                <paramdef>sd_journal *<parameter>j</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef><function>SD_JOURNAL_FOREACH_UNIQUE</function></funcdef>
-                                <paramdef>sd_journal* <parameter>j</parameter></paramdef>
-                                <paramdef>const void* <parameter>data</parameter></paramdef>
+                                <paramdef>sd_journal *<parameter>j</parameter></paramdef>
+                                <paramdef>const void *<parameter>data</parameter></paramdef>
                                 <paramdef>size_t <parameter>length</parameter></paramdef>
                         </funcprototype>
 

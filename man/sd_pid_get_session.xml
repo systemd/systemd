@@ -67,73 +67,73 @@
                         <funcprototype>
                                 <funcdef>int <function>sd_pid_get_session</function></funcdef>
                                 <paramdef>pid_t <parameter>pid</parameter></paramdef>
-                                <paramdef>char** <parameter>session</parameter></paramdef>
+                                <paramdef>char **<parameter>session</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_pid_get_unit</function></funcdef>
                                 <paramdef>pid_t <parameter>pid</parameter></paramdef>
-                                <paramdef>char** <parameter>unit</parameter></paramdef>
+                                <paramdef>char **<parameter>unit</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_pid_get_user_unit</function></funcdef>
                                 <paramdef>pid_t <parameter>pid</parameter></paramdef>
-                                <paramdef>char** <parameter>unit</parameter></paramdef>
+                                <paramdef>char **<parameter>unit</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_pid_get_owner_uid</function></funcdef>
                                 <paramdef>pid_t <parameter>pid</parameter></paramdef>
-                                <paramdef>uid_t* <parameter>uid</parameter></paramdef>
+                                <paramdef>uid_t *<parameter>uid</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_pid_get_machine_name</function></funcdef>
                                 <paramdef>pid_t <parameter>pid</parameter></paramdef>
-                                <paramdef>char** <parameter>name</parameter></paramdef>
+                                <paramdef>char **<parameter>name</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_pid_get_slice</function></funcdef>
                                 <paramdef>pid_t <parameter>pid</parameter></paramdef>
-                                <paramdef>char** <parameter>slice</parameter></paramdef>
+                                <paramdef>char **<parameter>slice</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_peer_get_session</function></funcdef>
                                 <paramdef>int <parameter>fd</parameter></paramdef>
-                                <paramdef>char** <parameter>session</parameter></paramdef>
+                                <paramdef>char **<parameter>session</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_peer_get_unit</function></funcdef>
                                 <paramdef>int <parameter>fd</parameter></paramdef>
-                                <paramdef>char** <parameter>unit</parameter></paramdef>
+                                <paramdef>char **<parameter>unit</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_peer_get_user_unit</function></funcdef>
                                 <paramdef>int <parameter>fd</parameter></paramdef>
-                                <paramdef>char** <parameter>unit</parameter></paramdef>
+                                <paramdef>char **<parameter>unit</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_peer_get_owner_uid</function></funcdef>
                                 <paramdef>int <parameter>fd</parameter></paramdef>
-                                <paramdef>uid_t* <parameter>uid</parameter></paramdef>
+                                <paramdef>uid_t *<parameter>uid</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_peer_get_machine_name</function></funcdef>
                                 <paramdef>int <parameter>fd</parameter></paramdef>
-                                <paramdef>char** <parameter>name</parameter></paramdef>
+                                <paramdef>char **<parameter>name</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_peer_get_slice</function></funcdef>
                                 <paramdef>int <parameter>fd</parameter></paramdef>
-                                <paramdef>char** <parameter>slice</parameter></paramdef>
+                                <paramdef>char **<parameter>slice</parameter></paramdef>
                         </funcprototype>
                 </funcsynopsis>
         </refsynopsisdiv>

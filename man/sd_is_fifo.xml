@@ -85,7 +85,7 @@
                                 <paramdef>int <parameter>fd</parameter></paramdef>
                                 <paramdef>int <parameter>type</parameter></paramdef>
                                 <paramdef>int <parameter>listening</parameter></paramdef>
-                                <paramdef>const char* <parameter>path</parameter></paramdef>
+                                <paramdef>const char *<parameter>path</parameter></paramdef>
                                 <paramdef>size_t <parameter>length</parameter></paramdef>
                         </funcprototype>
 

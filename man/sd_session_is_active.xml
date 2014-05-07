@@ -65,78 +65,78 @@
 
                         <funcprototype>
                                 <funcdef>int <function>sd_session_is_active</function></funcdef>
-                                <paramdef>const char* <parameter>session</parameter></paramdef>
+                                <paramdef>const char *<parameter>session</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_session_is_remote</function></funcdef>
-                                <paramdef>const char* <parameter>session</parameter></paramdef>
+                                <paramdef>const char *<parameter>session</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_session_get_state</function></funcdef>
-                                <paramdef>const char* <parameter>session</parameter></paramdef>
-                                <paramdef>char** <parameter>state</parameter></paramdef>
+                                <paramdef>const char *<parameter>session</parameter></paramdef>
+                                <paramdef>char **<parameter>state</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_session_get_uid</function></funcdef>
-                                <paramdef>const char* <parameter>session</parameter></paramdef>
-                                <paramdef>uid_t* <parameter>uid</parameter></paramdef>
+                                <paramdef>const char *<parameter>session</parameter></paramdef>
+                                <paramdef>uid_t *<parameter>uid</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_session_get_seat</function></funcdef>
-                                <paramdef>const char* <parameter>session</parameter></paramdef>
-                                <paramdef>char** <parameter>seat</parameter></paramdef>
+                                <paramdef>const char *<parameter>session</parameter></paramdef>
+                                <paramdef>char **<parameter>seat</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_session_get_service</function></funcdef>
-                                <paramdef>const char* <parameter>session</parameter></paramdef>
-                                <paramdef>char** <parameter>service</parameter></paramdef>
+                                <paramdef>const char *<parameter>session</parameter></paramdef>
+                                <paramdef>char **<parameter>service</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_session_get_type</function></funcdef>
-                                <paramdef>const char* <parameter>session</parameter></paramdef>
-                                <paramdef>char** <parameter>type</parameter></paramdef>
+                                <paramdef>const char *<parameter>session</parameter></paramdef>
+                                <paramdef>char **<parameter>type</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_session_get_class</function></funcdef>
-                                <paramdef>const char* <parameter>session</parameter></paramdef>
-                                <paramdef>char** <parameter>class</parameter></paramdef>
+                                <paramdef>const char *<parameter>session</parameter></paramdef>
+                                <paramdef>char **<parameter>class</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_session_get_display</function></funcdef>
-                                <paramdef>const char* <parameter>session</parameter></paramdef>
-                                <paramdef>char** <parameter>display</parameter></paramdef>
+                                <paramdef>const char *<parameter>session</parameter></paramdef>
+                                <paramdef>char **<parameter>display</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_session_get_remote_host</function></funcdef>
-                                <paramdef>const char* <parameter>session</parameter></paramdef>
-                                <paramdef>char** <parameter>remote_host</parameter></paramdef>
+                                <paramdef>const char *<parameter>session</parameter></paramdef>
+                                <paramdef>char **<parameter>remote_host</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_session_get_remote_user</function></funcdef>
-                                <paramdef>const char* <parameter>session</parameter></paramdef>
-                                <paramdef>char** <parameter>remote_user</parameter></paramdef>
+                                <paramdef>const char *<parameter>session</parameter></paramdef>
+                                <paramdef>char **<parameter>remote_user</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_session_get_tty</function></funcdef>
-                                <paramdef>const char* <parameter>session</parameter></paramdef>
-                                <paramdef>char** <parameter>tty</parameter></paramdef>
+                                <paramdef>const char *<parameter>session</parameter></paramdef>
+                                <paramdef>char **<parameter>tty</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_session_get_vt</function></funcdef>
-                                <paramdef>const char* <parameter>session</parameter></paramdef>
-                                <paramdef>unsigned int* <parameter>vt</parameter></paramdef>
+                                <paramdef>const char *<parameter>session</parameter></paramdef>
+                                <paramdef>unsigned int *<parameter>vt</parameter></paramdef>
                         </funcprototype>
                 </funcsynopsis>
         </refsynopsisdiv>

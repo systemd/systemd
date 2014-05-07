@@ -62,34 +62,34 @@
 
                         <funcprototype>
                                 <funcdef>int <function>sd_journal_open</function></funcdef>
-                                <paramdef>sd_journal** <parameter>ret</parameter></paramdef>
+                                <paramdef>sd_journal **<parameter>ret</parameter></paramdef>
                                 <paramdef>int <parameter>flags</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_journal_open_directory</function></funcdef>
-                                <paramdef>sd_journal** <parameter>ret</parameter></paramdef>
-                                <paramdef>const char* <parameter>path</parameter></paramdef>
+                                <paramdef>sd_journal **<parameter>ret</parameter></paramdef>
+                                <paramdef>const char *<parameter>path</parameter></paramdef>
                                 <paramdef>int <parameter>flags</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_journal_open_files</function></funcdef>
-                                <paramdef>sd_journal** <parameter>ret</parameter></paramdef>
-                                <paramdef>const char** <parameter>paths</parameter></paramdef>
+                                <paramdef>sd_journal **<parameter>ret</parameter></paramdef>
+                                <paramdef>const char **<parameter>paths</parameter></paramdef>
                                 <paramdef>int <parameter>flags</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_journal_open_container</function></funcdef>
-                                <paramdef>sd_journal** <parameter>ret</parameter></paramdef>
-                                <paramdef>const char* <parameter>machine</parameter></paramdef>
+                                <paramdef>sd_journal **<parameter>ret</parameter></paramdef>
+                                <paramdef>const char *<parameter>machine</parameter></paramdef>
                                 <paramdef>int <parameter>flags</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>void <function>sd_journal_close</function></funcdef>
-                                <paramdef>sd_journal* <parameter>j</parameter></paramdef>
+                                <paramdef>sd_journal *<parameter>j</parameter></paramdef>
                         </funcprototype>
                 </funcsynopsis>
         </refsynopsisdiv>

@@ -57,32 +57,32 @@
 
                         <funcprototype>
                                 <funcdef>int <function>sd_seat_get_active</function></funcdef>
-                                <paramdef>const char* <parameter>seat</parameter></paramdef>
-                                <paramdef>char** <parameter>session</parameter></paramdef>
-                                <paramdef>uid_t* <parameter>uid</parameter></paramdef>
+                                <paramdef>const char *<parameter>seat</parameter></paramdef>
+                                <paramdef>char **<parameter>session</parameter></paramdef>
+                                <paramdef>uid_t *<parameter>uid</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_seat_get_sessions</function></funcdef>
-                                <paramdef>const char* <parameter>seat</parameter></paramdef>
-                                <paramdef>char*** <parameter>sessions</parameter></paramdef>
-                                <paramdef>uid_t** <parameter>uid</parameter></paramdef>
-                                <paramdef>unsigned int* <parameter>n_uids</parameter></paramdef>
+                                <paramdef>const char *<parameter>seat</parameter></paramdef>
+                                <paramdef>char ***<parameter>sessions</parameter></paramdef>
+                                <paramdef>uid_t **<parameter>uid</parameter></paramdef>
+                                <paramdef>unsigned int *<parameter>n_uids</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_seat_can_multi_session</function></funcdef>
-                                <paramdef>const char* <parameter>seat</parameter></paramdef>
+                                <paramdef>const char *<parameter>seat</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_seat_can_tty</function></funcdef>
-                                <paramdef>const char* <parameter>seat</parameter></paramdef>
+                                <paramdef>const char *<parameter>seat</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_seat_can_graphical</function></funcdef>
-                                <paramdef>const char* <parameter>seat</parameter></paramdef>
+                                <paramdef>const char *<parameter>seat</parameter></paramdef>
                         </funcprototype>
                 </funcsynopsis>
         </refsynopsisdiv>

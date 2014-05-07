@@ -54,14 +54,14 @@
 
                         <funcprototype>
                                 <funcdef>int <function>sd_journal_get_cursor</function></funcdef>
-                                <paramdef>sd_journal* <parameter>j</parameter></paramdef>
-                                <paramdef>char ** <parameter>cursor</parameter></paramdef>
+                                <paramdef>sd_journal *<parameter>j</parameter></paramdef>
+                                <paramdef>char **<parameter>cursor</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_journal_test_cursor</function></funcdef>
-                                <paramdef>sd_journal* <parameter>j</parameter></paramdef>
-                                <paramdef>const char * <parameter>cursor</parameter></paramdef>
+                                <paramdef>sd_journal *<parameter>j</parameter></paramdef>
+                                <paramdef>const char *<parameter>cursor</parameter></paramdef>
                         </funcprototype>
 
                 </funcsynopsis>

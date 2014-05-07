@@ -54,14 +54,14 @@
 
                         <funcprototype>
                                 <funcdef>int <function>sd_bus_message_get_cookie</function></funcdef>
-                                <paramdef>sd_bus_message* <parameter>message</parameter></paramdef>
-                                <paramdef>uint64_t* <parameter>cookie</parameter></paramdef>
+                                <paramdef>sd_bus_message *<parameter>message</parameter></paramdef>
+                                <paramdef>uint64_t *<parameter>cookie</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_bus_message_get_reply_cookie</function></funcdef>
-                                <paramdef>sd_bus_message* <parameter>message</parameter></paramdef>
-                                <paramdef>uint64_t* <parameter>cookie</parameter></paramdef>
+                                <paramdef>sd_bus_message *<parameter>message</parameter></paramdef>
+                                <paramdef>uint64_t *<parameter>cookie</parameter></paramdef>
                         </funcprototype>
                 </funcsynopsis>
         </refsynopsisdiv>

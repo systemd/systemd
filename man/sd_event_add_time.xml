@@ -65,13 +65,13 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <paramdef>uint64_t <parameter>usec</parameter></paramdef>
         <paramdef>uint64_t <parameter>accuracy</parameter></paramdef>
         <paramdef>sd_event_time_handler_t <parameter>handler</parameter></paramdef>
-        <paramdef>void* <parameter>userdata</parameter></paramdef>
+        <paramdef>void *<parameter>userdata</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_event_source_get_time</function></funcdef>
         <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
-        <paramdef>usec_t* <parameter>usec</parameter></paramdef>
+        <paramdef>usec_t *<parameter>usec</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>

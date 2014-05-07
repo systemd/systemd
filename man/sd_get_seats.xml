@@ -56,22 +56,22 @@
 
                         <funcprototype>
                                 <funcdef>int <function>sd_get_seats</function></funcdef>
-                                <paramdef>char*** <parameter>seats</parameter></paramdef>
+                                <paramdef>char ***<parameter>seats</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_get_sessions</function></funcdef>
-                                <paramdef>char*** <parameter>sessions</parameter></paramdef>
+                                <paramdef>char ***<parameter>sessions</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_get_uids</function></funcdef>
-                                <paramdef>uid_t** <parameter>users</parameter></paramdef>
+                                <paramdef>uid_t **<parameter>users</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_get_machine_names</function></funcdef>
-                                <paramdef>char*** <parameter>machines</parameter></paramdef>
+                                <paramdef>char ***<parameter>machines</parameter></paramdef>
                         </funcprototype>
 
                 </funcsynopsis>

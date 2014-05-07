@@ -59,20 +59,20 @@
                         <funcprototype>
                                 <funcdef>int <function>sd_journal_print</function></funcdef>
                                 <paramdef>int <parameter>priority</parameter></paramdef>
-                                <paramdef>const char* <parameter>format</parameter></paramdef>
+                                <paramdef>const char *<parameter>format</parameter></paramdef>
                                 <paramdef>...</paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_journal_printv</function></funcdef>
                                 <paramdef>int <parameter>priority</parameter></paramdef>
-                                <paramdef>const char* <parameter>format</parameter></paramdef>
+                                <paramdef>const char *<parameter>format</parameter></paramdef>
                                 <paramdef>va_list <parameter>ap</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_journal_send</function></funcdef>
-                                <paramdef>const char* <parameter>format</parameter></paramdef>
+                                <paramdef>const char *<parameter>format</parameter></paramdef>
                                 <paramdef>...</paramdef>
                         </funcprototype>
 
@@ -84,7 +84,7 @@
 
                         <funcprototype>
                                 <funcdef>int <function>sd_journal_perror</function></funcdef>
-                                <paramdef>const char* <parameter>message</parameter></paramdef>
+                                <paramdef>const char *<parameter>message</parameter></paramdef>
                         </funcprototype>
 
                 </funcsynopsis>

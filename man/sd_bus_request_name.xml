@@ -54,14 +54,14 @@
 
                         <funcprototype>
                                 <funcdef>int <function>sd_bus_request_name</function></funcdef>
-                                <paramdef>sd_bus* <parameter>bus</parameter></paramdef>
+                                <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
                                 <paramdef>const char *<parameter>name</parameter></paramdef>
                                 <paramdef>uint64_t <parameter>flags</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_bus_release_name</function></funcdef>
-                                <paramdef>sd_bus* <parameter>bus</parameter></paramdef>
+                                <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
                                 <paramdef>const char *<parameter>name</parameter></paramdef>
                         </funcprototype>
                 </funcsynopsis>
