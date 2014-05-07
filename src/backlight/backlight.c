@@ -229,7 +229,7 @@ static unsigned get_max_brightness(struct udev_device *device) {
  * would otherwise force the user to disable state restoration. */
 static void clamp_brightness(struct udev_device *device, char **value, unsigned max_brightness) {
         int r;
-        unsigned brightness, new_brightness;
+        unsigned brightness, new_brightness, min_brightness;
 
         r = safe_atou(*value, &brightness);
         if (r < 0) {
@@ -237,7 +237,8 @@ static void clamp_brightness(struct udev_device *device, char **value, unsigned 
                 return;
         }
 
-        new_brightness = MAX3(brightness, 1U, max_brightness/20);
+        min_brightness = MAX(1U, max_brightness/20);
+        new_brightness = CLAMP(brightness, min_brightness, max_brightness);
         if (new_brightness != brightness) {
                 char *old_value = *value;
 
@@ -247,7 +248,11 @@ static void clamp_brightness(struct udev_device *device, char **value, unsigned 
                         return;
                 }
 
-                log_debug("Saved brightness %s too low; increasing to %s.", old_value, *value);
+                log_info("Saved brightness %s %s to %s.", old_value,
+                         new_brightness > brightness ?
+                         "too low; increasing" : "too high; decreasing",
+                         *value);
+
                 free(old_value);
         }
 }
