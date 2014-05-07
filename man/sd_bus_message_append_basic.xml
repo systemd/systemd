@@ -198,7 +198,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     character sequence. As a special case, a <constant>NULL</constant>
     pointer is interpreted as an empty string. The string should be
     valid Unicode string encoded as UTF-8. In case of the two latter
-    types, additionally the requirements for a D-Bus object path or
+    types, the additional requirements for a D-Bus object path or
     type signature should be satisfied. Those requirements should be
     verified by the recepient of the message.
     </para>
@@ -257,7 +257,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
   <refsect1>
     <title>Notes</title>
 
-    <para><function>sd_bus_append_basic()</function> function
+    <para>The <function>sd_bus_append_basic()</function> function
     described here is available as a shared library, which can be
     compiled and linked to with the
     <constant>libsystemd</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>

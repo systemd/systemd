@@ -358,7 +358,7 @@
                                 <option>--network-bridge=</option>
                                 implies
                                 <option>--network-veth</option>. If
-                                this option is used the host side of
+                                this option is used, the host side of
                                 the Ethernet link will use the
                                 <literal>vb-</literal> prefix instead
                                 of <literal>ve-</literal>.</para></listitem>
@@ -601,7 +601,7 @@
                                 <literal>x86-64</literal> are
                                 supported. This is useful when running
                                 a 32-bit container on a 64-bit
-                                host. If this setting is not used
+                                host. If this setting is not used,
                                 the personality reported in the
                                 container is the same as the one
                                 reported on the

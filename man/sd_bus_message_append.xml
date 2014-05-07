@@ -65,7 +65,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
   <refsect1>
     <title>Description</title>
 
-    <para>Function <function>sd_bus_message_append</function> appends
+    <para>The <function>sd_bus_message_append</function> function appends
     a sequence of items to message <parameter>m</parameter>. The
     format string <parameter>types</parameter> describes the types of
     arguments that follow.</para>

@@ -274,7 +274,7 @@
                                 <term><varname>WakeSystem=</varname></term>
 
                                 <listitem><para>Takes a boolean
-                                argument. If true an elapsing timer
+                                argument. If true, an elapsing timer
                                 will cause the system to resume from
                                 suspend, should it be suspended and if
                                 the system supports this. Note that

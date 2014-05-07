@@ -82,16 +82,16 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     prefix and an external identifier string as arguments, plus a
     place to store the returned bus path string. The bus path prefix
     must be a valid bus path, starting with a slash
-    <literal>/</literal>, but not ending in one. The external
-    identifier string may be in any format, may be the empty string
-    and no restrictions on the charset are made - however it must
+    <literal>/</literal>, and not ending in one. The external
+    identifier string may be in any format, may be the empty string,
+    and has no restrictions on the charset — however, it must
     always be <constant>NUL</constant>-terminated. The returned string
     will be the concatenation of the bus path prefix plus an escaped
     version of the external identifier string. This operation may be
     reversed with <function>sd_bus_decode()</function>. It is
-    recommended to only use external identifiers here that generally
+    recommended to only use external identifiers that generally
     require little escaping to be turned into valid bus path
-    identifiers (for example by sticking to a 7-bit ASCII character
+    identifiers (for example, by sticking to a 7-bit ASCII character
     set), in order to ensure the resulting bus path is still short and
     easily processed.</para>
 
@@ -101,12 +101,12 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     takes a bus path and a prefix string, plus a place to store the
     returned external identifier string. If the bus path does not
     start with the specified prefix, 0 is returned and the returned
-    string is set to <constant>NULL</constant>. Otherwise the
+    string is set to <constant>NULL</constant>. Otherwise, the
     string following the prefix is unescaped and returned in the
     external identifier string.</para>
 
     <para>The escaping used will replace all characters which are
-    invalid in a bus object path by <literal>_</literal> followed by a
+    invalid in a bus object path by <literal>_</literal>, followed by a
     hexadecimal value. As a special case, the empty string will be
     replaced by a lone <literal>_</literal>.</para>
   </refsect1>
@@ -118,8 +118,8 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     returns positive or 0, and a valid bus path in the return
     argument. On success, <function>sd_bus_path_decode()</function>
     returns a positive value if the prefixed matched, or 0 if it
-    did not. If the prefix matched the external identifier is returned
-    in the return parameter. If it did not match NULL is returned in
+    did not. If the prefix matched, the external identifier is returned
+    in the return parameter. If it did not match, NULL is returned in
     the return parameter. On failure, a negative errno-style error
     number is returned by either function. The returned strings must
     be

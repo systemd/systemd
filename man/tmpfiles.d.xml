@@ -73,7 +73,7 @@
 
                 <para>System daemons frequently require private
                 runtime directories below <filename>/run</filename> to
-                place communication sockets and similar in. For these
+                place communication sockets and similar in. For these,
                 consider declaring them in their unit files using
                 <varname>RuntimeDirectory=</varname>
                 (see <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for details),

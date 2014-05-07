@@ -60,9 +60,9 @@ CHANGES WITH 212:
           users who are logged out cannot continue to consume IPC
           resources. This covers SysV memory, semaphores and message
           queues as well as POSIX shared memory and message
-          queues. Traditionally SysV and POSIX IPC had no life-cycle
-          limits, with this functionality this is corrected. This may
-          be turned off using the RemoveIPC= switch of logind.conf.
+          queues. Traditionally, SysV and POSIX IPC had no life-cycle
+          limits. With this functionality, that is corrected. This may
+          be turned off by using the RemoveIPC= switch of logind.conf.
 
         * The systemd-machine-id-setup and tmpfiles tools gained a
           --root= switch to operate on a specific root directory,
@@ -95,7 +95,7 @@ CHANGES WITH 212:
           this is appropriate.
 
         * systemd-udevd will now run in a disassociated mount
-          namespace. To mount directories from udev rules make sure to
+          namespace. To mount directories from udev rules, make sure to
           pull in mount units via SYSTEMD_WANTS properties.
 
         * The kdbus support gained support for uploading policy into
@@ -118,12 +118,12 @@ CHANGES WITH 212:
           DefaultTimerAccuracySec= has been added that controls the
           default AccuracySec= setting of .timer units.
 
-        * Timer units gained a new WakeSystem= switch. If enabled
+        * Timer units gained a new WakeSystem= switch. If enabled,
           timers configured this way will cause the system to resume
           from system suspend (if the system supports that, which most
           do these days).
 
-        * Timer units gained a new Persistent= switch. If enabled
+        * Timer units gained a new Persistent= switch. If enabled,
           timers configured this way will save to disk when they have
           been last triggered. This information is then used on next
           reboot to possible execute overdue timer events, that
@@ -181,12 +181,12 @@ CHANGES WITH 211:
         * systemd-gpt-auto-generator is now able to discover /srv and
           root partitions in addition to /home and swap partitions. It
           also supports LUKS-encrypted partitions now. With this in
-          place automatic discovery of partitions to mount following
+          place, automatic discovery of partitions to mount following
           the Discoverable Partitions Specification
           (http://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec)
           is now a lot more complete. This allows booting without
           /etc/fstab and without root= on the kernel command line on
-          appropriately prepared systems.
+          systems prepared appropriately.
 
         * systemd-nspawn gained a new --image= switch which allows
           booting up disk images and Linux installations on any block
@@ -291,11 +291,11 @@ CHANGES WITH 210:
 
         * logind is now a lot more aggressive when suspending the
           machine due to a closed laptop lid. Instead of acting only
-          on the lid close action it will continuously watch the lid
+          on the lid close action, it will continuously watch the lid
           status and act on it. This is useful for laptops where the
           power button is on the outside of the chassis so that it can
           be reached without opening the lid (such as the Lenovo
-          Yoga). On those machines logind will now immediately
+          Yoga). On those machines, logind will now immediately
           re-suspend the machine if the power button has been
           accidentally pressed while the laptop was suspended and in a
           backpack or similar.
@@ -332,7 +332,7 @@ CHANGES WITH 210:
         * The DeviceAllow= setting in unit files now supports a syntax
           to whitelist an entire group of devices node majors at once,
           based on the /proc/devices listing. For example, with the
-          string "char-pts" it is now possible to whitelist all
+          string "char-pts", it is now possible to whitelist all
           current and future pseudo-TTYs at once.
 
         * sd-event learned a new "post" event source. Event sources of
@@ -346,20 +346,20 @@ CHANGES WITH 210:
           enabled/disabled using systemctl. It still is enabled by
           default however.
 
-        * When creating a veth interface pair with systemd-nspawn the
+        * When creating a veth interface pair with systemd-nspawn, the
           host side will now be prefixed with "vb-" if
           --network-bridge= is used, and with "ve-" if --network-veth
-          is used. This way it is easy to distinguish these cases on
+          is used. This way, it is easy to distinguish these cases on
           the host, for example to apply different configuration to
           them with systemd-networkd.
 
         * The compatibility libraries for libsystemd-journal.so,
           libsystem-id128.so, libsystemd-login.so and
           libsystemd-daemon.so do not make use of IFUNC
-          anymore. Instead we now build libsystemd.so multiple times
+          anymore. Instead, we now build libsystemd.so multiple times
           under these alternative names. This means that the footprint
           is drastically increased, but given that these are
-          transitional compatibility libraries this should not matter
+          transitional compatibility libraries, this should not matter
           much. This change has been made necessary to support the ARM
           platform for these compatibility libraries, as the ARM
           toolchain is not really at the same level as the toolchain
@@ -770,8 +770,8 @@ CHANGES WITH 209:
         * systemd-nspawn gained a new --personality= switch for
           setting the kernel personality for the container. This is
           useful when running a 32-bit container on a 64-bit host. A
-          similar option Personality= is now also available in service
-          units.
+          similar option Personality= is now also available for service
+          units to use.
 
         * logind will now also track a "Desktop" identifier for each
           session which encodes the desktop environment of it. This is
@@ -795,8 +795,8 @@ CHANGES WITH 209:
 
         * For usage together with SystemCallFilter=, a new
           SystemCallErrorNumber= setting has been introduced that
-          allows configuration of a system error number to return on
-          filtered system calls, instead of immediately killing the
+          allows configuration of a system error number to be returned
+          on filtered system calls, instead of immediately killing the
           process. Also, SystemCallArchitectures= has been added to
           limit access to system calls of a particular architecture
           (in order to turn off support for unused secondary

@@ -83,24 +83,24 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
     <para><function>sd_event_new()</function> allocates a new event
     loop object. The event loop object is returned in the
-    <parameter>event</parameter> parameter. After use drop
+    <parameter>event</parameter> parameter. After use, drop
     the returned reference with
     <function>sd_event_unref()</function>. When the last reference is
-    dropped the event loop is freed.</para>
+    dropped, the event loop is freed.</para>
 
     <para><function>sd_event_default()</function> acquires a reference
     to the default event loop object of the calling thread, possibly
     allocating a new object if no default event loop object has been
-    allocated yet for the thread. After use drop the returned
+    allocated yet for the thread. After use, drop the returned
     reference with <function>sd_event_unref()</function>. When the
-    last reference is dropped the event loop is freed. If this
+    last reference is dropped, the event loop is freed. If this
     function is called while the object returned from a previous call
     from the same thread is still referenced, the same object is
     returned again, but the reference is increased by one. It is
     recommended to use this call instead of
     <function>sd_event_new()</function> in order to share event loop
     objects between various components that are dispatched in the same
-    thread. All threads either have no or one default event loops
+    thread. All threads either have exactly zero or one default event loop
     associated, but never more.</para>
 
     <para><function>sd_event_ref()</function> increases the reference
@@ -108,13 +108,13 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
     <para><function>sd_event_unref()</function> decreases the
     reference counter of the specified event loop object by one. If
-    the counter hits zero the event loop object is freed. Note that it
+    the counter hits zero, the event loop object is freed. Note that it
     is freed regardless of whether it is the default event loop object for a
     thread or not. This means that allocating an event loop with
-    <function>sd_event_default()</function>, then releasing it and
+    <function>sd_event_default()</function>, then releasing it, and
     then acquiring a new one with
     <function>sd_event_default()</function> will result in two
-    distinct objects. Note that in order to free an event loop object
+    distinct objects. Note that, in order to free an event loop object,
     all remaining event sources of the event loop also need to be
     freed as they each keep a reference to it.</para>
   </refsect1>

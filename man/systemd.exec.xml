@@ -845,7 +845,7 @@
                                 processes via
                                 <filename>/tmp</filename> or
                                 <filename>/var/tmp</filename>
-                                impossible. If this is enabled all
+                                impossible. If this is enabled, all
                                 temporary files created by a service
                                 in these directories will be removed
                                 after the service is stopped. Defaults
@@ -1208,18 +1208,18 @@
                                 correctly on x86-64). If running in user
                                 mode and this option is used,
                                 <varname>NoNewPrivileges=yes</varname>
-                                is implied. By default no
+                                is implied. By default, no
                                 restriction applies, all address
                                 families are accessible to
                                 processes. If assigned the empty
-                                string any previous list changes are
+                                string, any previous list changes are
                                 undone.</para>
 
                                 <para>Use this option to limit
                                 exposure of processes to remote
                                 systems, in particular via exotic
                                 network protocols. Note that in most
-                                cases the local
+                                cases, the local
                                 <constant>AF_UNIX</constant> address
                                 family should be included in the
                                 configured whitelist as it is
@@ -1240,7 +1240,7 @@
                                 <constant>x86</constant> and
                                 <constant>x86-64</constant>. This is
                                 useful when running 32-bit services on
-                                a 64-bit host system. If not specified
+                                a 64-bit host system. If not specified,
                                 the personality is left unmodified and
                                 thus reflects the personality of the
                                 host system's
@@ -1252,14 +1252,14 @@
                                 <term><varname>RuntimeDirectoryMode=</varname></term>
 
                                 <listitem><para>Takes a list of
-                                directory names. If set one or more
+                                directory names. If set, one or more
                                 directories by the specified names
                                 will be created below
                                 <filename>/run</filename> (for system
                                 services) or below
                                 <varname>$XDG_RUNTIME_DIR</varname>
                                 (for user services) when the unit is
-                                started and removed when the unit is
+                                started, and removed when the unit is
                                 stopped. The directories will have the
                                 access mode specified in
                                 <varname>RuntimeDirectoryMode=</varname>,

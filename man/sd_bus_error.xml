@@ -232,8 +232,8 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <title>Description</title>
 
     <para>The <structname>sd_bus_error</structname> structure carries
-    information for a <filename>sd-bus</filename> error.
-    Functions described below can be used to set and query fields in
+    information for a <filename>sd-bus</filename> error. The
+    functions described below can be used to set and query fields in
     this structure. The <structfield>name</structfield> field contains a
     short identifier of an error. It should follow the rules for error
     names described in the D-Bus specification, subsection <ulink

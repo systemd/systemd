@@ -312,7 +312,7 @@
                                 physical RAM. Defaults to 10%. Note
                                 that this size is a safety limit
                                 only. As each runtime directory is a
-                                tmpfs file system it will only consume
+                                tmpfs file system, it will only consume
                                 as much memory as it is filled up
                                 to.</para></listitem>
                         </varlistentry>
@@ -324,7 +324,7 @@
                                 System V and POSIX IPC objects
                                 belonging to the user shall be removed
                                 when she or he fully logs out. Takes a
-                                boolean argument. If enabled the user
+                                boolean argument. If enabled, the user
                                 may not consume IPC resources after
                                 the last of his sessions
                                 terminated. This covers System V

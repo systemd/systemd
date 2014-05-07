@@ -64,10 +64,10 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
   <refsect1>
     <title>Description</title>
 
-    <para>Function <function>sd_bus_message_append</function> can be
+    <para>The <function>sd_bus_message_append</function> function can be
     used to append an array of strings to message
-    <parameter>m</parameter>. Parameter <parameter>l</parameter>
-    points to a <constant>NULL</constant>-terminated array of pointers
+    <parameter>m</parameter>. The parameter <parameter>l</parameter>
+    shall point to a <constant>NULL</constant>-terminated array of pointers
     to <constant>NUL</constant>-terminated strings. Each string must
     satisfy the same constraints as described for the
     <literal>s</literal> type in
@@ -94,7 +94,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
   <refsect1>
     <title>Notes</title>
 
-    <para><function>sd_bus_append_append_strv()</function> function
+    <para>The <function>sd_bus_append_append_strv()</function> function
     described here is available as a shared library, which can be
     compiled and linked to with the
     <constant>libsystemd</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>

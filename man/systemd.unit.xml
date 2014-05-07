@@ -1019,7 +1019,7 @@
                                 case the kernel command line is
                                 searched for the word appearing as is,
                                 or as left hand side of an
-                                assignment. In the latter case the
+                                assignment. In the latter case, the
                                 exact assignment is looked for with
                                 right and left hand side
                                 matching.</para>

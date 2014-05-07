@@ -299,7 +299,7 @@
                                         <term><varname>Destination=</varname></term>
                                         <listitem>
                                                 <para>The destination prefix of the route. Possibly followed by a slash and the
-                                                prefixlength, if ommitted a full-length host route is assumed.</para>
+                                                prefixlength. If ommitted, a full-length host route is assumed.</para>
                                         </listitem>
                                 </varlistentry>
                         </variablelist>

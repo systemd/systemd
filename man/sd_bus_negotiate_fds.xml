@@ -79,35 +79,35 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
     <para><function>sd_bus_negotiate_fds()</function> controls whether
     file descriptor passing shall be negotiated for the specified bus
-    connection. Takes a bus object and a boolean, which when true
-    enables file descriptor passing, and when false disables it. Note
+    connection. It takes a bus object and a boolean, which, when true,
+    enables file descriptor passing, and, when false, disables it. Note
     that not all transports and servers support file descriptor
     passing. To find out whether file descriptor passing is available
-    after negotiation use
+    after negotiation, use
     <citerefentry><refentrytitle>sd_bus_can_send</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     and pass <constant>SD_BUS_TYPE_UNIX_FD</constant>. Note that file
     descriptor passing is always enabled for both sending and
     receiving or for neither, but never only in one direction. By
-    default file descriptor passing is negotiated for all
+    default, file descriptor passing is negotiated for all
     connections.</para>
 
-    <para>Note that when bus activation is used it is highly
+    <para>Note that when bus activation is used, it is highly
     recommended to set the <option>AcceptFileDescriptors=</option>
     setting in the <filename>.busname</filename> unit file to the same
     setting as negotiated by the program ultimately activated. By
-    default file descriptor passing is enabled for both.</para>
+    default, file descriptor passing is enabled for both.</para>
 
     <para><function>sd_bus_negotiate_timestamps()</function> controls
     whether implicit sender timestamps shall be attached automatically
-    to all incoming messages. Takes a bus object and a boolean, which
-    when true enables timestamping, and when false disables it. If
+    to all incoming messages. Takes a bus object and a boolean, which,
+    when true, enables timestamping, and, when false, disables it. If
     this is disabled,
     <citerefentry><refentrytitle>sd_bus_message_get_monotonic_usec</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
     <citerefentry><refentrytitle>sd_bus_message_get_realtime_usec</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
     <citerefentry><refentrytitle>sd_bus_message_get_seqno</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     fail with <constant>-ENODATA</constant> on incoming messages. Note
     that not all transports support timestamping of messages. On local
-    transports the timestamping is applied by the kernel and cannot be
+    transports, the timestamping is applied by the kernel and cannot be
     manipulated by userspace.</para>
 
     <para><function>sd_bus_negotiate_creds()</function> controls
@@ -119,9 +119,9 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     fails with <constant>-ENODATA</constant> on incoming
     messages. Note that not all transports support attaching sender
     credentials to messages, or do not support all types of sender
-    credential parameters. On local transports the sender credentials
+    credential parameters. On local transports, the sender credentials
     are attached by the kernel and cannot be manipulated by
-    userspace. By default no sender credentials are attached.</para>
+    userspace. By default, no sender credentials are attached.</para>
 
     <para>These functions may be called only before the connection has
     been started with

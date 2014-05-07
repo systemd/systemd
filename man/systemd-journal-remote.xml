@@ -86,7 +86,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       <command>systemd-journal-remote</command> can read more than one
       event stream at a time. They will be interleaved in the output
       file. In case of "active" connections, each "source" is one
-      stream, and in case of "passive" connections each connection can
+      stream, and in case of "passive" connections, each connection can
       result in a separate stream. Sockets can be configured in
       "accept" mode (i.e. only one connection), or "listen" mode (i.e.
       multiple connections, each resulting in a stream).
@@ -153,7 +153,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <varname>$LISTEN_FDS</varname>/<varname>$LISTEN_PID</varname>.
         In the second case, an HTTP or HTTPS server will be spawned on
         this port, respectively for <option>--listen-http</option> and
-        <option>--listen-https</option>. Currenntly Only POST requests
+        <option>--listen-https</option>. Currenntly, only POST requests
         to <filename>/upload</filename> with <literal>Content-Type:
         application/vnd.fdo.journal</literal> are supported.</para>
         </listitem>
@@ -171,7 +171,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <option>--listen-http=-<replaceable>n</replaceable></option>
         or
         <option>--listen-https=-<replaceable>n</replaceable></option>
-        above. In this later case, an HTTP or HTTPS server will be
+        above. In the latter case, an HTTP or HTTPS server will be
         spawned using this descriptor and connections must be made
         over the HTTP protocol.</para>
         </listitem>
@@ -193,8 +193,8 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
         <listitem><para>Will write to this journal. The filename must
         end with <filename>.journal</filename>. The file will be
-        created if it does not exist. When necessary (journal file
-        full, or corrupted) the file will be renamed following normal
+        created if it does not exist. If necessary (journal file
+        full, or corrupted), the file will be renamed following normal
         journald rules and a new journal file will be created in its
         stead.</para></listitem>
       </varlistentry>
@@ -203,15 +203,15 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <term><option>--output=<replaceable>DIR</replaceable></option></term>
 
         <listitem><para>Will create journal files underneath directory
-        <replaceable>DIR</replaceable>. The directory must exist. When
-        necessary (journal files over size, or corrupted) journal
+        <replaceable>DIR</replaceable>. The directory must exist. If
+        necessary (journal files over size, or corrupted), journal
         files will be rotated following normal journald rules. Names
         of files underneath <replaceable>DIR</replaceable> will be
         generated using the rules described below.</para></listitem>
       </varlistentry>
     </variablelist>
 
-    <para>If <option>--output=</option> is not used, output directory
+    <para>If <option>--output=</option> is not used, the output directory
     <filename>/var/log/journal/<replaceable>machine-id</replaceable>/</filename>
     will be used, where <replaceable>machine-id</replaceable> is the
     identifier of the current system (see
@@ -223,7 +223,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     based on what passive and active sources are specified. It is
     recommended to give a full output filename.</para>
 
-    <para>In case of "active" sources, if the hostname is known it
+    <para>In case of "active" sources, if the hostname is known, it
     will be used in the <replaceable>variable</replaceable> part.
     Otherwise, local address and port number will be used, or
     <literal>stdin</literal> for events passed over standard
@@ -272,7 +272,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       <varlistentry>
         <term><option>--getter=<replaceable>PROG --option1 --option2</replaceable></option></term>
 
-        <listitem><para>Program to invoke to retrieve data. Journal
+        <listitem><para>Program to invoke to retrieve data. The journal
         event stream must be generated on standard output.</para>
 
         <para>Examples:</para>
