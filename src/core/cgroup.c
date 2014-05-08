@@ -920,7 +920,7 @@ int manager_setup_cgroup(Manager *m) {
         safe_close(m->pin_cgroupfs_fd);
 
         m->pin_cgroupfs_fd = open(path, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY|O_NONBLOCK);
-        if (r < 0) {
+        if (m->pin_cgroupfs_fd < 0) {
                 log_error("Failed to open pin file: %m");
                 return -errno;
         }
