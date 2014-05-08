@@ -178,10 +178,9 @@ static bool all_configured(Manager *m) {
                         continue;
 
                 r = sd_network_get_link_state(indices[i], &state);
-                if (r != -EUNATCH && (r < 0 || !streq(state, "configured"))) {
-                        /* managed by networkd, but not yet configured */
+                if (r == -EBUSY || (r >= 0 && !streq(state, "configured")))
+                        /* not yet processed by udev, or managed by networkd, but not yet configured */
                         return false;
-                }
 
                 r = sd_network_get_link_operational_state(indices[i], &oper_state);
                 if (r >= 0 && streq(oper_state, "carrier"))
