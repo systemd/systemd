@@ -48,16 +48,35 @@ static const char* const macvlan_mode_table[_NETDEV_MACVLAN_MODE_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(macvlan_mode, MacVlanMode);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_macvlan_mode, macvlan_mode, MacVlanMode, "Failed to parse macvlan mode");
 
-static void netdev_free(NetDev *netdev) {
+static void netdev_cancel_callbacks(NetDev *netdev) {
+        _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
         netdev_enslave_callback *callback;
 
         if (!netdev)
                 return;
 
+        rtnl_message_new_synthetic_error(-ENODEV, 0, &m);
+
         while ((callback = netdev->callbacks)) {
+                if (m) {
+                        assert(callback->link);
+                        assert(callback->callback);
+                        assert(netdev->manager);
+                        assert(netdev->manager->rtnl);
+
+                        callback->callback(netdev->manager->rtnl, m, link);
+                }
+
                 LIST_REMOVE(callbacks, netdev->callbacks, callback);
                 free(callback);
         }
+}
+
+static void netdev_free(NetDev *netdev) {
+        if (!netdev)
+                return;
+
+        netdev_cancel_callbacks(netdev);
 
         if (netdev->name)
                 hashmap_remove(netdev->manager->netdevs, netdev->name);
