@@ -145,6 +145,7 @@ int network_load(Manager *manager) {
 }
 
 void network_free(Network *network) {
+        NetDev *netdev;
         Route *route;
         Address *address;
         Iterator i;
@@ -167,8 +168,16 @@ void network_free(Network *network) {
 
         set_free(network->dns);
 
+        netdev_unref(network->bridge);
+
+        netdev_unref(network->bond);
+
+        HASHMAP_FOREACH(netdev, network->vlans, i)
+                netdev_unref(netdev);
         hashmap_free(network->vlans);
 
+        HASHMAP_FOREACH(netdev, network->macvlans, i)
+                netdev_unref(netdev);
         hashmap_free(network->macvlans);
 
         while ((route = network->static_routes))
@@ -316,6 +325,8 @@ int config_parse_netdev(const char *unit,
         default:
                 assert_not_reached("Can not parse NetDev");
         }
+
+        netdev_ref(netdev);
 
         return 0;
 }
