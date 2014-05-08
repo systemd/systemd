@@ -202,6 +202,8 @@ static int monitor_event_handler(sd_event_source *s, int fd, uint32_t revents,
         if (all_configured(m))
                 sd_event_exit(m->event, 0);
 
+        sd_network_monitor_flush(m->monitor);
+
         return 1;
 }
 
@@ -218,7 +220,6 @@ void manager_free(Manager *m) {
 int main(int argc, char *argv[]) {
         _cleanup_manager_free_ Manager *m = NULL;
         _cleanup_event_source_unref_ sd_event_source *event_source = NULL;
-        _cleanup_network_monitor_unref_ sd_network_monitor *monitor = NULL;
         int r, fd, events;
 
         umask(0022);
@@ -237,25 +238,31 @@ int main(int argc, char *argv[]) {
         if (!m)
                 return log_oom();
 
-        r = sd_network_monitor_new(NULL, &monitor);
-        if (r < 0) {
-                log_error("Could not create monitor: %s", strerror(-r));
-                goto out;
-        }
-
         r = sd_event_new(&m->event);
         if (r < 0) {
                 log_error("Could not create event: %s", strerror(-r));
                 goto out;
         }
 
-        fd = sd_network_monitor_get_fd(monitor);
+        r = sd_rtnl_open(&m->rtnl, 0);
+        if (r < 0) {
+                log_error("Could not create rtnl: %s", strerror(-r));
+                goto out;
+        }
+
+        r = sd_network_monitor_new(NULL, &m->monitor);
+        if (r < 0) {
+                log_error("Could not create monitor: %s", strerror(-r));
+                goto out;
+        }
+
+        fd = sd_network_monitor_get_fd(m->monitor);
         if (fd < 0) {
                 log_error("Could not get monitor fd: %s", strerror(-r));
                 goto out;
         }
 
-        events = sd_network_monitor_get_events(monitor);
+        events = sd_network_monitor_get_events(m->monitor);
         if (events < 0) {
                 log_error("Could not get monitor events: %s", strerror(-r));
                 goto out;
@@ -265,12 +272,6 @@ int main(int argc, char *argv[]) {
                             m);
         if (r < 0) {
                 log_error("Could not add io event source: %s", strerror(-r));
-                goto out;
-        }
-
-        r = sd_rtnl_open(&m->rtnl, 0);
-        if (r < 0) {
-                log_error("Could not create rtnl: %s", strerror(-r));
                 goto out;
         }
 

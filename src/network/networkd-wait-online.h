@@ -29,6 +29,7 @@
 typedef struct Manager {
         sd_event *event;
         sd_rtnl *rtnl;
+        sd_network_monitor *monitor;
 } Manager;
 
 void manager_free(Manager *m);
