@@ -1693,7 +1693,7 @@ int link_save(Link *link) {
         admin_state = link_state_to_string(link->state);
         assert(admin_state);
 
-        if (link->operstate & IF_OPER_DORMANT)
+        if (link->operstate == IF_OPER_DORMANT)
                 oper_state = "dormant";
         else if (link_has_carrier(link->flags, link->operstate))
                 oper_state = "carrier";
