@@ -1063,26 +1063,14 @@ static int manager_parse_config_file(Manager *m) {
 }
 
 static bool network_is_online(void) {
-        _cleanup_free_ unsigned *indices = NULL;
-        int r, n, i;
+        _cleanup_free_ char *state = NULL;
+        int r;
 
-        n = sd_network_get_ifindices(&indices);
-        if (n <= 0)
+        r = sd_network_get_operational_state(&state);
+        if (r >= 0 && streq("carrier", state))
+                return true;
+        else
                 return false;
-
-        for (i = 0; i < n; i++) {
-                _cleanup_free_ char *oper_state = NULL;
-
-                if (sd_network_link_is_loopback(indices[i]))
-                        /* ignore loopback devices */
-                        continue;
-
-                r = sd_network_get_link_operational_state(indices[i], &oper_state);
-                if (r >= 0 && streq(oper_state, "carrier"))
-                        return true;
-        }
-
-        return false;
 }
 
 static int manager_network_event_handler(sd_event_source *s, int fd, uint32_t revents,
