@@ -19,6 +19,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <ctype.h>
+
 #include "networkd.h"
 #include "network-internal.h"
 #include "path-util.h"
@@ -235,7 +237,7 @@ int network_apply(Manager *manager, Network *network, Link *link) {
         return 0;
 }
 
-int config_parse_bridge(const char *unit,
+int config_parse_netdev(const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -246,7 +248,9 @@ int config_parse_bridge(const char *unit,
                 void *data,
                 void *userdata) {
         Network *network = userdata;
+        char *kind_string, *p;
         NetDev *netdev;
+        NetDevKind kind;
         int r;
 
         assert(filename);
@@ -254,140 +258,63 @@ int config_parse_bridge(const char *unit,
         assert(rvalue);
         assert(data);
 
-        r = netdev_get(network->manager, rvalue, &netdev);
-        if (r < 0) {
+        kind_string = strdup(lvalue);
+        if (!kind_string)
+                return log_oom();
+
+        /* the keys are CamelCase versions of the kind */
+        for (p = kind_string; *p; p++)
+                *p = tolower(*p);
+
+        kind = netdev_kind_from_string(kind_string);
+        if (kind == _NETDEV_KIND_INVALID) {
                 log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Bridge is invalid, ignoring assignment: %s", rvalue);
+                           "Invalid NetDev kind: %s", lvalue);
                 return 0;
         }
-
-        if (netdev->kind != NETDEV_KIND_BRIDGE) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "NetDev is not a bridge, ignoring assignment: %s", rvalue);
-                return 0;
-        }
-
-        network->bridge = netdev;
-
-        return 0;
-}
-
-int config_parse_bond(const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-        Network *network = userdata;
-        NetDev *netdev;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
 
         r = netdev_get(network->manager, rvalue, &netdev);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Bond is invalid, ignoring assignment: %s", rvalue);
+                           "%s could not be found, ignoring assignment: %s", lvalue, rvalue);
                 return 0;
         }
 
-        if (netdev->kind != NETDEV_KIND_BOND) {
+        if (netdev->kind != kind) {
                 log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "NetDev is not a bond, ignoring assignment: %s", rvalue);
+                           "NetDev is not a %s, ignoring assignment: %s", lvalue, rvalue);
                 return 0;
         }
 
-        network->bond = netdev;
+        switch (kind) {
+        case NETDEV_KIND_BRIDGE:
+                network->bridge = netdev;
 
-        return 0;
-}
+                break;
+        case NETDEV_KIND_BOND:
+                network->bond = netdev;
 
-int config_parse_vlan(const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-        Network *network = userdata;
-        NetDev *netdev;
-        int r;
+                break;
+        case NETDEV_KIND_VLAN:
+                r = hashmap_put(network->vlans, &netdev->vlanid, netdev);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                                   "Can not add VLAN to network: %s", rvalue);
+                        return 0;
+                }
 
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
+                break;
+        case NETDEV_KIND_MACVLAN:
+                r = hashmap_put(network->macvlans, netdev->name, netdev);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                                   "Can not add MACVLAN to network: %s", rvalue);
+                        return 0;
+                }
 
-        r = netdev_get(network->manager, rvalue, &netdev);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "VLAN is invalid, ignoring assignment: %s", rvalue);
-                return 0;
-        }
-
-        if (netdev->kind != NETDEV_KIND_VLAN) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "NetDev is not a VLAN, ignoring assignment: %s", rvalue);
-                return 0;
-        }
-
-        r = hashmap_put(network->vlans, &netdev->vlanid, netdev);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Can not add VLAN to network: %s", rvalue);
-                return 0;
-        }
-
-        return 0;
-}
-
-int config_parse_macvlan(const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-        Network *network = userdata;
-        NetDev *netdev;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = netdev_get(network->manager, rvalue, &netdev);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "MACVLAN is invalid, ignoring assignment: %s", rvalue);
-                return 0;
-        }
-
-        if (netdev->kind != NETDEV_KIND_MACVLAN) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "NetDev is not a MACVLAN, ignoring assignment: %s", rvalue);
-                return 0;
-        }
-
-        r = hashmap_put(network->macvlans, netdev->name, netdev);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Can not add MACVLAN to network: %s", rvalue);
-                return 0;
+                break;
+        default:
+                assert_not_reached("Can not parse NetDev");
         }
 
         return 0;

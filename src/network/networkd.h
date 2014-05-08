@@ -309,21 +309,9 @@ int network_get(Manager *manager, struct udev_device *device,
                 Network **ret);
 int network_apply(Manager *manager, Network *network, Link *link);
 
-int config_parse_bridge(const char *unit, const char *filename, unsigned line,
+int config_parse_netdev(const char *unit, const char *filename, unsigned line,
                         const char *section, unsigned section_line, const char *lvalue,
                         int ltype, const char *rvalue, void *data, void *userdata);
-
-int config_parse_bond(const char *unit, const char *filename, unsigned line,
-                      const char *section, unsigned section_line, const char *lvalue,
-                      int ltype, const char *rvalue, void *data, void *userdata);
-
-int config_parse_vlan(const char *unit, const char *filename, unsigned line,
-                      const char *section, unsigned section_line, const char *lvalue,
-                      int ltype, const char *rvalue, void *data, void *userdata);
-
-int config_parse_macvlan(const char *unit, const char *filename, unsigned line,
-                         const char *section, unsigned section_line, const char *lvalue,
-                         int ltype, const char *rvalue, void *data, void *userdata);
 
 /* gperf */
 const struct ConfigPerfItem* network_network_gperf_lookup(const char *key, unsigned length);
