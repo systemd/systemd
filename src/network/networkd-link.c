@@ -37,7 +37,7 @@ static int ipv4ll_address_update(Link *link, bool deprecate);
 static bool ipv4ll_is_bound(sd_ipv4ll *ll);
 
 static int link_new(Manager *manager, sd_rtnl_message *message, Link **ret) {
-        _cleanup_link_free_ Link *link = NULL;
+        _cleanup_link_unref_ Link *link = NULL;
         uint16_t type;
         char *ifname;
         int r, ifindex;
@@ -67,6 +67,7 @@ static int link_new(Manager *manager, sd_rtnl_message *message, Link **ret) {
         if (!link)
                 return -ENOMEM;
 
+        link->n_ref = 1;
         link->manager = manager;
         link->state = LINK_STATE_INITIALIZING;
         link->ifindex = ifindex;
@@ -94,7 +95,7 @@ static int link_new(Manager *manager, sd_rtnl_message *message, Link **ret) {
         return 0;
 }
 
-void link_free(Link *link) {
+static void link_free(Link *link) {
         if (!link)
                 return;
 
@@ -118,6 +119,20 @@ void link_free(Link *link) {
         udev_device_unref(link->udev_device);
 
         free(link);
+}
+
+Link *link_unref(Link *link) {
+        if (link && (-- link->n_ref <= 0))
+                link_free(link);
+
+        return NULL;
+}
+
+Link *link_ref(Link *link) {
+        if (link)
+                assert_se(++ link->n_ref >= 2);
+
+        return link;
 }
 
 int link_get(Manager *m, int ifindex, Link **ret) {

@@ -48,7 +48,7 @@ static const char* const macvlan_mode_table[_NETDEV_MACVLAN_MODE_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(macvlan_mode, MacVlanMode);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_macvlan_mode, macvlan_mode, MacVlanMode, "Failed to parse macvlan mode");
 
-void netdev_free(NetDev *netdev) {
+static void netdev_free(NetDev *netdev) {
         netdev_enslave_callback *callback;
 
         if (!netdev)
@@ -73,6 +73,20 @@ void netdev_free(NetDev *netdev) {
         condition_free_list(netdev->match_arch);
 
         free(netdev);
+}
+
+NetDev *netdev_unref(NetDev *netdev) {
+        if (netdev && (-- netdev->n_ref <= 0))
+                netdev_free(netdev);
+
+        return NULL;
+}
+
+NetDev *netdev_ref(NetDev *netdev) {
+        if (netdev)
+                assert_se(++ netdev->n_ref >= 2);
+
+        return netdev;
 }
 
 int netdev_get(Manager *manager, const char *name, NetDev **ret) {
@@ -413,7 +427,7 @@ int netdev_set_ifindex(NetDev *netdev, sd_rtnl_message *message) {
 }
 
 static int netdev_load_one(Manager *manager, const char *filename) {
-        _cleanup_netdev_free_ NetDev *netdev = NULL;
+        _cleanup_netdev_unref_ NetDev *netdev = NULL;
         _cleanup_fclose_ FILE *file = NULL;
         int r;
 
@@ -437,6 +451,7 @@ static int netdev_load_one(Manager *manager, const char *filename) {
         if (!netdev)
                 return log_oom();
 
+        netdev->n_ref = 1;
         netdev->manager = manager;
         netdev->state = _NETDEV_STATE_INVALID;
         netdev->kind = _NETDEV_KIND_INVALID;
@@ -517,7 +532,7 @@ int netdev_load(Manager *manager) {
         assert(manager);
 
         while ((netdev = hashmap_first(manager->netdevs)))
-                netdev_free(netdev);
+                netdev_unref(netdev);
 
         r = conf_files_list_strv(&files, ".netdev", NULL, network_dirs);
         if (r < 0) {

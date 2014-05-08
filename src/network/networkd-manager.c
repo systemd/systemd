@@ -151,14 +151,14 @@ void manager_free(Manager *m) {
         sd_event_unref(m->event);
 
         while ((link = hashmap_first(m->links)))
-                link_free(link);
+                link_unref(link);
         hashmap_free(m->links);
 
         while ((network = m->networks))
                 network_free(network);
 
         while ((netdev = hashmap_first(m->netdevs)))
-                netdev_free(netdev);
+                netdev_unref(netdev);
         hashmap_free(m->netdevs);
 
         sd_rtnl_unref(m->rtnl);

@@ -83,6 +83,8 @@ typedef enum NetDevState {
 struct NetDev {
         Manager *manager;
 
+        int n_ref;
+
         char *filename;
 
         Condition *match_host;
@@ -199,6 +201,8 @@ typedef enum LinkState {
 struct Link {
         Manager *manager;
 
+        int n_ref;
+
         uint64_t ifindex;
         char *ifname;
         char *state_file;
@@ -268,10 +272,11 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 
 int netdev_load(Manager *manager);
 
-void netdev_free(NetDev *netdev);
+NetDev *netdev_unref(NetDev *netdev);
+NetDev *netdev_ref(NetDev *netdev);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(NetDev*, netdev_free);
-#define _cleanup_netdev_free_ _cleanup_(netdev_freep)
+DEFINE_TRIVIAL_CLEANUP_FUNC(NetDev*, netdev_unref);
+#define _cleanup_netdev_unref_ _cleanup_(netdev_unrefp)
 
 int netdev_get(Manager *manager, const char *name, NetDev **ret);
 int netdev_set_ifindex(NetDev *netdev, sd_rtnl_message *newlink);
@@ -371,7 +376,8 @@ int config_parse_label(const char *unit, const char *filename, unsigned line,
 
 /* Link */
 
-void link_free(Link *link);
+Link *link_unref(Link *link);
+Link *link_ref(Link *link);
 int link_get(Manager *m, int ifindex, Link **ret);
 int link_add(Manager *manager, sd_rtnl_message *message, Link **ret);
 
@@ -386,8 +392,8 @@ bool link_has_carrier(unsigned flags, uint8_t operstate);
 const char* link_state_to_string(LinkState s) _const_;
 LinkState link_state_from_string(const char *s) _pure_;
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_free);
-#define _cleanup_link_free_ _cleanup_(link_freep)
+DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_unref);
+#define _cleanup_link_unref_ _cleanup_(link_unrefp)
 
 /* Macros which append INTERFACE= to the message */
 
