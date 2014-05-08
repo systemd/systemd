@@ -76,6 +76,7 @@ typedef enum NetDevState {
         NETDEV_STATE_FAILED,
         NETDEV_STATE_CREATING,
         NETDEV_STATE_READY,
+        NETDEV_STATE_LINGER,
         _NETDEV_STATE_MAX,
         _NETDEV_STATE_INVALID = -1,
 } NetDevState;
@@ -271,6 +272,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 /* NetDev */
 
 int netdev_load(Manager *manager);
+void netdev_drop(NetDev *netdev);
 
 NetDev *netdev_unref(NetDev *netdev);
 NetDev *netdev_ref(NetDev *netdev);

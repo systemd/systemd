@@ -108,6 +108,19 @@ NetDev *netdev_ref(NetDev *netdev) {
         return netdev;
 }
 
+void netdev_drop(NetDev *netdev) {
+        if (!netdev || netdev->state == NETDEV_STATE_LINGER)
+                return;
+
+        netdev->state = NETDEV_STATE_LINGER;
+
+        netdev_cancel_callbacks(netdev);
+
+        netdev_unref(netdev);
+
+        return;
+}
+
 int netdev_get(Manager *manager, const char *name, NetDev **ret) {
         NetDev *netdev;
 
