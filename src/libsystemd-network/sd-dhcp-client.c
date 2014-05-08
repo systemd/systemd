@@ -237,7 +237,7 @@ static sd_dhcp_client *client_stop(sd_dhcp_client *client, int error) {
         else {
                 switch(error) {
                 case DHCP_EVENT_STOP:
-                        log_dhcp_client(client, "STOPPED: Requested by user");
+                        log_dhcp_client(client, "STOPPED");
                         break;
                 case DHCP_EVENT_NO_LEASE:
                         log_dhcp_client(client, "STOPPED: No lease");
