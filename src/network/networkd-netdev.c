@@ -168,7 +168,7 @@ static int netdev_enter_ready(NetDev *netdev) {
         log_info_netdev(netdev, "netdev ready");
 
         LIST_FOREACH(callbacks, callback, netdev->callbacks) {
-                /* enslave the links that were attempted to be enslaved befor the
+                /* enslave the links that were attempted to be enslaved before the
                  * link was ready */
                 netdev_enslave_ready(netdev, callback->link, callback->callback);
         }
@@ -308,11 +308,15 @@ static int netdev_create(NetDev *netdev, Link *link, sd_rtnl_message_handler_t c
 }
 
 int netdev_enslave(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callback) {
+        int r;
+
         if (netdev->kind == NETDEV_KIND_VLAN || netdev->kind == NETDEV_KIND_MACVLAN)
                 return netdev_create(netdev, link, callback);
 
         if (netdev->state == NETDEV_STATE_READY) {
-                netdev_enslave_ready(netdev, link, callback);
+                r = netdev_enslave_ready(netdev, link, callback);
+                if (r < 0)
+                        return r;
         } else {
                 /* the netdev is not yet read, save this request for when it is*/
                 netdev_enslave_callback *cb;
