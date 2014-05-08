@@ -232,6 +232,8 @@ struct Manager {
         sd_event_source *sigterm_event_source;
         sd_event_source *sigint_event_source;
 
+        char *state_file;
+
         Hashmap *links;
         Hashmap *netdevs;
         LIST_HEAD(Network, networks);
@@ -256,6 +258,7 @@ int manager_udev_listen(Manager *m);
 int manager_bus_listen(Manager *m);
 
 int manager_update_resolv_conf(Manager *m);
+int manager_save(Manager *m);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 #define _cleanup_manager_free_ _cleanup_(manager_freep)
@@ -376,6 +379,8 @@ int link_update(Link *link, sd_rtnl_message *message);
 int link_initialized(Link *link, struct udev_device *device);
 
 int link_save(Link *link);
+
+bool link_has_carrier(unsigned flags, uint8_t operstate);
 
 const char* link_state_to_string(LinkState s) _const_;
 LinkState link_state_from_string(const char *s) _pure_;

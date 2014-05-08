@@ -95,6 +95,27 @@ _public_ int sd_network_get_link_state(unsigned index, char **state) {
         return 0;
 }
 
+_public_ int sd_network_get_operational_state(char **state) {
+        _cleanup_free_ char *s = NULL;
+        int r;
+
+        assert_return(state, -EINVAL);
+
+        r = parse_env_file("/run/systemd/network/state", NEWLINE, "OPER_STATE",
+                           &s, NULL);
+        if (r == -ENOENT)
+                return -ENODATA;
+        else if (r < 0)
+                return r;
+        else if (!s)
+                return -EIO;
+
+        *state = s;
+        s = NULL;
+
+        return 0;
+}
+
 _public_ int sd_network_get_link_operational_state(unsigned index, char **state) {
         _cleanup_free_ char *s = NULL, *p = NULL;
         int r;

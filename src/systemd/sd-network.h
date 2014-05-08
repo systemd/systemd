@@ -67,6 +67,13 @@ int sd_network_get_link_state(unsigned index, char **state);
  */
 int sd_network_get_link_operational_state(unsigned index, char **state);
 
+/* Get overall opeartional state
+ * Possible states: unknown, dormant, carrier
+ * Possible return codes:
+ *   -ENODATA: networkd is not aware of any links
+ */
+int sd_network_get_operational_state(char **state);
+
 /* Returns true if link exists and is loopback, and false otherwise */
 int sd_network_link_is_loopback(unsigned index);
 

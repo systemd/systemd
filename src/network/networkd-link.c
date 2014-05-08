@@ -1117,7 +1117,7 @@ static int link_acquire_conf(Link *link) {
         return 0;
 }
 
-static bool link_has_carrier(unsigned flags, uint8_t operstate) {
+bool link_has_carrier(unsigned flags, uint8_t operstate) {
         /* see Documentation/networking/operstates.txt in the kernel sources */
 
         if (operstate == IF_OPER_UP)
@@ -1689,6 +1689,11 @@ int link_save(Link *link) {
 
         assert(link);
         assert(link->state_file);
+        assert(link->manager);
+
+        r = manager_save(link->manager);
+        if (r < 0)
+                return r;
 
         admin_state = link_state_to_string(link->state);
         assert(admin_state);
@@ -1735,7 +1740,7 @@ int link_save(Link *link) {
 
 finish:
         if (r < 0)
-                log_error("Failed to save link data %s: %s", link->state_file, strerror(-r));
+                log_error("Failed to save link data to %s: %s", link->state_file, strerror(-r));
 
         return r;
 }

@@ -20,6 +20,7 @@
  ***/
 
 #include <resolv.h>
+#include <linux/if.h>
 
 #include "path-util.h"
 #include "networkd.h"
@@ -80,6 +81,10 @@ int manager_new(Manager **ret) {
         if (!m)
                 return -ENOMEM;
 
+        m->state_file = strdup("/run/systemd/network/state");
+        if (!m->state_file)
+                return -ENOMEM;
+
         r = sd_event_default(&m->event);
         if (r < 0)
                 return r;
@@ -134,6 +139,8 @@ void manager_free(Manager *m) {
 
         if (!m)
                 return;
+
+        free(m->state_file);
 
         udev_monitor_unref(m->udev_monitor);
         udev_unref(m->udev);
@@ -456,4 +463,56 @@ int manager_update_resolv_conf(Manager *m) {
         }
 
         return 0;
+}
+
+int manager_save(Manager *m) {
+        Link *link;
+        Iterator i;
+        _cleanup_free_ char *temp_path = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        const char *oper_state = "unknown";
+        bool dormant, carrier;
+        int r;
+
+        assert(m);
+        assert(m->state_file);
+
+        HASHMAP_FOREACH(link, m->links, i) {
+                if (link->flags & IFF_LOOPBACK)
+                        continue;
+
+                if (link_has_carrier(link->flags, link->operstate))
+                        carrier = true;
+                else if (link->operstate == IF_OPER_DORMANT)
+                        dormant = true;
+        }
+
+        if (carrier)
+                oper_state = "carrier";
+        else if (dormant)
+                oper_state = "dormant";
+
+        r = fopen_temporary(m->state_file, &f, &temp_path);
+        if (r < 0)
+                goto finish;
+
+        fchmod(fileno(f), 0644);
+
+        fprintf(f,
+                "# This is private data. Do not parse.\n"
+                "OPER_STATE=%s\n", oper_state);
+
+        fflush(f);
+
+        if (ferror(f) || rename(temp_path, m->state_file) < 0) {
+                r = -errno;
+                unlink(m->state_file);
+                unlink(temp_path);
+        }
+
+finish:
+        if (r < 0)
+                log_error("Failed to save network state to %s: %s", m->state_file, strerror(-r));
+
+        return r;
 }
