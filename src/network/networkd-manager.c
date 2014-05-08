@@ -219,12 +219,19 @@ static int manager_udev_process_link(Manager *m, struct udev_device *device) {
 static int manager_rtnl_process_link(sd_rtnl *rtnl, sd_rtnl_message *message, void *userdata) {
         Manager *m = userdata;
         Link *link = NULL;
+        uint16_t type;
         char *name;
         int r, ifindex;
 
         assert(rtnl);
         assert(message);
         assert(m);
+
+        r = sd_rtnl_message_get_type(message, &type);
+        if (r < 0) {
+                log_warning("rtnl: could not get message type");
+                return 0;
+        }
 
         r = sd_rtnl_message_link_get_ifindex(message, &ifindex);
         if (r < 0 || ifindex <= 0) {
@@ -233,7 +240,9 @@ static int manager_rtnl_process_link(sd_rtnl *rtnl, sd_rtnl_message *message, vo
         }
 
         link_get(m, ifindex, &link);
-        if (!link) {
+        if (type == RTM_DELLINK)
+                link_drop(link);
+        else if (!link) {
                 /* link is new, so add it */
                 r = link_add(m, message, &link);
                 if (r < 0) {
@@ -246,10 +255,12 @@ static int manager_rtnl_process_link(sd_rtnl *rtnl, sd_rtnl_message *message, vo
         if (r < 0)
                 log_warning("rtnl: received link message without valid ifname");
         else {
-                NetDev *netdev;
+                NetDev *netdev = NULL;
 
-                r = netdev_get(m, name, &netdev);
-                if (r >= 0) {
+                netdev_get(m, name, &netdev);
+                if (type == RTM_DELLINK)
+                        netdev_drop(netdev);
+                else if (netdev) {
                         r = netdev_set_ifindex(netdev, message);
                         if (r < 0) {
                                 log_debug("could not set ifindex on netdev");
@@ -258,9 +269,11 @@ static int manager_rtnl_process_link(sd_rtnl *rtnl, sd_rtnl_message *message, vo
                 }
         }
 
-        r = link_update(link, message);
-        if (r < 0)
-                return 0;
+        if (type == RTM_NEWLINK) {
+                r = link_update(link, message);
+                if (r < 0)
+                        return 0;
+        }
 
         return 1;
 }
@@ -355,6 +368,10 @@ int manager_rtnl_listen(Manager *m) {
                 return r;
 
         r = sd_rtnl_add_match(m->rtnl, RTM_NEWLINK, &manager_rtnl_process_link, m);
+        if (r < 0)
+                return r;
+
+        r = sd_rtnl_add_match(m->rtnl, RTM_DELLINK, &manager_rtnl_process_link, m);
         if (r < 0)
                 return r;
 
