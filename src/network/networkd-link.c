@@ -79,6 +79,11 @@ static int link_new(Manager *manager, sd_rtnl_message *message, Link **ret) {
         if (r < 0)
                 return -ENOMEM;
 
+        r = asprintf(&link->lease_file, "/run/systemd/network/leases/%"PRIu64,
+                     link->ifindex);
+        if (r < 0)
+                return -ENOMEM;
+
         r = hashmap_put(manager->links, &link->ifindex, link);
         if (r < 0)
                 return r;
@@ -98,11 +103,16 @@ void link_free(Link *link) {
         sd_dhcp_client_unref(link->dhcp_client);
         sd_dhcp_lease_unref(link->dhcp_lease);
 
+        unlink(link->lease_file);
+        free(link->lease_file);
+
         sd_ipv4ll_unref(link->ipv4ll);
 
         hashmap_remove(link->manager->links, &link->ifindex);
 
         free(link->ifname);
+
+        unlink(link->state_file);
         free(link->state_file);
 
         udev_device_unref(link->udev_device);
@@ -1682,13 +1692,14 @@ int link_update(Link *link, sd_rtnl_message *m) {
 }
 
 int link_save(Link *link) {
-        _cleanup_free_ char *temp_path = NULL, *lease_file = NULL;
+        _cleanup_free_ char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         const char *admin_state, *oper_state = "unknown";
         int r;
 
         assert(link);
         assert(link->state_file);
+        assert(link->lease_file);
         assert(link->manager);
 
         r = manager_save(link->manager);
@@ -1702,11 +1713,6 @@ int link_save(Link *link) {
                 oper_state = "dormant";
         else if (link_has_carrier(link->flags, link->operstate))
                 oper_state = "carrier";
-
-        r = asprintf(&lease_file, "/run/systemd/network/leases/%"PRIu64,
-                             link->ifindex);
-        if (r < 0)
-                return -ENOMEM;
 
         r = fopen_temporary(link->state_file, &f, &temp_path);
         if (r < 0)
@@ -1722,13 +1728,13 @@ int link_save(Link *link) {
                 admin_state, oper_state, link->flags);
 
         if (link->dhcp_lease) {
-                r = dhcp_lease_save(link->dhcp_lease, lease_file);
+                r = dhcp_lease_save(link->dhcp_lease, link->lease_file);
                 if (r < 0)
                         goto finish;
 
-                fprintf(f, "DHCP_LEASE=%s\n", lease_file);
+                fprintf(f, "DHCP_LEASE=%s\n", link->lease_file);
         } else
-                unlink(lease_file);
+                unlink(link->lease_file);
 
         fflush(f);
 
