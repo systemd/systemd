@@ -154,6 +154,19 @@ int link_get(Manager *m, int ifindex, Link **ret) {
         return 0;
 }
 
+void link_drop(Link *link) {
+        if (!link || link->state == LINK_STATE_LINGER)
+                return;
+
+        link->state = LINK_STATE_LINGER;
+
+        log_debug_link(link, "dropped");
+
+        link_unref(link);
+
+        return;
+}
+
 static int link_enter_configured(Link *link) {
         assert(link);
         assert(link->state == LINK_STATE_SETTING_ROUTES);
@@ -213,7 +226,7 @@ static int link_stop_clients(Link *link) {
 static void link_enter_failed(Link *link) {
         assert(link);
 
-        if (link->state == LINK_STATE_FAILED)
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return;
 
         log_warning_link(link, "failed");
@@ -230,13 +243,13 @@ static int route_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
         int r;
 
         assert(link->route_messages > 0);
-        assert(link->state == LINK_STATE_SETTING_ADDRESSES ||
-               link->state == LINK_STATE_SETTING_ROUTES ||
-               link->state == LINK_STATE_FAILED);
+        assert(IN_SET(link->state, LINK_STATE_SETTING_ADDRESSES,
+                      LINK_STATE_SETTING_ROUTES, LINK_STATE_FAILED,
+                      LINK_STATE_LINGER));
 
         link->route_messages --;
 
-        if (link->state == LINK_STATE_FAILED) {
+        if (IN_SET(LINK_STATE_FAILED, LINK_STATE_LINGER)) {
                 link_unref(link);
                 return 1;
         }
@@ -272,7 +285,7 @@ static int link_enter_set_routes(Link *link) {
         link->state = LINK_STATE_SETTING_ROUTES;
 
         if (!link->network->static_routes && !link->dhcp_lease &&
-                (!link->ipv4ll || ipv4ll_is_bound(link->ipv4ll) == false))
+            (!link->ipv4ll || ipv4ll_is_bound(link->ipv4ll) == false))
                 return link_enter_configured(link);
 
         log_debug_link(link, "setting routes");
@@ -401,7 +414,7 @@ static int route_drop_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata)
         assert(link);
         assert(link->ifname);
 
-        if (link->state == LINK_STATE_FAILED) {
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER)) {
                 link_unref(link);
                 return 1;
         }
@@ -427,11 +440,12 @@ static int address_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
         assert(link);
         assert(link->ifname);
         assert(link->addr_messages > 0);
-        assert(link->state == LINK_STATE_SETTING_ADDRESSES || link->state == LINK_STATE_FAILED);
+        assert(IN_SET(link->state, LINK_STATE_SETTING_ADDRESSES,
+               LINK_STATE_FAILED, LINK_STATE_LINGER));
 
         link->addr_messages --;
 
-        if (link->state == LINK_STATE_FAILED) {
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER)) {
                 link_unref(link);
                 return 1;
         }
@@ -577,7 +591,7 @@ static int address_update_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userd
         assert(link);
         assert(link->ifname);
 
-        if (link->state == LINK_STATE_FAILED) {
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER)) {
                 link_unref(link);
                 return 1;
         }
@@ -603,7 +617,7 @@ static int address_drop_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdat
         assert(link);
         assert(link->ifname);
 
-        if (link->state == LINK_STATE_FAILED) {
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER)) {
                 link_unref(link);
                 return 1;
         }
@@ -626,6 +640,11 @@ static int set_hostname_handler(sd_bus *bus, sd_bus_message *m, void *userdata, 
         int r;
 
         assert(link);
+
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER)) {
+                link_unref(link);
+                return 1;
+        }
 
         r = sd_bus_message_get_errno(m);
         if (r < 0)
@@ -682,7 +701,7 @@ static int set_mtu_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
         assert(link);
         assert(link->ifname);
 
-        if (link->state == LINK_STATE_FAILED) {
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER)) {
                 link_unref(link);
                 return 1;
         }
@@ -933,7 +952,7 @@ static void dhcp_handler(sd_dhcp_client *client, int event, void *userdata) {
         assert(link->network);
         assert(link->manager);
 
-        if (link->state == LINK_STATE_FAILED)
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return;
 
         switch (event) {
@@ -1127,6 +1146,9 @@ static void ipv4ll_handler(sd_ipv4ll *ll, int event, void *userdata){
         assert(link);
         assert(link->network);
         assert(link->manager);
+
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return;
 
         switch(event) {
                 case IPV4LL_EVENT_STOP:
@@ -1335,7 +1357,7 @@ static int link_up_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 
         assert(link);
 
-        if (link->state == LINK_STATE_FAILED) {
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER)) {
                 link_unref(link);
                 return 1;
         }
@@ -1417,12 +1439,13 @@ static int enslave_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
         int r;
 
         assert(link);
-        assert(link->state == LINK_STATE_ENSLAVING || link->state == LINK_STATE_FAILED);
+        assert(IN_SET(link->state, LINK_STATE_ENSLAVING, LINK_STATE_FAILED,
+                      LINK_STATE_LINGER));
         assert(link->network);
 
         link->enslaving --;
 
-        if (link->state == LINK_STATE_FAILED) {
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER)) {
                 link_unref(link);
                 return 1;
         }
@@ -1784,6 +1807,11 @@ int link_save(Link *link) {
         if (r < 0)
                 return r;
 
+        if (link->state == LINK_STATE_LINGER) {
+                unlink(link->state_file);
+                return 0;
+        }
+
         admin_state = link_state_to_string(link->state);
         assert(admin_state);
 
@@ -1837,6 +1865,7 @@ static const char* const link_state_table[_LINK_STATE_MAX] = {
         [LINK_STATE_CONFIGURED] = "configured",
         [LINK_STATE_UNMANAGED] = "unmanaged",
         [LINK_STATE_FAILED] = "failed",
+        [LINK_STATE_LINGER] = "linger",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(link_state, LinkState);

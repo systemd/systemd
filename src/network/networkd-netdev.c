@@ -114,6 +114,8 @@ void netdev_drop(NetDev *netdev) {
 
         netdev->state = NETDEV_STATE_LINGER;
 
+        log_debug_netdev(netdev, "dropped");
+
         netdev_cancel_callbacks(netdev);
 
         netdev_unref(netdev);

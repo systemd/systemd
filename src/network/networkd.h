@@ -195,6 +195,7 @@ typedef enum LinkState {
         LINK_STATE_CONFIGURED,
         LINK_STATE_UNMANAGED,
         LINK_STATE_FAILED,
+        LINK_STATE_LINGER,
         _LINK_STATE_MAX,
         _LINK_STATE_INVALID = -1
 } LinkState;
@@ -370,6 +371,7 @@ Link *link_unref(Link *link);
 Link *link_ref(Link *link);
 int link_get(Manager *m, int ifindex, Link **ret);
 int link_add(Manager *manager, sd_rtnl_message *message, Link **ret);
+void link_drop(Link *link);
 
 int link_update(Link *link, sd_rtnl_message *message);
 
