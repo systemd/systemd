@@ -257,7 +257,8 @@ int config_parse_netdev(const char *unit,
                 void *data,
                 void *userdata) {
         Network *network = userdata;
-        char *kind_string, *p;
+        _cleanup_free_ char *kind_string = NULL;
+        char *p;
         NetDev *netdev;
         NetDevKind kind;
         int r;
