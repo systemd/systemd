@@ -420,7 +420,7 @@ static int route_drop_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata)
         }
 
         r = sd_rtnl_message_get_errno(m);
-        if (r < 0 && r != -ENOENT)
+        if (r < 0 && r != -ESRCH)
                 log_struct_link(LOG_WARNING, link,
                                 "MESSAGE=%s: could not drop route: %s",
                                 link->ifname, strerror(-r),
@@ -623,7 +623,7 @@ static int address_drop_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdat
         }
 
         r = sd_rtnl_message_get_errno(m);
-        if (r < 0 && r != -ENOENT)
+        if (r < 0 && r != -EADDRNOTAVAIL)
                 log_struct_link(LOG_WARNING, link,
                                 "MESSAGE=%s: could not drop address: %s",
                                 link->ifname, strerror(-r),
