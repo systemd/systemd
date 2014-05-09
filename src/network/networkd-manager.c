@@ -219,6 +219,7 @@ static int manager_udev_process_link(Manager *m, struct udev_device *device) {
 static int manager_rtnl_process_link(sd_rtnl *rtnl, sd_rtnl_message *message, void *userdata) {
         Manager *m = userdata;
         Link *link = NULL;
+        NetDev *netdev = NULL;
         uint16_t type;
         char *name;
         int r, ifindex;
@@ -237,42 +238,50 @@ static int manager_rtnl_process_link(sd_rtnl *rtnl, sd_rtnl_message *message, vo
         if (r < 0 || ifindex <= 0) {
                 log_warning("rtnl: received link message without valid ifindex");
                 return 0;
-        }
-
-        link_get(m, ifindex, &link);
-        if (type == RTM_DELLINK)
-                link_drop(link);
-        else if (!link) {
-                /* link is new, so add it */
-                r = link_add(m, message, &link);
-                if (r < 0) {
-                        log_debug("could not add new link");
-                        return 0;
-                }
-        }
+        } else
+                link_get(m, ifindex, &link);
 
         r = sd_rtnl_message_read_string(message, IFLA_IFNAME, &name);
-        if (r < 0)
+        if (r < 0 || !name) {
                 log_warning("rtnl: received link message without valid ifname");
-        else {
-                NetDev *netdev = NULL;
-
+                return 0;
+        } else
                 netdev_get(m, name, &netdev);
-                if (type == RTM_DELLINK)
-                        netdev_drop(netdev);
-                else if (netdev) {
+
+        switch (type) {
+        case RTM_NEWLINK:
+                if (!link) {
+                        /* link is new, so add it */
+                        r = link_add(m, message, &link);
+                        if (r < 0) {
+                                log_debug("could not add new link");
+                                return 0;
+                        }
+                }
+
+                if (netdev) {
+                        /* netdev exists, so make sure the ifindex matches */
                         r = netdev_set_ifindex(netdev, message);
                         if (r < 0) {
                                 log_debug("could not set ifindex on netdev");
                                 return 0;
                         }
                 }
-        }
 
-        if (type == RTM_NEWLINK) {
                 r = link_update(link, message);
                 if (r < 0)
                         return 0;
+
+                break;
+
+        case RTM_DELLINK:
+                link_drop(link);
+                netdev_drop(netdev);
+
+                break;
+
+        default:
+                assert_not_reached("Received invalid RTNL message type.");
         }
 
         return 1;
