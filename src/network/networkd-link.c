@@ -1490,28 +1490,6 @@ static int link_enter_enslave(Link *link) {
             hashmap_isempty(link->network->macvlans))
                 return link_enslaved(link);
 
-        if (link->network->bridge) {
-                log_struct_link(LOG_DEBUG, link,
-                                "MESSAGE=%s: enslaving by '%s'",
-                                link->ifname, link->network->bridge->name,
-                                NETDEV(link->network->bridge),
-                                NULL);
-
-                r = netdev_enslave(link->network->bridge, link, &enslave_handler);
-                if (r < 0) {
-                        log_struct_link(LOG_WARNING, link,
-                                        "MESSAGE=%s: could not enslave by '%s': %s",
-                                        link->ifname, link->network->bridge->name, strerror(-r),
-                                        NETDEV(link->network->bridge),
-                                        NULL);
-                        link_enter_failed(link);
-                        return r;
-                }
-
-                link_ref(link);
-                link->enslaving ++;
-        }
-
         if (link->network->bond) {
                 log_struct_link(LOG_DEBUG, link,
                                 "MESSAGE=%s: enslaving by '%s'",
@@ -1525,6 +1503,28 @@ static int link_enter_enslave(Link *link) {
                                         "MESSAGE=%s: could not enslave by '%s': %s",
                                         link->ifname, link->network->bond->name, strerror(-r),
                                         NETDEV(link->network->bond),
+                                        NULL);
+                        link_enter_failed(link);
+                        return r;
+                }
+
+                link_ref(link);
+                link->enslaving ++;
+        }
+
+        if (link->network->bridge) {
+                log_struct_link(LOG_DEBUG, link,
+                                "MESSAGE=%s: enslaving by '%s'",
+                                link->ifname, link->network->bridge->name,
+                                NETDEV(link->network->bridge),
+                                NULL);
+
+                r = netdev_enslave(link->network->bridge, link, &enslave_handler);
+                if (r < 0) {
+                        log_struct_link(LOG_WARNING, link,
+                                        "MESSAGE=%s: could not enslave by '%s': %s",
+                                        link->ifname, link->network->bridge->name, strerror(-r),
+                                        NETDEV(link->network->bridge),
                                         NULL);
                         link_enter_failed(link);
                         return r;
