@@ -160,7 +160,7 @@ void link_drop(Link *link) {
 
         link->state = LINK_STATE_LINGER;
 
-        log_debug_link(link, "dropped");
+        log_debug_link(link, "link removed");
 
         link_unref(link);
 
@@ -1732,6 +1732,12 @@ int link_update(Link *link, sd_rtnl_message *m) {
         assert(link);
         assert(link->ifname);
         assert(m);
+
+        if (link->state == LINK_STATE_LINGER) {
+                link_ref(link);
+                log_info_link(link, "link readded");
+                link->state = LINK_STATE_ENSLAVING;
+        }
 
         r = sd_rtnl_message_read_string(m, IFLA_IFNAME, &ifname);
         if (r >= 0 && !streq(ifname, link->ifname)) {
