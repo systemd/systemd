@@ -497,7 +497,7 @@ int manager_save(Manager *m) {
         _cleanup_free_ char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         const char *oper_state = "unknown";
-        bool dormant, carrier;
+        bool dormant = false, carrier = false;
         int r;
 
         assert(m);
