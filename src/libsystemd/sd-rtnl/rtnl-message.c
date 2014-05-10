@@ -1214,7 +1214,7 @@ int socket_read_message(sd_rtnl *rtnl) {
                 _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
                 const NLType *nl_type;
 
-                if (new_msg->nlmsg_pid && new_msg->nlmsg_pid != rtnl->sockaddr.nl.nl_pid)
+                if (!group && new_msg->nlmsg_pid != rtnl->sockaddr.nl.nl_pid)
                         /* not broadcast and not for us */
                         continue;
 
