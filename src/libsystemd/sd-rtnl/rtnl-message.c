@@ -1154,10 +1154,6 @@ int socket_read_message(sd_rtnl *rtnl) {
         else
                 len = (size_t)r;
 
-        if (len > rtnl->rbuffer_allocated)
-                /* message did not fit in read buffer */
-                return -EIO;
-
         for (cmsg = CMSG_FIRSTHDR(&msg); cmsg; cmsg = CMSG_NXTHDR(&msg, cmsg)) {
                 if (cmsg->cmsg_level == SOL_SOCKET &&
                     cmsg->cmsg_type == SCM_CREDENTIALS &&
@@ -1175,6 +1171,10 @@ int socket_read_message(sd_rtnl *rtnl) {
         if (!auth)
                 /* not from the kernel, ignore */
                 return 0;
+
+        if (len > rtnl->rbuffer_allocated)
+                /* message did not fit in read buffer */
+                return -EIO;
 
         if (NLMSG_OK(rtnl->rbuffer, len) && rtnl->rbuffer->nlmsg_flags & NLM_F_MULTI) {
                 multi_part = true;
