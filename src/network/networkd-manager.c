@@ -91,7 +91,8 @@ int manager_new(Manager **ret) {
 
         sd_event_set_watchdog(m->event, true);
 
-        r = sd_rtnl_open(&m->rtnl, RTMGRP_LINK | RTMGRP_IPV4_IFADDR);
+        r = sd_rtnl_open(&m->rtnl, 3, RTNLGRP_LINK, RTNLGRP_IPV4_IFADDR,
+                         RTNLGRP_IPV6_IFADDR);
         if (r < 0)
                 return r;
 

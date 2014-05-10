@@ -40,7 +40,7 @@ typedef struct sd_rtnl_message sd_rtnl_message;
 typedef int (*sd_rtnl_message_handler_t)(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata);
 
 /* bus */
-int sd_rtnl_open(sd_rtnl **nl, uint32_t groups);
+int sd_rtnl_open(sd_rtnl **nl, unsigned n_groups, ...);
 
 sd_rtnl *sd_rtnl_ref(sd_rtnl *nl);
 sd_rtnl *sd_rtnl_unref(sd_rtnl *nl);
