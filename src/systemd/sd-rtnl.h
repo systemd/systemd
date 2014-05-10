@@ -86,6 +86,7 @@ int sd_rtnl_message_addr_set_prefixlen(sd_rtnl_message *m, unsigned char prefixl
 int sd_rtnl_message_addr_set_scope(sd_rtnl_message *m, unsigned char scope);
 int sd_rtnl_message_addr_set_flags(sd_rtnl_message *m, unsigned char flags);
 int sd_rtnl_message_addr_get_family(sd_rtnl_message *m, unsigned char *family);
+int sd_rtnl_message_addr_get_prefixlen(sd_rtnl_message *m, unsigned char *prefixlen);
 int sd_rtnl_message_addr_get_scope(sd_rtnl_message *m, unsigned char *scope);
 int sd_rtnl_message_addr_get_flags(sd_rtnl_message *m, unsigned char *flags);
 int sd_rtnl_message_addr_get_ifindex(sd_rtnl_message *m, int *ifindex);

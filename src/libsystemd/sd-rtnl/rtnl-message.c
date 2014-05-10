@@ -290,6 +290,21 @@ int sd_rtnl_message_addr_get_family(sd_rtnl_message *m, unsigned char *family) {
         return 0;
 }
 
+int sd_rtnl_message_addr_get_prefixlen(sd_rtnl_message *m, unsigned char *prefixlen) {
+        struct ifaddrmsg *ifa;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(rtnl_message_type_is_addr(m->hdr->nlmsg_type), -EINVAL);
+        assert_return(prefixlen, -EINVAL);
+
+        ifa = NLMSG_DATA(m->hdr);
+
+        *prefixlen = ifa->ifa_prefixlen;
+
+        return 0;
+}
+
 int sd_rtnl_message_addr_get_scope(sd_rtnl_message *m, unsigned char *scope) {
         struct ifaddrmsg *ifa;
 
