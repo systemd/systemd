@@ -1226,8 +1226,13 @@ bool link_has_carrier(unsigned flags, uint8_t operstate) {
         return false;
 }
 
+#define FLAG_STRING(string, flag, old, new) \
+        (((old ^ new) & flag) \
+                ? ((old & flag) ? (" -" string) : (" +" string)) \
+                : "")
+
 static int link_update_flags(Link *link, sd_rtnl_message *m) {
-        unsigned flags, flags_added, flags_removed, generic_flags;
+        unsigned flags, unknown_flags_added, unknown_flags_removed, unknown_flags;
         uint8_t operstate;
         bool carrier_gained = false, carrier_lost = false;
         int r;
@@ -1249,70 +1254,46 @@ static int link_update_flags(Link *link, sd_rtnl_message *m) {
         if ((link->flags == flags) && (link->operstate == operstate))
                 return 0;
 
-        flags_added = (link->flags ^ flags) & flags;
-        flags_removed = (link->flags ^ flags) & link->flags;
-        generic_flags = ~(IFF_UP | IFF_LOWER_UP | IFF_DORMANT | IFF_DEBUG |
-                          IFF_MULTICAST | IFF_BROADCAST | IFF_PROMISC |
-                          IFF_NOARP | IFF_MASTER | IFF_SLAVE | IFF_RUNNING);
+        if (link->flags != flags) {
+                log_debug_link(link, "flags change:%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s",
+                               FLAG_STRING("LOOPBACK", IFF_LOOPBACK, link->flags, flags),
+                               FLAG_STRING("MASTER", IFF_MASTER, link->flags, flags),
+                               FLAG_STRING("SLAVE", IFF_SLAVE, link->flags, flags),
+                               FLAG_STRING("UP", IFF_UP, link->flags, flags),
+                               FLAG_STRING("DORMANT", IFF_DORMANT, link->flags, flags),
+                               FLAG_STRING("LOWER_UP", IFF_LOWER_UP, link->flags, flags),
+                               FLAG_STRING("RUNNING", IFF_RUNNING, link->flags, flags),
+                               FLAG_STRING("MULTICAST", IFF_MULTICAST, link->flags, flags),
+                               FLAG_STRING("BROADCAST", IFF_BROADCAST, link->flags, flags),
+                               FLAG_STRING("POINTOPOINT", IFF_POINTOPOINT, link->flags, flags),
+                               FLAG_STRING("PROMISC", IFF_PROMISC, link->flags, flags),
+                               FLAG_STRING("ALLMULTI", IFF_ALLMULTI, link->flags, flags),
+                               FLAG_STRING("PORTSEL", IFF_PORTSEL, link->flags, flags),
+                               FLAG_STRING("AUTOMEDIA", IFF_AUTOMEDIA, link->flags, flags),
+                               FLAG_STRING("DYNAMIC", IFF_DYNAMIC, link->flags, flags),
+                               FLAG_STRING("NOARP", IFF_NOARP, link->flags, flags),
+                               FLAG_STRING("NOTRAILERS", IFF_NOTRAILERS, link->flags, flags),
+                               FLAG_STRING("DEBUG", IFF_DEBUG, link->flags, flags),
+                               FLAG_STRING("ECHO", IFF_ECHO, link->flags, flags));
 
-        if (flags_added & IFF_UP)
-                log_debug_link(link, "link is up");
-        else if (flags_removed & IFF_UP)
-                log_debug_link(link, "link is down");
+                unknown_flags = ~(IFF_LOOPBACK | IFF_MASTER | IFF_SLAVE | IFF_UP |
+                                  IFF_DORMANT | IFF_LOWER_UP | IFF_RUNNING |
+                                  IFF_MULTICAST | IFF_BROADCAST | IFF_POINTOPOINT |
+                                  IFF_PROMISC | IFF_ALLMULTI | IFF_PORTSEL |
+                                  IFF_AUTOMEDIA | IFF_DYNAMIC | IFF_NOARP |
+                                  IFF_NOTRAILERS | IFF_DEBUG | IFF_ECHO);
+                unknown_flags_added = ((link->flags ^ flags) & flags & unknown_flags);
+                unknown_flags_removed = ((link->flags ^ flags) & link->flags & unknown_flags);
 
-        if (flags_added & IFF_LOWER_UP)
-                log_debug_link(link, "link is lower up");
-        else if (flags_removed & IFF_LOWER_UP)
-                log_debug_link(link, "link is lower down");
+                /* link flags are currently at most 18 bits, let's align to printing 20 */
+                if (unknown_flags_added)
+                        log_debug_link(link, "unknown link flags gained: %#.5x (ignoring)",
+                                       unknown_flags_added);
 
-        if (flags_added & IFF_DORMANT)
-                log_debug_link(link, "link is dormant");
-        else if (flags_removed & IFF_DORMANT)
-                log_debug_link(link, "link is not dormant");
-
-        if (flags_added & IFF_DEBUG)
-                log_debug_link(link, "debugging enabled in the kernel");
-        else if (flags_removed & IFF_DEBUG)
-                log_debug_link(link, "debugging disabled in the kernel");
-
-        if (flags_added & IFF_MULTICAST)
-                log_debug_link(link, "multicast enabled");
-        else if (flags_removed & IFF_MULTICAST)
-                log_debug_link(link, "multicast disabled");
-
-        if (flags_added & IFF_BROADCAST)
-                log_debug_link(link, "broadcast enabled");
-        else if (flags_removed & IFF_BROADCAST)
-                log_debug_link(link, "broadcast disabled");
-
-        if (flags_added & IFF_PROMISC)
-                log_debug_link(link, "promiscuous mode enabled");
-        else if (flags_removed & IFF_PROMISC)
-                log_debug_link(link, "promiscuous mode disabled");
-
-        if (flags_added & IFF_NOARP)
-                log_debug_link(link, "ARP protocol disabled");
-        else if (flags_removed & IFF_NOARP)
-                log_debug_link(link, "ARP protocol enabled");
-
-        if (flags_added & IFF_MASTER)
-                log_debug_link(link, "link is master");
-        else if (flags_removed & IFF_MASTER)
-                log_debug_link(link, "link is no longer master");
-
-        if (flags_added & IFF_SLAVE)
-                log_debug_link(link, "link is slave");
-        else if (flags_removed & IFF_SLAVE)
-                log_debug_link(link, "link is no longer slave");
-
-        /* link flags are currently at most 18 bits, let's default to printing 20 */
-        if (flags_added & generic_flags)
-                log_debug_link(link, "unknown link flags gained: %#.5x (ignoring)",
-                               flags_added & generic_flags);
-
-        if (flags_removed & generic_flags)
-                log_debug_link(link, "unknown link flags lost: %#.5x (ignoring)",
-                               flags_removed & generic_flags);
+                if (unknown_flags_removed)
+                        log_debug_link(link, "unknown link flags lost: %#.5x (ignoring)",
+                                       unknown_flags_removed);
+        }
 
         carrier_gained = !link_has_carrier(link->flags, link->operstate) &&
                        link_has_carrier(flags, operstate);
