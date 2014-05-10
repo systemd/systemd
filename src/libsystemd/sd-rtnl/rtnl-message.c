@@ -1098,61 +1098,28 @@ int socket_write_message(sd_rtnl *nl, sd_rtnl_message *m) {
         return k;
 }
 
-/* On success, the number of bytes received is returned and *ret points to the received message
- * which has a valid header and the correct size.
- * If nothing useful was received 0 is returned.
- * On failure, a negative error code is returned.
- */
-int socket_read_message(sd_rtnl *rtnl) {
-        _cleanup_rtnl_message_unref_ sd_rtnl_message *first = NULL;
+static int socket_recv_message(int fd, struct iovec *iov, bool peek) {
         uint8_t cred_buffer[CMSG_SPACE(sizeof(struct ucred))];
-        struct iovec iov = {};
         struct msghdr msg = {
-                .msg_iov = &iov,
+                .msg_iov = iov,
                 .msg_iovlen = 1,
                 .msg_control = cred_buffer,
                 .msg_controllen = sizeof(cred_buffer),
         };
         struct cmsghdr *cmsg;
-        bool auth = false, multi_part = false, done = false;
-        struct nlmsghdr *new_msg;
-        size_t len;
+        bool auth = false;
         int r;
-        unsigned i = 0;
 
-        assert(rtnl);
-        assert(rtnl->rbuffer);
-        assert(rtnl->rbuffer_allocated >= sizeof(struct nlmsghdr));
+        assert(fd >= 0);
+        assert(iov);
 
-        /* read nothing, just get the pending message size */
-        r = recvmsg(rtnl->fd, &msg, MSG_PEEK | MSG_TRUNC);
+        r = recvmsg(fd, &msg, MSG_TRUNC | (peek ? MSG_PEEK : 0));
         if (r < 0)
                 /* no data */
                 return (errno == EAGAIN) ? 0 : -errno;
         else if (r == 0)
                 /* connection was closed by the kernel */
                 return -ECONNRESET;
-        else
-                len = (size_t)r;
-
-        /* make room for the pending message */
-        if (!greedy_realloc((void **)&rtnl->rbuffer,
-                            &rtnl->rbuffer_allocated,
-                            len, sizeof(uint8_t)))
-                return -ENOMEM;
-
-        iov.iov_base = rtnl->rbuffer;
-        iov.iov_len = rtnl->rbuffer_allocated;
-
-        r = recvmsg(rtnl->fd, &msg, MSG_TRUNC);
-        if (r < 0)
-                /* no data */
-                return (errno == EAGAIN) ? 0 : -errno;
-        else if (r == 0)
-                /* connection was closed by the kernel */
-                return -ECONNRESET;
-        else
-                len = (size_t)r;
 
         for (cmsg = CMSG_FIRSTHDR(&msg); cmsg; cmsg = CMSG_NXTHDR(&msg, cmsg)) {
                 if (cmsg->cmsg_level == SOL_SOCKET &&
@@ -1171,6 +1138,50 @@ int socket_read_message(sd_rtnl *rtnl) {
         if (!auth)
                 /* not from the kernel, ignore */
                 return 0;
+
+        return r;
+}
+
+/* On success, the number of bytes received is returned and *ret points to the received message
+ * which has a valid header and the correct size.
+ * If nothing useful was received 0 is returned.
+ * On failure, a negative error code is returned.
+ */
+int socket_read_message(sd_rtnl *rtnl) {
+        _cleanup_rtnl_message_unref_ sd_rtnl_message *first = NULL;
+        struct iovec iov = {};
+        bool multi_part = false, done = false;
+        struct nlmsghdr *new_msg;
+        size_t len;
+        int r;
+        unsigned i = 0;
+
+        assert(rtnl);
+        assert(rtnl->rbuffer);
+        assert(rtnl->rbuffer_allocated >= sizeof(struct nlmsghdr));
+
+        /* read nothing, just get the pending message size */
+        r = socket_recv_message(rtnl->fd, &iov, true);
+        if (r <= 0)
+                return r;
+        else
+                len = (size_t)r;
+
+        /* make room for the pending message */
+        if (!greedy_realloc((void **)&rtnl->rbuffer,
+                            &rtnl->rbuffer_allocated,
+                            len, sizeof(uint8_t)))
+                return -ENOMEM;
+
+        iov.iov_base = rtnl->rbuffer;
+        iov.iov_len = rtnl->rbuffer_allocated;
+
+        /* read the pending message */
+        r = socket_recv_message(rtnl->fd, &iov, false);
+        if (r <= 0)
+                return r;
+        else
+                len = (size_t)r;
 
         if (len > rtnl->rbuffer_allocated)
                 /* message did not fit in read buffer */
