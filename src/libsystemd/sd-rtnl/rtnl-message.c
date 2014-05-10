@@ -1098,8 +1098,9 @@ int socket_write_message(sd_rtnl *nl, sd_rtnl_message *m) {
         return k;
 }
 
-static int socket_recv_message(int fd, struct iovec *iov, bool peek) {
-        uint8_t cred_buffer[CMSG_SPACE(sizeof(struct ucred))];
+static int socket_recv_message(int fd, struct iovec *iov, uint32_t *_group, bool peek) {
+        uint8_t cred_buffer[CMSG_SPACE(sizeof(struct ucred)) +
+                            CMSG_SPACE(sizeof(struct nl_pktinfo))];
         struct msghdr msg = {
                 .msg_iov = iov,
                 .msg_iovlen = 1,
@@ -1107,6 +1108,7 @@ static int socket_recv_message(int fd, struct iovec *iov, bool peek) {
                 .msg_controllen = sizeof(cred_buffer),
         };
         struct cmsghdr *cmsg;
+        uint32_t group = 0;
         bool auth = false;
         int r;
 
@@ -1128,16 +1130,24 @@ static int socket_recv_message(int fd, struct iovec *iov, bool peek) {
                         struct ucred *ucred = (void *)CMSG_DATA(cmsg);
 
                         /* from the kernel */
-                        if (ucred->uid == 0 && ucred->pid == 0) {
+                        if (ucred->uid == 0 && ucred->pid == 0)
                                 auth = true;
-                                break;
-                        }
+                } else if (cmsg->cmsg_level == SOL_NETLINK &&
+                           cmsg->cmsg_type == NETLINK_PKTINFO &&
+                           cmsg->cmsg_len == CMSG_LEN(sizeof(struct nl_pktinfo))) {
+                        struct nl_pktinfo *pktinfo = (void *)CMSG_DATA(cmsg);
+
+                        /* multi-cast group */
+                        group = pktinfo->group;
                 }
         }
 
         if (!auth)
                 /* not from the kernel, ignore */
                 return 0;
+
+        if (group)
+                *_group = group;
 
         return r;
 }
@@ -1150,6 +1160,7 @@ static int socket_recv_message(int fd, struct iovec *iov, bool peek) {
 int socket_read_message(sd_rtnl *rtnl) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *first = NULL;
         struct iovec iov = {};
+        uint32_t group = 0;
         bool multi_part = false, done = false;
         struct nlmsghdr *new_msg;
         size_t len;
@@ -1161,7 +1172,7 @@ int socket_read_message(sd_rtnl *rtnl) {
         assert(rtnl->rbuffer_allocated >= sizeof(struct nlmsghdr));
 
         /* read nothing, just get the pending message size */
-        r = socket_recv_message(rtnl->fd, &iov, true);
+        r = socket_recv_message(rtnl->fd, &iov, &group, true);
         if (r <= 0)
                 return r;
         else
@@ -1177,7 +1188,7 @@ int socket_read_message(sd_rtnl *rtnl) {
         iov.iov_len = rtnl->rbuffer_allocated;
 
         /* read the pending message */
-        r = socket_recv_message(rtnl->fd, &iov, false);
+        r = socket_recv_message(rtnl->fd, &iov, &group, false);
         if (r <= 0)
                 return r;
         else

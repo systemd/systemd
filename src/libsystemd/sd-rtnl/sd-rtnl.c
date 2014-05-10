@@ -22,6 +22,7 @@
 #include <sys/socket.h>
 #include <poll.h>
 
+#include "missing.h"
 #include "macro.h"
 #include "util.h"
 #include "hashmap.h"
@@ -109,7 +110,12 @@ int sd_rtnl_open(sd_rtnl **ret, unsigned n_groups, ...) {
         if (rtnl->fd < 0)
                 return -errno;
 
-        if (setsockopt(rtnl->fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one)) < 0)
+        r = setsockopt(rtnl->fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one));
+        if (r < 0)
+                return -errno;
+
+        r = setsockopt(rtnl->fd, SOL_NETLINK, NETLINK_PKTINFO, &one, sizeof(one));
+        if (r < 0)
                 return -errno;
 
         va_start(ap, n_groups);
