@@ -217,6 +217,97 @@ static int manager_udev_process_link(Manager *m, struct udev_device *device) {
         return 0;
 }
 
+static int manager_rtnl_process_address(sd_rtnl *rtnl, sd_rtnl_message *message, void *userdata) {
+        Manager *m = userdata;
+        Link *link = NULL;
+        uint16_t type;
+        _cleanup_address_free_ Address *address = NULL;
+        char buf[INET6_ADDRSTRLEN];
+        int r, ifindex;
+
+        assert(rtnl);
+        assert(message);
+        assert(m);
+
+        r = sd_rtnl_message_get_type(message, &type);
+        if (r < 0) {
+                log_warning("rtnl: could not get message type");
+                return 0;
+        }
+
+        r = sd_rtnl_message_addr_get_ifindex(message, &ifindex);
+        if (r < 0 || ifindex <= 0) {
+                log_warning("rtnl: received address message without valid ifindix, ignoring");
+                return 0;
+        } else {
+                r = link_get(m, ifindex, &link);
+                if (r < 0 || !link) {
+                        log_warning("rtnl: received address for non-existing link, ignoring");
+                        return 0;
+                }
+        }
+
+        r = address_new_dynamic(&address);
+        if (r < 0)
+                return 0;
+
+        r = sd_rtnl_message_addr_get_family(message, &address->family);
+        if (r < 0 || !IN_SET(address->family, AF_INET, AF_INET6)) {
+                log_warning("rtnl: received address with invalid family, ignoring");
+                return 0;
+        }
+
+        r = sd_rtnl_message_addr_get_prefixlen(message, &address->prefixlen);
+        if (r < 0) {
+                log_warning("rtnl: recevied address with invalid prefixlen, ignoring");
+                return 0;
+        }
+
+        switch (address->family) {
+        case AF_INET:
+                r = sd_rtnl_message_read_in_addr(message, IFA_LOCAL, &address->in_addr.in);
+                if (r < 0) {
+                        log_warning("rtnl: received address without valid address, ignoring");
+                        return 0;
+                }
+
+                break;
+
+        case AF_INET6:
+                r = sd_rtnl_message_read_in6_addr(message, IFA_ADDRESS, &address->in_addr.in6);
+                if (r < 0) {
+                        log_warning("rtnl: received address without valid address, ignoring");
+                        return 0;
+                }
+
+                break;
+
+        default:
+                assert_not_reached("invalid address family");
+        }
+
+        if (!inet_ntop(address->family, &address->in_addr, buf, INET6_ADDRSTRLEN)) {
+                log_warning("could not print address");
+                return 0;
+        }
+
+        switch (type) {
+        case RTM_NEWADDR:
+                log_info("added address: %s/%u to ifindex %d", buf,
+                         address->prefixlen, ifindex);
+                break;
+
+        case RTM_DELADDR:
+                log_info("removed address: %s/%u from ifindex %d", buf,
+                         address->prefixlen, ifindex);
+                break;
+        default:
+                assert_not_reached("Received invalid RTNL message type");
+        }
+
+        return 1;
+}
+
 static int manager_rtnl_process_link(sd_rtnl *rtnl, sd_rtnl_message *message, void *userdata) {
         Manager *m = userdata;
         Link *link = NULL;
@@ -382,6 +473,14 @@ int manager_rtnl_listen(Manager *m) {
                 return r;
 
         r = sd_rtnl_add_match(m->rtnl, RTM_DELLINK, &manager_rtnl_process_link, m);
+        if (r < 0)
+                return r;
+
+        r = sd_rtnl_add_match(m->rtnl, RTM_NEWADDR, &manager_rtnl_process_address, m);
+        if (r < 0)
+                return r;
+
+        r = sd_rtnl_add_match(m->rtnl, RTM_DELADDR, &manager_rtnl_process_address, m);
         if (r < 0)
                 return r;
 
