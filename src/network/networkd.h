@@ -374,6 +374,7 @@ int link_add(Manager *manager, sd_rtnl_message *message, Link **ret);
 void link_drop(Link *link);
 
 int link_update(Link *link, sd_rtnl_message *message);
+int link_rtnl_process_address(sd_rtnl *rtnl, sd_rtnl_message *message, void *userdata);
 
 int link_initialized(Link *link, struct udev_device *device);
 
