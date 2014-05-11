@@ -843,7 +843,7 @@ AC_SUBST(NTP_SERVERS)
 
 AC_ARG_WITH(time-epoch,
         AS_HELP_STRING([--with-time-epoch=SECONDS],
-                [TIme epoch for time clients]),
+                [Time epoch for time clients]),
         [TIME_EPOCH="$withval"],
         [TIME_EPOCH="`stat -c %Y ${srcdir}/NEWS 2>/dev/null || echo 0`"])
 

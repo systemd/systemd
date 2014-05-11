@@ -1710,12 +1710,12 @@ int link_rtnl_process_address(sd_rtnl *rtnl, sd_rtnl_message *message, void *use
 
         r = sd_rtnl_message_addr_get_ifindex(message, &ifindex);
         if (r < 0 || ifindex <= 0) {
-                log_warning("rtnl: received address message without valid ifindix, ignoring");
+                log_warning("rtnl: received address message without valid ifindex, ignoring");
                 return 0;
         } else {
                 r = link_get(m, ifindex, &link);
                 if (r < 0 || !link) {
-                        log_warning("rtnl: received address for non-existing link, ignoring");
+                        log_warning("rtnl: received address for a nonexistent link, ignoring");
                         return 0;
                 }
         }
