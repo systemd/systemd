@@ -26,8 +26,8 @@
 #include <sys/prctl.h>
 
 #include "util.h"
-#include "kdbus.h"
 #include "bus-label.h"
+#include "missing.h"
 
 #include "sd-memfd.h"
 #include "sd-bus.h"
@@ -39,11 +39,8 @@ struct sd_memfd {
 
 _public_ int sd_memfd_new(sd_memfd **m, const char *name) {
 
-        struct kdbus_cmd_memfd_make *cmd;
-        struct kdbus_item *item;
         _cleanup_close_ int kdbus = -1;
         _cleanup_free_ char *g = NULL;
-        size_t sz, l;
         sd_memfd *n;
 
         assert_return(m, -EINVAL);
@@ -89,42 +86,28 @@ _public_ int sd_memfd_new(sd_memfd **m, const char *name) {
                 }
         }
 
-        l = strlen(name);
-        sz = ALIGN8(offsetof(struct kdbus_cmd_memfd_make, items)) +
-                ALIGN8(offsetof(struct kdbus_item, str)) +
-                l + 1;
-
-        cmd = alloca0(sz);
-        cmd->size = sz;
-
-        item = cmd->items;
-        item->size = ALIGN8(offsetof(struct kdbus_item, str)) + l + 1;
-        item->type = KDBUS_ITEM_MEMFD_NAME;
-        memcpy(item->str, name, l + 1);
-
-        if (ioctl(kdbus, KDBUS_CMD_MEMFD_NEW, cmd) < 0)
-                return -errno;
-
         n = new0(struct sd_memfd, 1);
-        if (!n) {
-                safe_close(cmd->fd);
+        if (!n)
                 return -ENOMEM;
+
+        n->fd = memfd_create(name, 0, MFD_ALLOW_SEALING);
+        if (n->fd < 0) {
+                free(n);
+                return -errno;
         }
 
-        n->fd = cmd->fd;
         *m = n;
         return 0;
 }
 
 _public_ int sd_memfd_new_from_fd(sd_memfd **m, int fd) {
         sd_memfd *n;
-        uint64_t sz;
 
         assert_return(m, -EINVAL);
         assert_return(fd >= 0, -EINVAL);
 
-        /* Check if this is a valid memfd */
-        if (ioctl(fd, KDBUS_CMD_MEMFD_SIZE_GET, &sz) < 0)
+        /* Check if this is a sealable fd */
+        if (fcntl(fd, F_GET_SEALS) < 0)
                 return -ENOTTY;
 
         n = new0(struct sd_memfd, 1);
@@ -193,7 +176,7 @@ _public_ int sd_memfd_map(sd_memfd *m, uint64_t offset, size_t size, void **p) {
         if (sealed < 0)
                 return sealed;
 
-        q = mmap(NULL, size, sealed ? PROT_READ : PROT_READ|PROT_WRITE, MAP_SHARED, m->fd, offset);
+        q = mmap(NULL, size, sealed ? PROT_READ : PROT_READ|PROT_WRITE, MAP_PRIVATE, m->fd, offset);
         if (q == MAP_FAILED)
                 return -errno;
 
@@ -201,12 +184,12 @@ _public_ int sd_memfd_map(sd_memfd *m, uint64_t offset, size_t size, void **p) {
         return 0;
 }
 
-_public_ int sd_memfd_set_sealed(sd_memfd *m, int b) {
+_public_ int sd_memfd_set_sealed(sd_memfd *m) {
         int r;
 
         assert_return(m, -EINVAL);
 
-        r = ioctl(m->fd, KDBUS_CMD_MEMFD_SEAL_SET, b);
+        r = fcntl(m->fd, F_ADD_SEALS, F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE);
         if (r < 0)
                 return -errno;
 
@@ -214,27 +197,30 @@ _public_ int sd_memfd_set_sealed(sd_memfd *m, int b) {
 }
 
 _public_ int sd_memfd_get_sealed(sd_memfd *m) {
-        int r, b;
+        int r;
 
         assert_return(m, -EINVAL);
 
-        r = ioctl(m->fd, KDBUS_CMD_MEMFD_SEAL_GET, &b);
+        r = fcntl(m->fd, F_GET_SEALS);
         if (r < 0)
                 return -errno;
 
-        return !!b;
+        return (r & (F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE)) ==
+                    (F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE);
 }
 
 _public_ int sd_memfd_get_size(sd_memfd *m, uint64_t *sz) {
         int r;
+        struct stat stat;
 
         assert_return(m, -EINVAL);
         assert_return(sz, -EINVAL);
 
-        r = ioctl(m->fd, KDBUS_CMD_MEMFD_SIZE_GET, sz);
+        r = fstat(m->fd, &stat);
         if (r < 0)
                 return -errno;
 
+        *sz = stat.st_size;
         return r;
 }
 
@@ -243,7 +229,7 @@ _public_ int sd_memfd_set_size(sd_memfd *m, uint64_t sz) {
 
         assert_return(m, -EINVAL);
 
-        r = ioctl(m->fd, KDBUS_CMD_MEMFD_SIZE_SET, &sz);
+        r = ftruncate(m->fd, sz);
         if (r < 0)
                 return -errno;
 

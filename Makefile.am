@@ -2571,7 +2571,6 @@ tests += \
 	test-bus-kernel \
 	test-bus-kernel-bloom \
 	test-bus-kernel-benchmark \
-	test-bus-memfd \
 	test-bus-zero-copy \
 	test-bus-introspect \
 	test-bus-objects \
@@ -2724,9 +2723,6 @@ test_bus_kernel_benchmark_SOURCES = \
 test_bus_kernel_benchmark_LDADD = \
 	libsystemd-internal.la \
 	libsystemd-shared.la
-
-test_bus_memfd_SOURCES = \
-	src/libsystemd/sd-bus/test-bus-memfd.c
 
 test_bus_memfd_LDADD = \
 	libsystemd-internal.la \

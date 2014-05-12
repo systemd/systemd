@@ -734,24 +734,6 @@ struct kdbus_cmd_match {
 } __attribute__((aligned(8)));
 
 /**
- * struct kdbus_cmd_memfd_make - create a kdbus memfd
- * @size:		The total size of the struct
- * @file_size:		The initial file size
- * @fd:			The returned file descriptor number
- * @__pad:		Padding to ensure proper alignement
- * @items:		A list of items for additional information
- *
- * This structure is used with the KDBUS_CMD_MEMFD_NEW ioctl.
- */
-struct kdbus_cmd_memfd_make {
-	__u64 size;
-	__u64 file_size;
-	int fd;
-	__u32 __pad;
-	struct kdbus_item items[0];
-} __attribute__((aligned(8)));
-
-/**
  * enum kdbus_ioctl_type - Ioctl API
  * @KDBUS_CMD_BUS_MAKE:		After opening the "control" device node, this
  *				command creates a new bus with the specified
@@ -801,32 +783,6 @@ struct kdbus_cmd_memfd_make {
  * @KDBUS_CMD_MATCH_ADD:	Install a match which broadcast messages should
  *				be delivered to the connection.
  * @KDBUS_CMD_MATCH_REMOVE:	Remove a current match for broadcast messages.
- * @KDBUS_CMD_MEMFD_NEW:	Return a new file descriptor which provides an
- *				anonymous shared memory file and which can be
- *				used to pass around larger chunks of data.
- *				Kdbus memfd files can be sealed, which allows
- *				the receiver to trust the data it has received.
- *				Kdbus memfd files expose only very limited
- *				operations, they can be mmap()ed, seek()ed,
- *				(p)read(v)() and (p)write(v)(); most other
- *				common file operations are not implemented.
- *				Special caution needs to be taken with
- *				read(v)()/write(v)() on a shared file; the
- *				underlying file position is always shared
- *				between all users of the file and race against
- *				each other, pread(v)()/pwrite(v)() avoid these
- *				issues.
- * @KDBUS_CMD_MEMFD_SIZE_GET:	Return the size of the underlying file, which
- *				changes with write().
- * @KDBUS_CMD_MEMFD_SIZE_SET:	Truncate the underlying file to the specified
- *				size.
- * @KDBUS_CMD_MEMFD_SEAL_GET:	Return the state of the file sealing.
- * @KDBUS_CMD_MEMFD_SEAL_SET:	Seal or break a seal of the file. Only files
- *				which are not shared with other processes and
- *				which are currently not mapped can be sealed.
- *				The current process needs to be the one and
- *				single owner of the file, the sealing cannot
- *				be changed as long as the file is shared.
  */
 enum kdbus_ioctl_type {
 	KDBUS_CMD_BUS_MAKE =		_IOW(KDBUS_IOCTL_MAGIC, 0x00,
@@ -866,13 +822,6 @@ enum kdbus_ioctl_type {
 					     struct kdbus_cmd_match),
 	KDBUS_CMD_MATCH_REMOVE =	_IOW(KDBUS_IOCTL_MAGIC, 0x81,
 					     struct kdbus_cmd_match),
-
-	KDBUS_CMD_MEMFD_NEW =		_IOWR(KDBUS_IOCTL_MAGIC, 0xc0,
-					      struct kdbus_cmd_memfd_make),
-	KDBUS_CMD_MEMFD_SIZE_GET =	_IOR(KDBUS_IOCTL_MAGIC, 0xc1, __u64 *),
-	KDBUS_CMD_MEMFD_SIZE_SET =	_IOW(KDBUS_IOCTL_MAGIC, 0xc2, __u64 *),
-	KDBUS_CMD_MEMFD_SEAL_GET =	_IOR(KDBUS_IOCTL_MAGIC, 0xc3, int *),
-	KDBUS_CMD_MEMFD_SEAL_SET =	_IO(KDBUS_IOCTL_MAGIC, 0xc4),
 };
 
 /*

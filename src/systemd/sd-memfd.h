@@ -44,7 +44,7 @@ int sd_memfd_get_file(sd_memfd *m, FILE **f);
 
 int sd_memfd_map(sd_memfd *m, uint64_t offset, size_t size, void **p);
 
-int sd_memfd_set_sealed(sd_memfd *m, int b);
+int sd_memfd_set_sealed(sd_memfd *m);
 int sd_memfd_get_sealed(sd_memfd *m);
 
 int sd_memfd_get_size(sd_memfd *m, uint64_t *sz);
