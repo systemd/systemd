@@ -392,7 +392,7 @@ static int sysv_translate_facility(const char *name, const char *filename, char 
         static const char * const table[] = {
                 /* LSB defined facilities */
                 "local_fs",             NULL,
-                "network",              SPECIAL_NETWORK_TARGET,
+                "network",              SPECIAL_NETWORK_ONLINE_TARGET,
                 "named",                SPECIAL_NSS_LOOKUP_TARGET,
                 "portmap",              SPECIAL_RPCBIND_TARGET,
                 "remote_fs",            SPECIAL_REMOTE_FS_TARGET,
@@ -854,7 +854,11 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                         if (r == 0)
                                                 continue;
 
-                                        r = unit_add_dependency_by_name(u, startswith_no_case(t, "X-Start-Before:") ? UNIT_BEFORE : UNIT_AFTER, m, NULL, true);
+                                        if (streq(m, SPECIAL_NETWORK_ONLINE_TARGET) && !startswith_no_case(t, "X-Start-Before:"))
+                                                /* the network-online target is special, as it needs to be actively pulled in */
+                                                r = unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_WANTS, m, NULL, true);
+                                        else
+                                                r = unit_add_dependency_by_name(u, startswith_no_case(t, "X-Start-Before:") ? UNIT_BEFORE : UNIT_AFTER, m, NULL, true);
 
                                         if (r < 0)
                                                 log_error_unit(u->id, "[%s:%u] Failed to add dependency on %s, ignoring: %s",

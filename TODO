@@ -705,10 +705,6 @@ Features:
 
 External:
 
-* NM: figure out what to do about network-online.target.
-   - maybe pull in the target as dependency for LSB initscripts ordered now after network.target
-   - https://bugzilla.gnome.org/show_bug.cgi?id=728965
-
 * dbus:
    - natively watch for dbus-*.service symlinks (PENDING)
    - teach dbus to activate all services it finds in /etc/systemd/services/org-*.service
