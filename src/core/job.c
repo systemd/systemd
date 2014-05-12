@@ -1060,14 +1060,14 @@ int job_coldplug(Job *j) {
         if (r < 0)
                 return r;
 
+        if (j->state == JOB_WAITING)
+                job_add_to_run_queue(j);
+
         if (j->begin_usec == 0 || j->unit->job_timeout == 0)
                 return 0;
 
         if (j->timer_event_source)
                 j->timer_event_source = sd_event_source_unref(j->timer_event_source);
-
-        if (j->state == JOB_WAITING)
-                job_add_to_run_queue(j);
 
         r = sd_event_add_time(
                         j->manager->event,
