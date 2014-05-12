@@ -24,6 +24,7 @@
 #include <netinet/ether.h>
 #include <netinet/in.h>
 #include <stdbool.h>
+#include <libkmod.h>
 
 #include "udev.h"
 #include "condition-util.h"
@@ -65,3 +66,5 @@ int config_parse_ifalias(const char *unit, const char *filename, unsigned line,
 int net_parse_inaddr(const char *address, unsigned char *family, void *dst);
 
 int net_get_unique_predictable_data(struct udev_device *device, uint8_t result[8]);
+
+int load_module(struct kmod_ctx *ctx, const char *mod_name);

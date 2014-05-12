@@ -331,3 +331,42 @@ int config_parse_netdev(const char *unit,
 
         return 0;
 }
+
+int config_parse_tunnel(const char *unit,
+                        const char *filename,
+                        unsigned line,
+                        const char *section,
+                        unsigned section_line,
+                        const char *lvalue,
+                        int ltype,
+                        const char *rvalue,
+                        void *data,
+                        void *userdata) {
+        Network *network = userdata;
+        NetDev *netdev;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = netdev_get(network->manager, rvalue, &netdev);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Tunnel is invalid, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        if (netdev->kind != NETDEV_KIND_IPIP &&
+            netdev->kind != NETDEV_KIND_SIT &&
+            netdev->kind != NETDEV_KIND_GRE) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "NetDev is not a tunnel, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        network->tunnel = netdev;
+
+        return 0;
+}

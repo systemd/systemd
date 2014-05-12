@@ -4171,7 +4171,8 @@ systemd_networkd_SOURCES = \
 	src/network/networkd.c
 
 systemd_networkd_LDADD = \
-	libsystemd-networkd-core.la
+	libsystemd-networkd-core.la \
+	-lkmod
 
 noinst_LTLIBRARIES += \
 	libsystemd-networkd-core.la
@@ -4181,6 +4182,7 @@ libsystemd_networkd_core_la_SOURCES = \
 	src/network/networkd.h \
 	src/network/networkd-link.c \
 	src/network/networkd-netdev.c \
+	src/network/networkd-tunnel.c \
 	src/network/networkd-network.c \
 	src/network/networkd-address.c \
 	src/network/networkd-route.c \
@@ -4217,13 +4219,15 @@ systemd_networkd_wait_online_LDADD = \
 	libsystemd-network.la \
 	libudev-internal.la \
 	libsystemd-internal.la \
-	libsystemd-shared.la
+	libsystemd-shared.la \
+	libsystemd-network.la
 
 test_network_SOURCES = \
 	src/network/test-network.c
 
 test_network_LDADD = \
-	libsystemd-networkd-core.la
+	libsystemd-networkd-core.la \
+	-lkmod
 
 tests += \
 	test-network

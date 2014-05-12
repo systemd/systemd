@@ -68,6 +68,9 @@ typedef enum NetDevKind {
         NETDEV_KIND_BOND,
         NETDEV_KIND_VLAN,
         NETDEV_KIND_MACVLAN,
+        NETDEV_KIND_IPIP,
+        NETDEV_KIND_GRE,
+        NETDEV_KIND_SIT,
         _NETDEV_KIND_MAX,
         _NETDEV_KIND_INVALID = -1
 } NetDevKind;
@@ -95,6 +98,7 @@ struct NetDev {
 
         char *description;
         char *name;
+        size_t mtu;
         NetDevKind kind;
 
         uint64_t vlanid;
@@ -102,6 +106,11 @@ struct NetDev {
 
         int ifindex;
         NetDevState state;
+
+        unsigned tunnel_ttl;
+        unsigned tunnel_tos;
+        struct in_addr tunnel_local;
+        struct in_addr tunnel_remote;
 
         LIST_HEAD(netdev_enslave_callback, callbacks);
 };
@@ -124,6 +133,7 @@ struct Network {
         char *description;
         NetDev *bridge;
         NetDev *bond;
+        NetDev *tunnel;
         Hashmap *vlans;
         Hashmap *macvlans;
         bool dhcp;
@@ -246,6 +256,7 @@ struct Manager {
         LIST_HEAD(Network, networks);
 
         usec_t network_dirs_ts_usec;
+        struct kmod_ctx *kmod_ctx;
 };
 
 extern const char* const network_dirs[];
@@ -266,6 +277,7 @@ int manager_bus_listen(Manager *m);
 
 int manager_update_resolv_conf(Manager *m);
 int manager_save(Manager *m);
+int manager_init_kmod_ctx(Manager *m);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 #define _cleanup_manager_free_ _cleanup_(manager_freep)
@@ -284,6 +296,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(NetDev*, netdev_unref);
 int netdev_get(Manager *manager, const char *name, NetDev **ret);
 int netdev_set_ifindex(NetDev *netdev, sd_rtnl_message *newlink);
 int netdev_enslave(NetDev *netdev, Link *link, sd_rtnl_message_handler_t cb);
+int netdev_create_tunnel(Link *link, sd_rtnl_message_handler_t callback);
 
 const char *netdev_kind_to_string(NetDevKind d) _const_;
 NetDevKind netdev_kind_from_string(const char *d) _pure_;
@@ -315,6 +328,28 @@ int network_apply(Manager *manager, Network *network, Link *link);
 int config_parse_netdev(const char *unit, const char *filename, unsigned line,
                         const char *section, unsigned section_line, const char *lvalue,
                         int ltype, const char *rvalue, void *data, void *userdata);
+
+int config_parse_tunnel(const char *unit,
+                        const char *filename,
+                        unsigned line,
+                        const char *section,
+                        unsigned section_line,
+                        const char *lvalue,
+                        int ltype,
+                        const char *rvalue,
+                        void *data,
+                        void *userdata);
+
+int config_parse_tunnel_address(const char *unit,
+                                const char *filename,
+                                unsigned line,
+                                const char *section,
+                                unsigned section_line,
+                                const char *lvalue,
+                                int ltype,
+                                const char *rvalue,
+                                void *data,
+                                void *userdata);
 
 /* gperf */
 const struct ConfigPerfItem* network_network_gperf_lookup(const char *key, unsigned length);

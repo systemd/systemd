@@ -33,6 +33,9 @@ static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_BOND] = "bond",
         [NETDEV_KIND_VLAN] = "vlan",
         [NETDEV_KIND_MACVLAN] = "macvlan",
+        [NETDEV_KIND_IPIP] = "ipip",
+        [NETDEV_KIND_GRE] = "gre",
+        [NETDEV_KIND_SIT] = "sit",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(netdev_kind, NetDevKind);
@@ -228,6 +231,34 @@ static int netdev_create_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userda
         return 1;
 }
 
+int config_parse_tunnel_address(const char *unit,
+                                const char *filename,
+                                unsigned line,
+                                const char *section,
+                                unsigned section_line,
+                                const char *lvalue,
+                                int ltype,
+                                const char *rvalue,
+                                void *data,
+                                void *userdata) {
+        NetDev *n = data;
+        unsigned char family = AF_INET;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = net_parse_inaddr(rvalue, &family, n);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Tunnel address is invalid, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+       return 0;
+}
+
 static int netdev_create(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callback) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL;
         const char *kind;
@@ -264,6 +295,16 @@ static int netdev_create(NetDev *netdev, Link *link, sd_rtnl_message_handler_t c
                                  "Could not append IFLA_IFNAME attribute: %s",
                                  strerror(-r));
                 return r;
+        }
+
+        if(netdev->mtu) {
+                r = sd_rtnl_message_append_u32(req, IFLA_MTU, netdev->mtu);
+                if (r < 0) {
+                        log_error_netdev(netdev,
+                                         "Could not append IFLA_MTU attribute: %s",
+                                         strerror(-r));
+                        return r;
+                }
         }
 
         r = sd_rtnl_message_open_container(req, IFLA_LINKINFO);
@@ -346,6 +387,11 @@ int netdev_enslave(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callbac
 
         if (netdev->kind == NETDEV_KIND_VLAN || netdev->kind == NETDEV_KIND_MACVLAN)
                 return netdev_create(netdev, link, callback);
+
+        if(netdev->kind == NETDEV_KIND_IPIP ||
+           netdev->kind == NETDEV_KIND_GRE ||
+           netdev->kind ==  NETDEV_KIND_SIT)
+                return netdev_create_tunnel(link, netdev_create_handler);
 
         if (netdev->state == NETDEV_STATE_READY) {
                 r = netdev_enslave_ready(netdev, link, callback);
@@ -496,7 +542,7 @@ static int netdev_load_one(Manager *manager, const char *filename) {
         netdev->macvlan_mode = _NETDEV_MACVLAN_MODE_INVALID;
         netdev->vlanid = VLANID_MAX + 1;
 
-        r = config_parse(NULL, filename, file, "Match\0NetDev\0VLAN\0MACVLAN\0",
+        r = config_parse(NULL, filename, file, "Match\0NetDev\0VLAN\0MACVLAN\0Tunnel\0",
                          config_item_perf_lookup, (void*) network_netdev_gperf_lookup,
                          false, false, netdev);
         if (r < 0) {
@@ -549,7 +595,10 @@ static int netdev_load_one(Manager *manager, const char *filename) {
         LIST_HEAD_INIT(netdev->callbacks);
 
         if (netdev->kind != NETDEV_KIND_VLAN &&
-            netdev->kind != NETDEV_KIND_MACVLAN) {
+            netdev->kind != NETDEV_KIND_MACVLAN &&
+            netdev->kind != NETDEV_KIND_IPIP &&
+            netdev->kind != NETDEV_KIND_GRE &&
+            netdev->kind != NETDEV_KIND_SIT) {
                 r = netdev_create(netdev, NULL, NULL);
                 if (r < 0)
                         return r;

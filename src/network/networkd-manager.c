@@ -21,6 +21,7 @@
 
 #include <resolv.h>
 #include <linux/if.h>
+#include <libkmod.h>
 
 #include "path-util.h"
 #include "networkd.h"
@@ -550,4 +551,19 @@ finish:
                 log_error("Failed to save network state to %s: %s", m->state_file, strerror(-r));
 
         return r;
+}
+
+int manager_init_kmod_ctx(Manager *m) {
+        struct kmod_ctx *ctx;
+
+        assert(m);
+
+        ctx = kmod_new(NULL, NULL);
+        if (!ctx) {
+                return -ENOMEM;
+        }
+
+        m->kmod_ctx = ctx;
+
+        return 0;
 }

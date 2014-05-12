@@ -104,8 +104,8 @@ static const NLType rtnl_link_info_data_bond_types[IFLA_BOND_MAX + 1] = {
 
 static const NLType rtnl_link_info_data_iptun_types[IFLA_IPTUN_MAX + 1] = {
         [IFLA_IPTUN_LINK]                = { .type = NLA_U32 },
-        [IFLA_IPTUN_LOCAL]               = { .type = NLA_U32 },
-        [IFLA_IPTUN_REMOTE]              = { .type = NLA_U32 },
+        [IFLA_IPTUN_LOCAL]               = { .type = NLA_IN_ADDR },
+        [IFLA_IPTUN_REMOTE]              = { .type = NLA_IN_ADDR },
         [IFLA_IPTUN_TTL]                 = { .type = NLA_U8 },
         [IFLA_IPTUN_TOS]                 = { .type = NLA_U8 },
         [IFLA_IPTUN_PMTUDISC]            = { .type = NLA_U8 },

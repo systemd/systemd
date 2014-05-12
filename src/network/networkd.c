@@ -87,6 +87,12 @@ int main(int argc, char *argv[]) {
                 goto out;
         }
 
+        r = manager_init_kmod_ctx(m);
+        if (r < 0) {
+                log_error("Could not init kmod context: %s", strerror(-r));
+                goto out;
+        }
+
         r = manager_rtnl_enumerate_links(m);
         if (r < 0) {
                 log_error("Could not enumerate links: %s", strerror(-r));

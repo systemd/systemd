@@ -34,6 +34,7 @@ Network.IPv4LL,              config_parse_bool,                  0,             
 Network.Address,             config_parse_address,               0,                             0
 Network.Gateway,             config_parse_gateway,               0,                             0
 Network.DNS,                 config_parse_dns,                   0,                             offsetof(Network, dns)
+Network.Tunnel,              config_parse_tunnel,                0,                             offsetof(Network, tunnel)
 Address.Address,             config_parse_address,               0,                             0
 Address.Broadcast,           config_parse_broadcast,             0,                             0
 Address.Label,               config_parse_label,                 0,                             0
