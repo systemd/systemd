@@ -353,6 +353,8 @@ int load_module(struct kmod_ctx *ctx, const char *mod_name) {
                         log_error("Failed to insert '%s': %s", kmod_module_get_name(mod),
                                   strerror(-r));
                 }
+
+                kmod_module_unref(mod);
         }
 
         kmod_module_unref_list(modlist);
