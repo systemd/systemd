@@ -64,7 +64,7 @@ static int inhibit(sd_bus *bus, sd_bus_error *error) {
         if (r < 0)
                 return r;
 
-        r = dup(fd);
+        r = fcntl(fd, F_DUPFD_CLOEXEC, 3);
         if (r < 0)
                 return -errno;
 

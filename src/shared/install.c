@@ -332,7 +332,7 @@ static int remove_marked_symlinks(
                 int q, cfd;
                 deleted = false;
 
-                cfd = dup(fd);
+                cfd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
                 if (cfd < 0) {
                         r = -errno;
                         break;
