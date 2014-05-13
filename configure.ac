@@ -880,6 +880,8 @@ if test "x$enable_networkd" != "xno"; then
         AC_DEFINE(ENABLE_NETWORKD, 1, [Define if networkd support is to be enabled])
         have_networkd=yes
 fi
+AS_IF([test "x$have_networkd" = "xyes" -a "x$have_kmod" != "xyes"],
+      [AC_MSG_ERROR([networkd requires kmod])])
 AM_CONDITIONAL(ENABLE_NETWORKD, [test "x$have_networkd" = "xyes"])
 
 # ------------------------------------------------------------------------------

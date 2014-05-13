@@ -2481,6 +2481,10 @@ busctl_CFLAGS = \
 noinst_LTLIBRARIES += \
 	libsystemd-network.la
 
+libsystemd_network_la_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(KMOD_CFLAGS)
+
 libsystemd_network_la_SOURCES = \
 	src/systemd/sd-network.h \
 	src/systemd/sd-dhcp-client.h \
@@ -2506,7 +2510,8 @@ libsystemd_network_la_SOURCES = \
 libsystemd_network_la_LIBADD = \
 	libsystemd-label.la \
 	libsystemd-internal.la \
-	libsystemd-shared.la
+	libsystemd-shared.la \
+	$(KMOD_LIBS)
 
 test_dhcp_option_SOURCES = \
 	src/libsystemd-network/dhcp-protocol.h \
@@ -4196,10 +4201,14 @@ systemd_networkd_SOURCES = \
 
 systemd_networkd_LDADD = \
 	libsystemd-networkd-core.la \
-	-lkmod
+	$(KMOD_LIBS)
 
 noinst_LTLIBRARIES += \
 	libsystemd-networkd-core.la
+
+libsystemd_networkd_core_la_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(KMOD_CFLAGS)
 
 libsystemd_networkd_core_la_SOURCES = \
 	src/libsystemd-network/network-internal.h \
@@ -4234,6 +4243,10 @@ GENERAL_ALIASES += \
 rootlibexec_PROGRAMS += \
 	systemd-networkd-wait-online
 
+systemd_networkd_wait_online_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(KMOD_CFLAGS)
+
 systemd_networkd_wait_online_SOURCES = \
 	src/libsystemd-network/network-internal.h \
 	src/network/networkd-wait-online.c \
@@ -4250,8 +4263,8 @@ test_network_SOURCES = \
 	src/network/test-network.c
 
 test_network_LDADD = \
-	libsystemd-networkd-core.la \
-	-lkmod
+	libsystemd-networkd-core.la
+	$(KMOD_LIBS)
 
 tests += \
 	test-network
