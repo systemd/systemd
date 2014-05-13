@@ -475,7 +475,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         }
 
         if (session_fd >= 0) {
-                session_fd = dup(session_fd);
+                session_fd = fcntl(session_fd, F_DUPFD_CLOEXEC, 3);
                 if (session_fd < 0) {
                         pam_syslog(handle, LOG_ERR, "Failed to dup session fd: %m");
                         return PAM_SESSION_ERR;
