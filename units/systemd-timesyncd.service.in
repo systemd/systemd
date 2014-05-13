@@ -9,6 +9,7 @@
 Description=Network Time Synchronization
 Documentation=man:systemd-timesyncd.service(8)
 ConditionCapability=CAP_SYS_TIME
+After=systemd-networkd.service
 
 [Service]
 Type=notify
