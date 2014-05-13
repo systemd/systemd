@@ -307,10 +307,9 @@ static void worker_new(struct event *event)
                         }
 
                         /* apply rules, create node, symlinks */
-                        err = udev_event_execute_rules(udev_event, rules, &sigmask_orig);
+                        udev_event_execute_rules(udev_event, rules, &sigmask_orig);
 
-                        if (err == 0)
-                                udev_event_execute_run(udev_event, &sigmask_orig);
+                        udev_event_execute_run(udev_event, &sigmask_orig);
 
                         /* apply/restore inotify watch */
                         if (err == 0 && udev_event->inotify_watch) {

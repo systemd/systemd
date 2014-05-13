@@ -776,13 +776,12 @@ static int rename_netif(struct udev_event *event)
         return r;
 }
 
-int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules, const sigset_t *sigmask)
+void udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules, const sigset_t *sigmask)
 {
         struct udev_device *dev = event->dev;
-        int err = 0;
 
         if (udev_device_get_subsystem(dev) == NULL)
-                return -1;
+                return;
 
         if (streq(udev_device_get_action(dev), "remove")) {
                 udev_device_read_db(dev, NULL);
@@ -816,9 +815,10 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules,
                     event->name != NULL && !streq(event->name, udev_device_get_sysname(dev))) {
                         char syspath[UTIL_PATH_SIZE];
                         char *pos;
+                        int r;
 
-                        err = rename_netif(event);
-                        if (err == 0) {
+                        r = rename_netif(event);
+                        if (r >= 0) {
                                 log_debug("renamed netif to '%s'", event->name);
 
                                 /* remember old name */
@@ -881,7 +881,6 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules,
                 udev_device_unref(event->dev_db);
                 event->dev_db = NULL;
         }
-        return err;
 }
 
 void udev_event_execute_run(struct udev_event *event, const sigset_t *sigmask)

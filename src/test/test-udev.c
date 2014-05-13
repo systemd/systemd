@@ -155,9 +155,8 @@ int main(int argc, char *argv[]) {
                 }
         }
 
-        err = udev_event_execute_rules(event, rules, &sigmask_orig);
-        if (err == 0)
-                udev_event_execute_run(event, NULL);
+        udev_event_execute_rules(event, rules, &sigmask_orig);
+        udev_event_execute_run(event, NULL);
 out:
         if (event != NULL && event->fd_signal >= 0)
                 close(event->fd_signal);

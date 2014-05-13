@@ -84,7 +84,7 @@ int udev_event_apply_subsys_kernel(struct udev_event *event, const char *string,
 int udev_event_spawn(struct udev_event *event,
                      const char *cmd, char **envp, const sigset_t *sigmask,
                      char *result, size_t ressize);
-int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules, const sigset_t *sigset);
+void udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules, const sigset_t *sigset);
 void udev_event_execute_run(struct udev_event *event, const sigset_t *sigset);
 int udev_build_argv(struct udev *udev, char *cmd, int *argc, char *argv[]);
 
