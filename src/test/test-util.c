@@ -37,6 +37,36 @@ static void test_streq_ptr(void) {
         assert_se(!streq_ptr("abc", "cdef"));
 }
 
+static void test_align_power2(void) {
+        unsigned long i, p2;
+
+        assert_se(ALIGN_POWER2(0) == 0);
+        assert_se(ALIGN_POWER2(1) == 1);
+        assert_se(ALIGN_POWER2(2) == 2);
+        assert_se(ALIGN_POWER2(3) == 4);
+        assert_se(ALIGN_POWER2(12) == 16);
+
+        assert_se(ALIGN_POWER2(ULONG_MAX) == 0);
+        assert_se(ALIGN_POWER2(ULONG_MAX - 1) == 0);
+        assert_se(ALIGN_POWER2(ULONG_MAX - 1024) == 0);
+        assert_se(ALIGN_POWER2(ULONG_MAX / 2) == ULONG_MAX / 2 + 1);
+        assert_se(ALIGN_POWER2(ULONG_MAX + 1) == 0);
+
+        for (i = 1; i < 131071; ++i) {
+                for (p2 = 1; p2 < i; p2 <<= 1)
+                        /* empty */ ;
+
+                assert_se(ALIGN_POWER2(i) == p2);
+        }
+
+        for (i = ULONG_MAX - 1024; i < ULONG_MAX; ++i) {
+                for (p2 = 1; p2 && p2 < i; p2 <<= 1)
+                        /* empty */ ;
+
+                assert_se(ALIGN_POWER2(i) == p2);
+        }
+}
+
 static void test_first_word(void) {
         assert_se(first_word("Hello", ""));
         assert_se(first_word("Hello", "Hello"));
@@ -680,6 +710,7 @@ int main(int argc, char *argv[]) {
         log_open();
 
         test_streq_ptr();
+        test_align_power2();
         test_first_word();
         test_close_many();
         test_parse_boolean();
