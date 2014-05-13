@@ -801,6 +801,8 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/clean-ipc.c \
 	src/shared/login-shared.c \
 	src/shared/login-shared.h \
+	src/shared/ring.c \
+	src/shared/ring.h \
 	src/shared/async.c \
 	src/shared/async.h
 
@@ -1198,6 +1200,7 @@ tests += \
 	test-utf8 \
 	test-ellipsize \
 	test-util \
+	test-ring \
 	test-tmpfiles \
 	test-namespace \
 	test-date \
@@ -1323,6 +1326,12 @@ test_util_SOURCES = \
 	src/test/test-util.c
 
 test_util_LDADD = \
+	libsystemd-core.la
+
+test_ring_SOURCES = \
+	src/test/test-ring.c
+
+test_ring_LDADD = \
 	libsystemd-core.la
 
 test_tmpfiles_SOURCES = \

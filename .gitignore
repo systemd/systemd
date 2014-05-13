@@ -180,6 +180,7 @@
 /test-path-util
 /test-prioq
 /test-replace-var
+/test-ring
 /test-rtnl
 /test-sched-prio
 /test-sleep
