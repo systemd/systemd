@@ -834,6 +834,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
 
                                 FOREACH_WORD_QUOTED(w, z, strchr(t, ':')+1, i) {
                                         char *n, *m;
+                                        bool is_before;
 
                                         if (!(n = strndup(w, z))) {
                                                 r = -ENOMEM;
@@ -854,11 +855,13 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                         if (r == 0)
                                                 continue;
 
-                                        if (streq(m, SPECIAL_NETWORK_ONLINE_TARGET) && !startswith_no_case(t, "X-Start-Before:"))
+                                        is_before = startswith_no_case(t, "X-Start-Before:");
+
+                                        if (streq(m, SPECIAL_NETWORK_ONLINE_TARGET) && !is_before)
                                                 /* the network-online target is special, as it needs to be actively pulled in */
                                                 r = unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_WANTS, m, NULL, true);
                                         else
-                                                r = unit_add_dependency_by_name(u, startswith_no_case(t, "X-Start-Before:") ? UNIT_BEFORE : UNIT_AFTER, m, NULL, true);
+                                                r = unit_add_dependency_by_name(u, is_before ? UNIT_BEFORE : UNIT_AFTER, m, NULL, true);
 
                                         if (r < 0)
                                                 log_error_unit(u->id, "[%s:%u] Failed to add dependency on %s, ignoring: %s",
