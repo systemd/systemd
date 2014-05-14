@@ -67,11 +67,10 @@ void bus_slot_disconnect(sd_bus_slot *slot) {
 
         assert(slot);
 
-        switch (slot->type) {
-
-        case _BUS_SLOT_DISCONNECTED:
-                /* Already disconnected... */
+        if (!slot->bus)
                 return;
+
+        switch (slot->type) {
 
         case BUS_REPLY_CALLBACK:
 
@@ -181,10 +180,14 @@ void bus_slot_disconnect(sd_bus_slot *slot) {
                 }
 
                 break;
+
+        default:
+                assert_not_reached("Wut? Unknown slot type?");
         }
+
         bus = slot->bus;
 
-        slot->type = _BUS_SLOT_DISCONNECTED;
+        slot->type = _BUS_SLOT_INVALID;
         slot->bus = NULL;
         LIST_REMOVE(slots, bus->slots, slot);
 
@@ -235,7 +238,7 @@ _public_ void *sd_bus_slot_set_userdata(sd_bus_slot *slot, void *userdata) {
 
 _public_ sd_bus_message *sd_bus_slot_get_current_message(sd_bus_slot *slot) {
         assert_return(slot, NULL);
-        assert_return(slot->type != _BUS_SLOT_DISCONNECTED, NULL);
+        assert_return(slot->type >= 0, NULL);
 
         if (slot->bus->current_slot != slot)
                 return NULL;

@@ -33,6 +33,7 @@
 #include "time-util.h"
 #include "missing.h"
 #include "set.h"
+#include "list.h"
 
 #include "sd-event.h"
 
@@ -51,7 +52,7 @@ typedef enum EventSourceType {
         SOURCE_POST,
         SOURCE_EXIT,
         SOURCE_WATCHDOG,
-        _SOUFCE_EVENT_SOURCE_TYPE_MAX,
+        _SOURCE_EVENT_SOURCE_TYPE_MAX,
         _SOURCE_EVENT_SOURCE_TYPE_INVALID = -1
 } EventSourceType;
 
@@ -68,12 +69,15 @@ struct sd_event_source {
         int enabled:3;
         bool pending:1;
         bool dispatching:1;
+        bool floating:1;
 
         int64_t priority;
         unsigned pending_index;
         unsigned prepare_index;
         unsigned pending_iteration;
         unsigned prepare_iteration;
+
+        LIST_FIELDS(sd_event_source, sources);
 
         union {
                 struct {
@@ -177,7 +181,11 @@ struct sd_event {
         usec_t watchdog_last, watchdog_period;
 
         unsigned n_sources;
+
+        LIST_HEAD(sd_event_source, sources);
 };
+
+static void source_disconnect(sd_event_source *s);
 
 static int pending_prioq_compare(const void *a, const void *b) {
         const sd_event_source *x = a, *y = b;
@@ -349,7 +357,16 @@ static void free_clock_data(struct clock_data *d) {
 }
 
 static void event_free(sd_event *e) {
+        sd_event_source *s;
+
         assert(e);
+
+        while ((s = e->sources)) {
+                assert(s->floating);
+                source_disconnect(s);
+                sd_event_source_unref(s);
+        }
+
         assert(e->n_sources == 0);
 
         if (e->default_event_ptr)
@@ -557,86 +574,101 @@ static struct clock_data* event_get_clock_data(sd_event *e, EventSourceType t) {
         }
 }
 
+static void source_disconnect(sd_event_source *s) {
+        sd_event *event;
+
+        assert(s);
+
+        if (!s->event)
+                return;
+
+        assert(s->event->n_sources > 0);
+
+        switch (s->type) {
+
+        case SOURCE_IO:
+                if (s->io.fd >= 0)
+                        source_io_unregister(s);
+
+                break;
+
+        case SOURCE_TIME_REALTIME:
+        case SOURCE_TIME_MONOTONIC:
+        case SOURCE_TIME_REALTIME_ALARM:
+        case SOURCE_TIME_BOOTTIME_ALARM: {
+                struct clock_data *d;
+
+                d = event_get_clock_data(s->event, s->type);
+                assert(d);
+
+                prioq_remove(d->earliest, s, &s->time.earliest_index);
+                prioq_remove(d->latest, s, &s->time.latest_index);
+                break;
+        }
+
+        case SOURCE_SIGNAL:
+                if (s->signal.sig > 0) {
+                        if (s->signal.sig != SIGCHLD || s->event->n_enabled_child_sources == 0)
+                                assert_se(sigdelset(&s->event->sigset, s->signal.sig) == 0);
+
+                        if (s->event->signal_sources)
+                                s->event->signal_sources[s->signal.sig] = NULL;
+                }
+
+                break;
+
+        case SOURCE_CHILD:
+                if (s->child.pid > 0) {
+                        if (s->enabled != SD_EVENT_OFF) {
+                                assert(s->event->n_enabled_child_sources > 0);
+                                s->event->n_enabled_child_sources--;
+                        }
+
+                        if (!s->event->signal_sources || !s->event->signal_sources[SIGCHLD])
+                                assert_se(sigdelset(&s->event->sigset, SIGCHLD) == 0);
+
+                        hashmap_remove(s->event->child_sources, INT_TO_PTR(s->child.pid));
+                }
+
+                break;
+
+        case SOURCE_DEFER:
+                /* nothing */
+                break;
+
+        case SOURCE_POST:
+                set_remove(s->event->post_sources, s);
+                break;
+
+        case SOURCE_EXIT:
+                prioq_remove(s->event->exit, s, &s->exit.prioq_index);
+                break;
+
+        default:
+                assert_not_reached("Wut? I shouldn't exist.");
+        }
+
+        if (s->pending)
+                prioq_remove(s->event->pending, s, &s->pending_index);
+
+        if (s->prepare)
+                prioq_remove(s->event->prepare, s, &s->prepare_index);
+
+        event = s->event;
+
+        s->type = _SOURCE_EVENT_SOURCE_TYPE_INVALID;
+        s->event = NULL;
+        LIST_REMOVE(sources, event->sources, s);
+        event->n_sources--;
+
+        if (!s->floating)
+                sd_event_unref(event);
+}
+
 static void source_free(sd_event_source *s) {
         assert(s);
 
-        if (s->event) {
-                assert(s->event->n_sources > 0);
-
-                switch (s->type) {
-
-                case SOURCE_IO:
-                        if (s->io.fd >= 0)
-                                source_io_unregister(s);
-
-                        break;
-
-                case SOURCE_TIME_REALTIME:
-                case SOURCE_TIME_MONOTONIC:
-                case SOURCE_TIME_REALTIME_ALARM:
-                case SOURCE_TIME_BOOTTIME_ALARM: {
-                        struct clock_data *d;
-
-                        d = event_get_clock_data(s->event, s->type);
-                        assert(d);
-
-                        prioq_remove(d->earliest, s, &s->time.earliest_index);
-                        prioq_remove(d->latest, s, &s->time.latest_index);
-                        break;
-                }
-
-                case SOURCE_SIGNAL:
-                        if (s->signal.sig > 0) {
-                                if (s->signal.sig != SIGCHLD || s->event->n_enabled_child_sources == 0)
-                                        assert_se(sigdelset(&s->event->sigset, s->signal.sig) == 0);
-
-                                if (s->event->signal_sources)
-                                        s->event->signal_sources[s->signal.sig] = NULL;
-                        }
-
-                        break;
-
-                case SOURCE_CHILD:
-                        if (s->child.pid > 0) {
-                                if (s->enabled != SD_EVENT_OFF) {
-                                        assert(s->event->n_enabled_child_sources > 0);
-                                        s->event->n_enabled_child_sources--;
-                                }
-
-                                if (!s->event->signal_sources || !s->event->signal_sources[SIGCHLD])
-                                        assert_se(sigdelset(&s->event->sigset, SIGCHLD) == 0);
-
-                                hashmap_remove(s->event->child_sources, INT_TO_PTR(s->child.pid));
-                        }
-
-                        break;
-
-                case SOURCE_DEFER:
-                        /* nothing */
-                        break;
-
-                case SOURCE_POST:
-                        set_remove(s->event->post_sources, s);
-                        break;
-
-                case SOURCE_EXIT:
-                        prioq_remove(s->event->exit, s, &s->exit.prioq_index);
-                        break;
-
-                default:
-                        assert_not_reached("Wut? I shouldn't exist.");
-                }
-
-                if (s->pending)
-                        prioq_remove(s->event->pending, s, &s->pending_index);
-
-                if (s->prepare)
-                        prioq_remove(s->event->prepare, s, &s->prepare_index);
-
-                s->event->n_sources--;
-                sd_event_unref(s->event);
-        }
-
+        source_disconnect(s);
         free(s);
 }
 
@@ -675,7 +707,7 @@ static int source_set_pending(sd_event_source *s, bool b) {
         return 0;
 }
 
-static sd_event_source *source_new(sd_event *e, EventSourceType type) {
+static sd_event_source *source_new(sd_event *e, bool floating, EventSourceType type) {
         sd_event_source *s;
 
         assert(e);
@@ -685,10 +717,15 @@ static sd_event_source *source_new(sd_event *e, EventSourceType type) {
                 return NULL;
 
         s->n_ref = 1;
-        s->event = sd_event_ref(e);
+        s->event = e;
         s->type = type;
         s->pending_index = s->prepare_index = PRIOQ_IDX_NULL;
+        s->floating = floating;
 
+        if (!floating)
+                sd_event_ref(e);
+
+        LIST_PREPEND(sources, e->sources, s);
         e->n_sources ++;
 
         return s;
@@ -709,11 +746,10 @@ _public_ int sd_event_add_io(
         assert_return(fd >= 0, -EINVAL);
         assert_return(!(events & ~(EPOLLIN|EPOLLOUT|EPOLLRDHUP|EPOLLPRI|EPOLLERR|EPOLLHUP|EPOLLET)), -EINVAL);
         assert_return(callback, -EINVAL);
-        assert_return(ret, -EINVAL);
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_pid_changed(e), -ECHILD);
 
-        s = source_new(e, SOURCE_IO);
+        s = source_new(e, !ret, SOURCE_IO);
         if (!s)
                 return -ENOMEM;
 
@@ -729,7 +765,9 @@ _public_ int sd_event_add_io(
                 return -errno;
         }
 
-        *ret = s;
+        if (ret)
+                *ret = s;
+
         return 0;
 }
 
@@ -798,7 +836,6 @@ _public_ int sd_event_add_time(
         int r;
 
         assert_return(e, -EINVAL);
-        assert_return(ret, -EINVAL);
         assert_return(usec != (uint64_t) -1, -EINVAL);
         assert_return(accuracy != (uint64_t) -1, -EINVAL);
         assert_return(callback, -EINVAL);
@@ -829,7 +866,7 @@ _public_ int sd_event_add_time(
                         return r;
         }
 
-        s = source_new(e, type);
+        s = source_new(e, !ret, type);
         if (!s)
                 return -ENOMEM;
 
@@ -848,7 +885,9 @@ _public_ int sd_event_add_time(
         if (r < 0)
                 goto fail;
 
-        *ret = s;
+        if (ret)
+                *ret = s;
+
         return 0;
 
 fail:
@@ -906,7 +945,6 @@ _public_ int sd_event_add_signal(
         assert_return(e, -EINVAL);
         assert_return(sig > 0, -EINVAL);
         assert_return(sig < _NSIG, -EINVAL);
-        assert_return(ret, -EINVAL);
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_pid_changed(e), -ECHILD);
 
@@ -927,7 +965,7 @@ _public_ int sd_event_add_signal(
         } else if (e->signal_sources[sig])
                 return -EBUSY;
 
-        s = source_new(e, SOURCE_SIGNAL);
+        s = source_new(e, !ret, SOURCE_SIGNAL);
         if (!s)
                 return -ENOMEM;
 
@@ -947,7 +985,9 @@ _public_ int sd_event_add_signal(
                 }
         }
 
-        *ret = s;
+        if (ret)
+                *ret = s;
+
         return 0;
 }
 
@@ -967,7 +1007,6 @@ _public_ int sd_event_add_child(
         assert_return(!(options & ~(WEXITED|WSTOPPED|WCONTINUED)), -EINVAL);
         assert_return(options != 0, -EINVAL);
         assert_return(callback, -EINVAL);
-        assert_return(ret, -EINVAL);
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_pid_changed(e), -ECHILD);
 
@@ -978,7 +1017,7 @@ _public_ int sd_event_add_child(
         if (hashmap_contains(e->child_sources, INT_TO_PTR(pid)))
                 return -EBUSY;
 
-        s = source_new(e, SOURCE_CHILD);
+        s = source_new(e, !ret, SOURCE_CHILD);
         if (!s)
                 return -ENOMEM;
 
@@ -1008,7 +1047,9 @@ _public_ int sd_event_add_child(
 
         e->need_process_child = true;
 
-        *ret = s;
+        if (ret)
+                *ret = s;
+
         return 0;
 }
 
@@ -1023,11 +1064,10 @@ _public_ int sd_event_add_defer(
 
         assert_return(e, -EINVAL);
         assert_return(callback, -EINVAL);
-        assert_return(ret, -EINVAL);
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_pid_changed(e), -ECHILD);
 
-        s = source_new(e, SOURCE_DEFER);
+        s = source_new(e, !ret, SOURCE_DEFER);
         if (!s)
                 return -ENOMEM;
 
@@ -1041,7 +1081,9 @@ _public_ int sd_event_add_defer(
                 return r;
         }
 
-        *ret = s;
+        if (ret)
+                *ret = s;
+
         return 0;
 }
 
@@ -1056,7 +1098,6 @@ _public_ int sd_event_add_post(
 
         assert_return(e, -EINVAL);
         assert_return(callback, -EINVAL);
-        assert_return(ret, -EINVAL);
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_pid_changed(e), -ECHILD);
 
@@ -1064,7 +1105,7 @@ _public_ int sd_event_add_post(
         if (r < 0)
                 return r;
 
-        s = source_new(e, SOURCE_POST);
+        s = source_new(e, !ret, SOURCE_POST);
         if (!s)
                 return -ENOMEM;
 
@@ -1078,7 +1119,9 @@ _public_ int sd_event_add_post(
                 return r;
         }
 
-        *ret = s;
+        if (ret)
+                *ret = s;
+
         return 0;
 }
 
@@ -1093,7 +1136,6 @@ _public_ int sd_event_add_exit(
 
         assert_return(e, -EINVAL);
         assert_return(callback, -EINVAL);
-        assert_return(ret, -EINVAL);
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_pid_changed(e), -ECHILD);
 
@@ -1103,7 +1145,7 @@ _public_ int sd_event_add_exit(
                         return -ENOMEM;
         }
 
-        s = source_new(e, SOURCE_EXIT);
+        s = source_new(e, !ret, SOURCE_EXIT);
         if (!s)
                 return -ENOMEM;
 
@@ -1118,7 +1160,9 @@ _public_ int sd_event_add_exit(
                 return r;
         }
 
-        *ret = s;
+        if (ret)
+                *ret = s;
+
         return 0;
 }
 
@@ -1151,6 +1195,8 @@ _public_ sd_event_source* sd_event_source_unref(sd_event_source *s) {
                 if (s->dispatching) {
                         if (s->type == SOURCE_IO)
                                 source_io_unregister(s);
+
+                        source_disconnect(s);
                 } else
                         source_free(s);
         }
@@ -1995,7 +2041,7 @@ static int source_dispatch(sd_event_source *s) {
                 break;
 
         case SOURCE_WATCHDOG:
-        case _SOUFCE_EVENT_SOURCE_TYPE_MAX:
+        case _SOURCE_EVENT_SOURCE_TYPE_MAX:
         case _SOURCE_EVENT_SOURCE_TYPE_INVALID:
                 assert_not_reached("Wut? I shouldn't exist.");
         }

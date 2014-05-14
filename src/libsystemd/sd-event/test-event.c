@@ -206,6 +206,10 @@ int main(int argc, char *argv[]) {
         assert_se(sd_event_source_set_enabled(z, SD_EVENT_ONESHOT) >= 0);
         assert_se(sd_event_source_set_prepare(z, prepare_handler) >= 0);
 
+        /* Test for floating event sources */
+        assert_se(sigprocmask_many(SIG_BLOCK, SIGRTMIN+1, -1) == 0);
+        assert_se(sd_event_add_signal(e, NULL, SIGRTMIN+1, NULL, NULL) >= 0);
+
         assert_se(write(a[1], &ch, 1) >= 0);
         assert_se(write(b[1], &ch, 1) >= 0);
 

@@ -126,7 +126,6 @@ struct vtable_member {
 };
 
 typedef enum BusSlotType {
-        _BUS_SLOT_DISCONNECTED,
         BUS_REPLY_CALLBACK,
         BUS_FILTER_CALLBACK,
         BUS_MATCH_CALLBACK,
@@ -134,14 +133,15 @@ typedef enum BusSlotType {
         BUS_NODE_ENUMERATOR,
         BUS_NODE_VTABLE,
         BUS_NODE_OBJECT_MANAGER,
+        _BUS_SLOT_INVALID = -1,
 } BusSlotType;
 
 struct sd_bus_slot {
         unsigned n_ref;
         sd_bus *bus;
         void *userdata;
-        BusSlotType type;
-        bool floating;
+        BusSlotType type:5;
+        bool floating:1;
 
         LIST_FIELDS(sd_bus_slot, slots);
 
