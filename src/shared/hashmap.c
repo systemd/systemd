@@ -582,6 +582,34 @@ void* hashmap_remove(Hashmap *h, const void *key) {
         return data;
 }
 
+void* hashmap_remove2(Hashmap *h, const void *key, void **rkey) {
+        struct hashmap_entry *e;
+        unsigned hash;
+        void *data;
+
+        if (!h) {
+                if (rkey)
+                        *rkey = NULL;
+                return NULL;
+        }
+
+        hash = bucket_hash(h, key);
+        e = hash_scan(h, hash, key);
+        if (!e) {
+                if (rkey)
+                        *rkey = NULL;
+                return NULL;
+        }
+
+        data = e->value;
+        if (rkey)
+                *rkey = (void*) e->key;
+
+        remove_entry(h, e);
+
+        return data;
+}
+
 int hashmap_remove_and_put(Hashmap *h, const void *old_key, const void *new_key, void *value) {
         struct hashmap_entry *e;
         unsigned old_hash, new_hash;
