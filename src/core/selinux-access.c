@@ -169,7 +169,6 @@ void selinux_access_free(void) {
    still be generated if the access would be denied in enforcing mode.
 */
 int selinux_generic_access_check(
-                sd_bus *bus,
                 sd_bus_message *message,
                 const char *path,
                 const char *permission,
@@ -183,7 +182,6 @@ int selinux_generic_access_check(
         char **cmdline = NULL;
         int r = 0;
 
-        assert(bus);
         assert(message);
         assert(permission);
         assert(error);

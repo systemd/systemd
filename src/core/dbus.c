@@ -239,7 +239,7 @@ static int selinux_filter(sd_bus *bus, sd_bus_message *message, void *userdata, 
 
         if (object_path_startswith("/org/freedesktop/systemd1", path)) {
 
-                r = selinux_access_check(bus, message, verb, error);
+                r = selinux_access_check(message, verb, error);
                 if (r < 0)
                         return r;
 
@@ -270,7 +270,7 @@ static int selinux_filter(sd_bus *bus, sd_bus_message *message, void *userdata, 
         if (!u)
                 return 0;
 
-        r = selinux_unit_access_check(u, bus, message, verb, error);
+        r = selinux_unit_access_check(u, message, verb, error);
         if (r < 0)
                 return r;
 

@@ -60,7 +60,7 @@ static int method_cancel(sd_bus *bus, sd_bus_message *message, void *userdata, s
         assert(message);
         assert(j);
 
-        r = selinux_unit_access_check(j->unit, bus, message, "stop", error);
+        r = selinux_unit_access_check(j->unit, message, "stop", error);
         if (r < 0)
                 return r;
 

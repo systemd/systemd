@@ -27,18 +27,22 @@
 
 void selinux_access_free(void);
 
-int selinux_generic_access_check(sd_bus *bus, sd_bus_message *message, const char *path, const char *permission, sd_bus_error *error);
+int selinux_generic_access_check(sd_bus_message *message, const char *path, const char *permission, sd_bus_error *error);
 
 #ifdef HAVE_SELINUX
 
-#define selinux_access_check(bus, message, permission, error) \
-        selinux_generic_access_check(bus, message, NULL, permission, error)
-#define selinux_unit_access_check(unit, bus, message, permission, error) \
-        ({ Unit *_unit = (unit); selinux_generic_access_check(bus, message, _unit->fragment_path ?: _unit->fragment_path, permission, error); })
+#define selinux_access_check(message, permission, error) \
+        selinux_generic_access_check((message), NULL, (permission), (error))
+
+#define selinux_unit_access_check(unit, message, permission, error) \
+        ({                                                              \
+                Unit *_unit = (unit);                                   \
+                selinux_generic_access_check((message), _unit->fragment_path ?: _unit->fragment_path, (permission), (error)); \
+        })
 
 #else
 
-#define selinux_access_check(bus, message, permission, error) 0
-#define selinux_unit_access_check(unit, bus, message, permission, error) 0
+#define selinux_access_check(message, permission, error) 0
+#define selinux_unit_access_check(unit, message, permission, error) 0
 
 #endif
