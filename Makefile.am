@@ -3682,6 +3682,19 @@ nodist_systemunit_DATA += \
 	units/systemd-readahead-replay.service \
 	units/systemd-readahead-done.service
 
+manual_tests += \
+	test-ssd
+
+test_ssd_SOURCES = \
+	src/readahead/test-ssd.c \
+	src/readahead/readahead-common.c \
+	src/readahead/readahead-common.h
+
+test_ssd_LDADD = \
+	libsystemd-internal.la \
+	libudev-internal.la \
+	libsystemd-shared.la
+
 endif
 
 EXTRA_DIST += \
