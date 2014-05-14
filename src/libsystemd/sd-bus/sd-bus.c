@@ -52,6 +52,7 @@
 #include "bus-container.h"
 #include "bus-protocol.h"
 #include "bus-track.h"
+#include "bus-slot.h"
 
 static int bus_poll(sd_bus *bus, bool need_more, uint64_t timeout_usec);
 static int attach_io_events(sd_bus *b);
@@ -69,43 +70,6 @@ static void bus_close_fds(sd_bus *b) {
                 safe_close(b->output_fd);
 
         b->input_fd = b->output_fd = -1;
-}
-
-static void bus_node_destroy(sd_bus *b, struct node *n) {
-        struct node_callback *c;
-        struct node_vtable *v;
-        struct node_enumerator *e;
-
-        assert(b);
-
-        if (!n)
-                return;
-
-        while (n->child)
-                bus_node_destroy(b, n->child);
-
-        while ((c = n->callbacks)) {
-                LIST_REMOVE(callbacks, n->callbacks, c);
-                free(c);
-        }
-
-        while ((v = n->vtables)) {
-                LIST_REMOVE(vtables, n->vtables, v);
-                free(v->interface);
-                free(v);
-        }
-
-        while ((e = n->enumerators)) {
-                LIST_REMOVE(enumerators, n->enumerators, e);
-                free(e);
-        }
-
-        if (n->parent)
-                LIST_REMOVE(siblings, n->parent->child, n);
-
-        assert_se(hashmap_remove(b->nodes, n->path) == n);
-        free(n->path);
-        free(n);
 }
 
 static void bus_reset_queues(sd_bus *b) {
@@ -133,14 +97,27 @@ static void bus_reset_queues(sd_bus *b) {
 }
 
 static void bus_free(sd_bus *b) {
-        struct filter_callback *f;
-        struct node *n;
+        sd_bus_slot *s;
 
         assert(b);
-
         assert(!b->track_queue);
 
+        b->state = BUS_CLOSED;
+
         sd_bus_detach_event(b);
+
+        while ((s = b->slots)) {
+                /* At this point only floating slots can still be
+                 * around, because the non-floating ones keep a
+                 * reference to the bus, and we thus couldn't be
+                 * destructing right now... We forcibly disconnect the
+                 * slots here, so that they still can be referenced by
+                 * apps, but are dead. */
+
+                assert(s->floating);
+                bus_slot_disconnect(s);
+                sd_bus_slot_unref(s);
+        }
 
         if (b->default_bus_ptr)
                 *b->default_bus_ptr = NULL;
@@ -171,19 +148,12 @@ static void bus_free(sd_bus *b) {
         hashmap_free_free(b->reply_callbacks);
         prioq_free(b->reply_callbacks_prioq);
 
-        while ((f = b->filter_callbacks)) {
-                LIST_REMOVE(callbacks, b->filter_callbacks, f);
-                free(f);
-        }
-
         bus_match_free(&b->match_callbacks);
 
         hashmap_free_free(b->vtable_methods);
         hashmap_free_free(b->vtable_properties);
 
-        while ((n = hashmap_first(b->nodes)))
-                bus_node_destroy(b, n);
-
+        assert(hashmap_isempty(b->nodes));
         hashmap_free(b->nodes);
 
         bus_kernel_flush_memfd(b);
@@ -426,7 +396,7 @@ static int bus_send_hello(sd_bus *bus) {
         if (r < 0)
                 return r;
 
-        return sd_bus_call_async(bus, m, hello_callback, NULL, 0, &bus->hello_cookie);
+        return sd_bus_call_async(bus, NULL, m, hello_callback, NULL, 0);
 }
 
 int bus_start_running(sd_bus *bus) {
@@ -1793,14 +1763,14 @@ static int timeout_compare(const void *a, const void *b) {
 
 _public_ int sd_bus_call_async(
                 sd_bus *bus,
+                sd_bus_slot **slot,
                 sd_bus_message *_m,
                 sd_bus_message_handler_t callback,
                 void *userdata,
-                uint64_t usec,
-                uint64_t *cookie) {
+                uint64_t usec) {
 
         _cleanup_bus_message_unref_ sd_bus_message *m = sd_bus_message_ref(_m);
-        struct reply_callback *c;
+        _cleanup_bus_slot_unref_ sd_bus_slot *s = NULL;
         int r;
 
         assert_return(bus, -EINVAL);
@@ -1830,55 +1800,37 @@ _public_ int sd_bus_call_async(
         if (r < 0)
                 return r;
 
-        c = new0(struct reply_callback, 1);
-        if (!c)
+        s = bus_slot_allocate(bus, !slot, BUS_REPLY_CALLBACK, sizeof(struct reply_callback), userdata);
+        if (!s)
                 return -ENOMEM;
 
-        c->callback = callback;
-        c->userdata = userdata;
-        c->cookie = BUS_MESSAGE_COOKIE(m);
-        c->timeout = calc_elapse(m->timeout);
+        s->reply_callback.callback = callback;
 
-        r = hashmap_put(bus->reply_callbacks, &c->cookie, c);
+        s->reply_callback.cookie = BUS_MESSAGE_COOKIE(m);
+        r = hashmap_put(bus->reply_callbacks, &s->reply_callback.cookie, &s->reply_callback);
         if (r < 0) {
-                free(c);
+                s->reply_callback.cookie = 0;
                 return r;
         }
 
-        if (c->timeout != 0) {
-                r = prioq_put(bus->reply_callbacks_prioq, c, &c->prioq_idx);
+        s->reply_callback.timeout = calc_elapse(m->timeout);
+        if (s->reply_callback.timeout != 0) {
+                r = prioq_put(bus->reply_callbacks_prioq, &s->reply_callback, &s->reply_callback.prioq_idx);
                 if (r < 0) {
-                        c->timeout = 0;
-                        sd_bus_call_async_cancel(bus, c->cookie);
+                        s->reply_callback.timeout = 0;
                         return r;
                 }
         }
 
-        r = sd_bus_send(bus, m, cookie);
-        if (r < 0) {
-                sd_bus_call_async_cancel(bus, c->cookie);
+        r = sd_bus_send(bus, m, &s->reply_callback.cookie);
+        if (r < 0)
                 return r;
-        }
+
+        if (slot)
+                *slot = s;
+        s = NULL;
 
         return r;
-}
-
-_public_ int sd_bus_call_async_cancel(sd_bus *bus, uint64_t cookie) {
-        struct reply_callback *c;
-
-        assert_return(bus, -EINVAL);
-        assert_return(cookie != 0, -EINVAL);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
-
-        c = hashmap_remove(bus->reply_callbacks, &cookie);
-        if (!c)
-                return 0;
-
-        if (c->timeout != 0)
-                prioq_remove(bus->reply_callbacks_prioq, c, &c->prioq_idx);
-
-        free(c);
-        return 1;
 }
 
 int bus_ensure_running(sd_bus *bus) {
@@ -2125,6 +2077,11 @@ _public_ int sd_bus_get_timeout(sd_bus *bus, uint64_t *timeout_usec) {
                 return 0;
         }
 
+        if (c->timeout == 0) {
+                *timeout_usec = (uint64_t) -1;
+                return 0;
+        }
+
         *timeout_usec = c->timeout;
         return 1;
 }
@@ -2161,16 +2118,21 @@ static int process_timeout(sd_bus *bus) {
                 return r;
 
         assert_se(prioq_pop(bus->reply_callbacks_prioq) == c);
-        hashmap_remove(bus->reply_callbacks, &c->cookie);
+        c->timeout = 0;
 
-        bus->current = m;
+        hashmap_remove(bus->reply_callbacks, &c->cookie);
+        c->cookie = 0;
+
+        bus->current_message = m;
+        bus->current_slot = container_of(c, sd_bus_slot, reply_callback);
+
         bus->iteration_counter ++;
 
-        r = c->callback(bus, m, c->userdata, &error_buffer);
+        r = c->callback(bus, m, bus->current_slot->userdata, &error_buffer);
         r = bus_maybe_reply_error(m, r, &error_buffer);
-        free(c);
 
-        bus->current = NULL;
+        bus->current_message = NULL;
+        bus->current_slot = NULL;
 
         return r;
 }
@@ -2191,7 +2153,7 @@ static int process_hello(sd_bus *bus, sd_bus_message *m) {
             m->header->type != SD_BUS_MESSAGE_METHOD_ERROR)
                 return -EIO;
 
-        if (m->reply_cookie != bus->hello_cookie)
+        if (m->reply_cookie != 1)
                 return -EIO;
 
         return 0;
@@ -2200,7 +2162,8 @@ static int process_hello(sd_bus *bus, sd_bus_message *m) {
 static int process_reply(sd_bus *bus, sd_bus_message *m) {
         _cleanup_bus_message_unref_ sd_bus_message *synthetic_reply = NULL;
         _cleanup_bus_error_free_ sd_bus_error error_buffer = SD_BUS_ERROR_NULL;
-        _cleanup_free_ struct reply_callback *c = NULL;
+        sd_bus_slot *slot;
+        struct reply_callback *c;
         int r;
 
         assert(bus);
@@ -2220,8 +2183,13 @@ static int process_reply(sd_bus *bus, sd_bus_message *m) {
         if (!c)
                 return 0;
 
-        if (c->timeout != 0)
+        c->cookie = 0;
+        slot = container_of(c, sd_bus_slot, reply_callback);
+
+        if (c->timeout != 0) {
                 prioq_remove(bus->reply_callbacks_prioq, c, &c->prioq_idx);
+                c->timeout = 0;
+        }
 
         if (m->n_fds > 0 && !(bus->hello_flags & KDBUS_HELLO_ACCEPT_FD)) {
 
@@ -2234,21 +2202,30 @@ static int process_reply(sd_bus *bus, sd_bus_message *m) {
                                 &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_INCONSISTENT_MESSAGE, "Reply message contained file descriptor"),
                                 &synthetic_reply);
                 if (r < 0)
-                        return r;
+                        goto finish;
 
                 r = bus_seal_synthetic_message(bus, synthetic_reply);
                 if (r < 0)
-                        return r;
+                        goto finish;
 
                 m = synthetic_reply;
         } else {
                 r = sd_bus_message_rewind(m, true);
                 if (r < 0)
-                        return r;
+                        goto finish;
         }
 
-        r = c->callback(bus, m, c->userdata, &error_buffer);
+        bus->current_slot = slot;
+        r = c->callback(bus, m, bus->current_slot->userdata, &error_buffer);
+        bus->current_slot = NULL;
+
         r = bus_maybe_reply_error(m, r, &error_buffer);
+
+finish:
+        if (slot->floating) {
+                bus_slot_disconnect(slot);
+                sd_bus_slot_unref(slot);
+        }
 
         return r;
 }
@@ -2279,7 +2256,10 @@ static int process_filter(sd_bus *bus, sd_bus_message *m) {
                         if (r < 0)
                                 return r;
 
-                        r = l->callback(bus, m, l->userdata, &error_buffer);
+                        bus->current_slot = container_of(l, sd_bus_slot, filter_callback);
+                        r = l->callback(bus, m, bus->current_slot->userdata, &error_buffer);
+                        bus->current_slot = NULL;
+
                         r = bus_maybe_reply_error(m, r, &error_buffer);
                         if (r != 0)
                                 return r;
@@ -2395,7 +2375,7 @@ static int process_message(sd_bus *bus, sd_bus_message *m) {
         assert(bus);
         assert(m);
 
-        bus->current = m;
+        bus->current_message = m;
         bus->iteration_counter++;
 
         log_debug("Got message type=%s sender=%s destination=%s object=%s interface=%s member=%s cookie=%" PRIu64 " reply_cookie=%" PRIu64 " error=%s",
@@ -2436,7 +2416,7 @@ static int process_message(sd_bus *bus, sd_bus_message *m) {
         r = bus_process_object(bus, m);
 
 finish:
-        bus->current = NULL;
+        bus->current_message = NULL;
         return r;
 }
 
@@ -2539,17 +2519,23 @@ static int process_closing(sd_bus *bus, sd_bus_message **ret) {
                 if (r < 0)
                         return r;
 
-                if (c->timeout != 0)
+                if (c->timeout != 0) {
                         prioq_remove(bus->reply_callbacks_prioq, c, &c->prioq_idx);
+                        c->timeout = 0;
+                }
 
                 hashmap_remove(bus->reply_callbacks, &c->cookie);
+                c->cookie = 0;
 
-                bus->current = m;
+                bus->current_message = m;
+                bus->current_slot = container_of(c, sd_bus_slot, reply_callback);
+
                 bus->iteration_counter++;
 
-                r = c->callback(bus, m, c->userdata, &error_buffer);
+                r = c->callback(bus, m, bus->current_slot->userdata, &error_buffer);
                 r = bus_maybe_reply_error(m, r, &error_buffer);
-                free(c);
+
+                bus->current_slot = NULL;
 
                 goto finish;
         }
@@ -2572,7 +2558,7 @@ static int process_closing(sd_bus *bus, sd_bus_message **ret) {
 
         sd_bus_close(bus);
 
-        bus->current = m;
+        bus->current_message = m;
         bus->iteration_counter++;
 
         r = process_filter(bus, m);
@@ -2591,7 +2577,8 @@ static int process_closing(sd_bus *bus, sd_bus_message **ret) {
         r = 1;
 
 finish:
-        bus->current = NULL;
+        bus->current_message = NULL;
+
         return r;
 }
 
@@ -2608,7 +2595,8 @@ static int bus_process_internal(sd_bus *bus, bool hint_priority, int64_t priorit
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
         /* We don't allow recursively invoking sd_bus_process(). */
-        assert_return(!bus->current, -EBUSY);
+        assert_return(!bus->current_message, -EBUSY);
+        assert(!bus->current_slot);
 
         switch (bus->state) {
 
@@ -2785,57 +2773,43 @@ _public_ int sd_bus_flush(sd_bus *bus) {
         }
 }
 
-_public_ int sd_bus_add_filter(sd_bus *bus,
-                               sd_bus_message_handler_t callback,
-                               void *userdata) {
+_public_ int sd_bus_add_filter(
+                sd_bus *bus,
+                sd_bus_slot **slot,
+                sd_bus_message_handler_t callback,
+                void *userdata) {
 
-        struct filter_callback *f;
+        sd_bus_slot *s;
 
         assert_return(bus, -EINVAL);
         assert_return(callback, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
-        f = new0(struct filter_callback, 1);
-        if (!f)
+        s = bus_slot_allocate(bus, !slot, BUS_FILTER_CALLBACK, sizeof(struct filter_callback), userdata);
+        if (!s)
                 return -ENOMEM;
-        f->callback = callback;
-        f->userdata = userdata;
+
+        s->filter_callback.callback = callback;
 
         bus->filter_callbacks_modified = true;
-        LIST_PREPEND(callbacks, bus->filter_callbacks, f);
-        return 0;
-}
+        LIST_PREPEND(callbacks, bus->filter_callbacks, &s->filter_callback);
 
-_public_ int sd_bus_remove_filter(sd_bus *bus,
-                                  sd_bus_message_handler_t callback,
-                                  void *userdata) {
-
-        struct filter_callback *f;
-
-        assert_return(bus, -EINVAL);
-        assert_return(callback, -EINVAL);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
-
-        LIST_FOREACH(callbacks, f, bus->filter_callbacks) {
-                if (f->callback == callback && f->userdata == userdata) {
-                        bus->filter_callbacks_modified = true;
-                        LIST_REMOVE(callbacks, bus->filter_callbacks, f);
-                        free(f);
-                        return 1;
-                }
-        }
+        if (slot)
+                *slot = s;
 
         return 0;
 }
 
-_public_ int sd_bus_add_match(sd_bus *bus,
-                              const char *match,
-                              sd_bus_message_handler_t callback,
-                              void *userdata) {
+_public_ int sd_bus_add_match(
+                sd_bus *bus,
+                sd_bus_slot **slot,
+                const char *match,
+                sd_bus_message_handler_t callback,
+                void *userdata) {
 
         struct bus_match_component *components = NULL;
         unsigned n_components = 0;
-        uint64_t cookie = 0;
+        sd_bus_slot *s;
         int r = 0;
 
         assert_return(bus, -EINVAL);
@@ -2846,35 +2820,60 @@ _public_ int sd_bus_add_match(sd_bus *bus,
         if (r < 0)
                 goto finish;
 
-        if (bus->bus_client) {
-                cookie = ++bus->match_cookie;
+        s = bus_slot_allocate(bus, !slot, BUS_MATCH_CALLBACK, sizeof(struct match_callback), userdata);
+        if (!s) {
+                r = -ENOMEM;
+                goto finish;
+        }
 
-                r = bus_add_match_internal(bus, match, components, n_components, cookie);
+        s->match_callback.callback = callback;
+        s->match_callback.cookie = ++bus->match_cookie;
+
+        if (bus->bus_client) {
+
+                if (!bus->is_kernel) {
+                        /* When this is not a kernel transport, we
+                         * store the original match string, so that we
+                         * can use it to remove the match again */
+
+                        s->match_callback.match_string = strdup(match);
+                        if (!s->match_callback.match_string) {
+                                r = -ENOMEM;
+                                goto finish;
+                        }
+                }
+
+                r = bus_add_match_internal(bus, s->match_callback.match_string, components, n_components, s->match_callback.cookie);
                 if (r < 0)
                         goto finish;
         }
 
         bus->match_callbacks_modified = true;
-        r = bus_match_add(&bus->match_callbacks, components, n_components, callback, userdata, cookie, NULL);
-        if (r < 0) {
-                if (bus->bus_client)
-                        bus_remove_match_internal(bus, match, cookie);
-        }
+        r = bus_match_add(&bus->match_callbacks, components, n_components, &s->match_callback);
+        if (r < 0)
+                goto finish;
+
+        if (slot)
+                *slot = s;
+        s = NULL;
 
 finish:
         bus_match_parse_free(components, n_components);
+        sd_bus_slot_unref(s);
+
         return r;
 }
 
-_public_ int sd_bus_remove_match(sd_bus *bus,
-                                 const char *match,
-                                 sd_bus_message_handler_t callback,
-                                 void *userdata) {
+int bus_remove_match_by_string(
+                sd_bus *bus,
+                const char *match,
+                sd_bus_message_handler_t callback,
+                void *userdata) {
 
         struct bus_match_component *components = NULL;
         unsigned n_components = 0;
-        int r = 0, q = 0;
-        uint64_t cookie = 0;
+        struct match_callback *c;
+        int r = 0;
 
         assert_return(bus, -EINVAL);
         assert_return(match, -EINVAL);
@@ -2882,17 +2881,18 @@ _public_ int sd_bus_remove_match(sd_bus *bus,
 
         r = bus_match_parse(match, &components, &n_components);
         if (r < 0)
-                return r;
+                goto finish;
 
-        bus->match_callbacks_modified = true;
-        r = bus_match_remove(&bus->match_callbacks, components, n_components, callback, userdata, &cookie);
+        r = bus_match_find(&bus->match_callbacks, components, n_components, NULL, NULL, &c);
+        if (r <= 0)
+                goto finish;
 
-        if (bus->bus_client)
-                q = bus_remove_match_internal(bus, match, cookie);
+        sd_bus_slot_unref(container_of(c, sd_bus_slot, match_callback));
 
+finish:
         bus_match_parse_free(components, n_components);
 
-        return r < 0 ? r : q;
+        return r;
 }
 
 bool bus_pid_changed(sd_bus *bus) {
@@ -3116,10 +3116,16 @@ _public_ sd_event* sd_bus_get_event(sd_bus *bus) {
         return bus->event;
 }
 
-_public_ sd_bus_message* sd_bus_get_current(sd_bus *bus) {
+_public_ sd_bus_message* sd_bus_get_current_message(sd_bus *bus) {
         assert_return(bus, NULL);
 
-        return bus->current;
+        return bus->current_message;
+}
+
+_public_ sd_bus_slot* sd_bus_get_current_slot(sd_bus *bus) {
+        assert_return(bus, NULL);
+
+        return bus->current_slot;
 }
 
 static int bus_default(int (*bus_open)(sd_bus **), sd_bus **default_bus, sd_bus **ret) {

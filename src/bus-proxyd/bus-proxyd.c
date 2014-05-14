@@ -40,6 +40,7 @@
 #include "bus-internal.h"
 #include "bus-message.h"
 #include "bus-util.h"
+#include "bus-internal.h"
 #include "build.h"
 #include "strv.h"
 #include "def.h"
@@ -551,7 +552,7 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, NULL);
 
-                r = sd_bus_add_match(a, match, NULL, NULL);
+                r = sd_bus_add_match(a, NULL, match, NULL, NULL);
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, NULL);
 
@@ -564,7 +565,9 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, NULL);
 
-                r = sd_bus_remove_match(a, match, NULL, NULL);
+                r = bus_remove_match_by_string(a, match, NULL, NULL);
+                if (r == 0)
+                        return synthetic_reply_method_error(m, &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_MATCH_RULE_NOT_FOUND, "Match rule not found"));
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, NULL);
 
@@ -739,9 +742,10 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
                 r = sd_bus_release_name(a, name);
                 if (r < 0) {
                         if (r == -ESRCH)
-                                synthetic_reply_method_return(m, "u", BUS_NAME_NON_EXISTENT);
+                                return synthetic_reply_method_return(m, "u", BUS_NAME_NON_EXISTENT);
                         if (r == -EADDRINUSE)
-                                synthetic_reply_method_return(m, "u", BUS_NAME_NOT_OWNER);
+                                return synthetic_reply_method_return(m, "u", BUS_NAME_NOT_OWNER);
+
                         return synthetic_reply_method_errno(m, r, NULL);
                 }
 
@@ -1177,7 +1181,7 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
 
-                r = sd_bus_add_match(a, match, NULL, NULL);
+                r = sd_bus_add_match(a, NULL, match, NULL, NULL);
                 if (r < 0) {
                         log_error("Failed to add match for NameLost: %s", strerror(-r));
                         goto finish;
@@ -1198,7 +1202,7 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
 
-                r = sd_bus_add_match(a, match, NULL, NULL);
+                r = sd_bus_add_match(a, NULL, match, NULL, NULL);
                 if (r < 0) {
                         log_error("Failed to add match for NameAcquired: %s", strerror(-r));
                         goto finish;

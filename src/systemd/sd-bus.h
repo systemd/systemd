@@ -37,6 +37,7 @@ _SD_BEGIN_DECLARATIONS;
 
 typedef struct sd_bus sd_bus;
 typedef struct sd_bus_message sd_bus_message;
+typedef struct sd_bus_slot sd_bus_slot;
 typedef struct sd_bus_creds sd_bus_creds;
 typedef struct sd_bus_track sd_bus_track;
 
@@ -138,8 +139,7 @@ int sd_bus_get_tid(sd_bus *bus, pid_t *tid);
 int sd_bus_send(sd_bus *bus, sd_bus_message *m, uint64_t *cookie);
 int sd_bus_send_to(sd_bus *bus, sd_bus_message *m, const char *destination, uint64_t *cookie);
 int sd_bus_call(sd_bus *bus, sd_bus_message *m, uint64_t usec, sd_bus_error *ret_error, sd_bus_message **reply);
-int sd_bus_call_async(sd_bus *bus, sd_bus_message *m, sd_bus_message_handler_t callback, void *userdata, uint64_t usec, uint64_t *cookie);
-int sd_bus_call_async_cancel(sd_bus *bus, uint64_t cookie);
+int sd_bus_call_async(sd_bus *bus, sd_bus_slot **slot, sd_bus_message *m, sd_bus_message_handler_t callback, void *userdata, uint64_t usec);
 
 int sd_bus_get_fd(sd_bus *bus);
 int sd_bus_get_events(sd_bus *bus);
@@ -148,35 +148,33 @@ int sd_bus_process(sd_bus *bus, sd_bus_message **r);
 int sd_bus_process_priority(sd_bus *bus, int64_t max_priority, sd_bus_message **r);
 int sd_bus_wait(sd_bus *bus, uint64_t timeout_usec);
 int sd_bus_flush(sd_bus *bus);
-sd_bus_message* sd_bus_get_current(sd_bus *bus);
+sd_bus_message* sd_bus_get_current_message(sd_bus *bus);
+sd_bus_slot* sd_bus_get_current_slot(sd_bus *bus);
 
 int sd_bus_attach_event(sd_bus *bus, sd_event *e, int priority);
 int sd_bus_detach_event(sd_bus *bus);
 sd_event *sd_bus_get_event(sd_bus *bus);
 
-int sd_bus_add_filter(sd_bus *bus, sd_bus_message_handler_t callback, void *userdata);
-int sd_bus_remove_filter(sd_bus *bus, sd_bus_message_handler_t callback, void *userdata);
+int sd_bus_add_filter(sd_bus *bus, sd_bus_slot **slot, sd_bus_message_handler_t callback, void *userdata);
+int sd_bus_add_match(sd_bus *bus, sd_bus_slot **slot, const char *match, sd_bus_message_handler_t callback, void *userdata);
+int sd_bus_add_object(sd_bus *bus, sd_bus_slot **slot, const char *path, sd_bus_message_handler_t callback, void *userdata);
+int sd_bus_add_fallback(sd_bus *bus, sd_bus_slot **slot, const char *prefix, sd_bus_message_handler_t callback, void *userdata);
+int sd_bus_add_object_vtable(sd_bus *bus, sd_bus_slot **slot, const char *path, const char *interface, const sd_bus_vtable *vtable, void *userdata);
+int sd_bus_add_fallback_vtable(sd_bus *bus, sd_bus_slot **slot, const char *prefix, const char *interface, const sd_bus_vtable *vtable, sd_bus_object_find_t find, void *userdata);
+int sd_bus_add_node_enumerator(sd_bus *bus, sd_bus_slot **slot, const char *path, sd_bus_node_enumerator_t callback, void *userdata);
+int sd_bus_add_object_manager(sd_bus *bus, sd_bus_slot **slot, const char *path);
 
-int sd_bus_add_match(sd_bus *bus, const char *match, sd_bus_message_handler_t callback, void *userdata);
-int sd_bus_remove_match(sd_bus *bus, const char *match, sd_bus_message_handler_t callback, void *userdata);
+/* Slot object */
 
-int sd_bus_add_object(sd_bus *bus, const char *path, sd_bus_message_handler_t callback, void *userdata);
-int sd_bus_remove_object(sd_bus *bus, const char *path, sd_bus_message_handler_t callback, void *userdata);
+sd_bus_slot* sd_bus_slot_ref(sd_bus_slot *slot);
+sd_bus_slot* sd_bus_slot_unref(sd_bus_slot *slot);
 
-int sd_bus_add_fallback(sd_bus *bus, const char *prefix, sd_bus_message_handler_t callback, void *userdata);
-int sd_bus_remove_fallback(sd_bus *bus, const char *prefix, sd_bus_message_handler_t callback, void *userdata);
+sd_bus* sd_bus_slot_get_bus(sd_bus_slot *slot);
 
-int sd_bus_add_object_vtable(sd_bus *bus, const char *path, const char *interface, const sd_bus_vtable *vtable, void *userdata);
-int sd_bus_remove_object_vtable(sd_bus *bus, const char *path, const char *interface, const sd_bus_vtable *vtable, void *userdata);
+void *sd_bus_slot_get_userdata(sd_bus_slot *slot);
+void *sd_bus_slot_set_userdata(sd_bus_slot *slot, void *userdata);
 
-int sd_bus_add_fallback_vtable(sd_bus *bus, const char *path, const char *interface, const sd_bus_vtable *vtable, sd_bus_object_find_t find, void *userdata);
-int sd_bus_remove_fallback_vtable(sd_bus *bus, const char *path, const char *interface, const sd_bus_vtable *vtable, sd_bus_object_find_t find, void *userdata);
-
-int sd_bus_add_node_enumerator(sd_bus *bus, const char *path, sd_bus_node_enumerator_t callback, void *userdata);
-int sd_bus_remove_node_enumerator(sd_bus *bus, const char *path, sd_bus_node_enumerator_t callback, void *userdata);
-
-int sd_bus_add_object_manager(sd_bus *bus, const char *path);
-int sd_bus_remove_object_manager(sd_bus *bus, const char *path);
+sd_bus_message* sd_bus_slot_get_current_message(sd_bus_slot *slot);
 
 /* Message object */
 

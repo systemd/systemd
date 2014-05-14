@@ -240,7 +240,7 @@ static int monitor(sd_bus *bus, char *argv[]) {
                 if (!m)
                         return log_oom();
 
-                r = sd_bus_add_match(bus, m, NULL, NULL);
+                r = sd_bus_add_match(bus, NULL, m, NULL, NULL);
                 if (r < 0) {
                         log_error("Failed to add match: %s", strerror(-r));
                         return r;
@@ -250,7 +250,7 @@ static int monitor(sd_bus *bus, char *argv[]) {
         }
 
         STRV_FOREACH(i, arg_matches) {
-                r = sd_bus_add_match(bus, *i, NULL, NULL);
+                r = sd_bus_add_match(bus, NULL, *i, NULL, NULL);
                 if (r < 0) {
                         log_error("Failed to add match: %s", strerror(-r));
                         return r;
@@ -260,7 +260,7 @@ static int monitor(sd_bus *bus, char *argv[]) {
         }
 
         if (!added_something) {
-                r = sd_bus_add_match(bus, "", NULL, NULL);
+                r = sd_bus_add_match(bus, NULL, "", NULL, NULL);
                 if (r < 0) {
                         log_error("Failed to add match: %s", strerror(-r));
                         return r;

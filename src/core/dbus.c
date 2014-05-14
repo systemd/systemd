@@ -310,7 +310,7 @@ static int find_unit(Manager *m, sd_bus *bus, const char *path, Unit **unit, sd_
                 sd_bus_message *message;
                 pid_t pid;
 
-                message = sd_bus_get_current(bus);
+                message = sd_bus_get_current_message(bus);
                 if (!message)
                         return 0;
 
@@ -536,58 +536,58 @@ static int bus_setup_api_vtables(Manager *m, sd_bus *bus) {
         assert(bus);
 
 #ifdef HAVE_SELINUX
-        r = sd_bus_add_filter(bus, selinux_filter, m);
+        r = sd_bus_add_filter(bus, NULL, selinux_filter, m);
         if (r < 0) {
                 log_error("Failed to add SELinux access filter: %s", strerror(-r));
                 return r;
         }
 #endif
 
-        r = sd_bus_add_object_vtable(bus, "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", bus_manager_vtable, m);
+        r = sd_bus_add_object_vtable(bus, NULL, "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", bus_manager_vtable, m);
         if (r < 0) {
                 log_error("Failed to register Manager vtable: %s", strerror(-r));
                 return r;
         }
 
-        r = sd_bus_add_fallback_vtable(bus, "/org/freedesktop/systemd1/job", "org.freedesktop.systemd1.Job", bus_job_vtable, bus_job_find, m);
+        r = sd_bus_add_fallback_vtable(bus, NULL, "/org/freedesktop/systemd1/job", "org.freedesktop.systemd1.Job", bus_job_vtable, bus_job_find, m);
         if (r < 0) {
                 log_error("Failed to register Job vtable: %s", strerror(-r));
                 return r;
         }
 
-        r = sd_bus_add_node_enumerator(bus, "/org/freedesktop/systemd1/job", bus_job_enumerate, m);
+        r = sd_bus_add_node_enumerator(bus, NULL, "/org/freedesktop/systemd1/job", bus_job_enumerate, m);
         if (r < 0) {
                 log_error("Failed to add job enumerator: %s", strerror(-r));
                 return r;
         }
 
-        r = sd_bus_add_fallback_vtable(bus, "/org/freedesktop/systemd1/unit", "org.freedesktop.systemd1.Unit", bus_unit_vtable, bus_unit_find, m);
+        r = sd_bus_add_fallback_vtable(bus, NULL, "/org/freedesktop/systemd1/unit", "org.freedesktop.systemd1.Unit", bus_unit_vtable, bus_unit_find, m);
         if (r < 0) {
                 log_error("Failed to register Unit vtable: %s", strerror(-r));
                 return r;
         }
 
-        r = sd_bus_add_node_enumerator(bus, "/org/freedesktop/systemd1/unit", bus_unit_enumerate, m);
+        r = sd_bus_add_node_enumerator(bus, NULL, "/org/freedesktop/systemd1/unit", bus_unit_enumerate, m);
         if (r < 0) {
                 log_error("Failed to add job enumerator: %s", strerror(-r));
                 return r;
         }
 
         for (t = 0; t < _UNIT_TYPE_MAX; t++) {
-                r = sd_bus_add_fallback_vtable(bus, "/org/freedesktop/systemd1/unit", unit_vtable[t]->bus_interface, unit_vtable[t]->bus_vtable, bus_unit_interface_find, m);
+                r = sd_bus_add_fallback_vtable(bus, NULL, "/org/freedesktop/systemd1/unit", unit_vtable[t]->bus_interface, unit_vtable[t]->bus_vtable, bus_unit_interface_find, m);
                 if (r < 0)  {
                         log_error("Failed to register type specific vtable for %s: %s", unit_vtable[t]->bus_interface, strerror(-r));
                         return r;
                 }
 
                 if (unit_vtable[t]->cgroup_context_offset > 0) {
-                        r = sd_bus_add_fallback_vtable(bus, "/org/freedesktop/systemd1/unit", unit_vtable[t]->bus_interface, bus_unit_cgroup_vtable, bus_unit_cgroup_find, m);
+                        r = sd_bus_add_fallback_vtable(bus, NULL, "/org/freedesktop/systemd1/unit", unit_vtable[t]->bus_interface, bus_unit_cgroup_vtable, bus_unit_cgroup_find, m);
                         if (r < 0) {
                                 log_error("Failed to register control group unit vtable for %s: %s", unit_vtable[t]->bus_interface, strerror(-r));
                                 return r;
                         }
 
-                        r = sd_bus_add_fallback_vtable(bus, "/org/freedesktop/systemd1/unit", unit_vtable[t]->bus_interface, bus_cgroup_vtable, bus_cgroup_context_find, m);
+                        r = sd_bus_add_fallback_vtable(bus, NULL, "/org/freedesktop/systemd1/unit", unit_vtable[t]->bus_interface, bus_cgroup_vtable, bus_cgroup_context_find, m);
                         if (r < 0) {
                                 log_error("Failed to register control group vtable for %s: %s", unit_vtable[t]->bus_interface, strerror(-r));
                                 return r;
@@ -595,7 +595,7 @@ static int bus_setup_api_vtables(Manager *m, sd_bus *bus) {
                 }
 
                 if (unit_vtable[t]->exec_context_offset > 0) {
-                        r = sd_bus_add_fallback_vtable(bus, "/org/freedesktop/systemd1/unit", unit_vtable[t]->bus_interface, bus_exec_vtable, bus_exec_context_find, m);
+                        r = sd_bus_add_fallback_vtable(bus, NULL, "/org/freedesktop/systemd1/unit", unit_vtable[t]->bus_interface, bus_exec_vtable, bus_exec_context_find, m);
                         if (r < 0) {
                                 log_error("Failed to register execute vtable for %s: %s", unit_vtable[t]->bus_interface, strerror(-r));
                                 return r;
@@ -603,7 +603,7 @@ static int bus_setup_api_vtables(Manager *m, sd_bus *bus) {
                 }
 
                 if (unit_vtable[t]->kill_context_offset > 0) {
-                        r = sd_bus_add_fallback_vtable(bus, "/org/freedesktop/systemd1/unit", unit_vtable[t]->bus_interface, bus_kill_vtable, bus_kill_context_find, m);
+                        r = sd_bus_add_fallback_vtable(bus, NULL, "/org/freedesktop/systemd1/unit", unit_vtable[t]->bus_interface, bus_kill_vtable, bus_kill_context_find, m);
                         if (r < 0) {
                                 log_error("Failed to register kill vtable for %s: %s", unit_vtable[t]->bus_interface, strerror(-r));
                                 return r;
@@ -622,6 +622,7 @@ static int bus_setup_disconnected_match(Manager *m, sd_bus *bus) {
 
         r = sd_bus_add_match(
                         bus,
+                        NULL,
                         "sender='org.freedesktop.DBus.Local',"
                         "type='signal',"
                         "path='/org/freedesktop/DBus/Local',"
@@ -710,6 +711,7 @@ static int bus_on_connection(sd_event_source *s, int fd, uint32_t revents, void 
 
                 r = sd_bus_add_match(
                                 bus,
+                                NULL,
                                 "type='signal',"
                                 "interface='org.freedesktop.systemd1.Agent',"
                                 "member='Released',"
@@ -780,6 +782,7 @@ static int bus_setup_api(Manager *m, sd_bus *bus) {
 
         r = sd_bus_add_match(
                         bus,
+                        NULL,
                         "type='signal',"
                         "sender='org.freedesktop.DBus',"
                         "path='/org/freedesktop/DBus',"
@@ -791,6 +794,7 @@ static int bus_setup_api(Manager *m, sd_bus *bus) {
 
         r = sd_bus_add_match(
                         bus,
+                        NULL,
                         "type='signal',"
                         "sender='org.freedesktop.DBus',"
                         "path='/org/freedesktop/DBus',"
@@ -874,6 +878,7 @@ static int bus_setup_system(Manager *m, sd_bus *bus) {
          * the system bus */
         r = sd_bus_add_match(
                         bus,
+                        NULL,
                         "type='signal',"
                         "interface='org.freedesktop.systemd1.Agent',"
                         "member='Released',"

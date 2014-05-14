@@ -116,6 +116,9 @@ static void bus_match_node_free(struct bus_match_node *node) {
 static bool bus_match_node_maybe_free(struct bus_match_node *node) {
         assert(node);
 
+        if (node->type == BUS_MATCH_ROOT)
+                return false;
+
         if (node->child)
                 return false;
 
@@ -275,10 +278,10 @@ int bus_match_run(
         case BUS_MATCH_LEAF:
 
                 if (bus) {
-                        if (node->leaf.last_iteration == bus->iteration_counter)
+                        if (node->leaf.callback->last_iteration == bus->iteration_counter)
                                 return 0;
 
-                        node->leaf.last_iteration = bus->iteration_counter;
+                        node->leaf.callback->last_iteration = bus->iteration_counter;
                 }
 
                 r = sd_bus_message_rewind(m, true);
@@ -287,9 +290,17 @@ int bus_match_run(
 
                 /* Run the callback. And then invoke siblings. */
                 if (node->leaf.callback) {
+                        sd_bus_slot *slot;
+
                         _cleanup_bus_error_free_ sd_bus_error error_buffer = SD_BUS_ERROR_NULL;
 
-                        r = node->leaf.callback(bus, m, node->leaf.userdata, &error_buffer);
+                        slot = container_of(node->leaf.callback, sd_bus_slot, match_callback);
+                        if (bus)
+                                bus->current_slot = slot;
+                        r = node->leaf.callback->callback(bus, m, slot->userdata, &error_buffer);
+                        if (bus)
+                                bus->current_slot = NULL;
+
                         r = bus_maybe_reply_error(m, r, &error_buffer);
                         if (r != 0)
                                 return r;
@@ -535,16 +546,13 @@ static int bus_match_find_compare_value(
 
 static int bus_match_add_leaf(
                 struct bus_match_node *where,
-                sd_bus_message_handler_t callback,
-                void *userdata,
-                uint64_t cookie,
-                struct bus_match_node **ret) {
+                struct match_callback *callback) {
 
         struct bus_match_node *n;
 
         assert(where);
         assert(where->type == BUS_MATCH_ROOT || where->type == BUS_MATCH_VALUE);
-        assert(ret);
+        assert(callback);
 
         n = new0(struct bus_match_node, 1);
         if (!n)
@@ -555,13 +563,12 @@ static int bus_match_add_leaf(
         n->next = where->child;
         if (n->next)
                 n->next->prev = n;
+
         n->leaf.callback = callback;
-        n->leaf.userdata = userdata;
-        n->leaf.cookie = cookie;
+        callback->match_node = n;
 
         where->child = n;
 
-        *ret = n;
         return 1;
 }
 
@@ -578,9 +585,13 @@ static int bus_match_find_leaf(
         assert(ret);
 
         for (c = where->child; c; c = c->next) {
+                sd_bus_slot *s;
+
+                s = container_of(c->leaf.callback, sd_bus_slot, match_callback);
+
                 if (c->type == BUS_MATCH_LEAF &&
-                    c->leaf.callback == callback &&
-                    c->leaf.userdata == userdata) {
+                    c->leaf.callback->callback == callback &&
+                    s->userdata == userdata) {
                         *ret = c;
                         return 1;
                 }
@@ -892,16 +903,14 @@ int bus_match_add(
                 struct bus_match_node *root,
                 struct bus_match_component *components,
                 unsigned n_components,
-                sd_bus_message_handler_t callback,
-                void *userdata,
-                uint64_t cookie,
-                struct bus_match_node **ret) {
+                struct match_callback *callback) {
 
         unsigned i;
         struct bus_match_node *n;
         int r;
 
         assert(root);
+        assert(callback);
 
         n = root;
         for (i = 0; i < n_components; i++) {
@@ -912,29 +921,56 @@ int bus_match_add(
                         return r;
         }
 
-        r = bus_match_add_leaf(n, callback, userdata, cookie, &n);
-        if (r < 0)
-                return r;
-
-        if (ret)
-                *ret = n;
-
-        return 0;
+        return bus_match_add_leaf(n, callback);
 }
 
 int bus_match_remove(
+                struct bus_match_node *root,
+                struct match_callback *callback) {
+
+        struct bus_match_node *node, *pp;
+
+        assert(root);
+        assert(callback);
+
+        node = callback->match_node;
+        if (!node)
+                return 0;
+
+        assert(node->type == BUS_MATCH_LEAF);
+
+        callback->match_node = NULL;
+
+        /* Free the leaf */
+        pp = node->parent;
+        bus_match_node_free(node);
+
+        /* Prune the tree above */
+        while (pp) {
+                node = pp;
+                pp = node->parent;
+
+                if (!bus_match_node_maybe_free(node))
+                        break;
+        }
+
+        return 1;
+}
+
+int bus_match_find(
                 struct bus_match_node *root,
                 struct bus_match_component *components,
                 unsigned n_components,
                 sd_bus_message_handler_t callback,
                 void *userdata,
-                uint64_t *cookie) {
+                struct match_callback **ret) {
 
-        unsigned i;
         struct bus_match_node *n, **gc;
+        unsigned i;
         int r;
 
         assert(root);
+        assert(ret);
 
         gc = newa(struct bus_match_node*, n_components);
 
@@ -954,24 +990,8 @@ int bus_match_remove(
         if (r <= 0)
                 return r;
 
-        if (cookie)
-                *cookie = n->leaf.cookie;
-
-        /* Free the leaf */
-        bus_match_node_free(n);
-
-        /* Prune the tree above */
-        for (i = n_components; i > 0; i --) {
-                struct bus_match_node *p = gc[i-1]->parent;
-
-                if (!bus_match_node_maybe_free(gc[i-1]))
-                        break;
-
-                if (!bus_match_node_maybe_free(p))
-                        break;
-        }
-
-        return r;
+        *ret = n->leaf.callback;
+        return 1;
 }
 
 void bus_match_free(struct bus_match_node *node) {
@@ -1065,7 +1085,7 @@ void bus_match_dump(struct bus_match_node *node, unsigned level) {
         } else if (node->type == BUS_MATCH_ROOT)
                 puts(" root");
         else if (node->type == BUS_MATCH_LEAF)
-                printf(" %p/%p\n", node->leaf.callback, node->leaf.userdata);
+                printf(" %p/%p\n", node->leaf.callback->callback, container_of(node->leaf.callback, sd_bus_slot, match_callback)->userdata);
         else
                 putchar('\n');
 

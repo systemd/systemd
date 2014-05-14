@@ -100,19 +100,19 @@ static int server_init(sd_bus **_bus) {
                 goto fail;
         }
 
-        r = sd_bus_add_fallback(bus, "/foo/bar", object_callback, NULL);
+        r = sd_bus_add_fallback(bus, NULL, "/foo/bar", object_callback, NULL);
         if (r < 0) {
                 log_error("Failed to add object: %s", strerror(-r));
                 goto fail;
         }
 
-        r = sd_bus_add_match(bus, "type='signal',interface='foo.bar',member='Notify'", match_callback, NULL);
+        r = sd_bus_add_match(bus, NULL, "type='signal',interface='foo.bar',member='Notify'", match_callback, NULL);
         if (r < 0) {
                 log_error("Failed to add match: %s", strerror(-r));
                 goto fail;
         }
 
-        r = sd_bus_add_match(bus, "type='signal',interface='org.freedesktop.DBus',member='NameOwnerChanged'", match_callback, NULL);
+        r = sd_bus_add_match(bus, NULL, "type='signal',interface='org.freedesktop.DBus',member='NameOwnerChanged'", match_callback, NULL);
         if (r < 0) {
                 log_error("Failed to add match: %s", strerror(-r));
                 goto fail;
@@ -490,7 +490,7 @@ static void* client2(void*p) {
                 goto finish;
         }
 
-        r = sd_bus_call_async(bus, m, quit_callback, &quit, 200 * USEC_PER_MSEC, NULL);
+        r = sd_bus_call_async(bus, NULL, m, quit_callback, &quit, 200 * USEC_PER_MSEC);
         if (r < 0) {
                 log_info("Failed to issue method call: %s", bus_error_message(&error, -r));
                 goto finish;

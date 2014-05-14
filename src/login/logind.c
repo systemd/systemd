@@ -586,49 +586,50 @@ static int manager_connect_bus(Manager *m) {
                 return r;
         }
 
-        r = sd_bus_add_object_vtable(m->bus, "/org/freedesktop/login1", "org.freedesktop.login1.Manager", manager_vtable, m);
+        r = sd_bus_add_object_vtable(m->bus, NULL, "/org/freedesktop/login1", "org.freedesktop.login1.Manager", manager_vtable, m);
         if (r < 0) {
                 log_error("Failed to add manager object vtable: %s", strerror(-r));
                 return r;
         }
 
-        r = sd_bus_add_fallback_vtable(m->bus, "/org/freedesktop/login1/seat", "org.freedesktop.login1.Seat", seat_vtable, seat_object_find, m);
+        r = sd_bus_add_fallback_vtable(m->bus, NULL, "/org/freedesktop/login1/seat", "org.freedesktop.login1.Seat", seat_vtable, seat_object_find, m);
         if (r < 0) {
                 log_error("Failed to add seat object vtable: %s", strerror(-r));
                 return r;
         }
 
-        r = sd_bus_add_node_enumerator(m->bus, "/org/freedesktop/login1/seat", seat_node_enumerator, m);
+        r = sd_bus_add_node_enumerator(m->bus, NULL, "/org/freedesktop/login1/seat", seat_node_enumerator, m);
         if (r < 0) {
                 log_error("Failed to add seat enumerator: %s", strerror(-r));
                 return r;
         }
 
-        r = sd_bus_add_fallback_vtable(m->bus, "/org/freedesktop/login1/session", "org.freedesktop.login1.Session", session_vtable, session_object_find, m);
+        r = sd_bus_add_fallback_vtable(m->bus, NULL, "/org/freedesktop/login1/session", "org.freedesktop.login1.Session", session_vtable, session_object_find, m);
         if (r < 0) {
                 log_error("Failed to add session object vtable: %s", strerror(-r));
                 return r;
         }
 
-        r = sd_bus_add_node_enumerator(m->bus, "/org/freedesktop/login1/session", session_node_enumerator, m);
+        r = sd_bus_add_node_enumerator(m->bus, NULL, "/org/freedesktop/login1/session", session_node_enumerator, m);
         if (r < 0) {
                 log_error("Failed to add session enumerator: %s", strerror(-r));
                 return r;
         }
 
-        r = sd_bus_add_fallback_vtable(m->bus, "/org/freedesktop/login1/user", "org.freedesktop.login1.User", user_vtable, user_object_find, m);
+        r = sd_bus_add_fallback_vtable(m->bus, NULL, "/org/freedesktop/login1/user", "org.freedesktop.login1.User", user_vtable, user_object_find, m);
         if (r < 0) {
                 log_error("Failed to add user object vtable: %s", strerror(-r));
                 return r;
         }
 
-        r = sd_bus_add_node_enumerator(m->bus, "/org/freedesktop/login1/user", user_node_enumerator, m);
+        r = sd_bus_add_node_enumerator(m->bus, NULL, "/org/freedesktop/login1/user", user_node_enumerator, m);
         if (r < 0) {
                 log_error("Failed to add user enumerator: %s", strerror(-r));
                 return r;
         }
 
         r = sd_bus_add_match(m->bus,
+                             NULL,
                              "type='signal',"
                              "sender='org.freedesktop.DBus',"
                              "interface='org.freedesktop.DBus',"
@@ -641,6 +642,7 @@ static int manager_connect_bus(Manager *m) {
         }
 
         r = sd_bus_add_match(m->bus,
+                             NULL,
                              "type='signal',"
                              "sender='org.freedesktop.systemd1',"
                              "interface='org.freedesktop.systemd1.Manager',"
@@ -653,6 +655,7 @@ static int manager_connect_bus(Manager *m) {
         }
 
         r = sd_bus_add_match(m->bus,
+                             NULL,
                              "type='signal',"
                              "sender='org.freedesktop.systemd1',"
                              "interface='org.freedesktop.systemd1.Manager',"
@@ -665,6 +668,7 @@ static int manager_connect_bus(Manager *m) {
         }
 
         r = sd_bus_add_match(m->bus,
+                             NULL,
                              "type='signal',"
                              "sender='org.freedesktop.systemd1',"
                              "interface='org.freedesktop.DBus.Properties',"
@@ -676,6 +680,7 @@ static int manager_connect_bus(Manager *m) {
         }
 
         r = sd_bus_add_match(m->bus,
+                             NULL,
                              "type='signal',"
                              "sender='org.freedesktop.systemd1',"
                              "interface='org.freedesktop.systemd1.Manager',"

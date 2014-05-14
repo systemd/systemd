@@ -684,7 +684,7 @@ static int link_set_hostname(Link *link, const char *hostname) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_call_async(link->manager->bus, m, set_hostname_handler, link, 0, NULL);
+        r = sd_bus_call_async(link->manager->bus, NULL, m, set_hostname_handler, link, 0);
         if (r < 0)
                 log_error_link(link, "Could not set transient hostname: %s", strerror(-r));
 

@@ -250,7 +250,7 @@ int user_object_find(sd_bus *bus, const char *path, const char *interface, void 
                 sd_bus_message *message;
                 pid_t pid;
 
-                message = sd_bus_get_current(bus);
+                message = sd_bus_get_current_message(bus);
                 if (!message)
                         return 0;
 

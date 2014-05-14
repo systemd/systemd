@@ -1088,7 +1088,7 @@ static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
                 return r;
         }
 
-        r = sd_bus_add_object_vtable(bus, "/org/freedesktop/locale1", "org.freedesktop.locale1", locale_vtable, c);
+        r = sd_bus_add_object_vtable(bus, NULL, "/org/freedesktop/locale1", "org.freedesktop.locale1", locale_vtable, c);
         if (r < 0) {
                 log_error("Failed to register object: %s", strerror(-r));
                 return r;

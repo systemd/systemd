@@ -2305,6 +2305,7 @@ static int enable_wait_for_jobs(sd_bus *bus) {
 
         r = sd_bus_add_match(
                         bus,
+                        NULL,
                         "type='signal',"
                         "sender='org.freedesktop.systemd1',"
                         "interface='org.freedesktop.systemd1.Manager',"
@@ -2364,13 +2365,14 @@ static int check_wait_response(WaitData *d) {
 }
 
 static int wait_for_jobs(sd_bus *bus, Set *s) {
+        _cleanup_bus_slot_unref_ sd_bus_slot *slot = NULL;
         WaitData d = { .set = s };
         int r = 0, q;
 
         assert(bus);
         assert(s);
 
-        q = sd_bus_add_filter(bus, wait_filter, &d);
+        q = sd_bus_add_filter(bus, &slot, wait_filter, &d);
         if (q < 0)
                 return log_oom();
 
@@ -2397,10 +2399,6 @@ static int wait_for_jobs(sd_bus *bus, Set *s) {
                 free(d.result);
                 d.result = NULL;
         }
-
-        q = sd_bus_remove_filter(bus, wait_filter, &d);
-        if (q < 0 && r == 0)
-                r = q;
 
         return r;
 }

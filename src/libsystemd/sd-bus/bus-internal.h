@@ -40,7 +40,6 @@
 
 struct reply_callback {
         sd_bus_message_handler_t callback;
-        void *userdata;
         usec_t timeout;
         uint64_t cookie;
         unsigned prioq_idx;
@@ -48,11 +47,21 @@ struct reply_callback {
 
 struct filter_callback {
         sd_bus_message_handler_t callback;
-        void *userdata;
 
         unsigned last_iteration;
 
         LIST_FIELDS(struct filter_callback, callbacks);
+};
+
+struct match_callback {
+        sd_bus_message_handler_t callback;
+
+        uint64_t cookie;
+        unsigned last_iteration;
+
+        char *match_string;
+
+        struct bus_match_node *match_node;
 };
 
 struct node {
@@ -64,8 +73,7 @@ struct node {
         LIST_HEAD(struct node_callback, callbacks);
         LIST_HEAD(struct node_vtable, vtables);
         LIST_HEAD(struct node_enumerator, enumerators);
-
-        bool object_manager;
+        LIST_HEAD(struct node_object_manager, object_managers);
 };
 
 struct node_callback {
@@ -73,7 +81,6 @@ struct node_callback {
 
         bool is_fallback;
         sd_bus_message_handler_t callback;
-        void *userdata;
 
         unsigned last_iteration;
 
@@ -84,11 +91,16 @@ struct node_enumerator {
         struct node *node;
 
         sd_bus_node_enumerator_t callback;
-        void *userdata;
 
         unsigned last_iteration;
 
         LIST_FIELDS(struct node_enumerator, enumerators);
+};
+
+struct node_object_manager {
+        struct node *node;
+
+        LIST_FIELDS(struct node_object_manager, object_managers);
 };
 
 struct node_vtable {
@@ -97,7 +109,6 @@ struct node_vtable {
         char *interface;
         bool is_fallback;
         const sd_bus_vtable *vtable;
-        void *userdata;
         sd_bus_object_find_t find;
 
         unsigned last_iteration;
@@ -112,6 +123,37 @@ struct vtable_member {
         struct node_vtable *parent;
         unsigned last_iteration;
         const sd_bus_vtable *vtable;
+};
+
+typedef enum BusSlotType {
+        _BUS_SLOT_DISCONNECTED,
+        BUS_REPLY_CALLBACK,
+        BUS_FILTER_CALLBACK,
+        BUS_MATCH_CALLBACK,
+        BUS_NODE_CALLBACK,
+        BUS_NODE_ENUMERATOR,
+        BUS_NODE_VTABLE,
+        BUS_NODE_OBJECT_MANAGER,
+} BusSlotType;
+
+struct sd_bus_slot {
+        unsigned n_ref;
+        sd_bus *bus;
+        void *userdata;
+        BusSlotType type;
+        bool floating;
+
+        LIST_FIELDS(sd_bus_slot, slots);
+
+        union {
+                struct reply_callback reply_callback;
+                struct filter_callback filter_callback;
+                struct match_callback match_callback;
+                struct node_callback node_callback;
+                struct node_enumerator node_enumerator;
+                struct node_object_manager node_object_manager;
+                struct node_vtable node_vtable;
+        };
 };
 
 enum bus_state {
@@ -231,7 +273,6 @@ struct sd_bus {
         char *exec_path;
         char **exec_argv;
 
-        uint64_t hello_cookie;
         unsigned iteration_counter;
 
         void *kdbus_buffer;
@@ -260,7 +301,8 @@ struct sd_bus {
         sd_event *event;
         int event_priority;
 
-        sd_bus_message *current;
+        sd_bus_message *current_message;
+        sd_bus_slot *current_slot;
 
         sd_bus **default_bus_ptr;
         pid_t tid;
@@ -276,6 +318,8 @@ struct sd_bus {
         unsigned bloom_n_hash;
 
         sd_bus_track *track_queue;
+
+        LIST_HEAD(sd_bus_slot, slots);
 };
 
 #define BUS_DEFAULT_TIMEOUT ((usec_t) (25 * USEC_PER_SEC))
@@ -340,3 +384,5 @@ int bus_set_address_system(sd_bus *bus);
 int bus_set_address_user(sd_bus *bus);
 int bus_set_address_system_remote(sd_bus *b, const char *host);
 int bus_set_address_system_container(sd_bus *b, const char *machine);
+
+int bus_remove_match_by_string(sd_bus *bus, const char *match, sd_bus_message_handler_t callback, void *userdata);

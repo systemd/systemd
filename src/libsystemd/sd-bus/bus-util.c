@@ -77,7 +77,7 @@ int bus_async_unregister_and_exit(sd_event *e, sd_bus *bus, const char *name) {
         if (r < 0)
                 return -ENOMEM;
 
-        r = sd_bus_add_match(bus, match, name_owner_change_callback, e);
+        r = sd_bus_add_match(bus, NULL, match, name_owner_change_callback, e);
         if (r < 0)
                 return r;
 
@@ -251,17 +251,16 @@ typedef struct AsyncPolkitQuery {
         sd_bus_message *request, *reply;
         sd_bus_message_handler_t callback;
         void *userdata;
-        uint64_t serial;
+        sd_bus_slot *slot;
         Hashmap *registry;
 } AsyncPolkitQuery;
 
-static void async_polkit_query_free(sd_bus *b, AsyncPolkitQuery *q) {
+static void async_polkit_query_free(AsyncPolkitQuery *q) {
 
         if (!q)
                 return;
 
-        if (q->serial > 0 && b)
-                sd_bus_call_async_cancel(b, q->serial);
+        sd_bus_slot_unref(q->slot);
 
         if (q->registry && q->request)
                 hashmap_remove(q->registry, q->request);
@@ -281,8 +280,8 @@ static int async_polkit_callback(sd_bus *bus, sd_bus_message *reply, void *userd
         assert(reply);
         assert(q);
 
+        q->slot = sd_bus_slot_unref(q->slot);
         q->reply = sd_bus_message_ref(reply);
-        q->serial = 0;
 
         r = sd_bus_message_rewind(q->request, true);
         if (r < 0) {
@@ -294,7 +293,8 @@ static int async_polkit_callback(sd_bus *bus, sd_bus_message *reply, void *userd
         r = bus_maybe_reply_error(q->request, r, &error_buffer);
 
 finish:
-        async_polkit_query_free(bus, q);
+        async_polkit_query_free(q);
+
         return r;
 }
 
@@ -413,15 +413,15 @@ int bus_verify_polkit_async(
 
         r = hashmap_put(*registry, m, q);
         if (r < 0) {
-                async_polkit_query_free(bus, q);
+                async_polkit_query_free(q);
                 return r;
         }
 
         q->registry = *registry;
 
-        r = sd_bus_call_async(bus, pk, async_polkit_callback, q, 0, &q->serial);
+        r = sd_bus_call_async(bus, &q->slot, pk, async_polkit_callback, q, 0);
         if (r < 0) {
-                async_polkit_query_free(bus, q);
+                async_polkit_query_free(q);
                 return r;
         }
 
@@ -436,7 +436,7 @@ void bus_verify_polkit_async_registry_free(sd_bus *bus, Hashmap *registry) {
         AsyncPolkitQuery *q;
 
         while ((q = hashmap_steal_first(registry)))
-                async_polkit_query_free(bus, q);
+                async_polkit_query_free(q);
 
         hashmap_free(registry);
 #endif

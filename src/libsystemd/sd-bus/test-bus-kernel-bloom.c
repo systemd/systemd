@@ -72,7 +72,7 @@ static void test_one(
         assert_se(r >= 0);
 
         log_debug("match");
-        r = sd_bus_add_match(b, match, NULL, NULL);
+        r = sd_bus_add_match(b, NULL, match, NULL, NULL);
         assert_se(r >= 0);
 
         log_debug("signal");

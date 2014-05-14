@@ -5,7 +5,7 @@
 /***
   This file is part of systemd.
 
-  Copyright 2013 Lennart Poettering
+  Copyright 2014 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -21,7 +21,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "sd-bus.h"
 #include "bus-internal.h"
 
-int bus_process_object(sd_bus *bus, sd_bus_message *m);
-void bus_node_gc(sd_bus *b, struct node *n);
+sd_bus_slot *bus_slot_allocate(sd_bus *bus, bool floating, BusSlotType type, size_t extra, void *userdata);
+
+void bus_slot_disconnect(sd_bus_slot *slot);
