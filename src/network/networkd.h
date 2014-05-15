@@ -232,6 +232,8 @@ struct Link {
         unsigned route_messages;
         unsigned enslaving;
 
+        LIST_HEAD(Address, addresses);
+
         sd_dhcp_client *dhcp_client;
         sd_dhcp_lease *dhcp_lease;
         char *lease_file;

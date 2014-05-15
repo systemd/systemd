@@ -96,10 +96,17 @@ static int link_new(Manager *manager, sd_rtnl_message *message, Link **ret) {
 }
 
 static void link_free(Link *link) {
+        Address *address;
+
         if (!link)
                 return;
 
         assert(link->manager);
+
+        while ((address = link->addresses)) {
+                LIST_REMOVE(addresses, link->addresses, address);
+                address_free(address);
+        }
 
         sd_dhcp_client_unref(link->dhcp_client);
         sd_dhcp_lease_unref(link->dhcp_lease);
@@ -1715,7 +1722,9 @@ int link_rtnl_process_address(sd_rtnl *rtnl, sd_rtnl_message *message, void *use
         Link *link = NULL;
         uint16_t type;
         _cleanup_address_free_ Address *address = NULL;
+        Address *ad;
         char buf[INET6_ADDRSTRLEN];
+        bool address_dropped = false;
         int r, ifindex;
 
         assert(rtnl);
@@ -1784,15 +1793,33 @@ int link_rtnl_process_address(sd_rtnl *rtnl, sd_rtnl_message *message, void *use
                 return 0;
         }
 
+        LIST_FOREACH(addresses, ad, link->addresses) {
+                if (address_equal(ad, address)) {
+                        LIST_REMOVE(addresses, link->addresses, ad);
+
+                        address_free(ad);
+
+                        address_dropped = true;
+
+                        break;
+                }
+        }
+
         switch (type) {
         case RTM_NEWADDR:
-                log_info_link(link, "added address: %s/%u", buf,
-                              address->prefixlen);
-                break;
+                if (!address_dropped)
+                        log_debug_link(link, "added address: %s/%u", buf,
+                                      address->prefixlen);
 
+                LIST_PREPEND(addresses, link->addresses, address);
+                address = NULL;
+
+                break;
         case RTM_DELADDR:
-                log_info_link(link, "removed address: %s/%u", buf,
-                              address->prefixlen);
+                if (address_dropped)
+                        log_debug_link(link, "removed address: %s/%u", buf,
+                                      address->prefixlen);
+
                 break;
         default:
                 assert_not_reached("Received invalid RTNL message type");
