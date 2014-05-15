@@ -981,7 +981,7 @@ static int manager_new(Manager **ret) {
 
         r = sd_resolve_attach_event(m->resolve, m->event, 0);
         if (r < 0)
-                return 0;
+                return r;
 
         r = manager_clock_watch_setup(m);
         if (r < 0)
