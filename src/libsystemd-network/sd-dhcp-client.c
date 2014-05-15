@@ -862,7 +862,6 @@ static int client_timeout_t1(sd_event_source *s, uint64_t usec,
                              void *userdata) {
         sd_dhcp_client *client = userdata;
         DHCP_CLIENT_DONT_DESTROY(client);
-        int r;
 
         client->state = DHCP_STATE_RENEWING;
         client->attempt = 1;
@@ -912,6 +911,19 @@ static int client_handle_offer(sd_dhcp_client *client, DHCPMessage *offer,
         lease = NULL;
 
         log_dhcp_client(client, "OFFER");
+
+        return 0;
+}
+
+static int client_handle_forcerenew(sd_dhcp_client *client, DHCPMessage *force,
+                                    size_t len) {
+        int r;
+
+        r = dhcp_option_parse(force, len, NULL, NULL);
+        if (r != DHCP_FORCERENEW)
+                return -ENOMSG;
+
+        log_dhcp_client(client, "FORCERENEW");
 
         return 0;
 }
@@ -1226,9 +1238,20 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message,
 
                 break;
 
+        case DHCP_STATE_BOUND:
+                r = client_handle_forcerenew(client, message, len);
+                if (r >= 0) {
+                        r = client_timeout_t1(NULL, 0, client);
+                        if (r < 0)
+                                goto error;
+                } else if (r == -ENOMSG)
+                        /* invalid message, let's ignore it */
+                        return 0;
+
+                break;
+
         case DHCP_STATE_INIT:
         case DHCP_STATE_INIT_REBOOT:
-        case DHCP_STATE_BOUND:
 
                 break;
 
@@ -1285,13 +1308,6 @@ static int client_receive_message_udp(sd_event_source *s, int fd,
                 return 0;
         }
 
-        if (be32toh(message->xid) != client->xid) {
-                log_dhcp_client(client, "received xid (%u) does not match "
-                                "expected (%u): ignoring",
-                                be32toh(message->xid), client->xid);
-                return 0;
-        }
-
         if (message->htype != ARPHRD_ETHER || message->hlen != ETHER_ADDR_LEN) {
                 log_dhcp_client(client, "not an ethernet packet");
                 return 0;
@@ -1301,6 +1317,16 @@ static int client_receive_message_udp(sd_event_source *s, int fd,
                    ETH_ALEN)) {
                 log_dhcp_client(client, "received chaddr does not match "
                                 "expected: ignoring");
+                return 0;
+        }
+
+        if (client->state != DHCP_STATE_BOUND &&
+            be32toh(message->xid) != client->xid) {
+                /* in BOUND state, we may receive FORCERENEW with xid set by server,
+                   so ignore the xid in this case */
+                log_dhcp_client(client, "received xid (%u) does not match "
+                                "expected (%u): ignoring",
+                                be32toh(message->xid), client->xid);
                 return 0;
         }
 

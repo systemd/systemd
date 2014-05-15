@@ -95,6 +95,8 @@ enum {
         DHCP_ACK                                = 5,
         DHCP_NAK                                = 6,
         DHCP_RELEASE                            = 7,
+        DHCP_INFORM                             = 8,
+        DHCP_FORCERENEW                         = 9,
 };
 
 enum {
