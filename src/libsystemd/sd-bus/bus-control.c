@@ -1140,7 +1140,6 @@ int bus_add_match_internal(
                 uint64_t cookie) {
 
         assert(bus);
-        assert(match);
 
         if (bus->is_kernel)
                 return bus_add_match_internal_kernel(bus, components, n_components, cookie);
