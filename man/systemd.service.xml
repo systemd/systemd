@@ -519,6 +519,20 @@ ExecStart=/bin/echo $ONE $TWO ${TWO}</programlisting>
                                 following:</para>
 
                                 <programlisting>/bin/kill -HUP $MAINPID</programlisting>
+
+                                <para>Note however that reloading a
+                                daemon by sending a signal (as with
+                                the example line above) is usually not
+                                a good choice, because this is an
+                                asynchronous operation and hence not
+                                suitable to order reloads of multiple
+                                services against each other. It is
+                                strongly recommended to set
+                                <varname>ExecReload=</varname> to a
+                                command that no only triggers a
+                                configuration reload of the daemon,
+                                but also synchronously waits for it
+                                complete.</para>
                                 </listitem>
                         </varlistentry>
 
