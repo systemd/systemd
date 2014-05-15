@@ -1196,7 +1196,6 @@ int bus_remove_match_internal(
                 uint64_t cookie) {
 
         assert(bus);
-        assert(match);
 
         if (bus->is_kernel)
                 return bus_remove_match_internal_kernel(bus, cookie);
