@@ -20,6 +20,7 @@
 ***/
 
 #include <ctype.h>
+#include <net/if.h>
 
 #include "networkd.h"
 #include "network-internal.h"
@@ -220,7 +221,7 @@ int network_get(Manager *manager, struct udev_device *device,
                                      udev_device_get_property_value(device, "ID_NET_DRIVER"),
                                      udev_device_get_devtype(device),
                                      ifname)) {
-                        log_debug("%s: found matching network '%s'", ifname,
+                        log_debug("%*s: found matching network '%s'", IFNAMSIZ, ifname,
                                   network->filename);
                         *ret = network;
                         return 0;

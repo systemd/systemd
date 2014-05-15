@@ -19,6 +19,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <net/if.h>
+
 #include "networkd.h"
 #include "network-internal.h"
 #include "path-util.h"

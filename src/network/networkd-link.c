@@ -257,7 +257,8 @@ static int route_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
         r = sd_rtnl_message_get_errno(m);
         if (r < 0 && r != -EEXIST)
                 log_struct_link(LOG_WARNING, link,
-                                "MESSAGE=%s: could not set route: %s",
+                                "MESSAGE=%*s: could not set route: %s",
+                                IFNAMSIZ,
                                 link->ifname, strerror(-r),
                                 "ERRNO=%d", -r,
                                 NULL);
@@ -422,7 +423,8 @@ static int route_drop_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata)
         r = sd_rtnl_message_get_errno(m);
         if (r < 0 && r != -ESRCH)
                 log_struct_link(LOG_WARNING, link,
-                                "MESSAGE=%s: could not drop route: %s",
+                                "MESSAGE=%*s: could not drop route: %s",
+                                IFNAMSIZ,
                                 link->ifname, strerror(-r),
                                 "ERRNO=%d", -r,
                                 NULL);
@@ -453,7 +455,8 @@ static int address_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
         r = sd_rtnl_message_get_errno(m);
         if (r < 0 && r != -EEXIST)
                 log_struct_link(LOG_WARNING, link,
-                                "MESSAGE=%s: could not set address: %s",
+                                "MESSAGE=%*s: could not set address: %s",
+                                IFNAMSIZ,
                                 link->ifname, strerror(-r),
                                 "ERRNO=%d", -r,
                                 NULL);
@@ -599,7 +602,8 @@ static int address_update_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userd
         r = sd_rtnl_message_get_errno(m);
         if (r < 0 && r != -ENOENT)
                 log_struct_link(LOG_WARNING, link,
-                                "MESSAGE=%s: could not update address: %s",
+                                "MESSAGE=%*s: could not update address: %s",
+                                IFNAMSIZ,
                                 link->ifname, strerror(-r),
                                 "ERRNO=%d", -r,
                                 NULL);
@@ -625,7 +629,8 @@ static int address_drop_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdat
         r = sd_rtnl_message_get_errno(m);
         if (r < 0 && r != -EADDRNOTAVAIL)
                 log_struct_link(LOG_WARNING, link,
-                                "MESSAGE=%s: could not drop address: %s",
+                                "MESSAGE=%*s: could not drop address: %s",
+                                IFNAMSIZ,
                                 link->ifname, strerror(-r),
                                 "ERRNO=%d", -r,
                                 NULL);
@@ -648,7 +653,7 @@ static int set_hostname_handler(sd_bus *bus, sd_bus_message *m, void *userdata, 
 
         r = sd_bus_message_get_errno(m);
         if (r < 0)
-                log_warning("Could not set hostname: %s", strerror(-r));
+                log_warning_link(link, "Could not set hostname: %s", strerror(-r));
 
         link_unref(link);
 
@@ -827,7 +832,7 @@ static int dhcp_lease_lost(Link *link) {
                 if (r >= 0 && hostname) {
                         r = link_set_hostname(link, "");
                         if (r < 0)
-                                log_error("Failed to reset transient hostname");
+                                log_error_link(link, "Failed to reset transient hostname");
                 }
         }
 
@@ -880,7 +885,8 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
 
         if (r >= 0)
                 log_struct_link(LOG_INFO, link,
-                                "MESSAGE=%s: DHCPv4 address %u.%u.%u.%u/%u via %u.%u.%u.%u",
+                                "MESSAGE=%*s: DHCPv4 address %u.%u.%u.%u/%u via %u.%u.%u.%u",
+                                 IFNAMSIZ,
                                  link->ifname,
                                  ADDRESS_FMT_VAL(address),
                                  prefixlen,
@@ -894,7 +900,8 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
                                  NULL);
         else
                 log_struct_link(LOG_INFO, link,
-                                "MESSAGE=%s: DHCPv4 address %u.%u.%u.%u/%u",
+                                "MESSAGE=%*s: DHCPv4 address %u.%u.%u.%u/%u",
+                                 IFNAMSIZ,
                                  link->ifname,
                                  ADDRESS_FMT_VAL(address),
                                  prefixlen,
@@ -911,7 +918,7 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
                 if (r >= 0) {
                         r = manager_update_resolv_conf(link->manager);
                         if (r < 0)
-                                log_error("Failed to update resolv.conf");
+                                log_error_link(link, "Failed to update resolv.conf");
                 }
         }
 
@@ -934,7 +941,7 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
                 if (r >= 0) {
                         r = link_set_hostname(link, hostname);
                         if (r < 0)
-                                log_error("Failed to set transient hostname "
+                                log_error_link(link, "Failed to set transient hostname "
                                           "to '%s'", hostname);
                 }
         }
@@ -1129,7 +1136,8 @@ static int ipv4ll_address_claimed(sd_ipv4ll *ll, Link *link) {
                 return r;
 
         log_struct_link(LOG_INFO, link,
-                        "MESSAGE=%s: IPv4 link-local address %u.%u.%u.%u",
+                        "MESSAGE=%*s: IPv4 link-local address %u.%u.%u.%u",
+                        IFNAMSIZ,
                         link->ifname,
                         ADDRESS_FMT_VAL(address),
                         NULL);
@@ -1348,7 +1356,8 @@ static int link_up_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
                 /* we warn but don't fail the link, as it may
                    be brought up later */
                 log_struct_link(LOG_WARNING, link,
-                                "MESSAGE=%s: could not bring up interface: %s",
+                                "MESSAGE=%*s: could not bring up interface: %s",
+                                IFNAMSIZ,
                                 link->ifname, strerror(-r),
                                 "ERRNO=%d", -r,
                                 NULL);
@@ -1434,7 +1443,8 @@ static int enslave_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
         r = sd_rtnl_message_get_errno(m);
         if (r < 0) {
                 log_struct_link(LOG_ERR, link,
-                                "MESSAGE=%s: could not enslave: %s",
+                                "MESSAGE=%*s: could not enslave: %s",
+                                IFNAMSIZ,
                                 link->ifname, strerror(-r),
                                 "ERRNO=%d", -r,
                                 NULL);
@@ -1475,7 +1485,8 @@ static int link_enter_enslave(Link *link) {
 
         if (link->network->bond) {
                 log_struct_link(LOG_DEBUG, link,
-                                "MESSAGE=%s: enslaving by '%s'",
+                                "MESSAGE=%*s: enslaving by '%s'",
+                                IFNAMSIZ,
                                 link->ifname, link->network->bond->ifname,
                                 NETDEV(link->network->bond),
                                 NULL);
@@ -1483,7 +1494,8 @@ static int link_enter_enslave(Link *link) {
                 r = netdev_enslave(link->network->bond, link, &enslave_handler);
                 if (r < 0) {
                         log_struct_link(LOG_WARNING, link,
-                                        "MESSAGE=%s: could not enslave by '%s': %s",
+                                        "MESSAGE=%*s: could not enslave by '%s': %s",
+                                        IFNAMSIZ,
                                         link->ifname, link->network->bond->ifname, strerror(-r),
                                         NETDEV(link->network->bond),
                                         NULL);
@@ -1497,7 +1509,8 @@ static int link_enter_enslave(Link *link) {
 
         if (link->network->bridge) {
                 log_struct_link(LOG_DEBUG, link,
-                                "MESSAGE=%s: enslaving by '%s'",
+                                "MESSAGE=%*s: enslaving by '%s'",
+                                IFNAMSIZ,
                                 link->ifname, link->network->bridge->ifname,
                                 NETDEV(link->network->bridge),
                                 NULL);
@@ -1505,7 +1518,8 @@ static int link_enter_enslave(Link *link) {
                 r = netdev_enslave(link->network->bridge, link, &enslave_handler);
                 if (r < 0) {
                         log_struct_link(LOG_WARNING, link,
-                                        "MESSAGE=%s: could not enslave by '%s': %s",
+                                        "MESSAGE=%*s: could not enslave by '%s': %s",
+                                        IFNAMSIZ,
                                         link->ifname, link->network->bridge->ifname, strerror(-r),
                                         NETDEV(link->network->bridge),
                                         NULL);
@@ -1519,7 +1533,8 @@ static int link_enter_enslave(Link *link) {
 
         if (link->network->tunnel) {
                 log_struct_link(LOG_DEBUG, link,
-                                "MESSAGE=%s: enslaving by '%s'",
+                                "MESSAGE=%*s: enslaving by '%s'",
+                                IFNAMSIZ,
                                 link->ifname, link->network->tunnel->ifname,
                                 NETDEV(link->network->tunnel),
                                 NULL);
@@ -1527,7 +1542,8 @@ static int link_enter_enslave(Link *link) {
                 r = netdev_enslave(link->network->tunnel, link, &enslave_handler);
                 if (r < 0) {
                         log_struct_link(LOG_WARNING, link,
-                                        "MESSAGE=%s: could not enslave by '%s': %s",
+                                        "MESSAGE=%*s: could not enslave by '%s': %s",
+                                        IFNAMSIZ,
                                         link->ifname, link->network->tunnel->ifname, strerror(-r),
                                         NETDEV(link->network->tunnel),
                                         NULL);
@@ -1541,13 +1557,15 @@ static int link_enter_enslave(Link *link) {
 
         HASHMAP_FOREACH(vlan, link->network->vlans, i) {
                 log_struct_link(LOG_DEBUG, link,
-                                "MESSAGE=%s: enslaving by '%s'",
+                                "MESSAGE=%*s: enslaving by '%s'",
+                                IFNAMSIZ,
                                 link->ifname, vlan->ifname, NETDEV(vlan), NULL);
 
                 r = netdev_enslave(vlan, link, &enslave_handler);
                 if (r < 0) {
                         log_struct_link(LOG_WARNING, link,
-                                        "MESSAGE=%s: could not enslave by '%s': %s",
+                                        "MESSAGE=%*s: could not enslave by '%s': %s",
+                                        IFNAMSIZ,
                                         link->ifname, vlan->ifname, strerror(-r),
                                         NETDEV(vlan), NULL);
                         link_enter_failed(link);
@@ -1560,13 +1578,15 @@ static int link_enter_enslave(Link *link) {
 
         HASHMAP_FOREACH(macvlan, link->network->macvlans, i) {
                 log_struct_link(LOG_DEBUG, link,
-                                "MESSAGE=%s: enslaving by '%s'",
+                                "MESSAGE=%*s: enslaving by '%s'",
+                                IFNAMSIZ,
                                 link->ifname, macvlan->ifname, NETDEV(macvlan), NULL);
 
                 r = netdev_enslave(macvlan, link, &enslave_handler);
                 if (r < 0) {
                         log_struct_link(LOG_WARNING, link,
-                                        "MESSAGE=%s: could not enslave by '%s': %s",
+                                        "MESSAGE=%*s: could not enslave by '%s': %s",
+                                        IFNAMSIZ,
                                         link->ifname, macvlan->ifname, strerror(-r),
                                         NETDEV(macvlan), NULL);
                         link_enter_failed(link);
@@ -1726,13 +1746,13 @@ int link_rtnl_process_address(sd_rtnl *rtnl, sd_rtnl_message *message, void *use
 
         r = sd_rtnl_message_addr_get_family(message, &address->family);
         if (r < 0 || !IN_SET(address->family, AF_INET, AF_INET6)) {
-                log_warning("rtnl: received address with invalid family, ignoring");
+                log_warning_link(link, "rtnl: received address with invalid family, ignoring");
                 return 0;
         }
 
         r = sd_rtnl_message_addr_get_prefixlen(message, &address->prefixlen);
         if (r < 0) {
-                log_warning("rtnl: recevied address with invalid prefixlen, ignoring");
+                log_warning_link(link, "rtnl: recevied address with invalid prefixlen, ignoring");
                 return 0;
         }
 
@@ -1740,7 +1760,7 @@ int link_rtnl_process_address(sd_rtnl *rtnl, sd_rtnl_message *message, void *use
         case AF_INET:
                 r = sd_rtnl_message_read_in_addr(message, IFA_LOCAL, &address->in_addr.in);
                 if (r < 0) {
-                        log_warning("rtnl: received address without valid address, ignoring");
+                        log_warning_link(link, "rtnl: received address without valid address, ignoring");
                         return 0;
                 }
 
@@ -1749,7 +1769,7 @@ int link_rtnl_process_address(sd_rtnl *rtnl, sd_rtnl_message *message, void *use
         case AF_INET6:
                 r = sd_rtnl_message_read_in6_addr(message, IFA_ADDRESS, &address->in_addr.in6);
                 if (r < 0) {
-                        log_warning("rtnl: received address without valid address, ignoring");
+                        log_warning_link(link, "rtnl: received address without valid address, ignoring");
                         return 0;
                 }
 
@@ -1760,19 +1780,19 @@ int link_rtnl_process_address(sd_rtnl *rtnl, sd_rtnl_message *message, void *use
         }
 
         if (!inet_ntop(address->family, &address->in_addr, buf, INET6_ADDRSTRLEN)) {
-                log_warning("could not print address");
+                log_warning_link(link, "could not print address");
                 return 0;
         }
 
         switch (type) {
         case RTM_NEWADDR:
-                log_info("added address: %s/%u to ifindex %d", buf,
-                         address->prefixlen, ifindex);
+                log_info_link(link, "added address: %s/%u", buf,
+                              address->prefixlen);
                 break;
 
         case RTM_DELADDR:
-                log_info("removed address: %s/%u from ifindex %d", buf,
-                         address->prefixlen, ifindex);
+                log_info_link(link, "removed address: %s/%u", buf,
+                              address->prefixlen);
                 break;
         default:
                 assert_not_reached("Received invalid RTNL message type");
@@ -1987,7 +2007,7 @@ int link_save(Link *link) {
 
 finish:
         if (r < 0)
-                log_error("Failed to save link data to %s: %s", link->state_file, strerror(-r));
+                log_error_link(link, "Failed to save link data to %s: %s", link->state_file, strerror(-r));
 
         return r;
 }
