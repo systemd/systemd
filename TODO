@@ -709,6 +709,10 @@ Features:
    - export timezone information
    - FORCERENEW
 
+* dhcp:
+   - export timezone information
+   - FORCERENEW
+
 External:
 
 * dbus:
