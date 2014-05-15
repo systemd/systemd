@@ -505,6 +505,8 @@ int netdev_set_ifindex(NetDev *netdev, sd_rtnl_message *message) {
 
         netdev->ifindex = ifindex;
 
+        log_debug_netdev(netdev, "netdev has index %d", netdev->ifindex);
+
         netdev_enter_ready(netdev);
 
         return 0;

@@ -1822,7 +1822,7 @@ int link_add(Manager *m, sd_rtnl_message *message, Link **ret) {
 
         link = *ret;
 
-        log_debug_link(link, "link added");
+        log_debug_link(link, "link %"PRIu64" added", link->ifindex);
 
         r = sd_rtnl_message_new_addr(m->rtnl, &req, RTM_GETADDR, link->ifindex, 0);
         if (r < 0)
