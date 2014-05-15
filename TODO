@@ -705,6 +705,10 @@ Features:
    - add veth netdev support (c.f. http://shorewall.net/bridge-Shorewall-perl.html#veth)
    - add tun/tap netdev support
 
+* dhcp:
+   - export timezone information
+   - FORCERENEW
+
 External:
 
 * dbus:
