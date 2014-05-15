@@ -97,7 +97,7 @@ struct NetDev {
         Condition *match_arch;
 
         char *description;
-        char *name;
+        char *ifname;
         size_t mtu;
         NetDevKind kind;
 
@@ -435,16 +435,16 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_unref);
 
 /* More macros which append INTERFACE= to the message */
 
-#define log_full_netdev(level, netdev, fmt, ...) log_meta_object(level, __FILE__, __LINE__, __func__, "INTERFACE=", netdev->name, "%s: " fmt, netdev->name, ##__VA_ARGS__)
+#define log_full_netdev(level, netdev, fmt, ...) log_meta_object(level, __FILE__, __LINE__, __func__, "INTERFACE=", netdev->ifname, "%s: " fmt, netdev->ifname, ##__VA_ARGS__)
 #define log_debug_netdev(netdev, ...)       log_full_netdev(LOG_DEBUG, netdev, ##__VA_ARGS__)
 #define log_info_netdev(netdev, ...)        log_full_netdev(LOG_INFO, netdev, ##__VA_ARGS__)
 #define log_notice_netdev(netdev, ...)      log_full_netdev(LOG_NOTICE, netdev, ##__VA_ARGS__)
 #define log_warning_netdev(netdev, ...)     log_full_netdev(LOG_WARNING, netdev,## __VA_ARGS__)
 #define log_error_netdev(netdev, ...)       log_full_netdev(LOG_ERR, netdev, ##__VA_ARGS__)
 
-#define log_struct_netdev(level, netdev, ...) log_struct(level, "INTERFACE=%s", netdev->name, __VA_ARGS__)
+#define log_struct_netdev(level, netdev, ...) log_struct(level, "INTERFACE=%s", netdev->ifname, __VA_ARGS__)
 
-#define NETDEV(netdev) "INTERFACE=%s", netdev->name
+#define NETDEV(netdev) "INTERFACE=%s", netdev->ifname
 #define ADDRESS_FMT_VAL(address)            \
         (address).s_addr & 0xFF,            \
         ((address).s_addr >> 8) & 0xFF,     \

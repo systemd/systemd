@@ -315,7 +315,7 @@ int config_parse_netdev(const char *unit,
 
                 break;
         case NETDEV_KIND_MACVLAN:
-                r = hashmap_put(network->macvlans, netdev->name, netdev);
+                r = hashmap_put(network->macvlans, netdev->ifname, netdev);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, EINVAL,
                                    "Can not add MACVLAN to network: %s", rvalue);

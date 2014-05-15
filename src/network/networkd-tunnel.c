@@ -43,7 +43,7 @@ static int netdev_fill_ipip_rtnl_message(Link *link, sd_rtnl_message *m) {
 
         netdev = link->network->tunnel;
 
-        r = sd_rtnl_message_append_string(m, IFLA_IFNAME, netdev->name);
+        r = sd_rtnl_message_append_string(m, IFLA_IFNAME, netdev->ifname);
         if (r < 0) {
                 log_error_netdev(netdev,
                                  "Could not append IFLA_IFNAME, attribute: %s",
@@ -141,7 +141,7 @@ int netdev_create_tunnel(Link *link, sd_rtnl_message_handler_t callback) {
         netdev = link->network->tunnel;
 
         assert(netdev);
-        assert(netdev->name);
+        assert(netdev->ifname);
         assert(netdev->manager);
         assert(netdev->manager->rtnl);
         assert(netdev->manager->kmod_ctx);

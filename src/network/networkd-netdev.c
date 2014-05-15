@@ -81,13 +81,13 @@ static void netdev_free(NetDev *netdev) {
 
         netdev_cancel_callbacks(netdev);
 
-        if (netdev->name)
-                hashmap_remove(netdev->manager->netdevs, netdev->name);
+        if (netdev->ifname)
+                hashmap_remove(netdev->manager->netdevs, netdev->ifname);
 
         free(netdev->filename);
 
         free(netdev->description);
-        free(netdev->name);
+        free(netdev->ifname);
 
         condition_free_list(netdev->match_host);
         condition_free_list(netdev->match_virt);
@@ -195,7 +195,7 @@ static int netdev_enter_ready(NetDev *netdev) {
         netdev_enslave_callback *callback;
 
         assert(netdev);
-        assert(netdev->name);
+        assert(netdev->ifname);
 
         if (netdev->state != NETDEV_STATE_CREATING)
                 return 0;
@@ -267,7 +267,7 @@ static int netdev_create(NetDev *netdev, Link *link, sd_rtnl_message_handler_t c
         assert(netdev);
         assert(!(netdev->kind == NETDEV_KIND_VLAN || netdev->kind == NETDEV_KIND_MACVLAN) ||
                (link && callback));
-        assert(netdev->name);
+        assert(netdev->ifname);
         assert(netdev->manager);
         assert(netdev->manager->rtnl);
 
@@ -289,7 +289,7 @@ static int netdev_create(NetDev *netdev, Link *link, sd_rtnl_message_handler_t c
                 }
         }
 
-        r = sd_rtnl_message_append_string(req, IFLA_IFNAME, netdev->name);
+        r = sd_rtnl_message_append_string(req, IFLA_IFNAME, netdev->ifname);
         if (r < 0) {
                 log_error_netdev(netdev,
                                  "Could not append IFLA_IFNAME attribute: %s",
@@ -464,7 +464,7 @@ int netdev_set_ifindex(NetDev *netdev, sd_rtnl_message *message) {
                 return r;
         }
 
-        if (!streq(netdev->name, received_name)) {
+        if (!streq(netdev->ifname, received_name)) {
                 log_error_netdev(netdev, "Received newlink with wrong IFNAME %s",
                                  received_name);
                 netdev_enter_failed(netdev);
@@ -555,7 +555,7 @@ static int netdev_load_one(Manager *manager, const char *filename) {
                 return 0;
         }
 
-        if (!netdev->name) {
+        if (!netdev->ifname) {
                 log_warning("NetDev without Name configured in %s. Ignoring", filename);
                 return 0;
         }
@@ -588,7 +588,7 @@ static int netdev_load_one(Manager *manager, const char *filename) {
                              NULL, NULL, NULL, NULL, NULL, NULL) <= 0)
                 return 0;
 
-        r = hashmap_put(netdev->manager->netdevs, netdev->name, netdev);
+        r = hashmap_put(netdev->manager->netdevs, netdev->ifname, netdev);
         if (r < 0)
                 return r;
 
