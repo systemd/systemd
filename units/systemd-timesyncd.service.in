@@ -16,6 +16,7 @@ Type=notify
 Restart=always
 RestartSec=0
 ExecStart=@rootlibexecdir@/systemd-timesyncd
+CapabilityBoundingSet=CAP_SYS_TIME
 
 [Install]
 WantedBy=multi-user.target
