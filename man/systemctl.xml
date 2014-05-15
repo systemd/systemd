@@ -435,7 +435,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           safe option to request an immediate reboot. If
           <option>--force</option> is specified twice for these
           operations, they will be executed immediately without
-          terminating any processes or umounting any file
+          terminating any processes or unmounting any file
           systems. Warning: specifying <option>--force</option> twice
           with any of these operations might result in data
           loss.</para>
@@ -1045,7 +1045,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             activation of the unit, including manual activation. Use
             this option with care. This honors the
             <option>--runtime</option> option to only mask temporarily
-            until the next reoobt of the system.</para>
+            until the next reboot of the system.</para>
           </listitem>
         </varlistentry>
 
@@ -1425,7 +1425,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
     <refsect2>
       <title>Parameter Syntax</title>
 
-      <para>Unit ommands listed above take either a single unit name
+      <para>Unit commands listed above take either a single unit name
       (designated as <replaceable>NAME</replaceable>), or multiple
       unit specifications (designated as
       <replaceable>PATTERN</replaceable>...). In the first case, the
