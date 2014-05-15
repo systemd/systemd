@@ -86,7 +86,7 @@ struct sd_resolve {
         unsigned n_valid_workers;
 
         unsigned current_id, current_index;
-        sd_resolve_query* queries[QUERIES_MAX];
+        sd_resolve_query* query_array[QUERIES_MAX];
         unsigned n_queries, n_done;
 
         sd_event_source *event_source;
@@ -96,6 +96,8 @@ struct sd_resolve {
 
         sd_resolve **default_resolve_ptr;
         pid_t tid;
+
+        LIST_HEAD(sd_resolve_query, queries);
 };
 
 struct sd_resolve_query {
@@ -105,6 +107,7 @@ struct sd_resolve_query {
 
         QueryType type:4;
         bool done:1;
+        bool floating:1;
         unsigned id;
 
         int ret;
@@ -121,6 +124,8 @@ struct sd_resolve_query {
         };
 
         void *userdata;
+
+        LIST_FIELDS(sd_resolve_query, queries);
 };
 
 typedef struct RHeader {
@@ -199,6 +204,8 @@ typedef union Packet {
 static int getaddrinfo_done(sd_resolve_query* q);
 static int getnameinfo_done(sd_resolve_query *q);
 static int res_query_done(sd_resolve_query* q);
+
+static void resolve_query_disconnect(sd_resolve_query *q);
 
 #define RESOLVE_DONT_DESTROY(resolve) \
         _cleanup_resolve_unref_ _unused_ sd_resolve *_dont_destroy_##resolve = sd_resolve_ref(resolve)
@@ -630,9 +637,16 @@ _public_ int sd_resolve_get_tid(sd_resolve *resolve, pid_t *tid) {
 
 static void resolve_free(sd_resolve *resolve) {
         PROTECT_ERRNO;
+        sd_resolve_query *q;
         unsigned i;
 
         assert(resolve);
+
+        while ((q = resolve->queries)) {
+                assert(q->floating);
+                resolve_query_disconnect(q);
+                sd_resolve_query_unref(q);
+        }
 
         if (resolve->default_resolve_ptr)
                 *(resolve->default_resolve_ptr) = NULL;
@@ -719,7 +733,7 @@ static sd_resolve_query *lookup_query(sd_resolve *resolve, unsigned id) {
 
         assert(resolve);
 
-        q = resolve->queries[id % QUERIES_MAX];
+        q = resolve->query_array[id % QUERIES_MAX];
         if (q)
                 if (q->id == id)
                         return q;
@@ -759,6 +773,11 @@ static int complete_query(sd_resolve *resolve, sd_resolve_query *q) {
         }
 
         resolve->current = sd_resolve_query_unref(q);
+
+        if (q->floating) {
+                resolve_query_disconnect(q);
+                sd_bus_slot_unref(q);
+        }
 
         return r;
 }
@@ -989,7 +1008,7 @@ _public_ int sd_resolve_wait(sd_resolve *resolve, uint64_t timeout_usec) {
         return sd_resolve_process(resolve);
 }
 
-static int alloc_query(sd_resolve *resolve, sd_resolve_query **_q) {
+static int alloc_query(sd_resolve *resolve, bool floating, sd_resolve_query **_q) {
         sd_resolve_query *q;
         int r;
 
@@ -1003,21 +1022,26 @@ static int alloc_query(sd_resolve *resolve, sd_resolve_query **_q) {
         if (r < 0)
                 return r;
 
-        while (resolve->queries[resolve->current_index]) {
+        while (resolve->query_array[resolve->current_index]) {
                 resolve->current_index++;
                 resolve->current_id++;
 
                 resolve->current_index %= QUERIES_MAX;
         }
 
-        q = resolve->queries[resolve->current_index] = new0(sd_resolve_query, 1);
+        q = resolve->query_array[resolve->current_index] = new0(sd_resolve_query, 1);
         if (!q)
                 return -ENOMEM;
 
         q->n_ref = 1;
-        q->resolve = sd_resolve_ref(resolve);
+        q->resolve = resolve;
+        q->floating = floating;
         q->id = resolve->current_id;
 
+        if (!floating)
+                sd_resolve_ref(resolve);
+
+        LIST_PREPEND(queries, resolve->queries, q);
         resolve->n_queries++;
 
         *_q = q;
@@ -1038,12 +1062,11 @@ _public_ int sd_resolve_getaddrinfo(
         int r;
 
         assert_return(resolve, -EINVAL);
-        assert_return(_q, -EINVAL);
         assert_return(node || service, -EINVAL);
         assert_return(callback, -EINVAL);
         assert_return(!resolve_pid_changed(resolve), -ECHILD);
 
-        r = alloc_query(resolve, &q);
+        r = alloc_query(resolve, !_q, &q);
         if (r < 0)
                 return r;
 
@@ -1078,7 +1101,9 @@ _public_ int sd_resolve_getaddrinfo(
                 return -errno;
         }
 
-        *_q = q;
+        if (_q)
+                *_q = q;
+
         return 0;
 }
 
@@ -1109,7 +1134,6 @@ _public_ int sd_resolve_getnameinfo(
         int r;
 
         assert_return(resolve, -EINVAL);
-        assert_return(_q, -EINVAL);
         assert_return(sa, -EINVAL);
         assert_return(salen >= sizeof(struct sockaddr), -EINVAL);
         assert_return(salen <= sizeof(union sockaddr_union), -EINVAL);
@@ -1117,7 +1141,7 @@ _public_ int sd_resolve_getnameinfo(
         assert_return(callback, -EINVAL);
         assert_return(!resolve_pid_changed(resolve), -ECHILD);
 
-        r = alloc_query(resolve, &q);
+        r = alloc_query(resolve, !_q, &q);
         if (r < 0)
                 return r;
 
@@ -1145,7 +1169,9 @@ _public_ int sd_resolve_getnameinfo(
                 return -errno;
         }
 
-        *_q = q;
+        if (_q)
+                *_q = q;
+
         return 0;
 }
 
@@ -1176,12 +1202,11 @@ static int resolve_res(
         int r;
 
         assert_return(resolve, -EINVAL);
-        assert_return(_q, -EINVAL);
         assert_return(dname, -EINVAL);
         assert_return(callback, -EINVAL);
         assert_return(!resolve_pid_changed(resolve), -ECHILD);
 
-        r = alloc_query(resolve, &q);
+        r = alloc_query(resolve, !_q, &q);
         if (r < 0)
                 return r;
 
@@ -1208,7 +1233,9 @@ static int resolve_res(
                 return -errno;
         }
 
-        *_q = q;
+        if (_q)
+                *_q = q;
+
         return 0;
 }
 
@@ -1251,23 +1278,38 @@ static void resolve_freeaddrinfo(struct addrinfo *ai) {
         }
 }
 
-static void resolve_query_free(sd_resolve_query *q) {
+static void resolve_query_disconnect(sd_resolve_query *q) {
+        sd_resolve *resolve;
         unsigned i;
 
         assert(q);
-        assert(q->resolve);
-        assert(q->resolve->n_queries > 0);
+
+        if (!q->resolve)
+                return;
+
+        resolve = q->resolve;
+        assert(resolve->n_queries > 0);
 
         if (q->done) {
-                assert(q->resolve->n_done > 0);
-                q->resolve->n_done--;
+                assert(resolve->n_done > 0);
+                resolve->n_done--;
         }
 
         i = q->id % QUERIES_MAX;
-        assert(q->resolve->queries[i] == q);
-        q->resolve->queries[i] = NULL;
-        q->resolve->n_queries--;
-        sd_resolve_unref(q->resolve);
+        assert(resolve->query_array[i] == q);
+        resolve->query_array[i] = NULL;
+        LIST_REMOVE(queries, resolve->queries, q);
+        resolve->n_queries--;
+
+        q->resolve = NULL;
+        if (!q->floating)
+                sd_resolve_unref(resolve);
+}
+
+static void resolve_query_free(sd_resolve_query *q) {
+        assert(q);
+
+        resolve_query_disconnect(q);
 
         resolve_freeaddrinfo(q->addrinfo);
         free(q->host);

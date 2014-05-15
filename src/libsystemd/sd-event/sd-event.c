@@ -718,9 +718,9 @@ static sd_event_source *source_new(sd_event *e, bool floating, EventSourceType t
 
         s->n_ref = 1;
         s->event = e;
+        s->floating = floating;
         s->type = type;
         s->pending_index = s->prepare_index = PRIOQ_IDX_NULL;
-        s->floating = floating;
 
         if (!floating)
                 sd_event_ref(e);
