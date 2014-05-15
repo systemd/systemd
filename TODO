@@ -30,6 +30,8 @@ External:
 
 Features:
 
+* timer units: actually add extra delays to timer units with high AccuracySec values, don't start them already when we are awake...
+
 * timesyncd:
   - hookup with networkd: NTP servers from dhcp
   - hookup with networkd: listen to online/offline state
@@ -701,6 +703,7 @@ Features:
    - patch kernel to support module alias for tunnel device (ipip/sit/gre),
      then remove remove libkmod dependency and CAP_SYS_MODULE
    - add veth netdev support (c.f. http://shorewall.net/bridge-Shorewall-perl.html#veth)
+   - add tun/tap netdev support
 
 External:
 
