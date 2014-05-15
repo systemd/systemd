@@ -116,6 +116,9 @@ struct Manager {
         Hashmap *watch_pids1;  /* pid => Unit object n:1 */
         Hashmap *watch_pids2;  /* pid => Unit object n:1 */
 
+        /* A set contains all units which cgroup should be refreshed after startup */
+        Set *startup_units;
+
         /* A set which contains all currently failed units */
         Set *failed_units;
 

@@ -2451,6 +2451,47 @@ int config_parse_cpu_shares(
         }
 
         c->cpu_shares = lu;
+        if (!c->startup_cpu_shares_set)
+                c->startup_cpu_shares = lu;
+
+        return 0;
+}
+
+int config_parse_startup_cpu_shares(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        CGroupContext *c = data;
+        unsigned long lu;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                c->startup_cpu_shares = 1024;
+                return 0;
+        }
+
+        r = safe_atolu(rvalue, &lu);
+        if (r < 0 || lu <= 0) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Startup CPU shares '%s' invalid. Ignoring.", rvalue);
+                return 0;
+        }
+
+        c->startup_cpu_shares = lu;
+        c->startup_cpu_shares_set = true;
+
         return 0;
 }
 
@@ -2628,6 +2669,46 @@ int config_parse_blockio_weight(
         }
 
         c->blockio_weight = lu;
+        if (!c->startup_blockio_weight_set)
+                c->startup_blockio_weight = lu;
+
+        return 0;
+}
+
+int config_parse_startup_blockio_weight(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        CGroupContext *c = data;
+        unsigned long lu;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                c->startup_blockio_weight = 1000;
+                return 0;
+        }
+
+        r = safe_atolu(rvalue, &lu);
+        if (r < 0 || lu < 10 || lu > 1000) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Startup Block IO weight '%s' invalid. Ignoring.", rvalue);
+                return 0;
+        }
+
+        c->startup_blockio_weight = lu;
+        c->startup_blockio_weight_set = true;
 
         return 0;
 }
@@ -3445,11 +3526,13 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_address_families,      "FAMILIES" },
 #endif
                 { config_parse_cpu_shares,            "SHARES" },
+                { config_parse_startup_cpu_shares,    "STARTUPSHARES" },
                 { config_parse_memory_limit,          "LIMIT" },
                 { config_parse_device_allow,          "DEVICE" },
                 { config_parse_device_policy,         "POLICY" },
                 { config_parse_blockio_bandwidth,     "BANDWIDTH" },
                 { config_parse_blockio_weight,        "WEIGHT" },
+                { config_parse_startup_blockio_weight, "STARTUPWEIGHT" },
                 { config_parse_blockio_device_weight, "DEVICEWEIGHT" },
                 { config_parse_long,                  "LONG" },
                 { config_parse_socket_service,        "SERVICE" },

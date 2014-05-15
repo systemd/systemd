@@ -456,6 +456,10 @@ int manager_new(SystemdRunningAs running_as, Manager **_m) {
         if (r < 0)
                 goto fail;
 
+        r = set_ensure_allocated(&m->startup_units, trivial_hash_func, trivial_compare_func);
+        if (r < 0)
+                goto fail;
+
         r = set_ensure_allocated(&m->failed_units, trivial_hash_func, trivial_compare_func);
         if (r < 0)
                 goto fail;
@@ -794,6 +798,7 @@ void manager_free(Manager *m) {
         hashmap_free(m->watch_pids2);
         hashmap_free(m->watch_bus);
 
+        set_free(m->startup_units);
         set_free(m->failed_units);
 
         sd_event_source_unref(m->signal_event_source);
@@ -2445,6 +2450,9 @@ bool manager_unit_inactive_or_pending(Manager *m, const char *name) {
 void manager_check_finished(Manager *m) {
         char userspace[FORMAT_TIMESPAN_MAX], initrd[FORMAT_TIMESPAN_MAX], kernel[FORMAT_TIMESPAN_MAX], sum[FORMAT_TIMESPAN_MAX];
         usec_t firmware_usec, loader_usec, kernel_usec, initrd_usec, userspace_usec, total_usec;
+        Unit *u = NULL;
+        Iterator i;
+        UnitActiveState state;
 
         assert(m);
 
@@ -2530,6 +2538,14 @@ void manager_check_finished(Manager *m) {
                                    "MESSAGE=Startup finished in %s.",
                                    format_timespan(sum, sizeof(sum), total_usec, USEC_PER_MSEC),
                                    NULL);
+        }
+
+        SET_FOREACH(u, m->startup_units, i) {
+                u = set_steal_first(m->startup_units);
+                state = unit_active_state(u);
+                if (!UNIT_IS_ACTIVE_OR_ACTIVATING(state))
+                        continue;
+                cgroup_context_apply(m, unit_get_cgroup_context(u), unit_get_cgroup_mask(u), u->cgroup_path);
         }
 
         bus_manager_send_finished(m, firmware_usec, loader_usec, kernel_usec, initrd_usec, userspace_usec, total_usec);

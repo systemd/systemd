@@ -1071,6 +1071,20 @@ static int unit_add_mount_dependencies(Unit *u) {
         return 0;
 }
 
+static int unit_add_startup_units(Unit *u) {
+        CGroupContext *c;
+        int r = 0;
+
+        c = unit_get_cgroup_context(u);
+        if (c != NULL && manager_state(u->manager) == MANAGER_STARTING &&
+            (c->startup_cpu_shares_set || c->startup_blockio_weight_set)) {
+                r = set_put(u->manager->startup_units, u);
+                if (r == -EEXIST)
+                        r = 0;
+        }
+        return r;
+}
+
 int unit_load(Unit *u) {
         int r;
 
@@ -1109,6 +1123,10 @@ int unit_load(Unit *u) {
                         goto fail;
 
                 r = unit_add_mount_dependencies(u);
+                if (r < 0)
+                        goto fail;
+
+                r = unit_add_startup_units(u);
                 if (r < 0)
                         goto fail;
 

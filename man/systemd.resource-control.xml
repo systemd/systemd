@@ -171,6 +171,18 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       </varlistentry>
 
       <varlistentry>
+        <term><varname>StartupCPUShares=<replaceable>weight</replaceable></varname></term>
+
+        <listitem>
+          <para>Similar to <varname>CPUShares=</varname>. However,
+          only be assigned on startup state. After finishing startup, will be
+          re-assigned by <varname>CPUShares=</varname>. If
+          <varname>CPUShares=</varname> is not specified, then it will be
+          assigned to default(1024).</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>MemoryAccounting=</varname></term>
 
         <listitem>
@@ -237,6 +249,18 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
         <para>Implies
         <literal>BlockIOAccounting=true</literal>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>StartupBlockIOWeight=<replaceable>weight</replaceable></varname></term>
+
+        <listitem>
+          <para>Similar to <varname>BlockIOWeight=</varname>. However,
+          only be assigned on startup state. After finishing startup, will be
+          re-assigned by <varname>BlockIOWeight=</varname>. If
+          <varname>BlockIOWeight=</varname> is not specified, then it will be
+          assigned to default(1000).</para>
         </listitem>
       </varlistentry>
 

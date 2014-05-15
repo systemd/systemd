@@ -34,8 +34,12 @@ void cgroup_context_init(CGroupContext *c) {
          * structure is preinitialized to 0 */
 
         c->cpu_shares = 1024;
+        c->startup_cpu_shares = 1024;
+        c->startup_cpu_shares_set = false;
         c->memory_limit = (uint64_t) -1;
         c->blockio_weight = 1000;
+        c->startup_blockio_weight = 1000;
+        c->startup_blockio_weight_set = false;
 
         c->cpu_quota_per_sec_usec = (usec_t) -1;
         c->cpu_quota_usec = (usec_t) -1;
@@ -124,20 +128,24 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
                 "%sBlockIOAccounting=%s\n"
                 "%sMemoryAccounting=%s\n"
                 "%sCPUShares=%lu\n"
+                "%sStartupCPUShares=%lu\n"
                 "%sCPUQuota=%s\n"
                 "%sCPUQuotaPerSecSec=%s\n"
                 "%sCPUQuotaPeriodSec=%s\n"
                 "%sBlockIOWeight=%lu\n"
+                "%sStartupBlockIOWeight=%lu\n"
                 "%sMemoryLimit=%" PRIu64 "\n"
                 "%sDevicePolicy=%s\n",
                 prefix, yes_no(c->cpu_accounting),
                 prefix, yes_no(c->blockio_accounting),
                 prefix, yes_no(c->memory_accounting),
                 prefix, c->cpu_shares,
+                prefix, c->startup_cpu_shares,
                 prefix, strna(format_timespan(u, sizeof(u), cgroup_context_get_cpu_quota_usec(c), 1)),
                 prefix, strna(format_timespan(t, sizeof(t), cgroup_context_get_cpu_quota_per_sec_usec(c), 1)),
                 prefix, strna(format_timespan(s, sizeof(s), c->cpu_quota_period_usec, 1)),
                 prefix, c->blockio_weight,
+                prefix, c->startup_blockio_weight,
                 prefix, c->memory_limit,
                 prefix, cgroup_device_policy_to_string(c->device_policy));
 
@@ -306,7 +314,7 @@ fail:
         return -errno;
 }
 
-void cgroup_context_apply(CGroupContext *c, CGroupControllerMask mask, const char *path) {
+void cgroup_context_apply(Manager *m, CGroupContext *c, CGroupControllerMask mask, const char *path) {
         bool is_root;
         int r;
 
@@ -324,7 +332,9 @@ void cgroup_context_apply(CGroupContext *c, CGroupControllerMask mask, const cha
                 char buf[MAX(DECIMAL_STR_MAX(unsigned long), DECIMAL_STR_MAX(usec_t)) + 1];
                 usec_t q;
 
-                sprintf(buf, "%lu\n", c->cpu_shares);
+                sprintf(buf, "%lu\n", manager_state(m) == MANAGER_STARTING
+                        ? c->startup_cpu_shares
+                        : c->cpu_shares);
                 r = cg_set_attribute("cpu", path, "cpu.shares", buf);
                 if (r < 0)
                         log_warning("Failed to set cpu.shares on %s: %s", path, strerror(-r));
@@ -352,7 +362,9 @@ void cgroup_context_apply(CGroupContext *c, CGroupControllerMask mask, const cha
                 CGroupBlockIODeviceBandwidth *b;
 
                 if (!is_root) {
-                        sprintf(buf, "%lu\n", c->blockio_weight);
+                        sprintf(buf, "%lu\n", manager_state(m) == MANAGER_STARTING
+                                ? c->startup_blockio_weight
+                                : c->blockio_weight);
                         r = cg_set_attribute("blkio", path, "blkio.weight", buf);
                         if (r < 0)
                                 log_warning("Failed to set blkio.weight on %s: %s", path, strerror(-r));
@@ -462,22 +474,30 @@ void cgroup_context_apply(CGroupContext *c, CGroupControllerMask mask, const cha
         }
 }
 
-CGroupControllerMask cgroup_context_get_mask(CGroupContext *c) {
+CGroupControllerMask cgroup_context_get_mask(Manager *m, CGroupContext *c) {
         CGroupControllerMask mask = 0;
 
         /* Figure out which controllers we need */
 
         if (c->cpu_accounting ||
-            c->cpu_shares != 1024 ||
+            (manager_state(m) == MANAGER_STARTING ? c->startup_cpu_shares : c->cpu_shares) != 1024 ||
+            (manager_state(m) != MANAGER_STARTING && c->startup_cpu_shares_set && c->startup_cpu_shares != c->cpu_shares) ||
             c->cpu_quota_usec != (usec_t) -1 ||
-            c->cpu_quota_per_sec_usec != (usec_t) -1)
+            c->cpu_quota_per_sec_usec != (usec_t) -1) {
                 mask |= CGROUP_CPUACCT | CGROUP_CPU;
+                if (manager_state(m) != MANAGER_STARTING)
+                        c->startup_cpu_shares_set = false;
+        }
 
         if (c->blockio_accounting ||
-            c->blockio_weight != 1000 ||
+            (manager_state(m) == MANAGER_STARTING ? c->startup_blockio_weight : c->blockio_weight) != 1000 ||
+            (manager_state(m) != MANAGER_STARTING && c->startup_blockio_weight_set && c->startup_blockio_weight != c->blockio_weight) ||
             c->blockio_device_weights ||
-            c->blockio_device_bandwidths)
+            c->blockio_device_bandwidths) {
                 mask |= CGROUP_BLKIO;
+                if (manager_state(m) != MANAGER_STARTING)
+                        c->startup_blockio_weight_set = false;
+        }
 
         if (c->memory_accounting ||
             c->memory_limit != (uint64_t) -1)
@@ -496,7 +516,7 @@ CGroupControllerMask unit_get_cgroup_mask(Unit *u) {
         if (!c)
                 return 0;
 
-        return cgroup_context_get_mask(c);
+        return cgroup_context_get_mask(u->manager, c);
 }
 
 CGroupControllerMask unit_get_members_mask(Unit *u) {
@@ -700,7 +720,7 @@ static int unit_realize_cgroup_now(Unit *u) {
                 return r;
 
         /* Finally, apply the necessary attributes. */
-        cgroup_context_apply(unit_get_cgroup_context(u), mask, u->cgroup_path);
+        cgroup_context_apply(u->manager, unit_get_cgroup_context(u), mask, u->cgroup_path);
 
         return 0;
 }
