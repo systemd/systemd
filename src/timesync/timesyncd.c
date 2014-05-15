@@ -205,7 +205,7 @@ static int manager_send_request(Manager *m) {
                 return manager_connect(m);
         }
 
-        /* re-arm timer with incresing timeout, in case the packets never arrive back */
+        /* re-arm timer with increasing timeout, in case the packets never arrive back */
         if (m->retry_interval > 0) {
                 if (m->retry_interval < NTP_POLL_INTERVAL_MAX_SEC * USEC_PER_SEC)
                         m->retry_interval *= 2;
