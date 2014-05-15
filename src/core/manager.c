@@ -2131,9 +2131,6 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool switching_root) {
                 if (u->id != t)
                         continue;
 
-                if (!unit_can_serialize(u))
-                        continue;
-
                 /* Start marker */
                 fputs(u->id, f);
                 fputc('\n', f);

@@ -2288,25 +2288,25 @@ bool unit_can_serialize(Unit *u) {
 }
 
 int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
-        ExecRuntime *rt;
         int r;
 
         assert(u);
         assert(f);
         assert(fds);
 
-        if (!unit_can_serialize(u))
-                return 0;
+        if (unit_can_serialize(u)) {
+                ExecRuntime *rt;
 
-        r = UNIT_VTABLE(u)->serialize(u, f, fds);
-        if (r < 0)
-                return r;
-
-        rt = unit_get_exec_runtime(u);
-        if (rt) {
-                r = exec_runtime_serialize(rt, u, f, fds);
+                r = UNIT_VTABLE(u)->serialize(u, f, fds);
                 if (r < 0)
                         return r;
+
+                rt = unit_get_exec_runtime(u);
+                if (rt) {
+                        r = exec_runtime_serialize(rt, u, f, fds);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         dual_timestamp_serialize(f, "inactive-exit-timestamp", &u->inactive_exit_timestamp);
@@ -2368,16 +2368,13 @@ void unit_serialize_item(Unit *u, FILE *f, const char *key, const char *value) {
 }
 
 int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
-        size_t offset;
         ExecRuntime **rt = NULL;
+        size_t offset;
         int r;
 
         assert(u);
         assert(f);
         assert(fds);
-
-        if (!unit_can_serialize(u))
-                return 0;
 
         offset = UNIT_VTABLE(u)->exec_runtime_offset;
         if (offset > 0)
@@ -2503,17 +2500,19 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                         continue;
                 }
 
-                if (rt) {
-                        r = exec_runtime_deserialize_item(rt, u, l, v, fds);
+                if (unit_can_serialize(u)) {
+                        if (rt) {
+                                r = exec_runtime_deserialize_item(rt, u, l, v, fds);
+                                if (r < 0)
+                                        return r;
+                                if (r > 0)
+                                        continue;
+                        }
+
+                        r = UNIT_VTABLE(u)->deserialize_item(u, l, v, fds);
                         if (r < 0)
                                 return r;
-                        if (r > 0)
-                                continue;
                 }
-
-                r = UNIT_VTABLE(u)->deserialize_item(u, l, v, fds);
-                if (r < 0)
-                        return r;
         }
 }
 
