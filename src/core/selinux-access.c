@@ -253,7 +253,6 @@ finish:
 #else
 
 int selinux_generic_access_check(
-                sd_bus *bus,
                 sd_bus_message *message,
                 const char *path,
                 const char *permission,
