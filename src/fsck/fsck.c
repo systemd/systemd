@@ -4,6 +4,7 @@
   This file is part of systemd.
 
   Copyright 2010 Lennart Poettering
+  Copyright 2014 Holger Hans Peter Freyther
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -42,6 +43,7 @@
 static bool arg_skip = false;
 static bool arg_force = false;
 static bool arg_show_progress = false;
+static const char *arg_repair = "-a";
 
 static void start_target(const char *target) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -85,6 +87,16 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
                         arg_skip = true;
                 else
                         log_warning("Invalid fsck.mode= parameter. Ignoring.");
+        } else if (streq(key, "fsck.repair") && value) {
+
+                if (streq(value, "preen"))
+                        arg_repair = "-a";
+                else if (streq(value, "yes"))
+                        arg_repair = "-y";
+                else if (streq(value, "no"))
+                        arg_repair = "-n";
+                else
+                        log_warning("Invalid fsck.repair= parameter. Ignoring.");
         } else if (startswith(key, "fsck."))
                 log_warning("Invalid fsck parameter. Ignoring.");
 #ifdef HAVE_SYSV_COMPAT
@@ -303,7 +315,7 @@ int main(int argc, char *argv[]) {
                 }
 
         cmdline[i++] = "/sbin/fsck";
-        cmdline[i++] = "-a";
+        cmdline[i++] =  arg_repair;
         cmdline[i++] = "-T";
         cmdline[i++] = "-l";
 

@@ -193,6 +193,17 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>fsck.repair=</varname></term>
+
+                                <listitem>
+                                        <para>Parameter understood by
+                                        the file system checker
+                                        services. For details, see
+                                        <citerefentry><refentrytitle>systemd-fsck@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+                                </listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>quotacheck.mode=</varname></term>
 
                                 <listitem>

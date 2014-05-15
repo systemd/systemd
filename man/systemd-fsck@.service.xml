@@ -98,6 +98,22 @@
                                 skips any file system
                                 checks.</para></listitem>
                         </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>fsck.repair=</varname></term>
+
+                                <listitem><para>One of
+                                <literal>preen</literal>,
+                                <literal>yes</literal>,
+                                <literal>no</literal>. Controls the
+                                mode of operation. The default is <literal>
+                                preen</literal>, and will automatically repair
+                                problems that can be safely fixed. <literal>yes
+                                </literal> will answer yes to all questions by
+                                fsck and <literal>no</literal> will answer no to
+                                all questions.
+                                </para></listitem>
+                        </varlistentry>
                 </variablelist>
         </refsect1>
 
