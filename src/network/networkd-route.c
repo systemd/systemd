@@ -52,7 +52,7 @@ int route_new_static(Network *network, unsigned section, Route **ret) {
 
         route->network = network;
 
-        LIST_PREPEND(static_routes, network->static_routes, route);
+        LIST_PREPEND(routes, network->static_routes, route);
 
         if (section) {
                 route->section = section;
@@ -86,7 +86,7 @@ void route_free(Route *route) {
                 return;
 
         if (route->network) {
-                LIST_REMOVE(static_routes, route->network->static_routes, route);
+                LIST_REMOVE(routes, route->network->static_routes, route);
 
                 if (route->section)
                         hashmap_remove(route->network->routes_by_section,

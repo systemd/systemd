@@ -172,7 +172,7 @@ struct Address {
                 struct in6_addr in6;
         } in_addr;
 
-        LIST_FIELDS(Address, static_addresses);
+        LIST_FIELDS(Address, addresses);
 };
 
 struct Route {
@@ -194,7 +194,7 @@ struct Route {
                 struct in6_addr in6;
         } dst_addr;
 
-        LIST_FIELDS(Route, static_routes);
+        LIST_FIELDS(Route, routes);
 };
 
 typedef enum LinkState {

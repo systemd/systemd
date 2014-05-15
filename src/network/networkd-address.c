@@ -59,7 +59,7 @@ int address_new_static(Network *network, unsigned section, Address **ret) {
 
         address->network = network;
 
-        LIST_PREPEND(static_addresses, network->static_addresses, address);
+        LIST_PREPEND(addresses, network->static_addresses, address);
 
         if (section) {
                 address->section = section;
@@ -92,7 +92,7 @@ void address_free(Address *address) {
                 return;
 
         if (address->network) {
-                LIST_REMOVE(static_addresses, address->network->static_addresses, address);
+                LIST_REMOVE(addresses, address->network->static_addresses, address);
 
                 if (address->section)
                         hashmap_remove(address->network->addresses_by_section,

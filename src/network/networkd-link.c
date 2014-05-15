@@ -291,7 +291,7 @@ static int link_enter_set_routes(Link *link) {
 
         log_debug_link(link, "setting routes");
 
-        LIST_FOREACH(static_routes, rt, link->network->static_routes) {
+        LIST_FOREACH(routes, rt, link->network->static_routes) {
                 r = route_configure(rt, link, &route_handler);
                 if (r < 0) {
                         log_warning_link(link,
@@ -487,7 +487,7 @@ static int link_enter_set_addresses(Link *link) {
 
         log_debug_link(link, "setting addresses");
 
-        LIST_FOREACH(static_addresses, ad, link->network->static_addresses) {
+        LIST_FOREACH(addresses, ad, link->network->static_addresses) {
                 r = address_configure(ad, link, &address_handler);
                 if (r < 0) {
                         log_warning_link(link,

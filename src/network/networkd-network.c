@@ -98,7 +98,7 @@ static int network_load_one(Manager *manager, const char *filename) {
 
         LIST_PREPEND(networks, manager->networks, network);
 
-        LIST_FOREACH(static_routes, route, network->static_routes) {
+        LIST_FOREACH(routes, route, network->static_routes) {
                 if (!route->family) {
                         log_warning("Route section without Gateway field configured in %s. "
                                     "Ignoring", filename);
@@ -106,7 +106,7 @@ static int network_load_one(Manager *manager, const char *filename) {
                 }
         }
 
-        LIST_FOREACH(static_addresses, address, network->static_addresses) {
+        LIST_FOREACH(addresses, address, network->static_addresses) {
                 if (!address->family) {
                         log_warning("Address section without Address field configured in %s. "
                                     "Ignoring", filename);
