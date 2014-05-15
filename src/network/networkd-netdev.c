@@ -224,7 +224,7 @@ static int netdev_create_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userda
         if (r == -EEXIST)
                 log_debug_netdev(netdev, "netdev exists, using existing");
         else if (r < 0) {
-                log_warning_netdev(netdev, "netdev could not be greated: %s", strerror(-r));
+                log_warning_netdev(netdev, "netdev could not be created: %s", strerror(-r));
                 netdev_drop(netdev);
 
                 return 1;
