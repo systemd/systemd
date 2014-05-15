@@ -776,7 +776,7 @@ static int complete_query(sd_resolve *resolve, sd_resolve_query *q) {
 
         if (q->floating) {
                 resolve_query_disconnect(q);
-                sd_bus_slot_unref(q);
+                sd_resolve_query_unref(q);
         }
 
         return r;
