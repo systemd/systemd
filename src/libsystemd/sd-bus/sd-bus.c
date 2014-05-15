@@ -2090,6 +2090,7 @@ static int process_timeout(sd_bus *bus) {
         _cleanup_bus_error_free_ sd_bus_error error_buffer = SD_BUS_ERROR_NULL;
         _cleanup_bus_message_unref_ sd_bus_message* m = NULL;
         struct reply_callback *c;
+        sd_bus_slot *slot;
         usec_t n;
         int r;
 
@@ -2123,18 +2124,22 @@ static int process_timeout(sd_bus *bus) {
         hashmap_remove(bus->reply_callbacks, &c->cookie);
         c->cookie = 0;
 
-        bus->current_message = m;
-        bus->current_slot = container_of(c, sd_bus_slot, reply_callback);
+        slot = container_of(c, sd_bus_slot, reply_callback);
 
         bus->iteration_counter ++;
 
-        r = c->callback(bus, m, bus->current_slot->userdata, &error_buffer);
-        r = bus_maybe_reply_error(m, r, &error_buffer);
-
+        bus->current_message = m;
+        bus->current_slot = sd_bus_slot_ref(slot);
+        r = c->callback(bus, m, slot->userdata, &error_buffer);
+        bus->current_slot = sd_bus_slot_unref(slot);
         bus->current_message = NULL;
-        bus->current_slot = NULL;
 
-        return r;
+        if (slot->floating) {
+                bus_slot_disconnect(slot);
+                sd_bus_slot_unref(slot);
+        }
+
+        return bus_maybe_reply_error(m, r, &error_buffer);
 }
 
 static int process_hello(sd_bus *bus, sd_bus_message *m) {
@@ -2162,8 +2167,8 @@ static int process_hello(sd_bus *bus, sd_bus_message *m) {
 static int process_reply(sd_bus *bus, sd_bus_message *m) {
         _cleanup_bus_message_unref_ sd_bus_message *synthetic_reply = NULL;
         _cleanup_bus_error_free_ sd_bus_error error_buffer = SD_BUS_ERROR_NULL;
-        sd_bus_slot *slot;
         struct reply_callback *c;
+        sd_bus_slot *slot;
         int r;
 
         assert(bus);
@@ -2184,12 +2189,8 @@ static int process_reply(sd_bus *bus, sd_bus_message *m) {
                 return 0;
 
         c->cookie = 0;
-        slot = container_of(c, sd_bus_slot, reply_callback);
 
-        if (c->timeout != 0) {
-                prioq_remove(bus->reply_callbacks_prioq, c, &c->prioq_idx);
-                c->timeout = 0;
-        }
+        slot = container_of(c, sd_bus_slot, reply_callback);
 
         if (m->n_fds > 0 && !(bus->hello_flags & KDBUS_HELLO_ACCEPT_FD)) {
 
@@ -2202,32 +2203,34 @@ static int process_reply(sd_bus *bus, sd_bus_message *m) {
                                 &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_INCONSISTENT_MESSAGE, "Reply message contained file descriptor"),
                                 &synthetic_reply);
                 if (r < 0)
-                        goto finish;
+                        return r;
 
                 r = bus_seal_synthetic_message(bus, synthetic_reply);
                 if (r < 0)
-                        goto finish;
+                        return r;
 
                 m = synthetic_reply;
         } else {
                 r = sd_bus_message_rewind(m, true);
                 if (r < 0)
-                        goto finish;
+                        return r;
         }
 
-        bus->current_slot = slot;
-        r = c->callback(bus, m, bus->current_slot->userdata, &error_buffer);
-        bus->current_slot = NULL;
+        if (c->timeout != 0) {
+                prioq_remove(bus->reply_callbacks_prioq, c, &c->prioq_idx);
+                c->timeout = 0;
+        }
 
-        r = bus_maybe_reply_error(m, r, &error_buffer);
+        bus->current_slot = sd_bus_slot_ref(slot);
+        r = c->callback(bus, m, slot->userdata, &error_buffer);
+        bus->current_slot = sd_bus_slot_unref(slot);
 
-finish:
         if (slot->floating) {
                 bus_slot_disconnect(slot);
                 sd_bus_slot_unref(slot);
         }
 
-        return r;
+        return bus_maybe_reply_error(m, r, &error_buffer);
 }
 
 static int process_filter(sd_bus *bus, sd_bus_message *m) {
@@ -2242,6 +2245,7 @@ static int process_filter(sd_bus *bus, sd_bus_message *m) {
                 bus->filter_callbacks_modified = false;
 
                 LIST_FOREACH(callbacks, l, bus->filter_callbacks) {
+                        sd_bus_slot *slot;
 
                         if (bus->filter_callbacks_modified)
                                 break;
@@ -2256,9 +2260,11 @@ static int process_filter(sd_bus *bus, sd_bus_message *m) {
                         if (r < 0)
                                 return r;
 
-                        bus->current_slot = container_of(l, sd_bus_slot, filter_callback);
-                        r = l->callback(bus, m, bus->current_slot->userdata, &error_buffer);
-                        bus->current_slot = NULL;
+                        slot = container_of(l, sd_bus_slot, filter_callback);
+
+                        bus->current_slot = sd_bus_slot_ref(slot);
+                        r = l->callback(bus, m, slot->userdata, &error_buffer);
+                        bus->current_slot = sd_bus_slot_unref(slot);
 
                         r = bus_maybe_reply_error(m, r, &error_buffer);
                         if (r != 0)
@@ -2505,6 +2511,7 @@ static int process_closing(sd_bus *bus, sd_bus_message **ret) {
         c = hashmap_first(bus->reply_callbacks);
         if (c) {
                 _cleanup_bus_error_free_ sd_bus_error error_buffer = SD_BUS_ERROR_NULL;
+                sd_bus_slot *slot;
 
                 /* First, fail all outstanding method calls */
                 r = bus_message_new_synthetic_error(
@@ -2527,17 +2534,22 @@ static int process_closing(sd_bus *bus, sd_bus_message **ret) {
                 hashmap_remove(bus->reply_callbacks, &c->cookie);
                 c->cookie = 0;
 
-                bus->current_message = m;
-                bus->current_slot = container_of(c, sd_bus_slot, reply_callback);
+                slot = container_of(c, sd_bus_slot, reply_callback);
 
                 bus->iteration_counter++;
 
-                r = c->callback(bus, m, bus->current_slot->userdata, &error_buffer);
-                r = bus_maybe_reply_error(m, r, &error_buffer);
+                bus->current_message = m;
+                bus->current_slot = sd_bus_slot_ref(slot);
+                r = c->callback(bus, m, slot->userdata, &error_buffer);
+                bus->current_slot = sd_bus_slot_unref(slot);
+                bus->current_message = NULL;
 
-                bus->current_slot = NULL;
+                if (slot->floating) {
+                        bus_slot_disconnect(slot);
+                        sd_bus_slot_unref(slot);
+                }
 
-                goto finish;
+                return bus_maybe_reply_error(m, r, &error_buffer);
         }
 
         /* Then, synthesize a Disconnected message */

@@ -50,9 +50,9 @@ static int node_vtable_get_userdata(
         s = container_of(c, sd_bus_slot, node_vtable);
         u = s->userdata;
         if (c->find) {
-                bus->current_slot = s;
+                bus->current_slot = sd_bus_slot_ref(s);
                 r = c->find(bus, path, c->interface, u, &u, error);
-                bus->current_slot = NULL;
+                bus->current_slot = sd_bus_slot_unref(s);
 
                 if (r < 0)
                         return r;
@@ -115,13 +115,16 @@ static int add_enumerated_to_set(
 
         LIST_FOREACH(enumerators, c, first) {
                 char **children = NULL, **k;
+                sd_bus_slot *slot;
 
                 if (bus->nodes_modified)
                         return 0;
 
-                bus->current_slot = container_of(c, sd_bus_slot, node_enumerator);
-                r = c->callback(bus, prefix, bus->current_slot->userdata, &children, error);
-                bus->current_slot = NULL;
+                slot = container_of(c, sd_bus_slot, node_enumerator);
+
+                bus->current_slot = sd_bus_slot_ref(slot);
+                r = c->callback(bus, prefix, slot->userdata, &children, error);
+                bus->current_slot = sd_bus_slot_unref(slot);
 
                 if (r < 0)
                         return r;
@@ -248,6 +251,7 @@ static int node_callbacks_run(
 
         LIST_FOREACH(callbacks, c, first) {
                 _cleanup_bus_error_free_ sd_bus_error error_buffer = SD_BUS_ERROR_NULL;
+                sd_bus_slot *slot;
 
                 if (bus->nodes_modified)
                         return 0;
@@ -266,9 +270,11 @@ static int node_callbacks_run(
                 if (r < 0)
                         return r;
 
-                bus->current_slot = container_of(c, sd_bus_slot, node_callback);
-                r = c->callback(bus, m, bus->current_slot->userdata, &error_buffer);
-                bus->current_slot = NULL;
+                slot = container_of(c, sd_bus_slot, node_callback);
+
+                bus->current_slot = sd_bus_slot_ref(slot);
+                r = c->callback(bus, m, slot->userdata, &error_buffer);
+                bus->current_slot = sd_bus_slot_unref(slot);
 
                 r = bus_maybe_reply_error(m, r, &error_buffer);
                 if (r != 0)
@@ -394,10 +400,13 @@ static int method_callbacks_run(
         m->enforced_reply_signature = strempty(c->vtable->x.method.result);
 
         if (c->vtable->x.method.handler) {
+                sd_bus_slot *slot;
 
-                bus->current_slot = container_of(c->parent, sd_bus_slot, node_vtable);
+                slot = container_of(c->parent, sd_bus_slot, node_vtable);
+
+                bus->current_slot = sd_bus_slot_ref(slot);
                 r = c->vtable->x.method.handler(bus, m, u, &error);
-                bus->current_slot = NULL;
+                bus->current_slot = sd_bus_slot_unref(slot);
 
                 return bus_maybe_reply_error(m, r, &error);
         }
@@ -434,9 +443,9 @@ static int invoke_property_get(
 
         if (v->x.property.get) {
 
-                bus->current_slot = slot;
+                bus->current_slot = sd_bus_slot_ref(slot);
                 r = v->x.property.get(bus, path, interface, property, reply, userdata, error);
-                bus->current_slot = NULL;
+                bus->current_slot = sd_bus_slot_unref(slot);
 
                 if (r < 0)
                         return r;
@@ -496,9 +505,9 @@ static int invoke_property_set(
 
         if (v->x.property.set) {
 
-                bus->current_slot = slot;
+                bus->current_slot = sd_bus_slot_ref(slot);
                 r = v->x.property.set(bus, path, interface, property, value, userdata, error);
-                bus->current_slot = NULL;
+                bus->current_slot = sd_bus_slot_unref(slot);
 
                 if (r < 0)
                         return r;

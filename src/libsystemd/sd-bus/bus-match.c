@@ -290,16 +290,15 @@ int bus_match_run(
 
                 /* Run the callback. And then invoke siblings. */
                 if (node->leaf.callback) {
-                        sd_bus_slot *slot;
-
                         _cleanup_bus_error_free_ sd_bus_error error_buffer = SD_BUS_ERROR_NULL;
+                        sd_bus_slot *slot;
 
                         slot = container_of(node->leaf.callback, sd_bus_slot, match_callback);
                         if (bus)
-                                bus->current_slot = slot;
+                                bus->current_slot = sd_bus_slot_ref(slot);
                         r = node->leaf.callback->callback(bus, m, slot->userdata, &error_buffer);
                         if (bus)
-                                bus->current_slot = NULL;
+                                bus->current_slot = sd_bus_slot_unref(slot);
 
                         r = bus_maybe_reply_error(m, r, &error_buffer);
                         if (r != 0)
