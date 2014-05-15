@@ -508,3 +508,46 @@ int config_parse_label(const char *unit,
 
         return 0;
 }
+
+bool address_equal(Address *a1, Address *a2) {
+        /* same object */
+        if (a1 == a2)
+                return true;
+
+        /* one, but not both, is NULL */
+        if (!a1 || !a2)
+                return false;
+
+        if (a1->family != a2->family)
+                return false;
+
+        switch (a1->family) {
+        /* use the same notion of equality as the kernel does */
+        case AF_UNSPEC:
+                return true;
+
+        case AF_INET:
+                if (a1->prefixlen != a2->prefixlen)
+                        return false;
+                else {
+                        uint32_t b1, b2;
+
+                        b1 = be32toh(a1->in_addr.in.s_addr);
+                        b2 = be32toh(a2->in_addr.in.s_addr);
+
+                        return (b1 >> (32 - a1->prefixlen)) == (b2 >> (32 - a1->prefixlen));
+                }
+
+        case AF_INET6:
+        {
+                uint64_t *b1, *b2;
+
+                b1 = (uint64_t*)&a1->in_addr.in6;
+                b2 = (uint64_t*)&a2->in_addr.in6;
+
+                return (((b1[0] ^ b2[0]) | (b1[1] ^ b2[1])) == 0UL);
+        }
+        default:
+                assert_not_reached("Invalid address family");
+        }
+}

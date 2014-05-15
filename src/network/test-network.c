@@ -42,10 +42,57 @@ static void test_network_get(Manager *manager, struct udev_device *loopback) {
         assert_se(!network);
 }
 
+static void test_address_equality(void) {
+        Address *a1, *a2;
+
+        assert_se(address_new_dynamic(&a1) >= 0);
+        assert_se(address_new_dynamic(&a2) >= 0);
+
+        assert_se(address_equal(NULL, NULL));
+        assert_se(!address_equal(a1, NULL));
+        assert_se(!address_equal(NULL, a2));
+        assert_se(address_equal(a1, a2));
+
+        a1->family = AF_INET;
+        assert_se(!address_equal(a1, a2));
+
+        a2->family = AF_INET;
+        assert_se(address_equal(a1, a2));
+
+        assert_se(inet_pton(AF_INET, "192.168.3.9", &a1->in_addr.in));
+        assert_se(!address_equal(a1, a2));
+        assert_se(inet_pton(AF_INET, "192.168.3.9", &a2->in_addr.in));
+        assert_se(address_equal(a1, a2));
+
+        a1->prefixlen = 10;
+        assert_se(!address_equal(a1, a2));
+        a2->prefixlen = 10;
+        assert_se(address_equal(a1, a2));
+
+        assert_se(inet_pton(AF_INET, "192.168.3.10", &a2->in_addr.in));
+        assert_se(address_equal(a1, a2));
+
+        a1->family = AF_INET6;
+        assert_se(!address_equal(a1, a2));
+
+        a2->family = AF_INET6;
+        assert_se(inet_pton(AF_INET6, "2001:4ca0:4f01::2", &a1->in_addr.in6));
+        assert_se(inet_pton(AF_INET6, "2001:4ca0:4f01::2", &a2->in_addr.in6));
+        assert_se(address_equal(a1, a2));
+
+        a2->prefixlen = 8;
+        assert_se(address_equal(a1, a2));
+
+        assert_se(inet_pton(AF_INET6, "2001:4ca0:4f01::1", &a2->in_addr.in6));
+        assert_se(!address_equal(a1, a2));
+}
+
 int main(void) {
         _cleanup_manager_free_ Manager *manager = NULL;
         struct udev *udev;
         struct udev_device *loopback;
+
+        test_address_equality();
 
         assert_se(manager_new(&manager) >= 0);
 
