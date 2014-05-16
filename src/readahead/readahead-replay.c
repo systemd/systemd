@@ -47,8 +47,8 @@
 static ReadaheadShared *shared = NULL;
 
 static int unpack_file(FILE *pack) {
+        _cleanup_close_ int fd = -1;
         char fn[PATH_MAX];
-        int r = 0, fd = -1;
         bool any = false;
         struct stat st;
         uint64_t inode;
@@ -63,7 +63,6 @@ static int unpack_file(FILE *pack) {
 
         fd = open(fn, O_RDONLY|O_CLOEXEC|O_NOATIME|O_NOCTTY|O_NOFOLLOW);
         if (fd < 0) {
-
                 if (errno != ENOENT && errno != EPERM && errno != EACCES && errno != ELOOP)
                         log_warning("open(%s) failed: %m", fn);
 
@@ -72,8 +71,7 @@ static int unpack_file(FILE *pack) {
 
         if (fread(&inode, sizeof(inode), 1, pack) != 1) {
                 log_error("Premature end of pack file.");
-                r = -EIO;
-                goto finish;
+                return -EIO;
         }
 
         if (fd >= 0) {
@@ -89,8 +87,7 @@ static int unpack_file(FILE *pack) {
                 if (fread(&b, sizeof(b), 1, pack) != 1 ||
                     fread(&c, sizeof(c), 1, pack) != 1) {
                         log_error("Premature end of pack file.");
-                        r = -EIO;
-                        goto finish;
+                        return -EIO;
                 }
 
                 if (b == 0 && c == 0)
@@ -98,19 +95,19 @@ static int unpack_file(FILE *pack) {
 
                 if (c <= b) {
                         log_error("Invalid pack file.");
-                        r = -EIO;
-                        goto finish;
+                        return -EIO;
                 }
 
                 log_debug("%s: page %u to %u", fn, b, c);
 
                 any = true;
 
-                if (fd >= 0)
+                if (fd >= 0) {
                         if (posix_fadvise(fd, b * page_size(), (c - b) * page_size(), POSIX_FADV_WILLNEED) < 0) {
                                 log_warning("posix_fadvise() failed: %m");
-                                goto finish;
+                                return -errno;
                         }
+                }
         }
 
         if (!any && fd >= 0) {
@@ -120,71 +117,61 @@ static int unpack_file(FILE *pack) {
 
                 if (posix_fadvise(fd, 0, st.st_size, POSIX_FADV_WILLNEED) < 0) {
                         log_warning("posix_fadvise() failed: %m");
-                        goto finish;
+                        return -errno;
                 }
         }
 
-finish:
-        safe_close(fd);
-
-        return r;
+        return 0;
 }
 
 static int replay(const char *root) {
-        FILE *pack = NULL;
-        char line[LINE_MAX];
-        int r = 0;
-        char *pack_fn = NULL;
-        int c;
+        _cleanup_close_ int inotify_fd = -1;
+        _cleanup_free_ char *pack_fn = NULL;
+        _cleanup_fclose_ FILE *pack = NULL;
         bool on_ssd, ready = false;
-        int prio;
-        int inotify_fd = -1;
+        char line[LINE_MAX];
+        int prio, c;
 
         assert(root);
 
         block_bump_request_nr(root);
 
-        if (asprintf(&pack_fn, "%s/.readahead", root) < 0) {
-                r = log_oom();
-                goto finish;
-        }
+        if (asprintf(&pack_fn, "%s/.readahead", root) < 0)
+                return log_oom();
 
         pack = fopen(pack_fn, "re");
         if (!pack) {
-                if (errno == ENOENT)
+                if (errno == ENOENT) {
                         log_debug("No pack file found.");
-                else {
-                        log_error("Failed to open pack file: %m");
-                        r = -errno;
+                        return 0;
                 }
 
-                goto finish;
+                log_error("Failed to open pack file: %m");
+                return -errno;
         }
 
         posix_fadvise(fileno(pack), 0, 0, POSIX_FADV_WILLNEED);
 
-        if ((inotify_fd = open_inotify()) < 0) {
-                r = inotify_fd;
-                goto finish;
-        }
+        inotify_fd = open_inotify();
+        if (inotify_fd < 0)
+                return inotify_fd;
 
-        if (!(fgets(line, sizeof(line), pack))) {
+        if (!fgets(line, sizeof(line), pack)) {
                 log_error("Premature end of pack file.");
-                r = -EIO;
-                goto finish;
+                return -EIO;
         }
 
         char_array_0(line);
 
         if (!streq(line, CANONICAL_HOST READAHEAD_PACK_FILE_VERSION)) {
                 log_debug("Pack file host or version type mismatch.");
-                goto finish;
+                goto done;
         }
 
-        if ((c = getc(pack)) == EOF) {
+        c = getc(pack);
+        if (c == EOF) {
                 log_debug("Premature end of pack file.");
-                r = -EIO;
-                goto finish;
+                return -EIO;
         }
 
         /* We do not retest SSD here, so that we can start replaying
@@ -220,11 +207,11 @@ static int replay(const char *root) {
                 int k;
                 ssize_t n;
 
-                if ((n = read(inotify_fd, &inotify_buffer, sizeof(inotify_buffer))) < 0) {
+                n = read(inotify_fd, &inotify_buffer, sizeof(inotify_buffer));
+                if (n < 0) {
                         if (errno != EINTR && errno != EAGAIN) {
                                 log_error("Failed to read inotify event: %m");
-                                r = -errno;
-                                goto finish;
+                                return -errno;
                         }
                 } else {
                         struct inotify_event *e = (struct inotify_event*) inotify_buffer;
@@ -245,10 +232,9 @@ static int replay(const char *root) {
                         }
                 }
 
-                if ((k = unpack_file(pack)) < 0) {
-                        r = k;
-                        goto finish;
-                }
+                k = unpack_file(pack);
+                if (k < 0)
+                        return k;
 
                 if (!ready) {
                         /* We delay the ready notification until we
@@ -259,26 +245,16 @@ static int replay(const char *root) {
         }
 
 done:
+        if (ferror(pack)) {
+                log_error("Failed to read pack file.");
+                return -EIO;
+        }
+
         if (!ready)
                 sd_notify(0, "READY=1");
 
-        if (ferror(pack)) {
-                log_error("Failed to read pack file.");
-                r = -EIO;
-                goto finish;
-        }
-
         log_debug("Done.");
-
-finish:
-        if (pack)
-                fclose(pack);
-
-        safe_close(inotify_fd);
-
-        free(pack_fn);
-
-        return r;
+        return 0;
 }
 
 int main_replay(const char *root) {
