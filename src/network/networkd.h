@@ -254,6 +254,7 @@ struct Manager {
         Hashmap *links;
         Hashmap *netdevs;
         LIST_HEAD(Network, networks);
+        LIST_HEAD(Address, fallback_dns);
 
         usec_t network_dirs_ts_usec;
         struct kmod_ctx *kmod_ctx;

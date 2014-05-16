@@ -25,6 +25,7 @@
 
 #include "path-util.h"
 #include "networkd.h"
+#include "network-internal.h"
 #include "libudev-private.h"
 #include "udev-util.h"
 #include "rtnl-util.h"
@@ -74,6 +75,41 @@ static int setup_signals(Manager *m) {
         return 0;
 }
 
+static int set_fallback_dns(Manager *m, const char *string) {
+        char *word, *state;
+        size_t length;
+        int r;
+
+        assert(m);
+        assert(string);
+
+        FOREACH_WORD_QUOTED(word, length, string, state) {
+                _cleanup_address_free_ Address *address = NULL;
+                Address *tail;
+                _cleanup_free_ char *addrstr = NULL;
+
+                r = address_new_dynamic(&address);
+                if (r < 0)
+                        return r;
+
+                addrstr = strndup(word, length);
+                if (!addrstr)
+                        return -ENOMEM;
+
+                r = net_parse_inaddr(addrstr, &address->family, &address->in_addr);
+                if (r < 0) {
+                        log_debug("Ignoring invalid DNS address '%s'", addrstr);
+                        continue;
+                }
+
+                LIST_FIND_TAIL(addresses, m->fallback_dns, tail);
+                LIST_INSERT_AFTER(addresses, m->fallback_dns, tail, address);
+                address = NULL;
+        }
+
+        return 0;
+}
+
 int manager_new(Manager **ret) {
         _cleanup_manager_free_ Manager *m = NULL;
         int r;
@@ -85,6 +121,10 @@ int manager_new(Manager **ret) {
         m->state_file = strdup("/run/systemd/network/state");
         if (!m->state_file)
                 return -ENOMEM;
+
+        r = set_fallback_dns(m, DNS_SERVERS);
+        if (r < 0)
+                return r;
 
         r = sd_event_default(&m->event);
         if (r < 0)
@@ -492,6 +532,14 @@ int manager_update_resolv_conf(Manager *m) {
                                            address->family, &count);
                         }
                 }
+        }
+
+        if (!count) {
+                Address *address;
+
+                LIST_FOREACH(addresses, address, m->fallback_dns)
+                        append_dns(f, &address->in_addr.in,
+                                   address->family, &count);
         }
 
         fflush(f);

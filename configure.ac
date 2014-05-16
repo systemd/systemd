@@ -877,6 +877,7 @@ fi
 AM_CONDITIONAL(ENABLE_POLKIT, [test "x$have_polkit" = "xyes"])
 
 # ------------------------------------------------------------------------------
+have_networkd=no
 AC_ARG_ENABLE(networkd, AS_HELP_STRING([--disable-networkd], [disable networkd]))
 if test "x$enable_networkd" != "xno"; then
         AC_DEFINE(ENABLE_NETWORKD, 1, [Define if networkd support is to be enabled])
@@ -885,6 +886,15 @@ fi
 AS_IF([test "x$have_networkd" = "xyes" -a "x$have_kmod" != "xyes"],
       [AC_MSG_ERROR([networkd requires kmod])])
 AM_CONDITIONAL(ENABLE_NETWORKD, [test "x$have_networkd" = "xyes"])
+
+AC_ARG_WITH(dns-servers,
+        AS_HELP_STRING([--with-dns-servers=DNSSERVERS],
+                [Space-separated list of default DNS servers]),
+        [DNS_SERVERS="$withval"],
+        [DNS_SERVERS="8.8.8.8 8.8.4.4"])
+
+AC_DEFINE_UNQUOTED(DNS_SERVERS, ["$DNS_SERVERS"], [Default DNS Servers])
+AC_SUBST(DNS_SERVERS)
 
 # ------------------------------------------------------------------------------
 have_efi=no
@@ -1189,6 +1199,7 @@ AC_MSG_RESULT([
         time epoch:              ${TIME_EPOCH}
         localed:                 ${have_localed}
         networkd:                ${have_networkd}
+        default DNS servers:     ${DNS_SERVERS}
         coredump:                ${have_coredump}
         polkit:                  ${have_polkit}
         efi:                     ${have_efi}
