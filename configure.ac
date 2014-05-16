@@ -891,7 +891,7 @@ AC_ARG_WITH(dns-servers,
         AS_HELP_STRING([--with-dns-servers=DNSSERVERS],
                 [Space-separated list of default DNS servers]),
         [DNS_SERVERS="$withval"],
-        [DNS_SERVERS="8.8.8.8 8.8.4.4"])
+        [DNS_SERVERS="8.8.8.8 8.8.4.4 2001:4860:4860::8888 2001:4860:4860::8844"])
 
 AC_DEFINE_UNQUOTED(DNS_SERVERS, ["$DNS_SERVERS"], [Default DNS Servers])
 AC_SUBST(DNS_SERVERS)
