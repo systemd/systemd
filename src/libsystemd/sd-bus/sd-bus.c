@@ -2821,7 +2821,7 @@ _public_ int sd_bus_add_match(
 
         struct bus_match_component *components = NULL;
         unsigned n_components = 0;
-        sd_bus_slot *s;
+        sd_bus_slot *s = NULL;
         int r = 0;
 
         assert_return(bus, -EINVAL);

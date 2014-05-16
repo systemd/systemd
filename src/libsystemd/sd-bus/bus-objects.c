@@ -1602,7 +1602,7 @@ static int add_object_vtable_internal(
                 sd_bus_object_find_t find,
                 void *userdata) {
 
-        sd_bus_slot *s;
+        sd_bus_slot *s = NULL;
         struct node_vtable *i, *existing = NULL;
         const sd_bus_vtable *v;
         struct node *n;
