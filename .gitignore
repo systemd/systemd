@@ -184,6 +184,7 @@
 /test-rtnl
 /test-sched-prio
 /test-sleep
+/test-ssd
 /test-strbuf
 /test-strip-tab-ansi
 /test-strv
