@@ -267,7 +267,7 @@ static void worker_new(struct event *event)
                         struct udev_event *udev_event;
                         struct worker_message msg;
                         int fd_lock = -1;
-                        int err;
+                        int err = 0;
 
                         log_debug("seq %llu running", udev_device_get_seqnum(dev));
                         udev_event = udev_event_new(dev);
@@ -312,7 +312,7 @@ static void worker_new(struct event *event)
                         udev_event_execute_run(udev_event, &sigmask_orig);
 
                         /* apply/restore inotify watch */
-                        if (err == 0 && udev_event->inotify_watch) {
+                        if (udev_event->inotify_watch) {
                                 udev_watch_begin(udev, dev);
                                 udev_device_update_db(dev);
                         }
