@@ -204,6 +204,7 @@ static int parse_line(const char* unit,
                       bool allow_include,
                       char **section,
                       unsigned *section_line,
+                      bool *section_ignored,
                       char *l,
                       void *userdata) {
 
@@ -266,7 +267,7 @@ static int parse_line(const char* unit,
 
                 if (sections && !nulstr_contains(sections, n)) {
 
-                        if (!relaxed)
+                        if (!relaxed && !startswith(n, "X-"))
                                 log_syntax(unit, LOG_WARNING, filename, line, EINVAL,
                                            "Unknown section '%s'. Ignoring.", n);
 
@@ -274,10 +275,12 @@ static int parse_line(const char* unit,
                         free(*section);
                         *section = NULL;
                         *section_line = 0;
+                        *section_ignored = true;
                 } else {
                         free(*section);
                         *section = n;
                         *section_line = line;
+                        *section_ignored = false;
                 }
 
                 return 0;
@@ -285,7 +288,7 @@ static int parse_line(const char* unit,
 
         if (sections && !*section) {
 
-                if (!relaxed)
+                if (!relaxed && !*section_ignored)
                         log_syntax(unit, LOG_WARNING, filename, line, EINVAL,
                                    "Assignment outside of section. Ignoring.");
 
@@ -328,6 +331,7 @@ int config_parse(const char *unit,
         _cleanup_free_ char *section = NULL, *continuation = NULL;
         _cleanup_fclose_ FILE *ours = NULL;
         unsigned line = 0, section_line = 0;
+        bool section_ignored = false;
         int r;
 
         assert(filename);
@@ -399,6 +403,7 @@ int config_parse(const char *unit,
                                allow_include,
                                &section,
                                &section_line,
+                               &section_ignored,
                                p,
                                userdata);
                 free(c);
