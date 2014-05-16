@@ -769,6 +769,15 @@ static int setup_resolv_conf(const char *dest) {
         return 0;
 }
 
+static char* id128_format_as_uuid(sd_id128_t id, char s[37]) {
+
+        snprintf(s, 37,
+                 "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
+                 SD_ID128_FORMAT_VAL(id));
+
+        return s;
+}
+
 static int setup_boot_id(const char *dest) {
         _cleanup_free_ char *from = NULL, *to = NULL;
         sd_id128_t rnd = {};
@@ -794,10 +803,7 @@ static int setup_boot_id(const char *dest) {
                 return r;
         }
 
-        snprintf(as_uuid, sizeof(as_uuid),
-                 "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
-                 SD_ID128_FORMAT_VAL(rnd));
-        char_array_0(as_uuid);
+        id128_format_as_uuid(rnd, as_uuid);
 
         r = write_string_file(from, as_uuid);
         if (r < 0) {
@@ -2954,7 +2960,9 @@ int main(int argc, char *argv[]) {
                         }
 
                         if (!sd_id128_equal(arg_uuid, SD_ID128_NULL)) {
-                                if (asprintf((char**)(envp + n_env++), "container_uuid=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(arg_uuid)) < 0) {
+                                char as_uuid[37];
+
+                                if (asprintf((char**)(envp + n_env++), "container_uuid=%s", id128_format_as_uuid(arg_uuid, as_uuid)) < 0) {
                                         log_oom();
                                         goto child_fail;
                                 }
