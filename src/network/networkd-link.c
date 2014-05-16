@@ -1697,7 +1697,7 @@ int link_initialized(Link *link, struct udev_device *device) {
         if (device)
                 link->udev_device = udev_device_ref(device);
 
-        log_info_link(link, "udev initialized link");
+        log_debug_link(link, "udev initialized link");
 
         r = network_get(link->manager, device, link->ifname, &link->mac, &network);
         if (r == -ENOENT) {
@@ -1890,7 +1890,7 @@ int link_add(Manager *m, sd_rtnl_message *message, Link **ret) {
 
                 if (udev_device_get_is_initialized(device) <= 0) {
                         /* not yet ready */
-                        log_info_link(link, "udev initializing link...");
+                        log_debug_link(link, "udev initializing link...");
                         return 0;
                 }
         }
