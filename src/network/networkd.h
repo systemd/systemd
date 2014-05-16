@@ -282,6 +282,12 @@ int manager_save(Manager *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 #define _cleanup_manager_free_ _cleanup_(manager_freep)
 
+const struct ConfigPerfItem* networkd_gperf_lookup(const char *key, unsigned length);
+
+int config_parse_dnsv(const char *unit, const char *filename, unsigned line,
+                     const char *section, unsigned section_line, const char *lvalue,
+                     int ltype, const char *rvalue, void *data, void *userdata);
+
 /* NetDev */
 
 int netdev_load(Manager *manager);

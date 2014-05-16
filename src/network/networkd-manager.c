@@ -23,6 +23,7 @@
 #include <linux/if.h>
 #include <libkmod.h>
 
+#include "conf-parser.h"
 #include "path-util.h"
 #include "networkd.h"
 #include "network-internal.h"
@@ -110,6 +111,60 @@ static int set_fallback_dns(Manager *m, const char *string) {
         return 0;
 }
 
+int config_parse_dnsv(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Manager *m = userdata;
+        Address *address;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(m);
+
+        while ((address = m->fallback_dns)) {
+                LIST_REMOVE(addresses, m->fallback_dns, address);
+                address_free(address);
+        }
+
+        set_fallback_dns(m, rvalue);
+
+        return 0;
+}
+
+static int manager_parse_config_file(Manager *m) {
+        static const char fn[] = "/etc/systemd/networkd.conf";
+        _cleanup_fclose_ FILE *f = NULL;
+        int r;
+
+        assert(m);
+
+        f = fopen(fn, "re");
+        if (!f) {
+                if (errno == ENOENT)
+                        return 0;
+
+                log_warning("Failed to open configuration file %s: %m", fn);
+                return -errno;
+        }
+
+        r = config_parse(NULL, fn, f, "Network\0", config_item_perf_lookup,
+                         (void*) networkd_gperf_lookup, false, false, m);
+        if (r < 0)
+                log_warning("Failed to parse configuration file: %s", strerror(-r));
+
+        return r;
+}
+
 int manager_new(Manager **ret) {
         _cleanup_manager_free_ Manager *m = NULL;
         int r;
@@ -123,6 +178,10 @@ int manager_new(Manager **ret) {
                 return -ENOMEM;
 
         r = set_fallback_dns(m, DNS_SERVERS);
+        if (r < 0)
+                return r;
+
+        r = manager_parse_config_file(m);
         if (r < 0)
                 return r;
 
@@ -182,6 +241,7 @@ void manager_free(Manager *m) {
         Network *network;
         NetDev *netdev;
         Link *link;
+        Address *address;
 
         if (!m)
                 return;
@@ -196,6 +256,11 @@ void manager_free(Manager *m) {
         sd_event_source_unref(m->sigterm_event_source);
         sd_event_source_unref(m->sigint_event_source);
         sd_event_unref(m->event);
+
+        while ((address = m->fallback_dns)) {
+                LIST_REMOVE(addresses, m->fallback_dns, address);
+                address_free(address);
+        }
 
         while ((link = hashmap_first(m->links)))
                 link_unref(link);

@@ -4223,7 +4223,8 @@ libsystemd_networkd_core_la_SOURCES = \
 
 nodist_libsystemd_networkd_core_la_SOURCES = \
 	src/network/networkd-network-gperf.c \
-	src/network/networkd-netdev-gperf.c
+	src/network/networkd-netdev-gperf.c \
+	src/network/networkd-gperf.c
 
 libsystemd_networkd_core_la_LIBADD = \
 	libudev-internal.la \
@@ -4231,14 +4232,6 @@ libsystemd_networkd_core_la_LIBADD = \
 	libsystemd-network.la \
 	libsystemd-label.la \
 	libsystemd-shared.la
-
-nodist_systemunit_DATA += \
-	units/systemd-networkd.service \
-	units/systemd-networkd-wait-online.service
-
-GENERAL_ALIASES += \
-	$(systemunitdir)/systemd-networkd.service $(pkgsysconfdir)/system/multi-user.target.wants/systemd-networkd.service \
-	$(systemunitdir)/systemd-networkd.service $(pkgsysconfdir)/system/network-online.target.wants/systemd-networkd-wait-online.service
 
 rootlibexec_PROGRAMS += \
 	systemd-networkd-wait-online
@@ -4269,15 +4262,30 @@ test_network_LDADD = \
 tests += \
 	test-network
 
+nodist_systemunit_DATA += \
+	units/systemd-networkd.service \
+	units/systemd-networkd-wait-online.service
+
+GENERAL_ALIASES += \
+	$(systemunitdir)/systemd-networkd.service $(pkgsysconfdir)/system/multi-user.target.wants/systemd-networkd.service \
+	$(systemunitdir)/systemd-networkd.service $(pkgsysconfdir)/system/network-online.target.wants/systemd-networkd-wait-online.service
+
+nodist_pkgsysconf_DATA += \
+	src/network/networkd.conf
+
 EXTRA_DIST += \
 	src/network/networkd-network-gperf.gperf \
 	src/network/networkd-netdev-gperf.gperf \
+	src/network/networkd-gperf.gperf \
 	units/systemd-networkd.service.in \
-	units/systemd-networkd-wait-online.service.in
+	units/systemd-networkd-wait-online.service.in \
+	src/network/networkd.conf.in
 
 CLEANFILES += \
 	src/network/networkd-network-gperf.c \
-	src/network/networkd-netdev-gperf.c
+	src/network/networkd-netdev-gperf.c \
+	src/network/networkd-gperf.c \
+	src/network/networkd.conf
 endif
 
 # ------------------------------------------------------------------------------
@@ -4831,7 +4839,8 @@ substitutions = \
        '|RC_LOCAL_SCRIPT_PATH_STOP=$(RC_LOCAL_SCRIPT_PATH_STOP)|' \
        '|PYTHON=$(PYTHON)|' \
        '|PYTHON_BINARY=$(PYTHON_BINARY)|' \
-       '|NTP_SERVERS=$(NTP_SERVERS)|'
+       '|NTP_SERVERS=$(NTP_SERVERS)|' \
+       '|DNS_SERVERS=$(DNS_SERVERS)|'
 
 SED_PROCESS = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
