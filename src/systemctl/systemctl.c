@@ -5030,16 +5030,16 @@ static int enable_sysv_units(const char *verb, char **args) {
                         _cleanup_free_ char *path = NULL;
 
                         if (!isempty(arg_root))
-                                asprintf(&p, "%s/%s/%s", arg_root, *k, name);
+                                asprintf(&path, "%s/%s/%s", arg_root, *k, name);
                         else
-                                asprintf(&p, "%s/%s", *k, name);
+                                asprintf(&path, "%s/%s", *k, name);
 
-                        if (!p) {
+                        if (!path) {
                                 r = log_oom();
                                 goto finish;
                         }
 
-                        found_native = access(p, F_OK) >= 0;
+                        found_native = access(path, F_OK) >= 0;
                         if (found_native)
                                 break;
                 }
