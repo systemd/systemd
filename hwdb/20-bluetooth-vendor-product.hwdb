@@ -961,4 +961,55 @@ bluetooth:v013D*
  ID_VENDOR_FROM_DATABASE=WirelessWERX
 
 bluetooth:v013E*
- ID_VENDOR_FROM_DATABASE=nimai
+ ID_VENDOR_FROM_DATABASE=Nod, Inc.
+
+bluetooth:v013F*
+ ID_VENDOR_FROM_DATABASE=B&B Manufacturing Company
+
+bluetooth:v0140*
+ ID_VENDOR_FROM_DATABASE=Alpine Electronics (China) Co., Ltd
+
+bluetooth:v0141*
+ ID_VENDOR_FROM_DATABASE=FedEx Services
+
+bluetooth:v0142*
+ ID_VENDOR_FROM_DATABASE=Grape Systems Inc.
+
+bluetooth:v0143*
+ ID_VENDOR_FROM_DATABASE=Bkon Connect
+
+bluetooth:v0144*
+ ID_VENDOR_FROM_DATABASE=Lintech GmbH
+
+bluetooth:v0145*
+ ID_VENDOR_FROM_DATABASE=Novatel Wireless
+
+bluetooth:v0146*
+ ID_VENDOR_FROM_DATABASE=Ciright
+
+bluetooth:v0147*
+ ID_VENDOR_FROM_DATABASE=Mighty Cast, Inc.
+
+bluetooth:v0148*
+ ID_VENDOR_FROM_DATABASE=Ambimat Electronics
+
+bluetooth:v0149*
+ ID_VENDOR_FROM_DATABASE=Perytons Ltd.
+
+bluetooth:v014A*
+ ID_VENDOR_FROM_DATABASE=Tivoli Audio, LLC
+
+bluetooth:v014B*
+ ID_VENDOR_FROM_DATABASE=Master Lock
+
+bluetooth:v014C*
+ ID_VENDOR_FROM_DATABASE=Mesh-Net Ltd
+
+bluetooth:v014D*
+ ID_VENDOR_FROM_DATABASE=HUIZHOU DESAY SV AUTOMOTIVE CO., LTD.
+
+bluetooth:v014E*
+ ID_VENDOR_FROM_DATABASE=Tangerine, Inc.
+
+bluetooth:v014F*
+ ID_VENDOR_FROM_DATABASE=B&W Group Ltd.
