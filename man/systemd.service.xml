@@ -529,9 +529,9 @@ ExecStart=/bin/echo $ONE $TWO ${TWO}</programlisting>
                                 services against each other. It is
                                 strongly recommended to set
                                 <varname>ExecReload=</varname> to a
-                                command that no only triggers a
+                                command that not only triggers a
                                 configuration reload of the daemon,
-                                but also synchronously waits for it
+                                but also synchronously waits for it to
                                 complete.</para>
                                 </listitem>
                         </varlistentry>
