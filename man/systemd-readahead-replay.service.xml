@@ -117,7 +117,7 @@
 
                 <variablelist>
                         <varlistentry>
-                                <term><option>--max-files=</option></term>
+                                <term><option>--files-max=</option></term>
 
                                 <listitem><para>Maximum number of
                                 files to read ahead. Only valid
