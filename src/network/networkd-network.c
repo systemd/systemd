@@ -77,10 +77,6 @@ static int network_load_one(Manager *manager, const char *filename) {
         if (!network->routes_by_section)
                 return log_oom();
 
-        network->dns = set_new(NULL, NULL);
-        if (!network->dns)
-                return log_oom();
-
         network->filename = strdup(filename);
         if (!network->filename)
                 return log_oom();
@@ -164,10 +160,10 @@ void network_free(Network *network) {
 
         free(network->description);
 
-        SET_FOREACH(address, network->dns, i)
+        while ((address = network->dns)) {
+                LIST_REMOVE(addresses, network->dns, address);
                 address_free(address);
-
-        set_free(network->dns);
+        }
 
         netdev_unref(network->bridge);
 

@@ -525,9 +525,8 @@ int manager_update_resolv_conf(Manager *m) {
         HASHMAP_FOREACH(link, m->links, i) {
                 if (link->network && link->network->dns) {
                         Address *address;
-                        Iterator j;
 
-                        SET_FOREACH(address, link->network->dns, j) {
+                        LIST_FOREACH(addresses, address, link->network->dns) {
                                 append_dns(f, &address->in_addr.in,
                                            address->family, &count);
                         }

@@ -150,7 +150,7 @@ struct Network {
         Hashmap *addresses_by_section;
         Hashmap *routes_by_section;
 
-        Set *dns;
+        LIST_HEAD(Address, dns);
 
         LIST_FIELDS(Network, networks);
 };

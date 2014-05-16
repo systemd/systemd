@@ -313,7 +313,8 @@ int config_parse_dns(const char *unit,
                 const char *rvalue,
                 void *data,
                 void *userdata) {
-        Set **dns = data;
+        Network *network = userdata;
+        Address *tail;
         _cleanup_address_free_ Address *n = NULL;
         int r;
 
@@ -321,7 +322,7 @@ int config_parse_dns(const char *unit,
         assert(section);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
+        assert(network);
 
         r = address_new_dynamic(&n);
         if (r < 0)
@@ -334,7 +335,8 @@ int config_parse_dns(const char *unit,
                 return 0;
         }
 
-        set_put(*dns, n);
+        LIST_FIND_TAIL(addresses, network->dns, tail);
+        LIST_INSERT_AFTER(addresses, network->dns, tail, n);
         n = NULL;
 
         return 0;
