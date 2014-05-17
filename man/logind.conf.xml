@@ -80,25 +80,25 @@
                                 template unit
                                 <filename>autovt@.service</filename>
                                 for the respective VT TTY name,
-                                e.g. <filename>autovt@tty4.service</filename>. By
+                                for example, <filename>autovt@tty4.service</filename>. By
                                 default,
                                 <filename>autovt@.service</filename>
                                 is linked to
-                                <filename>getty@.service</filename>,
-                                i.e. login prompts are started
+                                <filename>getty@.service</filename>.
+                                In other words, login prompts are started
                                 dynamically as the user switches to
                                 unused virtual terminals. Hence, this
                                 parameter controls how many login
                                 <literal>gettys</literal> are
                                 available on the VTs. If a VT is
                                 already used by some other subsystem
-                                (for example a graphical login), this
+                                (for example, a graphical login), this
                                 kind of activation will not be
                                 attempted. Note that the VT configured
                                 in <varname>ReserveVT=</varname> is
                                 always subject to this kind of
                                 activation, even if it is not one of
-                                VTs configured with the
+                                the VTs configured with the
                                 <varname>NAutoVTs=</varname>
                                 directive. Defaults to 6. When set to
                                 0, automatic spawning of
@@ -110,7 +110,7 @@
                                 <term><varname>ReserveVT=</varname></term>
 
                                 <listitem><para>Takes a positive
-                                integer. Configures the number of one
+                                integer. Identifies one
                                 virtual terminal that shall
                                 unconditionally be reserved for
                                 <filename>autovt@.service</filename>
@@ -118,7 +118,7 @@
                                 selected with this option will be
                                 marked busy unconditionally, so that no
                                 other subsystem will allocate it. This
-                                functionality is useful to ensure that
+                                functionality is useful to ensure that,
                                 regardless of how many VTs are allocated
                                 by other subsystems, one login
                                 <literal>getty</literal> is always
@@ -136,8 +136,8 @@
                                 <listitem><para>Takes a boolean
                                 argument. Configures whether the
                                 processes of a user should be killed
-                                when she or he completely logs out (i.e. after
-                                her/his last session ended). Defaults to
+                                when the user completely logs out (i.e. after
+                                the user's last session ended). Defaults to
                                 <literal>no</literal>.</para>
 
                                 <para>Note that setting
@@ -180,7 +180,7 @@
                                 <literal>kexec</literal>,
                                 <literal>suspend</literal>,
                                 <literal>hibernate</literal>,
-                                <literal>hybrid-sleep</literal>,
+                                <literal>hybrid-sleep</literal>, and
                                 <literal>lock</literal>. Defaults to
                                 <literal>ignore</literal>.</para>
 
@@ -216,7 +216,7 @@
                                 being active before the inhibitor is
                                 ignored and the operation executes
                                 anyway. Defaults to
-                                5s.</para></listitem>
+                                5.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -237,7 +237,7 @@
                                 <literal>kexec</literal>,
                                 <literal>suspend</literal>,
                                 <literal>hibernate</literal>,
-                                <literal>hybrid-sleep</literal> and
+                                <literal>hybrid-sleep</literal>, and
                                 <literal>lock</literal>. If
                                 <literal>ignore</literal>, logind will
                                 never handle these keys. If
@@ -303,18 +303,18 @@
                                 <varname>$XDG_RUNTIME_DIR</varname>
                                 runtime directory for each user who
                                 logs in. Takes a size in bytes,
-                                possibly suffixed with the usual K, G,
-                                M, T suffixes, to the base 1024
-                                (IEC). Alternatively, a percentage
-                                suffixed by <literal>%</literal> may
-                                be specified, which sets the size
+                                optionally suffixed with the usual K, G,
+                                M, and T suffixes, to the base 1024
+                                (IEC). Alternatively, a numerical
+                                percentage suffixed by <literal>%</literal>
+                                may be specified, which sets the size
                                 limit relative to the amount of
                                 physical RAM. Defaults to 10%. Note
                                 that this size is a safety limit
                                 only. As each runtime directory is a
                                 tmpfs file system, it will only consume
-                                as much memory as it is filled up
-                                to.</para></listitem>
+                                as much memory as is needed.
+                                </para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -323,7 +323,7 @@
                                 <listitem><para>Controls whether
                                 System V and POSIX IPC objects
                                 belonging to the user shall be removed
-                                when she or he fully logs out. Takes a
+                                when the user fully logs out. Takes a
                                 boolean argument. If enabled, the user
                                 may not consume IPC resources after
                                 the last of his sessions
@@ -334,7 +334,7 @@
                                 objects of the root user are excluded
                                 from the effect of this
                                 setting. Defaults to
-                                on.</para></listitem>
+                                <literal>yes</literal>.</para></listitem>
                         </varlistentry>
 
                 </variablelist>
