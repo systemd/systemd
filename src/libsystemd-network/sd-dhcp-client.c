@@ -276,19 +276,10 @@ static void client_stop(sd_dhcp_client *client, int error) {
 
         if (error < 0)
                 log_dhcp_client(client, "STOPPED: %s", strerror(-error));
-        else {
-                switch(error) {
-                case DHCP_EVENT_STOP:
-                        log_dhcp_client(client, "STOPPED");
-                        break;
-                case DHCP_EVENT_NO_LEASE:
-                        log_dhcp_client(client, "STOPPED: No lease");
-                        break;
-                default:
-                        log_dhcp_client(client, "STOPPED: Unknown reason");
-                        break;
-                }
-        }
+        else if (error == DHCP_EVENT_STOP)
+                log_dhcp_client(client, "STOPPED");
+        else
+                log_dhcp_client(client, "STOPPED: Unknown event");
 
         client_notify(client, error);
 
@@ -925,7 +916,7 @@ static int client_handle_ack(sd_dhcp_client *client, DHCPMessage *ack,
         r = dhcp_option_parse(ack, len, dhcp_lease_parse_options, lease);
         if (r == DHCP_NAK) {
                 log_dhcp_client(client, "NAK");
-                return DHCP_EVENT_NO_LEASE;
+                return -EADDRNOTAVAIL;
         }
 
         if (r != DHCP_ACK) {
@@ -1165,25 +1156,7 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message,
         case DHCP_STATE_REBINDING:
 
                 r = client_handle_ack(client, message, len);
-                if (r == DHCP_EVENT_NO_LEASE) {
-
-                        client->timeout_resend =
-                                sd_event_source_unref(client->timeout_resend);
-
-                        if (client->state == DHCP_STATE_REBOOTING) {
-                                r = client_initialize(client);
-                                if (r < 0)
-                                        goto error;
-
-                                r = client_start(client);
-                                if (r < 0)
-                                        goto error;
-
-                                log_dhcp_client(client, "REBOOTED");
-                        }
-
-                        goto error;
-                } else if (r >= 0) {
+                if (r >= 0) {
                         client->timeout_resend =
                                 sd_event_source_unref(client->timeout_resend);
 
@@ -1211,6 +1184,22 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message,
                         client->receive_message =
                                 sd_event_source_unref(client->receive_message);
                         client->fd = asynchronous_close(client->fd);
+                } else if (r == -EADDRNOTAVAIL) {
+                        /* got a NAK, let's restart the client */
+                        client->timeout_resend =
+                                sd_event_source_unref(client->timeout_resend);
+
+                        r = client_initialize(client);
+                        if (r < 0)
+                                goto error;
+
+                        r = client_start(client);
+                        if (r < 0)
+                                goto error;
+
+                        log_dhcp_client(client, "REBOOTED");
+
+                        return 0;
                 } else if (r == -ENOMSG)
                         /* invalid message, let's ignore it */
                         return 0;
@@ -1229,7 +1218,7 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message,
         }
 
 error:
-        if (r < 0 || r == DHCP_EVENT_NO_LEASE)
+        if (r < 0)
                 client_stop(client, r);
 
         return r;

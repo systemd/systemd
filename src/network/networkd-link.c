@@ -1172,9 +1172,6 @@ static void dhcp_handler(sd_dhcp_client *client, int event, void *userdata) {
                 return;
 
         switch (event) {
-                case DHCP_EVENT_NO_LEASE:
-                        log_debug_link(link, "IP address in use.");
-                        break;
                 case DHCP_EVENT_EXPIRED:
                 case DHCP_EVENT_STOP:
                 case DHCP_EVENT_IP_CHANGE:

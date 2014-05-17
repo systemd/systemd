@@ -30,11 +30,10 @@
 
 enum {
         DHCP_EVENT_STOP                         = 0,
-        DHCP_EVENT_NO_LEASE                     = 1,
-        DHCP_EVENT_IP_ACQUIRE                   = 2,
-        DHCP_EVENT_IP_CHANGE                    = 3,
-        DHCP_EVENT_EXPIRED                      = 4,
-        DHCP_EVENT_RENEW                        = 5,
+        DHCP_EVENT_IP_ACQUIRE                   = 1,
+        DHCP_EVENT_IP_CHANGE                    = 2,
+        DHCP_EVENT_EXPIRED                      = 3,
+        DHCP_EVENT_RENEW                        = 4,
 };
 
 typedef struct sd_dhcp_client sd_dhcp_client;
