@@ -6,9 +6,8 @@
 #  (at your option) any later version.
 
 [Match]
-Virtualization=container
-Name=host0
+Name=ve-*
+Driver=veth
 
 [Network]
-DHCP=yes
 IPv4LL=yes

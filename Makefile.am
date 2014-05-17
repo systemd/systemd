@@ -2641,7 +2641,8 @@ INSTALL_DIRS += \
 
 dist_network_DATA = \
 	network/99-default.link \
-	network/80-container-host0.network
+	network/80-container-host0.network \
+	network/80-container-ve.network
 
 dist_udevrules_DATA += \
 	rules/42-usb-hid-pm.rules \
