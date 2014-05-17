@@ -139,10 +139,12 @@
                 <para>Unit files may contain additional options on top
                 of those listed here. If systemd encounters an unknown
                 option, it will write a warning log message but
-                continue loading the unit. If an option is prefixed
-                with <option>X-</option>, it is ignored completely by
-                systemd. Applications may use this to include
-                additional information in the unit files.</para>
+                continue loading the unit. If an option or section name
+                is prefixed with <option>X-</option>, it is ignored
+                completely by systemd. Options within an ignored
+                section do not need the prefix. Applications may use
+                this to include additional information in the unit
+                files.</para>
 
                 <para>Boolean arguments used in unit files can be
                 written in various formats. For positive settings the
