@@ -976,6 +976,8 @@ static int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
+        sd_event_set_watchdog(m->event, true);
+
         sd_event_add_signal(m->event, &m->sigterm, SIGTERM, NULL,  NULL);
         sd_event_add_signal(m->event, &m->sigint, SIGINT, NULL, NULL);
 
