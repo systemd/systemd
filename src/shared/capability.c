@@ -156,7 +156,8 @@ int capability_bounding_set_drop(uint64_t drop, bool right_now) {
         r = 0;
 
 finish:
-        cap_set_proc(after_cap);
+        if (cap_set_proc(after_cap) < 0)
+                return -errno;
 
         return r;
 }

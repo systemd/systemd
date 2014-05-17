@@ -33,6 +33,9 @@
 #include <sys/timex.h>
 #include <sys/socket.h>
 #include <resolv.h>
+#include <sys/prctl.h>
+#include <sys/types.h>
+#include <grp.h>
 
 #include "missing.h"
 #include "util.h"
@@ -49,6 +52,7 @@
 #include "sd-network.h"
 #include "event-util.h"
 #include "network-util.h"
+#include "capability.h"
 #include "timesyncd.h"
 
 #define TIME_T_MAX (time_t)((1UL << ((sizeof(time_t) << 3) - 1)) - 1)
@@ -1138,6 +1142,80 @@ static int manager_network_monitor_listen(Manager *m) {
         return 0;
 }
 
+static int drop_priviliges(void) {
+        static const cap_value_t bits[] = {
+                CAP_SYS_TIME,
+        };
+
+        _cleanup_cap_free_ cap_t d = NULL;
+        const char *name = "systemd-timesync";
+        uid_t uid;
+        gid_t gid;
+        int r;
+
+        /* Unfortunately we cannot leave privilige dropping to PID 1
+         * here, since we want to run as user but want to keep te
+         * CAP_SYS_TIME capability. Since file capabilities have been
+         * introduced this cannot be done across exec() anymore,
+         * unless our binary has the capability configured in the file
+         * system, which we want to avoid. */
+
+        r = get_user_creds(&name, &uid, &gid, NULL, NULL);
+        if (r < 0) {
+                log_error("Cannot resolve user name %s: %s", name, strerror(-r));
+                return r;
+        }
+
+        if (setresgid(gid, gid, gid) < 0) {
+                log_error("Failed change group ID: %m");
+                return -errno;
+        }
+
+        if (setgroups(0, NULL) < 0) {
+                log_error("Failed to drop auxiliary groups list: %m");
+                return -errno;
+        }
+
+        if (prctl(PR_SET_KEEPCAPS, 1) < 0) {
+                log_error("Failed to enable keep capabilities flag: %m");
+                return -errno;
+        }
+
+        r = setresuid(uid, uid, uid);
+        if (r < 0) {
+                log_error("Failed change user ID: %m");
+                return -errno;
+        }
+
+        if (prctl(PR_SET_KEEPCAPS, 0) < 0) {
+                log_error("Failed to disable keep capabilities flag: %m");
+                return -errno;
+        }
+
+        r = capability_bounding_set_drop(~(1ULL << CAP_SYS_TIME), true);
+        if (r < 0) {
+                log_error("Failed to drop capabilities: %s", strerror(-r));
+                return r;
+        }
+
+        d = cap_init();
+        if (!d)
+                return log_oom();
+
+        if (cap_set_flag(d, CAP_EFFECTIVE, ELEMENTSOF(bits), bits, CAP_SET) < 0 ||
+            cap_set_flag(d, CAP_PERMITTED, ELEMENTSOF(bits), bits, CAP_SET) < 0) {
+                log_error("Failed to enable capabilities bits: %m");
+                return -errno;
+        }
+
+        if (cap_set_proc(d) < 0) {
+                log_error("Failed to increase capabilities: %m");
+                return -errno;
+        }
+
+        return 0;
+}
+
 int main(int argc, char *argv[]) {
         _cleanup_manager_free_ Manager *m = NULL;
         int r;
@@ -1153,6 +1231,10 @@ int main(int argc, char *argv[]) {
         log_open();
 
         umask(0022);
+
+        r = drop_priviliges();
+        if (r < 0)
+                goto out;
 
         assert_se(sigprocmask_many(SIG_BLOCK, SIGTERM, SIGINT, -1) == 0);
 

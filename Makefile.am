@@ -4066,6 +4066,7 @@ systemd_timesyncd_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-resolve.la \
 	libsystemd-network.la \
+	libsystemd-capability.la \
 	-lm
 
 rootlibexec_PROGRAMS += \
