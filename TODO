@@ -35,7 +35,6 @@ Features:
 * timesyncd:
   - hookup with networkd: NTP servers from dhcp
   - hookup with networkd: listen to online/offline state
-  - run as unpriviliged user
 
 * a way for container managers to turn off getty starting via $container_headless= or so...
 
