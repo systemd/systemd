@@ -92,9 +92,6 @@ struct Manager {
 
         /* Retry connections */
         sd_event_source *event_retry;
-
-        /* Handle SIGINT/SIGTERM */
-        sd_event_source *sigterm, *sigint;
 };
 
 const struct ConfigPerfItem* timesyncd_gperf_lookup(const char *key, unsigned length);

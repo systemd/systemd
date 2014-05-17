@@ -978,8 +978,8 @@ static int manager_new(Manager **ret) {
 
         sd_event_set_watchdog(m->event, true);
 
-        sd_event_add_signal(m->event, &m->sigterm, SIGTERM, NULL,  NULL);
-        sd_event_add_signal(m->event, &m->sigint, SIGINT, NULL, NULL);
+        sd_event_add_signal(m->event, NULL, SIGTERM, NULL,  NULL);
+        sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
 
         r = sd_resolve_default(&m->resolve);
         if (r < 0)
@@ -1005,9 +1005,6 @@ static void manager_free(Manager *m) {
 
         manager_disconnect(m);
         manager_flush_names(m);
-
-        sd_event_source_unref(m->sigint);
-        sd_event_source_unref(m->sigterm);
 
         sd_event_source_unref(m->event_retry);
 
