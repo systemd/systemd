@@ -26,6 +26,7 @@
 #include <linux/if_packet.h>
 
 #include "refcnt.h"
+#include "util.h"
 
 #include "dhcp-protocol.h"
 

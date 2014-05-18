@@ -361,3 +361,98 @@ int load_module(struct kmod_ctx *ctx, const char *mod_name) {
 
         return r;
 }
+
+void serialize_in_addrs(FILE *f, const char *key, struct in_addr *addresses, size_t size) {
+        unsigned i;
+
+        assert(f);
+        assert(key);
+        assert(addresses);
+        assert(size);
+
+        fprintf(f, "%s=", key);
+
+        for (i = 0; i < size; i++)
+                fprintf(f, "%s%s", inet_ntoa(addresses[i]),
+                        (i < (size - 1)) ? " ": "");
+
+        fputs("\n", f);
+}
+
+int deserialize_in_addrs(struct in_addr **ret, size_t *ret_size, const char *string) {
+        _cleanup_free_ struct in_addr *addresses = NULL;
+        size_t size = 0;
+        char *word, *state;
+        size_t len;
+
+        assert(ret);
+        assert(ret_size);
+        assert(string);
+
+        FOREACH_WORD(word, len, string, state) {
+                _cleanup_free_ char *addr_str = NULL;
+                struct in_addr *new_addresses;
+                int r;
+
+                new_addresses = realloc(addresses, (size + 1) * sizeof(struct in_addr));
+                if (!new_addresses)
+                        return -ENOMEM;
+                else
+                        addresses = new_addresses;
+
+                addr_str = strndup(word, len);
+                if (!addr_str)
+                        return -ENOMEM;
+
+                r = inet_pton(AF_INET, addr_str, &(addresses[size]));
+                if (r <= 0)
+                        continue;
+
+                size ++;
+        }
+
+        *ret_size = size;
+        *ret = addresses;
+        addresses = NULL;
+
+        return 0;
+}
+
+int deserialize_in6_addrs(struct in6_addr **ret, size_t *ret_size, const char *string) {
+        _cleanup_free_ struct in6_addr *addresses = NULL;
+        size_t size = 0;
+        char *word, *state;
+        size_t len;
+
+        assert(ret);
+        assert(ret_size);
+        assert(string);
+
+        FOREACH_WORD(word, len, string, state) {
+                _cleanup_free_ char *addr_str = NULL;
+                struct in6_addr *new_addresses;
+                int r;
+
+                new_addresses = realloc(addresses, (size + 1) * sizeof(struct in6_addr));
+                if (!new_addresses)
+                        return -ENOMEM;
+                else
+                        addresses = new_addresses;
+
+                addr_str = strndup(word, len);
+                if (!addr_str)
+                        return -ENOMEM;
+
+                r = inet_pton(AF_INET6, addr_str, &(addresses[size]));
+                if (r <= 0)
+                        continue;
+
+                size++;
+        }
+
+        *ret_size = size;
+        *ret = addresses;
+        addresses = NULL;
+
+        return 0;
+}
