@@ -30,6 +30,10 @@ External:
 
 Features:
 
+* machined: make sure we can restart machined without losing machines
+* machined/machinectl: sort IP addresses we return by scope and protocol
+* machined: write NSS module for looking up IP addresses for machines
+
 * timer units: actually add extra delays to timer units with high AccuracySec values, don't start them already when we are awake...
 
 * timesyncd:
