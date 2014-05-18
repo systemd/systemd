@@ -338,7 +338,10 @@ g_udev_client_new (const gchar * const *subsystems)
  *
  * Gets all devices belonging to @subsystem.
  *
- * Returns: (element-type GUdevDevice) (transfer full): A list of #GUdevDevice objects. The caller should free the result by using g_object_unref() on each element in the list and then g_list_free() on the list.
+ * Returns: (nullable) (element-type GUdevDevice) (transfer full): A
+ * list of #GUdevDevice objects. The caller should free the result by
+ * using g_object_unref() on each element in the list and then
+ * g_list_free() on the list.
  */
 GList *
 g_udev_client_query_by_subsystem (GUdevClient  *client,
@@ -391,7 +394,8 @@ g_udev_client_query_by_subsystem (GUdevClient  *client,
  *
  * Looks up a device for a type and device number.
  *
- * Returns: (transfer full): A #GUdevDevice object or %NULL if the device was not found. Free with g_object_unref().
+ * Returns: (nullable) (transfer full): A #GUdevDevice object or %NULL
+ * if the device was not found. Free with g_object_unref().
  */
 GUdevDevice *
 g_udev_client_query_by_device_number (GUdevClient      *client,
@@ -423,7 +427,8 @@ g_udev_client_query_by_device_number (GUdevClient      *client,
  *
  * Looks up a device for a device file.
  *
- * Returns: (transfer full): A #GUdevDevice object or %NULL if the device was not found. Free with g_object_unref().
+ * Returns: (nullable) (transfer full): A #GUdevDevice object or %NULL
+ * if the device was not found. Free with g_object_unref().
  */
 GUdevDevice *
 g_udev_client_query_by_device_file (GUdevClient  *client,
@@ -459,7 +464,8 @@ g_udev_client_query_by_device_file (GUdevClient  *client,
  *
  * Looks up a device for a sysfs path.
  *
- * Returns: (transfer full): A #GUdevDevice object or %NULL if the device was not found. Free with g_object_unref().
+ * Returns: (nullable) (transfer full): A #GUdevDevice object or %NULL
+ * if the device was not found. Free with g_object_unref().
  */
 GUdevDevice *
 g_udev_client_query_by_sysfs_path (GUdevClient  *client,
@@ -491,7 +497,8 @@ g_udev_client_query_by_sysfs_path (GUdevClient  *client,
  *
  * Looks up a device for a subsystem and name.
  *
- * Returns: (transfer full): A #GUdevDevice object or %NULL if the device was not found. Free with g_object_unref().
+ * Returns: (nullable) (transfer full): A #GUdevDevice object or %NULL
+ * if the device was not found. Free with g_object_unref().
  */
 GUdevDevice *
 g_udev_client_query_by_subsystem_and_name (GUdevClient  *client,

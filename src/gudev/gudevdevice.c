@@ -228,7 +228,8 @@ g_udev_device_get_sysfs_path (GUdevDevice *device)
  *
  * Gets the name of the driver used for @device.
  *
- * Returns: The name of the driver for @device or %NULL if unknown.
+ * Returns: (nullable): The name of the driver for @device or %NULL if
+ * unknown.
  */
 const gchar *
 g_udev_device_get_driver (GUdevDevice *device)
@@ -325,8 +326,8 @@ g_udev_device_get_device_number (GUdevDevice *device)
  *
  * Gets the device file for @device.
  *
- * Returns: The device file for @device or %NULL if no device file
- * exists.
+ * Returns: (nullable): The device file for @device or %NULL if no
+ * device file exists.
  */
 const gchar *
 g_udev_device_get_device_file (GUdevDevice *device)
@@ -375,7 +376,8 @@ g_udev_device_get_device_file_symlinks (GUdevDevice *device)
  *
  * Gets the immediate parent of @device, if any.
  *
- * Returns: (transfer full): A #GUdevDevice or %NULL if @device has no parent. Free with g_object_unref().
+ * Returns: (nullable) (transfer full): A #GUdevDevice or %NULL if
+ * @device has no parent. Free with g_object_unref().
  */
 GUdevDevice *
 g_udev_device_get_parent (GUdevDevice  *device)
@@ -406,7 +408,9 @@ g_udev_device_get_parent (GUdevDevice  *device)
  * Walks up the chain of parents of @device and returns the first
  * device encountered where @subsystem and @devtype matches, if any.
  *
- * Returns: (transfer full): A #GUdevDevice or %NULL if @device has no parent with @subsystem and @devtype. Free with g_object_unref().
+ * Returns: (nullable) (transfer full): A #GUdevDevice or %NULL if
+ * @device has no parent with @subsystem and @devtype. Free with
+ * g_object_unref().
  */
 GUdevDevice *
 g_udev_device_get_parent_with_subsystem (GUdevDevice  *device,
@@ -492,7 +496,8 @@ g_udev_device_has_property (GUdevDevice  *device,
  *
  * Look up the value for @key on @device.
  *
- * Returns: The value for @key or %NULL if @key doesn't exist on @device. Do not free this string, it is owned by @device.
+ * Returns: (nullable): The value for @key or %NULL if @key doesn't
+ * exist on @device. Do not free this string, it is owned by @device.
  */
 const gchar *
 g_udev_device_get_property (GUdevDevice  *device,
@@ -664,7 +669,10 @@ split_at_whitespace (const gchar *s)
  * horizontal tab ('\t'), and vertical tab ('\v') are considered; the
  * locale is not taken into account).
  *
- * Returns: (transfer none) (array zero-terminated=1) (element-type utf8): The value of @key on @device split into tokens or %NULL if @key doesn't exist. This array is owned by @device and should not be freed by the caller.
+ * Returns: (nullable) (transfer none) (array zero-terminated=1) (element-type utf8):
+ * The value of @key on @device split into tokens or %NULL if @key
+ * doesn't exist. This array is owned by @device and should not be
+ * freed by the caller.
  */
 const gchar* const *
 g_udev_device_get_property_as_strv (GUdevDevice  *device,
@@ -758,8 +766,9 @@ g_udev_device_has_sysfs_attr (GUdevDevice  *device,
  *
  * Look up the sysfs attribute with @name on @device.
  *
- * Returns: The value of the sysfs attribute or %NULL if there is no
- * such attribute. Do not free this string, it is owned by @device.
+ * Returns: (nullable): The value of the sysfs attribute or %NULL if
+ * there is no such attribute. Do not free this string, it is owned by
+ * @device.
  */
 const gchar *
 g_udev_device_get_sysfs_attr (GUdevDevice  *device,
@@ -907,7 +916,10 @@ g_udev_device_get_sysfs_attr_as_boolean (GUdevDevice  *device,
  * tab ('\t'), and vertical tab ('\v') are considered; the locale is
  * not taken into account).
  *
- * Returns: (transfer none) (array zero-terminated=1) (element-type utf8): The value of the sysfs attribute split into tokens or %NULL if there is no such attribute. This array is owned by @device and should not be freed by the caller.
+ * Returns: (nullable) (transfer none) (array zero-terminated=1) (element-type utf8):
+ * The value of the sysfs attribute split into tokens or %NULL if
+ * there is no such attribute. This array is owned by @device and
+ * should not be freed by the caller.
  */
 const gchar * const *
 g_udev_device_get_sysfs_attr_as_strv (GUdevDevice  *device,
