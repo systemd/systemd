@@ -27,6 +27,8 @@
 #include <pwd.h>
 #include <locale.h>
 #include <fcntl.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 #include "sd-bus.h"
 #include "log.h"
@@ -165,6 +167,63 @@ static int show_unit_cgroup(sd_bus *bus, const char *unit, pid_t leader) {
         return 0;
 }
 
+static int print_addresses(sd_bus *bus, const char *name, const char *prefix, const char *prefix2) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        int r;
+
+        assert(bus);
+        assert(name);
+        assert(prefix);
+        assert(prefix2);
+
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.machine1",
+                               "/org/freedesktop/machine1",
+                               "org.freedesktop.machine1.Manager",
+                               "GetMachineAddresses",
+                               NULL,
+                               &reply,
+                               "s", name);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_enter_container(reply, 'a', "(yay)");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        while ((r = sd_bus_message_enter_container(reply, 'r', "yay")) > 0) {
+                unsigned char family;
+                const void *a;
+                size_t sz;
+                char buffer[MAX(INET6_ADDRSTRLEN, INET_ADDRSTRLEN)];
+
+                r = sd_bus_message_read(reply, "y", &family);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                r = sd_bus_message_read_array(reply, 'y', &a, &sz);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                printf("%s%s\n", prefix, inet_ntop(family, a, buffer, sizeof(buffer)));
+
+                r = sd_bus_message_exit_container(reply);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                if (prefix != prefix2)
+                        prefix = prefix2;
+        }
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = sd_bus_message_exit_container(reply);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        return 0;
+}
+
 typedef struct MachineStatusInfo {
         char *name;
         sd_id128_t id;
@@ -220,6 +279,10 @@ static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
 
         if (i->root_directory)
                 printf("\t    Root: %s\n", i->root_directory);
+
+        print_addresses(bus, i->name,
+                       "\t Address: ",
+                       "\t          ");
 
         if (i->unit) {
                 printf("\t    Unit: %s\n", i->unit);
@@ -427,7 +490,7 @@ static int openpt_in_namespace(pid_t pid, int flags) {
         pid_t child;
         siginfo_t si;
 
-        r = namespace_open(pid, &pidnsfd, &mntnsfd, &rootfd);
+        r = namespace_open(pid, &pidnsfd, &mntnsfd, NULL, &rootfd);
         if (r < 0)
                 return r;
 
@@ -441,7 +504,7 @@ static int openpt_in_namespace(pid_t pid, int flags) {
         if (child == 0) {
                 pair[0] = safe_close(pair[0]);
 
-                r = namespace_enter(pidnsfd, mntnsfd, rootfd);
+                r = namespace_enter(pidnsfd, mntnsfd, -1, rootfd);
                 if (r < 0)
                         _exit(EXIT_FAILURE);
 
@@ -466,10 +529,10 @@ static int openpt_in_namespace(pid_t pid, int flags) {
         pair[1] = safe_close(pair[1]);
 
         r = wait_for_terminate(child, &si);
-        if (r < 0 || si.si_code != CLD_EXITED || si.si_status != EXIT_SUCCESS) {
-
-                return r < 0 ? r : -EIO;
-        }
+        if (r < 0)
+                return r;
+        if (si.si_code != CLD_EXITED || si.si_status != EXIT_SUCCESS)
+                return -EIO;
 
         if (recvmsg(pair[0], &mh, MSG_NOSIGNAL|MSG_CMSG_CLOEXEC) < 0)
                 return -errno;

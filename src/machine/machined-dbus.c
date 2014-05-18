@@ -27,7 +27,6 @@
 
 #include "sd-id128.h"
 #include "sd-messages.h"
-
 #include "strv.h"
 #include "mkdir.h"
 #include "path-util.h"
@@ -343,50 +342,49 @@ static int method_terminate_machine(sd_bus *bus, sd_bus_message *message, void *
         if (!machine)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
 
-        r = machine_stop(machine);
-        if (r < 0)
-                return sd_bus_error_set_errno(error, r);
-
-        return sd_bus_reply_method_return(message, NULL);
+        return bus_machine_method_terminate(bus, message, machine, error);
 }
 
 static int method_kill_machine(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         Machine *machine;
         const char *name;
-        const char *swho;
-        int32_t signo;
-        KillWho who;
         int r;
 
         assert(bus);
         assert(message);
         assert(m);
 
-        r = sd_bus_message_read(message, "ssi", &name, &swho, &signo);
+        r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
                 return sd_bus_error_set_errno(error, r);
-
-        if (isempty(swho))
-                who = KILL_ALL;
-        else {
-                who = kill_who_from_string(swho);
-                if (who < 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid kill parameter '%s'", swho);
-        }
-
-        if (signo <= 0 || signo >= _NSIG)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid signal %i", signo);
 
         machine = hashmap_get(m->machines, name);
         if (!machine)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
 
-        r = machine_kill(machine, who, signo);
+        return bus_machine_method_kill(bus, message, machine, error);
+}
+
+static int method_get_machine_addresses(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = userdata;
+        Machine *machine;
+        const char *name;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
                 return sd_bus_error_set_errno(error, r);
 
-        return sd_bus_reply_method_return(message, NULL);
+        machine = hashmap_get(m->machines, name);
+        if (!machine)
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
+
+        return bus_machine_method_get_addresses(bus, message, machine, error);
 }
 
 const sd_bus_vtable manager_vtable[] = {
@@ -398,6 +396,7 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_METHOD("RegisterMachine", "sayssus", "o", method_register_machine, 0),
         SD_BUS_METHOD("KillMachine", "ssi", NULL, method_kill_machine, SD_BUS_VTABLE_CAPABILITY(CAP_KILL)),
         SD_BUS_METHOD("TerminateMachine", "s", NULL, method_terminate_machine, SD_BUS_VTABLE_CAPABILITY(CAP_KILL)),
+        SD_BUS_METHOD("GetMachineAddresses", "s", "a(yay)", method_get_machine_addresses, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_SIGNAL("MachineNew", "so", 0),
         SD_BUS_SIGNAL("MachineRemoved", "so", 0),
         SD_BUS_VTABLE_END

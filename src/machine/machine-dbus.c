@@ -22,11 +22,15 @@
 #include <errno.h>
 #include <string.h>
 #include <sys/capability.h>
+#include <arpa/inet.h>
 
+#include "sd-rtnl.h"
 #include "bus-util.h"
 #include "bus-label.h"
 #include "strv.h"
 #include "machine.h"
+#include "rtnl-util.h"
+#include "bus-errors.h"
 
 static int property_get_id(
                 sd_bus *bus,
@@ -79,7 +83,7 @@ static int property_get_state(
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_class, machine_class, MachineClass);
 
-static int method_terminate(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+int bus_machine_method_terminate(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Machine *m = userdata;
         int r;
 
@@ -94,7 +98,7 @@ static int method_terminate(sd_bus *bus, sd_bus_message *message, void *userdata
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_kill(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+int bus_machine_method_kill(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Machine *m = userdata;
         const char *swho;
         int32_t signo;
@@ -127,6 +131,208 @@ static int method_kill(sd_bus *bus, sd_bus_message *message, void *userdata, sd_
         return sd_bus_reply_method_return(message, NULL);
 }
 
+int bus_machine_method_get_addresses(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_close_pair_ int pair[2] = { -1, -1 };
+        _cleanup_free_ char *us = NULL, *them = NULL;
+        _cleanup_close_ int netns_fd = -1;
+        Machine *m = userdata;
+        const char *p;
+        siginfo_t si;
+        pid_t child;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        r = readlink_malloc("/proc/self/ns/net", &us);
+        if (r < 0)
+                return sd_bus_error_set_errno(error, r);
+
+        p = procfs_file_alloca(m->leader, "ns/net");
+        r = readlink_malloc(p, &them);
+        if (r < 0)
+                return sd_bus_error_set_errno(error, r);
+
+        if (streq(us, them))
+                return sd_bus_error_setf(error, BUS_ERROR_NO_PRIVATE_NETWORKING, "Machine %s does not use private networking", m->name);
+
+        r = namespace_open(m->leader, NULL, NULL, &netns_fd, NULL);
+        if (r < 0)
+                return sd_bus_error_set_errno(error, r);
+
+        if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, pair) < 0)
+                return sd_bus_error_set_errno(error, -errno);
+
+        child = fork();
+        if (child < 0)
+                return sd_bus_error_set_errno(error, -errno);
+
+        if (child == 0) {
+                _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *resp = NULL;
+                _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
+                sd_rtnl_message *addr;
+
+                pair[0] = safe_close(pair[0]);
+
+                r = namespace_enter(-1, -1, netns_fd, -1);
+                if (r < 0)
+                        _exit(EXIT_FAILURE);
+
+                r = sd_rtnl_open(&rtnl, 0);
+                if (r < 0)
+                        _exit(EXIT_FAILURE);
+
+                r = sd_rtnl_message_new_addr(rtnl, &req, RTM_GETADDR, 0, AF_UNSPEC);
+                if (r < 0)
+                        _exit(EXIT_FAILURE);
+
+                r = sd_rtnl_message_request_dump(req, true);
+                if (r < 0)
+                        _exit(EXIT_FAILURE);
+
+                r = sd_rtnl_call(rtnl, req, 0, &resp);
+                if (r < 0)
+                        _exit(EXIT_FAILURE);
+
+                for (addr = resp; addr; addr = sd_rtnl_message_next(addr)) {
+                        uint16_t type;
+                        unsigned char family;
+                        union {
+                                struct in_addr in;
+                                struct in6_addr in6;
+                        } in_addr;
+                        struct iovec iov[2];
+
+                        r = sd_rtnl_message_get_type(addr, &type);
+                        if (r < 0)
+                                _exit(EXIT_FAILURE);
+
+                        if (type != RTM_NEWADDR)
+                                continue;
+
+                        r = sd_rtnl_message_addr_get_family(addr, &family);
+                        if (r < 0)
+                                _exit(EXIT_FAILURE);
+
+                        iov[0] = (struct iovec) { .iov_base = &family, .iov_len = sizeof(family) };
+
+                        switch (family) {
+
+                        case AF_INET:
+
+                                r = sd_rtnl_message_read_in_addr(addr, IFA_LOCAL, &in_addr.in);
+                                if (r < 0)
+                                        _exit(EXIT_FAILURE);
+
+                                if (in_addr.in.s_addr == htobe32(INADDR_LOOPBACK))
+                                        continue;
+
+                                iov[1] = (struct iovec) { .iov_base = &in_addr.in, .iov_len = sizeof(in_addr.in) };
+                                break;
+
+                        case AF_INET6:
+
+                                r = sd_rtnl_message_read_in6_addr(addr, IFA_ADDRESS, &in_addr.in6);
+                                if (r < 0)
+                                        _exit(EXIT_FAILURE);
+
+                                if (IN6_IS_ADDR_LOOPBACK(&in_addr.in6))
+                                        continue;
+
+                                iov[1] = (struct iovec) { .iov_base = &in_addr.in6, .iov_len = sizeof(in_addr.in6) };
+                                break;
+
+                        default:
+                                continue;
+                        }
+
+                        r = writev(pair[1], iov, 2);
+                        if (r < 0)
+                                _exit(EXIT_FAILURE);
+                }
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        pair[1] = safe_close(pair[1]);
+
+        r = sd_bus_message_new_method_return(message, &reply);
+        if (r < 0)
+                return sd_bus_error_set_errno(error, r);
+
+        r = sd_bus_message_open_container(reply, 'a', "(yay)");
+        if (r < 0)
+                return sd_bus_error_set_errno(error, r);
+
+        for (;;) {
+                unsigned char family;
+                ssize_t n;
+                union {
+                        struct in_addr in;
+                        struct in6_addr in6;
+                } in_addr;
+                struct iovec iov[2];
+                struct msghdr mh = {
+                        .msg_iov = iov,
+                        .msg_iovlen = 2,
+                };
+
+                iov[0] = (struct iovec) { .iov_base = &family, .iov_len = sizeof(family) };
+                iov[1] = (struct iovec) { .iov_base = &in_addr, .iov_len = sizeof(in_addr) };
+
+                n = recvmsg(pair[0], &mh, 0);
+                if (n < 0)
+                        return sd_bus_error_set_errno(error, -errno);
+                if ((size_t) n < sizeof(family))
+                        break;
+
+                r = sd_bus_message_open_container(reply, 'r', "yay");
+                if (r < 0)
+                        return sd_bus_error_set_errno(error, r);
+
+                r = sd_bus_message_append(reply, "y", family);
+                if (r < 0)
+                        return sd_bus_error_set_errno(error, r);
+
+                switch (family) {
+
+                case AF_INET:
+                        if (n != sizeof(struct in_addr) + sizeof(family))
+                                return sd_bus_error_set_errno(error, EIO);
+
+                        r = sd_bus_message_append_array(reply, 'y', &in_addr.in, sizeof(in_addr.in));
+                        break;
+
+                case AF_INET6:
+                        if (n != sizeof(struct in6_addr) + sizeof(family))
+                                return sd_bus_error_set_errno(error, EIO);
+
+                        r = sd_bus_message_append_array(reply, 'y', &in_addr.in6, sizeof(in_addr.in6));
+                        break;
+                }
+                if (r < 0)
+                        return sd_bus_error_set_errno(error, r);
+
+                r = sd_bus_message_close_container(reply);
+                if (r < 0)
+                        return sd_bus_error_set_errno(error, r);
+        }
+
+        r = wait_for_terminate(child, &si);
+        if (r < 0)
+                return sd_bus_error_set_errno(error, r);
+        if (si.si_code != CLD_EXITED || si.si_status != EXIT_SUCCESS)
+                return sd_bus_error_set_errno(error, EIO);
+
+        r = sd_bus_message_close_container(reply);
+        if (r < 0)
+                return sd_bus_error_set_errno(error, r);
+
+        return sd_bus_send(bus, reply, NULL);
+}
+
 const sd_bus_vtable machine_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Name", "s", NULL, offsetof(Machine, name), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -139,9 +345,10 @@ const sd_bus_vtable machine_vtable[] = {
         SD_BUS_PROPERTY("Class", "s", property_get_class, offsetof(Machine, class), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RootDirectory", "s", NULL, offsetof(Machine, root_directory), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("State", "s", property_get_state, 0, 0),
-        SD_BUS_METHOD("Terminate", NULL, NULL, method_terminate, SD_BUS_VTABLE_CAPABILITY(CAP_KILL)),
-        SD_BUS_METHOD("Kill", "si", NULL, method_kill, SD_BUS_VTABLE_CAPABILITY(CAP_KILL)),
-        SD_BUS_VTABLE_END
+        SD_BUS_METHOD("Terminate", NULL, NULL, bus_machine_method_terminate, SD_BUS_VTABLE_CAPABILITY(CAP_KILL)),
+        SD_BUS_METHOD("Kill", "si", NULL, bus_machine_method_kill, SD_BUS_VTABLE_CAPABILITY(CAP_KILL)),
+        SD_BUS_METHOD("GetAddresses", NULL, "a(yay)", bus_machine_method_get_addresses, SD_BUS_VTABLE_UNPRIVILEGED),
+         SD_BUS_VTABLE_END
 };
 
 int machine_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {

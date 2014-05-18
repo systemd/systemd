@@ -6091,58 +6091,91 @@ int container_get_leader(const char *machine, pid_t *pid) {
         return 0;
 }
 
-int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *root_fd) {
-        _cleanup_close_ int pidnsfd = -1, mntnsfd = -1;
-        const char *pidns, *mntns, *root;
+int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *netns_fd, int *root_fd) {
+        _cleanup_close_ int pidnsfd = -1, mntnsfd = -1, netnsfd = -1;
         int rfd;
 
         assert(pid >= 0);
-        assert(pidns_fd);
-        assert(mntns_fd);
-        assert(root_fd);
 
-        mntns = procfs_file_alloca(pid, "ns/mnt");
-        mntnsfd = open(mntns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
-        if (mntnsfd < 0)
-                return -errno;
+        if (mntns_fd) {
+                const char *mntns;
 
-        pidns = procfs_file_alloca(pid, "ns/pid");
-        pidnsfd = open(pidns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
-        if (pidnsfd < 0)
-                return -errno;
+                mntns = procfs_file_alloca(pid, "ns/mnt");
+                mntnsfd = open(mntns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+                if (mntnsfd < 0)
+                        return -errno;
+        }
 
-        root = procfs_file_alloca(pid, "root");
-        rfd = open(root, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
-        if (rfd < 0)
-                return -errno;
+        if (pidns_fd) {
+                const char *pidns;
 
-        *pidns_fd = pidnsfd;
-        *mntns_fd = mntnsfd;
-        *root_fd = rfd;
-        pidnsfd = -1;
-        mntnsfd = -1;
+                pidns = procfs_file_alloca(pid, "ns/pid");
+                pidnsfd = open(pidns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+                if (pidnsfd < 0)
+                        return -errno;
+        }
+
+        if (netns_fd) {
+                const char *netns;
+
+                netns = procfs_file_alloca(pid, "ns/net");
+                netnsfd = open(netns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+                if (netnsfd < 0)
+                        return -errno;
+        }
+
+        if (root_fd) {
+                const char *root;
+
+                root = procfs_file_alloca(pid, "root");
+                rfd = open(root, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
+                if (rfd < 0)
+                        return -errno;
+        }
+
+        if (pidns_fd)
+                *pidns_fd = pidnsfd;
+
+        if (mntns_fd)
+                *mntns_fd = mntnsfd;
+
+        if (netns_fd)
+                *netns_fd = netnsfd;
+
+        if (root_fd)
+                *root_fd = rfd;
+
+        pidnsfd = mntnsfd = netnsfd = -1;
 
         return 0;
 }
 
-int namespace_enter(int pidns_fd, int mntns_fd, int root_fd) {
-        assert(pidns_fd >= 0);
-        assert(mntns_fd >= 0);
-        assert(root_fd >= 0);
+int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int root_fd) {
 
-        if (setns(pidns_fd, CLONE_NEWPID) < 0)
-                return -errno;
+        if (pidns_fd >= 0)
+                if (setns(pidns_fd, CLONE_NEWPID) < 0)
+                        return -errno;
 
-        if (setns(mntns_fd, CLONE_NEWNS) < 0)
-                return -errno;
+        if (mntns_fd >= 0)
+                if (setns(mntns_fd, CLONE_NEWNS) < 0)
+                        return -errno;
 
-        if (fchdir(root_fd) < 0)
-                return -errno;
+        if (netns_fd >= 0)
+                if (setns(netns_fd, CLONE_NEWNET) < 0)
+                        return -errno;
 
-        if (chroot(".") < 0)
-                return -errno;
+        if (root_fd >= 0) {
+                if (fchdir(root_fd) < 0)
+                        return -errno;
+
+                if (chroot(".") < 0)
+                        return -errno;
+        }
 
         if (setresgid(0, 0, 0) < 0)
+                return -errno;
+
+        if (setgroups(0, NULL) < 0)
                 return -errno;
 
         if (setresuid(0, 0, 0) < 0)

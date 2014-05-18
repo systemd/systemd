@@ -910,8 +910,8 @@ int parse_proc_cmdline(int (*parse_word)(const char *key, const char *value));
 
 int container_get_leader(const char *machine, pid_t *pid);
 
-int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *root_fd);
-int namespace_enter(int pidns_fd, int mntns_fd, int root_fd);
+int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *netns_fd, int *root_fd);
+int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int root_fd);
 
 bool pid_is_alive(pid_t pid);
 bool pid_is_unwaited(pid_t pid);

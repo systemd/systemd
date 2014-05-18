@@ -42,7 +42,7 @@ int bus_container_connect_socket(sd_bus *b) {
         if (r < 0)
                 return r;
 
-        r = namespace_open(leader, &pidnsfd, &mntnsfd, &rootfd);
+        r = namespace_open(leader, &pidnsfd, &mntnsfd, NULL, &rootfd);
         if (r < 0)
                 return r;
 
@@ -61,7 +61,7 @@ int bus_container_connect_socket(sd_bus *b) {
         if (child == 0) {
                 pid_t grandchild;
 
-                r = namespace_enter(pidnsfd, mntnsfd, rootfd);
+                r = namespace_enter(pidnsfd, mntnsfd, -1, rootfd);
                 if (r < 0)
                         _exit(255);
 
@@ -140,7 +140,7 @@ int bus_container_connect_kernel(sd_bus *b) {
         if (r < 0)
                 return r;
 
-        r = namespace_open(leader, &pidnsfd, &mntnsfd, &rootfd);
+        r = namespace_open(leader, &pidnsfd, &mntnsfd, NULL, &rootfd);
         if (r < 0)
                 return r;
 
@@ -156,7 +156,7 @@ int bus_container_connect_kernel(sd_bus *b) {
 
                 pair[0] = safe_close(pair[0]);
 
-                r = namespace_enter(pidnsfd, mntnsfd, rootfd);
+                r = namespace_enter(pidnsfd, mntnsfd, -1, rootfd);
                 if (r < 0)
                         _exit(EXIT_FAILURE);
 
