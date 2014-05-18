@@ -176,6 +176,7 @@ CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -fdata-sections \
         -fstack-protector \
         -fstack-protector-strong \
+        -fPIE \
         --param=ssp-buffer-size=4])
 AS_CASE([$CFLAGS], [*-O[[12345\ ]]*],
         [CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
@@ -195,6 +196,7 @@ CC_CHECK_FLAGS_APPEND([with_ldflags], [LDFLAGS], [\
         -Wl,--gc-sections \
         -Wl,-z,relro \
         -Wl,-z,now \
+        -pie \
         -Wl,-fuse-ld=gold])
 AC_SUBST([OUR_LDFLAGS], "$with_ldflags $sanitizer_ldflags")
 
