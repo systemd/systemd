@@ -30,6 +30,8 @@ External:
 
 Features:
 
+* systemd-notify: fake ucred of msg to PID of parent, if that works, with fallback to our own if it doesn't.
+
 * machined: make sure we can restart machined without losing machines
 * machined/machinectl: sort IP addresses we return by scope and protocol
 * machined: write NSS module for looking up IP addresses for machines
