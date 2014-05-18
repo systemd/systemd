@@ -1976,6 +1976,27 @@ int link_update(Link *link, sd_rtnl_message *m) {
         return link_update_flags(link, m);
 }
 
+static void serialize_addresses(FILE *f, const char *key, Address *address) {
+        Address *ad;
+
+        assert(f);
+        assert(key);
+
+        if (!address)
+                return;
+
+        fprintf(f, "%s=", key);
+
+        LIST_FOREACH(addresses, ad, address) {
+                char buf[INET6_ADDRSTRLEN];
+
+                if (inet_ntop(address->family, &address->in_addr, buf, INET6_ADDRSTRLEN))
+                        fprintf(f, "%s%s", buf, (ad->addresses_next) ? " ": "");
+        }
+
+        fputs("\n", f);
+}
+
 int link_save(Link *link) {
         _cleanup_free_ char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
@@ -2017,12 +2038,18 @@ int link_save(Link *link) {
                 "FLAGS=%u\n",
                 admin_state, oper_state, link->flags);
 
+        if (link->network)
+                serialize_addresses(f, "DNS", link->network->dns);
+
         if (link->dhcp_lease) {
                 r = dhcp_lease_save(link->dhcp_lease, link->lease_file);
                 if (r < 0)
                         goto finish;
 
-                fprintf(f, "DHCP_LEASE=%s\n", link->lease_file);
+                fprintf(f,
+                        "DHCP_LEASE=%s\n"
+                        "DHCP_USE_DNS=%s\n",
+                        link->lease_file, yes_no(link->network->dhcp_dns));
         } else
                 unlink(link->lease_file);
 
