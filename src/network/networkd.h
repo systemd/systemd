@@ -256,7 +256,6 @@ struct Manager {
         Hashmap *links;
         Hashmap *netdevs;
         LIST_HEAD(Network, networks);
-        LIST_HEAD(Address, fallback_dns);
 
         usec_t network_dirs_ts_usec;
         struct kmod_ctx *kmod_ctx;
@@ -278,17 +277,10 @@ int manager_rtnl_listen(Manager *m);
 int manager_udev_listen(Manager *m);
 int manager_bus_listen(Manager *m);
 
-int manager_update_resolv_conf(Manager *m);
 int manager_save(Manager *m);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 #define _cleanup_manager_free_ _cleanup_(manager_freep)
-
-const struct ConfigPerfItem* networkd_gperf_lookup(const char *key, unsigned length);
-
-int config_parse_dnsv(const char *unit, const char *filename, unsigned line,
-                     const char *section, unsigned section_line, const char *lvalue,
-                     int ltype, const char *rvalue, void *data, void *userdata);
 
 /* NetDev */
 

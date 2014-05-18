@@ -72,11 +72,6 @@
                 restarting networkd does not cut the network connection, and, in particular,
                 that it is safe to transition between the initrd and the real root,
                 and back.</para>
-
-                <para>Nameservers configured in networkd, or received over DHCP
-                are exposed in <filename>/run/systemd/network/resolv.conf</filename>.
-                This file should not be used directly, but only through a symlink
-                from <filename>/etc/resolv.conf</filename>.</para>
         </refsect1>
 
         <refsect1><title>Configuration Files</title>

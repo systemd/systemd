@@ -235,7 +235,7 @@ int network_apply(Manager *manager, Network *network, Link *link) {
         link->network = network;
 
         if (network->dns) {
-                r = manager_update_resolv_conf(manager);
+                r = link_save(link);
                 if (r < 0)
                         return r;
         }

@@ -19,7 +19,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
  ***/
 
-#include <resolv.h>
+#include <sys/socket.h>
 #include <linux/if.h>
 #include <libkmod.h>
 
@@ -76,95 +76,6 @@ static int setup_signals(Manager *m) {
         return 0;
 }
 
-static int set_fallback_dns(Manager *m, const char *string) {
-        char *word, *state;
-        size_t length;
-        int r;
-
-        assert(m);
-        assert(string);
-
-        FOREACH_WORD_QUOTED(word, length, string, state) {
-                _cleanup_address_free_ Address *address = NULL;
-                Address *tail;
-                _cleanup_free_ char *addrstr = NULL;
-
-                r = address_new_dynamic(&address);
-                if (r < 0)
-                        return r;
-
-                addrstr = strndup(word, length);
-                if (!addrstr)
-                        return -ENOMEM;
-
-                r = net_parse_inaddr(addrstr, &address->family, &address->in_addr);
-                if (r < 0) {
-                        log_debug("Ignoring invalid DNS address '%s'", addrstr);
-                        continue;
-                }
-
-                LIST_FIND_TAIL(addresses, m->fallback_dns, tail);
-                LIST_INSERT_AFTER(addresses, m->fallback_dns, tail, address);
-                address = NULL;
-        }
-
-        return 0;
-}
-
-int config_parse_dnsv(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        Manager *m = userdata;
-        Address *address;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(m);
-
-        while ((address = m->fallback_dns)) {
-                LIST_REMOVE(addresses, m->fallback_dns, address);
-                address_free(address);
-        }
-
-        set_fallback_dns(m, rvalue);
-
-        return 0;
-}
-
-static int manager_parse_config_file(Manager *m) {
-        static const char fn[] = "/etc/systemd/networkd.conf";
-        _cleanup_fclose_ FILE *f = NULL;
-        int r;
-
-        assert(m);
-
-        f = fopen(fn, "re");
-        if (!f) {
-                if (errno == ENOENT)
-                        return 0;
-
-                log_warning("Failed to open configuration file %s: %m", fn);
-                return -errno;
-        }
-
-        r = config_parse(NULL, fn, f, "Network\0", config_item_perf_lookup,
-                         (void*) networkd_gperf_lookup, false, false, m);
-        if (r < 0)
-                log_warning("Failed to parse configuration file: %s", strerror(-r));
-
-        return r;
-}
-
 int manager_new(Manager **ret) {
         _cleanup_manager_free_ Manager *m = NULL;
         int r;
@@ -176,14 +87,6 @@ int manager_new(Manager **ret) {
         m->state_file = strdup("/run/systemd/network/state");
         if (!m->state_file)
                 return -ENOMEM;
-
-        r = set_fallback_dns(m, DNS_SERVERS);
-        if (r < 0)
-                return r;
-
-        r = manager_parse_config_file(m);
-        if (r < 0)
-                return r;
 
         r = sd_event_default(&m->event);
         if (r < 0)
@@ -241,7 +144,6 @@ void manager_free(Manager *m) {
         Network *network;
         NetDev *netdev;
         Link *link;
-        Address *address;
 
         if (!m)
                 return;
@@ -256,11 +158,6 @@ void manager_free(Manager *m) {
         sd_event_source_unref(m->sigterm_event_source);
         sd_event_source_unref(m->sigint_event_source);
         sd_event_unref(m->event);
-
-        while ((address = m->fallback_dns)) {
-                LIST_REMOVE(addresses, m->fallback_dns, address);
-                address_free(address);
-        }
 
         while ((link = hashmap_first(m->links)))
                 link_unref(link);
@@ -518,102 +415,6 @@ int manager_bus_listen(Manager *m) {
         r = sd_bus_attach_event(m->bus, m->event, 0);
         if (r < 0)
                 return r;
-
-        return 0;
-}
-
-static void append_dns(FILE *f, struct in_addr *dns, unsigned char family, unsigned *count) {
-        char buf[INET6_ADDRSTRLEN];
-        const char *address;
-
-        address = inet_ntop(family, dns, buf, INET6_ADDRSTRLEN);
-        if (!address) {
-                log_warning("Invalid DNS address. Ignoring.");
-                return;
-        }
-
-        if (*count == MAXNS)
-                fputs("# Too many DNS servers configured, the following entries "
-                      "will be ignored\n", f);
-
-        fprintf(f, "nameserver %s\n", address);
-
-        (*count) ++;
-}
-
-int manager_update_resolv_conf(Manager *m) {
-        _cleanup_free_ char *temp_path = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
-        Link *link;
-        Iterator i;
-        unsigned count = 0;
-        const char *domainname = NULL;
-        int r;
-
-        assert(m);
-
-        r = fopen_temporary("/run/systemd/network/resolv.conf", &f, &temp_path);
-        if (r < 0)
-                return r;
-
-        fchmod(fileno(f), 0644);
-
-        fputs("# This file is managed by systemd-networkd(8). Do not edit.\n#\n"
-              "# Third party programs must not access this file directly, but\n"
-              "# only through the symlink at /etc/resolv.conf. To manage\n"
-              "# resolv.conf(5) in a different way, replace the symlink by a\n"
-              "# static file or a different symlink.\n\n", f);
-
-        HASHMAP_FOREACH(link, m->links, i) {
-                if (link->dhcp_lease) {
-                        struct in_addr *nameservers;
-                        size_t nameservers_size;
-
-                        if (link->network->dhcp_dns) {
-                                r = sd_dhcp_lease_get_dns(link->dhcp_lease, &nameservers, &nameservers_size);
-                                if (r >= 0) {
-                                        unsigned j;
-
-                                        for (j = 0; j < nameservers_size; j++)
-                                                append_dns(f, &nameservers[j], AF_INET, &count);
-                                }
-                        }
-
-                        if (link->network->dhcp_domainname && !domainname) {
-                                r = sd_dhcp_lease_get_domainname(link->dhcp_lease, &domainname);
-                                if (r >= 0)
-                                       fprintf(f, "domain %s\n", domainname);
-                        }
-                }
-        }
-
-        HASHMAP_FOREACH(link, m->links, i) {
-                if (link->network && link->network->dns) {
-                        Address *address;
-
-                        LIST_FOREACH(addresses, address, link->network->dns) {
-                                append_dns(f, &address->in_addr.in,
-                                           address->family, &count);
-                        }
-                }
-        }
-
-        if (!count) {
-                Address *address;
-
-                LIST_FOREACH(addresses, address, m->fallback_dns)
-                        append_dns(f, &address->in_addr.in,
-                                   address->family, &count);
-        }
-
-        fflush(f);
-
-        if (ferror(f) || rename(temp_path, "/run/systemd/network/resolv.conf") < 0) {
-                r = -errno;
-                unlink("/run/systemd/network/resolv.conf");
-                unlink(temp_path);
-                return r;
-        }
 
         return 0;
 }

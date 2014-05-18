@@ -3,7 +3,7 @@
 /***
   This file is part of systemd.
 
-  Copyright 2013 Tom Gundersen <teg@jklm.no>
+  Copyright 2014 Tom Gundersen <teg@jklm.no>
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -22,7 +22,9 @@
 #include "sd-event.h"
 #include "sd-daemon.h"
 
-#include "networkd.h"
+#include "resolved.h"
+
+#include "mkdir.h"
 
 int main(int argc, char *argv[]) {
         _cleanup_manager_free_ Manager *m = NULL;
@@ -40,21 +42,10 @@ int main(int argc, char *argv[]) {
                 goto out;
         }
 
-        /* Always create the directories people can create inotify
-         * watches in. */
+        /* Always create the directory where resolv.conf will live */
         r = mkdir_label("/run/systemd/network", 0755);
         if (r < 0)
                 log_error("Could not create runtime directory: %s",
-                          strerror(-r));
-
-        r = mkdir_label("/run/systemd/network/links", 0755);
-        if (r < 0)
-                log_error("Could not create runtime directory 'links': %s",
-                          strerror(-r));
-
-        r = mkdir_label("/run/systemd/network/leases", 0755);
-        if (r < 0)
-                log_error("Could not create runtime directory 'leases': %s",
                           strerror(-r));
 
         r = manager_new(&m);
@@ -63,33 +54,17 @@ int main(int argc, char *argv[]) {
                 goto out;
         }
 
-        r = manager_udev_listen(m);
+        r = manager_network_monitor_listen(m);
         if (r < 0) {
-                log_error("Could not connect to udev: %s", strerror(-r));
+                log_error("Could not listen for network events: %s", strerror(-r));
                 goto out;
         }
 
-        r = manager_rtnl_listen(m);
+        /* write out default resolv.conf to avoid a
+         * dangling symlink */
+        r = manager_update_resolv_conf(m);
         if (r < 0) {
-                log_error("Could not connect to rtnl: %s", strerror(-r));
-                goto out;
-        }
-
-        r = manager_bus_listen(m);
-        if (r < 0) {
-                log_error("Could not connect to system bus: %s", strerror(-r));
-                goto out;
-        }
-
-        r = manager_load_config(m);
-        if (r < 0) {
-                log_error("Could not load configuration files: %s", strerror(-r));
-                goto out;
-        }
-
-        r = manager_rtnl_enumerate_links(m);
-        if (r < 0) {
-                log_error("Could not enumerate links: %s", strerror(-r));
+                log_error("Could not create resolv.conf: %s", strerror(-r));
                 goto out;
         }
 

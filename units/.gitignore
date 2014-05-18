@@ -49,6 +49,7 @@
 /systemd-readahead-replay.service
 /systemd-reboot.service
 /systemd-remount-fs.service
+/systemd-resolved.service
 /systemd-rfkill@.service
 /systemd-shutdownd.service
 /systemd-suspend.service

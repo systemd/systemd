@@ -854,8 +854,6 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
         struct in_addr netmask;
         struct in_addr gateway;
         unsigned prefixlen;
-        struct in_addr *nameservers;
-        size_t nameservers_size;
         int r;
 
         assert(client);
@@ -919,15 +917,6 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
                                  NULL);
 
         link->dhcp_lease = lease;
-
-        if (link->network->dhcp_dns) {
-                r = sd_dhcp_lease_get_dns(lease, &nameservers, &nameservers_size);
-                if (r >= 0) {
-                        r = manager_update_resolv_conf(link->manager);
-                        if (r < 0)
-                                log_error_link(link, "Failed to update resolv.conf");
-                }
-        }
 
         if (link->network->dhcp_mtu) {
                 uint16_t mtu;

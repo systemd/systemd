@@ -4194,6 +4194,51 @@ EXTRA_DIST += \
 endif
 
 # ------------------------------------------------------------------------------
+if ENABLE_RESOLVED
+systemd_resolved_SOURCES = \
+	src/resolve/resolved.h \
+	src/resolve/resolved.c \
+	src/resolve/resolved-manager.c
+
+nodist_systemd_resolved_SOURCES = \
+	src/resolve/resolved-gperf.c
+
+EXTRA_DIST += \
+	src/resolve/resolved-gperf.gperf
+
+CLEANFILES += \
+	src/resolve/resolved-gperf.c
+
+systemd_resolved_LDADD = \
+	libsystemd-label.la \
+	libsystemd-internal.la \
+	libsystemd-shared.la \
+	libsystemd-network.la
+
+rootlibexec_PROGRAMS += \
+	systemd-resolved
+
+nodist_systemunit_DATA += \
+	units/systemd-resolved.service
+
+EXTRA_DIST += \
+	units/systemd-resolved.service.in
+
+GENERAL_ALIASES += \
+	$(systemunitdir)/systemd-resolved.service $(pkgsysconfdir)/system/multi-user.target.wants/systemd-resolved.service
+
+nodist_pkgsysconf_DATA += \
+	src/resolve/resolved.conf
+
+EXTRA_DIST += \
+	src/resolve/resolved.conf.in
+
+CLEANFILES += \
+	src/resolve/resolved.conf
+
+endif
+
+# ------------------------------------------------------------------------------
 if ENABLE_NETWORKD
 rootlibexec_PROGRAMS += \
 	systemd-networkd
@@ -4225,8 +4270,7 @@ libsystemd_networkd_core_la_SOURCES = \
 
 nodist_libsystemd_networkd_core_la_SOURCES = \
 	src/network/networkd-network-gperf.c \
-	src/network/networkd-netdev-gperf.c \
-	src/network/networkd-gperf.c
+	src/network/networkd-netdev-gperf.c
 
 libsystemd_networkd_core_la_LIBADD = \
 	libudev-internal.la \
@@ -4272,22 +4316,15 @@ GENERAL_ALIASES += \
 	$(systemunitdir)/systemd-networkd.service $(pkgsysconfdir)/system/multi-user.target.wants/systemd-networkd.service \
 	$(systemunitdir)/systemd-networkd.service $(pkgsysconfdir)/system/network-online.target.wants/systemd-networkd-wait-online.service
 
-nodist_pkgsysconf_DATA += \
-	src/network/networkd.conf
-
 EXTRA_DIST += \
 	src/network/networkd-network-gperf.gperf \
 	src/network/networkd-netdev-gperf.gperf \
-	src/network/networkd-gperf.gperf \
 	units/systemd-networkd.service.in \
-	units/systemd-networkd-wait-online.service.in \
-	src/network/networkd.conf.in
+	units/systemd-networkd-wait-online.service.in
 
 CLEANFILES += \
 	src/network/networkd-network-gperf.c \
-	src/network/networkd-netdev-gperf.c \
-	src/network/networkd-gperf.c \
-	src/network/networkd.conf
+	src/network/networkd-netdev-gperf.c
 endif
 
 # ------------------------------------------------------------------------------

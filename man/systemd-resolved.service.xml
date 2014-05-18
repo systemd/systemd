@@ -1,0 +1,85 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2014 Tom Gundersen
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="systemd-resolved.service" conditional='ENABLE_RESOLVED'>
+
+        <refentryinfo>
+                <title>systemd-resolved.service</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Tom</firstname>
+                                <surname>Gundersen</surname>
+                                <email>teg@jklm.no</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>systemd-resolved.service</refentrytitle>
+                <manvolnum>8</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>systemd-resolved.service</refname>
+                <refname>systemd-resolved</refname>
+                <refpurpose>Network Name Resolution manager</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <para><filename>systemd-resolved.service</filename></para>
+                <para><filename>/usr/lib/systemd/systemd-resolved</filename></para>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para><command>systemd-networkd</command> is a system
+                service that manages network name resolution. It does so by
+		generating <filename>/run/systemd/network/resolv.conf</filename>,
+		which may be symlinked from <filename>/etc/resolv.conf</filename>.
+		The contents is generated from the global settings in
+                <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+		the per-link static settings in <filename>.network</filename> files,
+		and the per-link dynamic settings received over DHCP. See
+                <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+		for more details.</para>
+
+                <para>Note that <filename>/run/systemd/network/resolv.conf</filename>
+                should not be used directly, but only through a symlink from
+		<filename>/etc/resolv.conf</filename>.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>See Also</title>
+                <para>
+			<citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                </para>
+        </refsect1>
+
+</refentry>

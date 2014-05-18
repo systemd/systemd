@@ -1,0 +1,17 @@
+%{
+#include <stddef.h>
+#include "conf-parser.h"
+#include "resolved.h"
+%}
+struct ConfigPerfItem;
+%null_strings
+%language=ANSI-C
+%define slot-name section_and_lvalue
+%define hash-function-name resolved_gperf_hash
+%define lookup-function-name resolved_gperf_lookup
+%readonly-tables
+%omit-struct-type
+%struct-type
+%includes
+%%
+Resolve.DNS,                    config_parse_dnsv,     0, offsetof(Manager, fallback_dns)
