@@ -166,7 +166,7 @@ CHANGES WITH 211:
           directory's lifetime is bound to the daemon runtime and that
           the daemon starts up with an empty directory each time. This
           is particularly useful when writing services that drop
-          priviliges using the User= or Group= setting.
+          privileges using the User= or Group= setting.
 
         * The DeviceAllow= unit setting now supports globbing for
           matching against device group names.

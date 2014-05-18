@@ -1141,7 +1141,7 @@ static int manager_network_monitor_listen(Manager *m) {
         return 0;
 }
 
-static int drop_priviliges(void) {
+static int drop_privileges(void) {
         static const cap_value_t bits[] = {
                 CAP_SYS_TIME,
         };
@@ -1152,7 +1152,7 @@ static int drop_priviliges(void) {
         gid_t gid;
         int r;
 
-        /* Unfortunately we cannot leave privilige dropping to PID 1
+        /* Unfortunately we cannot leave privilege dropping to PID 1
          * here, since we want to run as user but want to keep te
          * CAP_SYS_TIME capability. Since file capabilities have been
          * introduced this cannot be done across exec() anymore,
@@ -1231,7 +1231,7 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        r = drop_priviliges();
+        r = drop_privileges();
         if (r < 0)
                 goto out;
 

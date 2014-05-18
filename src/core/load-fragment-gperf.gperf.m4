@@ -48,7 +48,7 @@ $1.Capabilities,                 config_parse_exec_capabilities,     0,         
 $1.SecureBits,                   config_parse_exec_secure_bits,      0,                             offsetof($1, exec_context)
 $1.CapabilityBoundingSet,        config_parse_bounding_set,          0,                             offsetof($1, exec_context.capability_bounding_set_drop)
 $1.TimerSlackNSec,               config_parse_nsec,                  0,                             offsetof($1, exec_context.timer_slack_nsec)
-$1.NoNewPrivileges,              config_parse_no_new_priviliges,     0,                             offsetof($1, exec_context)
+$1.NoNewPrivileges,              config_parse_no_new_privileges,     0,                             offsetof($1, exec_context)
 m4_ifdef(`HAVE_SECCOMP',
 `$1.SystemCallFilter,            config_parse_syscall_filter,        0,                             offsetof($1, exec_context)
 $1.SystemCallArchitectures,      config_parse_syscall_archs,         0,                             offsetof($1, exec_context.syscall_archs)

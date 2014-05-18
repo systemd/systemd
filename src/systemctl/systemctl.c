@@ -5923,7 +5923,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case 'r':
                         if (geteuid() != 0) {
-                                log_error("--recursive requires root priviliges.");
+                                log_error("--recursive requires root privileges.");
                                 return -EPERM;
                         }
 

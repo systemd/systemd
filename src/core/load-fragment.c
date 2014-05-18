@@ -3029,7 +3029,7 @@ int config_parse_namespace_path_strv(
         return 0;
 }
 
-int config_parse_no_new_priviliges(
+int config_parse_no_new_privileges(
                 const char* unit,
                 const char *filename,
                 unsigned line,

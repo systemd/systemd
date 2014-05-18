@@ -185,7 +185,7 @@ USERS AND GROUPS:
 
         The NTP daemon requires the "systemd-timesync" system user and
         group to exist. During execution this network facing service
-        will drop priviliges (with the exception of CAP_SYS_TIME) and
+        will drop privileges (with the exception of CAP_SYS_TIME) and
         assume this uid/gid for security reasons.
 
 WARNINGS:

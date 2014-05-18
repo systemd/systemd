@@ -1275,7 +1275,7 @@
                                 <literal>/</literal>, i.e. must refer
                                 to simple directories to create or
                                 remove. This is particularly useful
-                                for unpriviliges daemons that cannot
+                                for unprivileged daemons that cannot
                                 create runtime directories in
                                 <filename>/run</filename> due to lack
                                 of privileges, and to make sure the

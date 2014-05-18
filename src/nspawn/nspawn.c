@@ -3057,7 +3057,7 @@ int main(int argc, char *argv[]) {
                 fds = NULL;
 
                 /* Wait until the child reported that it is ready with
-                 * all it needs to do with priviliges. After we got
+                 * all it needs to do with privileges. After we got
                  * the notification we can make the process join its
                  * cgroup which might limit what it can do */
                 eventfd_read(child_ready_fd, &x);
