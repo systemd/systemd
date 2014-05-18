@@ -32,6 +32,7 @@
 #include "strv.h"
 #include "fileio.h"
 #include "sd-network.h"
+#include "network-internal.h"
 #include "dhcp-lease-internal.h"
 
 static int link_get_flags(unsigned index, unsigned *flags) {
@@ -167,6 +168,64 @@ _public_ int sd_network_get_dhcp_lease(unsigned index, sd_dhcp_lease **ret) {
         *ret = lease;
 
         return 0;
+}
+
+_public_ int sd_network_get_dns(unsigned index, struct in_addr **addr, size_t *addr_size) {
+        _cleanup_free_ char *p = NULL, *s = NULL;
+        int r;
+
+        assert_return(index, -EINVAL);
+        assert_return(addr, -EINVAL);
+        assert_return(addr_size, -EINVAL);
+
+        if (asprintf(&p, "/run/systemd/network/links/%u", index) < 0)
+                return -ENOMEM;
+
+        r = parse_env_file(p, NEWLINE, "DNS", &s, NULL);
+        if (r < 0)
+                return r;
+        else if (!s)
+                return -EIO;
+
+        return deserialize_in_addrs(addr, addr_size, s);
+}
+
+_public_ int sd_network_get_dns6(unsigned index, struct in6_addr **addr, size_t *addr_size) {
+        _cleanup_free_ char *p = NULL, *s = NULL;
+        int r;
+
+        assert_return(index, -EINVAL);
+        assert_return(addr, -EINVAL);
+        assert_return(addr_size, -EINVAL);
+
+        if (asprintf(&p, "/run/systemd/network/links/%u", index) < 0)
+                return -ENOMEM;
+
+        r = parse_env_file(p, NEWLINE, "DNS", &s, NULL);
+        if (r < 0)
+                return r;
+        else if (!s)
+                return -EIO;
+
+        return deserialize_in6_addrs(addr, addr_size, s);
+}
+
+_public_ int sd_network_dhcp_use_dns(unsigned index) {
+        _cleanup_free_ char *p = NULL, *s = NULL;
+        int r;
+
+        assert_return(index, -EINVAL);
+
+        if (asprintf(&p, "/run/systemd/network/links/%u", index) < 0)
+                return -ENOMEM;
+
+        r = parse_env_file(p, NEWLINE, "DHCP_USE_DNS", &s, NULL);
+        if (r < 0)
+                return r;
+        else if (!s)
+                return -EIO;
+
+        return parse_boolean(s);
 }
 
 _public_ int sd_network_get_ifindices(unsigned **indices) {
