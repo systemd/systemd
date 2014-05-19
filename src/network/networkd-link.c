@@ -1979,7 +1979,7 @@ static void serialize_addresses(FILE *f, const char *key, Address *address) {
         LIST_FOREACH(addresses, ad, address) {
                 char buf[INET6_ADDRSTRLEN];
 
-                if (inet_ntop(address->family, &address->in_addr, buf, INET6_ADDRSTRLEN))
+                if (inet_ntop(ad->family, &ad->in_addr, buf, INET6_ADDRSTRLEN))
                         fprintf(f, "%s%s", buf, (ad->addresses_next) ? " ": "");
         }
 
