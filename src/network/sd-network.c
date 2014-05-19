@@ -142,8 +142,8 @@ _public_ int sd_network_get_link_operational_state(unsigned index, char **state)
 }
 
 _public_ int sd_network_get_dhcp_lease(unsigned index, sd_dhcp_lease **ret) {
+        _cleanup_free_ char *p = NULL, *s = NULL;
         sd_dhcp_lease *lease;
-        char *p, *s = NULL;
         int r;
 
         assert_return(index, -EINVAL);
@@ -153,12 +153,10 @@ _public_ int sd_network_get_dhcp_lease(unsigned index, sd_dhcp_lease **ret) {
                 return -ENOMEM;
 
         r = parse_env_file(p, NEWLINE, "DHCP_LEASE", &s, NULL);
-        free(p);
 
-        if (r < 0) {
-                free(s);
+        if (r < 0)
                 return r;
-        } else if (!s)
+        else if (!s)
                 return -EIO;
 
         r = dhcp_lease_load(s, &lease);
