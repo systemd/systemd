@@ -135,6 +135,11 @@ global:
         sd_peer_get_user_unit;
         sd_peer_get_machine_name;
         sd_peer_get_slice;
+} LIBSYSTEMD_209;
+
+LIBSYSTEMD_213 {
+global:
+        sd_uid_get_display;
 
 m4_ifdef(`ENABLE_KDBUS',
         /* sd-bus */
@@ -427,4 +432,4 @@ m4_ifdef(`ENABLE_KDBUS',
         sd_resolve_query_set_userdata;
         sd_resolve_query_get_resolve;
 )
-} LIBSYSTEMD_209;
+} LIBSYSTEMD_211;

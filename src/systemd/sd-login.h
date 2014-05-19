@@ -103,7 +103,10 @@ int sd_peer_get_machine_name(int fd, char **machine);
 int sd_peer_get_slice(int fd, char **slice);
 
 /* Get state from UID. Possible states: offline, lingering, online, active, closing */
-int sd_uid_get_state(uid_t uid, char**state);
+int sd_uid_get_state(uid_t uid, char **state);
+
+/* Return primary session of user, if there is any */
+int sd_uid_get_display(uid_t uid, char **session);
 
 /* Return 1 if UID has session on seat. If require_active is true, this will
  * look for active sessions only. */

@@ -165,6 +165,15 @@ _public_ int sd_peer_get_slice(int fd, char **slice) {
         return cg_pid_get_slice(ucred.pid, slice);
 }
 
+static int file_of_uid(uid_t uid, char **p) {
+        assert(p);
+
+        if (asprintf(p, "/run/systemd/users/" UID_FMT, uid) < 0)
+                return -ENOMEM;
+
+        return 0;
+}
+
 _public_ int sd_uid_get_state(uid_t uid, char**state) {
         _cleanup_free_ char *p = NULL;
         char *s = NULL;
@@ -172,8 +181,9 @@ _public_ int sd_uid_get_state(uid_t uid, char**state) {
 
         assert_return(state, -EINVAL);
 
-        if (asprintf(&p, "/run/systemd/users/"UID_FMT, uid) < 0)
-                return -ENOMEM;
+        r = file_of_uid(uid, &p);
+        if (r < 0)
+                return r;
 
         r = parse_env_file(p, NEWLINE, "STATE", &s, NULL);
         if (r == -ENOENT) {
@@ -189,6 +199,29 @@ _public_ int sd_uid_get_state(uid_t uid, char**state) {
                 return -EIO;
 
         *state = s;
+        return 0;
+}
+
+_public_ int sd_uid_get_display(uid_t uid, char **session) {
+        _cleanup_free_ char *p = NULL, *s = NULL;
+        int r;
+
+        assert_return(session, -EINVAL);
+
+        r = file_of_uid(uid, &p);
+        if (r < 0)
+                return r;
+
+        r = parse_env_file(p, NEWLINE, "DISPLAY", &s, NULL);
+        if (r < 0)
+                return r;
+
+        if (isempty(s))
+                return -ENOENT;
+
+        *session = s;
+        s = NULL;
+
         return 0;
 }
 
@@ -231,8 +264,9 @@ static int uid_get_array(uid_t uid, const char *variable, char ***array) {
         char **a;
         int r;
 
-        if (asprintf(&p, "/run/systemd/users/"UID_FMT, uid) < 0)
-                return -ENOMEM;
+        r = file_of_uid(uid, &p);
+        if (r < 0)
+                return r;
 
         r = parse_env_file(p, NEWLINE,
                            variable, &s,
@@ -362,7 +396,6 @@ _public_ int sd_session_get_state(const char *session, char **state) {
                 return r;
 
         r = parse_env_file(p, NEWLINE, "STATE", &s, NULL);
-
         if (r < 0)
                 return r;
         else if (!s)
@@ -405,7 +438,6 @@ static int session_get_string(const char *session, const char *field, char **val
                 return r;
 
         r = parse_env_file(p, NEWLINE, field, &s, NULL);
-
         if (r < 0)
                 return r;
 
