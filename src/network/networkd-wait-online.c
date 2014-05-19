@@ -183,7 +183,9 @@ static bool all_configured(Manager *m) {
                         return false;
 
                 r = sd_network_get_link_operational_state(indices[i], &oper_state);
-                if (r >= 0 && streq(oper_state, "carrier"))
+                if (r >= 0 &&
+                    (streq(oper_state, "degraded") ||
+                     streq(oper_state, "routable")))
                         /* we wait for at least one link to be ready,
                            regardless of who manages it */
                         one_ready = true;
