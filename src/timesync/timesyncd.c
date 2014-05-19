@@ -1070,7 +1070,7 @@ static bool network_is_online(void) {
         int r;
 
         r = sd_network_get_operational_state(&state);
-        if (r >= 0 && streq("carrier", state))
+        if (r >= 0 && (streq("routable", state) || streq("degraded", state)))
                 return true;
         else
                 return false;
