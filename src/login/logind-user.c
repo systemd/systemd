@@ -713,6 +713,43 @@ int user_kill(User *u, int signo) {
         return manager_kill_unit(u->manager, u->slice, KILL_ALL, signo, NULL);
 }
 
+void user_elect_display(User *u) {
+        Session *graphical = NULL, *text = NULL, *s;
+
+        assert(u);
+
+        /* This elects a primary session for each user, which we call
+         * the "display". We try to keep the assignment stable, but we
+         * "upgrade" to better choices. */
+
+        LIST_FOREACH(sessions_by_user, s, u->sessions) {
+
+                if (s->class != SESSION_USER)
+                        continue;
+
+                if (s->stopping)
+                        continue;
+
+                if (SESSION_TYPE_IS_GRAPHICAL(s->type))
+                        graphical = s;
+                else
+                        text = s;
+        }
+
+        if (graphical &&
+            (!u->display ||
+             u->display->class != SESSION_USER ||
+             u->display->stopping ||
+             !SESSION_TYPE_IS_GRAPHICAL(u->display->type)))
+                u->display = graphical;
+
+        if (text &&
+            (!u->display ||
+             u->display->class != SESSION_USER ||
+             u->display->stopping))
+                u->display = text;
+}
+
 static const char* const user_state_table[_USER_STATE_MAX] = {
         [USER_OFFLINE] = "offline",
         [USER_OPENING] = "opening",

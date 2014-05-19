@@ -545,6 +545,8 @@ int session_start(Session *s) {
 
         s->started = true;
 
+        user_elect_display(s->user);
+
         /* Save data */
         session_save(s);
         user_save(s->user);
@@ -553,7 +555,7 @@ int session_start(Session *s) {
 
         /* Send signals */
         session_send_signal(s, true);
-        user_send_changed(s->user, "Sessions", NULL);
+        user_send_changed(s->user, "Sessions", "Display", NULL);
         if (s->seat) {
                 if (s->seat->active == s)
                         seat_send_changed(s->seat, "Sessions", "ActiveSession", NULL);
@@ -612,6 +614,8 @@ int session_stop(Session *s, bool force) {
 
         s->stopping = true;
 
+        user_elect_display(s->user);
+
         session_save(s);
         user_save(s->user);
 
@@ -660,7 +664,7 @@ int session_finalize(Session *s) {
         }
 
         user_save(s->user);
-        user_send_changed(s->user, "Sessions", NULL);
+        user_send_changed(s->user, "Sessions", "Display", NULL);
 
         return r;
 }

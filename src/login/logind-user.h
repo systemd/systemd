@@ -80,6 +80,7 @@ int user_save(User *u);
 int user_load(User *u);
 int user_kill(User *u, int signo);
 int user_check_linger_file(User *u);
+void user_elect_display(User *u);
 
 extern const sd_bus_vtable user_vtable[];
 int user_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error);
