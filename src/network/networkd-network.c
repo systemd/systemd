@@ -81,6 +81,7 @@ static int network_load_one(Manager *manager, const char *filename) {
         if (!network->filename)
                 return log_oom();
 
+        network->dhcp_ntp = true;
         network->dhcp_dns = true;
         network->dhcp_hostname = true;
         network->dhcp_domainname = true;
@@ -160,6 +161,11 @@ void network_free(Network *network) {
 
         free(network->description);
 
+        while ((address = network->ntp)) {
+                LIST_REMOVE(addresses, network->ntp, address);
+                address_free(address);
+        }
+
         while ((address = network->dns)) {
                 LIST_REMOVE(addresses, network->dns, address);
                 address_free(address);
@@ -234,7 +240,7 @@ int network_apply(Manager *manager, Network *network, Link *link) {
 
         link->network = network;
 
-        if (network->dns) {
+        if (network->dns || network->ntp) {
                 r = link_save(link);
                 if (r < 0)
                         return r;

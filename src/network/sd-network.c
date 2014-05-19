@@ -168,7 +168,7 @@ _public_ int sd_network_get_dhcp_lease(unsigned index, sd_dhcp_lease **ret) {
         return 0;
 }
 
-_public_ int sd_network_get_dns(unsigned index, struct in_addr **addr, size_t *addr_size) {
+static int network_get_in_addr(const char *key, unsigned index, struct in_addr **addr, size_t *addr_size) {
         _cleanup_free_ char *p = NULL, *s = NULL;
         int r;
 
@@ -179,7 +179,7 @@ _public_ int sd_network_get_dns(unsigned index, struct in_addr **addr, size_t *a
         if (asprintf(&p, "/run/systemd/network/links/%u", index) < 0)
                 return -ENOMEM;
 
-        r = parse_env_file(p, NEWLINE, "DNS", &s, NULL);
+        r = parse_env_file(p, NEWLINE, key, &s, NULL);
         if (r < 0)
                 return r;
         else if (!s)
@@ -188,7 +188,15 @@ _public_ int sd_network_get_dns(unsigned index, struct in_addr **addr, size_t *a
         return deserialize_in_addrs(addr, addr_size, s);
 }
 
-_public_ int sd_network_get_dns6(unsigned index, struct in6_addr **addr, size_t *addr_size) {
+_public_ int sd_network_get_dns(unsigned index, struct in_addr **addr, size_t *addr_size) {
+        return network_get_in_addr("DNS", index, addr, addr_size);
+}
+
+_public_ int sd_network_get_ntp(unsigned index, struct in_addr **addr, size_t *addr_size) {
+        return network_get_in_addr("NTP", index, addr, addr_size);
+}
+
+static int network_get_in6_addr(const char *key, unsigned index, struct in6_addr **addr, size_t *addr_size) {
         _cleanup_free_ char *p = NULL, *s = NULL;
         int r;
 
@@ -199,7 +207,7 @@ _public_ int sd_network_get_dns6(unsigned index, struct in6_addr **addr, size_t 
         if (asprintf(&p, "/run/systemd/network/links/%u", index) < 0)
                 return -ENOMEM;
 
-        r = parse_env_file(p, NEWLINE, "DNS", &s, NULL);
+        r = parse_env_file(p, NEWLINE, key, &s, NULL);
         if (r < 0)
                 return r;
         else if (!s)
@@ -208,7 +216,15 @@ _public_ int sd_network_get_dns6(unsigned index, struct in6_addr **addr, size_t 
         return deserialize_in6_addrs(addr, addr_size, s);
 }
 
-_public_ int sd_network_dhcp_use_dns(unsigned index) {
+_public_ int sd_network_get_dns6(unsigned index, struct in6_addr **addr, size_t *addr_size) {
+        return network_get_in6_addr("DNS", index, addr, addr_size);
+}
+
+_public_ int sd_network_get_ntp6(unsigned index, struct in6_addr **addr, size_t *addr_size) {
+        return network_get_in6_addr("NTP", index, addr, addr_size);
+}
+
+static int network_get_boolean(const char *key, unsigned index) {
         _cleanup_free_ char *p = NULL, *s = NULL;
         int r;
 
@@ -217,13 +233,21 @@ _public_ int sd_network_dhcp_use_dns(unsigned index) {
         if (asprintf(&p, "/run/systemd/network/links/%u", index) < 0)
                 return -ENOMEM;
 
-        r = parse_env_file(p, NEWLINE, "DHCP_USE_DNS", &s, NULL);
+        r = parse_env_file(p, NEWLINE, key, &s, NULL);
         if (r < 0)
                 return r;
         else if (!s)
                 return -EIO;
 
         return parse_boolean(s);
+}
+
+_public_ int sd_network_dhcp_use_dns(unsigned index) {
+        return network_get_boolean("DHCP_USE_DNS", index);
+}
+
+_public_ int sd_network_dhcp_use_ntp(unsigned index) {
+        return network_get_boolean("DHCP_USE_NTP", index);
 }
 
 _public_ int sd_network_get_ifindices(unsigned **indices) {

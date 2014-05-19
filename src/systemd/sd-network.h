@@ -83,11 +83,20 @@ int sd_network_get_dhcp_lease(unsigned index, sd_dhcp_lease **ret);
 /* Returns true if link is configured to respect DNS entries received by DHCP */
 int sd_network_dhcp_use_dns(unsigned index);
 
+/* Returns true if link is configured to respect NTP entries received by DHCP */
+int sd_network_dhcp_use_ntp(unsigned index);
+
 /* Get IPv4 DNS entries statically configured for the link */
 int sd_network_get_dns(unsigned index, struct in_addr **addr, size_t *addr_size);
 
+/* Get IPv4 NTP entries statically configured for the link */
+int sd_network_get_ntp(unsigned index, struct in_addr **addr, size_t *addr_size);
+
 /* Get IPv6 DNS entries statically configured for the link */
 int sd_network_get_dns6(unsigned index, struct in6_addr **addr, size_t *addr_size);
+
+/* Get IPv6 NTP entries statically configured for the link */
+int sd_network_get_ntp6(unsigned index, struct in6_addr **addr, size_t *addr_size);
 
 /* Get all network interfaces' indices, and store them in *indices. Returns
  * the number of indices. If indices is NULL, only returns the number of indices. */

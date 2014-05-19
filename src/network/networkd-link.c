@@ -2027,8 +2027,10 @@ int link_save(Link *link) {
                 "FLAGS=%u\n",
                 admin_state, oper_state, link->flags);
 
-        if (link->network)
+        if (link->network) {
                 serialize_addresses(f, "DNS", link->network->dns);
+                serialize_addresses(f, "NTP", link->network->ntp);
+        }
 
         if (link->dhcp_lease) {
                 r = dhcp_lease_save(link->dhcp_lease, link->lease_file);
@@ -2037,8 +2039,11 @@ int link_save(Link *link) {
 
                 fprintf(f,
                         "DHCP_LEASE=%s\n"
-                        "DHCP_USE_DNS=%s\n",
-                        link->lease_file, yes_no(link->network->dhcp_dns));
+                        "DHCP_USE_DNS=%s\n"
+                        "DHCP_USE_NTP=%s\n",
+                        link->lease_file,
+                        yes_no(link->network->dhcp_dns),
+                        yes_no(link->network->dhcp_ntp));
         } else
                 unlink(link->lease_file);
 

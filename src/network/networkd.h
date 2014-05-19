@@ -138,6 +138,7 @@ struct Network {
         Hashmap *macvlans;
         bool dhcp;
         bool dhcp_dns;
+        bool dhcp_ntp;
         bool dhcp_mtu;
         bool dhcp_hostname;
         bool dhcp_domainname;
@@ -151,6 +152,7 @@ struct Network {
         Hashmap *routes_by_section;
 
         LIST_HEAD(Address, dns);
+        LIST_HEAD(Address, ntp);
 
         LIST_FIELDS(Network, networks);
 };

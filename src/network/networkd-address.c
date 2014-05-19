@@ -335,8 +335,18 @@ int config_parse_dns(const char *unit,
                 return 0;
         }
 
-        LIST_FIND_TAIL(addresses, network->dns, tail);
-        LIST_INSERT_AFTER(addresses, network->dns, tail, n);
+        if (streq(lvalue, "DNS")) {
+                LIST_FIND_TAIL(addresses, network->dns, tail);
+                LIST_INSERT_AFTER(addresses, network->dns, tail, n);
+        } else if (streq(lvalue, "NTP")) {
+                LIST_FIND_TAIL(addresses, network->ntp, tail);
+                LIST_INSERT_AFTER(addresses, network->ntp, tail, n);
+        } else {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Key is invalid, ignoring assignment: %s=%s", lvalue, rvalue);
+                return 0;
+        }
+
         n = NULL;
 
         return 0;
