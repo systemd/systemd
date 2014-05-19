@@ -212,6 +212,16 @@ typedef enum LinkState {
         _LINK_STATE_INVALID = -1
 } LinkState;
 
+typedef enum LinkOperationalState {
+        LINK_OPERSTATE_UNKNOWN,
+        LINK_OPERSTATE_DORMANT,
+        LINK_OPERSTATE_CARRIER,
+        LINK_OPERSTATE_DEGRADED,
+        LINK_OPERSTATE_ROUTABLE,
+        _LINK_OPERSTATE_MAX,
+        _LINK_OPERSTATE_INVALID = -1
+} LinkOperationalState;
+
 struct Link {
         Manager *manager;
 
@@ -224,11 +234,12 @@ struct Link {
         struct udev_device *udev_device;
 
         unsigned flags;
-        uint8_t operstate;
+        uint8_t kernel_operstate;
 
         Network *network;
 
         LinkState state;
+        LinkOperationalState operstate;
 
         unsigned addr_messages;
         unsigned route_messages;
@@ -422,6 +433,9 @@ bool link_has_carrier(unsigned flags, uint8_t operstate);
 
 const char* link_state_to_string(LinkState s) _const_;
 LinkState link_state_from_string(const char *s) _pure_;
+
+const char* link_operstate_to_string(LinkOperationalState s) _const_;
+LinkOperationalState link_operstate_from_string(const char *s) _pure_;
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_unref);
 #define _cleanup_link_unref_ _cleanup_(link_unrefp)

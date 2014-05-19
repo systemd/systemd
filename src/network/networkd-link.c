@@ -1253,9 +1253,9 @@ static int link_update_flags(Link *link, sd_rtnl_message *m) {
         if (r < 0)
                 /* if we got a message without operstate, take it to mean
                    the state was unchanged */
-                operstate = link->operstate;
+                operstate = link->kernel_operstate;
 
-        if ((link->flags == flags) && (link->operstate == operstate))
+        if ((link->flags == flags) && (link->kernel_operstate == operstate))
                 return 0;
 
         if (link->flags != flags) {
@@ -1299,13 +1299,13 @@ static int link_update_flags(Link *link, sd_rtnl_message *m) {
                                        unknown_flags_removed);
         }
 
-        carrier_gained = !link_has_carrier(link->flags, link->operstate) &&
+        carrier_gained = !link_has_carrier(link->flags, link->kernel_operstate) &&
                        link_has_carrier(flags, operstate);
-        carrier_lost = link_has_carrier(link->flags, link->operstate) &&
+        carrier_lost = link_has_carrier(link->flags, link->kernel_operstate) &&
                          !link_has_carrier(flags, operstate);
 
         link->flags = flags;
-        link->operstate = operstate;
+        link->kernel_operstate = operstate;
 
         link_save(link);
 
@@ -1663,7 +1663,7 @@ static int link_configure(Link *link) {
                 }
         }
 
-        if (link_has_carrier(link->flags, link->operstate)) {
+        if (link_has_carrier(link->flags, link->kernel_operstate)) {
                 r = link_acquire_conf(link);
                 if (r < 0)
                         return r;
@@ -1750,7 +1750,13 @@ int link_rtnl_process_address(sd_rtnl *rtnl, sd_rtnl_message *message, void *use
 
         r = sd_rtnl_message_addr_get_prefixlen(message, &address->prefixlen);
         if (r < 0) {
-                log_warning_link(link, "rtnl: recevied address with invalid prefixlen, ignoring");
+                log_warning_link(link, "rtnl: received address with invalid prefixlen, ignoring");
+                return 0;
+        }
+
+        r = sd_rtnl_message_addr_get_scope(message, &address->scope);
+        if (r < 0) {
+                log_warning_link(link, "rtnl: received address with invalid scope, ignoring");
                 return 0;
         }
 
@@ -1986,16 +1992,47 @@ static void serialize_addresses(FILE *f, const char *key, Address *address) {
         fputs("\n", f);
 }
 
+static void link_update_operstate(Link *link) {
+
+        assert(link);
+
+        if (link->kernel_operstate == IF_OPER_DORMANT)
+                link->operstate = LINK_OPERSTATE_DORMANT;
+        else if (link_has_carrier(link->flags, link->kernel_operstate)) {
+                Address *address;
+                uint8_t scope = RT_SCOPE_NOWHERE;
+
+                /* if we have carrier, check what addresses we have */
+                LIST_FOREACH(addresses, address, link->addresses) {
+                        if (address->scope < scope)
+                                scope = address->scope;
+                }
+
+                if (scope < RT_SCOPE_SITE)
+                        /* universally accessible addresses found */
+                        link->operstate = LINK_OPERSTATE_ROUTABLE;
+                else if (scope < RT_SCOPE_HOST)
+                        /* only link or site local addresses found */
+                        link->operstate = LINK_OPERSTATE_DEGRADED;
+                else
+                        /* no useful addresses found */
+                        link->operstate = LINK_OPERSTATE_CARRIER;
+        } else
+                link->operstate = LINK_OPERSTATE_UNKNOWN;
+}
+
 int link_save(Link *link) {
         _cleanup_free_ char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        const char *admin_state, *oper_state = "unknown";
+        const char *admin_state, *oper_state;
         int r;
 
         assert(link);
         assert(link->state_file);
         assert(link->lease_file);
         assert(link->manager);
+
+        link_update_operstate(link);
 
         r = manager_save(link->manager);
         if (r < 0)
@@ -2009,10 +2046,8 @@ int link_save(Link *link) {
         admin_state = link_state_to_string(link->state);
         assert(admin_state);
 
-        if (link->operstate == IF_OPER_DORMANT)
-                oper_state = "dormant";
-        else if (link_has_carrier(link->flags, link->operstate))
-                oper_state = "carrier";
+        oper_state = link_operstate_to_string(link->operstate);
+        assert(oper_state);
 
         r = fopen_temporary(link->state_file, &f, &temp_path);
         if (r < 0)
@@ -2074,3 +2109,13 @@ static const char* const link_state_table[_LINK_STATE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(link_state, LinkState);
+
+static const char* const link_operstate_table[_LINK_OPERSTATE_MAX] = {
+        [LINK_OPERSTATE_UNKNOWN] = "unknown",
+        [LINK_OPERSTATE_DORMANT] = "dormant",
+        [LINK_OPERSTATE_CARRIER] = "carrier",
+        [LINK_OPERSTATE_DEGRADED] = "degraded",
+        [LINK_OPERSTATE_ROUTABLE] = "routable",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(link_operstate, LinkOperationalState);

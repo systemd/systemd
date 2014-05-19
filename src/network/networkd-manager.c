@@ -424,8 +424,8 @@ int manager_save(Manager *m) {
         Iterator i;
         _cleanup_free_ char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        const char *oper_state = "unknown";
-        bool dormant = false, carrier = false;
+        LinkOperationalState operstate = LINK_OPERSTATE_UNKNOWN;
+        const char *operstate_str;
         int r;
 
         assert(m);
@@ -435,16 +435,12 @@ int manager_save(Manager *m) {
                 if (link->flags & IFF_LOOPBACK)
                         continue;
 
-                if (link_has_carrier(link->flags, link->operstate))
-                        carrier = true;
-                else if (link->operstate == IF_OPER_DORMANT)
-                        dormant = true;
+                if (link->operstate > operstate)
+                        operstate = link->operstate;
         }
 
-        if (carrier)
-                oper_state = "carrier";
-        else if (dormant)
-                oper_state = "dormant";
+        operstate_str = link_operstate_to_string(operstate);
+        assert(operstate_str);
 
         r = fopen_temporary(m->state_file, &f, &temp_path);
         if (r < 0)
@@ -454,7 +450,7 @@ int manager_save(Manager *m) {
 
         fprintf(f,
                 "# This is private data. Do not parse.\n"
-                "OPER_STATE=%s\n", oper_state);
+                "OPER_STATE=%s\n", operstate_str);
 
         fflush(f);
 

@@ -61,14 +61,14 @@ _SD_BEGIN_DECLARATIONS;
 int sd_network_get_link_state(unsigned index, char **state);
 
 /* Get operatinal state from ifindex.
- * Possible states: unknown, dormant, carrier
+ * Possible states: unknown, dormant, carrier, degraded, routable
  * Possible return codes:
  *   -ENODATA: networkd is not aware of the link
  */
 int sd_network_get_link_operational_state(unsigned index, char **state);
 
 /* Get overall opeartional state
- * Possible states: unknown, dormant, carrier
+ * Possible states: unknown, dormant, carrier, degraded, routable
  * Possible return codes:
  *   -ENODATA: networkd is not aware of any links
  */
