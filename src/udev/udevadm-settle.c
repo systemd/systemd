@@ -116,7 +116,11 @@ static int adm_settle(struct udev *udev, int argc, char *argv[])
         }
 
         if (inotify_add_watch(pfd[0].fd, "/run/udev/queue" , IN_DELETE) < 0) {
-                log_debug("watching /run/udev failed");
+                /* If it does not exist, we don't have to wait */
+                if (errno == ENOENT)
+                        rc = EXIT_SUCCESS;
+                else
+                        log_debug("watching /run/udev/queue failed");
                 goto out;
         }
 
