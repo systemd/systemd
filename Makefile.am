@@ -4200,6 +4200,10 @@ systemd_resolved_SOURCES = \
 	src/resolve/resolved.c \
 	src/resolve/resolved-manager.c
 
+systemd_resolved_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(KMOD_CFLAGS)
+
 nodist_systemd_resolved_SOURCES = \
 	src/resolve/resolved-gperf.c
 
@@ -4300,6 +4304,10 @@ systemd_networkd_wait_online_LDADD = \
 
 test_network_SOURCES = \
 	src/network/test-network.c
+
+test_network_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(KMOD_CFLAGS)
 
 test_network_LDADD = \
 	libsystemd-networkd-core.la
