@@ -35,19 +35,31 @@
 struct sd_dhcp_lease {
         RefCount n_ref;
 
+        int32_t time_offset;
         uint32_t t1;
         uint32_t t2;
         uint32_t lifetime;
+        uint32_t mtu_aging_timeout;
         be32_t address;
         be32_t server_address;
         be32_t subnet_mask;
         be32_t router;
         be32_t next_server;
+        be32_t broadcast;
         struct in_addr *dns;
         size_t dns_size;
         struct in_addr *ntp;
         size_t ntp_size;
+        struct in_addr *policy_filter;
+        size_t policy_filter_size;
+        struct in_addr *static_route;
+        size_t static_route_size;
+        uint16_t boot_file_size;
+        uint16_t mdr;
         uint16_t mtu;
+        uint8_t ttl;
+        bool ip_forward;
+        bool ip_forward_non_local;
         char *domainname;
         char *hostname;
         char *root_path;
