@@ -181,113 +181,161 @@ sd_dhcp_lease *sd_dhcp_lease_unref(sd_dhcp_lease *lease) {
         return NULL;
 }
 
+static void lease_parse_u32(const uint8_t *option, size_t len, uint32_t *ret, uint32_t min) {
+        be32_t val;
+
+        assert(option);
+        assert(ret);
+
+        if (len == 4) {
+                memcpy(&val, option, 4);
+                *ret = be32toh(val);
+
+                if (*ret < min)
+                        *ret = min;
+        }
+}
+
+static void lease_parse_u16(const uint8_t *option, size_t len, uint16_t *ret, uint16_t min) {
+        be16_t val;
+
+        assert(option);
+        assert(ret);
+
+        if (len == 2) {
+                memcpy(&val, option, 2);
+                *ret = be16toh(val);
+
+                if (*ret < min)
+                        *ret = min;
+        }
+}
+
+static void lease_parse_be32(const uint8_t *option, size_t len, be32_t *ret) {
+        assert(option);
+        assert(ret);
+
+        if (len == 4)
+                memcpy(ret, option, 4);
+}
+
+static int lease_parse_string(const uint8_t *option, size_t len, char **ret) {
+        assert(option);
+        assert(ret);
+
+        if (len >= 1) {
+                char *string;
+
+                string = strndup((const char *)option, len);
+                if (!string)
+                        return -errno;
+
+                free(*ret);
+                *ret = string;
+        }
+
+        return 0;
+}
+
+static int lease_parse_in_addrs(const uint8_t *option, size_t len, struct in_addr **ret, size_t *ret_size) {
+        assert(option);
+        assert(ret);
+        assert(ret_size);
+
+        if (len && !(len % 4)) {
+                size_t size;
+                struct in_addr *addresses;
+
+                size = len / 4;
+
+                addresses = newdup(struct in_addr, option, size);
+                if (!addresses)
+                        return -ENOMEM;
+
+                free(*ret);
+                *ret = addresses;
+                *ret_size = size;
+        }
+
+        return 0;
+}
+
 int dhcp_lease_parse_options(uint8_t code, uint8_t len, const uint8_t *option,
                               void *user_data) {
         sd_dhcp_lease *lease = user_data;
-        be32_t val;
+        int r;
+
+        assert(lease);
 
         switch(code) {
 
         case DHCP_OPTION_IP_ADDRESS_LEASE_TIME:
-                if (len == 4) {
-                        memcpy(&val, option, 4);
-                        lease->lifetime = be32toh(val);
-                }
+                lease_parse_u32(option, len, &lease->lifetime, 1);
 
                 break;
 
         case DHCP_OPTION_SERVER_IDENTIFIER:
-                if (len >= 4)
-                        memcpy(&lease->server_address, option, 4);
+                lease_parse_be32(option, len, &lease->server_address);
 
                 break;
 
         case DHCP_OPTION_SUBNET_MASK:
-                if (len >= 4)
-                        memcpy(&lease->subnet_mask, option, 4);
+                lease_parse_be32(option, len, &lease->subnet_mask);
 
                 break;
 
         case DHCP_OPTION_ROUTER:
-                if (len >= 4)
-                        memcpy(&lease->router, option, 4);
+                lease_parse_be32(option, len, &lease->router);
 
                 break;
 
         case DHCP_OPTION_DOMAIN_NAME_SERVER:
-                if (len && !(len % 4)) {
-                        lease->dns_size = len / 4;
-
-                        free(lease->dns);
-                        lease->dns = newdup(struct in_addr, option, lease->dns_size);
-                        if (!lease->dns)
-                                return -ENOMEM;
-                }
+                r = lease_parse_in_addrs(option, len, &lease->dns, &lease->dns_size);
+                if (r < 0)
+                        return r;
 
                 break;
 
         case DHCP_OPTION_NTP_SERVER:
-                if (len && !(len % 4)) {
-                        lease->ntp_size = len / 4;
-
-                        free(lease->ntp);
-                        lease->ntp = newdup(struct in_addr, option, lease->ntp_size);
-                        if (!lease->ntp)
-                                return -ENOMEM;
-                }
+                r = lease_parse_in_addrs(option, len, &lease->ntp, &lease->ntp_size);
+                if (r < 0)
+                        return r;
 
                 break;
 
         case DHCP_OPTION_INTERFACE_MTU:
-                if (len >= 2) {
-                        be16_t mtu;
-
-                        memcpy(&mtu, option, 2);
-                        lease->mtu = be16toh(mtu);
-
-                        if (lease->mtu < 68)
-                                lease->mtu = 0;
-                }
+                lease_parse_u16(option, len, &lease->mtu, 68);
 
                 break;
 
         case DHCP_OPTION_DOMAIN_NAME:
-                if (len >= 1) {
-                        free(lease->domainname);
-                        lease->domainname = strndup((const char *)option, len);
-                }
+                r = lease_parse_string(option, len, &lease->domainname);
+                if (r < 0)
+                        return r;
 
                 break;
 
         case DHCP_OPTION_HOST_NAME:
-                if (len >= 1) {
-                        free(lease->hostname);
-                        lease->hostname = strndup((const char *)option, len);
-                }
+                r = lease_parse_string(option, len, &lease->hostname);
+                if (r < 0)
+                        return r;
 
                 break;
 
         case DHCP_OPTION_ROOT_PATH:
-                if (len >= 1) {
-                        free(lease->root_path);
-                        lease->root_path = strndup((const char *)option, len);
-                }
+                r = lease_parse_string(option, len, &lease->root_path);
+                if (r < 0)
+                        return r;
 
                 break;
 
         case DHCP_OPTION_RENEWAL_T1_TIME:
-                if (len == 4) {
-                        memcpy(&val, option, 4);
-                        lease->t1 = be32toh(val);
-                }
+                lease_parse_u32(option, len, &lease->t1, 1);
 
                 break;
 
         case DHCP_OPTION_REBINDING_T2_TIME:
-                if (len == 4) {
-                        memcpy(&val, option, 4);
-                        lease->t2 = be32toh(val);
-                }
+                lease_parse_u32(option, len, &lease->t2, 1);
 
                 break;
         }
