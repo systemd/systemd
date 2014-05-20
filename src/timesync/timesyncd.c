@@ -53,6 +53,7 @@
 #include "event-util.h"
 #include "network-util.h"
 #include "capability.h"
+#include "mkdir.h"
 #include "timesyncd.h"
 
 #define TIME_T_MAX (time_t)((1UL << ((sizeof(time_t) << 3) - 1)) - 1)
@@ -133,6 +134,78 @@ static int manager_arm_timer(Manager *m, usec_t next);
 static int manager_clock_watch_setup(Manager *m);
 static int manager_connect(Manager *m);
 static void manager_disconnect(Manager *m);
+
+static int load_clock(uid_t uid, gid_t gid) {
+        usec_t nt = TIME_EPOCH * USEC_PER_SEC, ct;
+        _cleanup_close_ int fd = -1;
+
+        /* Let's try to make sure that the clock is always
+         * monotonically increasing, by saving the clock whenever we
+         * have a new NTP time, or when we shut down, and restoring it
+         * when we start again. This is particularly helpful on
+         * systems lacking a battery backed RTC. We also will adjust
+         * the time to at least the build time of systemd. */
+
+        mkdir_p("/var/lib/systemd", 0755);
+
+        /* First, we try to create the clock file if it doesn't exist yet */
+        fd = open("/var/lib/systemd/clock", O_RDWR|O_CLOEXEC|O_EXCL, 0644);
+        if (fd < 0) {
+
+                fd = open("/var/lib/systemd/clock", O_RDWR|O_CLOEXEC|O_CREAT, 0644);
+                if (fd < 0) {
+                        log_error("Failed to create /var/lib/systemd/clock: %m");
+                        return -errno;
+                }
+
+        } else {
+                struct stat st;
+                usec_t ft;
+
+                if (fstat(fd, &st) < 0) {
+                        log_error("fstat() failed: %m");
+                        return -errno;
+                }
+
+                ft = timespec_load(&st.st_mtim);
+                if (ft > nt)
+                        nt = ft;
+        }
+
+        ct = now(CLOCK_REALTIME);
+        if (nt > ct) {
+                struct timespec ts;
+                log_info("System clock time unset or jumed backwards, restoring.");
+
+                if (clock_settime(CLOCK_REALTIME, timespec_store(&ts, nt)) < 0)
+                        log_error("Failed to restore system clock: %m");
+        }
+
+        /* Try to fix the access mode, so that we can still
+           touch the file after dropping priviliges */
+        fchmod(fd, 0644);
+        fchown(fd, uid, gid);
+
+        return 0;
+}
+
+static int save_clock(void) {
+
+        static const struct timespec ts[2] = {
+                { .tv_sec = 0, .tv_nsec = UTIME_NOW },
+                { .tv_sec = 0, .tv_nsec = UTIME_NOW },
+        };
+
+        int r;
+
+        r = utimensat(-1, "/var/lib/systemd/clock", ts, AT_SYMLINK_NOFOLLOW);
+        if (r < 0) {
+                log_warning("Failed to touch /var/lib/systemd/clock: %m");
+                return -errno;
+        }
+
+        return 0;
+}
 
 static double ntp_ts_to_d(const struct ntp_ts *ts) {
         return be32toh(ts->sec) + ((double)be32toh(ts->frac) / UINT_MAX);
@@ -373,6 +446,9 @@ static int manager_adjust_clock(Manager *m, double offset, int leap_sec) {
         }
 
         r = clock_adjtime(CLOCK_REALTIME, &tmx);
+
+        save_clock();
+
         if (r < 0)
                 return r;
 
@@ -1141,15 +1217,13 @@ static int manager_network_monitor_listen(Manager *m) {
         return 0;
 }
 
-static int drop_privileges(void) {
+static int drop_privileges(uid_t uid, gid_t gid) {
+
         static const cap_value_t bits[] = {
                 CAP_SYS_TIME,
         };
 
         _cleanup_cap_free_ cap_t d = NULL;
-        const char *name = "systemd-timesync";
-        uid_t uid;
-        gid_t gid;
         int r;
 
         /* Unfortunately we cannot leave privilege dropping to PID 1
@@ -1158,12 +1232,6 @@ static int drop_privileges(void) {
          * introduced this cannot be done across exec() anymore,
          * unless our binary has the capability configured in the file
          * system, which we want to avoid. */
-
-        r = get_user_creds(&name, &uid, &gid, NULL, NULL);
-        if (r < 0) {
-                log_error("Cannot resolve user name %s: %s", name, strerror(-r));
-                return r;
-        }
 
         if (setresgid(gid, gid, gid) < 0) {
                 log_error("Failed change group ID: %m");
@@ -1216,7 +1284,10 @@ static int drop_privileges(void) {
 }
 
 int main(int argc, char *argv[]) {
+        const char *user = "systemd-timesync";
         _cleanup_manager_free_ Manager *m = NULL;
+        uid_t uid;
+        gid_t gid;
         int r;
 
         if (argc > 1) {
@@ -1231,7 +1302,17 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        r = drop_privileges();
+        r = get_user_creds(&user, &uid, &gid, NULL, NULL);
+        if (r < 0) {
+                log_error("Cannot resolve user name %s: %s", user, strerror(-r));
+                return r;
+        }
+
+        r = load_clock(uid, gid);
+        if (r < 0)
+                goto out;
+
+        r = drop_privileges(uid, gid);
         if (r < 0)
                 goto out;
 
@@ -1268,6 +1349,7 @@ int main(int argc, char *argv[]) {
         }
 
         sd_event_get_exit_code(m->event, &r);
+        save_clock();
 
 out:
         sd_notify(false, "STATUS=Shutting down...");
