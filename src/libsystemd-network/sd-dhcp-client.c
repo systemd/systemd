@@ -257,19 +257,18 @@ static sd_dhcp_client *client_stop(sd_dhcp_client *client, int error) {
 }
 
 static int client_message_init(sd_dhcp_client *client, DHCPMessage *message,
-                               uint8_t type, uint8_t **opt, size_t *optlen) {
+                               uint8_t type, size_t optlen, size_t *optoffset) {
         be16_t max_size;
         int r;
 
         assert(client);
         assert(client->secs);
         assert(message);
-        assert(opt);
-        assert(optlen);
+        assert(optoffset);
         assert(type == DHCP_DISCOVER || type == DHCP_REQUEST);
 
-        r = dhcp_message_init(message, BOOTREQUEST, client->xid, type, opt,
-                              optlen);
+        r = dhcp_message_init(message, BOOTREQUEST, client->xid, type,
+                              message->options, optlen, optoffset);
         if (r < 0)
                 return r;
 
@@ -285,7 +284,8 @@ static int client_message_init(sd_dhcp_client *client, DHCPMessage *message,
 
         /* Some DHCP servers will refuse to issue an DHCP lease if the Client
            Identifier option is not set */
-        r = dhcp_option_append(opt, optlen, DHCP_OPTION_CLIENT_IDENTIFIER,
+        r = dhcp_option_append(message->options, optlen, optoffset,
+                               DHCP_OPTION_CLIENT_IDENTIFIER,
                                sizeof(client->client_id), &client->client_id);
         if (r < 0)
                 return r;
@@ -299,10 +299,9 @@ static int client_message_init(sd_dhcp_client *client, DHCPMessage *message,
            it MUST include that list in any subsequent DHCPREQUEST
            messages.
          */
-        r = dhcp_option_append(opt, optlen,
+        r = dhcp_option_append(message->options, optlen, optoffset,
                                DHCP_OPTION_PARAMETER_REQUEST_LIST,
-                               client->req_opts_size,
-                               client->req_opts);
+                               client->req_opts_size, client->req_opts);
         if (r < 0)
                 return r;
 
@@ -316,7 +315,7 @@ static int client_message_init(sd_dhcp_client *client, DHCPMessage *message,
          */
         max_size = htobe16(DHCP_IP_UDP_SIZE + DHCP_MESSAGE_SIZE +
                            DHCP_MIN_OPTIONS_SIZE);
-        r = dhcp_option_append(opt, optlen,
+        r = dhcp_option_append(message->options, optlen, optoffset,
                                DHCP_OPTION_MAXIMUM_MESSAGE_SIZE,
                                2, &max_size);
         if (r < 0)
@@ -336,8 +335,7 @@ static int dhcp_client_send_raw(sd_dhcp_client *client, DHCPPacket *packet,
 
 static int client_send_discover(sd_dhcp_client *client) {
         _cleanup_free_ DHCPPacket *discover = NULL;
-        size_t optlen, len;
-        uint8_t *opt;
+        size_t optoffset, optlen, len;
         usec_t time_now;
         int r;
 
@@ -364,7 +362,7 @@ static int client_send_discover(sd_dhcp_client *client) {
                 return -ENOMEM;
 
         r = client_message_init(client, &discover->dhcp, DHCP_DISCOVER,
-                                &opt, &optlen);
+                                optlen, &optoffset);
         if (r < 0)
                 return r;
 
@@ -375,22 +373,21 @@ static int client_send_discover(sd_dhcp_client *client) {
            option to suggest the lease time it would like.
          */
         if (client->last_addr != INADDR_ANY) {
-                r = dhcp_option_append(&opt, &optlen,
-                                         DHCP_OPTION_REQUESTED_IP_ADDRESS,
-                                         4, &client->last_addr);
+                r = dhcp_option_append(discover->dhcp.options, optlen, &optoffset,
+                                       DHCP_OPTION_REQUESTED_IP_ADDRESS,
+                                       4, &client->last_addr);
                 if (r < 0)
                         return r;
         }
 
-        r = dhcp_option_append(&opt, &optlen, DHCP_OPTION_END, 0, NULL);
-        if (r < 0)
-                return r;
+        r = dhcp_option_append(discover->dhcp.options, optlen, &optoffset,
+                               DHCP_OPTION_END, 0, NULL);
 
         /* We currently ignore:
            The client SHOULD wait a random time between one and ten seconds to
            desynchronize the use of DHCP at startup.
          */
-        r = dhcp_client_send_raw(client, discover, len - optlen);
+        r = dhcp_client_send_raw(client, discover, sizeof(DHCPPacket) + optoffset);
         if (r < 0)
                 return r;
 
@@ -401,8 +398,7 @@ static int client_send_discover(sd_dhcp_client *client) {
 
 static int client_send_request(sd_dhcp_client *client) {
         _cleanup_free_ DHCPPacket *request;
-        size_t optlen, len;
-        uint8_t *opt;
+        size_t optoffset, optlen, len;
         int r;
 
         optlen = DHCP_MIN_OPTIONS_SIZE;
@@ -412,8 +408,8 @@ static int client_send_request(sd_dhcp_client *client) {
         if (!request)
                 return -ENOMEM;
 
-        r = client_message_init(client, &request->dhcp, DHCP_REQUEST, &opt,
-                                &optlen);
+        r = client_message_init(client, &request->dhcp, DHCP_REQUEST,
+                                optlen, &optoffset);
         if (r < 0)
                 return r;
 
@@ -428,13 +424,13 @@ static int client_send_request(sd_dhcp_client *client) {
                    filled in with the yiaddr value from the chosen DHCPOFFER.
                  */
 
-                r = dhcp_option_append(&opt, &optlen,
+                r = dhcp_option_append(request->dhcp.options, optlen, &optoffset,
                                        DHCP_OPTION_SERVER_IDENTIFIER,
                                        4, &client->lease->server_address);
                 if (r < 0)
                         return r;
 
-                r = dhcp_option_append(&opt, &optlen,
+                r = dhcp_option_append(request->dhcp.options, optlen, &optoffset,
                                        DHCP_OPTION_REQUESTED_IP_ADDRESS,
                                        4, &client->lease->address);
                 if (r < 0)
@@ -447,7 +443,7 @@ static int client_send_request(sd_dhcp_client *client) {
                    option MUST be filled in with client’s notion of its previously
                    assigned address. ’ciaddr’ MUST be zero.
                  */
-                r = dhcp_option_append(&opt, &optlen,
+                r = dhcp_option_append(request->dhcp.options, optlen, &optoffset,
                                        DHCP_OPTION_REQUESTED_IP_ADDRESS,
                                        4, &client->last_addr);
                 if (r < 0)
@@ -480,7 +476,8 @@ static int client_send_request(sd_dhcp_client *client) {
                 return -EINVAL;
         }
 
-        r = dhcp_option_append(&opt, &optlen, DHCP_OPTION_END, 0, NULL);
+        r = dhcp_option_append(request->dhcp.options, optlen, &optoffset,
+                               DHCP_OPTION_END, 0, NULL);
         if (r < 0)
                 return r;
 
@@ -489,9 +486,9 @@ static int client_send_request(sd_dhcp_client *client) {
                                                  client->lease->server_address,
                                                  DHCP_PORT_SERVER,
                                                  &request->dhcp,
-                                                 len - optlen - DHCP_IP_UDP_SIZE);
+                                                 sizeof(DHCPMessage) + optoffset);
         } else {
-                r = dhcp_client_send_raw(client, request, len - optlen);
+                r = dhcp_client_send_raw(client, request, sizeof(DHCPPacket) + optoffset);
         }
         if (r < 0)
                 return r;

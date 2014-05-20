@@ -38,8 +38,9 @@
 #define DHCP_CLIENT_MIN_OPTIONS_SIZE            312
 
 int dhcp_message_init(DHCPMessage *message, uint8_t op, uint32_t xid,
-                      uint8_t type, uint8_t **opt, size_t *optlen) {
-        int err;
+                      uint8_t type, uint8_t options[], size_t optlen, size_t *optoffset) {
+        size_t offset = 0;
+        int r;
 
         assert(op == BOOTREQUEST || op == BOOTREPLY);
 
@@ -49,12 +50,12 @@ int dhcp_message_init(DHCPMessage *message, uint8_t op, uint32_t xid,
         message->xid = htobe32(xid);
         message->magic = htobe32(DHCP_MAGIC_COOKIE);
 
-        *opt = (uint8_t *)(message + 1);
+        r = dhcp_option_append(message->options, optlen, &offset,
+                                 DHCP_OPTION_MESSAGE_TYPE, 1, &type);
+        if (r < 0)
+                return r;
 
-        err = dhcp_option_append(opt, optlen, DHCP_OPTION_MESSAGE_TYPE, 1,
-                                 &type);
-        if (err < 0)
-                return err;
+        *optoffset = offset;
 
         return 0;
 }

@@ -44,6 +44,7 @@ struct DHCPMessage {
         uint8_t sname[64];
         uint8_t file[128];
         be32_t magic;
+        uint8_t options[0];
 } _packed_;
 
 typedef struct DHCPMessage DHCPMessage;

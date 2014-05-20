@@ -26,37 +26,33 @@
 
 #include "dhcp-internal.h"
 
-int dhcp_option_append(uint8_t **buf, size_t *buflen, uint8_t code,
-                       size_t optlen, const void *optval)
-{
-        if (!buf || !buflen)
-                return -EINVAL;
+int dhcp_option_append(uint8_t options[], size_t size, size_t *offset,
+                       uint8_t code, size_t optlen, const void *optval) {
+        assert(options);
+        assert(offset);
 
         switch (code) {
 
         case DHCP_OPTION_PAD:
         case DHCP_OPTION_END:
-                if (*buflen < 1)
+                if (size - *offset < 1)
                         return -ENOBUFS;
 
-                (*buf)[0] = code;
-                *buf += 1;
-                *buflen -= 1;
+                options[*offset] = code;
+                *offset += 1;
                 break;
 
         default:
-                if (*buflen < optlen + 2)
+                if (size - *offset < optlen + 2)
                         return -ENOBUFS;
 
-                if (!optval)
-                        return -EINVAL;
+                assert(optval);
 
-                (*buf)[0] = code;
-                (*buf)[1] = optlen;
-                memcpy(&(*buf)[2], optval, optlen);
+                options[*offset] = code;
+                options[*offset + 1] = optlen;
+                memcpy(&options[*offset + 2], optval, optlen);
 
-                *buf += optlen + 2;
-                *buflen -= (optlen + 2);
+                *offset += optlen + 2;
 
                 break;
         }
@@ -143,7 +139,6 @@ int dhcp_option_parse(DHCPMessage *message, size_t len,
 {
         uint8_t overload = 0;
         uint8_t message_type = 0;
-        uint8_t *opt = (uint8_t *)(message + 1);
         int res;
 
         if (!message)
@@ -154,7 +149,7 @@ int dhcp_option_parse(DHCPMessage *message, size_t len,
 
         len -= sizeof(DHCPMessage);
 
-        res = parse_options(opt, len, &overload, &message_type,
+        res = parse_options(message->options, len, &overload, &message_type,
                             cb, user_data);
         if (res < 0)
                 return res;

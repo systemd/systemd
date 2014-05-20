@@ -85,16 +85,14 @@ static void test_invalid_buffer_length(void)
 static void test_message_init(void)
 {
         _cleanup_free_ DHCPMessage *message = NULL;
-        size_t optlen = 3;
+        size_t optlen = 3, optoffset;
         size_t len = sizeof(DHCPMessage) + optlen;
-        uint8_t *opt, *magic;
+        uint8_t *magic;
 
         message = malloc0(len);
 
-        opt = (uint8_t *)(message + 1);
-
         assert_se(dhcp_message_init(message, BOOTREQUEST, 0x12345678,
-                  DHCP_DISCOVER, &opt, &optlen) >= 0);
+                  DHCP_DISCOVER, message->options, optlen, &optoffset) >= 0);
 
         assert_se(message->xid == htobe32(0x12345678));
         assert_se(message->op == BOOTREQUEST);
@@ -115,13 +113,11 @@ static DHCPMessage *create_message(uint8_t *options, uint16_t optlen,
 {
         DHCPMessage *message;
         size_t len = sizeof(DHCPMessage) + optlen;
-        uint8_t *opt;
 
         message = malloc0(len);
-        opt = (uint8_t *)(message + 1);
 
         if (options && optlen)
-                memcpy(opt, options, optlen);
+                memcpy(&message->options, options, optlen);
 
         if (file && filelen <= 128)
                 memcpy(&message->file, file, filelen);
@@ -308,46 +304,34 @@ static uint8_t options[64] = {
 
 static void test_option_set(void)
 {
-        size_t len, oldlen;
-        int pos, i;
-        uint8_t *opt;
+        size_t offset = 0, len, pos;
+        unsigned i;
 
-        assert_se(dhcp_option_append(NULL, NULL, 0, 0, NULL) == -EINVAL);
-
-        len = 0;
-        opt = &result[0];
-        assert_se(dhcp_option_append(&opt, NULL, 0, 0, NULL) == -EINVAL);
-        assert_se(opt == &result[0] && len == 0);
-
-        assert_se(dhcp_option_append(&opt, &len, DHCP_OPTION_PAD,
+        assert_se(dhcp_option_append(result, 0, &offset, DHCP_OPTION_PAD,
                                   0, NULL) == -ENOBUFS);
-        assert_se(opt == &result[0] && len == 0);
+        assert_se(offset == 0);
 
-        opt = &result[4];
-        len = 1;
-        assert_se(dhcp_option_append(&opt, &len, DHCP_OPTION_PAD,
+        offset = 4;
+        assert_se(dhcp_option_append(result, 1, &offset, DHCP_OPTION_PAD,
                                     0, NULL) >= 0);
-        assert_se(opt == &result[5] && len == 0);
+        assert_se(offset == 5);
 
-        pos = 4;
+        offset = pos = 4;
         len = 60;
         while (pos < 64 && options[pos] != DHCP_OPTION_END) {
-                opt = &result[pos];
-                oldlen = len;
+                offset = pos;
 
-                assert_se(dhcp_option_append(&opt, &len, options[pos],
-                                          options[pos + 1],
-                                          &options[pos + 2]) >= 0);
+                assert_se(dhcp_option_append(result, len, &offset,
+                                             options[pos],
+                                             options[pos + 1],
+                                             &options[pos + 2]) >= 0);
 
-                if (options[pos] == DHCP_OPTION_PAD) {
-                        assert_se(opt == &result[pos + 1]);
-                        assert_se(len == oldlen - 1);
+                if (options[pos] == DHCP_OPTION_PAD)
                         pos++;
-                } else {
-                        assert_se(opt == &result[pos + 2 + options[pos + 1]]);
-                        assert_se(len == oldlen - 2 - options[pos + 1]);
+                else
                         pos += 2 + options[pos + 1];
-                }
+
+                assert_se(offset == pos);
         }
 
         for (i = 0; i < pos; i++) {
