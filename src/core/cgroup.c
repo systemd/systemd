@@ -541,18 +541,12 @@ CGroupControllerMask unit_get_members_mask(Unit *u) {
 }
 
 CGroupControllerMask unit_get_siblings_mask(Unit *u) {
-        CGroupControllerMask m;
-
         assert(u);
 
         if (UNIT_ISSET(u->slice))
-                m = unit_get_members_mask(UNIT_DEREF(u->slice));
-        else
-                m = unit_get_cgroup_mask(u) | unit_get_members_mask(u);
+                return unit_get_members_mask(UNIT_DEREF(u->slice));
 
-        /* Sibling propagation is only relevant for weight-based
-         * controllers, so let's mask out everything else */
-        return m & (CGROUP_CPU|CGROUP_BLKIO|CGROUP_CPUACCT);
+        return unit_get_cgroup_mask(u) | unit_get_members_mask(u);
 }
 
 CGroupControllerMask unit_get_target_mask(Unit *u) {
