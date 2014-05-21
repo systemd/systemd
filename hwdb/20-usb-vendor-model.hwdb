@@ -41163,7 +41163,7 @@ usb:v1234pED02*
  ID_MODEL_FROM_DATABASE=Emotiv EPOC Developer Headset Wireless Dongle
 
 usb:v1235*
- ID_VENDOR_FROM_DATABASE=Novation EMS
+ ID_VENDOR_FROM_DATABASE=Focusrite-Novation
 
 usb:v1235p0001*
  ID_MODEL_FROM_DATABASE=ReMOTE Audio/XStation First Edition
@@ -41729,6 +41729,9 @@ usb:v12D1p155A*
 usb:v12D1p1575*
  ID_MODEL_FROM_DATABASE=K5150 LTE modem
 
+usb:v12D1p15CA*
+ ID_MODEL_FROM_DATABASE=E3131 3G/UMTS/HSPA+ Modem (Mass Storage Mode)
+
 usb:v12D1p1805*
  ID_MODEL_FROM_DATABASE=AT&T Go Phone U2800A phone
 
@@ -41743,6 +41746,12 @@ usb:v12D1p1C20*
 
 usb:v12D1p1D50*
  ID_MODEL_FROM_DATABASE=ET302s TD-SCDMA/TD-HSDPA Mobile Broadband
+
+usb:v12D1p1F01*
+ ID_MODEL_FROM_DATABASE=E353/E3131 (Mass storage mode)
+
+usb:v12D1p1F16*
+ ID_MODEL_FROM_DATABASE=K5150 LTE modem (Mass Storage Mode)
 
 usb:v12D1p380B*
  ID_MODEL_FROM_DATABASE=WiMAX USB modem(s)
@@ -41761,6 +41770,12 @@ usb:v12D6p0888*
 
 usb:v12D7*
  ID_VENDOR_FROM_DATABASE=BETTER WIRE FACTORY CO., LTD.
+
+usb:v12D8*
+ ID_VENDOR_FROM_DATABASE=Araneus Information Systems Oy
+
+usb:v12D8p0001*
+ ID_MODEL_FROM_DATABASE=Alea I True Random Number Generator
 
 usb:v12E6*
  ID_VENDOR_FROM_DATABASE=Waldorf Music GmbH
@@ -41805,7 +41820,7 @@ usb:v1307p0163*
  ID_MODEL_FROM_DATABASE=256MB/512MB/1GB Flash Drive
 
 usb:v1307p0165*
- ID_MODEL_FROM_DATABASE=2GB/4GB Flash Drive
+ ID_MODEL_FROM_DATABASE=2GB/4GB/8GB Flash Drive
 
 usb:v1307p0190*
  ID_MODEL_FROM_DATABASE=Ut190 8 GB Flash Drive with MicroSD reader
@@ -41845,6 +41860,51 @@ usb:v1312*
 
 usb:v1313*
  ID_VENDOR_FROM_DATABASE=ThorLabs
+
+usb:v1313p0010*
+ ID_MODEL_FROM_DATABASE=LC1 Linear Camera (Jungo)
+
+usb:v1313p0011*
+ ID_MODEL_FROM_DATABASE=SP1 Spectrometer (Jungo)
+
+usb:v1313p0012*
+ ID_MODEL_FROM_DATABASE=SP2 Spectrometer (Jungo)
+
+usb:v1313p0110*
+ ID_MODEL_FROM_DATABASE=LC1 Linear Camera (VISA)
+
+usb:v1313p0111*
+ ID_MODEL_FROM_DATABASE=SP1 Spectrometer (VISA)
+
+usb:v1313p0112*
+ ID_MODEL_FROM_DATABASE=SP2 Spectrometer (VISA)
+
+usb:v1313p8001*
+ ID_MODEL_FROM_DATABASE=TXP-Series Slot (TXP5001, TXP5004)
+
+usb:v1313p8012*
+ ID_MODEL_FROM_DATABASE=BC106 Camera Beam Profiler
+
+usb:v1313p8013*
+ ID_MODEL_FROM_DATABASE=WFS10 Wavefront Sensor
+
+usb:v1313p8017*
+ ID_MODEL_FROM_DATABASE=BC206 Camera Beam Profiler
+
+usb:v1313p8019*
+ ID_MODEL_FROM_DATABASE=BP2 Multi Slit Beam Profiler
+
+usb:v1313p8020*
+ ID_MODEL_FROM_DATABASE=PM300 Optical Power Meter
+
+usb:v1313p8021*
+ ID_MODEL_FROM_DATABASE=PM300E Optical Power and Energy Meter
+
+usb:v1313p8022*
+ ID_MODEL_FROM_DATABASE=PM320E Optical Power and Energy Meter
+
+usb:v1313p8030*
+ ID_MODEL_FROM_DATABASE=ER100 Extinction Ratio Meter
 
 usb:v1313p8070*
  ID_MODEL_FROM_DATABASE=PM100D
@@ -41975,6 +42035,18 @@ usb:v1342p0204*
 usb:v1342p0304*
  ID_MODEL_FROM_DATABASE=EasiDock Ethernet
 
+usb:v1343*
+ ID_VENDOR_FROM_DATABASE=Citizen Systems
+
+usb:v1343p0003*
+ ID_MODEL_FROM_DATABASE=CX / DNP DS40
+
+usb:v1343p0004*
+ ID_MODEL_FROM_DATABASE=CX-W / DNP DS80
+
+usb:v1343p0005*
+ ID_MODEL_FROM_DATABASE=CY / DNP DSRX
+
 usb:v1345*
  ID_VENDOR_FROM_DATABASE=Sino Lite Technology Corp.
 
@@ -42001,6 +42073,12 @@ usb:v1347p0403*
 
 usb:v1347p0404*
  ID_MODEL_FROM_DATABASE=G2/G3/G4 CCD-F KAF CCD
+
+usb:v1347p0405*
+ ID_MODEL_FROM_DATABASE=Gx CCD-I CCD
+
+usb:v1347p0406*
+ ID_MODEL_FROM_DATABASE=Gx CCD-F CCD
 
 usb:v1347p0410*
  ID_MODEL_FROM_DATABASE=G1-0400 CCD
@@ -42149,6 +42227,9 @@ usb:v138Ap003C*
 usb:v138Ap003D*
  ID_MODEL_FROM_DATABASE=VFS491
 
+usb:v138Ap0050*
+ ID_MODEL_FROM_DATABASE=Swipe Fingerprint Sensor
+
 usb:v138E*
  ID_VENDOR_FROM_DATABASE=Jungo LTD
 
@@ -42160,6 +42241,9 @@ usb:v1390*
 
 usb:v1390p0001*
  ID_MODEL_FROM_DATABASE=GO 520 T/GO 630/ONE XL (v9)
+
+usb:v1390p5454*
+ ID_MODEL_FROM_DATABASE=Blue & Me 2
 
 usb:v1391*
  ID_VENDOR_FROM_DATABASE=IdealTEK, Inc.
@@ -42262,6 +42346,15 @@ usb:v13B1p0039*
 
 usb:v13B1p003A*
  ID_MODEL_FROM_DATABASE=AE2500 802.11abgn Wireless Adapter [Broadcom BCM43236]
+
+usb:v13B1p003B*
+ ID_MODEL_FROM_DATABASE=AE3000 802.11abgn (3x3) Wireless Adapter [Ralink RT3573]
+
+usb:v13B1p003E*
+ ID_MODEL_FROM_DATABASE=AE6000 802.11a/b/g/n/ac Wireless Adapter [MediaTek MT7610U]
+
+usb:v13B1p003F*
+ ID_MODEL_FROM_DATABASE=WUSB6300 802.11a/b/g/n/ac Wireless Adapter [Realtek RTL8812AU]
 
 usb:v13B1p13B1*
  ID_MODEL_FROM_DATABASE=WUSB200: Wireless-G Business Network Adapter with Rangebooster
@@ -42446,6 +42539,12 @@ usb:v13D3p3315*
 usb:v13D3p3375*
  ID_MODEL_FROM_DATABASE=Atheros AR3012 Bluetooth 4.0 Adapter
 
+usb:v13D3p3392*
+ ID_MODEL_FROM_DATABASE=Azurewave 43228+20702
+
+usb:v13D3p3394*
+ ID_MODEL_FROM_DATABASE=Bluetooth
+
 usb:v13D3p5070*
  ID_MODEL_FROM_DATABASE=Webcam
 
@@ -42457,6 +42556,9 @@ usb:v13D3p5115*
 
 usb:v13D3p5116*
  ID_MODEL_FROM_DATABASE=Integrated Webcam
+
+usb:v13D3p5122*
+ ID_MODEL_FROM_DATABASE=2M Integrated Webcam
 
 usb:v13D3p5126*
  ID_MODEL_FROM_DATABASE=PC Cam
@@ -42524,6 +42626,9 @@ usb:v13FDp0840*
 usb:v13FDp0841*
  ID_MODEL_FROM_DATABASE=Samsung SE-T084M DVD-RW
 
+usb:v13FDp1040*
+ ID_MODEL_FROM_DATABASE=INIC-1511L PATA Bridge
+
 usb:v13FDp1340*
  ID_MODEL_FROM_DATABASE=Hi-Speed USB to SATA Bridge
 
@@ -42533,8 +42638,14 @@ usb:v13FDp160F*
 usb:v13FDp1640*
  ID_MODEL_FROM_DATABASE=INIC-1610L SATA Bridge
 
+usb:v13FDp1669*
+ ID_MODEL_FROM_DATABASE=INIC-1609PN
+
 usb:v13FDp1840*
  ID_MODEL_FROM_DATABASE=INIC-1608 SATA bridge
+
+usb:v13FDp1E40*
+ ID_MODEL_FROM_DATABASE=INIC-1610P SATA bridge
 
 usb:v13FE*
  ID_VENDOR_FROM_DATABASE=Kingston Technology Company Inc.
@@ -42555,10 +42666,10 @@ usb:v13FEp1E50*
  ID_MODEL_FROM_DATABASE=U3 Smart Drive
 
 usb:v13FEp1F00*
- ID_MODEL_FROM_DATABASE=DataTraveler 2.0 4GB Flash Drive / Patriot Xporter 32GB (PEF32GUSB) Flash Drive
+ ID_MODEL_FROM_DATABASE=Kingston DataTraveler / Patriot Xporter
 
 usb:v13FEp1F23*
- ID_MODEL_FROM_DATABASE=2Gb
+ ID_MODEL_FROM_DATABASE=PS2232 flash drive controller
 
 usb:v13FEp2240*
  ID_MODEL_FROM_DATABASE=microSD card reader
@@ -42569,11 +42680,17 @@ usb:v13FEp3100*
 usb:v13FEp3123*
  ID_MODEL_FROM_DATABASE=Verbatim STORE N GO 4GB
 
+usb:v13FEp3600*
+ ID_MODEL_FROM_DATABASE=flash drive (4GB, EMTEC)
+
 usb:v13FEp3800*
  ID_MODEL_FROM_DATABASE=Rage XT Flash Drive
 
 usb:v13FEp3E00*
  ID_MODEL_FROM_DATABASE=Flash Drive
+
+usb:v13FEp5000*
+ ID_MODEL_FROM_DATABASE=USB flash drive (32 GB SHARKOON Accelerate)
 
 usb:v13FEp5100*
  ID_MODEL_FROM_DATABASE=Flash Drive
@@ -42673,6 +42790,12 @@ usb:v1415p2000*
 
 usb:v1419*
  ID_VENDOR_FROM_DATABASE=ABILITY ENTERPRISE CO., LTD.
+
+usb:v1421*
+ ID_VENDOR_FROM_DATABASE=Sensor Technology
+
+usb:v1421p0605*
+ ID_MODEL_FROM_DATABASE=Sentech Camera
 
 usb:v1429*
  ID_VENDOR_FROM_DATABASE=Vega Technologies Industrial (Austria) Co.
@@ -42775,6 +42898,18 @@ usb:v1457p5118*
 
 usb:v1457p5119*
  ID_MODEL_FROM_DATABASE=OpenMoko Neo1973 u-boot cdc_acm serial port
+
+usb:v1457p511A*
+ ID_MODEL_FROM_DATABASE=HXD8 u-boot usbtty CDC ACM Mode
+
+usb:v1457p511B*
+ ID_MODEL_FROM_DATABASE=SMDK2440 u-boot usbtty CDC ACM mode
+
+usb:v1457p511C*
+ ID_MODEL_FROM_DATABASE=SMDK2443 u-boot usbtty CDC ACM mode
+
+usb:v1457p511D*
+ ID_MODEL_FROM_DATABASE=QT2410 u-boot usbtty CDC ACM mode
 
 usb:v1457p5120*
  ID_MODEL_FROM_DATABASE=OpenMoko Neo1973 u-boot usbtty generic serial
@@ -42935,6 +43070,9 @@ usb:v148E*
 usb:v148F*
  ID_VENDOR_FROM_DATABASE=Ralink Technology, Corp.
 
+usb:v148Fp1000*
+ ID_MODEL_FROM_DATABASE=Motorola BC4 Bluetooth 3.0+HS Adapter
+
 usb:v148Fp1706*
  ID_MODEL_FROM_DATABASE=RT2500USB Wireless Adapter
 
@@ -42983,6 +43121,9 @@ usb:v148Fp5372*
 usb:v148Fp5572*
  ID_MODEL_FROM_DATABASE=RT5572 Wireless Adapter
 
+usb:v148Fp7601*
+ ID_MODEL_FROM_DATABASE=MT7601U Wireless Adapter
+
 usb:v148Fp9020*
  ID_MODEL_FROM_DATABASE=RT2500USB Wireless Adapter
 
@@ -42997,6 +43138,15 @@ usb:v1491p0020*
 
 usb:v1493*
  ID_VENDOR_FROM_DATABASE=Suunto
+
+usb:v1493p0010*
+ ID_MODEL_FROM_DATABASE=Bluebird [Ambit]
+
+usb:v1493p0019*
+ ID_MODEL_FROM_DATABASE=Duck [Ambit2]
+
+usb:v1493p001A*
+ ID_MODEL_FROM_DATABASE=Colibri [Ambit2 S]
 
 usb:v1497*
  ID_VENDOR_FROM_DATABASE=Panstrong Company Ltd.
@@ -43118,6 +43268,9 @@ usb:v14CD*
 usb:v14CDp121C*
  ID_MODEL_FROM_DATABASE=microSD card reader
 
+usb:v14CDp121F*
+ ID_MODEL_FROM_DATABASE=microSD CardReader SY-T18
+
 usb:v14CDp123A*
  ID_MODEL_FROM_DATABASE=SD/MMC/RS-MMC Card Reader
 
@@ -43131,7 +43284,7 @@ usb:v14CDp6116*
  ID_MODEL_FROM_DATABASE=M6116 SATA Bridge
 
 usb:v14CDp6600*
- ID_MODEL_FROM_DATABASE=USB 2.0 IDE DEVICE
+ ID_MODEL_FROM_DATABASE=M110E PATA bridge
 
 usb:v14CDp6700*
  ID_MODEL_FROM_DATABASE=Card Reader
@@ -43165,6 +43318,9 @@ usb:v14E1*
 
 usb:v14E1p5000*
  ID_MODEL_FROM_DATABASE=PenMount 5000 Touch Controller
+
+usb:v14E4*
+ ID_VENDOR_FROM_DATABASE=Broadcom Corp.
 
 usb:v14E5*
  ID_VENDOR_FROM_DATABASE=SAIN Information & Communications Co., Ltd.
@@ -43214,6 +43370,15 @@ usb:v1501*
 usb:v1509*
  ID_VENDOR_FROM_DATABASE=First International Computer, Inc.
 
+usb:v1509p0A01*
+ ID_MODEL_FROM_DATABASE=LI-3100 Area Meter
+
+usb:v1509p0A02*
+ ID_MODEL_FROM_DATABASE=LI-7000 CO2/H2O Gas Analyzer
+
+usb:v1509p0A03*
+ ID_MODEL_FROM_DATABASE=C-DiGit Blot Scanner
+
 usb:v1509p9242*
  ID_MODEL_FROM_DATABASE=eHome Infrared Transceiver
 
@@ -43253,6 +43418,12 @@ usb:v1518p0001*
 usb:v1518p0002*
  ID_MODEL_FROM_DATABASE=HDReye (before firmware loads)
 
+usb:v1519*
+ ID_VENDOR_FROM_DATABASE=Comneon
+
+usb:v1519p0020*
+ ID_MODEL_FROM_DATABASE=HSIC Device
+
 usb:v1520*
  ID_VENDOR_FROM_DATABASE=Bitwire Corp.
 
@@ -43279,6 +43450,15 @@ usb:v1529p3100*
 
 usb:v152A*
  ID_VENDOR_FROM_DATABASE=Thesycon Systemsoftware & Consulting GmbH
+
+usb:v152Ap8400*
+ ID_MODEL_FROM_DATABASE=INI DVS128
+
+usb:v152Ap840D*
+ ID_MODEL_FROM_DATABASE=INI DAViS
+
+usb:v152Ap841A*
+ ID_MODEL_FROM_DATABASE=INI DAViS FX3
 
 usb:v152D*
  ID_VENDOR_FROM_DATABASE=JMicron Technology Corp. / JMicron USA Technology Corp.
@@ -43337,6 +43517,9 @@ usb:v1532p0007*
 usb:v1532p0013*
  ID_MODEL_FROM_DATABASE=Orochi mouse
 
+usb:v1532p0015*
+ ID_MODEL_FROM_DATABASE=Naga Mouse
+
 usb:v1532p0016*
  ID_MODEL_FROM_DATABASE=DeathAdder Mouse
 
@@ -43364,8 +43547,20 @@ usb:v1532p0102*
 usb:v1532p0109*
  ID_MODEL_FROM_DATABASE=Lycosa Keyboard
 
+usb:v1532p0113*
+ ID_MODEL_FROM_DATABASE=RZ07-0074 Gaming Keypad [Orbweaver]
+
 usb:v1532p0300*
  ID_MODEL_FROM_DATABASE=RZ06-0063 Motion Sensing Controllers [Hydra]
+
+usb:v153B*
+ ID_VENDOR_FROM_DATABASE=TerraTec Electronic GmbH
+
+usb:v153Bp1181*
+ ID_MODEL_FROM_DATABASE=Cinergy S2 PCIe Dual Port 1
+
+usb:v153Bp1182*
+ ID_MODEL_FROM_DATABASE=Cinergy S2 PCIe Dual Port 2
 
 usb:v1546*
  ID_VENDOR_FROM_DATABASE=U-Blox AG
@@ -43388,11 +43583,17 @@ usb:v154B*
 usb:v154Bp0010*
  ID_MODEL_FROM_DATABASE=USB 2.0 Flash Drive
 
+usb:v154Bp0048*
+ ID_MODEL_FROM_DATABASE=Flash Drive
+
 usb:v154Bp004D*
  ID_MODEL_FROM_DATABASE=8 GB Flash Drive
 
 usb:v154Bp0057*
  ID_MODEL_FROM_DATABASE=32GB Micro Slide Attache Flash Drive
+
+usb:v154Bp007A*
+ ID_MODEL_FROM_DATABASE=8GB Classic Attache Flash Drive
 
 usb:v154Bp6545*
  ID_MODEL_FROM_DATABASE=FD Device
@@ -43530,7 +43731,10 @@ usb:v15A2p0052*
  ID_MODEL_FROM_DATABASE=i.MX50 SystemOnChip in RecoveryMode
 
 usb:v15A2p0054*
- ID_MODEL_FROM_DATABASE=i.MX6Q SystemOnChip in RecoveryMode
+ ID_MODEL_FROM_DATABASE=i.MX 6Dual/6Quad SystemOnChip in RecoveryMode
+
+usb:v15A2p0061*
+ ID_MODEL_FROM_DATABASE=i.MX 6Solo/6DualLite SystemOnChip in RecoveryMode
 
 usb:v15A4*
  ID_VENDOR_FROM_DATABASE=Afatech Technologies, Inc.
@@ -43640,6 +43844,9 @@ usb:v15C2p0036*
 usb:v15C2p0038*
  ID_MODEL_FROM_DATABASE=GD01 MX LCD Display/IR Receiver
 
+usb:v15C2p0042*
+ ID_MODEL_FROM_DATABASE=Antec Veris Multimedia Station E-Z IR Receiver
+
 usb:v15C2pFFDA*
  ID_MODEL_FROM_DATABASE=iMON PAD Remote Controller
 
@@ -43722,6 +43929,9 @@ usb:v15D9p0A4C*
  ID_MODEL_FROM_DATABASE=USB+PS/2 Optical Mouse
 
 usb:v15D9p0A4D*
+ ID_MODEL_FROM_DATABASE=Optical Mouse
+
+usb:v15D9p0A4F*
  ID_MODEL_FROM_DATABASE=Optical Mouse
 
 usb:v15DC*
@@ -44507,6 +44717,15 @@ usb:v1690p0740*
 usb:v1690p0901*
  ID_MODEL_FROM_DATABASE=Voyager 205 ADSL Router
 
+usb:v1690p2000*
+ ID_MODEL_FROM_DATABASE=naturaSign Pad Standard
+
+usb:v1690p2001*
+ ID_MODEL_FROM_DATABASE=naturaSign Pad Standard
+
+usb:v1690pFE12*
+ ID_MODEL_FROM_DATABASE=Bootloader
+
 usb:v1696*
  ID_VENDOR_FROM_DATABASE=Hitachi Video and Information System, Inc.
 
@@ -44669,6 +44888,9 @@ usb:v16C0p06B4*
 usb:v16C0p06B5*
  ID_MODEL_FROM_DATABASE=USB2LPT with 3 interfaces (native, HID, printer)
 
+usb:v16C0p0762*
+ ID_MODEL_FROM_DATABASE=Osmocom SIMtrace
+
 usb:v16C0p076B*
  ID_MODEL_FROM_DATABASE=OpenPCD 13.56MHz RFID Reader
 
@@ -44759,6 +44981,15 @@ usb:v16D0p075D*
 usb:v16D0p080A*
  ID_MODEL_FROM_DATABASE=S2E1 Interface
 
+usb:v16D0p0870*
+ ID_MODEL_FROM_DATABASE=Kaufmann Automotive GmbH, RKS+CAN Interface
+
+usb:v16D1*
+ ID_VENDOR_FROM_DATABASE=Suprema Inc.
+
+usb:v16D1p0401*
+ ID_MODEL_FROM_DATABASE=SUP-SFR400(A) BioMini Fingerprint Reader
+
 usb:v16D3*
  ID_VENDOR_FROM_DATABASE=Frontline Test Equipment, Inc.
 
@@ -44773,6 +45004,9 @@ usb:v16D5p6501*
 
 usb:v16D5p6502*
  ID_MODEL_FROM_DATABASE=CDMA/UMTS/GPRS modem
+
+usb:v16D5p6603*
+ ID_MODEL_FROM_DATABASE=ADU-890WH modem
 
 usb:v16D6*
  ID_VENDOR_FROM_DATABASE=JABLOCOM s.r.o.
@@ -44870,6 +45104,18 @@ usb:v170Bp0011*
 usb:v170D*
  ID_VENDOR_FROM_DATABASE=Avnera
 
+usb:v1711*
+ ID_VENDOR_FROM_DATABASE=Leica Microsystems
+
+usb:v1711p3020*
+ ID_MODEL_FROM_DATABASE=IC80 HD Camera
+
+usb:v1724*
+ ID_VENDOR_FROM_DATABASE=Meyer Instruments (MIS)
+
+usb:v1724p0115*
+ ID_MODEL_FROM_DATABASE=PAXcam5
+
 usb:v1725*
  ID_VENDOR_FROM_DATABASE=Vitesse Semiconductor
 
@@ -44957,8 +45203,20 @@ usb:v1737p0078*
 usb:v1737p0079*
  ID_MODEL_FROM_DATABASE=WUSB600N v2 Dual-Band Wireless-N Network Adapter [Ralink RT3572]
 
+usb:v173D*
+ ID_VENDOR_FROM_DATABASE=QSENN
+
+usb:v173Dp0002*
+ ID_MODEL_FROM_DATABASE=GP-K7000 keyboard
+
 usb:v1740*
  ID_VENDOR_FROM_DATABASE=Senao
+
+usb:v1740p0100*
+ ID_MODEL_FROM_DATABASE=EUB1200AC AC1200 DB Wireless Adapter [Realtek RTL8812AU]
+
+usb:v1740p0600*
+ ID_MODEL_FROM_DATABASE=EUB600v1 802.11abgn Wireless Adapter [Ralink RT3572]
 
 usb:v1740p0605*
  ID_MODEL_FROM_DATABASE=LevelOne WUA-0605 N_Max Wireless USB Adapter
@@ -45002,14 +45260,20 @@ usb:v1743*
 usb:v1748*
  ID_VENDOR_FROM_DATABASE=MQP Electronics
 
+usb:v1748p0101*
+ ID_MODEL_FROM_DATABASE=Packet-Master USB12
+
 usb:v174C*
  ID_VENDOR_FROM_DATABASE=ASMedia Technology Inc.
 
 usb:v174Cp5106*
  ID_MODEL_FROM_DATABASE=Transcend StoreJet 25M3
 
+usb:v174Cp5136*
+ ID_MODEL_FROM_DATABASE=ASM1053 SATA 6Gb/s bridge
+
 usb:v174Cp55AA*
- ID_MODEL_FROM_DATABASE=ASMedia 2105 SATA bridge
+ ID_MODEL_FROM_DATABASE=ASM1051 SATA 3Gb/s bridge
 
 usb:v174F*
  ID_VENDOR_FROM_DATABASE=Syntek
@@ -45137,6 +45401,9 @@ usb:v1781p0C31*
 usb:v1781p0C9F*
  ID_MODEL_FROM_DATABASE=USBtiny
 
+usb:v1781p1EEF*
+ ID_MODEL_FROM_DATABASE=OpenAPC SecuKey
+
 usb:v1782*
  ID_VENDOR_FROM_DATABASE=Spreadtrum Communications Inc.
 
@@ -45206,6 +45473,9 @@ usb:v17A0p0100*
 usb:v17A0p0101*
  ID_MODEL_FROM_DATABASE=UB1 boundary microphone
 
+usb:v17A0p0120*
+ ID_MODEL_FROM_DATABASE=Meteorite condenser microphone
+
 usb:v17A0p0200*
  ID_MODEL_FROM_DATABASE=StudioDock monitors (internal hub)
 
@@ -45220,6 +45490,9 @@ usb:v17A0p0301*
 
 usb:v17A0p0302*
  ID_MODEL_FROM_DATABASE=GoMic compact condenser microphone
+
+usb:v17A0p0303*
+ ID_MODEL_FROM_DATABASE=C01U Pro condenser microphone
 
 usb:v17A0p0304*
  ID_MODEL_FROM_DATABASE=Q2U handheld mic with XLR
@@ -45371,6 +45644,9 @@ usb:v17E9p037C*
 usb:v17E9p037D*
  ID_MODEL_FROM_DATABASE=Plugable USB2-HDMI-165
 
+usb:v17E9p410A*
+ ID_MODEL_FROM_DATABASE=HDMI Adapter
+
 usb:v17E9p430A*
  ID_MODEL_FROM_DATABASE=HP Port Replicator (Composite Device)
 
@@ -45383,6 +45659,9 @@ usb:v17EB*
 usb:v17EF*
  ID_VENDOR_FROM_DATABASE=Lenovo
 
+usb:v17EFp1000*
+ ID_MODEL_FROM_DATABASE=Hub
+
 usb:v17EFp1003*
  ID_MODEL_FROM_DATABASE=Integrated Smart Card Reader
 
@@ -45394,6 +45673,9 @@ usb:v17EFp1008*
 
 usb:v17EFp100A*
  ID_MODEL_FROM_DATABASE=ThinkPad Mini Dock Plus Series 3
+
+usb:v17EFp304B*
+ ID_MODEL_FROM_DATABASE=AX88179 Gigabit Ethernet [ThinkPad OneLink GigaLAN]
 
 usb:v17EFp3815*
  ID_MODEL_FROM_DATABASE=ChipsBnk 2GB USB Stick
@@ -45454,6 +45736,12 @@ usb:v17EFp6009*
 
 usb:v17EFp6014*
  ID_MODEL_FROM_DATABASE=Mini Wireless Keyboard N5901
+
+usb:v17EFp6025*
+ ID_MODEL_FROM_DATABASE=ThinkPad Travel Mouse
+
+usb:v17EFp7203*
+ ID_MODEL_FROM_DATABASE=Ethernet adapter [U2L 100P-Y1]
 
 usb:v17EFp7423*
  ID_MODEL_FROM_DATABASE=IdeaPad A1 Tablet
