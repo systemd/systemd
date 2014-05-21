@@ -85,7 +85,7 @@ static void test_invalid_buffer_length(void)
 static void test_message_init(void)
 {
         _cleanup_free_ DHCPMessage *message = NULL;
-        size_t optlen = 3, optoffset;
+        size_t optlen = 4, optoffset;
         size_t len = sizeof(DHCPMessage) + optlen;
         uint8_t *magic;
 

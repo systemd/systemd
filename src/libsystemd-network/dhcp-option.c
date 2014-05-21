@@ -31,6 +31,10 @@ int dhcp_option_append(uint8_t options[], size_t size, size_t *offset,
         assert(options);
         assert(offset);
 
+        if (code != DHCP_OPTION_END)
+                /* always make sure there is space for an END option */
+                size --;
+
         switch (code) {
 
         case DHCP_OPTION_PAD:
