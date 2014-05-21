@@ -854,6 +854,26 @@ AC_ARG_WITH(time-epoch,
 AC_DEFINE_UNQUOTED(TIME_EPOCH, [$TIME_EPOCH], [Time Epoch])
 
 # ------------------------------------------------------------------------------
+AC_ARG_WITH(system-uid-max,
+        AS_HELP_STRING([--with-system-uid-max=UID]
+                [Maximum UID for system users]),
+        [SYSTEM_UID_MAX="$withval"],
+        [SYSTEM_UID_MAX="`awk 'BEGIN { uid=999 } /^\s*SYS_UID_MAX\s+/ { uid=$2 } END { print uid }' /etc/login.defs 2>/dev/null || echo 999`"])
+
+AC_DEFINE_UNQUOTED(SYSTEM_UID_MAX, [$SYSTEM_UID_MAX], [Maximum System UID])
+AC_SUBST(SYSTEM_UID_MAX)
+
+# ------------------------------------------------------------------------------
+AC_ARG_WITH(system-gid-max,
+        AS_HELP_STRING([--with-system-gid-max=GID]
+                [Maximum GID for system groups]),
+        [SYSTEM_GID_MAX="$withval"],
+        [SYSTEM_GID_MAX="`awk 'BEGIN { gid=999 } /^\s*SYS_GID_MAX\s+/ { gid=$2 } END { print gid }' /etc/login.defs 2>/dev/null || echo 999`"])
+
+AC_DEFINE_UNQUOTED(SYSTEM_GID_MAX, [$SYSTEM_GID_MAX], [Maximum System GID])
+AC_SUBST(SYSTEM_GID_MAX)
+
+# ------------------------------------------------------------------------------
 have_localed=no
 AC_ARG_ENABLE(localed, AS_HELP_STRING([--disable-localed], [disable locale daemon]))
 if test "x$enable_localed" != "xno"; then
@@ -1256,6 +1276,8 @@ AC_MSG_RESULT([
         Extra start script:      ${RC_LOCAL_SCRIPT_PATH_START}
         Extra stop script:       ${RC_LOCAL_SCRIPT_PATH_STOP}
         Debug shell:             ${SUSHELL} @ ${DEBUGTTY}
+        Maximum System UID:      ${SYSTEM_UID_MAX}
+        Maximum System GID:      ${SYSTEM_GID_MAX}
 
         CFLAGS:                  ${OUR_CFLAGS} ${CFLAGS}
         CPPFLAGS:                ${OUR_CPPFLAGS} ${CPPFLAGS}

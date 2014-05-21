@@ -332,8 +332,8 @@ fail:
 int clean_ipc(uid_t uid) {
         int ret = 0, r;
 
-        /* Refuse to clean IPC of the root user */
-        if (uid == 0)
+        /* Refuse to clean IPC of the root and system users */
+        if (uid <= SYSTEM_UID_MAX)
                 return 0;
 
         r = clean_sysvipc_shm(uid);

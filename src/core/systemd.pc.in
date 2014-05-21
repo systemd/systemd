@@ -19,6 +19,8 @@ systemduserunitpath=${systemduserconfdir}:/etc/systemd/user:/run/systemd/user:/u
 systemdsystemgeneratordir=@systemgeneratordir@
 systemdusergeneratordir=@usergeneratordir@
 catalogdir=@catalogdir@
+systemuidmax=@systemuidmax@
+systemgidmax=@systemgidmax@
 
 Name: systemd
 Description: systemd System and Service Manager

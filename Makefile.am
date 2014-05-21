@@ -4879,7 +4879,9 @@ substitutions = \
        '|PYTHON=$(PYTHON)|' \
        '|PYTHON_BINARY=$(PYTHON_BINARY)|' \
        '|NTP_SERVERS=$(NTP_SERVERS)|' \
-       '|DNS_SERVERS=$(DNS_SERVERS)|'
+       '|DNS_SERVERS=$(DNS_SERVERS)|' \
+       '|systemuidmax=$(SYSTEM_UID_MAX)|' \
+       '|systemgidmax=$(SYSTEM_GID_MAX)|'
 
 SED_PROCESS = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
