@@ -71,6 +71,7 @@ typedef enum NetDevKind {
         NETDEV_KIND_IPIP,
         NETDEV_KIND_GRE,
         NETDEV_KIND_SIT,
+        NETDEV_KIND_VETH,
         _NETDEV_KIND_MAX,
         _NETDEV_KIND_INVALID = -1
 } NetDevKind;
@@ -98,6 +99,7 @@ struct NetDev {
 
         char *description;
         char *ifname;
+        char *ifname_peer;
         size_t mtu;
         NetDevKind kind;
 
@@ -310,6 +312,7 @@ int netdev_get(Manager *manager, const char *name, NetDev **ret);
 int netdev_set_ifindex(NetDev *netdev, sd_rtnl_message *newlink);
 int netdev_enslave(NetDev *netdev, Link *link, sd_rtnl_message_handler_t cb);
 int netdev_create_tunnel(Link *link, sd_rtnl_message_handler_t callback);
+int netdev_create_veth(NetDev *netdev, sd_rtnl_message_handler_t callback);
 
 const char *netdev_kind_to_string(NetDevKind d) _const_;
 NetDevKind netdev_kind_from_string(const char *d) _pure_;

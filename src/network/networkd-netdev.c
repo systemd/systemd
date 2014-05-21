@@ -38,6 +38,7 @@ static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_IPIP] = "ipip",
         [NETDEV_KIND_GRE] = "gre",
         [NETDEV_KIND_SIT] = "sit",
+        [NETDEV_KIND_VETH] = "veth",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(netdev_kind, NetDevKind);
@@ -546,7 +547,7 @@ static int netdev_load_one(Manager *manager, const char *filename) {
         netdev->macvlan_mode = _NETDEV_MACVLAN_MODE_INVALID;
         netdev->vlanid = VLANID_MAX + 1;
 
-        r = config_parse(NULL, filename, file, "Match\0NetDev\0VLAN\0MACVLAN\0Tunnel\0",
+        r = config_parse(NULL, filename, file, "Match\0NetDev\0VLAN\0MACVLAN\0Tunnel\0Peer\0",
                          config_item_perf_lookup, (void*) network_netdev_gperf_lookup,
                          false, false, netdev);
         if (r < 0) {
@@ -597,6 +598,9 @@ static int netdev_load_one(Manager *manager, const char *filename) {
                 return r;
 
         LIST_HEAD_INIT(netdev->callbacks);
+
+        if(netdev->kind == NETDEV_KIND_VETH)
+                return netdev_create_veth(netdev, netdev_create_handler);
 
         if (netdev->kind != NETDEV_KIND_VLAN &&
             netdev->kind != NETDEV_KIND_MACVLAN &&
