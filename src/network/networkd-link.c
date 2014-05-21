@@ -1809,11 +1809,16 @@ int link_rtnl_process_address(sd_rtnl *rtnl, sd_rtnl_message *message, void *use
                 LIST_PREPEND(addresses, link->addresses, address);
                 address = NULL;
 
+                link_save(link);
+
                 break;
         case RTM_DELADDR:
-                if (address_dropped)
+                if (address_dropped) {
                         log_debug_link(link, "removed address: %s/%u", buf,
                                       address->prefixlen);
+
+                        link_save(link);
+                }
 
                 break;
         default:
