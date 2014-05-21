@@ -33,13 +33,11 @@ void cgroup_context_init(CGroupContext *c) {
         /* Initialize everything to the kernel defaults, assuming the
          * structure is preinitialized to 0 */
 
-        c->cpu_shares = 1024;
-        c->startup_cpu_shares = 1024;
-        c->startup_cpu_shares_set = false;
+        c->cpu_shares = (unsigned long) -1;
+        c->startup_cpu_shares = (unsigned long) -1;
         c->memory_limit = (uint64_t) -1;
-        c->blockio_weight = 1000;
-        c->startup_blockio_weight = 1000;
-        c->startup_blockio_weight_set = false;
+        c->blockio_weight = (unsigned long) -1;
+        c->startup_blockio_weight = (unsigned long) -1;
 
         c->cpu_quota_per_sec_usec = (usec_t) -1;
         c->cpu_quota_usec = (usec_t) -1;
@@ -314,7 +312,7 @@ fail:
         return -errno;
 }
 
-void cgroup_context_apply(Manager *m, CGroupContext *c, CGroupControllerMask mask, const char *path) {
+void cgroup_context_apply(CGroupContext *c, CGroupControllerMask mask, const char *path, ManagerState state) {
         bool is_root;
         int r;
 
@@ -332,9 +330,9 @@ void cgroup_context_apply(Manager *m, CGroupContext *c, CGroupControllerMask mas
                 char buf[MAX(DECIMAL_STR_MAX(unsigned long), DECIMAL_STR_MAX(usec_t)) + 1];
                 usec_t q;
 
-                sprintf(buf, "%lu\n", manager_state(m) == MANAGER_STARTING
-                        ? c->startup_cpu_shares
-                        : c->cpu_shares);
+                sprintf(buf, "%lu\n",
+                        state == MANAGER_STARTING && c->startup_cpu_shares != (unsigned long) -1 ? c->startup_cpu_shares :
+                        c->cpu_shares != (unsigned long) -1 ? c->cpu_shares : 1024);
                 r = cg_set_attribute("cpu", path, "cpu.shares", buf);
                 if (r < 0)
                         log_warning("Failed to set cpu.shares on %s: %s", path, strerror(-r));
@@ -362,9 +360,8 @@ void cgroup_context_apply(Manager *m, CGroupContext *c, CGroupControllerMask mas
                 CGroupBlockIODeviceBandwidth *b;
 
                 if (!is_root) {
-                        sprintf(buf, "%lu\n", manager_state(m) == MANAGER_STARTING
-                                ? c->startup_blockio_weight
-                                : c->blockio_weight);
+                        sprintf(buf, "%lu\n", state == MANAGER_STARTING && c->startup_blockio_weight != (unsigned long) -1 ? c->startup_blockio_weight :
+                                c->blockio_weight != (unsigned long) -1 ? c->blockio_weight : 1000);
                         r = cg_set_attribute("blkio", path, "blkio.weight", buf);
                         if (r < 0)
                                 log_warning("Failed to set blkio.weight on %s: %s", path, strerror(-r));
@@ -474,30 +471,24 @@ void cgroup_context_apply(Manager *m, CGroupContext *c, CGroupControllerMask mas
         }
 }
 
-CGroupControllerMask cgroup_context_get_mask(Manager *m, CGroupContext *c) {
+CGroupControllerMask cgroup_context_get_mask(CGroupContext *c) {
         CGroupControllerMask mask = 0;
 
         /* Figure out which controllers we need */
 
         if (c->cpu_accounting ||
-            (manager_state(m) == MANAGER_STARTING ? c->startup_cpu_shares : c->cpu_shares) != 1024 ||
-            (manager_state(m) != MANAGER_STARTING && c->startup_cpu_shares_set && c->startup_cpu_shares != c->cpu_shares) ||
+            c->cpu_shares != (unsigned long) -1 ||
+            c->startup_cpu_shares != (unsigned long) -1 ||
             c->cpu_quota_usec != (usec_t) -1 ||
-            c->cpu_quota_per_sec_usec != (usec_t) -1) {
+            c->cpu_quota_per_sec_usec != (usec_t) -1)
                 mask |= CGROUP_CPUACCT | CGROUP_CPU;
-                if (manager_state(m) != MANAGER_STARTING)
-                        c->startup_cpu_shares_set = false;
-        }
 
         if (c->blockio_accounting ||
-            (manager_state(m) == MANAGER_STARTING ? c->startup_blockio_weight : c->blockio_weight) != 1000 ||
-            (manager_state(m) != MANAGER_STARTING && c->startup_blockio_weight_set && c->startup_blockio_weight != c->blockio_weight) ||
+            c->blockio_weight != (unsigned long) -1 ||
+            c->startup_blockio_weight != (unsigned long) -1 ||
             c->blockio_device_weights ||
-            c->blockio_device_bandwidths) {
+            c->blockio_device_bandwidths)
                 mask |= CGROUP_BLKIO;
-                if (manager_state(m) != MANAGER_STARTING)
-                        c->startup_blockio_weight_set = false;
-        }
 
         if (c->memory_accounting ||
             c->memory_limit != (uint64_t) -1)
@@ -516,7 +507,7 @@ CGroupControllerMask unit_get_cgroup_mask(Unit *u) {
         if (!c)
                 return 0;
 
-        return cgroup_context_get_mask(u->manager, c);
+        return cgroup_context_get_mask(c);
 }
 
 CGroupControllerMask unit_get_members_mask(Unit *u) {
@@ -691,7 +682,7 @@ static bool unit_has_mask_realized(Unit *u, CGroupControllerMask mask) {
  * If not, create paths, move processes over, and set attributes.
  *
  * Returns 0 on success and < 0 on failure. */
-static int unit_realize_cgroup_now(Unit *u) {
+static int unit_realize_cgroup_now(Unit *u, ManagerState state) {
         CGroupControllerMask mask;
         int r;
 
@@ -709,7 +700,7 @@ static int unit_realize_cgroup_now(Unit *u) {
 
         /* First, realize parents */
         if (UNIT_ISSET(u->slice)) {
-                r = unit_realize_cgroup_now(UNIT_DEREF(u->slice));
+                r = unit_realize_cgroup_now(UNIT_DEREF(u->slice), state);
                 if (r < 0)
                         return r;
         }
@@ -720,7 +711,7 @@ static int unit_realize_cgroup_now(Unit *u) {
                 return r;
 
         /* Finally, apply the necessary attributes. */
-        cgroup_context_apply(u->manager, unit_get_cgroup_context(u), mask, u->cgroup_path);
+        cgroup_context_apply(unit_get_cgroup_context(u), mask, u->cgroup_path, state);
 
         return 0;
 }
@@ -735,14 +726,17 @@ static void unit_add_to_cgroup_queue(Unit *u) {
 }
 
 unsigned manager_dispatch_cgroup_queue(Manager *m) {
-        Unit *i;
+        ManagerState state;
         unsigned n = 0;
+        Unit *i;
         int r;
+
+        state = manager_state(m);
 
         while ((i = m->cgroup_queue)) {
                 assert(i->in_cgroup_queue);
 
-                r = unit_realize_cgroup_now(i);
+                r = unit_realize_cgroup_now(i, state);
                 if (r < 0)
                         log_warning("Failed to realize cgroups for queued unit %s: %s", i->id, strerror(-r));
 
@@ -814,7 +808,7 @@ int unit_realize_cgroup(Unit *u) {
         unit_queue_siblings(u);
 
         /* And realize this one now (and apply the values) */
-        return unit_realize_cgroup_now(u);
+        return unit_realize_cgroup_now(u, manager_state(u->manager));
 }
 
 void unit_destroy_cgroup(Unit *u) {

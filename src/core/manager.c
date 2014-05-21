@@ -2452,7 +2452,6 @@ void manager_check_finished(Manager *m) {
         usec_t firmware_usec, loader_usec, kernel_usec, initrd_usec, userspace_usec, total_usec;
         Unit *u = NULL;
         Iterator i;
-        UnitActiveState state;
 
         assert(m);
 
@@ -2540,13 +2539,8 @@ void manager_check_finished(Manager *m) {
                                    NULL);
         }
 
-        SET_FOREACH(u, m->startup_units, i) {
-                u = set_steal_first(m->startup_units);
-                state = unit_active_state(u);
-                if (!UNIT_IS_ACTIVE_OR_ACTIVATING(state))
-                        continue;
-                cgroup_context_apply(m, unit_get_cgroup_context(u), unit_get_cgroup_mask(u), u->cgroup_path);
-        }
+        SET_FOREACH(u, m->startup_units, i)
+                cgroup_context_apply(unit_get_cgroup_context(u), unit_get_cgroup_mask(u), u->cgroup_path, manager_state(m));
 
         bus_manager_send_finished(m, firmware_usec, loader_usec, kernel_usec, initrd_usec, userspace_usec, total_usec);
 

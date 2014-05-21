@@ -169,17 +169,35 @@ static int property_get_cpu_quota_per_sec_usec(
         return sd_bus_message_append(reply, "t", cgroup_context_get_cpu_quota_per_sec_usec(c));
 }
 
+static int property_get_ulong_as_u64(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        unsigned long *ul = userdata;
+
+        assert(bus);
+        assert(reply);
+        assert(ul);
+
+        return sd_bus_message_append(reply, "t", *ul == (unsigned long) -1 ? (uint64_t) -1 : (uint64_t) *ul);
+}
+
 const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("CPUAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, cpu_accounting), 0),
-        SD_BUS_PROPERTY("CPUShares", "t", bus_property_get_ulong, offsetof(CGroupContext, cpu_shares), 0),
-        SD_BUS_PROPERTY("StartupCPUShares", "t", bus_property_get_ulong, offsetof(CGroupContext, startup_cpu_shares), 0),
+        SD_BUS_PROPERTY("CPUShares", "t", property_get_ulong_as_u64, offsetof(CGroupContext, cpu_shares), 0),
+        SD_BUS_PROPERTY("StartupCPUShares", "t", property_get_ulong_as_u64, offsetof(CGroupContext, startup_cpu_shares), 0),
         SD_BUS_PROPERTY("CPUQuotaPerSecUSec", "t", property_get_cpu_quota_per_sec_usec, 0, 0),
         SD_BUS_PROPERTY("CPUQuotaUSec", "t", property_get_cpu_quota_usec, 0, 0),
         SD_BUS_PROPERTY("CPUQuotaPeriodUSec", "t", bus_property_get_usec, offsetof(CGroupContext, cpu_quota_period_usec), 0),
         SD_BUS_PROPERTY("BlockIOAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, blockio_accounting), 0),
-        SD_BUS_PROPERTY("BlockIOWeight", "t", bus_property_get_ulong, offsetof(CGroupContext, blockio_weight), 0),
-        SD_BUS_PROPERTY("StartupBlockIOWeight", "t", bus_property_get_ulong, offsetof(CGroupContext, startup_blockio_weight), 0),
+        SD_BUS_PROPERTY("BlockIOWeight", "t", property_get_ulong_as_u64, offsetof(CGroupContext, blockio_weight), 0),
+        SD_BUS_PROPERTY("StartupBlockIOWeight", "t", property_get_ulong_as_u64, offsetof(CGroupContext, startup_blockio_weight), 0),
         SD_BUS_PROPERTY("BlockIODeviceWeight", "a(st)", property_get_blockio_device_weight, 0, 0),
         SD_BUS_PROPERTY("BlockIOReadBandwidth", "a(st)", property_get_blockio_device_bandwidths, 0, 0),
         SD_BUS_PROPERTY("BlockIOWriteBandwidth", "a(st)", property_get_blockio_device_bandwidths, 0, 0),
@@ -228,9 +246,13 @@ int bus_cgroup_set_property(
                 if (r < 0)
                         return r;
 
-                ul = (unsigned long) u64;
-                if (ul <= 0 || (uint64_t) ul != u64)
-                        return sd_bus_error_set_errnof(error, EINVAL, "CPUShares value out of range");
+                if (u64 == (uint64_t) -1)
+                        ul = (unsigned long) -1;
+                else {
+                        ul = (unsigned long) u64;
+                        if (ul <= 0 || (uint64_t) ul != u64)
+                                return sd_bus_error_set_errnof(error, EINVAL, "CPUShares value out of range");
+                }
 
                 if (mode != UNIT_CHECK) {
                         c->cpu_shares = ul;
@@ -248,13 +270,17 @@ int bus_cgroup_set_property(
                 if (r < 0)
                         return r;
 
-                ul = (unsigned long) u64;
-                if (ul <= 0 || (uint64_t) ul != u64)
-                        return sd_bus_error_set_errnof(error, EINVAL, "StartupCPUShares value out of range");
+                if (u64 == (uint64_t) -1)
+                        ul = (unsigned long) -1;
+                else {
+                        ul = (unsigned long) u64;
+                        if (ul <= 0 || (uint64_t) ul != u64)
+                                return sd_bus_error_set_errnof(error, EINVAL, "StartupCPUShares value out of range");
+                }
 
                 if (mode != UNIT_CHECK) {
                         c->startup_cpu_shares = ul;
-                        c->startup_cpu_shares_set = true;
+                        u->cgroup_realized_mask &= ~CGROUP_CPU;
                         unit_write_drop_in_private_format(u, mode, name, "StartupCPUShares=%lu", ul);
                 }
 
@@ -340,9 +366,13 @@ int bus_cgroup_set_property(
                 if (r < 0)
                         return r;
 
-                ul = (unsigned long) u64;
-                if (ul < 10 || ul > 1000)
-                        return sd_bus_error_set_errnof(error, EINVAL, "BlockIOWeight value out of range");
+                if (u64 == (uint64_t) -1)
+                        ul = (unsigned long) -1;
+                else  {
+                        ul = (unsigned long) u64;
+                        if (ul < 10 || ul > 1000)
+                                return sd_bus_error_set_errnof(error, EINVAL, "BlockIOWeight value out of range");
+                }
 
                 if (mode != UNIT_CHECK) {
                         c->blockio_weight = ul;
@@ -360,13 +390,17 @@ int bus_cgroup_set_property(
                 if (r < 0)
                         return r;
 
-                ul = (unsigned long) u64;
-                if (ul < 10 || ul > 1000)
-                        return sd_bus_error_set_errnof(error, EINVAL, "StartupBlockIOWeight value out of range");
+                if (u64 == (uint64_t) -1)
+                        ul = (unsigned long) -1;
+                else  {
+                        ul = (unsigned long) u64;
+                        if (ul < 10 || ul > 1000)
+                                return sd_bus_error_set_errnof(error, EINVAL, "StartupBlockIOWeight value out of range");
+                }
 
                 if (mode != UNIT_CHECK) {
                         c->startup_blockio_weight = ul;
-                        c->startup_blockio_weight_set = true;
+                        u->cgroup_realized_mask &= ~CGROUP_BLKIO;
                         unit_write_drop_in_private_format(u, mode, name, "StartupBlockIOWeight=%lu", ul);
                 }
 

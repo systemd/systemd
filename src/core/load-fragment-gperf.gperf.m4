@@ -105,8 +105,8 @@ $1.KillSignal,                   config_parse_kill_signal,           0,         
 m4_define(`CGROUP_CONTEXT_CONFIG_ITEMS',
 `$1.Slice,                       config_parse_unit_slice,            0,                             0
 $1.CPUAccounting,                config_parse_bool,                  0,                             offsetof($1, cgroup_context.cpu_accounting)
-$1.CPUShares,                    config_parse_cpu_shares,            0,                             offsetof($1, cgroup_context)
-$1.StartupCPUShares,             config_parse_startup_cpu_shares,    0,                             offsetof($1, cgroup_context)
+$1.CPUShares,                    config_parse_cpu_shares,            0,                             offsetof($1, cgroup_context.cpu_shares)
+$1.StartupCPUShares,             config_parse_cpu_shares,            0,                             offsetof($1, cgroup_context.startup_cpu_shares)
 $1.CPUQuota,                     config_parse_cpu_quota,             0,                             offsetof($1, cgroup_context)
 $1.CPUQuotaPeriodSec,            config_parse_sec,                   0,                             offsetof($1, cgroup_context.cpu_quota_period_usec)
 $1.MemoryAccounting,             config_parse_bool,                  0,                             offsetof($1, cgroup_context.memory_accounting)
@@ -114,8 +114,8 @@ $1.MemoryLimit,                  config_parse_memory_limit,          0,         
 $1.DeviceAllow,                  config_parse_device_allow,          0,                             offsetof($1, cgroup_context)
 $1.DevicePolicy,                 config_parse_device_policy,         0,                             offsetof($1, cgroup_context.device_policy)
 $1.BlockIOAccounting,            config_parse_bool,                  0,                             offsetof($1, cgroup_context.blockio_accounting)
-$1.BlockIOWeight,                config_parse_blockio_weight,        0,                             offsetof($1, cgroup_context)
-$1.StartupBlockIOWeight,         config_parse_startup_blockio_weight, 0,                            offsetof($1, cgroup_context)
+$1.BlockIOWeight,                config_parse_blockio_weight,        0,                             offsetof($1, cgroup_context.blockio_weight)
+$1.StartupBlockIOWeight,         config_parse_blockio_weight,        0,                            offsetof($1, cgroup_context.startup_blockio_weight)
 $1.BlockIODeviceWeight,          config_parse_blockio_device_weight, 0,                             offsetof($1, cgroup_context)
 $1.BlockIOReadBandwidth,         config_parse_blockio_bandwidth,     0,                             offsetof($1, cgroup_context)
 $1.BlockIOWriteBandwidth,        config_parse_blockio_bandwidth,     0,                             offsetof($1, cgroup_context)'

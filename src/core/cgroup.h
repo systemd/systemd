@@ -72,14 +72,12 @@ struct CGroupContext {
 
         unsigned long cpu_shares;
         unsigned long startup_cpu_shares;
-        bool startup_cpu_shares_set:1;
         usec_t cpu_quota_per_sec_usec;
         usec_t cpu_quota_usec;
         usec_t cpu_quota_period_usec;
 
         unsigned long blockio_weight;
         unsigned long startup_blockio_weight;
-        bool startup_blockio_weight_set:1;
         LIST_HEAD(CGroupBlockIODeviceWeight, blockio_device_weights);
         LIST_HEAD(CGroupBlockIODeviceBandwidth, blockio_device_bandwidths);
 
@@ -96,9 +94,9 @@ struct CGroupContext {
 void cgroup_context_init(CGroupContext *c);
 void cgroup_context_done(CGroupContext *c);
 void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix);
-void cgroup_context_apply(Manager *m, CGroupContext *c, CGroupControllerMask mask, const char *path);
+void cgroup_context_apply(CGroupContext *c, CGroupControllerMask mask, const char *path, ManagerState state);
 
-CGroupControllerMask cgroup_context_get_mask(Manager *m, CGroupContext *c);
+CGroupControllerMask cgroup_context_get_mask(CGroupContext *c);
 
 void cgroup_context_free_device_allow(CGroupContext *c, CGroupDeviceAllow *a);
 void cgroup_context_free_blockio_device_weight(CGroupContext *c, CGroupBlockIODeviceWeight *w);

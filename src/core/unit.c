@@ -509,6 +509,7 @@ void unit_free(Unit *u) {
         }
 
         set_remove(u->manager->failed_units, u);
+        set_remove(u->manager->startup_units, u);
 
         free(u->description);
         strv_free(u->documentation);
@@ -1076,12 +1077,17 @@ static int unit_add_startup_units(Unit *u) {
         int r = 0;
 
         c = unit_get_cgroup_context(u);
-        if (c != NULL && manager_state(u->manager) == MANAGER_STARTING &&
-            (c->startup_cpu_shares_set || c->startup_blockio_weight_set)) {
-                r = set_put(u->manager->startup_units, u);
-                if (r == -EEXIST)
-                        r = 0;
-        }
+        if (!c)
+                return 0;
+
+        if (c->startup_cpu_shares == (unsigned long) -1 &&
+            c->startup_blockio_weight == (unsigned long) -1)
+                return 0;
+
+        r = set_put(u->manager->startup_units, u);
+        if (r == -EEXIST)
+                return 0;
+
         return r;
 }
 
