@@ -449,7 +449,6 @@ int netdev_set_ifindex(NetDev *netdev, sd_rtnl_message *message) {
                 return r;
         }
 
-
         if (netdev->ifindex > 0) {
                 if (netdev->ifindex != ifindex) {
                         log_error_netdev(netdev, "Could not set ifindex to %d, already set to %d",
