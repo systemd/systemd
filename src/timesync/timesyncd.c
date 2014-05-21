@@ -1146,10 +1146,10 @@ static bool network_is_online(void) {
         int r;
 
         r = sd_network_get_operational_state(&state);
-        if (r >= 0 && (streq("routable", state) || streq("degraded", state)))
+        if (r >= 0 && STR_IN_SET(state, "routable", "degraded"))
                 return true;
-        else
-                return false;
+
+        return false;
 }
 
 static int manager_network_event_handler(sd_event_source *s, int fd, uint32_t revents,
