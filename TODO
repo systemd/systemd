@@ -714,6 +714,7 @@ Features:
    - make operstates to wait for configurable?
 
 * dhcp:
+   - figure out how much we can increase Maximum Message Size
    - export timezone information
    - FORCERENEW
 

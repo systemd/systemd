@@ -256,35 +256,45 @@ static sd_dhcp_client *client_stop(sd_dhcp_client *client, int error) {
         return client;
 }
 
-static int client_message_init(sd_dhcp_client *client, DHCPMessage *message,
-                               uint8_t type, size_t optlen, size_t *optoffset) {
+static int client_message_init(sd_dhcp_client *client, DHCPPacket **ret,
+                               uint8_t type, size_t *_optlen, size_t *_optoffset) {
+        _cleanup_free_ DHCPPacket *packet;
+        size_t optlen, optoffset, size;
         be16_t max_size;
         int r;
 
         assert(client);
         assert(client->secs);
-        assert(message);
-        assert(optoffset);
+        assert(ret);
+        assert(_optlen);
+        assert(_optoffset);
         assert(type == DHCP_DISCOVER || type == DHCP_REQUEST);
 
-        r = dhcp_message_init(message, BOOTREQUEST, client->xid, type,
-                              optlen, optoffset);
+        optlen = DHCP_MIN_OPTIONS_SIZE;
+        size = sizeof(DHCPPacket) + optlen;
+
+        packet = malloc0(size);
+        if (!packet)
+                return -ENOMEM;
+
+        r = dhcp_message_init(&packet->dhcp, BOOTREQUEST, client->xid, type,
+                              optlen, &optoffset);
         if (r < 0)
                 return r;
 
         /* Although 'secs' field is a SHOULD in RFC 2131, certain DHCP servers
            refuse to issue an DHCP lease if 'secs' is set to zero */
-        message->secs = htobe16(client->secs);
+        packet->dhcp.secs = htobe16(client->secs);
 
         /* RFC2132 section 4.1.1:
            The client MUST include its hardware address in the ’chaddr’ field, if
            necessary for delivery of DHCP reply messages.
          */
-        memcpy(&message->chaddr, &client->client_id.mac_addr, ETH_ALEN);
+        memcpy(&packet->dhcp.chaddr, &client->client_id.mac_addr, ETH_ALEN);
 
         /* Some DHCP servers will refuse to issue an DHCP lease if the Client
            Identifier option is not set */
-        r = dhcp_option_append(message, optlen, optoffset, 0,
+        r = dhcp_option_append(&packet->dhcp, optlen, &optoffset, 0,
                                DHCP_OPTION_CLIENT_IDENTIFIER,
                                sizeof(client->client_id), &client->client_id);
         if (r < 0)
@@ -299,7 +309,7 @@ static int client_message_init(sd_dhcp_client *client, DHCPMessage *message,
            it MUST include that list in any subsequent DHCPREQUEST
            messages.
          */
-        r = dhcp_option_append(message, optlen, optoffset, 0,
+        r = dhcp_option_append(&packet->dhcp, optlen, &optoffset, 0,
                                DHCP_OPTION_PARAMETER_REQUEST_LIST,
                                client->req_opts_size, client->req_opts);
         if (r < 0)
@@ -313,13 +323,17 @@ static int client_message_init(sd_dhcp_client *client, DHCPMessage *message,
            than the defined default size unless the Maximum Messge Size option
            is explicitely set
          */
-        max_size = htobe16(DHCP_IP_UDP_SIZE + DHCP_MESSAGE_SIZE +
-                           DHCP_MIN_OPTIONS_SIZE);
-        r = dhcp_option_append(message, optlen, optoffset, 0,
+        max_size = htobe16(size);
+        r = dhcp_option_append(&packet->dhcp, optlen, &optoffset, 0,
                                DHCP_OPTION_MAXIMUM_MESSAGE_SIZE,
                                2, &max_size);
         if (r < 0)
                 return r;
+
+        *_optlen = optlen;
+        *_optoffset = optoffset;
+        *ret = packet;
+        packet = NULL;
 
         return 0;
 }
@@ -335,7 +349,7 @@ static int dhcp_client_send_raw(sd_dhcp_client *client, DHCPPacket *packet,
 
 static int client_send_discover(sd_dhcp_client *client) {
         _cleanup_free_ DHCPPacket *discover = NULL;
-        size_t optoffset, optlen, len;
+        size_t optoffset, optlen;
         usec_t time_now;
         int r;
 
@@ -354,15 +368,8 @@ static int client_send_discover(sd_dhcp_client *client) {
          * must always be strictly positive to deal with broken servers */
         client->secs = ((time_now - client->start_time) / USEC_PER_SEC) ? : 1;
 
-        optlen = DHCP_MIN_OPTIONS_SIZE;
-        len = sizeof(DHCPPacket) + optlen;
-
-        discover = malloc0(len);
-        if (!discover)
-                return -ENOMEM;
-
-        r = client_message_init(client, &discover->dhcp, DHCP_DISCOVER,
-                                optlen, &optoffset);
+        r = client_message_init(client, &discover, DHCP_DISCOVER,
+                                &optlen, &optoffset);
         if (r < 0)
                 return r;
 
@@ -398,18 +405,11 @@ static int client_send_discover(sd_dhcp_client *client) {
 
 static int client_send_request(sd_dhcp_client *client) {
         _cleanup_free_ DHCPPacket *request;
-        size_t optoffset, optlen, len;
+        size_t optoffset, optlen;
         int r;
 
-        optlen = DHCP_MIN_OPTIONS_SIZE;
-        len = sizeof(DHCPPacket) + optlen;
-
-        request = malloc0(len);
-        if (!request)
-                return -ENOMEM;
-
-        r = client_message_init(client, &request->dhcp, DHCP_REQUEST,
-                                optlen, &optoffset);
+        r = client_message_init(client, &request, DHCP_REQUEST,
+                                &optlen, &optoffset);
         if (r < 0)
                 return r;
 
