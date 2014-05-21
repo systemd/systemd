@@ -1,2 +1,4 @@
+/networkd.conf
+/networkd-gperf.c
 /networkd-network-gperf.c
 /networkd-netdev-gperf.c
