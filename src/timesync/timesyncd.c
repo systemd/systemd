@@ -175,7 +175,7 @@ static int load_clock(uid_t uid, gid_t gid) {
         ct = now(CLOCK_REALTIME);
         if (nt > ct) {
                 struct timespec ts;
-                log_info("System clock time unset or jumed backwards, restoring.");
+                log_info("System clock time unset or jumped backwards, restoring.");
 
                 if (clock_settime(CLOCK_REALTIME, timespec_store(&ts, nt)) < 0)
                         log_error("Failed to restore system clock: %m");
