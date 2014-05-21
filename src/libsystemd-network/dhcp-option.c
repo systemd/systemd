@@ -26,8 +26,8 @@
 
 #include "dhcp-internal.h"
 
-int dhcp_option_append(uint8_t options[], size_t size, size_t *offset,
-                       uint8_t code, size_t optlen, const void *optval) {
+static int option_append(uint8_t options[], size_t size, size_t *offset,
+                         uint8_t code, size_t optlen, const void *optval) {
         assert(options);
         assert(offset);
 
@@ -39,7 +39,7 @@ int dhcp_option_append(uint8_t options[], size_t size, size_t *offset,
 
         case DHCP_OPTION_PAD:
         case DHCP_OPTION_END:
-                if (size - *offset < 1)
+                if (size < *offset + 1)
                         return -ENOBUFS;
 
                 options[*offset] = code;
@@ -47,14 +47,17 @@ int dhcp_option_append(uint8_t options[], size_t size, size_t *offset,
                 break;
 
         default:
-                if (size - *offset < optlen + 2)
+                if (size < *offset + optlen + 2)
                         return -ENOBUFS;
-
-                assert(optval);
 
                 options[*offset] = code;
                 options[*offset + 1] = optlen;
-                memcpy(&options[*offset + 2], optval, optlen);
+
+                if (optlen) {
+                        assert(optval);
+
+                        memcpy(&options[*offset + 2], optval, optlen);
+                }
 
                 *offset += optlen + 2;
 
@@ -62,6 +65,77 @@ int dhcp_option_append(uint8_t options[], size_t size, size_t *offset,
         }
 
         return 0;
+}
+
+int dhcp_option_append(DHCPMessage *message, size_t size, size_t *offset,
+                       uint8_t overload,
+                       uint8_t code, size_t optlen, const void *optval) {
+        size_t file_offset = 0, sname_offset =0;
+        bool file, sname;
+        int r;
+
+        assert(message);
+        assert(offset);
+
+        file = overload & DHCP_OVERLOAD_FILE;
+        sname = overload & DHCP_OVERLOAD_SNAME;
+
+        if (*offset < size) {
+                /* still space in the options array */
+                r = option_append(message->options, size, offset, code, optlen, optval);
+                if (r >= 0)
+                        return 0;
+                else if (r == -ENOBUFS && (file || sname)) {
+                        /* did not fit, but we have more buffers to try
+                           close the options array and move the offset to its end */
+                        r = option_append(message->options, size, offset, DHCP_OPTION_END, 0, NULL);
+                        if (r < 0)
+                                return r;
+
+                        *offset = size;
+                } else
+                        return r;
+        }
+
+        if (overload & DHCP_OVERLOAD_FILE) {
+                file_offset = *offset - size;
+
+                if (file_offset < sizeof(message->file)) {
+                        /* still space in the 'file' array */
+                        r = option_append(message->file, sizeof(message->file), &file_offset, code, optlen, optval);
+                        if (r >= 0) {
+                                *offset = size + file_offset;
+                                return 0;
+                        } else if (r == -ENOBUFS && sname) {
+                                /* did not fit, but we have more buffers to try
+                                   close the file array and move the offset to its end */
+                                r = option_append(message->options, size, offset, DHCP_OPTION_END, 0, NULL);
+                                if (r < 0)
+                                        return r;
+
+                                *offset = size + sizeof(message->file);
+                        } else
+                                return r;
+                }
+        }
+
+        if (overload & DHCP_OVERLOAD_SNAME) {
+                sname_offset = *offset - size - (file ? sizeof(message->file) : 0);
+
+                if (sname_offset < sizeof(message->sname)) {
+                        /* still space in the 'sname' array */
+                        r = option_append(message->sname, sizeof(message->sname), &sname_offset, code, optlen, optval);
+                        if (r >= 0) {
+                                *offset = size + (file ? sizeof(message->file) : 0) + sname_offset;
+                                return 0;
+                        } else {
+                                /* no space, or other error, give up */
+                                return r;
+                        }
+                }
+        }
+
+        return -ENOBUFS;
 }
 
 static int parse_options(const uint8_t options[], size_t buflen, uint8_t *overload,
