@@ -6093,7 +6093,7 @@ int container_get_leader(const char *machine, pid_t *pid) {
 
 int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *netns_fd, int *root_fd) {
         _cleanup_close_ int pidnsfd = -1, mntnsfd = -1, netnsfd = -1;
-        int rfd;
+        int rfd = -1;
 
         assert(pid >= 0);
 
