@@ -1186,8 +1186,12 @@ static int client_receive_message_udp(sd_event_source *s, int fd,
         assert(client);
 
         r = ioctl(fd, FIONREAD, &buflen);
-        if (r < 0 || buflen <= 0)
-                buflen = sizeof(DHCPMessage) + DHCP_MIN_OPTIONS_SIZE;
+        if (r < 0)
+                return r;
+
+        if (buflen < 0)
+                /* this can't be right */
+                return -EIO;
 
         message = malloc0(buflen);
         if (!message)
@@ -1224,8 +1228,12 @@ static int client_receive_message_raw(sd_event_source *s, int fd,
         assert(client);
 
         r = ioctl(fd, FIONREAD, &buflen);
-        if (r < 0 || buflen <= 0)
-                buflen = sizeof(DHCPPacket) + DHCP_MIN_OPTIONS_SIZE;
+        if (r < 0)
+                return r;
+
+        if (buflen < 0)
+                /* this can't be right */
+                return -EIO;
 
         packet = malloc0(buflen);
         if (!packet)
