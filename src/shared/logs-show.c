@@ -301,8 +301,8 @@ static int output_short(
                 }
 
                 fprintf(f, "[%5llu.%06llu]",
-                        t / USEC_PER_SEC,
-                        t % USEC_PER_SEC);
+                        (unsigned long long) (t / USEC_PER_SEC),
+                        (unsigned long long) (t % USEC_PER_SEC));
 
                 n += 1 + 5 + 1 + 6 + 1;
 
@@ -335,7 +335,7 @@ static int output_short(
                         r = strftime(buf, sizeof(buf), "%b %d %H:%M:%S", localtime_r(&t, &tm));
                         if (r > 0) {
                                 snprintf(buf + strlen(buf), sizeof(buf) - strlen(buf),
-                                         ".%06llu", x % USEC_PER_SEC);
+                                         ".%06llu", (unsigned long long) (x % USEC_PER_SEC));
                         }
                         break;
                 default:

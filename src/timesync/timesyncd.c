@@ -455,12 +455,12 @@ static int manager_adjust_clock(Manager *m, double offset, int leap_sec) {
         m->drift_ppm = tmx.freq / 65536;
 
         log_debug("  status       : %04i %s\n"
-                  "  time now     : %li.%03lli\n"
+                  "  time now     : %li.%03llu\n"
                   "  constant     : %li\n"
                   "  offset       : %+.3f sec\n"
                   "  freq offset  : %+li (%i ppm)\n",
                   tmx.status, tmx.status & STA_UNSYNC ? "" : "sync",
-                  tmx.time.tv_sec, tmx.time.tv_usec / NSEC_PER_MSEC,
+                  tmx.time.tv_sec, (unsigned long long) (tmx.time.tv_usec / NSEC_PER_MSEC),
                   tmx.constant,
                   (double)tmx.offset / NSEC_PER_SEC,
                   tmx.freq, m->drift_ppm);
@@ -727,7 +727,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                   "  delay        : %+.3f sec\n"
                   "  packet count : %"PRIu64"\n"
                   "  jitter       : %.3f%s\n"
-                  "  poll interval: %llu\n",
+                  "  poll interval: " USEC_FMT "\n",
                   NTP_FIELD_LEAP(ntpmsg.field),
                   NTP_FIELD_VERSION(ntpmsg.field),
                   NTP_FIELD_MODE(ntpmsg.field),
@@ -749,7 +749,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                         log_error("Failed to call clock_adjtime(): %m");
         }
 
-        log_info("interval/delta/delay/jitter/drift %llus/%+.3fs/%.3fs/%.3fs/%+ippm%s",
+        log_info("interval/delta/delay/jitter/drift " USEC_FMT "s/%+.3fs/%.3fs/%.3fs/%+ippm%s",
                  m->poll_interval_usec / USEC_PER_SEC, offset, delay, m->samples_jitter, m->drift_ppm,
                  spike ? " (ignored)" : "");
 

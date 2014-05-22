@@ -183,7 +183,7 @@ char *format_timestamp_us(char *buf, size_t l, usec_t t) {
 
         if (strftime(buf, l, "%a %Y-%m-%d %H:%M:%S", &tm) <= 0)
                 return NULL;
-        snprintf(buf + strlen(buf), l - strlen(buf), ".%06llu", t % USEC_PER_SEC);
+        snprintf(buf + strlen(buf), l - strlen(buf), ".%06llu", (unsigned long long) (t % USEC_PER_SEC));
         if (strftime(buf + strlen(buf), l - strlen(buf), " %Z", &tm) <= 0)
                 return NULL;
 
@@ -208,41 +208,41 @@ char *format_timestamp_relative(char *buf, size_t l, usec_t t) {
         }
 
         if (d >= USEC_PER_YEAR)
-                snprintf(buf, l, "%llu years %llu months %s",
+                snprintf(buf, l, USEC_FMT " years " USEC_FMT " months %s",
                          d / USEC_PER_YEAR,
                          (d % USEC_PER_YEAR) / USEC_PER_MONTH, s);
         else if (d >= USEC_PER_MONTH)
-                snprintf(buf, l, "%llu months %llu days %s",
+                snprintf(buf, l, USEC_FMT " months " USEC_FMT " days %s",
                          d / USEC_PER_MONTH,
                          (d % USEC_PER_MONTH) / USEC_PER_DAY, s);
         else if (d >= USEC_PER_WEEK)
-                snprintf(buf, l, "%llu weeks %llu days %s",
+                snprintf(buf, l, USEC_FMT " weeks " USEC_FMT " days %s",
                          d / USEC_PER_WEEK,
                          (d % USEC_PER_WEEK) / USEC_PER_DAY, s);
         else if (d >= 2*USEC_PER_DAY)
-                snprintf(buf, l, "%llu days %s", d / USEC_PER_DAY, s);
+                snprintf(buf, l, USEC_FMT " days %s", d / USEC_PER_DAY, s);
         else if (d >= 25*USEC_PER_HOUR)
-                snprintf(buf, l, "1 day %lluh %s",
+                snprintf(buf, l, "1 day " USEC_FMT "h %s",
                          (d - USEC_PER_DAY) / USEC_PER_HOUR, s);
         else if (d >= 6*USEC_PER_HOUR)
-                snprintf(buf, l, "%lluh %s",
+                snprintf(buf, l, USEC_FMT "h %s",
                          d / USEC_PER_HOUR, s);
         else if (d >= USEC_PER_HOUR)
-                snprintf(buf, l, "%lluh %llumin %s",
+                snprintf(buf, l, USEC_FMT "h " USEC_FMT "min %s",
                          d / USEC_PER_HOUR,
                          (d % USEC_PER_HOUR) / USEC_PER_MINUTE, s);
         else if (d >= 5*USEC_PER_MINUTE)
-                snprintf(buf, l, "%llumin %s",
+                snprintf(buf, l, USEC_FMT "min %s",
                          d / USEC_PER_MINUTE, s);
         else if (d >= USEC_PER_MINUTE)
-                snprintf(buf, l, "%llumin %llus %s",
+                snprintf(buf, l, USEC_FMT "min " USEC_FMT "s %s",
                          d / USEC_PER_MINUTE,
                          (d % USEC_PER_MINUTE) / USEC_PER_SEC, s);
         else if (d >= USEC_PER_SEC)
-                snprintf(buf, l, "%llus %s",
+                snprintf(buf, l, USEC_FMT "s %s",
                          d / USEC_PER_SEC, s);
         else if (d >= USEC_PER_MSEC)
-                snprintf(buf, l, "%llums %s",
+                snprintf(buf, l, USEC_FMT "ms %s",
                          d / USEC_PER_MSEC, s);
         else if (d > 0)
                 snprintf(buf, l, USEC_FMT"us %s",
