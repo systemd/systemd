@@ -340,8 +340,8 @@ int config_parse(const char *unit,
         if (!f) {
                 f = ours = fopen(filename, "re");
                 if (!f) {
-                        log_error("Failed to open configuration file '%s': %m", filename);
-                        return -errno;
+                        log_full(errno == ENOENT ? LOG_DEBUG : LOG_ERR, "Failed to open configuration file '%s': %m", filename);
+                        return errno == ENOENT ? 0 : -errno;
                 }
         }
 
