@@ -5324,60 +5324,6 @@ tests += \
 	test-libsystemd-sym \
 	test-libudev-sym
 
-if ENABLE_COMPAT_LIBS
-test-libsystemd-daemon-sym.c: \
-		src/compat-libs/libsystemd-daemon.sym \
-		src/systemd/sd-daemon.h
-	$(generate-sym-test)
-
-test-libsystemd-id128-sym.c: \
-		src/compat-libs/libsystemd-id128.sym \
-		src/systemd/sd-id128.h
-	$(generate-sym-test)
-
-test-libsystemd-journal-sym.c: \
-		src/compat-libs/libsystemd-journal.sym \
-		src/systemd/sd-journal.h
-	$(generate-sym-test)
-
-test-libsystemd-login-sym.c: \
-		src/compat-libs/libsystemd-login.sym \
-		src/systemd/sd-login.h
-	$(generate-sym-test)
-
-test_libsystemd_daemon_sym_SOURCES = \
-	test-libsystemd-daemon-sym.c
-test_libsystemd_daemon_sym_LDADD = \
-	libsystemd-daemon.la
-
-test_libsystemd_id128_sym_SOURCES = \
-	test-libsystemd-id128-sym.c
-test_libsystemd_id128_sym_LDADD = \
-	libsystemd-id128.la
-
-test_libsystemd_journal_sym_SOURCES = \
-	test-libsystemd-journal-sym.c
-test_libsystemd_journal_sym_LDADD = \
-	libsystemd-journal.la
-
-test_libsystemd_login_sym_SOURCES = \
-	test-libsystemd-login-sym.c
-test_libsystemd_login_sym_LDADD = \
-	libsystemd-login.la
-
-BUILT_SOURCES += \
-	$(test_libsystemd_journal_sym_SOURCES) \
-	$(test_libsystemd_login_sym_SOURCES) \
-	$(test_libsystemd_id128_sym_SOURCES) \
-	$(test_libsystemd_daemon_sym_SOURCES)
-
-tests += \
-	test-libsystemd-journal-sym \
-	test-libsystemd-login-sym \
-	test-libsystemd-id128-sym \
-	test-libsystemd-daemon-sym
-endif
-
 .PHONY: cppcheck
 cppcheck:
 	cppcheck --enable=all -q $(top_srcdir)
