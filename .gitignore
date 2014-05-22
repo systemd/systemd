@@ -101,6 +101,7 @@
 /systemd-socket-proxyd
 /systemd-sysctl
 /systemd-system-update-generator
+/systemd-sysv-generator
 /systemd-timedated
 /systemd-timesyncd
 /systemd-tmpfiles
