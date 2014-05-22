@@ -96,14 +96,6 @@ Features:
 
 * add an "input" group to udev logic and add all input devices to it
 
-* machined: provide calls GetMachineByAddress() on the manager
-  interface to get the machine for a local IP address, and
-  GetAddress() on the Machine interface to get the Address for a
-  machine. Implement via forking off child process which quickly joins
-  the cotnainer and passes data to parent. Show this in "machinectl
-  status", and use it to implement NSS module to provide automatic
-  name resolution for containers.
-
 * add generator that pulls in systemd-network from containers when
   CAP_NET_ADMIN is set, more than the loopback device is defined, even
   when it is otherwise off
@@ -186,12 +178,6 @@ Features:
 * man: the documentation of Restart= currently is very misleading and suggests the tools from ExecStartPre= might get restarted.
 
 * load .d/*.conf dropins for device units
-
-* gparted needs to disable auto-activation of mount units somehow, or
-  maybe we should stop doing auto-activation of this after boot
-  entirely. https://bugzilla.gnome.org/show_bug.cgi?id=701676
-  Maybe take a BSD lock at the disk device node and teach udev to
-  check for that and suppress event handling.
 
 * allow implementation of InaccessibleDirectories=/ plus
   ReadOnlyDirectories=... for whitelisting files for a service.
@@ -298,7 +284,6 @@ Features:
 * introduce ExecCondition= in services
 
 * EFI:
-  - write man page for efi boot generator
   - honor language efi variables for default language selection (if there are any?)
   - honor timezone efi variables for default timezone selection (if there are any?)
   - change bootctl to be backed by systemd-bootd to control temporary and persistent default boot goal plus efi variables
@@ -405,7 +390,6 @@ Features:
   - systemctl: "Journal has been rotated since unit was started." message is misleading
   - support "systemctl stop foobar@.service" to stop all units matching a certain template
   - Something is wrong with symlink handling of "autovt@.service" in "systemctl list-unit-files"
-  - rework wait filter to not require match callback
   - better error message if you run systemctl without systemd running
   - systemctl status output should should include list of triggering units and their status
 
@@ -417,8 +401,6 @@ Features:
     unit however should remove them all).
   - systemctl list-unit-files should list generated files (and probably with a new state "generated" for them, or so)
   - systemctl: maybe add "systemctl add-wants" or so...
-
-* introduce ntp.service (or suchlike) as symlink that is used to arbitrate between various NTP implementations
 
 * deal with sendmail/postfix exclusivity
 
@@ -461,7 +443,7 @@ Features:
 
 * on shutdown: move utmp, wall, audit logic all into PID 1 (or logind?), get rid of systemd-update-utmp-runlevel
 
-* add "provisioning" instructions to setup an empty /etc + /var
+* add "factory" instructions to setup an empty /etc + /var
     - used to setup a new container from a shared /usr
     - superset of tmpfiles model
     - instructions shipped by packages and stored in /usr/lib/
@@ -481,9 +463,6 @@ Features:
   - nspawn: make it work for dwalsh and shared /usr containers -- tmpfs mounts as command line parameters
   - refuses to boot containers without /etc/machine-id (OK?), and with empty /etc/machine-id (not OK).
   - support taking a btrfs snapshot at startup and dropping it afterwards
-  - maybe: hookup nspawn and PrivateNetwork=yes with "ip netns"
-  - generate predictable mac addresses for the netdev we create (host0), maybe based on guest's machine
-    name and machine-id of host (?)
 
 * cryptsetup:
   - cryptsetup-generator: allow specification of passwords in crypttab itself
@@ -669,8 +648,6 @@ Features:
 
 * fingerprint.target, wireless.target, gps.target, netdevice.target
 
-* io priority during initialization
-
 * drop cap bounding set in readahead and other services
 
 * systemd-python:
@@ -728,12 +705,6 @@ External:
 * make cryptsetup lower --iter-time
 
 * patch kernel for xattr support in /dev, /proc/, /sys?
-
-* NTP: the kernel's 11-minutes-mode syncs the system time to the RTC, but only
-  in an ~30 minutes window. It does not adjust larger differences. Find a way
-  to tell the kernel, to always do a full time sync when the RTC is in UTC and
-  we are in 11-minutes-mode. When we trust the system time to NTP we also want
-  the RTC to sync up.
 
 * kernel: add device_type = "fb", "fbcon" to class "graphics"
 
