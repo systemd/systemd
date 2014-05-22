@@ -109,6 +109,7 @@ struct NetDev {
         int ifindex;
         NetDevState state;
 
+        bool tunnel_pmtudisc;
         unsigned tunnel_ttl;
         unsigned tunnel_tos;
         struct in_addr tunnel_local;

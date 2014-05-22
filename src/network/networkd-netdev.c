@@ -545,6 +545,7 @@ static int netdev_load_one(Manager *manager, const char *filename) {
         netdev->kind = _NETDEV_KIND_INVALID;
         netdev->macvlan_mode = _NETDEV_MACVLAN_MODE_INVALID;
         netdev->vlanid = VLANID_MAX + 1;
+        netdev->tunnel_pmtudisc = true;
 
         r = config_parse(NULL, filename, file, "Match\0NetDev\0VLAN\0MACVLAN\0Tunnel\0Peer\0",
                          config_item_perf_lookup, (void*) network_netdev_gperf_lookup,
