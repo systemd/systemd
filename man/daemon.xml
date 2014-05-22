@@ -352,7 +352,7 @@
 
                         <para>These recommendations are similar but
                         not identical to the <ulink
-                        url="http://developer.apple.com/mac/library/documentation/MacOSX/Conceptual/BPSystemStartup/Articles/LaunchOnDemandDaemons.html#//apple_ref/doc/uid/TP40001762-104738">Apple
+                        url="https://developer.apple.com/library/mac/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/CreatingLaunchdJobs.html">Apple
                         MacOS X Daemon Requirements</ulink>.</para>
                 </refsect2>
 
