@@ -2509,6 +2509,7 @@ libsystemd_network_la_SOURCES = \
 	src/libsystemd-network/network-internal.h
 
 libsystemd_network_la_LIBADD = \
+	libudev-internal.la \
 	libsystemd-label.la \
 	libsystemd-internal.la \
 	libsystemd-shared.la \
@@ -2532,7 +2533,6 @@ test_dhcp_client_SOURCES = \
 
 test_dhcp_client_LDADD = \
 	libsystemd-network.la \
-	libudev-internal.la \
 	libsystemd-label.la \
 	libsystemd-internal.la \
 	libsystemd-shared.la
@@ -4066,7 +4066,6 @@ CLEANFILES += \
 systemd_timesyncd_LDADD = \
 	libsystemd-resolve.la \
 	libsystemd-network.la \
-	libudev-internal.la \
 	libsystemd-label.la \
 	libsystemd-capability.la \
 	libsystemd-internal.la \
@@ -4218,7 +4217,6 @@ CLEANFILES += \
 
 systemd_resolved_LDADD = \
 	libsystemd-network.la \
-	libudev-internal.la \
 	libsystemd-label.la \
 	libsystemd-internal.la \
 	libsystemd-shared.la
