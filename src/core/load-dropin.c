@@ -58,6 +58,7 @@ static int iterate_dir(
                 if (errno == ENOENT)
                         return 0;
 
+                log_error("Failed to open directory %s: %m", path);
                 return -errno;
         }
 
@@ -101,7 +102,7 @@ static int process_dir(
                 char ***strv) {
 
         _cleanup_free_ char *path = NULL;
-        int r;
+        int r, q;
 
         assert(u);
         assert(unit_path);
@@ -112,11 +113,8 @@ static int process_dir(
         if (!path)
                 return log_oom();
 
-        if (!u->manager->unit_path_cache || set_get(u->manager->unit_path_cache, path)) {
-                r = iterate_dir(u, path, dependency, strv);
-                if (r < 0)
-                        return r;
-        }
+        if (!u->manager->unit_path_cache || set_get(u->manager->unit_path_cache, path))
+                iterate_dir(u, path, dependency, strv);
 
         if (u->instance) {
                 _cleanup_free_ char *template = NULL, *p = NULL;
@@ -130,11 +128,8 @@ static int process_dir(
                 if (!p)
                         return log_oom();
 
-                if (!u->manager->unit_path_cache || set_get(u->manager->unit_path_cache, p)) {
-                        r = iterate_dir(u, p, dependency, strv);
-                        if (r < 0)
-                                return r;
-                }
+                if (!u->manager->unit_path_cache || set_get(u->manager->unit_path_cache, p))
+                        iterate_dir(u, p, dependency, strv);
         }
 
         return 0;
@@ -152,12 +147,8 @@ char **unit_find_dropin_paths(Unit *u) {
         SET_FOREACH(t, u->names, i) {
                 char **p;
 
-                STRV_FOREACH(p, u->manager->lookup_paths.unit_path) {
-                        /* This loads the drop-in config snippets */
-                        r = process_dir(u, *p, t, ".d", _UNIT_DEPENDENCY_INVALID, &strv);
-                        if (r < 0)
-                                return NULL;
-                }
+                STRV_FOREACH(p, u->manager->lookup_paths.unit_path)
+                        process_dir(u, *p, t, ".d", _UNIT_DEPENDENCY_INVALID, &strv);
         }
 
         if (strv_isempty(strv))
@@ -186,13 +177,8 @@ int unit_load_dropin(Unit *u) {
                 char **p;
 
                 STRV_FOREACH(p, u->manager->lookup_paths.unit_path) {
-                        r = process_dir(u, *p, t, ".wants", UNIT_WANTS, NULL);
-                        if (r < 0)
-                                return r;
-
-                        r = process_dir(u, *p, t, ".requires", UNIT_REQUIRES, NULL);
-                        if (r < 0)
-                                return r;
+                        process_dir(u, *p, t, ".wants", UNIT_WANTS, NULL);
+                        process_dir(u, *p, t, ".requires", UNIT_REQUIRES, NULL);
                 }
         }
 
@@ -201,11 +187,9 @@ int unit_load_dropin(Unit *u) {
                 return 0;
 
         STRV_FOREACH(f, u->dropin_paths) {
-                r = config_parse(u->id, *f, NULL,
-                                 UNIT_VTABLE(u)->sections, config_item_perf_lookup,
-                                 (void*) load_fragment_gperf_lookup, false, false, u);
-                if (r < 0)
-                        return r;
+                config_parse(u->id, *f, NULL,
+                             UNIT_VTABLE(u)->sections, config_item_perf_lookup,
+                             (void*) load_fragment_gperf_lookup, false, false, u);
         }
 
         u->dropin_mtime = now(CLOCK_REALTIME);
