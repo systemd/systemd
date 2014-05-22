@@ -1503,6 +1503,12 @@ static void socket_enter_running(Socket *s, int cfd) {
                         }
 
                 if (!pending) {
+                        if (!UNIT_ISSET(s->service)) {
+                                log_error_unit(UNIT(s)->id, "%s: service to activate vanished, refusing activation.", UNIT(s)->id);
+                                r = -ENOENT;
+                                goto fail;
+                        }
+
                         r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT_DEREF(s->service), JOB_REPLACE, true, &error, NULL);
                         if (r < 0)
                                 goto fail;
