@@ -158,9 +158,7 @@
                                 it is verified at the same time that
                                 the PID previously stored in the PID
                                 file no longer exists or belongs to a
-                                foreign process. Commonly, some kind of
-                                file locking is employed to implement
-                                this logic.</para></listitem>
+                                foreign process.</para></listitem>
 
                                 <listitem><para>In the daemon process,
                                 drop privileges, if possible and
