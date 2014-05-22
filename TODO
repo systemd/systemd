@@ -30,6 +30,10 @@ External:
 
 Features:
 
+* generator that automatically discovers btrfs subvolumes, identifies their purpose based on some xattr on them.
+
+* support setting empty environment variables with Environment= and EnvironmentFile=
+
 * tmpfiles: figure out relation between Z and m?
 
 * systemd-notify: fake ucred of msg to PID of parent, if that works, with fallback to our own if it doesn't.
