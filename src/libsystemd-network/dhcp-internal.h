@@ -27,6 +27,7 @@
 
 #include "socket-util.h"
 
+#include "sd-dhcp-client.h"
 #include "dhcp-protocol.h"
 
 int dhcp_network_bind_raw_socket(int index, union sockaddr_union *link, uint32_t xid);
@@ -55,5 +56,14 @@ void dhcp_packet_append_ip_headers(DHCPPacket *packet, be32_t source_addr,
                                    uint16_t destination, uint16_t len);
 
 int dhcp_packet_verify_headers(DHCPPacket *packet, size_t len, bool checksum);
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(sd_dhcp_client*, sd_dhcp_client_unref);
+#define _cleanup_dhcp_client_unref_ _cleanup_(sd_dhcp_client_unrefp)
+
+/* If we are invoking callbacks of a dhcp-client, ensure unreffing the
+ * client from the callback doesn't destroy the object we are working
+ * on */
+#define DHCP_CLIENT_DONT_DESTROY(client) \
+        _cleanup_dhcp_client_unref_ _unused_ sd_dhcp_client *_dont_destroy_##client = sd_dhcp_client_ref(client)
 
 #define log_dhcp_client(client, fmt, ...) log_meta(LOG_DEBUG, __FILE__, __LINE__, __func__, "DHCP CLIENT (0x%x): " fmt, client->xid, ##__VA_ARGS__)
