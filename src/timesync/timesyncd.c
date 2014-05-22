@@ -52,6 +52,7 @@
 #include "sd-network.h"
 #include "event-util.h"
 #include "network-util.h"
+#include "clock-util.h"
 #include "capability.h"
 #include "mkdir.h"
 #include "timesyncd.h"
@@ -135,78 +136,6 @@ static int manager_clock_watch_setup(Manager *m);
 static int manager_connect(Manager *m);
 static void manager_disconnect(Manager *m);
 
-static int load_clock(uid_t uid, gid_t gid) {
-        usec_t nt = TIME_EPOCH * USEC_PER_SEC, ct;
-        _cleanup_close_ int fd = -1;
-
-        /* Let's try to make sure that the clock is always
-         * monotonically increasing, by saving the clock whenever we
-         * have a new NTP time, or when we shut down, and restoring it
-         * when we start again. This is particularly helpful on
-         * systems lacking a battery backed RTC. We also will adjust
-         * the time to at least the build time of systemd. */
-
-        mkdir_p("/var/lib/systemd", 0755);
-
-        /* First, we try to create the clock file if it doesn't exist yet */
-        fd = open("/var/lib/systemd/clock", O_RDWR|O_CLOEXEC|O_EXCL, 0644);
-        if (fd < 0) {
-
-                fd = open("/var/lib/systemd/clock", O_RDWR|O_CLOEXEC|O_CREAT, 0644);
-                if (fd < 0) {
-                        log_error("Failed to create /var/lib/systemd/clock: %m");
-                        return -errno;
-                }
-
-        } else {
-                struct stat st;
-                usec_t ft;
-
-                if (fstat(fd, &st) < 0) {
-                        log_error("fstat() failed: %m");
-                        return -errno;
-                }
-
-                ft = timespec_load(&st.st_mtim);
-                if (ft > nt)
-                        nt = ft;
-        }
-
-        ct = now(CLOCK_REALTIME);
-        if (nt > ct) {
-                struct timespec ts;
-                log_info("System clock time unset or jumped backwards, restoring.");
-
-                if (clock_settime(CLOCK_REALTIME, timespec_store(&ts, nt)) < 0)
-                        log_error("Failed to restore system clock: %m");
-        }
-
-        /* Try to fix the access mode, so that we can still
-           touch the file after dropping priviliges */
-        fchmod(fd, 0644);
-        fchown(fd, uid, gid);
-
-        return 0;
-}
-
-static int save_clock(void) {
-
-        static const struct timespec ts[2] = {
-                { .tv_sec = 0, .tv_nsec = UTIME_NOW },
-                { .tv_sec = 0, .tv_nsec = UTIME_NOW },
-        };
-
-        int r;
-
-        r = utimensat(-1, "/var/lib/systemd/clock", ts, AT_SYMLINK_NOFOLLOW);
-        if (r < 0) {
-                log_warning("Failed to touch /var/lib/systemd/clock: %m");
-                return -errno;
-        }
-
-        return 0;
-}
-
 static double ntp_ts_to_d(const struct ntp_ts *ts) {
         return be32toh(ts->sec) + ((double)be32toh(ts->frac) / UINT_MAX);
 }
@@ -221,6 +150,56 @@ static double tv_to_d(const struct timeval *tv) {
 
 static double square(double d) {
         return d * d;
+}
+
+static int load_clock_timestamp(uid_t uid, gid_t gid) {
+        _cleanup_close_ int fd = -1;
+        usec_t min = TIME_EPOCH * USEC_PER_SEC;
+        usec_t ct;
+        int r;
+
+        /* Let's try to make sure that the clock is always
+         * monotonically increasing, by saving the clock whenever we
+         * have a new NTP time, or when we shut down, and restoring it
+         * when we start again. This is particularly helpful on
+         * systems lacking a battery backed RTC. We also will adjust
+         * the time to at least the build time of systemd. */
+
+        fd = open("/var/lib/systemd/clock", O_RDWR|O_CLOEXEC, 0644);
+        if (fd >= 0) {
+                struct stat st;
+                usec_t stamp;
+
+                /* check if the recorded time is later than the compiled-in one */
+                r = fstat(fd, &st);
+                if (r >= 0) {
+                        stamp = timespec_load(&st.st_mtim);
+                        if (stamp > min)
+                                min = stamp;
+                }
+
+                /* Try to fix the access mode, so that we can still
+                   touch the file after dropping priviliges */
+                fchmod(fd, 0644);
+                fchown(fd, uid, gid);
+
+        } else
+                /* create stamp file with the compiled-in date */
+                touch_file("/var/lib/systemd/clock", true, min, uid, gid, 0644);
+
+        ct = now(CLOCK_REALTIME);
+        if (ct < min) {
+                struct timespec ts;
+                char date[FORMAT_TIMESTAMP_MAX];
+
+                log_info("System clock time unset or jumped backwards, restoring from recorded timestamp: %s",
+                         format_timestamp(date, sizeof(date), min));
+
+                if (clock_settime(CLOCK_REALTIME, timespec_store(&ts, min)) < 0)
+                        log_error("Failed to restore system clock: %m");
+        }
+
+        return 0;
 }
 
 static int manager_timeout(sd_event_source *source, usec_t usec, void *userdata) {
@@ -446,11 +425,10 @@ static int manager_adjust_clock(Manager *m, double offset, int leap_sec) {
         }
 
         r = clock_adjtime(CLOCK_REALTIME, &tmx);
-
-        save_clock();
-
         if (r < 0)
                 return r;
+
+        touch("/var/lib/systemd/clock");
 
         m->drift_ppm = tmx.freq / 65536;
 
@@ -744,6 +722,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                   m->poll_interval_usec / USEC_PER_SEC);
 
         if (!spike) {
+                m->sync = true;
                 r = manager_adjust_clock(m, offset, leap_sec);
                 if (r < 0)
                         log_error("Failed to call clock_adjtime(): %m");
@@ -1308,7 +1287,7 @@ int main(int argc, char *argv[]) {
                 return r;
         }
 
-        r = load_clock(uid, gid);
+        r = load_clock_timestamp(uid, gid);
         if (r < 0)
                 goto out;
 
@@ -1349,7 +1328,10 @@ int main(int argc, char *argv[]) {
         }
 
         sd_event_get_exit_code(m->event, &r);
-        save_clock();
+
+        /* if we got an authoritative time, store it in the file system */
+        if (m->sync)
+                touch("/var/lib/systemd/clock");
 
 out:
         sd_notify(false, "STATUS=Shutting down...");

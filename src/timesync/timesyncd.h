@@ -84,6 +84,7 @@ struct Manager {
 
         /* last change */
         bool jumped;
+        bool sync;
         int drift_ppm;
 
         /* watch for time changes */
