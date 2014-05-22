@@ -190,6 +190,7 @@ AM_CPPFLAGS = \
 	-I $(top_srcdir)/src/journal \
 	-I $(top_srcdir)/src/timedate \
 	-I $(top_srcdir)/src/timesync \
+	-I $(top_srcdir)/src/resolve \
 	-I $(top_srcdir)/src/systemd \
 	-I $(top_builddir)/src/core \
 	-I $(top_srcdir)/src/core \
@@ -2531,6 +2532,7 @@ test_dhcp_client_SOURCES = \
 
 test_dhcp_client_LDADD = \
 	libsystemd-network.la \
+	libudev-internal.la \
 	libsystemd-label.la \
 	libsystemd-internal.la \
 	libsystemd-shared.la
@@ -4062,12 +4064,13 @@ CLEANFILES += \
 	src/timesync/timesyncd-gperf.c
 
 systemd_timesyncd_LDADD = \
-	libsystemd-label.la \
-	libsystemd-internal.la \
-	libsystemd-shared.la \
 	libsystemd-resolve.la \
 	libsystemd-network.la \
+	libudev-internal.la \
+	libsystemd-label.la \
 	libsystemd-capability.la \
+	libsystemd-internal.la \
+	libsystemd-shared.la \
 	-lm
 
 rootlibexec_PROGRAMS += \
@@ -4214,10 +4217,11 @@ CLEANFILES += \
 	src/resolve/resolved-gperf.c
 
 systemd_resolved_LDADD = \
+	libsystemd-network.la \
+	libudev-internal.la \
 	libsystemd-label.la \
 	libsystemd-internal.la \
-	libsystemd-shared.la \
-	libsystemd-network.la
+	libsystemd-shared.la
 
 rootlibexec_PROGRAMS += \
 	systemd-resolved
@@ -4299,8 +4303,7 @@ systemd_networkd_wait_online_LDADD = \
 	libsystemd-network.la \
 	libudev-internal.la \
 	libsystemd-internal.la \
-	libsystemd-shared.la \
-	libsystemd-network.la
+	libsystemd-shared.la
 
 test_network_SOURCES = \
 	src/network/test-network.c
