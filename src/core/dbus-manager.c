@@ -28,7 +28,7 @@
 #include "install.h"
 #include "selinux-access.h"
 #include "watchdog.h"
-#include "hwclock.h"
+#include "clock-util.h"
 #include "path-util.h"
 #include "virt.h"
 #include "architecture.h"
@@ -130,7 +130,7 @@ static int property_get_tainted(
         if (access("/proc/cgroups", F_OK) < 0)
                 e = stpcpy(e, "cgroups-missing:");
 
-        if (hwclock_is_localtime() > 0)
+        if (clock_is_localtime() > 0)
                 e = stpcpy(e, "local-hwclock:");
 
         /* remove the last ':' */

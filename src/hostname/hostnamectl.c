@@ -35,7 +35,7 @@
 #include "util.h"
 #include "spawn-polkit-agent.h"
 #include "build.h"
-#include "hwclock.h"
+#include "clock-util.h"
 #include "strv.h"
 #include "sd-id128.h"
 #include "virt.h"

@@ -21,8 +21,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-int hwclock_is_localtime(void);
-int hwclock_set_timezone(int *min);
-int hwclock_reset_timezone(void);
-int hwclock_get_time(struct tm *tm);
-int hwclock_set_time(const struct tm *tm);
+int clock_is_localtime(void);
+int clock_set_timezone(int *min);
+int clock_reset_timezone(void);
+int clock_get_time(struct tm *tm);
+int clock_set_time(const struct tm *tm);

@@ -61,7 +61,7 @@
 #include "capability.h"
 #include "killall.h"
 #include "env-util.h"
-#include "hwclock.h"
+#include "clock-util.h"
 #include "fileio.h"
 #include "dbus-manager.h"
 #include "bus-error.h"
@@ -1352,11 +1352,11 @@ int main(int argc, char *argv[]) {
                         goto finish;
 
                 if (!skip_setup) {
-                        if (hwclock_is_localtime() > 0) {
+                        if (clock_is_localtime() > 0) {
                                 int min;
 
                                 /* The first-time call to settimeofday() does a time warp in the kernel */
-                                r = hwclock_set_timezone(&min);
+                                r = clock_set_timezone(&min);
                                 if (r < 0)
                                         log_error("Failed to apply local time delta, ignoring: %s", strerror(-r));
                                 else
@@ -1370,10 +1370,10 @@ int main(int argc, char *argv[]) {
                                  * that way. In such case, we need to delay the time-warp or the sealing
                                  * until we reach the real system.
                                  */
-                                hwclock_reset_timezone();
+                                clock_reset_timezone();
 
                                 /* Tell the kernel our timezone */
-                                r = hwclock_set_timezone(NULL);
+                                r = clock_set_timezone(NULL);
                                 if (r < 0)
                                         log_error("Failed to set the kernel's timezone, ignoring: %s", strerror(-r));
                         }

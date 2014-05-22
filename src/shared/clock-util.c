@@ -40,10 +40,10 @@
 #include "util.h"
 #include "log.h"
 #include "strv.h"
-#include "hwclock.h"
+#include "clock-util.h"
 #include "fileio.h"
 
-int hwclock_get_time(struct tm *tm) {
+int clock_get_time(struct tm *tm) {
         _cleanup_close_ int fd = -1;
 
         assert(tm);
@@ -64,7 +64,7 @@ int hwclock_get_time(struct tm *tm) {
         return 0;
 }
 
-int hwclock_set_time(const struct tm *tm) {
+int clock_set_time(const struct tm *tm) {
         _cleanup_close_ int fd = -1;
 
         assert(tm);
@@ -79,7 +79,7 @@ int hwclock_set_time(const struct tm *tm) {
         return 0;
 }
 
-int hwclock_is_localtime(void) {
+int clock_is_localtime(void) {
         _cleanup_fclose_ FILE *f;
 
         /*
@@ -109,7 +109,7 @@ int hwclock_is_localtime(void) {
         return 0;
 }
 
-int hwclock_set_timezone(int *min) {
+int clock_set_timezone(int *min) {
         const struct timeval *tv_null = NULL;
         struct timespec ts;
         struct tm *tm;
@@ -135,7 +135,7 @@ int hwclock_set_timezone(int *min) {
         return 0;
 }
 
-int hwclock_reset_timezone(void) {
+int clock_reset_timezone(void) {
         const struct timeval *tv_null = NULL;
         struct timezone tz;
 

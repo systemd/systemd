@@ -31,7 +31,7 @@
 #include "util.h"
 #include "strv.h"
 #include "def.h"
-#include "hwclock.h"
+#include "clock-util.h"
 #include "conf-files.h"
 #include "path-util.h"
 #include "fileio-label.h"
@@ -153,7 +153,7 @@ have_timezone:
                 c->zone = NULL;
         }
 
-        c->local_rtc = hwclock_is_localtime() > 0;
+        c->local_rtc = clock_is_localtime() > 0;
 
         return 0;
 }
@@ -465,7 +465,7 @@ static int property_get_rtc_time(
         int r;
 
         zero(tm);
-        r = hwclock_get_time(&tm);
+        r = clock_get_time(&tm);
         if (r == -EBUSY) {
                 log_warning("/dev/rtc is busy. Is somebody keeping it open continuously? That's not a good idea... Returning a bogus RTC timestamp.");
                 t = 0;
@@ -546,7 +546,7 @@ static int method_set_timezone(sd_bus *bus, sd_bus_message *m, void *userdata, s
         }
 
         /* 2. Tell the kernel our timezone */
-        hwclock_set_timezone(NULL);
+        clock_set_timezone(NULL);
 
         if (c->local_rtc) {
                 struct timespec ts;
@@ -555,7 +555,7 @@ static int method_set_timezone(sd_bus *bus, sd_bus_message *m, void *userdata, s
                 /* 3. Sync RTC from system clock, with the new delta */
                 assert_se(clock_gettime(CLOCK_REALTIME, &ts) == 0);
                 assert_se(tm = localtime(&ts.tv_sec));
-                hwclock_set_time(tm);
+                clock_set_time(tm);
         }
 
         log_struct(LOG_INFO,
@@ -602,7 +602,7 @@ static int method_set_local_rtc(sd_bus *bus, sd_bus_message *m, void *userdata, 
         }
 
         /* 2. Tell the kernel our timezone */
-        hwclock_set_timezone(NULL);
+        clock_set_timezone(NULL);
 
         /* 3. Synchronize clocks */
         assert_se(clock_gettime(CLOCK_REALTIME, &ts) == 0);
@@ -621,7 +621,7 @@ static int method_set_local_rtc(sd_bus *bus, sd_bus_message *m, void *userdata, 
                 /* Override the main fields of
                  * struct tm, but not the timezone
                  * fields */
-                if (hwclock_get_time(&tm) >= 0) {
+                if (clock_get_time(&tm) >= 0) {
 
                         /* And set the system clock
                          * with this */
@@ -642,7 +642,7 @@ static int method_set_local_rtc(sd_bus *bus, sd_bus_message *m, void *userdata, 
                 else
                         tm = gmtime(&ts.tv_sec);
 
-                hwclock_set_time(tm);
+                clock_set_time(tm);
         }
 
         log_info("RTC configured to %s time.", c->local_rtc ? "local" : "UTC");
@@ -706,7 +706,7 @@ static int method_set_time(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bu
         else
                 tm = gmtime(&ts.tv_sec);
 
-        hwclock_set_time(tm);
+        clock_set_time(tm);
 
         log_struct(LOG_INFO,
                    MESSAGE_ID(SD_MESSAGE_TIME_CHANGE),
