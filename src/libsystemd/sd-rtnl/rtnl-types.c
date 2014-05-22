@@ -117,6 +117,19 @@ static const NLType rtnl_link_info_data_iptun_types[IFLA_IPTUN_MAX + 1] = {
         [IFLA_IPTUN_6RD_RELAY_PREFIXLEN] = { .type = NLA_U16 },
 };
 
+static  const NLType rtnl_link_info_data_ipgre_types[IFLA_GRE_MAX + 1] = {
+        [IFLA_GRE_LINK]     = { .type = NLA_U32 },
+        [IFLA_GRE_IFLAGS]   = { .type = NLA_U16 },
+        [IFLA_GRE_OFLAGS]   = { .type = NLA_U16 },
+        [IFLA_GRE_IKEY]     = { .type = NLA_U32 },
+        [IFLA_GRE_OKEY]     = { .type = NLA_U32 },
+        [IFLA_GRE_LOCAL]    = { .type = NLA_IN_ADDR },
+        [IFLA_GRE_REMOTE]   = { .type = NLA_IN_ADDR },
+        [IFLA_GRE_TTL]      = { .type = NLA_U8 },
+        [IFLA_GRE_TOS]      = { .type = NLA_U8 },
+        [IFLA_GRE_PMTUDISC] = { .type = NLA_U8 },
+};
+
 typedef enum NLUnionLinkInfoData {
         NL_UNION_LINK_INFO_DATA_BOND,
         NL_UNION_LINK_INFO_DATA_BRIDGE,
@@ -124,6 +137,7 @@ typedef enum NLUnionLinkInfoData {
         NL_UNION_LINK_INFO_DATA_VETH,
         NL_UNION_LINK_INFO_DATA_MACVLAN,
         NL_UNION_LINK_INFO_DATA_IPIP_TUNNEL,
+        NL_UNION_LINK_INFO_DATA_IPGRE_TUNNEL,
         NL_UNION_LINK_INFO_DATA_SIT_TUNNEL,
         _NL_UNION_LINK_INFO_DATA_MAX,
         _NL_UNION_LINK_INFO_DATA_INVALID = -1
@@ -140,6 +154,7 @@ static const char* const nl_union_link_info_data_table[_NL_UNION_LINK_INFO_DATA_
         [NL_UNION_LINK_INFO_DATA_VETH] = "veth",
         [NL_UNION_LINK_INFO_DATA_MACVLAN] = "macvlan",
         [NL_UNION_LINK_INFO_DATA_IPIP_TUNNEL] = "ipip",
+        [NL_UNION_LINK_INFO_DATA_IPGRE_TUNNEL] = "gre",
         [NL_UNION_LINK_INFO_DATA_SIT_TUNNEL] = "sit",
 };
 
@@ -158,6 +173,8 @@ static const NLTypeSystem rtnl_link_info_data_type_systems[_NL_UNION_LINK_INFO_D
                                                   .types = rtnl_link_info_data_macvlan_types },
         [NL_UNION_LINK_INFO_DATA_IPIP_TUNNEL] = { .max = ELEMENTSOF(rtnl_link_info_data_iptun_types) - 1,
                                                   .types = rtnl_link_info_data_iptun_types },
+        [NL_UNION_LINK_INFO_DATA_IPGRE_TUNNEL] =  { .max = ELEMENTSOF(rtnl_link_info_data_ipgre_types) - 1,
+                                                    .types = rtnl_link_info_data_ipgre_types },
         [NL_UNION_LINK_INFO_DATA_SIT_TUNNEL] =  { .max = ELEMENTSOF(rtnl_link_info_data_iptun_types) - 1,
                                                   .types = rtnl_link_info_data_iptun_types },
 };
