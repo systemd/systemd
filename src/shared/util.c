@@ -73,6 +73,7 @@
 #include "log.h"
 #include "strv.h"
 #include "label.h"
+#include "mkdir.h"
 #include "path-util.h"
 #include "exit-status.h"
 #include "hashmap.h"
@@ -3344,20 +3345,47 @@ char *ellipsize(const char *s, size_t length, unsigned percent) {
         return ellipsize_mem(s, strlen(s), length, percent);
 }
 
-int touch(const char *path) {
+int touch_file(const char *path, bool parents, usec_t stamp, uid_t uid, gid_t gid, mode_t mode) {
         _cleanup_close_ int fd;
+        int r;
 
         assert(path);
 
-        /* This just opens the file for writing, ensuring it
-         * exists. It doesn't call utimensat() the way /usr/bin/touch
-         * does it. */
+        if (parents)
+                mkdir_parents(path, 0755);
 
-        fd = open(path, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY, 0644);
+        fd = open(path, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY, mode > 0 ? mode : 0644);
         if (fd < 0)
                 return -errno;
 
+        if (mode > 0) {
+                r = fchmod(fd, mode);
+                if (r < 0)
+                        return -errno;
+        }
+
+        if (uid != (uid_t)-1 || gid != (gid_t)-1) {
+                r = fchown(fd, uid, gid);
+                if (r < 0)
+                        return -errno;
+        }
+
+        if (stamp != (usec_t)-1) {
+                struct timespec ts[2];
+
+                timespec_store(&ts[0], stamp);
+                timespec_store(&ts[1], stamp);
+                r = futimens(fd, ts);
+        } else
+                r = futimens(fd, NULL);
+        if (r < 0)
+                return -errno;
+
         return 0;
+}
+
+int touch(const char *path) {
+        return touch_file(path, false, -1, -1, -1, 0);
 }
 
 char *unquote(const char *s, const char* quotes) {

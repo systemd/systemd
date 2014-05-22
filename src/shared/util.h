@@ -478,6 +478,7 @@ char *ellipsize(const char *s, size_t length, unsigned percent);
                                    /* bytes                 columns */
 char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigned percent);
 
+int touch_file(const char *path, bool parents, usec_t stamp, uid_t uid, gid_t gid, mode_t mode);
 int touch(const char *path);
 
 char *unquote(const char *s, const char *quotes);
