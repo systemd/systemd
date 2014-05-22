@@ -30,9 +30,10 @@ External:
 
 Features:
 
+* tmpfiles: figure out relation between Z and m?
+
 * systemd-notify: fake ucred of msg to PID of parent, if that works, with fallback to our own if it doesn't.
 
-* machined: make sure we can restart machined without losing machines
 * machined/machinectl: sort IP addresses we return by scope and protocol
 * machined: write NSS module for looking up IP addresses for machines
 
@@ -55,13 +56,11 @@ Features:
 
 * mount_cgroup_controllers(): symlinks need to get the label applied
 
-* For timer units: add some mechanisms so that timer units that trigger immediately on boot do not have the services they run added to the initial transaction and thus confuse Type=idle. Alternatively, split up the boot-up state into two, and make Type=idle only be affected by jobs for the default target, but ignore any further jobs
+* For timer units: add some mechanisms so that timer units that trigger immediately on boot do not have the services they run added to the initial transaction and thus confuse Type=idle.
 
 * Add RPM macros for registering/unregistering binfmt drop-ins
 
 * Add timeout to early-boot, and shut down the system if it is hit. Solves the laptop-in-bag problem and is useful for embedded cases
-
-* sd-resolve: add callback api
 
 * ImmutableSystem=yes/no or so to mount /usr, /boot read-only/invisible, and leave /var and /etc writable
 
