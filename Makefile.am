@@ -1689,8 +1689,8 @@ endif
 endif
 
 EXTRA_DIST += \
-        units/systemd-modules-load.service.in \
-        units/kmod-static-nodes.service.in
+	units/systemd-modules-load.service.in \
+	units/kmod-static-nodes.service.in
 
 # ------------------------------------------------------------------------------
 if ENABLE_TMPFILES
@@ -2536,15 +2536,15 @@ test_dhcp_client_LDADD = \
 	libsystemd-shared.la
 
 test_ipv4ll_SOURCES = \
-        src/systemd/sd-ipv4ll.h \
-        src/libsystemd-network/ipv4ll-internal.h \
-        src/libsystemd-network/test-ipv4ll.c
+	src/systemd/sd-ipv4ll.h \
+	src/libsystemd-network/ipv4ll-internal.h \
+	src/libsystemd-network/test-ipv4ll.c
 
 test_ipv4ll_LDADD = \
-        libsystemd-network.la \
-        libsystemd-label.la \
-        libsystemd-internal.la \
-        libsystemd-shared.la
+	libsystemd-network.la \
+	libsystemd-label.la \
+	libsystemd-internal.la \
+	libsystemd-shared.la
 
 tests += \
 	test-dhcp-option \
@@ -5182,9 +5182,9 @@ linkcheck:
 hwdb-update:
 	( cd $(top_srcdir)/hwdb && \
 	wget -N http://www.linux-usb.org/usb.ids \
-	        http://pci-ids.ucw.cz/v2.2/pci.ids \
-	        http://standards.ieee.org/develop/regauth/oui/oui.txt \
-	        http://standards.ieee.org/develop/regauth/iab/iab.txt && \
+		http://pci-ids.ucw.cz/v2.2/pci.ids \
+		http://standards.ieee.org/develop/regauth/oui/oui.txt \
+		http://standards.ieee.org/develop/regauth/iab/iab.txt && \
 	./ids-update.pl )
 
 .PHONY: kdbus-update
@@ -5229,7 +5229,7 @@ valgrind-tests: $(TESTS)
 		if file $$f | grep -q shell; then \
 		echo -e "$${x}Skipping non-binary $$f"; else \
 		echo -e "$${x}Running $$f"; \
-	        libtool --mode=execute valgrind -q --leak-check=full --max-stackframe=5242880 --error-exitcode=55 $(builddir)/$$f ; fi; \
+		libtool --mode=execute valgrind -q --leak-check=full --max-stackframe=5242880 --error-exitcode=55 $(builddir)/$$f ; fi; \
 		x="\n\n"; \
 	done
 
