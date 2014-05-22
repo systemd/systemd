@@ -102,7 +102,6 @@ static int process_dir(
                 char ***strv) {
 
         _cleanup_free_ char *path = NULL;
-        int r, q;
 
         assert(u);
         assert(unit_path);
@@ -167,7 +166,6 @@ char **unit_find_dropin_paths(Unit *u) {
 int unit_load_dropin(Unit *u) {
         Iterator i;
         char *t, **f;
-        int r;
 
         assert(u);
 
