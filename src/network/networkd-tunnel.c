@@ -339,6 +339,94 @@ static int netdev_fill_ipgre_rtnl_message(Link *link, sd_rtnl_message *m) {
         return r;
 }
 
+static int netdev_fill_vti_rtnl_message(Link *link, sd_rtnl_message *m) {
+        NetDev *netdev;
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(link->network->tunnel);
+        assert(m);
+
+        netdev = link->network->tunnel;
+
+        r = sd_rtnl_message_append_string(m, IFLA_IFNAME, netdev->ifname);
+        if (r < 0) {
+                log_error_netdev(netdev,
+                                 "Could not append IFLA_IFNAME, attribute: %s",
+                                 strerror(-r));
+                return r;
+        }
+
+        if(netdev->mtu) {
+                r = sd_rtnl_message_append_u32(m, IFLA_MTU, netdev->mtu);
+                if (r < 0) {
+                        log_error_netdev(netdev,
+                                         "Could not append IFLA_MTU attribute: %s",
+                                         strerror(-r));
+                        return r;
+                }
+        }
+
+        r = sd_rtnl_message_open_container(m, IFLA_LINKINFO);
+        if (r < 0) {
+                log_error_netdev(netdev,
+                                 "Could not append IFLA_LINKINFO attribute: %s",
+                                 strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_open_container_union(m, IFLA_INFO_DATA,
+                                                 netdev_kind_to_string(netdev->kind));
+        if (r < 0) {
+                log_error_netdev(netdev,
+                                 "Could not append IFLA_INFO_DATA attribute: %s",
+                                 strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_append_u32(m, IFLA_VTI_LINK, link->ifindex);
+        if (r < 0) {
+                log_error_netdev(netdev,
+                                 "Could not append IFLA_IPTUN_LINK attribute: %s",
+                                 strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_append_in_addr(m, IFLA_VTI_LOCAL, &netdev->tunnel_local);
+        if (r < 0) {
+                log_error_netdev(netdev,
+                                 "Could not append IFLA_IPTUN_LOCAL attribute: %s",
+                                 strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_append_in_addr(m, IFLA_VTI_REMOTE, &netdev->tunnel_remote);
+        if (r < 0) {
+                log_error_netdev(netdev,
+                                 "Could not append IFLA_IPTUN_REMOTE attribute: %s",
+                                 strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_close_container(m);
+        if (r < 0) {
+                log_error_netdev(netdev,
+                                 "Could not append IFLA_INFO_DATA attribute: %s",
+                                 strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_close_container(m);
+        if (r < 0) {
+                log_error_netdev(netdev,
+                                 "Could not append IFLA_LINKINFO attribute: %s",
+                                 strerror(-r));
+                return r;
+        }
+
+        return r;
+}
 
 int netdev_create_tunnel(Link *link, sd_rtnl_message_handler_t callback) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
@@ -371,6 +459,8 @@ int netdev_create_tunnel(Link *link, sd_rtnl_message_handler_t callback) {
                         return r;
                 }
                 break;
+        case NETDEV_KIND_VTI:
+                break;
         default:
                 return -ENOTSUP;
         }
@@ -391,6 +481,11 @@ int netdev_create_tunnel(Link *link, sd_rtnl_message_handler_t callback) {
                 break;
         case NETDEV_KIND_SIT:
                 r = netdev_fill_sit_rtnl_message(link, m);
+                if(r < 0)
+                        return r;
+                break;
+        case NETDEV_KIND_VTI:
+                netdev_fill_vti_rtnl_message(link, m);
                 if(r < 0)
                         return r;
                 break;

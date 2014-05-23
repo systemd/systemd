@@ -363,7 +363,8 @@ int config_parse_tunnel(const char *unit,
 
         if (netdev->kind != NETDEV_KIND_IPIP &&
             netdev->kind != NETDEV_KIND_SIT &&
-            netdev->kind != NETDEV_KIND_GRE) {
+            netdev->kind != NETDEV_KIND_GRE &&
+            netdev->kind != NETDEV_KIND_VTI) {
                 log_syntax(unit, LOG_ERR, filename, line, EINVAL,
                            "NetDev is not a tunnel, ignoring assignment: %s", rvalue);
                 return 0;

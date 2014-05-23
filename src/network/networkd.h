@@ -72,6 +72,7 @@ typedef enum NetDevKind {
         NETDEV_KIND_GRE,
         NETDEV_KIND_SIT,
         NETDEV_KIND_VETH,
+        NETDEV_KIND_VTI,
         _NETDEV_KIND_MAX,
         _NETDEV_KIND_INVALID = -1
 } NetDevKind;

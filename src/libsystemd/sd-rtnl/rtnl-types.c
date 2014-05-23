@@ -130,6 +130,14 @@ static  const NLType rtnl_link_info_data_ipgre_types[IFLA_GRE_MAX + 1] = {
         [IFLA_GRE_PMTUDISC] = { .type = NLA_U8 },
 };
 
+static const NLType rtnl_link_info_data_ipvti_types[IFLA_VTI_MAX + 1] = {
+        [IFLA_VTI_LINK]         = { .type = NLA_U32 },
+        [IFLA_VTI_IKEY]         = { .type = NLA_U32 },
+        [IFLA_VTI_OKEY]         = { .type = NLA_U32 },
+        [IFLA_VTI_LOCAL]        = { .type = NLA_IN_ADDR  },
+        [IFLA_VTI_REMOTE]       = { .type = NLA_IN_ADDR  },
+};
+
 typedef enum NLUnionLinkInfoData {
         NL_UNION_LINK_INFO_DATA_BOND,
         NL_UNION_LINK_INFO_DATA_BRIDGE,
@@ -139,6 +147,7 @@ typedef enum NLUnionLinkInfoData {
         NL_UNION_LINK_INFO_DATA_IPIP_TUNNEL,
         NL_UNION_LINK_INFO_DATA_IPGRE_TUNNEL,
         NL_UNION_LINK_INFO_DATA_SIT_TUNNEL,
+        NL_UNION_LINK_INFO_DATA_VTI_TUNNEL,
         _NL_UNION_LINK_INFO_DATA_MAX,
         _NL_UNION_LINK_INFO_DATA_INVALID = -1
 } NLUnionLinkInfoData;
@@ -156,6 +165,7 @@ static const char* const nl_union_link_info_data_table[_NL_UNION_LINK_INFO_DATA_
         [NL_UNION_LINK_INFO_DATA_IPIP_TUNNEL] = "ipip",
         [NL_UNION_LINK_INFO_DATA_IPGRE_TUNNEL] = "gre",
         [NL_UNION_LINK_INFO_DATA_SIT_TUNNEL] = "sit",
+        [NL_UNION_LINK_INFO_DATA_VTI_TUNNEL] = "vti",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(nl_union_link_info_data, NLUnionLinkInfoData);
@@ -177,6 +187,8 @@ static const NLTypeSystem rtnl_link_info_data_type_systems[_NL_UNION_LINK_INFO_D
                                                     .types = rtnl_link_info_data_ipgre_types },
         [NL_UNION_LINK_INFO_DATA_SIT_TUNNEL] =  { .max = ELEMENTSOF(rtnl_link_info_data_iptun_types) - 1,
                                                   .types = rtnl_link_info_data_iptun_types },
+        [NL_UNION_LINK_INFO_DATA_VTI_TUNNEL] =  { .max = ELEMENTSOF(rtnl_link_info_data_ipvti_types) - 1,
+                                                  .types = rtnl_link_info_data_ipvti_types },
 };
 
 static const NLTypeSystemUnion rtnl_link_info_data_type_system_union = {

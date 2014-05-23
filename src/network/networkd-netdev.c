@@ -39,6 +39,7 @@ static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_GRE] = "gre",
         [NETDEV_KIND_SIT] = "sit",
         [NETDEV_KIND_VETH] = "veth",
+        [NETDEV_KIND_VTI] = "vti"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(netdev_kind, NetDevKind);
@@ -393,7 +394,8 @@ int netdev_enslave(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callbac
 
         if(netdev->kind == NETDEV_KIND_IPIP ||
            netdev->kind == NETDEV_KIND_GRE ||
-           netdev->kind ==  NETDEV_KIND_SIT)
+           netdev->kind ==  NETDEV_KIND_SIT ||
+           netdev->kind ==  NETDEV_KIND_VTI)
                 return netdev_create_tunnel(link, netdev_create_handler);
 
         if (netdev->state == NETDEV_STATE_READY) {
@@ -606,7 +608,8 @@ static int netdev_load_one(Manager *manager, const char *filename) {
             netdev->kind != NETDEV_KIND_MACVLAN &&
             netdev->kind != NETDEV_KIND_IPIP &&
             netdev->kind != NETDEV_KIND_GRE &&
-            netdev->kind != NETDEV_KIND_SIT) {
+            netdev->kind != NETDEV_KIND_SIT &&
+            netdev->kind != NETDEV_KIND_VTI) {
                 r = netdev_create(netdev, NULL, NULL);
                 if (r < 0)
                         return r;
