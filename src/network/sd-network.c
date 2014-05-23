@@ -143,7 +143,7 @@ _public_ int sd_network_get_link_operational_state(unsigned index, char **state)
 
 _public_ int sd_network_get_dhcp_lease(unsigned index, sd_dhcp_lease **ret) {
         _cleanup_free_ char *p = NULL, *s = NULL;
-        sd_dhcp_lease *lease;
+        sd_dhcp_lease *lease = NULL;
         int r;
 
         assert_return(index, -EINVAL);
