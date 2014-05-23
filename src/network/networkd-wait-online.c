@@ -124,7 +124,7 @@ static bool all_configured(Manager *m) {
 
                 r = sd_rtnl_message_new_link(m->rtnl, &message, RTM_GETLINK, 0);
                 if (r < 0) {
-                        log_warning("colud not create GETLINK message: %s", strerror(-r));
+                        log_warning("could not create GETLINK message: %s", strerror(-r));
                         return false;
                 }
 

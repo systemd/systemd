@@ -16,7 +16,7 @@
   half-initialized objects, too
 
 - Error codes are returned as negative Exxx. i.e. return -EINVAL. There
-  are some exceptions: for constructors its is OK to return NULL on
+  are some exceptions: for constructors it is OK to return NULL on
   OOM. For lookup functions NULL is fine too for "not found".
 
   Be strict with this. When you write a function that can fail due to

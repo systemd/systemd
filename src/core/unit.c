@@ -1574,7 +1574,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 
         /* Note that this is called for all low-level state changes,
          * even if they might map to the same high-level
-         * UnitActiveState! That means that ns == os is OK an expected
+         * UnitActiveState! That means that ns == os is an expected
          * behavior here. For example: if a mount point is remounted
          * this function will be called too! */
 
@@ -1597,7 +1597,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
                         u->active_exit_timestamp = ts;
         }
 
-        /* Keep track of failed of units */
+        /* Keep track of failed units */
         if (ns == UNIT_FAILED && os != UNIT_FAILED)
                 set_put(u->manager->failed_units, u);
         else if (os == UNIT_FAILED && ns != UNIT_FAILED)
@@ -1722,7 +1722,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
         if (UNIT_IS_ACTIVE_OR_RELOADING(ns)) {
 
                 if (unit_has_name(u, SPECIAL_DBUS_SERVICE))
-                        /* The bus just might have become available,
+                        /* The bus might have just become available,
                          * hence try to connect to it, if we aren't
                          * yet connected. */
                         bus_init(m, true);
