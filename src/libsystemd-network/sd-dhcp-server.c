@@ -21,6 +21,7 @@
 ***/
 
 #include <sys/ioctl.h>
+#include <netinet/if_ether.h>
 
 #include "sd-dhcp-server.h"
 #include "dhcp-server-internal.h"
@@ -112,9 +113,30 @@ int sd_dhcp_server_stop(sd_dhcp_server *server) {
         return 0;
 }
 
+int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
+                               size_t length) {
+        int type;
+
+        assert(server);
+        assert(message);
+
+        if (message->op != BOOTREQUEST ||
+            message->htype != ARPHRD_ETHER ||
+            message->hlen != ETHER_ADDR_LEN)
+                return 0;
+
+        type = dhcp_option_parse(message, length, NULL, NULL);
+        if (type < 0)
+                return 0;
+
+        log_dhcp_server(server, "received message of type %d", type);
+
+        return 1;
+}
+
 static int server_receive_message(sd_event_source *s, int fd,
                                   uint32_t revents, void *userdata) {
-        _cleanup_free_ uint8_t *message = NULL;
+        _cleanup_free_ DHCPMessage *message = NULL;
         uint8_t cmsgbuf[CMSG_LEN(sizeof(struct in_pktinfo))];
         sd_dhcp_server *server = userdata;
         struct iovec iov = {};
@@ -145,6 +167,8 @@ static int server_receive_message(sd_event_source *s, int fd,
         len = recvmsg(fd, &msg, 0);
         if (len < buflen)
                 return 0;
+        else if ((size_t)len < sizeof(DHCPMessage))
+                return 0;
 
         for (cmsg = CMSG_FIRSTHDR(&msg); cmsg; cmsg = CMSG_NXTHDR(&msg, cmsg)) {
                 if (cmsg->cmsg_level == IPPROTO_IP &&
@@ -160,9 +184,7 @@ static int server_receive_message(sd_event_source *s, int fd,
                 }
         }
 
-        log_dhcp_server(server, "received message");
-
-        return 1;
+        return dhcp_server_handle_message(server, message, (size_t)len);
 }
 
 int sd_dhcp_server_start(sd_dhcp_server *server) {
