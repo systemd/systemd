@@ -84,6 +84,7 @@
 #include "def.h"
 #include "rtnl-util.h"
 #include "udev-util.h"
+#include "eventfd-util.h"
 #include "blkid-util.h"
 #include "gpt.h"
 #include "siphash24.h"
@@ -2642,6 +2643,8 @@ static int wait_for_container(pid_t pid, ContainerStatus *container) {
         return r;
 }
 
+static void nop_handler(int sig) {}
+
 int main(int argc, char *argv[]) {
 
         _cleanup_free_ char *kdbus_domain = NULL, *device_path = NULL, *root_device = NULL, *home_device = NULL, *srv_device = NULL;
@@ -2653,8 +2656,8 @@ int main(int argc, char *argv[]) {
         const char *console = NULL;
         char veth_name[IFNAMSIZ];
         bool secondary = false;
+        sigset_t mask, mask_chld;
         pid_t pid = 0;
-        sigset_t mask;
 
         log_parse_environment();
         log_open();
@@ -2816,36 +2819,44 @@ int main(int argc, char *argv[]) {
         sd_notify(0, "READY=1");
 
         assert_se(sigemptyset(&mask) == 0);
+        assert_se(sigemptyset(&mask_chld) == 0);
+        sigaddset(&mask_chld, SIGCHLD);
         sigset_add_many(&mask, SIGCHLD, SIGWINCH, SIGTERM, SIGINT, -1);
         assert_se(sigprocmask(SIG_BLOCK, &mask, NULL) == 0);
 
         for (;;) {
                 ContainerStatus container_status;
-                int parent_ready_fd = -1, child_ready_fd = -1;
-                eventfd_t x;
+                int eventfds[2] = { -1, -1 };
+                struct sigaction sa = {
+                        .sa_handler = nop_handler,
+                        .sa_flags = SA_NOCLDSTOP,
+                };
 
-                parent_ready_fd = eventfd(0, EFD_CLOEXEC);
-                if (parent_ready_fd < 0) {
-                        log_error("Failed to create event fd: %m");
+                /* Child can be killed before execv(), so handle SIGCHLD
+                 * in order to interrupt parent's blocking calls and
+                 * give it a chance to call wait() and terminate. */
+                r = sigprocmask(SIG_UNBLOCK, &mask_chld, NULL);
+                if (r < 0) {
+                        log_error("Failed to change the signal mask: %m");
                         goto finish;
                 }
 
-                child_ready_fd = eventfd(0, EFD_CLOEXEC);
-                if (child_ready_fd < 0) {
-                        log_error("Failed to create event fd: %m");
+                r = sigaction(SIGCHLD, &sa, NULL);
+                if (r < 0) {
+                        log_error("Failed to install SIGCHLD handler: %m");
                         goto finish;
                 }
 
-                pid = syscall(__NR_clone,
-                              SIGCHLD|CLONE_NEWNS|
-                              (arg_share_system ? 0 : CLONE_NEWIPC|CLONE_NEWPID|CLONE_NEWUTS)|
-                              (arg_private_network ? CLONE_NEWNET : 0), NULL);
+                pid = clone_with_eventfd(SIGCHLD|CLONE_NEWNS|
+                                         (arg_share_system ? 0 : CLONE_NEWIPC|CLONE_NEWPID|CLONE_NEWUTS)|
+                                         (arg_private_network ? CLONE_NEWNET : 0), eventfds);
                 if (pid < 0) {
                         if (errno == EINVAL)
                                 log_error("clone() failed, do you have namespace support enabled in your kernel? (You need UTS, IPC, PID and NET namespacing built in): %m");
                         else
                                 log_error("clone() failed: %m");
 
+                        r = pid;
                         goto finish;
                 }
 
@@ -2986,8 +2997,11 @@ int main(int argc, char *argv[]) {
                         /* Tell the parent that we are ready, and that
                          * it can cgroupify us to that we lack access
                          * to certain devices and resources. */
-                        eventfd_write(child_ready_fd, 1);
-                        child_ready_fd = safe_close(child_ready_fd);
+                        r = eventfd_send_state(eventfds[1],
+                                               EVENTFD_CHILD_SUCCEEDED);
+                        eventfds[1] = safe_close(eventfds[1]);
+                        if (r < 0)
+                                goto child_fail;
 
                         if (chdir(arg_directory) < 0) {
                                 log_error("chdir(%s) failed: %m", arg_directory);
@@ -3089,8 +3103,10 @@ int main(int argc, char *argv[]) {
                                 env_use = (char**) envp;
 
                         /* Wait until the parent is ready with the setup, too... */
-                        eventfd_read(parent_ready_fd, &x);
-                        parent_ready_fd = safe_close(parent_ready_fd);
+                        r = eventfd_parent_succeeded(eventfds[0]);
+                        eventfds[0] = safe_close(eventfds[0]);
+                        if (r < 0)
+                                goto child_fail;
 
                         if (arg_boot) {
                                 char **a;
@@ -3121,17 +3137,27 @@ int main(int argc, char *argv[]) {
                         log_error("execv() failed: %m");
 
                 child_fail:
+                        /* Tell the parent that the setup failed, so he
+                         * can clean up resources and terminate. */
+                        if (eventfds[1] != -1)
+                                eventfd_send_state(eventfds[1],
+                                                   EVENTFD_CHILD_FAILED);
                         _exit(EXIT_FAILURE);
                 }
 
                 fdset_free(fds);
                 fds = NULL;
 
-                /* Wait until the child reported that it is ready with
-                 * all it needs to do with privileges. After we got
-                 * the notification we can make the process join its
-                 * cgroup which might limit what it can do */
-                eventfd_read(child_ready_fd, &x);
+                /* Wait for the child event:
+                 * If EVENTFD_CHILD_FAILED, the child will terminate soon.
+                 * If EVENTFD_CHILD_SUCCEEDED, the child is reporting that
+                 * it is ready with all it needs to do with priviliges.
+                 * After we got the notification we can make the process
+                 * join its cgroup which might limit what it can do */
+                r = eventfd_child_succeeded(eventfds[1]);
+                eventfds[1] = safe_close(eventfds[1]);
+                if (r < 0)
+                        goto check_container_status;
 
                 r = register_machine(pid);
                 if (r < 0)
@@ -3153,10 +3179,25 @@ int main(int argc, char *argv[]) {
                 if (r < 0)
                         goto finish;
 
+                /* Block SIGCHLD here, before notifying child.
+                 * process_pty() will handle it with the other signals. */
+                r = sigprocmask(SIG_BLOCK, &mask_chld, NULL);
+                if (r < 0)
+                        goto finish;
+
+                /* Reset signal to default */
+                r = default_signals(SIGCHLD, -1);
+                if (r < 0)
+                        goto finish;
+
                 /* Notify the child that the parent is ready with all
-                 * its setup, and thtat the child can now hand over
+                 * its setup, and that the child can now hand over
                  * control to the code to run inside the container. */
-                eventfd_write(parent_ready_fd, 1);
+                r = eventfd_send_state(eventfds[0],
+                                       EVENTFD_PARENT_SUCCEEDED);
+                eventfds[0] = safe_close(eventfds[0]);
+                if (r < 0)
+                        goto finish;
 
                 k = process_pty(master, &mask, arg_boot ? pid : 0, SIGRTMIN+3);
                 if (k < 0) {
@@ -3170,6 +3211,7 @@ int main(int argc, char *argv[]) {
                 /* Kill if it is not dead yet anyway */
                 terminate_machine(pid);
 
+check_container_status:
                 /* Redundant, but better safe than sorry */
                 kill(pid, SIGKILL);
 

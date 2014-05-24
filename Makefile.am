@@ -805,7 +805,9 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/ring.c \
 	src/shared/ring.h \
 	src/shared/async.c \
-	src/shared/async.h
+	src/shared/async.h \
+	src/shared/eventfd-util.c \
+	src/shared/eventfd-util.h
 
 nodist_libsystemd_shared_la_SOURCES = \
 	src/shared/errno-from-name.h \
