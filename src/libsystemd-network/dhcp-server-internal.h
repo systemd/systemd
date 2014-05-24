@@ -36,6 +36,7 @@ struct sd_dhcp_server {
         int event_priority;
         sd_event_source *receive_message;
         int fd;
+        int fd_raw;
 
         int index;
 };

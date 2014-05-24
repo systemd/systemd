@@ -58,6 +58,7 @@ int sd_dhcp_server_new(sd_dhcp_server **ret, int ifindex) {
                 return -ENOMEM;
 
         server->n_ref = REFCNT_INIT;
+        server->fd_raw = -1;
         server->fd = -1;
         server->index = ifindex;
 
@@ -106,6 +107,7 @@ int sd_dhcp_server_stop(sd_dhcp_server *server) {
         server->receive_message =
                 sd_event_source_unref(server->receive_message);
 
+        server->fd_raw = safe_close(server->fd_raw);
         server->fd = safe_close(server->fd);
 
         log_dhcp_server(server, "STOPPED");
@@ -277,7 +279,16 @@ int sd_dhcp_server_start(sd_dhcp_server *server) {
         assert_return(server, -EINVAL);
         assert_return(server->event, -EINVAL);
         assert_return(!server->receive_message, -EBUSY);
+        assert_return(server->fd_raw == -1, -EBUSY);
         assert_return(server->fd == -1, -EBUSY);
+
+        r = socket(AF_PACKET, SOCK_DGRAM | SOCK_NONBLOCK, 0);
+        if (r < 0) {
+                r = -errno;
+                sd_dhcp_server_stop(server);
+                return r;
+        }
+        server->fd_raw = r;
 
         r = dhcp_network_bind_udp_socket(INADDR_ANY, DHCP_PORT_SERVER);
         if (r < 0) {
