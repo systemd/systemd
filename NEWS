@@ -88,6 +88,12 @@ CHANGES WITH 213:
           we hope to extend this into a local DNSSEC enabled DNS and
           mDNS cache.
 
+        * The systemd-networkd-wait-online tool is now enabled by
+          default. It will delay network-online.target until a network
+          connection has been configured. The tool primarily integrates
+          with networkd, but will also make a best effort to make sense
+          of network configuration performed in some other way.
+
         * Two new service options StartupCPUShares= and
           StartupBlockIOWeight= have been added that work similar to
           CPUShares= and BlockIOWeight= however only apply during
