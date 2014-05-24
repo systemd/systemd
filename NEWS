@@ -1,5 +1,118 @@
 systemd System and Service Manager
 
+CHANGES WITH 213:
+
+        * A new "systemd-timesyncd" daemon has been added for
+          snchronizing the system clock across the network. It
+          implements an SNTP client. In contrast to NTP
+          implementations such as chrony or the NTP reference server
+          this only implements a client side, and does not bother with
+          the full NTP complexity, focussing only on querying time
+          from one remote server and synchronizing the local clock to
+          it. Unless you intend to serve NTP to networked clients or
+          want to connect to local hardware clocks this simple NTP
+          client should be more than appropriate for most
+          installations. The daemon runs with minimal privileges, and
+          has been hooked up with networkd to only operate when
+          network connectivity is available. The daemon saves the
+          current clock to disk every time a new NTP sync has been
+          acquired, and uses this to possibly correct the system clock
+          early at bootup, in order to accomodate for systems that
+          lack an RTC such as the Raspberry Pi and embedded devices,
+          and make sure that time monotonically progresses on these
+          systems, even if it is not always correct.
+
+        * The "seqnum" interface of libudev has been disabled, as it
+          was generally incompatible with device namspacing as
+          sequence numbers of devices go "missing" if the devices are
+          part of a different namespace.
+
+        * "systemctl list-timers" and "systemctl list-sockets" gained
+          a --recursive switch for showing units of these types also
+          for all local containers, similar in style to the
+          --recursive switch "systemctl list-units" already supports.
+
+        * A new RebootArgument= setting has been added for service
+          units, which may be used to specify a kernel reboot argument
+          for usage when triggering reboots with StartLimitAction=.
+
+        * A new FailureAction= setting has been added for service
+          units which may be used to specify an operation to trigger
+          when a service fails. This works similar to
+          StartLimitAction=, but unlike it controls what is done
+          immediately rather than only after several attempts to
+          restart the service in question.
+
+        * hostnamed got updated to also expose the kernel name,
+          release and version on the bus. This is useful for executing
+          commands like hostnamectl with the -H switch.
+
+        * The bootchart tool can now show cgroup information in the
+          graphs it generates.
+
+        * The CFS CPU quota cgroup attribute is now exposed for
+          services. The new CPUQuota= switch has been added for this
+          which takes a percentage value. Setting this will have the
+          result that a service may never get more CPU time than the
+          specified percentage, even if the machine is otherwise idle.
+
+        * systemd-networkd learned IPIP and SIT tunnel support.
+
+        * LSB init scripts exposing a dependency on $network will now
+          get a dependency on network-online.target rather than simply
+          network.target. This should bring LSB handling closer to
+          what it was on SysV systems.
+
+        * A new fsck.repair= kernel option has been added to control
+          how fsck shall deal with unclean file systems at boot.
+
+        * The (.ini) configuration file parser will now silently
+          ignore sections whose name begins with "X-". This may be
+          used to maintain application-specific extension sections in unit
+          files.
+
+        * machined gained a new API to query the IP addresses of
+          registered containers. "machinectl status" has been updated
+          to show these addresses in its output.
+
+        * A new call sd_uid_get_display() has been added to the
+          sd-login APIs for querying the "primary" session of a
+          user. The "primary" session of the user is elected from the
+          user's sessions and generally a graphical session is
+          preferred over a text one.
+
+        * A minimal systemd-resolved daemon has been added. It
+          currently simply acts as a companion to systemd-networkd and
+          manages resolv.conf based on per-interface DNS
+          configuration, possibly supplied via DHCP. In the long run
+          we hope to extend this into a local DNSSEC enabled DNS and
+          mDNS cache.
+
+        * Two new service options StartupCPUShares= and
+          StartupBlockIOWeight= have been added that work similar to
+          CPUShares= and BlockIOWeight= however only apply during
+          system startup. This is useful to priorize certain services
+          differently during bootup than during normal runtime.
+
+        Contributions from: Ali H. Caliskan, Alison Chaiken, Bas van
+        den Berg, Brandon Philips, Cristian Rodríguez, Daniel Buch,
+        Dan Kilman, Dave Reisner, David Härdeman, David Herrmann,
+        David Strauss, Dimitris Spingos, Djalal Harouni, Eelco
+        Dolstra, Evan Nemerson, Florian Albrechtskirchinger, Greg
+        Kroah-Hartman, Harald Hoyer, Holger Hans Peter Freyther, Jan
+        Engelhardt, Jani Nikula, Jason St. John, Jeffrey Clark,
+        Jonathan Boulle, Kay Sievers, Lennart Poettering, Lukas
+        Nykryn, Lukasz Skalski, Łukasz Stelmach, Mantas Mikulėnas,
+        Marcel Holtmann, Matthew Monaco, Michael Marineau, Michael
+        Olbrich, Michal Sekletar, Mike Gilbert, Nis Martensen, Patrik
+        Flykt, Philip Lorenz, poma, Ray Strode, Robert Milasan, Scott
+        Thrasher, Steven Siloti, Susant Sahani, Tanu Kaskinen, Thomas
+        Bächler, Thomas Hindoe Paaboel Andersen, Tom Gundersen, Umut
+        Tezduyar Lindskog, WaLyong Cho, Will Woods, Zbigniew
+        Jędrzejewski-Szmek
+
+        -- Beijing, 2014-05-24
+
 CHANGES WITH 212:
 
         * When restoring the screen brightness at boot, stay away from
