@@ -40,6 +40,21 @@ struct sd_dhcp_server {
         int index;
 };
 
+typedef struct DHCPClientId {
+        size_t length;
+        uint8_t *data;
+} DHCPClientId;
+
+typedef struct DHCPRequest {
+        /* received message */
+        DHCPMessage *message;
+
+        /* options */
+        DHCPClientId client_id;
+        size_t max_optlen;
+        be32_t server_id;
+} DHCPRequest;
+
 DEFINE_TRIVIAL_CLEANUP_FUNC(sd_dhcp_server*, sd_dhcp_server_unref);
 #define _cleanup_dhcp_server_unref_ _cleanup_(sd_dhcp_server_unrefp)
 

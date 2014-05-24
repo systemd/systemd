@@ -113,9 +113,84 @@ int sd_dhcp_server_stop(sd_dhcp_server *server) {
         return 0;
 }
 
+static int parse_request(uint8_t code, uint8_t len, const uint8_t *option,
+                         void *user_data) {
+        DHCPRequest *req = user_data;
+
+        assert(req);
+
+        switch(code) {
+        case DHCP_OPTION_SERVER_IDENTIFIER:
+                if (len == 4)
+                        req->server_id = *(be32_t*)option;
+
+                break;
+        case DHCP_OPTION_CLIENT_IDENTIFIER:
+                if (len >= 2) {
+                        uint8_t *data;
+
+                        data = memdup(option, len);
+                        if (!data)
+                                return -ENOMEM;
+
+                        free(req->client_id.data);
+                        req->client_id.data = data;
+                        req->client_id.length = len;
+                }
+
+                break;
+        case DHCP_OPTION_MAXIMUM_MESSAGE_SIZE:
+                if (len == 2)
+                        req->max_optlen = be16toh(*(be16_t*)option) -
+                                          - sizeof(DHCPPacket);
+
+                break;
+        }
+
+        return 0;
+}
+
+static void dhcp_request_free(DHCPRequest *req) {
+        if (!req)
+                return;
+
+        free(req->client_id.data);
+        free(req);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(DHCPRequest*, dhcp_request_free);
+#define _cleanup_dhcp_request_free_ _cleanup_(dhcp_request_freep)
+
+static int ensure_sane_request(DHCPRequest *req, DHCPMessage *message) {
+        assert(req);
+        assert(message);
+
+        req->message = message;
+
+        /* set client id based on mac address if client did not send an explicit one */
+        if (!req->client_id.data) {
+                uint8_t *data;
+
+                data = new0(uint8_t, ETH_ALEN + 1);
+                if (!data)
+                        return -ENOMEM;
+
+                req->client_id.length = ETH_ALEN + 1;
+                req->client_id.data = data;
+                req->client_id.data[0] = 0x01;
+                memcpy(&req->client_id.data[1], &message->chaddr, ETH_ALEN);
+        }
+
+        if (req->max_optlen < DHCP_MIN_OPTIONS_SIZE)
+                req->max_optlen = DHCP_MIN_OPTIONS_SIZE;
+
+        return 0;
+}
+
 int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
                                size_t length) {
-        int type;
+        _cleanup_dhcp_request_free_ DHCPRequest *req = NULL;
+        int type, r;
 
         assert(server);
         assert(message);
@@ -125,9 +200,18 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
             message->hlen != ETHER_ADDR_LEN)
                 return 0;
 
-        type = dhcp_option_parse(message, length, NULL, NULL);
+        req = new0(DHCPRequest, 1);
+        if (!req)
+                return -ENOMEM;
+
+        type = dhcp_option_parse(message, length, parse_request, req);
         if (type < 0)
                 return 0;
+
+        r = ensure_sane_request(req, message);
+        if (r < 0)
+                /* this only fails on critical errors */
+                return r;
 
         log_dhcp_server(server, "received message of type %d", type);
 
