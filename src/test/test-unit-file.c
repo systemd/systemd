@@ -48,6 +48,12 @@ static int test_unit_file_get_set(void) {
         assert(h);
 
         r = unit_file_get_list(UNIT_FILE_SYSTEM, NULL, h);
+
+        if (r == -EPERM || r == -EACCES) {
+                printf("Skipping test: unit_file_get_list: %s", strerror(-r));
+                return EXIT_TEST_SKIP;
+        }
+
         log_full(r == 0 ? LOG_INFO : LOG_ERR,
                  "unit_file_get_list: %s", strerror(-r));
         if (r < 0)
