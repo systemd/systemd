@@ -45,6 +45,12 @@ static void test_basic(sd_event *event) {
 
         assert_se(sd_dhcp_server_ref(server) == server);
         assert_se(!sd_dhcp_server_unref(server));
+
+        assert_se(sd_dhcp_server_start(server) >= 0);
+        assert_se(sd_dhcp_server_start(server) == -EBUSY);
+        assert_se(sd_dhcp_server_stop(server) >= 0);
+        assert_se(sd_dhcp_server_stop(server) >= 0);
+        assert_se(sd_dhcp_server_start(server) >= 0);
 }
 
 int main(int argc, char *argv[]) {

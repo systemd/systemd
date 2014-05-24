@@ -32,6 +32,8 @@ struct sd_dhcp_server {
 
         sd_event *event;
         int event_priority;
+        sd_event_source *receive_message;
+        int fd;
 };
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(sd_dhcp_server*, sd_dhcp_server_unref);
