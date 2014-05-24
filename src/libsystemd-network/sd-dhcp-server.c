@@ -46,10 +46,11 @@ sd_dhcp_server *sd_dhcp_server_unref(sd_dhcp_server *server) {
         return NULL;
 }
 
-int sd_dhcp_server_new(sd_dhcp_server **ret) {
+int sd_dhcp_server_new(sd_dhcp_server **ret, int ifindex) {
         _cleanup_dhcp_server_unref_ sd_dhcp_server *server = NULL;
 
         assert_return(ret, -EINVAL);
+        assert_return(ifindex > 0, -EINVAL);
 
         server = new0(sd_dhcp_server, 1);
         if (!server)
@@ -57,6 +58,7 @@ int sd_dhcp_server_new(sd_dhcp_server **ret) {
 
         server->n_ref = REFCNT_INIT;
         server->fd = -1;
+        server->index = ifindex;
 
         *ret = server;
         server = NULL;
@@ -113,12 +115,16 @@ int sd_dhcp_server_stop(sd_dhcp_server *server) {
 static int server_receive_message(sd_event_source *s, int fd,
                                   uint32_t revents, void *userdata) {
         _cleanup_free_ uint8_t *message = NULL;
+        uint8_t cmsgbuf[CMSG_LEN(sizeof(struct in_pktinfo))];
         sd_dhcp_server *server = userdata;
         struct iovec iov = {};
         struct msghdr msg = {
                 .msg_iov = &iov,
                 .msg_iovlen = 1,
+                .msg_control = cmsgbuf,
+                .msg_controllen = sizeof(cmsgbuf),
         };
+        struct cmsghdr *cmsg;
         int buflen = 0, len, r;
 
         assert(server);
@@ -139,6 +145,20 @@ static int server_receive_message(sd_event_source *s, int fd,
         len = recvmsg(fd, &msg, 0);
         if (len < buflen)
                 return 0;
+
+        for (cmsg = CMSG_FIRSTHDR(&msg); cmsg; cmsg = CMSG_NXTHDR(&msg, cmsg)) {
+                if (cmsg->cmsg_level == IPPROTO_IP &&
+                    cmsg->cmsg_type == IP_PKTINFO &&
+                    cmsg->cmsg_len == CMSG_LEN(sizeof(struct in_pktinfo))) {
+                        struct in_pktinfo *info = (struct in_pktinfo*)CMSG_DATA(cmsg);
+
+                        /* TODO figure out if this can be done as a filter on the socket, like for IPv6 */
+                        if (server->index != info->ipi_ifindex)
+                                return 0;
+
+                        break;
+                }
+        }
 
         log_dhcp_server(server, "received message");
 

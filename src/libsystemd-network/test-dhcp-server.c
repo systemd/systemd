@@ -32,7 +32,8 @@
 static void test_basic(sd_event *event) {
         _cleanup_dhcp_server_unref_ sd_dhcp_server *server = NULL;
 
-        assert_se(sd_dhcp_server_new(&server) >= 0);
+        /* attach to loopback interface */
+        assert_se(sd_dhcp_server_new(&server, 1) >= 0);
         assert_se(server);
 
         assert_se(sd_dhcp_server_attach_event(server, event, 0) >= 0);
