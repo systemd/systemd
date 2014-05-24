@@ -47,6 +47,7 @@
                 <refname>sd_uid_is_on_seat</refname>
                 <refname>sd_uid_get_sessions</refname>
                 <refname>sd_uid_get_seats</refname>
+                <refname>sd_uid_get_display</refname>
                 <refpurpose>Determine login state of a specific Unix user ID</refpurpose>
         </refnamediv>
 
@@ -79,6 +80,12 @@
                                 <paramdef>uid_t <parameter>uid</parameter></paramdef>
                                 <paramdef>int <parameter>require_active</parameter></paramdef>
                                 <paramdef>char ***<parameter>seats</parameter></paramdef>
+                        </funcprototype>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_uid_get_display</function></funcdef>
+                                <paramdef>uid_t <parameter>uid</parameter></paramdef>
+                                <paramdef>char **<parameter>session</parameter></paramdef>
                         </funcprototype>
                 </funcsynopsis>
         </refsynopsisdiv>
@@ -147,6 +154,12 @@
                 with no attached seat and hence the number of entries
                 in the returned array may differ from the one returned
                 by <function>sd_uid_get_sessions()</function>.</para>
+
+                <para><function>sd_uid_get_display()</function>
+                returns the name of the "primary" session of a user.
+                If the user has graphical sessions, it will be the
+                oldest graphical session. Otherwise, it will be the
+                oldest open session.</para>
         </refsect1>
 
         <refsect1>
@@ -159,7 +172,9 @@
                 positive integer; if it fails,
                 0. <function>sd_uid_get_sessions()</function> and
                 <function>sd_uid_get_seats()</function> return the
-                number of entries in the returned arrays. On failure,
+                number of entries in the returned arrays.
+                <function>sd_uid_get_display()</function> returns
+                a non-negative code on success. On failure,
                 these calls return a negative errno-style error
                 code.</para>
         </refsect1>
@@ -167,13 +182,24 @@
         <refsect1>
                 <title>Notes</title>
 
-                <para>The <function>sd_uid_get_state()</function>,
+                <para>Functions described here are available as a
+                shared library, and can be compiled and linked to
+                using the
+                <constant>libsystemd</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                entry.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>History</title>
+
+                <function>sd_uid_get_state()</function>,
                 <function>sd_uid_is_on_seat()</function>,
-                <function>sd_uid_get_sessions()</function>, and
-                <function>sd_uid_get_seats()</function> interfaces are
-                available as a shared library, which can be compiled and
-                linked to with the <constant>libsystemd</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-                file.</para>
+                <function>sd_uid_get_sessions()</function>,
+                and <function>sd_uid_get_seats()</function> functions
+                were added in systemd-31.
+
+                <para><function>sd_uid_get_display()</function> was
+                added in systemd-213.</para>
         </refsect1>
 
         <refsect1>
