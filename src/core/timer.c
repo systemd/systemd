@@ -111,23 +111,6 @@ static int timer_add_default_dependencies(Timer *t) {
         return unit_add_two_dependencies_by_name(UNIT(t), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, NULL, true);
 }
 
-static void update_stampfile(Timer *t, usec_t timestamp) {
-        _cleanup_close_ int fd = -1;
-
-        mkdir_parents_label(t->stamp_path, 0755);
-
-        /* Update the file atime + mtime, if we can */
-        fd = open(t->stamp_path, O_WRONLY|O_CREAT|O_TRUNC|O_CLOEXEC, 0644);
-        if (fd >= 0) {
-                struct timespec ts[2];
-
-                timespec_store(&ts[0], timestamp);
-                ts[1] = ts[0];
-
-                futimens(fd, ts);
-        }
-}
-
 static int timer_setup_persistent(Timer *t) {
         int r;
 
@@ -514,7 +497,7 @@ static void timer_enter_running(Timer *t) {
         dual_timestamp_get(&t->last_trigger);
 
         if (t->stamp_path)
-                update_stampfile(t, t->last_trigger.realtime);
+                touch_file(t->stamp_path, true, t->last_trigger.realtime, (uid_t) -1, (gid_t) -1, 0);
 
         timer_set_state(t, TIMER_RUNNING);
         return;
@@ -546,7 +529,7 @@ static int timer_start(Unit *u) {
                         /* The timer has never run before,
                          * make sure a stamp file exists.
                          */
-                        update_stampfile(t, now(CLOCK_REALTIME));
+                        touch_file(t->stamp_path, true, (usec_t) -1, (uid_t) -1, (gid_t) -1, 0);
         }
 
         t->result = TIMER_SUCCESS;

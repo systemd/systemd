@@ -3364,17 +3364,17 @@ int touch_file(const char *path, bool parents, usec_t stamp, uid_t uid, gid_t gi
                         return -errno;
         }
 
-        if (uid != (uid_t)-1 || gid != (gid_t)-1) {
+        if (uid != (uid_t) -1 || gid != (gid_t) -1) {
                 r = fchown(fd, uid, gid);
                 if (r < 0)
                         return -errno;
         }
 
-        if (stamp != (usec_t)-1) {
+        if (stamp != (usec_t) -1) {
                 struct timespec ts[2];
 
                 timespec_store(&ts[0], stamp);
-                timespec_store(&ts[1], stamp);
+                ts[1] = ts[0];
                 r = futimens(fd, ts);
         } else
                 r = futimens(fd, NULL);
@@ -3385,7 +3385,7 @@ int touch_file(const char *path, bool parents, usec_t stamp, uid_t uid, gid_t gi
 }
 
 int touch(const char *path) {
-        return touch_file(path, false, -1, -1, -1, 0);
+        return touch_file(path, false, (usec_t) -1, (uid_t) -1, (gid_t) -1, 0);
 }
 
 char *unquote(const char *s, const char* quotes) {
