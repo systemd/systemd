@@ -1200,7 +1200,7 @@ static int client_receive_message_udp(sd_event_source *s, int fd,
         len = read(fd, message, buflen);
         if (len < 0) {
                 log_dhcp_client(client, "could not receive message from UDP "
-                                "socket: %s", strerror(errno));
+                                "socket: %m");
                 return 0;
         } else if ((size_t)len < sizeof(DHCPMessage))
                 return 0;
@@ -1245,7 +1245,7 @@ static int client_receive_message_raw(sd_event_source *s, int fd,
         len = recvmsg(fd, &msg, 0);
         if (len < 0) {
                 log_dhcp_client(client, "could not receive message from raw "
-                                "socket: %s", strerror(errno));
+                                "socket: %m");
                 return 0;
         } else if ((size_t)len < sizeof(DHCPPacket))
                 return 0;

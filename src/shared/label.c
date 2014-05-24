@@ -79,7 +79,7 @@ static int smack_relabel_in_dev(const char *path) {
 
         r = setxattr(path, "security.SMACK64", label, strlen(label), 0);
         if (r < 0) {
-                log_error("Smack relabeling \"%s\" %s", path, strerror(errno));
+                log_error("Smack relabeling \"%s\" %m", path);
                 return -errno;
         }
 #endif

@@ -657,7 +657,7 @@ static int mount_binds(const char *dest, char **l, unsigned long flags) {
                                 return r;
                         }
                 } else {
-                        log_error("Failed to bind mount %s: %s", *x, strerror(errno));
+                        log_error("Failed to bind mount %s: %m", *x);
                         return -errno;
                 }
                 /* Create the mount point, but be conservative -- refuse to create block
