@@ -43,7 +43,7 @@
 #include "clock-util.h"
 #include "fileio.h"
 
-int clock_get_time(struct tm *tm) {
+int clock_get_hwclock(struct tm *tm) {
         _cleanup_close_ int fd = -1;
 
         assert(tm);
@@ -64,7 +64,7 @@ int clock_get_time(struct tm *tm) {
         return 0;
 }
 
-int clock_set_time(const struct tm *tm) {
+int clock_set_hwclock(const struct tm *tm) {
         _cleanup_close_ int fd = -1;
 
         assert(tm);

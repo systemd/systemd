@@ -465,7 +465,7 @@ static int property_get_rtc_time(
         int r;
 
         zero(tm);
-        r = clock_get_time(&tm);
+        r = clock_get_hwclock(&tm);
         if (r == -EBUSY) {
                 log_warning("/dev/rtc is busy. Is somebody keeping it open continuously? That's not a good idea... Returning a bogus RTC timestamp.");
                 t = 0;
@@ -555,7 +555,7 @@ static int method_set_timezone(sd_bus *bus, sd_bus_message *m, void *userdata, s
                 /* 3. Sync RTC from system clock, with the new delta */
                 assert_se(clock_gettime(CLOCK_REALTIME, &ts) == 0);
                 assert_se(tm = localtime(&ts.tv_sec));
-                clock_set_time(tm);
+                clock_set_hwclock(tm);
         }
 
         log_struct(LOG_INFO,
@@ -621,7 +621,7 @@ static int method_set_local_rtc(sd_bus *bus, sd_bus_message *m, void *userdata, 
                 /* Override the main fields of
                  * struct tm, but not the timezone
                  * fields */
-                if (clock_get_time(&tm) >= 0) {
+                if (clock_get_hwclock(&tm) >= 0) {
 
                         /* And set the system clock
                          * with this */
@@ -642,7 +642,7 @@ static int method_set_local_rtc(sd_bus *bus, sd_bus_message *m, void *userdata, 
                 else
                         tm = gmtime(&ts.tv_sec);
 
-                clock_set_time(tm);
+                clock_set_hwclock(tm);
         }
 
         log_info("RTC configured to %s time.", c->local_rtc ? "local" : "UTC");
@@ -705,8 +705,7 @@ static int method_set_time(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bu
                 tm = localtime(&ts.tv_sec);
         else
                 tm = gmtime(&ts.tv_sec);
-
-        clock_set_time(tm);
+        clock_set_hwclock(tm);
 
         log_struct(LOG_INFO,
                    MESSAGE_ID(SD_MESSAGE_TIME_CHANGE),
