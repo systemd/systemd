@@ -909,7 +909,7 @@ AM_CONDITIONAL(ENABLE_RESOLVED, [test "$have_resolved" = "yes"])
 AC_ARG_WITH(dns-servers,
         AS_HELP_STRING([--with-dns-servers=DNSSERVERS],
                 [Space-separated list of default DNS servers]),
-        [NTP_SERVERS="$withval"],
+        [DNS_SERVERS="$withval"],
         [DNS_SERVERS="8.8.8.8 8.8.4.4 2001:4860:4860::8888 2001:4860:4860::8844"])
 
 AC_DEFINE_UNQUOTED(DNS_SERVERS, ["$DNS_SERVERS"], [Default DNS Servers])
