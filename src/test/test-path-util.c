@@ -170,10 +170,32 @@ static void test_fsck_exists(void) {
         assert_se(fsck_exists("AbCdE") == -ENOENT);
 }
 
+static void test_make_relative(void) {
+        char *result;
+
+        assert_se(path_make_relative("some/relative/path", "/some/path", &result) < 0);
+        assert_se(path_make_relative("/some/path", "some/relative/path", &result) < 0);
+
+#define test(from_dir, to_path, expected) {                     \
+                path_make_relative(from_dir, to_path, &result); \
+                assert_se(streq(result, expected));             \
+                free(result);                                   \
+        }
+
+        test("/", "/", ".");
+        test("/", "/some/path", "some/path");
+        test("/some/path", "/some/path", ".");
+        test("/some/path", "/some/path/in/subdir", "in/subdir");
+        test("/some/path", "/", "../..");
+        test("/some/path", "/some/other/path", "../other/path");
+        test("//extra/////slashes///won't////fool///anybody//", "////extra///slashes////are/just///fine///", "../../../are/just/fine");
+}
+
 int main(int argc, char **argv) {
         test_path();
         test_find_binary(argv[0]);
         test_prefixes();
         test_fsck_exists();
+        test_make_relative();
         return 0;
 }
