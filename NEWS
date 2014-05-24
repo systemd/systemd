@@ -29,23 +29,25 @@ CHANGES WITH 213:
 
         * "systemctl list-timers" and "systemctl list-sockets" gained
           a --recursive switch for showing units of these types also
-          for all local containers, similar in style to the
-          --recursive switch "systemctl list-units" already supports.
+          for all local containers, similar in style to the already
+          supported --recursive switch for "systemctl list-units".
 
         * A new RebootArgument= setting has been added for service
           units, which may be used to specify a kernel reboot argument
-          for usage when triggering reboots with StartLimitAction=.
+          to use when triggering reboots with StartLimitAction=.
 
         * A new FailureAction= setting has been added for service
           units which may be used to specify an operation to trigger
-          when a service fails. This works similar to
+          when a service fails. This works similarly to
           StartLimitAction=, but unlike it controls what is done
           immediately rather than only after several attempts to
           restart the service in question.
 
         * hostnamed got updated to also expose the kernel name,
-          release and version on the bus. This is useful for executing
-          commands like hostnamectl with the -H switch.
+          release, and version on the bus. This is useful for
+          executing commands like hostnamectl with the -H switch.
+          systemd-analyze makes use of this to properly display
+          details when running non-locally.
 
         * The bootchart tool can now show cgroup information in the
           graphs it generates.
@@ -95,7 +97,7 @@ CHANGES WITH 213:
           of network configuration performed in some other way.
 
         * Two new service options StartupCPUShares= and
-          StartupBlockIOWeight= have been added that work similar to
+          StartupBlockIOWeight= have been added that work similarly to
           CPUShares= and BlockIOWeight= however only apply during
           system startup. This is useful to prioritize certain services
           differently during bootup than during normal runtime.
@@ -135,7 +137,7 @@ CHANGES WITH 212:
         * sd-login gained new calls
           sd_peer_get_{session,owner_uid,unit,user_unit,slice,machine_name}(),
           to query the identity of the peer of a local AF_UNIX
-          connection. They operate similar to their sd_pid_get_xyz()
+          connection. They operate similarly to their sd_pid_get_xyz()
           counterparts.
 
         * PID 1 will now maintain a system-wide system state engine
@@ -318,7 +320,7 @@ CHANGES WITH 211:
 
         * systemd-nspawn gained a new --network-macvlan= setting to
           set up a private macvlan interface for the
-          container. Similar, systemd-networkd gained a new
+          container. Similarly, systemd-networkd gained a new
           Kind=macvlan setting in .netdev files.
 
         * systemd-networkd now supports configuring local addresses
@@ -1332,7 +1334,7 @@ CHANGES WITH 205:
           not available as public API.
 
         * systemd will now look for the "debug" argument on the kernel
-          command line and enable debug logging, similar to
+          command line and enable debug logging, similar to what
           "systemd.log_level=debug" already did before.
 
         * "systemctl set-default", "systemctl get-default" has been
@@ -1771,7 +1773,7 @@ CHANGES WITH 198:
 
         * The various "environment" files, such as /etc/locale.conf
           now support continuation lines with a backslash ("\") as
-          last character in the line, similar in style (but different)
+          last character in the line, similarly in style (but different)
           to how this is supported in shells.
 
         * For normal user processes the _SYSTEMD_USER_UNIT= field is
@@ -1818,7 +1820,7 @@ CHANGES WITH 198:
 
         * "systemctl unlock-sessions" has been added, that allows
           unlocking the screens of all user sessions at once, similar
-          how "systemctl lock-sessions" already locked all users
+          to how "systemctl lock-sessions" already locked all users
           sessions. This is backed by a new D-Bus call UnlockSessions().
 
         * "loginctl seat-status" will now show the master device of a
@@ -1898,7 +1900,7 @@ CHANGES WITH 198:
           pager. This is only supported in conjunction with "less".
 
         * journalctl gained a new "--user-unit=" option, that works
-          similar to "--unit=" but filters for user units rather than
+          similarly to "--unit=" but filters for user units rather than
           system units.
 
         * A number of unit files to ease adoption of systemd in
