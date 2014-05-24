@@ -1104,20 +1104,6 @@ int bus_open_transport_systemd(BusTransport transport, const char *host, bool us
         return r;
 }
 
-int bus_property_get_tristate(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        int *tristate = userdata;
-
-        return sd_bus_message_append(reply, "b", *tristate > 0);
-}
-
 int bus_property_get_bool(
                 sd_bus *bus,
                 const char *path,
