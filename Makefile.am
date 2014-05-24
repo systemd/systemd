@@ -2553,15 +2553,18 @@ libsystemd_network_la_CFLAGS = \
 libsystemd_network_la_SOURCES = \
 	src/systemd/sd-network.h \
 	src/systemd/sd-dhcp-client.h \
+	src/systemd/sd-dhcp-server.h \
 	src/systemd/sd-dhcp-lease.h \
 	src/systemd/sd-ipv4ll.h \
 	src/network/sd-network.c \
 	src/network/network-util.h \
 	src/libsystemd-network/sd-dhcp-client.c \
+	src/libsystemd-network/sd-dhcp-server.c \
 	src/libsystemd-network/dhcp-network.c \
 	src/libsystemd-network/dhcp-option.c \
 	src/libsystemd-network/dhcp-packet.c \
 	src/libsystemd-network/dhcp-internal.h \
+	src/libsystemd-network/dhcp-server-internal.h \
 	src/libsystemd-network/dhcp-protocol.h \
 	src/libsystemd-network/dhcp-lease-internal.h \
 	src/libsystemd-network/sd-dhcp-lease.c \
@@ -2601,6 +2604,14 @@ test_dhcp_client_LDADD = \
 	libsystemd-internal.la \
 	libsystemd-shared.la
 
+test_dhcp_server_SOURCES = \
+	src/libsystemd-network/test-dhcp-server.c
+
+test_dhcp_server_LDADD = \
+	libsystemd-network.la \
+	libsystemd-internal.la \
+	libsystemd-shared.la
+
 test_ipv4ll_SOURCES = \
 	src/systemd/sd-ipv4ll.h \
 	src/libsystemd-network/ipv4ll-internal.h \
@@ -2615,6 +2626,7 @@ test_ipv4ll_LDADD = \
 tests += \
 	test-dhcp-option \
 	test-dhcp-client \
+	test-dhcp-server \
 	test-ipv4ll
 
 # ------------------------------------------------------------------------------

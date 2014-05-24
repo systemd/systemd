@@ -141,6 +141,7 @@
 /test-date
 /test-device-nodes
 /test-dhcp-client
+/test-dhcp-server
 /test-dhcp-option
 /test-resolve
 /test-ellipsize

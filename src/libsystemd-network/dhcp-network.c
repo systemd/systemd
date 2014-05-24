@@ -117,6 +117,7 @@ int dhcp_network_bind_udp_socket(be32_t address, uint16_t port) {
         r = setsockopt(s, IPPROTO_IP, IP_TOS, &tos, sizeof(tos));
         if (r < 0)
                 return -errno;
+
         if (address == INADDR_ANY) {
                 int on = 1;
 
