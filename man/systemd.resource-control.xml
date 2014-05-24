@@ -119,22 +119,24 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
         <listitem>
           <para>Assign the specified CPU time share weight to the
-          processes executed. Takes an integer value. This controls
-          the <literal>cpu.shares</literal> control group attribute,
-          which defaults to 1024. For details about this control group
-          attribute, see <ulink
+          processes executed. Those options take an integer value and
+          control the <literal>cpu.shares</literal> control group
+          attribute, which defaults to 1024. For details about this
+          control group attribute, see <ulink
           url="https://www.kernel.org/doc/Documentation/scheduler/sched-design-CFS.txt">sched-design-CFS.txt</ulink>.
-          The available CPU time is split up among all units within one
-          slice relative to their CPU time share weight.</para>
+          The available CPU time is split up among all units within
+          one slice relative to their CPU time share weight.</para>
 
           <para>While <varname>StartupCPUShares=</varname> only
           applies to the startup phase of the system,
-          <varname>CPUShares=</varname> applies to the later runtime
-          of the system, and if the former is not set also to the
-          startup phase. This allows priorizing specific services at
-          boot-up differently than during runtime.</para>
+          <varname>CPUShares=</varname> applies to normal runtime of
+          the system, and if the former is not set also to the startup
+          phase. Using <varname>StartupCPUShares=</varname> allows
+          priorizing specific services at boot-up differently than
+          during normal runtime.</para>
 
-          <para>Implies <literal>CPUAccounting=true</literal>.</para>
+          <para>Those options imply
+          <literal>CPUAccounting=true</literal>.</para>
         </listitem>
       </varlistentry>
 
