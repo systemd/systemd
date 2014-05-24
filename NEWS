@@ -3,11 +3,11 @@ systemd System and Service Manager
 CHANGES WITH 213:
 
         * A new "systemd-timesyncd" daemon has been added for
-          snchronizing the system clock across the network. It
+          synchronizing the system clock across the network. It
           implements an SNTP client. In contrast to NTP
           implementations such as chrony or the NTP reference server
           this only implements a client side, and does not bother with
-          the full NTP complexity, focussing only on querying time
+          the full NTP complexity, focusing only on querying time
           from one remote server and synchronizing the local clock to
           it. Unless you intend to serve NTP to networked clients or
           want to connect to local hardware clocks this simple NTP
@@ -17,13 +17,13 @@ CHANGES WITH 213:
           network connectivity is available. The daemon saves the
           current clock to disk every time a new NTP sync has been
           acquired, and uses this to possibly correct the system clock
-          early at bootup, in order to accomodate for systems that
+          early at bootup, in order to accommodate for systems that
           lack an RTC such as the Raspberry Pi and embedded devices,
           and make sure that time monotonically progresses on these
           systems, even if it is not always correct.
 
-        * The "seqnum" interface of libudev has been disabled, as it
-          was generally incompatible with device namspacing as
+        * The queue "seqnum" interface of libudev has been disabled, as
+          it was generally incompatible with device namespacing as
           sequence numbers of devices go "missing" if the devices are
           part of a different namespace.
 
@@ -91,7 +91,7 @@ CHANGES WITH 213:
         * Two new service options StartupCPUShares= and
           StartupBlockIOWeight= have been added that work similar to
           CPUShares= and BlockIOWeight= however only apply during
-          system startup. This is useful to priorize certain services
+          system startup. This is useful to prioritize certain services
           differently during bootup than during normal runtime.
 
         Contributions from: Ali H. Caliskan, Alison Chaiken, Bas van
