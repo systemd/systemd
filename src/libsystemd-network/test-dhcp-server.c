@@ -32,6 +32,12 @@
 
 static void test_basic(sd_event *event) {
         _cleanup_dhcp_server_unref_ sd_dhcp_server *server = NULL;
+        struct in_addr address_lo = {
+                .s_addr = htonl(INADDR_LOOPBACK),
+        };
+        struct in_addr address_any = {
+                .s_addr = htonl(INADDR_ANY),
+        };
 
         /* attach to loopback interface */
         assert_se(sd_dhcp_server_new(&server, 1) >= 0);
@@ -47,6 +53,11 @@ static void test_basic(sd_event *event) {
 
         assert_se(sd_dhcp_server_ref(server) == server);
         assert_se(!sd_dhcp_server_unref(server));
+
+        assert_se(sd_dhcp_server_start(server) == -EUNATCH);
+        assert_se(sd_dhcp_server_set_address(server, &address_any) == -EINVAL);
+        assert_se(sd_dhcp_server_set_address(server, &address_lo) >= 0);
+        assert_se(sd_dhcp_server_set_address(server, &address_lo) == -EBUSY);
 
         assert_se(sd_dhcp_server_start(server) >= 0);
         assert_se(sd_dhcp_server_start(server) == -EBUSY);
@@ -74,8 +85,14 @@ static void test_message_handler(void) {
                 .option_type.type = DHCP_DISCOVER,
                 .end = DHCP_OPTION_END,
         };
+        struct in_addr address_lo = {
+                .s_addr = htonl(INADDR_LOOPBACK),
+        };
 
         assert_se(sd_dhcp_server_new(&server, 1) >= 0);
+        assert_se(sd_dhcp_server_set_address(server, &address_lo) >= 0);
+        assert_se(sd_dhcp_server_attach_event(server, NULL, 0) >= 0);
+        assert_se(sd_dhcp_server_start(server) >= 0);
 
         assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test)) == 1);
 

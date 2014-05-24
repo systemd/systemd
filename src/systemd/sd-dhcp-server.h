@@ -41,4 +41,5 @@ sd_event *sd_dhcp_server_get_event(sd_dhcp_server *client);
 int sd_dhcp_server_start(sd_dhcp_server *server);
 int sd_dhcp_server_stop(sd_dhcp_server *server);
 
+int sd_dhcp_server_set_address(sd_dhcp_server *server, struct in_addr *address);
 #endif

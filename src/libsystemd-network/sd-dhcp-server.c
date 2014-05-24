@@ -27,6 +27,17 @@
 #include "dhcp-server-internal.h"
 #include "dhcp-internal.h"
 
+int sd_dhcp_server_set_address(sd_dhcp_server *server, struct in_addr *address) {
+        assert_return(server, -EINVAL);
+        assert_return(address, -EINVAL);
+        assert_return(address->s_addr, -EINVAL);
+        assert_return(server->address == htobe32(INADDR_ANY), -EBUSY);
+
+        server->address = address->s_addr;
+
+        return 0;
+}
+
 sd_dhcp_server *sd_dhcp_server_ref(sd_dhcp_server *server) {
         if (server)
                 assert_se(REFCNT_INC(server->n_ref) >= 2);
@@ -60,6 +71,7 @@ int sd_dhcp_server_new(sd_dhcp_server **ret, int ifindex) {
         server->n_ref = REFCNT_INIT;
         server->fd_raw = -1;
         server->fd = -1;
+        server->address = htobe32(INADDR_ANY);
         server->index = ifindex;
 
         *ret = server;
@@ -281,6 +293,7 @@ int sd_dhcp_server_start(sd_dhcp_server *server) {
         assert_return(!server->receive_message, -EBUSY);
         assert_return(server->fd_raw == -1, -EBUSY);
         assert_return(server->fd == -1, -EBUSY);
+        assert_return(server->address != htobe32(INADDR_ANY), -EUNATCH);
 
         r = socket(AF_PACKET, SOCK_DGRAM | SOCK_NONBLOCK, 0);
         if (r < 0) {

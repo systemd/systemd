@@ -39,6 +39,7 @@ struct sd_dhcp_server {
         int fd_raw;
 
         int index;
+        be32_t address;
 };
 
 typedef struct DHCPClientId {
