@@ -135,7 +135,6 @@ char *path_make_absolute_cwd(const char *p) {
 int path_make_relative(const char *from_dir, const char *to_path, char **_r) {
         char *r, *p;
         unsigned n_parents;
-        size_t to_path_len;
 
         assert(from_dir);
         assert(to_path);
@@ -167,6 +166,8 @@ int path_make_relative(const char *from_dir, const char *to_path, char **_r) {
 
                         if (!r)
                                 return -ENOMEM;
+
+                        path_kill_slashes(r);
 
                         *_r = r;
                         return 0;
@@ -202,21 +203,15 @@ int path_make_relative(const char *from_dir, const char *to_path, char **_r) {
                 n_parents++;
         }
 
-        to_path_len = strlen(to_path);
-
-        r = malloc(n_parents * 3 + to_path_len);
+        r = malloc(n_parents * 3 + strlen(to_path) + 1);
         if (!r)
                 return -ENOMEM;
 
         for (p = r; n_parents > 0; n_parents--, p += 3)
                 memcpy(p, "../", 3);
 
-        if (to_path_len > 0)
-                memcpy(p, to_path, to_path_len);
-        else
-                /* "to_path" is a parent directory of "from_dir". Let's remove
-                 * the redundant slash from the end of the result. */
-                *(p - 1) = 0;
+        strcpy(p, to_path);
+        path_kill_slashes(r);
 
         *_r = r;
         return 0;
