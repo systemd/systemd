@@ -92,6 +92,11 @@
 #include "seccomp-util.h"
 #endif
 
+typedef enum ContainerStatus {
+        CONTAINER_TERMINATED,
+        CONTAINER_REBOOTED
+} ContainerStatus;
+
 typedef enum LinkJournal {
         LINK_NO,
         LINK_AUTO,
@@ -2569,6 +2574,74 @@ static int change_uid_gid(char **_home) {
         return 0;
 }
 
+/*
+ * Return 0 in case the container is being rebooted, has been shut
+ * down or exited successfully. On failures a negative value is
+ * returned.
+ *
+ * The status of the container "CONTAINER_TERMINATED" or
+ * "CONTAINER_REBOOTED" will be saved in the container argument
+ */
+static int wait_for_container(pid_t pid, ContainerStatus *container) {
+        int r;
+        siginfo_t status;
+
+        r = wait_for_terminate(pid, &status);
+        if (r < 0)
+                return r;
+
+        switch (status.si_code) {
+        case CLD_EXITED:
+                r = status.si_status;
+                if (r == 0) {
+                        if (!arg_quiet)
+                                log_debug("Container %s exited successfully.",
+                                          arg_machine);
+
+                        *container = CONTAINER_TERMINATED;
+                } else {
+                        log_error("Container %s failed with error code %i.",
+                                  arg_machine, status.si_status);
+                        r = -1;
+                }
+                break;
+
+        case CLD_KILLED:
+                if (status.si_status == SIGINT) {
+                        if (!arg_quiet)
+                                log_info("Container %s has been shut down.",
+                                         arg_machine);
+
+                        *container = CONTAINER_TERMINATED;
+                        r = 0;
+                        break;
+                } else if (status.si_status == SIGHUP) {
+                        if (!arg_quiet)
+                                log_info("Container %s is being rebooted.",
+                                         arg_machine);
+
+                        *container = CONTAINER_REBOOTED;
+                        r = 0;
+                        break;
+                }
+                /* CLD_KILLED fallthrough */
+
+        case CLD_DUMPED:
+                log_error("Container %s terminated by signal %s.",
+                          arg_machine, signal_to_string(status.si_status));
+                r = -1;
+                break;
+
+        default:
+                log_error("Container %s failed due to unknown reason.",
+                          arg_machine);
+                r = -1;
+                break;
+        }
+
+        return r;
+}
+
 int main(int argc, char *argv[]) {
 
         _cleanup_free_ char *kdbus_domain = NULL, *device_path = NULL, *root_device = NULL, *home_device = NULL, *srv_device = NULL;
@@ -2747,8 +2820,8 @@ int main(int argc, char *argv[]) {
         assert_se(sigprocmask(SIG_BLOCK, &mask, NULL) == 0);
 
         for (;;) {
+                ContainerStatus container_status;
                 int parent_ready_fd = -1, child_ready_fd = -1;
-                siginfo_t status;
                 eventfd_t x;
 
                 parent_ready_fd = eventfd(0, EFD_CLOEXEC);
@@ -3100,48 +3173,16 @@ int main(int argc, char *argv[]) {
                 /* Redundant, but better safe than sorry */
                 kill(pid, SIGKILL);
 
-                k = wait_for_terminate(pid, &status);
+                r = wait_for_container(pid, &container_status);
                 pid = 0;
 
-                if (k < 0) {
+                if (r < 0) {
                         r = EXIT_FAILURE;
                         break;
-                }
-
-                if (status.si_code == CLD_EXITED) {
-                        r = status.si_status;
-                        if (status.si_status != 0) {
-                                log_error("Container %s failed with error code %i.", arg_machine, status.si_status);
-                                break;
-                        }
-
-                        if (!arg_quiet)
-                                log_debug("Container %s exited successfully.", arg_machine);
+                } else if (container_status == CONTAINER_TERMINATED)
                         break;
-                } else if (status.si_code == CLD_KILLED &&
-                           status.si_status == SIGINT) {
 
-                        if (!arg_quiet)
-                                log_info("Container %s has been shut down.", arg_machine);
-                        r = 0;
-                        break;
-                } else if (status.si_code == CLD_KILLED &&
-                           status.si_status == SIGHUP) {
-
-                        if (!arg_quiet)
-                                log_info("Container %s is being rebooted.", arg_machine);
-                        continue;
-                } else if (status.si_code == CLD_KILLED ||
-                           status.si_code == CLD_DUMPED) {
-
-                        log_error("Container %s terminated by signal %s.", arg_machine, signal_to_string(status.si_status));
-                        r = EXIT_FAILURE;
-                        break;
-                } else {
-                        log_error("Container %s failed due to unknown reason.", arg_machine);
-                        r = EXIT_FAILURE;
-                        break;
-                }
+                /* CONTAINER_REBOOTED, loop again */
         }
 
 finish:
