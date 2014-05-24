@@ -68,7 +68,7 @@ int dhcp_network_bind_raw_socket(int index, union sockaddr_union *link,
             .filter = filter
         };
         _cleanup_close_ int s = -1;
-        int r, one = 1;
+        int r, on = 1;
 
         assert(index > 0);
         assert(link);
@@ -77,7 +77,7 @@ int dhcp_network_bind_raw_socket(int index, union sockaddr_union *link,
         if (s < 0)
                 return -errno;
 
-        r = setsockopt (s, SOL_PACKET, PACKET_AUXDATA, &one, sizeof(one));
+        r = setsockopt (s, SOL_PACKET, PACKET_AUXDATA, &on, sizeof(on));
         if (r < 0)
                 return -errno;
 
@@ -117,6 +117,17 @@ int dhcp_network_bind_udp_socket(be32_t address, uint16_t port) {
         r = setsockopt(s, IPPROTO_IP, IP_TOS, &tos, sizeof(tos));
         if (r < 0)
                 return -errno;
+        if (address == INADDR_ANY) {
+                int on = 1;
+
+                r = setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
+                if (r < 0)
+                        return -errno;
+
+                r = setsockopt(s, IPPROTO_IP, IP_PKTINFO, &on, sizeof(on));
+                if (r < 0)
+                        return -errno;
+        }
 
         r = bind(s, &src.sa, sizeof(src.in));
         if (r < 0)
