@@ -94,13 +94,13 @@ static void test_message_handler(void) {
         assert_se(sd_dhcp_server_attach_event(server, NULL, 0) >= 0);
         assert_se(sd_dhcp_server_start(server) >= 0);
 
-        assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test)) == 1);
+        assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test)) == DHCP_OFFER);
 
         test.end = 0;
         /* TODO, shouldn't this fail? */
-        assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test)) == 1);
+        assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test)) == DHCP_OFFER);
         test.end = DHCP_OPTION_END;
-        assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test)) == 1);
+        assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test)) == DHCP_OFFER);
 
         test.option_type.code = 0;
         test.option_type.length = 0;
@@ -109,22 +109,22 @@ static void test_message_handler(void) {
         test.option_type.code = DHCP_OPTION_MESSAGE_TYPE;
         test.option_type.length = 1;
         test.option_type.type = DHCP_DISCOVER;
-        assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test)) == 1);
+        assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test)) == DHCP_OFFER);
 
         test.message.op = 0;
         assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test)) == 0);
         test.message.op = BOOTREQUEST;
-        assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test)) == 1);
+        assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test)) == DHCP_OFFER);
 
         test.message.htype = 0;
         assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test)) == 0);
         test.message.htype = ARPHRD_ETHER;
-        assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test)) == 1);
+        assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test)) == DHCP_OFFER);
 
         test.message.hlen = 0;
         assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test)) == 0);
         test.message.hlen = ETHER_ADDR_LEN;
-        assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test)) == 1);
+        assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test)) == DHCP_OFFER);
 }
 
 int main(int argc, char *argv[]) {

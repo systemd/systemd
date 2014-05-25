@@ -27,6 +27,8 @@
 #include "dhcp-server-internal.h"
 #include "dhcp-internal.h"
 
+#define DHCP_DEFAULT_LEASE_TIME         60
+
 int sd_dhcp_server_set_address(sd_dhcp_server *server, struct in_addr *address) {
         assert_return(server, -EINVAL);
         assert_return(address, -EINVAL);
@@ -277,6 +279,64 @@ int dhcp_server_send_packet(sd_dhcp_server *server,
                                                     sizeof(DHCPPacket) + optoffset);
 }
 
+static int server_message_init(sd_dhcp_server *server, DHCPPacket **ret,
+                               uint8_t type, size_t *_optoffset, DHCPRequest *req) {
+        _cleanup_free_ DHCPPacket *packet = NULL;
+        size_t optoffset;
+        int r;
+
+        assert(server);
+        assert(ret);
+        assert(_optoffset);
+        assert(type == DHCP_OFFER);
+
+        packet = malloc0(sizeof(DHCPPacket) + req->max_optlen);
+        if (!packet)
+                return -ENOMEM;
+
+        r = dhcp_message_init(&packet->dhcp, BOOTREPLY, be32toh(req->message->xid),
+                              type, req->max_optlen, &optoffset);
+        if (r < 0)
+                return r;
+
+        packet->dhcp.flags = req->message->flags;
+        packet->dhcp.giaddr = req->message->giaddr;
+        memcpy(&packet->dhcp.chaddr, &req->message->chaddr, ETH_ALEN);
+
+        *_optoffset = optoffset;
+        *ret = packet;
+        packet = NULL;
+
+        return 0;
+}
+
+static int server_send_offer(sd_dhcp_server *server, DHCPRequest *req) {
+        _cleanup_free_ DHCPPacket *packet = NULL;
+        size_t offset;
+        be32_t lease_time;
+        int r;
+
+        r = server_message_init(server, &packet, DHCP_OFFER, &offset, req);
+        if (r < 0)
+                return r;
+
+        /* for now offer a random IP */
+        packet->dhcp.yiaddr = random_u32();
+
+        /* for one minute */
+        lease_time = htobe32(DHCP_DEFAULT_LEASE_TIME);
+        r = dhcp_option_append(&packet->dhcp, req->max_optlen, &offset, 0,
+                               DHCP_OPTION_IP_ADDRESS_LEASE_TIME, 4, &lease_time);
+        if (r < 0)
+                return r;
+
+        r = dhcp_server_send_packet(server, req, packet, DHCP_OFFER, offset);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static int parse_request(uint8_t code, uint8_t len, const uint8_t *option,
                          void *user_data) {
         DHCPRequest *req = user_data;
@@ -377,9 +437,27 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
                 /* this only fails on critical errors */
                 return r;
 
-        log_dhcp_server(server, "received message of type %d", type);
+        switch(type) {
+        case DHCP_DISCOVER:
+                log_dhcp_server(server, "DISCOVER (0x%x)",
+                                be32toh(req->message->xid));
 
-        return 1;
+                r = server_send_offer(server, req);
+                if (r < 0) {
+                        /* this only fails on critical errors */
+                        log_dhcp_server(server, "could not send offer: %s",
+                                        strerror(-r));
+                        return r;
+                } else {
+                        log_dhcp_server(server, "OFFER (0x%x)",
+                                        be32toh(req->message->xid));
+                        return DHCP_OFFER;
+                }
+
+                break;
+        }
+
+        return 0;
 }
 
 static int server_receive_message(sd_event_source *s, int fd,
