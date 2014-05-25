@@ -23,11 +23,24 @@
 #include "sd-event.h"
 #include "sd-dhcp-server.h"
 
+#include "hashmap.h"
 #include "refcnt.h"
 #include "util.h"
 #include "log.h"
 
 #include "dhcp-internal.h"
+
+typedef struct DHCPClientId {
+        size_t length;
+        uint8_t *data;
+} DHCPClientId;
+
+typedef struct DHCPLease {
+        DHCPClientId client_id;
+
+        be32_t address;
+        usec_t expiration;
+} DHCPLease;
 
 struct sd_dhcp_server {
         RefCount n_ref;
@@ -42,12 +55,11 @@ struct sd_dhcp_server {
         be32_t address;
         be32_t pool_start;
         size_t pool_size;
-};
+        size_t next_offer;
 
-typedef struct DHCPClientId {
-        size_t length;
-        uint8_t *data;
-} DHCPClientId;
+        Hashmap *leases_by_client_id;
+        DHCPLease **bound_leases;
+};
 
 typedef struct DHCPRequest {
         /* received message */
@@ -71,3 +83,6 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
 int dhcp_server_send_packet(sd_dhcp_server *server,
                             DHCPRequest *req, DHCPPacket *packet,
                             int type, size_t optoffset);
+
+unsigned long client_id_hash_func(const void *p, const uint8_t hash_key[HASH_KEY_SIZE]);
+int client_id_compare_func(const void *_a, const void *_b);

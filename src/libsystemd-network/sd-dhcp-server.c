@@ -23,6 +23,8 @@
 #include <sys/ioctl.h>
 #include <netinet/if_ether.h>
 
+#include "siphash24.h"
+
 #include "sd-dhcp-server.h"
 #include "dhcp-server-internal.h"
 #include "dhcp-internal.h"
@@ -37,6 +39,11 @@ int sd_dhcp_server_set_lease_pool(sd_dhcp_server *server, struct in_addr *addres
         assert_return(size, -EINVAL);
         assert_return(server->pool_start == htobe32(INADDR_ANY), -EBUSY);
         assert_return(!server->pool_size, -EBUSY);
+        assert_return(!server->bound_leases, -EBUSY);
+
+        server->bound_leases = new0(DHCPLease*, size);
+        if (!server->bound_leases)
+                return -ENOMEM;
 
         server->pool_start = address->s_addr;
         server->pool_size = size;
@@ -62,13 +69,63 @@ sd_dhcp_server *sd_dhcp_server_ref(sd_dhcp_server *server) {
         return server;
 }
 
+unsigned long client_id_hash_func(const void *p, const uint8_t hash_key[HASH_KEY_SIZE]) {
+        uint64_t u;
+        const DHCPClientId *id = p;
+
+        assert(id);
+        assert(id->length);
+        assert(id->data);
+
+        siphash24((uint8_t*) &u, id->data, id->length, hash_key);
+
+        return (unsigned long) u;
+}
+
+int client_id_compare_func(const void *_a, const void *_b) {
+        const DHCPClientId *a, *b;
+
+        a = _a;
+        b = _b;
+
+        assert(!a->length || a->data);
+        assert(!b->length || b->data);
+
+        if (a->length != b->length)
+                return a->length < b->length ? -1 : 1;
+
+        return memcmp(a->data, b->data, a->length);
+}
+
+static void dhcp_lease_free(DHCPLease *lease) {
+        if (!lease)
+                return;
+
+        free(lease->client_id.data);
+        free(lease);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(DHCPLease*, dhcp_lease_free);
+#define _cleanup_dhcp_lease_free_ _cleanup_(dhcp_lease_freep)
+
 sd_dhcp_server *sd_dhcp_server_unref(sd_dhcp_server *server) {
         if (server && REFCNT_DEC(server->n_ref) <= 0) {
+                DHCPLease *lease;
+                Iterator i;
+
                 log_dhcp_server(server, "UNREF");
 
                 sd_dhcp_server_stop(server);
 
                 sd_event_unref(server->event);
+
+                HASHMAP_FOREACH(lease, server->leases_by_client_id, i) {
+                        hashmap_remove(server->leases_by_client_id, lease);
+                        dhcp_lease_free(lease);
+                }
+
+                hashmap_free(server->leases_by_client_id);
+                free(server->bound_leases);
                 free(server);
         }
 
@@ -90,6 +147,7 @@ int sd_dhcp_server_new(sd_dhcp_server **ret, int ifindex) {
         server->fd = -1;
         server->address = htobe32(INADDR_ANY);
         server->index = ifindex;
+        server->leases_by_client_id = hashmap_new(client_id_hash_func, client_id_compare_func);
 
         *ret = server;
         server = NULL;
@@ -478,9 +536,24 @@ static int ensure_sane_request(DHCPRequest *req, DHCPMessage *message) {
         return 0;
 }
 
+static int get_pool_offset(sd_dhcp_server *server, be32_t requested_ip) {
+        assert(server);
+
+        if (!server->pool_size)
+                return -EINVAL;
+
+        if (be32toh(requested_ip) < be32toh(server->pool_start) ||
+            be32toh(requested_ip) >= be32toh(server->pool_start) +
+                                                  + server->pool_size)
+                return -EINVAL;
+
+        return be32toh(requested_ip) - be32toh(server->pool_start);
+}
+
 int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
                                size_t length) {
         _cleanup_dhcp_request_free_ DHCPRequest *req = NULL;
+        DHCPLease *existing_lease;
         int type, r;
 
         assert(server);
@@ -504,10 +577,13 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
                 /* this only fails on critical errors */
                 return r;
 
+        existing_lease = hashmap_get(server->leases_by_client_id, &req->client_id);
+
         switch(type) {
         case DHCP_DISCOVER:
         {
-                be32_t address;
+                be32_t address = INADDR_ANY;
+                unsigned i;
 
                 log_dhcp_server(server, "DISCOVER (0x%x)",
                                 be32toh(req->message->xid));
@@ -516,9 +592,22 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
                         /* no pool allocated */
                         return 0;
 
-                /* for now pick a random address from the pool */
-                address = htobe32(be32toh(server->pool_start) +
-                                      (random_u32() % server->pool_size));
+                /* for now pick a random free address from the pool */
+                if (existing_lease)
+                        address = existing_lease->address;
+                else {
+                        for (i = 0; i < server->pool_size; i++) {
+                                if (!server->bound_leases[server->next_offer]) {
+                                        address = htobe32(be32toh(server->pool_start) + server->next_offer);
+                                        break;
+                                } else
+                                        server->next_offer = (server->next_offer + 1) % server->pool_size;
+                        }
+                }
+
+                if (address == INADDR_ANY)
+                        /* no free addresses left */
+                        return 0;
 
                 r = server_send_offer(server, req, address);
                 if (r < 0) {
@@ -538,6 +627,7 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
         {
                 be32_t address;
                 bool init_reboot = false;
+                int pool_offset;
 
                 /* see RFC 2131, section 4.3.2 */
 
@@ -584,20 +674,48 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
                         address = req->message->ciaddr;
                 }
 
-                /* for now we just verify that the address is from the pool, not
-                   whether or not it is taken */
-                if (htobe32(req->requested_ip) >= htobe32(server->pool_start) &&
-                    htobe32(req->requested_ip) < htobe32(server->pool_start) +
-                                                  + server->pool_size) {
+                pool_offset = get_pool_offset(server, address);
+
+                /* verify that the requested address is from the pool, and either
+                   owned by the current client or free */
+                if (pool_offset >= 0 &&
+                    server->bound_leases[pool_offset] == existing_lease) {
+                        DHCPLease *lease;
+                        usec_t time_now;
+
+                        if (!existing_lease) {
+                                lease = new0(DHCPLease, 1);
+                                lease->address = req->requested_ip;
+                                lease->client_id.data = memdup(req->client_id.data,
+                                                               req->client_id.length);
+                                if (!lease->client_id.data)
+                                        return -ENOMEM;
+                                lease->client_id.length = req->client_id.length;
+                        } else
+                                lease = existing_lease;
+
+                        r = sd_event_now(server->event, CLOCK_MONOTONIC, &time_now);
+                        if (r < 0)
+                                time_now = now(CLOCK_MONOTONIC);
+                        lease->expiration = req->lifetime * USEC_PER_SEC + time_now;
+
                         r = server_send_ack(server, req, address);
                         if (r < 0) {
                                 /* this only fails on critical errors */
                                 log_dhcp_server(server, "could not send ack: %s",
                                                 strerror(-r));
+
+                                if (!existing_lease)
+                                        dhcp_lease_free(lease);
+
                                 return r;
                         } else {
                                 log_dhcp_server(server, "ACK (0x%x)",
                                                 be32toh(req->message->xid));
+
+                                server->bound_leases[pool_offset] = lease;
+                                hashmap_put(server->leases_by_client_id, &lease->client_id, lease);
+
                                 return DHCP_ACK;
                         }
                 } else if (init_reboot) {
