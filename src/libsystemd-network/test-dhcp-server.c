@@ -150,7 +150,7 @@ static void test_message_handler(void) {
         test.option_requested_ip.code = DHCP_OPTION_REQUESTED_IP_ADDRESS;
         test.option_requested_ip.length = 4;
         test.option_requested_ip.address = htobe32(0x12345678);
-        assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test)) == 0);
+        assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test)) == DHCP_NAK);
         test.option_server_id.code = DHCP_OPTION_SERVER_IDENTIFIER;
         test.option_server_id.length = 4;
         test.option_server_id.address = htobe32(INADDR_LOOPBACK);
@@ -159,8 +159,8 @@ static void test_message_handler(void) {
         test.option_server_id.address = htobe32(0x12345678);
         test.option_requested_ip.address = htobe32(INADDR_LOOPBACK + 3);
         assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test)) == 0);
-        test.option_server_id.address = htobe32(INADDR_LOOPBACK + 3);
-        test.option_requested_ip.address = htobe32(0x12345678);
+        test.option_server_id.address = htobe32(INADDR_LOOPBACK);
+        test.option_requested_ip.address = htobe32(INADDR_LOOPBACK + 30);
         assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test)) == 0);
 }
 

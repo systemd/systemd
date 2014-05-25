@@ -303,7 +303,7 @@ static int server_message_init(sd_dhcp_server *server, DHCPPacket **ret,
         assert(server);
         assert(ret);
         assert(_optoffset);
-        assert(IN_SET(type, DHCP_OFFER, DHCP_ACK));
+        assert(IN_SET(type, DHCP_OFFER, DHCP_ACK, DHCP_NAK));
 
         packet = malloc0(sizeof(DHCPPacket) + req->max_optlen);
         if (!packet)
@@ -371,6 +371,22 @@ static int server_send_ack(sd_dhcp_server *server, DHCPRequest *req, be32_t addr
                 return r;
 
         r = dhcp_server_send_packet(server, req, packet, DHCP_ACK, offset);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static int server_send_nak(sd_dhcp_server *server, DHCPRequest *req) {
+        _cleanup_free_ DHCPPacket *packet = NULL;
+        size_t offset;
+        int r;
+
+        r = server_message_init(server, &packet, DHCP_NAK, &offset, req);
+        if (r < 0)
+                return r;
+
+        r = dhcp_server_send_packet(server, req, packet, DHCP_NAK, offset);
         if (r < 0)
                 return r;
 
@@ -515,6 +531,7 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
         case DHCP_REQUEST:
         {
                 be32_t address;
+                bool init_reboot = false;
 
                 /* see RFC 2131, section 4.3.2 */
 
@@ -546,8 +563,9 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
                                 /* this MUST be zero */
                                 return 0;
 
-                        /* TODO: check if requested IP is correct, NAK if not */
+                        /* TODO: check more carefully if IP is correct */
                         address = req->requested_ip;
+                        init_reboot = true;
                 } else {
                         log_dhcp_server(server, "REQUEST (rebinding/renewing) (0x%x)",
                                         be32toh(req->message->xid));
@@ -576,8 +594,19 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
                                                 be32toh(req->message->xid));
                                 return DHCP_ACK;
                         }
-                } else
-                        return 0;
+                } else if (init_reboot) {
+                        r = server_send_nak(server, req);
+                        if (r < 0) {
+                                /* this only fails on critical errors */
+                                log_dhcp_server(server, "could not send nak: %s",
+                                                strerror(-r));
+                                return r;
+                        } else {
+                                log_dhcp_server(server, "NAK (0x%x)",
+                                                be32toh(req->message->xid));
+                                return DHCP_NAK;
+                        }
+                }
 
                 break;
         }
