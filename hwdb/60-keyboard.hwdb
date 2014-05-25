@@ -138,6 +138,7 @@ keyboard:dmi:bvn*:bvr*:bd*:svnASUS:pn*
  KEYBOARD_KEY_ef=mute
 
 keyboard:name:Asus WMI hotkeys:dmi:bvn*:bvr*:bd*:svnASUS*:pn*:pvr*
+keyboard:name:Eee PC WMI hotkeys:dmi:bvn*:bvr*:bd*:svnASUS*:pn*:pvr*
  KEYBOARD_KEY_6b=f21                                    # Touchpad Toggle
 
 ###########################################################
