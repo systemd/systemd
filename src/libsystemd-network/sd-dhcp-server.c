@@ -337,8 +337,7 @@ static int server_send_offer(sd_dhcp_server *server, DHCPRequest *req, be32_t ad
 
         packet->dhcp.yiaddr = address;
 
-        /* for one minute */
-        lease_time = htobe32(DHCP_DEFAULT_LEASE_TIME);
+        lease_time = htobe32(req->lifetime);
         r = dhcp_option_append(&packet->dhcp, req->max_optlen, &offset, 0,
                                DHCP_OPTION_IP_ADDRESS_LEASE_TIME, 4, &lease_time);
         if (r < 0)
@@ -363,8 +362,7 @@ static int server_send_ack(sd_dhcp_server *server, DHCPRequest *req, be32_t addr
 
         packet->dhcp.yiaddr = address;
 
-        /* for ten seconds */
-        lease_time = htobe32(DHCP_DEFAULT_LEASE_TIME);
+        lease_time = htobe32(req->lifetime);
         r = dhcp_option_append(&packet->dhcp, req->max_optlen, &offset, 0,
                                DHCP_OPTION_IP_ADDRESS_LEASE_TIME, 4, &lease_time);
         if (r < 0)
@@ -400,6 +398,11 @@ static int parse_request(uint8_t code, uint8_t len, const uint8_t *option,
         assert(req);
 
         switch(code) {
+        case DHCP_OPTION_IP_ADDRESS_LEASE_TIME:
+                if (len == 4)
+                        req->lifetime = be32toh(*(be32_t*)option);
+
+                break;
         case DHCP_OPTION_REQUESTED_IP_ADDRESS:
                 if (len == 4)
                         req->requested_ip = *(be32_t*)option;
@@ -468,6 +471,9 @@ static int ensure_sane_request(DHCPRequest *req, DHCPMessage *message) {
 
         if (req->max_optlen < DHCP_MIN_OPTIONS_SIZE)
                 req->max_optlen = DHCP_MIN_OPTIONS_SIZE;
+
+        if (!req->lifetime)
+                req->lifetime = DHCP_DEFAULT_LEASE_TIME;
 
         return 0;
 }

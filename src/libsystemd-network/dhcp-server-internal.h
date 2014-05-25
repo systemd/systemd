@@ -58,6 +58,7 @@ typedef struct DHCPRequest {
         size_t max_optlen;
         be32_t server_id;
         be32_t requested_ip;
+        int lifetime;
 } DHCPRequest;
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(sd_dhcp_server*, sd_dhcp_server_unref);
