@@ -834,7 +834,7 @@ static int manager_resolve_handler(sd_resolve_query *q, int ret, const struct ad
         m->resolve_query = sd_resolve_query_unref(m->resolve_query);
 
         if (ret != 0) {
-                log_info("Failed to resolve %s: %s", m->current_server_name->string, gai_strerror(ret));
+                log_debug("Failed to resolve %s: %s", m->current_server_name->string, gai_strerror(ret));
 
                 /* Try next host */
                 return manager_connect(m);
@@ -1146,10 +1146,10 @@ static int manager_network_event_handler(sd_event_source *s, int fd, uint32_t re
         connected = (m->server_socket != -1);
 
         if (connected && !online) {
-                log_info("No network connectivity. Suspending.");
+                log_info("No network connectivity, watching for changes.");
                 manager_disconnect(m);
         } else if (!connected && online) {
-                log_info("Network connectivity detected. Resuming.");
+                log_info("Network configuration changed, trying to establish connection.");
                 if (m->current_server_address) {
                         r = manager_begin(m);
                         if (r < 0)
