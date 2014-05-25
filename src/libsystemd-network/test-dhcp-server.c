@@ -59,6 +59,11 @@ static void test_basic(sd_event *event) {
         assert_se(sd_dhcp_server_set_address(server, &address_lo) >= 0);
         assert_se(sd_dhcp_server_set_address(server, &address_lo) == -EBUSY);
 
+        assert_se(sd_dhcp_server_set_lease_pool(server, &address_any, 1) == -EINVAL);
+        assert_se(sd_dhcp_server_set_lease_pool(server, &address_lo, 0) == -EINVAL);
+        assert_se(sd_dhcp_server_set_lease_pool(server, &address_lo, 1) >= 0);
+        assert_se(sd_dhcp_server_set_lease_pool(server, &address_lo, 1) == -EBUSY);
+
         assert_se(sd_dhcp_server_start(server) >= 0);
         assert_se(sd_dhcp_server_start(server) == -EBUSY);
         assert_se(sd_dhcp_server_stop(server) >= 0);
@@ -75,11 +80,23 @@ static void test_message_handler(void) {
                         uint8_t length;
                         uint8_t type;
                 } _packed_ option_type;
+                struct {
+                        uint8_t code;
+                        uint8_t length;
+                        be32_t address;
+                } _packed_ option_requested_ip;
+                struct {
+                        uint8_t code;
+                        uint8_t length;
+                        be32_t address;
+                } _packed_ option_server_id;
                 uint8_t end;
         } _packed_ test = {
                 .message.op = BOOTREQUEST,
                 .message.htype = ARPHRD_ETHER,
                 .message.hlen = ETHER_ADDR_LEN,
+                .message.xid = htobe32(0x12345678),
+                .message.chaddr = { 'A', 'B', 'C', 'D', 'E', 'F' },
                 .option_type.code = DHCP_OPTION_MESSAGE_TYPE,
                 .option_type.length = 1,
                 .option_type.type = DHCP_DISCOVER,
@@ -94,6 +111,8 @@ static void test_message_handler(void) {
         assert_se(sd_dhcp_server_attach_event(server, NULL, 0) >= 0);
         assert_se(sd_dhcp_server_start(server) >= 0);
 
+        assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test)) == 0);
+        assert_se(sd_dhcp_server_set_lease_pool(server, &address_lo, 10) >= 0);
         assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test)) == DHCP_OFFER);
 
         test.end = 0;
@@ -125,6 +144,24 @@ static void test_message_handler(void) {
         assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test)) == 0);
         test.message.hlen = ETHER_ADDR_LEN;
         assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test)) == DHCP_OFFER);
+
+        test.option_type.type = DHCP_REQUEST;
+        assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test)) == 0);
+        test.option_requested_ip.code = DHCP_OPTION_REQUESTED_IP_ADDRESS;
+        test.option_requested_ip.length = 4;
+        test.option_requested_ip.address = htobe32(0x12345678);
+        assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test)) == 0);
+        test.option_server_id.code = DHCP_OPTION_SERVER_IDENTIFIER;
+        test.option_server_id.length = 4;
+        test.option_server_id.address = htobe32(INADDR_LOOPBACK);
+        test.option_requested_ip.address = htobe32(INADDR_LOOPBACK + 3);
+        assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test)) == DHCP_ACK);
+        test.option_server_id.address = htobe32(0x12345678);
+        test.option_requested_ip.address = htobe32(INADDR_LOOPBACK + 3);
+        assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test)) == 0);
+        test.option_server_id.address = htobe32(INADDR_LOOPBACK + 3);
+        test.option_requested_ip.address = htobe32(0x12345678);
+        assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test)) == 0);
 }
 
 int main(int argc, char *argv[]) {

@@ -40,6 +40,8 @@ struct sd_dhcp_server {
 
         int index;
         be32_t address;
+        be32_t pool_start;
+        size_t pool_size;
 };
 
 typedef struct DHCPClientId {
@@ -55,6 +57,7 @@ typedef struct DHCPRequest {
         DHCPClientId client_id;
         size_t max_optlen;
         be32_t server_id;
+        be32_t requested_ip;
 } DHCPRequest;
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(sd_dhcp_server*, sd_dhcp_server_unref);

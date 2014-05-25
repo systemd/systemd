@@ -29,6 +29,21 @@
 
 #define DHCP_DEFAULT_LEASE_TIME         60
 
+int sd_dhcp_server_set_lease_pool(sd_dhcp_server *server, struct in_addr *address,
+                                  size_t size) {
+        assert_return(server, -EINVAL);
+        assert_return(address, -EINVAL);
+        assert_return(address->s_addr, -EINVAL);
+        assert_return(size, -EINVAL);
+        assert_return(server->pool_start == htobe32(INADDR_ANY), -EBUSY);
+        assert_return(!server->pool_size, -EBUSY);
+
+        server->pool_start = address->s_addr;
+        server->pool_size = size;
+
+        return 0;
+}
+
 int sd_dhcp_server_set_address(sd_dhcp_server *server, struct in_addr *address) {
         assert_return(server, -EINVAL);
         assert_return(address, -EINVAL);
@@ -288,7 +303,7 @@ static int server_message_init(sd_dhcp_server *server, DHCPPacket **ret,
         assert(server);
         assert(ret);
         assert(_optoffset);
-        assert(type == DHCP_OFFER);
+        assert(IN_SET(type, DHCP_OFFER, DHCP_ACK));
 
         packet = malloc0(sizeof(DHCPPacket) + req->max_optlen);
         if (!packet)
@@ -310,7 +325,7 @@ static int server_message_init(sd_dhcp_server *server, DHCPPacket **ret,
         return 0;
 }
 
-static int server_send_offer(sd_dhcp_server *server, DHCPRequest *req) {
+static int server_send_offer(sd_dhcp_server *server, DHCPRequest *req, be32_t address) {
         _cleanup_free_ DHCPPacket *packet = NULL;
         size_t offset;
         be32_t lease_time;
@@ -320,8 +335,7 @@ static int server_send_offer(sd_dhcp_server *server, DHCPRequest *req) {
         if (r < 0)
                 return r;
 
-        /* for now offer a random IP */
-        packet->dhcp.yiaddr = random_u32();
+        packet->dhcp.yiaddr = address;
 
         /* for one minute */
         lease_time = htobe32(DHCP_DEFAULT_LEASE_TIME);
@@ -337,6 +351,32 @@ static int server_send_offer(sd_dhcp_server *server, DHCPRequest *req) {
         return 0;
 }
 
+static int server_send_ack(sd_dhcp_server *server, DHCPRequest *req, be32_t address) {
+        _cleanup_free_ DHCPPacket *packet = NULL;
+        size_t offset;
+        be32_t lease_time;
+        int r;
+
+        r = server_message_init(server, &packet, DHCP_ACK, &offset, req);
+        if (r < 0)
+                return r;
+
+        packet->dhcp.yiaddr = address;
+
+        /* for ten seconds */
+        lease_time = htobe32(DHCP_DEFAULT_LEASE_TIME);
+        r = dhcp_option_append(&packet->dhcp, req->max_optlen, &offset, 0,
+                               DHCP_OPTION_IP_ADDRESS_LEASE_TIME, 4, &lease_time);
+        if (r < 0)
+                return r;
+
+        r = dhcp_server_send_packet(server, req, packet, DHCP_ACK, offset);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static int parse_request(uint8_t code, uint8_t len, const uint8_t *option,
                          void *user_data) {
         DHCPRequest *req = user_data;
@@ -344,6 +384,11 @@ static int parse_request(uint8_t code, uint8_t len, const uint8_t *option,
         assert(req);
 
         switch(code) {
+        case DHCP_OPTION_REQUESTED_IP_ADDRESS:
+                if (len == 4)
+                        req->requested_ip = *(be32_t*)option;
+
+                break;
         case DHCP_OPTION_SERVER_IDENTIFIER:
                 if (len == 4)
                         req->server_id = *(be32_t*)option;
@@ -439,10 +484,21 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
 
         switch(type) {
         case DHCP_DISCOVER:
+        {
+                be32_t address;
+
                 log_dhcp_server(server, "DISCOVER (0x%x)",
                                 be32toh(req->message->xid));
 
-                r = server_send_offer(server, req);
+                if (!server->pool_size)
+                        /* no pool allocated */
+                        return 0;
+
+                /* for now pick a random address from the pool */
+                address = htobe32(be32toh(server->pool_start) +
+                                      (random_u32() % server->pool_size));
+
+                r = server_send_offer(server, req, address);
                 if (r < 0) {
                         /* this only fails on critical errors */
                         log_dhcp_server(server, "could not send offer: %s",
@@ -455,6 +511,76 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
                 }
 
                 break;
+        }
+        case DHCP_REQUEST:
+        {
+                be32_t address;
+
+                /* see RFC 2131, section 4.3.2 */
+
+                if (req->server_id) {
+                        log_dhcp_server(server, "REQUEST (selecting) (0x%x)",
+                                        be32toh(req->message->xid));
+
+                        /* SELECTING */
+                        if (req->server_id != server->address)
+                                /* client did not pick us */
+                                return 0;
+
+                        if (req->message->ciaddr)
+                                /* this MUST be zero */
+                                return 0;
+
+                        if (!req->requested_ip)
+                                /* this must be filled in with the yiaddr
+                                   from the chosen OFFER */
+                                return 0;
+
+                        address = req->requested_ip;
+                } else if (req->requested_ip) {
+                        log_dhcp_server(server, "REQUEST (init-reboot) (0x%x)",
+                                        be32toh(req->message->xid));
+
+                        /* INIT-REBOOT */
+                        if (req->message->ciaddr)
+                                /* this MUST be zero */
+                                return 0;
+
+                        /* TODO: check if requested IP is correct, NAK if not */
+                        address = req->requested_ip;
+                } else {
+                        log_dhcp_server(server, "REQUEST (rebinding/renewing) (0x%x)",
+                                        be32toh(req->message->xid));
+
+                        /* REBINDING / RENEWING */
+                        if (!req->message->ciaddr)
+                                /* this MUST be filled in with clients IP address */
+                                return 0;
+
+                        address = req->message->ciaddr;
+                }
+
+                /* for now we just verify that the address is from the pool, not
+                   whether or not it is taken */
+                if (htobe32(req->requested_ip) >= htobe32(server->pool_start) &&
+                    htobe32(req->requested_ip) < htobe32(server->pool_start) +
+                                                  + server->pool_size) {
+                        r = server_send_ack(server, req, address);
+                        if (r < 0) {
+                                /* this only fails on critical errors */
+                                log_dhcp_server(server, "could not send ack: %s",
+                                                strerror(-r));
+                                return r;
+                        } else {
+                                log_dhcp_server(server, "ACK (0x%x)",
+                                                be32toh(req->message->xid));
+                                return DHCP_ACK;
+                        }
+                } else
+                        return 0;
+
+                break;
+        }
         }
 
         return 0;
