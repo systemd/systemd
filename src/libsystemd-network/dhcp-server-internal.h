@@ -64,3 +64,6 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(sd_dhcp_server*, sd_dhcp_server_unref);
 
 int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
                                size_t length);
+int dhcp_server_send_packet(sd_dhcp_server *server,
+                            DHCPRequest *req, DHCPPacket *packet,
+                            int type, size_t optoffset);

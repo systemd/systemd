@@ -127,6 +127,156 @@ int sd_dhcp_server_stop(sd_dhcp_server *server) {
         return 0;
 }
 
+static int dhcp_server_send_unicast_raw(sd_dhcp_server *server, DHCPPacket *packet,
+                                        size_t len) {
+        union sockaddr_union link = {
+                .ll.sll_family = AF_PACKET,
+                .ll.sll_protocol = htons(ETH_P_IP),
+                .ll.sll_ifindex = server->index,
+                .ll.sll_halen = ETH_ALEN,
+        };
+        int r;
+
+        assert(server);
+        assert(server->index > 0);
+        assert(server->address);
+        assert(packet);
+        assert(len > sizeof(DHCPPacket));
+
+        memcpy(&link.ll.sll_addr, &packet->dhcp.chaddr, ETH_ALEN);
+
+        dhcp_packet_append_ip_headers(packet, server->address, DHCP_PORT_SERVER,
+                                      packet->dhcp.yiaddr, DHCP_PORT_CLIENT, len);
+
+        r = dhcp_network_send_raw_socket(server->fd_raw, &link, packet, len);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static int dhcp_server_send_udp(sd_dhcp_server *server, be32_t destination,
+                                DHCPMessage *message, size_t len) {
+        union sockaddr_union dest = {
+                .in.sin_family = AF_INET,
+                .in.sin_port = htobe16(DHCP_PORT_CLIENT),
+                .in.sin_addr.s_addr = destination,
+        };
+        struct iovec iov = {
+                .iov_base = message,
+                .iov_len = len,
+        };
+        uint8_t cmsgbuf[CMSG_LEN(sizeof(struct in_pktinfo))] = {};
+        struct msghdr msg = {
+                .msg_name = &dest,
+                .msg_namelen = sizeof(dest.in),
+                .msg_iov = &iov,
+                .msg_iovlen = 1,
+                .msg_control = cmsgbuf,
+                .msg_controllen = sizeof(cmsgbuf),
+        };
+        struct cmsghdr *cmsg;
+        struct in_pktinfo *pktinfo;
+        int r;
+
+        assert(server);
+        assert(server->fd > 0);
+        assert(message);
+        assert(len > sizeof(DHCPMessage));
+
+        cmsg = CMSG_FIRSTHDR(&msg);
+        assert(cmsg);
+
+        cmsg->cmsg_level = IPPROTO_IP;
+        cmsg->cmsg_type = IP_PKTINFO;
+        cmsg->cmsg_len = CMSG_LEN(sizeof(struct in_pktinfo));
+
+        /* we attach source interface and address info to the message
+           rather than binding the socket. This will be mostly useful
+           when we gain support for arbitrary number of server addresses
+         */
+        pktinfo = (struct in_pktinfo*) CMSG_DATA(cmsg);
+        assert(pktinfo);
+
+        pktinfo->ipi_ifindex = server->index;
+        pktinfo->ipi_spec_dst.s_addr = server->address;
+
+        r = sendmsg(server->fd, &msg, 0);
+        if (r < 0)
+                return -errno;
+
+        return 0;
+}
+
+static bool requested_broadcast(DHCPRequest *req) {
+        assert(req);
+
+        return req->message->flags & htobe16(0x8000);
+}
+
+int dhcp_server_send_packet(sd_dhcp_server *server,
+                            DHCPRequest *req, DHCPPacket *packet,
+                            int type, size_t optoffset) {
+        be32_t destination = INADDR_ANY;
+        int r;
+
+        assert(server);
+        assert(req);
+        assert(req->max_optlen);
+        assert(optoffset <= req->max_optlen);
+        assert(packet);
+
+        r = dhcp_option_append(&packet->dhcp, req->max_optlen, &optoffset, 0,
+                               DHCP_OPTION_SERVER_IDENTIFIER,
+                               4, &server->address);
+        if (r < 0)
+                return r;
+
+        r = dhcp_option_append(&packet->dhcp, req->max_optlen, &optoffset, 0,
+                               DHCP_OPTION_END, 0, NULL);
+        if (r < 0)
+                return r;
+
+        /* RFC 2131 Section 4.1
+
+           If the ’giaddr’ field in a DHCP message from a client is non-zero,
+           the server sends any return messages to the ’DHCP server’ port on the
+           BOOTP relay agent whose address appears in ’giaddr’. If the ’giaddr’
+           field is zero and the ’ciaddr’ field is nonzero, then the server
+           unicasts DHCPOFFER and DHCPACK messages to the address in ’ciaddr’.
+           If ’giaddr’ is zero and ’ciaddr’ is zero, and the broadcast bit is
+           set, then the server broadcasts DHCPOFFER and DHCPACK messages to
+           0xffffffff. If the broadcast bit is not set and ’giaddr’ is zero and
+           ’ciaddr’ is zero, then the server unicasts DHCPOFFER and DHCPACK
+           messages to the client’s hardware address and ’yiaddr’ address. In
+           all cases, when ’giaddr’ is zero, the server broadcasts any DHCPNAK
+           messages to 0xffffffff.
+
+           Section 4.3.2
+
+           If ’giaddr’ is set in the DHCPREQUEST message, the client is on a
+           different subnet. The server MUST set the broadcast bit in the
+           DHCPNAK, so that the relay agent will broadcast the DHCPNAK to the
+           client, because the client may not have a correct network address
+           or subnet mask, and the client may not be answering ARP requests.
+         */
+        if (req->message->giaddr) {
+                destination = req->message->giaddr;
+                if (type == DHCP_NAK)
+                        packet->dhcp.flags = htobe16(0x8000);
+        } else if (req->message->ciaddr && type != DHCP_NAK)
+                destination = req->message->ciaddr;
+
+        if (destination || requested_broadcast(req) || type == DHCP_NAK)
+                return dhcp_server_send_udp(server, destination, &packet->dhcp,
+                                            sizeof(DHCPMessage) + optoffset);
+        else
+                /* we cannot send UDP packet to specific MAC address when the address is
+                   not yet configured, so must fall back to raw packets */
+                return dhcp_server_send_unicast_raw(server, packet,
+                                                    sizeof(DHCPPacket) + optoffset);
+}
+
 static int parse_request(uint8_t code, uint8_t len, const uint8_t *option,
                          void *user_data) {
         DHCPRequest *req = user_data;
