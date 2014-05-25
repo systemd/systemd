@@ -300,7 +300,7 @@ static uint8_t options[64] = {
 
 static void test_option_set(void)
 {
-        DHCPMessage *result;
+        _cleanup_free_ DHCPMessage *result = NULL;
         size_t offset = 0, len, pos;
         unsigned i;
 
