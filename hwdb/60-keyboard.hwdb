@@ -579,6 +579,18 @@ keyboard:dmi:bvn*:bvr*:svnLENOVO*:pn*IdeaPad*Z370*:pvr*
 keyboard:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*Lenovo*V480*:pvr*
  KEYBOARD_KEY_f1=f21
 
+# enhanced USB keyboard
+keyboard:usb:v04B3p301B*
+ KEYBOARD_KEY_90001=prog1 # ThinkVantage
+ KEYBOARD_KEY_90002=screenlock
+ KEYBOARD_KEY_90003=file
+ KEYBOARD_KEY_90004=wordprocessor
+ KEYBOARD_KEY_90005=spreadsheet
+ KEYBOARD_KEY_90006=calc
+ KEYBOARD_KEY_90007=mail
+ KEYBOARD_KEY_90008=www
+
+
 ###########################################################
 # Logitech
 ###########################################################
