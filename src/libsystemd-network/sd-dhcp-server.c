@@ -623,6 +623,15 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
 
                 break;
         }
+        case DHCP_DECLINE:
+                log_dhcp_server(server, "DECLINE (0x%x)",
+                                be32toh(req->message->xid));
+
+                /* TODO: make sure we don't offer this address again */
+
+                return 1;
+
+                break;
         case DHCP_REQUEST:
         {
                 be32_t address;
