@@ -544,7 +544,7 @@ static int get_pool_offset(sd_dhcp_server *server, be32_t requested_ip) {
 
         if (be32toh(requested_ip) < be32toh(server->pool_start) ||
             be32toh(requested_ip) >= be32toh(server->pool_start) +
-                                                  + server->pool_size)
+                                             + server->pool_size)
                 return -EINVAL;
 
         return be32toh(requested_ip) - be32toh(server->pool_start);
@@ -742,6 +742,31 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
                 }
 
                 break;
+        }
+        case DHCP_RELEASE: {
+                int pool_offset;
+
+                log_dhcp_server(server, "RELEASE (0x%x)",
+                                be32toh(req->message->xid));
+
+                if (!existing_lease)
+                        return 0;
+
+                if (existing_lease->address != req->message->ciaddr)
+                        return 0;
+
+                pool_offset = get_pool_offset(server, req->message->ciaddr);
+                if (pool_offset < 0)
+                        return 0;
+
+                if (server->bound_leases[pool_offset] == existing_lease) {
+                        server->bound_leases[pool_offset] = NULL;
+                        hashmap_remove(server->leases_by_client_id, existing_lease);
+                        dhcp_lease_free(existing_lease);
+
+                        return 1;
+                } else
+                        return 0;
         }
         }
 
