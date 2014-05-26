@@ -688,7 +688,7 @@ int config_parse_strv(const char *unit,
         FOREACH_WORD_QUOTED(w, l, rvalue, state) {
                 char *n;
 
-                n = cunescape_length(w, l);
+                n = strndup(w, l);
                 if (!n)
                         return log_oom();
 
