@@ -301,10 +301,12 @@ int main(int argc, char *argv[]) {
                 r = fsck_exists(type);
                 if (r < 0) {
                         if (r == -ENOENT) {
-                                log_info("fsck.%s doesn't exist, not checking file system.", type);
+                                log_info("fsck.%s doesn't exist, not checking file system on %s",
+                                         type, device);
                                 return EXIT_SUCCESS;
                         } else
-                                log_warning("fsck.%s cannot be used: %s", type, strerror(-r));
+                                log_warning("fsck.%s cannot be used for %s: %s",
+                                            type, device, strerror(-r));
                 }
         }
 
