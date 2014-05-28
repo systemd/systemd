@@ -23,9 +23,7 @@
 
 #include <unistd.h>
 #include <string.h>
-#ifdef HAVE_XATTR
-#include <attr/xattr.h>
-#endif
+#include <sys/xattr.h>
 
 #include "smack-util.h"
 

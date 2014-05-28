@@ -26,10 +26,7 @@
 #include <sys/statvfs.h>
 #include <fcntl.h>
 #include <stddef.h>
-
-#ifdef HAVE_XATTR
-#include <attr/xattr.h>
-#endif
+#include <sys/xattr.h>
 
 #include "journal-def.h"
 #include "journal-file.h"
@@ -2511,7 +2508,6 @@ int journal_file_open(
         }
 
         if (f->last_stat.st_size == 0 && f->writable) {
-#ifdef HAVE_XATTR
                 uint64_t crtime;
 
                 /* Let's attach the creation time to the journal file,
@@ -2526,7 +2522,6 @@ int journal_file_open(
 
                 crtime = htole64((uint64_t) now(CLOCK_REALTIME));
                 fsetxattr(f->fd, "user.crtime_usec", &crtime, sizeof(crtime), XATTR_CREATE);
-#endif
 
 #ifdef HAVE_GCRYPT
                 /* Try to load the FSPRG state, and if we can't, then

@@ -29,9 +29,7 @@
 #include <arpa/inet.h>
 #include <netinet/tcp.h>
 #include <mqueue.h>
-#ifdef HAVE_XATTR
-#include <attr/xattr.h>
-#endif
+#include <sys/xattr.h>
 
 #include "sd-event.h"
 #include "log.h"

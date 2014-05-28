@@ -24,10 +24,7 @@
 #include <sys/stat.h>
 #include <sys/statvfs.h>
 #include <unistd.h>
-
-#ifdef HAVE_XATTR
-#include <attr/xattr.h>
-#endif
+#include <sys/xattr.h>
 
 #include "journal-def.h"
 #include "journal-file.h"
@@ -79,11 +76,8 @@ static void patch_realtime(
                 unsigned long long *realtime) {
 
         usec_t x;
-
-#ifdef HAVE_XATTR
         uint64_t crtime;
         _cleanup_free_ const char *path = NULL;
-#endif
 
         /* The timestamp was determined by the file name, but let's
          * see if the file might actually be older than the file name
@@ -106,7 +100,6 @@ static void patch_realtime(
         if (x > 0 && x != (usec_t) -1 && x < *realtime)
                 *realtime = x;
 
-#ifdef HAVE_XATTR
         /* Let's read the original creation time, if possible. Ideally
          * we'd just query the creation time the FS might provide, but
          * unfortunately there's currently no sane API to query
@@ -125,7 +118,6 @@ static void patch_realtime(
                 if (crtime > 0 && crtime != (uint64_t) -1 && crtime < *realtime)
                         *realtime = crtime;
         }
-#endif
 }
 
 static int journal_file_empty(int dir_fd, const char *name) {
