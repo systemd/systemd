@@ -286,6 +286,15 @@ static int client_message_init(sd_dhcp_client *client, DHCPPacket **ret,
            refuse to issue an DHCP lease if 'secs' is set to zero */
         packet->dhcp.secs = htobe16(client->secs);
 
+        /* RFC2132 section 4.1
+           A client that cannot receive unicast IP datagrams until its protocol
+           software has been configured with an IP address SHOULD set the
+           BROADCAST bit in the 'flags' field to 1 in any DHCPDISCOVER or
+           DHCPREQUEST messages that client sends.  The BROADCAST bit will
+           provide a hint to the DHCP server and BOOTP relay agent to broadcast
+           any messages to the client on the client's subnet. */
+        packet->dhcp.flags = htobe16(0x8000);
+
         /* RFC2132 section 4.1.1:
            The client MUST include its hardware address in the ’chaddr’ field, if
            necessary for delivery of DHCP reply messages.
