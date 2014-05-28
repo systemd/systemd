@@ -1261,6 +1261,16 @@ static int status_welcome(void) {
                              isempty(pretty_name) ? "Linux" : pretty_name);
 }
 
+static int write_container_id(void) {
+        const char *c;
+
+        c = getenv("container");
+        if (isempty(c))
+                return 0;
+
+        return write_string_file("/run/systemd/container", c);
+}
+
 int main(int argc, char *argv[]) {
         Manager *m = NULL;
         int r, retval = EXIT_FAILURE;
@@ -1543,6 +1553,8 @@ int main(int argc, char *argv[]) {
                 detect_virtualization(&virtualization);
                 if (virtualization)
                         log_info("Detected virtualization '%s'.", virtualization);
+
+                write_container_id();
 
                 log_info("Detected architecture '%s'.", architecture_to_string(uname_architecture()));
 
