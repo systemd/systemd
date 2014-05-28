@@ -2787,7 +2787,8 @@ int main(int argc, char *argv[]) {
         }
 
         if (!arg_quiet)
-                log_info("Spawning container %s on %s. Press ^] three times within 1s to abort execution.", arg_machine, arg_image ? arg_image : arg_directory);
+                log_info("Spawning container %s on %s.\nPress ^] three times within 1s to kill container.",
+                         arg_machine, arg_image ? arg_image : arg_directory);
 
         if (unlockpt(master) < 0) {
                 log_error("Failed to unlock tty: %m");
