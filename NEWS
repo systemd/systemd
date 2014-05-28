@@ -7,8 +7,8 @@ CHANGES WITH 213:
           implements an SNTP client. In contrast to NTP
           implementations such as chrony or the NTP reference server
           this only implements a client side, and does not bother with
-          the full NTP complexity, focusing only on querying time
-          from one remote server and synchronizing the local clock to
+          the full NTP complexity, focusing only on querying time from
+          one remote server and synchronizing the local clock to
           it. Unless you intend to serve NTP to networked clients or
           want to connect to local hardware clocks this simple NTP
           client should be more than appropriate for most
@@ -20,7 +20,9 @@ CHANGES WITH 213:
           early at bootup, in order to accommodate for systems that
           lack an RTC such as the Raspberry Pi and embedded devices,
           and make sure that time monotonically progresses on these
-          systems, even if it is not always correct.
+          systems, even if it is not always correct. To make use of
+          this daemon a new system user and group "systemd-timesync"
+          needs to be created on installation of systemd.
 
         * The queue "seqnum" interface of libudev has been disabled, as
           it was generally incompatible with device namespacing as
