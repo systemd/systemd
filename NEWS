@@ -102,7 +102,15 @@ CHANGES WITH 213:
           system startup. This is useful to prioritize certain services
           differently during bootup than during normal runtime.
 
-        Contributions from: Ali H. Caliskan, Alison Chaiken, Bas van
+        * hostnamed has been changed to prefer the statically
+          configured hostname in /etc/hostname (unless set to
+          'localhost' or empty) over any dynamic one supplied by
+          dhcp. With this change the rules for picking the hostname
+          match more closely the rules of other configuration settings
+          where the local administrator's configuration in /etc always
+          overrides any other settings.
+
+        Contributions fron: Ali H. Caliskan, Alison Chaiken, Bas van
         den Berg, Brandon Philips, Cristian Rodríguez, Daniel Buch,
         Dan Kilman, Dave Reisner, David Härdeman, David Herrmann,
         David Strauss, Dimitris Spingos, Djalal Harouni, Eelco
@@ -111,15 +119,16 @@ CHANGES WITH 213:
         Engelhardt, Jani Nikula, Jason St. John, Jeffrey Clark,
         Jonathan Boulle, Kay Sievers, Lennart Poettering, Lukas
         Nykryn, Lukasz Skalski, Łukasz Stelmach, Mantas Mikulėnas,
-        Marcel Holtmann, Matthew Monaco, Michael Marineau, Michael
-        Olbrich, Michal Sekletar, Mike Gilbert, Nis Martensen, Patrik
-        Flykt, Philip Lorenz, poma, Ray Strode, Robert Milasan, Scott
-        Thrasher, Steven Siloti, Susant Sahani, Tanu Kaskinen, Thomas
-        Bächler, Thomas Hindoe Paaboel Andersen, Tom Gundersen, Umut
-        Tezduyar Lindskog, WaLyong Cho, Will Woods, Zbigniew
+        Marcel Holtmann, Martin Pitt, Matthew Monaco, Michael
+        Marineau, Michael Olbrich, Michal Sekletar, Mike Gilbert, Nis
+        Martensen, Patrik Flykt, Philip Lorenz, poma, Ray Strode,
+        Reyad Attiyat, Robert Milasan, Scott Thrasher, Stef Walter,
+        Steven Siloti, Susant Sahani, Tanu Kaskinen, Thomas Bächler,
+        Thomas Hindoe Paaboel Andersen, Tom Gundersen, Umut Tezduyar
+        Lindskog, WaLyong Cho, Will Woods, Zbigniew
         Jędrzejewski-Szmek
 
-        -- Beijing, 2014-05-24
+        -- Beijing, 2014-05-28
 
 CHANGES WITH 212:
 
