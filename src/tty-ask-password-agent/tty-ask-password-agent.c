@@ -501,7 +501,7 @@ static int show_passwords(void) {
                 if (errno == ENOENT)
                         return 0;
 
-                log_error("opendir(): %m");
+                log_error("opendir(/run/systemd/ask-password): %m");
                 return -errno;
         }
 
