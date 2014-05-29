@@ -209,13 +209,6 @@ static int socket_instantiate_service(Socket *s) {
         if (r < 0)
                 return r;
 
-#ifdef HAVE_SYSV_COMPAT
-        if (SERVICE(u)->is_sysv) {
-                log_error("Using SysV services for socket activation is not supported. Refusing.");
-                return -ENOENT;
-        }
-#endif
-
         u->no_gc = true;
         unit_ref_set(&s->service, u);
 
@@ -1870,13 +1863,6 @@ static int socket_start(Unit *u) {
                         log_error_unit(u->id, "Socket service %s already active, refusing.", UNIT(service)->id);
                         return -EBUSY;
                 }
-
-#ifdef HAVE_SYSV_COMPAT
-                if (service->is_sysv) {
-                        log_error_unit(u->id, "Using SysV services for socket activation is not supported. Refusing.");
-                        return -ENOENT;
-                }
-#endif
         }
 
         assert(s->state == SOCKET_DEAD || s->state == SOCKET_FAILED);
