@@ -712,15 +712,16 @@ static int find_legacy_keymap(Context *c, char **new_keymap) {
                         }
                 }
 
-                if (matching > 0 &&
-                    streq_ptr(c->x11_model, a[2])) {
-                        matching++;
-
-                        if (streq_ptr(c->x11_variant, a[3])) {
+                if (matching > 0) {
+                        if (isempty(c->x11_model) || streq_ptr(c->x11_model, a[2])) {
                                 matching++;
 
-                                if (streq_ptr(c->x11_options, a[4]))
+                                if (streq_ptr(c->x11_variant, a[3])) {
                                         matching++;
+
+                                        if (streq_ptr(c->x11_options, a[4]))
+                                                matching++;
+                                }
                         }
                 }
 
