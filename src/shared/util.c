@@ -6480,8 +6480,7 @@ void hexdump(FILE *f, const void *p, size_t s) {
         }
 }
 
-int update_reboot_param_file(const char *param)
-{
+int update_reboot_param_file(const char *param) {
         int r = 0;
 
         if (param) {
