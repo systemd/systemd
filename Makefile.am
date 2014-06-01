@@ -4253,6 +4253,7 @@ systemd_networkd_SOURCES = \
 
 systemd_networkd_LDADD = \
 	libsystemd-networkd-core.la \
+	libsystemd-capability.la \
 	$(KMOD_LIBS)
 
 noinst_LTLIBRARIES += \

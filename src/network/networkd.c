@@ -19,6 +19,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "capability.h"
 #include "sd-event.h"
 #include "sd-daemon.h"
 
@@ -26,6 +27,9 @@
 
 int main(int argc, char *argv[]) {
         _cleanup_manager_free_ Manager *m = NULL;
+        const char *user = "systemd-network";
+        uid_t uid;
+        gid_t gid;
         int r;
 
         log_set_target(LOG_TARGET_AUTO);
@@ -40,22 +44,37 @@ int main(int argc, char *argv[]) {
                 goto out;
         }
 
+        r = get_user_creds(&user, &uid, &gid, NULL, NULL);
+        if (r < 0) {
+                log_error("Cannot resolve user name %s: %s", user, strerror(-r));
+                goto out;
+        }
+
         /* Always create the directories people can create inotify
          * watches in. */
-        r = mkdir_label("/run/systemd/network", 0755);
+        r = mkdir_safe_label("/run/systemd/network", 0755, uid, gid);
         if (r < 0)
                 log_error("Could not create runtime directory: %s",
                           strerror(-r));
 
-        r = mkdir_label("/run/systemd/network/links", 0755);
+        r = mkdir_safe_label("/run/systemd/network/links", 0755, uid, gid);
         if (r < 0)
                 log_error("Could not create runtime directory 'links': %s",
                           strerror(-r));
 
-        r = mkdir_label("/run/systemd/network/leases", 0755);
+        r = mkdir_safe_label("/run/systemd/network/leases", 0755, uid, gid);
         if (r < 0)
                 log_error("Could not create runtime directory 'leases': %s",
                           strerror(-r));
+
+        r = drop_privileges(uid, gid,
+                            (1ULL << CAP_NET_ADMIN) |
+                            (1ULL << CAP_NET_BIND_SERVICE) |
+                            (1ULL << CAP_NET_BROADCAST) |
+                            (1ULL << CAP_NET_RAW) |
+                            (1ULL << CAP_SYS_MODULE));
+        if (r < 0)
+                goto out;
 
         r = manager_new(&m);
         if (r < 0) {
