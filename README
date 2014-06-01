@@ -193,6 +193,11 @@ USERS AND GROUPS:
         facing service will drop privileges (with the exception of
         CAP_NET_*) and assumed this uid/gid for security reasons.
 
+        The name resolution daemon requires the "systemd-resolve"
+        system user and group to exist. During execution this network
+        facing service will drop privileges and assume this uid/gid
+        for security reasons.
+
 WARNINGS:
         systemd will warn you during boot if /etc/mtab is not a
         symlink to /proc/mounts. Please ensure that /etc/mtab is a

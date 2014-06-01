@@ -4215,6 +4215,7 @@ CLEANFILES += \
 	src/resolve/resolved-gperf.c
 
 systemd_resolved_LDADD = \
+	libsystemd-capability.la \
 	libsystemd-network.la \
 	libsystemd-label.la \
 	libsystemd-internal.la \

@@ -25,9 +25,13 @@
 #include "resolved.h"
 
 #include "mkdir.h"
+#include "capability.h"
 
 int main(int argc, char *argv[]) {
         _cleanup_manager_free_ Manager *m = NULL;
+        const char *user = "systemd-resolve";
+        uid_t uid;
+        gid_t gid;
         int r;
 
         log_set_target(LOG_TARGET_AUTO);
@@ -42,11 +46,23 @@ int main(int argc, char *argv[]) {
                 goto out;
         }
 
+        r = get_user_creds(&user, &uid, &gid, NULL, NULL);
+        if (r < 0) {
+                log_error("Cannot resolve user name %s: %s", user, strerror(-r));
+                goto out;
+        }
+
         /* Always create the directory where resolv.conf will live */
-        r = mkdir_label("/run/systemd/resolve", 0755);
-        if (r < 0)
+        r = mkdir_safe_label("/run/systemd/resolve", 0755, uid, gid);
+        if (r < 0) {
                 log_error("Could not create runtime directory: %s",
                           strerror(-r));
+                goto out;
+        }
+
+        r = drop_privileges(uid, gid, 0);
+        if (r < 0)
+                goto out;
 
         r = manager_new(&m);
         if (r < 0) {

@@ -15,7 +15,7 @@ Type=notify
 Restart=always
 RestartSec=0
 ExecStart=@rootlibexecdir@/systemd-resolved
-CapabilityBoundingSet=
+CapabilityBoundingSet=CAP_SETUID CAP_SETGID CAP_SETPCAP CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER
 
 [Install]
 WantedBy=multi-user.target
