@@ -19,7 +19,7 @@ Type=notify
 Restart=always
 RestartSec=0
 ExecStart=@rootlibexecdir@/systemd-networkd
-CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_BROADCAST CAP_NET_RAW CAP_SYS_PTRACE CAP_SYS_MODULE
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_BROADCAST CAP_NET_RAW CAP_SYS_MODULE
 WatchdogSec=1min
 
 [Install]
