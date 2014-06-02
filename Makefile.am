@@ -4253,15 +4253,13 @@ systemd_networkd_SOURCES = \
 
 systemd_networkd_LDADD = \
 	libsystemd-networkd-core.la \
-	libsystemd-capability.la \
-	$(KMOD_LIBS)
+	libsystemd-capability.la
 
 noinst_LTLIBRARIES += \
 	libsystemd-networkd-core.la
 
 libsystemd_networkd_core_la_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(KMOD_CFLAGS)
+	$(AM_CFLAGS)
 
 libsystemd_networkd_core_la_SOURCES = \
 	src/libsystemd-network/network-internal.h \
@@ -4290,8 +4288,7 @@ rootlibexec_PROGRAMS += \
 	systemd-networkd-wait-online
 
 systemd_networkd_wait_online_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(KMOD_CFLAGS)
+	$(AM_CFLAGS)
 
 systemd_networkd_wait_online_SOURCES = \
 	src/libsystemd-network/network-internal.h \
@@ -4308,12 +4305,10 @@ test_network_SOURCES = \
 	src/network/test-network.c
 
 test_network_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(KMOD_CFLAGS)
+	$(AM_CFLAGS)
 
 test_network_LDADD = \
 	libsystemd-networkd-core.la
-	$(KMOD_LIBS)
 
 tests += \
 	test-network

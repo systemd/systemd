@@ -21,7 +21,6 @@
 
 #include <sys/socket.h>
 #include <linux/if.h>
-#include <libkmod.h>
 
 #include "conf-parser.h"
 #include "path-util.h"
@@ -120,10 +119,6 @@ int manager_new(Manager **ret) {
                         return -ENOMEM;
         }
 
-        m->kmod_ctx = kmod_new(NULL, NULL);
-        if (!m->kmod_ctx)
-                return -ENOMEM;
-
         m->links = hashmap_new(uint64_hash_func, uint64_compare_func);
         if (!m->links)
                 return -ENOMEM;
@@ -150,7 +145,6 @@ void manager_free(Manager *m) {
 
         free(m->state_file);
 
-        kmod_unref(m->kmod_ctx);
         udev_monitor_unref(m->udev_monitor);
         udev_unref(m->udev);
         sd_bus_unref(m->bus);

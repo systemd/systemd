@@ -327,41 +327,6 @@ int net_parse_inaddr(const char *address, unsigned char *family, void *dst) {
         return 0;
 }
 
-int load_module(struct kmod_ctx *ctx, const char *mod_name) {
-        struct kmod_list *modlist = NULL, *l;
-        int r;
-
-        assert(ctx);
-        assert(mod_name);
-
-        r = kmod_module_new_from_lookup(ctx, mod_name, &modlist);
-        if (r < 0)
-                return r;
-
-        if (!modlist) {
-                log_error("Failed to find module '%s'", mod_name);
-                return -ENOENT;
-        }
-
-        kmod_list_foreach(l, modlist) {
-                struct kmod_module *mod = kmod_module_get_module(l);
-
-                r = kmod_module_probe_insert_module(mod, 0, NULL, NULL, NULL, NULL);
-                if (r == 0)
-                        log_info("Inserted module '%s'", kmod_module_get_name(mod));
-                else {
-                        log_error("Failed to insert '%s': %s", kmod_module_get_name(mod),
-                                  strerror(-r));
-                }
-
-                kmod_module_unref(mod);
-        }
-
-        kmod_module_unref_list(modlist);
-
-        return r;
-}
-
 void serialize_in_addrs(FILE *f, const char *key, struct in_addr *addresses, size_t size) {
         unsigned i;
 

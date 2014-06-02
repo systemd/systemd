@@ -71,8 +71,7 @@ int main(int argc, char *argv[]) {
                             (1ULL << CAP_NET_ADMIN) |
                             (1ULL << CAP_NET_BIND_SERVICE) |
                             (1ULL << CAP_NET_BROADCAST) |
-                            (1ULL << CAP_NET_RAW) |
-                            (1ULL << CAP_SYS_MODULE));
+                            (1ULL << CAP_NET_RAW));
         if (r < 0)
                 goto out;
 

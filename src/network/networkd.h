@@ -275,7 +275,6 @@ struct Manager {
         LIST_HEAD(Network, networks);
 
         usec_t network_dirs_ts_usec;
-        struct kmod_ctx *kmod_ctx;
 };
 
 extern const char* const network_dirs[];

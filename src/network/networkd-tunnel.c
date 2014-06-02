@@ -24,7 +24,6 @@
 #include <net/if.h>
 #include <linux/ip.h>
 #include <linux/if_tunnel.h>
-#include <libkmod.h>
 
 #include "sd-rtnl.h"
 #include "networkd.h"
@@ -443,27 +442,6 @@ int netdev_create_tunnel(Link *link, sd_rtnl_message_handler_t callback) {
         assert(netdev->ifname);
         assert(netdev->manager);
         assert(netdev->manager->rtnl);
-        assert(netdev->manager->kmod_ctx);
-
-        /* Load kernel module first */
-        switch(netdev->kind) {
-        case NETDEV_KIND_IPIP:
-        case NETDEV_KIND_GRE:
-        case NETDEV_KIND_SIT:
-                r = load_module(netdev->manager->kmod_ctx,
-                                netdev_kind_to_string(netdev->kind));
-                if (r < 0) {
-                        log_error_netdev(netdev,
-                                         "Could not load Kernel module: %s . Ignoring",
-                                         netdev_kind_to_string(netdev->kind));
-                        return r;
-                }
-                break;
-        case NETDEV_KIND_VTI:
-                break;
-        default:
-                return -ENOTSUP;
-        }
 
         r = sd_rtnl_message_new_link(netdev->manager->rtnl, &m, RTM_NEWLINK, 0);
         if (r < 0) {
