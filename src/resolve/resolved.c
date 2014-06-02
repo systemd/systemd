@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
         }
 
         /* Always create the directory where resolv.conf will live */
-        r = mkdir_label("/run/systemd/network", 0755);
+        r = mkdir_label("/run/systemd/resolve", 0755);
         if (r < 0)
                 log_error("Could not create runtime directory: %s",
                           strerror(-r));
