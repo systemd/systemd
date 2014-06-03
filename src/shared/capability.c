@@ -214,10 +214,10 @@ int capability_bounding_set_drop_usermode(uint64_t drop) {
         return r;
 }
 
-int drop_privileges(uid_t uid, gid_t gid, uint64_t keep_capabilites) {
+int drop_privileges(uid_t uid, gid_t gid, uint64_t keep_capabilities) {
 
         _cleanup_cap_free_ cap_t d = NULL;
-        cap_value_t bits[sizeof(keep_capabilites)*8];
+        cap_value_t bits[sizeof(keep_capabilities)*8];
         unsigned i, j = 0;
         int r;
 
@@ -254,7 +254,7 @@ int drop_privileges(uid_t uid, gid_t gid, uint64_t keep_capabilites) {
                 return -errno;
         }
 
-        r = capability_bounding_set_drop(~keep_capabilites, true);
+        r = capability_bounding_set_drop(~keep_capabilities, true);
         if (r < 0) {
                 log_error("Failed to drop capabilities: %s", strerror(-r));
                 return r;
@@ -264,14 +264,16 @@ int drop_privileges(uid_t uid, gid_t gid, uint64_t keep_capabilites) {
         if (!d)
                 return log_oom();
 
-        for (i = 0; i < sizeof(keep_capabilites)*8; i++)
-                if (keep_capabilites & (1ULL << i))
+        for (i = 0; i < sizeof(keep_capabilities)*8; i++)
+                if (keep_capabilities & (1ULL << i))
                         bits[j++] = i;
 
-        if (cap_set_flag(d, CAP_EFFECTIVE, j, bits, CAP_SET) < 0 ||
-            cap_set_flag(d, CAP_PERMITTED, j, bits, CAP_SET) < 0) {
-                log_error("Failed to enable capabilities bits: %m");
-                return -errno;
+        if (keep_capabilities) {
+                if (cap_set_flag(d, CAP_EFFECTIVE, j, bits, CAP_SET) < 0 ||
+                    cap_set_flag(d, CAP_PERMITTED, j, bits, CAP_SET) < 0) {
+                        log_error("Failed to enable capabilities bits: %m");
+                        return -errno;
+                }
         }
 
         if (cap_set_proc(d) < 0) {
