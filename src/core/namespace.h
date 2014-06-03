@@ -23,12 +23,24 @@
 
 #include <stdbool.h>
 
+#include "macro.h"
+
+typedef enum ProtectedHome {
+        PROTECTED_HOME_NO,
+        PROTECTED_HOME_YES,
+        PROTECTED_HOME_READ_ONLY,
+        _PROTECTED_HOME_MAX,
+        _PROTECTED_HOME_INVALID = -1
+} ProtectedHome;
+
 int setup_namespace(char **read_write_dirs,
                     char **read_only_dirs,
                     char **inaccessible_dirs,
                     char *tmp_dir,
                     char *var_tmp_dir,
                     bool private_dev,
+                    ProtectedHome protected_home,
+                    bool read_only_system,
                     unsigned mount_flags);
 
 int setup_tmp_dirs(const char *id,
@@ -36,3 +48,6 @@ int setup_tmp_dirs(const char *id,
                   char **var_tmp_dir);
 
 int setup_netns(int netns_storage_socket[2]);
+
+const char* protected_home_to_string(ProtectedHome p) _const_;
+ProtectedHome protected_home_from_string(const char *s) _pure_;

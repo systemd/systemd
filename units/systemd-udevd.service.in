@@ -22,3 +22,5 @@ Restart=always
 RestartSec=0
 ExecStart=@rootlibexecdir@/systemd-udevd
 MountFlags=slave
+ReadOnlySystem=yes
+ProtectedHome=yes

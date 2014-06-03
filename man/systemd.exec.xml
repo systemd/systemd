@@ -764,7 +764,7 @@
                                 capability sets as documented in
                                 <citerefentry><refentrytitle>cap_from_text</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
                                 Note that these capability sets are
-                                usually influenced by the capabilities
+                                usually influenced (and filtered) by the capabilities
                                 attached to the executed file. Due to
                                 that
                                 <varname>CapabilityBoundingSet=</varname>
@@ -935,6 +935,63 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>ReadOnlySystem=</varname></term>
+
+                                <listitem><para>Takes a boolean
+                                argument. If true, mounts the
+                                <filename>/usr</filename> and
+                                <filename>/boot</filename> directories
+                                read-only for processes invoked by
+                                this unit. This setting ensures that
+                                any modification of the vendor
+                                supplied operating system is
+                                prohibited for the service. It is
+                                recommended to enable this setting for
+                                all long-running services, unless they
+                                are involved with system updates or
+                                need to modify the operating system in
+                                other ways. Note however, that
+                                processes retaining the CAP_SYS_ADMIN
+                                capability can undo the effect of this
+                                setting. This setting is hence
+                                particularly useful for daemons which
+                                have this capability removed, for
+                                example with
+                                <varname>CapabilityBoundingSet=</varname>. Defaults
+                                to off.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>ProtectedHome=</varname></term>
+
+                                <listitem><para>Takes a boolean
+                                argument or
+                                <literal>read-only</literal>. If true,
+                                the directories
+                                <filename>/home</filename> and
+                                <filename>/run/user</filename> are
+                                made inaccessible and empty for
+                                processes invoked by this unit. If set
+                                to <literal>read-only</literal> the
+                                two directores are made read-only
+                                instead. It is recommended to enable
+                                this setting for all long-running
+                                services (in particular network-facing
+                                one), to ensure they cannot get access
+                                to private user data, unless the
+                                services actually require access to
+                                the user's private data. Note however,
+                                that processes retaining the
+                                CAP_SYS_ADMIN capability can undo the
+                                effect of this setting. This setting
+                                is hence particularly useful for
+                                daemons which have this capability
+                                removed, for example with
+                                <varname>CapabilityBoundingSet=</varname>. Defaults
+                                to off.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>MountFlags=</varname></term>
 
                                 <listitem><para>Takes a mount
@@ -968,6 +1025,8 @@
                                 namespace related options
                                 (<varname>PrivateTmp=</varname>,
                                 <varname>PrivateDevices=</varname>,
+                                <varname>ReadOnlySystem=</varname>,
+                                <varname>ProtectedHome=</varname>,
                                 <varname>ReadOnlyDirectories=</varname>,
                                 <varname>InaccessibleDirectories=</varname>
                                 and
