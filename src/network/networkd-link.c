@@ -75,12 +75,12 @@ static int link_new(Manager *manager, sd_rtnl_message *message, Link **ret) {
         if (!link->ifname)
                 return -ENOMEM;
 
-        r = asprintf(&link->state_file, "/run/systemd/network/links/%"PRIu64,
+        r = asprintf(&link->state_file, "/run/systemd/netif/links/%"PRIu64,
                      link->ifindex);
         if (r < 0)
                 return -ENOMEM;
 
-        r = asprintf(&link->lease_file, "/run/systemd/network/leases/%"PRIu64,
+        r = asprintf(&link->lease_file, "/run/systemd/netif/leases/%"PRIu64,
                      link->ifindex);
         if (r < 0)
                 return -ENOMEM;

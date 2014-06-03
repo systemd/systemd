@@ -52,17 +52,17 @@ int main(int argc, char *argv[]) {
 
         /* Always create the directories people can create inotify
          * watches in. */
-        r = mkdir_safe_label("/run/systemd/network", 0755, uid, gid);
+        r = mkdir_safe_label("/run/systemd/netif", 0755, uid, gid);
         if (r < 0)
                 log_error("Could not create runtime directory: %s",
                           strerror(-r));
 
-        r = mkdir_safe_label("/run/systemd/network/links", 0755, uid, gid);
+        r = mkdir_safe_label("/run/systemd/netif/links", 0755, uid, gid);
         if (r < 0)
                 log_error("Could not create runtime directory 'links': %s",
                           strerror(-r));
 
-        r = mkdir_safe_label("/run/systemd/network/leases", 0755, uid, gid);
+        r = mkdir_safe_label("/run/systemd/netif/leases", 0755, uid, gid);
         if (r < 0)
                 log_error("Could not create runtime directory 'leases': %s",
                           strerror(-r));

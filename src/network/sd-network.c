@@ -42,7 +42,7 @@ static int link_get_flags(unsigned index, unsigned *flags) {
         assert(index);
         assert(flags);
 
-        if (asprintf(&p, "/run/systemd/network/links/%u", index) < 0)
+        if (asprintf(&p, "/run/systemd/netif/links/%u", index) < 0)
                 return -ENOMEM;
 
         r = parse_env_file(p, NEWLINE, "FLAGS", &s, NULL);
@@ -74,7 +74,7 @@ _public_ int sd_network_get_link_state(unsigned index, char **state) {
         assert_return(index, -EINVAL);
         assert_return(state, -EINVAL);
 
-        if (asprintf(&p, "/run/systemd/network/links/%u", index) < 0)
+        if (asprintf(&p, "/run/systemd/netif/links/%u", index) < 0)
                 return -ENOMEM;
 
         r = parse_env_file(p, NEWLINE, "ADMIN_STATE", &s, NULL);
@@ -102,7 +102,7 @@ _public_ int sd_network_get_operational_state(char **state) {
 
         assert_return(state, -EINVAL);
 
-        r = parse_env_file("/run/systemd/network/state", NEWLINE, "OPER_STATE",
+        r = parse_env_file("/run/systemd/netif/state", NEWLINE, "OPER_STATE",
                            &s, NULL);
         if (r == -ENOENT)
                 return -ENODATA;
@@ -124,7 +124,7 @@ _public_ int sd_network_get_link_operational_state(unsigned index, char **state)
         assert_return(index, -EINVAL);
         assert_return(state, -EINVAL);
 
-        if (asprintf(&p, "/run/systemd/network/links/%u", index) < 0)
+        if (asprintf(&p, "/run/systemd/netif/links/%u", index) < 0)
                 return -ENOMEM;
 
         r = parse_env_file(p, NEWLINE, "OPER_STATE", &s, NULL);
@@ -149,7 +149,7 @@ _public_ int sd_network_get_dhcp_lease(unsigned index, sd_dhcp_lease **ret) {
         assert_return(index, -EINVAL);
         assert_return(ret, -EINVAL);
 
-        if (asprintf(&p, "/run/systemd/network/links/%u", index) < 0)
+        if (asprintf(&p, "/run/systemd/netif/links/%u", index) < 0)
                 return -ENOMEM;
 
         r = parse_env_file(p, NEWLINE, "DHCP_LEASE", &s, NULL);
@@ -176,7 +176,7 @@ static int network_get_in_addr(const char *key, unsigned index, struct in_addr *
         assert_return(addr, -EINVAL);
         assert_return(addr_size, -EINVAL);
 
-        if (asprintf(&p, "/run/systemd/network/links/%u", index) < 0)
+        if (asprintf(&p, "/run/systemd/netif/links/%u", index) < 0)
                 return -ENOMEM;
 
         r = parse_env_file(p, NEWLINE, key, &s, NULL);
@@ -204,7 +204,7 @@ static int network_get_in6_addr(const char *key, unsigned index, struct in6_addr
         assert_return(addr, -EINVAL);
         assert_return(addr_size, -EINVAL);
 
-        if (asprintf(&p, "/run/systemd/network/links/%u", index) < 0)
+        if (asprintf(&p, "/run/systemd/netif/links/%u", index) < 0)
                 return -ENOMEM;
 
         r = parse_env_file(p, NEWLINE, key, &s, NULL);
@@ -230,7 +230,7 @@ static int network_get_boolean(const char *key, unsigned index) {
 
         assert_return(index, -EINVAL);
 
-        if (asprintf(&p, "/run/systemd/network/links/%u", index) < 0)
+        if (asprintf(&p, "/run/systemd/netif/links/%u", index) < 0)
                 return -ENOMEM;
 
         r = parse_env_file(p, NEWLINE, key, &s, NULL);
@@ -256,7 +256,7 @@ _public_ int sd_network_get_ifindices(unsigned **indices) {
         unsigned n = 0;
         _cleanup_free_ uid_t *l = NULL;
 
-        d = opendir("/run/systemd/network/links/");
+        d = opendir("/run/systemd/netif/links/");
         if (!d)
                 return -errno;
 
@@ -327,7 +327,7 @@ _public_ int sd_network_monitor_new(const char *category, sd_network_monitor **m
                 return -errno;
 
         if (!category || streq(category, "links")) {
-                k = inotify_add_watch(fd, "/run/systemd/network/links/", IN_MOVED_TO|IN_DELETE);
+                k = inotify_add_watch(fd, "/run/systemd/netif/links/", IN_MOVED_TO|IN_DELETE);
                 if (k < 0) {
                         safe_close(fd);
                         return -errno;
@@ -337,7 +337,7 @@ _public_ int sd_network_monitor_new(const char *category, sd_network_monitor **m
         }
 
         if (!category || streq(category, "leases")) {
-                k = inotify_add_watch(fd, "/run/systemd/network/leases/", IN_MOVED_TO|IN_DELETE);
+                k = inotify_add_watch(fd, "/run/systemd/netif/leases/", IN_MOVED_TO|IN_DELETE);
                 if (k < 0) {
                         safe_close(fd);
                         return -errno;

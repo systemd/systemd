@@ -83,7 +83,7 @@ int manager_new(Manager **ret) {
         if (!m)
                 return -ENOMEM;
 
-        m->state_file = strdup("/run/systemd/network/state");
+        m->state_file = strdup("/run/systemd/netif/state");
         if (!m->state_file)
                 return -ENOMEM;
 
