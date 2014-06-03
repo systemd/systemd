@@ -290,7 +290,19 @@ static void worker_new(struct event *event)
                          * acquired the lock, the external process will block until
                          * udev has finished its event handling.
                          */
-                        if (streq_ptr("block", udev_device_get_subsystem(dev))) {
+
+                        /*
+                         * <kabi_> since we make check - device seems unused - we try
+                         *         ioctl to deactivate - and device is found to be opened
+                         * <kay> sure, you try to take a write lock
+                         * <kay> if you get it udev is out
+                         * <kay> if you can't get it, udev is busy
+                         * <kabi_> we cannot deactivate openned device  (as it is in-use)
+                         * <kay> maybe we should just exclude dm from that thing entirely
+                         * <kabi_> IMHO this sounds like a good plan for this moment
+                         */
+                        if (streq_ptr("block", udev_device_get_subsystem(dev)) &&
+                            !startswith("dm-", udev_device_get_sysname(dev))) {
                                 struct udev_device *d = dev;
 
                                 if (streq_ptr("partition", udev_device_get_devtype(d)))
