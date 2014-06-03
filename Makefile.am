@@ -347,7 +347,8 @@ bin_PROGRAMS = \
 	systemd-delta \
 	systemd-analyze \
 	systemd-run \
-	systemd-path
+	systemd-path \
+	systemd-escape
 
 dist_bin_SCRIPTS = \
 	src/kernel-install/kernel-install
@@ -2108,6 +2109,13 @@ systemd_cgroups_agent_LDADD = \
 	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
+systemd_escape_SOURCES = \
+	src/escape/escape.c
+
+systemd_escape_LDADD = \
+	libsystemd-shared.la
+
+# -----------------------------------------------------------------------------
 systemctl_SOURCES = \
 	src/systemctl/systemctl.c
 
