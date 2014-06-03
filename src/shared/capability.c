@@ -264,11 +264,11 @@ int drop_privileges(uid_t uid, gid_t gid, uint64_t keep_capabilities) {
         if (!d)
                 return log_oom();
 
-        for (i = 0; i < sizeof(keep_capabilities)*8; i++)
-                if (keep_capabilities & (1ULL << i))
-                        bits[j++] = i;
-
         if (keep_capabilities) {
+                for (i = 0; i < sizeof(keep_capabilities)*8; i++)
+                        if (keep_capabilities & (1ULL << i))
+                                bits[j++] = i;
+
                 if (cap_set_flag(d, CAP_EFFECTIVE, j, bits, CAP_SET) < 0 ||
                     cap_set_flag(d, CAP_PERMITTED, j, bits, CAP_SET) < 0) {
                         log_error("Failed to enable capabilities bits: %m");
