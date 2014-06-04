@@ -742,34 +742,28 @@ static int synthesize_change(struct udev_device *dev) {
         if (streq_ptr("block", udev_device_get_subsystem(dev)) &&
             streq_ptr("disk", udev_device_get_devtype(dev)) &&
             !startswith("dm-", udev_device_get_sysname(dev))) {
+                bool part_table_read = false;
+                bool has_partitions = false;
                 int fd;
                 struct udev *udev = udev_device_get_udev(dev);
                 _cleanup_udev_enumerate_unref_ struct udev_enumerate *e = NULL;
                 struct udev_list_entry *item;
 
                 /*
-                 * Try to re-read the partition table, this only succeeds if
-                 * none of the devices is busy.
-                 *
-                 * The kernel will send out a change event for the disk, and
-                 * "remove/add" for all partitions.
+                 * Try to re-read the partition table. This only succeeds if
+                 * none of the devices is busy. The kernel returns 0 if no
+                 * partition table is found, and we will not get an event for
+                 * the disk.
                  */
                 fd = open(udev_device_get_devnode(dev), O_RDONLY|O_EXCL|O_CLOEXEC|O_NOFOLLOW|O_NONBLOCK);
                 if (fd >= 0) {
                         r = ioctl(fd, BLKRRPART, 0);
                         close(fd);
                         if (r >= 0)
-                                return 0;
+                                part_table_read = true;
                 }
 
-                /*
-                 * Re-reading the partition table did not work, synthesize "change"
-                 * events for the disk and all partitions.
-                 */
-                log_debug("device %s closed, synthesising 'change'", udev_device_get_devnode(dev));
-                strscpyl(filename, sizeof(filename), udev_device_get_syspath(dev), "/uevent", NULL);
-                write_string_file(filename, "change");
-
+                /* search for partitions */
                 e = udev_enumerate_new(udev);
                 if (!e)
                         return -ENOMEM;
@@ -783,6 +777,37 @@ static int synthesize_change(struct udev_device *dev) {
                         return r;
 
                 r = udev_enumerate_scan_devices(e);
+
+                udev_list_entry_foreach(item, udev_enumerate_get_list_entry(e)) {
+                        _cleanup_udev_device_unref_ struct udev_device *d = NULL;
+
+                        d = udev_device_new_from_syspath(udev, udev_list_entry_get_name(item));
+                        if (!d)
+                                continue;
+
+                        if (!streq_ptr("partition", udev_device_get_devtype(d)))
+                                continue;
+
+                        has_partitions = true;
+                        break;
+                }
+
+                /*
+                 * We have partitions and re-read the table, the kernel already sent
+                 * out a "change" event for the disk, and "remove/add" for all
+                 * partitions.
+                 */
+                if (part_table_read && has_partitions)
+                        return 0;
+
+                /*
+                 * We have partitions but re-reading the partition table did not
+                 * work, synthesize "change" for the disk and all partitions.
+                 */
+                log_debug("device %s closed, synthesising 'change'", udev_device_get_devnode(dev));
+                strscpyl(filename, sizeof(filename), udev_device_get_syspath(dev), "/uevent", NULL);
+                write_string_file(filename, "change");
+
                 udev_list_entry_foreach(item, udev_enumerate_get_list_entry(e)) {
                         _cleanup_udev_device_unref_ struct udev_device *d = NULL;
 
