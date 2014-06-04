@@ -1,4 +1,7 @@
 Bugfixes:
+* Re-enable "fsck -l" when it is ready:
+   https://bugs.freedesktop.org/show_bug.cgi?id=79576#c5
+
 * Should systemctl status \* work on all unit types, not just .service?
 
 * enabling an instance unit creates a pointless link, and
@@ -20,7 +23,6 @@ Bugfixes:
   See the comment in sd_bus_unref() for more..
 
 External:
-
 * Fedora: when installing fedora with yum --installroot /var/run is a directory, not a symlink
    https://bugzilla.redhat.com/show_bug.cgi?id=975864
 

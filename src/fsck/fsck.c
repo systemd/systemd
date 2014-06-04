@@ -319,7 +319,18 @@ int main(int argc, char *argv[]) {
         cmdline[i++] = "/sbin/fsck";
         cmdline[i++] =  arg_repair;
         cmdline[i++] = "-T";
-        cmdline[i++] = "-l";
+
+        /*
+         * Disable locking which conflict with udev's event
+         * ownershipi, until util-linux moves the flock
+         * synchronization file which prevents multiple fsck running
+         * on the same rotationg media, from the disk device
+         * node to a privately owned regular file.
+         *
+         * https://bugs.freedesktop.org/show_bug.cgi?id=79576#c5
+         *
+         * cmdline[i++] = "-l";
+         */
 
         if (!root_directory)
                 cmdline[i++] = "-M";
