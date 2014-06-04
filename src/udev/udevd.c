@@ -755,9 +755,12 @@ static int synthesize_change(struct udev_device *dev) {
                  * partition table is found, and we will not get an event for
                  * the disk.
                  */
-                fd = open(udev_device_get_devnode(dev), O_RDONLY|O_EXCL|O_CLOEXEC|O_NOFOLLOW|O_NONBLOCK);
+                fd = open(udev_device_get_devnode(dev), O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NONBLOCK);
                 if (fd >= 0) {
-                        r = ioctl(fd, BLKRRPART, 0);
+                        r = flock(fd, LOCK_EX|LOCK_NB);
+                        if (r >= 0)
+                                r = ioctl(fd, BLKRRPART, 0);
+
                         close(fd);
                         if (r >= 0)
                                 part_table_read = true;
