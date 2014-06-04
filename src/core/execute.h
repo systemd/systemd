@@ -157,8 +157,8 @@ struct ExecContext {
         bool private_tmp;
         bool private_network;
         bool private_devices;
-        bool read_only_system;
-        ProtectedHome protected_home;
+        ProtectSystem protect_system;
+        ProtectHome protect_home;
 
         bool no_new_privileges;
 

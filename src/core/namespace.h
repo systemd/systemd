@@ -25,13 +25,21 @@
 
 #include "macro.h"
 
-typedef enum ProtectedHome {
-        PROTECTED_HOME_NO,
-        PROTECTED_HOME_YES,
-        PROTECTED_HOME_READ_ONLY,
-        _PROTECTED_HOME_MAX,
-        _PROTECTED_HOME_INVALID = -1
-} ProtectedHome;
+typedef enum ProtectHome {
+        PROTECT_HOME_NO,
+        PROTECT_HOME_YES,
+        PROTECT_HOME_READ_ONLY,
+        _PROTECT_HOME_MAX,
+        _PROTECT_HOME_INVALID = -1
+} ProtectHome;
+
+typedef enum ProtectSystem {
+        PROTECT_SYSTEM_NO,
+        PROTECT_SYSTEM_YES,
+        PROTECT_SYSTEM_FULL,
+        _PROTECT_SYSTEM_MAX,
+        _PROTECT_SYSTEM_INVALID = -1
+} ProtectSystem;
 
 int setup_namespace(char **read_write_dirs,
                     char **read_only_dirs,
@@ -39,8 +47,8 @@ int setup_namespace(char **read_write_dirs,
                     char *tmp_dir,
                     char *var_tmp_dir,
                     bool private_dev,
-                    ProtectedHome protected_home,
-                    bool read_only_system,
+                    ProtectHome protect_home,
+                    ProtectSystem protect_system,
                     unsigned mount_flags);
 
 int setup_tmp_dirs(const char *id,
@@ -49,5 +57,8 @@ int setup_tmp_dirs(const char *id,
 
 int setup_netns(int netns_storage_socket[2]);
 
-const char* protected_home_to_string(ProtectedHome p) _const_;
-ProtectedHome protected_home_from_string(const char *s) _pure_;
+const char* protect_home_to_string(ProtectHome p) _const_;
+ProtectHome protect_home_from_string(const char *s) _pure_;
+
+const char* protect_system_to_string(ProtectSystem p) _const_;
+ProtectSystem protect_system_from_string(const char *s) _pure_;

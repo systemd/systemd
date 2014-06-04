@@ -18,5 +18,5 @@ CapabilityBoundingSet=CAP_IPC_OWNER CAP_SETUID CAP_SETGID CAP_SETPCAP
 PrivateTmp=yes
 PrivateDevices=yes
 PrivateNetwork=yes
-ReadOnlySystem=yes
-ProtectedHome=yes
+ProtectSystem=full
+ProtectHome=yes

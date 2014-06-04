@@ -17,8 +17,8 @@ SupplementaryGroups=systemd-journal
 PrivateTmp=yes
 PrivateDevices=yes
 PrivateNetwork=yes
-ReadOnlySystem=yes
-ProtectedHome=yes
+ProtectSystem=full
+ProtectHome=yes
 
 [Install]
 Also=systemd-journal-gatewayd.socket

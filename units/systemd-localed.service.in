@@ -18,5 +18,5 @@ WatchdogSec=1min
 PrivateTmp=yes
 PrivateDevices=yes
 PrivateNetwork=yes
-ReadOnlySystem=yes
-ProtectedHome=yes
+ProtectSystem=yes
+ProtectHome=yes

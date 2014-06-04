@@ -1570,8 +1570,8 @@ int exec_spawn(ExecCommand *command,
                     context->mount_flags != 0 ||
                     (context->private_tmp && runtime && (runtime->tmp_dir || runtime->var_tmp_dir)) ||
                     context->private_devices ||
-                    context->read_only_system ||
-                    context->protected_home != PROTECTED_HOME_NO) {
+                    context->protect_system != PROTECT_SYSTEM_NO ||
+                    context->protect_home != PROTECT_HOME_NO) {
 
                         char *tmp = NULL, *var = NULL;
 
@@ -1595,8 +1595,8 @@ int exec_spawn(ExecCommand *command,
                                         tmp,
                                         var,
                                         context->private_devices,
-                                        context->protected_home,
-                                        context->read_only_system,
+                                        context->protect_home,
+                                        context->protect_system,
                                         context->mount_flags);
                         if (err < 0) {
                                 r = EXIT_NAMESPACE;
@@ -2114,8 +2114,8 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 "%sPrivateTmp: %s\n"
                 "%sPrivateNetwork: %s\n"
                 "%sPrivateDevices: %s\n"
-                "%sProtectedHome: %s\n"
-                "%sReadOnlySystem: %s\n"
+                "%sProtectHome: %s\n"
+                "%sProtectSystem: %s\n"
                 "%sIgnoreSIGPIPE: %s\n",
                 prefix, c->umask,
                 prefix, c->working_directory ? c->working_directory : "/",
@@ -2124,8 +2124,8 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 prefix, yes_no(c->private_tmp),
                 prefix, yes_no(c->private_network),
                 prefix, yes_no(c->private_devices),
-                prefix, protected_home_to_string(c->protected_home),
-                prefix, yes_no(c->read_only_system),
+                prefix, protect_home_to_string(c->protect_home),
+                prefix, protect_system_to_string(c->protect_system),
                 prefix, yes_no(c->ignore_sigpipe));
 
         STRV_FOREACH(e, c->environment)

@@ -16,8 +16,8 @@ Restart=always
 RestartSec=0
 ExecStart=@rootlibexecdir@/systemd-resolved
 CapabilityBoundingSet=CAP_SETUID CAP_SETGID CAP_SETPCAP CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER
-ReadOnlySystem=yes
-ProtectedHome=yes
+ProtectSystem=full
+ProtectHome=yes
 
 [Install]
 WantedBy=multi-user.target

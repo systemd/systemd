@@ -935,16 +935,21 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>ReadOnlySystem=</varname></term>
+                                <term><varname>ProtectSystem=</varname></term>
 
                                 <listitem><para>Takes a boolean
-                                argument. If true, mounts the
-                                <filename>/usr</filename> and
-                                <filename>/boot</filename> directories
-                                read-only for processes invoked by
-                                this unit. This setting ensures that
-                                any modification of the vendor
-                                supplied operating system is
+                                argument or
+                                <literal>full</literal>. If true,
+                                mounts the <filename>/usr</filename>
+                                and <filename>/boot</filename>
+                                directories read-only for processes
+                                invoked by this unit. If set to
+                                <literal>full</literal> the
+                                <filename>/etc</filename> is mounted
+                                read-only, too. This setting ensures
+                                that any modification of the vendor
+                                supplied operating system (and
+                                optionally its configuration) is
                                 prohibited for the service. It is
                                 recommended to enable this setting for
                                 all long-running services, unless they
@@ -962,7 +967,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>ProtectedHome=</varname></term>
+                                <term><varname>ProtectHome=</varname></term>
 
                                 <listitem><para>Takes a boolean
                                 argument or
@@ -977,7 +982,7 @@
                                 instead. It is recommended to enable
                                 this setting for all long-running
                                 services (in particular network-facing
-                                one), to ensure they cannot get access
+                                ones), to ensure they cannot get access
                                 to private user data, unless the
                                 services actually require access to
                                 the user's private data. Note however,

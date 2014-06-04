@@ -337,8 +337,8 @@ int setup_namespace(
                 char* tmp_dir,
                 char* var_tmp_dir,
                 bool private_dev,
-                ProtectedHome protected_home,
-                bool read_only_system,
+                ProtectHome protect_home,
+                ProtectSystem protect_system,
                 unsigned mount_flags) {
 
         BindMount *m, *mounts = NULL;
@@ -356,8 +356,9 @@ int setup_namespace(
                 strv_length(read_only_dirs) +
                 strv_length(inaccessible_dirs) +
                 private_dev +
-                (protected_home != PROTECTED_HOME_NO ? 2 : 0) +
-                (read_only_system ? 2 : 0);
+                (protect_home != PROTECT_HOME_NO ? 2 : 0) +
+                (protect_system != PROTECT_SYSTEM_NO ? 2 : 0) +
+                (protect_system == PROTECT_SYSTEM_FULL ? 1 : 0);
 
         if (n > 0) {
                 m = mounts = (BindMount *) alloca(n * sizeof(BindMount));
@@ -391,14 +392,14 @@ int setup_namespace(
                         m++;
                 }
 
-                if (protected_home != PROTECTED_HOME_NO) {
-                        r = append_mounts(&m, STRV_MAKE("-/home", "-/run/user"), protected_home == PROTECTED_HOME_READ_ONLY ? READONLY : INACCESSIBLE);
+                if (protect_home != PROTECT_HOME_NO) {
+                        r = append_mounts(&m, STRV_MAKE("-/home", "-/run/user"), protect_home == PROTECT_HOME_READ_ONLY ? READONLY : INACCESSIBLE);
                         if (r < 0)
                                 return r;
                 }
 
-                if (read_only_system) {
-                        r = append_mounts(&m, STRV_MAKE("/usr", "-/boot"), READONLY);
+                if (protect_system != PROTECT_SYSTEM_NO) {
+                        r = append_mounts(&m, protect_system == PROTECT_SYSTEM_FULL ? STRV_MAKE("/usr", "/etc", "-/boot") : STRV_MAKE("/usr", "-/boot"), READONLY);
                         if (r < 0)
                                 return r;
                 }
@@ -604,10 +605,18 @@ fail:
         return r;
 }
 
-static const char *const protected_home_table[_PROTECTED_HOME_MAX] = {
-        [PROTECTED_HOME_NO] = "no",
-        [PROTECTED_HOME_YES] = "yes",
-        [PROTECTED_HOME_READ_ONLY] = "read-only",
+static const char *const protect_home_table[_PROTECT_HOME_MAX] = {
+        [PROTECT_HOME_NO] = "no",
+        [PROTECT_HOME_YES] = "yes",
+        [PROTECT_HOME_READ_ONLY] = "read-only",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(protected_home, ProtectedHome);
+DEFINE_STRING_TABLE_LOOKUP(protect_home, ProtectHome);
+
+static const char *const protect_system_table[_PROTECT_SYSTEM_MAX] = {
+        [PROTECT_SYSTEM_NO] = "no",
+        [PROTECT_SYSTEM_YES] = "yes",
+        [PROTECT_SYSTEM_FULL] = "full",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(protect_system, ProtectSystem);

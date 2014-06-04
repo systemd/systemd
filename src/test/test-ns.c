@@ -60,8 +60,8 @@ int main(int argc, char *argv[]) {
                             tmp_dir,
                             var_tmp_dir,
                             true,
-                            PROTECTED_HOME_NO,
-                            false,
+                            PROTECT_HOME_NO,
+                            PROTECT_SYSTEM_NO,
                             0);
         if (r < 0) {
                 log_error("Failed to setup namespace: %s", strerror(-r));

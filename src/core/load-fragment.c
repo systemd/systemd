@@ -3101,7 +3101,7 @@ int config_parse_no_new_privileges(
         return 0;
 }
 
-int config_parse_protected_home(
+int config_parse_protect_home(
                 const char* unit,
                 const char *filename,
                 unsigned line,
@@ -3126,19 +3126,62 @@ int config_parse_protected_home(
 
         k = parse_boolean(rvalue);
         if (k > 0)
-                c->protected_home = PROTECTED_HOME_YES;
+                c->protect_home = PROTECT_HOME_YES;
         else if (k == 0)
-                c->protected_home = PROTECTED_HOME_NO;
+                c->protect_home = PROTECT_HOME_NO;
         else {
-                ProtectedHome h;
+                ProtectHome h;
 
-                h = protected_home_from_string(rvalue);
+                h = protect_home_from_string(rvalue);
                 if (h < 0){
-                        log_syntax(unit, LOG_ERR, filename, line, -h, "Failed to parse protected home value, ignoring: %s", rvalue);
+                        log_syntax(unit, LOG_ERR, filename, line, -h, "Failed to parse protect home value, ignoring: %s", rvalue);
                         return 0;
                 }
 
-                c->protected_home = h;
+                c->protect_home = h;
+        }
+
+        return 0;
+}
+
+int config_parse_protect_system(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        ExecContext *c = data;
+        int k;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        /* Our enum shall be a superset of booleans, hence first try
+         * to parse as as boolean, and then as enum */
+
+        k = parse_boolean(rvalue);
+        if (k > 0)
+                c->protect_system = PROTECT_SYSTEM_YES;
+        else if (k == 0)
+                c->protect_system = PROTECT_SYSTEM_NO;
+        else {
+                ProtectSystem s;
+
+                s = protect_system_from_string(rvalue);
+                if (s < 0){
+                        log_syntax(unit, LOG_ERR, filename, line, -s, "Failed to parse protect system value, ignoring: %s", rvalue);
+                        return 0;
+                }
+
+                c->protect_system = s;
         }
 
         return 0;
