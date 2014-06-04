@@ -183,20 +183,17 @@ USERS AND GROUPS:
         exist. During execution this network facing service will drop
         privileges and assume this uid/gid for security reasons.
 
-        The NTP daemon requires the "systemd-timesync" system user and
-        group to exist. During execution this network facing service
-        will drop privileges (with the exception of CAP_SYS_TIME) and
-        assume this uid/gid for security reasons.
+        Similar, the NTP daemon requires the "systemd-timesync" system
+        user and group to exist.
 
-        The network management daemon requires the "systemd-network"
-        system user and group to exist. During execution this network
-        facing service will drop privileges (with the exception of
-        CAP_NET_*) and assumed this uid/gid for security reasons.
+        Similar, the network management daemon requires the
+        "systemd-network" system user and group to exist.
 
-        The name resolution daemon requires the "systemd-resolve"
-        system user and group to exist. During execution this network
-        facing service will drop privileges and assume this uid/gid
-        for security reasons.
+        Similar, the name resolution daemon requires the
+        "systemd-resolve" system user and group to exist.
+
+        Similar, the kdbus dbus1 proxy daemon requires the
+        "systemd-bus-proxy" system user and group to exist.
 
 WARNINGS:
         systemd will warn you during boot if /etc/mtab is not a
