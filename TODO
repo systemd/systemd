@@ -32,6 +32,8 @@ External:
 
 Features:
 
+* ProtectedHome= turn into enum, and add "full" option that also marks /etc read-only
+
 * generator that automatically discovers btrfs subvolumes, identifies their purpose based on some xattr on them.
 
 * support setting empty environment variables with Environment= and EnvironmentFile=
@@ -67,10 +69,6 @@ Features:
 * Add RPM macros for registering/unregistering binfmt drop-ins
 
 * Add timeout to early-boot, and shut down the system if it is hit. Solves the laptop-in-bag problem and is useful for embedded cases
-
-* ImmutableSystem=yes/no or so to mount /usr, /boot read-only/invisible, and leave /var and /etc writable
-
-* InaccessibleHome=yes/no or so to hide /home and /run/user from a service
 
 * Run most system services with cgroupfs read-only and procfs with a more secure mode
 
@@ -551,8 +549,6 @@ Features:
 * when a service has the same env var set twice we actually store it twice and return that in systemctl show -p... We should only show the last setting
 
 * introduce mix of BindTo and Requisite
-
-* add DeleteSocketsOnStop=yes|no option to socket units
 
 * There's currently no way to cancel fsck (used to be possible via C-c or c on the console)
 
