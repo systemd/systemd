@@ -178,7 +178,7 @@ CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         --param=ssp-buffer-size=4])
 AS_CASE([$CFLAGS], [*-O[[12345\ ]]*],
         [CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
-               -flto])],
+               -flto -ffat-lto-objects])],
         [AC_MSG_RESULT([skipping -flto, optimization not enabled])])
 AC_SUBST([OUR_CFLAGS], "$with_cflags $sanitizer_cflags")
 
