@@ -118,6 +118,7 @@ static void link_configs_free(link_config_ctx *ctx) {
                 free(link->match_type);
                 free(link->description);
                 free(link->alias);
+                free(link->name_policy);
 
                 free(link);
         }
@@ -204,7 +205,8 @@ static bool enable_name_policy(void) {
 
 int link_config_load(link_config_ctx *ctx) {
         int r;
-        char **files, **f;
+        _cleanup_strv_free_ char **files;
+        char **f;
 
         link_configs_free(ctx);
 
