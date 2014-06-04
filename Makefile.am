@@ -2033,6 +2033,7 @@ systemd_bus_proxyd_SOURCES = \
 	src/bus-proxyd/bus-proxyd.c
 
 systemd_bus_proxyd_LDADD = \
+	libsystemd-capability.la \
 	libsystemd-internal.la \
 	libsystemd-shared.la
 

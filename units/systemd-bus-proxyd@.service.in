@@ -12,9 +12,11 @@ Description=Legacy D-Bus Protocol Compatibility Daemon
 # The first argument will be replaced by the service by information on
 # the process requesting the proxy, we need a placeholder to keep the
 # space available for this.
-ExecStart=@rootlibexecdir@/systemd-bus-proxyd xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+ExecStart=@rootlibexecdir@/systemd-bus-proxyd --drop-privileges xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 NotifyAccess=main
-CapabilityBoundingSet=CAP_IPC_OWNER
+CapabilityBoundingSet=CAP_IPC_OWNER CAP_SETUID CAP_SETGID CAP_SETPCAP
 PrivateTmp=yes
 PrivateDevices=yes
 PrivateNetwork=yes
+ReadOnlySystem=yes
+ProtectedHome=yes

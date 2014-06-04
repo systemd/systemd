@@ -44,9 +44,11 @@
 #include "build.h"
 #include "strv.h"
 #include "def.h"
+#include "capability.h"
 
 static const char *arg_address = DEFAULT_SYSTEM_BUS_PATH;
 static char *arg_command_line_buffer = NULL;
+static bool arg_drop_privileges = false;
 
 static int help(void) {
 
@@ -54,6 +56,7 @@ static int help(void) {
                "Connect STDIO or a socket to a given bus address.\n\n"
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
+               "     --drop-privileges   Drop privileges\n"
                "     --address=ADDRESS   Connect to the bus specified by ADDRESS\n"
                "                         (default: " DEFAULT_SYSTEM_BUS_PATH ")\n",
                program_invocation_short_name);
@@ -66,13 +69,15 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_ADDRESS,
+                ARG_DROP_PRIVILEGES,
         };
 
         static const struct option options[] = {
-                { "help",       no_argument,       NULL, 'h'            },
-                { "version",    no_argument,       NULL, ARG_VERSION    },
-                { "address",    required_argument, NULL, ARG_ADDRESS    },
-                { NULL,         0,                 NULL, 0              }
+                { "help",            no_argument,       NULL, 'h'                 },
+                { "version",         no_argument,       NULL, ARG_VERSION         },
+                { "address",         required_argument, NULL, ARG_ADDRESS         },
+                { "drop-privileges", no_argument,       NULL, ARG_DROP_PRIVILEGES },
+                { NULL,              0,                 NULL, 0                   },
         };
 
         int c;
@@ -95,6 +100,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_ADDRESS:
                         arg_address = optarg;
+                        break;
+
+                case ARG_DROP_PRIVILEGES:
+                        arg_drop_privileges = true;
                         break;
 
                 case '?':
@@ -439,7 +448,6 @@ static int peer_is_privileged(sd_bus *bus, sd_bus_message *m) {
 
         return false;
 }
-
 
 static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
         int r;
@@ -1063,6 +1071,22 @@ int main(int argc, char *argv[]) {
         if (is_unix) {
                 getpeercred(in_fd, &ucred);
                 getpeersec(in_fd, &peersec);
+        }
+
+        if (arg_drop_privileges) {
+                const char *user = "systemd-bus-proxy";
+                uid_t uid;
+                gid_t gid;
+
+                r = get_user_creds(&user, &uid, &gid, NULL, NULL);
+                if (r < 0) {
+                        log_error("Cannot resolve user name %s: %s", user, strerror(-r));
+                        goto finish;
+                }
+
+                r = drop_privileges(uid, gid, 1ULL << CAP_IPC_OWNER);
+                if (r < 0)
+                        goto finish;
         }
 
         r = sd_bus_new(&a);

@@ -85,9 +85,9 @@ unsigned long cap_last_cap(void) {
 }
 
 int capability_bounding_set_drop(uint64_t drop, bool right_now) {
-        unsigned long i;
-        _cleanup_cap_free_ cap_t after_cap = NULL, temp_cap = NULL;
+        _cleanup_cap_free_ cap_t after_cap = NULL;
         cap_flag_value_t fv;
+        unsigned long i;
         int r;
 
         /* If we are run as PID 1 we will lack CAP_SETPCAP by default
@@ -103,6 +103,7 @@ int capability_bounding_set_drop(uint64_t drop, bool right_now) {
                 return -errno;
 
         if (fv != CAP_SET) {
+                _cleanup_cap_free_ cap_t temp_cap = NULL;
                 static const cap_value_t v = CAP_SETPCAP;
 
                 temp_cap = cap_dup(after_cap);
@@ -217,8 +218,6 @@ int capability_bounding_set_drop_usermode(uint64_t drop) {
 int drop_privileges(uid_t uid, gid_t gid, uint64_t keep_capabilities) {
 
         _cleanup_cap_free_ cap_t d = NULL;
-        cap_value_t bits[sizeof(keep_capabilities)*8];
-        unsigned i, j = 0;
         int r;
 
         /* Unfortunately we cannot leave privilege dropping to PID 1
@@ -265,6 +264,9 @@ int drop_privileges(uid_t uid, gid_t gid, uint64_t keep_capabilities) {
                 return log_oom();
 
         if (keep_capabilities) {
+                cap_value_t bits[sizeof(keep_capabilities)*8];
+                unsigned i, j = 0;
+
                 for (i = 0; i < sizeof(keep_capabilities)*8; i++)
                         if (keep_capabilities & (1ULL << i))
                                 bits[j++] = i;
