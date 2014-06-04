@@ -38,6 +38,7 @@
 #include <sys/un.h>
 #include <sys/signalfd.h>
 #include <sys/epoll.h>
+#include <sys/mount.h>
 #include <sys/poll.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
@@ -738,16 +739,36 @@ static int synthesize_change(struct udev_device *dev) {
         char filename[UTIL_PATH_SIZE];
         int r;
 
-        log_debug("device %s closed, synthesising 'change'", udev_device_get_devnode(dev));
-        strscpyl(filename, sizeof(filename), udev_device_get_syspath(dev), "/uevent", NULL);
-        write_string_file(filename, "change");
-
-        /* for disks devices, re-trigger all partitions too */
         if (streq_ptr("block", udev_device_get_subsystem(dev)) &&
-            streq_ptr("disk", udev_device_get_devtype(dev))) {
+            streq_ptr("disk", udev_device_get_devtype(dev)) &&
+            !startswith("dm-", udev_device_get_sysname(dev))) {
+                int fd;
                 struct udev *udev = udev_device_get_udev(dev);
                 _cleanup_udev_enumerate_unref_ struct udev_enumerate *e = NULL;
                 struct udev_list_entry *item;
+
+                /*
+                 * Try to re-read the partition table, this only succeeds if
+                 * none of the devices is busy.
+                 *
+                 * The kernel will send out a change event for the disk, and
+                 * "remove/add" for all partitions.
+                 */
+                fd = open(udev_device_get_devnode(dev), O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NONBLOCK);
+                if (fd >= 0) {
+                        r = ioctl(fd, BLKRRPART, 0);
+                        close(fd);
+                        if (r >= 0)
+                                return 0;
+                }
+
+                /*
+                 * Re-reading the partition table did not work, synthesize "change"
+                 * events for the disk and all partitions.
+                 */
+                log_debug("device %s closed, synthesising 'change'", udev_device_get_devnode(dev));
+                strscpyl(filename, sizeof(filename), udev_device_get_syspath(dev), "/uevent", NULL);
+                write_string_file(filename, "change");
 
                 e = udev_enumerate_new(udev);
                 if (!e)
@@ -777,7 +798,13 @@ static int synthesize_change(struct udev_device *dev) {
                         strscpyl(filename, sizeof(filename), udev_device_get_syspath(d), "/uevent", NULL);
                         write_string_file(filename, "change");
                 }
+
+                return 0;
         }
+
+        log_debug("device %s closed, synthesising 'change'", udev_device_get_devnode(dev));
+        strscpyl(filename, sizeof(filename), udev_device_get_syspath(dev), "/uevent", NULL);
+        write_string_file(filename, "change");
 
         return 0;
 }
