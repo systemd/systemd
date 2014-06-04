@@ -780,6 +780,8 @@ static int synthesize_change(struct udev_device *dev) {
                         return r;
 
                 r = udev_enumerate_scan_devices(e);
+                if (r < 0)
+                        return r;
 
                 udev_list_entry_foreach(item, udev_enumerate_get_list_entry(e)) {
                         _cleanup_udev_device_unref_ struct udev_device *d = NULL;
