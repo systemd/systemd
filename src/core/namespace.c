@@ -143,7 +143,7 @@ static int mount_dev(BindMount *m) {
                 "/dev/tty\0";
 
         char temporary_mount[] = "/tmp/namespace-dev-XXXXXX";
-        const char *d, *dev = NULL, *devpts = NULL, *devshm = NULL, *devkdbus = NULL, *devhugepages = NULL, *devmqueue = NULL, *devlog = NULL;
+        const char *d, *dev = NULL, *devpts = NULL, *devshm = NULL, *devkdbus = NULL, *devhugepages = NULL, *devmqueue = NULL, *devlog = NULL, *devptmx = NULL;
         _cleanup_umask_ mode_t u;
         int r;
 
@@ -167,6 +167,9 @@ static int mount_dev(BindMount *m) {
                 r = -errno;
                 goto fail;
         }
+
+        devptmx = strappenda(temporary_mount, "/dev/ptmx");
+        symlink("pts/ptmx", devptmx);
 
         devshm = strappenda(temporary_mount, "/dev/shm");
         mkdir(devshm, 01777);
