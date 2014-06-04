@@ -738,15 +738,33 @@
                                 removed when it is stopped. This
                                 applies to AF_UNIX sockets in the file
                                 system, POSIX message queues as well
-                                as FIFOs. Normally it should not be
-                                necessary to use this option, and is
-                                not recommended as services might
-                                continue to run after the socket unit
-                                has been terminated and it should
-                                still be possible to communicate with
-                                them via their file system
-                                node. Defaults to
+                                as FIFOs, as well as any symlinks to
+                                them configured with
+                                <varname>Symlinks=</varname>. Normally
+                                it should not be necessary to use this
+                                option, and is not recommended as
+                                services might continue to run after
+                                the socket unit has been terminated
+                                and it should still be possible to
+                                communicate with them via their file
+                                system node. Defaults to
                                 off.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>Symlinks=</varname></term>
+                                <listitem><para>Takes a list of file
+                                system paths. The specified paths will
+                                be created as symlinks to the AF_UNIX
+                                socket path or FIFO path of this
+                                socket unit.  If this setting is used
+                                only one AF_UNIX socket in the file
+                                system or one FIFO may be configured
+                                for the socket unit. Use this option
+                                to manage one or more symlinked alias
+                                names for a socket, binding their
+                                lifecycle together. Defaults to the
+                                empty list.</para></listitem>
                         </varlistentry>
 
                 </variablelist>

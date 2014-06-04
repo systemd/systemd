@@ -125,6 +125,8 @@ struct Socket {
 
         SocketResult result;
 
+        char **symlinks;
+
         bool accept;
         bool remove_on_stop;
 

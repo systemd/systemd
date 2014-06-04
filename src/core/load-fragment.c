@@ -197,8 +197,8 @@ int config_parse_unit_path_printf(const char *unit,
                                   void *data,
                                   void *userdata) {
 
-        Unit *u = userdata;
         _cleanup_free_ char *k = NULL;
+        Unit *u = userdata;
         int r;
 
         assert(filename);
@@ -207,12 +207,69 @@ int config_parse_unit_path_printf(const char *unit,
         assert(u);
 
         r = unit_full_printf(u, rvalue, &k);
-        if (r < 0)
-                log_syntax(unit, LOG_ERR, filename, line, -r,
-                           "Failed to resolve unit specifiers on %s, ignoring: %s", rvalue, strerror(-r));
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, -r, "Failed to resolve unit specifiers on %s, ignoring: %s", rvalue, strerror(-r));
+                return 0;
+        }
 
-        return config_parse_path(unit, filename, line, section, section_line, lvalue, ltype,
-                                 k ? k : rvalue, data, userdata);
+        return config_parse_path(unit, filename, line, section, section_line, lvalue, ltype, k, data, userdata);
+}
+
+int config_parse_unit_path_strv_printf(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char *w, *state, ***x = data;
+        Unit *u = userdata;
+        size_t l;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(u);
+
+        FOREACH_WORD_QUOTED(w, l, rvalue, state) {
+                _cleanup_free_ char *k = NULL;
+                char t[l+1];
+
+                memcpy(t, w, l);
+                t[l] = 0;
+
+                r = unit_full_printf(u, t, &k);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, -r, "Failed to resolve unit specifiers on %s, ignoring: %s", t, strerror(-r));
+                        return 0;
+                }
+
+                if (!utf8_is_valid(k)) {
+                        log_invalid_utf8(unit, LOG_ERR, filename, line, EINVAL, rvalue);
+                        return 0;
+                }
+
+                if (!path_is_absolute(k)) {
+                        log_syntax(unit, LOG_ERR, filename, line, -r, "Symlink path %s is not absolute, ignoring: %s", k, strerror(-r));
+                        return 0;
+                }
+
+                path_kill_slashes(k);
+
+                r = strv_push(x, k);
+                if (r < 0)
+                        return log_oom();
+
+                k = NULL;
+        }
+
+        return 0;
 }
 
 int config_parse_socket_listen(const char *unit,

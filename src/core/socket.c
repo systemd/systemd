@@ -145,6 +145,8 @@ static void socket_done(Unit *u) {
         free(s->smack_ip_in);
         free(s->smack_ip_out);
 
+        strv_free(s->symlinks);
+
         s->timer_event_source = sd_event_source_unref(s->timer_event_source);
 }
 
@@ -355,6 +357,39 @@ static int socket_add_extras(Socket *s) {
         return 0;
 }
 
+static const char *socket_find_symlink_target(Socket *s) {
+        const char *found = NULL;
+        SocketPort *p;
+
+        LIST_FOREACH(port, p, s->ports) {
+                const char *f = NULL;
+
+                switch (p->type) {
+
+                case SOCKET_FIFO:
+                        f = p->path;
+                        break;
+
+                case SOCKET_SOCKET:
+                        if (p->address.sockaddr.un.sun_path[0] != 0)
+                                f = p->address.sockaddr.un.sun_path;
+                        break;
+
+                default:
+                        break;
+                }
+
+                if (f) {
+                        if (found)
+                                return NULL;
+
+                        found = f;
+                }
+        }
+
+        return found;
+}
+
 static int socket_verify(Socket *s) {
         assert(s);
 
@@ -384,6 +419,11 @@ static int socket_verify(Socket *s) {
 
         if (s->exec_context.pam_name && s->kill_context.kill_mode != KILL_CONTROL_GROUP) {
                 log_error_unit(UNIT(s)->id, "%s has PAM enabled. Kill mode must be set to 'control-group'. Refusing.", UNIT(s)->id);
+                return -EINVAL;
+        }
+
+        if (!strv_isempty(s->symlinks) && !socket_find_symlink_target(s)) {
+                log_error_unit(UNIT(s)->id, "%s has symlinks set but none or more than one node in the file system. Refusing.", UNIT(s)->id);
                 return -EINVAL;
         }
 
@@ -692,6 +732,7 @@ static int instance_from_socket(int fd, unsigned nr, char **instance) {
 
 static void socket_close_fds(Socket *s) {
         SocketPort *p;
+        char **i;
 
         assert(s);
 
@@ -732,6 +773,10 @@ static void socket_close_fds(Socket *s) {
                         }
                 }
         }
+
+        if (s->remove_on_stop)
+                STRV_FOREACH(i, s->symlinks)
+                        unlink(*i);
 }
 
 static void socket_apply_socket_options(Socket *s, int fd) {
@@ -915,7 +960,8 @@ static int special_address_create(
         assert(path);
         assert(_fd);
 
-        if ((fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NONBLOCK|O_NOFOLLOW)) < 0) {
+        fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NONBLOCK|O_NOFOLLOW);
+        if (fd < 0) {
                 r = -errno;
                 goto fail;
         }
@@ -968,7 +1014,6 @@ static int mq_address_create(
 
         /* Include the original umask in our mask */
         umask(~mq_mode | old_mask);
-
         fd = mq_open(path, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_CREAT, mq_mode, attr);
         umask(old_mask);
 
@@ -996,6 +1041,22 @@ static int mq_address_create(
 fail:
         safe_close(fd);
         return r;
+}
+
+static int socket_symlink(Socket *s) {
+        const char *p;
+        char **i;
+
+        assert(s);
+
+        p = socket_find_symlink_target(s);
+        if (!p)
+                return 0;
+
+        STRV_FOREACH(i, s->symlinks)
+                symlink(p, *i);
+
+        return 0;
 }
 
 static int socket_open_fds(Socket *s) {
@@ -1045,6 +1106,7 @@ static int socket_open_fds(Socket *s) {
 
                         p->fd = r;
                         socket_apply_socket_options(s, p->fd);
+                        socket_symlink(s);
 
                 } else  if (p->type == SOCKET_SPECIAL) {
 
@@ -1065,6 +1127,8 @@ static int socket_open_fds(Socket *s) {
                                 goto rollback;
 
                         socket_apply_fifo_options(s, p->fd);
+                        socket_symlink(s);
+
                 } else if (p->type == SOCKET_MQUEUE) {
 
                         r = mq_address_create(
