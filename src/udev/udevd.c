@@ -46,6 +46,7 @@
 #include <sys/utsname.h>
 
 #include "udev.h"
+#include "udev-util.h"
 #include "sd-daemon.h"
 #include "cgroup-util.h"
 #include "dev-setup.h"
@@ -733,15 +734,54 @@ out:
         return udev_ctrl_connection_unref(ctrl_conn);
 }
 
-static void synthesize_change(struct udev_device *dev) {
+static int synthesize_change(struct udev_device *dev) {
         char filename[UTIL_PATH_SIZE];
+        int r;
 
         log_debug("device %s closed, synthesising 'change'", udev_device_get_devnode(dev));
         strscpyl(filename, sizeof(filename), udev_device_get_syspath(dev), "/uevent", NULL);
         write_string_file(filename, "change");
+
+        /* for disks devices, re-trigger all partitions too */
+        if (streq_ptr("block", udev_device_get_subsystem(dev)) &&
+            streq_ptr("disk", udev_device_get_devtype(dev))) {
+                struct udev *udev = udev_device_get_udev(dev);
+                _cleanup_udev_enumerate_unref_ struct udev_enumerate *e = NULL;
+                struct udev_list_entry *item;
+
+                e = udev_enumerate_new(udev);
+                if (!e)
+                        return -ENOMEM;
+
+                r = udev_enumerate_add_match_parent(e, dev);
+                if (r < 0)
+                        return r;
+
+                r = udev_enumerate_add_match_subsystem(e, "block");
+                if (r < 0)
+                        return r;
+
+                r = udev_enumerate_scan_devices(e);
+                udev_list_entry_foreach(item, udev_enumerate_get_list_entry(e)) {
+                        _cleanup_udev_device_unref_ struct udev_device *d = NULL;
+
+                        d = udev_device_new_from_syspath(udev, udev_list_entry_get_name(item));
+                        if (!d)
+                                continue;
+
+                        if (!streq_ptr("partition", udev_device_get_devtype(d)))
+                                continue;
+
+                        log_debug("device %s closed, synthesising partition '%s' 'change'",
+                                  udev_device_get_devnode(dev), udev_device_get_devnode(d));
+                        strscpyl(filename, sizeof(filename), udev_device_get_syspath(d), "/uevent", NULL);
+                        write_string_file(filename, "change");
+                }
+        }
+
+        return 0;
 }
 
-/* read inotify messages */
 static int handle_inotify(struct udev *udev)
 {
         int nbytes, pos;
