@@ -126,6 +126,7 @@ struct Socket {
         SocketResult result;
 
         bool accept;
+        bool remove_on_stop;
 
         /* Socket options */
         bool keep_alive;

@@ -451,7 +451,8 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sBroadcast: %s\n"
                 "%sPassCredentials: %s\n"
                 "%sPassSecurity: %s\n"
-                "%sTCPCongestion: %s\n",
+                "%sTCPCongestion: %s\n"
+                "%sRemoveOnStop: %s\n",
                 prefix, socket_state_to_string(s->state),
                 prefix, socket_result_to_string(s->result),
                 prefix, socket_address_bind_ipv6_only_to_string(s->bind_ipv6_only),
@@ -464,7 +465,8 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, yes_no(s->broadcast),
                 prefix, yes_no(s->pass_cred),
                 prefix, yes_no(s->pass_sec),
-                prefix, strna(s->tcp_congestion));
+                prefix, strna(s->tcp_congestion),
+                prefix, yes_no(s->remove_on_stop));
 
         if (s->control_pid > 0)
                 fprintf(f,
@@ -702,13 +704,33 @@ static void socket_close_fds(Socket *s) {
 
                 p->fd = safe_close(p->fd);
 
-                /* One little note: we should never delete any sockets
-                 * in the file system here! After all some other
-                 * process we spawned might still have a reference of
-                 * this fd and wants to continue to use it. Therefore
-                 * we delete sockets in the file system before we
-                 * create a new one, not after we stopped using
-                 * one! */
+                /* One little note: we should normally not delete any
+                 * sockets in the file system here! After all some
+                 * other process we spawned might still have a
+                 * reference of this fd and wants to continue to use
+                 * it. Therefore we delete sockets in the file system
+                 * before we create a new one, not after we stopped
+                 * using one! */
+
+                if (s->remove_on_stop) {
+                        switch (p->type) {
+
+                        case SOCKET_FIFO:
+                                unlink(p->path);
+                                break;
+
+                        case SOCKET_MQUEUE:
+                                mq_unlink(p->path);
+                                break;
+
+                        case SOCKET_SOCKET:
+                                socket_address_unlink(&p->address);
+                                break;
+
+                        default:
+                                break;
+                        }
+                }
         }
 }
 
@@ -993,17 +1015,15 @@ static int socket_open_fds(Socket *s) {
 
                         if (!know_label) {
 
-                                if ((r = socket_instantiate_service(s)) < 0)
+                                r = socket_instantiate_service(s);
+                                if (r < 0)
                                         return r;
 
                                 if (UNIT_ISSET(s->service) &&
                                     SERVICE(UNIT_DEREF(s->service))->exec_command[SERVICE_EXEC_START]) {
                                         r = label_get_create_label_from_exe(SERVICE(UNIT_DEREF(s->service))->exec_command[SERVICE_EXEC_START]->path, &label);
-
-                                        if (r < 0) {
-                                                if (r != -EPERM)
-                                                        return r;
-                                        }
+                                        if (r < 0 && r != -EPERM)
+                                                return r;
                                 }
 
                                 know_label = true;
@@ -1121,14 +1141,15 @@ static void socket_set_state(Socket *s, SocketState state) {
         old_state = s->state;
         s->state = state;
 
-        if (state != SOCKET_START_PRE &&
-            state != SOCKET_START_POST &&
-            state != SOCKET_STOP_PRE &&
-            state != SOCKET_STOP_PRE_SIGTERM &&
-            state != SOCKET_STOP_PRE_SIGKILL &&
-            state != SOCKET_STOP_POST &&
-            state != SOCKET_FINAL_SIGTERM &&
-            state != SOCKET_FINAL_SIGKILL) {
+        if (!IN_SET(state,
+                    SOCKET_START_PRE,
+                    SOCKET_START_POST,
+                    SOCKET_STOP_PRE,
+                    SOCKET_STOP_PRE_SIGTERM,
+                    SOCKET_STOP_PRE_SIGKILL,
+                    SOCKET_STOP_POST,
+                    SOCKET_FINAL_SIGTERM,
+                    SOCKET_FINAL_SIGKILL)) {
 
                 s->timer_event_source = sd_event_source_unref(s->timer_event_source);
                 socket_unwatch_control_pid(s);
@@ -1139,12 +1160,13 @@ static void socket_set_state(Socket *s, SocketState state) {
         if (state != SOCKET_LISTENING)
                 socket_unwatch_fds(s);
 
-        if (state != SOCKET_START_POST &&
-            state != SOCKET_LISTENING &&
-            state != SOCKET_RUNNING &&
-            state != SOCKET_STOP_PRE &&
-            state != SOCKET_STOP_PRE_SIGTERM &&
-            state != SOCKET_STOP_PRE_SIGKILL)
+        if (!IN_SET(state,
+                    SOCKET_START_POST,
+                    SOCKET_LISTENING,
+                    SOCKET_RUNNING,
+                    SOCKET_STOP_PRE,
+                    SOCKET_STOP_PRE_SIGTERM,
+                    SOCKET_STOP_PRE_SIGKILL))
                 socket_close_fds(s);
 
         if (state != old_state)

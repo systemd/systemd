@@ -625,6 +625,21 @@ int getsockname_pretty(int fd, char **ret) {
         return sockaddr_pretty(&sa.sa, salen, false, ret);
 }
 
+int socket_address_unlink(SocketAddress *a) {
+        assert(a);
+
+        if (socket_address_family(a) != AF_UNIX)
+                return 0;
+
+        if (a->sockaddr.un.sun_path[0] == 0)
+                return 0;
+
+        if (unlink(a->sockaddr.un.sun_path) < 0)
+                return -errno;
+
+        return 1;
+}
+
 static const char* const netlink_family_table[] = {
         [NETLINK_ROUTE] = "route",
         [NETLINK_FIREWALL] = "firewall",
