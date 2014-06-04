@@ -75,6 +75,10 @@ static int link_new(Manager *manager, sd_rtnl_message *message, Link **ret) {
         if (!link->ifname)
                 return -ENOMEM;
 
+        r = sd_rtnl_message_read_ether_addr(message, IFLA_ADDRESS, &link->mac);
+        if (r < 0)
+                return r;
+
         r = asprintf(&link->state_file, "/run/systemd/netif/links/%"PRIu64,
                      link->ifindex);
         if (r < 0)
