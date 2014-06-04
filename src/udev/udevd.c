@@ -733,20 +733,30 @@ out:
         return udev_ctrl_connection_unref(ctrl_conn);
 }
 
+static void synthesize_change(struct udev_device *dev) {
+        char filename[UTIL_PATH_SIZE];
+
+        log_debug("device %s closed, synthesising 'change'", udev_device_get_devnode(dev));
+        strscpyl(filename, sizeof(filename), udev_device_get_syspath(dev), "/uevent", NULL);
+        write_string_file(filename, "change");
+}
+
 /* read inotify messages */
 static int handle_inotify(struct udev *udev)
 {
         int nbytes, pos;
         char *buf;
         struct inotify_event *ev;
+        int r;
 
-        if ((ioctl(fd_inotify, FIONREAD, &nbytes) < 0) || (nbytes <= 0))
-                return 0;
+        r = ioctl(fd_inotify, FIONREAD, &nbytes);
+        if (r < 0 || nbytes <= 0)
+                return -errno;
 
         buf = malloc(nbytes);
-        if (buf == NULL) {
+        if (!buf) {
                 log_error("error getting buffer for inotify");
-                return -1;
+                return -ENOMEM;
         }
 
         nbytes = read(fd_inotify, buf, nbytes);
@@ -756,27 +766,16 @@ static int handle_inotify(struct udev *udev)
 
                 ev = (struct inotify_event *)(buf + pos);
                 dev = udev_watch_lookup(udev, ev->wd);
-                if (dev != NULL) {
-                        log_debug("inotify event: %x for %s", ev->mask, udev_device_get_devnode(dev));
-                        if (ev->mask & IN_CLOSE_WRITE) {
-                                char filename[UTIL_PATH_SIZE];
-                                int fd;
+                if (!dev)
+                        continue;
 
-                                log_debug("device %s closed, synthesising 'change'", udev_device_get_devnode(dev));
-                                strscpyl(filename, sizeof(filename), udev_device_get_syspath(dev), "/uevent", NULL);
-                                fd = open(filename, O_WRONLY|O_CLOEXEC);
-                                if (fd >= 0) {
-                                        if (write(fd, "change", 6) < 0)
-                                                log_debug("error writing uevent: %m");
-                                        close(fd);
-                                }
-                        }
-                        if (ev->mask & IN_IGNORED)
-                                udev_watch_end(udev, dev);
+                log_debug("inotify event: %x for %s", ev->mask, udev_device_get_devnode(dev));
+                if (ev->mask & IN_CLOSE_WRITE)
+                        synthesize_change(dev);
+                else if (ev->mask & IN_IGNORED)
+                        udev_watch_end(udev, dev);
 
-                        udev_device_unref(dev);
-                }
-
+                udev_device_unref(dev);
         }
 
         free(buf);
