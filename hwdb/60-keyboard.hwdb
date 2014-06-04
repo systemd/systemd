@@ -870,7 +870,7 @@ keyboard:dmi:bvn*:bvr*:bd*:svnOQO*Inc.*:pnOQO*Model*2*:pvr*
 ###########################################################
 
 # Plantronics .Audio 626 DSP
-keyboard:usb:v047fpC006*
+keyboard:usb:v047FpC006*
  KEYBOARD_KEY_b002f=f20                                # Microphone mute button; should be micmute
 
 ###########################################################
