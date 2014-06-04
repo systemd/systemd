@@ -3480,7 +3480,8 @@ bin_PROGRAMS += \
 	systemd-cat
 
 dist_systemunit_DATA += \
-	units/systemd-journald.socket
+	units/systemd-journald.socket \
+	units/systemd-journald-dev-log.socket
 
 nodist_systemunit_DATA += \
 	units/systemd-journald.service \
@@ -3496,7 +3497,9 @@ dist_catalog_DATA = \
 	catalog/systemd.catalog
 
 SOCKETS_TARGET_WANTS += \
-	systemd-journald.socket
+	systemd-journald.socket \
+	systemd-journald-dev-log.socket
+
 SYSINIT_TARGET_WANTS += \
 	systemd-journald.service \
 	systemd-journal-flush.service

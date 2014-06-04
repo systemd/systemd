@@ -428,7 +428,7 @@ int server_open_syslog_socket(Server *s) {
         if (s->syslog_fd < 0) {
                 union sockaddr_union sa = {
                         .un.sun_family = AF_UNIX,
-                        .un.sun_path = "/dev/log",
+                        .un.sun_path = "/run/systemd/journal/dev-log",
                 };
 
                 s->syslog_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
