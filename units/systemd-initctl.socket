@@ -12,5 +12,6 @@ DefaultDependencies=no
 Before=sockets.target
 
 [Socket]
-ListenFIFO=/dev/initctl
+ListenFIFO=/run/systemd/initctl/fifo
+Symlinks=/dev/initctl
 SocketMode=0600
