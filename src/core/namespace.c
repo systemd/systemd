@@ -143,7 +143,7 @@ static int mount_dev(BindMount *m) {
                 "/dev/tty\0";
 
         char temporary_mount[] = "/tmp/namespace-dev-XXXXXX";
-        const char *d, *dev = NULL, *devpts = NULL, *devshm = NULL, *devkdbus = NULL, *devhugepages = NULL, *devmqueue = NULL;
+        const char *d, *dev = NULL, *devpts = NULL, *devshm = NULL, *devkdbus = NULL, *devhugepages = NULL, *devmqueue = NULL, *devlog = NULL;
         _cleanup_umask_ mode_t u;
         int r;
 
@@ -187,6 +187,9 @@ static int mount_dev(BindMount *m) {
         devhugepages = strappenda(temporary_mount, "/dev/hugepages");
         mkdir(devhugepages, 0755);
         mount("/dev/hugepages", devhugepages, NULL, MS_BIND, NULL);
+
+        devlog = strappenda(temporary_mount, "/dev/log");
+        symlink("/run/systemd/journal/dev-log", devlog);
 
         NULSTR_FOREACH(d, devnodes) {
                 _cleanup_free_ char *dn = NULL;
