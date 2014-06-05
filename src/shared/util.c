@@ -1377,17 +1377,21 @@ bool ignore_file(const char *filename) {
 }
 
 int fd_nonblock(int fd, bool nonblock) {
-        int flags;
+        int flags, nflags;
 
         assert(fd >= 0);
 
-        if ((flags = fcntl(fd, F_GETFL, 0)) < 0)
+        flags = fcntl(fd, F_GETFL, 0);
+        if (flags < 0)
                 return -errno;
 
         if (nonblock)
-                flags |= O_NONBLOCK;
+                nflags = flags | O_NONBLOCK;
         else
-                flags &= ~O_NONBLOCK;
+                nflags = flags & ~O_NONBLOCK;
+
+        if (nflags == flags)
+                return 0;
 
         if (fcntl(fd, F_SETFL, flags) < 0)
                 return -errno;
@@ -1396,17 +1400,21 @@ int fd_nonblock(int fd, bool nonblock) {
 }
 
 int fd_cloexec(int fd, bool cloexec) {
-        int flags;
+        int flags, nflags;
 
         assert(fd >= 0);
 
-        if ((flags = fcntl(fd, F_GETFD, 0)) < 0)
+        flags = fcntl(fd, F_GETFD, 0);
+        if (flags < 0)
                 return -errno;
 
         if (cloexec)
-                flags |= FD_CLOEXEC;
+                nflags = flags | FD_CLOEXEC;
         else
-                flags &= ~FD_CLOEXEC;
+                nflags = flags & ~FD_CLOEXEC;
+
+        if (nflags == flags)
+                return 0;
 
         if (fcntl(fd, F_SETFD, flags) < 0)
                 return -errno;

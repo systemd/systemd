@@ -36,13 +36,14 @@
 #include <mqueue.h>
 
 #include "util.h"
+#include "path-util.h"
 #include "sd-daemon.h"
 
 _public_ int sd_listen_fds(int unset_environment) {
-        int r, fd;
         const char *e;
-        char *p = NULL;
-        unsigned long l;
+        unsigned n;
+        int r, fd;
+        pid_t pid;
 
         e = getenv("LISTEN_PID");
         if (!e) {
@@ -50,21 +51,12 @@ _public_ int sd_listen_fds(int unset_environment) {
                 goto finish;
         }
 
-        errno = 0;
-        l = strtoul(e, &p, 10);
-
-        if (errno > 0) {
-                r = -errno;
+        r = parse_pid(e, &pid);
+        if (r < 0)
                 goto finish;
-        }
-
-        if (!p || p == e || *p || l <= 0) {
-                r = -EINVAL;
-                goto finish;
-        }
 
         /* Is this for us? */
-        if (getpid() != (pid_t) l) {
+        if (getpid() != pid) {
                 r = 0;
                 goto finish;
         }
@@ -75,38 +67,17 @@ _public_ int sd_listen_fds(int unset_environment) {
                 goto finish;
         }
 
-        errno = 0;
-        l = strtoul(e, &p, 10);
-
-        if (errno > 0) {
-                r = -errno;
+        r = safe_atou(e, &n);
+        if (r < 0)
                 goto finish;
-        }
 
-        if (!p || p == e || *p) {
-                r = -EINVAL;
-                goto finish;
-        }
-
-        for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + (int) l; fd ++) {
-                int flags;
-
-                flags = fcntl(fd, F_GETFD);
-                if (flags < 0) {
-                        r = -errno;
+        for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + (int) n; fd ++) {
+                r = fd_cloexec(fd, true);
+                if (r < 0)
                         goto finish;
-                }
-
-                if (flags & FD_CLOEXEC)
-                        continue;
-
-                if (fcntl(fd, F_SETFD, flags | FD_CLOEXEC) < 0) {
-                        r = -errno;
-                        goto finish;
-                }
         }
 
-        r = (int) l;
+        r = (int) n;
 
 finish:
         if (unset_environment) {
@@ -120,8 +91,7 @@ finish:
 _public_ int sd_is_fifo(int fd, const char *path) {
         struct stat st_fd;
 
-        if (fd < 0)
-                return -EINVAL;
+        assert_return(fd >= 0, -EINVAL);
 
         if (fstat(fd, &st_fd) < 0)
                 return -errno;
@@ -151,8 +121,7 @@ _public_ int sd_is_fifo(int fd, const char *path) {
 _public_ int sd_is_special(int fd, const char *path) {
         struct stat st_fd;
 
-        if (fd < 0)
-                return -EINVAL;
+        assert_return(fd >= 0, -EINVAL);
 
         if (fstat(fd, &st_fd) < 0)
                 return -errno;
@@ -187,8 +156,8 @@ _public_ int sd_is_special(int fd, const char *path) {
 static int sd_is_socket_internal(int fd, int type, int listening) {
         struct stat st_fd;
 
-        if (fd < 0 || type < 0)
-                return -EINVAL;
+        assert_return(fd >= 0, -EINVAL);
+        assert_return(type >= 0, -EINVAL);
 
         if (fstat(fd, &st_fd) < 0)
                 return -errno;
@@ -238,8 +207,8 @@ union sockaddr_union {
 _public_ int sd_is_socket(int fd, int family, int type, int listening) {
         int r;
 
-        if (family < 0)
-                return -EINVAL;
+        assert_return(fd >= 0, -EINVAL);
+        assert_return(family >= 0, -EINVAL);
 
         r = sd_is_socket_internal(fd, type, listening);
         if (r <= 0)
@@ -266,8 +235,8 @@ _public_ int sd_is_socket_inet(int fd, int family, int type, int listening, uint
         socklen_t l = sizeof(sockaddr);
         int r;
 
-        if (family != 0 && family != AF_INET && family != AF_INET6)
-                return -EINVAL;
+        assert_return(fd >= 0, -EINVAL);
+        assert_return(IN_SET(family, 0, AF_INET, AF_INET6), -EINVAL);
 
         r = sd_is_socket_internal(fd, type, listening);
         if (r <= 0)
@@ -283,7 +252,7 @@ _public_ int sd_is_socket_inet(int fd, int family, int type, int listening, uint
             sockaddr.sa.sa_family != AF_INET6)
                 return 0;
 
-        if (family > 0)
+        if (family != 0)
                 if (sockaddr.sa.sa_family != family)
                         return 0;
 
@@ -308,6 +277,8 @@ _public_ int sd_is_socket_unix(int fd, int type, int listening, const char *path
         union sockaddr_union sockaddr = {};
         socklen_t l = sizeof(sockaddr);
         int r;
+
+        assert_return(fd >= 0, -EINVAL);
 
         r = sd_is_socket_internal(fd, type, listening);
         if (r <= 0)
@@ -348,8 +319,7 @@ _public_ int sd_is_socket_unix(int fd, int type, int listening, const char *path
 _public_ int sd_is_mq(int fd, const char *path) {
         struct mq_attr attr;
 
-        if (fd < 0)
-                return -EINVAL;
+        assert_return(fd >= 0, -EINVAL);
 
         if (mq_getattr(fd, &attr) < 0)
                 return -errno;
@@ -358,8 +328,7 @@ _public_ int sd_is_mq(int fd, const char *path) {
                 char fpath[PATH_MAX];
                 struct stat a, b;
 
-                if (path[0] != '/')
-                        return -EINVAL;
+                assert_return(path_is_absolute(path), -EINVAL);
 
                 if (fstat(fd, &a) < 0)
                         return -errno;
@@ -378,12 +347,17 @@ _public_ int sd_is_mq(int fd, const char *path) {
         return 1;
 }
 
-_public_ int sd_notify(int unset_environment, const char *state) {
-        int fd = -1, r;
-        struct msghdr msghdr;
-        struct iovec iovec;
-        union sockaddr_union sockaddr;
+_public_ int sd_pid_notify(pid_t pid, int unset_environment, const char *state) {
+        union sockaddr_union sockaddr = {};
+        _cleanup_close_ int fd = -1;
+        struct msghdr msghdr = {};
+        struct iovec iovec = {};
         const char *e;
+        union {
+                struct cmsghdr cmsghdr;
+                uint8_t buf[CMSG_SPACE(sizeof(struct ucred))];
+        } control = {};
+        int r;
 
         if (!state) {
                 r = -EINVAL;
@@ -406,18 +380,15 @@ _public_ int sd_notify(int unset_environment, const char *state) {
                 goto finish;
         }
 
-        memzero(&sockaddr, sizeof(sockaddr));
         sockaddr.sa.sa_family = AF_UNIX;
         strncpy(sockaddr.un.sun_path, e, sizeof(sockaddr.un.sun_path));
 
         if (sockaddr.un.sun_path[0] == '@')
                 sockaddr.un.sun_path[0] = 0;
 
-        memzero(&iovec, sizeof(iovec));
         iovec.iov_base = (char*) state;
         iovec.iov_len = strlen(state);
 
-        memzero(&msghdr, sizeof(msghdr));
         msghdr.msg_name = &sockaddr;
         msghdr.msg_namelen = offsetof(struct sockaddr_un, sun_path) + strlen(e);
 
@@ -427,39 +398,90 @@ _public_ int sd_notify(int unset_environment, const char *state) {
         msghdr.msg_iov = &iovec;
         msghdr.msg_iovlen = 1;
 
-        if (sendmsg(fd, &msghdr, MSG_NOSIGNAL) < 0) {
-                r = -errno;
+        if (pid != 0 && pid != getpid()) {
+                struct cmsghdr *cmsg;
+                struct ucred ucred = {};
+
+                msghdr.msg_control = &control;
+                msghdr.msg_controllen = sizeof(control);
+
+                cmsg = CMSG_FIRSTHDR(&msghdr);
+                cmsg->cmsg_level = SOL_SOCKET;
+                cmsg->cmsg_type = SCM_CREDENTIALS;
+                cmsg->cmsg_len = CMSG_LEN(sizeof(struct ucred));
+
+                ucred.pid = pid;
+                ucred.uid = getuid();
+                ucred.gid = getgid();
+
+                memcpy(CMSG_DATA(cmsg), &ucred, sizeof(struct ucred));
+                msghdr.msg_controllen = cmsg->cmsg_len;
+        }
+
+        /* First try with fake ucred data, as requested */
+        if (sendmsg(fd, &msghdr, MSG_NOSIGNAL) >= 0) {
+                r = 1;
                 goto finish;
         }
 
-        r = 1;
+        /* If that failed, try with our own instead */
+        if (msghdr.msg_control) {
+                msghdr.msg_control = NULL;
+                msghdr.msg_controllen = 0;
+
+                if (sendmsg(fd, &msghdr, MSG_NOSIGNAL) >= 0) {
+                        r = 1;
+                        goto finish;
+                }
+        }
+
+        r = -errno;
 
 finish:
         if (unset_environment)
                 unsetenv("NOTIFY_SOCKET");
 
-        if (fd >= 0)
-                close(fd);
-
         return r;
 }
 
-_public_ int sd_notifyf(int unset_environment, const char *format, ...) {
-        va_list ap;
-        char *p = NULL;
+_public_ int sd_notify(int unset_environment, const char *state) {
+        return sd_pid_notify(0, unset_environment, state);
+}
+
+_public_ int sd_pid_notifyf(pid_t pid, int unset_environment, const char *format, ...) {
+        _cleanup_free_ char *p = NULL;
         int r;
 
-        va_start(ap, format);
-        r = vasprintf(&p, format, ap);
-        va_end(ap);
+        if (format) {
+                va_list ap;
 
-        if (r < 0 || !p)
-                return -ENOMEM;
+                va_start(ap, format);
+                r = vasprintf(&p, format, ap);
+                va_end(ap);
 
-        r = sd_notify(unset_environment, p);
-        free(p);
+                if (r < 0 || !p)
+                        return -ENOMEM;
+        }
 
-        return r;
+        return sd_pid_notify(pid, unset_environment, p);
+}
+
+_public_ int sd_notifyf(int unset_environment, const char *format, ...) {
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        if (format) {
+                va_list ap;
+
+                va_start(ap, format);
+                r = vasprintf(&p, format, ap);
+                va_end(ap);
+
+                if (r < 0 || !p)
+                        return -ENOMEM;
+        }
+
+        return sd_pid_notify(0, unset_environment, p);
 }
 
 _public_ int sd_booted(void) {
@@ -476,10 +498,9 @@ _public_ int sd_booted(void) {
 }
 
 _public_ int sd_watchdog_enabled(int unset_environment, uint64_t *usec) {
-        unsigned long long ll;
-        unsigned long l;
         const char *e;
-        char *p = NULL;
+        uint64_t u;
+        pid_t pid;
         int r;
 
         e = getenv("WATCHDOG_PID");
@@ -488,19 +509,12 @@ _public_ int sd_watchdog_enabled(int unset_environment, uint64_t *usec) {
                 goto finish;
         }
 
-        errno = 0;
-        l = strtoul(e, &p, 10);
-        if (errno > 0) {
-                r = -errno;
+        r = parse_pid(e, &pid);
+        if (r < 0)
                 goto finish;
-        }
-        if (!p || p == e || *p || l <= 0) {
-                r = -EINVAL;
-                goto finish;
-        }
 
         /* Is this for us? */
-        if (getpid() != (pid_t) l) {
+        if (getpid() != pid) {
                 r = 0;
                 goto finish;
         }
@@ -511,19 +525,16 @@ _public_ int sd_watchdog_enabled(int unset_environment, uint64_t *usec) {
                 goto finish;
         }
 
-        errno = 0;
-        ll = strtoull(e, &p, 10);
-        if (errno > 0) {
-                r = -errno;
+        r = safe_atou64(e, &u);
+        if (r < 0)
                 goto finish;
-        }
-        if (!p || p == e || *p || ll <= 0) {
+        if (u <= 0) {
                 r = -EINVAL;
                 goto finish;
         }
 
         if (usec)
-                *usec = ll;
+                *usec = u;
 
         r = 1;
 
