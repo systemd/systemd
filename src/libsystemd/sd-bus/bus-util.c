@@ -43,7 +43,9 @@ static int name_owner_change_callback(sd_bus *bus, sd_bus_message *m, void *user
         assert(m);
         assert(e);
 
+        sd_bus_close(bus);
         sd_event_exit(e, 0);
+
         return 1;
 }
 
@@ -121,11 +123,30 @@ int bus_event_loop_with_idle(
                         return r;
 
                 if (r == 0 && !exiting) {
-                        r = bus_async_unregister_and_exit(e, bus, name);
+
+                        r = sd_bus_try_close(bus);
+                        if (r == -EBUSY)
+                                continue;
+
+                        if (r == -ENOTSUP) {
+                                /* Fallback for dbus1 connections: we
+                                 * unregister the name and wait for
+                                 * the response to come through for
+                                 * it */
+
+                                r = bus_async_unregister_and_exit(e, bus, name);
+                                if (r < 0)
+                                        return r;
+
+                                exiting = true;
+                                continue;
+                        }
+
                         if (r < 0)
                                 return r;
 
-                        exiting = true;
+                        sd_event_exit(e, 0);
+                        break;
                 }
         }
 
