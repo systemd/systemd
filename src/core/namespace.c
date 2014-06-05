@@ -362,7 +362,7 @@ int setup_namespace(
                 strv_length(read_only_dirs) +
                 strv_length(inaccessible_dirs) +
                 private_dev +
-                (protect_home != PROTECT_HOME_NO ? 2 : 0) +
+                (protect_home != PROTECT_HOME_NO ? 3 : 0) +
                 (protect_system != PROTECT_SYSTEM_NO ? 1 : 0) +
                 (protect_system == PROTECT_SYSTEM_FULL ? 1 : 0);
 
@@ -399,7 +399,7 @@ int setup_namespace(
                 }
 
                 if (protect_home != PROTECT_HOME_NO) {
-                        r = append_mounts(&m, STRV_MAKE("-/home", "-/run/user"), protect_home == PROTECT_HOME_READ_ONLY ? READONLY : INACCESSIBLE);
+                        r = append_mounts(&m, STRV_MAKE("-/home", "-/run/user", "-/root"), protect_home == PROTECT_HOME_READ_ONLY ? READONLY : INACCESSIBLE);
                         if (r < 0)
                                 return r;
                 }
