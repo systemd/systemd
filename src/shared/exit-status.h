@@ -75,6 +75,7 @@ typedef enum ExitStatus {
         EXIT_APPARMOR_PROFILE,
         EXIT_ADDRESS_FAMILIES,
         EXIT_RUNTIME_DIRECTORY,
+        EXIT_MAKE_STARTER,
         EXIT_CHOWN,
 } ExitStatus;
 

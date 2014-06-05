@@ -145,6 +145,9 @@ const char* exit_status_to_string(ExitStatus status, ExitStatusLevel level) {
 
                 case EXIT_CHOWN:
                         return "CHOWN";
+
+                case EXIT_MAKE_STARTER:
+                        return "MAKE_STARTER";
                 }
         }
 

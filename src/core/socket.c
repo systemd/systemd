@@ -1173,11 +1173,12 @@ static void socket_unwatch_fds(Socket *s) {
                 if (p->fd < 0)
                         continue;
 
-                if (p->event_source) {
-                        r = sd_event_source_set_enabled(p->event_source, SD_EVENT_OFF);
-                        if (r < 0)
-                                log_debug_unit(UNIT(s)->id, "Failed to disable event source.");
-                }
+                if (!p->event_source)
+                        continue;
+
+                r = sd_event_source_set_enabled(p->event_source, SD_EVENT_OFF);
+                if (r < 0)
+                        log_debug_unit(UNIT(s)->id, "Failed to disable event source.");
         }
 }
 
@@ -1843,6 +1844,7 @@ static int socket_start(Unit *u) {
                    SOCKET_FINAL_SIGKILL))
                 return -EAGAIN;
 
+        /* Already on it! */
         if (IN_SET(s->state,
                    SOCKET_START_PRE,
                    SOCKET_START_CHOWN,
@@ -1871,8 +1873,7 @@ static int socket_start(Unit *u) {
 
 #ifdef HAVE_SYSV_COMPAT
                 if (service->is_sysv) {
-                        log_error_unit(u->id,
-                                       "Using SysV services for socket activation is not supported. Refusing.");
+                        log_error_unit(u->id, "Using SysV services for socket activation is not supported. Refusing.");
                         return -ENOENT;
                 }
 #endif
@@ -2282,7 +2283,7 @@ static void socket_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         else if (code == CLD_DUMPED)
                 f = SOCKET_FAILURE_CORE_DUMP;
         else
-                assert_not_reached("Unknown code");
+                assert_not_reached("Unknown sigchld code");
 
         if (s->control_command) {
                 exec_status_exit(&s->control_command->exec_status, &s->exec_context, pid, code, status);

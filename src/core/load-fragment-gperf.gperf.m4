@@ -263,7 +263,7 @@ BusName.Activating,              config_parse_bool,                  0,         
 BusName.Service,                 config_parse_busname_service,       0,                             0
 BusName.AllowUser,               config_parse_bus_policy,            0,                             0
 BusName.AllowGroup,              config_parse_bus_policy,            0,                             0
-BusName.AllowWorld,              config_parse_bus_policy,            0,                             0
+BusName.AllowWorld,              config_parse_bus_policy_world,      0,                             offsetof(BusName, policy_world)
 BusName.SELinuxContext,          config_parse_exec_selinux_context,  0,                             0
 BusName.AcceptFileDescriptors,   config_parse_bool,                  0,                             offsetof(BusName, accept_fd)
 m4_dnl

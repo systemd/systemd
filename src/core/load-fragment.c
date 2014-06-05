@@ -1656,6 +1656,8 @@ int config_parse_busname_service(
         return 0;
 }
 
+DEFINE_CONFIG_PARSE_ENUM(config_parse_bus_policy_world, busname_policy_access, BusNamePolicyAccess, "Failed to parse bus name policy access");
+
 int config_parse_bus_policy(
                 const char *unit,
                 const char *filename,
@@ -1672,7 +1674,6 @@ int config_parse_bus_policy(
         _cleanup_free_ char *id_str = NULL;
         BusName *busname = data;
         char *access_str;
-        int r;
 
         assert(filename);
         assert(lvalue);
@@ -1687,8 +1688,6 @@ int config_parse_bus_policy(
                 p->type = BUSNAME_POLICY_TYPE_USER;
         else if (streq(lvalue, "AllowGroup"))
                 p->type = BUSNAME_POLICY_TYPE_GROUP;
-        else if (streq(lvalue, "AllowWorld"))
-                p->type = BUSNAME_POLICY_TYPE_WORLD;
         else
                 assert_not_reached("Unknown lvalue");
 
@@ -1696,42 +1695,24 @@ int config_parse_bus_policy(
         if (!id_str)
                 return log_oom();
 
-        if (p->type != BUSNAME_POLICY_TYPE_WORLD) {
-                access_str = strchr(id_str, ' ');
-                if (!access_str) {
-                        log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Invalid busname policy value '%s'", rvalue);
-                        return 0;
-                }
-
-                *access_str = '\0';
-                access_str++;
-
-                if (p->type == BUSNAME_POLICY_TYPE_USER) {
-                        const char *user = id_str;
-
-                        r = get_user_creds(&user, &p->uid, NULL, NULL, NULL);
-                        if (r < 0) {
-                                log_syntax(unit, LOG_ERR, filename, line, r, "Unable to parse uid from '%s'", id_str);
-                                return 0;
-                        }
-                } else {
-                        const char *group = id_str;
-
-                        r = get_group_creds(&group, &p->gid);
-                        if (r < 0) {
-                                log_syntax(unit, LOG_ERR, filename, line, -errno, "Unable to parse gid from '%s'", id_str);
-                                return 0;
-                        }
-                }
-        } else {
-                access_str = id_str;
+        access_str = strpbrk(id_str, WHITESPACE);
+        if (!access_str) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Invalid busname policy value '%s'", rvalue);
+                return 0;
         }
+
+        *access_str = '\0';
+        access_str++;
+        access_str += strspn(access_str, WHITESPACE);
 
         p->access = busname_policy_access_from_string(access_str);
         if (p->access < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Invalid busname policy access type '%s'", access_str);
                 return 0;
         }
+
+        p->name = id_str;
+        id_str = NULL;
 
         LIST_PREPEND(policy, busname->policy, p);
         p = NULL;

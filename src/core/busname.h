@@ -28,9 +28,12 @@ typedef struct BusNamePolicy BusNamePolicy;
 
 typedef enum BusNameState {
         BUSNAME_DEAD,
+        BUSNAME_MAKING,
         BUSNAME_REGISTERED,
         BUSNAME_LISTENING,
         BUSNAME_RUNNING,
+        BUSNAME_SIGTERM,
+        BUSNAME_SIGKILL,
         BUSNAME_FAILED,
         _BUSNAME_STATE_MAX,
         _BUSNAME_STATE_INVALID = -1
@@ -39,34 +42,18 @@ typedef enum BusNameState {
 typedef enum BusNameResult {
         BUSNAME_SUCCESS,
         BUSNAME_FAILURE_RESOURCES,
+        BUSNAME_FAILURE_TIMEOUT,
+        BUSNAME_FAILURE_EXIT_CODE,
+        BUSNAME_FAILURE_SIGNAL,
+        BUSNAME_FAILURE_CORE_DUMP,
         BUSNAME_FAILURE_SERVICE_FAILED_PERMANENT,
         _BUSNAME_RESULT_MAX,
         _BUSNAME_RESULT_INVALID = -1
 } BusNameResult;
 
-struct BusName {
-        Unit meta;
-
-        char *name;
-        int starter_fd;
-
-        bool activating;
-        bool accept_fd;
-
-        UnitRef service;
-
-        BusNameState state, deserialized_state;
-        BusNameResult result;
-
-        sd_event_source *event_source;
-
-        LIST_HEAD(BusNamePolicy, policy);
-};
-
 typedef enum BusNamePolicyType {
         BUSNAME_POLICY_TYPE_USER,
         BUSNAME_POLICY_TYPE_GROUP,
-        BUSNAME_POLICY_TYPE_WORLD,
         _BUSNAME_POLICY_TYPE_MAX,
         _BUSNAME_POLICY_TYPE_INVALID = -1
 } BusNamePolicyType;
@@ -83,12 +70,34 @@ struct BusNamePolicy {
         BusNamePolicyType type;
         BusNamePolicyAccess access;
 
-        union {
-                uid_t uid;
-                gid_t gid;
-        };
+        char *name;
 
         LIST_FIELDS(BusNamePolicy, policy);
+};
+
+struct BusName {
+        Unit meta;
+
+        char *name;
+        int starter_fd;
+
+        bool activating;
+        bool accept_fd;
+
+        UnitRef service;
+
+        BusNameState state, deserialized_state;
+        BusNameResult result;
+
+        usec_t timeout_usec;
+
+        sd_event_source *starter_event_source;
+        sd_event_source *timer_event_source;
+
+        pid_t control_pid;
+
+        LIST_HEAD(BusNamePolicy, policy);
+        BusNamePolicyAccess policy_world;
 };
 
 extern const UnitVTable busname_vtable;
