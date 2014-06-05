@@ -284,6 +284,12 @@ static int apply_mount(
                 return mount_dev(m);
 
         case INACCESSIBLE:
+
+                /* First, get rid of everything that is below if there
+                 * is anything... Then, overmount it with an
+                 * inaccessible directory. */
+                umount_recursive(m->path, 0);
+
                 what = "/run/systemd/inaccessible";
                 break;
 

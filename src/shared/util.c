@@ -54,6 +54,7 @@
 #include <grp.h>
 #include <sys/mman.h>
 #include <sys/vfs.h>
+#include <sys/mount.h>
 #include <linux/magic.h>
 #include <limits.h>
 #include <langinfo.h>
@@ -6501,4 +6502,71 @@ int update_reboot_param_file(const char *param) {
                 unlink(REBOOT_PARAM_FILE);
 
         return r;
+}
+
+int umount_recursive(const char *prefix, int flags) {
+        bool again;
+        int n = 0, r;
+
+        /* Try to umount everything recursively below a
+         * directory. Also, take care of stacked mounts, and keep
+         * unmounting them until they are gone. */
+
+        do {
+                _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
+
+                again = false;
+                r = 0;
+
+                proc_self_mountinfo = fopen("/proc/self/mountinfo", "re");
+                if (!proc_self_mountinfo)
+                        return -errno;
+
+                for (;;) {
+                        _cleanup_free_ char *path = NULL, *p = NULL;
+                        int k;
+
+                        k = fscanf(proc_self_mountinfo,
+                                   "%*s "       /* (1) mount id */
+                                   "%*s "       /* (2) parent id */
+                                   "%*s "       /* (3) major:minor */
+                                   "%*s "       /* (4) root */
+                                   "%ms "       /* (5) mount point */
+                                   "%*s"        /* (6) mount options */
+                                   "%*[^-]"     /* (7) optional fields */
+                                   "- "         /* (8) separator */
+                                   "%*s "       /* (9) file system type */
+                                   "%*s"        /* (10) mount source */
+                                   "%*s"        /* (11) mount options 2 */
+                                   "%*[^\n]",   /* some rubbish at the end */
+                                   &path);
+
+                        if (k != 1) {
+                                if (k == EOF)
+                                        break;
+
+                                continue;
+                        }
+
+                        p = cunescape(path);
+                        if (!p)
+                                return -ENOMEM;
+
+                        if (!path_startswith(p, prefix))
+                                continue;
+
+                        if (umount2(p, flags) < 0) {
+                                r = -errno;
+                                continue;
+                        }
+
+                        again = true;
+                        n++;
+
+                        break;
+                }
+
+        } while (again);
+
+        return r ? r : n;
 }

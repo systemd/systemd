@@ -942,3 +942,5 @@ union file_handle_union {
 };
 
 int update_reboot_param_file(const char *param);
+
+int umount_recursive(const char *target, int flags);
