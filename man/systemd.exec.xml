@@ -941,8 +941,7 @@
                                 argument or
                                 <literal>full</literal>. If true,
                                 mounts the <filename>/usr</filename>
-                                and <filename>/boot</filename>
-                                directories read-only for processes
+                                directory read-only for processes
                                 invoked by this unit. If set to
                                 <literal>full</literal> the
                                 <filename>/etc</filename> is mounted
