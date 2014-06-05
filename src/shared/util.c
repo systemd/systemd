@@ -1393,7 +1393,7 @@ int fd_nonblock(int fd, bool nonblock) {
         if (nflags == flags)
                 return 0;
 
-        if (fcntl(fd, F_SETFL, flags) < 0)
+        if (fcntl(fd, F_SETFL, nflags) < 0)
                 return -errno;
 
         return 0;
@@ -1416,7 +1416,7 @@ int fd_cloexec(int fd, bool cloexec) {
         if (nflags == flags)
                 return 0;
 
-        if (fcntl(fd, F_SETFD, flags) < 0)
+        if (fcntl(fd, F_SETFD, nflags) < 0)
                 return -errno;
 
         return 0;
