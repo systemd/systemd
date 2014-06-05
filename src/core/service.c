@@ -1867,9 +1867,9 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
             (s->restart == SERVICE_RESTART_ALWAYS ||
              (s->restart == SERVICE_RESTART_ON_SUCCESS && s->result == SERVICE_SUCCESS) ||
              (s->restart == SERVICE_RESTART_ON_FAILURE && s->result != SERVICE_SUCCESS) ||
+             (s->restart == SERVICE_RESTART_ON_ABNORMAL && !IN_SET(s->result, SERVICE_SUCCESS, SERVICE_FAILURE_EXIT_CODE)) ||
              (s->restart == SERVICE_RESTART_ON_WATCHDOG && s->result == SERVICE_FAILURE_WATCHDOG) ||
-             (s->restart == SERVICE_RESTART_ON_ABORT && (s->result == SERVICE_FAILURE_SIGNAL ||
-                                                         s->result == SERVICE_FAILURE_CORE_DUMP))) &&
+             (s->restart == SERVICE_RESTART_ON_ABORT && IN_SET(s->result, SERVICE_FAILURE_SIGNAL, SERVICE_FAILURE_CORE_DUMP))) &&
             (s->result != SERVICE_FAILURE_EXIT_CODE ||
              !set_contains(s->restart_ignore_status.code, INT_TO_PTR(s->main_exec_status.status))) &&
             (s->result != SERVICE_FAILURE_SIGNAL ||
@@ -3790,9 +3790,10 @@ static const char* const service_restart_table[_SERVICE_RESTART_MAX] = {
         [SERVICE_RESTART_NO] = "no",
         [SERVICE_RESTART_ON_SUCCESS] = "on-success",
         [SERVICE_RESTART_ON_FAILURE] = "on-failure",
+        [SERVICE_RESTART_ON_ABNORMAL] = "on-abnormal",
         [SERVICE_RESTART_ON_WATCHDOG] = "on-watchdog",
         [SERVICE_RESTART_ON_ABORT] = "on-abort",
-        [SERVICE_RESTART_ALWAYS] = "always"
+        [SERVICE_RESTART_ALWAYS] = "always",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(service_restart, ServiceRestart);

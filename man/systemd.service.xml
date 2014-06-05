@@ -703,51 +703,146 @@ ExecStart=/bin/echo $ONE $TWO ${TWO}</programlisting>
                                 <option>no</option>,
                                 <option>on-success</option>,
                                 <option>on-failure</option>,
+                                <option>on-abnormal</option>,
                                 <option>on-watchdog</option>,
                                 <option>on-abort</option>, or
                                 <option>always</option>. If set to
                                 <option>no</option> (the default), the
-                                service will not be restarted. If set to
-                                <option>on-success</option>, it will be
-                                restarted only when the service process
-                                exits cleanly.
-                                In this context, a clean exit means
-                                an exit code of 0, or one of the signals
+                                service will not be restarted. If set
+                                to <option>on-success</option>, it
+                                will be restarted only when the
+                                service process exits cleanly.  In
+                                this context, a clean exit means an
+                                exit code of 0, or one of the signals
                                 <constant>SIGHUP</constant>,
                                 <constant>SIGINT</constant>,
-                                <constant>SIGTERM</constant>,
-                                or <constant>SIGPIPE</constant>, and
-                                additionally, exit statuses and signals
-                                specified in <varname>SuccessExitStatus=</varname>.
+                                <constant>SIGTERM</constant> or
+                                <constant>SIGPIPE</constant>, and
+                                additionally, exit statuses and
+                                signals specified in
+                                <varname>SuccessExitStatus=</varname>.
                                 If set to <option>on-failure</option>,
                                 the service will be restarted when the
-                                process exits with a non-zero exit code,
-                                is terminated by a signal (including on
-                                core dump), when an operation (such as
-                                service reload) times out, and when the
-                                configured watchdog timeout is triggered.
-                                If set to
-                                <option>on-abort</option>, the service
-                                will be restarted only if the service
-                                process exits due to an uncaught
-                                signal not specified as a clean exit
-                                status.
-                                If set to
-                                <option>on-watchdog</option>, the service
-                                will be restarted only if the watchdog
-                                timeout for the service expires.
-                                If set to
+                                process exits with a non-zero exit
+                                code, is terminated by a signal
+                                (including on core dump, but excluding
+                                the aforementiond four signals), when
+                                an operation (such as service reload)
+                                times out, and when the configured
+                                watchdog timeout is triggered.  If set
+                                to <option>on-abnormal</option>, the
+                                service will be restarted when the
+                                process is terminated by a signal
+                                (including on core dump, excluding the
+                                aforementioned four signals), when an
+                                operation times out, or when the
+                                watchdog timeout is triggered. If set
+                                to <option>on-abort</option>, the
+                                service will be restarted only if the
+                                service process exits due to an
+                                uncaught signal not specified as a
+                                clean exit status.  If set to
+                                <option>on-watchdog</option>, the
+                                service will be restarted only if the
+                                watchdog timeout for the service
+                                expires.  If set to
                                 <option>always</option>, the service
-                                will be restarted regardless of whether
-                                it exited cleanly or not, got
+                                will be restarted regardless of
+                                whether it exited cleanly or not, got
                                 terminated abnormally by a signal, or
                                 hit a timeout.</para>
+
+                                <table>
+                                        <title>Exit causes and the effect of the <varname>Restart=</varname> settings on them</title>
+
+                                        <tgroup cols='2'>
+                                                <colspec colname='path' />
+                                                <colspec colname='expl' />
+                                                <thead>
+                                                        <row>
+                                                                <entry>Restart settings/Exit causes</entry>
+                                                                <entry><option>no</option></entry>
+                                                                <entry><option>always</option></entry>
+                                                                <entry><option>on-success</option></entry>
+                                                                <entry><option>on-failure</option></entry>
+                                                                <entry><option>on-abnormal</option></entry>
+                                                                <entry><option>on-abort</option></entry>
+                                                                <entry><option>on-watchdog</option></entry>
+                                                        </row>
+                                                </thead>
+                                                <tbody>
+                                                        <row>
+                                                                <entry>Clean exit code or signal</entry>
+                                                                <entry/>
+                                                                <entry>X</entry>
+                                                                <entry>X</entry>
+                                                                <entry/>
+                                                                <entry/>
+                                                                <entry/>
+                                                                <entry/>
+                                                        </row>
+                                                        <row>
+                                                                <entry>Unclean exit code</entry>
+                                                                <entry/>
+                                                                <entry>X</entry>
+                                                                <entry/>
+                                                                <entry>X</entry>
+                                                                <entry/>
+                                                                <entry/>
+                                                                <entry/>
+                                                        </row>
+                                                        <row>
+                                                                <entry>Unclean signal</entry>
+                                                                <entry/>
+                                                                <entry>X</entry>
+                                                                <entry/>
+                                                                <entry>X</entry>
+                                                                <entry>X</entry>
+                                                                <entry>X</entry>
+                                                                <entry/>
+                                                        </row>
+                                                        <row>
+                                                                <entry>Timeout</entry>
+                                                                <entry/>
+                                                                <entry>X</entry>
+                                                                <entry/>
+                                                                <entry>X</entry>
+                                                                <entry>X</entry>
+                                                                <entry/>
+                                                                <entry/>
+                                                        </row>
+                                                        <row>
+                                                                <entry>Watchdog</entry>
+                                                                <entry/>
+                                                                <entry>X</entry>
+                                                                <entry/>
+                                                                <entry>X</entry>
+                                                                <entry>X</entry>
+                                                                <entry/>
+                                                                <entry>X</entry>
+                                                        </row>
+                                                </tbody>
+                                        </tgroup>
+                                </table>
 
                                 <para>In addition to the above settings,
                                 the service will not be restarted if the
                                 exit code or signal is specified in
                                 <varname>RestartPreventExitStatus=</varname>
-                                (see below).</para></listitem>
+                                (see below).</para>
+
+                                <para>Setting this to
+                                <option>on-failure</option> is the
+                                recommended choice for long-running
+                                services, in order to increase
+                                reliability by attempting automatic
+                                recovery from errors. For services
+                                that shall be able to terminate on
+                                their own choice (and avoiding
+                                immediate restart)
+                                <option>on-abnormal</option> is an
+                                alternative choice.</para>
+                                </listitem>
                         </varlistentry>
 
                         <varlistentry>
