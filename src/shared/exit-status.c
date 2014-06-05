@@ -142,6 +142,9 @@ const char* exit_status_to_string(ExitStatus status, ExitStatusLevel level) {
 
                 case EXIT_RUNTIME_DIRECTORY:
                         return "RUNTIME_DIRECTORY";
+
+                case EXIT_CHOWN:
+                        return "CHOWN";
                 }
         }
 

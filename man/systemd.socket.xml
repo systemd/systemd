@@ -372,16 +372,21 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>DirectoryMode=</varname></term>
-                                <listitem><para>If listening on a file
-                                system socket or FIFO, the parent
-                                directories are automatically created
-                                if needed. This option specifies the
-                                file system access mode used when
-                                creating these directories. Takes an
-                                access mode in octal
-                                notation. Defaults to
-                                0755.</para></listitem>
+                                <term><varname>SocketUser=</varname></term>
+                                <term><varname>SocketGroup=</varname></term>
+
+                                <listitem><para>Takes a UNIX
+                                user/group name. When specified
+                                all AF_UNIX sockets and FIFO nodes in
+                                the file system are owned by the
+                                specified user and group. If unset
+                                (the default), the nodes are owned by
+                                the root user/group (if run in system
+                                context) or the invoking user/group
+                                (if run in user context). If only a
+                                user is specified but no group, then
+                                the group is derived from the user's
+                                default group.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -393,6 +398,19 @@
                                 node. Takes an access mode in octal
                                 notation. Defaults to
                                 0666.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>DirectoryMode=</varname></term>
+                                <listitem><para>If listening on a file
+                                system socket or FIFO, the parent
+                                directories are automatically created
+                                if needed. This option specifies the
+                                file system access mode used when
+                                creating these directories. Takes an
+                                access mode in octal
+                                notation. Defaults to
+                                0755.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

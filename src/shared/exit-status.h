@@ -74,7 +74,8 @@ typedef enum ExitStatus {
         EXIT_PERSONALITY,  /* 230 */
         EXIT_APPARMOR_PROFILE,
         EXIT_ADDRESS_FAMILIES,
-        EXIT_RUNTIME_DIRECTORY
+        EXIT_RUNTIME_DIRECTORY,
+        EXIT_CHOWN,
 } ExitStatus;
 
 typedef enum ExitStatusLevel {

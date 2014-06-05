@@ -32,6 +32,7 @@ typedef struct Socket Socket;
 typedef enum SocketState {
         SOCKET_DEAD,
         SOCKET_START_PRE,
+        SOCKET_START_CHOWN,
         SOCKET_START_POST,
         SOCKET_LISTENING,
         SOCKET_RUNNING,
@@ -48,6 +49,7 @@ typedef enum SocketState {
 
 typedef enum SocketExecCommand {
         SOCKET_EXEC_START_PRE,
+        SOCKET_EXEC_START_CHOWN,
         SOCKET_EXEC_START_POST,
         SOCKET_EXEC_STOP_PRE,
         SOCKET_EXEC_STOP_POST,
@@ -157,6 +159,8 @@ struct Socket {
         char *smack;
         char *smack_ip_in;
         char *smack_ip_out;
+
+        char *user, *group;
 };
 
 /* Called from the service code when collecting fds */
