@@ -193,7 +193,6 @@ Features:
   - pid1: peek into activating message when activating a service
   - introduce sd_bus_emit_object_added()/sd_bus_emit_object_removed() that automatically includes the build-in interfaces in the list
   - constructors for bus messages should probably not be OK with a NULL bus pointer
-  - .busname units should not use get_user_creds()/get_cgroup_creds() but instead do NSS only in temporarily forked off child
   - see if we can drop more message validation on the sending side
   - add API to clone sd_bus_message objects
   - kdbus: matches against source or destination pids for an "strace -p"-like feel. Problem: The PID info needs to be available in userspace too...
@@ -592,8 +591,6 @@ Features:
 * verify that the AF_UNIX sockets of a service in the fs still exist
   when we start a service in order to avoid confusion when a user
   assumes starting a service is enough to make it accessible
-
-* support User= and Group= attributes for AF_UNIX sockets. (difficult, requires NSS from PID 1?)
 
 * Make it possible to set the keymap independently from the font on
   the kernel cmdline. Right now setting one resets also the other.
