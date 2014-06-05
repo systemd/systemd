@@ -225,11 +225,13 @@ static unsigned get_max_brightness(struct udev_device *device) {
 
 /* Some systems turn the backlight all the way off at the lowest levels.
  * clamp_brightness clamps the saved brightness to at least 1 or 5% of
- * max_brightness.  This avoids preserving an unreadably dim screen, which
- * would otherwise force the user to disable state restoration. */
+ * max_brightness in case of 'backlight' subsystem. This avoids preserving
+ * an unreadably dim screen, which would otherwise force the user to
+ * disable state restoration. */
 static void clamp_brightness(struct udev_device *device, char **value, unsigned max_brightness) {
         int r;
         unsigned brightness, new_brightness, min_brightness;
+        const char *subsystem;
 
         r = safe_atou(*value, &brightness);
         if (r < 0) {
@@ -237,7 +239,12 @@ static void clamp_brightness(struct udev_device *device, char **value, unsigned 
                 return;
         }
 
-        min_brightness = MAX(1U, max_brightness/20);
+        subsystem = udev_device_get_subsystem(device);
+        if (streq_ptr(subsystem, "backlight"))
+                min_brightness = MAX(1U, max_brightness/20);
+        else
+                min_brightness = 0;
+
         new_brightness = CLAMP(brightness, min_brightness, max_brightness);
         if (new_brightness != brightness) {
                 char *old_value = *value;
