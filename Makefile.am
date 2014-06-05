@@ -3567,7 +3567,8 @@ systemd_socket_proxyd_LDADD = \
 	libsystemd-logs.la \
 	libsystemd-internal.la \
 	libsystemd-journal-internal.la \
-	libsystemd-shared.la
+	libsystemd-shared.la \
+	libsystemd-resolve.la
 
 # ------------------------------------------------------------------------------
 if ENABLE_COREDUMP
