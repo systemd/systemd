@@ -35,7 +35,7 @@ static void test_one(const char *data, ...) {
                 int t, tt;
                 const char *nn;
 
-                t = xml_tokenize(&data, &name, &state);
+                t = xml_tokenize(&data, &name, &state, NULL);
                 assert_se(t >= 0);
 
                 tt = va_arg(ap, int);

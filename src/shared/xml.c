@@ -25,17 +25,37 @@
 #include "xml.h"
 
 enum {
+        STATE_NULL,
         STATE_TEXT,
         STATE_TAG,
         STATE_ATTRIBUTE,
 };
+
+static void inc_lines(unsigned *line, const char *s, size_t n) {
+        const char *p = s;
+
+        if (!line)
+                return;
+
+        for (;;) {
+                const char *f;
+
+                f = memchr(p, '\n', n);
+                if (!f)
+                        return;
+
+                n -= (f - p) + 1;
+                p = f + 1;
+                (*line)++;
+        }
+}
 
 /* We don't actually do real XML here. We only read a simplistic
  * subset, that is a bit less strict that XML and lacks all the more
  * complex features, like entities, or namespaces. However, we do
  * support some HTML5-like simplifications */
 
-int xml_tokenize(const char **p, char **name, void **state) {
+int xml_tokenize(const char **p, char **name, void **state, unsigned *line) {
         const char *c, *e, *b;
         char *ret;
         int t;
@@ -47,6 +67,12 @@ int xml_tokenize(const char **p, char **name, void **state) {
 
         t = PTR_TO_INT(*state);
         c = *p;
+
+        if (t == STATE_NULL) {
+                if (line)
+                        *line = 1;
+                t = STATE_TEXT;
+        }
 
         for (;;) {
                 if (*c == 0)
@@ -64,6 +90,8 @@ int xml_tokenize(const char **p, char **name, void **state) {
                                 if (!ret)
                                         return -ENOMEM;
 
+                                inc_lines(line, c, e - c);
+
                                 *name = ret;
                                 *p = e;
                                 *state = INT_TO_PTR(STATE_TEXT);
@@ -80,6 +108,8 @@ int xml_tokenize(const char **p, char **name, void **state) {
                                 if (!e)
                                         return -EINVAL;
 
+                                inc_lines(line, b, e + 3 - b);
+
                                 c = e + 3;
                                 continue;
                         }
@@ -91,6 +121,8 @@ int xml_tokenize(const char **p, char **name, void **state) {
                                 if (!e)
                                         return -EINVAL;
 
+                                inc_lines(line, b, e + 2 - b);
+
                                 c = e + 2;
                                 continue;
                         }
@@ -101,6 +133,8 @@ int xml_tokenize(const char **p, char **name, void **state) {
                                 e = strchr(b + 1, '>');
                                 if (!e)
                                         return -EINVAL;
+
+                                inc_lines(line, b, e + 1 - b);
 
                                 c = e + 1;
                                 continue;
@@ -133,6 +167,8 @@ int xml_tokenize(const char **p, char **name, void **state) {
                         b = c + strspn(c, WHITESPACE);
                         if (*b == 0)
                                 return -EINVAL;
+
+                        inc_lines(line, c, b - c);
 
                         e = b + strcspn(b, WHITESPACE "=/>");
                         if (e > b) {
@@ -177,6 +213,8 @@ int xml_tokenize(const char **p, char **name, void **state) {
                                         e = strchr(c+1, *c);
                                         if (!e)
                                                 return -EINVAL;
+
+                                        inc_lines(line, c, e - c);
 
                                         ret = strndup(c+1, e - c - 1);
                                         if (!ret)

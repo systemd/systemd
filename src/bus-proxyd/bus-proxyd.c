@@ -45,6 +45,7 @@
 #include "strv.h"
 #include "def.h"
 #include "capability.h"
+#include "bus-policy.h"
 
 static const char *arg_address = DEFAULT_SYSTEM_BUS_PATH;
 static char *arg_command_line_buffer = NULL;
@@ -1043,6 +1044,7 @@ int main(int argc, char *argv[]) {
         bool is_unix;
         struct ucred ucred = {};
         _cleanup_free_ char *peersec = NULL;
+        Policy policy = {};
 
         log_set_target(LOG_TARGET_JOURNAL_OR_KMSG);
         log_parse_environment();
@@ -1051,6 +1053,14 @@ int main(int argc, char *argv[]) {
         r = parse_argv(argc, argv);
         if (r <= 0)
                 goto finish;
+
+        r = policy_load(&policy);
+        if (r < 0) {
+                log_error("Failed to load policy: %s", strerror(-r));
+                goto finish;
+        }
+
+        /* policy_dump(&policy); */
 
         r = sd_listen_fds(0);
         if (r == 0) {
@@ -1413,6 +1423,8 @@ int main(int argc, char *argv[]) {
 finish:
         sd_bus_flush(a);
         sd_bus_flush(b);
+
+        policy_free(&policy);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

@@ -2030,7 +2030,9 @@ systemd_run_LDADD = \
 
 # ------------------------------------------------------------------------------
 systemd_bus_proxyd_SOURCES = \
-	src/bus-proxyd/bus-proxyd.c
+	src/bus-proxyd/bus-proxyd.c \
+	src/bus-proxyd/bus-policy.c \
+	src/bus-proxyd/bus-policy.h
 
 systemd_bus_proxyd_LDADD = \
 	libsystemd-capability.la \

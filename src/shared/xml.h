@@ -31,4 +31,4 @@ enum {
         XML_ATTRIBUTE_VALUE
 };
 
-int xml_tokenize(const char **p, char **name, void **state);
+int xml_tokenize(const char **p, char **name, void **state, unsigned *line);
