@@ -181,15 +181,16 @@ Features:
   ReadOnlyDirectories=... for whitelisting files for a service.
 
 * sd-bus:
-  - make AddMatch calls on dbus1 transports async?
   - when kdbus does not take our message without memfds, try again with memfds
   - systemd-bus-proxyd needs to enforce good old XML policy
   - allow updating attach flags during runtime
   - pid1: peek into activating message when activating a service
   - introduce sd_bus_emit_object_added()/sd_bus_emit_object_removed() that automatically includes the build-in interfaces in the list
   - constructors for bus messages should probably not be OK with a NULL bus pointer
+  - port to sd-resolve for connecting to TCP dbus servers
   - see if we can drop more message validation on the sending side
   - add API to clone sd_bus_message objects
+  - make AddMatch calls on dbus1 transports async?
   - kdbus: matches against source or destination pids for an "strace -p"-like feel. Problem: The PID info needs to be available in userspace too...
   - longer term: priority inheritance
   - dbus spec updates:
@@ -200,7 +201,6 @@ Features:
        - path escaping
   - update systemd.special(7) to mention that dbus.socket is only about the compatibility socket now
   - test bloom filter generation indexes
-  - port to sd-resolve for connecting to TCP dbus servers
 
 * sd-event
   - allow multiple signal handlers per signal?
@@ -454,7 +454,6 @@ Features:
 * currently x-systemd.timeout is lost in the initrd, since crypttab is copied into dracut, but fstab is not
 
 * nspawn:
-  - nspawn: --read-only is not applied recursively to submounts
   - bind mount read-only the cgroup tree higher than nspawn
   - nspawn: make it work for dwalsh and shared /usr containers -- tmpfs mounts as command line parameters
   - refuses to boot containers without /etc/machine-id (OK?), and with empty /etc/machine-id (not OK).
@@ -489,8 +488,6 @@ Features:
 * explore multiple service instances per listening socket idea
 
 * MountFlags=shared acts as MountFlags=slave right now.
-
-* ReadOnlyDirectories= is not applied recursively to submounts
 
 * drop PID 1 reloading, only do reexecing (difficult: Reload()
   currently is properly synchronous, Reexec() is weird, because we
