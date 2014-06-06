@@ -1819,6 +1819,8 @@ const UnitVTable mount_vtable = {
 
         .get_timeout = mount_get_timeout,
 
+        .can_transient = true,
+
         .enumerate = mount_enumerate,
         .shutdown = mount_shutdown,
 
