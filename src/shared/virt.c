@@ -148,7 +148,7 @@ static int detect_vm_dmi(const char **_id) {
 
 /* Returns a short identifier for the various VM implementations */
 int detect_vm(const char **id) {
-        _cleanup_free_ char *hvtype = NULL, *cpuinfo_contents = NULL;
+        _cleanup_free_ char *domcap = NULL, *cpuinfo_contents = NULL;
         static thread_local int cached_found = -1;
         static thread_local const char *cached_id = NULL;
         const char *_id = NULL;
@@ -162,17 +162,37 @@ int detect_vm(const char **id) {
                 return cached_found;
         }
 
-        /* Try high-level hypervisor sysfs file first:
+        /* Try xen capabilities file first, if not found try high-level hypervisor sysfs file:
          *
-         * https://bugs.freedesktop.org/show_bug.cgi?id=61491 */
-        r = read_one_line_file("/sys/hypervisor/type", &hvtype);
+         * https://bugs.freedesktop.org/show_bug.cgi?id=77271 */
+        r = read_one_line_file("/proc/xen/capabilities", &domcap);
         if (r >= 0) {
-                if (streq(hvtype, "xen")) {
+                char *cap, *i = domcap;
+
+                while ((cap = strsep(&i, ",")))
+                        if (streq(cap, "control_d"))
+                                break;
+
+                if (!i)  {
                         _id = "xen";
                         r = 1;
-                        goto finish;
                 }
-        } else if (r != -ENOENT)
+
+                goto finish;
+
+        } else if (r == -ENOENT) {
+                _cleanup_free_ char *hvtype = NULL;
+
+                r = read_one_line_file("/sys/hypervisor/type", &hvtype);
+                if (r >= 0) {
+                        if (streq(hvtype, "xen")) {
+                                _id = "xen";
+                                r = 1;
+                                goto finish;
+                        }
+                } else if (r != -ENOENT)
+                        return r;
+        } else
                 return r;
 
         /* this will set _id to "other" and return 0 for unknown hypervisors */
