@@ -367,7 +367,7 @@ int setup_namespace(
                 strv_length(inaccessible_dirs) +
                 private_dev +
                 (protect_home != PROTECT_HOME_NO ? 3 : 0) +
-                (protect_system != PROTECT_SYSTEM_NO ? 1 : 0) +
+                (protect_system != PROTECT_SYSTEM_NO ? 2 : 0) +
                 (protect_system == PROTECT_SYSTEM_FULL ? 1 : 0);
 
         if (n > 0) {
@@ -409,7 +409,7 @@ int setup_namespace(
                 }
 
                 if (protect_system != PROTECT_SYSTEM_NO) {
-                        r = append_mounts(&m, protect_system == PROTECT_SYSTEM_FULL ? STRV_MAKE("/usr", "/etc") : STRV_MAKE("/usr"), READONLY);
+                        r = append_mounts(&m, protect_system == PROTECT_SYSTEM_FULL ? STRV_MAKE("/usr", "-/boot", "/etc") : STRV_MAKE("/usr", "-/boot"), READONLY);
                         if (r < 0)
                                 return r;
                 }
