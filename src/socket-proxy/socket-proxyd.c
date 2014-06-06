@@ -47,9 +47,6 @@
 
 static const char *arg_remote_host = NULL;
 
-#define _cleanup_freeaddrinfo_ _cleanup_(freeaddrinfop)
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct addrinfo *, freeaddrinfo);
-
 typedef struct Context {
         sd_event *event;
         sd_resolve *resolve;

@@ -1410,7 +1410,7 @@ static int socket_chown(Socket *s, pid_t *_pid) {
                 }
 
                 LIST_FOREACH(port, p, s->ports) {
-                        const char *path;
+                        const char *path = NULL;
 
                         if (p->type == SOCKET_SOCKET)
                                 path = socket_address_get_path(&p->address);
