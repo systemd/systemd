@@ -212,6 +212,7 @@ static int file_load(Policy *p, const char *path) {
                                 free(policy_user);
                                 policy_user = name;
                                 name = NULL;
+                                policy_category = POLICY_CATEGORY_USER;
                                 state = STATE_POLICY;
                         } else {
                                 log_error("Unexpected token (5) in %s:%u.", path, line);
@@ -226,6 +227,7 @@ static int file_load(Policy *p, const char *path) {
                                 free(policy_group);
                                 policy_group = name;
                                 name = NULL;
+                                policy_category = POLICY_CATEGORY_GROUP;
                                 state = STATE_POLICY;
                         } else {
                                 log_error("Unexpected token (6) at %s:%u.", path, line);
@@ -636,10 +638,10 @@ static void dump_items(PolicyItem *i) {
 static void dump_hashmap_items(Hashmap *h) {
         PolicyItem *i;
         Iterator j;
-        char *k;
+        void *k;
 
         HASHMAP_FOREACH_KEY(i, k, h, j) {
-                printf("Item for %s", k);
+                printf("Item for %u:\n", PTR_TO_UINT(k));
                 dump_items(i);
         }
 }
