@@ -20,5 +20,5 @@ WatchdogSec=1min
 PrivateTmp=yes
 PrivateDevices=yes
 PrivateNetwork=yes
-PortectSystem=full
+ProtectSystem=full
 ProtectHome=yes
