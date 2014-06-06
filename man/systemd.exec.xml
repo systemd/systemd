@@ -777,8 +777,8 @@
                                 <term><varname>ReadOnlyDirectories=</varname></term>
                                 <term><varname>InaccessibleDirectories=</varname></term>
 
-                                <listitem><para>Sets up a new
-                                file system namespace for executed
+                                <listitem><para>Sets up a new file
+                                system namespace for executed
                                 processes. These options may be used
                                 to limit access a process might have
                                 to the main file system
@@ -799,16 +799,14 @@
                                 processes inside the namespace. Note
                                 that restricting access with these
                                 options does not extend to submounts
-                                of a directory. You must list
-                                submounts separately in these settings
-                                to ensure the same limited
-                                access. These options may be specified
+                                of a directory that are created later
+                                on. These options may be specified
                                 more than once in which case all
                                 directories listed will have limited
                                 access from within the namespace. If
                                 the empty string is assigned to this
-                                option, the specific list is reset, and
-                                all prior assignments have no
+                                option, the specific list is reset,
+                                and all prior assignments have no
                                 effect.</para>
                                 <para>Paths in
                                 <varname>ReadOnlyDirectories=</varname>

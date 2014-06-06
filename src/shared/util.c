@@ -6540,7 +6540,6 @@ int umount_recursive(const char *prefix, int flags) {
                                    "%*s"        /* (11) mount options 2 */
                                    "%*[^\n]",   /* some rubbish at the end */
                                    &path);
-
                         if (k != 1) {
                                 if (k == EOF)
                                         break;
@@ -6569,4 +6568,148 @@ int umount_recursive(const char *prefix, int flags) {
         } while (again);
 
         return r ? r : n;
+}
+
+int bind_remount_recursive(const char *prefix, bool ro) {
+        _cleanup_set_free_free_ Set *done = NULL;
+        _cleanup_free_ char *cleaned = NULL;
+        int r;
+
+        /* Recursively remount a directory (and all its submounts)
+         * read-only or read-write. If the directory is already
+         * mounted, we reuse the mount and simply mark it
+         * MS_BIND|MS_RDONLY (or remove the MS_RDONLY for read-write
+         * operation). If it isn't we first make it one. Afterwards we
+         * apply MS_BIND|MS_RDONLY (or remove MS_RDONLY) to all
+         * submounts we can access, too. When mounts are stacked on
+         * the same mount point we only care for each individual
+         * "top-level" mount on each point, as we cannot
+         * influence/access the underlying mounts anyway. We do not
+         * have any effect on future submounts that might get
+         * propagated, they migt be writable. This includes future
+         * submounts that have been triggered via autofs. */
+
+        cleaned = strdup(prefix);
+        if (!cleaned)
+                return -ENOMEM;
+
+        path_kill_slashes(cleaned);
+
+        done = set_new(string_hash_func, string_compare_func);
+        if (!done)
+                return -ENOMEM;
+
+        for (;;) {
+                _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
+                _cleanup_set_free_free_ Set *todo = NULL;
+                bool top_autofs = false;
+                char *x;
+
+                todo = set_new(string_hash_func, string_compare_func);
+                if (!todo)
+                        return -ENOMEM;
+
+                proc_self_mountinfo = fopen("/proc/self/mountinfo", "re");
+                if (!proc_self_mountinfo)
+                        return -errno;
+
+                for (;;) {
+                        _cleanup_free_ char *path = NULL, *p = NULL, *type = NULL;
+                        int k;
+
+                        k = fscanf(proc_self_mountinfo,
+                                   "%*s "       /* (1) mount id */
+                                   "%*s "       /* (2) parent id */
+                                   "%*s "       /* (3) major:minor */
+                                   "%*s "       /* (4) root */
+                                   "%ms "       /* (5) mount point */
+                                   "%*s"        /* (6) mount options (superblock) */
+                                   "%*[^-]"     /* (7) optional fields */
+                                   "- "         /* (8) separator */
+                                   "%ms "       /* (9) file system type */
+                                   "%*s"        /* (10) mount source */
+                                   "%*s"        /* (11) mount options (bind mount) */
+                                   "%*[^\n]",   /* some rubbish at the end */
+                                   &path,
+                                   &type);
+                        if (k != 2) {
+                                if (k == EOF)
+                                        break;
+
+                                continue;
+                        }
+
+                        p = cunescape(path);
+                        if (!p)
+                                return -ENOMEM;
+
+                        /* Let's ignore autofs mounts.  If they aren't
+                         * triggered yet, we want to avoid triggering
+                         * them, as we don't make any guarantees for
+                         * future submounts anyway.  If they are
+                         * already triggered, then we will find
+                         * another entry for this. */
+                        if (streq(type, "autofs")) {
+                                top_autofs = top_autofs || path_equal(cleaned, p);
+                                continue;
+                        }
+
+                        if (path_startswith(p, cleaned) &&
+                            !set_contains(done, p)) {
+
+                                r = set_consume(todo, p);
+                                p = NULL;
+
+                                if (r == -EEXIST)
+                                        continue;
+                                if (r < 0)
+                                        return r;
+                        }
+                }
+
+                /* If we have no submounts to process anymore and if
+                 * the root is either already done, or an autofs, we
+                 * are done */
+                if (set_isempty(todo) &&
+                    (top_autofs || set_contains(done, cleaned)))
+                        return 0;
+
+                if (!set_contains(done, cleaned) &&
+                    !set_contains(todo, cleaned)) {
+                        /* The prefix directory itself is not yet a
+                         * mount, make it one. */
+                        if (mount(cleaned, cleaned, NULL, MS_BIND|MS_REC, NULL) < 0)
+                                return -errno;
+
+                        if (mount(NULL, prefix, NULL, MS_BIND|MS_REMOUNT|(ro ? MS_RDONLY : 0), NULL) < 0)
+                                return -errno;
+
+                        x = strdup(cleaned);
+                        if (!x)
+                                return -ENOMEM;
+
+                        r = set_consume(done, x);
+                        if (r < 0)
+                                return r;
+                }
+
+                while ((x = set_steal_first(todo))) {
+
+                        r = set_consume(done, x);
+                        if (r == -EEXIST)
+                                continue;
+                        if (r < 0)
+                                return r;
+
+                        if (mount(NULL, x, NULL, MS_BIND|MS_REMOUNT|(ro ? MS_RDONLY : 0), NULL) < 0) {
+
+                                /* Deal with mount points that are
+                                 * obstructed by a later mount */
+
+                                if (errno != ENOENT)
+                                        return -errno;
+                        }
+
+                }
+        }
 }

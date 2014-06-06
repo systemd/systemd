@@ -280,9 +280,6 @@ static int apply_mount(
 
         switch (m->mode) {
 
-        case PRIVATE_DEV:
-                return mount_dev(m);
-
         case INACCESSIBLE:
 
                 /* First, get rid of everything that is below if there
@@ -295,8 +292,9 @@ static int apply_mount(
 
         case READONLY:
         case READWRITE:
-                what = m->path;
-                break;
+                /* Nothing to mount here, we just later toggle the
+                 * MS_RDONLY bit for the mount point */
+                return 0;
 
         case PRIVATE_TMP:
                 what = tmp_dir;
@@ -305,6 +303,9 @@ static int apply_mount(
         case PRIVATE_VAR_TMP:
                 what = var_tmp_dir;
                 break;
+
+        case PRIVATE_DEV:
+                return mount_dev(m);
 
         default:
                 assert_not_reached("Unknown mode");
@@ -316,7 +317,7 @@ static int apply_mount(
         if (r >= 0)
                 log_debug("Successfully mounted %s to %s", what, m->path);
         else if (m->ignore && errno == ENOENT)
-                r = 0;
+                return 0;
 
         return r;
 }
@@ -326,14 +327,17 @@ static int make_read_only(BindMount *m) {
 
         assert(m);
 
-        if (m->mode != INACCESSIBLE && m->mode != READONLY)
+        if (IN_SET(m->mode, INACCESSIBLE, READONLY))
+                r = bind_remount_recursive(m->path, true);
+        else if (m->mode == READWRITE)
+                r = bind_remount_recursive(m->path, false);
+        else
+                r = 0;
+
+        if (m->ignore && r == -ENOENT)
                 return 0;
 
-        r = mount(NULL, m->path, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY|MS_REC, NULL);
-        if (r < 0 && !(m->ignore && errno == ENOENT))
-                return -errno;
-
-        return 0;
+        return r;
 }
 
 int setup_namespace(

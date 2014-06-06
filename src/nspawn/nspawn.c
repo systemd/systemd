@@ -635,7 +635,7 @@ static int mount_all(const char *dest) {
         return r;
 }
 
-static int mount_binds(const char *dest, char **l, unsigned long flags) {
+static int mount_binds(const char *dest, char **l, bool ro) {
         char **x, **y;
 
         STRV_FOREACH_PAIR(x, y, l) {
@@ -686,9 +686,12 @@ static int mount_binds(const char *dest, char **l, unsigned long flags) {
                         return -errno;
                 }
 
-                if (flags && mount(NULL, where, NULL, MS_REMOUNT|MS_BIND|flags, NULL) < 0) {
-                        log_error("mount(%s) failed: %m", where);
-                        return -errno;
+                if (ro) {
+                        r = bind_remount_recursive(where, true);
+                        if (r < 0) {
+                                log_error("Read-Only bind mount failed: %s", strerror(-r));
+                                return r;
+                        }
                 }
         }
 
@@ -2941,15 +2944,17 @@ int main(int argc, char *argv[]) {
 
                         /* Turn directory into bind mount */
                         if (mount(arg_directory, arg_directory, "bind", MS_BIND|MS_REC, NULL) < 0) {
-                                log_error("Failed to make bind mount.");
+                                log_error("Failed to make bind mount: %m");
                                 goto child_fail;
                         }
 
-                        if (arg_read_only)
-                                if (mount(arg_directory, arg_directory, "bind", MS_BIND|MS_REMOUNT|MS_RDONLY|MS_REC, NULL) < 0) {
-                                        log_error("Failed to make read-only.");
+                        if (arg_read_only) {
+                                k = bind_remount_recursive(arg_directory, true);
+                                if (k < 0) {
+                                        log_error("Failed to make tree read-only: %s", strerror(-k));
                                         goto child_fail;
                                 }
+                        }
 
                         if (mount_all(arg_directory) < 0)
                                 goto child_fail;
@@ -2985,10 +2990,10 @@ int main(int argc, char *argv[]) {
                         if (setup_journal(arg_directory) < 0)
                                 goto child_fail;
 
-                        if (mount_binds(arg_directory, arg_bind, 0) < 0)
+                        if (mount_binds(arg_directory, arg_bind, false) < 0)
                                 goto child_fail;
 
-                        if (mount_binds(arg_directory, arg_bind_ro, MS_RDONLY) < 0)
+                        if (mount_binds(arg_directory, arg_bind_ro, true) < 0)
                                 goto child_fail;
 
                         if (setup_kdbus(arg_directory, kdbus_domain) < 0)
