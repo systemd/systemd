@@ -136,8 +136,7 @@ static void message_free(sd_bus_message *m) {
                 ioctl(m->bus->input_fd, KDBUS_CMD_FREE, &off);
         }
 
-        if (m->bus)
-                sd_bus_unref(m->bus);
+        sd_bus_unref(m->bus);
 
         if (m->free_fds) {
                 close_many(m->fds, m->n_fds);
@@ -373,6 +372,7 @@ int bus_message_from_header(
         struct bus_header *h;
         size_t a, label_sz;
 
+        assert(bus);
         assert(buffer || length <= 0);
         assert(fds || n_fds <= 0);
         assert(ret);
@@ -426,10 +426,9 @@ int bus_message_from_header(
                 m->creds.mask |= SD_BUS_CREDS_SELINUX_CONTEXT;
         }
 
-        if (bus)
-                m->bus = sd_bus_ref(bus);
-
+        m->bus = sd_bus_ref(bus);
         *ret = m;
+
         return 0;
 }
 
@@ -489,6 +488,8 @@ fail:
 static sd_bus_message *message_new(sd_bus *bus, uint8_t type) {
         sd_bus_message *m;
 
+        assert(bus);
+
         m = malloc0(ALIGN(sizeof(sd_bus_message)) + sizeof(struct bus_header));
         if (!m)
                 return NULL;
@@ -500,9 +501,7 @@ static sd_bus_message *message_new(sd_bus *bus, uint8_t type) {
         m->header->version = bus ? bus->message_version : 1;
         m->allow_fds = !bus || bus->can_fds || (bus->state != BUS_HELLO && bus->state != BUS_RUNNING);
         m->root_container.need_offsets = BUS_MESSAGE_IS_GVARIANT(m);
-
-        if (bus)
-                m->bus = sd_bus_ref(bus);
+        m->bus = sd_bus_ref(bus);
 
         return m;
 }
@@ -517,7 +516,8 @@ _public_ int sd_bus_message_new_signal(
         sd_bus_message *t;
         int r;
 
-        assert_return(!bus || bus->state != BUS_UNSET, -ENOTCONN);
+        assert_return(bus, -ENOTCONN);
+        assert_return(bus->state != BUS_UNSET, -ENOTCONN);
         assert_return(object_path_is_valid(path), -EINVAL);
         assert_return(interface_name_is_valid(interface), -EINVAL);
         assert_return(member_name_is_valid(member), -EINVAL);
@@ -558,7 +558,8 @@ _public_ int sd_bus_message_new_method_call(
         sd_bus_message *t;
         int r;
 
-        assert_return(!bus || bus->state != BUS_UNSET, -ENOTCONN);
+        assert_return(bus, -ENOTCONN);
+        assert_return(bus->state != BUS_UNSET, -ENOTCONN);
         assert_return(!destination || service_name_is_valid(destination), -EINVAL);
         assert_return(object_path_is_valid(path), -EINVAL);
         assert_return(!interface || interface_name_is_valid(interface), -EINVAL);
@@ -607,7 +608,7 @@ static int message_new_reply(
         assert_return(call, -EINVAL);
         assert_return(call->sealed, -EPERM);
         assert_return(call->header->type == SD_BUS_MESSAGE_METHOD_CALL, -EINVAL);
-        assert_return(!call->bus || call->bus->state != BUS_UNSET, -ENOTCONN);
+        assert_return(call->bus->state != BUS_UNSET, -ENOTCONN);
         assert_return(m, -EINVAL);
 
         t = message_new(call->bus, type);
@@ -742,6 +743,7 @@ int bus_message_new_synthetic_error(
         sd_bus_message *t;
         int r;
 
+        assert(bus);
         assert(sd_bus_error_is_set(e));
         assert(m);
 
@@ -2784,7 +2786,7 @@ int bus_message_seal(sd_bus_message *m, uint64_t cookie, usec_t timeout) {
         /* If this is something we can send as memfd, then let's seal
         the memfd now. Note that we can send memfds as payload only
         for directed messages, and not for broadcasts. */
-        if (m->destination && m->bus && m->bus->use_memfd) {
+        if (m->destination && m->bus->use_memfd) {
                 MESSAGE_FOREACH_PART(part, i, m)
                         if (part->memfd >= 0 && !part->sealed && (part->size > MEMFD_MIN_SIZE || m->bus->use_memfd < 0)) {
                                 uint64_t sz;
@@ -5045,7 +5047,7 @@ int bus_message_parse_fields(sd_bus_message *m) {
 
                         r = message_peek_field_string(m, service_name_is_valid, &ri, item_size, &m->sender);
 
-                        if (r >= 0 && m->sender[0] == ':' && m->bus && m->bus->bus_client && !m->bus->is_kernel) {
+                        if (r >= 0 && m->sender[0] == ':' && m->bus->bus_client && !m->bus->is_kernel) {
                                 m->creds.unique_name = (char*) m->sender;
                                 m->creds.mask |= SD_BUS_CREDS_UNIQUE_NAME & m->bus->creds_mask;
                         }

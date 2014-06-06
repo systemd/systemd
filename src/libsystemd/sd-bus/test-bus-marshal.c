@@ -93,8 +93,13 @@ int main(int argc, char *argv[]) {
         _cleanup_free_ char *first = NULL, *second = NULL, *third = NULL;
         _cleanup_fclose_ FILE *ms = NULL;
         size_t first_size = 0, second_size = 0, third_size = 0;
+        _cleanup_bus_unref_ sd_bus *bus = NULL;
 
-        r = sd_bus_message_new_method_call(NULL, &m, "foobar.waldo", "/", "foobar.waldo", "Piep");
+        r = sd_bus_default_system(&bus);
+        if (r < 0)
+                return EXIT_TEST_SKIP;
+
+        r = sd_bus_message_new_method_call(bus, &m, "foobar.waldo", "/", "foobar.waldo", "Piep");
         assert_se(r >= 0);
 
         r = sd_bus_message_append(m, "");
@@ -193,7 +198,7 @@ int main(int argc, char *argv[]) {
 
         m = sd_bus_message_unref(m);
 
-        r = bus_message_from_malloc(NULL, buffer, sz, NULL, 0, NULL, NULL, &m);
+        r = bus_message_from_malloc(bus, buffer, sz, NULL, 0, NULL, NULL, &m);
         assert_se(r >= 0);
 
         bus_message_dump(m, stdout, true);
@@ -266,7 +271,7 @@ int main(int argc, char *argv[]) {
         r = sd_bus_message_peek_type(m, NULL, NULL);
         assert_se(r == 0);
 
-        r = sd_bus_message_new_method_call(NULL, &copy, "foobar.waldo", "/", "foobar.waldo", "Piep");
+        r = sd_bus_message_new_method_call(bus, &copy, "foobar.waldo", "/", "foobar.waldo", "Piep");
         assert_se(r >= 0);
 
         r = sd_bus_message_rewind(m, true);

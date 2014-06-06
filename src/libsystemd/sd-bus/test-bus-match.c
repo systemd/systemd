@@ -80,13 +80,19 @@ static int match_add(sd_bus_slot *slots, struct bus_match_node *root, const char
 }
 
 int main(int argc, char *argv[]) {
-        struct bus_match_node root;
+        struct bus_match_node root = {
+                .type = BUS_MATCH_ROOT,
+        };
+
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_bus_unref_ sd_bus *bus = NULL;
         enum bus_match_node_type i;
         sd_bus_slot slots[15];
+        int r;
 
-        zero(root);
-        root.type = BUS_MATCH_ROOT;
+        r = sd_bus_open_system(&bus);
+        if (r < 0)
+                return EXIT_TEST_SKIP;
 
         assert_se(match_add(slots, &root, "arg2='wal\\'do',sender='foo',type='signal',interface='bar.x',", 1) >= 0);
         assert_se(match_add(slots, &root, "arg2='wal\\'do2',sender='foo',type='signal',interface='bar.x',", 2) >= 0);
@@ -105,7 +111,7 @@ int main(int argc, char *argv[]) {
 
         bus_match_dump(&root, 0);
 
-        assert_se(sd_bus_message_new_signal(NULL, &m, "/foo/bar", "bar.x", "waldo") >= 0);
+        assert_se(sd_bus_message_new_signal(bus, &m, "/foo/bar", "bar.x", "waldo") >= 0);
         assert_se(sd_bus_message_append(m, "ssss", "one", "two", "/prefix/three", "prefix.four") >= 0);
         assert_se(bus_message_seal(m, 1, 0) >= 0);
 

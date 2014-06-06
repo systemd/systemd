@@ -134,8 +134,12 @@ static void test_marshal(void) {
         _cleanup_bus_unref_ sd_bus *bus = NULL;
         _cleanup_free_ void *blob;
         size_t sz;
+        int r;
 
-        assert_se(sd_bus_open_system(&bus) >= 0);
+        r = sd_bus_open_system(&bus);
+        if (r < 0)
+                exit(EXIT_TEST_SKIP);
+
         bus->message_version = 2; /* dirty hack to enable gvariant*/
 
         assert_se(sd_bus_message_new_method_call(bus, &m, "a.service.name", "/an/object/path/which/is/really/really/long/so/that/we/hit/the/eight/bit/boundary/by/quite/some/margin/to/test/this/stuff/that/it/really/works", "an.interface.name", "AMethodName") >= 0);
@@ -175,7 +179,7 @@ static void test_marshal(void) {
 
         assert_se(bus_message_get_blob(m, &blob, &sz) >= 0);
 
-        assert_se(bus_message_from_malloc(NULL, blob, sz, NULL, 0, NULL, NULL, &n) >= 0);
+        assert_se(bus_message_from_malloc(bus, blob, sz, NULL, 0, NULL, NULL, &n) >= 0);
         blob = NULL;
 
         assert_se(bus_message_dump(n, NULL, true) >= 0);
