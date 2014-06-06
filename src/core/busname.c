@@ -446,7 +446,7 @@ static void busname_enter_signal(BusName *n, BusNameState state, BusNameResult f
                               n->control_pid,
                               false);
         if (r < 0) {
-                log_warning_unit(UNIT(n)->id, "%s failed to kill control proces: %s", UNIT(n)->id, strerror(-r));
+                log_warning_unit(UNIT(n)->id, "%s failed to kill control process: %s", UNIT(n)->id, strerror(-r));
                 goto fail;
         }
 
