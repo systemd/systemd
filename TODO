@@ -186,7 +186,6 @@ Features:
   - allow updating attach flags during runtime
   - pid1: peek into activating message when activating a service
   - introduce sd_bus_emit_object_added()/sd_bus_emit_object_removed() that automatically includes the build-in interfaces in the list
-  - constructors for bus messages should probably not be OK with a NULL bus pointer
   - port to sd-resolve for connecting to TCP dbus servers
   - see if we can drop more message validation on the sending side
   - add API to clone sd_bus_message objects
