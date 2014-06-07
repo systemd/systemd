@@ -557,8 +557,6 @@ void policy_free(Policy *p) {
                         LIST_REMOVE(items, first, i);
                         policy_item_free(i);
                 }
-
-                policy_item_free(i);
         }
 
         while ((first = hashmap_steal_first(p->group_items))) {
@@ -567,8 +565,6 @@ void policy_free(Policy *p) {
                         LIST_REMOVE(items, first, i);
                         policy_item_free(i);
                 }
-
-                policy_item_free(i);
         }
 
         hashmap_free(p->user_items);
@@ -646,7 +642,7 @@ static void dump_hashmap_items(Hashmap *h) {
         }
 }
 
-void policy_dump(Policy *p) {
+noreturn void policy_dump(Policy *p) {
 
         printf("→ Default Items:\n");
         dump_items(p->default_items);
