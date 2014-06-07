@@ -1181,7 +1181,7 @@
                                 useful for implementation of generator
                                 tools that convert configuration from
                                 an external configuration file format
-                                into native unit files. Thus
+                                into native unit files. This
                                 functionality should not be used in
                                 normal units.</para></listitem>
                         </varlistentry>
