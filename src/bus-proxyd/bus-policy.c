@@ -644,16 +644,16 @@ static void dump_hashmap_items(Hashmap *h) {
 
 noreturn void policy_dump(Policy *p) {
 
-        printf("→ Default Items:\n");
+        printf("%s Default Items:\n", draw_special_char(DRAW_ARROW));
         dump_items(p->default_items);
 
-        printf("→ Mandatory Items:\n");
+        printf("%s Mandatory Items:\n", draw_special_char(DRAW_ARROW));
         dump_items(p->mandatory_items);
 
-        printf("→ Group Items:\n");
+        printf("%s Group Items:\n", draw_special_char(DRAW_ARROW));
         dump_hashmap_items(p->group_items);
 
-        printf("→ User Items:\n");
+        printf("%s User Items:\n", draw_special_char(DRAW_ARROW));
         dump_hashmap_items(p->user_items);
         exit(0);
 }
