@@ -4337,7 +4337,7 @@ nodist_systemunit_DATA += \
 
 GENERAL_ALIASES += \
 	$(systemunitdir)/systemd-networkd.service $(pkgsysconfdir)/system/multi-user.target.wants/systemd-networkd.service \
-	$(systemunitdir)/systemd-networkd.service $(pkgsysconfdir)/system/network-online.target.wants/systemd-networkd-wait-online.service
+	$(systemunitdir)/systemd-networkd-wait-online.service $(pkgsysconfdir)/system/network-online.target.wants/systemd-networkd-wait-online.service
 
 EXTRA_DIST += \
 	src/network/networkd-network-gperf.gperf \
