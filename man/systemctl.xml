@@ -230,8 +230,10 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <para>If <literal>replace-irreversibly</literal> is specified,
         operate like <literal>replace</literal>, but also mark the new
         jobs as irreversible. This prevents future conflicting
-        transactions from replacing these jobs. The jobs can still be
-        cancelled using the <command>cancel</command> command.</para>
+        transactions from replacing these jobs (or even being enqueued
+        while the irreversible jobs are still pending). Irreversible
+        jobs can still be cancelled using the <command>cancel</command>
+        command.</para>
 
         <para><literal>isolate</literal> is only valid for start
         operations and causes all other units to be stopped when the
