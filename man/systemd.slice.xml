@@ -56,13 +56,13 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
     <para>A unit configuration file whose name ends in
     <literal>.slice</literal> encodes information about a slice which
-    is a concept for hierarchially managing resources of a group of
+    is a concept for hierarchically managing resources of a group of
     processes. This management is performed by creating a node in the
     Linux Control Group (cgroup) tree. Units that manage processes
-    (primarilly scope and service units) may be assigned to a specific
-    slice. For each slice, certain resource limits may the be set that
+    (primarily scope and service units) may be assigned to a specific
+    slice. For each slice, certain resource limits may be set that
     apply to all processes of all units contained in that
-    slice. Slices are organized hierarchially in a tree. The name of
+    slice. Slices are organized hierarchically in a tree. The name of
     the slice encodes the location in the tree. The name consists of a
     dash-separated series of names, which describes the path to the
     slice from the root slice. The root slice is named,
