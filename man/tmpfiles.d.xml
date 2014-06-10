@@ -109,7 +109,11 @@
                 of the directories they reside in. If multiple files
                 specify the same path, the entry in the file with the
                 lexicographically earliest name will be applied, all
-                all other conflicting entries logged as errors.</para>
+                all other conflicting entries will be logged as
+                errors. When two lines are prefix and suffix of each
+                other, then the prefix is always processed first, the
+                suffix later. Otherwise the files/directories are
+                processed in the order they are listed.</para>
 
                 <para>If the administrator wants to disable a
                 configuration file supplied by the vendor, the
