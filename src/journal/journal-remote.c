@@ -185,7 +185,7 @@ static int open_output(Writer *s, const char* url) {
                 if (r < 0)
                         return log_oom();
         } else {
-                r = is_dir(arg_output);
+                r = is_dir(arg_output, true);
                 if (r > 0) {
                         r = asprintf(&output,
                                      "%s/remote-%s.journal", arg_output, name);

@@ -71,7 +71,6 @@ typedef enum ItemType {
         CREATE_CHAR_DEVICE = 'c',
         CREATE_BLOCK_DEVICE = 'b',
         COPY_FILES = 'C',
-        ADJUST_MODE = 'm',
 
         /* These ones take globs */
         WRITE_FILE = 'w',
@@ -79,8 +78,9 @@ typedef enum ItemType {
         IGNORE_DIRECTORY_PATH = 'X',
         REMOVE_PATH = 'r',
         RECURSIVE_REMOVE_PATH = 'R',
+        ADJUST_MODE = 'm', /* legacy, 'z' is identical to this */
         RELABEL_PATH = 'z',
-        RECURSIVE_RELABEL_PATH = 'Z'
+        RECURSIVE_RELABEL_PATH = 'Z',
 } ItemType;
 
 typedef struct Item {
@@ -134,6 +134,7 @@ static bool needs_glob(ItemType t) {
                       IGNORE_DIRECTORY_PATH,
                       REMOVE_PATH,
                       RECURSIVE_REMOVE_PATH,
+                      ADJUST_MODE,
                       RELABEL_PATH,
                       RECURSIVE_RELABEL_PATH);
 }
@@ -543,109 +544,90 @@ static int write_one_file(Item *i, const char *path) {
         return 0;
 }
 
-static int recursive_relabel_children(Item *i, const char *path) {
+static int item_set_perms_children(Item *i, const char *path) {
         _cleanup_closedir_ DIR *d;
-        int ret = 0;
+        int r = 0;
+
+        assert(i);
+        assert(path);
 
         /* This returns the first error we run into, but nevertheless
          * tries to go on */
 
         d = opendir(path);
         if (!d)
-                return errno == ENOENT ? 0 : -errno;
+                return errno == ENOENT || errno == ENOTDIR ? 0 : -errno;
 
         for (;;) {
+                _cleanup_free_ char *p = NULL;
                 struct dirent *de;
-                bool dir;
-                int r;
-                _cleanup_free_ char *entry_path = NULL;
+                int q;
 
                 errno = 0;
                 de = readdir(d);
-                if (!de && errno != 0) {
-                        if (ret == 0)
-                                ret = -errno;
+                if (!de) {
+                        if (errno != 0 && r == 0)
+                                r = -errno;
+
                         break;
                 }
-
-                if (!de)
-                        break;
 
                 if (streq(de->d_name, ".") || streq(de->d_name, ".."))
                         continue;
 
-                if (asprintf(&entry_path, "%s/%s", path, de->d_name) < 0) {
-                        if (ret == 0)
-                                ret = -ENOMEM;
-                        continue;
-                }
+                p = strjoin(path, "/", de->d_name, NULL);
+                if (!p)
+                        return -ENOMEM;
 
-                if (de->d_type == DT_UNKNOWN) {
-                        r = is_dir(entry_path);
-                        if (r < 0) {
-                                if (ret == 0 && errno != ENOENT)
-                                        ret = -errno;
-                                continue;
-                        }
+                q = item_set_perms(i, p);
+                if (q < 0 && q != -ENOENT && r == 0)
+                        r = q;
 
-                        dir = r;
-
-                } else
-                        dir = de->d_type == DT_DIR;
-
-                r = item_set_perms(i, entry_path);
-                if (r < 0) {
-                        if (ret == 0 && r != -ENOENT)
-                                ret = r;
-                        continue;
-                }
-
-                if (dir) {
-                        r = recursive_relabel_children(i, entry_path);
-                        if (r < 0 && ret == 0)
-                                ret = r;
+                if (IN_SET(de->d_type, DT_UNKNOWN, DT_DIR)) {
+                        q = item_set_perms_children(i, p);
+                        if (q < 0 && r == 0)
+                                r = q;
                 }
         }
 
-        return ret;
+        return r;
 }
 
-static int recursive_relabel(Item *i, const char *path) {
-        int r;
-        struct stat st;
+static int item_set_perms_recursive(Item *i, const char *path) {
+        int r, q;
+
+        assert(i);
+        assert(path);
 
         r = item_set_perms(i, path);
         if (r < 0)
                 return r;
 
-        if (lstat(path, &st) < 0)
-                return -errno;
-
-        if (S_ISDIR(st.st_mode))
-                r = recursive_relabel_children(i, path);
+        q = item_set_perms_children(i, path);
+        if (q < 0 && r == 0)
+                r = q;
 
         return r;
 }
 
 static int glob_item(Item *i, int (*action)(Item *, const char *)) {
-        int r = 0, k;
         _cleanup_globfree_ glob_t g = {};
+        int r = 0, k;
         char **fn;
 
         errno = 0;
         k = glob(i->path, GLOB_NOSORT|GLOB_BRACE, NULL, &g);
-        if (k != 0)
-                if (k != GLOB_NOMATCH) {
-                        if (errno > 0)
-                                errno = EIO;
+        if (k != 0 && k != GLOB_NOMATCH) {
+                if (errno == 0)
+                        errno = EIO;
 
-                        log_error("glob(%s) failed: %m", i->path);
-                        return -errno;
-                }
+                log_error("glob(%s) failed: %m", i->path);
+                return -errno;
+        }
 
         STRV_FOREACH(fn, g.gl_pathv) {
                 k = action(i, *fn);
-                if (k < 0)
+                if (k < 0 && r == 0)
                         r = k;
         }
 
@@ -688,13 +670,6 @@ static int create_item(Item *i) {
 
         case WRITE_FILE:
                 r = glob_item(i, write_one_file);
-                if (r < 0)
-                        return r;
-
-                break;
-
-        case ADJUST_MODE:
-                r = item_set_perms_full(i, i->path, true);
                 if (r < 0)
                         return r;
 
@@ -826,6 +801,7 @@ static int create_item(Item *i) {
                 break;
         }
 
+        case ADJUST_MODE:
         case RELABEL_PATH:
 
                 r = glob_item(i, item_set_perms);
@@ -835,9 +811,11 @@ static int create_item(Item *i) {
 
         case RECURSIVE_RELABEL_PATH:
 
-                r = glob_item(i, recursive_relabel);
+                r = glob_item(i, item_set_perms_recursive);
                 if (r < 0)
                         return r;
+
+                break;
         }
 
         log_debug("%s created successfully.", i->path);
@@ -861,11 +839,11 @@ static int remove_item_instance(Item *i, const char *instance) {
         case CREATE_CHAR_DEVICE:
         case IGNORE_PATH:
         case IGNORE_DIRECTORY_PATH:
+        case ADJUST_MODE:
         case RELABEL_PATH:
         case RECURSIVE_RELABEL_PATH:
         case WRITE_FILE:
         case COPY_FILES:
-        case ADJUST_MODE:
                 break;
 
         case REMOVE_PATH:
@@ -908,11 +886,11 @@ static int remove_item(Item *i) {
         case CREATE_BLOCK_DEVICE:
         case IGNORE_PATH:
         case IGNORE_DIRECTORY_PATH:
+        case ADJUST_MODE:
         case RELABEL_PATH:
         case RECURSIVE_RELABEL_PATH:
         case WRITE_FILE:
         case COPY_FILES:
-        case ADJUST_MODE:
                 break;
 
         case REMOVE_PATH:
@@ -1158,9 +1136,9 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         case IGNORE_DIRECTORY_PATH:
         case REMOVE_PATH:
         case RECURSIVE_REMOVE_PATH:
+        case ADJUST_MODE:
         case RELABEL_PATH:
         case RECURSIVE_RELABEL_PATH:
-        case ADJUST_MODE:
                 break;
 
         case CREATE_SYMLINK:
