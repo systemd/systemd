@@ -38,7 +38,7 @@
 #include "fileio.h"
 #include "path-util.h"
 
-static int shorten_uuid(char destination[36], const char *source) {
+static int shorten_uuid(char destination[34], const char source[36]) {
         unsigned i, j;
 
         for (i = 0, j = 0; i < 36 && j < 32; i++) {
