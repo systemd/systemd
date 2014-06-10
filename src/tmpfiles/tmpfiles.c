@@ -462,10 +462,13 @@ static int item_set_perms(Item *i, const char *path) {
 }
 
 static int write_one_file(Item *i, const char *path) {
-        int e, flags;
+        int flags;
         int fd = -1;
         struct stat st;
         int r = 0;
+
+        assert(i);
+        assert(path);
 
         flags = i->type == CREATE_FILE ? O_CREAT|O_APPEND :
                 i->type == TRUNCATE_FILE ? O_CREAT|O_TRUNC : 0;
@@ -473,9 +476,7 @@ static int write_one_file(Item *i, const char *path) {
         RUN_WITH_UMASK(0) {
                 label_context_set(path, S_IFREG);
                 fd = open(path, flags|O_NDELAY|O_CLOEXEC|O_WRONLY|O_NOCTTY|O_NOFOLLOW, i->mode);
-                e = errno;
                 label_context_clear();
-                errno = e;
         }
 
         if (fd < 0) {
@@ -636,7 +637,6 @@ static int glob_item(Item *i, int (*action)(Item *, const char *)) {
 }
 
 static int create_item(Item *i) {
-        int e;
         struct stat st;
         int r = 0;
 
@@ -732,9 +732,7 @@ static int create_item(Item *i) {
 
                 label_context_set(i->path, S_IFLNK);
                 r = symlink(i->argument, i->path);
-                e = errno;
                 label_context_clear();
-                errno = e;
 
                 if (r < 0 && errno != EEXIST) {
                         log_error("symlink(%s, %s) failed: %m", i->argument, i->path);
@@ -774,9 +772,7 @@ static int create_item(Item *i) {
                 RUN_WITH_UMASK(0000) {
                         label_context_set(i->path, file_type);
                         r = mknod(i->path, i->mode | file_type, i->major_minor);
-                        e = errno;
                         label_context_clear();
-                        errno = e;
                 }
 
                 if (r < 0 && errno != EEXIST) {
