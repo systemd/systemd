@@ -304,7 +304,7 @@ static void worker_new(struct event *event)
                          * <kabi_> IMHO this sounds like a good plan for this moment
                          */
                         if (streq_ptr("block", udev_device_get_subsystem(dev)) &&
-                            !startswith("dm-", udev_device_get_sysname(dev))) {
+                            !startswith(udev_device_get_sysname(dev), "dm-")) {
                                 struct udev_device *d = dev;
 
                                 if (streq_ptr("partition", udev_device_get_devtype(d)))
@@ -741,7 +741,7 @@ static int synthesize_change(struct udev_device *dev) {
 
         if (streq_ptr("block", udev_device_get_subsystem(dev)) &&
             streq_ptr("disk", udev_device_get_devtype(dev)) &&
-            !startswith("dm-", udev_device_get_sysname(dev))) {
+            !startswith(udev_device_get_sysname(dev), "dm-")) {
                 bool part_table_read = false;
                 bool has_partitions = false;
                 int fd;
