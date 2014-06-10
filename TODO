@@ -36,8 +36,6 @@ Features:
 
 * support setting empty environment variables with Environment= and EnvironmentFile=
 
-* tmpfiles: figure out relation between Z and m?
-
 * machined/machinectl: sort IP addresses we return by scope and protocol
 * machined: write NSS module for looking up IP addresses for machines
 
