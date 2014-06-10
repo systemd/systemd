@@ -252,6 +252,7 @@ char *strnappend(const char *s, const char *suffix, size_t length);
 char *replace_env(const char *format, char **env);
 char **replace_env_argv(char **argv, char **env);
 
+int readlinkat_malloc(int fd, const char *p, char **ret);
 int readlink_malloc(const char *p, char **r);
 int readlink_and_make_absolute(const char *p, char **r);
 int readlink_and_canonicalize(const char *p, char **r);
@@ -520,8 +521,6 @@ int terminal_vhangup_fd(int fd);
 int terminal_vhangup(const char *name);
 
 int vt_disallocate(const char *name);
-
-int copy_file(const char *from, const char *to, int flags);
 
 int symlink_atomic(const char *from, const char *to);
 

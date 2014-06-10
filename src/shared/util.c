@@ -804,7 +804,7 @@ char *strappend(const char *s, const char *suffix) {
         return strnappend(s, suffix, suffix ? strlen(suffix) : 0);
 }
 
-int readlink_malloc(const char *p, char **ret) {
+int readlinkat_malloc(int fd, const char *p, char **ret) {
         size_t l = 100;
         int r;
 
@@ -819,7 +819,7 @@ int readlink_malloc(const char *p, char **ret) {
                 if (!c)
                         return -ENOMEM;
 
-                n = readlink(p, c, l-1);
+                n = readlinkat(fd, p, c, l-1);
                 if (n < 0) {
                         r = -errno;
                         free(c);
@@ -835,6 +835,10 @@ int readlink_malloc(const char *p, char **ret) {
                 free(c);
                 l *= 2;
         }
+}
+
+int readlink_malloc(const char *p, char **ret) {
+        return readlinkat_malloc(AT_FDCWD, p, ret);
 }
 
 int readlink_and_make_absolute(const char *p, char **r) {
@@ -4124,60 +4128,6 @@ int vt_disallocate(const char *name) {
                    "\033[3J", /* clear screen including scrollback, requires Linux 2.6.40 */
                    10, false);
         safe_close(fd);
-
-        return 0;
-}
-
-int copy_file(const char *from, const char *to, int flags) {
-        _cleanup_close_ int fdf = -1;
-        int r, fdt;
-
-        assert(from);
-        assert(to);
-
-        fdf = open(from, O_RDONLY|O_CLOEXEC|O_NOCTTY);
-        if (fdf < 0)
-                return -errno;
-
-        fdt = open(to, flags|O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY, 0644);
-        if (fdt < 0)
-                return -errno;
-
-        for (;;) {
-                char buf[PIPE_BUF];
-                ssize_t n, k;
-
-                n = read(fdf, buf, sizeof(buf));
-                if (n < 0) {
-                        r = -errno;
-
-                        close_nointr(fdt);
-                        unlink(to);
-
-                        return r;
-                }
-
-                if (n == 0)
-                        break;
-
-                errno = 0;
-                k = loop_write(fdt, buf, n, false);
-                if (n != k) {
-                        r = k < 0 ? k : (errno ? -errno : -EIO);
-
-                        close_nointr(fdt);
-                        unlink(to);
-
-                        return r;
-                }
-        }
-
-        r = close_nointr(fdt);
-
-        if (r < 0) {
-                unlink(to);
-                return r;
-        }
 
         return 0;
 }

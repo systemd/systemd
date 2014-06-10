@@ -808,7 +808,9 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/async.c \
 	src/shared/async.h \
 	src/shared/eventfd-util.c \
-	src/shared/eventfd-util.h
+	src/shared/eventfd-util.h \
+	src/shared/copy.c \
+	src/shared/copy.h
 
 nodist_libsystemd_shared_la_SOURCES = \
 	src/shared/errno-from-name.h \

@@ -53,6 +53,7 @@
 #include "capability.h"
 #include "specifier.h"
 #include "build.h"
+#include "copy.h"
 
 /* This reads all files listed in /etc/tmpfiles.d/?*.conf and creates
  * them in the file system. This is intended to be used to create
@@ -69,6 +70,7 @@ typedef enum ItemType {
         CREATE_SYMLINK = 'L',
         CREATE_CHAR_DEVICE = 'c',
         CREATE_BLOCK_DEVICE = 'b',
+        COPY_FILES = 'C',
         ADJUST_MODE = 'm',
 
         /* These ones take globs */
@@ -671,6 +673,19 @@ static int create_item(Item *i) {
                         return r;
                 break;
 
+        case COPY_FILES:
+                r = copy_tree(i->argument, i->path);
+                if (r < 0) {
+                        log_error("Failed to copy files: %s", strerror(-r));
+                        return r;
+                }
+
+                r = item_set_perms(i, i->path);
+                if (r < 0)
+                        return r;
+
+                break;
+
         case WRITE_FILE:
                 r = glob_item(i, write_one_file);
                 if (r < 0)
@@ -849,6 +864,7 @@ static int remove_item_instance(Item *i, const char *instance) {
         case RELABEL_PATH:
         case RECURSIVE_RELABEL_PATH:
         case WRITE_FILE:
+        case COPY_FILES:
         case ADJUST_MODE:
                 break;
 
@@ -895,6 +911,7 @@ static int remove_item(Item *i) {
         case RELABEL_PATH:
         case RECURSIVE_RELABEL_PATH:
         case WRITE_FILE:
+        case COPY_FILES:
         case ADJUST_MODE:
                 break;
 
@@ -967,6 +984,7 @@ static int clean_item(Item *i) {
         case CREATE_DIRECTORY:
         case TRUNCATE_DIRECTORY:
         case IGNORE_PATH:
+        case COPY_FILES:
                 clean_item_instance(i, i->path);
                 break;
         case IGNORE_DIRECTORY_PATH:
@@ -1036,7 +1054,8 @@ static bool item_equal(Item *a, Item *b) {
         if ((a->type == CREATE_FILE ||
              a->type == TRUNCATE_FILE ||
              a->type == WRITE_FILE ||
-             a->type == CREATE_SYMLINK) &&
+             a->type == CREATE_SYMLINK ||
+             a->type == COPY_FILES) &&
             !streq_ptr(a->argument, b->argument))
                 return false;
 
@@ -1157,6 +1176,20 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                         log_error("[%s:%u] Write file requires argument.", fname, line);
                         return -EBADMSG;
                 }
+                break;
+
+        case COPY_FILES:
+                if (!i->argument) {
+                        log_error("[%s:%u] Copy files requires argument.", fname, line);
+                        return -EBADMSG;
+                }
+
+                if (!path_is_absolute(i->argument)) {
+                        log_error("[%s:%u] Source path is not absolute.", fname, line);
+                        return -EBADMSG;
+                }
+
+                path_kill_slashes(i->argument);
                 break;
 
         case CREATE_CHAR_DEVICE:

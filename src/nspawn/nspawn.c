@@ -88,6 +88,7 @@
 #include "blkid-util.h"
 #include "gpt.h"
 #include "siphash24.h"
+#include "copy.h"
 
 #ifdef HAVE_SECCOMP
 #include "seccomp-util.h"
@@ -773,7 +774,7 @@ static int setup_resolv_conf(const char *dest) {
 
         /* We don't really care for the results of this really. If it
          * fails, it fails, but meh... */
-        copy_file("/etc/resolv.conf", where, O_TRUNC|O_NOFOLLOW);
+        copy_file("/etc/resolv.conf", where, O_TRUNC|O_NOFOLLOW, 0644);
 
         return 0;
 }
