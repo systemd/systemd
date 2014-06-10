@@ -12,5 +12,5 @@ Description=Legacy D-Bus Protocol Compatibility Daemon
 # The first argument will be replaced by the service by information on
 # the process requesting the proxy, we need a placeholder to keep the
 # space available for this.
-ExecStart=@rootlibexecdir@/sessiond-bus-proxyd --address=kernel:path=/dev/kdbus/%U-user/bus --configuration=/etc/dbus-1/session.conf --configuration=/etc/dbus-1/session-local.conf --configuration=/etc/dbus-1/session.d/ xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+ExecStart=@rootlibexecdir@/systemd-bus-proxyd --address=kernel:path=/dev/kdbus/%U-user/bus --configuration=/etc/dbus-1/session.conf --configuration=/etc/dbus-1/session-local.conf --configuration=/etc/dbus-1/session.d/ xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 NotifyAccess=main
