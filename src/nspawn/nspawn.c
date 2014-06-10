@@ -146,6 +146,7 @@ static uint64_t arg_retain =
         (1ULL << CAP_MKNOD);
 static char **arg_bind = NULL;
 static char **arg_bind_ro = NULL;
+static char **arg_tmpfs = NULL;
 static char **arg_setenv = NULL;
 static bool arg_quiet = false;
 static bool arg_share_system = false;
@@ -200,6 +201,7 @@ static int help(void) {
                "     --bind=PATH[:PATH]     Bind mount a file or directory from the host into\n"
                "                            the container\n"
                "     --bind-ro=PATH[:PATH]  Similar, but creates a read-only bind mount\n"
+               "     --tmpfs=PATH:[OPTIONS] Mount an empty tmpfs to the specified directory\n"
                "     --setenv=NAME=VALUE    Pass an environment variable to PID 1\n"
                "     --share-system         Share system namespaces with host\n"
                "     --register=BOOLEAN     Register container as machine\n"
@@ -222,6 +224,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_LINK_JOURNAL,
                 ARG_BIND,
                 ARG_BIND_RO,
+                ARG_TMPFS,
                 ARG_SETENV,
                 ARG_SHARE_SYSTEM,
                 ARG_REGISTER,
@@ -247,6 +250,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "link-journal",          required_argument, NULL, ARG_LINK_JOURNAL      },
                 { "bind",                  required_argument, NULL, ARG_BIND              },
                 { "bind-ro",               required_argument, NULL, ARG_BIND_RO           },
+                { "tmpfs",                 required_argument, NULL, ARG_TMPFS             },
                 { "machine",               required_argument, NULL, 'M'                   },
                 { "slice",                 required_argument, NULL, 'S'                   },
                 { "setenv",                required_argument, NULL, ARG_SETENV            },
@@ -469,6 +473,42 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
+                case ARG_TMPFS: {
+                        _cleanup_free_ char *a = NULL, *b = NULL;
+                        char *e;
+
+                        e = strchr(optarg, ':');
+                        if (e) {
+                                a = strndup(optarg, e - optarg);
+                                b = strdup(e + 1);
+                        } else {
+                                a = strdup(optarg);
+                                b = strdup("mode=0755");
+                        }
+
+                        if (!a || !b)
+                                return log_oom();
+
+                        if (!path_is_absolute(a)) {
+                                log_error("Invalid tmpfs specification: %s", optarg);
+                                return -EINVAL;
+                        }
+
+                        r = strv_push(&arg_tmpfs, a);
+                        if (r < 0)
+                                return log_oom();
+
+                        a = NULL;
+
+                        r = strv_push(&arg_tmpfs, b);
+                        if (r < 0)
+                                return log_oom();
+
+                        b = NULL;
+
+                        break;
+                }
+
                 case ARG_SETENV: {
                         char **n;
 
@@ -561,17 +601,17 @@ static int mount_all(const char *dest) {
         } MountPoint;
 
         static const MountPoint mount_table[] = {
-                { "proc",      "/proc",     "proc",  NULL,       MS_NOSUID|MS_NOEXEC|MS_NODEV, true  },
-                { "/proc/sys", "/proc/sys", NULL,    NULL,       MS_BIND, true                       },   /* Bind mount first */
-                { NULL,        "/proc/sys", NULL,    NULL,       MS_BIND|MS_RDONLY|MS_REMOUNT, true  },   /* Then, make it r/o */
-                { "sysfs",     "/sys",      "sysfs", NULL,       MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV, true  },
-                { "tmpfs",     "/dev",      "tmpfs", "mode=755", MS_NOSUID|MS_STRICTATIME,     true  },
+                { "proc",      "/proc",     "proc",  NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV,           true  },
+                { "/proc/sys", "/proc/sys", NULL,    NULL,        MS_BIND,                                true  },   /* Bind mount first */
+                { NULL,        "/proc/sys", NULL,    NULL,        MS_BIND|MS_RDONLY|MS_REMOUNT,           true  },   /* Then, make it r/o */
+                { "sysfs",     "/sys",      "sysfs", NULL,        MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV, true  },
+                { "tmpfs",     "/dev",      "tmpfs", "mode=755",  MS_NOSUID|MS_STRICTATIME,               true  },
                 { "devpts",    "/dev/pts",  "devpts","newinstance,ptmxmode=0666,mode=620,gid=" STRINGIFY(TTY_GID), MS_NOSUID|MS_NOEXEC, true },
-                { "tmpfs",     "/dev/shm",  "tmpfs", "mode=1777", MS_NOSUID|MS_NODEV|MS_STRICTATIME, true  },
-                { "tmpfs",     "/run",      "tmpfs", "mode=755", MS_NOSUID|MS_NODEV|MS_STRICTATIME, true  },
+                { "tmpfs",     "/dev/shm",  "tmpfs", "mode=1777", MS_NOSUID|MS_NODEV|MS_STRICTATIME,      true  },
+                { "tmpfs",     "/run",      "tmpfs", "mode=755",  MS_NOSUID|MS_NODEV|MS_STRICTATIME,      true  },
 #ifdef HAVE_SELINUX
-                { "/sys/fs/selinux", "/sys/fs/selinux", NULL, NULL, MS_BIND,                      false },  /* Bind mount first */
-                { NULL,              "/sys/fs/selinux", NULL, NULL, MS_BIND|MS_RDONLY|MS_REMOUNT, false },  /* Then, make it r/o */
+                { "/sys/fs/selinux", "/sys/fs/selinux", NULL, NULL, MS_BIND,                              false },  /* Bind mount first */
+                { NULL,              "/sys/fs/selinux", NULL, NULL, MS_BIND|MS_RDONLY|MS_REMOUNT,         false },  /* Then, make it r/o */
 #endif
         };
 
@@ -640,7 +680,7 @@ static int mount_binds(const char *dest, char **l, bool ro) {
         char **x, **y;
 
         STRV_FOREACH_PAIR(x, y, l) {
-                char *where;
+                _cleanup_free_ char *where = NULL;
                 struct stat source_st, dest_st;
                 int r;
 
@@ -649,12 +689,14 @@ static int mount_binds(const char *dest, char **l, bool ro) {
                         return -errno;
                 }
 
-                where = strappenda(dest, *y);
+                where = strappend(dest, *y);
+                if (!where)
+                        return log_oom();
+
                 r = stat(where, &dest_st);
                 if (r == 0) {
                         if ((source_st.st_mode & S_IFMT) != (dest_st.st_mode & S_IFMT)) {
-                                log_error("The file types of %s and %s do not match. Refusing bind mount",
-                                                *x, where);
+                                log_error("The file types of %s and %s do not match. Refusing bind mount", *x, where);
                                 return -EINVAL;
                         }
                 } else if (errno == ENOENT) {
@@ -667,6 +709,7 @@ static int mount_binds(const char *dest, char **l, bool ro) {
                         log_error("Failed to bind mount %s: %m", *x);
                         return -errno;
                 }
+
                 /* Create the mount point, but be conservative -- refuse to create block
                 * and char devices. */
                 if (S_ISDIR(source_st.st_mode))
@@ -693,6 +736,27 @@ static int mount_binds(const char *dest, char **l, bool ro) {
                                 log_error("Read-Only bind mount failed: %s", strerror(-r));
                                 return r;
                         }
+                }
+        }
+
+        return 0;
+}
+
+static int mount_tmpfs(const char *dest) {
+        char **i, **o;
+
+        STRV_FOREACH_PAIR(i, o, arg_tmpfs) {
+                _cleanup_free_ char *where = NULL;
+
+                where = strappend(dest, *i);
+                if (!where)
+                        return log_oom();
+
+                mkdir_label(where, 0755);
+
+                if (mount("tmpfs", where, "tmpfs", MS_NODEV|MS_STRICTATIME, *o) < 0) {
+                        log_error("tmpfs mount to %s failed: %m", where);
+                        return -errno;
                 }
         }
 
@@ -2998,6 +3062,9 @@ int main(int argc, char *argv[]) {
                         if (mount_binds(arg_directory, arg_bind_ro, true) < 0)
                                 goto child_fail;
 
+                        if (mount_tmpfs(arg_directory) < 0)
+                                goto child_fail;
+
                         if (setup_kdbus(arg_directory, kdbus_domain) < 0)
                                 goto child_fail;
 
@@ -3248,6 +3315,7 @@ finish:
         strv_free(arg_network_macvlan);
         strv_free(arg_bind);
         strv_free(arg_bind_ro);
+        strv_free(arg_tmpfs);
 
         return r;
 }
