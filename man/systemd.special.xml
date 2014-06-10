@@ -866,7 +866,13 @@
                                         will be stopped before the
                                         network -- to whatever level
                                         it might be set up then -- is
-                                        shut down. Also see <ulink
+                                        shut down. It is hence useful
+                                        when writing service files
+                                        that require network access on
+                                        shutdown, which should order
+                                        themselves after this target,
+                                        but not pull it in. Also see
+                                        <ulink
                                         url="http://www.freedesktop.org/wiki/Software/systemd/NetworkTarget">Running
                                         Services After the Network is
                                         up</ulink> for more
@@ -882,7 +888,6 @@
                                         an LSB header referring to the
                                         <literal>$network</literal>
                                         facility.</para>
-
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
@@ -896,7 +901,12 @@
                                         user/group name lookups for
                                         which
                                         <filename>nss-user-lookup.target</filename>
-                                        should be used. systemd
+                                        should be used. All services
+                                        for which the availability of
+                                        full host/network name
+                                        resolution is essential should
+                                        be ordered after this target,
+                                        but not pull it in. systemd
                                         automatically adds
                                         dependencies of type
                                         <varname>After=</varname> for
@@ -918,7 +928,16 @@
                                         host/network name lookups for
                                         which
                                         <filename>nss-lookup.target</filename>
-                                        should be used. </para>
+                                        should be used. All services
+                                        for which the availability of
+                                        the full user/group database is
+                                        essential should be ordered
+                                        after this target, but not
+                                        pull it in. Note that system
+                                        users are always resolvable,
+                                        and hence do not require any
+                                        special ordering against this
+                                        target.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
@@ -943,19 +962,18 @@
                                         should use
                                         <filename>network-online.target</filename>
                                         (see above).</para>
-
-                                        <para>Again, this target unit
-                                        is <emphasis>not</emphasis>
-                                        suitable for pulling in other
-                                        units, it is only useful for
-                                        ordering.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
                                 <term><filename>rpcbind.target</filename></term>
                                 <listitem>
-                                        <para>systemd automatically
-                                        adds dependencies of type
+                                        <para>The portmapper/rpcbind
+                                        pulls in this target and
+                                        orders itself before it, to
+                                        indicate its
+                                        availability. systemd
+                                        automatically adds
+                                        dependencies of type
                                         <varname>After=</varname> for
                                         this target unit to all SysV
                                         init script service units with
@@ -967,14 +985,24 @@
                         <varlistentry>
                                 <term><filename>time-sync.target</filename></term>
                                 <listitem>
-                                        <para>systemd automatically
-                                        adds dependencies of type
+                                        <para>Services responsible for
+                                        synchronizing the system clock
+                                        from a remote source (such as
+                                        NTP client implementations)
+                                        should pull in this target and
+                                        order themselves before
+                                        it. All services where correct
+                                        time is essential should be
+                                        ordered after this unit, but
+                                        not pull it in. systemd
+                                        automatically adds
+                                        dependencies of type
                                         <varname>After=</varname> for
                                         this target unit to all SysV
                                         init script service units with
                                         an LSB header referring to the
                                         <literal>$time</literal>
-                                        facility.</para>
+                                        facility. </para>
                                 </listitem>
                         </varlistentry>
                 </variablelist>
