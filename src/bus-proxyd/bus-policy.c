@@ -323,7 +323,7 @@ static int file_load(Policy *p, const char *path) {
                                 else if (policy_category == POLICY_CATEGORY_MANDATORY)
                                         LIST_PREPEND(items, p->default_items, i);
                                 else if (policy_category == POLICY_CATEGORY_USER) {
-                                        PolicyItem *first;
+                                        const char *u = policy_user;
 
                                         assert_cc(sizeof(uid_t) == sizeof(uint32_t));
 
@@ -331,16 +331,30 @@ static int file_load(Policy *p, const char *path) {
                                         if (r < 0)
                                                 return log_oom();
 
-                                        first = hashmap_get(p->user_items, UINT32_TO_PTR(i->uid));
-                                        LIST_PREPEND(items, first, i);
-
-                                        r = hashmap_replace(p->user_items, UINT32_TO_PTR(i->uid), first);
-                                        if (r < 0) {
-                                                LIST_REMOVE(items, first, i);
-                                                return log_oom();
+                                        if (!u) {
+                                                log_error("User policy without name");
+                                                return -EINVAL;
                                         }
+
+                                        r = get_user_creds(&u, &i->uid, NULL, NULL, NULL);
+                                        if (r < 0) {
+                                                log_error("Failed to resolve user %s, ignoring policy: %s", u, strerror(-r));
+                                                free(i);
+                                        } else {
+                                                PolicyItem *first;
+
+                                                first = hashmap_get(p->user_items, UINT32_TO_PTR(i->uid));
+                                                LIST_PREPEND(items, first, i);
+
+                                                r = hashmap_replace(p->user_items, UINT32_TO_PTR(i->uid), first);
+                                                if (r < 0) {
+                                                        LIST_REMOVE(items, first, i);
+                                                        return log_oom();
+                                                }
+                                        }
+
                                 } else if (policy_category == POLICY_CATEGORY_GROUP) {
-                                        PolicyItem *first;
+                                        const char *g = policy_group;
 
                                         assert_cc(sizeof(gid_t) == sizeof(uint32_t));
 
@@ -348,13 +362,26 @@ static int file_load(Policy *p, const char *path) {
                                         if (r < 0)
                                                 return log_oom();
 
-                                        first = hashmap_get(p->group_items, UINT32_TO_PTR(i->gid));
-                                        LIST_PREPEND(items, first, i);
+                                        if (!g) {
+                                                log_error("Group policy without name");
+                                                return -EINVAL;
+                                        }
 
-                                        r = hashmap_replace(p->group_items, UINT32_TO_PTR(i->gid), first);
+                                        r = get_group_creds(&g, &i->gid);
                                         if (r < 0) {
-                                                LIST_REMOVE(items, first, i);
-                                                return log_oom();
+                                                log_error("Failed to resolve group %s, ignoring policy: %s", g, strerror(-r));
+                                                free(i);
+                                        } else {
+                                                PolicyItem *first;
+
+                                                first = hashmap_get(p->group_items, UINT32_TO_PTR(i->gid));
+                                                LIST_PREPEND(items, first, i);
+
+                                                r = hashmap_replace(p->group_items, UINT32_TO_PTR(i->gid), first);
+                                                if (r < 0) {
+                                                        LIST_REMOVE(items, first, i);
+                                                        return log_oom();
+                                                }
                                         }
                                 }
 
@@ -582,47 +609,50 @@ void policy_free(Policy *p) {
         p->user_items = p->group_items = NULL;
 }
 
-static void dump_items(PolicyItem *i) {
+static void dump_items(PolicyItem *i, const char *prefix) {
 
         if (!i)
                 return;
 
-        printf("Type: %s\n"
-               "Class: %s\n",
-               policy_item_type_to_string(i->type),
-               policy_item_class_to_string(i->class));
+        if (!prefix)
+                prefix = "";
+
+        printf("%sType: %s\n"
+               "%sClass: %s\n",
+               prefix, policy_item_type_to_string(i->type),
+               prefix, policy_item_class_to_string(i->class));
 
         if (i->interface)
-                printf("Interface: %s\n",
-                       i->interface);
+                printf("%sInterface: %s\n",
+                       prefix, i->interface);
 
         if (i->member)
-                printf("Member: %s\n",
-                       i->member);
+                printf("%sMember: %s\n",
+                       prefix, i->member);
 
         if (i->error)
-                printf("Error: %s\n",
-                       i->error);
+                printf("%sError: %s\n",
+                       prefix, i->error);
 
         if (i->path)
-                printf("Path: %s\n",
-                       i->path);
+                printf("%sPath: %s\n",
+                       prefix, i->path);
 
         if (i->name)
-                printf("Name: %s\n",
-                       i->name);
+                printf("%sName: %s\n",
+                       prefix, i->name);
 
         if (i->message_type != 0)
-                printf("Message Type: %s\n",
-                       bus_message_type_to_string(i->message_type));
+                printf("%sMessage Type: %s\n",
+                       prefix, bus_message_type_to_string(i->message_type));
 
         if (i->uid_valid) {
                 _cleanup_free_ char *user;
 
                 user = uid_to_name(i->uid);
 
-                printf("User: %s\n",
-                       strna(user));
+                printf("%sUser: %s\n",
+                       prefix, strna(user));
         }
 
         if (i->gid_valid) {
@@ -630,13 +660,13 @@ static void dump_items(PolicyItem *i) {
 
                 group = gid_to_name(i->gid);
 
-                printf("Group: %s\n",
-                       strna(group));
+                printf("%sGroup: %s\n",
+                       prefix, strna(group));
         }
 
         if (i->items_next) {
-                printf("--\n");
-                dump_items(i->items_next);
+                printf("%s%s\n", prefix, draw_special_char(DRAW_DASH));
+                dump_items(i->items_next, prefix);
         }
 }
 
@@ -646,24 +676,25 @@ static void dump_hashmap_items(Hashmap *h) {
         void *k;
 
         HASHMAP_FOREACH_KEY(i, k, h, j) {
-                printf("Item for %u:\n", PTR_TO_UINT(k));
-                dump_items(i);
+                printf("\t%s Item for %u:\n", draw_special_char(DRAW_ARROW), PTR_TO_UINT(k));
+                dump_items(i, "\t\t");
         }
 }
 
 noreturn void policy_dump(Policy *p) {
 
         printf("%s Default Items:\n", draw_special_char(DRAW_ARROW));
-        dump_items(p->default_items);
-
-        printf("%s Mandatory Items:\n", draw_special_char(DRAW_ARROW));
-        dump_items(p->mandatory_items);
+        dump_items(p->default_items, "\t");
 
         printf("%s Group Items:\n", draw_special_char(DRAW_ARROW));
         dump_hashmap_items(p->group_items);
 
         printf("%s User Items:\n", draw_special_char(DRAW_ARROW));
         dump_hashmap_items(p->user_items);
+
+        printf("%s Mandatory Items:\n", draw_special_char(DRAW_ARROW));
+        dump_items(p->mandatory_items, "\t");
+
         exit(0);
 }
 

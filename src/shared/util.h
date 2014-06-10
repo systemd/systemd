@@ -706,6 +706,7 @@ typedef enum DrawSpecialChar {
         DRAW_TRIANGULAR_BULLET,
         DRAW_BLACK_CIRCLE,
         DRAW_ARROW,
+        DRAW_DASH,
         _DRAW_SPECIAL_CHAR_MAX
 } DrawSpecialChar;
 
