@@ -750,7 +750,7 @@ static int create_item(Item *i) {
                 }
 
                 if (!streq(i->argument, x)) {
-                        log_error("%s is not the right symlinks.", i->path);
+                        log_error("%s is not the right symlink.", i->path);
                         return -EEXIST;
                 }
 
