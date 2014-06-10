@@ -83,6 +83,8 @@ static int file_load(Policy *p, const char *path) {
         if (r < 0) {
                 if (r == -ENOENT)
                         return 0;
+                if (r == -EISDIR)
+                        return r;
 
                 log_error("Failed to load %s: %s", path, strerror(-r));
                 return r;
@@ -513,24 +515,31 @@ static int file_load(Policy *p, const char *path) {
         }
 }
 
-int policy_load(Policy *p) {
-        _cleanup_strv_free_ char **l = NULL;
+int policy_load(Policy *p, char **files) {
         char **i;
         int r;
 
         assert(p);
 
-        file_load(p, "/etc/dbus-1/system.conf");
-        file_load(p, "/etc/dbus-1/system-local.conf");
+        STRV_FOREACH(i, files) {
 
-        r = conf_files_list(&l, ".conf", NULL, "/etc/dbus-1/system.d/", NULL);
-        if (r < 0) {
-                log_error("Failed to get configuration file list: %s", strerror(-r));
-                return r;
+                r = file_load(p, *i);
+                if (r == -EISDIR) {
+                        _cleanup_strv_free_ char **l = NULL;
+                        char **j;
+
+                        r = conf_files_list(&l, ".conf", NULL, *i, NULL);
+                        if (r < 0) {
+                                log_error("Failed to get configuration file list: %s", strerror(-r));
+                                return r;
+                        }
+
+                        STRV_FOREACH(j, l)
+                                file_load(p, *j);
+                }
+
+                /* We ignore all errors but EISDIR, and just proceed. */
         }
-
-        STRV_FOREACH(i, l)
-                file_load(p, *i);
 
         return 0;
 }

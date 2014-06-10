@@ -47,19 +47,21 @@
 #include "capability.h"
 #include "bus-policy.h"
 
-static const char *arg_address = DEFAULT_SYSTEM_BUS_PATH;
+static const char *arg_address = KERNEL_SYSTEM_BUS_PATH;
 static char *arg_command_line_buffer = NULL;
 static bool arg_drop_privileges = false;
+static char **arg_configuration = NULL;
 
 static int help(void) {
 
         printf("%s [OPTIONS...]\n\n"
                "Connect STDIO or a socket to a given bus address.\n\n"
-               "  -h --help              Show this help\n"
-               "     --version           Show package version\n"
-               "     --drop-privileges   Drop privileges\n"
-               "     --address=ADDRESS   Connect to the bus specified by ADDRESS\n"
-               "                         (default: " DEFAULT_SYSTEM_BUS_PATH ")\n",
+               "  -h --help               Show this help\n"
+               "     --version            Show package version\n"
+               "     --drop-privileges    Drop privileges\n"
+               "     --configuration=PATH Configuration file or directory\n"
+               "     --address=ADDRESS    Connect to the bus specified by ADDRESS\n"
+               "                         (default: " KERNEL_SYSTEM_BUS_PATH ")\n",
                program_invocation_short_name);
 
         return 0;
@@ -71,6 +73,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERSION = 0x100,
                 ARG_ADDRESS,
                 ARG_DROP_PRIVILEGES,
+                ARG_CONFIGURATION,
         };
 
         static const struct option options[] = {
@@ -78,10 +81,11 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",         no_argument,       NULL, ARG_VERSION         },
                 { "address",         required_argument, NULL, ARG_ADDRESS         },
                 { "drop-privileges", no_argument,       NULL, ARG_DROP_PRIVILEGES },
+                { "configuration",   required_argument, NULL, ARG_CONFIGURATION   },
                 { NULL,              0,                 NULL, 0                   },
         };
 
-        int c;
+        int c, r;
 
         assert(argc >= 0);
         assert(argv);
@@ -105,6 +109,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_DROP_PRIVILEGES:
                         arg_drop_privileges = true;
+                        break;
+
+                case ARG_CONFIGURATION:
+                        r = strv_extend(&arg_configuration, optarg);
+                        if (r < 0)
+                                return log_oom();
                         break;
 
                 case '?':
@@ -1054,7 +1064,7 @@ int main(int argc, char *argv[]) {
         if (r <= 0)
                 goto finish;
 
-        r = policy_load(&policy);
+        r = policy_load(&policy, arg_configuration);
         if (r < 0) {
                 log_error("Failed to load policy: %s", strerror(-r));
                 goto finish;
@@ -1425,6 +1435,7 @@ finish:
         sd_bus_flush(b);
 
         policy_free(&policy);
+        strv_free(arg_configuration);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

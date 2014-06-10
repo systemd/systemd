@@ -72,7 +72,7 @@ typedef struct Policy {
         Hashmap *group_items;
 } Policy;
 
-int policy_load(Policy *p);
+int policy_load(Policy *p, char **files);
 void policy_free(Policy *p);
 
 void policy_dump(Policy *p);
