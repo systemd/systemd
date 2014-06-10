@@ -63,7 +63,6 @@ typedef enum ItemType {
         /* These ones take file names */
         CREATE_FILE = 'f',
         TRUNCATE_FILE = 'F',
-        WRITE_FILE = 'w',
         CREATE_DIRECTORY = 'd',
         TRUNCATE_DIRECTORY = 'D',
         CREATE_FIFO = 'p',
@@ -73,6 +72,7 @@ typedef enum ItemType {
         ADJUST_MODE = 'm',
 
         /* These ones take globs */
+        WRITE_FILE = 'w',
         IGNORE_PATH = 'x',
         IGNORE_DIRECTORY_PATH = 'X',
         REMOVE_PATH = 'r',
@@ -126,7 +126,14 @@ static const char conf_file_dirs[] =
 #define MAX_DEPTH 256
 
 static bool needs_glob(ItemType t) {
-        return t == IGNORE_PATH || t == IGNORE_DIRECTORY_PATH || t == REMOVE_PATH || t == RECURSIVE_REMOVE_PATH || t == RELABEL_PATH || t == RECURSIVE_RELABEL_PATH;
+        return IN_SET(t,
+                      WRITE_FILE,
+                      IGNORE_PATH,
+                      IGNORE_DIRECTORY_PATH,
+                      REMOVE_PATH,
+                      RECURSIVE_REMOVE_PATH,
+                      RELABEL_PATH,
+                      RECURSIVE_RELABEL_PATH);
 }
 
 static struct Item* find_glob(Hashmap *h, const char *match) {
@@ -217,7 +224,11 @@ static bool unix_socket_alive(const char *fn) {
 }
 
 static int dir_is_mount_point(DIR *d, const char *subdir) {
-        union file_handle_union h = { .handle.handle_bytes = MAX_HANDLE_SZ };
+
+        union file_handle_union h = {
+                .handle.handle_bytes = MAX_HANDLE_SZ
+        };
+
         int mount_id_parent, mount_id;
         int r_p, r;
 
@@ -301,7 +312,8 @@ static int dir_cleanup(
                 if (s.st_uid == 0 && !(s.st_mode & S_IWUSR))
                         continue;
 
-                if (asprintf(&sub_path, "%s/%s", p, dent->d_name) < 0) {
+                sub_path = strjoin(p, "/", dent->d_name, NULL);
+                if (!sub_path) {
                         r = log_oom();
                         goto finish;
                 }
@@ -327,7 +339,7 @@ static int dir_cleanup(
                                 int q;
 
                                 sub_dir = xopendirat(dirfd(d), dent->d_name, O_NOFOLLOW|O_NOATIME);
-                                if (sub_dir == NULL) {
+                                if (!sub_dir) {
                                         if (errno != ENOENT) {
                                                 log_error("opendir(%s/%s) failed: %m", p, dent->d_name);
                                                 r = -errno;
@@ -337,7 +349,6 @@ static int dir_cleanup(
                                 }
 
                                 q = dir_cleanup(i, sub_path, sub_dir, &s, cutoff, rootdev, false, maxdepth-1, false);
-
                                 if (q < 0)
                                         r = q;
                         }
@@ -434,6 +445,9 @@ finish:
 }
 
 static int item_set_perms_full(Item *i, const char *path, bool ignore_enoent) {
+        assert(i);
+        assert(path);
+
         /* not using i->path directly because it may be a glob */
         if (i->mode_set)
                 if (chmod(path, i->mode) < 0) {
@@ -488,9 +502,9 @@ static int write_one_file(Item *i, const char *path) {
         }
 
         if (i->argument) {
+                _cleanup_free_ char *unescaped;
                 ssize_t n;
                 size_t l;
-                _cleanup_free_ char *unescaped;
 
                 unescaped = cunescape(i->argument);
                 if (unescaped == NULL) {
@@ -992,7 +1006,6 @@ static void item_free(Item *i) {
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Item*, item_free);
-#define _cleanup_item_free_ _cleanup_(item_freep)
 
 static bool item_equal(Item *a, Item *b) {
         assert(a);
@@ -1063,10 +1076,9 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 {}
         };
 
-        _cleanup_item_free_ Item *i = NULL;
+        _cleanup_free_ char *action = NULL, *mode = NULL, *user = NULL, *group = NULL, *age = NULL, *path = NULL;
+        _cleanup_(item_freep) Item *i = NULL;
         Item *existing;
-        _cleanup_free_ char
-                *action = NULL, *mode = NULL, *user = NULL, *group = NULL, *age = NULL, *path = NULL;
         char type;
         Hashmap *h;
         int r, n = -1;
@@ -1137,6 +1149,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                         log_error("[%s:%u] Symlink file requires argument.", fname, line);
                         return -EBADMSG;
                 }
+
                 break;
 
         case WRITE_FILE:
@@ -1182,7 +1195,9 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 return 0;
 
         if (arg_root) {
-                char *p = strappend(arg_root, i->path);
+                char *p;
+
+                p = strappend(arg_root, i->path);
                 if (!p)
                         return log_oom();
 
