@@ -103,16 +103,13 @@ typedef struct Item {
         bool keep_first_level:1;
 } Item;
 
-static Hashmap *items = NULL, *globs = NULL;
-static Set *unix_sockets = NULL;
-
 static bool arg_create = false;
 static bool arg_clean = false;
 static bool arg_remove = false;
 static bool arg_boot = false;
 
-static char **include_prefixes = NULL;
-static char **exclude_prefixes = NULL;
+static char **arg_include_prefixes = NULL;
+static char **arg_exclude_prefixes = NULL;
 static char *arg_root = NULL;
 
 static const char conf_file_dirs[] =
@@ -126,6 +123,9 @@ static const char conf_file_dirs[] =
         ;
 
 #define MAX_DEPTH 256
+
+static Hashmap *items = NULL, *globs = NULL;
+static Set *unix_sockets = NULL;
 
 static bool needs_glob(ItemType t) {
         return IN_SET(t,
@@ -1048,19 +1048,19 @@ static bool item_equal(Item *a, Item *b) {
 static bool should_include_path(const char *path) {
         char **prefix;
 
-        STRV_FOREACH(prefix, exclude_prefixes) {
+        STRV_FOREACH(prefix, arg_exclude_prefixes) {
                 if (path_startswith(path, *prefix))
                         return false;
         }
 
-        STRV_FOREACH(prefix, include_prefixes) {
+        STRV_FOREACH(prefix, arg_include_prefixes) {
                 if (path_startswith(path, *prefix))
                         return true;
         }
 
         /* no matches, so we should include this path only if we
          * have no whitelist at all */
-        return strv_length(include_prefixes) == 0;
+        return strv_length(arg_include_prefixes) == 0;
 }
 
 static int parse_line(const char *fname, unsigned line, const char *buffer) {
@@ -1372,12 +1372,12 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_PREFIX:
-                        if (strv_push(&include_prefixes, optarg) < 0)
+                        if (strv_push(&arg_include_prefixes, optarg) < 0)
                                 return log_oom();
                         break;
 
                 case ARG_EXCLUDE_PREFIX:
-                        if (strv_push(&exclude_prefixes, optarg) < 0)
+                        if (strv_push(&arg_exclude_prefixes, optarg) < 0)
                                 return log_oom();
                         break;
 
@@ -1544,8 +1544,8 @@ finish:
         hashmap_free(items);
         hashmap_free(globs);
 
-        free(include_prefixes);
-        free(exclude_prefixes);
+        free(arg_include_prefixes);
+        free(arg_exclude_prefixes);
         free(arg_root);
 
         set_free_free(unix_sockets);
