@@ -17,6 +17,164 @@ CHANGES WITH 214:
           devices, or might need to disable it entirely. Device-mapper
           devices are excluded from this logic.
 
+        * We temporarily dropped the "-l" switch for fsck invocations,
+          since they collide with the flock() logic above. util-linux
+          upstream has been changed already to avoid this conflict,
+          and we will readd "-l" as soon as util-linux with this
+          change has been released.
+
+        * The dependency on libattr has been removed. Since a long
+          time the extended attribute calls have moved to glibc, and
+          libattr is thus unnecessary.
+
+        * Virtualization detection works without priviliges now. This
+          means the systemd-detect-virt binary no longer requires
+          CAP_SYS_PTRACE file capabilities, and our daemons can run
+          with less priviliges.
+
+        * systemd-networkd now runs under its own "systemd-network"
+          user. It retains the CAP_NET_ADMIN, CAP_NET_BIND_SERVICE,
+          CAP_NET_BROADCAST, CAP_NET_RAW capabilities though, but
+          loses the ability to write to files owned by root this way.
+
+        * Similar, systemd-resolved now runs under its own
+          "systemd-resolve" user with no capabilities remaining.
+
+        * Similar, systemd-bus-proxyd now runs under its own
+          "systemd-bus-proxy" user with only CAP_IPC_OWNER remaining.
+
+        * systemd-networkd gained support for setting up "veth"
+          virtual ethernet devices for container connectivity, as well
+          as GRE and VTI tunnels.
+
+        * systemd-networkd will no longer automatically attempt to
+          manually load kernel modules necessary for certain tunnel
+          transports. Instead it is assumed the kernel loads them
+          automatically when required. This only works correctly on
+          very new kernels. On older kernels, please consider adding
+          the kernel modules to /etc/load-modules.d/ as a work-around.
+
+        * Two new service settings ProtectedHome= and ProtectedSystem=
+          have been added. When enabled they will make the user data
+          (such as /home) inaccessible or read-only and the system
+          (such as /usr) read-only, for specific services. This allows
+          very light-weight per-service sandboxing to avoid
+          modifications of user data or system files from
+          services. These two new switches have been enabled for all
+          of systemd's long-running services, where appropriate.
+
+        * Socket units gained new SocketUser= and SocketGroup=
+          settings to set the owner user and group of AF_UNIX sockets
+          and FIFOs in the file system.
+
+        * Socket units gained a new RemoveOnStop= setting. If enabled
+          all FIFOS and sockets in the file system will be removed
+          when the specific socket unit is stopped.
+
+        * Socket units gained a new Symlinks= setting. It takes a list
+          of symlinks to create to file system sockets or FIFOs
+          created by the specific unix sockets. This is useful to
+          manage symlinks to socket nodes with the same lifecycle as
+          the socket itself.
+
+        * The /dev/log socket and /dev/initctl FIFO have been moved to
+          /run, and have been replaced by symlinks. This allows
+          connecting to these facilities even if PrivateDevices=yes is
+          used for a service (which makes /dev/log itself unavailable,
+          but /run is left). This also has the benefit of ensuring
+          that /dev only contains device nodes, directories and
+          symlinks, and nothing else.
+
+        * sd-daemon gained two new calls sd_pid_notify() and
+          sd_pid_notifyf(). They are similar to sd_notify() and
+          sd_notifyf(), but allow overriding of the source PID of
+          notification messages if permissions permit this. This is
+          useful to send notify messages on behalf of a different
+          process (for example, the parent process). The
+          systemd-notify tool has been updated to make use of this
+          when sending messages (so that notification messages now
+          originate from the shell script invoking systemd-notify and
+          not the systemd-notify process itself. This should minimize
+          a race where systemd fails to associate notification
+          messages to services when the originating process already
+          vanished.
+
+        * A new "on-abnormal" setting for Restart= has been added. If
+          set it will result in automatic restarts on all "abnormal"
+          reasons for a process to exit, which includes unclean
+          signals, core dumps, timeouts and watchdog timeouts, but
+          does not include clean and unclean exit codes or clean
+          signals. Restart=on-abnormal is an alternative for
+          Restart=on-failure for services that shall be able to
+          terminate and avoid restarts on certain errors, by
+          indicating so with an unclean exit code. Restart=on-failure
+          or Restart=on-abnormal is now the recommended setting for
+          all long-running services.
+
+        * If the InaccessibleDirectories= service setting points to a
+          mount point (or if there are any submounts contained within
+          it), it is now attempted to completely unmount it, to make
+          the file systems truly unavailable for the respective
+          service.
+
+        * The ReadOnlyDirectories= service setting and
+          systemd-nspawn's --read-only parameter are now recursively
+          applied to all submounts, too.
+
+        * Mount units may now be created transiently via the bus APIs.
+
+        * The support for SysV and LSB init scripts has been removed
+          from the systemd daemon itself. Instead, it is now
+          implemented as a generator that creates native systemd units
+          from these scripts when needed. This enables us to remove a
+          substantial amount of legacy code from PID 1, following the
+          fact that many distributions only ship a very small number
+          of LSB/SysV init scripts nowadays.
+
+        * Priviliged Xen (dom0) domains are not considered
+          virtualization anymore by the virtualization detection
+          logic. After all, they generally have unrestricted access to
+          the hardware and usually are used to manage the unpriviliged
+          (domU) domains.
+
+        * systemd-tmpfiles gained a new "C" line type, for copying
+          files or entire directories.
+
+        * systemd-tmpfiles "m" lines are now fully equivalent to "z"
+          lines. So far they have been non-globbing versions of the
+          latter, and have thus been redundant. In future it is
+          recommended to only use "z"; and "m" has hence been removed
+          from the documentation, even though it stays supported.
+
+        * A tmpfiles snippet to recreate the most basic structure in
+          /var has been added. This is enough to create the /var/run →
+          /run symlink and create a couple of structural
+          directories. This allows systems to boot up with an empty or
+          volatile /var. Of course, while with this change the core OS
+          now is capable with dealing with a volatile /var not all
+          user services are ready for it. However, we hope that sooner
+          or later many service daemons will be changed upstream so
+          that they are able to automatically create their necessary
+          directories in /var at boot, should they be missing. This is
+          the first step to allow state-less systems that only require
+          the vendor image for /usr to boot.
+
+        * systemd-nspawn has gained a new --tmpfs= switch to mount an
+          empty tmpfs instance to a specific directory. This is
+          particularly useful for making use of the automatic
+          reconstruction of /var (see above), by passing --tmpfs=/var.
+
+        * Access modes specified in tmpfiles snippets may now be
+          prefixed with "~", which indicates that they shall be masked
+          by whether the existing file or directly is currently
+          writable, readable or executable at all. Also, if specified
+          the sgid/suid/sticky bits will be masked for all
+          non-directories.
+
+        * A new passive target unit "network-pre.target" has been
+          added which is useful for services that shall run before any
+          network is configured, for example firewall scripts.
+
 CHANGES WITH 213:
 
         * A new "systemd-timesyncd" daemon has been added for
