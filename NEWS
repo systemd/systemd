@@ -1,5 +1,22 @@
 systemd System and Service Manager
 
+CHANGES WITH 214:
+
+        * As an experimental feature, udev now tries to lock the
+          disk device node (flock(LOCK_SH|LOCK_NB)) while it
+          executes events for the disk or any of its partitions.
+          Applications like partitioning programs can lock the
+          disk device node (flock(LOCK_EX)) and claim temporary
+          device ownership that way; udev will entirely skip all event
+          handling for this disk and its partitions. If the disk
+          was opened for writing, the close will trigger a partition
+          table rescan in udev's "watch" facility, and if needed
+          synthesize "change" events for the disk and all its partions.
+          This is now unconditionally enabled, if it turns out to
+          cause major problems, we might turn it on only for specific
+          devices, or might need to disable it entirely. Device-mapper
+          devices are excluded from this logic.
+
 CHANGES WITH 213:
 
         * A new "systemd-timesyncd" daemon has been added for
