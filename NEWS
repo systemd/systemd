@@ -179,6 +179,11 @@ CHANGES WITH 214:
           added which is useful for services that shall run before any
           network is configured, for example firewall scripts.
 
+        * The "floppy" group that previously owned the /dev/fd*
+          devices is no longer used. The "disk" group is now used
+          instead. Distributions should probably deprecate usage of
+          this group.
+
         Contributions from: Camilo Aguilar, Christian Hesse, Colin Ian
         King, Cristian Rodríguez, Daniel Buch, Dave Reisner, David
         Strauss, Denis Tikhomirov, John, Jonathan Liu, Kay Sievers,
