@@ -54,6 +54,10 @@ CHANGES WITH 214:
           very new kernels. On older kernels, please consider adding
           the kernel modules to /etc/load-modules.d/ as a work-around.
 
+        * The resolv.conf file systemd-resolved generates has been
+          moved to /run/systemd/resolve/, if you have a symlink from
+          /etc/resolv.conf it might be necessary to correct it.
+
         * Two new service settings ProtectedHome= and ProtectedSystem=
           have been added. When enabled they will make the user data
           (such as /home) inaccessible or read-only and the system
