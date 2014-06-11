@@ -52,7 +52,7 @@ CHANGES WITH 214:
           transports. Instead it is assumed the kernel loads them
           automatically when required. This only works correctly on
           very new kernels. On older kernels, please consider adding
-          the kernel modules to /etc/load-modules.d/ as a work-around.
+          the kernel modules to /etc/modules-load.d/ as a work-around.
 
         * The resolv.conf file systemd-resolved generates has been
           moved to /run/systemd/resolve/, if you have a symlink from
