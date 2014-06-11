@@ -68,10 +68,6 @@ Features:
 
 * sd-event: generate a failure of a default event loop is executed out-of-thread
 
-* add "M" as recursive version of "m" to tmpfiles, then use it for
-  chowning /run/log/journal (but not /var/log/journal), so that we
-  adjust the perms of journal files created before tmpfiles ran.
-
 * expose "Locked" property on logind sesison objects
 
 * add bus api to query unit file's X fields.
@@ -452,7 +448,6 @@ Features:
 
 * nspawn:
   - bind mount read-only the cgroup tree higher than nspawn
-  - nspawn: make it work for dwalsh and shared /usr containers -- tmpfs mounts as command line parameters
   - refuses to boot containers without /etc/machine-id (OK?), and with empty /etc/machine-id (not OK).
   - support taking a btrfs snapshot at startup and dropping it afterwards
 
