@@ -49,7 +49,6 @@ KERNEL=="irlpt[0-9]*", GROUP="lp"
 SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ENV{ID_USB_INTERFACES}=="*:0701??:*", GROUP="lp"
 
 SUBSYSTEM=="block", GROUP="disk"
-SUBSYSTEM=="block", KERNEL=="fd[0-9]", GROUP="floppy"
 SUBSYSTEM=="block", KERNEL=="sr[0-9]*", GROUP="cdrom"
 SUBSYSTEM=="scsi_generic", SUBSYSTEMS=="scsi", ATTRS{type}=="4|5", GROUP="cdrom"
 KERNEL=="sch[0-9]*", GROUP="cdrom"
