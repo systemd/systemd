@@ -140,8 +140,17 @@ global:
 LIBSYSTEMD_213 {
 global:
         sd_uid_get_display;
+} LIBSYSTEMD_211;
+
+LIBSYSTEMD_214 {
+global:
+        sd_pid_notify;
+        sd_pid_notifyf;
+} LIBSYSTEMD_213;
 
 m4_ifdef(`ENABLE_KDBUS',
+LIBSYSTEMD_FUTURE {
+global:
         /* sd-bus */
         sd_bus_default;
         sd_bus_default_user;
@@ -431,5 +440,5 @@ m4_ifdef(`ENABLE_KDBUS',
         sd_resolve_query_get_userdata;
         sd_resolve_query_set_userdata;
         sd_resolve_query_get_resolve;
+} LIBSYSTEMD_214;
 )
-} LIBSYSTEMD_211;
