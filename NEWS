@@ -175,6 +175,16 @@ CHANGES WITH 214:
           added which is useful for services that shall run before any
           network is configured, for example firewall scripts.
 
+        Contributions from: Camilo Aguilar, Christian Hesse, Colin Ian
+        King, Cristian Rodríguez, Daniel Buch, Dave Reisner, David
+        Strauss, Denis Tikhomirov, John, Jonathan Liu, Kay Sievers,
+        Lennart Poettering, Mantas Mikulėnas, Mark Eichin, Ronny
+        Chevalier, Susant Sahani, Thomas Blume, Thomas Hindoe Paaboel
+        Andersen, Tom Gundersen, Umut Tezduyar Lindskog, Zbigniew
+        Jędrzejewski-Szmek
+
+        -- Berlin, 2014-06-11
+
 CHANGES WITH 213:
 
         * A new "systemd-timesyncd" daemon has been added for
