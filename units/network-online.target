@@ -9,3 +9,4 @@
 Description=Network is Online
 Documentation=man:systemd.special(7)
 Documentation=http://www.freedesktop.org/wiki/Software/systemd/NetworkTarget
+After=network.target
