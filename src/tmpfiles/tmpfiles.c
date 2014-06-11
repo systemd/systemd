@@ -99,6 +99,7 @@ typedef struct Item {
         bool gid_set:1;
         bool mode_set:1;
         bool age_set:1;
+        bool mask_perms:1;
 
         bool keep_first_level:1;
 
@@ -454,11 +455,29 @@ static int item_set_perms(Item *i, const char *path) {
         assert(path);
 
         /* not using i->path directly because it may be a glob */
-        if (i->mode_set)
-                if (chmod(path, i->mode) < 0) {
+        if (i->mode_set) {
+                mode_t m = i->mode;
+
+                if (i->mask_perms) {
+                        struct stat st;
+
+                        if (stat(path, &st) >= 0) {
+                                if (!(st.st_mode & 0111))
+                                        m &= ~0111;
+                                if (!(st.st_mode & 0222))
+                                        m &= ~0222;
+                                if (!(st.st_mode & 0444))
+                                        m &= ~0444;
+                                if (!S_ISDIR(st.st_mode))
+                                        m &= ~07000; /* remove sticky/sgid/suid bit, unless directory */
+                        }
+                }
+
+                if (chmod(path, m) < 0) {
                         log_error("chmod(%s) failed: %m", path);
                         return -errno;
                 }
+        }
 
         if (i->uid_set || i->gid_set)
                 if (chown(path,
@@ -1056,15 +1075,13 @@ static bool item_equal(Item *a, Item *b) {
 static bool should_include_path(const char *path) {
         char **prefix;
 
-        STRV_FOREACH(prefix, arg_exclude_prefixes) {
+        STRV_FOREACH(prefix, arg_exclude_prefixes)
                 if (path_startswith(path, *prefix))
                         return false;
-        }
 
-        STRV_FOREACH(prefix, arg_include_prefixes) {
+        STRV_FOREACH(prefix, arg_include_prefixes)
                 if (path_startswith(path, *prefix))
                         return true;
-        }
 
         /* no matches, so we should include this path only if we
          * have no whitelist at all */
@@ -1249,9 +1266,15 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         }
 
         if (mode && !streq(mode, "-")) {
+                const char *mm = mode;
                 unsigned m;
 
-                if (sscanf(mode, "%o", &m) != 1) {
+                if (*mm == '~') {
+                        i->mask_perms = true;
+                        mm++;
+                }
+
+                if (sscanf(mm, "%o", &m) != 1) {
                         log_error("[%s:%u] Invalid mode '%s'.", fname, line, mode);
                         return -ENOENT;
                 }

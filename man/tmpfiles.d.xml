@@ -368,6 +368,22 @@ r! /tmp/.X[0-9]*-lock</programlisting>
                         ignored for <varname>x</varname>,
                         <varname>r</varname>, <varname>R</varname>,
                         <varname>L</varname> lines.</para>
+
+                        <para>Optionally, if prefixed with
+                        <literal>~</literal> the access mode is masked
+                        based on the already set access bits for
+                        existing file or directories: if the existing
+                        file has all executable bits unset then all
+                        executable bits are removed from the new
+                        access mode, too. Similar, if all read bits
+                        are removed from the old access mode they will
+                        be removed from the new access mode too, and
+                        if all write bits are removed, they will be
+                        removed from the new access mode too. In
+                        addition the sticky/suid/gid bit is removed unless
+                        applied to a directory. This
+                        functionality is particularly useful in
+                        conjunction with <varname>Z</varname>.</para>
                 </refsect2>
 
                 <refsect2>
