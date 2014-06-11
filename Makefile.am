@@ -413,6 +413,7 @@ dist_systemunit_DATA = \
 	units/remote-fs.target \
 	units/remote-fs-pre.target \
 	units/network.target \
+	units/network-pre.target \
 	units/network-online.target \
 	units/nss-lookup.target \
 	units/nss-user-lookup.target \

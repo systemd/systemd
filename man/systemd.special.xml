@@ -72,6 +72,7 @@
                 <filename>multi-user.target</filename>,
                 <filename>network.target</filename>,
                 <filename>network-online.target</filename>,
+                <filename>network-pre.target</filename>,
                 <filename>nss-lookup.target</filename>,
                 <filename>nss-user-lookup.target</filename>,
                 <filename>paths.target</filename>,
@@ -888,6 +889,20 @@
                                         an LSB header referring to the
                                         <literal>$network</literal>
                                         facility.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>network-pre.target</filename></term>
+                                <listitem>
+                                        <para>This passive target unit
+                                        may be pulled in by services
+                                        that want to run before any
+                                        network is set up, for example
+                                        for the purpose of setting up a
+                                        firewall. All network
+                                        management software orders
+                                        itself after this target, but
+                                        does not pull it in.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>

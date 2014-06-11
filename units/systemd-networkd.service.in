@@ -9,7 +9,7 @@
 Description=Network Service
 Documentation=man:systemd-networkd.service(8)
 DefaultDependencies=no
-After=dbus.service
+After=dbus.service network-pre.target
 Before=network.target
 Wants=network.target
 ConditionCapability=CAP_NET_ADMIN
