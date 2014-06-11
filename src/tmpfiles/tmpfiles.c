@@ -449,17 +449,15 @@ finish:
         return r;
 }
 
-static int item_set_perms_full(Item *i, const char *path, bool ignore_enoent) {
+static int item_set_perms(Item *i, const char *path) {
         assert(i);
         assert(path);
 
         /* not using i->path directly because it may be a glob */
         if (i->mode_set)
                 if (chmod(path, i->mode) < 0) {
-                        if (errno != ENOENT || !ignore_enoent) {
-                                log_error("chmod(%s) failed: %m", path);
-                                return -errno;
-                        }
+                        log_error("chmod(%s) failed: %m", path);
+                        return -errno;
                 }
 
         if (i->uid_set || i->gid_set)
@@ -467,17 +465,11 @@ static int item_set_perms_full(Item *i, const char *path, bool ignore_enoent) {
                           i->uid_set ? i->uid : (uid_t) -1,
                           i->gid_set ? i->gid : (gid_t) -1) < 0) {
 
-                        if (errno != ENOENT || !ignore_enoent) {
-                                log_error("chown(%s) failed: %m", path);
-                                return -errno;
-                        }
+                        log_error("chown(%s) failed: %m", path);
+                        return -errno;
                 }
 
-        return label_fix(path, ignore_enoent, false);
-}
-
-static int item_set_perms(Item *i, const char *path) {
-        return item_set_perms_full(i, path, false);
+        return label_fix(path, false, false);
 }
 
 static int write_one_file(Item *i, const char *path) {
