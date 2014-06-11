@@ -146,6 +146,7 @@ static int test_unit_printf(void) {
 
         assert_se(setenv("USER", "root", 1) == 0);
         assert_se(setenv("HOME", "/root", 1) == 0);
+        assert_se(setenv("XDG_RUNTIME_DIR", "/run/user/1/", 1) == 0);
 
         assert_se(u = unit_new(m, sizeof(Service)));
         assert_se(unit_add_name(u, "blah.service") == 0);
