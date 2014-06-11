@@ -990,7 +990,10 @@ static int system_journal_open(Server *s) {
                         /* OK, we really need the runtime journal, so create
                          * it if necessary. */
 
-                        (void) mkdir_parents(fn, 0755);
+                        (void) mkdir("/run/log", 0755);
+                        (void) mkdir("/run/log/journal", 0755);
+                        (void) mkdir_parents(fn, 0750);
+
                         r = journal_file_open_reliably(fn, O_RDWR|O_CREAT, 0640, s->compress, false, &s->runtime_metrics, s->mmap, NULL, &s->runtime_journal);
                         free(fn);
 
