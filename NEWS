@@ -11,7 +11,7 @@ CHANGES WITH 214:
           handling for this disk and its partitions. If the disk
           was opened for writing, the close will trigger a partition
           table rescan in udev's "watch" facility, and if needed
-          synthesize "change" events for the disk and all its partions.
+          synthesize "change" events for the disk and all its partitions.
           This is now unconditionally enabled, if it turns out to
           cause major problems, we might turn it on only for specific
           devices, or might need to disable it entirely. Device-mapper
@@ -30,7 +30,7 @@ CHANGES WITH 214:
         * Virtualization detection works without priviliges now. This
           means the systemd-detect-virt binary no longer requires
           CAP_SYS_PTRACE file capabilities, and our daemons can run
-          with less priviliges.
+          with fewer privileges.
 
         * systemd-networkd now runs under its own "systemd-network"
           user. It retains the CAP_NET_ADMIN, CAP_NET_BIND_SERVICE,
@@ -74,7 +74,7 @@ CHANGES WITH 214:
         * Socket units gained a new Symlinks= setting. It takes a list
           of symlinks to create to file system sockets or FIFOs
           created by the specific unix sockets. This is useful to
-          manage symlinks to socket nodes with the same lifecycle as
+          manage symlinks to socket nodes with the same life-cycle as
           the socket itself.
 
         * The /dev/log socket and /dev/initctl FIFO have been moved to
@@ -134,7 +134,7 @@ CHANGES WITH 214:
         * Priviliged Xen (dom0) domains are not considered
           virtualization anymore by the virtualization detection
           logic. After all, they generally have unrestricted access to
-          the hardware and usually are used to manage the unpriviliged
+          the hardware and usually are used to manage the unprivileged
           (domU) domains.
 
         * systemd-tmpfiles gained a new "C" line type, for copying
