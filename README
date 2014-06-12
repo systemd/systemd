@@ -115,7 +115,6 @@ REQUIREMENTS:
         libcryptsetup (optional)
         libaudit (optional)
         libacl (optional)
-        libattr (optional)
         libselinux (optional)
         liblzma (optional)
         libgcrypt (optional)
