@@ -344,7 +344,7 @@ static int attach_tcrypt(struct crypt_device *cd,
 
         assert(cd);
         assert(name);
-        assert(key_file || passwords);
+        assert(key_file || (passwords && passwords[0]));
 
         if (arg_tcrypt_hidden)
                 params.flags |= CRYPT_TCRYPT_HIDDEN_HEADER;
