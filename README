@@ -168,7 +168,7 @@ USERS AND GROUPS:
         even in the very early boot stages, where no other databases
         and network are available:
 
-        tty, dialout, kmem, video, audio, lp, cdrom, tape, disk
+        audio, cdrom, dialout, disk, input, kmem, lp, tape, tty, video
 
         During runtime, the journal daemon requires the
         "systemd-journal" system group to exist. New journal files will

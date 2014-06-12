@@ -23,6 +23,7 @@ KERNEL=="tty[A-Z]*[0-9]|pppox[0-9]*|ircomm[0-9]*|noz[0-9]*|rfcomm[0-9]*", GROUP=
 
 SUBSYSTEM=="mem", KERNEL=="mem|kmem|port", GROUP="kmem", MODE="0640"
 
+SUBSYSTEM=="input", GROUP="input"
 SUBSYSTEM=="input", KERNEL=="js[0-9]*", MODE="0664"
 
 SUBSYSTEM=="video4linux", GROUP="video"

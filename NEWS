@@ -1,5 +1,11 @@
 systemd System and Service Manager
 
+CHANGES WITH 215:
+        * A new system group "input" is introduced, all input
+          device nodes get this group assigned. This is useful for
+          system-level software to get access to input devices. It
+          complements what is already done for "audio" and "video".
+
 CHANGES WITH 214:
 
         * As an experimental feature, udev now tries to lock the
