@@ -88,6 +88,7 @@ pkgsysconfdir=$(sysconfdir)/systemd
 userunitdir=$(prefix)/lib/systemd/user
 userpresetdir=$(prefix)/lib/systemd/user-preset
 tmpfilesdir=$(prefix)/lib/tmpfiles.d
+sysusersdir=$(prefix)/lib/sysusers.d
 sysctldir=$(prefix)/lib/sysctl.d
 networkdir=$(rootprefix)/lib/systemd/network
 pkgincludedir=$(includedir)/systemd
@@ -1755,6 +1756,28 @@ EXTRA_DIST += \
 	units/systemd-tmpfiles-setup-dev.service.in \
 	units/systemd-tmpfiles-setup.service.in \
 	units/systemd-tmpfiles-clean.service.in
+
+# ------------------------------------------------------------------------------
+if ENABLE_SYSUSERS
+systemd_sysusers_SOURCES = \
+	src/sysusers/sysusers.c
+
+systemd_sysusers_LDADD = \
+	libsystemd-units.la \
+	libsystemd-label.la \
+	libsystemd-capability.la \
+	libsystemd-internal.la \
+	libsystemd-shared.la
+
+rootbin_PROGRAMS += \
+	systemd-sysusers
+
+dist_sysusers_DATA = \
+	sysusers.d/systemd.conf
+
+INSTALL_DIRS += \
+	$(sysusersdir)
+endif
 
 # ------------------------------------------------------------------------------
 systemd_machine_id_setup_SOURCES = \
@@ -4879,6 +4902,7 @@ substitutions = \
        '|udevrulesdir=$(udevrulesdir)|' \
        '|catalogdir=$(catalogdir)|' \
        '|tmpfilesdir=$(tmpfilesdir)|' \
+       '|sysusersdir=$(sysusersdir)|' \
        '|sysctldir=$(sysctldir)|' \
        '|systemgeneratordir=$(systemgeneratordir)|' \
        '|usergeneratordir=$(usergeneratordir)|' \

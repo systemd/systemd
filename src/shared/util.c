@@ -4007,23 +4007,15 @@ int fd_wait_for_event(int fd, int event, usec_t t) {
 int fopen_temporary(const char *path, FILE **_f, char **_temp_path) {
         FILE *f;
         char *t;
-        const char *fn;
-        size_t k;
         int fd;
 
         assert(path);
         assert(_f);
         assert(_temp_path);
 
-        t = new(char, strlen(path) + 1 + 6 + 1);
+        t = strappend(path, ".XXXXXX");
         if (!t)
                 return -ENOMEM;
-
-        fn = basename(path);
-        k = fn - path;
-        memcpy(t, path, k);
-        t[k] = '.';
-        stpcpy(stpcpy(t+k+1, fn), "XXXXXX");
 
         fd = mkostemp_safe(t, O_WRONLY|O_CLOEXEC);
         if (fd < 0) {
@@ -6664,4 +6656,15 @@ int bind_remount_recursive(const char *prefix, bool ro) {
 
                 }
         }
+}
+
+int fflush_and_check(FILE *f) {
+
+        errno = 0;
+        fflush(f);
+
+        if (ferror(f))
+                return errno ? -errno : -EIO;
+
+        return 0;
 }

@@ -946,3 +946,5 @@ int update_reboot_param_file(const char *param);
 int umount_recursive(const char *target, int flags);
 
 int bind_remount_recursive(const char *prefix, bool ro);
+
+int fflush_and_check(FILE *f);

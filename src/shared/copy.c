@@ -22,7 +22,7 @@
 #include "util.h"
 #include "copy.h"
 
-static int stream_bytes(int fdf, int fdt) {
+int copy_bytes(int fdf, int fdt) {
         assert(fdf >= 0);
         assert(fdt >= 0);
 
@@ -92,7 +92,7 @@ static int fd_copy_regular(int df, const char *from, const struct stat *st, int 
                 return -errno;
         }
 
-        r = stream_bytes(fdf, fdt);
+        r = copy_bytes(fdf, fdt);
         if (r < 0) {
                 unlinkat(dt, to, 0);
                 return r;
@@ -273,7 +273,7 @@ int copy_file(const char *from, const char *to, int flags, mode_t mode) {
         if (fdt < 0)
                 return -errno;
 
-        r = stream_bytes(fdf, fdt);
+        r = copy_bytes(fdf, fdt);
         if (r < 0) {
                 unlink(to);
                 return r;

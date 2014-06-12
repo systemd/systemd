@@ -723,6 +723,14 @@ fi
 AM_CONDITIONAL(ENABLE_TMPFILES, [test "$have_tmpfiles" = "yes"])
 
 # ------------------------------------------------------------------------------
+have_sysusers=no
+AC_ARG_ENABLE(sysusers, AS_HELP_STRING([--disable-sysusers], [disable sysusers support]))
+if test "x$enable_sysusers" != "xno"; then
+        have_sysusers=yes
+fi
+AM_CONDITIONAL(ENABLE_SYSUSERS, [test "$have_sysusers" = "yes"])
+
+# ------------------------------------------------------------------------------
 have_randomseed=no
 AC_ARG_ENABLE(randomseed, AS_HELP_STRING([--disable-randomseed], [disable randomseed tools]))
 if test "x$enable_randomseed" != "xno"; then
@@ -1166,6 +1174,7 @@ AC_MSG_RESULT([
         bootchart:               ${have_bootchart}
         quotacheck:              ${have_quotacheck}
         tmpfiles:                ${have_tmpfiles}
+        sysusers:                ${have_sysusers}
         randomseed:              ${have_randomseed}
         backlight:               ${have_backlight}
         rfkill:                  ${have_rfkill}
