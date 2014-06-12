@@ -1044,6 +1044,15 @@ fi
 AM_CONDITIONAL(ENABLE_MULTI_SEAT_X, [test "$have_multi_seat_x" = "yes"])
 
 # ------------------------------------------------------------------------------
+have_terminal=no
+AC_ARG_ENABLE(terminal, AS_HELP_STRING([--enable-terminal], [enable terminal support]))
+if test "x$enable_terminal" = "xyes"; then
+        AC_DEFINE(ENABLE_TERMINAL, 1, [Define if terminal support is to be enabled])
+        have_terminal=yes
+fi
+AM_CONDITIONAL(ENABLE_TERMINAL, [test "x$have_terminal" = "xyes"])
+
+# ------------------------------------------------------------------------------
 have_kdbus=no
 AC_ARG_ENABLE(kdbus, AS_HELP_STRING([--enable-kdbus], [do connect to kdbus by default]))
 if test "x$enable_kdbus" = "xyes"; then
@@ -1348,6 +1357,7 @@ AC_MSG_RESULT([
         gudev:                   ${enable_gudev}
         gintrospection:          ${enable_introspection}
         multi-seat-x:            ${have_multi_seat_x}
+        terminal:                ${have_terminal}
         kdbus:                   ${have_kdbus}
         Python:                  ${have_python}
         Python Headers:          ${have_python_devel}

@@ -219,6 +219,7 @@
 /test-strv
 /test-strxcpyx
 /test-tables
+/test-term-page
 /test-time
 /test-tmpfiles
 /test-udev

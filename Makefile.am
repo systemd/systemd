@@ -209,6 +209,7 @@ AM_CPPFLAGS = \
 	-I $(top_srcdir)/src/libsystemd/sd-event \
 	-I $(top_srcdir)/src/libsystemd/sd-rtnl \
 	-I $(top_srcdir)/src/libsystemd-network \
+	-I $(top_srcdir)/src/libsystemd-terminal \
 	$(OUR_CPPFLAGS)
 
 AM_CFLAGS = $(OUR_CFLAGS)
@@ -2825,6 +2826,33 @@ tests += \
 	test-ipv4ll \
 	test-icmp6-rs \
 	test-dhcp6-client
+
+# ------------------------------------------------------------------------------
+noinst_LTLIBRARIES += \
+	libsystemd-terminal.la
+
+libsystemd_terminal_la_CFLAGS = \
+	$(AM_CFLAGS)
+
+libsystemd_terminal_la_SOURCES = \
+	src/libsystemd-terminal/term-internal.h \
+	src/libsystemd-terminal/term-page.c \
+	src/libsystemd-terminal/term-wcwidth.c
+
+libsystemd_terminal_la_LIBADD = \
+	libsystemd-internal.la \
+	libsystemd-shared.la
+
+test_term_page_SOURCES = \
+	src/libsystemd-terminal/test-term-page.c
+
+test_term_page_LDADD = \
+	libsystemd-terminal.la \
+	libsystemd-internal.la \
+	libsystemd-shared.la
+
+tests += \
+	test-term-page
 
 # ------------------------------------------------------------------------------
 if ENABLE_GTK_DOC
