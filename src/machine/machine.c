@@ -176,12 +176,13 @@ int machine_save(Machine *m) {
                         m->timestamp.realtime,
                         m->timestamp.monotonic);
 
-        fflush(f);
+        r = fflush_and_check(f);
+        if (r < 0)
+                goto finish;
 
-        if (ferror(f) || rename(temp_path, m->state_file) < 0) {
+        if (rename(temp_path, m->state_file) < 0) {
                 r = -errno;
-                unlink(m->state_file);
-                unlink(temp_path);
+                goto finish;
         }
 
         if (m->unit) {
@@ -195,8 +196,12 @@ int machine_save(Machine *m) {
         }
 
 finish:
-        if (r < 0)
+        if (r < 0) {
+                if (temp_path)
+                        unlink(temp_path);
+
                 log_error("Failed to save machine data %s: %s", m->state_file, strerror(-r));
+        }
 
         return r;
 }
