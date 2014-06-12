@@ -791,7 +791,7 @@ static int set_dependencies_from_rcnd(LookupPaths lp, Hashmap *all_services) {
                                 if (hashmap_contains(all_services, name))
                                         service = hashmap_get(all_services, name);
                                 else {
-                                        log_warning("Could not find init scirpt for %s", name);
+                                        log_warning("Could not find init script for %s", name);
                                         continue;
                                 }
 
