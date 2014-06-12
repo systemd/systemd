@@ -10,6 +10,7 @@ Description=Early root shell on @DEBUGTTY@ FOR DEBUGGING ONLY
 Documentation=man:sushell(8)
 DefaultDependencies=no
 IgnoreOnIsolate=yes
+ConditionPathExists=@DEBUGTTY@
 
 [Service]
 Environment=TERM=linux
