@@ -1050,8 +1050,11 @@ AM_CONDITIONAL(HAVE_SYSV_COMPAT, test "$SYSTEM_SYSV_COMPAT" = "yes")
 AC_ARG_WITH([tty-gid],
         [AS_HELP_STRING([--with-tty-gid=GID],
                 [Specify the numeric GID of the 'tty' group])],
-        [AC_DEFINE_UNQUOTED(TTY_GID, [$withval], [GID of the 'tty' group])],
-        [])
+        [TTY_GID="$withval"],
+        [TTY_GID="5"])
+
+AC_DEFINE_UNQUOTED(TTY_GID, [$TTY_GID], [GID of the 'tty' group])
+AC_SUBST(TTY_GID)
 
 AC_ARG_WITH([dbuspolicydir],
         AS_HELP_STRING([--with-dbuspolicydir=DIR], [D-Bus policy directory]),
@@ -1234,6 +1237,7 @@ AC_MSG_RESULT([
         Extra start script:      ${RC_LOCAL_SCRIPT_PATH_START}
         Extra stop script:       ${RC_LOCAL_SCRIPT_PATH_STOP}
         Debug shell:             ${SUSHELL} @ ${DEBUGTTY}
+        TTY GID:                 ${TTY_GID}
         Maximum System UID:      ${SYSTEM_UID_MAX}
         Maximum System GID:      ${SYSTEM_GID_MAX}
 

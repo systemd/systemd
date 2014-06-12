@@ -1772,8 +1772,11 @@ systemd_sysusers_LDADD = \
 rootbin_PROGRAMS += \
 	systemd-sysusers
 
-dist_sysusers_DATA = \
+nodist_sysusers_DATA = \
 	sysusers.d/systemd.conf
+
+EXTRA_DIST += \
+	sysusers.d/systemd.conf.in
 
 INSTALL_DIRS += \
 	$(sysusersdir)
@@ -4934,7 +4937,8 @@ substitutions = \
        '|NTP_SERVERS=$(NTP_SERVERS)|' \
        '|DNS_SERVERS=$(DNS_SERVERS)|' \
        '|systemuidmax=$(SYSTEM_UID_MAX)|' \
-       '|systemgidmax=$(SYSTEM_GID_MAX)|'
+       '|systemgidmax=$(SYSTEM_GID_MAX)|' \
+       '|TTY_GID=$(TTY_GID)|'
 
 SED_PROCESS = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
