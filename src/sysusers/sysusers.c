@@ -53,7 +53,8 @@ typedef struct Item {
         bool gid_set:1;
         bool uid_set:1;
 
-        bool todo:1;
+        bool todo_user:1;
+        bool todo_group:1;
 } Item;
 
 static char *arg_root = NULL;
@@ -279,7 +280,7 @@ static int write_files(void) {
                                  * duplicate entries. */
 
                                 i = hashmap_get(groups, gr->gr_name);
-                                if (i && i->todo) {
+                                if (i && i->todo_group) {
                                         r = -EEXIST;
                                         goto finish;
                                 }
@@ -345,7 +346,7 @@ static int write_files(void) {
                         while ((pw = fgetpwent(original))) {
 
                                 i = hashmap_get(users, pw->pw_name);
-                                if (i && i->todo) {
+                                if (i && i->todo_user) {
                                         r = -EEXIST;
                                         goto finish;
                                 }
@@ -573,7 +574,7 @@ static int add_user(Item *i) {
         z = hashmap_get(database_user, i->name);
         if (z) {
                 log_debug("User %s already exists.", i->name);
-                i->uid = PTR_TO_GID(z);
+                i->uid = PTR_TO_UID(z);
                 i->uid_set = true;
                 return 0;
         }
@@ -691,7 +692,7 @@ static int add_user(Item *i) {
         if (r < 0)
                 return log_oom();
 
-        i->todo = true;
+        i->todo_user = true;
         log_info("Creating user %s (%s) with uid " UID_FMT " and gid " GID_FMT ".", i->name, strna(i->description), i->uid, i->gid);
 
         return 0;
@@ -844,7 +845,7 @@ static int add_group(Item *i) {
         if (r < 0)
                 return log_oom();
 
-        i->todo = true;
+        i->todo_group = true;
         log_info("Creating group %s with gid " GID_FMT ".", i->name, i->gid);
 
         return 0;
