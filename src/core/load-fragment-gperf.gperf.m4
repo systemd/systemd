@@ -161,6 +161,7 @@ Unit.ConditionPathIsReadWrite,   config_parse_unit_condition_path,   CONDITION_P
 Unit.ConditionDirectoryNotEmpty, config_parse_unit_condition_path,   CONDITION_DIRECTORY_NOT_EMPTY, 0
 Unit.ConditionFileNotEmpty,      config_parse_unit_condition_path,   CONDITION_FILE_NOT_EMPTY,      0
 Unit.ConditionFileIsExecutable,  config_parse_unit_condition_path,   CONDITION_FILE_IS_EXECUTABLE,  0
+Unit.ConditionNeedsUpdate,       config_parse_unit_condition_path,   CONDITION_NEEDS_UPDATE,        0
 Unit.ConditionKernelCommandLine, config_parse_unit_condition_string, CONDITION_KERNEL_COMMAND_LINE, 0
 Unit.ConditionArchitecture,      config_parse_unit_condition_string, CONDITION_ARCHITECTURE,        0
 Unit.ConditionVirtualization,    config_parse_unit_condition_string, CONDITION_VIRTUALIZATION,      0

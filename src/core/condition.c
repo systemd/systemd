@@ -90,6 +90,36 @@ static bool condition_test_capability(Condition *c) {
         return !!(capabilities & (1ULL << value)) == !c->negate;
 }
 
+static bool condition_test_needs_update(Condition *c) {
+        const char *p;
+        struct stat usr, other;
+
+        assert(c);
+        assert(c->parameter);
+        assert(c->type == CONDITION_NEEDS_UPDATE);
+
+        /* If the file system is read-only we shouldn't suggest an update */
+        if (path_is_read_only_fs(c->parameter) > 0)
+                return c->negate;
+
+        /* Any other failure means we should allow the condition to be true,
+         * so that we rather invoke too many update tools then too
+         * few. */
+
+        if (!path_is_absolute(c->parameter))
+                return !c->negate;
+
+        p = strappenda(c->parameter, "/.updated");
+        if (lstat(p, &other) < 0)
+                return !c->negate;
+
+        if (lstat("/usr/", &usr) < 0)
+                return !c->negate;
+
+        return (usr.st_mtim.tv_sec > other.st_mtim.tv_sec ||
+                (usr.st_mtim.tv_sec == other.st_mtim.tv_sec && usr.st_mtim.tv_nsec > other.st_mtim.tv_nsec)) == !c->negate;
+}
+
 static bool condition_test(Condition *c) {
         assert(c);
 
@@ -168,6 +198,9 @@ static bool condition_test(Condition *c) {
 
         case CONDITION_ARCHITECTURE:
                 return condition_test_architecture(c);
+
+        case CONDITION_NEEDS_UPDATE:
+                return condition_test_needs_update(c);
 
         case CONDITION_NULL:
                 return !c->negate;

@@ -14,6 +14,8 @@ After=systemd-readahead-collect.service systemd-readahead-replay.service local-f
 Before=sysinit.target shutdown.target
 RefuseManualStart=yes
 RefuseManualStop=yes
+ConditionNeedsUpdate=|/etc
+ConditionNeedsUpdate=|/var
 
 [Service]
 Type=oneshot
