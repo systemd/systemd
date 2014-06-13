@@ -672,6 +672,13 @@ _malloc_  _alloc_(1, 2) static inline void *malloc_multiply(size_t a, size_t b) 
         return malloc(a * b);
 }
 
+_alloc_(2, 3) static inline void *realloc_multiply(void *p, size_t a, size_t b) {
+        if (_unlikely_(b != 0 && a > ((size_t) -1) / b))
+                return NULL;
+
+        return realloc(p, a * b);
+}
+
 _alloc_(2, 3) static inline void *memdup_multiply(const void *p, size_t a, size_t b) {
         if (_unlikely_(b != 0 && a > ((size_t) -1) / b))
                 return NULL;
