@@ -185,7 +185,7 @@ static int load_link(link_config_ctx *ctx, const char *filename) {
 }
 
 static bool enable_name_policy(void) {
-        _cleanup_free_ char *line;
+        _cleanup_free_ char *line = NULL;
         char *w, *state;
         int r;
         size_t l;
