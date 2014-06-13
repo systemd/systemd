@@ -1769,7 +1769,7 @@ systemd_sysusers_LDADD = \
 	libsystemd-internal.la \
 	libsystemd-shared.la
 
-rootbin_PROGRAMS += \
+rootlibexec_PROGRAMS += \
 	systemd-sysusers
 
 nodist_sysusers_DATA = \
