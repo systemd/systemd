@@ -19,4 +19,4 @@ ConditionNeedsUpdate=/etc
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=@rootlibexecdir@/systemd-sysusers
+ExecStart=@rootbindir@/systemd-sysusers

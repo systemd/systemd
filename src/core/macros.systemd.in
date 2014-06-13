@@ -26,7 +26,9 @@
 %_udevrulesdir @udevrulesdir@
 %_journalcatalogdir @catalogdir@
 %_tmpfilesdir @tmpfilesdir@
+%_sysusersdir @sysusersdir@
 %_sysctldir @sysctldir@
+%_binfmtdir @binfmtdir@
 
 %systemd_requires \
 Requires(post): systemd \
@@ -75,4 +77,16 @@ journalctl --update-catalog >/dev/null 2>&1 || : \
 
 %tmpfiles_create() \
 systemd-tmpfiles --create %{?*} >/dev/null 2>&1 || : \
+%{nil}
+
+%sysusers_create() \
+systemd-sysusers %{?*} >/dev/null 2>&1 || : \
+%{nil}
+
+%sysctl_apply() \
+@rootlibexecdir@/systemd-sysctl %{?*} >/dev/null 2>&1 || : \
+%{nil}
+
+%binfmt_apply() \
+@rootlibexecdir@/systemd-binfmt %{?*} >/dev/null 2>&1 || : \
 %{nil}
