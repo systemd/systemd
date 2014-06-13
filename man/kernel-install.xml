@@ -95,14 +95,20 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
           <para>The kernel-install plugin <filename>50-depmod.install</filename> runs depmod for the <replaceable>KERNEL-VERSION</replaceable>.</para>
 
-          <para>The kernel-install plugin <filename>90-loaderentry.install</filename> copies
+          <para>The kernel-install plugin
+          <filename>90-loaderentry.install</filename> copies
           <replaceable>KERNEL-IMAGE</replaceable> to
           <filename>/boot/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/linux</filename>.
-          It also creates a boot loader entry according to the boot loader specification in
+          It also creates a boot loader entry according to the boot
+          loader specification in
           <filename>/boot/loader/entries/<replaceable>MACHINE-ID</replaceable>-<replaceable>KERNEL-VERSION</replaceable>.conf</filename>.
-          The title of the entry is the <replaceable>PRETTY_NAME</replaceable> parameter specified in <filename>/etc/os-release</filename>,
-          or "Linux <replaceable>KERNEL-VERSION</replaceable>", if unset.
-          If the file <filename>initrd</filename> is found next to the
+          The title of the entry is the
+          <replaceable>PRETTY_NAME</replaceable> parameter specified
+          in <filename>/etc/os-release</filename> or
+          <filename>/usr/lib/os-release</filename> (if the former is
+          missing), or "Linux
+          <replaceable>KERNEL-VERSION</replaceable>", if unset.  If
+          the file <filename>initrd</filename> is found next to the
           <filename>linux</filename> file, the initrd will be added to
           the configuration.</para>
         </listitem>
@@ -165,6 +171,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       <varlistentry>
         <term>
           <filename>/etc/os-release</filename>
+          <filename>/usr/lib/os-release</filename>
         </term>
           <listitem>
             <para>The content of the file specifies the operating system title <replaceable>PRETTY_NAME</replaceable>.</para>

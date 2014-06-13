@@ -136,8 +136,9 @@
 
                 <para>As a safety check
                 <command>systemd-nspawn</command> will verify the
-                existence of <filename>/etc/os-release</filename> in
-                the container tree before starting the container (see
+                existence of <filename>/usr/lib/os-release</filename>
+                or <filename>/etc/os-release</filename> in the
+                container tree before starting the container (see
                 <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>). It
                 might be necessary to add this file to the container
                 tree manually if the OS of the container is too old to

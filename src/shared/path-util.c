@@ -526,12 +526,18 @@ int path_is_os_tree(const char *path) {
         char *p;
         int r;
 
-        /* We use /etc/os-release as flag file if something is an OS */
+        /* We use /usr/lib/os-release as flag file if something is an OS */
+        p = strappenda(path, "/usr/lib/os-release");
+        r = access(p, F_OK);
 
+        if (r >= 0)
+                return 1;
+
+        /* Also check for the old location in /etc, just in case. */
         p = strappenda(path, "/etc/os-release");
         r = access(p, F_OK);
 
-        return r < 0 ? 0 : 1;
+        return r >= 0;
 }
 
 int find_binary(const char *name, char **filename) {

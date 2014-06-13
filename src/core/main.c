@@ -1251,9 +1251,15 @@ static int status_welcome(void) {
                            "PRETTY_NAME", &pretty_name,
                            "ANSI_COLOR", &ansi_color,
                            NULL);
+        if (r == -ENOENT) {
+                r = parse_env_file("/usr/lib/os-release", NEWLINE,
+                                   "PRETTY_NAME", &pretty_name,
+                                   "ANSI_COLOR", &ansi_color,
+                                   NULL);
+        }
 
         if (r < 0 && r != -ENOENT)
-                log_warning("Failed to read /etc/os-release: %s", strerror(-r));
+                log_warning("Failed to read os-release file: %s", strerror(-r));
 
         return status_printf(NULL, false, false,
                              "\nWelcome to \x1B[%sm%s\x1B[0m!\n",

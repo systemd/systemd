@@ -32,6 +32,8 @@ fi
 
 if [[ -f /etc/os-release ]]; then
     . /etc/os-release
+elif [[ -f /usr/lib/os-release ]]; then
+    . /usr/lib/os-release
 fi
 
 if ! [[ $PRETTY_NAME ]]; then

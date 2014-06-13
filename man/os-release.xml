@@ -49,13 +49,15 @@
 
         <refsynopsisdiv>
                 <para><filename>/etc/os-release</filename></para>
+                <para><filename>/usr/lib/os-release</filename></para>
         </refsynopsisdiv>
 
         <refsect1>
                 <title>Description</title>
 
-                <para>The <filename>/etc/os-release</filename> file
-                contains operating system identification data.</para>
+                <para>The <filename>/etc/os-release</filename> and
+                <filename>/usr/lib/os-release</filename> files contain
+                operating system identification data.</para>
 
                 <para>The basic file format of
                 <filename>os-release</filename> is a newline-separated
@@ -78,20 +80,38 @@
                 strings. Lines beginning with "#" shall be ignored as
                 comments.</para>
 
-                <para><filename>/etc/os-release</filename> contains
-                data that is defined by the operating system vendor
-                and should not be changed by the administrator.</para>
+                <para>The file <filename>/etc/os-release</filename>
+                takes precedence over
+                <filename>/usr/lib/os-release</filename>. Applications
+                should check for the former, and exclusively use its
+                data if it exists, and only fall back to
+                <filename>/usr/lib/os-release</filename> if it is
+                missing. Applications should not read data from both
+                files at the same
+                time. <filename>/usr/lib/os-release</filename> is the
+                recommended place to store OS release information as
+                part of vendor trees. Frequently
+                <filename>/etc/os-release</filename> is simply a
+                symlink to <filename>/usr/lib/os-release</filename>,
+                to provide compatibility with applications only
+                looking at <filename>/etc</filename>.</para>
+
+                <para><filename>os-release</filename> contains data
+                that is defined by the operating system vendor and
+                should generally not be changed by the
+                administrator.</para>
 
                 <para>As this file only encodes names and identifiers
                 it should not be localized.</para>
 
-                <para>The file <filename>/etc/os-release</filename> might
-                be a symlink to another file, but it is important that
+                <para>The <filename>/etc/os-release</filename> and
+                <filename>/usr/lib/os-release</filename> files might
+                be symlinks to other files, but it is important that
                 the file is available from earliest boot on, and hence
                 must be located on the root file system.</para>
 
                 <para>For a longer rationale for
-                <filename>/etc/os-release</filename> please refer to
+                <filename>os-release</filename> please refer to
                 the <ulink
                 url="http://0pointer.de/blog/projects/os-release">Announcement of <filename>/etc/os-release</filename></ulink>.</para>
         </refsect1>
@@ -100,7 +120,7 @@
                 <title>Options</title>
 
                 <para>The following OS identifications parameters may be set using
-                <filename>/etc/os-release</filename>:</para>
+                <filename>os-release</filename>:</para>
 
                 <variablelist>
 

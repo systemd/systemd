@@ -1191,7 +1191,7 @@ static int method_switch_root(sd_bus *bus, sd_bus_message *message, void *userda
         /* Safety check */
         if (isempty(init)) {
                 if (! path_is_os_tree(root))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Specified switch root path %s does not seem to be an OS tree. /etc/os-release is missing.", root);
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Specified switch root path %s does not seem to be an OS tree. os-release file is missing.", root);
         } else {
                 _cleanup_free_ char *p = NULL;
 

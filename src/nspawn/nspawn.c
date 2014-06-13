@@ -2799,7 +2799,7 @@ int main(int argc, char *argv[]) {
 
                 if (arg_boot) {
                         if (path_is_os_tree(arg_directory) <= 0) {
-                                log_error("Directory %s doesn't look like an OS root directory (/etc/os-release is missing). Refusing.", arg_directory);
+                                log_error("Directory %s doesn't look like an OS root directory (os-release file is missing). Refusing.", arg_directory);
                                 goto finish;
                         }
                 } else {

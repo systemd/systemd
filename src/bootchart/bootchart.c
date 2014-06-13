@@ -386,10 +386,10 @@ int main(int argc, char *argv[]) {
                 if (sysfd < 0)
                         sysfd = open("/sys", O_RDONLY|O_CLOEXEC);
 
-                if (!build)
-                        parse_env_file("/etc/os-release", NEWLINE,
-                                       "PRETTY_NAME", &build,
-                                       NULL);
+                if (!build) {
+                        if (parse_env_file("/etc/os-release", NEWLINE, "PRETTY_NAME", &build, NULL) == -ENOENT)
+                                parse_env_file("/usr/lib/os-release", NEWLINE, "PRETTY_NAME", &build, NULL);
+                }
 
                 /* wait for /proc to become available, discarding samples */
                 if (graph_start <= 0.0)
