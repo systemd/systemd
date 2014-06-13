@@ -32,6 +32,7 @@
 /systemd-initctl.service
 /systemd-journal-flush.service
 /systemd-journal-gatewayd.service
+/systemd-journal-catalog-update.service
 /systemd-journald.service
 /systemd-kexec.service
 /systemd-localed.service
@@ -54,12 +55,14 @@
 /systemd-shutdownd.service
 /systemd-suspend.service
 /systemd-sysctl.service
+/systemd-sysusers.service
 /systemd-timedated.service
 /systemd-timesyncd.service
 /systemd-tmpfiles-clean.service
 /systemd-tmpfiles-setup-dev.service
 /systemd-tmpfiles-setup.service
 /systemd-tmpfiles.service
+/systemd-udev-hwdb-update.service
 /systemd-udev-settle.service
 /systemd-udev-trigger.service
 /systemd-udevd.service

@@ -491,6 +491,7 @@ nodist_systemunit_DATA = \
 	units/systemd-udevd.service \
 	units/systemd-udev-trigger.service \
 	units/systemd-udev-settle.service \
+	units/systemd-udev-hwdb-update.service \
 	units/debug-shell.service \
 	units/initrd-parse-etc.service \
 	units/initrd-cleanup.service \
@@ -1783,10 +1784,17 @@ systemd_sysusers_LDADD = \
 rootlibexec_PROGRAMS += \
 	systemd-sysusers
 
+nodist_systemunit_DATA += \
+	units/systemd-sysusers.service
+
+SYSINIT_TARGET_WANTS += \
+	systemd-sysusers.service
+
 nodist_sysusers_DATA = \
 	sysusers.d/systemd.conf
 
 EXTRA_DIST += \
+	units/systemd-sysusers.service.in \
 	sysusers.d/systemd.conf.in
 
 INSTALL_DIRS += \
@@ -2753,19 +2761,23 @@ CLEANFILES += \
 EXTRA_DIST += \
 	units/systemd-udevd.service.in \
 	units/systemd-udev-trigger.service.in \
-	units/systemd-udev-settle.service.in
+	units/systemd-udev-settle.service.in \
+	units/systemd-udev-hwdb-update.service.in
 
 CLEANFILES += \
 	units/systemd-udevd.service \
 	units/systemd-udev-trigger.service \
-	units/systemd-udev-settle.service
+	units/systemd-udev-settle.service \
+	units/systemd-udev-hwdb-update.service
 
 SOCKETS_TARGET_WANTS += \
 	systemd-udevd-control.socket \
 	systemd-udevd-kernel.socket
+
 SYSINIT_TARGET_WANTS += \
 	systemd-udevd.service \
-	systemd-udev-trigger.service
+	systemd-udev-trigger.service \
+	systemd-udev-hwdb-update.service
 
 rootbin_PROGRAMS += \
 	udevadm
@@ -3540,7 +3552,8 @@ dist_systemunit_DATA += \
 
 nodist_systemunit_DATA += \
 	units/systemd-journald.service \
-	units/systemd-journal-flush.service
+	units/systemd-journal-flush.service \
+	units/systemd-journal-catalog-update.service
 
 dist_pkgsysconf_DATA += \
 	src/journal/journald.conf
@@ -3557,11 +3570,13 @@ SOCKETS_TARGET_WANTS += \
 
 SYSINIT_TARGET_WANTS += \
 	systemd-journald.service \
-	systemd-journal-flush.service
+	systemd-journal-flush.service \
+	systemd-journal-catalog-update.service
 
 EXTRA_DIST += \
 	units/systemd-journald.service.in \
 	units/systemd-journal-flush.service.in \
+	units/systemd-journal-catalog-update.service.in \
 	src/journal/journald-gperf.gperf
 
 CLEANFILES += \

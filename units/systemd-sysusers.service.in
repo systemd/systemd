@@ -6,16 +6,17 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Create Volatile Files and Directories
-Documentation=man:tmpfiles.d(5) man:systemd-tmpfiles(8)
+Description=Create System Users
+Documentation=man:sysusers.d(5) man:systemd-sysusers.service(8)
 DefaultDependencies=no
 Conflicts=shutdown.target
-After=systemd-readahead-collect.service systemd-readahead-replay.service local-fs.target systemd-sysusers.service
-Before=sysinit.target shutdown.target
+After=systemd-readahead-collect.service systemd-readahead-replay.service systemd-remount-fs.service
+Before=sysinit.target shutdown.target systemd-update-done.service
 RefuseManualStart=yes
 RefuseManualStop=yes
+ConditionNeedsUpdate=/etc
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=@rootbindir@/systemd-tmpfiles --create --remove --boot --exclude-prefix=/dev
+ExecStart=@rootlibexecdir@/systemd-sysusers

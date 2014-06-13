@@ -10,7 +10,7 @@ Description=udev Kernel Device Manager
 Documentation=man:systemd-udevd.service(8) man:udev(7)
 DefaultDependencies=no
 Wants=systemd-udevd-control.socket systemd-udevd-kernel.socket
-After=systemd-udevd-control.socket systemd-udevd-kernel.socket
+After=systemd-udevd-control.socket systemd-udevd-kernel.socket systemd-udev-hwdb-update.service systemd-sysusers.service
 Before=sysinit.target
 ConditionPathIsReadWrite=/sys
 
