@@ -65,6 +65,7 @@
 /systemd-udevd.service
 /systemd-update-utmp-runlevel.service
 /systemd-update-utmp.service
+/systemd-update-done.service
 /systemd-user-sessions.service
 /systemd-vconsole-setup.service
 /user@.service

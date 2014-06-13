@@ -361,7 +361,8 @@ rootlibexec_PROGRAMS = \
 	systemd-sysctl \
 	systemd-sleep \
 	systemd-bus-proxyd \
-	systemd-socket-proxyd
+	systemd-socket-proxyd \
+	systemd-update-done
 
 systemgenerator_PROGRAMS = \
 	systemd-getty-generator \
@@ -495,7 +496,8 @@ nodist_systemunit_DATA = \
 	units/initrd-cleanup.service \
 	units/initrd-udevadm-cleanup-db.service \
 	units/initrd-switch-root.service \
-	units/systemd-nspawn@.service
+	units/systemd-nspawn@.service \
+	units/systemd-update-done.service
 
 dist_userunit_DATA = \
 	units/user/basic.target \
@@ -538,7 +540,8 @@ EXTRA_DIST += \
 	units/initrd-cleanup.service.in \
 	units/initrd-udevadm-cleanup-db.service.in \
 	units/initrd-switch-root.service.in \
-	units/systemd-nspawn@.service.in
+	units/systemd-nspawn@.service.in \
+	units/systemd-update-done.service.in
 
 CLEANFILES += \
 	units/console-shell.service.m4 \
@@ -1639,6 +1642,14 @@ systemd_update_utmp_LDADD = \
 	libsystemd-internal.la \
 	libsystemd-shared.la \
 	$(AUDIT_LIBS)
+
+# ------------------------------------------------------------------------------
+systemd_update_done_SOURCES = \
+	src/update-done/update-done.c
+
+systemd_update_done_LDADD = \
+	libsystemd-internal.la \
+	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
 systemd_shutdownd_SOURCES = \
@@ -5100,14 +5111,19 @@ RUNLEVEL4_TARGET_WANTS += \
 RUNLEVEL5_TARGET_WANTS += \
 	systemd-update-utmp-runlevel.service
 endif
+
 SYSINIT_TARGET_WANTS += \
-	systemd-update-utmp.service
+	systemd-update-utmp.service \
+	systemd-update-done.service
+
 LOCAL_FS_TARGET_WANTS += \
 	systemd-remount-fs.service \
 	tmp.mount
+
 MULTI_USER_TARGET_WANTS += \
 	getty.target \
 	systemd-ask-password-wall.path
+
 SYSINIT_TARGET_WANTS += \
 	dev-hugepages.mount \
 	dev-mqueue.mount \

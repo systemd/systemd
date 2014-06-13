@@ -1,0 +1,21 @@
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Update is Completed
+Documentation=man:sysusers.d(5) man:systemd-sysusers(8)
+DefaultDependencies=no
+Conflicts=shutdown.target
+After=systemd-readahead-collect.service systemd-readahead-replay.service local-fs.target
+Before=sysinit.target shutdown.target
+RefuseManualStart=yes
+RefuseManualStop=yes
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=@rootlibexecdir@/systemd-update-done

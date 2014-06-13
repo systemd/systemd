@@ -109,6 +109,7 @@
 /systemd-tty-ask-password-agent
 /systemd-uaccess
 /systemd-udevd
+/systemd-update-done
 /systemd-update-utmp
 /systemd-user-sessions
 /systemd-vconsole-setup
