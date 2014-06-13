@@ -1151,19 +1151,25 @@ static int bump_rlimit_nofile(struct rlimit *saved_rlimit) {
 }
 
 static void test_mtab(void) {
-        char *p;
 
-        /* Check that /etc/mtab is a symlink */
+        static const char ok[] =
+                "/proc/self/mounts\0"
+                "/proc/mounts\0"
+                "../proc/self/mounts\0"
+                "../proc/mounts\0";
 
-        if (readlink_malloc("/etc/mtab", &p) >= 0) {
-                bool b;
+        _cleanup_free_ char *p = NULL;
+        int r;
 
-                b = streq(p, "/proc/self/mounts") || streq(p, "/proc/mounts");
-                free(p);
+        /* Check that /etc/mtab is a symlink to the right place or
+         * non-existing. But certainly not a file, or a symlink to
+         * some weird place... */
 
-                if (b)
-                        return;
-        }
+        r = readlink_malloc("/etc/mtab", &p);
+        if (r == -ENOENT)
+                return;
+        if (r >= 0 && nulstr_contains(ok, p))
+                return;
 
         log_warning("/etc/mtab is not a symlink or not pointing to /proc/self/mounts. "
                     "This is not supported anymore. "
