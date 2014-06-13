@@ -86,10 +86,6 @@ Features:
   do not have to open it to know that it is not interesting for us, for
   the most common operations.
 
-* support transient mount units
-
-* add an "input" group to udev logic and add all input devices to it
-
 * add generator that pulls in systemd-network from containers when
   CAP_NET_ADMIN is set, more than the loopback device is defined, even
   when it is otherwise off
