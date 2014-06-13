@@ -481,7 +481,7 @@ static int uid_is_ok(uid_t uid, const char *name) {
                 p = getpwuid(uid);
                 if (p)
                         return 0;
-                if (errno != 0)
+                if (!IN_SET(errno, 0, ENOENT))
                         return -errno;
 
                 errno = 0;
@@ -489,7 +489,7 @@ static int uid_is_ok(uid_t uid, const char *name) {
                 if (g) {
                         if (!streq(g->gr_name, name))
                                 return 0;
-                } else if (errno != 0)
+                } else if (!IN_SET(errno, 0, ENOENT))
                         return -errno;
         }
 
@@ -595,7 +595,7 @@ static int add_user(Item *i) {
                         i->description = strdup(p->pw_gecos);
                         return 0;
                 }
-                if (errno != 0) {
+                if (!IN_SET(errno, 0, ENOENT)) {
                         log_error("Failed to check if user %s already exists: %m", i->name);
                         return -errno;
                 }
@@ -607,7 +607,7 @@ static int add_user(Item *i) {
                         log_error("User %s already exists in shadow database, but not in user database.", i->name);
                         return -EBADMSG;
                 }
-                if (errno != 0) {
+                if (!IN_SET(errno, 0, ENOENT)) {
                         log_error("Failed to check if user %s already exists in shadow database: %m", i->name);
                         return -errno;
                 }
@@ -720,14 +720,14 @@ static int gid_is_ok(gid_t gid) {
                 g = getgrgid(gid);
                 if (g)
                         return 0;
-                if (errno != 0)
+                if (!IN_SET(errno, 0, ENOENT))
                         return -errno;
 
                 errno = 0;
                 p = getpwuid((uid_t) gid);
                 if (p)
                         return 0;
-                if (errno != 0)
+                if (!IN_SET(errno, 0, ENOENT))
                         return -errno;
         }
 
@@ -761,7 +761,7 @@ static int add_group(Item *i) {
                         i->gid_set = true;
                         return 0;
                 }
-                if (errno != 0) {
+                if (!IN_SET(errno, 0, ENOENT)) {
                         log_error("Failed to check if group %s already exists: %m", i->name);
                         return -errno;
                 }
