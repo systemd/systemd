@@ -1723,6 +1723,8 @@ static int link_configure(Link *link) {
                         pool_start.s_addr = htobe32(be32toh(address->in_addr.in.s_addr) + 1);
                         r = sd_dhcp_server_set_lease_pool(link->dhcp_server,
                                                           &pool_start, 32);
+                        if (r < 0)
+                                return r;
 
                         break;
                 }
