@@ -697,8 +697,10 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
                                 lease->address = req->requested_ip;
                                 lease->client_id.data = memdup(req->client_id.data,
                                                                req->client_id.length);
-                                if (!lease->client_id.data)
+                                if (!lease->client_id.data) {
+                                        free(lease);
                                         return -ENOMEM;
+                                }
                                 lease->client_id.length = req->client_id.length;
                         } else
                                 lease = existing_lease;
