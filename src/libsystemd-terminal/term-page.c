@@ -62,6 +62,14 @@
  * allocations on others.
  * Anyhow, until we have proper benchmarks, we will keep the current code. It
  * seems to compete very well with other solutions so far.
+ *
+ * The page-layer is a one-dimensional array of lines. Considering that each
+ * line is a one-dimensional array of cells, the page layer provides the
+ * two-dimensional cell-page required for terminals. The page itself only
+ * operates on lines. All cell-related operations are forwarded to the correct
+ * line.
+ * A page does not contain any cursor tracking. It only provides the raw
+ * operations to shuffle lines and modify the page.
  */
 
 #include <stdbool.h>
@@ -1139,4 +1147,950 @@ void term_line_unlink(term_line *line, term_line **first, term_line **last) {
 
         line->lines_prev = NULL;
         line->lines_next = NULL;
+}
+
+/**
+ * term_page_new() - Allocate new page
+ * @out: storage for pointer to new page
+ *
+ * Allocate a new page. The initial dimensions are 0/0.
+ *
+ * Returns: 0 on success, negative error code on failure.
+ */
+int term_page_new(term_page **out) {
+        _term_page_free_ term_page *page = NULL;
+
+        assert_return(out, -EINVAL);
+
+        page = new0(term_page, 1);
+        if (!page)
+                return -ENOMEM;
+
+        *out = page;
+        page = NULL;
+        return 0;
+}
+
+/**
+ * term_page_free() - Free page
+ * @page: page to free or NULL
+ *
+ * Free a previously allocated page and all associated data. If @page is NULL,
+ * this is a no-op.
+ *
+ * Returns: NULL
+ */
+term_page *term_page_free(term_page *page) {
+        unsigned int i;
+
+        if (!page)
+                return NULL;
+
+        for (i = 0; i < page->n_lines; ++i)
+                term_line_free(page->lines[i]);
+
+        free(page->line_cache);
+        free(page->lines);
+        free(page);
+
+        return NULL;
+}
+
+/**
+ * term_page_get_cell() - Return pointer to requested cell
+ * @page: page to operate on
+ * @x: x-position of cell
+ * @y: y-position of cell
+ *
+ * This returns a pointer to the cell at position @x/@y. You're free to modify
+ * this cell as much as you like. However, once you call any other function on
+ * the page, you must drop the pointer to the cell.
+ *
+ * Returns: Pointer to the cell or NULL if out of the visible area.
+ */
+term_cell *term_page_get_cell(term_page *page, unsigned int x, unsigned int y) {
+        assert_return(page, NULL);
+
+        if (x >= page->width)
+                return NULL;
+        if (y >= page->height)
+                return NULL;
+
+        return &page->lines[y]->cells[x];
+}
+
+/**
+ * page_scroll_up() - Scroll up
+ * @page: page to operate on
+ * @new_width: width to use for any new line moved into the visible area
+ * @num: number of lines to scroll up
+ * @attr: attributes to set on new lines
+ * @age: age to use for all modifications
+ * @history: history to use for old lines or NULL
+ *
+ * This scrolls the scroll-region by @num lines. New lines are cleared and reset
+ * with the given attributes. Old lines are moved into the history if non-NULL.
+ * If a new line is allocated, moved from the history buffer or moved from
+ * outside the visible region into the visible region, this call makes sure it
+ * has at least @width cells allocated. If a possible memory-allocation fails,
+ * the previous line is reused. This has the side effect, that it will not be
+ * linked into the history buffer.
+ *
+ * If the scroll-region is empty, this is a no-op.
+ */
+static void page_scroll_up(term_page *page, unsigned int new_width, unsigned int num, const term_attr *attr, term_age_t age, term_history *history) {
+        term_line *line, **cache;
+        unsigned int i;
+        int r;
+
+        assert(page);
+
+        if (num > page->scroll_num)
+                num = page->scroll_num;
+        if (num < 1)
+                return;
+
+        /* Better safe than sorry: avoid under-allocating lines, even when
+         * resizing. */
+        new_width = MAX(new_width, page->width);
+
+        cache = page->line_cache;
+
+        /* Try moving lines into history and allocate new lines for each moved
+         * line. In case allocation fails, or if we have no history, reuse the
+         * line.
+         * We keep the lines in the line-cache so we can safely move the
+         * remaining lines around. */
+        for (i = 0; i < num; ++i) {
+                line = page->lines[page->scroll_idx + i];
+
+                r = -EAGAIN;
+                if (history) {
+                        r = term_line_new(&cache[i]);
+                        if (r >= 0) {
+                                r = term_line_reserve(cache[i],
+                                                      new_width,
+                                                      attr,
+                                                      age,
+                                                      0);
+                                if (r < 0)
+                                        term_line_free(cache[i]);
+                                else
+                                        term_line_set_width(cache[i], page->width);
+                        }
+                }
+
+                if (r >= 0) {
+                        term_history_push(history, line);
+                } else {
+                        cache[i] = line;
+                        term_line_reset(line, attr, age);
+                }
+        }
+
+        if (num < page->scroll_num) {
+                memmove(page->lines + page->scroll_idx,
+                        page->lines + page->scroll_idx + num,
+                        sizeof(*page->lines) * (page->scroll_num - num));
+
+                /* update age of moved lines */
+                for (i = 0; i < page->scroll_num - num; ++i)
+                        page->lines[page->scroll_idx + i]->age = age;
+        }
+
+        /* copy remaining lines from cache; age is already updated */
+        memcpy(page->lines + page->scroll_idx + page->scroll_num - num,
+               cache,
+               sizeof(*cache) * num);
+
+        /* update fill */
+        page->scroll_fill -= MIN(page->scroll_fill, num);
+}
+
+/**
+ * page_scroll_down() - Scroll down
+ * @page: page to operate on
+ * @new_width: width to use for any new line moved into the visible area
+ * @num: number of lines to scroll down
+ * @attr: attributes to set on new lines
+ * @age: age to use for all modifications
+ * @history: history to use for new lines or NULL
+ *
+ * This scrolls the scroll-region by @num lines. New lines are retrieved from
+ * the history or cleared if the history is empty or NULL.
+ *
+ * Usually, scroll-down implies that new lines are cleared. Therefore, you're
+ * highly encouraged to set @history to NULL. However, if you resize a terminal,
+ * you might want to include history-lines in the new area. In that case, you
+ * should set @history to non-NULL.
+ *
+ * If a new line is allocated, moved from the history buffer or moved from
+ * outside the visible region into the visible region, this call makes sure it
+ * has at least @width cells allocated. If a possible memory-allocation fails,
+ * the previous line is reused. This will have the side-effect that lines from
+ * the history will not get visible on-screen but kept in history.
+ *
+ * If the scroll-region is empty, this is a no-op.
+ */
+static void page_scroll_down(term_page *page, unsigned int new_width, unsigned int num, const term_attr *attr, term_age_t age, term_history *history) {
+        term_line *line, **cache, *t;
+        unsigned int i, last_idx;
+
+        assert(page);
+
+        if (num > page->scroll_num)
+                num = page->scroll_num;
+        if (num < 1)
+                return;
+
+        /* Better safe than sorry: avoid under-allocating lines, even when
+         * resizing. */
+        new_width = MAX(new_width, page->width);
+
+        cache = page->line_cache;
+        last_idx = page->scroll_idx + page->scroll_num - 1;
+
+        /* Try pulling out lines from history; if history is empty or if no
+         * history is given, we reuse the to-be-removed lines. Otherwise, those
+         * lines are released. */
+        for (i = 0; i < num; ++i) {
+                line = page->lines[last_idx - i];
+
+                t = NULL;
+                if (history)
+                        t = term_history_pop(history, new_width, attr, age);
+
+                if (t) {
+                        cache[num - 1 - i] = t;
+                        term_line_free(line);
+                } else {
+                        cache[num - 1 - i] = line;
+                        term_line_reset(line, attr, age);
+                }
+        }
+
+        if (num < page->scroll_num) {
+                memmove(page->lines + page->scroll_idx + num,
+                        page->lines + page->scroll_idx,
+                        sizeof(*page->lines) * (page->scroll_num - num));
+
+                /* update age of moved lines */
+                for (i = 0; i < page->scroll_num - num; ++i)
+                        page->lines[page->scroll_idx + num + i]->age = age;
+        }
+
+        /* copy remaining lines from cache; age is already updated */
+        memcpy(page->lines + page->scroll_idx,
+               cache,
+               sizeof(*cache) * num);
+
+        /* update fill; but only if there's already content in it */
+        if (page->scroll_fill > 0)
+                page->scroll_fill = MIN(page->scroll_num,
+                                        page->scroll_fill + num);
+}
+
+/**
+ * page_reserve() - Reserve page area
+ * @page: page to modify
+ * @cols: required columns (width)
+ * @rows: required rows (height)
+ * @attr: attributes for newly allocated cells
+ * @age: age to set on any modified cells
+ *
+ * This allocates the required amount of lines and cells to guarantee that the
+ * page has at least the demanded dimensions of @cols x @rows. Note that this
+ * never shrinks the page-memory. We keep cells allocated for performance
+ * reasons.
+ *
+ * Additionally to allocating lines, this also clears any newly added cells so
+ * you can safely change the size afterwards without clearing new cells.
+ *
+ * Note that you must be careful what operations you call on the page between
+ * page_reserve() and updating page->width/height. Any newly allocated line (or
+ * shifted line) might not meet your new width/height expectations.
+ *
+ * Returns: 0 on success, negative error code on failure.
+ */
+int term_page_reserve(term_page *page, unsigned int cols, unsigned int rows, const term_attr *attr, term_age_t age) {
+        _term_line_free_ term_line *line = NULL;
+        unsigned int i, min_lines;
+        term_line **t;
+        int r;
+
+        assert_return(page, -EINVAL);
+
+        /*
+         * First make sure the first MIN(page->n_lines, rows) lines have at
+         * least the required width of @cols. This does not modify any visible
+         * cells in the existing @page->width x @page->height area, therefore,
+         * we can safely bail out afterwards in case anything else fails.
+         * Note that lines in between page->height and page->n_lines might be
+         * shorter than page->width. Hence, we need to resize them all, but we
+         * can skip some of them for better performance.
+         */
+        min_lines = MIN(page->n_lines, rows);
+        for (i = 0; i < min_lines; ++i) {
+                /* lines below page->height have at least page->width cells */
+                if (cols < page->width && i < page->height)
+                        continue;
+
+                r = term_line_reserve(page->lines[i],
+                                      cols,
+                                      attr,
+                                      age,
+                                      (i < page->height) ? page->width : 0);
+                if (r < 0)
+                        return r;
+        }
+
+        /*
+         * We now know the first @min_lines lines have at least width @cols and
+         * are prepared for resizing. We now only have to allocate any
+         * additional lines below @min_lines in case @rows is greater than
+         * page->n_lines.
+         */
+        if (rows > page->n_lines) {
+                t = realloc_multiply(page->lines, sizeof(*t), rows);
+                if (!t)
+                        return -ENOMEM;
+                page->lines = t;
+
+                t = realloc_multiply(page->line_cache, sizeof(*t), rows);
+                if (!t)
+                        return -ENOMEM;
+                page->line_cache = t;
+
+                while (page->n_lines < rows) {
+                        r = term_line_new(&line);
+                        if (r < 0)
+                                return r;
+
+                        r = term_line_reserve(line, cols, attr, age, 0);
+                        if (r < 0)
+                                return r;
+
+                        page->lines[page->n_lines++] = line;
+                        line = NULL;
+                }
+        }
+
+        return 0;
+}
+
+/**
+ * term_page_resize() - Resize page
+ * @page: page to modify
+ * @cols: number of columns (width)
+ * @rows: number of rows (height)
+ * @attr: attributes for newly allocated cells
+ * @age: age to set on any modified cells
+ * @history: history buffer to use for new/old lines or NULL
+ *
+ * This changes the visible dimensions of a page. You must have called
+ * term_page_reserve() beforehand, otherwise, this will fail.
+ *
+ * Returns: 0 on success, negative error code on failure.
+ */
+void term_page_resize(term_page *page, unsigned int cols, unsigned int rows, const term_attr *attr, term_age_t age, term_history *history) {
+        unsigned int i, num, empty, max, old_height;
+        term_line *line;
+
+        assert(page);
+        assert(page->n_lines >= rows);
+
+        old_height = page->height;
+
+        if (rows < old_height) {
+                /*
+                 * If we decrease the terminal-height, we emulate a scroll-up.
+                 * This way, existing data from the scroll-area is moved into
+                 * the history, making space at the bottom to reduce the screen
+                 * height. In case the scroll-fill indicates empty lines, we
+                 * reduce the amount of scrolled lines.
+                 * Once scrolled, we have to move the lower margin from below
+                 * the scroll area up so it is preserved.
+                 */
+
+                /* move lines to history if scroll region is filled */
+                num = old_height - rows;
+                empty = page->scroll_num - page->scroll_fill;
+                if (num > empty)
+                        page_scroll_up(page,
+                                       cols,
+                                       num - empty,
+                                       attr,
+                                       age,
+                                       history);
+
+                /* move lower margin up; drop its lines if not enough space */
+                num = LESS_BY(old_height, page->scroll_idx + page->scroll_num);
+                max = LESS_BY(rows, page->scroll_idx);
+                num = MIN(num, max);
+                if (num > 0) {
+                        unsigned int top, bottom;
+
+                        top = rows - num;
+                        bottom = page->scroll_idx + page->scroll_num;
+
+                        /* might overlap; must run topdown, not bottomup */
+                        for (i = 0; i < num; ++i) {
+                                line = page->lines[top + i];
+                                page->lines[top + i] = page->lines[bottom + i];
+                                page->lines[bottom + i] = line;
+                        }
+                }
+
+                /* update vertical extents */
+                page->height = rows;
+                page->scroll_idx = MIN(page->scroll_idx, rows);
+                page->scroll_num -= MIN(page->scroll_num, old_height - rows);
+                /* fill is already up-to-date or 0 due to scroll-up */
+        } else if (rows > old_height) {
+                /*
+                 * If we increase the terminal-height, we emulate a scroll-down
+                 * and fetch new lines from the history.
+                 * New lines are always accounted to the scroll-region. Thus we
+                 * have to preserve the lower margin first, by moving it down.
+                 */
+
+                /* move lower margin down */
+                num = LESS_BY(old_height, page->scroll_idx + page->scroll_num);
+                if (num > 0) {
+                        unsigned int top, bottom;
+
+                        top = page->scroll_idx + page->scroll_num;
+                        bottom = top + (rows - old_height);
+
+                        /* might overlap; must run bottomup, not topdown */
+                        for (i = num; i-- > 0; ) {
+                                line = page->lines[top + i];
+                                page->lines[top + i] = page->lines[bottom + i];
+                                page->lines[bottom + i] = line;
+                        }
+                }
+
+                /* update vertical extents */
+                page->height = rows;
+                page->scroll_num = MIN(LESS_BY(rows, page->scroll_idx),
+                                       page->scroll_num + (rows - old_height));
+
+                /* check how many lines can be received from history */
+                if (history)
+                        num = term_history_peek(history,
+                                                rows - old_height,
+                                                cols,
+                                                attr,
+                                                age);
+                else
+                        num = 0;
+
+                /* retrieve new lines from history if available */
+                if (num > 0)
+                        page_scroll_down(page,
+                                         cols,
+                                         num,
+                                         attr,
+                                         age,
+                                         history);
+        }
+
+        /* set horizontal extents */
+        page->width = cols;
+        for (i = 0; i < page->height; ++i)
+                term_line_set_width(page->lines[i], cols);
+}
+
+/**
+ * term_page_write() - Write to a single cell
+ * @page: page to operate on
+ * @pos_x: x-position of cell to write to
+ * @pos_y: y-position of cell to write to
+ * @ch: character to write
+ * @cwidth: character-width of @ch
+ * @attr: attributes to set on the cell or NULL
+ * @age: age to use for all modifications
+ * @insert_mode: true if INSERT-MODE is enabled
+ *
+ * This writes a character to a specific cell. If the cell is beyond bounds,
+ * this is a no-op. @attr and @age are used to update the cell. @flags can be
+ * used to alter the behavior of this function.
+ *
+ * This is a wrapper around term_line_write().
+ *
+ * This call does not wrap around lines. That is, this only operates on a single
+ * line.
+ */
+void term_page_write(term_page *page, unsigned int pos_x, unsigned int pos_y, term_char_t ch, unsigned int cwidth, const term_attr *attr, term_age_t age, bool insert_mode) {
+        assert(page);
+
+        if (pos_y >= page->height)
+                return;
+
+        term_line_write(page->lines[pos_y], pos_x, ch, cwidth, attr, age, insert_mode);
+}
+
+/**
+ * term_page_insert_cells() - Insert cells into a line
+ * @page: page to operate on
+ * @from_x: x-position where to insert new cells
+ * @from_y: y-position where to insert new cells
+ * @num: number of cells to insert
+ * @attr: attributes to set on new cells or NULL
+ * @age: age to use for all modifications
+ *
+ * This inserts new cells into a given line. This is a wrapper around
+ * term_line_insert().
+ *
+ * This call does not wrap around lines. That is, this only operates on a single
+ * line.
+ */
+void term_page_insert_cells(term_page *page, unsigned int from_x, unsigned int from_y, unsigned int num, const term_attr *attr, term_age_t age) {
+        assert(page);
+
+        if (from_y >= page->height)
+                return;
+
+        term_line_insert(page->lines[from_y], from_x, num, attr, age);
+}
+
+/**
+ * term_page_delete_cells() - Delete cells from a line
+ * @page: page to operate on
+ * @from_x: x-position where to delete cells
+ * @from_y: y-position where to delete cells
+ * @num: number of cells to delete
+ * @attr: attributes to set on new cells or NULL
+ * @age: age to use for all modifications
+ *
+ * This deletes cells from a given line. This is a wrapper around
+ * term_line_delete().
+ *
+ * This call does not wrap around lines. That is, this only operates on a single
+ * line.
+ */
+void term_page_delete_cells(term_page *page, unsigned int from_x, unsigned int from_y, unsigned int num, const term_attr *attr, term_age_t age) {
+        assert(page);
+
+        if (from_y >= page->height)
+                return;
+
+        term_line_delete(page->lines[from_y], from_x, num, attr, age);
+}
+
+/**
+ * term_page_append_combchar() - Append combining-character to a cell
+ * @page: page to operate on
+ * @pos_x: x-position of target cell
+ * @pos_y: y-position of target cell
+ * @ucs4: combining character to append
+ * @age: age to use for all modifications
+ *
+ * This appends a combining-character to a specific cell. This is a wrapper
+ * around term_line_append_combchar().
+ */
+void term_page_append_combchar(term_page *page, unsigned int pos_x, unsigned int pos_y, uint32_t ucs4, term_age_t age) {
+        assert(page);
+
+        if (pos_y >= page->height)
+                return;
+
+        term_line_append_combchar(page->lines[pos_y], pos_x, ucs4, age);
+}
+
+/**
+ * term_page_erase() - Erase parts of a page
+ * @page: page to operate on
+ * @from_x: x-position where to start erasure (inclusive)
+ * @from_y: y-position where to start erasure (inclusive)
+ * @to_x: x-position where to stop erasure (inclusive)
+ * @to_y: y-position where to stop erasure (inclusive)
+ * @attr: attributes to set on cells
+ * @age: age to use for all modifications
+ * @keep_protected: true if protected cells should be kept
+ *
+ * This erases all cells starting at @from_x/@from_y up to @to_x/@to_y. Note
+ * that this wraps around line-boundaries so lines between @from_y and @to_y
+ * are cleared entirely.
+ *
+ * Lines outside the visible area are left untouched.
+ */
+void term_page_erase(term_page *page, unsigned int from_x, unsigned int from_y, unsigned int to_x, unsigned int to_y, const term_attr *attr, term_age_t age, bool keep_protected) {
+        unsigned int i, from, to;
+
+        assert(page);
+
+        for (i = from_y; i <= to_y && i < page->height; ++i) {
+                from = 0;
+                to = page->width;
+
+                if (i == from_y)
+                        from = from_x;
+                if (i == to_y)
+                        to = to_x;
+
+                term_line_erase(page->lines[i],
+                                from,
+                                LESS_BY(to, from),
+                                attr,
+                                age,
+                                keep_protected);
+        }
+}
+
+/**
+ * term_page_reset() - Reset page
+ * @page: page to modify
+ * @attr: attributes to set on cells
+ * @age: age to use for all modifications
+ *
+ * This erases the whole visible page. See term_page_erase().
+ */
+void term_page_reset(term_page *page, const term_attr *attr, term_age_t age) {
+        assert(page);
+
+        return term_page_erase(page,
+                               0, 0,
+                               page->width - 1, page->height - 1,
+                               attr,
+                               age,
+                               0);
+}
+
+/**
+ * term_page_set_scroll_region() - Set scroll region
+ * @page: page to operate on
+ * @idx: start-index of scroll region
+ * @num: number of lines in scroll region
+ *
+ * This sets the scroll region of a page. Whenever an operation needs to scroll
+ * lines, it scrolls them inside of that region. Lines outside the region are
+ * left untouched. In case a scroll-operation is targeted outside of this
+ * region, it will implicitly get a scroll-region of only one line (i.e., no
+ * scroll region at all).
+ *
+ * Note that the scroll-region is clipped to the current page-extents. Growing
+ * or shrinking the page always accounts new/old lines to the scroll region and
+ * moves top/bottom margins accordingly so they're preserved.
+ */
+void term_page_set_scroll_region(term_page *page, unsigned int idx, unsigned int num) {
+        assert(page);
+
+        if (page->height < 1) {
+                page->scroll_idx = 0;
+                page->scroll_num = 0;
+        } else {
+                page->scroll_idx = MIN(idx, page->height - 1);
+                page->scroll_num = MIN(num, page->height - page->scroll_idx);
+        }
+}
+
+/**
+ * term_page_scroll_up() - Scroll up
+ * @page: page to operate on
+ * @num: number of lines to scroll up
+ * @attr: attributes to set on new lines
+ * @age: age to use for all modifications
+ * @history: history to use for old lines or NULL
+ *
+ * This scrolls the scroll-region by @num lines. New lines are cleared and reset
+ * with the given attributes. Old lines are moved into the history if non-NULL.
+ *
+ * If the scroll-region is empty, this is a no-op.
+ */
+void term_page_scroll_up(term_page *page, unsigned int num, const term_attr *attr, term_age_t age, term_history *history) {
+        page_scroll_up(page, page->width, num, attr, age, history);
+}
+
+/**
+ * term_page_scroll_down() - Scroll down
+ * @page: page to operate on
+ * @num: number of lines to scroll down
+ * @attr: attributes to set on new lines
+ * @age: age to use for all modifications
+ * @history: history to use for new lines or NULL
+ *
+ * This scrolls the scroll-region by @num lines. New lines are retrieved from
+ * the history or cleared if the history is empty or NULL.
+ *
+ * Usually, scroll-down implies that new lines are cleared. Therefore, you're
+ * highly encouraged to set @history to NULL. However, if you resize a terminal,
+ * you might want to include history-lines in the new area. In that case, you
+ * should set @history to non-NULL.
+ *
+ * If the scroll-region is empty, this is a no-op.
+ */
+void term_page_scroll_down(term_page *page, unsigned int num, const term_attr *attr, term_age_t age, term_history *history) {
+        page_scroll_down(page, page->width, num, attr, age, history);
+}
+
+/**
+ * term_page_insert_lines() - Insert new lines
+ * @page: page to operate on
+ * @pos_y: y-position where to insert new lines
+ * @num: number of lines to insert
+ * @attr: attributes to set on new lines
+ * @age: age to use for all modifications
+ *
+ * This inserts @num new lines at position @pos_y. If @pos_y is beyond
+ * boundaries or @num is 0, this is a no-op.
+ * All lines below @pos_y are moved down to make space for the new lines. Lines
+ * on the bottom are dropped. Note that this only moves lines above or inside
+ * the scroll-region. If @pos_y is below the scroll-region, a scroll-region of
+ * one line is implied (which means the line is simply cleared).
+ */
+void term_page_insert_lines(term_page *page, unsigned int pos_y, unsigned int num, const term_attr *attr, term_age_t age) {
+        unsigned int scroll_idx, scroll_num;
+
+        assert(page);
+
+        if (pos_y >= page->height)
+                return;
+        if (num >= page->height)
+                num = page->height;
+
+        /* remember scroll-region */
+        scroll_idx = page->scroll_idx;
+        scroll_num = page->scroll_num;
+
+        /* set scroll-region temporarily so we can reuse scroll_down() */
+        {
+                page->scroll_idx = pos_y;
+                if (pos_y >= scroll_idx + scroll_num)
+                        page->scroll_num = 1;
+                else if (pos_y >= scroll_idx)
+                        page->scroll_num -= pos_y - scroll_idx;
+                else
+                        page->scroll_num += scroll_idx - pos_y;
+
+                term_page_scroll_down(page, num, attr, age, NULL);
+        }
+
+        /* reset scroll-region */
+        page->scroll_idx = scroll_idx;
+        page->scroll_num = scroll_num;
+}
+
+/**
+ * term_page_delete_lines() - Delete lines
+ * @page: page to operate on
+ * @pos_y: y-position where to delete lines
+ * @num: number of lines to delete
+ * @attr: attributes to set on new lines
+ * @age: age to use for all modifications
+ *
+ * This deletes @num lines at position @pos_y. If @pos_y is beyond boundaries or
+ * @num is 0, this is a no-op.
+ * All lines below @pos_y are moved up into the newly made space. New lines
+ * on the bottom are clear. Note that this only moves lines above or inside
+ * the scroll-region. If @pos_y is below the scroll-region, a scroll-region of
+ * one line is implied (which means the line is simply cleared).
+ */
+void term_page_delete_lines(term_page *page, unsigned int pos_y, unsigned int num, const term_attr *attr, term_age_t age) {
+        unsigned int scroll_idx, scroll_num;
+
+        assert(page);
+
+        if (pos_y >= page->height)
+                return;
+        if (num >= page->height)
+                num = page->height;
+
+        /* remember scroll-region */
+        scroll_idx = page->scroll_idx;
+        scroll_num = page->scroll_num;
+
+        /* set scroll-region temporarily so we can reuse scroll_up() */
+        {
+                page->scroll_idx = pos_y;
+                if (pos_y >= scroll_idx + scroll_num)
+                        page->scroll_num = 1;
+                else if (pos_y > scroll_idx)
+                        page->scroll_num -= pos_y - scroll_idx;
+                else
+                        page->scroll_num += scroll_idx - pos_y;
+
+                term_page_scroll_up(page, num, attr, age, NULL);
+        }
+
+        /* reset scroll-region */
+        page->scroll_idx = scroll_idx;
+        page->scroll_num = scroll_num;
+}
+
+/**
+ * term_history_new() - Create new history object
+ * @out: storage for pointer to new history
+ *
+ * Create a new history object. Histories are used to store scrollback-lines
+ * from VTE pages. You're highly recommended to set a history-limit on
+ * history->max_lines and trim it via term_history_trim(), otherwise history
+ * allocations are unlimited.
+ *
+ * Returns: 0 on success, negative error code on failure.
+ */
+int term_history_new(term_history **out) {
+        _term_history_free_ term_history *history = NULL;
+
+        assert_return(out, -EINVAL);
+
+        history = new0(term_history, 1);
+        if (!history)
+                return -ENOMEM;
+
+        history->max_lines = 4096;
+
+        *out = history;
+        history = NULL;
+        return 0;
+}
+
+/**
+ * term_history_free() - Free history
+ * @history: history to free
+ *
+ * Clear and free history. You must not access the object afterwards.
+ *
+ * Returns: NULL
+ */
+term_history *term_history_free(term_history *history) {
+        if (!history)
+                return NULL;
+
+        term_history_clear(history);
+        free(history);
+        return NULL;
+}
+
+/**
+ * term_history_clear() - Clear history
+ * @history: history to clear
+ *
+ * Remove all linked lines from a history and reset it to its initial state.
+ */
+void term_history_clear(term_history *history) {
+        return term_history_trim(history, 0);
+}
+
+/**
+ * term_history_trim() - Trim history
+ * @history: history to trim
+ * @max: maximum number of lines to be left in history
+ *
+ * This removes lines from the history until it is smaller than @max. Lines are
+ * removed from the top.
+ */
+void term_history_trim(term_history *history, unsigned int max) {
+        term_line *line;
+
+        if (!history)
+                return;
+
+        while (history->n_lines > max && (line = history->lines_first)) {
+                TERM_LINE_UNLINK(line, history);
+                term_line_free(line);
+                --history->n_lines;
+        }
+}
+
+/**
+ * term_history_push() - Push line into history
+ * @history: history to work on
+ * @line: line to push into history
+ *
+ * This pushes a line into the given history. It is linked at the tail. In case
+ * the history is limited, the top-most line might be freed.
+ */
+void term_history_push(term_history *history, term_line *line) {
+        assert(history);
+        assert(line);
+
+        TERM_LINE_LINK_TAIL(line, history);
+        if (history->max_lines > 0 && history->n_lines >= history->max_lines) {
+                line = history->lines_first;
+                TERM_LINE_UNLINK(line, history);
+                term_line_free(line);
+        } else {
+                ++history->n_lines;
+        }
+}
+
+/**
+ * term_history_pop() - Retrieve last line from history
+ * @history: history to work on
+ * @new_width: width to reserve and set on the line
+ * @attr: attributes to use for cell reservation
+ * @age: age to use for cell reservation
+ *
+ * This unlinks the last linked line of the history and returns it. This also
+ * makes sure the line has the given width pre-allocated (see
+ * term_line_reserve()). If the pre-allocation fails, this returns NULL, so it
+ * is treated like there's no line in history left. This simplifies
+ * history-handling on the caller's side in case of allocation errors. No need
+ * to throw lines away just because the reservation failed. We can keep them in
+ * history safely, and make them available as scrollback.
+ *
+ * Returns: Line from history or NULL
+ */
+term_line *term_history_pop(term_history *history, unsigned int new_width, const term_attr *attr, term_age_t age) {
+        term_line *line;
+        int r;
+
+        assert_return(history, NULL);
+
+        line = history->lines_last;
+        if (!line)
+                return NULL;
+
+        r = term_line_reserve(line, new_width, attr, age, line->width);
+        if (r < 0)
+                return NULL;
+
+        term_line_set_width(line, new_width);
+        TERM_LINE_UNLINK(line, history);
+        --history->n_lines;
+
+        return line;
+}
+
+/**
+ * term_history_peek() - Return number of available history-lines
+ * @history: history to work on
+ * @max: maximum number of lines to look at
+ * @reserve_width: width to reserve on the line
+ * @attr: attributes to use for cell reservation
+ * @age: age to use for cell reservation
+ *
+ * This returns the number of available lines in the history given as @history.
+ * It returns at most @max. For each line that is looked at, the line is
+ * verified to have at least @reserve_width cells. Valid cells are preserved,
+ * new cells are initialized with @attr and @age. In case an allocation fails,
+ * we bail out and return the number of lines that are valid so far.
+ *
+ * Usually, this function should be used before running a loop on
+ * term_history_pop(). This function guarantees that term_history_pop() (with
+ * the same arguments) will succeed at least the returned number of times.
+ *
+ * Returns: Number of valid lines that can be received via term_history_pop().
+ */
+unsigned int term_history_peek(term_history *history, unsigned int max, unsigned int reserve_width, const term_attr *attr, term_age_t age) {
+        unsigned int num;
+        term_line *line;
+        int r;
+
+        assert(history);
+
+        num = 0;
+        line = history->lines_last;
+
+        while (num < max && line) {
+                r = term_line_reserve(line, reserve_width, attr, age, line->width);
+                if (r < 0)
+                        break;
+
+                ++num;
+                line = line->lines_prev;
+        }
+
+        return num;
 }

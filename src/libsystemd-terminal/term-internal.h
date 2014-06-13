@@ -34,6 +34,9 @@ typedef struct term_attr term_attr;
 typedef struct term_cell term_cell;
 typedef struct term_line term_line;
 
+typedef struct term_page term_page;
+typedef struct term_history term_history;
+
 /*
  * Miscellaneous
  * Sundry things and external helpers.
@@ -253,3 +256,82 @@ void term_line_unlink(term_line *line, term_line **first, term_line **last);
 #define TERM_LINE_LINK(_line, _head) term_line_link((_line), &(_head)->lines_first, &(_head)->lines_last)
 #define TERM_LINE_LINK_TAIL(_line, _head) term_line_link_tail((_line), &(_head)->lines_first, &(_head)->lines_last)
 #define TERM_LINE_UNLINK(_line, _head) term_line_unlink((_line), &(_head)->lines_first, &(_head)->lines_last)
+
+/*
+ * Pages
+ * A page represents the 2D table containing all cells of a terminal. It stores
+ * lines as an array of pointers so scrolling becomes a simple line-shuffle
+ * operation.
+ * Scrolling is always targeted only at the scroll-region defined via scroll_idx
+ * and scroll_num. The fill-state keeps track of the number of touched lines in
+ * the scroll-region. @width and @height describe the visible region of the page
+ * and are guaranteed to be allocated at all times.
+ */
+
+struct term_page {
+        term_age_t age;                 /* page age */
+
+        term_line **lines;              /* array of line-pointers */
+        term_line **line_cache;         /* cache for temporary operations */
+        unsigned int n_lines;           /* # of allocated lines */
+
+        unsigned int width;             /* width of visible area */
+        unsigned int height;            /* height of visible area */
+        unsigned int scroll_idx;        /* scrolling-region start index */
+        unsigned int scroll_num;        /* scrolling-region length in lines */
+        unsigned int scroll_fill;       /* # of valid scroll-lines */
+};
+
+int term_page_new(term_page **out);
+term_page *term_page_free(term_page *page);
+
+#define _term_page_free_ _cleanup_(term_page_freep)
+DEFINE_TRIVIAL_CLEANUP_FUNC(term_page*, term_page_free);
+
+term_cell *term_page_get_cell(term_page *page, unsigned int x, unsigned int y);
+
+int term_page_reserve(term_page *page, unsigned int cols, unsigned int rows, const term_attr *attr, term_age_t age);
+void term_page_resize(term_page *page, unsigned int cols, unsigned int rows, const term_attr *attr, term_age_t age, term_history *history);
+void term_page_write(term_page *page, unsigned int pos_x, unsigned int pos_y, term_char_t ch, unsigned int cwidth, const term_attr *attr, term_age_t age, bool insert_mode);
+void term_page_insert_cells(term_page *page, unsigned int from_x, unsigned int from_y, unsigned int num, const term_attr *attr, term_age_t age);
+void term_page_delete_cells(term_page *page, unsigned int from_x, unsigned int from_y, unsigned int num, const term_attr *attr, term_age_t age);
+void term_page_append_combchar(term_page *page, unsigned int pos_x, unsigned int pos_y, uint32_t ucs4, term_age_t age);
+void term_page_erase(term_page *page, unsigned int from_x, unsigned int from_y, unsigned int to_x, unsigned int to_y, const term_attr *attr, term_age_t age, bool keep_protected);
+void term_page_reset(term_page *page, const term_attr *attr, term_age_t age);
+
+void term_page_set_scroll_region(term_page *page, unsigned int idx, unsigned int num);
+void term_page_scroll_up(term_page *page, unsigned int num, const term_attr *attr, term_age_t age, term_history *history);
+void term_page_scroll_down(term_page *page, unsigned int num, const term_attr *attr, term_age_t age, term_history *history);
+void term_page_insert_lines(term_page *page, unsigned int pos_y, unsigned int num, const term_attr *attr, term_age_t age);
+void term_page_delete_lines(term_page *page, unsigned int pos_y, unsigned int num, const term_attr *attr, term_age_t age);
+
+/*
+ * Histories
+ * Scroll-back buffers use term_history objects to store scroll-back lines. A
+ * page is independent of the history used. All page operations that modify a
+ * history take it as separate argument. You're free to pass NULL at all times
+ * if no history should be used.
+ * Lines are stored in a linked list as no complex operations are ever done on
+ * history lines, besides pushing/poping. Note that history lines do not have a
+ * guaranteed minimum length. Any kind of line might be stored there. Missing
+ * cells should be cleared to the background color.
+ */
+
+struct term_history {
+        term_line *lines_first;
+        term_line *lines_last;
+        unsigned int n_lines;
+        unsigned int max_lines;
+};
+
+int term_history_new(term_history **out);
+term_history *term_history_free(term_history *history);
+
+#define _term_history_free_ _cleanup_(term_history_freep)
+DEFINE_TRIVIAL_CLEANUP_FUNC(term_history*, term_history_free);
+
+void term_history_clear(term_history *history);
+void term_history_trim(term_history *history, unsigned int max);
+void term_history_push(term_history *history, term_line *line);
+term_line *term_history_pop(term_history *history, unsigned int reserve_width, const term_attr *attr, term_age_t age);
+unsigned int term_history_peek(term_history *history, unsigned int max, unsigned int reserve_width, const term_attr *attr, term_age_t age);
