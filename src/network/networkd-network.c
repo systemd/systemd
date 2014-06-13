@@ -223,7 +223,7 @@ int network_get(Manager *manager, struct udev_device *device,
                                      udev_device_get_property_value(device, "ID_NET_DRIVER"),
                                      udev_device_get_devtype(device),
                                      ifname)) {
-                        log_debug("%*s: found matching network '%s'", IFNAMSIZ, ifname,
+                        log_debug("%-*s: found matching network '%s'", IFNAMSIZ, ifname,
                                   network->filename);
                         *ret = network;
                         return 0;

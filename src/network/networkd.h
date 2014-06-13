@@ -451,7 +451,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_unref);
 
 /* Macros which append INTERFACE= to the message */
 
-#define log_full_link(level, link, fmt, ...) log_meta_object(level, __FILE__, __LINE__, __func__, "INTERFACE=", link->ifname, "%*s: " fmt, IFNAMSIZ, link->ifname, ##__VA_ARGS__)
+#define log_full_link(level, link, fmt, ...) log_meta_object(level, __FILE__, __LINE__, __func__, "INTERFACE=", link->ifname, "%-*s: " fmt, IFNAMSIZ, link->ifname, ##__VA_ARGS__)
 #define log_debug_link(link, ...)       log_full_link(LOG_DEBUG, link, ##__VA_ARGS__)
 #define log_info_link(link, ...)        log_full_link(LOG_INFO, link, ##__VA_ARGS__)
 #define log_notice_link(link, ...)      log_full_link(LOG_NOTICE, link, ##__VA_ARGS__)
@@ -462,7 +462,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_unref);
 
 /* More macros which append INTERFACE= to the message */
 
-#define log_full_netdev(level, netdev, fmt, ...) log_meta_object(level, __FILE__, __LINE__, __func__, "INTERFACE=", netdev->ifname, "%*s: " fmt, IFNAMSIZ, netdev->ifname, ##__VA_ARGS__)
+#define log_full_netdev(level, netdev, fmt, ...) log_meta_object(level, __FILE__, __LINE__, __func__, "INTERFACE=", netdev->ifname, "%-*s: " fmt, IFNAMSIZ, netdev->ifname, ##__VA_ARGS__)
 #define log_debug_netdev(netdev, ...)       log_full_netdev(LOG_DEBUG, netdev, ##__VA_ARGS__)
 #define log_info_netdev(netdev, ...)        log_full_netdev(LOG_INFO, netdev, ##__VA_ARGS__)
 #define log_notice_netdev(netdev, ...)      log_full_netdev(LOG_NOTICE, netdev, ##__VA_ARGS__)
