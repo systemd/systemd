@@ -177,10 +177,9 @@ bool condition_test_architecture(Condition *c) {
 }
 
 bool condition_test_host(Condition *c) {
+        _cleanup_free_ char *h = NULL;
         sd_id128_t x, y;
-        char *h;
         int r;
-        bool b;
 
         assert(c);
         assert(c->parameter);
@@ -199,10 +198,7 @@ bool condition_test_host(Condition *c) {
         if (!h)
                 return c->negate;
 
-        b = fnmatch(c->parameter, h, FNM_CASEFOLD) == 0;
-        free(h);
-
-        return b == !c->negate;
+        return (fnmatch(c->parameter, h, FNM_CASEFOLD) == 0) == !c->negate;
 }
 
 bool condition_test_ac_power(Condition *c) {

@@ -27,7 +27,7 @@
 #include <sys/statvfs.h>
 #include <fnmatch.h>
 
-#include <systemd/sd-id128.h>
+#include "sd-id128.h"
 #include "util.h"
 #include "condition.h"
 #include "virt.h"
@@ -52,12 +52,13 @@ static bool condition_test_security(Condition *c) {
                 return use_ima() == !c->negate;
         if (streq(c->parameter, "smack"))
                 return use_smack() == !c->negate;
+
         return c->negate;
 }
 
 static bool condition_test_capability(Condition *c) {
+        _cleanup_fclose_ FILE *f = NULL;
         cap_value_t value;
-        FILE *f;
         char line[LINE_MAX];
         unsigned long long capabilities = -1;
 
@@ -85,8 +86,6 @@ static bool condition_test_capability(Condition *c) {
                         break;
                 }
         }
-
-        fclose(f);
 
         return !!(capabilities & (1ULL << value)) == !c->negate;
 }
