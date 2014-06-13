@@ -30,7 +30,7 @@
 #include "sd-dhcp-server.h"
 #include "dhcp-server-internal.h"
 
-static void test_basic(sd_event *event) {
+static int test_basic(sd_event *event) {
         _cleanup_dhcp_server_unref_ sd_dhcp_server *server = NULL;
         struct in_addr address_lo = {
                 .s_addr = htonl(INADDR_LOOPBACK),
@@ -38,6 +38,7 @@ static void test_basic(sd_event *event) {
         struct in_addr address_any = {
                 .s_addr = htonl(INADDR_ANY),
         };
+        int r;
 
         /* attach to loopback interface */
         assert_se(sd_dhcp_server_new(&server, 1) >= 0);
@@ -64,11 +65,18 @@ static void test_basic(sd_event *event) {
         assert_se(sd_dhcp_server_set_lease_pool(server, &address_lo, 1) >= 0);
         assert_se(sd_dhcp_server_set_lease_pool(server, &address_lo, 1) == -EBUSY);
 
-        assert_se(sd_dhcp_server_start(server) >= 0);
+        r = sd_dhcp_server_start(server);
+
+        if (r == -EPERM)
+                return EXIT_TEST_SKIP;
+        assert_se(r >= 0);
+
         assert_se(sd_dhcp_server_start(server) == -EBUSY);
         assert_se(sd_dhcp_server_stop(server) >= 0);
         assert_se(sd_dhcp_server_stop(server) >= 0);
         assert_se(sd_dhcp_server_start(server) >= 0);
+
+        return 0;
 }
 
 static void test_message_handler(void) {
@@ -224,6 +232,7 @@ static void test_client_id_hash(void) {
 
 int main(int argc, char *argv[]) {
         _cleanup_event_unref_ sd_event *e;
+        int r;
 
         log_set_max_level(LOG_DEBUG);
         log_parse_environment();
@@ -231,7 +240,10 @@ int main(int argc, char *argv[]) {
 
         assert_se(sd_event_new(&e) >= 0);
 
-        test_basic(e);
+        r = test_basic(e);
+        if (r != 0)
+                return r;
+
         test_message_handler();
         test_client_id_hash();
 
