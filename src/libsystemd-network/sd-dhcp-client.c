@@ -413,7 +413,7 @@ static int client_send_discover(sd_dhcp_client *client) {
 }
 
 static int client_send_request(sd_dhcp_client *client) {
-        _cleanup_free_ DHCPPacket *request;
+        _cleanup_free_ DHCPPacket *request = NULL;
         size_t optoffset, optlen;
         int r;
 
