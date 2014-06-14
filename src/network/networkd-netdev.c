@@ -27,6 +27,7 @@
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "list.h"
+#include "siphash24.h"
 
 #define VLANID_MAX 4094
 
@@ -528,6 +529,52 @@ int netdev_set_ifindex(NetDev *netdev, sd_rtnl_message *message) {
         return 0;
 }
 
+#define HASH_KEY SD_ID128_MAKE(52,e1,45,bd,00,6f,29,96,21,c6,30,6d,83,71,04,48)
+
+static int netdev_get_mac(const char *ifname, struct ether_addr **ret) {
+        _cleanup_free_ struct ether_addr *mac = NULL;
+        uint8_t result[8];
+        size_t l, sz;
+        uint8_t *v;
+        int r;
+
+        assert(ifname);
+        assert(ret);
+
+        mac = new0(struct ether_addr, 1);
+        if (!mac)
+                return -ENOMEM;
+
+        l = strlen(ifname);
+        sz = sizeof(sd_id128_t) + l;
+        v = alloca(sz);
+
+        /* fetch some persistent data unique to the machine */
+        r = sd_id128_get_machine((sd_id128_t*) v);
+        if (r < 0)
+                return r;
+
+        /* combine with some data unique (on this machine) to this
+         * netdev */
+        memcpy(v + sizeof(sd_id128_t), ifname, l);
+
+        /* Let's hash the host machine ID plus the container name. We
+         * use a fixed, but originally randomly created hash key here. */
+        siphash24(result, v, sz, HASH_KEY.bytes);
+
+        assert_cc(ETH_ALEN <= sizeof(result));
+        memcpy(mac->ether_addr_octet, result, ETH_ALEN);
+
+        /* see eth_random_addr in the kernel */
+        mac->ether_addr_octet[0] &= 0xfe;        /* clear multicast bit */
+        mac->ether_addr_octet[0] |= 0x02;        /* set local assignment bit (IEEE802) */
+
+        *ret = mac;
+        mac = NULL;
+
+        return 0;
+}
+
 static int netdev_load_one(Manager *manager, const char *filename) {
         _cleanup_netdev_unref_ NetDev *netdev = NULL;
         _cleanup_fclose_ FILE *file = NULL;
@@ -607,14 +654,39 @@ static int netdev_load_one(Manager *manager, const char *filename) {
                              NULL, NULL, NULL, NULL, NULL, NULL) <= 0)
                 return 0;
 
+        if (!netdev->mac) {
+                r = netdev_get_mac(netdev->ifname, &netdev->mac);
+                if (r < 0) {
+                        log_error("Failed to generate predictable MAC address for %s",
+                                  netdev->ifname);
+                        return r;
+                }
+        }
+
         r = hashmap_put(netdev->manager->netdevs, netdev->ifname, netdev);
         if (r < 0)
                 return r;
 
         LIST_HEAD_INIT(netdev->callbacks);
 
-        if(netdev->kind == NETDEV_KIND_VETH)
+        if(netdev->kind == NETDEV_KIND_VETH) {
+                if (netdev->ifname_peer) {
+                        log_warning("Veth NetDev without Peer Name configured "
+                                    "in %s. Ignoring", filename);
+                        return 0;
+                }
+
+                if (!netdev->mac) {
+                        r = netdev_get_mac(netdev->ifname_peer, &netdev->mac_peer);
+                        if (r < 0) {
+                                log_error("Failed to generate predictable MAC address for %s",
+                                          netdev->ifname_peer);
+                                return r;
+                        }
+                }
+
                 return netdev_create_veth(netdev, netdev_create_handler);
+        }
 
         if (netdev->kind != NETDEV_KIND_VLAN &&
             netdev->kind != NETDEV_KIND_MACVLAN &&
