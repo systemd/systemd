@@ -1751,7 +1751,8 @@ static int link_configure(Link *link) {
         return link_enter_enslave(link);
 }
 
-int link_initialized(Link *link, struct udev_device *device) {
+static int link_initialized_and_synced(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
+        Link *link = userdata;
         Network *network;
         int r;
 
@@ -1762,12 +1763,9 @@ int link_initialized(Link *link, struct udev_device *device) {
         if (link->state != LINK_STATE_INITIALIZING)
                 return 0;
 
-        if (device)
-                link->udev_device = udev_device_ref(device);
+        log_debug_link(link, "link state is up-to-date");
 
-        log_debug_link(link, "udev initialized link");
-
-        r = network_get(link->manager, device, link->ifname, &link->mac, &network);
+        r = network_get(link->manager, link->udev_device, link->ifname, &link->mac, &network);
         if (r == -ENOENT) {
                 link_enter_unmanaged(link);
                 return 0;
@@ -1779,6 +1777,38 @@ int link_initialized(Link *link, struct udev_device *device) {
                 return r;
 
         r = link_configure(link);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+int link_initialized(Link *link, struct udev_device *device) {
+        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL;
+        int r;
+
+        assert(link);
+        assert(link->manager);
+        assert(link->manager->rtnl);
+        assert(device);
+
+        if (link->state != LINK_STATE_INITIALIZING)
+                return 0;
+
+        log_debug_link(link, "udev initialized link");
+
+        link->udev_device = udev_device_ref(device);
+
+        /* udev has initialized the link, but we don't know if we have yet processed
+           the NEWLINK messages with the latest state. Do a GETLINK, when it returns
+           we know that the pending NEWLINKs have already been processed and that we
+           are up-to-date */
+
+        r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_GETLINK, link->ifindex);
+        if (r < 0)
+                return r;
+
+        r = sd_rtnl_call_async(link->manager->rtnl, req, link_initialized_and_synced, link, 0, NULL);
         if (r < 0)
                 return r;
 
@@ -1972,11 +2002,15 @@ int link_add(Manager *m, sd_rtnl_message *message, Link **ret) {
                         log_debug_link(link, "udev initializing link...");
                         return 0;
                 }
-        }
 
-        r = link_initialized(link, device);
-        if (r < 0)
-                return r;
+                r = link_initialized(link, device);
+                if (r < 0)
+                        return r;
+        } else {
+                r = link_initialized_and_synced(m->rtnl, NULL, link);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }
