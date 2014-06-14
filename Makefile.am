@@ -1233,7 +1233,8 @@ tests += \
 	test-tables \
 	test-device-nodes \
 	test-xml \
-	test-architecture
+	test-architecture \
+	test-socket-util
 
 EXTRA_DIST += \
 	test/sched_idle_bad.service \
@@ -1341,6 +1342,12 @@ test_util_SOURCES = \
 	src/test/test-util.c
 
 test_util_LDADD = \
+	libsystemd-core.la
+
+test_socket_util_SOURCES = \
+	src/test/test-socket-util.c
+
+test_socket_util_LDADD = \
 	libsystemd-core.la
 
 test_ring_SOURCES = \
