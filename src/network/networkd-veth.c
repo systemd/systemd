@@ -42,6 +42,16 @@ static int netdev_fill_veth_rtnl_message(NetDev *netdev, sd_rtnl_message *m) {
                 return r;
         }
 
+        if (netdev->mac) {
+                r = sd_rtnl_message_append_ether_addr(m, IFLA_ADDRESS, netdev->mac);
+                if (r < 0) {
+                        log_error_netdev(netdev,
+                                         "Colud not append IFLA_ADDRESS attribute: %s",
+                                         strerror(-r));
+                    return r;
+                }
+        }
+
         r = sd_rtnl_message_open_container(m, IFLA_LINKINFO);
         if (r < 0) {
                 log_error_netdev(netdev,
@@ -67,11 +77,21 @@ static int netdev_fill_veth_rtnl_message(NetDev *netdev, sd_rtnl_message *m) {
                 return r;
         }
 
-        if(netdev->ifname_peer) {
+        if (netdev->ifname_peer) {
                 r = sd_rtnl_message_append_string(m, IFLA_IFNAME, netdev->ifname_peer);
                 if (r < 0) {
                         log_error("Failed to add netlink interface name: %s", strerror(-r));
                         return r;
+                }
+        }
+
+        if (netdev->mac_peer) {
+                r = sd_rtnl_message_append_ether_addr(m, IFLA_ADDRESS, netdev->mac_peer);
+                if (r < 0) {
+                        log_error_netdev(netdev,
+                                         "Colud not append IFLA_ADDRESS attribute: %s",
+                                         strerror(-r));
+                    return r;
                 }
         }
 

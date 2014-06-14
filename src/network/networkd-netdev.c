@@ -92,6 +92,8 @@ static void netdev_free(NetDev *netdev) {
 
         free(netdev->description);
         free(netdev->ifname);
+        free(netdev->mac);
+        free(netdev->mac_peer);
 
         condition_free_list(netdev->match_host);
         condition_free_list(netdev->match_virt);
@@ -301,13 +303,23 @@ static int netdev_create(NetDev *netdev, Link *link, sd_rtnl_message_handler_t c
                 return r;
         }
 
-        if(netdev->mtu) {
+        if (netdev->mtu) {
                 r = sd_rtnl_message_append_u32(req, IFLA_MTU, netdev->mtu);
                 if (r < 0) {
                         log_error_netdev(netdev,
                                          "Could not append IFLA_MTU attribute: %s",
                                          strerror(-r));
                         return r;
+                }
+        }
+
+        if (netdev->mac) {
+                r = sd_rtnl_message_append_ether_addr(req, IFLA_ADDRESS, netdev->mac);
+                if (r < 0) {
+                        log_error_netdev(netdev,
+                                         "Colud not append IFLA_ADDRESS attribute: %s",
+                                         strerror(-r));
+                    return r;
                 }
         }
 

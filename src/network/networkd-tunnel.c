@@ -60,6 +60,16 @@ static int netdev_fill_ipip_rtnl_message(Link *link, sd_rtnl_message *m) {
                 }
         }
 
+        if (netdev->mac) {
+                r = sd_rtnl_message_append_ether_addr(m, IFLA_ADDRESS, netdev->mac);
+                if (r < 0) {
+                        log_error_netdev(netdev,
+                                         "Colud not append IFLA_ADDRESS attribute: %s",
+                                         strerror(-r));
+                    return r;
+                }
+        }
+
         r = sd_rtnl_message_open_container(m, IFLA_LINKINFO);
         if (r < 0) {
                 log_error_netdev(netdev,
@@ -154,6 +164,16 @@ static int netdev_fill_sit_rtnl_message(Link *link, sd_rtnl_message *m) {
                                          "Could not append IFLA_MTU attribute: %s",
                                          strerror(-r));
                         return r;
+                }
+        }
+
+        if (netdev->mac) {
+                r = sd_rtnl_message_append_ether_addr(m, IFLA_ADDRESS, netdev->mac);
+                if (r < 0) {
+                        log_error_netdev(netdev,
+                                         "Colud not append IFLA_ADDRESS attribute: %s",
+                                         strerror(-r));
+                    return r;
                 }
         }
 
@@ -262,6 +282,16 @@ static int netdev_fill_ipgre_rtnl_message(Link *link, sd_rtnl_message *m) {
                 }
         }
 
+        if (netdev->mac) {
+                r = sd_rtnl_message_append_ether_addr(m, IFLA_ADDRESS, netdev->mac);
+                if (r < 0) {
+                        log_error_netdev(netdev,
+                                         "Colud not append IFLA_ADDRESS attribute: %s",
+                                         strerror(-r));
+                    return r;
+                }
+        }
+
         r = sd_rtnl_message_open_container(m, IFLA_LINKINFO);
         if (r < 0) {
                 log_error_netdev(netdev,
@@ -364,6 +394,16 @@ static int netdev_fill_vti_rtnl_message(Link *link, sd_rtnl_message *m) {
                                          "Could not append IFLA_MTU attribute: %s",
                                          strerror(-r));
                         return r;
+                }
+        }
+
+        if (netdev->mac) {
+                r = sd_rtnl_message_append_ether_addr(m, IFLA_ADDRESS, netdev->mac);
+                if (r < 0) {
+                        log_error_netdev(netdev,
+                                         "Colud not append IFLA_ADDRESS attribute: %s",
+                                         strerror(-r));
+                    return r;
                 }
         }
 

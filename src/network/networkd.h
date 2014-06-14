@@ -103,6 +103,8 @@ struct NetDev {
         char *ifname;
         char *ifname_peer;
         size_t mtu;
+        struct ether_addr *mac;
+        struct ether_addr *mac_peer;
         NetDevKind kind;
 
         uint64_t vlanid;
