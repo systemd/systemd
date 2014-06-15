@@ -460,9 +460,6 @@ Features:
 
 * make timer units go away after they elapsed
 
-* http://lists.freedesktop.org/archives/systemd-devel/2012-September/006502.html
-  (network and remote-fs on shutdown)
-
 * come up with a nice way to write queue/read_ahead_kb for a block device without interfering with readahead
 
 * move PID 1 segfaults to /var/lib/systemd/coredump?
@@ -583,8 +580,6 @@ Features:
   - readahead: use BTRFS_IOC_DEFRAG_RANGE instead of BTRFS_IOC_DEFRAG ioctl, with START_IO
   - readahead: when bumping /sys readahead variable save mtime and compare later to detect changes
   - readahead: make use of EXT4_IOC_MOVE_EXT, as used by http://e4rat.sourceforge.net/
-
-* add support for /bin/mount -s
 
 * GC unreferenced jobs (such as .device jobs)
 
