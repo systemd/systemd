@@ -9,7 +9,9 @@
 Description=Create Static Device Nodes in /dev
 Documentation=man:tmpfiles.d(5) man:systemd-tmpfiles(8)
 DefaultDependencies=no
-Before=sysinit.target local-fs-pre.target systemd-udevd.service
+Conflicts=shutdown.target
+After=systemd-readahead-collect.service systemd-readahead-replay.service systemd-sysusers.service
+Before=sysinit.target local-fs-pre.target systemd-udevd.service shutdown.target
 ConditionCapability=CAP_MKNOD
 
 [Service]
