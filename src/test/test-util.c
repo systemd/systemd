@@ -654,6 +654,8 @@ static void test_writing_tmpfile(void) {
         assert(r == 0);
         printf("contents: %s", contents);
         assert(streq(contents, "abc\n" ALPHANUMERICAL "\n"));
+
+        unlink(name);
 }
 
 static void test_hexdump(void) {
