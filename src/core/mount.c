@@ -892,6 +892,7 @@ static void mount_enter_unmounting(Mount *m) {
         if ((r = exec_command_set(
                              m->control_command,
                              "/bin/umount",
+                             "-n",
                              m->where,
                              NULL)) < 0)
                 goto fail;
@@ -934,6 +935,7 @@ static void mount_enter_mounting(Mount *m) {
                 r = exec_command_set(
                                 m->control_command,
                                 "/bin/mount",
+                                "-n",
                                 m->parameters_fragment.what,
                                 m->where,
                                 "-t", m->parameters_fragment.fstype ? m->parameters_fragment.fstype : "auto",
@@ -981,6 +983,7 @@ static void mount_enter_remounting(Mount *m) {
                 r = exec_command_set(
                                 m->control_command,
                                 "/bin/mount",
+                                "-n",
                                 m->parameters_fragment.what,
                                 m->where,
                                 "-t", m->parameters_fragment.fstype ? m->parameters_fragment.fstype : "auto",
