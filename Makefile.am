@@ -2839,7 +2839,9 @@ libsystemd_terminal_la_CFLAGS = \
 
 libsystemd_terminal_la_SOURCES = \
 	src/libsystemd-terminal/term-internal.h \
+	src/libsystemd-terminal/term-charset.c \
 	src/libsystemd-terminal/term-page.c \
+	src/libsystemd-terminal/term-parser.c \
 	src/libsystemd-terminal/term-wcwidth.c
 
 libsystemd_terminal_la_LIBADD = \
@@ -2854,8 +2856,17 @@ test_term_page_LDADD = \
 	libsystemd-internal.la \
 	libsystemd-shared.la
 
+test_term_parser_SOURCES = \
+	src/libsystemd-terminal/test-term-parser.c
+
+test_term_parser_LDADD = \
+	libsystemd-terminal.la \
+	libsystemd-internal.la \
+	libsystemd-shared.la
+
 tests += \
-	test-term-page
+	test-term-page \
+	test-term-parser
 
 # ------------------------------------------------------------------------------
 if ENABLE_GTK_DOC

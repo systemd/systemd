@@ -37,6 +37,11 @@ typedef struct term_line term_line;
 typedef struct term_page term_page;
 typedef struct term_history term_history;
 
+typedef struct term_utf8 term_utf8;
+typedef struct term_seq term_seq;
+typedef struct term_parser term_parser;
+typedef uint32_t term_charset[96];
+
 /*
  * Miscellaneous
  * Sundry things and external helpers.
@@ -335,3 +340,347 @@ void term_history_trim(term_history *history, unsigned int max);
 void term_history_push(term_history *history, term_line *line);
 term_line *term_history_pop(term_history *history, unsigned int reserve_width, const term_attr *attr, term_age_t age);
 unsigned int term_history_peek(term_history *history, unsigned int max, unsigned int reserve_width, const term_attr *attr, term_age_t age);
+
+/*
+ * UTF-8
+ * The UTF-decoder and encoder are adjusted for terminals and provide proper
+ * fallbacks for invalid UTF-8. In terminals it's quite usual to use fallbacks
+ * instead of rejecting invalid input. This way, old legacy applications still
+ * work (this is especially important for 7bit/ASCII DEC modes).
+ */
+
+struct term_utf8 {
+        uint32_t chars[5];
+        uint32_t ucs4;
+
+        unsigned int i_bytes : 3;
+        unsigned int n_bytes : 3;
+        unsigned int valid : 1;
+};
+
+size_t term_utf8_encode(char *out_utf8, uint32_t g);
+const uint32_t *term_utf8_decode(term_utf8 *p, size_t *out_len, char c);
+
+/*
+ * Parsers
+ * The term_parser object parses control-sequences for both host and terminal
+ * side. Based on this parser, there is a set of command-parsers that take a
+ * term_seq sequence and returns the command it represents. This is different
+ * for host and terminal side so a different set of parsers is provided.
+ */
+
+enum {
+        TERM_SEQ_NONE,                  /* placeholder, no sequence parsed */
+
+        TERM_SEQ_IGNORE,                /* no-op character */
+        TERM_SEQ_GRAPHIC,               /* graphic character */
+        TERM_SEQ_CONTROL,               /* control character */
+        TERM_SEQ_ESCAPE,                /* escape sequence */
+        TERM_SEQ_CSI,                   /* control sequence function */
+        TERM_SEQ_DCS,                   /* device control string */
+        TERM_SEQ_OSC,                   /* operating system control */
+
+        TERM_SEQ_CNT
+};
+
+enum {
+        /* these must be kept compatible to (1U << (ch - 0x20)) */
+
+        TERM_SEQ_FLAG_SPACE             = (1U <<  0),   /* char:   */
+        TERM_SEQ_FLAG_BANG              = (1U <<  1),   /* char: ! */
+        TERM_SEQ_FLAG_DQUOTE            = (1U <<  2),   /* char: " */
+        TERM_SEQ_FLAG_HASH              = (1U <<  3),   /* char: # */
+        TERM_SEQ_FLAG_CASH              = (1U <<  4),   /* char: $ */
+        TERM_SEQ_FLAG_PERCENT           = (1U <<  5),   /* char: % */
+        TERM_SEQ_FLAG_AND               = (1U <<  6),   /* char: & */
+        TERM_SEQ_FLAG_SQUOTE            = (1U <<  7),   /* char: ' */
+        TERM_SEQ_FLAG_POPEN             = (1U <<  8),   /* char: ( */
+        TERM_SEQ_FLAG_PCLOSE            = (1U <<  9),   /* char: ) */
+        TERM_SEQ_FLAG_MULT              = (1U << 10),   /* char: * */
+        TERM_SEQ_FLAG_PLUS              = (1U << 11),   /* char: + */
+        TERM_SEQ_FLAG_COMMA             = (1U << 12),   /* char: , */
+        TERM_SEQ_FLAG_MINUS             = (1U << 13),   /* char: - */
+        TERM_SEQ_FLAG_DOT               = (1U << 14),   /* char: . */
+        TERM_SEQ_FLAG_SLASH             = (1U << 15),   /* char: / */
+
+        /* 16-35 is reserved for numbers; unused */
+
+        /* COLON is reserved            = (1U << 26),      char: : */
+        /* SEMICOLON is reserved        = (1U << 27),      char: ; */
+        TERM_SEQ_FLAG_LT                = (1U << 28),   /* char: < */
+        TERM_SEQ_FLAG_EQUAL             = (1U << 29),   /* char: = */
+        TERM_SEQ_FLAG_GT                = (1U << 30),   /* char: > */
+        TERM_SEQ_FLAG_WHAT              = (1U << 31),   /* char: ? */
+};
+
+enum {
+        TERM_CMD_NONE,                          /* placeholder */
+        TERM_CMD_GRAPHIC,                       /* graphics character */
+
+        TERM_CMD_BEL,                           /* bell */
+        TERM_CMD_BS,                            /* backspace */
+        TERM_CMD_CBT,                           /* cursor-backward-tabulation */
+        TERM_CMD_CHA,                           /* cursor-horizontal-absolute */
+        TERM_CMD_CHT,                           /* cursor-horizontal-forward-tabulation */
+        TERM_CMD_CNL,                           /* cursor-next-line */
+        TERM_CMD_CPL,                           /* cursor-previous-line */
+        TERM_CMD_CR,                            /* carriage-return */
+        TERM_CMD_CUB,                           /* cursor-backward */
+        TERM_CMD_CUD,                           /* cursor-down */
+        TERM_CMD_CUF,                           /* cursor-forward */
+        TERM_CMD_CUP,                           /* cursor-position */
+        TERM_CMD_CUU,                           /* cursor-up */
+        TERM_CMD_DA1,                           /* primary-device-attributes */
+        TERM_CMD_DA2,                           /* secondary-device-attributes */
+        TERM_CMD_DA3,                           /* tertiary-device-attributes */
+        TERM_CMD_DC1,                           /* device-control-1 */
+        TERM_CMD_DC3,                           /* device-control-3 */
+        TERM_CMD_DCH,                           /* delete-character */
+        TERM_CMD_DECALN,                        /* screen-alignment-pattern */
+        TERM_CMD_DECANM,                        /* ansi-mode */
+        TERM_CMD_DECBI,                         /* back-index */
+        TERM_CMD_DECCARA,                       /* change-attributes-in-rectangular-area */
+        TERM_CMD_DECCRA,                        /* copy-rectangular-area */
+        TERM_CMD_DECDC,                         /* delete-column */
+        TERM_CMD_DECDHL_BH,                     /* double-width-double-height-line: bottom half */
+        TERM_CMD_DECDHL_TH,                     /* double-width-double-height-line: top half */
+        TERM_CMD_DECDWL,                        /* double-width-single-height-line */
+        TERM_CMD_DECEFR,
+        TERM_CMD_DECELF,
+        TERM_CMD_DECELR,
+        TERM_CMD_DECERA,
+        TERM_CMD_DECFI,
+        TERM_CMD_DECFRA,
+        TERM_CMD_DECIC,
+        TERM_CMD_DECID,
+        TERM_CMD_DECINVM,
+        TERM_CMD_DECKBD,
+        TERM_CMD_DECKPAM,
+        TERM_CMD_DECKPNM,
+        TERM_CMD_DECLFKC,
+        TERM_CMD_DECLL,
+        TERM_CMD_DECLTOD,
+        TERM_CMD_DECPCTERM,
+        TERM_CMD_DECPKA,
+        TERM_CMD_DECPKFMR,
+        TERM_CMD_DECRARA,
+        TERM_CMD_DECRC,
+        TERM_CMD_DECREQTPARM,
+        TERM_CMD_DECRPKT,
+        TERM_CMD_DECRQCRA,
+        TERM_CMD_DECRQDE,
+        TERM_CMD_DECRQKT,
+        TERM_CMD_DECRQLP,
+        TERM_CMD_DECRQM_ANSI,
+        TERM_CMD_DECRQM_DEC,
+        TERM_CMD_DECRQPKFM,
+        TERM_CMD_DECRQPSR,
+        TERM_CMD_DECRQTSR,
+        TERM_CMD_DECRQUPSS,
+        TERM_CMD_DECSACE,
+        TERM_CMD_DECSASD,
+        TERM_CMD_DECSC,
+        TERM_CMD_DECSCA,
+        TERM_CMD_DECSCL,
+        TERM_CMD_DECSCP,
+        TERM_CMD_DECSCPP,
+        TERM_CMD_DECSCS,
+        TERM_CMD_DECSCUSR,
+        TERM_CMD_DECSDDT,
+        TERM_CMD_DECSDPT,
+        TERM_CMD_DECSED,
+        TERM_CMD_DECSEL,
+        TERM_CMD_DECSERA,
+        TERM_CMD_DECSFC,
+        TERM_CMD_DECSKCV,
+        TERM_CMD_DECSLCK,
+        TERM_CMD_DECSLE,
+        TERM_CMD_DECSLPP,
+        TERM_CMD_DECSLRM_OR_SC,
+        TERM_CMD_DECSMBV,
+        TERM_CMD_DECSMKR,
+        TERM_CMD_DECSNLS,
+        TERM_CMD_DECSPP,
+        TERM_CMD_DECSPPCS,
+        TERM_CMD_DECSPRTT,
+        TERM_CMD_DECSR,
+        TERM_CMD_DECSRFR,
+        TERM_CMD_DECSSCLS,
+        TERM_CMD_DECSSDT,
+        TERM_CMD_DECSSL,
+        TERM_CMD_DECST8C,
+        TERM_CMD_DECSTBM,
+        TERM_CMD_DECSTR,
+        TERM_CMD_DECSTRL,
+        TERM_CMD_DECSWBV,
+        TERM_CMD_DECSWL,
+        TERM_CMD_DECTID,
+        TERM_CMD_DECTME,
+        TERM_CMD_DECTST,
+        TERM_CMD_DL,
+        TERM_CMD_DSR_ANSI,
+        TERM_CMD_DSR_DEC,
+        TERM_CMD_ECH,
+        TERM_CMD_ED,
+        TERM_CMD_EL,
+        TERM_CMD_ENQ,
+        TERM_CMD_EPA,
+        TERM_CMD_FF,
+        TERM_CMD_HPA,
+        TERM_CMD_HPR,
+        TERM_CMD_HT,
+        TERM_CMD_HTS,
+        TERM_CMD_HVP,
+        TERM_CMD_ICH,
+        TERM_CMD_IL,
+        TERM_CMD_IND,
+        TERM_CMD_LF,
+        TERM_CMD_LS1R,
+        TERM_CMD_LS2,
+        TERM_CMD_LS2R,
+        TERM_CMD_LS3,
+        TERM_CMD_LS3R,
+        TERM_CMD_MC_ANSI,
+        TERM_CMD_MC_DEC,
+        TERM_CMD_NEL,
+        TERM_CMD_NP,
+        TERM_CMD_NULL,
+        TERM_CMD_PP,
+        TERM_CMD_PPA,
+        TERM_CMD_PPB,
+        TERM_CMD_PPR,
+        TERM_CMD_RC,
+        TERM_CMD_REP,
+        TERM_CMD_RI,
+        TERM_CMD_RIS,
+        TERM_CMD_RM_ANSI,
+        TERM_CMD_RM_DEC,
+        TERM_CMD_S7C1T,
+        TERM_CMD_S8C1T,
+        TERM_CMD_SCS,
+        TERM_CMD_SD,
+        TERM_CMD_SGR,
+        TERM_CMD_SI,
+        TERM_CMD_SM_ANSI,
+        TERM_CMD_SM_DEC,
+        TERM_CMD_SO,
+        TERM_CMD_SPA,
+        TERM_CMD_SS2,
+        TERM_CMD_SS3,
+        TERM_CMD_ST,
+        TERM_CMD_SU,
+        TERM_CMD_SUB,
+        TERM_CMD_TBC,
+        TERM_CMD_VPA,
+        TERM_CMD_VPR,
+        TERM_CMD_VT,
+        TERM_CMD_XTERM_CLLHP,                   /* xterm-cursor-lower-left-hp-bugfix */
+        TERM_CMD_XTERM_IHMT,                    /* xterm-initiate-highlight-mouse-tracking*/
+        TERM_CMD_XTERM_MLHP,                    /* xterm-memory-lock-hp-bugfix */
+        TERM_CMD_XTERM_MUHP,                    /* xterm-memory-unlock-hp-bugfix */
+        TERM_CMD_XTERM_RPM,                     /* xterm-restore-private-mode */
+        TERM_CMD_XTERM_RRV,                     /* xterm-reset-resource-value */
+        TERM_CMD_XTERM_RTM,                     /* xterm-reset-title-mode */
+        TERM_CMD_XTERM_SACL1,                   /* xterm-set-ansi-conformance-level-1 */
+        TERM_CMD_XTERM_SACL2,                   /* xterm-set-ansi-conformance-level-2 */
+        TERM_CMD_XTERM_SACL3,                   /* xterm-set-ansi-conformance-level-3 */
+        TERM_CMD_XTERM_SDCS,                    /* xterm-set-default-character-set */
+        TERM_CMD_XTERM_SGFX,                    /* xterm-sixel-graphics */
+        TERM_CMD_XTERM_SPM,                     /* xterm-set-private-mode */
+        TERM_CMD_XTERM_SRV,                     /* xterm-set-resource-value */
+        TERM_CMD_XTERM_STM,                     /* xterm-set-title-mode */
+        TERM_CMD_XTERM_SUCS,                    /* xterm-set-utf8-character-set */
+        TERM_CMD_XTERM_WM,                      /* xterm-window-management */
+
+        TERM_CMD_CNT
+};
+
+enum {
+        /*
+         * Charsets: DEC marks charsets according to "Digital Equ. Corp.".
+         *           NRCS marks charsets according to the "National Replacement
+         *           Character Sets". ISO marks charsets according to ISO-8859.
+         * The USERDEF charset is special and can be modified by the host.
+         */
+
+        TERM_CHARSET_NONE,
+
+        /* 96-compat charsets */
+        TERM_CHARSET_ISO_LATIN1_SUPPLEMENTAL,
+        TERM_CHARSET_BRITISH_NRCS = TERM_CHARSET_ISO_LATIN1_SUPPLEMENTAL,
+        TERM_CHARSET_ISO_LATIN2_SUPPLEMENTAL,
+        TERM_CHARSET_AMERICAN_NRCS = TERM_CHARSET_ISO_LATIN2_SUPPLEMENTAL,
+        TERM_CHARSET_ISO_LATIN5_SUPPLEMENTAL,
+        TERM_CHARSET_ISO_GREEK_SUPPLEMENTAL,
+        TERM_CHARSET_ISO_HEBREW_SUPPLEMENTAL,
+        TERM_CHARSET_ISO_LATIN_CYRILLIC,
+
+        TERM_CHARSET_96_CNT,
+
+        /* 94-compat charsets */
+        TERM_CHARSET_DEC_SPECIAL_GRAPHIC = TERM_CHARSET_96_CNT,
+        TERM_CHARSET_DEC_SUPPLEMENTAL,
+        TERM_CHARSET_DEC_TECHNICAL,
+        TERM_CHARSET_CYRILLIC_DEC,
+        TERM_CHARSET_DUTCH_NRCS,
+        TERM_CHARSET_FINNISH_NRCS,
+        TERM_CHARSET_FRENCH_NRCS,
+        TERM_CHARSET_FRENCH_CANADIAN_NRCS,
+        TERM_CHARSET_GERMAN_NRCS,
+        TERM_CHARSET_GREEK_DEC,
+        TERM_CHARSET_GREEK_NRCS,
+        TERM_CHARSET_HEBREW_DEC,
+        TERM_CHARSET_HEBREW_NRCS,
+        TERM_CHARSET_ITALIAN_NRCS,
+        TERM_CHARSET_NORWEGIAN_DANISH_NRCS,
+        TERM_CHARSET_PORTUGUESE_NRCS,
+        TERM_CHARSET_RUSSIAN_NRCS,
+        TERM_CHARSET_SCS_NRCS,
+        TERM_CHARSET_SPANISH_NRCS,
+        TERM_CHARSET_SWEDISH_NRCS,
+        TERM_CHARSET_SWISS_NRCS,
+        TERM_CHARSET_TURKISH_DEC,
+        TERM_CHARSET_TURKISH_NRCS,
+
+        TERM_CHARSET_94_CNT,
+
+        /* special charsets */
+        TERM_CHARSET_USERPREF_SUPPLEMENTAL = TERM_CHARSET_94_CNT,
+
+        TERM_CHARSET_CNT,
+};
+
+extern term_charset term_unicode_lower;
+extern term_charset term_unicode_upper;
+extern term_charset term_dec_supplemental_graphics;
+extern term_charset term_dec_special_graphics;
+
+#define TERM_PARSER_ARG_MAX (16)
+#define TERM_PARSER_ST_MAX (4096)
+
+struct term_seq {
+        unsigned int type;
+        unsigned int command;
+        uint32_t terminator;
+        unsigned int intermediates;
+        unsigned int charset;
+        unsigned int n_args;
+        int args[TERM_PARSER_ARG_MAX];
+        unsigned int n_st;
+        char *st;
+};
+
+struct term_parser {
+        term_seq seq;
+        size_t st_alloc;
+        unsigned int state;
+
+        bool is_host : 1;
+};
+
+int term_parser_new(term_parser **out, bool host);
+term_parser *term_parser_free(term_parser *parser);
+int term_parser_feed(term_parser *parser, const term_seq **seq_out, uint32_t raw);
+
+#define _term_parser_free_ _cleanup_(term_parser_freep)
+DEFINE_TRIVIAL_CLEANUP_FUNC(term_parser*, term_parser_free);

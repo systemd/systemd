@@ -220,6 +220,7 @@
 /test-strxcpyx
 /test-tables
 /test-term-page
+/test-term-parser
 /test-time
 /test-tmpfiles
 /test-udev
