@@ -251,6 +251,21 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>SloppyOptions=</varname></term>
+
+                                <listitem><para>Takes a boolean
+                                argument. If true parsing of the
+                                options specified in
+                                <varname>Options=</varname> is
+                                relaxed, and unknown mount options are
+                                tolerated. This corresponds with
+                                <citerefentry><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>'s
+                                <parameter>-s</parameter>
+                                switch. Defaults to
+                                off.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>DirectoryMode=</varname></term>
                                 <listitem><para>Directories of mount
                                 points (and any parent directories)
