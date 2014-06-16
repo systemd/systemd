@@ -412,11 +412,16 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
                 }
 
         } else if (streq(key, "quiet") && !value) {
+
+                log_set_max_level(LOG_NOTICE);
+
                 if (arg_show_status == _SHOW_STATUS_UNSET)
                         arg_show_status = SHOW_STATUS_AUTO;
 
         } else if (streq(key, "debug") && !value) {
+
                 log_set_max_level(LOG_DEBUG);
+
                 if (detect_container(NULL) > 0)
                         log_set_target(LOG_TARGET_CONSOLE);
 

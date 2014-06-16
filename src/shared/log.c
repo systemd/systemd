@@ -878,9 +878,6 @@ void log_parse_environment(void) {
                         if (l == 5 && startswith(w, "debug")) {
                                 log_set_max_level(LOG_DEBUG);
                                 break;
-                        } else if (l == 5 && startswith(w, "quiet")) {
-                                log_set_max_level(LOG_WARNING);
-                                break;
                         }
                 }
         }
