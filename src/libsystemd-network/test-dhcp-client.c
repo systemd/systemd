@@ -128,7 +128,7 @@ static void test_checksum(void)
         if (verbose)
                 printf("* %s\n", __FUNCTION__);
 
-        assert_se(dhcp_packet_checksum(&buf, 20) == be16toh(0x78ae));
+        assert_se(dhcp_packet_checksum((uint8_t*)&buf, 20) == be16toh(0x78ae));
 }
 
 static int check_options(uint8_t code, uint8_t len, const uint8_t *option,
@@ -175,13 +175,13 @@ int dhcp_network_send_raw_socket(int s, const union sockaddr_union *link,
         discover->ip.ttl = 0;
         discover->ip.check = discover->udp.len;
 
-        udp_check = ~dhcp_packet_checksum(&discover->ip.ttl, len - 8);
+        udp_check = ~dhcp_packet_checksum((uint8_t*)&discover->ip.ttl, len - 8);
         assert_se(udp_check == 0xffff);
 
         discover->ip.ttl = IPDEFTTL;
         discover->ip.check = ip_check;
 
-        ip_check = ~dhcp_packet_checksum(&discover->ip, sizeof(discover->ip));
+        ip_check = ~dhcp_packet_checksum((uint8_t*)&discover->ip, sizeof(discover->ip));
         assert_se(ip_check == 0xffff);
 
         assert_se(discover->dhcp.xid);

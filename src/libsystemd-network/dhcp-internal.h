@@ -48,7 +48,7 @@ int dhcp_option_parse(DHCPMessage *message, size_t len,
 int dhcp_message_init(DHCPMessage *message, uint8_t op, uint32_t xid, uint8_t type,
                       size_t optlen, size_t *optoffset);
 
-uint16_t dhcp_packet_checksum(void *buf, size_t len);
+uint16_t dhcp_packet_checksum(uint8_t *buf, size_t len);
 
 void dhcp_packet_append_ip_headers(DHCPPacket *packet, be32_t source_addr,
                                    uint16_t source, be32_t destination_addr,
