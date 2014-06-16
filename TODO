@@ -32,6 +32,11 @@ External:
 
 Features:
 
+* support empty /etc boots nicely:
+  - apply presets at first boot
+  - tmpfiles: allow overriding of /etc/mtab
+  - tmpfiles: add nice way to copy files /usr/share/etc → /etc
+
 * generator that automatically discovers btrfs subvolumes, identifies their purpose based on some xattr on them.
 
 * support setting empty environment variables with Environment= and EnvironmentFile=
