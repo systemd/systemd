@@ -47,9 +47,8 @@ typedef struct {
 
 #define _cleanup_install_context_done_ _cleanup_(install_context_done)
 
-static int in_search_path(const char *path, char **search, const char *root_dir) {
+static int in_search_path(const char *path, char **search) {
         _cleanup_free_ char *parent = NULL;
-        char **i;
         int r;
 
         assert(path);
@@ -58,24 +57,7 @@ static int in_search_path(const char *path, char **search, const char *root_dir)
         if (r < 0)
                 return r;
 
-        STRV_FOREACH(i, search) {
-                _cleanup_free_ char *buf = NULL;
-                const char *p;
-
-                if (root_dir) {
-                        buf = strjoin(root_dir, "/", *i, NULL);
-                        if (!buf)
-                                return -ENOMEM;
-
-                        p = buf;
-                } else
-                        p = *i;
-
-                if (path_equal(parent, p))
-                        return 1;
-        }
-
-        return 0;
+        return strv_contains(search, parent);
 }
 
 static int lookup_paths_init_from_scope(LookupPaths *paths,
@@ -777,7 +759,7 @@ int unit_file_link(
                         continue;
                 }
 
-                q = in_search_path(*i, paths.unit_path, root_dir);
+                q = in_search_path(*i, paths.unit_path);
                 if (q < 0)
                         return q;
 
@@ -1057,6 +1039,7 @@ static int unit_file_load(
                 InstallContext *c,
                 InstallInfo *info,
                 const char *path,
+                const char *root_dir,
                 bool allow_symlink) {
 
         const ConfigTableItem items[] = {
@@ -1069,13 +1052,15 @@ static int unit_file_load(
                 {}
         };
 
-        int fd;
         _cleanup_fclose_ FILE *f = NULL;
-        int r;
+        int fd, r;
 
         assert(c);
         assert(info);
         assert(path);
+
+        if (!isempty(root_dir))
+                path = strappenda3(root_dir, "/", path);
 
         fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY|(allow_symlink ? 0 : O_NOFOLLOW));
         if (fd < 0)
@@ -1111,30 +1096,19 @@ static int unit_file_search(
         assert(info);
         assert(paths);
 
-        if (info->path) {
-                const char *path;
-
-                if (isempty(root_dir))
-                        path = info->path;
-                else
-                        path = strappenda(root_dir, info->path);
-
-                return unit_file_load(c, info, path, allow_symlink);
-        }
+        if (info->path)
+                return unit_file_load(c, info, info->path, root_dir, allow_symlink);
 
         assert(info->name);
 
         STRV_FOREACH(p, paths->unit_path) {
                 _cleanup_free_ char *path = NULL;
 
-                if (isempty(root_dir))
-                        path = strjoin(*p, "/", info->name, NULL);
-                else
-                        path = strjoin(root_dir, "/", *p, "/", info->name, NULL);
+                path = strjoin(*p, "/", info->name, NULL);
                 if (!path)
                         return -ENOMEM;
 
-                r = unit_file_load(c, info, path, allow_symlink);
+                r = unit_file_load(c, info, path, root_dir, allow_symlink);
                 if (r >= 0) {
                         info->path = path;
                         path = NULL;
@@ -1159,14 +1133,11 @@ static int unit_file_search(
                 STRV_FOREACH(p, paths->unit_path) {
                         _cleanup_free_ char *path = NULL;
 
-                        if (isempty(root_dir))
-                                path = strjoin(*p, "/", template, NULL);
-                        else
-                                path = strjoin(root_dir, "/", *p, "/", template, NULL);
+                        path = strjoin(*p, "/", template, NULL);
                         if (!path)
                                 return -ENOMEM;
 
-                        r = unit_file_load(c, info, path, allow_symlink);
+                        r = unit_file_load(c, info, path, root_dir, allow_symlink);
                         if (r >= 0) {
                                 info->path = path;
                                 path = NULL;
@@ -1359,7 +1330,7 @@ static int install_info_symlink_link(
         assert(config_path);
         assert(i->path);
 
-        r = in_search_path(i->path, paths->unit_path, root_dir);
+        r = in_search_path(i->path, paths->unit_path);
         if (r != 0)
                 return r;
 
