@@ -103,6 +103,8 @@ typedef struct Item {
 
         bool keep_first_level:1;
 
+        bool force:1;
+
         bool done:1;
 } Item;
 
@@ -746,31 +748,38 @@ static int create_item(Item *i) {
 
                 break;
 
-        case CREATE_SYMLINK: {
-                _cleanup_free_ char *x = NULL;
+        case CREATE_SYMLINK:
 
                 label_context_set(i->path, S_IFLNK);
                 r = symlink(i->argument, i->path);
                 label_context_clear();
 
-                if (r < 0 && errno != EEXIST) {
-                        log_error("symlink(%s, %s) failed: %m", i->argument, i->path);
-                        return -errno;
-                }
-
-                r = readlink_malloc(i->path, &x);
                 if (r < 0) {
-                        log_error("readlink(%s) failed: %s", i->path, strerror(-r));
-                        return -errno;
-                }
+                        _cleanup_free_ char *x = NULL;
 
-                if (!streq(i->argument, x)) {
-                        log_error("%s is not the right symlink.", i->path);
-                        return -EEXIST;
+                        if (errno != EEXIST) {
+                                log_error("symlink(%s, %s) failed: %m", i->argument, i->path);
+                                return -errno;
+                        }
+
+                        r = readlink_malloc(i->path, &x);
+                        if (r < 0 || !streq(i->argument, x)) {
+
+                                if (i->force) {
+                                        label_context_set(i->path, S_IFLNK);
+                                        r = symlink_atomic(i->argument, i->path);
+                                        label_context_clear();
+
+                                        if (r < 0) {
+                                                log_error("symlink(%s, %s) failed: %m", i->argument, i->path);
+                                                return -errno;
+                                        }
+                                } else
+                                        log_debug("%s is not a symlink or does not point to the correct path.", i->path);
+                        }
                 }
 
                 break;
-        }
 
         case CREATE_BLOCK_DEVICE:
         case CREATE_CHAR_DEVICE: {
@@ -1135,10 +1144,17 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 return -EIO;
         }
 
-        if (strlen(action) > 2 || (strlen(action) > 1 && action[1] != '!')) {
-                log_error("[%s:%u] Unknown modifier '%s'", fname, line, action);
+        if (isempty(action)) {
+                log_error("[%s:%u] Command too short '%s'.", fname, line, action);
                 return -EINVAL;
-        } else if (strlen(action) > 1 && !arg_boot)
+        }
+
+        if (strlen(action) > 1 && !in_charset(action+1, "!+")) {
+                log_error("[%s:%u] Unknown modifiers in command '%s'", fname, line, action);
+                return -EINVAL;
+        }
+
+        if (strchr(action+1, '!') && !arg_boot)
                 return 0;
 
         type = action[0];
@@ -1146,6 +1162,8 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         i = new0(Item, 1);
         if (!i)
                 return log_oom();
+
+        i->force = !!strchr(action+1, '+');
 
         r = specifier_printf(path, specifier_table, NULL, &i->path);
         if (r < 0) {

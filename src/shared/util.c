@@ -4013,7 +4013,7 @@ int fopen_temporary(const char *path, FILE **_f, char **_temp_path) {
         assert(_f);
         assert(_temp_path);
 
-        t = strappend(path, ".XXXXXX");
+        t = tempfn_xxxxxx(path);
         if (!t)
                 return -ENOMEM;
 
@@ -4125,42 +4125,21 @@ int vt_disallocate(const char *name) {
 }
 
 int symlink_atomic(const char *from, const char *to) {
-        char *x;
-        _cleanup_free_ char *t;
-        const char *fn;
-        size_t k;
-        uint64_t u;
-        unsigned i;
-        int r;
+        _cleanup_free_ char *t = NULL;
 
         assert(from);
         assert(to);
 
-        t = new(char, strlen(to) + 1 + 16 + 1);
+        t = tempfn_random(to);
         if (!t)
                 return -ENOMEM;
-
-        fn = basename(to);
-        k = fn-to;
-        memcpy(t, to, k);
-        t[k] = '.';
-        x = stpcpy(t+k+1, fn);
-
-        u = random_u64();
-        for (i = 0; i < 16; i++) {
-                *(x++) = hexchar(u & 0xF);
-                u >>= 4;
-        }
-
-        *x = 0;
 
         if (symlink(from, t) < 0)
                 return -errno;
 
         if (rename(t, to) < 0) {
-                r = -errno;
-                unlink(t);
-                return r;
+                unlink_noerrno(t);
+                return -errno;
         }
 
         return 0;
@@ -6668,4 +6647,52 @@ int fflush_and_check(FILE *f) {
                 return errno ? -errno : -EIO;
 
         return 0;
+}
+
+char *tempfn_xxxxxx(const char *p) {
+        const char *fn;
+        char *t;
+        size_t k;
+
+        assert(p);
+
+        t = new(char, strlen(p) + 1 + 6 + 1);
+        if (!t)
+                return NULL;
+
+        fn = basename(p);
+        k = fn - p;
+
+        strcpy(stpcpy(stpcpy(mempcpy(t, p, k), "."), fn), "XXXXXX");
+
+        return t;
+}
+
+char *tempfn_random(const char *p) {
+        const char *fn;
+        char *t, *x;
+        uint64_t u;
+        size_t k;
+        unsigned i;
+
+        assert(p);
+
+        t = new(char, strlen(p) + 1 + 16 + 1);
+        if (!t)
+                return NULL;
+
+        fn = basename(p);
+        k = fn - p;
+
+        x = stpcpy(stpcpy(mempcpy(t, p, k), "."), fn);
+
+        u = random_u64();
+        for (i = 0; i < 16; i++) {
+                *(x++) = hexchar(u & 0xF);
+                u >>= 4;
+        }
+
+        *x = 0;
+
+        return t;
 }

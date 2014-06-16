@@ -948,3 +948,6 @@ int umount_recursive(const char *target, int flags);
 int bind_remount_recursive(const char *prefix, bool ro);
 
 int fflush_and_check(FILE *f);
+
+char *tempfn_xxxxxx(const char *p);
+char *tempfn_random(const char *p);

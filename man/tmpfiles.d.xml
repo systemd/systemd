@@ -174,7 +174,16 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
 
                                 <varlistentry>
                                         <term><varname>L</varname></term>
-                                        <listitem><para>Create a symlink if it does not exist yet.</para></listitem>
+                                        <term><varname>L+</varname></term>
+                                        <listitem><para>Create a
+                                        symlink if it does not exist
+                                        yet. If suffixed with
+                                        <varname>+</varname> and a
+                                        file already exists where the
+                                        symlink is to be created it
+                                        will be removed and be
+                                        replaced by the
+                                        symlink.</para></listitem>
                                 </varlistentry>
 
                                 <varlistentry>
