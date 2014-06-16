@@ -603,13 +603,9 @@ int unit_file_mask(
                                 continue;
 
                         if (force) {
-                                unlink(path);
-
-                                if (symlink("/dev/null", path) >= 0) {
-
+                                if (symlink_atomic("/dev/null", path) >= 0) {
                                         add_file_change(changes, n_changes, UNIT_FILE_UNLINK, path, NULL);
                                         add_file_change(changes, n_changes, UNIT_FILE_SYMLINK, path, "/dev/null");
-
                                         continue;
                                 }
                         }
@@ -770,13 +766,9 @@ int unit_file_link(
                                 continue;
 
                         if (force) {
-                                unlink(path);
-
-                                if (symlink(*i, path) >= 0) {
-
+                                if (symlink_atomic(*i, path) >= 0) {
                                         add_file_change(changes, n_changes, UNIT_FILE_UNLINK, path, NULL);
                                         add_file_change(changes, n_changes, UNIT_FILE_SYMLINK, path, *i);
-
                                         continue;
                                 }
                         }
@@ -1172,17 +1164,14 @@ static int create_symlink(
         if (!force)
                 return -EEXIST;
 
-        r = unlink(new_path);
-        if (r < 0 && errno != ENOENT)
-                return -errno;
+        r = symlink_atomic(old_path, new_path);
+        if (r < 0)
+                return r;
 
-        if (symlink(old_path, new_path) >= 0) {
-                add_file_change(changes, n_changes, UNIT_FILE_UNLINK, new_path, NULL);
-                add_file_change(changes, n_changes, UNIT_FILE_SYMLINK, new_path, old_path);
-                return 0;
-        }
+        add_file_change(changes, n_changes, UNIT_FILE_UNLINK, new_path, NULL);
+        add_file_change(changes, n_changes, UNIT_FILE_SYMLINK, new_path, old_path);
 
-        return -errno;
+        return 0;
 }
 
 static int install_info_symlink_alias(
