@@ -287,30 +287,31 @@ static int remove_marked_symlinks_fd(
                                 set_get(remove_symlinks_to, dest) ||
                                 set_get(remove_symlinks_to, basename(dest));
 
-                        if (found) {
+                        if (!found)
+                                continue;
 
-                                if (unlink(p) < 0 && errno != ENOENT) {
 
+                        if (unlink(p) < 0 && errno != ENOENT) {
+
+                                if (r == 0)
+                                        r = -errno;
+                                continue;
+                        }
+
+                        rmdir_parents(p, config_path);
+
+                        path_kill_slashes(p);
+
+                        add_file_change(changes, n_changes, UNIT_FILE_UNLINK, p, NULL);
+
+                        if (!set_get(remove_symlinks_to, p)) {
+
+                                q = mark_symlink_for_removal(&remove_symlinks_to, p);
+                                if (q < 0) {
                                         if (r == 0)
-                                                r = -errno;
-                                        continue;
-                                }
-
-                                rmdir_parents(p, config_path);
-
-                                path_kill_slashes(p);
-
-                                add_file_change(changes, n_changes, UNIT_FILE_UNLINK, p, NULL);
-
-                                if (!set_get(remove_symlinks_to, p)) {
-
-                                        q = mark_symlink_for_removal(&remove_symlinks_to, p);
-                                        if (q < 0) {
-                                                if (r == 0)
-                                                        r = q;
-                                        } else
-                                                *deleted = true;
-                                }
+                                                r = q;
+                                } else
+                                        *deleted = true;
                         }
                 }
         }
@@ -417,10 +418,8 @@ static int find_symlinks_fd(
 
                         /* This will close nfd, regardless whether it succeeds or not */
                         q = find_symlinks_fd(name, nfd, p, config_path, same_name_link);
-
                         if (q > 0)
                                 return 1;
-
                         if (r == 0)
                                 r = q;
 
@@ -595,7 +594,6 @@ int unit_file_mask(
 
                 if (symlink("/dev/null", path) >= 0) {
                         add_file_change(changes, n_changes, UNIT_FILE_SYMLINK, path, "/dev/null");
-
                         continue;
                 }
 
@@ -762,7 +760,6 @@ int unit_file_link(
                         _cleanup_free_ char *dest = NULL;
 
                         q = readlink_and_make_absolute(path, &dest);
-
                         if (q < 0 && errno != ENOENT) {
                                 if (r == 0)
                                         r = q;
@@ -1302,8 +1299,8 @@ static int install_info_symlink_link(
                 UnitFileChange **changes,
                 unsigned *n_changes) {
 
-        int r;
         _cleanup_free_ char *path = NULL;
+        int r;
 
         assert(i);
         assert(paths);
@@ -1314,11 +1311,11 @@ static int install_info_symlink_link(
         if (r != 0)
                 return r;
 
-        if (asprintf(&path, "%s/%s", config_path, i->name) < 0)
+        path = strjoin(config_path, "/", i->name, NULL);
+        if (!path)
                 return -ENOMEM;
 
-        r = create_symlink(i->path, path, force, changes, n_changes);
-        return r;
+        return create_symlink(i->path, path, force, changes, n_changes);
 }
 
 static int install_info_apply(
