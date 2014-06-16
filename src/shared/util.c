@@ -6659,6 +6659,7 @@ int bind_remount_recursive(const char *prefix, bool ro) {
 }
 
 int fflush_and_check(FILE *f) {
+        assert(f);
 
         errno = 0;
         fflush(f);

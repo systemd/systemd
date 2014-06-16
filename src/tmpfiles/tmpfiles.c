@@ -719,9 +719,11 @@ static int create_item(Item *i) {
 
         case CREATE_FIFO:
 
+                label_context_set(i->path, S_IFIFO);
                 RUN_WITH_UMASK(0000) {
                         r = mkfifo(i->path, i->mode);
                 }
+                label_context_clear();
 
                 if (r < 0 && errno != EEXIST) {
                         log_error("Failed to create fifo %s: %m", i->path);
