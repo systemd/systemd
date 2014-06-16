@@ -101,6 +101,7 @@ static bool arg_recursive = false;
 static int arg_force = 0;
 static bool arg_ask_password = true;
 static bool arg_runtime = false;
+static UnitFilePresetMode arg_preset_mode = UNIT_FILE_PRESET_FULL;
 static char **arg_wall = NULL;
 static const char *arg_kill_who = NULL;
 static int arg_signal = SIGTERM;
@@ -5209,7 +5210,7 @@ static int enable_unit(sd_bus *bus, char **args) {
                 } else if (streq(verb, "link"))
                         r = unit_file_link(arg_scope, arg_runtime, arg_root, names, arg_force, &changes, &n_changes);
                 else if (streq(verb, "preset")) {
-                        r = unit_file_preset(arg_scope, arg_runtime, arg_root, names, arg_force, &changes, &n_changes);
+                        r = unit_file_preset(arg_scope, arg_runtime, arg_root, names, arg_preset_mode, arg_force, &changes, &n_changes);
                         carries_install_info = r;
                 } else if (streq(verb, "mask"))
                         r = unit_file_mask(arg_scope, arg_runtime, arg_root, names, arg_force, &changes, &n_changes);
@@ -5231,7 +5232,7 @@ static int enable_unit(sd_bus *bus, char **args) {
                 _cleanup_bus_message_unref_ sd_bus_message *reply = NULL, *m = NULL;
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
                 int expect_carries_install_info = false;
-                bool send_force = true;
+                bool send_force = true, send_preset_mode = false;
                 const char *method;
 
                 if (streq(verb, "enable")) {
@@ -5246,7 +5247,13 @@ static int enable_unit(sd_bus *bus, char **args) {
                 } else if (streq(verb, "link"))
                         method = "LinkUnitFiles";
                 else if (streq(verb, "preset")) {
-                        method = "PresetUnitFiles";
+
+                        if (arg_preset_mode != UNIT_FILE_PRESET_FULL) {
+                                method = "PresetUnitFilesWithMode";
+                                send_preset_mode = true;
+                        } else
+                                method = "PresetUnitFiles";
+
                         expect_carries_install_info = true;
                 } else if (streq(verb, "mask"))
                         method = "MaskUnitFiles";
@@ -5269,6 +5276,12 @@ static int enable_unit(sd_bus *bus, char **args) {
                 r = sd_bus_message_append_strv(m, names);
                 if (r < 0)
                         return bus_log_create_error(r);
+
+                if (send_preset_mode) {
+                        r = sd_bus_message_append(m, "s", unit_file_preset_mode_to_string(arg_preset_mode));
+                        if (r < 0)
+                                return bus_log_create_error(r);
+                }
 
                 r = sd_bus_message_append(m, "b", arg_runtime);
                 if (r < 0)
@@ -5313,6 +5326,61 @@ static int enable_unit(sd_bus *bus, char **args) {
                             "   a requirement dependency on it.\n"
                             "3) A unit may be started when needed via activation (socket, path, timer,\n"
                             "   D-Bus, udev, scripted systemctl call, ...).\n");
+
+finish:
+        unit_file_changes_free(changes, n_changes);
+
+        return r;
+}
+
+static int preset_all(sd_bus *bus, char **args) {
+        UnitFileChange *changes = NULL;
+        unsigned n_changes = 0;
+        int r;
+
+        if (!bus || avoid_bus()) {
+
+                r = unit_file_preset_all(arg_scope, arg_runtime, arg_root, arg_preset_mode, arg_force, &changes, &n_changes);
+                if (r < 0) {
+                        log_error("Operation failed: %s", strerror(-r));
+                        goto finish;
+                }
+
+                if (!arg_quiet)
+                        dump_unit_file_changes(changes, n_changes);
+
+                r = 0;
+
+        } else {
+                _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+
+                r = sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.systemd1",
+                                "/org/freedesktop/systemd1",
+                                "org.freedesktop.systemd1.Manager",
+                                "PresetAllUnitFiles",
+                                &error,
+                                &reply,
+                                "sbb",
+                                unit_file_preset_mode_to_string(arg_preset_mode),
+                                arg_runtime,
+                                arg_force);
+                if (r < 0) {
+                        log_error("Failed to execute operation: %s", bus_error_message(&error, r));
+                        return r;
+                }
+
+                r = deserialize_and_dump_unit_file_changes(reply);
+                if (r < 0)
+                        return r;
+
+                if (!arg_no_reload)
+                        r = daemon_reload(bus, args);
+                else
+                        r = 0;
+        }
 
 finish:
         unit_file_changes_free(changes, n_changes);
@@ -5437,6 +5505,8 @@ static int systemctl_help(void) {
                "     --runtime        Enable unit files only temporarily until next reboot\n"
                "  -f --force          When enabling unit files, override existing symlinks\n"
                "                      When shutting down, execute action immediately\n"
+               "     --preset-mode=   Specifies whether fully apply presets, or only enable,\n"
+               "                      or only disable\n"
                "     --root=PATH      Enable unit files in the specified root directory\n"
                "  -n --lines=INTEGER  Number of journal entries to show\n"
                "  -o --output=STRING  Change journal output mode (short, short-monotonic,\n"
@@ -5477,6 +5547,8 @@ static int systemctl_help(void) {
                "  reenable NAME...                Reenable one or more unit files\n"
                "  preset NAME...                  Enable/disable one or more unit files\n"
                "                                  based on preset configuration\n"
+               "  preset-all                      Enable/disable all unit files based on\n"
+               "                                  preset configuration\n"
                "  is-enabled NAME...              Check whether unit files are enabled\n\n"
                "  mask NAME...                    Mask one or more units\n"
                "  unmask NAME...                  Unmask one or more units\n"
@@ -5625,7 +5697,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_FORCE,
                 ARG_PLAIN,
                 ARG_STATE,
-                ARG_JOB_MODE
+                ARG_JOB_MODE,
+                ARG_PRESET_MODE,
         };
 
         static const struct option options[] = {
@@ -5667,6 +5740,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "plain",               no_argument,       NULL, ARG_PLAIN               },
                 { "state",               required_argument, NULL, ARG_STATE               },
                 { "recursive",           no_argument,       NULL, 'r'                     },
+                { "preset-mode",         required_argument, NULL, ARG_PRESET_MODE         },
                 {}
         };
 
@@ -5930,6 +6004,16 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         }
 
                         arg_recursive = true;
+                        break;
+
+                case ARG_PRESET_MODE:
+
+                        arg_preset_mode = unit_file_preset_mode_from_string(optarg);
+                        if (arg_preset_mode < 0) {
+                                log_error("Failed to parse preset mode: %s.", optarg);
+                                return -EINVAL;
+                        }
+
                         break;
 
                 case '?':
@@ -6483,6 +6567,7 @@ static int systemctl_main(sd_bus *bus, int argc, char *argv[], int bus_error) {
                 { "is-enabled",            MORE,  2, unit_is_enabled,  NOBUS },
                 { "reenable",              MORE,  2, enable_unit,      NOBUS },
                 { "preset",                MORE,  2, enable_unit,      NOBUS },
+                { "preset-all",            EQUAL, 1, preset_all,       NOBUS },
                 { "mask",                  MORE,  2, enable_unit,      NOBUS },
                 { "unmask",                MORE,  2, enable_unit,      NOBUS },
                 { "link",                  MORE,  2, enable_unit,      NOBUS },

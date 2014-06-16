@@ -1831,12 +1831,12 @@ int unit_file_preset(
                 bool runtime,
                 const char *root_dir,
                 char **files,
+                UnitFilePresetMode mode,
                 bool force,
                 UnitFileChange **changes,
                 unsigned *n_changes) {
 
         _cleanup_install_context_done_ InstallContext plus = {}, minus = {};
-        _cleanup_set_free_free_ Set *remove_symlinks_to = NULL;
         _cleanup_lookup_paths_free_ LookupPaths paths = {};
         _cleanup_free_ char *config_path = NULL;
         char **i;
@@ -1844,6 +1844,7 @@ int unit_file_preset(
 
         assert(scope >= 0);
         assert(scope < _UNIT_FILE_SCOPE_MAX);
+        assert(mode < _UNIT_FILE_PRESET_MODE_MAX);
 
         r = lookup_paths_init_from_scope(&paths, scope, root_dir);
         if (r < 0)
@@ -1862,25 +1863,141 @@ int unit_file_preset(
                 if (r < 0)
                         return r;
 
-                if (r)
+                if (r && mode != UNIT_FILE_PRESET_DISABLE_ONLY)
                         r = install_info_add_auto(&plus, *i);
-                else
+                else if (!r && mode != UNIT_FILE_PRESET_ENABLE_ONLY)
                         r = install_info_add_auto(&minus, *i);
+                else
+                        r = 0;
                 if (r < 0)
                         return r;
         }
 
-        r = install_context_mark_for_removal(&minus, &paths, &remove_symlinks_to, config_path, root_dir);
+        r = 0;
 
-        q = remove_marked_symlinks(remove_symlinks_to, config_path, changes, n_changes, files);
-        if (r == 0)
-                r = q;
+        if (mode != UNIT_FILE_PRESET_ENABLE_ONLY) {
+                _cleanup_set_free_free_ Set *remove_symlinks_to = NULL;
 
-        /* Returns number of symlinks that where supposed to be installed. */
-        q = install_context_apply(&plus, &paths, config_path, root_dir, force,
-                                  changes, n_changes);
-        if (r == 0)
-                r = q;
+                r = install_context_mark_for_removal(&minus, &paths, &remove_symlinks_to, config_path, root_dir);
+
+                q = remove_marked_symlinks(remove_symlinks_to, config_path, changes, n_changes, files);
+                if (r == 0)
+                        r = q;
+        }
+
+        if (mode != UNIT_FILE_PRESET_DISABLE_ONLY) {
+                /* Returns number of symlinks that where supposed to be installed. */
+                q = install_context_apply(&plus, &paths, config_path, root_dir, force, changes, n_changes);
+                if (r == 0)
+                        r = q;
+        }
+
+        return r;
+}
+
+int unit_file_preset_all(
+                UnitFileScope scope,
+                bool runtime,
+                const char *root_dir,
+                UnitFilePresetMode mode,
+                bool force,
+                UnitFileChange **changes,
+                unsigned *n_changes) {
+
+        _cleanup_install_context_done_ InstallContext plus = {}, minus = {};
+        _cleanup_lookup_paths_free_ LookupPaths paths = {};
+        _cleanup_free_ char *config_path = NULL;
+        char **i;
+        int r, q;
+
+        assert(scope >= 0);
+        assert(scope < _UNIT_FILE_SCOPE_MAX);
+        assert(mode < _UNIT_FILE_PRESET_MODE_MAX);
+
+        r = lookup_paths_init_from_scope(&paths, scope, root_dir);
+        if (r < 0)
+                return r;
+
+        r = get_config_path(scope, runtime, root_dir, &config_path);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(i, paths.unit_path) {
+                _cleanup_closedir_ DIR *d = NULL;
+                _cleanup_free_ char *buf = NULL;
+                const char *units_dir;
+
+                if (!isempty(root_dir)) {
+                        buf = strjoin(root_dir, "/", *i, NULL);
+                        if (!buf)
+                                return -ENOMEM;
+
+                        units_dir = buf;
+                } else
+                        units_dir = *i;
+
+                d = opendir(units_dir);
+                if (!d) {
+                        if (errno == ENOENT)
+                                continue;
+
+                        return -errno;
+                }
+
+                for (;;) {
+                        struct dirent *de;
+
+                        errno = 0;
+                        de = readdir(d);
+                        if (!de && errno != 0)
+                                return -errno;
+
+                        if (!de)
+                                break;
+
+                        if (ignore_file(de->d_name))
+                                continue;
+
+                        if (!unit_name_is_valid(de->d_name, TEMPLATE_VALID))
+                                continue;
+
+                        dirent_ensure_type(d, de);
+
+                        if (de->d_type != DT_REG)
+                                continue;
+
+                        r = unit_file_query_preset(scope, de->d_name);
+                        if (r < 0)
+                                return r;
+
+                        if (r && mode != UNIT_FILE_PRESET_DISABLE_ONLY)
+                                r = install_info_add_auto(&plus, de->d_name);
+                        else if (!r && mode != UNIT_FILE_PRESET_ENABLE_ONLY)
+                                r = install_info_add_auto(&minus, de->d_name);
+                        else
+                                r = 0;
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        r = 0;
+
+        if (mode != UNIT_FILE_PRESET_ENABLE_ONLY) {
+                _cleanup_set_free_free_ Set *remove_symlinks_to = NULL;
+
+                r = install_context_mark_for_removal(&minus, &paths, &remove_symlinks_to, config_path, root_dir);
+
+                q = remove_marked_symlinks(remove_symlinks_to, config_path, changes, n_changes, NULL);
+                if (r == 0)
+                        r = q;
+        }
+
+        if (mode != UNIT_FILE_PRESET_DISABLE_ONLY) {
+                q = install_context_apply(&plus, &paths, config_path, root_dir, force, changes, n_changes);
+                if (r == 0)
+                        r = q;
+        }
 
         return r;
 }
@@ -1937,8 +2054,8 @@ int unit_file_get_list(
                 }
 
                 for (;;) {
-                        struct dirent *de;
                         _cleanup_unitfilelist_free_ UnitFileList *f = NULL;
+                        struct dirent *de;
 
                         errno = 0;
                         de = readdir(d);
@@ -2031,3 +2148,11 @@ static const char* const unit_file_change_type_table[_UNIT_FILE_CHANGE_TYPE_MAX]
 };
 
 DEFINE_STRING_TABLE_LOOKUP(unit_file_change_type, UnitFileChangeType);
+
+static const char* const unit_file_preset_mode_table[_UNIT_FILE_PRESET_MODE_MAX] = {
+        [UNIT_FILE_PRESET_FULL] = "full",
+        [UNIT_FILE_PRESET_ENABLE_ONLY] = "enable-only",
+        [UNIT_FILE_PRESET_DISABLE_ONLY] = "disable-only",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(unit_file_preset_mode, UnitFilePresetMode);

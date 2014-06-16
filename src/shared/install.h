@@ -45,6 +45,14 @@ typedef enum UnitFileState {
         _UNIT_FILE_STATE_INVALID = -1
 } UnitFileState;
 
+typedef enum UnitFilePresetMode {
+        UNIT_FILE_PRESET_FULL,
+        UNIT_FILE_PRESET_ENABLE_ONLY,
+        UNIT_FILE_PRESET_DISABLE_ONLY,
+        _UNIT_FILE_PRESET_MODE_MAX,
+        _UNIT_FILE_PRESET_INVALID = -1
+} UnitFilePresetMode;
+
 typedef enum UnitFileChangeType {
         UNIT_FILE_SYMLINK,
         UNIT_FILE_UNLINK,
@@ -77,7 +85,8 @@ int unit_file_enable(UnitFileScope scope, bool runtime, const char *root_dir, ch
 int unit_file_disable(UnitFileScope scope, bool runtime, const char *root_dir, char **files, UnitFileChange **changes, unsigned *n_changes);
 int unit_file_reenable(UnitFileScope scope, bool runtime, const char *root_dir, char **files, bool force, UnitFileChange **changes, unsigned *n_changes);
 int unit_file_link(UnitFileScope scope, bool runtime, const char *root_dir, char **files, bool force, UnitFileChange **changes, unsigned *n_changes);
-int unit_file_preset(UnitFileScope scope, bool runtime, const char *root_dir, char **files, bool force, UnitFileChange **changes, unsigned *n_changes);
+int unit_file_preset(UnitFileScope scope, bool runtime, const char *root_dir, char **files, UnitFilePresetMode mode, bool force, UnitFileChange **changes, unsigned *n_changes);
+int unit_file_preset_all(UnitFileScope scope, bool runtime, const char *root_dir, UnitFilePresetMode mode, bool force, UnitFileChange **changes, unsigned *n_changes);
 int unit_file_mask(UnitFileScope scope, bool runtime, const char *root_dir, char **files, bool force, UnitFileChange **changes, unsigned *n_changes);
 int unit_file_unmask(UnitFileScope scope, bool runtime, const char *root_dir, char **files, UnitFileChange **changes, unsigned *n_changes);
 int unit_file_set_default(UnitFileScope scope, const char *root_dir, const char *file, bool force, UnitFileChange **changes, unsigned *n_changes);
@@ -97,3 +106,6 @@ UnitFileState unit_file_state_from_string(const char *s) _pure_;
 
 const char *unit_file_change_type_to_string(UnitFileChangeType s) _const_;
 UnitFileChangeType unit_file_change_type_from_string(const char *s) _pure_;
+
+const char *unit_file_preset_mode_to_string(UnitFilePresetMode m) _const_;
+UnitFilePresetMode unit_file_preset_mode_from_string(const char *s) _pure_;

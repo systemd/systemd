@@ -1487,8 +1487,8 @@ fail:
 static int method_enable_unit_files_generic(
                 sd_bus *bus,
                 sd_bus_message *message,
-                Manager *m, const
-                char *verb,
+                Manager *m,
+                const char *verb,
                 int (*call)(UnitFileScope scope, bool runtime, const char *root_dir, char *files[], bool force, UnitFileChange **changes, unsigned *n_changes),
                 bool carries_install_info,
                 sd_bus_error *error) {
@@ -1510,6 +1510,10 @@ static int method_enable_unit_files_generic(
         if (r < 0)
                 return r;
 
+        r = sd_bus_message_read(message, "bb", &runtime, &force);
+        if (r < 0)
+                return r;
+
 #ifdef HAVE_SELINUX
         STRV_FOREACH(i, l) {
                 Unit *u;
@@ -1522,10 +1526,6 @@ static int method_enable_unit_files_generic(
                 }
         }
 #endif
-
-        r = sd_bus_message_read(message, "bb", &runtime, &force);
-        if (r < 0)
-                return r;
 
         scope = m->running_as == SYSTEMD_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
 
@@ -1548,12 +1548,72 @@ static int method_link_unit_files(sd_bus *bus, sd_bus_message *message, void *us
         return method_enable_unit_files_generic(bus, message, userdata, "enable", unit_file_link, false, error);
 }
 
+static int unit_file_preset_without_mode(UnitFileScope scope, bool runtime, const char *root_dir, char **files, bool force, UnitFileChange **changes, unsigned *n_changes) {
+        return unit_file_preset(scope, runtime, root_dir, files, UNIT_FILE_PRESET_FULL, force, changes, n_changes);
+}
+
 static int method_preset_unit_files(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_enable_unit_files_generic(bus, message, userdata, "enable", unit_file_preset, true, error);
+        return method_enable_unit_files_generic(bus, message, userdata, "enable", unit_file_preset_without_mode, true, error);
 }
 
 static int method_mask_unit_files(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         return method_enable_unit_files_generic(bus, message, userdata, "disable", unit_file_mask, false, error);
+}
+
+static int method_preset_unit_files_with_mode(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+
+        _cleanup_strv_free_ char **l = NULL;
+#ifdef HAVE_SELINUX
+        char **i;
+#endif
+        UnitFileChange *changes = NULL;
+        unsigned n_changes = 0;
+        Manager *m = userdata;
+        UnitFilePresetMode mm;
+        UnitFileScope scope;
+        int runtime, force, r;
+        const char *mode;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read_strv(message, &l);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_read(message, "sbb", &mode, &runtime, &force);
+        if (r < 0)
+                return r;
+
+        if (isempty(mode))
+                mm = UNIT_FILE_PRESET_FULL;
+        else {
+                mm = unit_file_preset_mode_from_string(mode);
+                if (mm < 0)
+                        return -EINVAL;
+        }
+
+#ifdef HAVE_SELINUX
+        STRV_FOREACH(i, l) {
+                Unit *u;
+
+                u = manager_get_unit(m, *i);
+                if (u) {
+                        r = selinux_unit_access_check(u, message, "enable", error);
+                        if (r < 0)
+                                return r;
+                }
+        }
+#endif
+
+        scope = m->running_as == SYSTEMD_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
+
+        r = unit_file_preset(scope, runtime, NULL, l, mm, force, &changes, &n_changes);
+        if (r < 0)
+                return r;
+
+        return reply_unit_file_changes_and_free(m, bus, message, r, changes, n_changes);
 }
 
 static int method_disable_unit_files_generic(
@@ -1626,6 +1686,44 @@ static int method_set_default_target(sd_bus *bus, sd_bus_message *message, void 
         scope = m->running_as == SYSTEMD_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
 
         r = unit_file_set_default(scope, NULL, name, force, &changes, &n_changes);
+        if (r < 0)
+                return r;
+
+        return reply_unit_file_changes_and_free(m, bus, message, -1, changes, n_changes);
+}
+
+static int method_preset_all_unit_files(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        UnitFileChange *changes = NULL;
+        unsigned n_changes = 0;
+        Manager *m = userdata;
+        UnitFilePresetMode mm;
+        UnitFileScope scope;
+        const char *mode;
+        int force, runtime, r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        r = selinux_access_check(message, "enable", error);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_read(message, "sbb", &mode, &runtime, &force);
+        if (r < 0)
+                return r;
+
+        if (isempty(mode))
+                mm = UNIT_FILE_PRESET_FULL;
+        else {
+                mm = unit_file_preset_mode_from_string(mode);
+                if (mm < 0)
+                        return -EINVAL;
+        }
+
+        scope = m->running_as == SYSTEMD_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
+
+        r = unit_file_preset_all(scope, runtime, NULL, mm, force, &changes, &n_changes);
         if (r < 0)
                 return r;
 
@@ -1716,10 +1814,12 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_METHOD("ReenableUnitFiles", "asbb", "ba(sss)", method_reenable_unit_files, 0),
         SD_BUS_METHOD("LinkUnitFiles", "asbb", "a(sss)", method_link_unit_files, 0),
         SD_BUS_METHOD("PresetUnitFiles", "asbb", "ba(sss)", method_preset_unit_files, 0),
+        SD_BUS_METHOD("PresetUnitFilesWithMode", "assbb", "ba(sss)", method_preset_unit_files_with_mode, 0),
         SD_BUS_METHOD("MaskUnitFiles", "asbb", "a(sss)", method_mask_unit_files, 0),
         SD_BUS_METHOD("UnmaskUnitFiles", "asb", "a(sss)", method_unmask_unit_files, 0),
         SD_BUS_METHOD("SetDefaultTarget", "sb", "a(sss)", method_set_default_target, 0),
         SD_BUS_METHOD("GetDefaultTarget", NULL, "s", method_get_default_target, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("PresetAllUnitFiles", "sbb", "a(sss)", method_preset_all_unit_files, 0),
 
         SD_BUS_SIGNAL("UnitNew", "so", 0),
         SD_BUS_SIGNAL("UnitRemoved", "so", 0),
