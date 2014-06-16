@@ -194,10 +194,10 @@ static int remove_marked_symlinks_fd(
                 bool *deleted,
                 UnitFileChange **changes,
                 unsigned *n_changes,
-                char** files) {
+                char** instance_whitelist) {
 
-        int r = 0;
         _cleanup_closedir_ DIR *d = NULL;
+        int r = 0;
 
         assert(remove_symlinks_to);
         assert(fd >= 0);
@@ -252,15 +252,22 @@ static int remove_marked_symlinks_fd(
                         }
 
                         /* This will close nfd, regardless whether it succeeds or not */
-                        q = remove_marked_symlinks_fd(remove_symlinks_to, nfd, p, config_path, deleted, changes, n_changes, files);
-
-                        if (r == 0)
+                        q = remove_marked_symlinks_fd(remove_symlinks_to, nfd, p, config_path, deleted, changes, n_changes, instance_whitelist);
+                        if (q < 0 && r == 0)
                                 r = q;
 
                 } else if (de->d_type == DT_LNK) {
                         _cleanup_free_ char *p = NULL, *dest = NULL;
                         int q;
                         bool found;
+
+                        if (!unit_name_is_valid(de->d_name, TEMPLATE_VALID))
+                                continue;
+
+                        if (unit_name_is_instance(de->d_name) &&
+                            instance_whitelist &&
+                            !strv_contains(instance_whitelist, de->d_name))
+                                continue;
 
                         p = path_make_absolute(de->d_name, path);
                         if (!p)
@@ -280,30 +287,29 @@ static int remove_marked_symlinks_fd(
                                 set_get(remove_symlinks_to, dest) ||
                                 set_get(remove_symlinks_to, basename(dest));
 
-                        if (unit_name_is_instance(p))
-                                found = found && strv_contains(files, basename(p));
-
                         if (found) {
 
                                 if (unlink(p) < 0 && errno != ENOENT) {
 
                                         if (r == 0)
                                                 r = -errno;
-                                } else {
-                                        rmdir_parents(p, config_path);
-                                        path_kill_slashes(p);
+                                        continue;
+                                }
 
-                                        add_file_change(changes, n_changes, UNIT_FILE_UNLINK, p, NULL);
+                                rmdir_parents(p, config_path);
 
-                                        if (!set_get(remove_symlinks_to, p)) {
+                                path_kill_slashes(p);
 
-                                                q = mark_symlink_for_removal(&remove_symlinks_to, p);
-                                                if (q < 0) {
-                                                        if (r == 0)
-                                                                r = q;
-                                                } else
-                                                        *deleted = true;
-                                        }
+                                add_file_change(changes, n_changes, UNIT_FILE_UNLINK, p, NULL);
+
+                                if (!set_get(remove_symlinks_to, p)) {
+
+                                        q = mark_symlink_for_removal(&remove_symlinks_to, p);
+                                        if (q < 0) {
+                                                if (r == 0)
+                                                        r = q;
+                                        } else
+                                                *deleted = true;
                                 }
                         }
                 }
@@ -317,7 +323,7 @@ static int remove_marked_symlinks(
                 const char *config_path,
                 UnitFileChange **changes,
                 unsigned *n_changes,
-                char** files) {
+                char** instance_whitelist) {
 
         _cleanup_close_ int fd = -1;
         int r = 0;
@@ -343,7 +349,7 @@ static int remove_marked_symlinks(
                 }
 
                 /* This takes possession of cfd and closes it */
-                q = remove_marked_symlinks_fd(remove_symlinks_to, cfd, config_path, config_path, &deleted, changes, n_changes, files);
+                q = remove_marked_symlinks_fd(remove_symlinks_to, cfd, config_path, config_path, &deleted, changes, n_changes, instance_whitelist);
                 if (r == 0)
                         r = q;
         } while (deleted);
