@@ -70,6 +70,23 @@ static const NLType rtnl_link_info_data_vlan_types[IFLA_VLAN_MAX + 1] = {
         [IFLA_VLAN_PROTOCOL]    = { .type = NLA_U16 },
 };
 
+static const NLType rtnl_link_info_data_vxlan_types[IFLA_VXLAN_MAX+1] = {
+        [IFLA_VXLAN_ID] = { .type = NLA_U32 },
+        [IFLA_VXLAN_GROUP] = {.type = NLA_IN_ADDR },
+        [IFLA_VXLAN_LINK] = { .type = NLA_U32 },
+        [IFLA_VXLAN_LOCAL] = { .type = NLA_U32},
+        [IFLA_VXLAN_TTL] = { .type = NLA_U8 },
+        [IFLA_VXLAN_TOS] = { .type = NLA_U8 },
+        [IFLA_VXLAN_LEARNING] = { .type = NLA_U8 },
+        [IFLA_VXLAN_AGEING] = { .type = NLA_U32 },
+        [IFLA_VXLAN_LIMIT] = { .type = NLA_U32 },
+        [IFLA_VXLAN_PORT_RANGE] = { .type = NLA_U32},
+        [IFLA_VXLAN_PROXY] = { .type = NLA_U8 },
+        [IFLA_VXLAN_RSC] = { .type = NLA_U8 },
+        [IFLA_VXLAN_L2MISS] = { .type = NLA_U8 },
+        [IFLA_VXLAN_L3MISS] = { .type = NLA_U8 },
+};
+
 static const NLType rtnl_link_info_data_bond_types[IFLA_BOND_MAX + 1] = {
         [IFLA_BOND_MODE]                = { .type = NLA_U8 },
         [IFLA_BOND_ACTIVE_SLAVE]        = { .type = NLA_U32 },
@@ -144,6 +161,7 @@ typedef enum NLUnionLinkInfoData {
         NL_UNION_LINK_INFO_DATA_VLAN,
         NL_UNION_LINK_INFO_DATA_VETH,
         NL_UNION_LINK_INFO_DATA_MACVLAN,
+        NL_UNION_LINK_INFO_DATA_VXLAN,
         NL_UNION_LINK_INFO_DATA_IPIP_TUNNEL,
         NL_UNION_LINK_INFO_DATA_IPGRE_TUNNEL,
         NL_UNION_LINK_INFO_DATA_SIT_TUNNEL,
@@ -162,6 +180,7 @@ static const char* const nl_union_link_info_data_table[_NL_UNION_LINK_INFO_DATA_
         [NL_UNION_LINK_INFO_DATA_VLAN] = "vlan",
         [NL_UNION_LINK_INFO_DATA_VETH] = "veth",
         [NL_UNION_LINK_INFO_DATA_MACVLAN] = "macvlan",
+        [NL_UNION_LINK_INFO_DATA_VXLAN] = "vxlan",
         [NL_UNION_LINK_INFO_DATA_IPIP_TUNNEL] = "ipip",
         [NL_UNION_LINK_INFO_DATA_IPGRE_TUNNEL] = "gre",
         [NL_UNION_LINK_INFO_DATA_SIT_TUNNEL] = "sit",
@@ -181,6 +200,8 @@ static const NLTypeSystem rtnl_link_info_data_type_systems[_NL_UNION_LINK_INFO_D
                                                   .types = rtnl_link_info_data_veth_types },
         [NL_UNION_LINK_INFO_DATA_MACVLAN] =     { .max = ELEMENTSOF(rtnl_link_info_data_macvlan_types) - 1,
                                                   .types = rtnl_link_info_data_macvlan_types },
+        [NL_UNION_LINK_INFO_DATA_VXLAN] =       { .max = ELEMENTSOF(rtnl_link_info_data_vxlan_types) - 1,
+                                                  .types = rtnl_link_info_data_vxlan_types },
         [NL_UNION_LINK_INFO_DATA_IPIP_TUNNEL] = { .max = ELEMENTSOF(rtnl_link_info_data_iptun_types) - 1,
                                                   .types = rtnl_link_info_data_iptun_types },
         [NL_UNION_LINK_INFO_DATA_IPGRE_TUNNEL] =  { .max = ELEMENTSOF(rtnl_link_info_data_ipgre_types) - 1,
