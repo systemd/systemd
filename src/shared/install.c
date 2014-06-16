@@ -819,6 +819,7 @@ static void install_info_free(InstallInfo *i) {
         strv_free(i->aliases);
         strv_free(i->wanted_by);
         strv_free(i->required_by);
+        free(i->default_instance);
         free(i);
 }
 
@@ -911,16 +912,17 @@ static int install_info_add_auto(
                 return install_info_add(c, name_or_path, NULL);
 }
 
-static int config_parse_also(const char *unit,
-                             const char *filename,
-                             unsigned line,
-                             const char *section,
-                             unsigned section_line,
-                             const char *lvalue,
-                             int ltype,
-                             const char *rvalue,
-                             void *data,
-                             void *userdata) {
+static int config_parse_also(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         char *w;
         size_t l;
@@ -947,19 +949,20 @@ static int config_parse_also(const char *unit,
         return 0;
 }
 
-static int config_parse_user(const char *unit,
-                             const char *filename,
-                             unsigned line,
-                             const char *section,
-                             unsigned section_line,
-                             const char *lvalue,
-                             int ltype,
-                             const char *rvalue,
-                             void *data,
-                             void *userdata) {
+static int config_parse_user(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         InstallInfo *i = data;
-        char* printed;
+        char *printed;
         int r;
 
         assert(filename);
@@ -976,6 +979,39 @@ static int config_parse_user(const char *unit,
         return 0;
 }
 
+static int config_parse_default_instance(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        InstallInfo *i = data;
+        char *printed;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        r = install_full_printf(i, rvalue, &printed);
+        if (r < 0)
+                return r;
+
+        if (!unit_instance_is_valid(printed))
+                return -EINVAL;
+
+        free(i->default_instance);
+        i->default_instance = printed;
+
+        return 0;
+}
+
 static int unit_file_load(
                 InstallContext *c,
                 InstallInfo *info,
@@ -983,12 +1019,13 @@ static int unit_file_load(
                 bool allow_symlink) {
 
         const ConfigTableItem items[] = {
-                { "Install", "Alias",      config_parse_strv, 0, &info->aliases     },
-                { "Install", "WantedBy",   config_parse_strv, 0, &info->wanted_by   },
-                { "Install", "RequiredBy", config_parse_strv, 0, &info->required_by },
-                { "Install", "Also",       config_parse_also, 0, c                  },
-                { "Exec",    "User",       config_parse_user, 0, info               },
-                { NULL, NULL, NULL, 0, NULL }
+                { "Install", "Alias",           config_parse_strv,             0, &info->aliases           },
+                { "Install", "WantedBy",        config_parse_strv,             0, &info->wanted_by         },
+                { "Install", "RequiredBy",      config_parse_strv,             0, &info->required_by       },
+                { "Install", "DefaultInstance", config_parse_default_instance, 0, info                     },
+                { "Install", "Also",            config_parse_also,             0, c                        },
+                { "Exec",    "User",            config_parse_user,             0, info                     },
+                {}
         };
 
         int fd;
@@ -1009,8 +1046,7 @@ static int unit_file_load(
                 return -ENOMEM;
         }
 
-        r = config_parse(NULL, path, f, NULL,
-                         config_item_table_lookup, (void*) items, true, true, info);
+        r = config_parse(NULL, path, f, NULL, config_item_table_lookup, (void*) items, true, true, info);
         if (r < 0)
                 return r;
 
@@ -1211,17 +1247,30 @@ static int install_info_symlink_alias(
 static int install_info_symlink_wants(
                 InstallInfo *i,
                 const char *config_path,
+                char **list,
+                const char *suffix,
                 bool force,
                 UnitFileChange **changes,
                 unsigned *n_changes) {
 
+        _cleanup_free_ char *buf = NULL;
+        const char *n;
         char **s;
         int r = 0, q;
 
         assert(i);
         assert(config_path);
 
-        STRV_FOREACH(s, i->wanted_by) {
+        if (unit_name_is_template(i->name) && i->default_instance) {
+                buf = unit_name_replace_instance(i->name, i->default_instance);
+                if (!buf)
+                        return -ENOMEM;
+
+                n = buf;
+        } else
+                n = i->name;
+
+        STRV_FOREACH(s, list) {
                 _cleanup_free_ char *path = NULL, *dst = NULL;
 
                 q = install_full_printf(i, *s, &dst);
@@ -1233,48 +1282,11 @@ static int install_info_symlink_wants(
                         continue;
                 }
 
-                if (asprintf(&path, "%s/%s.wants/%s", config_path, dst, i->name) < 0)
+                path = strjoin(config_path, "/", dst, suffix, n, NULL);
+                if (!path)
                         return -ENOMEM;
 
                 q = create_symlink(i->path, path, force, changes, n_changes);
-
-                if (r == 0)
-                        r = q;
-        }
-
-        return r;
-}
-
-static int install_info_symlink_requires(
-                InstallInfo *i,
-                const char *config_path,
-                bool force,
-                UnitFileChange **changes,
-                unsigned *n_changes) {
-
-        char **s;
-        int r = 0, q;
-
-        assert(i);
-        assert(config_path);
-
-        STRV_FOREACH(s, i->required_by) {
-                _cleanup_free_ char *path = NULL, *dst = NULL;
-
-                q = install_full_printf(i, *s, &dst);
-                if (q < 0)
-                        return q;
-
-                if (!unit_name_is_valid(dst, TEMPLATE_VALID)) {
-                        r = -EINVAL;
-                        continue;
-                }
-
-                if (asprintf(&path, "%s/%s.requires/%s", config_path, dst, i->name) < 0)
-                        return -ENOMEM;
-
-                q = create_symlink(i->path, path, force, changes, n_changes);
-
                 if (r == 0)
                         r = q;
         }
@@ -1325,11 +1337,11 @@ static int install_info_apply(
 
         r = install_info_symlink_alias(i, config_path, force, changes, n_changes);
 
-        q = install_info_symlink_wants(i, config_path, force, changes, n_changes);
+        q = install_info_symlink_wants(i, config_path, i->wanted_by, ".wants/", force, changes, n_changes);
         if (r == 0)
                 r = q;
 
-        q = install_info_symlink_requires(i, config_path, force, changes, n_changes);
+        q = install_info_symlink_wants(i, config_path, i->required_by, ".requires/", force, changes, n_changes);
         if (r == 0)
                 r = q;
 

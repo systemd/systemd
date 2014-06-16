@@ -79,6 +79,8 @@ typedef struct {
         char **aliases;
         char **wanted_by;
         char **required_by;
+
+        char *default_instance;
 } InstallInfo;
 
 int unit_file_enable(UnitFileScope scope, bool runtime, const char *root_dir, char **files, bool force, UnitFileChange **changes, unsigned *n_changes);

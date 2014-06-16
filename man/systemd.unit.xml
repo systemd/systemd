@@ -1286,6 +1286,19 @@
                                 of unit names may be
                                 given.</para></listitem>
                         </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>DefaultInstance=</varname></term>
+
+                                <listitem><para>In template unit files
+                                this specifies for which instance the
+                                unit shall be enabled if the template
+                                is enabled without any explicitly set
+                                instance. This option has no effect in
+                                non-template unit files. The specified
+                                string must be usable as instance
+                                identifier.</para></listitem>
+                        </varlistentry>
                 </variablelist>
 
                 <para>The following specifiers are interpreted in the

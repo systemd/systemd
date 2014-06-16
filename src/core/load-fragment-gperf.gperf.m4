@@ -319,3 +319,4 @@ Install.Alias,                   NULL,                               0,         
 Install.WantedBy,                NULL,                               0,                             0
 Install.RequiredBy,              NULL,                               0,                             0
 Install.Also,                    NULL,                               0,                             0
+Install.DefaultInstance,         NULL,                               0,                             0
