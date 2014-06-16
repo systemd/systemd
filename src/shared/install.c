@@ -319,7 +319,8 @@ static int remove_marked_symlinks(
                 unsigned *n_changes,
                 char** files) {
 
-        int fd, r = 0;
+        _cleanup_close_ int fd = -1;
+        int r = 0;
         bool deleted;
 
         assert(config_path);
@@ -346,8 +347,6 @@ static int remove_marked_symlinks(
                 if (r == 0)
                         r = q;
         } while (deleted);
-
-        safe_close(fd);
 
         return r;
 }
@@ -1830,11 +1829,11 @@ int unit_file_preset(
                 UnitFileChange **changes,
                 unsigned *n_changes) {
 
-        _cleanup_lookup_paths_free_ LookupPaths paths = {};
         _cleanup_install_context_done_ InstallContext plus = {}, minus = {};
-        char **i;
-        _cleanup_free_ char *config_path = NULL;
         _cleanup_set_free_free_ Set *remove_symlinks_to = NULL;
+        _cleanup_lookup_paths_free_ LookupPaths paths = {};
+        _cleanup_free_ char *config_path = NULL;
+        char **i;
         int r, q;
 
         assert(scope >= 0);
@@ -1861,16 +1860,13 @@ int unit_file_preset(
                         r = install_info_add_auto(&plus, *i);
                 else
                         r = install_info_add_auto(&minus, *i);
-
                 if (r < 0)
                         return r;
         }
 
-        r = install_context_mark_for_removal(&minus, &paths, &remove_symlinks_to,
-                                             config_path, root_dir);
+        r = install_context_mark_for_removal(&minus, &paths, &remove_symlinks_to, config_path, root_dir);
 
-        q = remove_marked_symlinks(remove_symlinks_to, config_path,
-                                   changes, n_changes, files);
+        q = remove_marked_symlinks(remove_symlinks_to, config_path, changes, n_changes, files);
         if (r == 0)
                 r = q;
 
@@ -1899,8 +1895,6 @@ int unit_file_get_list(
 
         _cleanup_lookup_paths_free_ LookupPaths paths = {};
         char **i;
-        _cleanup_free_ char *buf = NULL;
-        _cleanup_closedir_ DIR *d = NULL;
         int r;
 
         assert(scope >= 0);
@@ -1915,21 +1909,18 @@ int unit_file_get_list(
                 return r;
 
         STRV_FOREACH(i, paths.unit_path) {
+                _cleanup_closedir_ DIR *d = NULL;
+                _cleanup_free_ char *buf = NULL;
                 const char *units_dir;
 
-                free(buf);
-                buf = NULL;
-
-                if (root_dir) {
-                        if (asprintf(&buf, "%s/%s", root_dir, *i) < 0)
+                if (!isempty(root_dir)) {
+                        buf = strjoin(root_dir, "/", *i, NULL);
+                        if (!buf)
                                 return -ENOMEM;
 
                         units_dir = buf;
                 } else
                         units_dir = *i;
-
-                if (d)
-                        closedir(d);
 
                 d = opendir(units_dir);
                 if (!d) {
@@ -1960,15 +1951,9 @@ int unit_file_get_list(
                         if (hashmap_get(h, de->d_name))
                                 continue;
 
-                        r = dirent_ensure_type(d, de);
-                        if (r < 0) {
-                                if (r == -ENOENT)
-                                        continue;
+                        dirent_ensure_type(d, de);
 
-                                return r;
-                        }
-
-                        if (de->d_type != DT_LNK && de->d_type != DT_REG)
+                        if (!IN_SET(de->d_type, DT_LNK, DT_REG))
                                 continue;
 
                         f = new0(UnitFileList, 1);
