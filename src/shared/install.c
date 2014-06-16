@@ -1035,67 +1035,69 @@ static int unit_file_search(
         assert(paths);
 
         if (info->path) {
-                char *full_path = NULL;
+                const char *path;
 
-                if (!isempty(root_dir))
-                        full_path = strappenda(root_dir, info->path);
+                if (isempty(root_dir))
+                        path = info->path;
+                else
+                        path = strappenda(root_dir, info->path);
 
-                return unit_file_load(c, info, full_path ?: info->path, allow_symlink);
+                return unit_file_load(c, info, path, allow_symlink);
         }
 
         assert(info->name);
 
         STRV_FOREACH(p, paths->unit_path) {
-                _cleanup_free_ char *path = NULL, *full_path = NULL;
+                _cleanup_free_ char *path = NULL;
 
-                path = strjoin(*p, "/", info->name, NULL);
+                if (isempty(root_dir))
+                        path = strjoin(*p, "/", info->name, NULL);
+                else
+                        path = strjoin(root_dir, "/", *p, "/", info->name, NULL);
                 if (!path)
                         return -ENOMEM;
 
-                if (!isempty(root_dir)) {
-                        full_path = strappend(root_dir, path);
-                        if (!full_path)
-                                return -ENOMEM;
-                }
-
-                r = unit_file_load(c, info, full_path ?: path, allow_symlink);
+                r = unit_file_load(c, info, path, allow_symlink);
                 if (r >= 0) {
                         info->path = path;
                         path = NULL;
-                } else if (r == -ENOENT && unit_name_is_instance(info->name)) {
-                        /* Unit file doesn't exist, however instance enablement was requested.
-                         * We will check if it is possible to load template unit file. */
-                        _cleanup_free_ char *template = NULL, *template_dir = NULL;
+                        return r;
+                }
+                if (r != -ENOENT && r != -ELOOP)
+                        return r;
+        }
 
-                        template = unit_name_template(info->name);
-                        if (!template)
-                                return -ENOMEM;
+        if (unit_name_is_instance(info->name)) {
 
-                        /* We will reuse path variable since we don't need it anymore. */
-                        template_dir = path;
-                        *(strrchr(template_dir, '/') + 1) = '\0';
+                /* Unit file doesn't exist, however instance
+                 * enablement was requested.  We will check if it is
+                 * possible to load template unit file. */
 
-                        path = strappend(template_dir, template);
+                _cleanup_free_ char *template = NULL, *template_dir = NULL;
+
+                template = unit_name_template(info->name);
+                if (!template)
+                        return -ENOMEM;
+
+                STRV_FOREACH(p, paths->unit_path) {
+                        _cleanup_free_ char *path = NULL;
+
+                        if (isempty(root_dir))
+                                path = strjoin(*p, "/", template, NULL);
+                        else
+                                path = strjoin(root_dir, "/", *p, "/", template, NULL);
                         if (!path)
                                 return -ENOMEM;
 
-                        if (!isempty(root_dir)) {
-                                free(full_path);
-                                full_path = strappend(root_dir, path);
-                                if (!full_path)
-                                        return -ENOMEM;
-                        }
-
-                        /* Let's try to load template unit. */
-                        r = unit_file_load(c, info, full_path ?: path, allow_symlink);
+                        r = unit_file_load(c, info, path, allow_symlink);
                         if (r >= 0) {
                                 info->path = path;
                                 path = NULL;
+                                return r;
                         }
+                        if (r != -ENOENT && r != -ELOOP)
+                                return r;
                 }
-
-                if (r != -ENOENT && r != -ELOOP)
-                        return r;
         }
 
         return -ENOENT;
