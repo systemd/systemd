@@ -29,6 +29,7 @@ Network.Bridge,              config_parse_netdev,                0,             
 Network.Bond,                config_parse_netdev,                0,                             offsetof(Network, bond)
 Network.VLAN,                config_parse_netdev,                0,                             offsetof(Network, vlans)
 Network.MACVLAN,             config_parse_netdev,                0,                             offsetof(Network, macvlans)
+Network.VXLAN,               config_parse_netdev,                0,                             offsetof(Network, vxlans)
 Network.DHCP,                config_parse_bool,                  0,                             offsetof(Network, dhcp)
 Network.DHCPServer,          config_parse_bool,                  0,                             offsetof(Network, dhcp_server)
 Network.IPv4LL,              config_parse_bool,                  0,                             offsetof(Network, ipv4ll)

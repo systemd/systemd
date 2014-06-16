@@ -36,6 +36,7 @@ static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_BOND] = "bond",
         [NETDEV_KIND_VLAN] = "vlan",
         [NETDEV_KIND_MACVLAN] = "macvlan",
+        [NETDEV_KIND_VXLAN] = "vxlan",
         [NETDEV_KIND_IPIP] = "ipip",
         [NETDEV_KIND_GRE] = "gre",
         [NETDEV_KIND_SIT] = "sit",
@@ -402,14 +403,20 @@ static int netdev_create(NetDev *netdev, Link *link, sd_rtnl_message_handler_t c
 int netdev_enslave(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callback) {
         int r;
 
-        if (netdev->kind == NETDEV_KIND_VLAN || netdev->kind == NETDEV_KIND_MACVLAN)
+        switch(netdev->kind) {
+        case NETDEV_KIND_VLAN:
+        case NETDEV_KIND_MACVLAN:
                 return netdev_create(netdev, link, callback);
-
-        if(netdev->kind == NETDEV_KIND_IPIP ||
-           netdev->kind == NETDEV_KIND_GRE ||
-           netdev->kind ==  NETDEV_KIND_SIT ||
-           netdev->kind ==  NETDEV_KIND_VTI)
+        case NETDEV_KIND_VXLAN:
+                return netdev_create_vxlan(netdev, link, callback);
+        case NETDEV_KIND_IPIP:
+        case NETDEV_KIND_GRE:
+        case NETDEV_KIND_SIT:
+        case NETDEV_KIND_VTI:
                 return netdev_create_tunnel(link, netdev_create_handler);
+        default:
+                break;
+        }
 
         if (netdev->state == NETDEV_STATE_READY) {
                 r = netdev_enslave_ready(netdev, link, callback);
@@ -606,9 +613,12 @@ static int netdev_load_one(Manager *manager, const char *filename) {
         netdev->kind = _NETDEV_KIND_INVALID;
         netdev->macvlan_mode = _NETDEV_MACVLAN_MODE_INVALID;
         netdev->vlanid = VLANID_MAX + 1;
+        netdev->vxlanid = VXLAN_VID_MAX + 1;
         netdev->tunnel_pmtudisc = true;
+        netdev->learning = true;
 
-        r = config_parse(NULL, filename, file, "Match\0NetDev\0VLAN\0MACVLAN\0Tunnel\0Peer\0",
+        r = config_parse(NULL, filename, file,
+                         "Match\0NetDev\0VLAN\0MACVLAN\0VXLAN\0Tunnel\0Peer\0",
                          config_item_perf_lookup, (void*) network_netdev_gperf_lookup,
                          false, false, netdev);
         if (r < 0) {
@@ -631,7 +641,18 @@ static int netdev_load_one(Manager *manager, const char *filename) {
                 return 0;
         }
 
+        if (netdev->kind == NETDEV_KIND_VXLAN && netdev->vxlanid > VXLAN_VID_MAX) {
+                log_warning("VXLAN without valid Id configured in %s. Ignoring", filename);
+                return 0;
+        }
+
         if (netdev->kind != NETDEV_KIND_VLAN && netdev->vlanid <= VLANID_MAX) {
+                log_warning("VLAN Id configured for a %s in %s. Ignoring",
+                            netdev_kind_to_string(netdev->kind), filename);
+                return 0;
+        }
+
+        if (netdev->kind != NETDEV_KIND_VXLAN && netdev->vlanid <= VXLAN_VID_MAX) {
                 log_warning("VLAN Id configured for a %s in %s. Ignoring",
                             netdev_kind_to_string(netdev->kind), filename);
                 return 0;
@@ -690,6 +711,7 @@ static int netdev_load_one(Manager *manager, const char *filename) {
 
         if (netdev->kind != NETDEV_KIND_VLAN &&
             netdev->kind != NETDEV_KIND_MACVLAN &&
+            netdev->kind != NETDEV_KIND_VXLAN &&
             netdev->kind != NETDEV_KIND_IPIP &&
             netdev->kind != NETDEV_KIND_GRE &&
             netdev->kind != NETDEV_KIND_SIT &&

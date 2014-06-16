@@ -38,6 +38,7 @@
 #include "condition-util.h"
 
 #define CACHE_INFO_INFINITY_LIFE_TIME 0xFFFFFFFFU
+#define VXLAN_VID_MAX (1u << 24) - 1
 
 typedef struct NetDev NetDev;
 typedef struct Network Network;
@@ -69,6 +70,7 @@ typedef enum NetDevKind {
         NETDEV_KIND_BOND,
         NETDEV_KIND_VLAN,
         NETDEV_KIND_MACVLAN,
+        NETDEV_KIND_VXLAN,
         NETDEV_KIND_IPIP,
         NETDEV_KIND_GRE,
         NETDEV_KIND_SIT,
@@ -108,16 +110,19 @@ struct NetDev {
         NetDevKind kind;
 
         uint64_t vlanid;
+        uint64_t vxlanid;
         int32_t macvlan_mode;
 
         int ifindex;
         NetDevState state;
 
         bool tunnel_pmtudisc;
+        bool learning;
         unsigned ttl;
         unsigned tos;
         struct in_addr local;
         struct in_addr remote;
+        struct in_addr group;
 
         LIST_HEAD(netdev_enslave_callback, callbacks);
 };
@@ -143,6 +148,7 @@ struct Network {
         NetDev *tunnel;
         Hashmap *vlans;
         Hashmap *macvlans;
+        Hashmap *vxlans;
         bool dhcp;
         bool dhcp_dns;
         bool dhcp_ntp;
@@ -321,6 +327,7 @@ int netdev_set_ifindex(NetDev *netdev, sd_rtnl_message *newlink);
 int netdev_enslave(NetDev *netdev, Link *link, sd_rtnl_message_handler_t cb);
 int netdev_create_tunnel(Link *link, sd_rtnl_message_handler_t callback);
 int netdev_create_veth(NetDev *netdev, sd_rtnl_message_handler_t callback);
+int netdev_create_vxlan(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callback);
 
 const char *netdev_kind_to_string(NetDevKind d) _const_;
 NetDevKind netdev_kind_from_string(const char *d) _pure_;

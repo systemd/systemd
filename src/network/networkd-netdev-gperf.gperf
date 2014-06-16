@@ -33,3 +33,8 @@ Tunnel.TTL,              config_parse_unsigned,              0,                 
 Tunnel.DiscoverPathMTU,  config_parse_bool,                  0,                             offsetof(NetDev, tunnel_pmtudisc)
 Peer.Name,               config_parse_ifname,                0,                             offsetof(NetDev, ifname_peer)
 Peer.MACAddress,         config_parse_hwaddr,                0,                             offsetof(NetDev, mac_peer)
+VXLAN.Id,                config_parse_uint64,                0,                             offsetof(NetDev, vxlanid)
+VXLAN.Group,             config_parse_tunnel_address,        0,                             offsetof(NetDev, group)
+VXLAN.TOS,               config_parse_unsigned,              0,                             offsetof(NetDev, tos)
+VXLAN.TTL,               config_parse_unsigned,              0,                             offsetof(NetDev, ttl)
+VXLAN.MacLearning,       config_parse_bool,                  0,                             offsetof(NetDev, learning)

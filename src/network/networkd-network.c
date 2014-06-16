@@ -69,6 +69,10 @@ static int network_load_one(Manager *manager, const char *filename) {
         if (!network->macvlans)
                 return log_oom();
 
+        network->vxlans = hashmap_new(uint64_hash_func, uint64_compare_func);
+        if (!network->vxlans)
+                return log_oom();
+
         network->addresses_by_section = hashmap_new(uint64_hash_func, uint64_compare_func);
         if (!network->addresses_by_section)
                 return log_oom();
@@ -182,6 +186,10 @@ void network_free(Network *network) {
         HASHMAP_FOREACH(netdev, network->macvlans, i)
                 netdev_unref(netdev);
         hashmap_free(network->macvlans);
+
+        HASHMAP_FOREACH(netdev, network->vxlans, i)
+                netdev_unref(netdev);
+        hashmap_free(network->vxlans);
 
         while ((route = network->static_routes))
                 route_free(route);
@@ -322,6 +330,15 @@ int config_parse_netdev(const char *unit,
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, EINVAL,
                                    "Can not add MACVLAN to network: %s", rvalue);
+                        return 0;
+                }
+
+                break;
+        case NETDEV_KIND_VXLAN:
+                r = hashmap_put(network->vxlans, netdev->ifname, netdev);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                                   "Can not add VXLAN to network: %s", rvalue);
                         return 0;
                 }
 
