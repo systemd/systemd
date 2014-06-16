@@ -266,8 +266,22 @@ static int remove_marked_symlinks_fd(
 
                         if (unit_name_is_instance(de->d_name) &&
                             instance_whitelist &&
-                            !strv_contains(instance_whitelist, de->d_name))
-                                continue;
+                            !strv_contains(instance_whitelist, de->d_name)) {
+
+                                _cleanup_free_ char *w;
+
+                                /* OK, the file is not listed directly
+                                 * in the whitelist, so let's check if
+                                 * the template of it might be
+                                 * listed. */
+
+                                w = unit_name_template(de->d_name);
+                                if (!w)
+                                        return -ENOMEM;
+
+                                if (!strv_contains(instance_whitelist, w))
+                                        continue;
+                        }
 
                         p = path_make_absolute(de->d_name, path);
                         if (!p)
@@ -290,18 +304,14 @@ static int remove_marked_symlinks_fd(
                         if (!found)
                                 continue;
 
-
                         if (unlink(p) < 0 && errno != ENOENT) {
-
                                 if (r == 0)
                                         r = -errno;
                                 continue;
                         }
 
-                        rmdir_parents(p, config_path);
-
                         path_kill_slashes(p);
-
+                        rmdir_parents(p, config_path);
                         add_file_change(changes, n_changes, UNIT_FILE_UNLINK, p, NULL);
 
                         if (!set_get(remove_symlinks_to, p)) {
