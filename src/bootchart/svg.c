@@ -123,6 +123,7 @@ static void svg_header(void) {
         svg("<defs>\n  <style type=\"text/css\">\n    <![CDATA[\n");
 
         svg("      rect       { stroke-width: 1; }\n");
+        svg("      rect.bg    { fill: rgb(255,255,255); }\n");
         svg("      rect.cpu   { fill: rgb(64,64,240); stroke-width: 0; fill-opacity: 0.7; }\n");
         svg("      rect.wait  { fill: rgb(240,240,0); stroke-width: 0; fill-opacity: 0.7; }\n");
         svg("      rect.bi    { fill: rgb(240,128,128); stroke-width: 0; fill-opacity: 0.7; }\n");
@@ -1270,6 +1271,7 @@ void svg_do(const char *build) {
 
         /* after this, we can draw the header with proper sizing */
         svg_header();
+        svg("<rect class=\"bg\" width=\"100%%\" height=\"100%%\" />\n\n");
 
         svg("<g transform=\"translate(10,400)\">\n");
         svg_io_bi_bar();
