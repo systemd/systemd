@@ -42,6 +42,7 @@ typedef enum PolicyItemClass {
         POLICY_ITEM_OWN_PREFIX,
         POLICY_ITEM_USER,
         POLICY_ITEM_GROUP,
+        POLICY_ITEM_IGNORE,
         _POLICY_ITEM_CLASS_MAX,
         _POLICY_ITEM_CLASS_INVALID = -1,
 } PolicyItemClass;

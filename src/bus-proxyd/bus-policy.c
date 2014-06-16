@@ -155,7 +155,10 @@ static int file_load(Policy *p, const char *path) {
                                 else if (streq(name, "group"))
                                         state = STATE_POLICY_GROUP;
                                 else {
-                                        log_warning("Attribute %s of <policy> tag unknown at %s:%u, ignoring.", name, path, line);
+                                        if (streq(name, "at_console"))
+                                                log_debug("Attribute %s of <policy> tag unsupported at %s:%u, ignoring.", name, path, line);
+                                        else
+                                                log_warning("Attribute %s of <policy> tag unknown at %s:%u, ignoring.", name, path, line);
                                         state = STATE_POLICY_OTHER_ATTRIBUTE;
                                 }
                         } else if (t == XML_TAG_CLOSE_EMPTY ||
@@ -268,7 +271,12 @@ static int file_load(Policy *p, const char *path) {
                                         ic = POLICY_ITEM_USER;
                                 else if (streq(name, "group"))
                                         ic = POLICY_ITEM_GROUP;
-                                else {
+                                else if (streq(name, "eavesdrop")) {
+                                        log_debug("Unsupported attribute %s= at %s:%u, ignoring.", name, path, line);
+                                        i->class = POLICY_ITEM_IGNORE;
+                                        state = STATE_ALLOW_DENY_OTHER_ATTRIBUTE;
+                                        break;
+                                } else {
                                         log_error("Unknown attribute %s= at %s:%u, ignoring.", name, path, line);
                                         state = STATE_ALLOW_DENY_OTHER_ATTRIBUTE;
                                         break;
@@ -303,7 +311,10 @@ static int file_load(Policy *p, const char *path) {
                                                  (streq(u, "sender") && ic == POLICY_ITEM_RECV))
                                                 state = STATE_ALLOW_DENY_NAME;
                                         else {
-                                                log_error("Unknown attribute %s= at %s:%u, ignoring.", name, path, line);
+                                                if (streq(u, "requested_reply"))
+                                                        log_debug("Unsupported attribute %s= at %s:%u, ignoring.", name, path, line);
+                                                else
+                                                        log_error("Unknown attribute %s= at %s:%u, ignoring.", name, path, line);
                                                 state = STATE_ALLOW_DENY_OTHER_ATTRIBUTE;
                                                 break;
                                         }
