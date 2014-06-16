@@ -4423,22 +4423,6 @@ int dirent_ensure_type(DIR *d, struct dirent *de) {
         return 0;
 }
 
-int in_search_path(const char *path, char **search) {
-        char **i;
-        _cleanup_free_ char *parent = NULL;
-        int r;
-
-        r = path_get_parent(path, &parent);
-        if (r < 0)
-                return r;
-
-        STRV_FOREACH(i, search)
-                if (path_equal(parent, *i))
-                        return 1;
-
-        return 0;
-}
-
 int get_files_in_directory(const char *path, char ***list) {
         _cleanup_closedir_ DIR *d = NULL;
         size_t bufsize = 0, n = 0;
