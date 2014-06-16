@@ -114,10 +114,10 @@ struct NetDev {
         NetDevState state;
 
         bool tunnel_pmtudisc;
-        unsigned tunnel_ttl;
-        unsigned tunnel_tos;
-        struct in_addr tunnel_local;
-        struct in_addr tunnel_remote;
+        unsigned ttl;
+        unsigned tos;
+        struct in_addr local;
+        struct in_addr remote;
 
         LIST_HEAD(netdev_enslave_callback, callbacks);
 };
