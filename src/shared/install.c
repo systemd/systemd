@@ -1749,7 +1749,7 @@ UnitFileState unit_file_get_state(
         return r < 0 ? r : state;
 }
 
-int unit_file_query_preset(UnitFileScope scope, const char *name) {
+int unit_file_query_preset(UnitFileScope scope, const char *root_dir, const char *name) {
         _cleanup_strv_free_ char **files = NULL;
         char **i;
         int r;
@@ -1759,7 +1759,7 @@ int unit_file_query_preset(UnitFileScope scope, const char *name) {
         assert(name);
 
         if (scope == UNIT_FILE_SYSTEM)
-                r = conf_files_list(&files, ".preset", NULL,
+                r = conf_files_list(&files, ".preset", root_dir,
                                     "/etc/systemd/system-preset",
                                     "/usr/local/lib/systemd/system-preset",
                                     "/usr/lib/systemd/system-preset",
@@ -1768,7 +1768,7 @@ int unit_file_query_preset(UnitFileScope scope, const char *name) {
 #endif
                                     NULL);
         else if (scope == UNIT_FILE_GLOBAL)
-                r = conf_files_list(&files, ".preset", NULL,
+                r = conf_files_list(&files, ".preset", root_dir,
                                     "/etc/systemd/user-preset",
                                     "/usr/local/lib/systemd/user-preset",
                                     "/usr/lib/systemd/user-preset",
@@ -1780,9 +1780,16 @@ int unit_file_query_preset(UnitFileScope scope, const char *name) {
                 return r;
 
         STRV_FOREACH(i, files) {
+                _cleanup_free_ char *buf = NULL;
                 _cleanup_fclose_ FILE *f;
+                const char *p;
 
-                f = fopen(*i, "re");
+                if (root_dir)
+                        p = buf = strjoin(root_dir, "/", *i, NULL);
+                else
+                        p = *i;
+
+                f = fopen(p, "re");
                 if (!f) {
                         if (errno == ENOENT)
                                 continue;
@@ -1807,15 +1814,19 @@ int unit_file_query_preset(UnitFileScope scope, const char *name) {
                                 l += 6;
                                 l += strspn(l, WHITESPACE);
 
-                                if (fnmatch(l, name, FNM_NOESCAPE) == 0)
+                                if (fnmatch(l, name, FNM_NOESCAPE) == 0) {
+                                        log_debug("Preset file says enable %s.", name);
                                         return 1;
+                                }
 
                         } else if (first_word(l, "disable")) {
                                 l += 7;
                                 l += strspn(l, WHITESPACE);
 
-                                if (fnmatch(l, name, FNM_NOESCAPE) == 0)
+                                if (fnmatch(l, name, FNM_NOESCAPE) == 0) {
+                                        log_debug("Preset file says disable %s.", name);
                                         return 0;
+                                }
 
                         } else
                                 log_debug("Couldn't parse line '%s'", l);
@@ -1823,6 +1834,7 @@ int unit_file_query_preset(UnitFileScope scope, const char *name) {
         }
 
         /* Default is "enable" */
+        log_debug("Preset file doesn't say anything about %s, enabling.", name);
         return 1;
 }
 
@@ -1859,7 +1871,7 @@ int unit_file_preset(
                 if (!unit_name_is_valid(*i, TEMPLATE_VALID))
                         return -EINVAL;
 
-                r = unit_file_query_preset(scope, *i);
+                r = unit_file_query_preset(scope, root_dir, *i);
                 if (r < 0)
                         return r;
 
@@ -1966,7 +1978,7 @@ int unit_file_preset_all(
                         if (de->d_type != DT_REG)
                                 continue;
 
-                        r = unit_file_query_preset(scope, de->d_name);
+                        r = unit_file_query_preset(scope, root_dir, de->d_name);
                         if (r < 0)
                                 return r;
 
