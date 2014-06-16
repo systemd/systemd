@@ -460,7 +460,8 @@ dist_systemunit_DATA = \
 	units/systemd-udevd-control.socket \
 	units/systemd-udevd-kernel.socket \
 	units/system-update.target \
-	units/initrd-switch-root.target
+	units/initrd-switch-root.target \
+	units/ldconfig.service
 
 nodist_systemunit_DATA = \
 	units/getty@.service \
@@ -5142,7 +5143,8 @@ endif
 
 SYSINIT_TARGET_WANTS += \
 	systemd-update-utmp.service \
-	systemd-update-done.service
+	systemd-update-done.service \
+	ldconfig.service
 
 LOCAL_FS_TARGET_WANTS += \
 	systemd-remount-fs.service \
