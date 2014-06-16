@@ -291,7 +291,7 @@ static int remove_source(RemoteServer *s, int fd) {
 
 static int add_source(RemoteServer *s, int fd, const char* name) {
         RemoteSource *source = NULL;
-        char *realname;
+        _cleanup_free_ char *realname = NULL;
         int r;
 
         assert(s);
@@ -307,11 +307,11 @@ static int add_source(RemoteServer *s, int fd, const char* name) {
                         return log_oom();
         }
 
-        log_debug("Creating source for fd:%d (%s)", fd, name);
+        log_debug("Creating source for fd:%d (%s)", fd, realname);
 
         r = get_source_for_fd(s, fd, &source);
         if (r < 0) {
-                log_error("Failed to create source for fd:%d (%s)", fd, name);
+                log_error("Failed to create source for fd:%d (%s)", fd, realname);
                 return r;
         }
         assert(source);
