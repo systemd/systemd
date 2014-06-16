@@ -32,6 +32,8 @@ External:
 
 Features:
 
+* tmpfiles: add support for "+" suffix for more commands
+
 * support empty /etc boots nicely:
   - apply presets at first boot
   - tmpfiles: allow overriding of /etc/mtab
