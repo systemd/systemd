@@ -1302,7 +1302,14 @@ static int install_info_symlink_wants(
         assert(i);
         assert(config_path);
 
-        if (unit_name_is_template(i->name) && i->default_instance) {
+        if (unit_name_is_template(i->name)) {
+
+                /* Don't install any symlink if there's no default
+                 * instance configured */
+
+                if (!i->default_instance)
+                        return 0;
+
                 buf = unit_name_replace_instance(i->name, i->default_instance);
                 if (!buf)
                         return -ENOMEM;
