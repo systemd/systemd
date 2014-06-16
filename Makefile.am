@@ -509,6 +509,9 @@ dist_userunit_DATA = \
 nodist_userunit_DATA = \
 	units/user/systemd-exit.service
 
+dist_systempreset_DATA = \
+	system-preset/90-systemd.preset
+
 EXTRA_DIST += \
 	units/getty@.service.m4 \
 	units/serial-getty@.service.m4 \
