@@ -37,10 +37,20 @@
 #include "hashmap.h"
 #include "conf-files.h"
 
-static int files_add(Hashmap *h, const char *dirpath, const char *suffix) {
+static int files_add(Hashmap *h, const char *dirpath, const char *suffix, const char *root) {
         _cleanup_closedir_ DIR *dir = NULL;
 
-        dir = opendir(dirpath);
+        assert(dirpath);
+        assert(suffix);
+
+        if (isempty(root))
+                dir = opendir(dirpath);
+        else {
+                const char *p;
+
+                p = strappenda3(root, "/", dirpath);
+                dir = opendir(p);
+        }
         if (!dir) {
                 if (errno == ENOENT)
                         return 0;
@@ -108,7 +118,7 @@ static int conf_files_list_strv_internal(char ***strv, const char *suffix, const
                 return -ENOMEM;
 
         STRV_FOREACH(p, dirs) {
-                r = files_add(fh, *p, suffix);
+                r = files_add(fh, *p, suffix, root);
                 if (r == -ENOMEM) {
                         hashmap_free_free(fh);
                         return r;
