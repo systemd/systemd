@@ -12,8 +12,6 @@ DefaultDependencies=no
 Conflicts=shutdown.target
 After=systemd-readahead-collect.service systemd-readahead-replay.service local-fs.target
 Before=sysinit.target shutdown.target
-RefuseManualStart=yes
-RefuseManualStop=yes
 ConditionNeedsUpdate=|/etc
 ConditionNeedsUpdate=|/var
 
