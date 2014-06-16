@@ -179,6 +179,8 @@ void network_free(Network *network) {
 
         netdev_unref(network->bond);
 
+        netdev_unref(network->tunnel);
+
         HASHMAP_FOREACH(netdev, network->vlans, i)
                 netdev_unref(netdev);
         hashmap_free(network->vlans);
