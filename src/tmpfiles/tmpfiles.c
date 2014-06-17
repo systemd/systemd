@@ -691,12 +691,12 @@ static int create_item(Item *i) {
 
                 RUN_WITH_UMASK(0000) {
                         mkdir_parents_label(i->path, 0755);
-                        r = mkdir(i->path, i->mode);
+                        r = mkdir_label(i->path, i->mode);
                 }
 
-                if (r < 0 && errno != EEXIST) {
-                        log_error("Failed to create directory %s: %m", i->path);
-                        return -errno;
+                if (r < 0 && r != -EEXIST) {
+                        log_error("Failed to create directory %s: %s", i->path, strerror(-r));
+                        return r;
                 }
 
                 if (stat(i->path, &st) < 0) {
