@@ -1928,7 +1928,7 @@ static void dump_unit_file_changes(const UnitFileChange *changes, unsigned n_cha
 
         for (i = 0; i < n_changes; i++) {
                 if (changes[i].type == UNIT_FILE_SYMLINK)
-                        log_info("Created symlink from %s to %s.", changes[i].source, changes[i].path);
+                        log_info("Created symlink from %s to %s.", changes[i].path, changes[i].source);
                 else
                         log_info("Removed symlink %s.", changes[i].path);
         }
@@ -1945,7 +1945,7 @@ static int deserialize_and_dump_unit_file_changes(sd_bus_message *m) {
         while ((r = sd_bus_message_read(m, "(sss)", &type, &path, &source)) > 0) {
                 if (!arg_quiet) {
                         if (streq(type, "symlink"))
-                                log_info("Created symlink from %s to %s.", source, path);
+                                log_info("Created symlink from %s to %s.", path, source);
                         else
                                 log_info("Removed symlink %s.", path);
                 }
