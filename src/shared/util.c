@@ -4145,6 +4145,46 @@ int symlink_atomic(const char *from, const char *to) {
         return 0;
 }
 
+int mknod_atomic(const char *path, mode_t mode, dev_t dev) {
+        _cleanup_free_ char *t = NULL;
+
+        assert(path);
+
+        t = tempfn_random(path);
+        if (!t)
+                return -ENOMEM;
+
+        if (mknod(t, mode, dev) < 0)
+                return -errno;
+
+        if (rename(t, path) < 0) {
+                unlink_noerrno(t);
+                return -errno;
+        }
+
+        return 0;
+}
+
+int mkfifo_atomic(const char *path, mode_t mode) {
+        _cleanup_free_ char *t = NULL;
+
+        assert(path);
+
+        t = tempfn_random(path);
+        if (!t)
+                return -ENOMEM;
+
+        if (mkfifo(t, mode) < 0)
+                return -errno;
+
+        if (rename(t, path) < 0) {
+                unlink_noerrno(t);
+                return -errno;
+        }
+
+        return 0;
+}
+
 bool display_is_local(const char *display) {
         assert(display);
 

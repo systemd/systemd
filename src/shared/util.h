@@ -523,6 +523,8 @@ int terminal_vhangup(const char *name);
 int vt_disallocate(const char *name);
 
 int symlink_atomic(const char *from, const char *to);
+int mknod_atomic(const char *path, mode_t mode, dev_t dev);
+int mkfifo_atomic(const char *path, mode_t mode);
 
 int fchmod_umask(int fd, mode_t mode);
 

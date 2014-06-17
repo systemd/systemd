@@ -169,7 +169,15 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
 
                                 <varlistentry>
                                         <term><varname>p</varname></term>
-                                        <listitem><para>Create a named pipe (FIFO) if it does not exist yet.</para></listitem>
+                                        <term><varname>p+</varname></term>
+                                        <listitem><para>Create a named
+                                        pipe (FIFO) if it does not
+                                        exist yet. If suffixed with
+                                        <varname>+</varname> and a
+                                        file already exists where the
+                                        pipe is to be created it will
+                                        be removed and be replaced by
+                                        the pipe.</para></listitem>
                                 </varlistentry>
 
                                 <varlistentry>
@@ -188,12 +196,31 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
 
                                 <varlistentry>
                                         <term><varname>c</varname></term>
-                                        <listitem><para>Create a character device node if it does not exist yet.</para></listitem>
+                                        <term><varname>c+</varname></term>
+                                        <listitem><para>Create a
+                                        character device node if it
+                                        does not exist yet. If
+                                        suffixed with
+                                        <varname>+</varname> and a
+                                        file already exists where the
+                                        device node is to be created
+                                        it will be removed and be
+                                        replaced by the device
+                                        node.</para></listitem>
                                 </varlistentry>
 
                                 <varlistentry>
                                         <term><varname>b</varname></term>
-                                        <listitem><para>Create a block device node if it does not exist yet.</para></listitem>
+                                        <term><varname>b+</varname></term>
+                                        <listitem><para>Create a block
+                                        device node if it does not
+                                        exist yet. If suffixed with
+                                        <varname>+</varname> and a
+                                        file already exists where the
+                                        device node is to be created
+                                        it will be removed and be
+                                        replaced by the device
+                                        node.</para></listitem>
                                 </varlistentry>
 
                                 <varlistentry>

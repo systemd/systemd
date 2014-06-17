@@ -721,25 +721,42 @@ static int create_item(Item *i) {
 
         case CREATE_FIFO:
 
-                label_context_set(i->path, S_IFIFO);
                 RUN_WITH_UMASK(0000) {
+                        label_context_set(i->path, S_IFIFO);
                         r = mkfifo(i->path, i->mode);
-                }
-                label_context_clear();
-
-                if (r < 0 && errno != EEXIST) {
-                        log_error("Failed to create fifo %s: %m", i->path);
-                        return -errno;
+                        label_context_clear();
                 }
 
-                if (stat(i->path, &st) < 0) {
-                        log_error("stat(%s) failed: %m", i->path);
-                        return -errno;
-                }
+                if (r < 0) {
+                        if (errno != EEXIST) {
+                                log_error("Failed to create fifo %s: %m", i->path);
+                                return -errno;
+                        }
 
-                if (!S_ISFIFO(st.st_mode)) {
-                        log_error("%s is not a fifo.", i->path);
-                        return -EEXIST;
+                        if (stat(i->path, &st) < 0) {
+                                log_error("stat(%s) failed: %m", i->path);
+                                return -errno;
+                        }
+
+                        if (!S_ISFIFO(st.st_mode)) {
+
+                                if (i->force) {
+
+                                        RUN_WITH_UMASK(0000) {
+                                                label_context_set(i->path, S_IFIFO);
+                                                r = mkfifo_atomic(i->path, i->mode);
+                                                label_context_clear();
+                                        }
+
+                                        if (r < 0) {
+                                                log_error("Failed to create fifo %s: %s", i->path, strerror(-r));
+                                                return r;
+                                        }
+                                } else {
+                                        log_debug("%s is not a fifo.", i->path);
+                                        return 0;
+                                }
+                        }
                 }
 
                 r = item_set_perms(i, i->path);
@@ -771,11 +788,13 @@ static int create_item(Item *i) {
                                         label_context_clear();
 
                                         if (r < 0) {
-                                                log_error("symlink(%s, %s) failed: %m", i->argument, i->path);
-                                                return -errno;
+                                                log_error("symlink(%s, %s) failed: %s", i->argument, i->path, strerror(-r));
+                                                return r;
                                         }
-                                } else
+                                } else {
                                         log_debug("%s is not a symlink or does not point to the correct path.", i->path);
+                                        return 0;
+                                }
                         }
                 }
 
@@ -795,7 +814,7 @@ static int create_item(Item *i) {
                         return 0;
                 }
 
-                file_type = (i->type == CREATE_BLOCK_DEVICE ? S_IFBLK : S_IFCHR);
+                file_type = i->type == CREATE_BLOCK_DEVICE ? S_IFBLK : S_IFCHR;
 
                 RUN_WITH_UMASK(0000) {
                         label_context_set(i->path, file_type);
@@ -814,16 +833,31 @@ static int create_item(Item *i) {
                                 log_error("Failed to create device node %s: %m", i->path);
                                 return -errno;
                         }
-                }
 
-                if (stat(i->path, &st) < 0) {
-                        log_error("stat(%s) failed: %m", i->path);
-                        return -errno;
-                }
+                        if (stat(i->path, &st) < 0) {
+                                log_error("stat(%s) failed: %m", i->path);
+                                return -errno;
+                        }
 
-                if ((st.st_mode & S_IFMT) != file_type) {
-                        log_error("%s is not a device node.", i->path);
-                        return -EEXIST;
+                        if ((st.st_mode & S_IFMT) != file_type) {
+
+                                if (i->force) {
+
+                                        RUN_WITH_UMASK(0000) {
+                                                label_context_set(i->path, file_type);
+                                                r = mknod_atomic(i->path, i->mode | file_type, i->major_minor);
+                                                label_context_clear();
+                                        }
+
+                                        if (r < 0) {
+                                                log_error("Failed to create device node %s: %s", i->path, strerror(-r));
+                                                return r;
+                                        }
+                                } else {
+                                        log_debug("%s is not a device node.", i->path);
+                                        return 0;
+                                }
+                        }
                 }
 
                 r = item_set_perms(i, i->path);
