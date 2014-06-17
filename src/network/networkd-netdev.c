@@ -653,8 +653,8 @@ static int netdev_load_one(Manager *manager, const char *filename) {
                 return 0;
         }
 
-        if (netdev->kind != NETDEV_KIND_VXLAN && netdev->vlanid <= VXLAN_VID_MAX) {
-                log_warning("VLAN Id configured for a %s in %s. Ignoring",
+        if (netdev->kind != NETDEV_KIND_VXLAN && netdev->vxlanid <= VXLAN_VID_MAX) {
+                log_warning("VXLAN Id configured for a %s in %s. Ignoring",
                             netdev_kind_to_string(netdev->kind), filename);
                 return 0;
         }
