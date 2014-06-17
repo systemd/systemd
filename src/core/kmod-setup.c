@@ -27,7 +27,7 @@
 
 #include "macro.h"
 #include "execute.h"
-
+#include "capability.h"
 #include "kmod-setup.h"
 
 static void systemd_kmod_log(
@@ -54,6 +54,7 @@ static bool cmdline_check_kdbus(void) {
 }
 
 int kmod_setup(void) {
+
         static const struct {
                 const char *module;
                 const char *path;
@@ -75,6 +76,9 @@ int kmod_setup(void) {
         struct kmod_ctx *ctx = NULL;
         unsigned int i;
         int r;
+
+        if (have_effective_cap(CAP_SYS_MODULE) == 0)
+                return 0;
 
         for (i = 0; i < ELEMENTSOF(kmod_table); i++) {
                 struct kmod_module *mod;
