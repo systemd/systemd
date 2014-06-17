@@ -179,7 +179,7 @@ int config_parse_ifname(const char *unit,
                         void *userdata) {
 
         char **s = data;
-        char *n;
+        _cleanup_free_ char *n = NULL;
 
         assert(filename);
         assert(lvalue);
@@ -198,12 +198,11 @@ int config_parse_ifname(const char *unit,
         }
 
         free(*s);
-        if (*n)
+        if (*n) {
                 *s = n;
-        else {
-                free(n);
+                n = NULL;
+        } else
                 *s = NULL;
-        }
 
         return 0;
 }

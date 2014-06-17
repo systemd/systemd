@@ -94,6 +94,7 @@ static void netdev_free(NetDev *netdev) {
 
         free(netdev->description);
         free(netdev->ifname);
+        free(netdev->ifname_peer);
         free(netdev->mac);
         free(netdev->mac_peer);
 
