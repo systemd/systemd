@@ -1128,7 +1128,7 @@ static int unit_file_search(
                  * enablement was requested.  We will check if it is
                  * possible to load template unit file. */
 
-                _cleanup_free_ char *template = NULL, *template_dir = NULL;
+                _cleanup_free_ char *template = NULL;
 
                 template = unit_name_template(info->name);
                 if (!template)
