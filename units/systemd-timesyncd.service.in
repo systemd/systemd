@@ -9,13 +9,12 @@
 Description=Network Time Synchronization
 Documentation=man:systemd-timesyncd.service(8)
 ConditionCapability=CAP_SYS_TIME
-DefaultDependencies=off
+DefaultDependencies=no
 RequiresMountsFor=/var/lib/systemd/clock
 After=systemd-remount-fs.service systemd-tmpfiles-setup.service systemd-sysusers.service
-Before=sysinit.target shutdown.target
+Before=time-sync.target sysinit.target shutdown.target
 Conflicts=shutdown.target
 Wants=time-sync.target
-Before=time-sync.target
 
 [Service]
 Type=notify

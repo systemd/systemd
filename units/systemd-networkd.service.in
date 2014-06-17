@@ -8,11 +8,12 @@
 [Unit]
 Description=Network Service
 Documentation=man:systemd-networkd.service(8)
+ConditionCapability=CAP_NET_ADMIN
 DefaultDependencies=no
 After=dbus.service network-pre.target systemd-sysusers.service
-Before=network.target
+Before=network.target multi-user.target shutdown.target
+Conflicts=shutdown.target
 Wants=network.target
-ConditionCapability=CAP_NET_ADMIN
 
 [Service]
 Type=notify
