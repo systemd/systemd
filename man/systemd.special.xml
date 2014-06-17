@@ -52,6 +52,7 @@
                 <filename>bluetooth.target</filename>,
                 <filename>ctrl-alt-del.target</filename>,
                 <filename>cryptsetup.target</filename>,
+                <filename>cryptsetup-pre.target</filename>,
                 <filename>dbus.service</filename>,
                 <filename>dbus.socket</filename>,
                 <filename>default.target</filename>,
@@ -840,6 +841,27 @@
                 transaction.</para>
 
                 <variablelist>
+                        <varlistentry>
+                                <term><filename>cryptsetup-pre.target</filename></term>
+                                <listitem>
+                                        <para>This passive target unit
+                                        may be pulled in by services
+                                        that want to run before any
+                                        encrypted block device is set
+                                        up. All encrypted block
+                                        devices are set up after this
+                                        target has been reached. Since
+                                        the shutdown order is
+                                        implicitly the reverse
+                                        start-up order between units
+                                        this target is particularly
+                                        useful to ensure that a
+                                        service is shut down only
+                                        after all encrypted block
+                                        devices are fully
+                                        stopped.</para>
+                                </listitem>
+                        </varlistentry>
                         <varlistentry>
                                 <term><filename>local-fs-pre.target</filename></term>
                                 <listitem>
