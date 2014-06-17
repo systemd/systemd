@@ -25,5 +25,4 @@ ProtectHome=yes
 WatchdogSec=1min
 
 [Install]
-Also=systemd-networkd-wait-online.service
 WantedBy=multi-user.target
