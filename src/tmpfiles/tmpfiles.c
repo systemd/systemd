@@ -494,20 +494,19 @@ static int item_set_perms(Item *i, const char *path) {
 }
 
 static int write_one_file(Item *i, const char *path) {
-        int flags;
-        int fd = -1;
+        _cleanup_close_ int fd = -1;
+        int flags, r = 0;
         struct stat st;
-        int r = 0;
 
         assert(i);
         assert(path);
 
-        flags = i->type == CREATE_FILE ? O_CREAT|O_APPEND :
-                i->type == TRUNCATE_FILE ? O_CREAT|O_TRUNC : 0;
+        flags = i->type == CREATE_FILE ? O_CREAT|O_APPEND|O_NOFOLLOW :
+                i->type == TRUNCATE_FILE ? O_CREAT|O_TRUNC|O_NOFOLLOW : 0;
 
-        RUN_WITH_UMASK(0) {
+        RUN_WITH_UMASK(0000) {
                 label_context_set(path, S_IFREG);
-                fd = open(path, flags|O_NDELAY|O_CLOEXEC|O_WRONLY|O_NOCTTY|O_NOFOLLOW, i->mode);
+                fd = open(path, flags|O_NDELAY|O_CLOEXEC|O_WRONLY|O_NOCTTY, i->mode);
                 label_context_clear();
         }
 
@@ -525,22 +524,19 @@ static int write_one_file(Item *i, const char *path) {
                 size_t l;
 
                 unescaped = cunescape(i->argument);
-                if (unescaped == NULL) {
-                        safe_close(fd);
+                if (!unescaped)
                         return log_oom();
-                }
 
                 l = strlen(unescaped);
                 n = write(fd, unescaped, l);
 
                 if (n < 0 || (size_t) n < l) {
                         log_error("Failed to write file %s: %s", path, n < 0 ? strerror(-n) : "Short write");
-                        safe_close(fd);
                         return n < 0 ? n : -EIO;
                 }
         }
 
-        safe_close(fd);
+        fd = safe_close(fd);
 
         if (stat(path, &st) < 0) {
                 log_error("stat(%s) failed: %m", path);
