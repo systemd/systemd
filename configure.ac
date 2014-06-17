@@ -216,8 +216,13 @@ AC_ARG_WITH([python],
 have_lxml=no
 AS_IF([test "x$with_python" != "xno"], [
         AM_PATH_PYTHON(,, [:])
-        AS_IF(["$PYTHON" -c 'import lxml' 2>/dev/null], [have_lxml=yes], [have_lxml=no])
-        AS_IF([test "$PYTHON" != : -a $have_lxml = yes], [have_python=yes])
+        AS_IF([test "x$PYTHON" != "x:"], [
+                AC_MSG_CHECKING([for python lxml module])
+                AS_IF(["$PYTHON" -c 'import lxml' 2>/dev/null], [have_lxml=yes])
+                AC_MSG_RESULT([$have_lxml])
+                AS_IF([test "x$have_lxml" = "xyes"], [have_python=yes],
+                      [AC_MSG_WARN([*** python support requires python-lxml module installed])])
+        ])
 ])
 AM_CONDITIONAL([HAVE_PYTHON], [test "x$have_python" = "xyes"])
 AS_IF([test "x$PYTHON_BINARY" = "x"],
