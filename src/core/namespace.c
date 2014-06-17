@@ -42,6 +42,7 @@
 #include "mkdir.h"
 #include "dev-setup.h"
 #include "def.h"
+#include "label.h"
 
 typedef enum MountMode {
         /* This is ordered by priority! */
@@ -223,7 +224,10 @@ static int mount_dev(BindMount *m) {
                         goto fail;
                 }
 
+                label_context_set(d, st.st_mode);
                 r = mknod(dn, st.st_mode, st.st_rdev);
+                label_context_clear();
+
                 if (r < 0) {
                         r = -errno;
                         goto fail;
