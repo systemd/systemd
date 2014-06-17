@@ -1828,6 +1828,9 @@ EXTRA_DIST += \
 	units/systemd-sysusers.service.in \
 	sysusers.d/systemd.conf.in
 
+CLEANFILES += \
+	sysusers.d/systemd.conf
+
 INSTALL_DIRS += \
 	$(sysusersdir)
 endif
