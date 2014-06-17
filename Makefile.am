@@ -5369,6 +5369,18 @@ DISTCHECK_CONFIGURE_FLAGS += \
 	--enable-gtk-doc
 endif
 
+#
+# Require python when making dist
+#
+.PHONY: dist-check-python
+dist-check-python:
+if !HAVE_PYTHON
+	@echo "*** python and python-lxml module must be installed and enabled in order to make dist"
+	@false
+endif
+
+dist: dist-check-python
+
 # check "broken" platforms limited toolchains for link breakage before we release
 .PHONY: linkcheck
 linkcheck:
