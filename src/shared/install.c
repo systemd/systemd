@@ -160,12 +160,16 @@ static int add_file_change(
         if (!c[i].path)
                 return -ENOMEM;
 
+        path_kill_slashes(c[i].path);
+
         if (source) {
                 c[i].source = strdup(source);
                 if (!c[i].source) {
                         free(c[i].path);
                         return -ENOMEM;
                 }
+
+                path_kill_slashes(c[i].path);
         } else
                 c[i].source = NULL;
 
