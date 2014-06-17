@@ -5359,6 +5359,11 @@ DISTCHECK_CONFIGURE_FLAGS += \
 	--with-sysvrcnd-path=
 endif
 
+if HAVE_PYTHON
+DISTCHECK_CONFIGURE_FLAGS += \
+	--with-python
+endif
+
 if ENABLE_GTK_DOC
 DISTCHECK_CONFIGURE_FLAGS += \
 	--enable-gtk-doc
