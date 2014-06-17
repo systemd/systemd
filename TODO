@@ -32,10 +32,11 @@ External:
 
 Features:
 
-* tmpfiles: add support for "+" suffix for more commands
+* udev should make /dev/loop-control and /dev/btrfs-control owned by the "disk" group, https://bugzilla.redhat.com/show_bug.cgi?id=1045432
 
 * support empty /etc boots nicely:
-  - tmpfiles: add nice way to copy files /usr/share/etc → /etc
+  - tmpfiles: add nice way to copy files /usr/share/factory/etc → /etc
+  - nspawn/gpt-generator: introduce new gpt partition type for /usr
 
 * generator that automatically discovers btrfs subvolumes, identifies their purpose based on some xattr on them.
 
@@ -64,8 +65,6 @@ Features:
 * mount_cgroup_controllers(): symlinks need to get the label applied
 
 * For timer units: add some mechanisms so that timer units that trigger immediately on boot do not have the services they run added to the initial transaction and thus confuse Type=idle.
-
-* Add RPM macros for registering/unregistering binfmt drop-ins
 
 * Add timeout to early-boot, and shut down the system if it is hit. Solves the laptop-in-bag problem and is useful for embedded cases
 
@@ -267,8 +266,6 @@ Features:
 
 * use "log level" rather than "log priority" everywhere
 
-* timedate: have global on/off switches for auto-time (NTP), and auto-timezone that connman can subscribe to.
-
 * merge unit_kill_common() and unit_kill_context()
 
 * introduce ExecCondition= in services
@@ -375,7 +372,6 @@ Features:
     about it. Should fix both to print nice actionable messages.
   - print nice message from systemctl --failed if there are no entries shown, and hook that into ExecStartPre of rescue.service/emergency.service
   - add new command to systemctl: "systemctl system-reexec" which reexecs as many daemons as virtually possible
-  - systemctl enable: improve the success messages (i.e. more human readable, less shell-like)
   - systemctl enable: fail if target to alias into does not exist? maybe show how many units are enabled afterwards?
   - systemctl: "Journal has been rotated since unit was started." message is misleading
   - support "systemctl stop foobar@.service" to stop all units matching a certain template
@@ -386,13 +382,8 @@ Features:
 * unit install:
   - "systemctl mask" should find all names by which a unit is accessible
     (i.e. by scanning for symlinks to it) and link them all to /dev/null
-  - "systemctl disable" of a unit instance removes all symlinks, but should
-    only remove the instance symlink (systemctl disable of a template
-    unit however should remove them all).
   - systemctl list-unit-files should list generated files (and probably with a new state "generated" for them, or so)
   - systemctl: maybe add "systemctl add-wants" or so...
-
-* deal with sendmail/postfix exclusivity
 
 * timer units:
   - timer units should get the ability to trigger when:
@@ -427,18 +418,9 @@ Features:
 * fedup: do not delete initrd on switch-root
 * fedup: generator
 
-* timedated: refuse time changes when NTP is on
-
 * clean up date formatting and parsing so that all absolute/relative timestamps we format can also be parsed
 
 * on shutdown: move utmp, wall, audit logic all into PID 1 (or logind?), get rid of systemd-update-utmp-runlevel
-
-* add "factory" instructions to setup an empty /etc + /var
-    - used to setup a new container from a shared /usr
-    - superset of tmpfiles model
-    - instructions shipped by packages and stored in /usr/lib/
-    - compose /etc/passwd and /etc/group, copy files
-    - able to create uid + gid used by packages, for file ownership
 
 * make repeated alt-ctrl-del presses printing a dump, or even force a reboot without
   waiting for the timeout
@@ -471,11 +453,7 @@ Features:
 
 * create /sbin/init symlinks from the build system
 
-* Query Paul Moore about relabelling socket fds while they are open
-
 * allow writing multiple conditions in unit files on one line
-
-* explore multiple service instances per listening socket idea
 
 * MountFlags=shared acts as MountFlags=slave right now.
 
@@ -547,7 +525,6 @@ Features:
 * when a bus name of a service disappears from the bus make sure to queue further activation requests
 
 * tmpfiles:
-  - check systemd-tmpfiles for selinux context hookup for mknod(), symlink() and similar
   - apply "x" on "D" too (see patch from William Douglas)
 
 * for services: do not set $HOME in services unless requested
