@@ -8,7 +8,7 @@
 # The superuser
 u root                          0               "Super User"
 
-# The nobody use for NFS file systems
+# The nobody user for NFS file systems
 u nobody                        65534           "Nobody"
 
 # Administrator group: can *see* more than normal users
