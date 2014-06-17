@@ -297,10 +297,14 @@ define install-relative-aliases
 	done
 endef
 
+install-touch-usr-hook:
+	touch -c $(DESTDIR)/$(prefix)
+
 INSTALL_EXEC_HOOKS += \
 	install-target-wants-hook \
 	install-directories-hook \
-	install-aliases-hook
+	install-aliases-hook \
+	install-touch-usr-hook
 
 # ------------------------------------------------------------------------------
 AM_V_M4 = $(AM_V_M4_$(V))
