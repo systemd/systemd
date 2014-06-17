@@ -5379,7 +5379,13 @@ if !HAVE_PYTHON
 	@false
 endif
 
-dist: dist-check-python
+dist-check-compat-libs:
+if !ENABLE_COMPAT_LIBS
+	@echo "*** compat-libs must be enabled in order to make dist"
+	@false
+endif
+
+dist: dist-check-python dist-check-compat-libs
 
 # check "broken" platforms limited toolchains for link breakage before we release
 .PHONY: linkcheck
