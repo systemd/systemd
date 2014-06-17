@@ -4774,9 +4774,11 @@ _journal_la_LIBADD = \
 
 id128_la_SOURCES = \
 	src/python-systemd/id128.c \
-	src/python-systemd/id128-constants.h \
 	src/python-systemd/pyutil.c \
 	src/python-systemd/pyutil.h
+
+nodist_id128_la_SOURCES = \
+	src/python-systemd/id128-constants.h
 
 id128_la_CFLAGS = \
 	$(AM_CFLAGS) \
