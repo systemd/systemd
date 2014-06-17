@@ -692,8 +692,8 @@ static int netdev_load_one(Manager *manager, const char *filename) {
         LIST_HEAD_INIT(netdev->callbacks);
 
         if(netdev->kind == NETDEV_KIND_VETH) {
-                if (netdev->ifname_peer) {
-                        log_warning("Veth NetDev without Peer Name configured "
+                if (!netdev->ifname_peer) {
+                        log_warning("Veth NetDev without peer name configured "
                                     "in %s. Ignoring", filename);
                         return 0;
                 }
