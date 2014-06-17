@@ -157,18 +157,23 @@ static int generate(char id[34], const char *root) {
 }
 
 int machine_id_setup(const char *root) {
+        const char *etc_machine_id, *run_machine_id;
         _cleanup_close_ int fd = -1;
-        int r;
         bool writable = false;
         struct stat st;
         char id[34]; /* 32 + \n + \0 */
-        char *etc_machine_id, *run_machine_id;
+        int r;
 
-        etc_machine_id = strappenda(root, "/etc/machine-id");
-        path_kill_slashes(etc_machine_id);
+        if (isempty(root))  {
+                etc_machine_id = "/etc/machine-id";
+                run_machine_id = "/run/machine-id";
+        } else {
+                etc_machine_id = strappenda(root, "/etc/machine-id");
+                path_kill_slashes((char*) etc_machine_id);
 
-        run_machine_id = strappenda(root, "/run/machine-id");
-        path_kill_slashes(run_machine_id);
+                run_machine_id = strappenda(root, "/run/machine-id");
+                path_kill_slashes((char*) run_machine_id);
+        }
 
         RUN_WITH_UMASK(0000) {
                 /* We create this 0444, to indicate that this isn't really
