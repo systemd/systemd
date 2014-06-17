@@ -1764,7 +1764,7 @@ static int link_configure(Link *link) {
                 */
         }
 
-        if (link_has_carrier(link->flags, link->operstate)) {
+        if (link_has_carrier(link->flags, link->kernel_operstate)) {
                 r = link_acquire_conf(link);
                 if (r < 0)
                         return r;
