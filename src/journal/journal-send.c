@@ -198,7 +198,8 @@ finish:
 
 _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
         PROTECT_ERRNO;
-        int fd, buffer_fd;
+        int fd;
+        _cleanup_close_ int buffer_fd = -1;
         struct iovec *w;
         uint64_t *l;
         int i, j = 0;
@@ -315,10 +316,8 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
                 return buffer_fd;
 
         n = writev(buffer_fd, w, j);
-        if (n < 0) {
-                safe_close(buffer_fd);
+        if (n < 0)
                 return -errno;
-        }
 
         mh.msg_iov = NULL;
         mh.msg_iovlen = 0;
@@ -336,8 +335,6 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
         mh.msg_controllen = cmsg->cmsg_len;
 
         k = sendmsg(fd, &mh, MSG_NOSIGNAL);
-        safe_close(buffer_fd);
-
         if (k < 0)
                 return -errno;
 
@@ -398,10 +395,10 @@ _public_ int sd_journal_stream_fd(const char *identifier, int priority, int leve
                 .un.sun_family = AF_UNIX,
                 .un.sun_path = "/run/systemd/journal/stdout",
         };
-        int fd;
+        _cleanup_close_ int fd = -1;
         char *header;
         size_t l;
-        ssize_t r;
+        int r;
 
         assert_return(priority >= 0, -EINVAL);
         assert_return(priority <= 7, -EINVAL);
@@ -411,15 +408,11 @@ _public_ int sd_journal_stream_fd(const char *identifier, int priority, int leve
                 return -errno;
 
         r = connect(fd, &sa.sa, offsetof(union sockaddr_union, un.sun_path) + strlen(sa.un.sun_path));
-        if (r < 0) {
-                safe_close(fd);
+        if (r < 0)
                 return -errno;
-        }
 
-        if (shutdown(fd, SHUT_RD) < 0) {
-                safe_close(fd);
+        if (shutdown(fd, SHUT_RD) < 0)
                 return -errno;
-        }
 
         fd_inc_sndbuf(fd, SNDBUF_SIZE);
 
@@ -443,18 +436,16 @@ _public_ int sd_journal_stream_fd(const char *identifier, int priority, int leve
         header[l++] = '0';
         header[l++] = '\n';
 
-        r = loop_write(fd, header, l, false);
-        if (r < 0) {
-                safe_close(fd);
-                return (int) r;
-        }
+        r = (int) loop_write(fd, header, l, false);
+        if (r < 0)
+                return r;
 
-        if ((size_t) r != l) {
-                safe_close(fd);
+        if ((size_t) r != l)
                 return -errno;
-        }
 
-        return fd;
+        r = fd;
+        fd = -1;
+        return r;
 }
 
 _public_ int sd_journal_print_with_location(int priority, const char *file, const char *line, const char *func, const char *format, ...) {
