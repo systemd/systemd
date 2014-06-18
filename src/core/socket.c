@@ -1343,6 +1343,8 @@ static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
                        NULL,
                        s->exec_runtime,
                        &pid);
+        if (r < 0)
+                goto fail;
 
         r = unit_watch_pid(UNIT(s), pid);
         if (r < 0)
