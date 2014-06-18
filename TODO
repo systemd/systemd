@@ -16,8 +16,8 @@ Bugfixes:
 * properly handle .mount unit state tracking when two mount points are stacked one on top of another on the exact same mount point.
 
 * shorten the message to sane length:
-
-  Cannot add dependency job for unit display-manager.service, ignoring: Unit display-manager.service failed to load: No such file or directory. See system logs and 'systemctl status display-manager.service' for details.
+  "Cannot add dependency job for unit display-manager.service, ignoring: Unit display-manager.service
+  failed to load: No such file or directory. See system logs and 'systemctl status display-manager.service' for details."
 
 * sd_bus_unref() is broken regarding self-references and "pseudo thread-safety".
   See the comment in sd_bus_unref() for more..
@@ -30,10 +30,9 @@ External:
 
 * Fedora: post FPC ticket to move add %tmpfiles_create to the packaging guidelines
 
+* Fedora: move kernel image to /usr/lib/modules/, kernel-install will take care of populating /boot
+
 Features:
-
-* udev should make /dev/loop-control and /dev/btrfs-control owned by the "disk" group, https://bugzilla.redhat.com/show_bug.cgi?id=1045432
-
 * support empty /etc boots nicely:
   - tmpfiles: add nice way to copy files /usr/share/factory/etc → /etc
   - nspawn/gpt-generator: introduce new gpt partition type for /usr
@@ -47,8 +46,7 @@ Features:
 
 * timer units: actually add extra delays to timer units with high AccuracySec values, don't start them already when we are awake...
 
-* timesyncd:
-  - hookup with networkd: NTP servers from dhcp
+* timesyncd - hookup with networkd: NTP servers from dhcp
 
 * a way for container managers to turn off getty starting via $container_headless= or so...
 
@@ -64,7 +62,8 @@ Features:
 
 * mount_cgroup_controllers(): symlinks need to get the label applied
 
-* For timer units: add some mechanisms so that timer units that trigger immediately on boot do not have the services they run added to the initial transaction and thus confuse Type=idle.
+* For timer units: add some mechanisms so that timer units that trigger immediately on boot do not have the services
+  they run added to the initial transaction and thus confuse Type=idle.
 
 * Add timeout to early-boot, and shut down the system if it is hit. Solves the laptop-in-bag problem and is useful for embedded cases
 
