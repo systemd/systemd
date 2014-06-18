@@ -4384,7 +4384,8 @@ libsystemd_networkd_core_la_SOURCES = \
 	src/network/networkd-network.c \
 	src/network/networkd-address.c \
 	src/network/networkd-route.c \
-	src/network/networkd-manager.c
+	src/network/networkd-manager.c \
+	src/network/networkd-address-pool.c
 
 nodist_libsystemd_networkd_core_la_SOURCES = \
 	src/network/networkd-network-gperf.c \

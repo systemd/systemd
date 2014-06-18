@@ -112,6 +112,11 @@ static void link_free(Link *link) {
                 address_free(address);
         }
 
+        while ((address = link->pool_addresses)) {
+                LIST_REMOVE(addresses, link->pool_addresses, address);
+                address_free(address);
+        }
+
         sd_dhcp_client_unref(link->dhcp_client);
         sd_dhcp_lease_unref(link->dhcp_lease);
 

@@ -228,6 +228,68 @@ int address_update(Address *address, Link *link,
         return 0;
 }
 
+static int address_acquire(Link *link, Address *original, Address **ret) {
+        union in_addr_union in_addr = {};
+        struct in_addr broadcast = {};
+        Address *na = NULL;
+        int r;
+
+        assert(link);
+        assert(original);
+        assert(ret);
+
+        /* Something useful was configured? just use it */
+        if (in_addr_null(original->family, &original->in_addr) <= 0)
+                return 0;
+
+        /* The address is configured to be 0.0.0.0 or [::] by the user?
+         * Then let's acquire something more useful from the pool. */
+        r = manager_address_pool_acquire(link->manager, original->family, original->prefixlen, &in_addr);
+        if (r < 0) {
+                log_error_link(link, "Failed to acquire address from pool: %s", strerror(-r));
+                return r;
+        }
+        if (r == 0) {
+                log_error_link(link, "Couldn't find free address for interface, all taken.");
+                return -EBUSY;
+        }
+
+        if (original->family == AF_INET) {
+                /* Pick first address in range for ourselves ...*/
+                in_addr.in.s_addr = in_addr.in.s_addr | htobe32(1);
+
+                /* .. and use last as broadcast address */
+                broadcast.s_addr = in_addr.in.s_addr | htobe32(0xFFFFFFFFUL >> original->prefixlen);
+        } else if (original->family == AF_INET6)
+                in_addr.in6.s6_addr[15] |= 1;
+
+        r = address_new_dynamic(&na);
+        if (r < 0)
+                return r;
+
+        na->family = original->family;
+        na->prefixlen = original->prefixlen;
+        na->scope = original->scope;
+        na->cinfo = original->cinfo;
+
+        if (original->label) {
+                na->label = strdup(original->label);
+
+                if (!na->label) {
+                        free(na);
+                        return -ENOMEM;
+                }
+        }
+
+        na->broadcast = broadcast;
+        na->in_addr = in_addr;
+
+        LIST_PREPEND(addresses, link->pool_addresses, na);
+
+        *ret = na;
+        return 0;
+}
+
 int address_configure(Address *address, Link *link,
                       sd_rtnl_message_handler_t callback) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL;
@@ -239,6 +301,10 @@ int address_configure(Address *address, Link *link,
         assert(link->ifindex > 0);
         assert(link->manager);
         assert(link->manager->rtnl);
+
+        r = address_acquire(link, address, &address);
+        if (r < 0)
+                return r;
 
         r = sd_rtnl_message_new_addr(link->manager->rtnl, &req, RTM_NEWADDR,
                                      link->ifindex, address->family);

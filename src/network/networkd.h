@@ -47,6 +47,7 @@ typedef struct Link Link;
 typedef struct Address Address;
 typedef struct Route Route;
 typedef struct Manager Manager;
+typedef struct AddressPool AddressPool;
 
 typedef struct netdev_enslave_callback netdev_enslave_callback;
 
@@ -259,7 +260,20 @@ struct Link {
         uint16_t original_mtu;
         sd_ipv4ll *ipv4ll;
 
+        LIST_HEAD(Address, pool_addresses);
+
         sd_dhcp_server *dhcp_server;
+};
+
+struct AddressPool {
+        Manager *manager;
+
+        unsigned family;
+        unsigned prefixlen;
+
+        union in_addr_union in_addr;
+
+        LIST_FIELDS(AddressPool, address_pools);
 };
 
 struct Manager {
@@ -277,6 +291,7 @@ struct Manager {
         Hashmap *links;
         Hashmap *netdevs;
         LIST_HEAD(Network, networks);
+        LIST_HEAD(AddressPool, address_pools);
 
         usec_t network_dirs_ts_usec;
 };
@@ -298,6 +313,8 @@ int manager_udev_listen(Manager *m);
 int manager_bus_listen(Manager *m);
 
 int manager_save(Manager *m);
+
+int manager_address_pool_acquire(Manager *m, unsigned family, unsigned prefixlen, union in_addr_union *found);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 #define _cleanup_manager_free_ _cleanup_(manager_freep)
@@ -448,6 +465,14 @@ LinkOperationalState link_operstate_from_string(const char *s) _pure_;
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_unref);
 #define _cleanup_link_unref_ _cleanup_(link_unrefp)
+
+/* Address Pool */
+
+int address_pool_new(Manager *m, AddressPool **ret, unsigned family, const union in_addr_union *u, unsigned prefixlen);
+int address_pool_new_from_string(Manager *m, AddressPool **ret, unsigned family, const char *p, unsigned prefixlen);
+void address_pool_free(AddressPool *p);
+
+int address_pool_acquire(AddressPool *p, unsigned prefixlen, union in_addr_union *found);
 
 /* Macros which append INTERFACE= to the message */
 

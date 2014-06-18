@@ -75,6 +75,33 @@ static int setup_signals(Manager *m) {
         return 0;
 }
 
+static int setup_default_address_pool(Manager *m) {
+        AddressPool *p;
+        int r;
+
+        assert(m);
+
+        /* Add in the well-known private address ranges. */
+
+        r = address_pool_new_from_string(m, &p, AF_INET6, "fc00::", 7);
+        if (r < 0)
+                return r;
+
+        r = address_pool_new_from_string(m, &p, AF_INET, "192.168.0.0", 16);
+        if (r < 0)
+                return r;
+
+        r = address_pool_new_from_string(m, &p, AF_INET, "172.16.0.0", 12);
+        if (r < 0)
+                return r;
+
+        r = address_pool_new_from_string(m, &p, AF_INET, "10.0.0.0", 8);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 int manager_new(Manager **ret) {
         _cleanup_manager_free_ Manager *m = NULL;
         int r;
@@ -129,6 +156,10 @@ int manager_new(Manager **ret) {
 
         LIST_HEAD_INIT(m->networks);
 
+        r = setup_default_address_pool(m);
+        if (r < 0)
+                return r;
+
         *ret = m;
         m = NULL;
 
@@ -139,6 +170,7 @@ void manager_free(Manager *m) {
         Network *network;
         NetDev *netdev;
         Link *link;
+        AddressPool *pool;
 
         if (!m)
                 return;
@@ -163,6 +195,9 @@ void manager_free(Manager *m) {
         while ((netdev = hashmap_first(m->netdevs)))
                 netdev_unref(netdev);
         hashmap_free(m->netdevs);
+
+        while ((pool = m->address_pools))
+                address_pool_free(pool);
 
         sd_rtnl_unref(m->rtnl);
 
@@ -459,4 +494,24 @@ finish:
                 log_error("Failed to save network state to %s: %s", m->state_file, strerror(-r));
 
         return r;
+}
+
+int manager_address_pool_acquire(Manager *m, unsigned family, unsigned prefixlen, union in_addr_union *found) {
+        AddressPool *p;
+        int r;
+
+        assert(m);
+        assert(prefixlen > 0);
+        assert(found);
+
+        LIST_FOREACH(address_pools, p, m->address_pools) {
+                if (p->family != family)
+                        continue;
+
+                r = address_pool_acquire(p, prefixlen, found);
+                if (r != 0)
+                        return r;
+        }
+
+        return 0;
 }
