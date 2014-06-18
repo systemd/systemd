@@ -251,6 +251,35 @@ static void link_enter_failed(Link *link) {
         link_save(link);
 }
 
+static Address* link_find_dhcp_server_address(Link *link) {
+        Address *address;
+
+        assert(link);
+        assert(link->network);
+
+        /* The the first statically configured address if there is any */
+        LIST_FOREACH(addresses, address, link->network->static_addresses) {
+
+                if (address->family != AF_INET)
+                        continue;
+
+                if (in_addr_null(address->family, &address->in_addr))
+                        continue;
+
+                return address;
+        }
+
+        /* If that didn't work, find a suitable address we got from the pool */
+        LIST_FOREACH(addresses, address, link->pool_addresses) {
+                if (address->family != AF_INET)
+                        continue;
+
+                return address;
+        }
+
+        return NULL;
+}
+
 static int link_enter_configured(Link *link) {
         int r;
 
@@ -258,9 +287,41 @@ static int link_enter_configured(Link *link) {
         assert(link->network);
         assert(link->state == LINK_STATE_SETTING_ROUTES);
 
-
         if (link->network->dhcp_server) {
+                struct in_addr pool_start;
+                Address *address;
+
+                address = link_find_dhcp_server_address(link);
+                if (!address) {
+                        log_warning_link(link, "Failed to find suitable address for DHCPv4 server instance.");
+                        link_enter_failed(link);
+                        return 0;
+                }
+
                 log_debug_link(link, "offering DHCPv4 leases");
+
+                r = sd_dhcp_server_set_address(link->dhcp_server, &address->in_addr.in);
+                if (r < 0)
+                        return r;
+
+                /* offer 32 addresses starting from the address following the server address */
+                pool_start.s_addr = htobe32(be32toh(address->in_addr.in.s_addr) + 1);
+                r = sd_dhcp_server_set_lease_pool(link->dhcp_server,
+                                                  &pool_start, 32);
+                if (r < 0)
+                        return r;
+
+                /* TODO:
+                r = sd_dhcp_server_set_router(link->dhcp_server,
+                                              &main_address->in_addr.in);
+                if (r < 0)
+                        return r;
+
+                r = sd_dhcp_server_set_prefixlen(link->dhcp_server,
+                                                 main_address->prefixlen);
+                if (r < 0)
+                        return r;
+                */
 
                 r = sd_dhcp_server_start(link->dhcp_server);
                 if (r < 0) {
@@ -1723,8 +1784,6 @@ static int link_configure(Link *link) {
         }
 
         if (link->network->dhcp_server) {
-                Address *address;
-
                 r = sd_dhcp_server_new(&link->dhcp_server, link->ifindex);
                 if (r < 0)
                         return r;
@@ -1732,41 +1791,6 @@ static int link_configure(Link *link) {
                 r = sd_dhcp_server_attach_event(link->dhcp_server, NULL, 0);
                 if (r < 0)
                         return r;
-
-                LIST_FOREACH(addresses, address,
-                             link->network->static_addresses) {
-                        struct in_addr pool_start;
-
-                        if (address->family != AF_INET)
-                                continue;
-
-                        /* currently this is picked essentially at random */
-                        r = sd_dhcp_server_set_address(link->dhcp_server,
-                                                       &address->in_addr.in);
-                        if (r < 0)
-                                return r;
-
-                        /* offer 32 addresses starting from the address following the server address */
-                        pool_start.s_addr = htobe32(be32toh(address->in_addr.in.s_addr) + 1);
-                        r = sd_dhcp_server_set_lease_pool(link->dhcp_server,
-                                                          &pool_start, 32);
-                        if (r < 0)
-                                return r;
-
-                        break;
-                }
-
-                /* TODO:
-                r = sd_dhcp_server_set_router(link->dhcp_server,
-                                              &main_address->in_addr.in);
-                if (r < 0)
-                        return r;
-
-                r = sd_dhcp_server_set_prefixlen(link->dhcp_server,
-                                                 main_address->prefixlen);
-                if (r < 0)
-                        return r;
-                */
         }
 
         if (link_has_carrier(link->flags, link->kernel_operstate)) {
