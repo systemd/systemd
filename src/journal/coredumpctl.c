@@ -40,13 +40,14 @@
 
 static enum {
         ACTION_NONE,
+        ACTION_INFO,
         ACTION_LIST,
         ACTION_DUMP,
         ACTION_GDB,
 } arg_action = ACTION_LIST;
 
 static FILE* output = NULL;
-static char* arg_field = NULL;
+static const char* arg_field = NULL;
 
 static int arg_no_pager = false;
 static int arg_no_legend = false;
@@ -93,6 +94,7 @@ static int help(void) {
                "  --version          Print version string\n"
                "  -F --field=FIELD   List all values a certain field takes\n"
                "  list [MATCHES...]  List available coredumps\n"
+               "  info [MATCHES...]  Show detailed information about one or more coredumps\n"
                "  dump [MATCHES...]  Print first matching coredump to stdout\n"
                "  gdb [MATCHES...]   Start gdb for the first matching coredump\n"
                , program_invocation_short_name);
@@ -203,7 +205,6 @@ static int parse_argv(int argc, char *argv[], Set *matches) {
                                 log_error("cannot use --field/-F more than once");
                                 return -EINVAL;
                         }
-
                         arg_field = optarg;
                         break;
 
@@ -222,6 +223,8 @@ static int parse_argv(int argc, char *argv[], Set *matches) {
                         arg_action = ACTION_DUMP;
                 else if (streq(cmd, "gdb"))
                         arg_action = ACTION_GDB;
+                else if (streq(cmd, "info"))
+                        arg_action = ACTION_INFO;
                 else {
                         log_error("Unknown action '%s'", cmd);
                         return -EINVAL;
@@ -270,115 +273,6 @@ static int retrieve(const void *data,
         *var = v;
 
         return 0;
-}
-
-static void print_field(FILE* file, sd_journal *j) {
-        _cleanup_free_ char *value = NULL;
-        const void *d;
-        size_t l;
-
-        assert(arg_field);
-
-        SD_JOURNAL_FOREACH_DATA(j, d, l)
-                retrieve(d, l, arg_field, &value);
-
-        if (value)
-                fprintf(file, "%s\n", value);
-}
-
-static int print_entry(FILE* file, sd_journal *j, int had_legend) {
-        _cleanup_free_ char
-                *pid = NULL, *uid = NULL, *gid = NULL,
-                *sgnl = NULL, *exe = NULL, *comm = NULL, *cmdline = NULL;
-        const void *d;
-        size_t l;
-        usec_t t;
-        char buf[FORMAT_TIMESTAMP_MAX];
-        int r;
-
-        SD_JOURNAL_FOREACH_DATA(j, d, l) {
-                retrieve(d, l, "COREDUMP_PID", &pid);
-                retrieve(d, l, "COREDUMP_UID", &uid);
-                retrieve(d, l, "COREDUMP_GID", &gid);
-                retrieve(d, l, "COREDUMP_SIGNAL", &sgnl);
-                retrieve(d, l, "COREDUMP_EXE", &exe);
-                retrieve(d, l, "COREDUMP_COMM", &comm);
-                retrieve(d, l, "COREDUMP_CMDLINE", &cmdline);
-        }
-
-        if (!pid && !uid && !gid && !sgnl && !exe && !comm && !cmdline) {
-                log_warning("Empty coredump log entry");
-                return -EINVAL;
-        }
-
-        r = sd_journal_get_realtime_usec(j, &t);
-        if (r < 0) {
-                log_error("Failed to get realtime timestamp: %s", strerror(-r));
-                return r;
-        }
-
-        format_timestamp(buf, sizeof(buf), t);
-
-        if (!had_legend && !arg_no_legend)
-                fprintf(file, "%-*s %*s %*s %*s %*s %s\n",
-                        FORMAT_TIMESTAMP_MAX-1, "TIME",
-                        6, "PID",
-                        5, "UID",
-                        5, "GID",
-                        3, "SIG",
-                           "EXE");
-
-        fprintf(file, "%*s %*s %*s %*s %*s %s\n",
-                FORMAT_TIMESTAMP_MAX-1, buf,
-                6, strna(pid),
-                5, strna(uid),
-                5, strna(gid),
-                3, strna(sgnl),
-                strna(exe ?: (comm ?: cmdline)));
-
-        return 0;
-}
-
-static int dump_list(sd_journal *j) {
-        int found = 0;
-
-        assert(j);
-
-        /* The coredumps are likely to compressed, and for just
-         * listing them we don't need to decompress them, so let's
-         * pick a fairly low data threshold here */
-        sd_journal_set_data_threshold(j, 4096);
-
-        SD_JOURNAL_FOREACH(j) {
-                if (arg_field)
-                        print_field(stdout, j);
-                else
-                        print_entry(stdout, j, found++);
-        }
-
-        if (!arg_field && !found) {
-                log_notice("No coredumps found");
-                return -ESRCH;
-        }
-
-        return 0;
-}
-
-static int focus(sd_journal *j) {
-        int r;
-
-        r = sd_journal_seek_tail(j);
-        if (r == 0)
-                r = sd_journal_previous(j);
-        if (r < 0) {
-                log_error("Failed to search journal: %s", strerror(-r));
-                return r;
-        }
-        if (r == 0) {
-                log_error("No match found");
-                return -ESRCH;
-        }
-        return r;
 }
 
 #define filename_escape(s) xescape((s), "./")
@@ -430,6 +324,197 @@ static int make_coredump_path(sd_journal *j, char **ret) {
         return 0;
 }
 
+static void print_field(FILE* file, sd_journal *j) {
+        _cleanup_free_ char *value = NULL;
+        const void *d;
+        size_t l;
+
+        assert(file);
+        assert(j);
+
+        assert(arg_field);
+
+        SD_JOURNAL_FOREACH_DATA(j, d, l)
+                retrieve(d, l, arg_field, &value);
+
+        if (value)
+                fprintf(file, "%s\n", value);
+}
+
+static int print_list(FILE* file, sd_journal *j, int had_legend) {
+        _cleanup_free_ char
+                *pid = NULL, *uid = NULL, *gid = NULL,
+                *sgnl = NULL, *exe = NULL, *comm = NULL, *cmdline = NULL;
+        const void *d;
+        size_t l;
+        usec_t t;
+        char buf[FORMAT_TIMESTAMP_MAX];
+        int r;
+
+        assert(file);
+        assert(j);
+
+        SD_JOURNAL_FOREACH_DATA(j, d, l) {
+                retrieve(d, l, "COREDUMP_PID", &pid);
+                retrieve(d, l, "COREDUMP_UID", &uid);
+                retrieve(d, l, "COREDUMP_GID", &gid);
+                retrieve(d, l, "COREDUMP_SIGNAL", &sgnl);
+                retrieve(d, l, "COREDUMP_EXE", &exe);
+                retrieve(d, l, "COREDUMP_COMM", &comm);
+                retrieve(d, l, "COREDUMP_CMDLINE", &cmdline);
+        }
+
+        if (!pid && !uid && !gid && !sgnl && !exe && !comm && !cmdline) {
+                log_warning("Empty coredump log entry");
+                return -EINVAL;
+        }
+
+        r = sd_journal_get_realtime_usec(j, &t);
+        if (r < 0) {
+                log_error("Failed to get realtime timestamp: %s", strerror(-r));
+                return r;
+        }
+
+        format_timestamp(buf, sizeof(buf), t);
+
+        if (!had_legend && !arg_no_legend)
+                fprintf(file, "%-*s %*s %*s %*s %*s %s\n",
+                        FORMAT_TIMESTAMP_MAX-1, "TIME",
+                        6, "PID",
+                        5, "UID",
+                        5, "GID",
+                        3, "SIG",
+                           "EXE");
+
+        fprintf(file, "%*s %*s %*s %*s %*s %s\n",
+                FORMAT_TIMESTAMP_MAX-1, buf,
+                6, strna(pid),
+                5, strna(uid),
+                5, strna(gid),
+                3, strna(sgnl),
+                strna(exe ?: (comm ?: cmdline)));
+
+        return 0;
+}
+
+static int print_info(FILE *file, sd_journal *j, bool need_space) {
+        _cleanup_free_ char
+                *pid = NULL, *uid = NULL, *gid = NULL,
+                *sgnl = NULL, *exe = NULL, *comm = NULL, *cmdline = NULL,
+                *unit = NULL, *user_unit = NULL, *session = NULL,
+                *boot_id = NULL, *machine_id = NULL, *hostname = NULL, *coredump = NULL;
+        const void *d;
+        size_t l;
+
+        assert(file);
+        assert(j);
+
+        SD_JOURNAL_FOREACH_DATA(j, d, l) {
+                retrieve(d, l, "COREDUMP_PID", &pid);
+                retrieve(d, l, "COREDUMP_UID", &uid);
+                retrieve(d, l, "COREDUMP_GID", &gid);
+                retrieve(d, l, "COREDUMP_SIGNAL", &sgnl);
+                retrieve(d, l, "COREDUMP_EXE", &exe);
+                retrieve(d, l, "COREDUMP_COMM", &comm);
+                retrieve(d, l, "COREDUMP_CMDLINE", &cmdline);
+                retrieve(d, l, "COREDUMP_UNIT", &unit);
+                retrieve(d, l, "COREDUMP_USER_UNIT", &user_unit);
+                retrieve(d, l, "COREDUMP_SESSION", &session);
+                retrieve(d, l, "_BOOT_ID", &boot_id);
+                retrieve(d, l, "_MACHINE_ID", &machine_id);
+                retrieve(d, l, "_HOSTNAME", &hostname);
+        }
+
+        if (need_space)
+                fputs("\n", file);
+
+        fprintf(file,
+                "           PID: %s\n"
+                "           UID: %s\n"
+                "           GID: %s\n",
+                strna(pid),
+                strna(uid),
+                strna(gid));
+
+        if (sgnl) {
+                int sig;
+
+                if (safe_atoi(sgnl, &sig) >= 0)
+                        fprintf(file, "        Signal: %s (%s)\n", sgnl, signal_to_string(sig));
+                else
+                        fprintf(file, "        Signal: %s\n", sgnl);
+        }
+
+        if (exe)
+                fprintf(file, "    Executable: %s\n", exe);
+        if (comm)
+                fprintf(file, "          Comm: %s\n", comm);
+        if (cmdline)
+                fprintf(file, "  Command Line: %s\n", cmdline);
+        if (unit)
+                fprintf(file, "          Unit: %s\n", unit);
+        if (user_unit)
+                fprintf(file, "     User Unit: %s\n", unit);
+        if (session)
+                fprintf(file, "       Session: %s\n", session);
+        if (boot_id)
+                fprintf(file, "       Boot ID: %s\n", boot_id);
+        if (machine_id)
+                fprintf(file, "    Machine ID: %s\n", machine_id);
+        if (hostname)
+                fprintf(file, "      Hostname: %s\n", hostname);
+
+        if (make_coredump_path(j, &coredump) >= 0)
+                if (access(coredump, F_OK) >= 0)
+                        fprintf(file, "      Coredump: %s\n", coredump);
+
+        return 0;
+}
+
+static int dump_list(sd_journal *j) {
+        int found = 0;
+
+        assert(j);
+
+        /* The coredumps are likely to compressed, and for just
+         * listing them we don't need to decompress them, so let's
+         * pick a fairly low data threshold here */
+        sd_journal_set_data_threshold(j, 4096);
+
+        SD_JOURNAL_FOREACH(j) {
+                if (arg_action == ACTION_INFO)
+                        print_info(stdout, j, found++);
+                else if (arg_field)
+                        print_field(stdout, j);
+                else
+                        print_list(stdout, j, found++);
+        }
+
+        if (!arg_field && !found) {
+                log_notice("No coredumps found");
+                return -ESRCH;
+        }
+
+        return 0;
+}
+
+static int focus(sd_journal *j) {
+        int r;
+
+        r = sd_journal_seek_tail(j);
+        if (r == 0)
+                r = sd_journal_previous(j);
+        if (r < 0) {
+                log_error("Failed to search journal: %s", strerror(-r));
+                return r;
+        }
+        if (r == 0) {
+                log_error("No match found");
+                return -ESRCH;
+        }
+        return r;
+}
+
 static int dump_core(sd_journal* j) {
         const void *data;
         size_t len, ret;
@@ -444,10 +529,10 @@ static int dump_core(sd_journal* j) {
         if (r < 0)
                 return r;
 
-        print_entry(output ? stdout : stderr, j, false);
+        print_info(output ? stdout : stderr, j, false);
 
         if (on_tty() && !output) {
-                log_error("Refusing to dump core to tty");
+                log_error("Refusing to dump core to tty.");
                 return -ENOTTY;
         }
 
@@ -519,7 +604,8 @@ static int run_gdb(sd_journal *j) {
         if (r < 0)
                 return r;
 
-        print_entry(stdout, j, false);
+        print_info(stdout, j, false);
+        fputs("\n", stdout);
 
         r = sd_journal_get_data(j, "COREDUMP_EXE", (const void**) &data, &len);
         if (r < 0) {
@@ -675,6 +761,7 @@ int main(int argc, char *argv[]) {
         switch(arg_action) {
 
         case ACTION_LIST:
+        case ACTION_INFO:
                 if (!arg_no_pager)
                         pager_open(false);
 
