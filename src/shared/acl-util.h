@@ -26,3 +26,11 @@
 int acl_find_uid(acl_t acl, uid_t uid, acl_entry_t *entry);
 int calc_acl_mask_if_needed(acl_t *acl_p);
 int search_acl_groups(char*** dst, const char* path, bool* belong);
+
+static inline void acl_freep(acl_t *acl) {
+
+        if (!*acl)
+                return;
+
+        acl_free(*acl);
+}

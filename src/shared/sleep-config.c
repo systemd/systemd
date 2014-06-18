@@ -31,6 +31,7 @@
 #define USE(x, y) do{ (x) = (y); (y) = NULL; } while(0)
 
 int parse_sleep_config(const char *verb, char ***_modes, char ***_states) {
+
         _cleanup_strv_free_ char
                 **suspend_mode = NULL, **suspend_state = NULL,
                 **hibernate_mode = NULL, **hibernate_state = NULL,
@@ -44,7 +45,8 @@ int parse_sleep_config(const char *verb, char ***_modes, char ***_states) {
                 { "Sleep",   "HibernateState",   config_parse_strv,  0, &hibernate_state },
                 { "Sleep",   "HybridSleepMode",  config_parse_strv,  0, &hybrid_mode  },
                 { "Sleep",   "HybridSleepState", config_parse_strv,  0, &hybrid_state },
-                {}};
+                {}
+        };
 
         int r;
         FILE _cleanup_fclose_ *f;

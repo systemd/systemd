@@ -135,6 +135,7 @@ static int execute(char **modes, char **states) {
 }
 
 static int help(void) {
+
         printf("%s COMMAND\n\n"
                "Suspend the system, hibernate the system, or both.\n\n"
                "Commands:\n"

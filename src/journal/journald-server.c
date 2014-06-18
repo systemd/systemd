@@ -205,7 +205,7 @@ void server_fix_perms(Server *s, JournalFile *f, uid_t uid) {
                 log_warning("Failed to fix access mode on %s, ignoring: %s", f->path, strerror(-r));
 
 #ifdef HAVE_ACL
-        if (uid <= 0)
+        if (uid <= SYSTEM_UID_MAX)
                 return;
 
         acl = acl_get_fd(f->fd);

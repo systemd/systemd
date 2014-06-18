@@ -23,12 +23,11 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <sys/prctl.h>
+#include <sys/types.h>
+#include <attr/xattr.h>
 
 #include <systemd/sd-journal.h>
-
-#ifdef HAVE_LOGIND
 #include <systemd/sd-login.h>
-#endif
 
 #include "log.h"
 #include "util.h"
@@ -37,13 +36,28 @@
 #include "special.h"
 #include "cgroup-util.h"
 #include "journald-native.h"
+#include "conf-parser.h"
+#include "copy.h"
 
-/* Few programs have less than 3MiB resident */
-#define COREDUMP_MIN_START (3*1024*1024u)
+#ifdef HAVE_ACL
+#include <sys/acl.h>
+#include "acl-util.h"
+#endif
+
+/* The maximum size up to which we process coredumps */
+#define PROCESS_SIZE_MAX ((off_t) (2LLU*1024LLU*1024LLU*1024LLU))
+
+/* The maximum size up to which we leave the coredump around on
+ * disk */
+#define EXTERNAL_SIZE_MAX PROCESS_SIZE_MAX
+
+/* The maximum size up to which we store the coredump in the
+ * journal */
+#define JOURNAL_SIZE_MAX ((size_t) (767LU*1024LU*1024LU))
+
 /* Make sure to not make this larger than the maximum journal entry
  * size. See ENTRY_SIZE_MAX in journald-native.c. */
-#define COREDUMP_MAX (767*1024*1024u)
-assert_cc(COREDUMP_MAX <= ENTRY_SIZE_MAX);
+assert_cc(JOURNAL_SIZE_MAX <= ENTRY_SIZE_MAX);
 
 enum {
         ARG_PID = 1,
@@ -55,44 +69,272 @@ enum {
         _ARG_MAX
 };
 
-static int divert_coredump(void) {
-        _cleanup_fclose_ FILE *f = NULL;
+typedef enum CoredumpStorage {
+        COREDUMP_STORAGE_NONE,
+        COREDUMP_STORAGE_EXTERNAL,
+        COREDUMP_STORAGE_JOURNAL,
+        COREDUMP_STORAGE_BOTH,
+        _COREDUMP_STORAGE_MAX,
+        _COREDUMP_STORAGE_INVALID = -1
+} CoredumpStorage;
 
-        log_info("Detected coredump of the journal daemon itself, diverting coredump to /var/lib/systemd/coredump/.");
+static CoredumpStorage arg_storage = COREDUMP_STORAGE_EXTERNAL;
+static off_t arg_process_size_max = PROCESS_SIZE_MAX;
+static off_t arg_external_size_max = EXTERNAL_SIZE_MAX;
+static size_t arg_journal_size_max = JOURNAL_SIZE_MAX;
+
+static const char* const coredump_storage_table[_COREDUMP_STORAGE_MAX] = {
+        [COREDUMP_STORAGE_NONE] = "none",
+        [COREDUMP_STORAGE_EXTERNAL] = "external",
+        [COREDUMP_STORAGE_JOURNAL] = "journal",
+        [COREDUMP_STORAGE_BOTH] = "both",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(coredump_storage, CoredumpStorage);
+static DEFINE_CONFIG_PARSE_ENUM(config_parse_coredump_storage, coredump_storage, CoredumpStorage, "Failed to parse storage setting");
+
+static int parse_config(void) {
+
+        static const ConfigTableItem items[] = {
+                { "Coredump", "ProcessSizeMax",  config_parse_iec_off,           0, &arg_process_size_max  },
+                { "Coredump", "ExternalSizeMax", config_parse_iec_off,           0, &arg_external_size_max },
+                { "Coredump", "JournalSizeMax",  config_parse_iec_size,          0, &arg_journal_size_max  },
+                { "Coredump", "Storage",         config_parse_coredump_storage,  0, &arg_storage           },
+                {}
+        };
+
+        return config_parse(
+                        NULL,
+                        "/etc/systemd/coredump.conf",
+                        NULL,
+                        "Coredump\0",
+                        config_item_table_lookup,
+                        (void*) items,
+                        false,
+                        false,
+                        NULL);
+}
+
+static int fix_acl(int fd, uid_t uid) {
+
+#ifdef HAVE_ACL
+        _cleanup_(acl_freep) acl_t acl = NULL;
+        acl_entry_t entry;
+        acl_permset_t permset;
+
+        if (uid <= SYSTEM_UID_MAX)
+                return 0;
+
+        /* Make sure normal users can read (but not write or delete)
+         * their own coredumps */
+
+        acl = acl_get_fd(fd);
+        if (!acl) {
+                log_error("Failed to get ACL: %m");
+                return -errno;
+        }
+
+        if (acl_create_entry(&acl, &entry) < 0 ||
+            acl_set_tag_type(entry, ACL_USER) < 0 ||
+            acl_set_qualifier(entry, &uid) < 0) {
+                log_error("Failed to patch ACL: %m");
+                return -errno;
+        }
+
+        if (acl_get_permset(entry, &permset) < 0 ||
+            acl_add_perm(permset, ACL_READ) < 0 ||
+            calc_acl_mask_if_needed(&acl) < 0) {
+                log_warning("Failed to patch ACL: %m");
+                return -errno;
+        }
+
+        if (acl_set_fd(fd, acl) < 0) {
+                log_error("Failed to apply ACL: %m");
+                return -errno;
+        }
+#endif
+
+        return 0;
+}
+
+static int fix_xattr(int fd, char *argv[]) {
+        int r = 0;
+
+        /* Attach some metadate to coredumps via extended
+         * attributes. Just because we can. */
+
+        if (!isempty(argv[ARG_PID]))
+                if (fsetxattr(fd, "user.coredump.pid", argv[ARG_PID], strlen(argv[ARG_PID]), XATTR_CREATE) < 0)
+                        r = -errno;
+
+        if (!isempty(argv[ARG_UID]))
+                if (fsetxattr(fd, "user.coredump.uid", argv[ARG_UID], strlen(argv[ARG_UID]), XATTR_CREATE) < 0)
+                        r = -errno;
+
+        if (!isempty(argv[ARG_GID]))
+                if (fsetxattr(fd, "user.coredump.gid", argv[ARG_GID], strlen(argv[ARG_GID]), XATTR_CREATE) < 0)
+                        r = -errno;
+
+        if (!isempty(argv[ARG_SIGNAL]))
+                if (fsetxattr(fd, "user.coredump.signal", argv[ARG_SIGNAL], strlen(argv[ARG_SIGNAL]), XATTR_CREATE) < 0)
+                        r = -errno;
+
+        if (!isempty(argv[ARG_TIMESTAMP]))
+                if (fsetxattr(fd, "user.coredump.timestamp", argv[ARG_TIMESTAMP], strlen(argv[ARG_TIMESTAMP]), XATTR_CREATE) < 0)
+                        r = -errno;
+
+        if (!isempty(argv[ARG_COMM]))
+                if (fsetxattr(fd, "user.coredump.comm", argv[ARG_COMM], strlen(argv[ARG_COMM]), XATTR_CREATE) < 0)
+                        r = -errno;
+
+        return r;
+}
+
+#define filename_escape(s) xescape((s), "./")
+
+static int save_external_coredump(char **argv, uid_t uid, char **ret_filename, int *ret_fd, off_t *ret_size) {
+        _cleanup_free_ char *p = NULL, *t = NULL, *c = NULL, *fn = NULL, *tmp = NULL;
+        _cleanup_close_ int fd = -1;
+        sd_id128_t boot;
+        struct stat st;
+        int r;
+
+        assert(argv);
+        assert(ret_filename);
+        assert(ret_fd);
+        assert(ret_size);
+
+        c = filename_escape(argv[ARG_COMM]);
+        if (!c)
+                return log_oom();
+
+        p = filename_escape(argv[ARG_PID]);
+        if (!p)
+                return log_oom();
+
+        t = filename_escape(argv[ARG_TIMESTAMP]);
+        if (!t)
+                return log_oom();
+
+        r = sd_id128_get_boot(&boot);
+        if (r < 0) {
+                log_error("Failed to determine boot ID: %s", strerror(-r));
+                return r;
+        }
+
+        r = asprintf(&fn,
+                     "/var/lib/systemd/coredump/core.%s." SD_ID128_FORMAT_STR ".%s.%s000000",
+                     c,
+                     SD_ID128_FORMAT_VAL(boot),
+                     p,
+                     t);
+        if (r < 0)
+                return log_oom();
+
+        tmp = tempfn_random(fn);
+        if (!tmp)
+                return log_oom();
 
         mkdir_p_label("/var/lib/systemd/coredump", 0755);
 
-        f = fopen("/var/lib/systemd/coredump/core.systemd-journald", "we");
-        if (!f) {
+        fd = open(tmp, O_CREAT|O_EXCL|O_RDWR|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0640);
+        if (fd < 0) {
                 log_error("Failed to create coredump file: %m");
                 return -errno;
         }
 
-        for (;;) {
-                uint8_t buffer[4096];
-                size_t l, q;
-
-                l = fread(buffer, 1, sizeof(buffer), stdin);
-                if (l <= 0) {
-                        if (ferror(f)) {
-                                log_error("Failed to read coredump: %m");
-                                return -errno;
-                        }
-
-                        break;
-                }
-
-                q = fwrite(buffer, 1, l, f);
-                if (q != l) {
-                        log_error("Failed to write coredump: %m");
-                        return -errno;
-                }
+        r = copy_bytes(STDIN_FILENO, fd);
+        if (r < 0) {
+                log_error("Failed to dump coredump to file: %s", strerror(-r));
+                goto fail;
         }
 
-        fflush(f);
+        /* Ignore errors on these */
+        fchmod(fd, 0640);
+        fix_acl(fd, uid);
+        fix_xattr(fd, argv);
 
-        if (ferror(f)) {
-                log_error("Failed to write coredump: %m");
+        if (fsync(fd) < 0) {
+                log_error("Failed to sync coredump: %m");
+                r = -errno;
+                goto fail;
+        }
+
+        if (fstat(fd, &st) < 0) {
+                log_error("Failed to fstat coredump: %m");
+                r = -errno;
+                goto fail;
+        }
+
+        if (rename(tmp, fn) < 0) {
+                log_error("Failed to rename coredump: %m");
+                r = -errno;
+                goto fail;
+        }
+
+        *ret_filename = fn;
+        *ret_fd = fd;
+        *ret_size = st.st_size;
+
+        fn = NULL;
+        fd = -1;
+
+        return 0;
+
+fail:
+        unlink_noerrno(tmp);
+        return r;
+}
+
+static int allocate_journal_field(int fd, size_t size, char **ret, size_t *ret_size) {
+        _cleanup_free_ char *field = NULL;
+        ssize_t n;
+
+        assert(ret);
+        assert(ret_size);
+
+        if (lseek(fd, 0, SEEK_SET) == (off_t) -1) {
+                log_warning("Failed to seek: %m");
+                return -errno;
+        }
+
+        field = malloc(9 + size);
+        if (!field) {
+                log_warning("Failed to allocate memory fore coredump, coredump will not be stored.");
+                return -ENOMEM;
+        }
+
+        memcpy(field, "COREDUMP=", 9);
+
+        n = read(fd, field + 9, size);
+        if (n < 0) {
+                log_error("Failed to read core data: %s", strerror(-n));
+                return (int) n;
+        }
+        if ((size_t) n < size) {
+                log_error("Core data too short.");
+                return -EIO;
+        }
+
+        *ret = field;
+        *ret_size = size + 9;
+
+        field = NULL;
+
+        return 0;
+}
+
+static int maybe_remove_external_coredump(const char *filename, off_t size) {
+
+        if (!filename)
+                return 0;
+
+        if (IN_SET(arg_storage, COREDUMP_STORAGE_EXTERNAL, COREDUMP_STORAGE_BOTH) &&
+            size <= arg_external_size_max)
+                return 0;
+
+        if (unlink(filename) < 0) {
+                log_error("Failed to unlink %s: %m", filename);
                 return -errno;
         }
 
@@ -100,47 +342,80 @@ static int divert_coredump(void) {
 }
 
 int main(int argc, char* argv[]) {
+
+        _cleanup_free_ char *core_pid = NULL, *core_uid = NULL, *core_gid = NULL, *core_signal = NULL,
+                *core_timestamp = NULL, *core_comm = NULL, *core_exe = NULL, *core_unit = NULL,
+                *core_session = NULL, *core_message = NULL, *core_cmdline = NULL, *coredump_data = NULL,
+                *coredump_filename = NULL;
+
+        _cleanup_close_ int coredump_fd = -1;
+
+        struct iovec iovec[14];
+        off_t coredump_size;
         int r, j = 0;
-        char *t;
-        ssize_t n;
         pid_t pid;
         uid_t uid;
         gid_t gid;
-        struct iovec iovec[14];
-        size_t coredump_bufsize = 0, coredump_size = 0;
-        _cleanup_free_ char *core_pid = NULL, *core_uid = NULL, *core_gid = NULL, *core_signal = NULL,
-                *core_timestamp = NULL, *core_comm = NULL, *core_exe = NULL, *core_unit = NULL,
-                *core_session = NULL, *core_message = NULL, *core_cmdline = NULL, *coredump_data = NULL;
+        char *t;
 
+        /* Make sure we never enter a loop */
         prctl(PR_SET_DUMPABLE, 0);
 
-        if (argc != _ARG_MAX) {
-                log_set_target(LOG_TARGET_JOURNAL_OR_KMSG);
-                log_open();
+        /* First, log to a safe place, since we don't know what
+         * crashed and it might be journald which we'd rather not log
+         * to then. */
+        log_set_target(LOG_TARGET_KMSG);
+        log_set_max_level(LOG_DEBUG);
+        log_open();
 
+        if (argc != _ARG_MAX) {
                 log_error("Invalid number of arguments passed from kernel.");
                 r = -EINVAL;
                 goto finish;
         }
 
+        /* Ignore all parse errors */
+        parse_config();
+        log_debug("Selected storage '%s'.", coredump_storage_to_string(arg_storage));
+
+        r = parse_uid(argv[ARG_UID], &uid);
+        if (r < 0) {
+                log_error("Failed to parse UID.");
+                goto finish;
+        }
+
         r = parse_pid(argv[ARG_PID], &pid);
         if (r < 0) {
-                log_set_target(LOG_TARGET_JOURNAL_OR_KMSG);
-                log_open();
-
                 log_error("Failed to parse PID.");
+                goto finish;
+        }
+
+        r = parse_gid(argv[ARG_GID], &gid);
+        if (r < 0) {
+                log_error("Failed to parse GID.");
                 goto finish;
         }
 
         if (cg_pid_get_unit(pid, &t) >= 0) {
 
                 if (streq(t, SPECIAL_JOURNALD_SERVICE)) {
-                        /* Make sure we don't make use of the journal,
-                         * if it's the journal which is crashing */
-                        log_set_target(LOG_TARGET_KMSG);
-                        log_open();
 
-                        r = divert_coredump();
+                        /* If we are journald, we cut things short,
+                         * don't write to the journal, but still
+                         * create a coredump. */
+
+                        if (arg_storage != COREDUMP_STORAGE_NONE)
+                                arg_storage = COREDUMP_STORAGE_EXTERNAL;
+
+                        r = save_external_coredump(argv, uid, &coredump_filename, &coredump_fd, &coredump_size);
+                        if (r < 0)
+                                goto finish;
+
+                        r = maybe_remove_external_coredump(coredump_filename, coredump_size);
+                        if (r < 0)
+                                goto finish;
+
+                        log_info("Detected coredump of the journal daemon itself, diverted to %s.", coredump_filename);
                         goto finish;
                 }
 
@@ -151,22 +426,10 @@ int main(int argc, char* argv[]) {
         if (core_unit)
                 IOVEC_SET_STRING(iovec[j++], core_unit);
 
-        /* OK, now we know it's not the journal, hence make use of
-         * it */
+        /* OK, now we know it's not the journal, hence we can make use
+         * of it now. */
         log_set_target(LOG_TARGET_JOURNAL_OR_KMSG);
         log_open();
-
-        r = parse_uid(argv[ARG_UID], &uid);
-        if (r < 0) {
-                log_error("Failed to parse UID.");
-                goto finish;
-        }
-
-        r = parse_gid(argv[ARG_GID], &gid);
-        if (r < 0) {
-                log_error("Failed to parse GID.");
-                goto finish;
-        }
 
         core_pid = strappend("COREDUMP_PID=", argv[ARG_PID]);
         if (core_pid)
@@ -188,7 +451,6 @@ int main(int argc, char* argv[]) {
         if (core_comm)
                 IOVEC_SET_STRING(iovec[j++], core_comm);
 
-#ifdef HAVE_LOGIND
         if (sd_pid_get_session(pid, &t) >= 0) {
                 core_session = strappend("COREDUMP_SESSION=", t);
                 free(t);
@@ -196,8 +458,6 @@ int main(int argc, char* argv[]) {
                 if (core_session)
                         IOVEC_SET_STRING(iovec[j++], core_session);
         }
-
-#endif
 
         if (get_process_exe(pid, &t) >= 0) {
                 core_exe = strappend("COREDUMP_EXE=", t);
@@ -226,12 +486,22 @@ int main(int argc, char* argv[]) {
         if (core_message)
                 IOVEC_SET_STRING(iovec[j++], core_message);
 
+        /* Always stream the coredump to disk, if that's possible */
+        r = save_external_coredump(argv, uid, &coredump_filename, &coredump_fd, &coredump_size);
+        if (r < 0)
+                goto finish;
+
+        /* If we don't want to keep the coredump on disk, remove it
+         * now, as later on we will lack the privileges for it. */
+        r = maybe_remove_external_coredump(coredump_filename, coredump_size);
+        if (r < 0)
+                goto finish;
+
         /* Now, let's drop privileges to become the user who owns the
          * segfaulted process and allocate the coredump memory under
          * his uid. This also ensures that the credentials journald
          * will see are the ones of the coredumping user, thus making
          * sure the user himself gets access to the core dump. */
-
         if (setresgid(gid, gid, gid) < 0 ||
             setresuid(uid, uid, uid) < 0) {
                 log_error("Failed to drop privileges: %m");
@@ -239,40 +509,21 @@ int main(int argc, char* argv[]) {
                 goto finish;
         }
 
-        for (;;) {
-                if (!GREEDY_REALLOC(coredump_data, coredump_bufsize,
-                                    MAX(coredump_size + 1, COREDUMP_MIN_START/2))) {
-                        log_warning("Failed to allocate memory for core, core will not be stored.");
-                        goto finalize;
-                }
+        /* Optionally store the entire coredump in the journal */
+        if (IN_SET(arg_storage, COREDUMP_STORAGE_JOURNAL, COREDUMP_STORAGE_BOTH) &&
+            coredump_size <= (off_t) arg_journal_size_max) {
+                size_t sz;
 
-                if (coredump_size == 0) {
-                        memcpy(coredump_data, "COREDUMP=", 9);
-                        coredump_size = 9;
-                }
+                /* Store the coredump itself in the journal */
 
-                n = loop_read(STDIN_FILENO, coredump_data + coredump_size,
-                              coredump_bufsize - coredump_size, false);
-                if (n < 0) {
-                        log_error("Failed to read core data: %s", strerror(-n));
-                        r = (int) n;
-                        goto finish;
-                } else if (n == 0)
-                        break;
-
-                coredump_size += n;
-
-                if (coredump_size > COREDUMP_MAX) {
-                        log_error("Core too large, core will not be stored.");
-                        goto finalize;
+                r = allocate_journal_field(coredump_fd, (size_t) coredump_size, &coredump_data, &sz);
+                if (r >= 0) {
+                        iovec[j].iov_base = coredump_data;
+                        iovec[j].iov_len = sz;
+                        j++;
                 }
         }
 
-        iovec[j].iov_base = coredump_data;
-        iovec[j].iov_len = coredump_size;
-        j++;
-
-finalize:
         r = sd_journal_sendv(iovec, j);
         if (r < 0)
                 log_error("Failed to log coredump: %s", strerror(-r));

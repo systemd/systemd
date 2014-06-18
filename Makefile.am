@@ -3689,6 +3689,14 @@ systemd_coredump_LDADD = \
 rootlibexec_PROGRAMS += \
 	systemd-coredump
 
+dist_pkgsysconf_DATA += \
+	src/journal/coredump.conf
+
+if HAVE_ACL
+systemd_coredump_LDADD += \
+	libsystemd-acl.la
+endif
+
 systemd_coredumpctl_SOURCES = \
 	src/journal/coredumpctl.c
 
