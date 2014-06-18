@@ -20,6 +20,7 @@
 ***/
 
 #include <netinet/ether.h>
+#include <net/if.h>
 
 #include "util.h"
 #include "macro.h"

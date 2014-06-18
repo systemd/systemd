@@ -36,6 +36,7 @@
 #include "list.h"
 #include "set.h"
 #include "condition-util.h"
+#include "socket-util.h"
 
 #define CACHE_INFO_INFINITY_LIFE_TIME 0xFFFFFFFFU
 #define VXLAN_VID_MAX (1u << 24) - 1
@@ -184,10 +185,7 @@ struct Address {
         struct in_addr broadcast;
         struct ifa_cacheinfo cinfo;
 
-        union {
-                struct in_addr in;
-                struct in6_addr in6;
-        } in_addr;
+        union in_addr_union in_addr;
 
         LIST_FIELDS(Address, addresses);
 };
@@ -201,15 +199,8 @@ struct Route {
         unsigned char scope;
         uint32_t metrics;
 
-        union {
-                struct in_addr in;
-                struct in6_addr in6;
-        } in_addr;
-
-        union {
-                struct in_addr in;
-                struct in6_addr in6;
-        } dst_addr;
+        union in_addr_union in_addr;
+        union in_addr_union dst_addr;
 
         LIST_FIELDS(Route, routes);
 };
