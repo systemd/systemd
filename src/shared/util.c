@@ -2671,7 +2671,7 @@ finish:
 }
 
 int rm_rf_children_dangerous(int fd, bool only_dirs, bool honour_sticky, struct stat *root_dev) {
-        DIR *d;
+        _cleanup_closedir_ DIR *d = NULL;
         int ret = 0;
 
         assert(fd >= 0);
@@ -2694,14 +2694,11 @@ int rm_rf_children_dangerous(int fd, bool only_dirs, bool honour_sticky, struct 
 
                 errno = 0;
                 de = readdir(d);
-                if (!de && errno != 0) {
-                        if (ret == 0)
+                if (!de) {
+                        if (errno != 0 && ret == 0)
                                 ret = -errno;
-                        break;
+                        return ret;
                 }
-
-                if (!de)
-                        break;
 
                 if (streq(de->d_name, ".") || streq(de->d_name, ".."))
                         continue;
@@ -2758,10 +2755,6 @@ int rm_rf_children_dangerous(int fd, bool only_dirs, bool honour_sticky, struct 
                         }
                 }
         }
-
-        closedir(d);
-
-        return ret;
 }
 
 _pure_ static int is_temporary_fs(struct statfs *s) {
