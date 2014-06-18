@@ -38,7 +38,6 @@ int dhcp_network_bind_raw_socket(int index, union sockaddr_union *link,
             BPF_STMT(BPF_LD + BPF_W + BPF_LEN, 0),                                 /* A <- packet length */
             BPF_JUMP(BPF_JMP + BPF_JGE + BPF_K, sizeof(DHCPPacket), 1, 0),         /* packet >= DHCPPacket ? */
             BPF_STMT(BPF_RET + BPF_K, 0),                                          /* ignore */
-            /* TODO: match ip.version */
             BPF_STMT(BPF_LD + BPF_B + BPF_ABS, offsetof(DHCPPacket, ip.protocol)), /* A <- IP protocol */
             BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, IPPROTO_UDP, 1, 0),                /* IP protocol == UDP ? */
             BPF_STMT(BPF_RET + BPF_K, 0),                                          /* ignore */
