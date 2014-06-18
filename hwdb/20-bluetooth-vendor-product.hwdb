@@ -115,7 +115,7 @@ bluetooth:v0024*
  ID_VENDOR_FROM_DATABASE=Alcatel
 
 bluetooth:v0025*
- ID_VENDOR_FROM_DATABASE=Philips Semiconductors
+ ID_VENDOR_FROM_DATABASE=NXP Semiconductors (formerly Philips Semiconductors)
 
 bluetooth:v0026*
  ID_VENDOR_FROM_DATABASE=C Technologies
@@ -427,7 +427,7 @@ bluetooth:v008B*
  ID_VENDOR_FROM_DATABASE=Topcorn Positioning Systems, LLC
 
 bluetooth:v008C*
- ID_VENDOR_FROM_DATABASE=Qualcomm Retail Solutions, Inc. (formerly Qualcomm Labs, Inc.)
+ ID_VENDOR_FROM_DATABASE=Gimbal Inc. (formerly Qualcomm Labs, Inc. and Qualcomm Retail Solutions, Inc.)
 
 bluetooth:v008D*
  ID_VENDOR_FROM_DATABASE=Zscan Software
@@ -1006,10 +1006,46 @@ bluetooth:v014C*
  ID_VENDOR_FROM_DATABASE=Mesh-Net Ltd
 
 bluetooth:v014D*
- ID_VENDOR_FROM_DATABASE=HUIZHOU DESAY SV AUTOMOTIVE CO., LTD.
+ ID_VENDOR_FROM_DATABASE=Huizhou Desay SV Automotive CO., LTD.
 
 bluetooth:v014E*
  ID_VENDOR_FROM_DATABASE=Tangerine, Inc.
 
 bluetooth:v014F*
  ID_VENDOR_FROM_DATABASE=B&W Group Ltd.
+
+bluetooth:v0150*
+ ID_VENDOR_FROM_DATABASE=Pioneer Corporation
+
+bluetooth:v0151*
+ ID_VENDOR_FROM_DATABASE=OnBeep
+
+bluetooth:v0152*
+ ID_VENDOR_FROM_DATABASE=Vernier Software & Technology
+
+bluetooth:v0153*
+ ID_VENDOR_FROM_DATABASE=ROL Ergo
+
+bluetooth:v0154*
+ ID_VENDOR_FROM_DATABASE=Pebble Technology
+
+bluetooth:v0155*
+ ID_VENDOR_FROM_DATABASE=NETATMO
+
+bluetooth:v0156*
+ ID_VENDOR_FROM_DATABASE=Accumulate AB
+
+bluetooth:v0157*
+ ID_VENDOR_FROM_DATABASE=Anhui Huami Information Technology Co., Ltd.
+
+bluetooth:v0158*
+ ID_VENDOR_FROM_DATABASE=Inmite s.r.o.
+
+bluetooth:v0159*
+ ID_VENDOR_FROM_DATABASE=ChefSteps, Inc.
+
+bluetooth:v015A*
+ ID_VENDOR_FROM_DATABASE=micus AG
+
+bluetooth:v015B*
+ ID_VENDOR_FROM_DATABASE=Biomedical Research Ltd.
