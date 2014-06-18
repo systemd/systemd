@@ -36,6 +36,7 @@
 #include "pager.h"
 #include "macro.h"
 #include "journal-internal.h"
+#include "copy.h"
 
 static enum {
         ACTION_NONE,
@@ -45,7 +46,7 @@ static enum {
 } arg_action = ACTION_LIST;
 
 static FILE* output = NULL;
-static char* field = NULL;
+static char* arg_field = NULL;
 
 static int arg_no_pager = false;
 static int arg_no_legend = false;
@@ -79,21 +80,21 @@ static Set *new_matches(void) {
 }
 
 static int help(void) {
-        printf("%s [OPTIONS...] [MATCHES...]\n\n"
+
+        printf("%s [OPTIONS...]\n\n"
                "List or retrieve coredumps from the journal.\n\n"
                "Flags:\n"
-               "  -o --output=FILE  Write output to FILE\n"
-               "     --no-pager     Do not pipe output into a pager\n"
-               "     --no-legend    Do not print the column headers.\n\n"
+               "  -o --output=FILE   Write output to FILE\n"
+               "     --no-pager      Do not pipe output into a pager\n"
+               "     --no-legend     Do not print the column headers.\n\n"
 
                "Commands:\n"
-               "  -h --help         Show this help\n"
-               "  --version         Print version string\n"
-               "  -F --field=FIELD  List all values a certain field takes\n"
-               "  gdb               Start gdb for the first matching coredump\n"
-               "  list              List available coredumps\n"
-               "  dump PID          Print coredump to stdout\n"
-               "  dump PATH         Print coredump to stdout\n"
+               "  -h --help          Show this help\n"
+               "  --version          Print version string\n"
+               "  -F --field=FIELD   List all values a certain field takes\n"
+               "  list [MATCHES...]  List available coredumps\n"
+               "  dump [MATCHES...]  Print first matching coredump to stdout\n"
+               "  gdb [MATCHES...]   Start gdb for the first matching coredump\n"
                , program_invocation_short_name);
 
         return 0;
@@ -198,12 +199,12 @@ static int parse_argv(int argc, char *argv[], Set *matches) {
                         break;
 
                 case 'F':
-                        if (field) {
+                        if (arg_field) {
                                 log_error("cannot use --field/-F more than once");
                                 return -EINVAL;
                         }
 
-                        field = optarg;
+                        arg_field = optarg;
                         break;
 
                 case '?':
@@ -227,7 +228,7 @@ static int parse_argv(int argc, char *argv[], Set *matches) {
                 }
         }
 
-        if (field && arg_action != ACTION_LIST) {
+        if (arg_field && arg_action != ACTION_LIST) {
                 log_error("Option --field/-F only makes sense with list");
                 return -EINVAL;
         }
@@ -245,9 +246,10 @@ static int parse_argv(int argc, char *argv[], Set *matches) {
 static int retrieve(const void *data,
                     size_t len,
                     const char *name,
-                    const char **var) {
+                    char **var) {
 
         size_t ident;
+        char *v;
 
         ident = strlen(name) + 1; /* name + "=" */
 
@@ -260,30 +262,34 @@ static int retrieve(const void *data,
         if (((const char*) data)[ident - 1] != '=')
                 return 0;
 
-        *var = strndup((const char*)data + ident, len - ident);
-        if (!*var)
+        v = strndup((const char*)data + ident, len - ident);
+        if (!v)
                 return log_oom();
+
+        free(*var);
+        *var = v;
 
         return 0;
 }
 
 static void print_field(FILE* file, sd_journal *j) {
-        _cleanup_free_ const char *value = NULL;
+        _cleanup_free_ char *value = NULL;
         const void *d;
         size_t l;
 
-        assert(field);
+        assert(arg_field);
 
         SD_JOURNAL_FOREACH_DATA(j, d, l)
-                retrieve(d, l, field, &value);
+                retrieve(d, l, arg_field, &value);
+
         if (value)
                 fprintf(file, "%s\n", value);
 }
 
 static int print_entry(FILE* file, sd_journal *j, int had_legend) {
-        _cleanup_free_ const char
+        _cleanup_free_ char
                 *pid = NULL, *uid = NULL, *gid = NULL,
-                *sgnl = NULL, *exe = NULL;
+                *sgnl = NULL, *exe = NULL, *comm = NULL, *cmdline = NULL;
         const void *d;
         size_t l;
         usec_t t;
@@ -292,18 +298,15 @@ static int print_entry(FILE* file, sd_journal *j, int had_legend) {
 
         SD_JOURNAL_FOREACH_DATA(j, d, l) {
                 retrieve(d, l, "COREDUMP_PID", &pid);
-                retrieve(d, l, "COREDUMP_PID", &pid);
                 retrieve(d, l, "COREDUMP_UID", &uid);
                 retrieve(d, l, "COREDUMP_GID", &gid);
                 retrieve(d, l, "COREDUMP_SIGNAL", &sgnl);
                 retrieve(d, l, "COREDUMP_EXE", &exe);
-                if (!exe)
-                        retrieve(d, l, "COREDUMP_COMM", &exe);
-                if (!exe)
-                        retrieve(d, l, "COREDUMP_CMDLINE", &exe);
+                retrieve(d, l, "COREDUMP_COMM", &comm);
+                retrieve(d, l, "COREDUMP_CMDLINE", &cmdline);
         }
 
-        if (!pid && !uid && !gid && !sgnl && !exe) {
+        if (!pid && !uid && !gid && !sgnl && !exe && !comm && !cmdline) {
                 log_warning("Empty coredump log entry");
                 return -EINVAL;
         }
@@ -327,11 +330,11 @@ static int print_entry(FILE* file, sd_journal *j, int had_legend) {
 
         fprintf(file, "%*s %*s %*s %*s %*s %s\n",
                 FORMAT_TIMESTAMP_MAX-1, buf,
-                6, pid,
-                5, uid,
-                5, gid,
-                3, sgnl,
-                exe);
+                6, strna(pid),
+                5, strna(uid),
+                5, strna(gid),
+                3, strna(sgnl),
+                strna(exe ?: (comm ?: cmdline)));
 
         return 0;
 }
@@ -347,13 +350,13 @@ static int dump_list(sd_journal *j) {
         sd_journal_set_data_threshold(j, 4096);
 
         SD_JOURNAL_FOREACH(j) {
-                if (field)
+                if (arg_field)
                         print_field(stdout, j);
                 else
                         print_entry(stdout, j, found++);
         }
 
-        if (!field && !found) {
+        if (!arg_field && !found) {
                 log_notice("No coredumps found");
                 return -ESRCH;
         }
@@ -378,6 +381,55 @@ static int focus(sd_journal *j) {
         return r;
 }
 
+#define filename_escape(s) xescape((s), "./")
+
+static int make_coredump_path(sd_journal *j, char **ret) {
+        _cleanup_free_ char
+                *pid = NULL, *boot_id = NULL, *tstamp = NULL, *comm = NULL,
+                *p = NULL, *b = NULL, *t = NULL, *c = NULL;
+        const void *d;
+        size_t l;
+        char *fn;
+
+        assert(j);
+        assert(ret);
+
+        SD_JOURNAL_FOREACH_DATA(j, d, l) {
+                retrieve(d, l, "COREDUMP_COMM", &comm);
+                retrieve(d, l, "COREDUMP_PID", &pid);
+                retrieve(d, l, "COREDUMP_TIMESTAMP", &tstamp);
+                retrieve(d, l, "_BOOT_ID", &boot_id);
+        }
+
+        if (!pid || !comm || !tstamp || !boot_id) {
+                log_error("Failed to retrieve necessary fields to find coredump on disk.");
+                return -ENOENT;
+        }
+
+        p = filename_escape(pid);
+        if (!p)
+                return log_oom();
+
+        t = filename_escape(tstamp);
+        if (!t)
+                return log_oom();
+
+        c = filename_escape(comm);
+        if (!t)
+                return log_oom();
+
+        b = filename_escape(boot_id);
+        if (!b)
+                return log_oom();
+
+        fn = strjoin("/var/lib/systemd/coredump/core.", c, ".", b, ".", p, ".", t, NULL);
+        if (!fn)
+                return log_oom();
+
+        *ret = fn;
+        return 0;
+}
+
 static int dump_core(sd_journal* j) {
         const void *data;
         size_t len, ret;
@@ -400,19 +452,44 @@ static int dump_core(sd_journal* j) {
         }
 
         r = sd_journal_get_data(j, "COREDUMP", (const void**) &data, &len);
-        if (r < 0) {
+        if (r == ENOENT) {
+                _cleanup_free_ char *fn = NULL;
+                _cleanup_close_ int fd = -1;
+
+                r = make_coredump_path(j, &fn);
+                if (r < 0)
+                        return r;
+
+                fd = open(fn, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                if (fd < 0) {
+                        if (errno == ENOENT)
+                                log_error("Coredump neither in journal file nor stored externally on disk.");
+                        else
+                                log_error("Failed to open coredump file: %s", strerror(-r));
+
+                        return -errno;
+                }
+
+                r = copy_bytes(fd, output ? fileno(output) : STDOUT_FILENO);
+                if (r < 0) {
+                        log_error("Failed to stream coredump: %s", strerror(-r));
+                        return r;
+                }
+
+        } else if (r < 0) {
                 log_error("Failed to retrieve COREDUMP field: %s", strerror(-r));
                 return r;
-        }
 
-        assert(len >= 9);
-        data = (const uint8_t*) data + 9;
-        len -= 9;
+        } else {
+                assert(len >= 9);
+                data = (const uint8_t*) data + 9;
+                len -= 9;
 
-        ret = fwrite(data, len, 1, output ? output : stdout);
-        if (ret != 1) {
-                log_error("dumping coredump: %m (%zu)", ret);
-                return -errno;
+                ret = fwrite(data, len, 1, output ?: stdout);
+                if (ret != 1) {
+                        log_error("Dumping coredump failed: %m (%zu)", ret);
+                        return -errno;
+                }
         }
 
         r = sd_journal_previous(j);
@@ -423,15 +500,16 @@ static int dump_core(sd_journal* j) {
 }
 
 static int run_gdb(sd_journal *j) {
-        char path[] = "/var/tmp/coredump-XXXXXX";
+
+        _cleanup_free_ char *exe = NULL, *coredump = NULL;
+        char temp[] = "/var/tmp/coredump-XXXXXX";
+        bool unlink_temp = false;
+        const char *path;
         const void *data;
-        size_t len;
-        ssize_t sz;
-        pid_t pid;
-        _cleanup_free_ char *exe = NULL;
-        int r;
-        _cleanup_close_ int fd = -1;
         siginfo_t st;
+        size_t len;
+        pid_t pid;
+        int r;
 
         assert(j);
 
@@ -462,35 +540,63 @@ static int run_gdb(sd_journal *j) {
                 return -ENOENT;
         }
 
+        if (!path_is_absolute(exe)) {
+                log_error("Binary is not an absolute path.");
+                return -ENOENT;
+        }
+
         r = sd_journal_get_data(j, "COREDUMP", (const void**) &data, &len);
-        if (r < 0) {
+        if (r == -ENOENT) {
+
+                r = make_coredump_path(j, &coredump);
+                if (r < 0)
+                        return r;
+
+                if (access(coredump, R_OK) < 0) {
+                        if (errno == ENOENT)
+                                log_error("Coredump neither in journal file nor stored externally on disk.");
+                        else
+                                log_error("Failed to access coredump fiile: %s", strerror(-r));
+
+                        return -errno;
+                }
+
+                path = coredump;
+
+        } else if (r < 0) {
                 log_error("Failed to retrieve COREDUMP field: %s", strerror(-r));
                 return r;
-        }
 
-        assert(len >= 9);
-        data = (const uint8_t*) data + 9;
-        len -= 9;
+        } else {
+                _cleanup_close_ int fd = -1;
+                ssize_t sz;
 
-        fd = mkostemp_safe(path, O_WRONLY|O_CLOEXEC);
-        if (fd < 0) {
-                log_error("Failed to create temporary file: %m");
-                return -errno;
-        }
+                assert(len >= 9);
+                data = (const uint8_t*) data + 9;
+                len -= 9;
 
-        sz = write(fd, data, len);
-        if (sz < 0) {
-                log_error("Failed to write temporary file: %m");
-                r = -errno;
-                goto finish;
-        }
-        if (sz != (ssize_t) len) {
-                log_error("Short write to temporary file.");
-                r = -EIO;
-                goto finish;
-        }
+                fd = mkostemp_safe(temp, O_WRONLY|O_CLOEXEC);
+                if (fd < 0) {
+                        log_error("Failed to create temporary file: %m");
+                        return -errno;
+                }
 
-        fd = safe_close(fd);
+                unlink_temp = true;
+
+                sz = write(fd, data, len);
+                if (sz < 0) {
+                        log_error("Failed to write temporary file: %m");
+                        r = -errno;
+                        goto finish;
+                }
+                if (sz != (ssize_t) len) {
+                        log_error("Short write to temporary file.");
+                        r = -EIO;
+                        goto finish;
+                }
+
+                path = temp;
+        }
 
         pid = fork();
         if (pid < 0) {
@@ -500,6 +606,7 @@ static int run_gdb(sd_journal *j) {
         }
         if (pid == 0) {
                 execlp("gdb", "gdb", exe, path, NULL);
+
                 log_error("Failed to invoke gdb: %m");
                 _exit(1);
         }
@@ -513,7 +620,9 @@ static int run_gdb(sd_journal *j) {
         r = st.si_code == CLD_EXITED ? st.si_status : 255;
 
 finish:
-        unlink(path);
+        if (unlink_temp)
+                unlink(temp);
+
         return r;
 }
 
