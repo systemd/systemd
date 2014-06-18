@@ -10,4 +10,6 @@ Name=ve-*
 Driver=veth
 
 [Network]
+Address=0.0.0.0/28
 IPv4LL=yes
+DHCPServer=yes
