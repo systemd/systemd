@@ -398,6 +398,8 @@ static int client_send_discover(sd_dhcp_client *client) {
 
         r = dhcp_option_append(&discover->dhcp, optlen, &optoffset, 0,
                                DHCP_OPTION_END, 0, NULL);
+        if (r < 0)
+                return r;
 
         /* We currently ignore:
            The client SHOULD wait a random time between one and ten seconds to
