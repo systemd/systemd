@@ -58,8 +58,6 @@ Features:
 
 * set NOTIFY_SOCKET also for control processes
 
-* drop parsing of chkconfig header lines from service.c
-
 * mount_cgroup_controllers(): symlinks need to get the label applied
 
 * For timer units: add some mechanisms so that timer units that trigger immediately on boot do not have the services
