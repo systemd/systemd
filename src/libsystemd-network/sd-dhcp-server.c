@@ -109,25 +109,26 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(DHCPLease*, dhcp_lease_free);
 #define _cleanup_dhcp_lease_free_ _cleanup_(dhcp_lease_freep)
 
 sd_dhcp_server *sd_dhcp_server_unref(sd_dhcp_server *server) {
-        if (server && REFCNT_DEC(server->n_ref) <= 0) {
-                DHCPLease *lease;
-                Iterator i;
+        DHCPLease *lease;
 
-                log_dhcp_server(server, "UNREF");
+        if (!server)
+                return NULL;
 
-                sd_dhcp_server_stop(server);
+        if (REFCNT_DEC(server->n_ref) > 0)
+                return NULL;
 
-                sd_event_unref(server->event);
+        log_dhcp_server(server, "UNREF");
 
-                HASHMAP_FOREACH(lease, server->leases_by_client_id, i) {
-                        hashmap_remove(server->leases_by_client_id, lease);
-                        dhcp_lease_free(lease);
-                }
+        sd_dhcp_server_stop(server);
 
-                hashmap_free(server->leases_by_client_id);
-                free(server->bound_leases);
-                free(server);
-        }
+        sd_event_unref(server->event);
+
+        while ((lease = hashmap_steal_first(server->leases_by_client_id)))
+                dhcp_lease_free(lease);
+        hashmap_free(server->leases_by_client_id);
+
+        free(server->bound_leases);
+        free(server);
 
         return NULL;
 }
