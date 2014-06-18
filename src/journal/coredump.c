@@ -346,16 +346,16 @@ int main(int argc, char* argv[]) {
         _cleanup_free_ char *core_pid = NULL, *core_uid = NULL, *core_gid = NULL, *core_signal = NULL,
                 *core_timestamp = NULL, *core_comm = NULL, *core_exe = NULL, *core_unit = NULL,
                 *core_session = NULL, *core_message = NULL, *core_cmdline = NULL, *coredump_data = NULL,
-                *coredump_filename = NULL;
+                *coredump_filename = NULL, *core_slice = NULL, *core_cgroup = NULL, *core_owner_uid = NULL;
 
         _cleanup_close_ int coredump_fd = -1;
 
-        struct iovec iovec[14];
+        struct iovec iovec[17];
         off_t coredump_size;
         int r, j = 0;
-        pid_t pid;
-        uid_t uid;
+        uid_t uid, owner_uid;
         gid_t gid;
+        pid_t pid;
         char *t;
 
         /* Make sure we never enter a loop */
@@ -459,6 +459,21 @@ int main(int argc, char* argv[]) {
                         IOVEC_SET_STRING(iovec[j++], core_session);
         }
 
+        if (sd_pid_get_owner_uid(pid, &owner_uid) >= 0) {
+                asprintf(&core_owner_uid, "COREDUMP_OWNER_UID=" UID_FMT, owner_uid);
+
+                if (core_owner_uid)
+                        IOVEC_SET_STRING(iovec[j++], core_owner_uid);
+        }
+
+        if (sd_pid_get_slice(pid, &t) >= 0) {
+                core_slice = strappend("COREDUMP_SLICE=", t);
+                free(t);
+
+                if (core_slice)
+                        IOVEC_SET_STRING(iovec[j++], core_slice);
+        }
+
         if (get_process_exe(pid, &t) >= 0) {
                 core_exe = strappend("COREDUMP_EXE=", t);
                 free(t);
@@ -473,6 +488,14 @@ int main(int argc, char* argv[]) {
 
                 if (core_cmdline)
                         IOVEC_SET_STRING(iovec[j++], core_cmdline);
+        }
+
+        if (cg_pid_get_path_shifted(pid, NULL, &t) >= 0) {
+                core_cgroup = strappend("COREDUMP_CGROUP=", t);
+                free(t);
+
+                if (core_cgroup)
+                        IOVEC_SET_STRING(iovec[j++], core_cgroup);
         }
 
         core_timestamp = strjoin("COREDUMP_TIMESTAMP=", argv[ARG_TIMESTAMP], "000000", NULL);

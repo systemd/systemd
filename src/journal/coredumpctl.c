@@ -402,7 +402,8 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 *pid = NULL, *uid = NULL, *gid = NULL,
                 *sgnl = NULL, *exe = NULL, *comm = NULL, *cmdline = NULL,
                 *unit = NULL, *user_unit = NULL, *session = NULL,
-                *boot_id = NULL, *machine_id = NULL, *hostname = NULL, *coredump = NULL;
+                *boot_id = NULL, *machine_id = NULL, *hostname = NULL,
+                *coredump = NULL, *slice = NULL, *cgroup = NULL, *owner_uid = NULL;
         const void *d;
         size_t l;
 
@@ -420,6 +421,9 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 retrieve(d, l, "COREDUMP_UNIT", &unit);
                 retrieve(d, l, "COREDUMP_USER_UNIT", &user_unit);
                 retrieve(d, l, "COREDUMP_SESSION", &session);
+                retrieve(d, l, "COREDUMP_OWNER_UID", &owner_uid);
+                retrieve(d, l, "COREDUMP_SLICE", &slice);
+                retrieve(d, l, "COREDUMP_CGROUP", &cgroup);
                 retrieve(d, l, "_BOOT_ID", &boot_id);
                 retrieve(d, l, "_MACHINE_ID", &machine_id);
                 retrieve(d, l, "_HOSTNAME", &hostname);
@@ -429,12 +433,42 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 fputs("\n", file);
 
         fprintf(file,
-                "           PID: %s\n"
-                "           UID: %s\n"
-                "           GID: %s\n",
-                strna(pid),
-                strna(uid),
-                strna(gid));
+                "           PID: %s%s%s\n",
+                ansi_highlight(), strna(pid), ansi_highlight_off());
+
+        if (uid) {
+                uid_t n;
+
+                if (parse_uid(uid, &n) >= 0) {
+                        _cleanup_free_ char *u = NULL;
+
+                        u = uid_to_name(n);
+                        fprintf(file,
+                                "           UID: %s (%s)\n",
+                                uid, u);
+                } else {
+                        fprintf(file,
+                                "           UID: %s\n",
+                                uid);
+                }
+        }
+
+        if (gid) {
+                gid_t n;
+
+                if (parse_gid(gid, &n) >= 0) {
+                        _cleanup_free_ char *g = NULL;
+
+                        g = gid_to_name(n);
+                        fprintf(file,
+                                "           GID: %s (%s)\n",
+                                gid, g);
+                } else {
+                        fprintf(file,
+                                "           GID: %s\n",
+                                gid);
+                }
+        }
 
         if (sgnl) {
                 int sig;
@@ -446,17 +480,37 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
         }
 
         if (exe)
-                fprintf(file, "    Executable: %s\n", exe);
+                fprintf(file, "    Executable: %s%s%s\n", ansi_highlight(), exe, ansi_highlight_off());
         if (comm)
                 fprintf(file, "          Comm: %s\n", comm);
         if (cmdline)
                 fprintf(file, "  Command Line: %s\n", cmdline);
+        if (cgroup)
+                fprintf(file, " Control Group: %s\n", cgroup);
         if (unit)
                 fprintf(file, "          Unit: %s\n", unit);
         if (user_unit)
                 fprintf(file, "     User Unit: %s\n", unit);
+        if (slice)
+                fprintf(file, "         Slice: %s\n", slice);
         if (session)
                 fprintf(file, "       Session: %s\n", session);
+        if (owner_uid) {
+                uid_t n;
+
+                if (parse_uid(owner_uid, &n) >= 0) {
+                        _cleanup_free_ char *u = NULL;
+
+                        u = uid_to_name(n);
+                        fprintf(file,
+                                "     Owner UID: %s (%s)\n",
+                                owner_uid, u);
+                } else {
+                        fprintf(file,
+                                "     Owner UID: %s\n",
+                                owner_uid);
+                }
+        }
         if (boot_id)
                 fprintf(file, "       Boot ID: %s\n", boot_id);
         if (machine_id)
