@@ -27,6 +27,7 @@
 #include "sparse-endian.h"
 #include "sd-event.h"
 #include "list.h"
+#include "macro.h"
 
 typedef struct DHCP6Address DHCP6Address;
 
@@ -69,3 +70,6 @@ int dhcp6_option_parse(uint8_t **buf, size_t *buflen, uint16_t *optcode,
 int dhcp6_network_bind_udp_socket(int index, struct in6_addr *address);
 int dhcp6_network_send_udp_socket(int s, struct in6_addr *address,
                                   const void *packet, size_t len);
+
+const char *dhcp6_message_type_to_string(int s) _const_;
+int dhcp6_message_type_from_string(const char *s) _pure_;
