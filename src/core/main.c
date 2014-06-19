@@ -286,7 +286,8 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
 
         } else if (streq(key, "rd.systemd.unit") && value) {
 
-                return set_default_unit(value);
+                if (in_initrd())
+                        return set_default_unit(value);
 
         } else if (streq(key, "systemd.log_target") && value) {
 
