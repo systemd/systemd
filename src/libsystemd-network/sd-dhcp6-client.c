@@ -213,12 +213,22 @@ static int client_send_message(sd_dhcp6_client *client) {
         case DHCP6_STATE_SOLICITATION:
                 message->type = DHCP6_SOLICIT;
 
-                r = dhcp6_option_append(&opt, &optlen, DHCP6_OPTION_CLIENTID,
-                                        sizeof(client->duid), &client->duid);
+                r = dhcp6_option_append_ia(&opt, &optlen, &client->ia_na);
                 if (r < 0)
                         return r;
 
-                r = dhcp6_option_append_ia(&opt, &optlen, &client->ia_na);
+                break;
+
+        case DHCP6_STATE_REQUEST:
+                message->type = DHCP6_REQUEST;
+
+                r = dhcp6_option_append(&opt, &optlen, DHCP6_OPTION_SERVERID,
+                                        client->lease->serverid_len,
+                                        client->lease->serverid);
+                if (r < 0)
+                        return r;
+
+                r = dhcp6_option_append_ia(&opt, &optlen, &client->lease->ia);
                 if (r < 0)
                         return r;
 
@@ -228,6 +238,11 @@ static int client_send_message(sd_dhcp6_client *client) {
         case DHCP6_STATE_RS:
                 return -EINVAL;
         }
+
+        r = dhcp6_option_append(&opt, &optlen, DHCP6_OPTION_CLIENTID,
+                                sizeof(client->duid), &client->duid);
+        if (r < 0)
+                return r;
 
         r = dhcp6_network_send_udp_socket(client->fd, &all_servers, message,
                                           len - optlen);
@@ -275,9 +290,23 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec,
 
         switch (client->state) {
         case DHCP6_STATE_SOLICITATION:
+
+                if (client->retransmit_count && client->lease) {
+                        client_start(client, DHCP6_STATE_REQUEST);
+                        return 0;
+                }
+
                 init_retransmit_time = DHCP6_SOL_TIMEOUT;
                 max_retransmit_time = DHCP6_SOL_MAX_RT;
                 max_retransmit_count = 0;
+                max_retransmit_duration = 0;
+
+                break;
+
+        case DHCP6_STATE_REQUEST:
+                init_retransmit_time = DHCP6_REQ_TIMEOUT;
+                max_retransmit_time = DHCP6_REQ_MAX_RT;
+                max_retransmit_count = DHCP6_REQ_MAX_RC;
                 max_retransmit_duration = 0;
 
                 break;
@@ -537,6 +566,9 @@ static int client_receive_advertise(sd_dhcp6_client *client,
                 r = 0;
         }
 
+        if (pref_advertise == 255 || client->retransmit_count > 1)
+                r = DHCP6_STATE_REQUEST;
+
         return r;
 }
 
@@ -596,8 +628,12 @@ static int client_receive_message(sd_event_source *s, int fd, uint32_t revents,
         case DHCP6_STATE_SOLICITATION:
                 r = client_receive_advertise(client, message, len);
 
+                if (r == DHCP6_STATE_REQUEST)
+                        client_start(client, r);
+
                 break;
 
+        case DHCP6_STATE_REQUEST:
         case DHCP6_STATE_STOPPED:
         case DHCP6_STATE_RS:
                 return 0;
@@ -653,6 +689,11 @@ static int client_start(sd_dhcp6_client *client, enum DHCP6State state)
                         return r;
 
                 client->state = DHCP6_STATE_SOLICITATION;
+
+                break;
+
+        case DHCP6_STATE_REQUEST:
+                client->state = state;
 
                 break;
         }
