@@ -36,6 +36,10 @@ struct DHCP6Message {
 
 typedef struct DHCP6Message DHCP6Message;
 
+#define IN6ADDR_ALL_DHCP6_RELAY_AGENTS_AND_SERVERS_INIT \
+        { { { 0xff, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
+              0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x02 } } }
+
 enum {
         DHCP6_PORT_SERVER                       = 547,
         DHCP6_PORT_CLIENT                       = 546,

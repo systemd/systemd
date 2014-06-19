@@ -31,6 +31,7 @@
 #include "socket-util.h"
 
 #include "dhcp6-internal.h"
+#include "dhcp6-protocol.h"
 
 #define IN6ADDR_ALL_ROUTERS_MULTICAST_INIT \
         { { { 0xff, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
@@ -124,6 +125,68 @@ int dhcp_network_icmp6_send_router_solicitation(int s, const struct ether_addr *
                 iov[0].iov_len = sizeof(rs.rs);
 
         r = sendmsg(s, &msg, 0);
+        if (r < 0)
+                return -errno;
+
+        return 0;
+}
+
+int dhcp6_network_bind_udp_socket(int index, struct in6_addr *local_address) {
+        struct in6_pktinfo pktinfo = {
+                .ipi6_ifindex = index,
+        };
+        union sockaddr_union src = {
+                .in6.sin6_family = AF_INET6,
+                .in6.sin6_port = htobe16(DHCP6_PORT_CLIENT),
+                .in6.sin6_addr = IN6ADDR_ANY_INIT,
+        };
+        _cleanup_close_ int s = -1;
+        int r, off = 0, on = 1;
+
+        if (local_address)
+                memcpy(&src.in6.sin6_addr, local_address,
+                       sizeof(src.in6.sin6_addr));
+
+        s = socket(AF_INET6, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK,
+                   IPPROTO_UDP);
+        if (s < 0)
+                return -errno;
+
+        r = setsockopt(s, IPPROTO_IPV6, IPV6_PKTINFO, &pktinfo,
+                       sizeof(pktinfo));
+        if (r < 0)
+                return -errno;
+
+        r = setsockopt(s, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on));
+        if (r < 0)
+                return -errno;
+
+        r = setsockopt(s, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, &off, sizeof(off));
+        if (r < 0)
+                return -errno;
+
+        r = bind(s, &src.sa, sizeof(src.in6));
+        if (r < 0)
+                return -errno;
+
+        r = s;
+        s = -1;
+        return r;
+}
+
+int dhcp6_network_send_udp_socket(int s, struct in6_addr *server_address,
+                                  const void *packet, size_t len) {
+        union sockaddr_union dest = {
+                .in6.sin6_family = AF_INET6,
+                .in6.sin6_port = htobe16(DHCP6_PORT_SERVER),
+        };
+        int r;
+
+        assert(server_address);
+
+        memcpy(&dest.in6.sin6_addr, server_address, sizeof(dest.in6.sin6_addr));
+
+        r = sendto(s, packet, len, 0, &dest.sa, sizeof(dest.in6));
         if (r < 0)
                 return -errno;
 
