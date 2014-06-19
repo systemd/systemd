@@ -153,15 +153,13 @@ static sd_dhcp6_client *client_notify(sd_dhcp6_client *client, int event) {
         return client;
 }
 
-static int client_initialize(sd_dhcp6_client *client)
-{
+static int client_reset(sd_dhcp6_client *client) {
         assert_return(client, -EINVAL);
 
         client->receive_message =
                 sd_event_source_unref(client->receive_message);
 
-        if (client->fd > 0)
-                client->fd = safe_close(client->fd);
+        client->fd = safe_close(client->fd);
 
         client->transaction_id = 0;
 
@@ -186,7 +184,7 @@ static sd_dhcp6_client *client_stop(sd_dhcp6_client *client, int error) {
 
         client = client_notify(client, error);
         if (client)
-                client_initialize(client);
+                client_reset(client);
 
         return client;
 }
@@ -873,7 +871,7 @@ int sd_dhcp6_client_start(sd_dhcp6_client *client)
         assert_return(client->event, -EINVAL);
         assert_return(client->index > 0, -EINVAL);
 
-        r = client_initialize(client);
+        r = client_reset(client);
         if (r < 0)
                 return r;
 
@@ -925,7 +923,7 @@ sd_dhcp6_client *sd_dhcp6_client_ref(sd_dhcp6_client *client) {
 
 sd_dhcp6_client *sd_dhcp6_client_unref(sd_dhcp6_client *client) {
         if (client && REFCNT_DEC(client->n_ref) <= 0) {
-                client_initialize(client);
+                client_reset(client);
 
                 sd_dhcp6_client_detach_event(client);
 
@@ -957,6 +955,8 @@ int sd_dhcp6_client_new(sd_dhcp6_client **ret)
         client->ia_na.type = DHCP6_OPTION_IA_NA;
 
         client->index = -1;
+
+        client->fd = -1;
 
         /* initialize DUID */
         client->duid.type = htobe16(DHCP6_DUID_EN);
