@@ -46,6 +46,9 @@ static bool verbose = false;
 static sd_event_source *hangcheck;
 static int test_dhcp_fd[2];
 static int test_index = 42;
+static int test_client_message_num;
+static be32_t test_iaid = 0;
+static uint8_t test_duid[14] = { };
 static sd_event *e_solicit;
 
 static int test_client_basic(sd_event *e) {
@@ -303,7 +306,106 @@ int dhcp6_network_bind_udp_socket(int index, struct in6_addr *local_address) {
         return test_dhcp_fd[0];
 }
 
-static int verify_solicit(DHCP6Message *solicit, uint8_t *option, size_t len) {
+static int test_client_send_reply(DHCP6Message *request) {
+        return 0;
+}
+
+static int test_client_verify_request(DHCP6Message *request, uint8_t *option,
+                                      size_t len) {
+        _cleanup_dhcp6_lease_free_ sd_dhcp6_lease *lease = NULL;
+        uint8_t *optval;
+        uint16_t optcode;
+        size_t optlen;
+        bool found_clientid = false, found_iana = false, found_serverid = false;
+        int r;
+        struct in6_addr addr;
+        be32_t val;
+        uint32_t lt_pref, lt_valid;
+
+        assert_se(request->type == DHCP6_REQUEST);
+
+        assert_se(dhcp6_lease_new(&lease) >= 0);
+
+        while ((r = dhcp6_option_parse(&option, &len,
+                                       &optcode, &optlen, &optval)) >= 0) {
+                switch(optcode) {
+                case DHCP6_OPTION_CLIENTID:
+                        assert_se(!found_clientid);
+                        found_clientid = true;
+
+                        assert_se(!memcmp(optval, &test_duid,
+                                          sizeof(test_duid)));
+
+                        break;
+
+                case DHCP6_OPTION_IA_NA:
+                        assert_se(!found_iana);
+                        found_iana = true;
+
+
+                        assert_se(optlen == 40);
+                        assert_se(!memcmp(optval, &test_iaid, sizeof(test_iaid)));
+
+                        val = htobe32(80);
+                        assert_se(!memcmp(optval + 4, &val, sizeof(val)));
+
+                        val = htobe32(120);
+                        assert_se(!memcmp(optval + 8, &val, sizeof(val)));
+
+                        assert_se(!dhcp6_option_parse_ia(&optval, &optlen,
+                                                         optcode, &lease->ia));
+
+                        break;
+
+                case DHCP6_OPTION_SERVERID:
+                        assert_se(!found_serverid);
+                        found_serverid = true;
+
+                        assert_se(optlen == 14);
+                        assert_se(!memcmp(&msg_advertise[179], optval, optlen));
+
+                        break;
+                }
+        }
+
+        assert_se(r == -ENOMSG);
+        assert_se(found_clientid && found_iana && found_serverid);
+
+        assert_se(sd_dhcp6_lease_get_first_address(lease, &addr, &lt_pref,
+                                                   &lt_valid) >= 0);
+        assert_se(!memcmp(&addr, &msg_advertise[42], sizeof(addr)));
+        assert_se(lt_pref == 150);
+        assert_se(lt_valid == 180);
+
+        assert_se(sd_dhcp6_lease_get_next_address(lease, &addr, &lt_pref,
+                                                  &lt_valid) == -ENOMSG);
+
+        sd_event_exit(e_solicit, 0);
+
+        return 0;
+}
+
+static int test_client_send_advertise(DHCP6Message *solicit)
+{
+        DHCP6Message advertise;
+
+        advertise.transaction_id = solicit->transaction_id;
+        advertise.type = DHCP6_ADVERTISE;
+
+        memcpy(msg_advertise, &advertise.transaction_id, 4);
+
+        memcpy(&msg_advertise[8], test_duid, sizeof(test_duid));
+
+        memcpy(&msg_advertise[26], &test_iaid, sizeof(test_iaid));
+
+        assert_se(write(test_dhcp_fd[1], msg_advertise, sizeof(msg_advertise))
+                  == sizeof(msg_advertise));
+
+        return 0;
+}
+
+static int test_client_verify_solicit(DHCP6Message *solicit, uint8_t *option,
+                                      size_t len) {
         uint8_t *optval;
         uint16_t optcode;
         size_t optlen;
@@ -319,7 +421,8 @@ static int verify_solicit(DHCP6Message *solicit, uint8_t *option, size_t len) {
                         assert_se(!found_clientid);
                         found_clientid = true;
 
-                        assert_se(optlen == 14);
+                        assert_se(optlen == sizeof(test_duid));
+                        memcpy(&test_duid, optval, sizeof(test_duid));
 
                         break;
 
@@ -329,14 +432,14 @@ static int verify_solicit(DHCP6Message *solicit, uint8_t *option, size_t len) {
 
                         assert_se(optlen == 12);
 
+                        memcpy(&test_iaid, optval, sizeof(test_iaid));
+
                         break;
                 }
         }
 
         assert_se(r == -ENOMSG);
         assert_se(found_clientid && found_iana);
-
-        sd_event_exit(e_solicit, 0);
 
         return 0;
 }
@@ -361,7 +464,15 @@ int dhcp6_network_send_udp_socket(int s, struct in6_addr *server_address,
 
         assert_se(message->transaction_id & 0x00ffffff);
 
-        verify_solicit(message, option, len);
+        if (test_client_message_num == 0) {
+                test_client_verify_solicit(message, option, len);
+                test_client_send_advertise(message);
+                test_client_message_num++;
+        } else if (test_client_message_num == 1) {
+                test_client_verify_request(message, option, len);
+                test_client_send_reply(message);
+                test_client_message_num++;
+        }
 
         return len;
 }
