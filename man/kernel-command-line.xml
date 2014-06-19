@@ -99,6 +99,19 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>systemd.mask=</varname></term>
+                                <term><varname>systemd.debug-shell</varname></term>
+                                <listitem>
+                                        <para>Additional parameters
+                                        understood by
+                                        <citerefentry><refentrytitle>systemd-debug-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                                        to mask specific units at
+                                        boot, or invoke a debug shell
+                                        on tty9.</para>
+                                </listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>systemd.restore_state=</varname></term>
                                 <listitem>
                                         <para>This parameter is understood by
@@ -183,20 +196,10 @@
 
                         <varlistentry>
                                 <term><varname>fsck.mode=</varname></term>
-
-                                <listitem>
-                                        <para>Parameter understood by
-                                        the file system checker
-                                        services. For details, see
-                                        <citerefentry><refentrytitle>systemd-fsck@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
-                                </listitem>
-                        </varlistentry>
-
-                        <varlistentry>
                                 <term><varname>fsck.repair=</varname></term>
 
                                 <listitem>
-                                        <para>Parameter understood by
+                                        <para>Parameters understood by
                                         the file system checker
                                         services. For details, see
                                         <citerefentry><refentrytitle>systemd-fsck@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
@@ -304,6 +307,38 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>root=</varname></term>
+                                <term><varname>rootfstype=</varname></term>
+                                <term><varname>rootfsflags=</varname></term>
+                                <term><varname>ro</varname></term>
+                                <term><varname>rw</varname></term>
+
+                                <listitem>
+                                        <para>Configures the root file
+                                        system and its file system
+                                        type and mount options, as
+                                        well as whether it shall be
+                                        mounted read-only or
+                                        read-writable initially. For
+                                        details, see
+                                        <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+                                </listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>systemd.gpt_auto=</varname></term>
+                                <term><varname>rd.systemd.gpt_auto=</varname></term>
+
+                                <listitem>
+                                        <para>Configures whether GPT
+                                        based partition auto-discovery
+                                        shall be attempted. For
+                                        details, see
+                                        <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+                                </listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>modules-load=</varname></term>
                                 <term><varname>rd.modules-load=</varname></term>
 
@@ -325,6 +360,7 @@
                           <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>bootparam</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>dracut.cmdline</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd-debug-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd-fsck@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd-quotacheck.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
@@ -333,8 +369,9 @@
                           <citerefentry><refentrytitle>plymouth</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd-cryptsetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                          <citerefentry><refentrytitle>systemd-modules-load.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-                          <citerefentry><refentrytitle>systemd-backlight@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                          <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd-modules-load.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd-backlight@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd-rfkill@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                   </para>
         </refsect1>
