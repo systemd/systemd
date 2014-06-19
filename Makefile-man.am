@@ -58,6 +58,7 @@ MANPAGES += \
 	man/systemd-cat.1 \
 	man/systemd-cgls.1 \
 	man/systemd-cgtop.1 \
+	man/systemd-debug-generator.8 \
 	man/systemd-delta.1 \
 	man/systemd-detect-virt.1 \
 	man/systemd-efi-boot-generator.8 \
@@ -1577,6 +1578,7 @@ EXTRA_DIST += \
 	man/systemd-cgtop.xml \
 	man/systemd-cryptsetup-generator.xml \
 	man/systemd-cryptsetup@.service.xml \
+	man/systemd-debug-generator.xml \
 	man/systemd-delta.xml \
 	man/systemd-detect-virt.xml \
 	man/systemd-efi-boot-generator.xml \
