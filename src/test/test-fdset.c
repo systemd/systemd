@@ -111,4 +111,6 @@ int main(int argc, char *argv[]) {
         test_fdset_put_dup();
         test_fdset_cloexec();
         test_fdset_close_others();
+
+        return 0;
 }
