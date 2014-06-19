@@ -2666,7 +2666,7 @@ test_ipv4ll_LDADD = \
 
 test_icmp6_rs_SOURCES = \
 	src/systemd/sd-dhcp6-client.h \
-	src/libsystemd-network/sd-icmp6-nd.h \
+	src/systemd/sd-icmp6-nd.h \
 	src/libsystemd-network/dhcp6-internal.h \
 	src/libsystemd-network/test-icmp6-rs.c
 
