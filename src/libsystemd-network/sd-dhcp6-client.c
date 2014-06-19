@@ -22,11 +22,15 @@
 #include <errno.h>
 #include <string.h>
 
+#include "siphash24.h"
 #include "util.h"
 #include "refcnt.h"
 
 #include "sd-dhcp6-client.h"
 #include "dhcp6-protocol.h"
+
+#define SYSTEMD_PEN 43793
+#define HASH_KEY SD_ID128_MAKE(80,11,8c,c2,fe,4a,03,ee,3e,d6,0c,6f,36,39,14,09)
 
 struct sd_dhcp6_client {
         RefCount n_ref;
@@ -38,6 +42,12 @@ struct sd_dhcp6_client {
         struct ether_addr mac_addr;
         sd_dhcp6_client_cb_t cb;
         void *userdata;
+
+        struct duid_en {
+                uint16_t type; /* DHCP6_DUID_EN */
+                uint32_t pen;
+                uint8_t id[8];
+        } _packed_ duid;
 };
 
 int sd_dhcp6_client_set_callback(sd_dhcp6_client *client,
@@ -185,6 +195,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(sd_dhcp6_client*, sd_dhcp6_client_unref);
 int sd_dhcp6_client_new(sd_dhcp6_client **ret)
 {
         _cleanup_dhcp6_client_free_ sd_dhcp6_client *client = NULL;
+        sd_id128_t machine_id;
+        int r;
 
         assert_return(ret, -EINVAL);
 
@@ -195,6 +207,19 @@ int sd_dhcp6_client_new(sd_dhcp6_client **ret)
         client->n_ref = REFCNT_INIT;
 
         client->index = -1;
+
+        /* initialize DUID */
+        client->duid.type = htobe16(DHCP6_DUID_EN);
+        client->duid.pen = htobe32(SYSTEMD_PEN);
+
+        r = sd_id128_get_machine(&machine_id);
+        if (r < 0)
+                return r;
+
+        /* a bit of snake-oil perhaps, but no need to expose the machine-id
+           directly */
+        siphash24(client->duid.id, &machine_id, sizeof(machine_id),
+                  HASH_KEY.bytes);
 
         *ret = client;
         client = NULL;
