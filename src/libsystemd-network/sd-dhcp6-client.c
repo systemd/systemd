@@ -310,7 +310,7 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec,
         sd_dhcp6_client *client = userdata;
         usec_t time_now, init_retransmit_time, max_retransmit_time;
         usec_t max_retransmit_duration;
-        uint8_t max_retransmit_count;
+        uint8_t max_retransmit_count = 0;
         char time_string[FORMAT_TIMESPAN_MAX];
 
         assert(s);
@@ -434,7 +434,7 @@ static int client_ensure_iaid(sd_dhcp6_client *client) {
         if (detect_container(NULL) <= 0) {
                 /* not in a container, udev will be around */
                 _cleanup_udev_unref_ struct udev *udev;
-                _cleanup_udev_device_unref_ struct udev_device *device;
+                _cleanup_udev_device_unref_ struct udev_device *device = NULL;
                 char ifindex_str[2 + DECIMAL_STR_MAX(int)];
 
                 udev = udev_new();
