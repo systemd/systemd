@@ -371,7 +371,8 @@ rootlibexec_PROGRAMS = \
 systemgenerator_PROGRAMS = \
 	systemd-getty-generator \
 	systemd-fstab-generator \
-	systemd-system-update-generator
+	systemd-system-update-generator \
+	systemd-debug-generator
 
 dist_bashcompletion_DATA = \
 	shell-completion/bash/busctl \
@@ -1888,6 +1889,14 @@ systemd_getty_generator_SOURCES = \
 	src/getty-generator/getty-generator.c
 
 systemd_getty_generator_LDADD = \
+	libsystemd-label.la \
+	libsystemd-shared.la
+
+# ------------------------------------------------------------------------------
+systemd_debug_generator_SOURCES = \
+	src/debug-generator/debug-generator.c
+
+systemd_debug_generator_LDADD = \
 	libsystemd-label.la \
 	libsystemd-shared.la
 

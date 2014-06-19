@@ -60,6 +60,7 @@
 /systemd-cryptsetup
 /systemd-cryptsetup-generator
 /systemd-dbus1-generator
+/systemd-debug-generator
 /systemd-delta
 /systemd-detect-virt
 /systemd-efi-boot-generator
