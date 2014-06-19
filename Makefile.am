@@ -3706,22 +3706,22 @@ systemd_coredump_LDADD += \
 	libsystemd-acl.la
 endif
 
-systemd_coredumpctl_SOURCES = \
+coredumpctl_SOURCES = \
 	src/journal/coredumpctl.c
 
-systemd_coredumpctl_LDADD = \
+coredumpctl_LDADD = \
 	libsystemd-journal-internal.la \
 	libsystemd-internal.la \
 	libsystemd-shared.la
 
 bin_PROGRAMS += \
-	systemd-coredumpctl
+	coredumpctl
 
 dist_bashcompletion_DATA += \
-	shell-completion/bash/systemd-coredumpctl
+	shell-completion/bash/coredumpctl
 
 dist_zshcompletion_DATA += \
-	shell-completion/zsh/_systemd-coredumpctl
+	shell-completion/zsh/_coredumpctl
 
 sysctl_DATA = \
 	sysctl.d/50-coredump.conf

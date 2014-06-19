@@ -1,4 +1,4 @@
-# systemd-coredumpctl(1) completion                       -*- shell-script -*-
+# coredumpctl(1) completion                       -*- shell-script -*-
 #
 # This file is part of systemd.
 #
@@ -57,11 +57,11 @@ _coredumpctl() {
                 COMPREPLY=( $(compgen -W '${__journal_fields[*]}' -S= -- "$cur") )
                return 0
         elif [[ $cur = *=* ]]; then
-                mapfile -t field_vals < <(systemd-coredumpctl -F "${prev%=}" 2>/dev/null)
+                mapfile -t field_vals < <(coredumpctl -F "${prev%=}" 2>/dev/null)
                 COMPREPLY=( $(compgen -W '${field_vals[*]}' -- "${cur#=}") )
                 return 0
         elif [[ $prev = '=' ]]; then
-                mapfile -t field_vals < <(systemd-coredumpctl -F "${COMP_WORDS[COMP_CWORD-2]}" 2>/dev/null)
+                mapfile -t field_vals < <(coredumpctl -F "${COMP_WORDS[COMP_CWORD-2]}" 2>/dev/null)
                 comps=${field_vals[*]}
         else
                 for ((i=0; i <= COMP_CWORD; i++)); do
@@ -82,4 +82,4 @@ _coredumpctl() {
         return 0
 }
 
-complete -F _coredumpctl systemd-coredumpctl
+complete -F _coredumpctl coredumpctl

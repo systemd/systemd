@@ -1,21 +1,21 @@
-#compdef systemd-coredumpctl
+#compdef coredumpctl
 
-_systemd-coredumpctl_command(){
-    local -a _systemd_coredumpctl_cmds
-    _systemd_coredumpctl_cmds=(
+_coredumpctl_command(){
+    local -a _coredumpctl_cmds
+    _coredumpctl_cmds=(
             'list:List available coredumps'
             'dump:Print coredump to stdout'
             'gdb:Start gdb on a coredump'
     )
     if (( CURRENT == 1 )); then
-        _describe -t commands 'systemd-coredumpctl command' _systemd_coredumpctl_cmds
+        _describe -t commands 'coredumpctl command' _coredumpctl_cmds
     else
         local curcontext="$curcontext"
         local -a _dumps
-        cmd="${${_systemd_coredumpctl_cmds[(r)$words[1]:*]%%:*}}"
+        cmd="${${_coredumpctl_cmds[(r)$words[1]:*]%%:*}}"
         if (( $#cmd  )); then
-            # user can set zstyle ':completion:*:*:systemd-coredumpctl:*' sort no for coredumps to be ordered by date, otherwise they get ordered by pid
-            _dumps=( "${(foa)$(systemd-coredumpctl list | awk 'BEGIN{OFS=":"} /^\s/ {sub(/[[ \t]+/, ""); print $5,$0}' 2>/dev/null)}" )
+            # user can set zstyle ':completion:*:*:coredumpctl:*' sort no for coredumps to be ordered by date, otherwise they get ordered by pid
+            _dumps=( "${(foa)$(coredumpctl list | awk 'BEGIN{OFS=":"} /^\s/ {sub(/[[ \t]+/, ""); print $5,$0}' 2>/dev/null)}" )
             if [[ -n "$_dumps" ]]; then
                 _describe -t pids 'coredumps' _dumps
             else
@@ -33,4 +33,4 @@ _arguments \
     '--no-pager[Do not pipe output into a pager]' \
     {-h,--help}'[Show this help]' \
     '--version[Show package version]' \
-    '*::systemd-coredumpctl commands:_systemd-coredumpctl_command'
+    '*::coredumpctl commands:_coredumpctl_command'

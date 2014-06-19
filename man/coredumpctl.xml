@@ -21,11 +21,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="systemd-coredumpctl" conditional='ENABLE_COREDUMP'
+<refentry id="coredumpctl" conditional='ENABLE_COREDUMP'
           xmlns:xi="http://www.w3.org/2001/XInclude">
 
         <refentryinfo>
-                <title>systemd-coredumpctl</title>
+                <title>coredumpctl</title>
                 <productname>systemd</productname>
 
                 <authorgroup>
@@ -39,18 +39,18 @@
         </refentryinfo>
 
         <refmeta>
-                <refentrytitle>systemd-coredumpctl</refentrytitle>
+                <refentrytitle>coredumpctl</refentrytitle>
                 <manvolnum>1</manvolnum>
         </refmeta>
 
         <refnamediv>
-                <refname>systemd-coredumpctl</refname>
+                <refname>coredumpctl</refname>
                 <refpurpose>Retrieve coredumps from the journal</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
                 <cmdsynopsis>
-                        <command>systemd-coredumpctl</command>
+                        <command>coredumpctl</command>
                         <arg choice="opt" rep="repeat">OPTIONS</arg>
                         <arg choice="req">COMMAND</arg>
                         <arg choice="opt" rep="repeat">PID|COMM|EXE|MATCH</arg>
@@ -60,7 +60,7 @@
         <refsect1>
                 <title>Description</title>
 
-                <para><command>systemd-coredumpctl</command> may be used to
+                <para><command>coredumpctl</command> may be used to
                 retrieve coredumps from
                 <citerefentry><refentrytitle>systemd-journald</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
         </refsect1>

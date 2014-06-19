@@ -459,7 +459,7 @@
                                         messages containing coredumps from
                                         system and session units.
                                         See
-                                        <citerefentry><refentrytitle>systemd-coredumpctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+                                        <citerefentry><refentrytitle>coredumpctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
                                         </para>
                                 </listitem>
                         </varlistentry>
@@ -597,7 +597,7 @@
                           <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>sd-journal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-                          <citerefentry><refentrytitle>systemd-coredumpctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>coredumpctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                   </para>
         </refsect1>

@@ -658,7 +658,7 @@ endif
 
 if ENABLE_COREDUMP
 MANPAGES += \
-	man/systemd-coredumpctl.1
+	man/coredumpctl.1
 MANPAGES_ALIAS += \
 	#
 
@@ -1477,6 +1477,7 @@ EXTRA_DIST += \
 	man/bootctl.xml \
 	man/bootup.xml \
 	man/busctl.xml \
+	man/coredumpctl.xml \
 	man/crypttab.xml \
 	man/daemon.xml \
 	man/halt.xml \
@@ -1569,7 +1570,6 @@ EXTRA_DIST += \
 	man/systemd-cat.xml \
 	man/systemd-cgls.xml \
 	man/systemd-cgtop.xml \
-	man/systemd-coredumpctl.xml \
 	man/systemd-cryptsetup-generator.xml \
 	man/systemd-cryptsetup@.service.xml \
 	man/systemd-delta.xml \
