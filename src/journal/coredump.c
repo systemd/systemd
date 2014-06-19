@@ -24,7 +24,7 @@
 #include <stdio.h>
 #include <sys/prctl.h>
 #include <sys/types.h>
-#include <attr/xattr.h>
+#include <sys/xattr.h>
 
 #include <systemd/sd-journal.h>
 #include <systemd/sd-login.h>
