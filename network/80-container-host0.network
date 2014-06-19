@@ -11,4 +11,5 @@ Name=host0
 
 [Network]
 DHCP=yes
+DHCPv6=yes
 IPv4LL=yes
