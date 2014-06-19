@@ -136,7 +136,6 @@ static void test_rs(sd_event *e) {
         nd = sd_icmp6_nd_unref(nd);
         assert(!nd);
 
-        close(test_fd[0]);
         close(test_fd[1]);
 }
 
