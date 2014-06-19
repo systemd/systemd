@@ -2665,6 +2665,7 @@ test_icmp6_rs_LDADD = \
 
 test_dhcp6_client_SOURCES = \
 	src/systemd/sd-dhcp6-client.h \
+	src/libsystemd-network/dhcp6-icmp6.h \
 	src/libsystemd-network/dhcp6-internal.h \
 	src/libsystemd-network/test-dhcp6-client.c
 
