@@ -75,3 +75,5 @@ int dhcp6_network_send_udp_socket(int s, struct in6_addr *address,
 
 const char *dhcp6_message_type_to_string(int s) _const_;
 int dhcp6_message_type_from_string(const char *s) _pure_;
+const char *dhcp6_message_status_to_string(int s) _const_;
+int dhcp6_message_status_from_string(const char *s) _pure_;

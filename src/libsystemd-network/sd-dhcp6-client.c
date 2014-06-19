@@ -21,6 +21,7 @@
 
 #include <errno.h>
 #include <string.h>
+#include <sys/ioctl.h>
 
 #include "udev.h"
 #include "udev-util.h"
@@ -33,6 +34,7 @@
 #include "sd-dhcp6-client.h"
 #include "dhcp6-protocol.h"
 #include "dhcp6-internal.h"
+#include "dhcp6-lease-internal.h"
 
 #define SYSTEMD_PEN 43793
 #define HASH_KEY SD_ID128_MAKE(80,11,8c,c2,fe,4a,03,ee,3e,d6,0c,6f,36,39,14,09)
@@ -47,6 +49,7 @@ struct sd_dhcp6_client {
         struct ether_addr mac_addr;
         DHCP6IA ia_na;
         be32_t transaction_id;
+        struct sd_dhcp6_lease *lease;
         int fd;
         sd_event_source *receive_message;
         usec_t retransmit_time;
@@ -80,6 +83,17 @@ const char * dhcp6_message_type_table[_DHCP6_MESSAGE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(dhcp6_message_type, int);
+
+const char * dhcp6_message_status_table[_DHCP6_STATUS_MAX] = {
+        [DHCP6_STATUS_SUCCESS] = "Success",
+        [DHCP6_STATUS_UNSPEC_FAIL] = "Unspecified failure",
+        [DHCP6_STATUS_NO_ADDRS_AVAIL] = "No addresses available",
+        [DHCP6_STATUS_NO_BINDING] = "Binding unavailable",
+        [DHCP6_STATUS_NOT_ON_LINK] = "Not on link",
+        [DHCP6_STATUS_USE_MULTICAST] = "Use multicast",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(dhcp6_message_status, int);
 
 int sd_dhcp6_client_set_callback(sd_dhcp6_client *client,
                                  sd_dhcp6_client_cb_t cb, void *userdata)
@@ -377,9 +391,209 @@ static int client_ensure_iaid(sd_dhcp6_client *client) {
         return 0;
 }
 
+static int client_parse_message(sd_dhcp6_client *client,
+                                DHCP6Message *message, size_t len,
+                                sd_dhcp6_lease *lease) {
+        int r;
+        uint8_t *optval, *option = (uint8_t *)(message + 1), *id = NULL;
+        uint16_t optcode, status;
+        size_t optlen, id_len;
+        bool clientid = false;
+        be32_t iaid_lease;
+
+        while ((r = dhcp6_option_parse(&option, &len, &optcode, &optlen,
+                                       &optval)) >= 0) {
+                switch (optcode) {
+                case DHCP6_OPTION_CLIENTID:
+                        if (clientid) {
+                                log_dhcp6_client(client, "%s contains multiple clientids",
+                                                 dhcp6_message_type_to_string(message->type));
+                                return -EINVAL;
+                        }
+
+                        if (optlen != sizeof(client->duid) ||
+                            memcmp(&client->duid, optval, optlen) != 0) {
+                                log_dhcp6_client(client, "%s DUID does not match",
+                                                 dhcp6_message_type_to_string(message->type));
+
+                                return -EINVAL;
+                        }
+                        clientid = true;
+
+                        break;
+
+                case DHCP6_OPTION_SERVERID:
+                        r = dhcp6_lease_get_serverid(lease, &id, &id_len);
+                        if (r >= 0 && id) {
+                                log_dhcp6_client(client, "%s contains multiple serverids",
+                                                 dhcp6_message_type_to_string(message->type));
+                                return -EINVAL;
+                        }
+
+                        r = dhcp6_lease_set_serverid(lease, optval, optlen);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
+                case DHCP6_OPTION_PREFERENCE:
+                        if (optlen != 1)
+                                return -EINVAL;
+
+                        r = dhcp6_lease_set_preference(lease, *optval);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
+                case DHCP6_OPTION_STATUS_CODE:
+                        if (optlen < 2)
+                                return -EINVAL;
+
+                        status = optval[0] << 8 | optval[1];
+                        if (status) {
+                                log_dhcp6_client(client, "%s Status %s",
+                                                 dhcp6_message_type_to_string(message->type),
+                                                 dhcp6_message_status_to_string(status));
+                                return -EINVAL;
+                        }
+
+                        break;
+
+                case DHCP6_OPTION_IA_NA:
+                        r = dhcp6_option_parse_ia(&optval, &optlen, optcode,
+                                                  &lease->ia);
+                        if (r < 0 && r != -ENOMSG)
+                                return r;
+
+                        r = dhcp6_lease_get_iaid(lease, &iaid_lease);
+                        if (r < 0)
+                                return r;
+
+                        if (client->ia_na.id != iaid_lease) {
+                                log_dhcp6_client(client, "%s has wrong IAID",
+                                                 dhcp6_message_type_to_string(message->type));
+                                return -EINVAL;
+                        }
+
+                        break;
+                }
+        }
+
+        if ((r < 0 && r != -ENOMSG) || !clientid) {
+                log_dhcp6_client(client, "%s has incomplete options",
+                                 dhcp6_message_type_to_string(message->type));
+                return -EINVAL;
+        }
+
+        r = dhcp6_lease_get_serverid(lease, &id, &id_len);
+        if (r < 0)
+                log_dhcp6_client(client, "%s has no server id",
+                                 dhcp6_message_type_to_string(message->type));
+
+        return r;
+}
+
+static int client_receive_advertise(sd_dhcp6_client *client,
+                                    DHCP6Message *advertise, size_t len) {
+        int r;
+        _cleanup_dhcp6_lease_free_ sd_dhcp6_lease *lease = NULL;
+        uint8_t pref_advertise = 0, pref_lease = 0;
+
+        if (advertise->type != DHCP6_ADVERTISE)
+                return -EINVAL;
+
+        r = dhcp6_lease_new(&lease);
+        if (r < 0)
+                return r;
+
+        r = client_parse_message(client, advertise, len, lease);
+        if (r < 0)
+                return r;
+
+        r = dhcp6_lease_get_preference(lease, &pref_advertise);
+        if (r < 0)
+                return r;
+
+        r = dhcp6_lease_get_preference(client->lease, &pref_lease);
+        if (!client->lease || r < 0 || pref_advertise > pref_lease) {
+                sd_dhcp6_lease_unref(client->lease);
+                client->lease = lease;
+                lease = NULL;
+                r = 0;
+        }
+
+        return r;
+}
+
 static int client_receive_message(sd_event_source *s, int fd, uint32_t revents,
-                                  void *userdata)
-{
+                                  void *userdata) {
+        sd_dhcp6_client *client = userdata;
+        _cleanup_free_ DHCP6Message *message;
+        int r, buflen, len;
+
+        assert(s);
+        assert(client);
+        assert(client->event);
+
+        r = ioctl(fd, FIONREAD, &buflen);
+        if (r < 0 || buflen <= 0)
+                buflen = DHCP6_MIN_OPTIONS_SIZE;
+
+        message = malloc0(buflen);
+        if (!message)
+                return -ENOMEM;
+
+        len = read(fd, message, buflen);
+        if ((size_t)len < sizeof(DHCP6Message)) {
+                log_dhcp6_client(client, "could not receive message from UDP socket: %s", strerror(errno));
+                return 0;
+        }
+
+        switch(message->type) {
+        case DHCP6_SOLICIT:
+        case DHCP6_REQUEST:
+        case DHCP6_CONFIRM:
+        case DHCP6_RENEW:
+        case DHCP6_REBIND:
+        case DHCP6_RELEASE:
+        case DHCP6_DECLINE:
+        case DHCP6_INFORMATION_REQUEST:
+        case DHCP6_RELAY_FORW:
+        case DHCP6_RELAY_REPL:
+                return 0;
+
+        case DHCP6_ADVERTISE:
+        case DHCP6_REPLY:
+        case DHCP6_RECONFIGURE:
+                break;
+
+        default:
+                log_dhcp6_client(client, "unknown message type %d",
+                                 message->type);
+                return 0;
+        }
+
+        if (client->transaction_id != (message->transaction_id &
+                                       htobe32(0x00ffffff)))
+                return 0;
+
+        switch (client->state) {
+        case DHCP6_STATE_SOLICITATION:
+                r = client_receive_advertise(client, message, len);
+
+                break;
+
+        case DHCP6_STATE_STOPPED:
+        case DHCP6_STATE_RS:
+                return 0;
+        }
+
+        if (r >= 0) {
+                log_dhcp6_client(client, "Recv %s",
+                                 dhcp6_message_type_to_string(message->type));
+        }
+
         return 0;
 }
 

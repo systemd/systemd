@@ -21,6 +21,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <netinet/ip6.h>
+#include <netinet/udp.h>
+
 #include "macro.h"
 #include "sparse-endian.h"
 
@@ -35,6 +38,9 @@ struct DHCP6Message {
 } _packed_;
 
 typedef struct DHCP6Message DHCP6Message;
+
+#define DHCP6_MIN_OPTIONS_SIZE \
+        1280 - sizeof(struct ip6_hdr) - sizeof(struct udphdr)
 
 #define IN6ADDR_ALL_DHCP6_RELAY_AGENTS_AND_SERVERS_INIT \
         { { { 0xff, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
