@@ -2662,12 +2662,22 @@ test_icmp6_rs_LDADD = \
 	libsystemd-internal.la \
 	libsystemd-shared.la
 
+test_dhcp6_client_SOURCES = \
+	src/systemd/sd-dhcp6-client.h \
+	src/libsystemd-network/test-dhcp6-client.c
+
+test_dhcp6_client_LDADD = \
+	libsystemd-network.la \
+	libsystemd-internal.la \
+	libsystemd-shared.la
+
 tests += \
 	test-dhcp-option \
 	test-dhcp-client \
 	test-dhcp-server \
 	test-ipv4ll \
-	test-icmp6-rs
+	test-icmp6-rs \
+	test-dhcp6-client
 
 # ------------------------------------------------------------------------------
 if ENABLE_GTK_DOC
