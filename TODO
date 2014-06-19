@@ -222,10 +222,6 @@ Features:
 
 * systemctl delete x.snapshot leaves no trace in logs (at least at default level).
 
-* make the coredump collector tool move itself into the user's cgroup
-  so that the coredump is properly written to the user's own journal
-  file.
-
 * seems that when we follow symlinks to units we prefer the symlink
   destination path over /etc and /usr. We should not do that. Instead
   /etc should always override /run+/usr and also any symlink
