@@ -25,8 +25,10 @@
 #include <fcntl.h>
 #include <locale.h>
 #include <errno.h>
+#include <signal.h>
 
 #include "util.h"
+#include "mkdir.h"
 #include "strv.h"
 #include "def.h"
 #include "fileio.h"
@@ -295,14 +297,14 @@ static void test_undecchar(void) {
 
 static void test_cescape(void) {
         _cleanup_free_ char *escaped;
-        escaped = cescape("abc\\\"\b\f\n\r\t\v\003\177\234\313");
-        assert_se(streq(escaped, "abc\\\\\\\"\\b\\f\\n\\r\\t\\v\\003\\177\\234\\313"));
+        escaped = cescape("abc\\\"\b\f\n\r\t\v\a\003\177\234\313");
+        assert_se(streq(escaped, "abc\\\\\\\"\\b\\f\\n\\r\\t\\v\\a\\003\\177\\234\\313"));
 }
 
 static void test_cunescape(void) {
         _cleanup_free_ char *unescaped;
-        unescaped = cunescape("abc\\\\\\\"\\b\\f\\n\\r\\t\\v\\003\\177\\234\\313");
-        assert_se(streq(unescaped, "abc\\\"\b\f\n\r\t\v\003\177\234\313"));
+        unescaped = cunescape("abc\\\\\\\"\\b\\f\\a\\n\\r\\t\\v\\003\\177\\234\\313");
+        assert_se(streq(unescaped, "abc\\\"\b\f\a\n\r\t\v\003\177\234\313"));
 }
 
 static void test_foreach_word(void) {
@@ -707,6 +709,186 @@ static void test_foreach_string(void) {
                 assert_se(streq(x, "zzz"));
 }
 
+static void test_filename_is_safe(void) {
+        char foo[FILENAME_MAX+2];
+        int i;
+
+        assert_se(!filename_is_safe(""));
+        assert_se(!filename_is_safe("/bar/foo"));
+        assert_se(!filename_is_safe("/"));
+        assert_se(!filename_is_safe("."));
+        assert_se(!filename_is_safe(".."));
+
+        for (i=0; i<FILENAME_MAX+1; i++)
+                foo[i] = 'a';
+        foo[FILENAME_MAX+1] = '\0';
+
+        assert_se(!filename_is_safe(foo));
+
+        assert_se(filename_is_safe("foo_bar-333"));
+        assert_se(filename_is_safe("o.o"));
+}
+
+static void test_ascii_strlower(void) {
+        char a[] = "AabBcC Jk Ii Od LKJJJ kkd LK";
+        assert_se(streq(ascii_strlower(a), "aabbcc jk ii od lkjjj kkd lk"));
+}
+
+static void test_files_same(void) {
+        _cleanup_close_ int fd = -1;
+        char name[] = "/tmp/test-files_same.XXXXXX";
+        char name_alias[] = "/tmp/test-files_same.alias";
+
+        fd = mkostemp_safe(name, O_RDWR|O_CLOEXEC);
+        assert_se(fd >= 0);
+        assert_se(symlink(name, name_alias) >= 0);
+
+        assert_se(files_same(name, name));
+        assert_se(files_same(name, name_alias));
+
+        unlink(name);
+        unlink(name_alias);
+}
+
+static void test_is_valid_documentation_url(void) {
+        assert_se(is_valid_documentation_url("http://www.freedesktop.org/wiki/Software/systemd"));
+        assert_se(is_valid_documentation_url("https://www.kernel.org/doc/Documentation/binfmt_misc.txt"));
+        assert_se(is_valid_documentation_url("file:foo"));
+        assert_se(is_valid_documentation_url("man:systemd.special(7)"));
+        assert_se(is_valid_documentation_url("info:bar"));
+
+        assert_se(!is_valid_documentation_url("foo:"));
+        assert_se(!is_valid_documentation_url("info:"));
+        assert_se(!is_valid_documentation_url(""));
+}
+
+static void test_file_in_same_dir(void) {
+        assert_se(streq(file_in_same_dir("/", "a"), "/a"));
+        assert_se(streq(file_in_same_dir("/", "/a"), "/a"));
+        assert_se(streq(file_in_same_dir("", "a"), "a"));
+        assert_se(streq(file_in_same_dir("a/", "a"), "a/a"));
+        assert_se(streq(file_in_same_dir("bar/foo", "bar"), "bar/bar"));
+}
+
+static void test_endswith(void) {
+        assert_se(endswith("foobar", "bar"));
+        assert_se(endswith("foobar", ""));
+        assert_se(endswith("foobar", "foobar"));
+        assert_se(endswith("", ""));
+
+        assert_se(!endswith("foobar", "foo"));
+        assert_se(!endswith("foobar", "foobarfoofoo"));
+}
+
+static void test_close_nointr(void) {
+        char name[] = "/tmp/test-test-close_nointr.XXXXXX";
+        int fd;
+
+        fd = mkostemp_safe(name, O_RDWR|O_CLOEXEC);
+        assert_se(fd >= 0);
+        assert_se(close_nointr(fd) >= 0);
+        assert_se(close_nointr(fd) < 0);
+
+        unlink(name);
+}
+
+
+static void test_unlink_noerrno(void) {
+        char name[] = "/tmp/test-close_nointr.XXXXXX";
+        int fd;
+
+        fd = mkostemp_safe(name, O_RDWR|O_CLOEXEC);
+        assert_se(fd >= 0);
+        assert_se(close_nointr(fd) >= 0);
+
+        {
+                PROTECT_ERRNO;
+                errno = -42;
+                assert_se(unlink_noerrno(name) >= 0);
+                assert_se(errno == -42);
+                assert_se(unlink_noerrno(name) < 0);
+                assert_se(errno == -42);
+        }
+}
+
+static void test_readlink_and_make_absolute(void) {
+        char tempdir[] = "/tmp/test-readlink_and_make_absolute";
+        char name[] = "/tmp/test-readlink_and_make_absolute/original";
+        char name2[] = "test-readlink_and_make_absolute/original";
+        char name_alias[] = "/tmp/test-readlink_and_make_absolute-alias";
+        char *r = NULL;
+
+        assert(mkdir_safe(tempdir, 0755, getuid(), getgid()) >= 0);
+        assert_se(touch(name) >= 0);
+
+        assert_se(symlink(name, name_alias) >= 0);
+        assert_se(readlink_and_make_absolute(name_alias, &r) >= 0);
+        assert_se(streq(r, name));
+        free(r);
+        assert_se(unlink(name_alias) >= 0);
+
+        assert_se(chdir(tempdir) >= 0);
+        assert_se(symlink(name2, name_alias) >= 0);
+        assert_se(readlink_and_make_absolute(name_alias, &r) >= 0);
+        assert_se(streq(r, name));
+        free(r);
+        assert_se(unlink(name_alias) >= 0);
+
+        assert_se(rm_rf_dangerous(tempdir, false, true, false) >= 0);
+}
+
+static void test_read_one_char(void) {
+        char r;
+        bool need_nl;
+        char name[] = "/tmp/test-read_one_char.XXXXXX";
+        _cleanup_close_ int fd = -1;
+        FILE *file;
+
+        fd = mkostemp_safe(name, O_RDWR|O_CLOEXEC);
+        assert_se(fd >= 0);
+        file = fdopen(fd, "r+");
+        assert_se(file);
+        assert_se(fputs("c\n", file) >= 0);
+        rewind(file);
+
+        assert_se(read_one_char(file, &r, 1000000, &need_nl) >= 0);
+        assert_se(!need_nl);
+        assert_se(r == 'c');
+        assert_se(read_one_char(file, &r, 1000000, &need_nl) < 0);
+
+        rewind(file);
+        assert_se(fputs("foobar\n", file) >= 0);
+        rewind(file);
+        assert_se(read_one_char(file, &r, 1000000, &need_nl) < 0);
+
+        rewind(file);
+        assert_se(fputs("\n", file) >= 0);
+        rewind(file);
+        assert_se(read_one_char(file, &r, 1000000, &need_nl) < 0);
+
+        unlink(name);
+}
+
+static void test_ignore_signals(void) {
+        assert_se(ignore_signals(SIGINT, -1) >= 0);
+        assert_se(kill(getpid(), SIGINT) >= 0);
+        assert_se(ignore_signals(SIGUSR1, SIGUSR2, SIGTERM, SIGPIPE, -1) >= 0);
+        assert_se(kill(getpid(), SIGUSR1) >= 0);
+        assert_se(kill(getpid(), SIGUSR2) >= 0);
+        assert_se(kill(getpid(), SIGTERM) >= 0);
+        assert_se(kill(getpid(), SIGPIPE) >= 0);
+        assert_se(default_signals(SIGINT, SIGUSR1, SIGUSR2, SIGTERM, SIGPIPE, -1) >= 0);
+}
+
+static void test_strshorten(void) {
+        char s[] = "foobar";
+
+        assert_se(strlen(strshorten(s, 6)) == 6);
+        assert_se(strlen(strshorten(s, 12)) == 6);
+        assert_se(strlen(strshorten(s, 2)) == 2);
+        assert_se(strlen(strshorten(s, 0)) == 0);
+}
+
 int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
@@ -752,6 +934,18 @@ int main(int argc, char *argv[]) {
         test_hexdump();
         test_log2i();
         test_foreach_string();
+        test_filename_is_safe();
+        test_ascii_strlower();
+        test_files_same();
+        test_is_valid_documentation_url();
+        test_file_in_same_dir();
+        test_endswith();
+        test_close_nointr();
+        test_unlink_noerrno();
+        test_readlink_and_make_absolute();
+        test_read_one_char();
+        test_ignore_signals();
+        test_strshorten();
 
         return 0;
 }
