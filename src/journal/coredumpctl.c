@@ -45,12 +45,12 @@ static enum {
         ACTION_DUMP,
         ACTION_GDB,
 } arg_action = ACTION_LIST;
-
-static FILE* output = NULL;
 static const char* arg_field = NULL;
-
 static int arg_no_pager = false;
 static int arg_no_legend = false;
+static int arg_one = false;
+
+static FILE* output = NULL;
 
 static Set *new_matches(void) {
         Set *set;
@@ -165,7 +165,7 @@ static int parse_argv(int argc, char *argv[], Set *matches) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "ho:F:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "ho:F:1", options, NULL)) >= 0)
                 switch(c) {
 
                 case 'h':
@@ -206,6 +206,10 @@ static int parse_argv(int argc, char *argv[], Set *matches) {
                                 return -EINVAL;
                         }
                         arg_field = optarg;
+                        break;
+
+                case '1':
+                        arg_one = true;
                         break;
 
                 case '?':
@@ -535,33 +539,6 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
         return 0;
 }
 
-static int dump_list(sd_journal *j) {
-        int found = 0;
-
-        assert(j);
-
-        /* The coredumps are likely to compressed, and for just
-         * listing them we don't need to decompress them, so let's
-         * pick a fairly low data threshold here */
-        sd_journal_set_data_threshold(j, 4096);
-
-        SD_JOURNAL_FOREACH(j) {
-                if (arg_action == ACTION_INFO)
-                        print_info(stdout, j, found++);
-                else if (arg_field)
-                        print_field(stdout, j);
-                else
-                        print_list(stdout, j, found++);
-        }
-
-        if (!arg_field && !found) {
-                log_notice("No coredumps found");
-                return -ESRCH;
-        }
-
-        return 0;
-}
-
 static int focus(sd_journal *j) {
         int r;
 
@@ -573,10 +550,51 @@ static int focus(sd_journal *j) {
                 return r;
         }
         if (r == 0) {
-                log_error("No match found");
+                log_error("No match found.");
                 return -ESRCH;
         }
         return r;
+}
+
+static void print_entry(sd_journal *j, unsigned n_found) {
+        assert(j);
+
+        if (arg_action == ACTION_INFO)
+                print_info(stdout, j, n_found);
+        else if (arg_field)
+                print_field(stdout, j);
+        else
+                print_list(stdout, j, n_found);
+}
+
+static int dump_list(sd_journal *j) {
+        unsigned n_found = 0;
+        int r;
+
+        assert(j);
+
+        /* The coredumps are likely to compressed, and for just
+         * listing them we don't need to decompress them, so let's
+         * pick a fairly low data threshold here */
+        sd_journal_set_data_threshold(j, 4096);
+
+        if (arg_one) {
+                r = focus(j);
+                if (r < 0)
+                        return r;
+
+                print_entry(j, 0);
+        } else {
+                SD_JOURNAL_FOREACH(j)
+                        print_entry(j, n_found++);
+
+                if (!arg_field && n_found <= 0) {
+                        log_notice("No coredumps found.");
+                        return -ESRCH;
+                }
+        }
+
+        return 0;
 }
 
 static int dump_core(sd_journal* j) {
