@@ -125,6 +125,8 @@ static void link_free(Link *link) {
 
         sd_ipv4ll_unref(link->ipv4ll);
 
+        sd_dhcp6_client_unref(link->dhcp6_client);
+
         hashmap_remove(link->manager->links, &link->ifindex);
 
         free(link->ifname);
@@ -229,6 +231,16 @@ static int link_stop_clients(Link *link) {
                 k = sd_dhcp_server_stop(link->dhcp_server);
                 if (k < 0) {
                         log_warning_link(link, "Could not stop DHCPv4 server: %s", strerror(-r));
+                        r = k;
+                }
+        }
+
+        if (link->network->dhcp6) {
+                assert(link->dhcp6_client);
+
+                k = sd_dhcp6_client_stop(link->dhcp6_client);
+                if (k < 0) {
+                        log_warning_link(link, "Could not stop DHCPv6 client: %s", strerror(-r));
                         r = k;
                 }
         }
@@ -1277,6 +1289,104 @@ static void ipv4ll_handler(sd_ipv4ll *ll, int event, void *userdata){
         }
 }
 
+static void dhcp6_handler(sd_dhcp6_client *client, int event, void *userdata) {
+        Link *link = userdata;
+
+        assert(link);
+        assert(link->network);
+        assert(link->manager);
+
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return;
+
+        switch(event) {
+        case DHCP6_EVENT_STOP:
+        case DHCP6_EVENT_RESEND_EXPIRE:
+        case DHCP6_EVENT_RETRANS_MAX:
+        case DHCP6_EVENT_IP_ACQUIRE:
+                log_debug_link(link, "DHCPv6 event %d", event);
+
+                break;
+
+        default:
+                if (event < 0)
+                        log_warning_link(link, "DHCPv6 error: %s",
+                                         strerror(-event));
+                else
+                        log_warning_link(link, "DHCPv6 unknown event: %d",
+                                         event);
+                return;
+        }
+}
+
+static void icmp6_router_handler(sd_icmp6_nd *nd, int event, void *userdata) {
+        Link *link = userdata;
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(link->manager);
+
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return;
+
+        switch(event) {
+        case ICMP6_EVENT_ROUTER_ADVERTISMENT_NONE:
+        case ICMP6_EVENT_ROUTER_ADVERTISMENT_OTHER:
+                return;
+
+        case ICMP6_EVENT_ROUTER_ADVERTISMENT_TIMEOUT:
+        case ICMP6_EVENT_ROUTER_ADVERTISMENT_MANAGED:
+                break;
+
+        default:
+                if (event < 0)
+                        log_warning_link(link, "ICMPv6 error: %s",
+                                         strerror(-event));
+                else
+                        log_warning_link(link, "ICMPv6 unknown event: %d",
+                                         event);
+
+                return;
+        }
+
+        if (link->dhcp6_client)
+                return;
+
+        r = sd_dhcp6_client_new(&link->dhcp6_client);
+        if (r < 0)
+                return;
+
+        r = sd_dhcp6_client_attach_event(link->dhcp6_client, NULL, 0);
+        if (r < 0) {
+                link->dhcp6_client = sd_dhcp6_client_unref(link->dhcp6_client);
+                return;
+        }
+
+        r = sd_dhcp6_client_set_mac(link->dhcp6_client, &link->mac);
+        if (r < 0) {
+                link->dhcp6_client = sd_dhcp6_client_unref(link->dhcp6_client);
+                return;
+        }
+
+        r = sd_dhcp6_client_set_index(link->dhcp6_client, link->ifindex);
+        if (r < 0) {
+                link->dhcp6_client = sd_dhcp6_client_unref(link->dhcp6_client);
+                return;
+        }
+
+        r = sd_dhcp6_client_set_callback(link->dhcp6_client, dhcp6_handler,
+                                         link);
+        if (r < 0) {
+                link->dhcp6_client = sd_dhcp6_client_unref(link->dhcp6_client);
+                return;
+        }
+
+        r = sd_dhcp6_client_start(link->dhcp6_client);
+        if (r < 0)
+                link->dhcp6_client = sd_dhcp6_client_unref(link->dhcp6_client);
+}
+
 static int link_acquire_conf(Link *link) {
         int r;
 
@@ -1307,6 +1417,18 @@ static int link_acquire_conf(Link *link) {
                 if (r < 0) {
                         log_warning_link(link, "could not acquire DHCPv4 "
                                          "lease");
+                        return r;
+                }
+        }
+
+        if (link->network->dhcp6) {
+                assert(link->icmp6_router_discovery);
+
+                log_debug_link(link, "discovering IPv6 routers");
+
+                r = sd_icmp6_router_solicitation_start(link->icmp6_router_discovery);
+                if (r < 0) {
+                        log_warning_link(link, "could not start IPv6 router discovery");
                         return r;
                 }
         }
@@ -1793,6 +1915,32 @@ static int link_configure(Link *link) {
                         return r;
         }
 
+        if (link->network->dhcp6) {
+                r = sd_icmp6_nd_new(&link->icmp6_router_discovery);
+                if (r < 0)
+                        return r;
+
+                r = sd_icmp6_nd_attach_event(link->icmp6_router_discovery,
+                                             NULL, 0);
+                if (r < 0)
+                        return r;
+
+                r = sd_icmp6_nd_set_mac(link->icmp6_router_discovery,
+                                        &link->mac);
+                if (r < 0)
+                        return r;
+
+                r = sd_icmp6_nd_set_index(link->icmp6_router_discovery,
+                                          link->ifindex);
+                if (r < 0)
+                        return r;
+
+                r = sd_icmp6_nd_set_callback(link->icmp6_router_discovery,
+                                             icmp6_router_handler, link);
+                if (r < 0)
+                        return r;
+        }
+
         if (link_has_carrier(link->flags, link->kernel_operstate)) {
                 r = link_acquire_conf(link);
                 if (r < 0)
@@ -2130,6 +2278,16 @@ int link_update(Link *link, sd_rtnl_message *m) {
                                 if (r < 0) {
                                         log_warning_link(link, "Could not update MAC "
                                                          "address in DHCP client: %s",
+                                                         strerror(-r));
+                                        return r;
+                                }
+                        }
+
+                        if (link->dhcp6_client) {
+                                r = sd_dhcp6_client_set_mac(link->dhcp6_client,
+                                                            &link->mac);
+                                if (r < 0) {
+                                        log_warning_link(link, "Could not update MAC address in DHCPv6 client: %s",
                                                          strerror(-r));
                                         return r;
                                 }

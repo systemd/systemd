@@ -29,6 +29,8 @@
 #include "sd-dhcp-client.h"
 #include "sd-dhcp-server.h"
 #include "sd-ipv4ll.h"
+#include "sd-icmp6-nd.h"
+#include "sd-dhcp6-client.h"
 #include "udev.h"
 
 #include "rtnl-util.h"
@@ -159,6 +161,7 @@ struct Network {
         bool dhcp_domainname;
         bool dhcp_critical;
         bool ipv4ll;
+        bool dhcp6;
 
         bool dhcp_server;
 
@@ -263,6 +266,9 @@ struct Link {
         LIST_HEAD(Address, pool_addresses);
 
         sd_dhcp_server *dhcp_server;
+
+        sd_icmp6_nd *icmp6_router_discovery;
+        sd_dhcp6_client *dhcp6_client;
 };
 
 struct AddressPool {
