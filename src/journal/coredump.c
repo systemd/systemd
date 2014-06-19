@@ -159,34 +159,29 @@ static int fix_acl(int fd, uid_t uid) {
 }
 
 static int fix_xattr(int fd, char *argv[]) {
+
+        static const char * const xattrs[_ARG_MAX] = {
+                [ARG_PID] = "user.coredump.pid",
+                [ARG_UID] = "user.coredump.uid",
+                [ARG_GID] = "user.coredump.gid",
+                [ARG_SIGNAL] = "user.coredump.signal",
+                [ARG_TIMESTAMP] = "user.coredump.timestamp",
+                [ARG_COMM] = "user.coredump.comm",
+        };
+
         int r = 0;
+        unsigned i;
 
         /* Attach some metadate to coredumps via extended
          * attributes. Just because we can. */
 
-        if (!isempty(argv[ARG_PID]))
-                if (fsetxattr(fd, "user.coredump.pid", argv[ARG_PID], strlen(argv[ARG_PID]), XATTR_CREATE) < 0)
-                        r = -errno;
+        for (i = 0; i < _ARG_MAX; i++) {
+                if (isempty(argv[i]))
+                        continue;
 
-        if (!isempty(argv[ARG_UID]))
-                if (fsetxattr(fd, "user.coredump.uid", argv[ARG_UID], strlen(argv[ARG_UID]), XATTR_CREATE) < 0)
+                if (fsetxattr(fd, xattrs[i], argv[i], strlen(argv[i]), XATTR_CREATE) < 0)
                         r = -errno;
-
-        if (!isempty(argv[ARG_GID]))
-                if (fsetxattr(fd, "user.coredump.gid", argv[ARG_GID], strlen(argv[ARG_GID]), XATTR_CREATE) < 0)
-                        r = -errno;
-
-        if (!isempty(argv[ARG_SIGNAL]))
-                if (fsetxattr(fd, "user.coredump.signal", argv[ARG_SIGNAL], strlen(argv[ARG_SIGNAL]), XATTR_CREATE) < 0)
-                        r = -errno;
-
-        if (!isempty(argv[ARG_TIMESTAMP]))
-                if (fsetxattr(fd, "user.coredump.timestamp", argv[ARG_TIMESTAMP], strlen(argv[ARG_TIMESTAMP]), XATTR_CREATE) < 0)
-                        r = -errno;
-
-        if (!isempty(argv[ARG_COMM]))
-                if (fsetxattr(fd, "user.coredump.comm", argv[ARG_COMM], strlen(argv[ARG_COMM]), XATTR_CREATE) < 0)
-                        r = -errno;
+        }
 
         return r;
 }
