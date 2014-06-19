@@ -22,6 +22,38 @@
 ***/
 
 #include <net/ethernet.h>
+#include <netinet/in.h>
+
+#include "sparse-endian.h"
+#include "sd-event.h"
+#include "list.h"
+
+typedef struct DHCP6Address DHCP6Address;
+
+struct DHCP6Address {
+        LIST_FIELDS(DHCP6Address, addresses);
+
+        struct {
+                struct in6_addr address;
+                be32_t lifetime_preferred;
+                be32_t lifetime_valid;
+        } _packed_;
+};
+
+struct DHCP6IA {
+        uint16_t type;
+        struct {
+                be32_t id;
+                be32_t lifetime_t1;
+                be32_t lifetime_t2;
+        } _packed_;
+        sd_event_source *timeout_t1;
+        sd_event_source *timeout_t2;
+
+        LIST_HEAD(DHCP6Address, addresses);
+};
+
+typedef struct DHCP6IA DHCP6IA;
 
 #define log_dhcp6_client(p, fmt, ...) log_meta(LOG_DEBUG, __FILE__, __LINE__, __func__, "DHCPv6 CLIENT: " fmt, ##__VA_ARGS__)
 
