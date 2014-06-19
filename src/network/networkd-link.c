@@ -871,7 +871,7 @@ static int link_set_mtu(Link *link, uint32_t mtu) {
                 return r;
         }
 
-        link_unref(link);
+        link_ref(link);
 
         return 0;
 }
