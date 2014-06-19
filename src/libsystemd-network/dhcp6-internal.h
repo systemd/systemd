@@ -59,3 +59,9 @@ typedef struct DHCP6IA DHCP6IA;
 
 int dhcp_network_icmp6_bind_router_solicitation(int index);
 int dhcp_network_icmp6_send_router_solicitation(int s, const struct ether_addr *ether_addr);
+
+int dhcp6_option_append(uint8_t **buf, size_t *buflen, uint16_t code,
+                        size_t optlen, const void *optval);
+int dhcp6_option_append_ia(uint8_t **buf, size_t *buflen, DHCP6IA *ia);
+int dhcp6_option_parse(uint8_t **buf, size_t *buflen, uint16_t *optcode,
+                       size_t *optlen, uint8_t **optvalue);

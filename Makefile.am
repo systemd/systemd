@@ -2601,7 +2601,8 @@ libsystemd_network_la_SOURCES = \
 	src/libsystemd-network/sd-dhcp6-client.c \
 	src/libsystemd-network/sd-icmp6-nd.c \
 	src/libsystemd-network/dhcp6-internal.h \
-	src/libsystemd-network/dhcp6-network.c
+	src/libsystemd-network/dhcp6-network.c \
+	src/libsystemd-network/dhcp6-option.c
 
 libsystemd_network_la_LIBADD = \
 	libudev-internal.la \
@@ -2664,6 +2665,7 @@ test_icmp6_rs_LDADD = \
 
 test_dhcp6_client_SOURCES = \
 	src/systemd/sd-dhcp6-client.h \
+	src/libsystemd-network/dhcp6-internal.h \
 	src/libsystemd-network/test-dhcp6-client.c
 
 test_dhcp6_client_LDADD = \
