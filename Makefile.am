@@ -2611,6 +2611,7 @@ libsystemd_network_la_SOURCES = \
 	src/libsystemd-network/sd-icmp6-nd.c \
 	src/libsystemd-network/sd-dhcp6-client.c \
 	src/libsystemd-network/dhcp6-internal.h \
+	src/libsystemd-network/dhcp6-protocol.h \
 	src/libsystemd-network/dhcp6-network.c \
 	src/libsystemd-network/dhcp6-option.c \
 	src/libsystemd-network/dhcp6-lease-internal.h \
