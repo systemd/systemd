@@ -669,7 +669,7 @@ static int create_item(Item *i) {
         case COPY_FILES:
                 r = copy_tree(i->argument, i->path);
                 if (r < 0) {
-                        log_error("Failed to copy files: %s", strerror(-r));
+                        log_error("Failed to copy files to %s: %s", i->path, strerror(-r));
                         return r;
                 }
 

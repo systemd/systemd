@@ -203,6 +203,7 @@ static int fd_copy_directory(int df, const char *from, const struct stat *st, in
                         r = -errno;
         }
 
+        r = 0;
         FOREACH_DIRENT(de, d, return -errno) {
                 struct stat buf;
                 int q;
