@@ -805,12 +805,11 @@ static void dispatch_message_real(
                 /* Split up strictly by any UID */
                 journal_uid = realuid;
         else if (s->split_mode == SPLIT_LOGIN && realuid > 0 && owner_valid && owner > 0)
-                /* Split up by login UIDs, this avoids creation of
-                 * individual journals for system UIDs.  We do this
-                 * only if the realuid is not root, in order not to
-                 * accidentally leak privileged information to the
-                 * user that is logged by a privileged process that is
-                 * part of an unprivileged session.*/
+                /* Split up by login UIDs.  We do this only if the
+                 * realuid is not root, in order not to accidentally
+                 * leak privileged information to the user that is
+                 * logged by a privileged process that is part of an
+                 * unprivileged session.*/
                 journal_uid = owner;
         else
                 journal_uid = 0;

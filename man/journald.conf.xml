@@ -146,29 +146,30 @@
 
                                 <listitem><para>Controls whether to
                                 split up journal files per user. One
-                                of <literal>login</literal>,
-                                <literal>uid</literal> and
-                                <literal>none</literal>. If
-                                <literal>login</literal>, each logged-in
-                                user will get his own journal
-                                files, but systemd user IDs will log
-                                into the system journal. If
-                                <literal>uid</literal>, any user ID
-                                will get his own journal files
-                                regardless of whether it belongs to a
-                                system service or refers to a real
-                                logged in user. If
+                                of <literal>uid</literal>,
+                                <literal>login</literal> and
+                                <literal>none</literal>.  If
+                                <literal>uid</literal>, all users will
+                                get each their own journal files
+                                regardless of whether they possess a
+                                login session or not, however system
+                                users will log into the system
+                                journal. If <literal>login</literal>,
+                                actually logged-in users will get each
+                                their own journal files, but users
+                                without login session and system users
+                                will log into the system journal. If
                                 <literal>none</literal>, journal files
                                 are not split up by user and all
-                                messages are instead stored in the single
-                                system journal. Note that splitting
-                                up journal files by user is only
-                                available for journals stored
+                                messages are instead stored in the
+                                single system journal. Note that
+                                splitting up journal files by user is
+                                only available for journals stored
                                 persistently. If journals are stored
-                                on volatile storage (see above), only a
-                                single journal file for all user IDs
+                                on volatile storage (see above), only
+                                a single journal file for all user IDs
                                 is kept. Defaults to
-                                <literal>login</literal>.</para></listitem>
+                                <literal>uid</literal>.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
