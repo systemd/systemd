@@ -323,6 +323,20 @@ static void test_strv_extend(void) {
         assert_se(streq(b[0], "test3"));
 }
 
+static void test_strv_extendf(void) {
+        _cleanup_strv_free_ char **a = NULL, **b = NULL;
+
+        a = strv_new("test", "test1", NULL);
+        assert_se(a);
+        assert_se(strv_extendf(&a, "test2 %s %d %s", "foo", 128, "bar") >= 0);
+        assert_se(strv_extendf(&b, "test3 %s %s %d", "bar", "foo", 128) >= 0);
+
+        assert_se(streq(a[0], "test"));
+        assert_se(streq(a[1], "test1"));
+        assert_se(streq(a[2], "test2 foo 128 bar"));
+        assert_se(streq(b[0], "test3 bar foo 128"));
+}
+
 static void test_strv_foreach(void) {
         _cleanup_strv_free_ char **a;
         unsigned i = 0;
@@ -421,6 +435,7 @@ int main(int argc, char *argv[]) {
         test_strv_extend_strv();
         test_strv_extend_strv_concat();
         test_strv_extend();
+        test_strv_extendf();
         test_strv_from_stdarg_alloca();
 
         return 0;
