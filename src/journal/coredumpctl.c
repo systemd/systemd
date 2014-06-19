@@ -383,15 +383,15 @@ static int print_list(FILE* file, sd_journal *j, int had_legend) {
 
         if (!had_legend && !arg_no_legend)
                 fprintf(file, "%-*s %*s %*s %*s %*s %s\n",
-                        FORMAT_TIMESTAMP_MAX-1, "TIME",
+                        FORMAT_TIMESTAMP_WIDTH, "TIME",
                         6, "PID",
                         5, "UID",
                         5, "GID",
                         3, "SIG",
                            "EXE");
 
-        fprintf(file, "%*s %*s %*s %*s %*s %s\n",
-                FORMAT_TIMESTAMP_MAX-1, buf,
+        fprintf(file, "%-*s %*s %*s %*s %*s %s\n",
+                FORMAT_TIMESTAMP_WIDTH, buf,
                 6, strna(pid),
                 5, strna(uid),
                 5, strna(gid),
