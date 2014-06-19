@@ -2596,13 +2596,16 @@ libsystemd_network_la_SOURCES = \
 	src/libsystemd-network/ipv4ll-internal.h \
 	src/libsystemd-network/network-internal.c \
 	src/libsystemd-network/network-internal.h \
-	src/systemd/sd-dhcp6-client.h \
 	src/systemd/sd-icmp6-nd.h \
-	src/libsystemd-network/sd-dhcp6-client.c \
+	src/systemd/sd-dhcp6-client.h \
+	src/systemd/sd-dhcp6-lease.h \
 	src/libsystemd-network/sd-icmp6-nd.c \
+	src/libsystemd-network/sd-dhcp6-client.c \
 	src/libsystemd-network/dhcp6-internal.h \
 	src/libsystemd-network/dhcp6-network.c \
-	src/libsystemd-network/dhcp6-option.c
+	src/libsystemd-network/dhcp6-option.c \
+	src/libsystemd-network/dhcp6-lease-internal.h \
+	src/libsystemd-network/sd-dhcp6-lease.c
 
 libsystemd_network_la_LIBADD = \
 	libudev-internal.la \
