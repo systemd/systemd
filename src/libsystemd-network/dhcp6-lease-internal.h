@@ -37,6 +37,8 @@ struct sd_dhcp6_lease {
         uint8_t preference;
 
         DHCP6IA ia;
+
+        DHCP6Address *addr_iter;
 };
 
 int dhcp6_lease_clear_timers(DHCP6IA *ia);

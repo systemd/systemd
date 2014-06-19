@@ -105,6 +105,45 @@ int dhcp6_lease_get_iaid(sd_dhcp6_lease *lease, be32_t *iaid) {
         return 0;
 }
 
+int sd_dhcp6_lease_get_next_address(sd_dhcp6_lease *lease,
+                                    struct in6_addr *addr,
+                                    uint32_t *lifetime_preferred,
+                                    uint32_t *lifetime_valid) {
+        assert_return(lease, -EINVAL);
+        assert_return(addr, -EINVAL);
+        assert_return(lifetime_preferred, -EINVAL);
+        assert_return(lifetime_valid, -EINVAL);
+
+        if (!lease->addr_iter)
+                return -ENOMSG;
+
+        memcpy(addr, &lease->addr_iter->address, sizeof(struct in6_addr));
+        *lifetime_preferred = be32toh(lease->addr_iter->lifetime_preferred);
+        *lifetime_valid = be32toh(lease->addr_iter->lifetime_valid);
+
+        lease->addr_iter = lease->addr_iter->addresses_next;
+
+        return 0;
+}
+
+int sd_dhcp6_lease_get_first_address(sd_dhcp6_lease *lease,
+                                     struct in6_addr *addr,
+                                     uint32_t *lifetime_preferred,
+                                     uint32_t *lifetime_valid) {
+        assert_return(lease, -EINVAL);
+        assert_return(addr, -EINVAL);
+        assert_return(lifetime_preferred, -EINVAL);
+        assert_return(lifetime_valid, -EINVAL);
+
+        if (!lease->ia.addresses)
+                return -ENOMSG;
+
+        lease->addr_iter = lease->ia.addresses;
+
+        return sd_dhcp6_lease_get_next_address(lease, addr, lifetime_preferred,
+                                               lifetime_valid);
+}
+
 sd_dhcp6_lease *sd_dhcp6_lease_ref(sd_dhcp6_lease *lease) {
         if (lease)
                 assert_se(REFCNT_INC(lease->n_ref) >= 2);

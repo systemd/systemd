@@ -129,6 +129,18 @@ int sd_dhcp6_client_set_mac(sd_dhcp6_client *client,
         return 0;
 }
 
+int sd_dhcp6_client_get_lease(sd_dhcp6_client *client, sd_dhcp6_lease **ret) {
+        assert_return(client, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        if (!client->lease)
+                return -ENOMSG;
+
+        *ret = sd_dhcp6_lease_ref(client->lease);
+
+        return 0;
+}
+
 static sd_dhcp6_client *client_notify(sd_dhcp6_client *client, int event) {
         if (client->cb) {
                 client = sd_dhcp6_client_ref(client);

@@ -26,6 +26,8 @@
 
 #include "sd-event.h"
 
+#include "sd-dhcp6-lease.h"
+
 enum {
         DHCP6_EVENT_STOP                        = 0,
         DHCP6_EVENT_RESEND_EXPIRE               = 10,
@@ -42,6 +44,8 @@ int sd_dhcp6_client_set_callback(sd_dhcp6_client *client,
 int sd_dhcp6_client_set_index(sd_dhcp6_client *client, int interface_index);
 int sd_dhcp6_client_set_mac(sd_dhcp6_client *client,
                             const struct ether_addr *mac_addr);
+
+int sd_dhcp6_client_get_lease(sd_dhcp6_client *client, sd_dhcp6_lease **ret);
 
 int sd_dhcp6_client_stop(sd_dhcp6_client *client);
 int sd_dhcp6_client_start(sd_dhcp6_client *client);
