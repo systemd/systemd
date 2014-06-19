@@ -38,6 +38,7 @@
 #include "journald-native.h"
 #include "conf-parser.h"
 #include "copy.h"
+#include "stacktrace.h"
 
 #ifdef HAVE_ACL
 #include <sys/acl.h>
@@ -290,6 +291,7 @@ static int allocate_journal_field(int fd, size_t size, char **ret, size_t *ret_s
         _cleanup_free_ char *field = NULL;
         ssize_t n;
 
+        assert(fd >= 0);
         assert(ret);
         assert(ret_size);
 
@@ -346,7 +348,8 @@ int main(int argc, char* argv[]) {
         _cleanup_free_ char *core_pid = NULL, *core_uid = NULL, *core_gid = NULL, *core_signal = NULL,
                 *core_timestamp = NULL, *core_comm = NULL, *core_exe = NULL, *core_unit = NULL,
                 *core_session = NULL, *core_message = NULL, *core_cmdline = NULL, *coredump_data = NULL,
-                *coredump_filename = NULL, *core_slice = NULL, *core_cgroup = NULL, *core_owner_uid = NULL;
+                *coredump_filename = NULL, *core_slice = NULL, *core_cgroup = NULL, *core_owner_uid = NULL,
+                *exe = NULL;
 
         _cleanup_close_ int coredump_fd = -1;
 
@@ -365,7 +368,6 @@ int main(int argc, char* argv[]) {
          * crashed and it might be journald which we'd rather not log
          * to then. */
         log_set_target(LOG_TARGET_KMSG);
-        log_set_max_level(LOG_DEBUG);
         log_open();
 
         if (argc != _ARG_MAX) {
@@ -474,10 +476,8 @@ int main(int argc, char* argv[]) {
                         IOVEC_SET_STRING(iovec[j++], core_slice);
         }
 
-        if (get_process_exe(pid, &t) >= 0) {
-                core_exe = strappend("COREDUMP_EXE=", t);
-                free(t);
-
+        if (get_process_exe(pid, &exe) >= 0) {
+                core_exe = strappend("COREDUMP_EXE=", exe);
                 if (core_exe)
                         IOVEC_SET_STRING(iovec[j++], core_exe);
         }
@@ -505,17 +505,15 @@ int main(int argc, char* argv[]) {
         IOVEC_SET_STRING(iovec[j++], "MESSAGE_ID=fc2e22bc6ee647b6b90729ab34a250b1");
         IOVEC_SET_STRING(iovec[j++], "PRIORITY=2");
 
-        core_message = strjoin("MESSAGE=Process ", argv[ARG_PID], " (", argv[ARG_COMM], ") dumped core.", NULL);
-        if (core_message)
-                IOVEC_SET_STRING(iovec[j++], core_message);
-
         /* Always stream the coredump to disk, if that's possible */
         r = save_external_coredump(argv, uid, &coredump_filename, &coredump_fd, &coredump_size);
         if (r < 0)
                 goto finish;
 
         /* If we don't want to keep the coredump on disk, remove it
-         * now, as later on we will lack the privileges for it. */
+         * now, as later on we will lack the privileges for
+         * it. However, we keep the fd to it, so that we can still
+         * process it and log it. */
         r = maybe_remove_external_coredump(coredump_filename, coredump_size);
         if (r < 0)
                 goto finish;
@@ -531,6 +529,24 @@ int main(int argc, char* argv[]) {
                 r = -errno;
                 goto finish;
         }
+
+#ifdef HAVE_ELFUTILS
+        /* Try to get a strack trace if we can */
+        if (coredump_size <= arg_process_size_max) {
+                _cleanup_free_ char *stacktrace = NULL;
+
+                r = coredump_make_stack_trace(coredump_fd, exe, &stacktrace);
+                if (r >= 0)
+                        core_message = strjoin("MESSAGE=Process ", argv[ARG_PID], " (", argv[ARG_COMM], ") of user ", argv[ARG_UID], " dumped core.\n\n", stacktrace, NULL);
+                else
+                        log_warning("Failed to generate stack trace: %s", strerror(-r));
+        }
+
+        if (!core_message)
+#endif
+        core_message = strjoin("MESSAGE=Process ", argv[ARG_PID], " (", argv[ARG_COMM], ") of user ", argv[ARG_UID], " dumped core.", NULL);
+        if (core_message)
+                IOVEC_SET_STRING(iovec[j++], core_message);
 
         /* Optionally store the entire coredump in the journal */
         if (IN_SET(arg_storage, COREDUMP_STORAGE_JOURNAL, COREDUMP_STORAGE_BOTH) &&

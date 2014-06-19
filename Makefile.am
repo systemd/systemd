@@ -3686,6 +3686,15 @@ systemd_coredump_LDADD = \
 	libsystemd-internal.la \
 	libsystemd-shared.la
 
+if HAVE_ELFUTILS
+systemd_coredump_SOURCES += \
+	src/journal/stacktrace.c \
+	src/journal/stacktrace.h
+
+systemd_coredump_LDADD += \
+	$(ELFUTILS_LIBS)
+endif
+
 rootlibexec_PROGRAMS += \
 	systemd-coredump
 

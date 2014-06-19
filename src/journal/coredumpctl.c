@@ -403,7 +403,8 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 *sgnl = NULL, *exe = NULL, *comm = NULL, *cmdline = NULL,
                 *unit = NULL, *user_unit = NULL, *session = NULL,
                 *boot_id = NULL, *machine_id = NULL, *hostname = NULL,
-                *coredump = NULL, *slice = NULL, *cgroup = NULL, *owner_uid = NULL;
+                *coredump = NULL, *slice = NULL, *cgroup = NULL,
+                *owner_uid = NULL, *message = NULL;
         const void *d;
         size_t l;
 
@@ -427,6 +428,7 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 retrieve(d, l, "_BOOT_ID", &boot_id);
                 retrieve(d, l, "_MACHINE_ID", &machine_id);
                 retrieve(d, l, "_HOSTNAME", &hostname);
+                retrieve(d, l, "MESSAGE", &message);
         }
 
         if (need_space)
@@ -521,6 +523,14 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
         if (make_coredump_path(j, &coredump) >= 0)
                 if (access(coredump, F_OK) >= 0)
                         fprintf(file, "      Coredump: %s\n", coredump);
+
+        if (message) {
+                _cleanup_free_ char *m = NULL;
+
+                m = strreplace(message, "\n", "\n                ");
+
+                fprintf(file, "       Message: %s\n", strstrip(m ?: message));
+        }
 
         return 0;
 }
@@ -696,7 +706,7 @@ static int run_gdb(sd_journal *j) {
                         if (errno == ENOENT)
                                 log_error("Coredump neither in journal file nor stored externally on disk.");
                         else
-                                log_error("Failed to access coredump fiile: %s", strerror(-r));
+                                log_error("Failed to access coredump file: %m");
 
                         return -errno;
                 }

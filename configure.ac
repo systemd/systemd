@@ -627,6 +627,44 @@ fi
 AC_SUBST(AUDIT_LIBS)
 
 # ------------------------------------------------------------------------------
+AC_ARG_ENABLE([elfutils],
+        AS_HELP_STRING([--disable-elfutils],[Disable optional ELFUTILS support]),
+                [case "${enableval}" in
+                        yes) have_elfutils=yes ;;
+                        no) have_elfutils=no ;;
+                        *) AC_MSG_ERROR(bad value ${enableval} for --disable-elfutils) ;;
+                esac],
+                [have_elfutils=auto])
+
+if test "x${have_elfutils}" != xno ; then
+        AC_CHECK_HEADERS(
+                [elfutils/libdwfl.h],
+                [have_elfutils=yes],
+                [if test "x$have_elfutils" = xyes ; then
+                        AC_MSG_ERROR([*** ELFUTILS headers not found.])
+                fi])
+
+        AC_CHECK_LIB(
+                [dw],
+                [dwfl_begin],
+                [have_elfutils=yes],
+                [if test "x$have_elfutils" = xyes ; then
+                        AC_MSG_ERROR([*** ELFUTILS libs not found.])
+                fi])
+
+        if test "x$have_elfutils" = xyes ; then
+                ELFUTILS_LIBS="-lelf -ldw"
+                AC_DEFINE(HAVE_ELFUTILS, 1, [ELFUTILS available])
+        else
+                have_elfutils=no
+        fi
+else
+        ELFUTILS_LIBS=
+fi
+AC_SUBST(ELFUTILS_LIBS)
+AM_CONDITIONAL(HAVE_ELFUTILS, [test "$have_elfutils" = "yes"])
+
+# ------------------------------------------------------------------------------
 have_libcryptsetup=no
 AC_ARG_ENABLE(libcryptsetup, AS_HELP_STRING([--disable-libcryptsetup], [disable libcryptsetup tools]))
 if test "x$enable_libcryptsetup" != "xno"; then
@@ -1171,6 +1209,7 @@ AC_MSG_RESULT([
         MICROHTTPD:              ${have_microhttpd}
         CHKCONFIG:               ${have_chkconfig}
         GNUTLS:                  ${have_gnutls}
+        ELFUTILS:                ${have_elfutils}
         binfmt:                  ${have_binfmt}
         vconsole:                ${have_vconsole}
         readahead:               ${have_readahead}
