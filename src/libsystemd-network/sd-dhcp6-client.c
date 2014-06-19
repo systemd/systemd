@@ -95,6 +95,8 @@ const char * dhcp6_message_status_table[_DHCP6_STATUS_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(dhcp6_message_status, int);
 
+static int client_start(sd_dhcp6_client *client, enum DHCP6State state);
+
 int sd_dhcp6_client_set_callback(sd_dhcp6_client *client,
                                  sd_dhcp6_client_cb_t cb, void *userdata)
 {
@@ -161,7 +163,7 @@ static int client_initialize(sd_dhcp6_client *client)
         if (client->fd > 0)
                 client->fd = safe_close(client->fd);
 
-        client->transaction_id = random_u32() & 0x00ffffff;
+        client->transaction_id = 0;
 
         client->ia_na.timeout_t1 =
                 sd_event_source_unref(client->ia_na.timeout_t1);
@@ -609,36 +611,53 @@ static int client_receive_message(sd_event_source *s, int fd, uint32_t revents,
         return 0;
 }
 
-static int client_start(sd_dhcp6_client *client)
+static int client_start(sd_dhcp6_client *client, enum DHCP6State state)
 {
         int r;
 
         assert_return(client, -EINVAL);
         assert_return(client->event, -EINVAL);
         assert_return(client->index > 0, -EINVAL);
+        assert_return(client->state != state, -EINVAL);
 
-        r = client_ensure_iaid(client);
-        if (r < 0)
-                return r;
+        client->timeout_resend_expire =
+                sd_event_source_unref(client->timeout_resend_expire);
+        client->timeout_resend = sd_event_source_unref(client->timeout_resend);
+        client->retransmit_time = 0;
+        client->retransmit_count = 0;
 
-        r = dhcp6_network_bind_udp_socket(client->index, NULL);
-        if (r < 0)
-                return r;
+        switch (state) {
+        case DHCP6_STATE_STOPPED:
+        case DHCP6_STATE_RS:
+        case DHCP6_STATE_SOLICITATION:
 
-        client->fd = r;
+                r = client_ensure_iaid(client);
+                if (r < 0)
+                        return r;
 
-        r = sd_event_add_io(client->event, &client->receive_message,
-                            client->fd, EPOLLIN, client_receive_message,
-                            client);
-        if (r < 0)
-                return r;
+                r = dhcp6_network_bind_udp_socket(client->index, NULL);
+                if (r < 0)
+                        return r;
 
-        r = sd_event_source_set_priority(client->receive_message,
-                                         client->event_priority);
-        if (r < 0)
-                return r;
+                client->fd = r;
 
-        client->state = DHCP6_STATE_SOLICITATION;
+                r = sd_event_add_io(client->event, &client->receive_message,
+                                    client->fd, EPOLLIN, client_receive_message,
+                                    client);
+                if (r < 0)
+                        return r;
+
+                r = sd_event_source_set_priority(client->receive_message,
+                                                 client->event_priority);
+                if (r < 0)
+                        return r;
+
+                client->state = DHCP6_STATE_SOLICITATION;
+
+                break;
+        }
+
+        client->transaction_id = random_u32() & htobe32(0x00ffffff);
 
         r = sd_event_add_time(client->event, &client->timeout_resend,
                               CLOCK_MONOTONIC, 0, 0, client_timeout_resend,
@@ -673,7 +692,7 @@ int sd_dhcp6_client_start(sd_dhcp6_client *client)
         if (r < 0)
                 return r;
 
-        return client_start(client);
+        return client_start(client, DHCP6_STATE_SOLICITATION);
 }
 
 int sd_dhcp6_client_attach_event(sd_dhcp6_client *client, sd_event *event,
