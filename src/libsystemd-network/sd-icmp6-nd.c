@@ -171,6 +171,7 @@ int sd_icmp6_nd_new(sd_icmp6_nd **ret) {
         nd->n_ref = REFCNT_INIT;
 
         nd->index = -1;
+        nd->fd = -1;
 
         *ret = nd;
         nd = NULL;
