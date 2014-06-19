@@ -2651,11 +2651,23 @@ test_ipv4ll_LDADD = \
 	libsystemd-internal.la \
 	libsystemd-shared.la
 
+test_icmp6_rs_SOURCES = \
+	src/systemd/sd-dhcp6-client.h \
+	src/libsystemd-network/sd-icmp6-nd.h \
+	src/libsystemd-network/dhcp6-internal.h \
+	src/libsystemd-network/test-icmp6-rs.c
+
+test_icmp6_rs_LDADD = \
+	libsystemd-network.la \
+	libsystemd-internal.la \
+	libsystemd-shared.la
+
 tests += \
 	test-dhcp-option \
 	test-dhcp-client \
 	test-dhcp-server \
-	test-ipv4ll
+	test-ipv4ll \
+	test-icmp6-rs
 
 # ------------------------------------------------------------------------------
 if ENABLE_GTK_DOC
