@@ -375,43 +375,6 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
                 } else
                         log_warning("Environment variable name '%s' is not valid. Ignoring.", value);
 
-        } else if (!streq(key, "systemd.restore_state") &&
-                   !streq(key, "systemd.gpt_auto") &&
-                   (startswith(key, "systemd.") || startswith(key, "rd.systemd."))) {
-
-                const char *c;
-
-                /* Ignore systemd.journald.xyz and friends */
-                c = key;
-                if (startswith(c, "rd."))
-                        c += 3;
-                if (startswith(c, "systemd."))
-                        c += 8;
-                if (c[strcspn(c, ".=")] != '.')  {
-
-                        log_warning("Unknown kernel switch %s. Ignoring.", key);
-
-                        log_info("Supported kernel switches:\n"
-                                 "systemd.unit=UNIT                        Default unit to start\n"
-                                 "rd.systemd.unit=UNIT                     Default unit to start when run in initrd\n"
-                                 "systemd.dump_core=0|1                    Dump core on crash\n"
-                                 "systemd.crash_shell=0|1                  Run shell on crash\n"
-                                 "systemd.crash_chvt=N                     Change to VT #N on crash\n"
-                                 "systemd.confirm_spawn=0|1                Confirm every process spawn\n"
-                                 "systemd.show_status=0|1|auto             Show status updates on the console during bootup\n"
-                                 "systemd.log_target=console|kmsg|journal|journal-or-kmsg|syslog|syslog-or-kmsg|null\n"
-                                 "                                         Log target\n"
-                                 "systemd.log_level=LEVEL                  Log level\n"
-                                 "systemd.log_color=0|1                    Highlight important log messages\n"
-                                 "systemd.log_location=0|1                 Include code location in log messages\n"
-                                 "systemd.default_standard_output=null|tty|syslog|syslog+console|kmsg|kmsg+console|journal|journal+console\n"
-                                 "                                         Set default log output for services\n"
-                                 "systemd.default_standard_error=null|tty|syslog|syslog+console|kmsg|kmsg+console|journal|journal+console\n"
-                                 "                                         Set default log error output for services\n"
-                                 "systemd.setenv=ASSIGNMENT                Set an environment variable for all spawned processes\n"
-                                 "systemd.restore_state=0|1                Restore backlight/rfkill state at boot\n");
-                }
-
         } else if (streq(key, "quiet") && !value) {
 
                 log_set_max_level(LOG_NOTICE);
