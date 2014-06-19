@@ -486,8 +486,6 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
                 arg_root_rw = true;
         else if (streq(key, "ro") && !value)
                 arg_root_rw = false;
-        else if (startswith(key, "fstab.") || startswith(key, "rd.fstab."))
-                log_warning("Unknown kernel switch %s. Ignoring.", key);
 
         return 0;
 }

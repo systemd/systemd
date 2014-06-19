@@ -291,8 +291,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
                 if (!arg_keyfile)
                         return log_oom();
 
-        } else if (startswith(key, "luks.") || startswith(key, "rd.luks."))
-                log_warning("Unknown kernel switch %s. Ignoring.", key);
+        }
 
         return 0;
 }

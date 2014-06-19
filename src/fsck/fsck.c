@@ -86,7 +86,8 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
                 else if (streq(value, "skip"))
                         arg_skip = true;
                 else
-                        log_warning("Invalid fsck.mode= parameter. Ignoring.");
+                        log_warning("Invalid fsck.mode= parameter '%s'. Ignoring.", value);
+
         } else if (streq(key, "fsck.repair") && value) {
 
                 if (streq(value, "preen"))
@@ -96,13 +97,14 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
                 else if (streq(value, "no"))
                         arg_repair = "-n";
                 else
-                        log_warning("Invalid fsck.repair= parameter. Ignoring.");
-        } else if (startswith(key, "fsck."))
-                log_warning("Invalid fsck parameter. Ignoring.");
+                        log_warning("Invalid fsck.repair= parameter '%s'. Ignoring.", value);
+        }
+
 #ifdef HAVE_SYSV_COMPAT
         else if (streq(key, "fastboot") && !value) {
                 log_warning("Please pass 'fsck.mode=skip' rather than 'fastboot' on the kernel command line.");
                 arg_skip = true;
+
         } else if (streq(key, "forcefsck") && !value) {
                 log_warning("Please pass 'fsck.mode=force' rather than 'forcefsck' on the kernel command line.");
                 arg_force = true;
@@ -113,6 +115,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
 }
 
 static void test_files(void) {
+
 #ifdef HAVE_SYSV_COMPAT
         if (access("/fastboot", F_OK) >= 0) {
                 log_error("Please pass 'fsck.mode=skip' on the kernel command line rather than creating /fastboot on the root file system.");

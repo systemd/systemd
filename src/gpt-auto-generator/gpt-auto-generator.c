@@ -695,8 +695,6 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
                 arg_root_rw = true;
         else if (streq(key, "ro") && !value)
                 arg_root_rw = false;
-        else if (startswith(key, "systemd.gpt-auto.") || startswith(key, "rd.systemd.gpt-auto."))
-                log_warning("Unknown kernel switch %s. Ignoring.", key);
 
         return 0;
 }
