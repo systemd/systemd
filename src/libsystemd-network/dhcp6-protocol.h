@@ -70,6 +70,7 @@ enum DHCP6State {
         DHCP6_STATE_RS                          = 1,
         DHCP6_STATE_SOLICITATION                = 2,
         DHCP6_STATE_REQUEST                     = 3,
+        DHCP6_STATE_BOUND                       = 4,
 };
 
 enum {

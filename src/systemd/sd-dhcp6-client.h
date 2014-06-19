@@ -32,6 +32,7 @@ enum {
         DHCP6_EVENT_STOP                        = 0,
         DHCP6_EVENT_RESEND_EXPIRE               = 10,
         DHCP6_EVENT_RETRANS_MAX                 = 11,
+        DHCP6_EVENT_IP_ACQUIRE                  = 12,
 };
 
 typedef struct sd_dhcp6_client sd_dhcp6_client;

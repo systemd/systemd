@@ -236,6 +236,7 @@ static int client_send_message(sd_dhcp6_client *client) {
 
         case DHCP6_STATE_STOPPED:
         case DHCP6_STATE_RS:
+        case DHCP6_STATE_BOUND:
                 return -EINVAL;
         }
 
@@ -251,6 +252,38 @@ static int client_send_message(sd_dhcp6_client *client) {
 
         log_dhcp6_client(client, "Sent %s",
                          dhcp6_message_type_to_string(message->type));
+
+        return 0;
+}
+
+static int client_timeout_t2(sd_event_source *s, uint64_t usec,
+                             void *userdata) {
+        sd_dhcp6_client *client = userdata;
+
+        assert_return(s, -EINVAL);
+        assert_return(client, -EINVAL);
+        assert_return(client->lease, -EINVAL);
+
+        client->lease->ia.timeout_t2 =
+                sd_event_source_unref(client->lease->ia.timeout_t2);
+
+        log_dhcp6_client(client, "Timeout T2");
+
+        return 0;
+}
+
+static int client_timeout_t1(sd_event_source *s, uint64_t usec,
+                             void *userdata) {
+        sd_dhcp6_client *client = userdata;
+
+        assert_return(s, -EINVAL);
+        assert_return(client, -EINVAL);
+        assert_return(client->lease, -EINVAL);
+
+        client->lease->ia.timeout_t1 =
+                sd_event_source_unref(client->lease->ia.timeout_t1);
+
+        log_dhcp6_client(client, "Timeout T1");
 
         return 0;
 }
@@ -313,6 +346,7 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec,
 
         case DHCP6_STATE_STOPPED:
         case DHCP6_STATE_RS:
+        case DHCP6_STATE_BOUND:
                 return 0;
         }
 
@@ -537,6 +571,32 @@ static int client_parse_message(sd_dhcp6_client *client,
         return r;
 }
 
+static int client_receive_reply(sd_dhcp6_client *client, DHCP6Message *reply,
+                                size_t len)
+{
+        int r;
+        _cleanup_dhcp6_lease_free_ sd_dhcp6_lease *lease = NULL;
+
+        if (reply->type != DHCP6_REPLY)
+                return -EINVAL;
+
+        r = dhcp6_lease_new(&lease);
+        if (r < 0)
+                return -ENOMEM;
+
+        r = client_parse_message(client, reply, len, lease);
+        if (r < 0)
+                return r;
+
+        dhcp6_lease_clear_timers(&client->lease->ia);
+
+        client->lease = sd_dhcp6_lease_unref(client->lease);
+        client->lease = lease;
+        lease = NULL;
+
+        return DHCP6_STATE_BOUND;
+}
+
 static int client_receive_advertise(sd_dhcp6_client *client,
                                     DHCP6Message *advertise, size_t len) {
         int r;
@@ -634,6 +694,29 @@ static int client_receive_message(sd_event_source *s, int fd, uint32_t revents,
                 break;
 
         case DHCP6_STATE_REQUEST:
+                r = client_receive_reply(client, message, len);
+                if (r < 0)
+                        return 0;
+
+                if (r == DHCP6_STATE_BOUND) {
+
+                        r = client_start(client, DHCP6_STATE_BOUND);
+                        if (r < 0) {
+                                client_stop(client, r);
+                                return 0;
+                        }
+
+                        client = client_notify(client, DHCP6_EVENT_IP_ACQUIRE);
+                        if (!client)
+                                return 0;
+                }
+
+                break;
+
+        case DHCP6_STATE_BOUND:
+
+                break;
+
         case DHCP6_STATE_STOPPED:
         case DHCP6_STATE_RS:
                 return 0;
@@ -650,6 +733,8 @@ static int client_receive_message(sd_event_source *s, int fd, uint32_t revents,
 static int client_start(sd_dhcp6_client *client, enum DHCP6State state)
 {
         int r;
+        usec_t timeout, time_now;
+        char time_string[FORMAT_TIMESPAN_MAX];
 
         assert_return(client, -EINVAL);
         assert_return(client->event, -EINVAL);
@@ -693,9 +778,68 @@ static int client_start(sd_dhcp6_client *client, enum DHCP6State state)
                 break;
 
         case DHCP6_STATE_REQUEST:
+
                 client->state = state;
 
                 break;
+
+        case DHCP6_STATE_BOUND:
+
+                r = sd_event_now(client->event, CLOCK_MONOTONIC, &time_now);
+                if (r < 0)
+                        return r;
+
+                if (client->lease->ia.lifetime_t1 == 0xffffffff ||
+                    client->lease->ia.lifetime_t2 == 0xffffffff) {
+
+                        log_dhcp6_client(client, "infinite T1 0x%08x or T2 0x%08x",
+                                         be32toh(client->lease->ia.lifetime_t1),
+                                         be32toh(client->lease->ia.lifetime_t2));
+
+                        return 0;
+                }
+
+                timeout = client_timeout_compute_random(be32toh(client->lease->ia.lifetime_t1) * USEC_PER_SEC);
+
+                log_dhcp6_client(client, "T1 expires in %s",
+                                 format_timespan(time_string,
+                                                 FORMAT_TIMESPAN_MAX,
+                                                 timeout, 0));
+
+                r = sd_event_add_time(client->event,
+                                      &client->lease->ia.timeout_t1,
+                                      CLOCK_MONOTONIC, time_now + timeout,
+                                      10 * USEC_PER_SEC, client_timeout_t1,
+                                      client);
+                if (r < 0)
+                        return r;
+
+                r = sd_event_source_set_priority(client->lease->ia.timeout_t1,
+                                                 client->event_priority);
+                if (r < 0)
+                        return r;
+
+                timeout = client_timeout_compute_random(be32toh(client->lease->ia.lifetime_t2) * USEC_PER_SEC);
+
+                log_dhcp6_client(client, "T2 expires in %s",
+                                 format_timespan(time_string,
+                                                 FORMAT_TIMESPAN_MAX,
+                                                 timeout, 0));
+
+                r = sd_event_add_time(client->event,
+                                      &client->lease->ia.timeout_t2,
+                                      CLOCK_MONOTONIC, time_now + timeout,
+                                      10 * USEC_PER_SEC, client_timeout_t2,
+                                      client);
+                if (r < 0)
+                        return r;
+
+                r = sd_event_source_set_priority(client->lease->ia.timeout_t2,
+                                                 client->event_priority);
+                if (r < 0)
+                        return r;
+
+                return 0;
         }
 
         client->transaction_id = random_u32() & htobe32(0x00ffffff);
