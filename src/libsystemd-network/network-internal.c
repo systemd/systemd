@@ -34,21 +34,33 @@
 #include "conf-parser.h"
 #include "condition.h"
 
-#define HASH_KEY SD_ID128_MAKE(d3,1e,48,fa,90,fe,4b,4c,9d,af,d5,d7,a1,b1,2e,8a)
-
-int net_get_unique_predictable_data(struct udev_device *device, uint8_t result[8]) {
-        size_t l, sz = 0;
+const char *net_get_name(struct udev_device *device) {
         const char *name = NULL, *field = NULL;
-        int r;
-        uint8_t *v;
+
+        assert(device);
 
         /* fetch some persistent data unique (on this machine) to this device */
-        FOREACH_STRING(field, "ID_NET_NAME_ONBOARD", "ID_NET_NAME_SLOT", "ID_NET_NAME_PATH", "ID_NET_NAME_MAC") {
+        FOREACH_STRING(field, "ID_NET_NAME_ONBOARD", "ID_NET_NAME_SLOT",
+                       "ID_NET_NAME_PATH", "ID_NET_NAME_MAC") {
                 name = udev_device_get_property_value(device, field);
                 if (name)
                         break;
         }
 
+        return name;
+}
+
+#define HASH_KEY SD_ID128_MAKE(d3,1e,48,fa,90,fe,4b,4c,9d,af,d5,d7,a1,b1,2e,8a)
+
+int net_get_unique_predictable_data(struct udev_device *device, uint8_t result[8]) {
+        size_t l, sz = 0;
+        const char *name = NULL;
+        int r;
+        uint8_t *v;
+
+        assert(device);
+
+        name = net_get_name(device);
         if (!name)
                 return -ENOENT;
 
