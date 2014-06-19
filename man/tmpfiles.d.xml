@@ -225,7 +225,17 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
 
                                 <varlistentry>
                                         <term><varname>C</varname></term>
-                                        <listitem><para>Recursively copy a file or directory, if the destination files or directories don't exist yet.</para></listitem>
+                                        <listitem><para>Recursively
+                                        copy a file or directory, if
+                                        the destination files or
+                                        directories don't exist
+                                        yet. Note that this command
+                                        will not descend into
+                                        subdirectories if the
+                                        destination directory already
+                                        exists, instead the entire
+                                        copy operation is
+                                        skipped.</para></listitem>
                                 </varlistentry>
 
                                 <varlistentry>

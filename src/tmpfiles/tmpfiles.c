@@ -667,10 +667,29 @@ static int create_item(Item *i) {
                 break;
 
         case COPY_FILES:
-                r = copy_tree(i->argument, i->path);
+                r = copy_tree(i->argument, i->path, false);
                 if (r < 0) {
-                        log_error("Failed to copy files to %s: %s", i->path, strerror(-r));
-                        return r;
+                        struct stat a, b;
+
+                        if (r != -EEXIST) {
+                                log_error("Failed to copy files to %s: %s", i->path, strerror(-r));
+                                return -r;
+                        }
+
+                        if (stat(i->argument, &a) < 0) {
+                                log_error("stat(%s) failed: %m", i->argument);
+                                return -errno;
+                        }
+
+                        if (stat(i->path, &b) < 0) {
+                                log_error("stat(%s) failed: %m", i->path);
+                                return -errno;
+                        }
+
+                        if ((a.st_mode ^ b.st_mode) & S_IFMT) {
+                                log_debug("Can't copy to %s, file exists already and is of different type", i->path);
+                                return 0;
+                        }
                 }
 
                 r = item_set_perms(i, i->path);
@@ -694,19 +713,21 @@ static int create_item(Item *i) {
                         r = mkdir_label(i->path, i->mode);
                 }
 
-                if (r < 0 && r != -EEXIST) {
-                        log_error("Failed to create directory %s: %s", i->path, strerror(-r));
-                        return r;
-                }
+                if (r < 0) {
+                        if (r != -EEXIST) {
+                                log_error("Failed to create directory %s: %s", i->path, strerror(-r));
+                                return r;
+                        }
 
-                if (stat(i->path, &st) < 0) {
-                        log_error("stat(%s) failed: %m", i->path);
-                        return -errno;
-                }
+                        if (stat(i->path, &st) < 0) {
+                                log_error("stat(%s) failed: %m", i->path);
+                                return -errno;
+                        }
 
-                if (!S_ISDIR(st.st_mode)) {
-                        log_error("%s is not a directory.", i->path);
-                        return -EEXIST;
+                        if (!S_ISDIR(st.st_mode)) {
+                                log_debug("%s already exists and is not a directory.", i->path);
+                                return 0;
+                        }
                 }
 
                 r = item_set_perms(i, i->path);

@@ -22,5 +22,5 @@
 ***/
 
 int copy_file(const char *from, const char *to, int flags, mode_t mode);
-int copy_tree(const char *from, const char *to);
+int copy_tree(const char *from, const char *to, bool merge);
 int copy_bytes(int fdf, int fdt);
