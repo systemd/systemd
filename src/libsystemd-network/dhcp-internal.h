@@ -24,13 +24,14 @@
 
 #include <stdint.h>
 #include <linux/if_packet.h>
+#include <net/ethernet.h>
 
 #include "socket-util.h"
 
 #include "sd-dhcp-client.h"
 #include "dhcp-protocol.h"
 
-int dhcp_network_bind_raw_socket(int index, union sockaddr_union *link, uint32_t xid);
+int dhcp_network_bind_raw_socket(int index, union sockaddr_union *link, uint32_t xid, struct ether_addr mac_addr);
 int dhcp_network_bind_udp_socket(be32_t address, uint16_t port);
 int dhcp_network_send_raw_socket(int s, const union sockaddr_union *link,
                                  const void *packet, size_t len);

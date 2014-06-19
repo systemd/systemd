@@ -33,7 +33,7 @@
 #include "dhcp-internal.h"
 
 int dhcp_network_bind_raw_socket(int index, union sockaddr_union *link,
-                                 uint32_t xid) {
+                                 uint32_t xid, struct ether_addr mac_addr) {
         struct sock_filter filter[] = {
             BPF_STMT(BPF_LD + BPF_W + BPF_LEN, 0),                                 /* A <- packet length */
             BPF_JUMP(BPF_JMP + BPF_JGE + BPF_K, sizeof(DHCPPacket), 1, 0),         /* packet >= DHCPPacket ? */
@@ -60,7 +60,18 @@ int dhcp_network_bind_raw_socket(int index, union sockaddr_union *link,
             BPF_STMT(BPF_LD + BPF_W + BPF_ABS, offsetof(DHCPPacket, dhcp.xid)),    /* A <- client identifier */
             BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, xid, 1, 0),                        /* client identifier == xid ? */
             BPF_STMT(BPF_RET + BPF_K, 0),                                          /* ignore */
-            /* TODO: match chaddr */
+            BPF_STMT(BPF_LD + BPF_IMM, htobe32(*((unsigned int *) &mac_addr))),                    /* A <- 4 bytes of client's MAC */
+            BPF_STMT(BPF_MISC + BPF_TAX, 0),                                                       /* X <- A */
+            BPF_STMT(BPF_LD + BPF_W + BPF_ABS, offsetof(DHCPPacket, dhcp.chaddr)),                 /* A <- 4 bytes of MAC from dhcp.chaddr */
+            BPF_STMT(BPF_ALU + BPF_XOR + BPF_X, 0),                                                /* A xor X */
+            BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, 0, 1, 0),                                          /* A == 0 ? */
+            BPF_STMT(BPF_RET + BPF_K, 0),                                                          /* ignore */
+            BPF_STMT(BPF_LD + BPF_IMM, htobe16(*((unsigned short *) (((char *) &mac_addr) + 4)))), /* A <- remainder of client's MAC */
+            BPF_STMT(BPF_MISC + BPF_TAX, 0),                                                       /* X <- A */
+            BPF_STMT(BPF_LD + BPF_H + BPF_ABS, offsetof(DHCPPacket, dhcp.chaddr) + 4),             /* A <- remainder of MAC from dhcp.chaddr */
+            BPF_STMT(BPF_ALU + BPF_XOR + BPF_X, 0),                                                /* A xor X */
+            BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, 0, 1, 0),                                          /* A == 0 ? */
+            BPF_STMT(BPF_RET + BPF_K, 0),                                                          /* ignore */
             BPF_STMT(BPF_LD + BPF_W + BPF_ABS, offsetof(DHCPPacket, dhcp.magic)),  /* A <- DHCP magic cookie */
             BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, DHCP_MAGIC_COOKIE, 1, 0),          /* cookie == DHCP magic cookie ? */
             BPF_STMT(BPF_RET + BPF_K, 0),                                          /* ignore */

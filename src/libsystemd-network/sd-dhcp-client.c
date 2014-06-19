@@ -751,7 +751,7 @@ static int client_start(sd_dhcp_client *client) {
 
         client->xid = random_u32();
 
-        r = dhcp_network_bind_raw_socket(client->index, &client->link, client->xid);
+        r = dhcp_network_bind_raw_socket(client->index, &client->link, client->xid, client->client_id.mac_addr);
         if (r < 0) {
                 client_stop(client, r);
                 return r;
@@ -795,7 +795,7 @@ static int client_timeout_t2(sd_event_source *s, uint64_t usec, void *userdata) 
         client->state = DHCP_STATE_REBINDING;
         client->attempt = 1;
 
-        r = dhcp_network_bind_raw_socket(client->index, &client->link, client->xid);
+        r = dhcp_network_bind_raw_socket(client->index, &client->link, client->xid, client->client_id.mac_addr);
         if (r < 0) {
                 client_stop(client, r);
                 return 0;
