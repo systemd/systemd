@@ -105,9 +105,6 @@ static void dhcp_lease_free(DHCPLease *lease) {
         free(lease);
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(DHCPLease*, dhcp_lease_free);
-#define _cleanup_dhcp_lease_free_ _cleanup_(dhcp_lease_freep)
-
 sd_dhcp_server *sd_dhcp_server_unref(sd_dhcp_server *server) {
         DHCPLease *lease;
 
