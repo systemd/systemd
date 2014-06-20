@@ -691,7 +691,8 @@ static int netdev_load_one(Manager *manager, const char *filename) {
 
         LIST_HEAD_INIT(netdev->callbacks);
 
-        if(netdev->kind == NETDEV_KIND_VETH) {
+        switch (netdev->kind) {
+        case NETDEV_KIND_VETH:
                 if (!netdev->ifname_peer) {
                         log_warning("Veth NetDev without peer name configured "
                                     "in %s. Ignoring", filename);
@@ -707,19 +708,19 @@ static int netdev_load_one(Manager *manager, const char *filename) {
                         }
                 }
 
-                return netdev_create_veth(netdev, netdev_create_handler);
-        }
+                r = netdev_create_veth(netdev, netdev_create_handler);
+                if (r < 0)
+                        return r;
 
-        if (netdev->kind != NETDEV_KIND_VLAN &&
-            netdev->kind != NETDEV_KIND_MACVLAN &&
-            netdev->kind != NETDEV_KIND_VXLAN &&
-            netdev->kind != NETDEV_KIND_IPIP &&
-            netdev->kind != NETDEV_KIND_GRE &&
-            netdev->kind != NETDEV_KIND_SIT &&
-            netdev->kind != NETDEV_KIND_VTI) {
+                break;
+        case NETDEV_KIND_BRIDGE:
+        case NETDEV_KIND_BOND:
                 r = netdev_create(netdev, NULL, NULL);
                 if (r < 0)
                         return r;
+                break;
+        default:
+                break;
         }
 
         log_debug_netdev(netdev, "loaded %s", netdev_kind_to_string(netdev->kind));
