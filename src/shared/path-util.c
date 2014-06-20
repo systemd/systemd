@@ -238,7 +238,7 @@ char **path_strv_make_absolute_cwd(char **l) {
         return l;
 }
 
-char **path_strv_canonicalize_absolute(char **l, const char *prefix) {
+char **path_strv_resolve(char **l, const char *prefix) {
         char **s;
         unsigned k = 0;
         bool enomem = false;
@@ -323,12 +323,12 @@ char **path_strv_canonicalize_absolute(char **l, const char *prefix) {
         return l;
 }
 
-char **path_strv_canonicalize_absolute_uniq(char **l, const char *prefix) {
+char **path_strv_resolve_uniq(char **l, const char *prefix) {
 
         if (strv_isempty(l))
                 return l;
 
-        if (!path_strv_canonicalize_absolute(l, prefix))
+        if (!path_strv_resolve(l, prefix))
                 return NULL;
 
         return strv_uniq(l);

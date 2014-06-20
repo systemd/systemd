@@ -5679,7 +5679,7 @@ static int search_and_fopen_internal(const char *path, const char *mode, const c
         assert(mode);
         assert(_f);
 
-        if (!path_strv_canonicalize_absolute_uniq(search, root))
+        if (!path_strv_resolve_uniq(search, root))
                 return -ENOMEM;
 
         STRV_FOREACH(i, search) {

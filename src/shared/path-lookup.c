@@ -284,7 +284,7 @@ int lookup_paths_init(
                 }
         }
 
-        if (!path_strv_canonicalize_absolute_uniq(p->unit_path, root_dir))
+        if (!path_strv_resolve_uniq(p->unit_path, root_dir))
                 return -ENOMEM;
 
         if (!strv_isempty(p->unit_path)) {
@@ -338,10 +338,10 @@ int lookup_paths_init(
                                 return -ENOMEM;
                 }
 
-                if (!path_strv_canonicalize_absolute_uniq(p->sysvinit_path, root_dir))
+                if (!path_strv_resolve_uniq(p->sysvinit_path, root_dir))
                         return -ENOMEM;
 
-                if (!path_strv_canonicalize_absolute_uniq(p->sysvrcnd_path, root_dir))
+                if (!path_strv_resolve_uniq(p->sysvrcnd_path, root_dir))
                         return -ENOMEM;
 
                 if (!strv_isempty(p->sysvinit_path)) {

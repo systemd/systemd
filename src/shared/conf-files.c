@@ -110,7 +110,7 @@ static int conf_files_list_strv_internal(char ***strv, const char *suffix, const
         assert(suffix);
 
         /* This alters the dirs string array */
-        if (!path_strv_canonicalize_absolute_uniq(dirs, root))
+        if (!path_strv_resolve_uniq(dirs, root))
                 return -ENOMEM;
 
         fh = hashmap_new(string_hash_func, string_compare_func);
