@@ -154,7 +154,24 @@
                 </example>
 
                 <example>
-                        <title>Disable packet filter on the bridge</title>
+                        <title>Disable packet filter on the bridge (method one)</title>
+                        <para><filename>/etc/udev/rules.d/99-bridge.conf</filename>:
+                        </para>
+
+                        <programlisting>ACTION=="add", SUBSYSTEM=="module", KERNEL=="bridge", RUN+="/usr/lib/systemd/systemd-sysctl --prefix=/proc/sys/net/bridge"
+</programlisting>
+
+                        <para><filename>/etc/sysctl.d/bridge.conf</filename>:
+                        </para>
+
+                        <programlisting>net.bridge.bridge-nf-call-ip6tables = 0
+net.bridge.bridge-nf-call-iptables = 0
+net.bridge.bridge-nf-call-arptables = 0
+</programlisting>
+                </example>
+
+                <example>
+                        <title>Disable packet filter on the bridge (method two)</title>
                         <para><filename>/etc/modules-load.d/bridge.conf</filename>:
                         </para>
 
