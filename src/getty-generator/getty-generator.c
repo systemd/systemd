@@ -35,19 +35,14 @@
 static const char *arg_dest = "/tmp";
 
 static int add_symlink(const char *fservice, const char *tservice) {
-        _cleanup_free_ char *from = NULL, *to = NULL;
+        char *from, *to;
         int r;
 
         assert(fservice);
         assert(tservice);
 
-        from = strappend(SYSTEM_DATA_UNIT_PATH "/", fservice);
-        if (!from)
-                return log_oom();
-
-        to = strjoin(arg_dest,"/getty.target.wants/", tservice, NULL);
-        if (!to)
-                return log_oom();
+        from = strappenda(SYSTEM_DATA_UNIT_PATH "/", fservice);
+        to = strappenda3(arg_dest, "/getty.target.wants/", tservice);
 
         mkdir_parents_label(to, 0755);
 
@@ -221,14 +216,9 @@ int main(int argc, char *argv[]) {
         /* Automatically add in a serial getty on the first
          * virtualizer console */
         NULSTR_FOREACH(j, virtualization_consoles) {
-                _cleanup_free_ char *p = NULL;
+                char *p;
 
-                p = strappend("/sys/class/tty/", j);
-                if (!p) {
-                        log_oom();
-                        return EXIT_FAILURE;
-                }
-
+                p = strappenda("/sys/class/tty/", j);
                 if (access(p, F_OK) < 0)
                         continue;
 
