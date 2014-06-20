@@ -191,7 +191,11 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
                                         symlink is to be created it
                                         will be removed and be
                                         replaced by the
-                                        symlink.</para></listitem>
+                                        symlink. If the argument is omitted,
+                                        symlinks to files with the same name
+                                        residing in the directory
+                                        <filename>/usr/share/factory/</filename>
+                                        are created.</para></listitem>
                                 </varlistentry>
 
                                 <varlistentry>
@@ -235,7 +239,10 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
                                         destination directory already
                                         exists, instead the entire
                                         copy operation is
-                                        skipped.</para></listitem>
+                                        skipped. If the argument is omitted,
+                                        files from the source directory
+                                        <filename>/usr/share/factory/</filename>
+                                        with the same name are copied.</para></listitem>
                                 </varlistentry>
 
                                 <varlistentry>

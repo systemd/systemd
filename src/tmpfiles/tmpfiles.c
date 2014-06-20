@@ -1249,10 +1249,10 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
         case CREATE_SYMLINK:
                 if (!i->argument) {
-                        log_error("[%s:%u] Symlink file requires argument.", fname, line);
-                        return -EBADMSG;
+                        i->argument = strappend("/usr/share/factory", i->path);
+                        if (!i->argument)
+                                return log_oom();
                 }
-
                 break;
 
         case WRITE_FILE:
@@ -1264,8 +1264,9 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
         case COPY_FILES:
                 if (!i->argument) {
-                        log_error("[%s:%u] Copy files requires argument.", fname, line);
-                        return -EBADMSG;
+                        i->argument = strappend("/usr/share/factory", i->path);
+                        if (!i->argument)
+                                return log_oom();
                 }
 
                 if (!path_is_absolute(i->argument)) {
