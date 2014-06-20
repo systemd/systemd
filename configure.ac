@@ -278,12 +278,33 @@ LIBS="$save_LIBS"
 
 AC_CHECK_FUNCS([fanotify_init fanotify_mark])
 AC_CHECK_FUNCS([__secure_getenv secure_getenv])
-AC_CHECK_DECLS([gettid, pivot_root, name_to_handle_at, setns, LO_FLAGS_PARTSCAN], [], [], [[#include <sys/types.h>
+AC_CHECK_DECLS([gettid, pivot_root, name_to_handle_at, setns, LO_FLAGS_PARTSCAN],
+               [], [], [[
+#include <sys/types.h>
 #include <unistd.h>
 #include <sys/mount.h>
 #include <fcntl.h>
 #include <sched.h>
-#include <linux/loop.h>]])
+#include <linux/loop.h>
+]])
+
+AC_CHECK_DECLS([IFLA_PHYS_PORT_ID,
+                IFLA_BOND_AD_INFO,
+                IFLA_VLAN_PROTOCOL,
+                IFLA_VXLAN_LOCAL6,
+                IFLA_IPTUN_6RD_RELAY_PREFIXLEN,
+                IFLA_BRIDGE_VLAN_INFO],
+[], [], [[
+#include <inttypes.h>
+#include <netinet/in.h>
+#include <netinet/ether.h>
+#include <linux/rtnetlink.h>
+#include <net/if.h>
+#include <linux/ip.h>
+#include <linux/if_tunnel.h>
+#include <linux/if_link.h>
+#include <linux/if_bridge.h>
+]])
 
 # This makes sure pkg.m4 is available.
 m4_pattern_forbid([^_?PKG_[A-Z_]+$],[*** pkg.m4 missing, please install pkg-config])
@@ -928,10 +949,10 @@ AC_SUBST(DNS_SERVERS)
 # ------------------------------------------------------------------------------
 have_networkd=no
 AC_ARG_ENABLE(networkd, AS_HELP_STRING([--disable-networkd], [disable networkd]))
-if test "x$enable_networkd" != "xno"; then
+AS_IF([test "x$enable_networkd" != "xno"], [
         AC_DEFINE(ENABLE_NETWORKD, 1, [Define if networkd support is to be enabled])
         have_networkd=yes
-fi
+])
 AM_CONDITIONAL(ENABLE_NETWORKD, [test "x$have_networkd" = "xyes"])
 
 # ------------------------------------------------------------------------------

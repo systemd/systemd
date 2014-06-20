@@ -29,6 +29,7 @@
 #include "networkd.h"
 #include "network-internal.h"
 #include "util.h"
+#include "missing.h"
 
 
 static int netdev_fill_ipip_rtnl_message(Link *link, sd_rtnl_message *m) {
