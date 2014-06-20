@@ -100,14 +100,15 @@
 
                         <varlistentry>
                                 <term><varname>systemd.mask=</varname></term>
+                                <term><varname>systemd.wants=</varname></term>
                                 <term><varname>systemd.debug-shell</varname></term>
                                 <listitem>
                                         <para>Additional parameters
                                         understood by
                                         <citerefentry><refentrytitle>systemd-debug-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                                        to mask specific units at
-                                        boot, or invoke a debug shell
-                                        on tty9.</para>
+                                        to mask or start specific
+                                        units at boot, or invoke a
+                                        debug shell on tty9.</para>
                                 </listitem>
                         </varlistentry>
 

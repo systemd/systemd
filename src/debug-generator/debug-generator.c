@@ -26,10 +26,13 @@
 
 static const char *arg_dest = "/tmp";
 static char **arg_mask = NULL;
+static char **arg_wants = NULL;
 static bool arg_debug_shell = false;
 
 static int parse_proc_cmdline_item(const char *key, const char *value) {
         int r;
+
+        assert(key);
 
         if (streq(key, "systemd.mask")) {
 
@@ -38,7 +41,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
                 else {
                         char *n;
 
-                        n = strdup(value);
+                        n = unit_name_mangle(value, MANGLE_NOGLOB);
                         if (!n)
                                 return log_oom();
 
@@ -46,6 +49,23 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
                         if (r < 0)
                                 return log_oom();
                 }
+
+        } else if (streq(key, "systemd.wants")) {
+
+                if (!value)
+                        log_error("Missing argument for systemd.want= kernel command line parameter.");
+                else {
+                        char *n;
+
+                        n = unit_name_mangle(value, MANGLE_NOGLOB);
+                        if (!n)
+                                return log_oom();
+
+                        r = strv_consume(&arg_wants, n);
+                        if (r < 0)
+                                return log_oom();
+                }
+
         } else if (streq(key, "systemd.debug-shell")) {
 
                 if (value) {
@@ -69,13 +89,9 @@ static int generate_mask_symlinks(void) {
                 return 0;
 
         STRV_FOREACH(u, arg_mask) {
-                _cleanup_free_ char *m = NULL, *p = NULL;
+                _cleanup_free_ char *p = NULL;
 
-                m = unit_name_mangle(*u, MANGLE_NOGLOB);
-                if (!m)
-                        return log_oom();
-
-                p = strjoin(arg_dest, "/", m, NULL);
+                p = strjoin(arg_dest, "/", *u, NULL);
                 if (!p)
                         return log_oom();
 
@@ -88,22 +104,33 @@ static int generate_mask_symlinks(void) {
         return r;
 }
 
-static int generate_debug_shell_symlink(void) {
-        const char *p;
+static int generate_wants_symlinks(void) {
+        char **u;
+        int r = 0;
 
-        if (!arg_debug_shell)
+        if (strv_isempty(arg_wants))
                 return 0;
 
-        p = strappenda(arg_dest, "/default.target.wants/debug-shell.service");
+        STRV_FOREACH(u, arg_wants) {
+                _cleanup_free_ char *p = NULL, *f = NULL;
 
-        mkdir_parents_label(p, 0755);
+                p = strjoin(arg_dest, "/default.target.wants/", *u, NULL);
+                if (!p)
+                        return log_oom();
 
-        if (symlink(SYSTEM_DATA_UNIT_PATH "/debug-shell.service", p) < 0) {
-                log_error("Failed to create %s symlink: %m", p);
-                return -errno;
+                f = strappend(SYSTEM_DATA_UNIT_PATH "/", *u);
+                if (!f)
+                        return log_oom();
+
+                mkdir_parents_label(p, 0755);
+
+                if (symlink(f, p) < 0) {
+                        log_error("Failed to create wants symlink %s: %m", p);
+                        r = -errno;
+                }
         }
 
-        return 0;
+        return r;
 }
 
 int main(int argc, char *argv[]) {
@@ -126,12 +153,21 @@ int main(int argc, char *argv[]) {
         if (parse_proc_cmdline(parse_proc_cmdline_item) < 0)
                 return EXIT_FAILURE;
 
+        if (arg_debug_shell) {
+                r = strv_extend(&arg_wants, "debug-shell.service");
+                if (r < 0) {
+                        r = log_oom();
+                        goto finish;
+                }
+        }
+
         r = generate_mask_symlinks();
 
-        q = generate_debug_shell_symlink();
+        q = generate_wants_symlinks();
         if (q < 0)
                 r = q;
 
+finish:
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 
 }
