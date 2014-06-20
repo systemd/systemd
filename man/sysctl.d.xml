@@ -71,24 +71,6 @@
                 is <literal>#</literal> or <literal>;</literal> are
                 ignored.</para>
 
-                <para>Note that either <literal>/</literal> or
-                <literal>.</literal> may be used as separators within
-                sysctl variable names. If the first separator is a
-                slash, remaining slashes and dots are left intact. If
-                the first separator is a dot, dots and slashes are
-                interchanged. <literal>kernel.domainname=foo</literal>
-                and <literal>kernel/domainname=foo</literal> are
-                equivalent and will cause <literal>foo</literal> to
-                be written to
-                <filename>/proc/sys/kernel/domainname</filename>.
-                Either
-                <literal>net.ipv4.conf.enp3s0/200.forwarding</literal>
-                or
-                <literal>net/ipv4/conf/enp3s0.200/forwarding</literal>
-                may be used to refer to
-                <filename>/proc/sys/net/ipv4/conf/enp3s0.200/forwarding</filename>.
-                </para>
-
                 <para>Each configuration file shall be named in the
                 style of <filename><replaceable>program</replaceable>.conf</filename>.
                 Files in <filename>/etc/</filename> override files
@@ -110,6 +92,24 @@
                 number and a dash, to simplify the ordering of the
                 files.</para>
 
+                <para>Note that either <literal>/</literal> or
+                <literal>.</literal> may be used as separators within
+                sysctl variable names. If the first separator is a
+                slash, remaining slashes and dots are left intact. If
+                the first separator is a dot, dots and slashes are
+                interchanged. <literal>kernel.domainname=foo</literal>
+                and <literal>kernel/domainname=foo</literal> are
+                equivalent and will cause <literal>foo</literal> to
+                be written to
+                <filename>/proc/sys/kernel/domainname</filename>.
+                Either
+                <literal>net.ipv4.conf.enp3s0/200.forwarding</literal>
+                or
+                <literal>net/ipv4/conf/enp3s0.200/forwarding</literal>
+                may be used to refer to
+                <filename>/proc/sys/net/ipv4/conf/enp3s0.200/forwarding</filename>.
+                </para>
+
                 <para>If the administrator wants to disable a
                 configuration file supplied by the vendor, the
                 recommended way is to place a symlink to
@@ -125,16 +125,48 @@
                 specifically,
                 <filename>net.ipv4.conf.*</filename>,
                 <filename>net.ipv6.conf.*</filename>,
-                <filename>net.ipv4.neigh.*</filename> and <filename>net.ipv6.neigh.*</filename>)</para>
+                <filename>net.ipv4.neigh.*</filename> and <filename>net.ipv6.neigh.*</filename>).</para>
+
+                <para>Many sysctl parameters only become available
+                when certain kernel modules are loaded. Modules are
+                usually loaded on demand, e.g. when certain hardware
+                is plugged in or network brought up. This means that
+                <citerefentry><refentrytitle>systemd-sysctl.service</refentrytitle><manvolnum>8</manvolnum></citerefentry> which runs
+                during early boot will not configure such parameters
+                if they become available after it has run. To
+                set such parameters, it is recommended to add
+                an <citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry> rule to set those parameters when they become
+                available. Alternatively, a slightly simpler and
+                less efficient option is to add the module to
+                <citerefentry><refentrytitle>modules-load.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>, causing it to be loaded statically
+                before sysctl settings are applied (see
+                example below).</para>
         </refsect1>
 
         <refsect1>
-                <title>Example</title>
+                <title>Examples</title>
                 <example>
-                        <title>/etc/sysctl.d/domain-name.conf example:</title>
+                        <title>Set kernel YP domain name</title>
+                        <para><filename>/etc/sysctl.d/domain-name.conf</filename>:
+                        </para>
 
-                        <programlisting># Set kernel YP domain name
-kernel.domainname=example.com</programlisting>
+                        <programlisting>kernel.domainname=example.com</programlisting>
+                </example>
+
+                <example>
+                        <title>Disable packet filter on the bridge</title>
+                        <para><filename>/etc/modules-load.d/bridge.conf</filename>:
+                        </para>
+
+                        <programlisting>bridge</programlisting>
+
+                        <para><filename>/etc/sysctl.d/bridge.conf</filename>:
+                        </para>
+
+                        <programlisting>net.bridge.bridge-nf-call-ip6tables = 0
+net.bridge.bridge-nf-call-iptables = 0
+net.bridge.bridge-nf-call-arptables = 0
+</programlisting>
                 </example>
         </refsect1>
 
@@ -146,6 +178,7 @@ kernel.domainname=example.com</programlisting>
                         <citerefentry><refentrytitle>systemd-delta</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sysctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sysctl.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>modprobe</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                 </para>
         </refsect1>
 
