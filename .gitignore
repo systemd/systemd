@@ -138,6 +138,7 @@
 /test-cgroup
 /test-cgroup-mask
 /test-cgroup-util
+/test-conf-files
 /test-daemon
 /test-date
 /test-device-nodes
