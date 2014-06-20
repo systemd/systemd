@@ -56,7 +56,7 @@
         <refsect1>
                 <title>Description</title>
 
-                <para><command>systemd-networkd</command> is a system
+                <para><command>systemd-resolved</command> is a system
                 service that manages network name resolution. It does so by
 		generating <filename>/run/systemd/resolve/resolv.conf</filename>,
 		which may be symlinked from <filename>/etc/resolv.conf</filename>.
