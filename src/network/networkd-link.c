@@ -124,8 +124,8 @@ static void link_free(Link *link) {
         free(link->lease_file);
 
         sd_ipv4ll_unref(link->ipv4ll);
-
         sd_dhcp6_client_unref(link->dhcp6_client);
+        sd_icmp6_nd_unref(link->icmp6_router_discovery);
 
         hashmap_remove(link->manager->links, &link->ifindex);
 
