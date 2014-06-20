@@ -672,7 +672,7 @@ AC_ARG_ENABLE([elfutils],
 if test "x${have_elfutils}" != xno ; then
         AC_CHECK_HEADERS(
                 [elfutils/libdwfl.h],
-                [have_elfutils=yes],
+                [],
                 [if test "x$have_elfutils" = xyes ; then
                         AC_MSG_ERROR([*** ELFUTILS headers not found.])
                 fi])
@@ -680,9 +680,17 @@ if test "x${have_elfutils}" != xno ; then
         AC_CHECK_LIB(
                 [dw],
                 [dwfl_begin],
-                [have_elfutils=yes],
+                [],
                 [if test "x$have_elfutils" = xyes ; then
                         AC_MSG_ERROR([*** ELFUTILS libs not found.])
+                fi])
+
+        AC_CHECK_LIB(
+                [dw],
+                [dwfl_core_file_attach],
+                [have_elfutils=yes],
+                [if test "x$have_elfutils" = xyes ; then
+                        AC_MSG_ERROR([*** ELFUTILS >= 158 is required.])
                 fi])
 
         if test "x$have_elfutils" = xyes ; then
