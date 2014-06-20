@@ -67,7 +67,7 @@ static int add_serial_getty(const char *tty) {
 
         log_debug("Automatically adding serial getty for /dev/%s.", tty);
 
-        n = unit_name_replace_instance("serial-getty@.service", tty);
+        n = unit_name_from_path_instance("serial-getty", tty, ".service");
         if (!n)
                 return log_oom();
 
@@ -81,7 +81,7 @@ static int add_container_getty(const char *tty) {
 
         log_debug("Automatically adding container getty for /dev/pts/%s.", tty);
 
-        n = unit_name_replace_instance("container-getty@.service", tty);
+        n = unit_name_from_path_instance("container-getty", tty, ".service");
         if (!n)
                 return log_oom();
 
