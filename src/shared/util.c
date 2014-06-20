@@ -3612,9 +3612,6 @@ char *fstab_node_to_udev_node(const char *p) {
 bool tty_is_vc(const char *tty) {
         assert(tty);
 
-        if (startswith(tty, "/dev/"))
-                tty += 5;
-
         return vtnr_from_tty(tty) >= 0;
 }
 
