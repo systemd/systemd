@@ -224,6 +224,13 @@ AS_IF([test "x$with_python" != "xno"], [
                       [AC_MSG_WARN([*** python support requires python-lxml module installed])])
         ])
 ])
+AS_IF([test "$have_python" != "yes"], [
+      AS_IF([test "$with_python" = "yes"],
+            [AC_MSG_ERROR([*** python support requested but python support not found])])
+      AS_IF([test "$with_python" != "no"],
+            [AC_MSG_WARN([*** python support not found, some documentation cannot be built])])
+])
+
 AM_CONDITIONAL([HAVE_PYTHON], [test "x$have_python" = "xyes"])
 AS_IF([test "x$PYTHON_BINARY" = "x"],
       [AS_IF([test "x$have_python" = "xyes"],
