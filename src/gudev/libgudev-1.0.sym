@@ -1,0 +1,68 @@
+/***
+  This file is part of systemd.
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+***/
+
+{
+global:
+        g_udev_client_get_type;
+        g_udev_client_new;
+        g_udev_client_query_by_device_file;
+        g_udev_client_query_by_device_number;
+        g_udev_client_query_by_subsystem;
+        g_udev_client_query_by_subsystem_and_name;
+        g_udev_client_query_by_sysfs_path;
+        g_udev_device_get_action;
+        g_udev_device_get_device_file;
+        g_udev_device_get_device_file_symlinks;
+        g_udev_device_get_device_number;
+        g_udev_device_get_device_type;
+        g_udev_device_get_devtype;
+        g_udev_device_get_driver;
+        g_udev_device_get_is_initialized;
+        g_udev_device_get_name;
+        g_udev_device_get_number;
+        g_udev_device_get_parent;
+        g_udev_device_get_parent_with_subsystem;
+        g_udev_device_get_property;
+        g_udev_device_get_property_as_boolean;
+        g_udev_device_get_property_as_double;
+        g_udev_device_get_property_as_int;
+        g_udev_device_get_property_as_strv;
+        g_udev_device_get_property_as_uint64;
+        g_udev_device_get_property_keys;
+        g_udev_device_get_seqnum;
+        g_udev_device_get_subsystem;
+        g_udev_device_get_sysfs_attr;
+        g_udev_device_get_sysfs_attr_as_boolean;
+        g_udev_device_get_sysfs_attr_as_double;
+        g_udev_device_get_sysfs_attr_as_int;
+        g_udev_device_get_sysfs_attr_as_strv;
+        g_udev_device_get_sysfs_attr_as_uint64;
+        g_udev_device_get_sysfs_attr_keys;
+        g_udev_device_get_sysfs_path;
+        g_udev_device_get_tags;
+        g_udev_device_get_type;
+        g_udev_device_get_usec_since_initialized;
+        g_udev_device_has_property;
+        g_udev_device_has_sysfs_attr;
+        g_udev_device_type_get_type;
+        g_udev_enumerator_add_match_is_initialized;
+        g_udev_enumerator_add_match_name;
+        g_udev_enumerator_add_match_property;
+        g_udev_enumerator_add_match_subsystem;
+        g_udev_enumerator_add_match_sysfs_attr;
+        g_udev_enumerator_add_match_tag;
+        g_udev_enumerator_add_nomatch_subsystem;
+        g_udev_enumerator_add_nomatch_sysfs_attr;
+        g_udev_enumerator_add_sysfs_path;
+        g_udev_enumerator_execute;
+        g_udev_enumerator_get_type;
+        g_udev_enumerator_new;
+local:
+        *;
+};
