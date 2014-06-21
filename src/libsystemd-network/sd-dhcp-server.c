@@ -29,7 +29,7 @@
 #include "dhcp-server-internal.h"
 #include "dhcp-internal.h"
 
-#define DHCP_DEFAULT_LEASE_TIME         60
+#define DHCP_DEFAULT_LEASE_TIME         3600 /* one hour */
 
 int sd_dhcp_server_set_lease_pool(sd_dhcp_server *server, struct in_addr *address,
                                   size_t size) {
