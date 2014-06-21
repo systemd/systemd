@@ -106,11 +106,32 @@ static void test_fdset_close_others(void) {
         unlink(name);
 }
 
+static void test_fdset_remove(void) {
+        _cleanup_close_ int fd = -1;
+        FDSet *fdset = NULL;
+        char name[] = "/tmp/test-fdset_remove.XXXXXX";
+
+        fd = mkostemp_safe(name, O_RDWR|O_CLOEXEC);
+        assert_se(fd >= 0);
+
+        fdset = fdset_new();
+        assert_se(fdset);
+        assert_se(fdset_put(fdset, fd) >= 0);
+        assert_se(fdset_remove(fdset, fd) >= 0);
+        assert_se(!fdset_contains(fdset, fd));
+        fdset_free(fdset);
+
+        assert_se(fcntl(fd, F_GETFD) >= 0);
+
+        unlink(name);
+}
+
 int main(int argc, char *argv[]) {
         test_fdset_new_fill();
         test_fdset_put_dup();
         test_fdset_cloexec();
         test_fdset_close_others();
+        test_fdset_remove();
 
         return 0;
 }
