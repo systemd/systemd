@@ -340,8 +340,11 @@ int dhcp_server_send_packet(sd_dhcp_server *server,
         } else if (req->message->ciaddr && type != DHCP_NAK)
                 destination = req->message->ciaddr;
 
-        if (destination || requested_broadcast(req) || type == DHCP_NAK)
+        if (destination != INADDR_ANY)
                 return dhcp_server_send_udp(server, destination, &packet->dhcp,
+                                            sizeof(DHCPMessage) + optoffset);
+        else if (requested_broadcast(req) || type == DHCP_NAK)
+                return dhcp_server_send_udp(server, INADDR_BROADCAST, &packet->dhcp,
                                             sizeof(DHCPMessage) + optoffset);
         else
                 /* we cannot send UDP packet to specific MAC address when the address is

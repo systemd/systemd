@@ -127,6 +127,10 @@ int dhcp_network_bind_udp_socket(be32_t address, uint16_t port) {
                 r = setsockopt(s, IPPROTO_IP, IP_PKTINFO, &on, sizeof(on));
                 if (r < 0)
                         return -errno;
+
+                r = setsockopt(s, SOL_SOCKET, SO_BROADCAST, &on, sizeof(on));
+                if (r < 0)
+                        return -errno;
         }
 
         r = bind(s, &src.sa, sizeof(src.in));
