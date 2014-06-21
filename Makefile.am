@@ -1246,7 +1246,8 @@ tests += \
 	test-socket-util \
 	test-fdset \
 	test-conf-files \
-	test-capability
+	test-capability \
+	test-async
 
 EXTRA_DIST += \
 	test/sched_idle_bad.service \
@@ -1356,6 +1357,12 @@ test_capability_SOURCES = \
 test_capability_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-capability.la
+
+test_async_SOURCES = \
+	src/test/test-async.c
+
+test_async_LDADD = \
+	libsystemd-shared.la
 
 test_fdset_SOURCES = \
 	src/test/test-fdset.c
