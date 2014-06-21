@@ -4646,6 +4646,7 @@ tests += \
 
 if HAVE_PAM
 pam_systemd_la_SOURCES = \
+	src/login/pam_systemd.sym \
 	src/login/pam_systemd.c
 
 pam_systemd_la_CFLAGS = \
@@ -4659,7 +4660,7 @@ pam_systemd_la_LDFLAGS = \
 	-export-dynamic \
 	-avoid-version \
 	-shared \
-	-export-symbols-regex '^pam_sm_.*'
+	-Wl,--version-script=$(top_srcdir)/src/login/pam_systemd.sym
 
 pam_systemd_la_LIBADD = \
 	libsystemd-capability.la \
