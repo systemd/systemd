@@ -5451,7 +5451,7 @@ valgrind-tests: $(TESTS)
 	done
 
 exported-%: %
-	$(AM_V_GEN)nm -g --defined-only $(builddir)/.libs/$(<:.la=.so) 2>&1 /dev/null | grep " T " | cut -d" " -f3 > $@
+	$(AM_V_GEN)$(NM) -g --defined-only $(builddir)/.libs/$(<:.la=.so) 2>&1 /dev/null | grep " T " | cut -d" " -f3 > $@
 
 exported: $(addprefix exported-, $(lib_LTLIBRARIES))
 	$(AM_V_GEN)cat $^ > $@
@@ -5471,7 +5471,7 @@ ALL_OBJECTS:=$(foreach v,$(OBJECT_VARIABLES),$($(v)))
 
 undefined defined: $(ALL_OBJECTS)
 	$(AM_V_GEN)for f in $(ALL_OBJECTS) ; do \
-		nm -g --$@-only `echo $(builddir)/"$$f" | sed -e 's,\([^/]*\).lo$$,.libs/\1.o,'` ; \
+		$(NM) -g --$@-only `echo $(builddir)/"$$f" | sed -e 's,\([^/]*\).lo$$,.libs/\1.o,'` ; \
 	done | cut -c 20- | cut -d @ -f 1 | sort -u > $@
 
 CLEANFILES += \
