@@ -4646,7 +4646,7 @@ tests += \
 
 if HAVE_PAM
 pam_systemd_la_SOURCES = \
-	src/login/pam-module.c
+	src/login/pam_systemd.c
 
 pam_systemd_la_CFLAGS = \
 	$(AM_CFLAGS) \
