@@ -1245,7 +1245,8 @@ tests += \
 	test-architecture \
 	test-socket-util \
 	test-fdset \
-	test-conf-files
+	test-conf-files \
+	test-capability
 
 EXTRA_DIST += \
 	test/sched_idle_bad.service \
@@ -1348,6 +1349,13 @@ test_utf8_SOURCES = \
 
 test_utf8_LDADD = \
 	libsystemd-shared.la
+
+test_capability_SOURCES = \
+	src/test/test-capability.c
+
+test_capability_LDADD = \
+	libsystemd-shared.la \
+	libsystemd-capability.la
 
 test_fdset_SOURCES = \
 	src/test/test-fdset.c
