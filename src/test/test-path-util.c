@@ -58,7 +58,7 @@ static void test_path(void) {
         assert_se(streq(basename("file.../"), ""));
 
 #define test_parent(x, y) {                                \
-                char _cleanup_free_ *z = NULL;             \
+                _cleanup_free_ char *z = NULL;             \
                 int r = path_get_parent(x, &z);            \
                 printf("expected: %s\n", y ? y : "error"); \
                 printf("actual: %s\n", r<0 ? "error" : z); \

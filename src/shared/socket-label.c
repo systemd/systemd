@@ -157,7 +157,7 @@ int make_socket_fd(int log_level, const char* address, int flags) {
         fd = socket_address_listen(&a, flags, SOMAXCONN, SOCKET_ADDRESS_DEFAULT,
                                    NULL, false, false, 0755, 0644, NULL);
         if (fd < 0 || log_get_max_level() >= log_level) {
-                char _cleanup_free_ *p = NULL;
+                _cleanup_free_ char *p = NULL;
 
                 r = socket_address_print(&a, &p);
                 if (r < 0) {

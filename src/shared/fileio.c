@@ -708,7 +708,7 @@ int write_env_file(const char *fname, char **l) {
 
 int executable_is_script(const char *path, char **interpreter) {
         int r;
-        char _cleanup_free_ *line = NULL;
+        _cleanup_free_ char *line = NULL;
         int len;
         char *ans;
 

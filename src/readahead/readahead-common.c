@@ -226,7 +226,7 @@ int open_inotify(void) {
 }
 
 ReadaheadShared *shared_get(void) {
-        int _cleanup_close_ fd = -1;
+        _cleanup_close_ int fd = -1;
         ReadaheadShared *m = NULL;
 
         mkdirs();

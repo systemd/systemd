@@ -139,7 +139,7 @@ static int spawn_curl(char* url) {
 
 static int spawn_getter(char *getter, char *url) {
         int r;
-        char _cleanup_strv_free_ **words = NULL;
+        _cleanup_strv_free_ char **words = NULL;
 
         assert(getter);
         words = strv_split_quoted(getter);
@@ -154,7 +154,7 @@ static int spawn_getter(char *getter, char *url) {
 }
 
 static int open_output(Writer *s, const char* url) {
-        char _cleanup_free_ *name, *output = NULL;
+        _cleanup_free_ char *name, *output = NULL;
         char *c;
         int r;
 
@@ -745,8 +745,8 @@ static int remoteserver_init(RemoteServer *s) {
         }
 
         if (arg_url) {
-                char _cleanup_free_ *url = NULL;
-                char _cleanup_strv_free_ **urlv = strv_new(arg_url, "/entries", NULL);
+                _cleanup_free_ char *url = NULL;
+                _cleanup_strv_free_ char **urlv = strv_new(arg_url, "/entries", NULL);
                 if (!urlv)
                         return log_oom();
                 url = strv_join(urlv, "");

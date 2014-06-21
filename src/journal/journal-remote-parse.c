@@ -177,7 +177,7 @@ static int fill_fixed_size(RemoteSource *source, void **data, size_t size) {
 
 static int get_data_size(RemoteSource *source) {
         int r;
-        void _cleanup_free_ *data = NULL;
+        _cleanup_free_ void *data = NULL;
 
         assert(source);
         assert(source->state == STATE_DATA_START);
@@ -215,7 +215,7 @@ static int get_data_data(RemoteSource *source, void **data) {
 
 static int get_data_newline(RemoteSource *source) {
         int r;
-        char _cleanup_free_ *data = NULL;
+        _cleanup_free_ char *data = NULL;
 
         assert(source);
         assert(source->state == STATE_DATA_FINISH);

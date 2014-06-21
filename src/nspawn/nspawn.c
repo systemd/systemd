@@ -824,7 +824,7 @@ static int setup_timezone(const char *dest) {
 }
 
 static int setup_resolv_conf(const char *dest) {
-        char _cleanup_free_ *where = NULL;
+        _cleanup_free_ char *where = NULL;
 
         assert(dest);
 

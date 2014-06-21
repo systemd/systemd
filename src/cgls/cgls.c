@@ -130,7 +130,7 @@ static int parse_argv(int argc, char *argv[]) {
 int main(int argc, char *argv[]) {
         int r = 0, retval = EXIT_FAILURE;
         int output_flags;
-        char _cleanup_free_ *root = NULL;
+        _cleanup_free_ char *root = NULL;
         _cleanup_bus_unref_ sd_bus *bus = NULL;
 
         log_parse_environment();

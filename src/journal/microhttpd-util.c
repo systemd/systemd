@@ -217,7 +217,7 @@ int check_permissions(struct MHD_Connection *connection, int *code) {
         const union MHD_ConnectionInfo *ci;
         gnutls_session_t session;
         gnutls_x509_crt_t client_cert;
-        char _cleanup_free_ *buf = NULL;
+        _cleanup_free_ char *buf = NULL;
         int r;
 
         assert(connection);
