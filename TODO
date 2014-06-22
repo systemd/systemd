@@ -15,10 +15,6 @@ Bugfixes:
 
 * properly handle .mount unit state tracking when two mount points are stacked one on top of another on the exact same mount point.
 
-* shorten the message to sane length:
-  "Cannot add dependency job for unit display-manager.service, ignoring: Unit display-manager.service
-  failed to load: No such file or directory. See system logs and 'systemctl status display-manager.service' for details."
-
 * sd_bus_unref() is broken regarding self-references and "pseudo thread-safety".
   See the comment in sd_bus_unref() for more..
 
