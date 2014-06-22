@@ -45,6 +45,8 @@
 
         <refnamediv>
                 <refname>coredumpctl</refname>
+                <refname>systemd-coredumpctl</refname>
+
                 <refpurpose>Retrieve coredumps from the journal</refpurpose>
         </refnamediv>
 
@@ -63,6 +65,10 @@
                 <para><command>coredumpctl</command> may be used to
                 retrieve coredumps from
                 <citerefentry><refentrytitle>systemd-journald</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+                <para><command>systemd-coredumpctl</command> is a
+                depracated alias for
+                <command>coredumpctl</command>.</para>
         </refsect1>
 
         <refsect1>

@@ -666,8 +666,10 @@ if ENABLE_COREDUMP
 MANPAGES += \
 	man/coredumpctl.1
 MANPAGES_ALIAS += \
-	#
-
+	man/systemd-coredumpctl.1
+man/systemd-coredumpctl.1: man/coredumpctl.1
+man/systemd-coredumpctl.html: man/coredumpctl.html
+	$(html-alias)
 
 endif
 
