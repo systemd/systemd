@@ -51,10 +51,11 @@ static void snapshot_set_state(Snapshot *s, SnapshotState state) {
         s->state = state;
 
         if (state != old_state)
-                log_debug("%s changed %s -> %s",
-                          UNIT(s)->id,
-                          snapshot_state_to_string(old_state),
-                          snapshot_state_to_string(state));
+                log_debug_unit(UNIT(s)->id,
+                               "%s changed %s -> %s",
+                               UNIT(s)->id,
+                               snapshot_state_to_string(old_state),
+                               snapshot_state_to_string(state));
 
         unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state], true);
 }
@@ -154,7 +155,7 @@ static int snapshot_deserialize_item(Unit *u, const char *key, const char *value
 
                 state = snapshot_state_from_string(value);
                 if (state < 0)
-                        log_debug("Failed to parse state value %s", value);
+                        log_debug_unit(u->id, "Failed to parse state value %s", value);
                 else
                         s->deserialized_state = state;
 
@@ -162,7 +163,7 @@ static int snapshot_deserialize_item(Unit *u, const char *key, const char *value
 
                 r = parse_boolean(value);
                 if (r < 0)
-                        log_debug("Failed to parse cleanup value %s", value);
+                        log_debug_unit(u->id, "Failed to parse cleanup value %s", value);
                 else
                         s->cleanup = r;
 
@@ -172,7 +173,7 @@ static int snapshot_deserialize_item(Unit *u, const char *key, const char *value
                 if (r < 0)
                         return r;
         } else
-                log_debug("Unknown serialization key '%s'", key);
+                log_debug_unit(u->id, "Unknown serialization key '%s'", key);
 
         return 0;
 }
@@ -257,6 +258,8 @@ int snapshot_create(Manager *m, const char *name, bool cleanup, sd_bus_error *e,
         SNAPSHOT(u)->cleanup = cleanup;
         *_s = SNAPSHOT(u);
 
+        log_info_unit(u->id, "Created snapshot %s.", u->id);
+
         return 0;
 
 fail:
@@ -268,6 +271,8 @@ fail:
 
 void snapshot_remove(Snapshot *s) {
         assert(s);
+
+        log_info_unit(UNIT(s)->id, "Removing snapshot %s.", UNIT(s)->id);
 
         unit_add_to_cleanup_queue(UNIT(s));
 }

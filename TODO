@@ -214,8 +214,6 @@ Features:
   - add 'set -e' to scripts in test/
   - make stuff in test/ work with separate output dir
 
-* systemctl delete x.snapshot leaves no trace in logs (at least at default level).
-
 * seems that when we follow symlinks to units we prefer the symlink
   destination path over /etc and /usr. We should not do that. Instead
   /etc should always override /run+/usr and also any symlink
