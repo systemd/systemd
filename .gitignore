@@ -116,6 +116,7 @@
 /systemd-vconsole-setup
 /tags
 /test-architecture
+/test-async
 /test-boot-timestamp
 /test-bus-chat
 /test-bus-cleanup
@@ -134,6 +135,7 @@
 /test-bus-signature
 /test-bus-zero-copy
 /test-calendarspec
+/test-capability
 /test-catalog
 /test-cgroup
 /test-cgroup-mask
