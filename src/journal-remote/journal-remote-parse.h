@@ -33,7 +33,7 @@ typedef enum {
 } source_state;
 
 typedef struct RemoteSource {
-        char* name;
+        char *name;
         int fd;
 
         char *buf;

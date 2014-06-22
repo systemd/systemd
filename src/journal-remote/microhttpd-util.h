@@ -41,7 +41,7 @@ int mhd_respond(struct MHD_Connection *connection,
 
 int mhd_respond_oom(struct MHD_Connection *connection);
 
-int check_permissions(struct MHD_Connection *connection, int *code);
+int check_permissions(struct MHD_Connection *connection, int *code, char **hostname);
 
 #ifdef HAVE_GNUTLS
 void log_func_gnutls(int level, const char *message);

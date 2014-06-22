@@ -243,7 +243,7 @@ static int get_auth_dn(gnutls_x509_crt_t client_cert, char **buf) {
         return 0;
 }
 
-int check_permissions(struct MHD_Connection *connection, int *code) {
+int check_permissions(struct MHD_Connection *connection, int *code, char **hostname) {
         const union MHD_ConnectionInfo *ci;
         gnutls_session_t session;
         gnutls_x509_crt_t client_cert;
@@ -281,6 +281,11 @@ int check_permissions(struct MHD_Connection *connection, int *code) {
         }
 
         log_info("Connection from %s", buf);
+
+        if (hostname) {
+                *hostname = buf;
+                buf = NULL;
+        }
 
         r = verify_cert_authorized(session);
         if (r < 0) {

@@ -253,6 +253,20 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       </varlistentry>
 
       <varlistentry>
+        <term><option>--split-mode</option></term>
+
+        <listitem><para>One of <constant>none</constant> or
+        <constant>host</constant>. For the first, only one output
+        journal file is used. For the latter, a separate output file
+        is used, based on the hostname of the other endpoint of a
+        connection.</para>
+
+        <para>In case of "active" sources, the output file name must
+        always be given explicitly and only <constant>none</constant>
+        is allowed.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--compress</option></term>
         <term><option>--no-compress</option></term>
 

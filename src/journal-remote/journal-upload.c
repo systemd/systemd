@@ -297,8 +297,18 @@ static int dispatch_fd_input(sd_event_source *event,
         Uploader *u = userp;
 
         assert(u);
-        assert(revents & EPOLLIN);
         assert(fd >= 0);
+
+        if (revents & EPOLLHUP) {
+                log_debug("Received HUP");
+                close_fd_input(u);
+                return 0;
+        }
+
+        if (!(revents & EPOLLIN)) {
+                log_warning("Unexpected poll event %"PRIu32".", revents);
+                return -EINVAL;
+        }
 
         if (u->uploading) {
                 log_warning("dispatch_fd_input called when uploading, ignoring.");

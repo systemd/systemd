@@ -30,11 +30,14 @@ void source_free(RemoteSource *source) {
 
         if (source->fd >= 0) {
                 log_debug("Closing fd:%d (%s)", source->fd, source->name);
-                close(source->fd);
+                safe_close(source->fd);
         }
         free(source->name);
         free(source->buf);
         iovw_free_contents(&source->iovw);
+
+        sd_event_source_unref(source->event);
+
         free(source);
 }
 

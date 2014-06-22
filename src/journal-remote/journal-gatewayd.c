@@ -834,7 +834,7 @@ static int request_handler(
         }
 
         if (trust_pem) {
-                r = check_permissions(connection, &code);
+                r = check_permissions(connection, &code, NULL);
                 if (r < 0)
                         return code;
         }
