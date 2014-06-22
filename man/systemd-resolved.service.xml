@@ -58,24 +58,24 @@
 
                 <para><command>systemd-resolved</command> is a system
                 service that manages network name resolution. It does so by
-		generating <filename>/run/systemd/resolve/resolv.conf</filename>,
-		which may be symlinked from <filename>/etc/resolv.conf</filename>.
-		The contents is generated from the global settings in
+                generating <filename>/run/systemd/resolve/resolv.conf</filename>,
+                which may be symlinked from <filename>/etc/resolv.conf</filename>.
+                The contents is generated from the global settings in
                 <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-		the per-link static settings in <filename>.network</filename> files,
-		and the per-link dynamic settings received over DHCP. See
+                the per-link static settings in <filename>.network</filename> files,
+                and the per-link dynamic settings received over DHCP. See
                 <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-		for more details.</para>
+                for more details.</para>
 
                 <para>Note that <filename>/run/systemd/resolve/resolv.conf</filename>
                 should not be used directly, but only through a symlink from
-		<filename>/etc/resolv.conf</filename>.</para>
+                <filename>/etc/resolv.conf</filename>.</para>
         </refsect1>
 
         <refsect1>
                 <title>See Also</title>
                 <para>
-			<citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
