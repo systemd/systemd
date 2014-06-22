@@ -264,9 +264,12 @@ static int transaction_merge_jobs(Transaction *tr, sd_bus_error *e) {
                                 return -EAGAIN;
 
                         /* We couldn't merge anything. Failure */
-                        sd_bus_error_setf(
-                                        e, BUS_ERROR_TRANSACTION_JOBS_CONFLICTING, "Transaction contains conflicting jobs '%s' and '%s' for %s. Probably contradicting requirement dependencies configured.",
-                                        job_type_to_string(t), job_type_to_string(k->type), k->unit->id);
+                        sd_bus_error_setf(e, BUS_ERROR_TRANSACTION_JOBS_CONFLICTING,
+                                          "Transaction contains conflicting jobs '%s' and '%s' for %s. "
+                                          "Probably contradicting requirement dependencies configured.",
+                                          job_type_to_string(t),
+                                          job_type_to_string(k->type),
+                                          k->unit->id);
                         return r;
                 }
         }
@@ -512,7 +515,8 @@ static int transaction_is_destructive(Transaction *tr, JobMode mode, sd_bus_erro
                 if (j->unit->job && (mode == JOB_FAIL || j->unit->job->irreversible) &&
                     !job_type_is_superset(j->type, j->unit->job->type)) {
 
-                        sd_bus_error_setf(e, BUS_ERROR_TRANSACTION_IS_DESTRUCTIVE, "Transaction is destructive.");
+                        sd_bus_error_setf(e, BUS_ERROR_TRANSACTION_IS_DESTRUCTIVE,
+                                          "Transaction is destructive.");
                         return -EEXIST;
                 }
         }
@@ -860,35 +864,38 @@ int transaction_add_job_and_dependencies(
             unit->load_state != UNIT_ERROR &&
             unit->load_state != UNIT_NOT_FOUND &&
             unit->load_state != UNIT_MASKED) {
-                sd_bus_error_setf(e, BUS_ERROR_LOAD_FAILED, "Unit %s is not loaded properly.", unit->id);
+                sd_bus_error_setf(e, BUS_ERROR_LOAD_FAILED,
+                                  "Unit %s is not loaded properly.", unit->id);
                 return -EINVAL;
         }
 
         if (type != JOB_STOP && unit->load_state == UNIT_ERROR) {
                 sd_bus_error_setf(e, BUS_ERROR_LOAD_FAILED,
-                               "Unit %s failed to load: %s. "
-                               "See system logs and 'systemctl status %s' for details.",
-                               unit->id,
-                               strerror(-unit->load_error),
-                               unit->id);
+                                  "Unit %s failed to load: %s. "
+                                  "See system logs and 'systemctl status %s' for details.",
+                                  unit->id,
+                                  strerror(-unit->load_error),
+                                  unit->id);
                 return -EINVAL;
         }
 
         if (type != JOB_STOP && unit->load_state == UNIT_NOT_FOUND) {
                 sd_bus_error_setf(e, BUS_ERROR_LOAD_FAILED,
-                               "Unit %s failed to load: %s.",
-                               unit->id,
-                               strerror(-unit->load_error));
+                                  "Unit %s failed to load: %s.",
+                                  unit->id, strerror(-unit->load_error));
                 return -EINVAL;
         }
 
         if (type != JOB_STOP && unit->load_state == UNIT_MASKED) {
-                sd_bus_error_setf(e, BUS_ERROR_UNIT_MASKED, "Unit %s is masked.", unit->id);
+                sd_bus_error_setf(e, BUS_ERROR_UNIT_MASKED,
+                                  "Unit %s is masked.", unit->id);
                 return -EADDRNOTAVAIL;
         }
 
         if (!unit_job_is_applicable(unit, type)) {
-                sd_bus_error_setf(e, BUS_ERROR_JOB_TYPE_NOT_APPLICABLE, "Job type %s is not applicable for unit %s.", job_type_to_string(type), unit->id);
+                sd_bus_error_setf(e, BUS_ERROR_JOB_TYPE_NOT_APPLICABLE,
+                                  "Job type %s is not applicable for unit %s.",
+                                  job_type_to_string(type), unit->id);
                 return -EBADR;
         }
 
