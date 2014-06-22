@@ -52,7 +52,9 @@ int file_verify(int fd, const char *fn, off_t file_size_max, struct stat *st) {
         }
 
         if (st->st_size <= 0 || st->st_size > file_size_max) {
-                log_debug("Not preloading file %s with size out of bounds %zu", fn, st->st_size);
+                assert_cc(sizeof(st->st_size) == 8);
+                log_debug("Not preloading file %s with size out of bounds %"PRIu64,
+                          fn, st->st_size);
                 return 0;
         }
 
