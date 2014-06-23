@@ -409,9 +409,10 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 *unit = NULL, *user_unit = NULL, *session = NULL,
                 *boot_id = NULL, *machine_id = NULL, *hostname = NULL,
                 *coredump = NULL, *slice = NULL, *cgroup = NULL,
-                *owner_uid = NULL, *message = NULL;
+                *owner_uid = NULL, *message = NULL, *timestamp = NULL;
         const void *d;
         size_t l;
+        int r;
 
         assert(file);
         assert(j);
@@ -430,6 +431,7 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 retrieve(d, l, "COREDUMP_OWNER_UID", &owner_uid);
                 retrieve(d, l, "COREDUMP_SLICE", &slice);
                 retrieve(d, l, "COREDUMP_CGROUP", &cgroup);
+                retrieve(d, l, "COREDUMP_TIMESTAMP", &timestamp);
                 retrieve(d, l, "_BOOT_ID", &boot_id);
                 retrieve(d, l, "_MACHINE_ID", &machine_id);
                 retrieve(d, l, "_HOSTNAME", &hostname);
@@ -484,6 +486,22 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                         fprintf(file, "        Signal: %s (%s)\n", sgnl, signal_to_string(sig));
                 else
                         fprintf(file, "        Signal: %s\n", sgnl);
+        }
+
+        if (timestamp) {
+                usec_t u;
+
+                r = safe_atou64(timestamp, &u);
+                if (r >= 0) {
+                        char absolute[FORMAT_TIMESTAMP_MAX], relative[FORMAT_TIMESPAN_MAX];
+
+                        fprintf(file,
+                                "     Timestamp: %s (%s)\n",
+                                format_timestamp(absolute, sizeof(absolute), u),
+                                format_timestamp_relative(relative, sizeof(relative), u));
+
+                } else
+                        fprintf(file, "     Timestamp: %s\n", timestamp);
         }
 
         if (exe)
