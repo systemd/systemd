@@ -211,7 +211,7 @@ static int make_backup(const char *x) {
         if (dst < 0)
                 return dst;
 
-        r = copy_bytes(src, dst);
+        r = copy_bytes(src, dst, (off_t) -1);
         if (r < 0)
                 goto fail;
 

@@ -659,7 +659,7 @@ static int dump_core(sd_journal* j) {
                         return -errno;
                 }
 
-                r = copy_bytes(fd, output ? fileno(output) : STDOUT_FILENO);
+                r = copy_bytes(fd, output ? fileno(output) : STDOUT_FILENO, (off_t) -1);
                 if (r < 0) {
                         log_error("Failed to stream coredump: %s", strerror(-r));
                         return r;

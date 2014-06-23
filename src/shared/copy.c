@@ -22,15 +22,27 @@
 #include "util.h"
 #include "copy.h"
 
-int copy_bytes(int fdf, int fdt) {
+int copy_bytes(int fdf, int fdt, off_t max_bytes) {
         assert(fdf >= 0);
         assert(fdt >= 0);
 
         for (;;) {
                 char buf[PIPE_BUF];
                 ssize_t n, k;
+                size_t m;
 
-                n = read(fdf, buf, sizeof(buf));
+                m = sizeof(buf);
+
+                if (max_bytes != (off_t) -1) {
+
+                        if (max_bytes <= 0)
+                                return -E2BIG;
+
+                        if ((off_t) m > max_bytes)
+                                m = (size_t) max_bytes;
+                }
+
+                n = read(fdf, buf, m);
                 if (n < 0)
                         return -errno;
                 if (n == 0)
@@ -42,6 +54,11 @@ int copy_bytes(int fdf, int fdt) {
                         return k;
                 if (k != n)
                         return errno ? -errno : -EIO;
+
+                if (max_bytes != (off_t) -1) {
+                        assert(max_bytes >= n);
+                        max_bytes -= n;
+                }
         }
 
         return 0;
@@ -84,7 +101,7 @@ static int fd_copy_regular(int df, const char *from, const struct stat *st, int 
         if (fdt < 0)
                 return -errno;
 
-        r = copy_bytes(fdf, fdt);
+        r = copy_bytes(fdf, fdt, (off_t) -1);
         if (r < 0) {
                 unlinkat(dt, to, 0);
                 return r;
@@ -262,7 +279,7 @@ int copy_file(const char *from, const char *to, int flags, mode_t mode) {
         if (fdt < 0)
                 return -errno;
 
-        r = copy_bytes(fdf, fdt);
+        r = copy_bytes(fdf, fdt, (off_t) -1);
         if (r < 0) {
                 unlink(to);
                 return r;

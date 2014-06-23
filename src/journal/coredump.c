@@ -240,8 +240,14 @@ static int save_external_coredump(char **argv, uid_t uid, char **ret_filename, i
                 return -errno;
         }
 
-        r = copy_bytes(STDIN_FILENO, fd);
-        if (r < 0) {
+        r = copy_bytes(STDIN_FILENO, fd, arg_process_size_max);
+        if (r == -E2BIG) {
+                log_error("Coredump of %s (%s) is larger than configured processing limit, refusing.", argv[ARG_PID], argv[ARG_COMM]);
+                goto fail;
+        } else if (IN_SET(r, -EDQUOT, -ENOSPC)) {
+                log_error("Not enough disk space for coredump of %s (%s), refusing.", argv[ARG_PID], argv[ARG_COMM]);
+                goto fail;
+        } else if (r < 0) {
                 log_error("Failed to dump coredump to file: %s", strerror(-r));
                 goto fail;
         }
