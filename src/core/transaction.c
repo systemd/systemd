@@ -381,7 +381,7 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                                       "Found dependency on %s/%s",
                                       k->unit->id, job_type_to_string(k->type));
 
-                        if (!delete &&
+                        if (!delete && hashmap_get(tr->jobs, k->unit) &&
                             !unit_matters_to_anchor(k->unit, k)) {
                                 /* Ok, we can drop this one, so let's
                                  * do so. */
