@@ -5,6 +5,7 @@
 
   Copyright 2012 Lennart Poettering
   Copyright 2013 Zbigniew Jędrzejewski-Szmek
+  Copyright 2014 Ronny Chevalier
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -193,9 +194,135 @@ static int test_unit_printf(void) {
         return 0;
 }
 
+static void test_unit_instance_is_valid(void) {
+        assert_se(unit_instance_is_valid("fooBar"));
+        assert_se(unit_instance_is_valid("foo-bar"));
+        assert_se(unit_instance_is_valid("foo.stUff"));
+        assert_se(unit_instance_is_valid("fOo123.stuff"));
+        assert_se(unit_instance_is_valid("@f_oo123.Stuff"));
+
+        assert_se(!unit_instance_is_valid("$¢£"));
+        assert_se(!unit_instance_is_valid(""));
+        assert_se(!unit_instance_is_valid("foo bar"));
+        assert_se(!unit_instance_is_valid("foo/bar"));
+}
+
+static void test_unit_prefix_is_valid(void) {
+        assert_se(unit_prefix_is_valid("fooBar"));
+        assert_se(unit_prefix_is_valid("foo-bar"));
+        assert_se(unit_prefix_is_valid("foo.stUff"));
+        assert_se(unit_prefix_is_valid("fOo123.stuff"));
+        assert_se(unit_prefix_is_valid("foo123.Stuff"));
+
+        assert_se(!unit_prefix_is_valid("$¢£"));
+        assert_se(!unit_prefix_is_valid(""));
+        assert_se(!unit_prefix_is_valid("foo bar"));
+        assert_se(!unit_prefix_is_valid("foo/bar"));
+        assert_se(!unit_prefix_is_valid("@foo-bar"));
+}
+
+static void test_unit_name_change_suffix(void) {
+        char *r;
+
+        r = unit_name_change_suffix("foo.bar", ".service");
+        assert_se(r);
+        assert_se(streq(r, "foo.service"));
+        free(r);
+
+        r = unit_name_change_suffix("foo@stuff.bar", ".boo");
+        assert_se(r);
+        assert_se(streq(r, "foo@stuff.boo"));
+        free(r);
+}
+
+static void test_unit_name_build(void) {
+        char *r;
+
+        r = unit_name_build("foo", "bar", ".service");
+        assert_se(r);
+        assert_se(streq(r, "foo@bar.service"));
+        free(r);
+
+        r = unit_name_build("fo0-stUff_b", "bar", ".mount");
+        assert_se(r);
+        assert_se(streq(r, "fo0-stUff_b@bar.mount"));
+        free(r);
+
+        r = unit_name_build("foo", NULL, ".service");
+        assert_se(r);
+        assert_se(streq(r, "foo.service"));
+        free(r);
+}
+
+static void test_unit_name_is_instance(void) {
+        assert_se(unit_name_is_instance("a@b.service"));
+        assert_se(unit_name_is_instance("a-c_c01Aj@b05Dii_-oioi.service"));
+
+        assert_se(!unit_name_is_instance("a.service"));
+        assert_se(!unit_name_is_instance("junk"));
+        assert_se(!unit_name_is_instance(""));
+}
+
+static void test_build_subslice(void) {
+        char *a;
+        char *b;
+
+        assert_se(build_subslice("-.slice", "foo", &a) >= 0);
+        assert_se(build_subslice(a, "bar", &b) >= 0);
+        free(a);
+        assert_se(build_subslice(b, "barfoo", &a) >= 0);
+        free(b);
+        assert_se(build_subslice(a, "foobar", &b) >= 0);
+        free(a);
+        assert_se(streq(b, "foo-bar-barfoo-foobar.slice"));
+        free(b);
+
+        assert_se(build_subslice("foo.service", "bar", &a) < 0);
+        assert_se(build_subslice("foo", "bar", &a) < 0);
+}
+
+static void test_unit_name_to_instance(void) {
+        char *instance;
+        int r;
+
+        r = unit_name_to_instance("foo@bar.service", &instance);
+        assert_se(r >= 0);
+        assert_se(streq(instance, "bar"));
+        free(instance);
+
+        r = unit_name_to_instance("fo0-stUff_b@b.e", &instance);
+        assert_se(r >= 0);
+        assert_se(streq(instance, "b"));
+        free(instance);
+
+        r = unit_name_to_instance("foo.bar", &instance);
+        assert_se(r >= 0);
+        assert_se(!instance);
+
+        r = unit_name_to_instance("fooj@unk", &instance);
+        assert_se(r < 0);
+}
+
+static void test_unit_name_escape(void) {
+        _cleanup_free_ char *r;
+
+        r = unit_name_escape("ab+-c.a/bc@foo.service");
+        assert_se(r);
+        assert_se(streq(r, "ab\\x2b\\x2dc.a-bc\\x40foo.service"));
+}
+
 int main(int argc, char* argv[]) {
         int rc = 0;
         test_replacements();
         TEST_REQ_RUNNING_SYSTEMD(rc = test_unit_printf());
+        test_unit_instance_is_valid();
+        test_unit_prefix_is_valid();
+        test_unit_name_change_suffix();
+        test_unit_name_build();
+        test_unit_name_is_instance();
+        test_build_subslice();
+        test_unit_name_to_instance();
+        test_unit_name_escape();
+
         return rc;
 }
