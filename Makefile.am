@@ -1635,7 +1635,7 @@ test_conf_files_LDADD = \
 .PHONY: coverage lcov-run lcov-report coverage-sync
 
 # run lcov from scratch, always
-coverage:
+coverage: all
 	$(MAKE) lcov-run
 	$(MAKE) lcov-report
 
