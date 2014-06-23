@@ -29,6 +29,7 @@
 #include "mkdir.h"
 #include "strv.h"
 #include "fileio.h"
+#include "path-util.h"
 
 static const char *arg_dest = "/tmp";
 static bool arg_enabled = true;
@@ -144,16 +145,19 @@ static int create_disk(
                         if (!uu)
                                 return log_oom();
 
-                        if (is_device_path(uu)) {
-                                _cleanup_free_ char *dd;
+                        if (!path_equal(uu, "/dev/null")) {
 
-                                dd = unit_name_from_path(uu, ".device");
-                                if (!dd)
-                                        return log_oom();
+                                if (is_device_path(uu)) {
+                                        _cleanup_free_ char *dd;
 
-                                fprintf(f, "After=%1$s\nRequires=%1$s\n", dd);
-                        } else
-                                fprintf(f, "RequiresMountsFor=%s\n", password);
+                                        dd = unit_name_from_path(uu, ".device");
+                                        if (!dd)
+                                                return log_oom();
+
+                                        fprintf(f, "After=%1$s\nRequires=%1$s\n", dd);
+                                } else
+                                        fprintf(f, "RequiresMountsFor=%s\n", password);
+                        }
                 }
         }
 
