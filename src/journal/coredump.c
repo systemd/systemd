@@ -39,6 +39,7 @@
 #include "conf-parser.h"
 #include "copy.h"
 #include "stacktrace.h"
+#include "path-util.h"
 
 #ifdef HAVE_ACL
 #include <sys/acl.h>
@@ -374,6 +375,13 @@ int main(int argc, char* argv[]) {
         /* Ignore all parse errors */
         parse_config();
         log_debug("Selected storage '%s'.", coredump_storage_to_string(arg_storage));
+
+        /* Exit early if we cannot write the coredump to disk anyway */
+        if (path_is_read_only_fs("/var/lib") != 0) {
+                log_error("Coredump directory not mounted or not writable, skipping coredump.");
+                r = -EROFS;
+                goto finish;
+        }
 
         r = parse_uid(argv[ARG_UID], &uid);
         if (r < 0) {
