@@ -1247,7 +1247,8 @@ tests += \
 	test-fdset \
 	test-conf-files \
 	test-capability \
-	test-async
+	test-async \
+	test-ratelimit
 
 EXTRA_DIST += \
 	test/sched_idle_bad.service \
@@ -1369,6 +1370,12 @@ test_fdset_SOURCES = \
 
 test_fdset_LDADD = \
 	libsystemd-core.la
+
+test_ratelimit_SOURCES = \
+	src/test/test-ratelimit.c
+
+test_ratelimit_LDADD = \
+	libsystemd-shared.la
 
 test_util_SOURCES = \
 	src/test/test-util.c
