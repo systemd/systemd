@@ -186,7 +186,7 @@ static int fix_xattr(int fd, char *argv[]) {
         return r;
 }
 
-#define filename_escape(s) xescape((s), "./")
+#define filename_escape(s) xescape((s), "./ ")
 
 static int save_external_coredump(char **argv, uid_t uid, char **ret_filename, int *ret_fd, off_t *ret_size) {
         _cleanup_free_ char *p = NULL, *t = NULL, *c = NULL, *fn = NULL, *tmp = NULL;

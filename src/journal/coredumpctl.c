@@ -280,7 +280,7 @@ static int retrieve(const void *data,
         return 0;
 }
 
-#define filename_escape(s) xescape((s), "./")
+#define filename_escape(s) xescape((s), "./ ")
 
 static int make_coredump_path(sd_journal *j, char **ret) {
         _cleanup_free_ char
