@@ -848,7 +848,7 @@ int bus_exec_context_set_transient_property(
                         strv_free(c->environment);
                         c->environment = e;
 
-                        joined = strv_join(c->environment, " ");
+                        joined = strv_join_quoted(c->environment);
                         if (!joined)
                                 return -ENOMEM;
 
