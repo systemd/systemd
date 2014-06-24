@@ -140,6 +140,7 @@
 /test-cgroup
 /test-cgroup-mask
 /test-cgroup-util
+/test-compress
 /test-conf-files
 /test-daemon
 /test-date

@@ -3509,6 +3509,15 @@ test_catalog_CPPFLAGS = \
 test_catalog_LDADD = \
 	libsystemd-journal-core.la
 
+if HAVE_XZ
+test_compress_SOURCES = \
+	src/journal/test-compress.c
+
+test_compress_LDADD = \
+	libsystemd-journal-internal.la \
+	libsystemd-shared.la
+endif
+
 libsystemd_journal_core_la_SOURCES = \
 	src/journal/journald-kmsg.c \
 	src/journal/journald-kmsg.h \
@@ -3590,6 +3599,10 @@ tests += \
 	test-journal-flush \
 	test-mmap-cache \
 	test-catalog
+
+if HAVE_XZ
+tests += test-compress
+endif
 
 pkginclude_HEADERS += \
 	src/systemd/sd-journal.h \
