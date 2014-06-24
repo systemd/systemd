@@ -172,7 +172,7 @@ static int generate_unit_file(SysvStub *s) {
                 fprintf(f, "SysVStartPriority=%d\n", s->sysv_start_priority);
 
         if (s->pid_file)
-                fprintf(f, "PidFile=%s\n", s->pid_file);
+                fprintf(f, "PIDFile=%s\n", s->pid_file);
 
         fprintf(f,
                 "ExecStart=%s start\n"
