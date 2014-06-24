@@ -49,10 +49,13 @@ int generator_write_fsck_deps(
         if (!isempty(fstype) && !streq(fstype, "auto")) {
                 int r;
                 r = fsck_exists(fstype);
-                if (r < 0) {
-                        log_warning("Checking was requested for %s, but fsck.%s cannot be used: %s", what, fstype, strerror(-r));
+                if (r == -ENOENT) {
                         /* treat missing check as essentially OK */
-                        return r == -ENOENT ? 0 : r;
+                        log_debug("Checking was requested for %s, but fsck.%s does not exist: %s", what, fstype, strerror(-r));
+                        return 0;
+                } else if (r < 0) {
+                        log_warning("Checking was requested for %s, but fsck.%s cannot be used: %s", what, fstype, strerror(-r));
+                        return r;
                 }
         }
 

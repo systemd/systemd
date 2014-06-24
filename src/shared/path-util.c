@@ -541,7 +541,7 @@ int path_is_os_tree(const char *path) {
 int find_binary(const char *name, char **filename) {
         assert(name);
 
-        if (strchr(name, '/')) {
+        if (is_path(name)) {
                 if (access(name, X_OK) < 0)
                         return -errno;
 
@@ -626,8 +626,25 @@ bool paths_check_timestamp(const char* const* paths, usec_t *timestamp, bool upd
 }
 
 int fsck_exists(const char *fstype) {
+        _cleanup_free_ char *p = NULL, *d = NULL;
         const char *checker;
+        int r;
 
         checker = strappenda("fsck.", fstype);
-        return find_binary(checker, NULL);
+
+        r = find_binary(checker, &p);
+        if (r < 0)
+                return r;
+
+        /* An fsck that is linked to /bin/true is a non-existant
+         * fsck */
+
+        r = readlink_malloc(p, &d);
+        if (r >= 0 &&
+            (path_equal(d, "/bin/true") ||
+             path_equal(d, "/usr/bin/true") ||
+             path_equal(d, "/dev/null")))
+                return -ENOENT;
+
+        return 0;
 }

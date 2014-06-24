@@ -302,15 +302,11 @@ int main(int argc, char *argv[]) {
         type = udev_device_get_property_value(udev_device, "ID_FS_TYPE");
         if (type) {
                 r = fsck_exists(type);
-                if (r < 0) {
-                        if (r == -ENOENT) {
-                                log_info("fsck.%s doesn't exist, not checking file system on %s",
-                                         type, device);
-                                return EXIT_SUCCESS;
-                        } else
-                                log_warning("fsck.%s cannot be used for %s: %s",
-                                            type, device, strerror(-r));
-                }
+                if (r == -ENOENT) {
+                        log_info("fsck.%s doesn't exist, not checking file system on %s", type, device);
+                        return EXIT_SUCCESS;
+                } else if (r < 0)
+                        log_warning("fsck.%s cannot be used for %s: %s", type, device, strerror(-r));
         }
 
         if (arg_show_progress)
