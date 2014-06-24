@@ -650,7 +650,7 @@ static int client_receive_message(sd_event_source *s, int fd, uint32_t revents,
 
         len = read(fd, message, buflen);
         if ((size_t)len < sizeof(DHCP6Message)) {
-                log_dhcp6_client(client, "could not receive message from UDP socket: %s", strerror(errno));
+                log_dhcp6_client(client, "could not receive message from UDP socket: %m");
                 return 0;
         }
 
