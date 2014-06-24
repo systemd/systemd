@@ -397,13 +397,6 @@ int main(int argc, char* argv[]) {
         parse_config();
         log_debug("Selected storage '%s'.", coredump_storage_to_string(arg_storage));
 
-        /* Exit early if we cannot write the coredump to disk anyway */
-        if (path_is_read_only_fs("/var/lib") != 0) {
-                log_error("Coredump directory not mounted or not writable, skipping coredump.");
-                r = -EROFS;
-                goto finish;
-        }
-
         r = parse_uid(argv[INFO_UID + 1], &uid);
         if (r < 0) {
                 log_error("Failed to parse UID.");
@@ -550,7 +543,8 @@ int main(int argc, char* argv[]) {
         /* Always stream the coredump to disk, if that's possible */
         r = save_external_coredump(info, uid, &coredump_filename, &coredump_fd, &coredump_size);
         if (r < 0)
-                goto finish;
+                /* skip whole core dumping part */
+                goto log;
 
         /* If we don't want to keep the coredump on disk, remove it
          * now, as later on we will lack the privileges for
@@ -586,6 +580,7 @@ int main(int argc, char* argv[]) {
 
         if (!core_message)
 #endif
+log:
         core_message = strjoin("MESSAGE=Process ", info[INFO_PID], " (", comm, ") of user ", info[INFO_UID], " dumped core.", NULL);
         if (core_message)
                 IOVEC_SET_STRING(iovec[j++], core_message);
