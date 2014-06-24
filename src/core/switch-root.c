@@ -30,6 +30,8 @@
 #include "util.h"
 #include "path-util.h"
 #include "switch-root.h"
+#include "mkdir.h"
+#include "base-filesystem.h"
 #include "missing.h"
 
 int switch_root(const char *new_root) {
@@ -45,6 +47,7 @@ int switch_root(const char *new_root) {
         struct stat new_root_stat;
         bool old_root_remove;
         const char *i, *temporary_old_root;
+        int r;
 
         if (path_equal(new_root, "/"))
                 return 0;
@@ -56,6 +59,7 @@ int switch_root(const char *new_root) {
          * than not that /mnt exists and is suitable as mount point
          * and is on the same fs as the old root dir */
         temporary_old_root = strappenda(new_root, "/mnt");
+        mkdir_p(temporary_old_root, 0755);
 
         old_root_remove = in_initrd();
 
@@ -80,6 +84,8 @@ int switch_root(const char *new_root) {
                 snprintf(new_mount, sizeof(new_mount), "%s%s", new_root, i);
                 char_array_0(new_mount);
 
+                mkdir_parents(new_mount, 0755);
+
                 if ((stat(new_mount, &sb) < 0) ||
                     sb.st_dev != new_root_stat.st_dev) {
 
@@ -97,6 +103,12 @@ int switch_root(const char *new_root) {
                         if (umount2(i, MNT_FORCE) < 0)
                                 log_warning("Failed to unmount %s: %m", i);
                 }
+        }
+
+        r = base_filesystem_create(new_root);
+        if (r < 0) {
+                log_error("Failed to create the base filesystem: %s", strerror(-r));
+                return r;
         }
 
         if (chdir(new_root) < 0) {

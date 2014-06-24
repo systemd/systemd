@@ -3011,7 +3011,7 @@ int main(int argc, char *argv[]) {
 
                         r = base_filesystem_create(arg_directory);
                         if (r < 0) {
-                                log_error("creating base filesystem failed: %s", strerror(-r));
+                                log_error("Failed to create the base filesystem: %s", strerror(-r));
                                 goto child_fail;
                         }
 
