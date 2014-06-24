@@ -51,6 +51,9 @@ struct sd_dhcp6_client {
         be32_t transaction_id;
         struct sd_dhcp6_lease *lease;
         int fd;
+        be16_t *req_opts;
+        size_t req_opts_allocated;
+        size_t req_opts_len;
         sd_event_source *receive_message;
         usec_t retransmit_time;
         uint8_t retransmit_count;
@@ -64,6 +67,12 @@ struct sd_dhcp6_client {
                 uint32_t pen;
                 uint8_t id[8];
         } _packed_ duid;
+};
+
+static const uint16_t default_req_opts[] = {
+        DHCP6_OPTION_DNS_SERVERS,
+        DHCP6_OPTION_DOMAIN_LIST,
+        DHCP6_OPTION_NTP_SERVER,
 };
 
 const char * dhcp6_message_type_table[_DHCP6_MESSAGE_MAX] = {
@@ -133,6 +142,37 @@ int sd_dhcp6_client_set_mac(sd_dhcp6_client *client,
                 memcpy(&client->mac_addr, mac_addr, sizeof(client->mac_addr));
         else
                 memset(&client->mac_addr, 0x00, sizeof(client->mac_addr));
+
+        return 0;
+}
+
+int sd_dhcp6_client_set_request_option(sd_dhcp6_client *client,
+                                       uint16_t option) {
+        size_t t;
+
+        assert_return(client, -EINVAL);
+        assert_return(client->state == DHCP6_STATE_STOPPED, -EBUSY);
+
+        switch(option) {
+        case DHCP6_OPTION_DNS_SERVERS:
+        case DHCP6_OPTION_DOMAIN_LIST:
+        case DHCP6_OPTION_SNTP_SERVERS:
+        case DHCP6_OPTION_NTP_SERVER:
+                break;
+
+        default:
+                return -EINVAL;
+        }
+
+        for (t = 0; t < client->req_opts_len; t++)
+                if (client->req_opts[t] == htobe16(option))
+                        return -EEXIST;
+
+        if (!GREEDY_REALLOC(client->req_opts, client->req_opts_allocated,
+                            client->req_opts_len + 1))
+                return -ENOMEM;
+
+        client->req_opts[client->req_opts_len++] = htobe16(option);
 
         return 0;
 }
@@ -238,6 +278,12 @@ static int client_send_message(sd_dhcp6_client *client) {
         case DHCP6_STATE_BOUND:
                 return -EINVAL;
         }
+
+        r = dhcp6_option_append(&opt, &optlen, DHCP6_OPTION_ORO,
+                                client->req_opts_len * sizeof(be16_t),
+                                client->req_opts);
+        if (r < 0)
+                return r;
 
         r = dhcp6_option_append(&opt, &optlen, DHCP6_OPTION_CLIENTID,
                                 sizeof(client->duid), &client->duid);
@@ -927,6 +973,7 @@ sd_dhcp6_client *sd_dhcp6_client_unref(sd_dhcp6_client *client) {
 
                 sd_dhcp6_client_detach_event(client);
 
+                free(client->req_opts);
                 free(client);
 
                 return NULL;
@@ -940,6 +987,7 @@ int sd_dhcp6_client_new(sd_dhcp6_client **ret)
         _cleanup_dhcp6_client_unref_ sd_dhcp6_client *client = NULL;
         sd_id128_t machine_id;
         int r;
+        size_t t;
 
         assert_return(ret, -EINVAL);
 
@@ -967,6 +1015,15 @@ int sd_dhcp6_client_new(sd_dhcp6_client **ret)
            directly */
         siphash24(client->duid.id, &machine_id, sizeof(machine_id),
                   HASH_KEY.bytes);
+
+        client->req_opts_len = ELEMENTSOF(default_req_opts);
+
+        client->req_opts = new0(be16_t, client->req_opts_len);
+        if (!client->req_opts)
+                return -ENOMEM;
+
+        for (t = 0; t < client->req_opts_len; t++)
+                client->req_opts[t] = htobe16(default_req_opts[t]);
 
         *ret = client;
         client = NULL;

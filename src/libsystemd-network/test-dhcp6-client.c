@@ -68,6 +68,13 @@ static int test_client_basic(sd_event *e) {
 
         assert_se(sd_dhcp6_client_set_mac(client, &mac_addr) >= 0);
 
+        assert_se(sd_dhcp6_client_set_request_option(client, DHCP6_OPTION_CLIENTID) == -EINVAL);
+        assert_se(sd_dhcp6_client_set_request_option(client, DHCP6_OPTION_DNS_SERVERS) == -EEXIST);
+        assert_se(sd_dhcp6_client_set_request_option(client, DHCP6_OPTION_NTP_SERVER) == -EEXIST);
+        assert_se(sd_dhcp6_client_set_request_option(client, DHCP6_OPTION_SNTP_SERVERS) == 0);
+        assert_se(sd_dhcp6_client_set_request_option(client, DHCP6_OPTION_DOMAIN_LIST) == -EEXIST);
+        assert_se(sd_dhcp6_client_set_request_option(client, 10) == -EINVAL);
+
         assert_se(sd_dhcp6_client_set_callback(client, NULL, NULL) >= 0);
 
         assert_se(sd_dhcp6_client_detach_event(client) >= 0);
@@ -519,6 +526,8 @@ static void test_client_solicit_cb(sd_dhcp6_client *client, int event,
 
         assert_se(e);
         assert_se(event == DHCP6_EVENT_IP_ACQUIRE);
+
+        assert_se(sd_dhcp6_client_set_request_option(client, DHCP6_OPTION_DNS_SERVERS) == -EBUSY);
 
         if (verbose)
                 printf("  got DHCPv6 event %d\n", event);

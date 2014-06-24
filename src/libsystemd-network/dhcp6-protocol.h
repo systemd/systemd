@@ -111,6 +111,18 @@ enum {
         DHCP6_OPTION_INTERFACE_ID               = 18,
         DHCP6_OPTION_RECONF_MSG                 = 19,
         DHCP6_OPTION_RECONF_ACCEPT              = 20,
+
+        DHCP6_OPTION_DNS_SERVERS                = 23,  /* RFC 3646 */
+        DHCP6_OPTION_DOMAIN_LIST                = 24,  /* RFC 3646 */
+
+        DHCP6_OPTION_SNTP_SERVERS               = 31,  /* RFC 4075 */
+
+        /* option code 35 is unassigned */
+
+        DHCP6_OPTION_NTP_SERVER                 = 56,  /* RFC 5908 */
+
+        /* option codes 89-142 are unassigned */
+        /* option codes 144-65535 are unassigned */
 };
 
 enum {
