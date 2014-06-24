@@ -24,8 +24,10 @@ External:
 * Fedora: move kernel image to /usr/lib/modules/, kernel-install will take care of populating /boot
 
 Features:
+
+* coredump: add a size-based cleanup logic to coredump helper, so that we don't flood /var/lib/systemd/coredump unrestricted
+
 * support empty /etc boots nicely:
-  - tmpfiles: add nice way to copy files /usr/share/factory/etc → /etc
   - nspawn/gpt-generator: introduce new gpt partition type for /usr
 
 * generator that automatically discovers btrfs subvolumes, identifies their purpose based on some xattr on them.
