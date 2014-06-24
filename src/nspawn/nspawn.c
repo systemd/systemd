@@ -89,6 +89,7 @@
 #include "gpt.h"
 #include "siphash24.h"
 #include "copy.h"
+#include "base-filesystem.h"
 
 #ifdef HAVE_SECCOMP
 #include "seccomp-util.h"
@@ -3007,6 +3008,12 @@ int main(int argc, char *argv[]) {
                                           home_device, home_device_rw,
                                           srv_device, srv_device_rw) < 0)
                                 goto child_fail;
+
+                        r = base_filesystem_create(arg_directory);
+                        if (r < 0) {
+                                log_error("creating base filesystem failed: %s", strerror(-r));
+                                goto child_fail;
+                        }
 
                         /* Turn directory into bind mount */
                         if (mount(arg_directory, arg_directory, "bind", MS_BIND|MS_REC, NULL) < 0) {

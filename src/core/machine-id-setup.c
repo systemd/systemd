@@ -181,6 +181,7 @@ int machine_id_setup(const char *root) {
                  * will be owned by root it doesn't matter much, but maybe
                  * people look. */
 
+                mkdir_parents(etc_machine_id, 0755);
                 fd = open(etc_machine_id, O_RDWR|O_CREAT|O_CLOEXEC|O_NOCTTY, 0444);
                 if (fd >= 0)
                         writable = true;
