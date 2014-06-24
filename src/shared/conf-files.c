@@ -98,7 +98,7 @@ static int base_cmp(const void *a, const void *b) {
 }
 
 static int conf_files_list_strv_internal(char ***strv, const char *suffix, const char *root, char **dirs) {
-        Hashmap *fh;
+        _cleanup_hashmap_free_ Hashmap *fh = NULL;
         char **files, **p;
         int r;
 
@@ -116,7 +116,6 @@ static int conf_files_list_strv_internal(char ***strv, const char *suffix, const
         STRV_FOREACH(p, dirs) {
                 r = files_add(fh, root, *p, suffix);
                 if (r == -ENOMEM) {
-                        hashmap_free_free(fh);
                         return r;
                 } else if (r < 0)
                         log_debug("Failed to search for files in %s: %s",
@@ -125,14 +124,12 @@ static int conf_files_list_strv_internal(char ***strv, const char *suffix, const
 
         files = hashmap_get_strv(fh);
         if (files == NULL) {
-                hashmap_free_free(fh);
                 return -ENOMEM;
         }
 
         qsort_safe(files, hashmap_size(fh), sizeof(char *), base_cmp);
         *strv = files;
 
-        hashmap_free(fh);
         return 0;
 }
 

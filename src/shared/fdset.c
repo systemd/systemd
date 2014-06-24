@@ -104,7 +104,7 @@ int fdset_remove(FDSet *s, int fd) {
 }
 
 int fdset_new_fill(FDSet **_s) {
-        DIR *d;
+        _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
         int r = 0;
         FDSet *s;
@@ -150,8 +150,6 @@ int fdset_new_fill(FDSet **_s) {
         s = NULL;
 
 finish:
-        closedir(d);
-
         /* We won't close the fds here! */
         if (s)
                 set_free(MAKE_SET(s));

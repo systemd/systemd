@@ -1440,7 +1440,7 @@ _pure_ static bool fd_in_set(int fd, const int fdset[], unsigned n_fdset) {
 }
 
 int close_all_fds(const int except[], unsigned n_except) {
-        DIR *d;
+        _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
         int r = 0;
 
@@ -1495,7 +1495,6 @@ int close_all_fds(const int except[], unsigned n_except) {
                 }
         }
 
-        closedir(d);
         return r;
 }
 

@@ -442,7 +442,7 @@ int path_is_mount_point(const char *t, bool allow_symlink) {
         };
 
         int mount_id, mount_id_parent;
-        char *parent;
+        _cleanup_free_ char *parent = NULL;
         struct stat a, b;
         int r;
 
@@ -473,7 +473,6 @@ int path_is_mount_point(const char *t, bool allow_symlink) {
 
         h.handle.handle_bytes = MAX_HANDLE_SZ;
         r = name_to_handle_at(AT_FDCWD, parent, &h.handle, &mount_id_parent, 0);
-        free(parent);
         if (r < 0) {
                 /* The parent can't do name_to_handle_at() but the
                  * directory we are interested in can? If so, it must
@@ -504,7 +503,6 @@ fallback:
                 return r;
 
         r = lstat(parent, &b);
-        free(parent);
         if (r < 0)
                 return -errno;
 

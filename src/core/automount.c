@@ -144,7 +144,7 @@ static int automount_add_default_dependencies(Automount *a) {
 
 static int automount_verify(Automount *a) {
         bool b;
-        char *e;
+        _cleanup_free_ char *e = NULL;
         assert(a);
 
         if (UNIT(a)->load_state != UNIT_LOADED)
@@ -160,7 +160,6 @@ static int automount_verify(Automount *a) {
                 return -ENOMEM;
 
         b = unit_has_name(UNIT(a), e);
-        free(e);
 
         if (!b) {
                 log_error_unit(UNIT(a)->id, "%s's Where setting doesn't match unit name. Refusing.", UNIT(a)->id);

@@ -126,9 +126,8 @@ static int mount_points_list_get(MountPoint **head) {
 }
 
 static int swap_list_get(MountPoint **head) {
-        FILE *proc_swaps;
+        _cleanup_fclose_ FILE *proc_swaps = NULL;
         unsigned int i;
-        int r;
 
         assert(head);
 
@@ -168,26 +167,19 @@ static int swap_list_get(MountPoint **head) {
                 free(dev);
 
                 if (!d) {
-                        r = -ENOMEM;
-                        goto finish;
+                        return -ENOMEM;
                 }
 
                 if (!(swap = new0(MountPoint, 1))) {
                         free(d);
-                        r = -ENOMEM;
-                        goto finish;
+                        return -ENOMEM;
                 }
 
                 swap->path = d;
                 LIST_PREPEND(mount_point, *head, swap);
         }
 
-        r = 0;
-
-finish:
-        fclose(proc_swaps);
-
-        return r;
+        return 0;
 }
 
 static int loopback_list_get(MountPoint **head) {
