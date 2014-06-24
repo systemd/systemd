@@ -31,6 +31,7 @@
 
 #include "log.h"
 #include "util.h"
+#include "strv.h"
 #include "macro.h"
 #include "mkdir.h"
 #include "special.h"
@@ -62,13 +63,14 @@
 assert_cc(JOURNAL_SIZE_MAX <= ENTRY_SIZE_MAX);
 
 enum {
-        ARG_PID = 1,
-        ARG_UID,
-        ARG_GID,
-        ARG_SIGNAL,
-        ARG_TIMESTAMP,
-        ARG_COMM,
-        _ARG_MAX
+        INFO_PID,
+        INFO_UID,
+        INFO_GID,
+        INFO_SIGNAL,
+        INFO_TIMESTAMP,
+        INFO_COMM,
+        INFO_EXE,
+        _INFO_LEN
 };
 
 typedef enum CoredumpStorage {
@@ -159,28 +161,32 @@ static int fix_acl(int fd, uid_t uid) {
         return 0;
 }
 
-static int fix_xattr(int fd, char *argv[]) {
+static int fix_xattr(int fd, const char *info[_INFO_LEN]) {
 
-        static const char * const xattrs[_ARG_MAX] = {
-                [ARG_PID] = "user.coredump.pid",
-                [ARG_UID] = "user.coredump.uid",
-                [ARG_GID] = "user.coredump.gid",
-                [ARG_SIGNAL] = "user.coredump.signal",
-                [ARG_TIMESTAMP] = "user.coredump.timestamp",
-                [ARG_COMM] = "user.coredump.comm",
+        static const char * const xattrs[_INFO_LEN] = {
+                [INFO_PID] = "user.coredump.pid",
+                [INFO_UID] = "user.coredump.uid",
+                [INFO_GID] = "user.coredump.gid",
+                [INFO_SIGNAL] = "user.coredump.signal",
+                [INFO_TIMESTAMP] = "user.coredump.timestamp",
+                [INFO_COMM] = "user.coredump.comm",
+                [INFO_EXE] = "user.coredump.exe",
         };
 
         int r = 0;
         unsigned i;
 
-        /* Attach some metadate to coredumps via extended
+        /* Attach some metadata to coredumps via extended
          * attributes. Just because we can. */
 
-        for (i = 0; i < _ARG_MAX; i++) {
-                if (isempty(argv[i]))
+        for (i = 0; i < _INFO_LEN; i++) {
+                int k;
+
+                if (isempty(info[i]) || !xattrs[i])
                         continue;
 
-                if (fsetxattr(fd, xattrs[i], argv[i], strlen(argv[i]), XATTR_CREATE) < 0)
+                k = fsetxattr(fd, xattrs[i], info[i], strlen(info[i]), XATTR_CREATE);
+                if (k < 0 && r == 0)
                         r = -errno;
         }
 
@@ -189,27 +195,32 @@ static int fix_xattr(int fd, char *argv[]) {
 
 #define filename_escape(s) xescape((s), "./ ")
 
-static int save_external_coredump(char **argv, uid_t uid, char **ret_filename, int *ret_fd, off_t *ret_size) {
+static int save_external_coredump(const char *info[_INFO_LEN],
+                                  uid_t uid,
+                                  char **ret_filename,
+                                  int *ret_fd,
+                                  off_t *ret_size) {
+
         _cleanup_free_ char *p = NULL, *t = NULL, *c = NULL, *fn = NULL, *tmp = NULL;
         _cleanup_close_ int fd = -1;
         sd_id128_t boot;
         struct stat st;
         int r;
 
-        assert(argv);
+        assert(info);
         assert(ret_filename);
         assert(ret_fd);
         assert(ret_size);
 
-        c = filename_escape(argv[ARG_COMM]);
+        c = filename_escape(info[INFO_COMM]);
         if (!c)
                 return log_oom();
 
-        p = filename_escape(argv[ARG_PID]);
+        p = filename_escape(info[INFO_PID]);
         if (!p)
                 return log_oom();
 
-        t = filename_escape(argv[ARG_TIMESTAMP]);
+        t = filename_escape(info[INFO_TIMESTAMP]);
         if (!t)
                 return log_oom();
 
@@ -242,10 +253,12 @@ static int save_external_coredump(char **argv, uid_t uid, char **ret_filename, i
 
         r = copy_bytes(STDIN_FILENO, fd, arg_process_size_max);
         if (r == -E2BIG) {
-                log_error("Coredump of %s (%s) is larger than configured processing limit, refusing.", argv[ARG_PID], argv[ARG_COMM]);
+                log_error("Coredump of %s (%s) is larger than configured processing limit, refusing.",
+                          info[INFO_PID], info[INFO_COMM]);
                 goto fail;
         } else if (IN_SET(r, -EDQUOT, -ENOSPC)) {
-                log_error("Not enough disk space for coredump of %s (%s), refusing.", argv[ARG_PID], argv[ARG_COMM]);
+                log_error("Not enough disk space for coredump of %s (%s), refusing.",
+                          info[INFO_PID], info[INFO_COMM]);
                 goto fail;
         } else if (r < 0) {
                 log_error("Failed to dump coredump to file: %s", strerror(-r));
@@ -255,22 +268,22 @@ static int save_external_coredump(char **argv, uid_t uid, char **ret_filename, i
         /* Ignore errors on these */
         fchmod(fd, 0640);
         fix_acl(fd, uid);
-        fix_xattr(fd, argv);
+        fix_xattr(fd, info);
 
         if (fsync(fd) < 0) {
-                log_error("Failed to sync coredump: %m");
+                log_error("Failed to sync coredump %s: %m", tmp);
                 r = -errno;
                 goto fail;
         }
 
         if (fstat(fd, &st) < 0) {
-                log_error("Failed to fstat coredump: %m");
+                log_error("Failed to fstat coredump %s: %m", tmp);
                 r = -errno;
                 goto fail;
         }
 
         if (rename(tmp, fn) < 0) {
-                log_error("Failed to rename coredump: %m");
+                log_error("Failed to rename coredump %s -> %s: %m", tmp, fn);
                 r = -errno;
                 goto fail;
         }
@@ -351,7 +364,8 @@ int main(int argc, char* argv[]) {
                 *core_timestamp = NULL, *core_comm = NULL, *core_exe = NULL, *core_unit = NULL,
                 *core_session = NULL, *core_message = NULL, *core_cmdline = NULL, *coredump_data = NULL,
                 *coredump_filename = NULL, *core_slice = NULL, *core_cgroup = NULL, *core_owner_uid = NULL,
-                *exe = NULL;
+                *exe = NULL, *comm = NULL;
+        const char *info[_INFO_LEN];
 
         _cleanup_close_ int coredump_fd = -1;
 
@@ -372,8 +386,9 @@ int main(int argc, char* argv[]) {
         log_set_target(LOG_TARGET_KMSG);
         log_open();
 
-        if (argc != _ARG_MAX) {
-                log_error("Invalid number of arguments passed from kernel.");
+        if (argc < INFO_COMM + 1) {
+                log_error("Not enough arguments passed from kernel (%d, expected %d).",
+                          argc - 1, INFO_COMM + 1 - 1);
                 r = -EINVAL;
                 goto finish;
         }
@@ -389,23 +404,39 @@ int main(int argc, char* argv[]) {
                 goto finish;
         }
 
-        r = parse_uid(argv[ARG_UID], &uid);
+        r = parse_uid(argv[INFO_UID + 1], &uid);
         if (r < 0) {
                 log_error("Failed to parse UID.");
                 goto finish;
         }
 
-        r = parse_pid(argv[ARG_PID], &pid);
+        r = parse_pid(argv[INFO_PID + 1], &pid);
         if (r < 0) {
                 log_error("Failed to parse PID.");
                 goto finish;
         }
 
-        r = parse_gid(argv[ARG_GID], &gid);
+        r = parse_gid(argv[INFO_GID + 1], &gid);
         if (r < 0) {
                 log_error("Failed to parse GID.");
                 goto finish;
         }
+
+        if (get_process_comm(pid, &comm) < 0) {
+                log_warning("Failed to get COMM, falling back to the commandline.");
+                comm = strv_join(argv + INFO_COMM + 1, " ");
+        }
+
+        if (get_process_exe(pid, &exe) < 0)
+                log_warning("Failed to get EXE.");
+
+        info[INFO_PID] = argv[INFO_PID + 1];
+        info[INFO_UID] = argv[INFO_UID + 1];
+        info[INFO_GID] = argv[INFO_GID + 1];
+        info[INFO_SIGNAL] = argv[INFO_SIGNAL + 1];
+        info[INFO_TIMESTAMP] = argv[INFO_TIMESTAMP + 1];
+        info[INFO_COMM] = comm;
+        info[INFO_EXE] = exe;
 
         if (cg_pid_get_unit(pid, &t) >= 0) {
 
@@ -418,7 +449,7 @@ int main(int argc, char* argv[]) {
                         if (arg_storage != COREDUMP_STORAGE_NONE)
                                 arg_storage = COREDUMP_STORAGE_EXTERNAL;
 
-                        r = save_external_coredump(argv, uid, &coredump_filename, &coredump_fd, &coredump_size);
+                        r = save_external_coredump(info, uid, &coredump_filename, &coredump_fd, &coredump_size);
                         if (r < 0)
                                 goto finish;
 
@@ -442,25 +473,21 @@ int main(int argc, char* argv[]) {
         log_set_target(LOG_TARGET_JOURNAL_OR_KMSG);
         log_open();
 
-        core_pid = strappend("COREDUMP_PID=", argv[ARG_PID]);
+        core_pid = strappend("COREDUMP_PID=", info[INFO_PID]);
         if (core_pid)
                 IOVEC_SET_STRING(iovec[j++], core_pid);
 
-        core_uid = strappend("COREDUMP_UID=", argv[ARG_UID]);
+        core_uid = strappend("COREDUMP_UID=", info[INFO_UID]);
         if (core_uid)
                 IOVEC_SET_STRING(iovec[j++], core_uid);
 
-        core_gid = strappend("COREDUMP_GID=", argv[ARG_GID]);
+        core_gid = strappend("COREDUMP_GID=", info[INFO_GID]);
         if (core_gid)
                 IOVEC_SET_STRING(iovec[j++], core_gid);
 
-        core_signal = strappend("COREDUMP_SIGNAL=", argv[ARG_SIGNAL]);
+        core_signal = strappend("COREDUMP_SIGNAL=", info[INFO_SIGNAL]);
         if (core_signal)
                 IOVEC_SET_STRING(iovec[j++], core_signal);
-
-        core_comm = strappend("COREDUMP_COMM=", argv[ARG_COMM]);
-        if (core_comm)
-                IOVEC_SET_STRING(iovec[j++], core_comm);
 
         if (sd_pid_get_session(pid, &t) >= 0) {
                 core_session = strappend("COREDUMP_SESSION=", t);
@@ -485,7 +512,13 @@ int main(int argc, char* argv[]) {
                         IOVEC_SET_STRING(iovec[j++], core_slice);
         }
 
-        if (get_process_exe(pid, &exe) >= 0) {
+        if (comm) {
+                core_comm = strappend("COREDUMP_COMM=", comm);
+                if (core_comm)
+                        IOVEC_SET_STRING(iovec[j++], core_comm);
+        }
+
+        if (exe) {
                 core_exe = strappend("COREDUMP_EXE=", exe);
                 if (core_exe)
                         IOVEC_SET_STRING(iovec[j++], core_exe);
@@ -507,7 +540,7 @@ int main(int argc, char* argv[]) {
                         IOVEC_SET_STRING(iovec[j++], core_cgroup);
         }
 
-        core_timestamp = strjoin("COREDUMP_TIMESTAMP=", argv[ARG_TIMESTAMP], "000000", NULL);
+        core_timestamp = strjoin("COREDUMP_TIMESTAMP=", info[INFO_TIMESTAMP], "000000", NULL);
         if (core_timestamp)
                 IOVEC_SET_STRING(iovec[j++], core_timestamp);
 
@@ -515,7 +548,7 @@ int main(int argc, char* argv[]) {
         IOVEC_SET_STRING(iovec[j++], "PRIORITY=2");
 
         /* Always stream the coredump to disk, if that's possible */
-        r = save_external_coredump(argv, uid, &coredump_filename, &coredump_fd, &coredump_size);
+        r = save_external_coredump(info, uid, &coredump_filename, &coredump_fd, &coredump_size);
         if (r < 0)
                 goto finish;
 
@@ -546,14 +579,14 @@ int main(int argc, char* argv[]) {
 
                 r = coredump_make_stack_trace(coredump_fd, exe, &stacktrace);
                 if (r >= 0)
-                        core_message = strjoin("MESSAGE=Process ", argv[ARG_PID], " (", argv[ARG_COMM], ") of user ", argv[ARG_UID], " dumped core.\n\n", stacktrace, NULL);
+                        core_message = strjoin("MESSAGE=Process ", info[INFO_PID], " (", comm, ") of user ", info[INFO_UID], " dumped core.\n\n", stacktrace, NULL);
                 else
                         log_warning("Failed to generate stack trace: %s", strerror(-r));
         }
 
         if (!core_message)
 #endif
-        core_message = strjoin("MESSAGE=Process ", argv[ARG_PID], " (", argv[ARG_COMM], ") of user ", argv[ARG_UID], " dumped core.", NULL);
+        core_message = strjoin("MESSAGE=Process ", info[INFO_PID], " (", comm, ") of user ", info[INFO_UID], " dumped core.", NULL);
         if (core_message)
                 IOVEC_SET_STRING(iovec[j++], core_message);
 
