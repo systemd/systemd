@@ -78,6 +78,7 @@ typedef struct SysvStub {
         char **before;
         char **after;
         char **wants;
+        char **wanted_by;
         char **conflicts;
         bool has_lsb;
         bool reload;
@@ -118,6 +119,7 @@ static int generate_unit_file(SysvStub *s) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *before = NULL;
         _cleanup_free_ char *after = NULL;
+        _cleanup_free_ char *wants = NULL;
         _cleanup_free_ char *conflicts = NULL;
         int r;
 
@@ -127,6 +129,10 @@ static int generate_unit_file(SysvStub *s) {
 
         after = strv_join(s->after, " ");
         if (!after)
+                return log_oom();
+
+        wants = strv_join(s->wants, " ");
+        if (!wants)
                 return log_oom();
 
         conflicts = strv_join(s->conflicts, " ");
@@ -154,6 +160,8 @@ static int generate_unit_file(SysvStub *s) {
                 fprintf(f, "Before=%s\n", before);
         if (!isempty(after))
                 fprintf(f, "After=%s\n", after);
+        if (!isempty(wants))
+                fprintf(f, "Wants=%s\n", wants);
         if (!isempty(conflicts))
                 fprintf(f, "Conflicts=%s\n", conflicts);
 
@@ -182,7 +190,7 @@ static int generate_unit_file(SysvStub *s) {
         if (s->reload)
                 fprintf(f, "ExecReload=%s reload\n", s->path);
 
-        STRV_FOREACH(p, s->wants) {
+        STRV_FOREACH(p, s->wanted_by) {
                 r = add_symlink(s->name, *p);
                 if (r < 0)
                         log_error_unit(s->name, "Failed to create 'Wants' symlink to %s: %s", *p, strerror(-r));
@@ -832,7 +840,7 @@ static int set_dependencies_from_rcnd(LookupPaths lp, Hashmap *all_services) {
                         r = strv_extend(&service->before, rcnd_table[i].target);
                         if (r < 0)
                                 return log_oom();
-                        r = strv_extend(&service->wants, rcnd_table[i].target);
+                        r = strv_extend(&service->wanted_by, rcnd_table[i].target);
                         if (r < 0)
                                 return log_oom();
                 }
