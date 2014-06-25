@@ -28,9 +28,8 @@
 #include "compress.h"
 
 bool compress_blob(const void *src, uint64_t src_size, void *dst, uint64_t *dst_size) {
-        lzma_stream s = LZMA_STREAM_INIT;
         lzma_ret ret;
-        bool b = false;
+        size_t out_pos = 0;
 
         assert(src);
         assert(src_size > 0);
@@ -40,30 +39,17 @@ bool compress_blob(const void *src, uint64_t src_size, void *dst, uint64_t *dst_
         /* Returns false if we couldn't compress the data or the
          * compressed result is longer than the original */
 
-        ret = lzma_easy_encoder(&s, LZMA_PRESET_DEFAULT, LZMA_CHECK_NONE);
+        ret = lzma_easy_buffer_encode(LZMA_PRESET_DEFAULT, LZMA_CHECK_NONE, NULL,
+                                      src, src_size, dst, &out_pos, *dst_size);
         if (ret != LZMA_OK)
                 return false;
 
-        s.next_in = src;
-        s.avail_in = src_size;
-        s.next_out = dst;
-        s.avail_out = src_size;
-
-        /* Does it fit? */
-        if (lzma_code(&s, LZMA_FINISH) != LZMA_STREAM_END)
-                goto fail;
-
         /* Is it actually shorter? */
-        if (s.avail_out == 0)
-                goto fail;
+        if (out_pos == *dst_size)
+                return false;
 
-        *dst_size = src_size - s.avail_out;
-        b = true;
-
-fail:
-        lzma_end(&s);
-
-        return b;
+        *dst_size = out_pos;
+        return true;
 }
 
 bool uncompress_blob(const void *src, uint64_t src_size,
