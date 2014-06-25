@@ -29,9 +29,7 @@ int copy_bytes(int fdf, int fdt, off_t max_bytes) {
         for (;;) {
                 char buf[PIPE_BUF];
                 ssize_t n, k;
-                size_t m;
-
-                m = sizeof(buf);
+                size_t m = sizeof(buf);
 
                 if (max_bytes != (off_t) -1) {
 
