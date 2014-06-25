@@ -5462,6 +5462,30 @@ static int unit_is_enabled(sd_bus *bus, char **args) {
         return !enabled;
 }
 
+static int is_system_running(sd_bus *bus, char **args) {
+        _cleanup_free_ char *state = NULL;
+        int r;
+
+        r = sd_bus_get_property_string(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "SystemState",
+                        NULL,
+                        &state);
+        if (r < 0) {
+                if (!arg_quiet)
+                        puts("unknown");
+                return 0;
+        }
+
+        if (!arg_quiet)
+                puts(state);
+
+        return streq(state, "running") ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+
 static int systemctl_help(void) {
 
         pager_open_if_enabled();
@@ -5573,6 +5597,7 @@ static int systemctl_help(void) {
                "  daemon-reload                   Reload systemd manager configuration\n"
                "  daemon-reexec                   Reexecute systemd manager\n\n"
                "System Commands:\n"
+               "  is-system-running               Check whether system is fully running\n"
                "  default                         Enter system default mode\n"
                "  rescue                          Enter system rescue mode\n"
                "  emergency                       Enter system emergency mode\n"
@@ -6576,6 +6601,7 @@ static int systemctl_main(sd_bus *bus, int argc, char *argv[], int bus_error) {
                 { "set-default",           EQUAL, 2, set_default,      NOBUS },
                 { "get-default",           EQUAL, 1, get_default,      NOBUS },
                 { "set-property",          MORE,  3, set_property      },
+                { "is-system-running",     EQUAL, 1, is_system_running },
                 {}
         }, *verb = verbs;
 

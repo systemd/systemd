@@ -288,6 +288,8 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           <command>snapshot</command>,
           <command>is-active</command>,
           <command>is-failed</command>,
+          <command>is-enabled</command>,
+          <command>is-system-running</command>,
           <command>enable</command> and
         <command>disable</command>.</para>
         </listitem>
@@ -1300,6 +1302,20 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
 
       <variablelist>
         <varlistentry>
+          <term><command>is-system-running</command></term>
+
+          <listitem>
+            <para>Checks whether the system is running. This returns
+            success when the system is fully up and running, meaning
+            not in startup, shutdown or maintainance mode. Failure is
+            returned otherwise. In addition, the current state is
+            printed in a short string to standard output. Use
+            <option>--quiet</option> to suppress output of this state
+            string.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><command>default</command></term>
 
           <listitem>
@@ -1307,6 +1323,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             <command>isolate default.target</command>.</para>
           </listitem>
         </varlistentry>
+
         <varlistentry>
           <term><command>rescue</command></term>
 
