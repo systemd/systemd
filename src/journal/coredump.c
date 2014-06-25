@@ -41,6 +41,7 @@
 #include "copy.h"
 #include "stacktrace.h"
 #include "path-util.h"
+#include "compress.h"
 
 #ifdef HAVE_ACL
 #include <sys/acl.h>
@@ -195,6 +196,47 @@ static int fix_xattr(int fd, const char *info[_INFO_LEN]) {
 
 #define filename_escape(s) xescape((s), "./ ")
 
+static int fix_permissions(int fd, const char *filename, const char *target,
+                           const char *info[_INFO_LEN], uid_t uid) {
+
+        /* Ignore errors on these */
+        fchmod(fd, 0640);
+        fix_acl(fd, uid);
+        fix_xattr(fd, info);
+
+        if (fsync(fd) < 0) {
+                log_error("Failed to sync coredump %s: %m", filename);
+                return -errno;
+        }
+
+        if (rename(filename, target) < 0) {
+                log_error("Failed to rename coredump %s -> %s: %m", filename, target);
+                return -errno;
+        }
+
+        return 0;
+}
+
+static int maybe_remove_external_coredump(const char *filename, off_t size) {
+
+        /* Returns 1 if might remove, 0 if will not remove, <0 on error. */
+
+        if (IN_SET(arg_storage, COREDUMP_STORAGE_EXTERNAL, COREDUMP_STORAGE_BOTH) &&
+            size <= arg_external_size_max)
+                return 0;
+
+        if (!filename)
+                return 1;
+
+        if (unlink(filename) < 0) {
+                log_error("Failed to unlink %s: %m", filename);
+                return -errno;
+        }
+
+        return 1;
+}
+
+
 static int save_external_coredump(const char *info[_INFO_LEN],
                                   uid_t uid,
                                   char **ret_filename,
@@ -247,7 +289,7 @@ static int save_external_coredump(const char *info[_INFO_LEN],
 
         fd = open(tmp, O_CREAT|O_EXCL|O_RDWR|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0640);
         if (fd < 0) {
-                log_error("Failed to create coredump file: %m");
+                log_error("Failed to create coredump file %s: %m", tmp);
                 return -errno;
         }
 
@@ -265,28 +307,66 @@ static int save_external_coredump(const char *info[_INFO_LEN],
                 goto fail;
         }
 
-        /* Ignore errors on these */
-        fchmod(fd, 0640);
-        fix_acl(fd, uid);
-        fix_xattr(fd, info);
-
-        if (fsync(fd) < 0) {
-                log_error("Failed to sync coredump %s: %m", tmp);
-                r = -errno;
-                goto fail;
+        if (lseek(fd, 0, SEEK_SET) == (off_t) -1) {
+                log_error("Failed to seek on %s: %m", tmp);
+                goto uncompressed;
         }
 
         if (fstat(fd, &st) < 0) {
                 log_error("Failed to fstat coredump %s: %m", tmp);
-                r = -errno;
                 goto fail;
         }
 
-        if (rename(tmp, fn) < 0) {
-                log_error("Failed to rename coredump %s -> %s: %m", tmp, fn);
-                r = -errno;
-                goto fail;
+#ifdef HAVE_XZ
+        /* If we will remove the coredump anyway, do not compress. */
+        if (maybe_remove_external_coredump(NULL, st.st_size) == 0) {
+
+                _cleanup_free_ char *fn2 = NULL;
+                char *tmp2;
+                _cleanup_close_ int fd2 = -1;
+
+                tmp2 = strappenda(tmp, ".xz");
+                fd2 = open(tmp2, O_CREAT|O_EXCL|O_RDWR|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0640);
+                if (fd2 < 0) {
+                        log_error("Failed to create file %s: %m", tmp2);
+                        goto uncompressed;
+                }
+
+                r = compress_stream(fd, fd2, -1);
+                if (r < 0) {
+                        log_error("Failed to compress %s: %s", tmp2, strerror(-r));
+                        unlink_noerrno(tmp2);
+                        goto fail2;
+                }
+
+                fn2 = strappend(fn, ".xz");
+                if (!fn2) {
+                        log_oom();
+                        goto fail2;
+                }
+
+                r = fix_permissions(fd2, tmp2, fn2, info, uid);
+                if (r < 0)
+                        goto fail2;
+
+                *ret_filename = fn2;    /* compressed */
+                *ret_fd = fd;           /* uncompressed */
+                *ret_size = st.st_size; /* uncompressed */
+
+                fn2 = NULL;
+                fd = -1;
+
+                return 0;
+
+        fail2:
+                unlink_noerrno(tmp2);
         }
+#endif
+
+uncompressed:
+        r = fix_permissions(fd, tmp, fn, info, uid);
+        if (r < 0)
+                goto fail;
 
         *ret_filename = fn;
         *ret_fd = fd;
@@ -317,7 +397,7 @@ static int allocate_journal_field(int fd, size_t size, char **ret, size_t *ret_s
 
         field = malloc(9 + size);
         if (!field) {
-                log_warning("Failed to allocate memory fore coredump, coredump will not be stored.");
+                log_warning("Failed to allocate memory for coredump, coredump will not be stored.");
                 return -ENOMEM;
         }
 
@@ -337,23 +417,6 @@ static int allocate_journal_field(int fd, size_t size, char **ret, size_t *ret_s
         *ret_size = size + 9;
 
         field = NULL;
-
-        return 0;
-}
-
-static int maybe_remove_external_coredump(const char *filename, off_t size) {
-
-        if (!filename)
-                return 0;
-
-        if (IN_SET(arg_storage, COREDUMP_STORAGE_EXTERNAL, COREDUMP_STORAGE_BOTH) &&
-            size <= arg_external_size_max)
-                return 0;
-
-        if (unlink(filename) < 0) {
-                log_error("Failed to unlink %s: %m", filename);
-                return -errno;
-        }
 
         return 0;
 }
