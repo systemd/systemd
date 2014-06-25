@@ -4,11 +4,6 @@ Bugfixes:
 
 * Should systemctl status \* work on all unit types, not just .service?
 
-* enabling an instance unit creates a pointless link, and
-  the unit will be started with getty@getty.service:
-    $ systemctl enable getty@.service
-    ln -s '/usr/lib/systemd/system/getty@.service' '/etc/systemd/system/getty.target.wants/getty@.service'
-
 * Dangling symlinks of .automount unit files in .wants/ directories, set up
   automount points even when the original .automount file did not exist
   anymore. Only the .mount unit was still around.
