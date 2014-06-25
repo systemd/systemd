@@ -1548,7 +1548,7 @@ int main(int argc, char *argv[]) {
                         log_info("Running with unpopulated /etc.");
         } else {
                 _cleanup_free_ char *t = uid_to_name(getuid());
-                log_debug(PACKAGE_STRING " running in user mode for user "PID_FMT"/%s. (" SYSTEMD_FEATURES ")",
+                log_debug(PACKAGE_STRING " running in user mode for user "UID_FMT"/%s. (" SYSTEMD_FEATURES ")",
                           getuid(), t);
         }
 
