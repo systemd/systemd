@@ -12,10 +12,6 @@ ACTION=="add", SUBSYSTEM=="usb", ATTR{product}=="QEMU USB Mouse", ATTR{serial}!=
 ACTION=="add", SUBSYSTEM=="usb", ATTR{product}=="QEMU USB Tablet", ATTR{serial}!="1", TEST=="power/control", ATTR{power/control}="auto"
 ACTION=="add", SUBSYSTEM=="usb", ATTR{product}=="QEMU USB Keyboard", ATTR{serial}!="1", TEST=="power/control", ATTR{power/control}="auto"
 
-# Catch-all for Avocent HID devices. Keyed off interface in order to only
-# trigger on HID class devices.
-ACTION=="add", SUBSYSTEM=="usb", ATTRS{idVendor}=="0624", ATTR{bInterfaceClass}=="03", TEST=="../power/control", ATTR{../power/control}="auto"
-
 # Dell DRAC 4
 ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="413c", ATTR{idProduct}=="2500", TEST=="power/control", ATTR{power/control}="auto"
 
