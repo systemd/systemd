@@ -33,6 +33,28 @@ int dhcp6_lease_clear_timers(DHCP6IA *ia) {
         return 0;
 }
 
+int dhcp6_lease_ia_rebind_expire(const DHCP6IA *ia, uint32_t *expire) {
+        DHCP6Address *addr;
+        uint32_t valid = 0, t;
+
+        assert_return(ia, -EINVAL);
+        assert_return(expire, -EINVAL);
+
+        LIST_FOREACH(addresses, addr, ia->addresses) {
+                t = be32toh(addr->lifetime_valid);
+                if (valid < t)
+                        valid = t;
+        }
+
+        t = be32toh(ia->lifetime_t2);
+        if (t > valid)
+                return -EINVAL;
+
+        *expire = valid - t;
+
+        return 0;
+}
+
 DHCP6IA *dhcp6_lease_free_ia(DHCP6IA *ia) {
         DHCP6Address *address;
 
