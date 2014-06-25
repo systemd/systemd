@@ -259,13 +259,27 @@ static int client_send_message(sd_dhcp6_client *client) {
                 break;
 
         case DHCP6_STATE_REQUEST:
-                message->type = DHCP6_REQUEST;
+        case DHCP6_STATE_RENEW:
+
+                if (client->state == DHCP6_STATE_REQUEST)
+                        message->type = DHCP6_REQUEST;
+                else
+                        message->type = DHCP6_RENEW;
 
                 r = dhcp6_option_append(&opt, &optlen, DHCP6_OPTION_SERVERID,
                                         client->lease->serverid_len,
                                         client->lease->serverid);
                 if (r < 0)
                         return r;
+
+                r = dhcp6_option_append_ia(&opt, &optlen, &client->lease->ia);
+                if (r < 0)
+                        return r;
+
+                break;
+
+        case DHCP6_STATE_REBIND:
+                message->type = DHCP6_REBIND;
 
                 r = dhcp6_option_append_ia(&opt, &optlen, &client->lease->ia);
                 if (r < 0)
@@ -314,6 +328,8 @@ static int client_timeout_t2(sd_event_source *s, uint64_t usec,
 
         log_dhcp6_client(client, "Timeout T2");
 
+        client_start(client, DHCP6_STATE_REBIND);
+
         return 0;
 }
 
@@ -330,18 +346,29 @@ static int client_timeout_t1(sd_event_source *s, uint64_t usec,
 
         log_dhcp6_client(client, "Timeout T1");
 
+        client_start(client, DHCP6_STATE_RENEW);
+
         return 0;
 }
 
 static int client_timeout_resend_expire(sd_event_source *s, uint64_t usec,
                                         void *userdata) {
         sd_dhcp6_client *client = userdata;
+        DHCP6_CLIENT_DONT_DESTROY(client);
+        enum DHCP6State state;
 
         assert(s);
         assert(client);
         assert(client->event);
 
+        state = client->state;
+
         client_stop(client, DHCP6_EVENT_RESEND_EXPIRE);
+
+        /* RFC 3315, section 18.1.4., says that "...the client may choose to
+           use a Solicit message to locate a new DHCP server..." */
+        if (state == DHCP6_STATE_REBIND)
+                client_start(client, DHCP6_STATE_SOLICITATION);
 
         return 0;
 }
@@ -359,6 +386,7 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec,
         usec_t max_retransmit_duration;
         uint8_t max_retransmit_count = 0;
         char time_string[FORMAT_TIMESPAN_MAX];
+        uint32_t expire = 0;
 
         assert(s);
         assert(client);
@@ -386,6 +414,37 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec,
                 max_retransmit_time = DHCP6_REQ_MAX_RT;
                 max_retransmit_count = DHCP6_REQ_MAX_RC;
                 max_retransmit_duration = 0;
+
+                break;
+
+        case DHCP6_STATE_RENEW:
+                init_retransmit_time = DHCP6_REN_TIMEOUT;
+                max_retransmit_time = DHCP6_REN_MAX_RT;
+                max_retransmit_count = 0;
+
+                /* RFC 3315, section 18.1.3. says max retransmit duration will
+                   be the remaining time until T2. Instead of setting MRD,
+                   wait for T2 to trigger with the same end result */
+                max_retransmit_duration = 0;
+
+                break;
+
+        case DHCP6_STATE_REBIND:
+                init_retransmit_time = DHCP6_REB_TIMEOUT;
+                max_retransmit_time = DHCP6_REB_MAX_RT;
+                max_retransmit_count = 0;
+
+                max_retransmit_duration = 0;
+
+                if (!client->timeout_resend_expire) {
+                        r = dhcp6_lease_ia_rebind_expire(&client->lease->ia,
+                                                         &expire);
+                        if (r < 0) {
+                                client_stop(client, r);
+                                return 0;
+                        }
+                        max_retransmit_duration = expire * USEC_PER_SEC;
+                }
 
                 break;
 
@@ -740,6 +799,9 @@ static int client_receive_message(sd_event_source *s, int fd, uint32_t revents,
                 break;
 
         case DHCP6_STATE_REQUEST:
+        case DHCP6_STATE_RENEW:
+        case DHCP6_STATE_REBIND:
+
                 r = client_receive_reply(client, message, len);
                 if (r < 0)
                         return 0;
@@ -822,6 +884,8 @@ static int client_start(sd_dhcp6_client *client, enum DHCP6State state)
                 break;
 
         case DHCP6_STATE_REQUEST:
+        case DHCP6_STATE_RENEW:
+        case DHCP6_STATE_REBIND:
 
                 client->state = state;
 
@@ -882,6 +946,8 @@ static int client_start(sd_dhcp6_client *client, enum DHCP6State state)
                                                  client->event_priority);
                 if (r < 0)
                         return r;
+
+                client->state = state;
 
                 return 0;
         }
