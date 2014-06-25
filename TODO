@@ -29,6 +29,9 @@ Features:
 
 * support empty /etc boots nicely:
   - nspawn/gpt-generator: introduce new gpt partition type for /usr
+  - nspawn: add --mode=auto,stateful,stateless,volatile
+  - fstab-generator: support auot/stateful/stateless/volatile on the kernel cmdline, too
+  - fstab-generator: add support for usr= in addition to root= on the kernel cmdline
 
 * generator that automatically discovers btrfs subvolumes, identifies their purpose based on some xattr on them.
 
