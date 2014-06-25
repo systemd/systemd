@@ -118,6 +118,23 @@ int dhcp6_lease_get_preference(sd_dhcp6_lease *lease, uint8_t *preference) {
         return 0;
 }
 
+int dhcp6_lease_set_rapid_commit(sd_dhcp6_lease *lease) {
+        assert_return(lease, -EINVAL);
+
+        lease->rapid_commit = true;
+
+        return 0;
+}
+
+int dhcp6_lease_get_rapid_commit(sd_dhcp6_lease *lease, bool *rapid_commit) {
+        assert_return(lease, -EINVAL);
+        assert_return(rapid_commit, -EINVAL);
+
+        *rapid_commit = lease->rapid_commit;
+
+        return 0;
+}
+
 int dhcp6_lease_get_iaid(sd_dhcp6_lease *lease, be32_t *iaid) {
         assert_return(lease, -EINVAL);
         assert_return(iaid, -EINVAL);

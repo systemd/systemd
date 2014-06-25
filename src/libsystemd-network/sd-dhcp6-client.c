@@ -252,6 +252,9 @@ static int client_send_message(sd_dhcp6_client *client) {
         case DHCP6_STATE_SOLICITATION:
                 message->type = DHCP6_SOLICIT;
 
+                r = dhcp6_option_append(&opt, &optlen,
+                                        DHCP6_OPTION_RAPID_COMMIT, 0, NULL);
+
                 r = dhcp6_option_append_ia(&opt, &optlen, &client->ia_na);
                 if (r < 0)
                         return r;
@@ -658,6 +661,13 @@ static int client_parse_message(sd_dhcp6_client *client,
                         }
 
                         break;
+
+                case DHCP6_OPTION_RAPID_COMMIT:
+                        r = dhcp6_lease_set_rapid_commit(lease);
+                        if (r < 0)
+                                return r;
+
+                        break;
                 }
         }
 
@@ -680,9 +690,10 @@ static int client_receive_reply(sd_dhcp6_client *client, DHCP6Message *reply,
 {
         int r;
         _cleanup_dhcp6_lease_free_ sd_dhcp6_lease *lease = NULL;
+        bool rapid_commit;
 
         if (reply->type != DHCP6_REPLY)
-                return -EINVAL;
+                return 0;
 
         r = dhcp6_lease_new(&lease);
         if (r < 0)
@@ -691,6 +702,15 @@ static int client_receive_reply(sd_dhcp6_client *client, DHCP6Message *reply,
         r = client_parse_message(client, reply, len, lease);
         if (r < 0)
                 return r;
+
+        if (client->state == DHCP6_STATE_SOLICITATION) {
+                r = dhcp6_lease_get_rapid_commit(lease, &rapid_commit);
+                if (r < 0)
+                        return r;
+
+                if (!rapid_commit)
+                        return 0;
+        }
 
         dhcp6_lease_clear_timers(&client->lease->ia);
 
@@ -708,7 +728,7 @@ static int client_receive_advertise(sd_dhcp6_client *client,
         uint8_t pref_advertise = 0, pref_lease = 0;
 
         if (advertise->type != DHCP6_ADVERTISE)
-                return -EINVAL;
+                return 0;
 
         r = dhcp6_lease_new(&lease);
         if (r < 0)
@@ -793,11 +813,13 @@ static int client_receive_message(sd_event_source *s, int fd, uint32_t revents,
         case DHCP6_STATE_SOLICITATION:
                 r = client_receive_advertise(client, message, len);
 
-                if (r == DHCP6_STATE_REQUEST)
+                if (r == DHCP6_STATE_REQUEST) {
                         client_start(client, r);
 
-                break;
+                        break;
+                }
 
+                /* fall through for Soliciation Rapid Commit option check */
         case DHCP6_STATE_REQUEST:
         case DHCP6_STATE_RENEW:
         case DHCP6_STATE_REBIND:
