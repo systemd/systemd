@@ -49,7 +49,17 @@ AS_IF([test "x$enable_static" = "xyes"], [AC_MSG_ERROR([--enable-static is not s
 AS_IF([test "x$enable_largefile" = "xno"], [AC_MSG_ERROR([--disable-largefile is not supported by systemd])])
 
 # i18n stuff for the PolicyKit policy files
+AM_NLS
+AS_IF([test x"$enable_nls" != xno], [
+    # intltoolize greps for '^(AC|IT)_PROG_INTLTOOL', so it needs to be on its own line
 IT_PROG_INTLTOOL([0.40.0])
+])
+
+AS_IF([test -z "$INTLTOOL_POLICY_RULE"], [
+    # If intltool is not available, provide a dummy rule to fail generation of %.policy files with a meaningful error message
+    INTLTOOL_POLICY_RULE='%.policy: %.policy.in ; @echo "  ITMRG   " $@ && echo "*** intltool support required to build target $@" && false'
+    AC_SUBST(INTLTOOL_POLICY_RULE)
+])
 
 GETTEXT_PACKAGE=systemd
 AC_SUBST(GETTEXT_PACKAGE)
