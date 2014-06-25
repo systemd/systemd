@@ -49,6 +49,18 @@ AS_IF([test "x$enable_static" = "xyes"], [AC_MSG_ERROR([--enable-static is not s
 AS_IF([test "x$enable_largefile" = "xno"], [AC_MSG_ERROR([--disable-largefile is not supported by systemd])])
 
 # i18n stuff for the PolicyKit policy files
+
+# Check whether intltool can be found, disable NLS otherwise
+AC_CHECK_PROG(intltool_found, [intltool-merge], [yes], [no])
+AS_IF([test x"$intltool_found" != xyes],
+      [AS_IF([test x"$enable_nls" = xyes],
+             [AC_MSG_ERROR([--enable-nls requested but intltool not found])],
+             [AS_IF([test x"$enable_nls" != xno],
+                    [AC_MSG_WARN([*** Disabling NLS support because intltool was not found])
+                     enable_nls=no])
+             ])
+      ])
+
 AM_NLS
 AS_IF([test x"$enable_nls" != xno], [
     # intltoolize greps for '^(AC|IT)_PROG_INTLTOOL', so it needs to be on its own line
