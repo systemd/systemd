@@ -95,6 +95,12 @@ const char * dhcp6_message_status_table[_DHCP6_STATUS_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(dhcp6_message_status, int);
 
+DEFINE_TRIVIAL_CLEANUP_FUNC(sd_dhcp6_client*, sd_dhcp6_client_unref);
+#define _cleanup_dhcp6_client_unref_ _cleanup_(sd_dhcp6_client_unrefp)
+
+#define DHCP6_CLIENT_DONT_DESTROY(client) \
+        _cleanup_dhcp6_client_unref_ _unused_ sd_dhcp6_client *_dont_destroy_##client = sd_dhcp6_client_ref(client)
+
 static int client_start(sd_dhcp6_client *client, enum DHCP6State state);
 
 int sd_dhcp6_client_set_callback(sd_dhcp6_client *client,
@@ -143,14 +149,9 @@ int sd_dhcp6_client_get_lease(sd_dhcp6_client *client, sd_dhcp6_lease **ret) {
         return 0;
 }
 
-static sd_dhcp6_client *client_notify(sd_dhcp6_client *client, int event) {
-        if (client->cb) {
-                client = sd_dhcp6_client_ref(client);
+static void client_notify(sd_dhcp6_client *client, int event) {
+        if (client->cb)
                 client->cb(client, event, client->userdata);
-                client = sd_dhcp6_client_unref(client);
-        }
-
-        return client;
 }
 
 static int client_reset(sd_dhcp6_client *client) {
@@ -179,14 +180,14 @@ static int client_reset(sd_dhcp6_client *client) {
         return 0;
 }
 
-static sd_dhcp6_client *client_stop(sd_dhcp6_client *client, int error) {
-        assert_return(client, NULL);
+static void client_stop(sd_dhcp6_client *client, int error) {
+        DHCP6_CLIENT_DONT_DESTROY(client);
 
-        client = client_notify(client, error);
-        if (client)
-                client_reset(client);
+        assert(client);
 
-        return client;
+        client_notify(client, error);
+
+        client_reset(client);
 }
 
 static int client_send_message(sd_dhcp6_client *client) {
@@ -633,6 +634,7 @@ static int client_receive_advertise(sd_dhcp6_client *client,
 static int client_receive_message(sd_event_source *s, int fd, uint32_t revents,
                                   void *userdata) {
         sd_dhcp6_client *client = userdata;
+        DHCP6_CLIENT_DONT_DESTROY(client);
         _cleanup_free_ DHCP6Message *message;
         int r, buflen, len;
 
@@ -704,9 +706,7 @@ static int client_receive_message(sd_event_source *s, int fd, uint32_t revents,
                                 return 0;
                         }
 
-                        client = client_notify(client, DHCP6_EVENT_IP_ACQUIRE);
-                        if (!client)
-                                return 0;
+                        client_notify(client, DHCP6_EVENT_IP_ACQUIRE);
                 }
 
                 break;
@@ -935,12 +935,9 @@ sd_dhcp6_client *sd_dhcp6_client_unref(sd_dhcp6_client *client) {
         return client;
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(sd_dhcp6_client*, sd_dhcp6_client_unref);
-#define _cleanup_dhcp6_client_free_ _cleanup_(sd_dhcp6_client_unrefp)
-
 int sd_dhcp6_client_new(sd_dhcp6_client **ret)
 {
-        _cleanup_dhcp6_client_free_ sd_dhcp6_client *client = NULL;
+        _cleanup_dhcp6_client_unref_ sd_dhcp6_client *client = NULL;
         sd_id128_t machine_id;
         int r;
 
