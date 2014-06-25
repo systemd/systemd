@@ -5173,7 +5173,7 @@ units/user/%: units/%.m4
 	$(AM_V_M4)$(M4) -P $(M4_DEFINES) -DFOR_USER=1 < $< > $@
 
 if ENABLE_POLKIT
-nodist_polkitpolicy_DATA = \
+dist_polkitpolicy_DATA = \
 	$(polkitpolicy_files) \
 	$(polkitpolicy_in_in_files:.policy.in.in=.policy)
 endif
