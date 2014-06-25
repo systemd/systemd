@@ -127,6 +127,10 @@ static void test_rs(sd_event *e) {
                                  time_now + 2 *USEC_PER_SEC, 0,
                                  test_rs_hangcheck, NULL) >= 0);
 
+        assert(sd_icmp6_nd_stop(nd) >= 0);
+        assert(sd_icmp6_router_solicitation_start(nd) >= 0);
+        assert(sd_icmp6_nd_stop(nd) >= 0);
+
         assert(sd_icmp6_router_solicitation_start(nd) >= 0);
 
         sd_event_loop(e);

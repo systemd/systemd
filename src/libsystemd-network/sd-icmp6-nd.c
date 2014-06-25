@@ -282,6 +282,19 @@ static int icmp6_router_solicitation_timeout(sd_event_source *s, uint64_t usec,
         return 0;
 }
 
+int sd_icmp6_nd_stop(sd_icmp6_nd *nd) {
+        assert_return(nd, -EINVAL);
+        assert_return(nd->event, -EINVAL);
+
+        log_icmp6_nd(client, "Stop ICMPv6");
+
+        icmp6_nd_init(nd);
+
+        nd->state = ICMP6_NEIGHBOR_DISCOVERY_IDLE;
+
+        return 0;
+}
+
 int sd_icmp6_router_solicitation_start(sd_icmp6_nd *nd) {
         int r;
 
