@@ -236,11 +236,19 @@ static int link_stop_clients(Link *link) {
         }
 
         if (link->network->dhcp6) {
-                assert(link->dhcp6_client);
+                assert(link->icmp6_router_discovery);
 
-                k = sd_dhcp6_client_stop(link->dhcp6_client);
+                if (link->dhcp6_client) {
+                        k = sd_dhcp6_client_stop(link->dhcp6_client);
+                        if (k < 0) {
+                                log_warning_link(link, "Could not stop DHCPv6 client: %s", strerror(-r));
+                                r = k;
+                        }
+                }
+
+                k = sd_icmp6_nd_stop(link->icmp6_router_discovery);
                 if (k < 0) {
-                        log_warning_link(link, "Could not stop DHCPv6 client: %s", strerror(-r));
+                        log_warning_link(link, "Could not stop ICMPv6 router discovery: %s", strerror(-r));
                         r = k;
                 }
         }
