@@ -644,7 +644,7 @@ static int save_core(sd_journal *j, int fd, char **path, bool *unlink_temp) {
                                 goto error;
                         }
                 } else if (filename) {
-#if HAVE_XZ
+#ifdef HAVE_XZ
                         _cleanup_close_ int fdf;
 
                         fdf = open(filename, O_RDONLY | O_CLOEXEC);
