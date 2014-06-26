@@ -718,8 +718,7 @@ static int dump_core(sd_journal* j) {
 }
 
 static int run_gdb(sd_journal *j) {
-
-        _cleanup_free_ char *exe = NULL, *coredump = NULL, *path = NULL;
+        _cleanup_free_ char *exe = NULL, *path = NULL;
         bool unlink_path = false;
         const char *data;
         siginfo_t st;
