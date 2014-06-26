@@ -500,7 +500,7 @@ int main(int argc, char* argv[]) {
         log_debug("Selected storage '%s'.",
                   coredump_storage_to_string(arg_storage));
         log_debug("Selected compression %s:%u.",
-                  coredump_compression_to_string(arg_storage),
+                  coredump_compression_to_string(arg_compression),
                   arg_compression_level);
 
         r = parse_uid(argv[INFO_UID + 1], &uid);
