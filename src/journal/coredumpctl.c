@@ -37,6 +37,7 @@
 #include "macro.h"
 #include "journal-internal.h"
 #include "copy.h"
+#include "compress.h"
 
 static enum {
         ACTION_NONE,
@@ -280,55 +281,6 @@ static int retrieve(const void *data,
         return 0;
 }
 
-#define filename_escape(s) xescape((s), "./ ")
-
-static int make_coredump_path(sd_journal *j, char **ret) {
-        _cleanup_free_ char
-                *pid = NULL, *boot_id = NULL, *tstamp = NULL, *comm = NULL,
-                *p = NULL, *b = NULL, *t = NULL, *c = NULL;
-        const void *d;
-        size_t l;
-        char *fn;
-
-        assert(j);
-        assert(ret);
-
-        SD_JOURNAL_FOREACH_DATA(j, d, l) {
-                retrieve(d, l, "COREDUMP_COMM", &comm);
-                retrieve(d, l, "COREDUMP_PID", &pid);
-                retrieve(d, l, "COREDUMP_TIMESTAMP", &tstamp);
-                retrieve(d, l, "_BOOT_ID", &boot_id);
-        }
-
-        if (!pid || !comm || !tstamp || !boot_id) {
-                log_error("Failed to retrieve necessary fields to find coredump on disk.");
-                return -ENOENT;
-        }
-
-        p = filename_escape(pid);
-        if (!p)
-                return log_oom();
-
-        t = filename_escape(tstamp);
-        if (!t)
-                return log_oom();
-
-        c = filename_escape(comm);
-        if (!t)
-                return log_oom();
-
-        b = filename_escape(boot_id);
-        if (!b)
-                return log_oom();
-
-        fn = strjoin("/var/lib/systemd/coredump/core.", c, ".", b, ".", p, ".", t, NULL);
-        if (!fn)
-                return log_oom();
-
-        *ret = fn;
-        return 0;
-}
-
 static void print_field(FILE* file, sd_journal *j) {
         _cleanup_free_ char *value = NULL;
         const void *d;
@@ -349,12 +301,14 @@ static void print_field(FILE* file, sd_journal *j) {
 static int print_list(FILE* file, sd_journal *j, int had_legend) {
         _cleanup_free_ char
                 *pid = NULL, *uid = NULL, *gid = NULL,
-                *sgnl = NULL, *exe = NULL, *comm = NULL, *cmdline = NULL;
+                *sgnl = NULL, *exe = NULL, *comm = NULL, *cmdline = NULL,
+                *filename = NULL;
         const void *d;
         size_t l;
         usec_t t;
         char buf[FORMAT_TIMESTAMP_MAX];
         int r;
+        bool present;
 
         assert(file);
         assert(j);
@@ -367,9 +321,10 @@ static int print_list(FILE* file, sd_journal *j, int had_legend) {
                 retrieve(d, l, "COREDUMP_EXE", &exe);
                 retrieve(d, l, "COREDUMP_COMM", &comm);
                 retrieve(d, l, "COREDUMP_CMDLINE", &cmdline);
+                retrieve(d, l, "COREDUMP_FILENAME", &filename);
         }
 
-        if (!pid && !uid && !gid && !sgnl && !exe && !comm && !cmdline) {
+        if (!pid && !uid && !gid && !sgnl && !exe && !comm && !cmdline && !filename) {
                 log_warning("Empty coredump log entry");
                 return -EINVAL;
         }
@@ -381,22 +336,25 @@ static int print_list(FILE* file, sd_journal *j, int had_legend) {
         }
 
         format_timestamp(buf, sizeof(buf), t);
+        present = filename && access(filename, F_OK) == 0;
 
         if (!had_legend && !arg_no_legend)
-                fprintf(file, "%-*s %*s %*s %*s %*s %s\n",
+                fprintf(file, "%-*s %*s %*s %*s %*s %*s %s\n",
                         FORMAT_TIMESTAMP_WIDTH, "TIME",
                         6, "PID",
                         5, "UID",
                         5, "GID",
                         3, "SIG",
+                        1, "PRESENT",
                            "EXE");
 
-        fprintf(file, "%-*s %*s %*s %*s %*s %s\n",
+        fprintf(file, "%-*s %*s %*s %*s %*s %*s %s\n",
                 FORMAT_TIMESTAMP_WIDTH, buf,
                 6, strna(pid),
                 5, strna(uid),
                 5, strna(gid),
                 3, strna(sgnl),
+                1, present ? "*" : "",
                 strna(exe ?: (comm ?: cmdline)));
 
         return 0;
@@ -408,8 +366,8 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 *sgnl = NULL, *exe = NULL, *comm = NULL, *cmdline = NULL,
                 *unit = NULL, *user_unit = NULL, *session = NULL,
                 *boot_id = NULL, *machine_id = NULL, *hostname = NULL,
-                *coredump = NULL, *slice = NULL, *cgroup = NULL,
-                *owner_uid = NULL, *message = NULL, *timestamp = NULL;
+                *slice = NULL, *cgroup = NULL, *owner_uid = NULL,
+                *message = NULL, *timestamp = NULL, *filename = NULL;
         const void *d;
         size_t l;
         int r;
@@ -432,6 +390,7 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 retrieve(d, l, "COREDUMP_SLICE", &slice);
                 retrieve(d, l, "COREDUMP_CGROUP", &cgroup);
                 retrieve(d, l, "COREDUMP_TIMESTAMP", &timestamp);
+                retrieve(d, l, "COREDUMP_FILENAME", &filename);
                 retrieve(d, l, "_BOOT_ID", &boot_id);
                 retrieve(d, l, "_MACHINE_ID", &machine_id);
                 retrieve(d, l, "_HOSTNAME", &hostname);
@@ -546,9 +505,8 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
         if (hostname)
                 fprintf(file, "      Hostname: %s\n", hostname);
 
-        if (make_coredump_path(j, &coredump) >= 0)
-                if (access(coredump, F_OK) >= 0)
-                        fprintf(file, "      Coredump: %s\n", coredump);
+        if (filename && access(filename, F_OK) == 0)
+                fprintf(file, "      Coredump: %s\n", filename);
 
         if (message) {
                 _cleanup_free_ char *m = NULL;
@@ -619,15 +577,115 @@ static int dump_list(sd_journal *j) {
         return 0;
 }
 
+static int save_core(sd_journal *j, int fd, char **path, bool *unlink_temp) {
+        const char *data;
+        _cleanup_free_ char *filename = NULL;
+        size_t len;
+        int r;
+
+        assert((fd >= 0) != !!path);
+        assert(!!path == !!unlink_temp);
+
+        /* Prefer uncompressed file to journal (probably cached) to
+         * compressed file (probably uncached). */
+        r = sd_journal_get_data(j, "COREDUMP_FILENAME", (const void**) &data, &len);
+        if (r < 0 && r != -ENOENT)
+                log_warning("Failed to retrieve COREDUMP_FILENAME: %s", strerror(-r));
+        else if (r == 0)
+                retrieve(data, len, "COREDUMP_FILENAME", &filename);
+
+        if (filename && access(filename, R_OK) < 0) {
+                log_debug("File %s is not readable: %m", filename);
+                free(filename);
+                filename = NULL;
+        }
+
+        if (filename && !endswith(filename, ".xz")) {
+                *path = filename;
+                filename = NULL;
+
+                return 0;
+        } else {
+                _cleanup_close_ int fdt = -1;
+                char *temp = NULL;
+
+                if (fd < 0) {
+                        temp = strdup("/var/tmp/coredump-XXXXXX");
+                        if (!temp)
+                                return log_oom();
+
+                        fdt = mkostemp_safe(temp, O_WRONLY|O_CLOEXEC);
+                        if (fdt < 0) {
+                                log_error("Failed to create temporary file: %m");
+                                return -errno;
+                        }
+                        log_debug("Created temporary file %s", temp);
+
+                        fd = fdt;
+                }
+
+                r = sd_journal_get_data(j, "COREDUMP", (const void**) &data, &len);
+                if (r == 0) {
+                        ssize_t sz;
+
+                        assert(len >= 9);
+                        data += 9;
+                        len -= 9;
+
+                        sz = write(fdt, data, len);
+                        if (sz < 0) {
+                                log_error("Failed to write temporary file: %m");
+                                r = -errno;
+                                goto error;
+                        }
+                        if (sz != (ssize_t) len) {
+                                log_error("Short write to temporary file.");
+                                r = -EIO;
+                                goto error;
+                        }
+                } else if (filename) {
+                        _cleanup_close_ int fdf;
+
+                        fdf = open(filename, O_RDONLY | O_CLOEXEC);
+                        if (fdf < 0) {
+                                log_error("Failed to open %s: %m", filename);
+                                r = -errno;
+                                goto error;
+                        }
+
+                        r = decompress_stream(fdf, fd, -1);
+                        if (r < 0) {
+                                log_error("Failed to decompress %s: %s", filename, strerror(-r));
+                                goto error;
+                        }
+                } else {
+                        if (r == -ENOENT)
+                                log_error("Coredump neither in journal file nor stored externally on disk.");
+                        else
+                                log_error("Failed to retrieve COREDUMP field: %s", strerror(-r));
+                        goto error;
+                }
+
+                if (temp) {
+                        *path = temp;
+                        *unlink_temp = true;
+                }
+
+                return 0;
+
+error:
+                if (temp) {
+                        unlink(temp);
+                        log_debug("Removed temporary file %s", temp);
+                }
+                return r;
+        }
+}
+
 static int dump_core(sd_journal* j) {
-        const void *data;
-        size_t len, ret;
         int r;
 
         assert(j);
-
-        /* We want full data, nothing truncated. */
-        sd_journal_set_data_threshold(j, 0);
 
         r = focus(j);
         if (r < 0)
@@ -640,45 +698,10 @@ static int dump_core(sd_journal* j) {
                 return -ENOTTY;
         }
 
-        r = sd_journal_get_data(j, "COREDUMP", (const void**) &data, &len);
-        if (r == ENOENT) {
-                _cleanup_free_ char *fn = NULL;
-                _cleanup_close_ int fd = -1;
-
-                r = make_coredump_path(j, &fn);
-                if (r < 0)
-                        return r;
-
-                fd = open(fn, O_RDONLY|O_CLOEXEC|O_NOCTTY);
-                if (fd < 0) {
-                        if (errno == ENOENT)
-                                log_error("Coredump neither in journal file nor stored externally on disk.");
-                        else
-                                log_error("Failed to open coredump file: %s", strerror(-r));
-
-                        return -errno;
-                }
-
-                r = copy_bytes(fd, output ? fileno(output) : STDOUT_FILENO, (off_t) -1);
-                if (r < 0) {
-                        log_error("Failed to stream coredump: %s", strerror(-r));
-                        return r;
-                }
-
-        } else if (r < 0) {
-                log_error("Failed to retrieve COREDUMP field: %s", strerror(-r));
+        r = save_core(j, output ? fileno(output) : STDOUT_FILENO, NULL, NULL);
+        if (r < 0) {
+                log_error("Coredump retrieval failed: %s", strerror(-r));
                 return r;
-
-        } else {
-                assert(len >= 9);
-                data = (const uint8_t*) data + 9;
-                len -= 9;
-
-                ret = fwrite(data, len, 1, output ?: stdout);
-                if (ret != 1) {
-                        log_error("Dumping coredump failed: %m (%zu)", ret);
-                        return -errno;
-                }
         }
 
         r = sd_journal_previous(j);
@@ -690,19 +713,15 @@ static int dump_core(sd_journal* j) {
 
 static int run_gdb(sd_journal *j) {
 
-        _cleanup_free_ char *exe = NULL, *coredump = NULL;
-        char temp[] = "/var/tmp/coredump-XXXXXX";
-        bool unlink_temp = false;
-        const char *path;
-        const void *data;
+        _cleanup_free_ char *exe = NULL, *coredump = NULL, *path = NULL;
+        bool unlink_path = false;
+        const char *data;
         siginfo_t st;
         size_t len;
         pid_t pid;
         int r;
 
         assert(j);
-
-        sd_journal_set_data_threshold(j, 0);
 
         r = focus(j);
         if (r < 0)
@@ -717,9 +736,9 @@ static int run_gdb(sd_journal *j) {
                 return r;
         }
 
-        assert(len >= 13);
-        data = (const uint8_t*) data + 13;
-        len -= 13;
+        assert(len > strlen("COREDUMP_EXE="));
+        data += strlen("COREDUMP_EXE=");
+        len -= strlen("COREDUMP_EXE=");
 
         exe = strndup(data, len);
         if (!exe)
@@ -735,57 +754,10 @@ static int run_gdb(sd_journal *j) {
                 return -ENOENT;
         }
 
-        r = sd_journal_get_data(j, "COREDUMP", (const void**) &data, &len);
-        if (r == -ENOENT) {
-
-                r = make_coredump_path(j, &coredump);
-                if (r < 0)
-                        return r;
-
-                if (access(coredump, R_OK) < 0) {
-                        if (errno == ENOENT)
-                                log_error("Coredump neither in journal file nor stored externally on disk.");
-                        else
-                                log_error("Failed to access coredump file: %m");
-
-                        return -errno;
-                }
-
-                path = coredump;
-
-        } else if (r < 0) {
-                log_error("Failed to retrieve COREDUMP field: %s", strerror(-r));
+        r = save_core(j, -1, &path, &unlink_path);
+        if (r < 0) {
+                log_error("Failed to retrieve core: %s", strerror(-r));
                 return r;
-
-        } else {
-                _cleanup_close_ int fd = -1;
-                ssize_t sz;
-
-                assert(len >= 9);
-                data = (const uint8_t*) data + 9;
-                len -= 9;
-
-                fd = mkostemp_safe(temp, O_WRONLY|O_CLOEXEC);
-                if (fd < 0) {
-                        log_error("Failed to create temporary file: %m");
-                        return -errno;
-                }
-
-                unlink_temp = true;
-
-                sz = write(fd, data, len);
-                if (sz < 0) {
-                        log_error("Failed to write temporary file: %m");
-                        r = -errno;
-                        goto finish;
-                }
-                if (sz != (ssize_t) len) {
-                        log_error("Short write to temporary file.");
-                        r = -EIO;
-                        goto finish;
-                }
-
-                path = temp;
         }
 
         pid = fork();
@@ -810,8 +782,10 @@ static int run_gdb(sd_journal *j) {
         r = st.si_code == CLD_EXITED ? st.si_status : 255;
 
 finish:
-        if (unlink_temp)
-                unlink(temp);
+        if (unlink_path) {
+                log_debug("Removed temporary file %s", path);
+                unlink(path);
+        }
 
         return r;
 }
@@ -845,6 +819,9 @@ int main(int argc, char *argv[]) {
                 log_error("Failed to open journal: %s", strerror(-r));
                 goto end;
         }
+
+        /* We want full data, nothing truncated. */
+        sd_journal_set_data_threshold(j, 0);
 
         SET_FOREACH(match, matches, it) {
                 r = sd_journal_add_match(j, match, strlen(match));

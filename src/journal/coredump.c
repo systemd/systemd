@@ -465,13 +465,13 @@ int main(int argc, char* argv[]) {
         _cleanup_free_ char *core_pid = NULL, *core_uid = NULL, *core_gid = NULL, *core_signal = NULL,
                 *core_timestamp = NULL, *core_comm = NULL, *core_exe = NULL, *core_unit = NULL,
                 *core_session = NULL, *core_message = NULL, *core_cmdline = NULL, *coredump_data = NULL,
-                *coredump_filename = NULL, *core_slice = NULL, *core_cgroup = NULL, *core_owner_uid = NULL,
-                *exe = NULL, *comm = NULL;
+                *core_slice = NULL, *core_cgroup = NULL, *core_owner_uid = NULL,
+                *exe = NULL, *comm = NULL, *filename = NULL;
         const char *info[_INFO_LEN];
 
         _cleanup_close_ int coredump_fd = -1;
 
-        struct iovec iovec[17];
+        struct iovec iovec[18];
         off_t coredump_size;
         int r, j = 0;
         uid_t uid, owner_uid;
@@ -548,15 +548,15 @@ int main(int argc, char* argv[]) {
                         if (arg_storage != COREDUMP_STORAGE_NONE)
                                 arg_storage = COREDUMP_STORAGE_EXTERNAL;
 
-                        r = save_external_coredump(info, uid, &coredump_filename, &coredump_fd, &coredump_size);
+                        r = save_external_coredump(info, uid, &filename, &coredump_fd, &coredump_size);
                         if (r < 0)
                                 goto finish;
 
-                        r = maybe_remove_external_coredump(coredump_filename, coredump_size);
+                        r = maybe_remove_external_coredump(filename, coredump_size);
                         if (r < 0)
                                 goto finish;
 
-                        log_info("Detected coredump of the journal daemon itself, diverted to %s.", coredump_filename);
+                        log_info("Detected coredump of the journal daemon itself, diverted to %s.", filename);
                         goto finish;
                 }
 
@@ -647,7 +647,7 @@ int main(int argc, char* argv[]) {
         IOVEC_SET_STRING(iovec[j++], "PRIORITY=2");
 
         /* Always stream the coredump to disk, if that's possible */
-        r = save_external_coredump(info, uid, &coredump_filename, &coredump_fd, &coredump_size);
+        r = save_external_coredump(info, uid, &filename, &coredump_fd, &coredump_size);
         if (r < 0)
                 /* skip whole core dumping part */
                 goto log;
@@ -656,9 +656,15 @@ int main(int argc, char* argv[]) {
          * now, as later on we will lack the privileges for
          * it. However, we keep the fd to it, so that we can still
          * process it and log it. */
-        r = maybe_remove_external_coredump(coredump_filename, coredump_size);
+        r = maybe_remove_external_coredump(filename, coredump_size);
         if (r < 0)
                 goto finish;
+        if (r == 0) {
+                const char *coredump_filename;
+
+                coredump_filename = strappenda("COREDUMP_FILENAME=", filename);
+                IOVEC_SET_STRING(iovec[j++], coredump_filename);
+        }
 
         /* Now, let's drop privileges to become the user who owns the
          * segfaulted process and allocate the coredump memory under
