@@ -664,6 +664,7 @@ endif
 
 if ENABLE_COREDUMP
 MANPAGES += \
+	man/coredump.conf.5 \
 	man/coredumpctl.1
 MANPAGES_ALIAS += \
 	#
@@ -1483,6 +1484,7 @@ EXTRA_DIST += \
 	man/bootctl.xml \
 	man/bootup.xml \
 	man/busctl.xml \
+	man/coredump.conf.xml \
 	man/coredumpctl.xml \
 	man/crypttab.xml \
 	man/daemon.xml \
