@@ -84,7 +84,7 @@ static void test_compress_stream(const char *srcfile) {
 
         assert_se((dst = mkostemp_safe(pattern, O_RDWR|O_CLOEXEC)) >= 0);
 
-        r = compress_stream(src, dst, -1);
+        r = compress_stream(src, dst, 1, -1);
         assert(r == 0);
 
         assert_se(asprintf(&cmd, "xzcat %s | diff %s -", pattern, srcfile) > 0);

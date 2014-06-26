@@ -203,7 +203,7 @@ fail:
         return b;
 }
 
-int compress_stream(int fdf, int fdt, off_t max_bytes) {
+int compress_stream(int fdf, int fdt, uint32_t preset, off_t max_bytes) {
         _cleanup_(lzma_end) lzma_stream s = LZMA_STREAM_INIT;
         lzma_ret ret;
 
@@ -213,7 +213,7 @@ int compress_stream(int fdf, int fdt, off_t max_bytes) {
         assert(fdf >= 0);
         assert(fdt >= 0);
 
-        ret = lzma_easy_encoder(&s, LZMA_PRESET_DEFAULT, LZMA_CHECK_CRC64);
+        ret = lzma_easy_encoder(&s, preset, LZMA_CHECK_CRC64);
         if (ret != LZMA_OK) {
                 log_error("Failed to initialize XZ encoder: code %d", ret);
                 return -EINVAL;
