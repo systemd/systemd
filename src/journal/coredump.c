@@ -345,14 +345,14 @@ static int save_external_coredump(const char *info[_INFO_LEN],
                 goto fail;
         }
 
-        if (lseek(fd, 0, SEEK_SET) == (off_t) -1) {
-                log_error("Failed to seek on %s: %m", tmp);
-                goto uncompressed;
-        }
-
         if (fstat(fd, &st) < 0) {
                 log_error("Failed to fstat coredump %s: %m", tmp);
                 goto fail;
+        }
+
+        if (lseek(fd, 0, SEEK_SET) == (off_t) -1) {
+                log_error("Failed to seek on %s: %m", tmp);
+                goto uncompressed;
         }
 
 #ifdef HAVE_XZ
