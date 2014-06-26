@@ -644,6 +644,7 @@ static int save_core(sd_journal *j, int fd, char **path, bool *unlink_temp) {
                                 goto error;
                         }
                 } else if (filename) {
+#if HAVE_XZ
                         _cleanup_close_ int fdf;
 
                         fdf = open(filename, O_RDONLY | O_CLOEXEC);
@@ -658,6 +659,11 @@ static int save_core(sd_journal *j, int fd, char **path, bool *unlink_temp) {
                                 log_error("Failed to decompress %s: %s", filename, strerror(-r));
                                 goto error;
                         }
+#else
+                        log_error("Cannot decompress file. Compiled without XZ support.");
+                        r = -ENOTSUP;
+                        goto error;
+#endif
                 } else {
                         if (r == -ENOENT)
                                 log_error("Coredump neither in journal file nor stored externally on disk.");
