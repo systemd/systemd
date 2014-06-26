@@ -131,7 +131,7 @@ static int timer_setup_persistent(Timer *t) {
 
                 e = getenv("XDG_DATA_HOME");
                 if (e)
-                        t->stamp_path = strjoin(e, "/systemd/timers/", UNIT(t)->id, NULL);
+                        t->stamp_path = strjoin(e, "/systemd/timers/stamp-", UNIT(t)->id, NULL);
                 else {
 
                         _cleanup_free_ char *h = NULL;
