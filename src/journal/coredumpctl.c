@@ -601,8 +601,10 @@ static int save_core(sd_journal *j, int fd, char **path, bool *unlink_temp) {
         }
 
         if (filename && !endswith(filename, ".xz")) {
-                *path = filename;
-                filename = NULL;
+                if (path) {
+                        *path = filename;
+                        filename = NULL;
+                }
 
                 return 0;
         } else {
