@@ -879,7 +879,8 @@ static int client_handle_ack(sd_dhcp_client *client, DHCPMessage *ack,
                     client->lease->subnet_mask != lease->subnet_mask ||
                     client->lease->router != lease->router) {
                         r = DHCP_EVENT_IP_CHANGE;
-                }
+                } else
+                        r = DHCP_EVENT_RENEW;
 
                 client->lease = sd_dhcp_lease_unref(client->lease);
         }

@@ -360,6 +360,14 @@ int address_configure(Address *address, Link *link,
                 }
         }
 
+        r = sd_rtnl_message_append_cache_info(req, IFA_CACHEINFO,
+                                              &address->cinfo);
+        if (r < 0) {
+                log_error("Could not append IFA_CACHEINFO attribute: %s",
+                          strerror(-r));
+                return r;
+        }
+
         r = sd_rtnl_call_async(link->manager->rtnl, req, callback, link, 0, NULL);
         if (r < 0) {
                 log_error("Could not send rtnetlink message: %s", strerror(-r));

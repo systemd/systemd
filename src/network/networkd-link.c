@@ -600,6 +600,7 @@ static int address_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 static int link_enter_set_addresses(Link *link) {
         Address *ad;
         int r;
+        uint32_t lifetime = CACHE_INFO_INFINITY_LIFE_TIME;
 
         assert(link);
         assert(link->network);
@@ -676,6 +677,16 @@ static int link_enter_set_addresses(Link *link) {
                         return r;
                 }
 
+                if (!link->network->dhcp_critical) {
+                        r = sd_dhcp_lease_get_lifetime(link->dhcp_lease,
+                                                       &lifetime);
+                        if (r < 0) {
+                                log_warning_link(link, "DHCP error: no lifetime: %s",
+                                                 strerror(-r));
+                                return r;
+                        }
+                }
+
                 r = sd_dhcp_lease_get_netmask(link->dhcp_lease, &netmask);
                 if (r < 0) {
                         log_warning_link(link, "DHCP error: no netmask: %s",
@@ -694,6 +705,8 @@ static int link_enter_set_addresses(Link *link) {
 
                 address->family = AF_INET;
                 address->in_addr.in = addr;
+                address->cinfo.ifa_prefered = lifetime;
+                address->cinfo.ifa_valid = lifetime;
                 address->prefixlen = prefixlen;
                 address->broadcast.s_addr = addr.s_addr | ~netmask.s_addr;
 
@@ -967,6 +980,25 @@ static int dhcp_lease_lost(Link *link) {
         return 0;
 }
 
+static int dhcp_lease_renew(sd_dhcp_client *client, Link *link) {
+        sd_dhcp_lease *lease;
+        int r;
+
+        r = sd_dhcp_client_get_lease(client, &lease);
+        if (r < 0) {
+                log_warning_link(link, "DHCP error: no lease %s",
+                                 strerror(-r));
+                return r;
+        }
+
+        sd_dhcp_lease_unref(link->dhcp_lease);
+        link->dhcp_lease = lease;
+
+        link_enter_set_addresses(link);
+
+        return 0;
+}
+
 static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
         sd_dhcp_lease *lease;
         struct in_addr address;
@@ -1117,6 +1149,13 @@ static void dhcp_handler(sd_dhcp_client *client, int event, void *userdata) {
                                 }
                         }
 
+                        break;
+                case DHCP_EVENT_RENEW:
+                        r = dhcp_lease_renew(client, link);
+                        if (r < 0) {
+                                link_enter_failed(link);
+                                return;
+                        }
                         break;
                 case DHCP_EVENT_IP_ACQUIRE:
                         r = dhcp_lease_acquired(client, link);

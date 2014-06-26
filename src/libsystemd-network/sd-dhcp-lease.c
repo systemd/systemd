@@ -47,6 +47,15 @@ int sd_dhcp_lease_get_address(sd_dhcp_lease *lease, struct in_addr *addr) {
         return 0;
 }
 
+int sd_dhcp_lease_get_lifetime(sd_dhcp_lease *lease, uint32_t *lifetime) {
+        assert_return(lease, -EINVAL);
+        assert_return(lease, -EINVAL);
+
+        *lifetime = lease->lifetime;
+
+        return 0;
+}
+
 int sd_dhcp_lease_get_mtu(sd_dhcp_lease *lease, uint16_t *mtu) {
         assert_return(lease, -EINVAL);
         assert_return(mtu, -EINVAL);
