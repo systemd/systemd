@@ -98,29 +98,10 @@ static const char* const coredump_storage_table[_COREDUMP_STORAGE_MAX] = {
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP(coredump_storage, CoredumpStorage);
-static DEFINE_CONFIG_PARSE_ENUM(config_parse_coredump_storage, coredump_storage,
-                                CoredumpStorage,
-                                "Failed to parse storage setting");
-
-typedef enum CoredumpCompression {
-        COREDUMP_COMPRESSION_NONE,
-        COREDUMP_COMPRESSION_XZ,
-        _COREDUMP_COMPRESSION_MAX,
-        _COREDUMP_COMPRESSION_INVALID = -1
-} CoredumpCompression;
-
-static const char* const coredump_compression_table[_COREDUMP_COMPRESSION_MAX] = {
-        [COREDUMP_COMPRESSION_NONE] = "none",
-        [COREDUMP_COMPRESSION_XZ] = "xz",
-};
-
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP(coredump_compression, CoredumpCompression);
-static DEFINE_CONFIG_PARSE_ENUM(config_parse_coredump_compression, coredump_compression,
-                                CoredumpCompression,
-                                "Failed to parse compression setting");
+static DEFINE_CONFIG_PARSE_ENUM(config_parse_coredump_storage, coredump_storage, CoredumpStorage, "Failed to parse storage setting");
 
 static CoredumpStorage arg_storage = COREDUMP_STORAGE_EXTERNAL;
-static CoredumpCompression arg_compression = COREDUMP_COMPRESSION_XZ;
+static bool arg_compress = true;
 static off_t arg_process_size_max = PROCESS_SIZE_MAX;
 static off_t arg_external_size_max = EXTERNAL_SIZE_MAX;
 static size_t arg_journal_size_max = JOURNAL_SIZE_MAX;
@@ -129,13 +110,13 @@ static off_t arg_max_use = (off_t) -1;
 
 static int parse_config(void) {
         static const ConfigTableItem items[] = {
-                { "Coredump", "Storage",          config_parse_coredump_storage,     0, &arg_storage           },
-                { "Coredump", "Compression",      config_parse_coredump_compression, 0, &arg_compression       },
-                { "Coredump", "ProcessSizeMax",   config_parse_iec_off,              0, &arg_process_size_max  },
-                { "Coredump", "ExternalSizeMax",  config_parse_iec_off,              0, &arg_external_size_max },
-                { "Coredump", "JournalSizeMax",   config_parse_iec_size,             0, &arg_journal_size_max  },
-                { "Coredump", "KeepFree",         config_parse_iec_off,              0, &arg_keep_free         },
-                { "Coredump", "MaxUse",           config_parse_iec_off,              0, &arg_max_use           },
+                { "Coredump", "Storage",          config_parse_coredump_storage,  0, &arg_storage           },
+                { "Coredump", "Compress",         config_parse_bool,              0, &arg_compress          },
+                { "Coredump", "ProcessSizeMax",   config_parse_iec_off,           0, &arg_process_size_max  },
+                { "Coredump", "ExternalSizeMax",  config_parse_iec_off,           0, &arg_external_size_max },
+                { "Coredump", "JournalSizeMax",   config_parse_iec_size,          0, &arg_journal_size_max  },
+                { "Coredump", "KeepFree",         config_parse_iec_off,           0, &arg_keep_free         },
+                { "Coredump", "MaxUse",           config_parse_iec_off,           0, &arg_max_use           },
                 {}
         };
 
@@ -354,7 +335,7 @@ static int save_external_coredump(
 #ifdef HAVE_XZ
         /* If we will remove the coredump anyway, do not compress. */
         if (maybe_remove_external_coredump(NULL, st.st_size) == 0
-            && arg_compression == COREDUMP_COMPRESSION_XZ) {
+            && arg_compress) {
 
                 _cleanup_free_ char *fn2 = NULL;
                 char *tmp2;
@@ -493,10 +474,9 @@ int main(int argc, char* argv[]) {
 
         /* Ignore all parse errors */
         parse_config();
-        log_debug("Selected storage '%s'.",
-                  coredump_storage_to_string(arg_storage));
-        log_debug("Selected compression %s.",
-                  coredump_compression_to_string(arg_compression));
+
+        log_debug("Selected storage '%s'.", coredump_storage_to_string(arg_storage));
+        log_debug("Selected compression %s.", yes_no(arg_compress));
 
         r = parse_uid(argv[INFO_UID + 1], &uid);
         if (r < 0) {
