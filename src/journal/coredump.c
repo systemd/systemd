@@ -129,12 +129,12 @@ static off_t arg_keep_free = (off_t) -1;
 static off_t arg_max_use = (off_t) -1;
 
 static int parse_config(void) {
+        int r;
 
         static const ConfigTableItem items[] = {
                 { "Coredump", "Storage",          config_parse_coredump_storage,     0, &arg_storage           },
                 { "Coredump", "Compression",      config_parse_coredump_compression, 0, &arg_compression       },
                 { "Coredump", "CompressionLevel", config_parse_unsigned,             0, &arg_compression_level },
-
                 { "Coredump", "ProcessSizeMax",   config_parse_iec_off,              0, &arg_process_size_max  },
                 { "Coredump", "ExternalSizeMax",  config_parse_iec_off,              0, &arg_external_size_max },
                 { "Coredump", "JournalSizeMax",   config_parse_iec_size,             0, &arg_journal_size_max  },
@@ -143,7 +143,7 @@ static int parse_config(void) {
                 {}
         };
 
-        return config_parse(
+        r = config_parse(
                         NULL,
                         "/etc/systemd/coredump.conf",
                         NULL,
@@ -160,6 +160,8 @@ static int parse_config(void) {
                 arg_compression_level = LZMA_PRESET_DEFAULT;
         }
 #endif
+
+        return r;
 }
 
 static int fix_acl(int fd, uid_t uid) {
