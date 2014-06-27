@@ -3771,7 +3771,9 @@ systemd_socket_proxyd_LDADD = \
 # ------------------------------------------------------------------------------
 if ENABLE_COREDUMP
 systemd_coredump_SOURCES = \
-	src/journal/coredump.c
+	src/journal/coredump.c \
+	src/journal/coredump-vacuum.c \
+	src/journal/coredump-vacuum.h
 
 systemd_coredump_LDADD = \
 	libsystemd-journal-internal.la \
@@ -3809,6 +3811,18 @@ coredumpctl_LDADD = \
 
 bin_PROGRAMS += \
 	coredumpctl
+
+manual_tests += \
+	test-coredump-vacuum
+
+test_coredump_vacuum_SOURCES = \
+	src/journal/test-coredump-vacuum.c  \
+	src/journal/coredump-vacuum.c \
+	src/journal/coredump-vacuum.h
+
+test_coredump_vacuum_LDADD = \
+	libsystemd-internal.la \
+	libsystemd-shared.la
 
 dist_bashcompletion_DATA += \
 	shell-completion/bash/coredumpctl

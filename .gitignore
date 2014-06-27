@@ -142,6 +142,7 @@
 /test-cgroup-util
 /test-compress
 /test-conf-files
+/test-coredump-vacuum
 /test-daemon
 /test-date
 /test-device-nodes

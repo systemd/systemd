@@ -42,6 +42,7 @@
 #include "stacktrace.h"
 #include "path-util.h"
 #include "compress.h"
+#include "coredump-vacuum.h"
 
 #ifdef HAVE_ACL
 #  include <sys/acl.h>
@@ -121,10 +122,11 @@ static DEFINE_CONFIG_PARSE_ENUM(config_parse_coredump_compression, coredump_comp
 static CoredumpStorage arg_storage = COREDUMP_STORAGE_EXTERNAL;
 static CoredumpCompression arg_compression = COREDUMP_COMPRESSION_XZ;
 static unsigned arg_compression_level = LZMA_PRESET_DEFAULT;
-
 static off_t arg_process_size_max = PROCESS_SIZE_MAX;
 static off_t arg_external_size_max = EXTERNAL_SIZE_MAX;
 static size_t arg_journal_size_max = JOURNAL_SIZE_MAX;
+static off_t arg_keep_free = (off_t) -1;
+static off_t arg_max_use = (off_t) -1;
 
 static int parse_config(void) {
 
@@ -136,6 +138,8 @@ static int parse_config(void) {
                 { "Coredump", "ProcessSizeMax",   config_parse_iec_off,              0, &arg_process_size_max  },
                 { "Coredump", "ExternalSizeMax",  config_parse_iec_off,              0, &arg_external_size_max },
                 { "Coredump", "JournalSizeMax",   config_parse_iec_size,             0, &arg_journal_size_max  },
+                { "Coredump", "KeepFree",         config_parse_iec_off,              0, &arg_keep_free         },
+                { "Coredump", "MaxUse",           config_parse_iec_off,              0, &arg_max_use           },
                 {}
         };
 
@@ -274,14 +278,14 @@ static int maybe_remove_external_coredump(const char *filename, off_t size) {
         return 1;
 }
 
+static int save_external_coredump(
+                const char *info[_INFO_LEN],
+                uid_t uid,
+                char **ret_filename,
+                int *ret_fd,
+                off_t *ret_size) {
 
-static int save_external_coredump(const char *info[_INFO_LEN],
-                                  uid_t uid,
-                                  char **ret_filename,
-                                  int *ret_fd,
-                                  off_t *ret_size) {
-
-        _cleanup_free_ char *p = NULL, *t = NULL, *c = NULL, *fn = NULL, *tmp = NULL;
+        _cleanup_free_ char *p = NULL, *t = NULL, *c = NULL, *fn = NULL, *tmp = NULL, *u = NULL;
         _cleanup_close_ int fd = -1;
         sd_id128_t boot;
         struct stat st;
@@ -300,6 +304,10 @@ static int save_external_coredump(const char *info[_INFO_LEN],
         if (!p)
                 return log_oom();
 
+        u = filename_escape(info[INFO_UID]);
+        if (!u)
+                return log_oom();
+
         t = filename_escape(info[INFO_TIMESTAMP]);
         if (!t)
                 return log_oom();
@@ -311,8 +319,9 @@ static int save_external_coredump(const char *info[_INFO_LEN],
         }
 
         r = asprintf(&fn,
-                     "/var/lib/systemd/coredump/core.%s." SD_ID128_FORMAT_STR ".%s.%s000000",
+                     "/var/lib/systemd/coredump/core.%s.%s." SD_ID128_FORMAT_STR ".%s.%s000000",
                      c,
+                     u,
                      SD_ID128_FORMAT_VAL(boot),
                      p,
                      t);
@@ -333,12 +342,10 @@ static int save_external_coredump(const char *info[_INFO_LEN],
 
         r = copy_bytes(STDIN_FILENO, fd, arg_process_size_max);
         if (r == -E2BIG) {
-                log_error("Coredump of %s (%s) is larger than configured processing limit, refusing.",
-                          info[INFO_PID], info[INFO_COMM]);
+                log_error("Coredump of %s (%s) is larger than configured processing limit, refusing.", info[INFO_PID], info[INFO_COMM]);
                 goto fail;
         } else if (IN_SET(r, -EDQUOT, -ENOSPC)) {
-                log_error("Not enough disk space for coredump of %s (%s), refusing.",
-                          info[INFO_PID], info[INFO_COMM]);
+                log_error("Not enough disk space for coredump of %s (%s), refusing.", info[INFO_PID], info[INFO_COMM]);
                 goto fail;
         } else if (r < 0) {
                 log_error("Failed to dump coredump to file: %s", strerror(-r));
@@ -646,6 +653,9 @@ int main(int argc, char* argv[]) {
         IOVEC_SET_STRING(iovec[j++], "MESSAGE_ID=fc2e22bc6ee647b6b90729ab34a250b1");
         IOVEC_SET_STRING(iovec[j++], "PRIORITY=2");
 
+        /* Vacuum before we write anything again */
+        coredump_vacuum(-1, arg_keep_free, arg_max_use);
+
         /* Always stream the coredump to disk, if that's possible */
         r = save_external_coredump(info, uid, &filename, &coredump_fd, &coredump_size);
         if (r < 0)
@@ -665,6 +675,9 @@ int main(int argc, char* argv[]) {
                 coredump_filename = strappenda("COREDUMP_FILENAME=", filename);
                 IOVEC_SET_STRING(iovec[j++], coredump_filename);
         }
+
+        /* Vacuum again, but exclude the coredump we just created */
+        coredump_vacuum(coredump_fd, arg_keep_free, arg_max_use);
 
         /* Now, let's drop privileges to become the user who owns the
          * segfaulted process and allocate the coredump memory under

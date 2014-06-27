@@ -121,6 +121,23 @@
         <listitem><para>The maximum (uncompressed) size in bytes of a
         core to be saved.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>MaxUse=</varname></term>
+        <term><varname>KeepFree=</varname></term>
+
+        <listitem><para>Enforce limits on the disk space taken up by
+        externally stored coredumps. <option>MaxUse=</option> makes
+        sure that old coredumps are removed as soon as the total disk
+        space taken up by coredumps grows beyond this limit (defaults
+        to 10% of the total disk size). <option>KeepFree=</option>
+        controls how much disk space to keep free at least (defaults
+        to 15% of the total disk size). Note that the disk space used
+        by coredumps might temporarily exceed these limits while
+        coredumps are processed. Note that old coredumps are also
+        removed based on on time via
+        <citerefentry><refentrytitle>systemd-tmpfiles</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para></listitem>
+      </varlistentry>
     </variablelist>
 
   </refsect1>
@@ -129,7 +146,8 @@
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>coredumpctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>coredumpctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-tmpfiles</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     </para>
   </refsect1>
 
