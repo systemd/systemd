@@ -224,7 +224,7 @@
                                                 <para>If the specified
                                                 address is 0.0.0.0
                                                 (for IPv4) or [::]
-                                                (for IPv6) a new
+                                                (for IPv6), a new
                                                 address range of the
                                                 requested size is
                                                 automatically

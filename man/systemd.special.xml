@@ -853,7 +853,7 @@
                                         target has been reached. Since
                                         the shutdown order is
                                         implicitly the reverse
-                                        start-up order between units
+                                        start-up order between units,
                                         this target is particularly
                                         useful to ensure that a
                                         service is shut down only

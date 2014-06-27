@@ -254,7 +254,7 @@
                                 <term><varname>SloppyOptions=</varname></term>
 
                                 <listitem><para>Takes a boolean
-                                argument. If true parsing of the
+                                argument. If true, parsing of the
                                 options specified in
                                 <varname>Options=</varname> is
                                 relaxed, and unknown mount options are

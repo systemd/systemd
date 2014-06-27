@@ -1290,7 +1290,7 @@
                         <varlistentry>
                                 <term><varname>DefaultInstance=</varname></term>
 
-                                <listitem><para>In template unit files
+                                <listitem><para>In template unit files,
                                 this specifies for which instance the
                                 unit shall be enabled if the template
                                 is enabled without any explicitly set

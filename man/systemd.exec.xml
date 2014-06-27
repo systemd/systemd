@@ -941,8 +941,8 @@
                                 mounts the <filename>/usr</filename>
                                 directory read-only for processes
                                 invoked by this unit. If set to
-                                <literal>full</literal> the
-                                <filename>/etc</filename> is mounted
+                                <literal>full</literal>, the
+                                <filename>/etc</filename> directory is mounted
                                 read-only, too. This setting ensures
                                 that any modification of the vendor
                                 supplied operating system (and
@@ -952,7 +952,7 @@
                                 all long-running services, unless they
                                 are involved with system updates or
                                 need to modify the operating system in
-                                other ways. Note however, that
+                                other ways. Note however that
                                 processes retaining the CAP_SYS_ADMIN
                                 capability can undo the effect of this
                                 setting. This setting is hence
@@ -974,7 +974,7 @@
                                 <filename>/run/user</filename> are
                                 made inaccessible and empty for
                                 processes invoked by this unit. If set
-                                to <literal>read-only</literal> the
+                                to <literal>read-only</literal>, the
                                 two directores are made read-only
                                 instead. It is recommended to enable
                                 this setting for all long-running
@@ -982,7 +982,7 @@
                                 ones), to ensure they cannot get access
                                 to private user data, unless the
                                 services actually require access to
-                                the user's private data. Note however,
+                                the user's private data. Note however
                                 that processes retaining the
                                 CAP_SYS_ADMIN capability can undo the
                                 effect of this setting. This setting

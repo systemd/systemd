@@ -1,7 +1,7 @@
 systemd System and Service Manager
 
 CHANGES WITH 215:
-        * A new system group "input" is introduced, all input
+        * A new system group "input" is introduced, and all input
           device nodes get this group assigned. This is useful for
           system-level software to get access to input devices. It
           complements what is already done for "audio" and "video".
@@ -18,7 +18,7 @@ CHANGES WITH 214:
           was opened for writing, the close will trigger a partition
           table rescan in udev's "watch" facility, and if needed
           synthesize "change" events for the disk and all its partitions.
-          This is now unconditionally enabled, if it turns out to
+          This is now unconditionally enabled, and if it turns out to
           cause major problems, we might turn it on only for specific
           devices, or might need to disable it entirely. Device-mapper
           devices are excluded from this logic.
@@ -30,7 +30,7 @@ CHANGES WITH 214:
           change has been released.
 
         * The dependency on libattr has been removed. Since a long
-          time the extended attribute calls have moved to glibc, and
+          time, the extended attribute calls have moved to glibc, and
           libattr is thus unnecessary.
 
         * Virtualization detection works without priviliges now. This
@@ -55,17 +55,17 @@ CHANGES WITH 214:
 
         * systemd-networkd will no longer automatically attempt to
           manually load kernel modules necessary for certain tunnel
-          transports. Instead it is assumed the kernel loads them
+          transports. Instead, it is assumed the kernel loads them
           automatically when required. This only works correctly on
           very new kernels. On older kernels, please consider adding
           the kernel modules to /etc/modules-load.d/ as a work-around.
 
         * The resolv.conf file systemd-resolved generates has been
-          moved to /run/systemd/resolve/, if you have a symlink from
-          /etc/resolv.conf it might be necessary to correct it.
+          moved to /run/systemd/resolve/. If you have a symlink from
+          /etc/resolv.conf, it might be necessary to correct it.
 
-        * Two new service settings ProtectedHome= and ProtectedSystem=
-          have been added. When enabled they will make the user data
+        * Two new service settings, ProtectedHome= and ProtectedSystem=,
+          have been added. When enabled, they will make the user data
           (such as /home) inaccessible or read-only and the system
           (such as /usr) read-only, for specific services. This allows
           very light-weight per-service sandboxing to avoid
@@ -77,7 +77,7 @@ CHANGES WITH 214:
           settings to set the owner user and group of AF_UNIX sockets
           and FIFOs in the file system.
 
-        * Socket units gained a new RemoveOnStop= setting. If enabled
+        * Socket units gained a new RemoveOnStop= setting. If enabled,
           all FIFOS and sockets in the file system will be removed
           when the specific socket unit is stopped.
 
@@ -110,7 +110,7 @@ CHANGES WITH 214:
           vanished.
 
         * A new "on-abnormal" setting for Restart= has been added. If
-          set it will result in automatic restarts on all "abnormal"
+          set, it will result in automatic restarts on all "abnormal"
           reasons for a process to exit, which includes unclean
           signals, core dumps, timeouts and watchdog timeouts, but
           does not include clean and unclean exit codes or clean
@@ -151,19 +151,19 @@ CHANGES WITH 214:
           files or entire directories.
 
         * systemd-tmpfiles "m" lines are now fully equivalent to "z"
-          lines. So far they have been non-globbing versions of the
-          latter, and have thus been redundant. In future it is
-          recommended to only use "z"; and "m" has hence been removed
+          lines. So far, they have been non-globbing versions of the
+          latter, and have thus been redundant. In future, it is
+          recommended to only use "z". "m" has hence been removed
           from the documentation, even though it stays supported.
 
         * A tmpfiles snippet to recreate the most basic structure in
           /var has been added. This is enough to create the /var/run →
           /run symlink and create a couple of structural
           directories. This allows systems to boot up with an empty or
-          volatile /var. Of course, while with this change the core OS
-          now is capable with dealing with a volatile /var not all
+          volatile /var. Of course, while with this change, the core OS
+          now is capable with dealing with a volatile /var, not all
           user services are ready for it. However, we hope that sooner
-          or later many service daemons will be changed upstream so
+          or later, many service daemons will be changed upstream so
           that they are able to automatically create their necessary
           directories in /var at boot, should they be missing. This is
           the first step to allow state-less systems that only require
@@ -177,7 +177,7 @@ CHANGES WITH 214:
         * Access modes specified in tmpfiles snippets may now be
           prefixed with "~", which indicates that they shall be masked
           by whether the existing file or directly is currently
-          writable, readable or executable at all. Also, if specified
+          writable, readable or executable at all. Also, if specified,
           the sgid/suid/sticky bits will be masked for all
           non-directories.
 
@@ -205,12 +205,12 @@ CHANGES WITH 213:
         * A new "systemd-timesyncd" daemon has been added for
           synchronizing the system clock across the network. It
           implements an SNTP client. In contrast to NTP
-          implementations such as chrony or the NTP reference server
+          implementations such as chrony or the NTP reference server,
           this only implements a client side, and does not bother with
           the full NTP complexity, focusing only on querying time from
           one remote server and synchronizing the local clock to
           it. Unless you intend to serve NTP to networked clients or
-          want to connect to local hardware clocks this simple NTP
+          want to connect to local hardware clocks, this simple NTP
           client should be more than appropriate for most
           installations. The daemon runs with minimal privileges, and
           has been hooked up with networkd to only operate when
@@ -219,9 +219,9 @@ CHANGES WITH 213:
           acquired, and uses this to possibly correct the system clock
           early at bootup, in order to accommodate for systems that
           lack an RTC such as the Raspberry Pi and embedded devices,
-          and make sure that time monotonically progresses on these
+          and to make sure that time monotonically progresses on these
           systems, even if it is not always correct. To make use of
-          this daemon a new system user and group "systemd-timesync"
+          this daemon, a new system user and group "systemd-timesync"
           needs to be created on installation of systemd.
 
         * The queue "seqnum" interface of libudev has been disabled, as
@@ -241,7 +241,7 @@ CHANGES WITH 213:
         * A new FailureAction= setting has been added for service
           units which may be used to specify an operation to trigger
           when a service fails. This works similarly to
-          StartLimitAction=, but unlike it controls what is done
+          StartLimitAction=, but unlike it, controls what is done
           immediately rather than only after several attempts to
           restart the service in question.
 
@@ -307,7 +307,7 @@ CHANGES WITH 213:
         * hostnamed has been changed to prefer the statically
           configured hostname in /etc/hostname (unless set to
           'localhost' or empty) over any dynamic one supplied by
-          dhcp. With this change the rules for picking the hostname
+          dhcp. With this change, the rules for picking the hostname
           match more closely the rules of other configuration settings
           where the local administrator's configuration in /etc always
           overrides any other settings.

@@ -839,7 +839,7 @@ ExecStart=/bin/echo $ONE $TWO ${TWO}</programlisting>
                                 recovery from errors. For services
                                 that shall be able to terminate on
                                 their own choice (and avoiding
-                                immediate restart)
+                                immediate restart),
                                 <option>on-abnormal</option> is an
                                 alternative choice.</para>
                                 </listitem>

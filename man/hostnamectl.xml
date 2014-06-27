@@ -71,7 +71,7 @@
                 (e.g. "lennarts-laptop"), and the transient hostname
                 which is a default received from network configuration.
                 If a static hostname is set, and is valid (something other
-                than localhost) then the transient hostname is not used.</para>
+                than localhost), then the transient hostname is not used.</para>
 
                 <para>Note that the pretty hostname has little
                 restrictions on the characters used, while the static

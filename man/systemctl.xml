@@ -484,9 +484,9 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <listitem>
           <para>Takes one of <literal>full</literal> (the default),
           <literal>enable-only</literal>,
-          <literal>disable-only</literal>. When use with the
+          <literal>disable-only</literal>. When used with the
           <command>preset</command> or <command>preset-all</command>
-          commands controls whether units shall be disabled and
+          commands, controls whether units shall be disabled and
           enabled according to the preset rules, or only enabled, or
           only disabled.</para>
         </listitem>

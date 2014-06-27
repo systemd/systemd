@@ -72,7 +72,7 @@
         <listitem><para>Controls where to store cores. One of
         <literal>none</literal>, <literal>external</literal>,
         <literal>journal</literal>, and <literal>both</literal>. When
-        <literal>none</literal> the coredumps will be logged but not
+        <literal>none</literal>, the coredumps will be logged but not
         stored permanently. When <literal>external</literal> (the
         default), cores will be stored in <filename>/var/lib/systemd/coredump</filename>.
         When <literal>journal</literal>, cores will be stored in

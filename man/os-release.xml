@@ -90,7 +90,7 @@
                 files at the same
                 time. <filename>/usr/lib/os-release</filename> is the
                 recommended place to store OS release information as
-                part of vendor trees. Frequently
+                part of vendor trees. Frequently,
                 <filename>/etc/os-release</filename> is simply a
                 symlink to <filename>/usr/lib/os-release</filename>,
                 to provide compatibility with applications only

@@ -501,7 +501,7 @@ static void busname_enter_making(BusName *n) {
                 goto fail;
 
         if (n->policy) {
-                /* If there's a policy we need to resolve user/group
+                /* If there is a policy, we need to resolve user/group
                  * names, which we can't do from PID1, hence let's
                  * fork. */
                 busname_unwatch_control_pid(n);
@@ -514,7 +514,7 @@ static void busname_enter_making(BusName *n) {
 
                 busname_set_state(n, BUSNAME_MAKING);
         } else {
-                /* If there's no policy then we can do everything
+                /* If there is no policy, we can do everything
                  * directly from PID 1, hence do so. */
 
                 r = bus_kernel_make_starter(n->starter_fd, n->name, n->activating, n->accept_fd, NULL, n->policy_world);

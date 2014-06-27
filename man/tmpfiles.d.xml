@@ -112,7 +112,7 @@
                 all other conflicting entries will be logged as
                 errors. When two lines are prefix and suffix of each
                 other, then the prefix is always processed first, the
-                suffix later. Otherwise the files/directories are
+                suffix later. Otherwise, the files/directories are
                 processed in the order they are listed.</para>
 
                 <para>If the administrator wants to disable a
@@ -175,7 +175,7 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
                                         exist yet. If suffixed with
                                         <varname>+</varname> and a
                                         file already exists where the
-                                        pipe is to be created it will
+                                        pipe is to be created, it will
                                         be removed and be replaced by
                                         the pipe.</para></listitem>
                                 </varlistentry>
@@ -188,7 +188,7 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
                                         yet. If suffixed with
                                         <varname>+</varname> and a
                                         file already exists where the
-                                        symlink is to be created it
+                                        symlink is to be created, it
                                         will be removed and be
                                         replaced by the
                                         symlink. If the argument is omitted,
@@ -207,7 +207,7 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
                                         suffixed with
                                         <varname>+</varname> and a
                                         file already exists where the
-                                        device node is to be created
+                                        device node is to be created,
                                         it will be removed and be
                                         replaced by the device
                                         node.</para></listitem>
@@ -221,7 +221,7 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
                                         exist yet. If suffixed with
                                         <varname>+</varname> and a
                                         file already exists where the
-                                        device node is to be created
+                                        device node is to be created,
                                         it will be removed and be
                                         replaced by the device
                                         node.</para></listitem>
@@ -232,12 +232,12 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
                                         <listitem><para>Recursively
                                         copy a file or directory, if
                                         the destination files or
-                                        directories don't exist
+                                        directories do not exist
                                         yet. Note that this command
                                         will not descend into
                                         subdirectories if the
                                         destination directory already
-                                        exists, instead the entire
+                                        exists. Instead, the entire
                                         copy operation is
                                         skipped. If the argument is omitted,
                                         files from the source directory
@@ -423,17 +423,17 @@ r! /tmp/.X[0-9]*-lock</programlisting>
                         <varname>L</varname> lines.</para>
 
                         <para>Optionally, if prefixed with
-                        <literal>~</literal> the access mode is masked
+                        <literal>~</literal>, the access mode is masked
                         based on the already set access bits for
                         existing file or directories: if the existing
-                        file has all executable bits unset then all
+                        file has all executable bits unset, all
                         executable bits are removed from the new
-                        access mode, too. Similar, if all read bits
-                        are removed from the old access mode they will
+                        access mode, too. Similarly, if all read bits
+                        are removed from the old access mode, they will
                         be removed from the new access mode too, and
                         if all write bits are removed, they will be
                         removed from the new access mode too. In
-                        addition the sticky/suid/gid bit is removed unless
+                        addition, the sticky/suid/gid bit is removed unless
                         applied to a directory. This
                         functionality is particularly useful in
                         conjunction with <varname>Z</varname>.</para>
@@ -516,7 +516,7 @@ r! /tmp/.X[0-9]*-lock</programlisting>
                         and <varname>w</varname> may be used to
                         specify a short string that is written to the
                         file, suffixed by a newline. For
-                        <varname>C</varname> specifies the source file
+                        <varname>C</varname>, specifies the source file
                         or directory. Ignored for all other
                         lines.</para>
                 </refsect2>

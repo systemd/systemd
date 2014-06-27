@@ -376,7 +376,7 @@
                                 <term><varname>SocketGroup=</varname></term>
 
                                 <listitem><para>Takes a UNIX
-                                user/group name. When specified
+                                user/group name. When specified,
                                 all AF_UNIX sockets and FIFO nodes in
                                 the file system are owned by the
                                 specified user and group. If unset
@@ -751,14 +751,14 @@
                         <varlistentry>
                                 <term><varname>RemoveOnStop=</varname></term>
                                 <listitem><para>Takes a boolean
-                                argument. If enabled any file nodes
+                                argument. If enabled, any file nodes
                                 created by this socket unit are
                                 removed when it is stopped. This
                                 applies to AF_UNIX sockets in the file
-                                system, POSIX message queues as well
-                                as FIFOs, as well as any symlinks to
+                                system, POSIX message queues, FIFOs,
+                                as well as any symlinks to
                                 them configured with
-                                <varname>Symlinks=</varname>. Normally
+                                <varname>Symlinks=</varname>. Normally,
                                 it should not be necessary to use this
                                 option, and is not recommended as
                                 services might continue to run after
@@ -775,7 +775,7 @@
                                 system paths. The specified paths will
                                 be created as symlinks to the AF_UNIX
                                 socket path or FIFO path of this
-                                socket unit.  If this setting is used
+                                socket unit.  If this setting is used,
                                 only one AF_UNIX socket in the file
                                 system or one FIFO may be configured
                                 for the socket unit. Use this option
