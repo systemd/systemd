@@ -292,13 +292,6 @@ int journal_directory_vacuum(
         qsort_safe(list, n_list, sizeof(struct vacuum_info), vacuum_compare);
 
         for (i = 0; i < n_list; i++) {
-                struct statvfs ss;
-
-                if (fstatvfs(dirfd(d), &ss) < 0) {
-                        r = -errno;
-                        goto finish;
-                }
-
                 if ((max_retention_usec <= 0 || list[i].realtime >= retention_limit) &&
                     (max_use <= 0 || sum <= max_use))
                         break;
