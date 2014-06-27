@@ -175,7 +175,7 @@ _public_ int udev_queue_get_udev_is_active(struct udev_queue *udev_queue)
  **/
 _public_ int udev_queue_get_queue_is_empty(struct udev_queue *udev_queue)
 {
-        return access("/run/udev/queue", F_OK) >= 0;
+        return access("/run/udev/queue", F_OK) < 0;
 }
 
 /**
