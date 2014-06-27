@@ -55,7 +55,7 @@
                         <funcprototype>
                                 <funcdef>int <function>sd_watchdog_enabled</function></funcdef>
                                 <paramdef>int <parameter>unset_environment</parameter></paramdef>
-                                <paramdef>const uint64_t *<parameter>usec</parameter></paramdef>
+                                <paramdef>uint64_t *<parameter>usec</parameter></paramdef>
                         </funcprototype>
                 </funcsynopsis>
         </refsynopsisdiv>
