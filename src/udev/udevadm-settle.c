@@ -29,7 +29,6 @@
 #include <getopt.h>
 #include <signal.h>
 #include <time.h>
-#include <sys/inotify.h>
 #include <sys/poll.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -59,7 +58,9 @@ static int adm_settle(struct udev *udev, int argc, char *argv[])
         const char *exists = NULL;
         unsigned int timeout = 120;
         struct pollfd pfd[1] = { {.fd = -1}, };
-        int rc = EXIT_FAILURE, c;
+        int c;
+        struct udev_queue *queue;
+        int rc = EXIT_FAILURE;
 
         while ((c = getopt_long(argc, argv, "s:e:t:E:qh", options, NULL)) >= 0) {
                 switch (c) {
@@ -79,9 +80,9 @@ static int adm_settle(struct udev *udev, int argc, char *argv[])
                         break;
                 case 'h':
                         help();
-                        exit(EXIT_SUCCESS);
+                        return EXIT_SUCCESS;
                 case '?':
-                        exit(EXIT_FAILURE);
+                        return EXIT_FAILURE;
                 default:
                         assert_not_reached("Unknown argument");
                 }
@@ -89,7 +90,7 @@ static int adm_settle(struct udev *udev, int argc, char *argv[])
 
         if (optind < argc) {
                 fprintf(stderr, "Extraneous argument: '%s'\n", argv[optind]);
-                exit(EXIT_FAILURE);
+                return EXIT_FAILURE;
         }
 
         /* guarantee that the udev daemon isn't pre-processing */
@@ -101,26 +102,23 @@ static int adm_settle(struct udev *udev, int argc, char *argv[])
                         if (udev_ctrl_send_ping(uctrl, timeout) < 0) {
                                 log_debug("no connection to daemon");
                                 udev_ctrl_unref(uctrl);
-                                rc = EXIT_SUCCESS;
-                                goto out;
+                                return EXIT_SUCCESS;
                         }
                         udev_ctrl_unref(uctrl);
                 }
         }
 
-        pfd[0].events = POLLIN;
-        pfd[0].fd = inotify_init1(IN_CLOEXEC);
-        if (pfd[0].fd < 0) {
-                log_error("inotify_init failed: %m");
-                goto out;
+        queue = udev_queue_new(udev);
+        if (!queue) {
+                log_error("unable to get udev queue");
+                return EXIT_FAILURE;
         }
 
-        if (inotify_add_watch(pfd[0].fd, "/run/udev/queue" , IN_DELETE) < 0) {
-                /* If it does not exist, we don't have to wait */
-                if (errno == ENOENT)
-                        rc = EXIT_SUCCESS;
-                else
-                        log_debug("watching /run/udev/queue failed");
+        pfd[0].events = POLLIN;
+        pfd[0].fd = udev_queue_get_fd(queue);
+        if (pfd[0].fd < 0) {
+                log_debug("queue is empty, nothing to watch");
+                rc = EXIT_SUCCESS;
                 goto out;
         }
 
@@ -131,22 +129,18 @@ static int adm_settle(struct udev *udev, int argc, char *argv[])
                 }
 
                 /* exit if queue is empty */
-                if (access("/run/udev/queue", F_OK) < 0) {
+                if (udev_queue_get_queue_is_empty(queue)) {
                         rc = EXIT_SUCCESS;
                         break;
                 }
 
-                /* wake up when "queue" file is deleted */
-                if (poll(pfd, 1, 100) > 0 && pfd[0].revents & POLLIN) {
-                        char buf[sizeof(struct inotify_event) + PATH_MAX];
-
-                        read(pfd[0].fd, buf, sizeof(buf));
-                }
+                /* wake up when queue is empty */
+                if (poll(pfd, 1, 100) > 0 && pfd[0].revents & POLLIN)
+                        udev_queue_flush(queue);
         }
 
 out:
-        if (pfd[0].fd >= 0)
-                close(pfd[0].fd);
+        udev_queue_unref(queue);
         return rc;
 }
 

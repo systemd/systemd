@@ -177,6 +177,8 @@ int udev_queue_get_queue_is_empty(struct udev_queue *udev_queue);
 int udev_queue_get_seqnum_is_finished(struct udev_queue *udev_queue, unsigned long long int seqnum) __attribute__ ((deprecated));
 int udev_queue_get_seqnum_sequence_is_finished(struct udev_queue *udev_queue,
                                                unsigned long long int start, unsigned long long int end) __attribute__ ((deprecated));
+int udev_queue_get_fd(struct udev_queue *udev_queue);
+int udev_queue_flush(struct udev_queue *udev_queue);
 struct udev_list_entry *udev_queue_get_queued_list_entry(struct udev_queue *udev_queue) __attribute__ ((deprecated));
 
 /*

@@ -26,6 +26,7 @@
 #include <string.h>
 #include <limits.h>
 #include <sys/stat.h>
+#include <sys/inotify.h>
 
 #include "libudev.h"
 #include "libudev-private.h"
@@ -45,6 +46,7 @@
 struct udev_queue {
         struct udev *udev;
         int refcount;
+        int fd;
 };
 
 /**
@@ -69,6 +71,7 @@ _public_ struct udev_queue *udev_queue_new(struct udev *udev)
 
         udev_queue->refcount = 1;
         udev_queue->udev = udev;
+        udev_queue->fd = -1;
         return udev_queue;
 }
 
@@ -106,6 +109,8 @@ _public_ struct udev_queue *udev_queue_unref(struct udev_queue *udev_queue)
         udev_queue->refcount--;
         if (udev_queue->refcount > 0)
                 return NULL;
+
+        safe_close(udev_queue->fd);
 
         free(udev_queue);
         return NULL;
@@ -221,4 +226,45 @@ _public_ int udev_queue_get_seqnum_is_finished(struct udev_queue *udev_queue, un
 _public_ struct udev_list_entry *udev_queue_get_queued_list_entry(struct udev_queue *udev_queue)
 {
         return NULL;
+}
+
+/**
+ * udev_queue_get_fd:
+ * @udev_queue: udev queue context
+ *
+ * Returns: a file descriptor to watch for a queue to become empty.
+ */
+_public_ int udev_queue_get_fd(struct udev_queue *udev_queue) {
+        int fd;
+        int r;
+
+        if (udev_queue->fd >= 0)
+                return udev_queue->fd;
+
+        fd = inotify_init1(IN_CLOEXEC);
+        if (fd < 0)
+                return -errno;
+
+        r = inotify_add_watch(fd, "/run/udev/queue" , IN_DELETE);
+        if (r < 0) {
+                r = -errno;
+                close(fd);
+                return r;
+        }
+
+        udev_queue->fd = fd;
+        return fd;
+}
+
+/**
+ * udev_queue_flush:
+ * @udev_queue: udev queue context
+ *
+ * Returns: the result of clearing the watch for queue changes.
+ */
+_public_ int udev_queue_flush(struct udev_queue *udev_queue) {
+        if (udev_queue->fd < 0)
+                return -EINVAL;
+
+        return flush_fd(udev_queue->fd);
 }

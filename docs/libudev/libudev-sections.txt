@@ -116,6 +116,8 @@ udev_queue_get_seqnum_sequence_is_finished
 udev_queue_get_queued_list_entry
 udev_queue_get_kernel_seqnum
 udev_queue_get_udev_seqnum
+udev_queue_get_fd
+udev_queue_flush
 </SECTION>
 
 <SECTION>

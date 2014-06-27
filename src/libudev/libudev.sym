@@ -82,6 +82,8 @@ global:
         udev_queue_get_udev;
         udev_queue_get_udev_is_active;
         udev_queue_get_udev_seqnum;
+        udev_queue_get_fd;
+        udev_queue_flush;
         udev_queue_new;
         udev_queue_ref;
         udev_queue_unref;
