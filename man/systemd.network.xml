@@ -237,14 +237,14 @@
                                                 interfaces and all
                                                 known network
                                                 configuration files to
-                                                avoid IP range
+                                                avoid address range
                                                 conflicts. The default
                                                 system-wide pool
                                                 consists of
                                                 192.168.0.0/16,
                                                 172.16.0.0/12 and
                                                 10.0.0.0/8 for IPv4,
-                                                and [fc00::] for
+                                                and fc00::/7 for
                                                 IPv6. This
                                                 functionality is
                                                 useful to manage a

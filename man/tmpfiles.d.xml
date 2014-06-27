@@ -433,7 +433,7 @@ r! /tmp/.X[0-9]*-lock</programlisting>
                         be removed from the new access mode too, and
                         if all write bits are removed, they will be
                         removed from the new access mode too. In
-                        addition, the sticky/suid/gid bit is removed unless
+                        addition, the sticky/SUID/SGID bit is removed unless
                         applied to a directory. This
                         functionality is particularly useful in
                         conjunction with <varname>Z</varname>.</para>

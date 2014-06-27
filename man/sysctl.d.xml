@@ -154,7 +154,7 @@
                 </example>
 
                 <example>
-                        <title>Disable packet filter on the bridge (method one)</title>
+                        <title>Disable packet filter on bridged packets (method one)</title>
                         <para><filename>/etc/udev/rules.d/99-bridge.conf</filename>:
                         </para>
 
@@ -171,7 +171,7 @@ net.bridge.bridge-nf-call-arptables = 0
                 </example>
 
                 <example>
-                        <title>Disable packet filter on the bridge (method two)</title>
+                        <title>Disable packet filter on bridged packets (method two)</title>
                         <para><filename>/etc/modules-load.d/bridge.conf</filename>:
                         </para>
 

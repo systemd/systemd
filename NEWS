@@ -20,7 +20,7 @@ CHANGES WITH 214:
           synthesize "change" events for the disk and all its partitions.
           This is now unconditionally enabled, and if it turns out to
           cause major problems, we might turn it on only for specific
-          devices, or might need to disable it entirely. Device-mapper
+          devices, or might need to disable it entirely. Device Mapper
           devices are excluded from this logic.
 
         * We temporarily dropped the "-l" switch for fsck invocations,
@@ -83,7 +83,7 @@ CHANGES WITH 214:
 
         * Socket units gained a new Symlinks= setting. It takes a list
           of symlinks to create to file system sockets or FIFOs
-          created by the specific unix sockets. This is useful to
+          created by the specific Unix sockets. This is useful to
           manage symlinks to socket nodes with the same life-cycle as
           the socket itself.
 
