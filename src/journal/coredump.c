@@ -272,7 +272,7 @@ static int maybe_remove_external_coredump(const char *filename, off_t size) {
         if (!filename)
                 return 1;
 
-        if (unlink(filename) < 0) {
+        if (unlink(filename) < 0 && errno != ENOENT) {
                 log_error("Failed to unlink %s: %m", filename);
                 return -errno;
         }
