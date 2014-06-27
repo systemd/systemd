@@ -245,7 +245,7 @@ _public_ int udev_queue_get_fd(struct udev_queue *udev_queue) {
         if (fd < 0)
                 return -errno;
 
-        r = inotify_add_watch(fd, "/run/udev/queue" , IN_DELETE);
+        r = inotify_add_watch(fd, "/run/udev" , IN_DELETE);
         if (r < 0) {
                 r = -errno;
                 close(fd);
