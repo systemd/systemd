@@ -25,9 +25,7 @@ External:
 
 Features:
 
-* allow users to kill or lock their own sessions
-
-* ship sleep.conf by default
+* logind: allow users to kill or lock their own sessions
 
 * support empty /etc boots nicely:
   - nspawn/gpt-generator: introduce new gpt partition type for /usr
