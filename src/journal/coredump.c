@@ -139,6 +139,8 @@ static int fix_acl(int fd, uid_t uid) {
         acl_entry_t entry;
         acl_permset_t permset;
 
+        assert(fd >= 0);
+
         if (uid <= SYSTEM_UID_MAX)
                 return 0;
 
@@ -189,6 +191,8 @@ static int fix_xattr(int fd, const char *info[_INFO_LEN]) {
         int r = 0;
         unsigned i;
 
+        assert(fd >= 0);
+
         /* Attach some metadata to coredumps via extended
          * attributes. Just because we can. */
 
@@ -208,8 +212,17 @@ static int fix_xattr(int fd, const char *info[_INFO_LEN]) {
 
 #define filename_escape(s) xescape((s), "./ ")
 
-static int fix_permissions(int fd, const char *filename, const char *target,
-                           const char *info[_INFO_LEN], uid_t uid) {
+static int fix_permissions(
+                int fd,
+                const char *filename,
+                const char *target,
+                const char *info[_INFO_LEN],
+                uid_t uid) {
+
+        assert(fd >= 0);
+        assert(filename);
+        assert(target);
+        assert(info);
 
         /* Ignore errors on these */
         fchmod(fd, 0640);
@@ -231,7 +244,7 @@ static int fix_permissions(int fd, const char *filename, const char *target,
 
 static int maybe_remove_external_coredump(const char *filename, off_t size) {
 
-        /* Returns 1 if might remove, 0 if will not remove, <0 on error. */
+        /* Returns 1 if might remove, 0 if will not remove, < 0 on error. */
 
         if (IN_SET(arg_storage, COREDUMP_STORAGE_EXTERNAL, COREDUMP_STORAGE_BOTH) &&
             size <= arg_external_size_max)
@@ -248,6 +261,45 @@ static int maybe_remove_external_coredump(const char *filename, off_t size) {
         return 1;
 }
 
+static int make_filename(const char *info[_INFO_LEN], char **ret) {
+        _cleanup_free_ char *c = NULL, *u = NULL, *p = NULL, *t = NULL;
+        sd_id128_t boot;
+        int r;
+
+        assert(info);
+
+        c = filename_escape(info[INFO_COMM]);
+        if (!c)
+                return -ENOMEM;
+
+        u = filename_escape(info[INFO_UID]);
+        if (!u)
+                return -ENOMEM;
+
+        r = sd_id128_get_boot(&boot);
+        if (r < 0)
+                return r;
+
+        p = filename_escape(info[INFO_PID]);
+        if (!p)
+                return -ENOMEM;
+
+        t = filename_escape(info[INFO_TIMESTAMP]);
+        if (!t)
+                return -ENOMEM;
+
+        if (asprintf(ret,
+                     "/var/lib/systemd/coredump/core.%s.%s." SD_ID128_FORMAT_STR ".%s.%s000000",
+                     c,
+                     u,
+                     SD_ID128_FORMAT_VAL(boot),
+                     p,
+                     t) < 0)
+                return -ENOMEM;
+
+        return 0;
+}
+
 static int save_external_coredump(
                 const char *info[_INFO_LEN],
                 uid_t uid,
@@ -255,9 +307,8 @@ static int save_external_coredump(
                 int *ret_fd,
                 off_t *ret_size) {
 
-        _cleanup_free_ char *p = NULL, *t = NULL, *c = NULL, *fn = NULL, *tmp = NULL, *u = NULL;
+        _cleanup_free_ char *fn = NULL, *tmp = NULL;
         _cleanup_close_ int fd = -1;
-        sd_id128_t boot;
         struct stat st;
         int r;
 
@@ -266,37 +317,11 @@ static int save_external_coredump(
         assert(ret_fd);
         assert(ret_size);
 
-        c = filename_escape(info[INFO_COMM]);
-        if (!c)
-                return log_oom();
-
-        p = filename_escape(info[INFO_PID]);
-        if (!p)
-                return log_oom();
-
-        u = filename_escape(info[INFO_UID]);
-        if (!u)
-                return log_oom();
-
-        t = filename_escape(info[INFO_TIMESTAMP]);
-        if (!t)
-                return log_oom();
-
-        r = sd_id128_get_boot(&boot);
+        r = make_filename(info, &fn);
         if (r < 0) {
-                log_error("Failed to determine boot ID: %s", strerror(-r));
+                log_error("Failed to determine coredump file name: %s", strerror(-r));
                 return r;
         }
-
-        r = asprintf(&fn,
-                     "/var/lib/systemd/coredump/core.%s.%s." SD_ID128_FORMAT_STR ".%s.%s000000",
-                     c,
-                     u,
-                     SD_ID128_FORMAT_VAL(boot),
-                     p,
-                     t);
-        if (r < 0)
-                return log_oom();
 
         tmp = tempfn_random(fn);
         if (!tmp)
@@ -329,7 +354,7 @@ static int save_external_coredump(
 
         if (lseek(fd, 0, SEEK_SET) == (off_t) -1) {
                 log_error("Failed to seek on %s: %m", tmp);
-                goto uncompressed;
+                goto fail;
         }
 
 #ifdef HAVE_XZ
@@ -337,45 +362,51 @@ static int save_external_coredump(
         if (maybe_remove_external_coredump(NULL, st.st_size) == 0
             && arg_compress) {
 
-                _cleanup_free_ char *fn2 = NULL;
-                char *tmp2;
-                _cleanup_close_ int fd2 = -1;
+                _cleanup_free_ char *fn_compressed = NULL, *tmp_compressed = NULL;
+                _cleanup_close_ int fd_compressed = -1;
 
-                tmp2 = strappenda(tmp, ".xz");
-                fd2 = open(tmp2, O_CREAT|O_EXCL|O_RDWR|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0640);
-                if (fd2 < 0) {
-                        log_error("Failed to create file %s: %m", tmp2);
+                fn_compressed = strappend(fn, ".xz");
+                if (!fn_compressed) {
+                        r = log_oom();
                         goto uncompressed;
                 }
 
-                r = compress_stream(fd, fd2, LZMA_PRESET_DEFAULT, -1);
+                tmp_compressed = tempfn_random(fn_compressed);
+                if (!tmp_compressed) {
+                        r = log_oom();
+                        goto uncompressed;
+                }
+
+                fd_compressed = open(tmp_compressed, O_CREAT|O_EXCL|O_RDWR|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0640);
+                if (fd_compressed < 0) {
+                        log_error("Failed to create file %s: %m", tmp_compressed);
+                        goto uncompressed;
+                }
+
+                r = compress_stream(fd, fd_compressed, LZMA_PRESET_DEFAULT, -1);
                 if (r < 0) {
-                        log_error("Failed to compress %s: %s", tmp2, strerror(-r));
-                        unlink_noerrno(tmp2);
-                        goto fail2;
+                        log_error("Failed to compress %s: %s", tmp_compressed, strerror(-r));
+                        goto fail_compressed;
                 }
 
-                fn2 = strappend(fn, ".xz");
-                if (!fn2) {
-                        log_oom();
-                        goto fail2;
-                }
-
-                r = fix_permissions(fd2, tmp2, fn2, info, uid);
+                r = fix_permissions(fd_compressed, tmp_compressed, fn_compressed, info, uid);
                 if (r < 0)
-                        goto fail2;
+                        goto fail_compressed;
 
-                *ret_filename = fn2;    /* compressed */
-                *ret_fd = fd;           /* uncompressed */
-                *ret_size = st.st_size; /* uncompressed */
+                /* OK, this worked, we can get rid of the uncompressed version now */
+                unlink_noerrno(tmp);
 
-                fn2 = NULL;
+                *ret_filename = fn_compressed;    /* compressed */
+                *ret_fd = fd;                     /* uncompressed */
+                *ret_size = st.st_size;           /* uncompressed */
+
+                fn_compressed = NULL;
                 fd = -1;
 
                 return 0;
 
-        fail2:
-                unlink_noerrno(tmp2);
+        fail_compressed:
+                unlink_noerrno(tmp_compressed);
         }
 #endif
 
