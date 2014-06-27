@@ -53,4 +53,5 @@ DHCPv4.UseDNS,               config_parse_bool,                  0,             
 DHCPv4.UseMTU,               config_parse_bool,                  0,                             offsetof(Network, dhcp_mtu)
 DHCPv4.UseHostname,          config_parse_bool,                  0,                             offsetof(Network, dhcp_hostname)
 DHCPv4.UseDomainName,        config_parse_bool,                  0,                             offsetof(Network, dhcp_domainname)
+DHCPv4.UseRoutes,            config_parse_bool,                  0,                             offsetof(Network, dhcp_routes)
 DHCPv4.CriticalConnection,   config_parse_bool,                  0,                             offsetof(Network, dhcp_critical)

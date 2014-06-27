@@ -28,6 +28,7 @@
 #include "siphash24.h"
 #include "libudev-private.h"
 #include "network-internal.h"
+#include "dhcp-lease-internal.h"
 #include "log.h"
 #include "utf8.h"
 #include "util.h"
@@ -429,6 +430,91 @@ int deserialize_in6_addrs(struct in6_addr **ret, size_t *ret_size, const char *s
         *ret_size = size;
         *ret = addresses;
         addresses = NULL;
+
+        return 0;
+}
+
+void serialize_dhcp_routes(FILE *f, const char *key, struct sd_dhcp_route *routes, size_t size) {
+        unsigned i;
+
+        assert(f);
+        assert(key);
+        assert(routes);
+        assert(size);
+
+        fprintf(f, "%s=", key);
+
+        for (i = 0; i < size; i++)
+                fprintf(f, "%s/%" PRIu8 ",%s%s", inet_ntoa(routes[i].dst_addr),
+                        routes[i].dst_prefixlen, inet_ntoa(routes[i].gw_addr),
+                        (i < (size - 1)) ? " ": "");
+
+        fputs("\n", f);
+}
+
+int deserialize_dhcp_routes(struct sd_dhcp_route **ret, size_t *ret_size, size_t *ret_allocated, const char *string) {
+        _cleanup_free_ struct sd_dhcp_route *routes = NULL;
+        size_t size = 0, allocated = 0;
+        char *word, *state;
+        size_t len;
+
+        assert(ret);
+        assert(ret_size);
+        assert(ret_allocated);
+        assert(string);
+
+        FOREACH_WORD(word, len, string, state) {
+                /* WORD FORMAT: dst_ip/dst_prefixlen,gw_ip */
+                _cleanup_free_ char* entry;
+                char *tok, *tok_end;
+                unsigned n;
+                int r;
+
+                if (!GREEDY_REALLOC(routes, allocated, size + 1))
+                        return -ENOMEM;
+
+                entry = strndup(word, len);
+
+                tok = entry;
+
+                /* get the subnet */
+                tok_end = strchr(tok, '/');
+                if (!tok_end)
+                        continue;
+                *tok_end = '\0';
+
+                r = inet_aton(tok, &routes[size].dst_addr);
+                if (r == 0)
+                        continue;
+
+                tok = tok_end + 1;
+
+                /* get the prefixlen */
+                tok_end = strchr(tok, ',');
+                if (!tok_end)
+                        continue;
+
+                *tok_end = '\0';
+
+                r = safe_atou(tok, &n);
+                if (r < 0 || n > 32)
+                        continue;
+
+                routes[size].dst_prefixlen = (uint8_t) n;
+                tok = tok_end + 1;
+
+                /* get the gateway */
+                r = inet_aton(tok, &routes[size].gw_addr);
+                if (r == 0)
+                        continue;
+
+                size++;
+        }
+
+        *ret_size = size;
+        *ret_allocated = allocated;
+        *ret = routes;
+        routes = NULL;
 
         return 0;
 }

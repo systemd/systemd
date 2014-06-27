@@ -389,6 +389,13 @@
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
+                                        <term><varname>UseRoutes=</varname></term>
+                                        <listitem>
+                                                <para>When true (the default), the static routes will be requested from the DHCP server
+                                                and added to the routing table with metric of 1024.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
                                         <term><varname>CriticalConnection=</varname></term>
                                         <listitem>
                                                 <para>When true, the connection will never be torn down even if the DHCP lease

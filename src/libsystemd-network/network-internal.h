@@ -70,3 +70,10 @@ const char *net_get_name(struct udev_device *device);
 void serialize_in_addrs(FILE *f, const char *key, struct in_addr *addresses, size_t size);
 int deserialize_in_addrs(struct in_addr **addresses, size_t *size, const char *string);
 int deserialize_in6_addrs(struct in6_addr **addresses, size_t *size, const char *string);
+
+
+/* don't include "dhcp-lease-internal.h" as it causes conflicts between netinet/ip.h and linux/ip.h */
+struct sd_dhcp_route;
+
+void serialize_dhcp_routes(FILE *f, const char *key, struct sd_dhcp_route *routes, size_t size);
+int deserialize_dhcp_routes(struct sd_dhcp_route **ret, size_t *ret_size, size_t *ret_allocated, const char *string);

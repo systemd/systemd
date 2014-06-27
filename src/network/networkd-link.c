@@ -402,6 +402,51 @@ static int route_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
         return 1;
 }
 
+static int link_set_dhcp_routes(Link *link) {
+        struct sd_dhcp_route *static_routes;
+        size_t static_routes_size;
+        int r;
+        unsigned i;
+
+        assert(link);
+
+        r = sd_dhcp_lease_get_routes(link->dhcp_lease, &static_routes, &static_routes_size);
+        if (r < 0) {
+                if (r != -ENOENT)
+                        log_warning_link(link, "DHCP error: %s", strerror(-r));
+                return r;
+        }
+
+        for (i = 0; i < static_routes_size; i++) {
+                _cleanup_route_free_ Route *route = NULL;
+
+                r = route_new_dynamic(&route);
+                if (r < 0) {
+                        log_error_link(link, "Could not allocate route: %s",
+                                       strerror(-r));
+                        return r;
+                }
+
+                route->family = AF_INET;
+                route->in_addr.in = static_routes[i].gw_addr;
+                route->dst_addr.in = static_routes[i].dst_addr;
+                route->dst_prefixlen = static_routes[i].dst_prefixlen;
+                route->metrics = DHCP_STATIC_ROUTE_METRIC;
+
+                r = route_configure(route, link, &route_handler);
+                if (r < 0) {
+                        log_warning_link(link,
+                                         "could not set host route: %s", strerror(-r));
+                        return r;
+                }
+
+                link_ref(link);
+                link->route_messages ++;
+        }
+
+        return 0;
+}
+
 static int link_enter_set_routes(Link *link) {
         Route *rt;
         int r;
@@ -525,6 +570,9 @@ static int link_enter_set_routes(Link *link) {
                         link_ref(link);
                         link->route_messages ++;
                 }
+
+                if (link->network->dhcp_routes)
+                        link_set_dhcp_routes(link);
         }
 
         if (link->route_messages == 0) {
@@ -901,12 +949,11 @@ static int link_set_mtu(Link *link, uint32_t mtu) {
 
 static int dhcp_lease_lost(Link *link) {
         _cleanup_address_free_ Address *address = NULL;
-        _cleanup_route_free_ Route *route_gw = NULL;
-        _cleanup_route_free_ Route *route = NULL;
         struct in_addr addr;
         struct in_addr netmask;
         struct in_addr gateway;
         unsigned prefixlen;
+        unsigned i;
         int r;
 
         assert(link);
@@ -914,10 +961,36 @@ static int dhcp_lease_lost(Link *link) {
 
         log_warning_link(link, "DHCP lease lost");
 
+        if (link->network->dhcp_routes) {
+                struct sd_dhcp_route *routes;
+                size_t routes_size;
+
+                r = sd_dhcp_lease_get_routes(link->dhcp_lease, &routes, &routes_size);
+                if (r >= 0) {
+                        for (i = 0; i < routes_size; i++) {
+                                _cleanup_route_free_ Route *route = NULL;
+
+                                r = route_new_dynamic(&route);
+                                if (r >= 0) {
+                                        route->family = AF_INET;
+                                        route->in_addr.in = routes[i].gw_addr;
+                                        route->dst_addr.in = routes[i].dst_addr;
+                                        route->dst_prefixlen = routes[i].dst_prefixlen;
+
+                                        route_drop(route, link, &route_drop_handler);
+                                        link_ref(link);
+                                }
+                        }
+                }
+        }
+
         r = address_new_dynamic(&address);
         if (r >= 0) {
                 r = sd_dhcp_lease_get_router(link->dhcp_lease, &gateway);
                 if (r >= 0) {
+                        _cleanup_route_free_ Route *route_gw = NULL;
+                        _cleanup_route_free_ Route *route = NULL;
+
                         r = route_new_dynamic(&route_gw);
                         if (r >= 0) {
                                 route_gw->family = AF_INET;
@@ -1949,6 +2022,14 @@ static int link_configure(Link *link) {
 
                 if (link->network->dhcp_mtu) {
                         r = sd_dhcp_client_set_request_option(link->dhcp_client, 26);
+                        if (r < 0)
+                                return r;
+                }
+                if (link->network->dhcp_routes) {
+                        r = sd_dhcp_client_set_request_option(link->dhcp_client, DHCP_OPTION_STATIC_ROUTE);
+                        if (r < 0)
+                                return r;
+                        r = sd_dhcp_client_set_request_option(link->dhcp_client, DHCP_OPTION_CLASSLESS_STATIC_ROUTE);
                         if (r < 0)
                                 return r;
                 }

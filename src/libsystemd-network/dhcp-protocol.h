@@ -132,5 +132,6 @@ enum {
         DHCP_OPTION_RENEWAL_T1_TIME             = 58,
         DHCP_OPTION_REBINDING_T2_TIME           = 59,
         DHCP_OPTION_CLIENT_IDENTIFIER           = 61,
+        DHCP_OPTION_CLASSLESS_STATIC_ROUTE      = 121,
         DHCP_OPTION_END                         = 255,
 };

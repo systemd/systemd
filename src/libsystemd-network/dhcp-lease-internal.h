@@ -32,6 +32,12 @@
 
 #include "sd-dhcp-client.h"
 
+struct sd_dhcp_route {
+        struct in_addr dst_addr;
+        struct in_addr gw_addr;
+        uint8_t dst_prefixlen;
+};
+
 struct sd_dhcp_lease {
         RefCount n_ref;
 
@@ -52,8 +58,9 @@ struct sd_dhcp_lease {
         size_t ntp_size;
         struct in_addr *policy_filter;
         size_t policy_filter_size;
-        struct in_addr *static_route;
+        struct sd_dhcp_route *static_route;
         size_t static_route_size;
+        size_t static_route_allocated;
         uint16_t boot_file_size;
         uint16_t mdr;
         uint16_t mtu;

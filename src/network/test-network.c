@@ -21,6 +21,7 @@
 
 #include "networkd.h"
 #include "network-internal.h"
+#include "dhcp-lease-internal.h"
 
 static void test_deserialize_in_addr(void) {
         _cleanup_free_ struct in_addr *addresses = NULL;
@@ -51,6 +52,63 @@ static void test_deserialize_in_addr(void) {
         assert_se(!memcmp(&d, &addresses6[0], sizeof(struct in6_addr)));
         assert_se(!memcmp(&e, &addresses6[1], sizeof(struct in6_addr)));
         assert_se(!memcmp(&f, &addresses6[2], sizeof(struct in6_addr)));
+}
+
+static void test_deserialize_dhcp_routes(void) {
+        size_t size, allocated;
+
+        {
+                _cleanup_free_ struct sd_dhcp_route *routes = NULL;
+                assert_se(deserialize_dhcp_routes(&routes, &size, &allocated, "") >= 0);
+                assert_se(size == 0);
+        }
+
+        {
+                /* no errors */
+                _cleanup_free_ struct sd_dhcp_route *routes = NULL;
+                const char *routes_string = "192.168.0.0/16,192.168.0.1 10.1.2.0/24,10.1.2.1 0.0.0.0/0,10.0.1.1";
+
+                assert_se(deserialize_dhcp_routes(&routes, &size, &allocated, routes_string) >= 0);
+
+                assert_se(size == 3);
+                assert_se(routes[0].dst_addr.s_addr == inet_addr("192.168.0.0"));
+                assert_se(routes[0].gw_addr.s_addr == inet_addr("192.168.0.1"));
+                assert_se(routes[0].dst_prefixlen == 16);
+
+                assert_se(routes[1].dst_addr.s_addr == inet_addr("10.1.2.0"));
+                assert_se(routes[1].gw_addr.s_addr == inet_addr("10.1.2.1"));
+                assert_se(routes[1].dst_prefixlen == 24);
+
+                assert_se(routes[2].dst_addr.s_addr == inet_addr("0.0.0.0"));
+                assert_se(routes[2].gw_addr.s_addr == inet_addr("10.0.1.1"));
+                assert_se(routes[2].dst_prefixlen == 0);
+        }
+
+        {
+                /* error in second word */
+                _cleanup_free_ struct sd_dhcp_route *routes = NULL;
+                const char *routes_string = "192.168.0.0/16,192.168.0.1 10.1.2.0#24,10.1.2.1 0.0.0.0/0,10.0.1.1";
+
+                assert_se(deserialize_dhcp_routes(&routes, &size, &allocated, routes_string) >= 0);
+
+                assert_se(size == 2);
+                assert_se(routes[0].dst_addr.s_addr == inet_addr("192.168.0.0"));
+                assert_se(routes[0].gw_addr.s_addr == inet_addr("192.168.0.1"));
+                assert_se(routes[0].dst_prefixlen == 16);
+
+                assert_se(routes[2].dst_addr.s_addr == inet_addr("0.0.0.0"));
+                assert_se(routes[2].gw_addr.s_addr == inet_addr("10.0.1.1"));
+                assert_se(routes[2].dst_prefixlen == 0);
+        }
+
+        {
+                /* error in every word */
+                _cleanup_free_ struct sd_dhcp_route *routes = NULL;
+                const char *routes_string = "192.168.0.0/55,192.168.0.1 10.1.2.0#24,10.1.2.1 0.0.0.0/0,10.0.1.X";
+
+                assert_se(deserialize_dhcp_routes(&routes, &size, &allocated, routes_string) >= 0);
+                assert_se(size == 0);
+        }
 }
 
 static void test_load_config(Manager *manager) {
@@ -125,6 +183,7 @@ int main(void) {
         struct udev_device *loopback;
 
         test_deserialize_in_addr();
+        test_deserialize_dhcp_routes();
         test_address_equality();
 
         assert_se(manager_new(&manager) >= 0);

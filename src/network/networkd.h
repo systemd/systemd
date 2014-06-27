@@ -42,6 +42,7 @@
 
 #define CACHE_INFO_INFINITY_LIFE_TIME 0xFFFFFFFFU
 #define VXLAN_VID_MAX (1u << 24) - 1
+#define DHCP_STATIC_ROUTE_METRIC 1024
 
 typedef struct NetDev NetDev;
 typedef struct Network Network;
@@ -169,6 +170,7 @@ struct Network {
         bool dhcp_hostname;
         bool dhcp_domainname;
         bool dhcp_critical;
+        bool dhcp_routes;
         bool ipv4ll;
 
         bool dhcp_server;
