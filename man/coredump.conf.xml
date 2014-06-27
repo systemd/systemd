@@ -97,15 +97,6 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>CompressionLevel=</varname></term>
-
-        <listitem><para>Controls the level of compression for external
-        storage. An integer between 0 and 9. See
-        <citerefentry><refentrytitle>xz</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-        for more details.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><varname>ProcessSizeMax=</varname></term>
 
         <listitem><para>The maximum size in bytes of a core

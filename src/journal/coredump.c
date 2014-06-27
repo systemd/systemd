@@ -121,7 +121,6 @@ static DEFINE_CONFIG_PARSE_ENUM(config_parse_coredump_compression, coredump_comp
 
 static CoredumpStorage arg_storage = COREDUMP_STORAGE_EXTERNAL;
 static CoredumpCompression arg_compression = COREDUMP_COMPRESSION_XZ;
-static unsigned arg_compression_level = LZMA_PRESET_DEFAULT;
 static off_t arg_process_size_max = PROCESS_SIZE_MAX;
 static off_t arg_external_size_max = EXTERNAL_SIZE_MAX;
 static size_t arg_journal_size_max = JOURNAL_SIZE_MAX;
@@ -129,12 +128,9 @@ static off_t arg_keep_free = (off_t) -1;
 static off_t arg_max_use = (off_t) -1;
 
 static int parse_config(void) {
-        int r;
-
         static const ConfigTableItem items[] = {
                 { "Coredump", "Storage",          config_parse_coredump_storage,     0, &arg_storage           },
                 { "Coredump", "Compression",      config_parse_coredump_compression, 0, &arg_compression       },
-                { "Coredump", "CompressionLevel", config_parse_unsigned,             0, &arg_compression_level },
                 { "Coredump", "ProcessSizeMax",   config_parse_iec_off,              0, &arg_process_size_max  },
                 { "Coredump", "ExternalSizeMax",  config_parse_iec_off,              0, &arg_external_size_max },
                 { "Coredump", "JournalSizeMax",   config_parse_iec_size,             0, &arg_journal_size_max  },
@@ -143,7 +139,7 @@ static int parse_config(void) {
                 {}
         };
 
-        r = config_parse(
+        return config_parse(
                         NULL,
                         "/etc/systemd/coredump.conf",
                         NULL,
@@ -153,15 +149,6 @@ static int parse_config(void) {
                         false,
                         false,
                         NULL);
-
-#ifdef HAVE_XZ
-        if (arg_compression_level > 9) {
-                log_warning("Invalid CompressionLevel %u, ignoring.", arg_compression_level);
-                arg_compression_level = LZMA_PRESET_DEFAULT;
-        }
-#endif
-
-        return r;
 }
 
 static int fix_acl(int fd, uid_t uid) {
@@ -380,7 +367,7 @@ static int save_external_coredump(
                         goto uncompressed;
                 }
 
-                r = compress_stream(fd, fd2, arg_compression_level, -1);
+                r = compress_stream(fd, fd2, LZMA_PRESET_DEFAULT, -1);
                 if (r < 0) {
                         log_error("Failed to compress %s: %s", tmp2, strerror(-r));
                         unlink_noerrno(tmp2);
@@ -508,9 +495,8 @@ int main(int argc, char* argv[]) {
         parse_config();
         log_debug("Selected storage '%s'.",
                   coredump_storage_to_string(arg_storage));
-        log_debug("Selected compression %s:%u.",
-                  coredump_compression_to_string(arg_compression),
-                  arg_compression_level);
+        log_debug("Selected compression %s.",
+                  coredump_compression_to_string(arg_compression));
 
         r = parse_uid(argv[INFO_UID + 1], &uid);
         if (r < 0) {
