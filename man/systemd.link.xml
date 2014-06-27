@@ -76,6 +76,10 @@
                 <literal>[Link]</literal> section specifying how the device should be
                 configured. The first (in lexical order) of the link files that matches
                 a given device is applied.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>[Match] Section Options</title>
 
                 <para>A link file is said to match a device if each of the entries in the
                 <literal>[Match]</literal> section matches, or if the section is empty.
@@ -155,6 +159,11 @@
                                 </listitem>
                         </varlistentry>
                 </variablelist>
+
+        </refsect1>
+
+        <refsect1>
+                <title>[Link] Section Options</title>
 
                 <para>The <literal>[Link]</literal> section accepts the following
                 keys:</para>

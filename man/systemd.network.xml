@@ -78,6 +78,11 @@
                 <filename>/usr/lib</filename>, pointing to <filename>/dev/null</filename>,
                 disables the configuration file entirely.</para>
 
+        </refsect1>
+
+        <refsect1>
+                <title>[Match] Section Options</title>
+
                         <para>The network file contains a <literal>[Match]</literal> section,
                         which determines if a given network file may be applied to a given device;
                         and a <literal>[Network]</literal> section specifying how the device should
@@ -171,6 +176,11 @@
                                         </listitem>
                                 </varlistentry>
                         </variablelist>
+
+        </refsect1>
+
+        <refsect1>
+                <title>[Network] Section Options</title>
 
                         <para>The <literal>[Network]</literal> section accepts the following keys:</para>
 
@@ -294,6 +304,11 @@
                                 </varlistentry>
                         </variablelist>
 
+        </refsect1>
+
+        <refsect1>
+                <title>[Address] Section Options</title>
+
                         <para>An <literal>[Address]</literal> section accepts the following keys.
                         Specify several <literal>[Address]</literal> sections to configure several
                         addresses.</para>
@@ -321,7 +336,10 @@
                                         </listitem>
                                 </varlistentry>
                         </variablelist>
+        </refsect1>
 
+        <refsect1>
+                <title>[Route] Section Options</title>
                         <para>The <literal>[Route]</literal> section accepts the following keys. Specify
                         several <literal>[Route]</literal> sections to configure several routes.</para>
 
@@ -340,7 +358,10 @@
                                         </listitem>
                                 </varlistentry>
                         </variablelist>
+        </refsect1>
 
+        <refsect1>
+                <title>[DHCPv4] Section Options</title>
                         <para>The <literal>[DHCPv4]</literal> section accepts the following keys:</para>
 
                         <variablelist class='network-directives'>

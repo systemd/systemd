@@ -78,6 +78,11 @@
                 <filename>/usr/lib</filename>, pointing to <filename>/dev/null</filename>,
                 disables the configuration file entirely.</para>
 
+        </refsect1>
+
+        <refsect1>
+                <title>[Match] Section Options</title>
+
                 <para>A virtual network device is only created if the
                 <literal>[Match]</literal> section matches the current
                 environment, or if the section is empty. The following keys are accepted:</para>
@@ -127,6 +132,11 @@
                                 </varlistentry>
                         </variablelist>
 
+        </refsect1>
+
+        <refsect1>
+                <title>[NetDev] Section Options</title>
+
                         <para>The <literal>[NetDev]</literal> section accepts the following
                         keys:</para>
 
@@ -149,6 +159,11 @@
                                 </varlistentry>
                         </variablelist>
 
+        </refsect1>
+
+        <refsect1>
+                <title>[VLAN] Section Options</title>
+
                         <para>The <literal>[VLAN]</literal> section only applies for netdevs of kind <literal>vlan</literal>,
                         and accepts the following key:</para>
 
@@ -161,6 +176,11 @@
                                         </listitem>
                                 </varlistentry>
                         </variablelist>
+
+        </refsect1>
+
+        <refsect1>
+                <title>[MACVLAN] Section Options</title>
 
                         <para>The <literal>[MACVLAN]</literal> section only applies for netdevs of kind
                         <literal>macvlan</literal>, and accepts the following key:</para>
