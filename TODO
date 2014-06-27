@@ -27,8 +27,6 @@ Features:
 
 * ship sleep.conf by default
 
-* coredump: add a size-based cleanup logic to coredump helper, so that we don't flood /var/lib/systemd/coredump unrestricted
-
 * support empty /etc boots nicely:
   - nspawn/gpt-generator: introduce new gpt partition type for /usr
   - nspawn: add --mode=auto,stateful,stateless,volatile
