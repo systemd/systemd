@@ -25,6 +25,8 @@ External:
 
 Features:
 
+* allow users to kill or lock their own sessions
+
 * ship sleep.conf by default
 
 * support empty /etc boots nicely:
