@@ -1547,9 +1547,10 @@ int main(int argc, char *argv[]) {
                 if (empty_etc)
                         log_info("Running with unpopulated /etc.");
         } else {
-                _cleanup_free_ char *t = uid_to_name(getuid());
-                log_debug(PACKAGE_STRING " running in user mode for user "UID_FMT"/%s. (" SYSTEMD_FEATURES ")",
-                          getuid(), t);
+                _cleanup_free_ char *t;
+
+                t = uid_to_name(getuid());
+                log_debug(PACKAGE_STRING " running in user mode for user "UID_FMT"/%s. (" SYSTEMD_FEATURES ")", getuid(), strna(t));
         }
 
         if (arg_running_as == SYSTEMD_SYSTEM && !skip_setup) {
