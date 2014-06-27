@@ -51,6 +51,7 @@
 #include "dbus.h"
 #include "execute.h"
 #include "virt.h"
+#include "dropin.h"
 
 const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX] = {
         [UNIT_SERVICE] = &service_vtable,
@@ -2966,68 +2967,55 @@ ExecRuntime *unit_get_exec_runtime(Unit *u) {
         return *(ExecRuntime**) ((uint8_t*) u + offset);
 }
 
-static int drop_in_file(Unit *u, UnitSetPropertiesMode mode, const char *name, char **_p, char **_q) {
-        _cleanup_free_ char *b = NULL;
-        char *p, *q;
-        int r;
-
-        assert(u);
-        assert(name);
-        assert(_p);
-        assert(_q);
-
-        b = xescape(name, "/.");
-        if (!b)
-                return -ENOMEM;
-
-        if (!filename_is_safe(b))
-                return -EINVAL;
-
+static int unit_drop_in_dir(Unit *u, UnitSetPropertiesMode mode, bool transient, char **dir) {
         if (u->manager->running_as == SYSTEMD_USER) {
-                _cleanup_free_ char *c = NULL;
+                int r;
 
-                r = user_config_home(&c);
-                if (r < 0)
-                        return r;
+                r = user_config_home(dir);
                 if (r == 0)
                         return -ENOENT;
-
-                p = strjoin(c, "/", u->id, ".d", NULL);
-        } else if (mode == UNIT_PERSISTENT && !u->transient)
-                p = strjoin("/etc/systemd/system/", u->id, ".d", NULL);
-        else
-                p = strjoin("/run/systemd/system/", u->id, ".d", NULL);
-        if (!p)
-                return -ENOMEM;
-
-        q = strjoin(p, "/90-", b, ".conf", NULL);
-        if (!q) {
-                free(p);
-                return -ENOMEM;
+                return r;
         }
 
-        *_p = p;
-        *_q = q;
+        if (mode == UNIT_PERSISTENT && !transient)
+                *dir = strdup("/etc/systemd/system");
+        else
+                *dir = strdup("/run/systemd/system");
+        if (!*dir)
+                return -ENOMEM;
+
         return 0;
 }
 
-int unit_write_drop_in(Unit *u, UnitSetPropertiesMode mode, const char *name, const char *data) {
-        _cleanup_free_ char *p = NULL, *q = NULL;
+static int unit_drop_in_file(Unit *u,
+                             UnitSetPropertiesMode mode, const char *name, char **p, char **q) {
+        _cleanup_free_ char *dir = NULL;
         int r;
 
         assert(u);
-        assert(name);
-        assert(data);
+
+        r = unit_drop_in_dir(u, mode, u->transient, &dir);
+        if (r < 0)
+                return r;
+
+        return drop_in_file(dir, u->id, name, p, q);
+}
+
+int unit_write_drop_in(Unit *u, UnitSetPropertiesMode mode, const char *name, const char *data) {
+
+        _cleanup_free_ char *dir = NULL;
+        int r;
+
+        assert(u);
 
         if (!IN_SET(mode, UNIT_PERSISTENT, UNIT_RUNTIME))
                 return 0;
 
-        r = drop_in_file(u, mode, name, &p, &q);
+        r = unit_drop_in_dir(u, mode, u->transient, &dir);
         if (r < 0)
                 return r;
 
-        mkdir_p(p, 0755);
-        return write_string_file_atomic_label(q, data);
+        return write_drop_in(dir, u->id, name, data);
 }
 
 int unit_write_drop_in_format(Unit *u, UnitSetPropertiesMode mode, const char *name, const char *format, ...) {
@@ -3103,7 +3091,7 @@ int unit_remove_drop_in(Unit *u, UnitSetPropertiesMode mode, const char *name) {
         if (!IN_SET(mode, UNIT_PERSISTENT, UNIT_RUNTIME))
                 return 0;
 
-        r = drop_in_file(u, mode, name, &p, &q);
+        r = unit_drop_in_file(u, mode, name, &p, &q);
         if (r < 0)
                 return r;
 

@@ -816,8 +816,6 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/bus-label.c \
 	src/shared/bus-label.h \
 	src/shared/gpt.h \
-	src/shared/generator.h \
-	src/shared/generator.c \
 	src/shared/clean-ipc.h \
 	src/shared/clean-ipc.c \
 	src/shared/login-shared.c \
@@ -874,7 +872,11 @@ libsystemd_label_la_SOURCES = \
 	src/shared/fileio-label.c \
 	src/shared/fileio-label.h \
 	src/shared/dev-setup.c \
-	src/shared/dev-setup.h
+	src/shared/dev-setup.h \
+	src/shared/dropin.c \
+	src/shared/dropin.h \
+	src/shared/generator.h \
+	src/shared/generator.c
 
 libsystemd_label_la_CFLAGS = \
 	$(AM_CFLAGS) \

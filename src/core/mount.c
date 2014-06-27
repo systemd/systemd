@@ -418,57 +418,6 @@ static int mount_add_default_dependencies(Mount *m) {
         return 0;
 }
 
-static int mount_fix_timeouts(Mount *m) {
-        MountParameters *p;
-        const char *timeout = NULL;
-        Unit *other;
-        Iterator i;
-        usec_t u;
-        char *t;
-        int r;
-
-        assert(m);
-
-        p = get_mount_parameters_fragment(m);
-        if (!p)
-                return 0;
-
-        /* Allow configuration how long we wait for a device that
-         * backs a mount point to show up. This is useful to support
-         * endless device timeouts for devices that show up only after
-         * user input, like crypto devices. */
-
-        if ((timeout = mount_test_option(p->options, "comment=systemd.device-timeout")))
-                timeout += 31;
-        else if ((timeout = mount_test_option(p->options, "x-systemd.device-timeout")))
-                timeout += 25;
-        else
-                return 0;
-
-        t = strndup(timeout, strcspn(timeout, ",;" WHITESPACE));
-        if (!t)
-                return -ENOMEM;
-
-        r = parse_sec(t, &u);
-        free(t);
-
-        if (r < 0) {
-                log_warning_unit(UNIT(m)->id,
-                                 "Failed to parse timeout for %s, ignoring: %s",
-                                 m->where, timeout);
-                return r;
-        }
-
-        SET_FOREACH(other, UNIT(m)->dependencies[UNIT_AFTER], i) {
-                if (other->type != UNIT_DEVICE)
-                        continue;
-
-                other->job_timeout = u;
-        }
-
-        return 0;
-}
-
 static int mount_verify(Mount *m) {
         _cleanup_free_ char *e = NULL;
         bool b;
@@ -553,10 +502,6 @@ static int mount_add_extras(Mount *m) {
                 return r;
 
         r = unit_add_default_slice(u, &m->cgroup_context);
-        if (r < 0)
-                return r;
-
-        r = mount_fix_timeouts(m);
         if (r < 0)
                 return r;
 

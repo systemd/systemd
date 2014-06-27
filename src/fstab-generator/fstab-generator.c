@@ -44,6 +44,7 @@ static char *arg_root_fstype = NULL;
 static char *arg_root_options = NULL;
 static int arg_root_rw = -1;
 
+
 static int mount_find_pri(struct mntent *me, int *ret) {
         char *end, *pri;
         unsigned long r;
@@ -173,7 +174,8 @@ static int add_mount(
 
         _cleanup_free_ char
                 *name = NULL, *unit = NULL, *lnk = NULL,
-                *automount_name = NULL, *automount_unit = NULL;
+                *automount_name = NULL, *automount_unit = NULL,
+                *filtered = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -245,8 +247,12 @@ static int add_mount(
         if (!isempty(fstype) && !streq(fstype, "auto"))
                 fprintf(f, "Type=%s\n", fstype);
 
-        if (!isempty(opts) && !streq(opts, "defaults"))
-                fprintf(f, "Options=%s\n", opts);
+        r = generator_write_timeouts(arg_dest, what, where, opts, &filtered);
+        if (r < 0)
+                return r;
+
+        if (!isempty(filtered) && !streq(filtered, "defaults"))
+                fprintf(f, "Options=%s\n", filtered);
 
         fflush(f);
         if (ferror(f)) {

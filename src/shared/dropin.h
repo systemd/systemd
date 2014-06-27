@@ -5,7 +5,7 @@
 /***
   This file is part of systemd.
 
-  Copyright 2014 Lennart Poettering
+  Copyright 2014 Zbigniew Jędrzejewski-Szmek
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -21,9 +21,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdio.h>
+int drop_in_file(const char *dir, const char *unit,
+                 const char *name, char **_p, char **_q);
 
-int generator_write_fsck_deps(FILE *f, const char *dest, const char *what, const char *where, const char *type);
+int write_drop_in(const char *dir, const char *unit,
+                  const char *name, const char *data);
 
-int generator_write_timeouts(const char *dir, const char *what, const char *where,
-                             const char *opts, char **filtered);
+int write_drop_in_format(const char *dir, const char *unit,
+                         const char *name, const char *format, ...);

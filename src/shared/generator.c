@@ -28,6 +28,7 @@
 #include "unit-name.h"
 #include "generator.h"
 #include "path-util.h"
+#include "dropin.h"
 
 int generator_write_fsck_deps(
                 FILE *f,
@@ -85,4 +86,60 @@ int generator_write_fsck_deps(
         }
 
         return 0;
+}
+
+int generator_write_timeouts(const char *dir, const char *what, const char *where,
+                             const char *opts, char **filtered) {
+
+        /* Allow configuration how long we wait for a device that
+         * backs a mount point to show up. This is useful to support
+         * endless device timeouts for devices that show up only after
+         * user input, like crypto devices. */
+
+        _cleanup_free_ char *node = NULL, *unit = NULL, *t = NULL;
+        char *prefix, *start, *timeout, *postfix;
+        usec_t u;
+        int r;
+        size_t len;
+
+        if ((start = mount_test_option(opts, "comment=systemd.device-timeout")))
+                timeout = start + 31;
+        else if ((start = mount_test_option(opts, "x-systemd.device-timeout")))
+                timeout = start + 25;
+        else {
+                *filtered = strdup(opts);
+                if (!*filtered)
+                        return log_oom();
+
+                return 0;
+        }
+
+        len = strcspn(timeout, ",;" WHITESPACE);
+        t = strndup(timeout, len);
+        if (!t)
+                return -ENOMEM;
+
+        prefix = strndupa(opts, start - opts - (start != opts));
+        postfix = timeout + len + (timeout[len] != '\0');
+        *filtered = strjoin(prefix, *postfix ? postfix : NULL, NULL);
+        if (!*filtered)
+                return log_oom();
+
+        r = parse_sec(t, &u);
+        if (r < 0) {
+                log_warning("Failed to parse timeout for %s, ignoring: %s",
+                            where, timeout);
+                return 0;
+        }
+
+        node = fstab_node_to_udev_node(what);
+        if (!node)
+                return log_oom();
+
+        unit = unit_name_from_path(node, ".device");
+        if (!unit)
+                return -ENOMEM;
+
+        return write_drop_in_format(dir, unit, "device-timeout",
+                                    "[Unit]\nJobTimeoutSec=%u", u / USEC_PER_SEC);
 }

@@ -21,6 +21,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "macro.h"
+
 typedef struct LookupPaths {
         char **unit_path;
 #ifdef HAVE_SYSV_COMPAT
