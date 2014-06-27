@@ -129,6 +129,11 @@ static int add_swap(const char *what, struct mntent *me) {
                 return -errno;
         }
 
+        /* use what as where, to have a nicer error message */
+        r = generator_write_timeouts(arg_dest, what, what, me->mnt_opts, NULL);
+        if (r < 0)
+                return r;
+
         if (!noauto) {
                 lnk = strjoin(arg_dest, "/" SPECIAL_SWAP_TARGET ".wants/", name, NULL);
                 if (!lnk)

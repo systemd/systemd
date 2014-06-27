@@ -97,7 +97,7 @@ int generator_write_timeouts(const char *dir, const char *what, const char *wher
          * user input, like crypto devices. */
 
         _cleanup_free_ char *node = NULL, *unit = NULL, *t = NULL;
-        char *prefix, *start, *timeout, *postfix;
+        char *start, *timeout;
         usec_t u;
         int r;
         size_t len;
@@ -107,9 +107,11 @@ int generator_write_timeouts(const char *dir, const char *what, const char *wher
         else if ((start = mount_test_option(opts, "x-systemd.device-timeout")))
                 timeout = start + 25;
         else {
-                *filtered = strdup(opts);
-                if (!*filtered)
-                        return log_oom();
+                if (filtered) {
+                        *filtered = strdup(opts);
+                        if (!*filtered)
+                                return log_oom();
+                }
 
                 return 0;
         }
@@ -119,11 +121,15 @@ int generator_write_timeouts(const char *dir, const char *what, const char *wher
         if (!t)
                 return -ENOMEM;
 
-        prefix = strndupa(opts, start - opts - (start != opts));
-        postfix = timeout + len + (timeout[len] != '\0');
-        *filtered = strjoin(prefix, *postfix ? postfix : NULL, NULL);
-        if (!*filtered)
-                return log_oom();
+        if (filtered) {
+                char *prefix, *postfix;
+
+                prefix = strndupa(opts, start - opts - (start != opts));
+                postfix = timeout + len + (timeout[len] != '\0');
+                *filtered = strjoin(prefix, *postfix ? postfix : NULL, NULL);
+                if (!*filtered)
+                        return log_oom();
+        }
 
         r = parse_sec(t, &u);
         if (r < 0) {
