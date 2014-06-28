@@ -1756,10 +1756,7 @@ static int link_enslaved(Link *link) {
                 }
         }
 
-        if ((link->network->dhcp == DHCP_SUPPORT_NONE) && !link->network->ipv4ll)
-                return link_enter_set_addresses(link);
-
-        return 0;
+        return link_enter_set_addresses(link);
 }
 
 static int enslave_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
