@@ -131,6 +131,15 @@ struct NetDev {
         LIST_HEAD(netdev_enslave_callback, callbacks);
 };
 
+typedef enum DHCPSupport {
+        DHCP_SUPPORT_NONE,
+        DHCP_SUPPORT_BOTH,
+        DHCP_SUPPORT_V4,
+        DHCP_SUPPORT_V6,
+        _DHCP_SUPPORT_MAX,
+        _DHCP_SUPPORT_INVALID = -1,
+} DHCPSupport;
+
 struct Network {
         Manager *manager;
 
@@ -153,7 +162,7 @@ struct Network {
         Hashmap *vlans;
         Hashmap *macvlans;
         Hashmap *vxlans;
-        bool dhcp;
+        DHCPSupport dhcp;
         bool dhcp_dns;
         bool dhcp_ntp;
         bool dhcp_mtu;
@@ -161,7 +170,6 @@ struct Network {
         bool dhcp_domainname;
         bool dhcp_critical;
         bool ipv4ll;
-        bool dhcp6;
 
         bool dhcp_server;
 
@@ -471,6 +479,15 @@ LinkOperationalState link_operstate_from_string(const char *s) _pure_;
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_unref);
 #define _cleanup_link_unref_ _cleanup_(link_unrefp)
+
+/* DHCP support */
+
+const char* dhcp_support_to_string(DHCPSupport i) _const_;
+DHCPSupport dhcp_support_from_string(const char *s) _pure_;
+
+int config_parse_dhcp(const char *unit, const char *filename, unsigned line,
+                      const char *section, unsigned section_line, const char *lvalue,
+                      int ltype, const char *rvalue, void *data, void *userdata);
 
 /* Address Pool */
 

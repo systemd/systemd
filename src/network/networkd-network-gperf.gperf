@@ -30,10 +30,9 @@ Network.Bond,                config_parse_netdev,                0,             
 Network.VLAN,                config_parse_netdev,                0,                             offsetof(Network, vlans)
 Network.MACVLAN,             config_parse_netdev,                0,                             offsetof(Network, macvlans)
 Network.VXLAN,               config_parse_netdev,                0,                             offsetof(Network, vxlans)
-Network.DHCP,                config_parse_bool,                  0,                             offsetof(Network, dhcp)
+Network.DHCP,                config_parse_dhcp,                  0,                             offsetof(Network, dhcp)
 Network.DHCPServer,          config_parse_bool,                  0,                             offsetof(Network, dhcp_server)
 Network.IPv4LL,              config_parse_bool,                  0,                             offsetof(Network, ipv4ll)
-Network.DHCPv6,              config_parse_bool,                  0,                             offsetof(Network, dhcp6)
 Network.Address,             config_parse_address,               0,                             0
 Network.Gateway,             config_parse_gateway,               0,                             0
 Network.DNS,                 config_parse_dns,                   0,                             offsetof(Network, dns)
@@ -44,6 +43,12 @@ Address.Broadcast,           config_parse_broadcast,             0,             
 Address.Label,               config_parse_label,                 0,                             0
 Route.Gateway,               config_parse_gateway,               0,                             0
 Route.Destination,           config_parse_destination,           0,                             0
+DHCP.UseDNS,                 config_parse_bool,                  0,                             offsetof(Network, dhcp_dns)
+DHCP.UseMTU,                 config_parse_bool,                  0,                             offsetof(Network, dhcp_mtu)
+DHCP.UseHostname,            config_parse_bool,                  0,                             offsetof(Network, dhcp_hostname)
+DHCP.UseDomainName,          config_parse_bool,                  0,                             offsetof(Network, dhcp_domainname)
+DHCP.CriticalConnection,     config_parse_bool,                  0,                             offsetof(Network, dhcp_critical)
+/* backwards compatibility */
 DHCPv4.UseDNS,               config_parse_bool,                  0,                             offsetof(Network, dhcp_dns)
 DHCPv4.UseMTU,               config_parse_bool,                  0,                             offsetof(Network, dhcp_mtu)
 DHCPv4.UseHostname,          config_parse_bool,                  0,                             offsetof(Network, dhcp_hostname)

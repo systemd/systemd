@@ -29,6 +29,7 @@
 #include "virt.h"
 #include "bus-util.h"
 #include "network-internal.h"
+#include "conf-parser.h"
 
 #include "network-util.h"
 #include "dhcp-lease-internal.h"
@@ -205,7 +206,7 @@ static int link_stop_clients(Link *link) {
         if (!link->network)
                 return 0;
 
-        if (link->network->dhcp) {
+        if (IN_SET(link->network->dhcp, DHCP_SUPPORT_BOTH, DHCP_SUPPORT_V6)) {
                 assert(link->dhcp_client);
 
                 k = sd_dhcp_client_stop(link->dhcp_client);
@@ -235,7 +236,7 @@ static int link_stop_clients(Link *link) {
                 }
         }
 
-        if (link->network->dhcp6) {
+        if (IN_SET(link->network->dhcp, DHCP_SUPPORT_BOTH, DHCP_SUPPORT_V6)) {
                 assert(link->icmp6_router_discovery);
 
                 if (link->dhcp6_client) {
@@ -1456,7 +1457,7 @@ static int link_acquire_conf(Link *link) {
                 }
         }
 
-        if (link->network->dhcp) {
+        if (IN_SET(link->network->dhcp, DHCP_SUPPORT_BOTH, DHCP_SUPPORT_V4)) {
                 assert(link->dhcp_client);
 
                 log_debug_link(link, "acquiring DHCPv4 lease");
@@ -1469,7 +1470,7 @@ static int link_acquire_conf(Link *link) {
                 }
         }
 
-        if (link->network->dhcp6) {
+        if (IN_SET(link->network->dhcp, DHCP_SUPPORT_BOTH, DHCP_SUPPORT_V6)) {
                 assert(link->icmp6_router_discovery);
 
                 log_debug_link(link, "discovering IPv6 routers");
@@ -1682,7 +1683,7 @@ static int link_enslaved(Link *link) {
                 }
         }
 
-        if (!link->network->dhcp && !link->network->ipv4ll)
+        if ((link->network->dhcp == DHCP_SUPPORT_NONE) && !link->network->ipv4ll)
                 return link_enter_set_addresses(link);
 
         return 0;
@@ -1925,7 +1926,7 @@ static int link_configure(Link *link) {
                         return r;
         }
 
-        if (link->network->dhcp) {
+        if (IN_SET(link->network->dhcp, DHCP_SUPPORT_BOTH, DHCP_SUPPORT_V4)) {
                 r = sd_dhcp_client_new(&link->dhcp_client);
                 if (r < 0)
                         return r;
@@ -1963,7 +1964,7 @@ static int link_configure(Link *link) {
                         return r;
         }
 
-        if (link->network->dhcp6) {
+        if (IN_SET(link->network->dhcp, DHCP_SUPPORT_BOTH, DHCP_SUPPORT_V6)) {
                 r = sd_icmp6_nd_new(&link->icmp6_router_discovery);
                 if (r < 0)
                         return r;
@@ -2496,3 +2497,55 @@ static const char* const link_operstate_table[_LINK_OPERSTATE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(link_operstate, LinkOperationalState);
+
+static const char* const dhcp_support_table[_DHCP_SUPPORT_MAX] = {
+        [DHCP_SUPPORT_NONE] = "none",
+        [DHCP_SUPPORT_BOTH] = "both",
+        [DHCP_SUPPORT_V4] = "v4",
+        [DHCP_SUPPORT_V6] = "v6",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(dhcp_support, DHCPSupport);
+
+int config_parse_dhcp(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        DHCPSupport *dhcp = data;
+        int k;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        /* Our enum shall be a superset of booleans, hence first try
+         * to parse as boolean, and then as enum */
+
+        k = parse_boolean(rvalue);
+        if (k > 0)
+                *dhcp = DHCP_SUPPORT_BOTH;
+        else if (k == 0)
+                *dhcp = DHCP_SUPPORT_NONE;
+        else {
+                DHCPSupport s;
+
+                s = dhcp_support_from_string(rvalue);
+                if (s < 0){
+                        log_syntax(unit, LOG_ERR, filename, line, -s, "Failed to parse DHCP option, ignoring: %s", rvalue);
+                        return 0;
+                }
+
+                *dhcp = s;
+        }
+
+        return 0;
+}

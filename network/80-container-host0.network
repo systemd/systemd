@@ -10,6 +10,5 @@ Virtualization=container
 Name=host0
 
 [Network]
-DHCP=yes
-DHCPv6=yes
+DHCP=both
 IPv4LL=yes

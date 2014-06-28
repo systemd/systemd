@@ -195,7 +195,9 @@
                                 <varlistentry>
                                         <term><varname>DHCP=</varname></term>
                                         <listitem>
-                                                <para>A boolean. When true, enables basic DHCPv4 support.</para>
+                                                <para>Enables DHCPv4 and/or DHCPv6 support. Accepts
+                                                <literal>both</literal>, <literal>none</literal>,
+                                                <literal>v4</literal> or <literal>v6</literal>.</para>
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
@@ -361,8 +363,8 @@
         </refsect1>
 
         <refsect1>
-                <title>[DHCPv4] Section Options</title>
-                        <para>The <literal>[DHCPv4]</literal> section accepts the following keys:</para>
+                <title>[DHCP] Section Options</title>
+                        <para>The <literal>[DHCP]</literal> section accepts the following keys:</para>
 
                         <variablelist class='network-directives'>
                                 <varlistentry>
