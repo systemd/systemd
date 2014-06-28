@@ -56,21 +56,41 @@
         <refsect1>
                 <title>Description</title>
 
-                <para><filename>systemd-fsck@.service</filename> is a
-                service responsible for file system checks. It is
-                instantiated for each device that requires a file
-                system
-                check. <filename>systemd-fsck-root.service</filename> is
-                responsible for file system checks on the root
-                file system. The root file system check is performed
-                before the other file systems. Either service is enabled
-                at boot if passno in <filename>/etc/fstab</filename> for
-                the file system is set to a value greater than zero.</para>
+                <para><filename>systemd-fsck@.service</filename> and
+                <filename>systemd-fsck-root.service</filename> are
+                services responsible for file system checks. They are
+                instantiated for each device that is configured for
+                file system checking.
+                <filename>systemd-fsck-root.service</filename> is
+                responsible for file system checks on the root file
+                system, but in only if the root filesystem wasn't
+                checked in the initramfs.
+                <filename>systemd-fsck@.service</filename> is used for
+                all other file systems and for the root file system in
+                the initramfs.</para>
 
-                <para><filename>systemd-fsck</filename> will
-                forward file system checking progress to the
-                console. If a file system check fails, emergency mode
-                is activated, by isolating to
+                <para>Those services are started at boot if
+                <option>passno</option> in
+                <filename>/etc/fstab</filename> for the file system is
+                set to a value greater than zero. The file system
+                check for root is performed before the other file
+                systems. Other file systems may be checked in
+                parallel, except when they are one the same rotating
+                disk.</para>
+
+                <para><filename>systemd-fsck</filename> does not know
+                any details about specific filesystems, and simply
+                executes file system checkers specific to each
+                filesystem type (<filename>/sbin/fsck.*</filename>).
+                This helper will decide if the filesystem should
+                actually be checked based on the time since last
+                check, number of mounts, unclean unmount, etc.</para>
+
+                <para><filename>systemd-fsck</filename> will forward
+                file system checking progress to the console. If a
+                file system check fails for a service without
+                <option>nofail</option>, emergency mode is activated,
+                by isolating to
                 <filename>emergency.target</filename>.</para>
         </refsect1>
 
@@ -122,7 +142,15 @@
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>fsck</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd-quotacheck.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>systemd-quotacheck.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>fsck.btrfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>fsck.cramfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>fsck.ext4</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>fsck.fat</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>fsck.hfsplus</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>fsck.minix</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>fsck.ntfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>fsck.xfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                 </para>
         </refsect1>
 
