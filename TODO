@@ -615,6 +615,7 @@ Features:
    - add veth netdev support (c.f. http://shorewall.net/bridge-Shorewall-perl.html#veth)
    - add tun/tap netdev support
    - add more attribute support for SIT tunnel
+   - make metric of routes configurable
 
 * networkd-wait-online:
    - make operstates to wait for configurable?

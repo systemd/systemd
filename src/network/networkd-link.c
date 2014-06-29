@@ -546,6 +546,7 @@ static int link_enter_set_routes(Link *link) {
                         route_gw->dst_addr.in = gateway;
                         route_gw->dst_prefixlen = 32;
                         route_gw->scope = RT_SCOPE_LINK;
+                        route_gw->metrics = DHCP_STATIC_ROUTE_METRIC;
 
                         r = route_configure(route_gw, link, &route_handler);
                         if (r < 0) {
@@ -559,6 +560,7 @@ static int link_enter_set_routes(Link *link) {
 
                         route->family = AF_INET;
                         route->in_addr.in = gateway;
+                        route->metrics = DHCP_STATIC_ROUTE_METRIC;
 
                         r = route_configure(route, link, &route_handler);
                         if (r < 0) {
