@@ -82,6 +82,7 @@ MANPAGES += \
 	man/systemd-sysctl.service.8 \
 	man/systemd-system-update-generator.8 \
 	man/systemd-system.conf.5 \
+	man/systemd-sysusers.8 \
 	man/systemd-tmpfiles.8 \
 	man/systemd-tty-ask-password-agent.1 \
 	man/systemd-udevd.service.8 \
@@ -108,6 +109,7 @@ MANPAGES += \
 	man/systemd.time.7 \
 	man/systemd.timer.5 \
 	man/systemd.unit.5 \
+	man/sysusers.d.5 \
 	man/telinit.8 \
 	man/tmpfiles.d.5 \
 	man/udev.7 \
@@ -206,6 +208,7 @@ MANPAGES_ALIAS += \
 	man/systemd-shutdownd.socket.8 \
 	man/systemd-sleep.8 \
 	man/systemd-sysctl.8 \
+	man/systemd-sysusers.service.8 \
 	man/systemd-tmpfiles-clean.service.8 \
 	man/systemd-tmpfiles-clean.timer.8 \
 	man/systemd-tmpfiles-setup-dev.service.8 \
@@ -309,6 +312,7 @@ man/systemd-shutdownd.8: man/systemd-shutdownd.service.8
 man/systemd-shutdownd.socket.8: man/systemd-shutdownd.service.8
 man/systemd-sleep.8: man/systemd-suspend.service.8
 man/systemd-sysctl.8: man/systemd-sysctl.service.8
+man/systemd-sysusers.service.8: man/systemd-sysusers.8
 man/systemd-tmpfiles-clean.service.8: man/systemd-tmpfiles.8
 man/systemd-tmpfiles-clean.timer.8: man/systemd-tmpfiles.8
 man/systemd-tmpfiles-setup-dev.service.8: man/systemd-tmpfiles.8
@@ -596,6 +600,9 @@ man/systemd-sleep.html: man/systemd-suspend.service.html
 	$(html-alias)
 
 man/systemd-sysctl.html: man/systemd-sysctl.service.html
+	$(html-alias)
+
+man/systemd-sysusers.service.html: man/systemd-sysusers.html
 	$(html-alias)
 
 man/systemd-tmpfiles-clean.service.html: man/systemd-tmpfiles.html
@@ -1618,6 +1625,7 @@ EXTRA_DIST += \
 	man/systemd-sysctl.service.xml \
 	man/systemd-system-update-generator.xml \
 	man/systemd-system.conf.xml \
+	man/systemd-sysusers.xml \
 	man/systemd-timedated.service.xml \
 	man/systemd-timesyncd.service.xml \
 	man/systemd-tmpfiles.xml \
@@ -1652,6 +1660,7 @@ EXTRA_DIST += \
 	man/systemd.timer.xml \
 	man/systemd.unit.xml \
 	man/systemd.xml \
+	man/sysusers.d.xml \
 	man/telinit.xml \
 	man/timedatectl.xml \
 	man/tmpfiles.d.xml \

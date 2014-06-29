@@ -1,0 +1,117 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2014 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="systemd-sysusers"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+        <refentryinfo>
+                <title>systemd-sysusers</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Lennart</firstname>
+                                <surname>Poettering</surname>
+                                <email>lennart@poettering.net</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>systemd-sysusers</refentrytitle>
+                <manvolnum>8</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>systemd-sysusers</refname>
+                <refname>systemd-sysusers.service</refname>
+                <refpurpose>Allocate system users and groups</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <cmdsynopsis>
+                        <command>systemd-sysusers</command>
+                        <arg choice="opt" rep="repeat">OPTIONS</arg>
+                        <arg choice="opt" rep="repeat"><replaceable>CONFIGFILE</replaceable></arg>
+                </cmdsynopsis>
+
+                <para><filename>systemd-sysusers.service</filename></para>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para><command>systemd-sysusers</command> creates
+                system users and groups, based on the file format and
+                location specified in
+                <citerefentry><refentrytitle>sysusers.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+                </para>
+
+                <para>If invoked with no arguments, it applies all
+                directives from all files found. If one or more
+                filenames are passed on the command line, only the
+                directives in these files are applied. If only the
+                basename of a file is specified, all directories as
+                specified in
+                <citerefentry><refentrytitle>sysusers.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                are searched for a matching file.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Options</title>
+
+                <para>The following options are understood:</para>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><option>--root=<replaceable>root</replaceable></option></term>
+                                <listitem><para>Takes a directory path
+                                as an argument. All paths will be
+                                prefixed with the given alternate <replaceable>root</replaceable>
+                                path, including config search paths.
+                                </para></listitem>
+                        </varlistentry>
+
+                        <xi:include href="standard-options.xml" xpointer="help" />
+                        <xi:include href="standard-options.xml" xpointer="version" />
+                </variablelist>
+
+        </refsect1>
+
+        <refsect1>
+                <title>Exit status</title>
+
+                <para>On success, 0 is returned, a non-zero failure
+                code otherwise.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>See Also</title>
+                <para>
+                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sysusers.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                </para>
+        </refsect1>
+
+</refentry>
