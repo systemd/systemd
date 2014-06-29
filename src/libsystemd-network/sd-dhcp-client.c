@@ -776,7 +776,7 @@ static int client_timeout_t1(sd_event_source *s, uint64_t usec,
         r = dhcp_network_bind_udp_socket(client->lease->address,
                                          DHCP_PORT_CLIENT);
         if (r < 0) {
-                client_stop(client, r);
+                log_dhcp_client(client, "could not bind UDP socket");
                 return 0;
         }
 
