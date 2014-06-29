@@ -760,7 +760,9 @@ static int link_enter_set_addresses(Link *link) {
                 address->prefixlen = prefixlen;
                 address->broadcast.s_addr = addr.s_addr | ~netmask.s_addr;
 
-                r = address_configure(address, link, &address_handler);
+                /* use update rather than configure so that we will update the lifetime
+                   of an existing address if it has already been configured */
+                r = address_update(address, link, &address_handler);
                 if (r < 0) {
                         log_warning_link(link,
                                          "could not set addresses: %s", strerror(-r));
