@@ -62,6 +62,12 @@ int sd_dhcp_server_set_address(sd_dhcp_server *server, struct in_addr *address) 
         return 0;
 }
 
+bool sd_dhcp_server_is_running(sd_dhcp_server *server) {
+        assert_return(server, -EINVAL);
+
+        return !!server->receive_message;
+}
+
 sd_dhcp_server *sd_dhcp_server_ref(sd_dhcp_server *server) {
         if (server)
                 assert_se(REFCNT_INC(server->n_ref) >= 2);

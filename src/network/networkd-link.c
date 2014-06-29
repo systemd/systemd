@@ -307,7 +307,8 @@ static int link_enter_configured(Link *link) {
         assert(link->network);
         assert(link->state == LINK_STATE_SETTING_ROUTES);
 
-        if (link->network->dhcp_server) {
+        if (link->network->dhcp_server &&
+            !sd_dhcp_server_is_running(link->dhcp_server)) {
                 struct in_addr pool_start;
                 Address *address;
 

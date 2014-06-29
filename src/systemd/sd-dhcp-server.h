@@ -23,6 +23,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <stdbool.h>
 #include <netinet/in.h>
 
 #include "sd-event.h"
@@ -37,6 +38,8 @@ int sd_dhcp_server_new(sd_dhcp_server **ret, int ifindex);
 int sd_dhcp_server_attach_event(sd_dhcp_server *client, sd_event *event, int priority);
 int sd_dhcp_server_detach_event(sd_dhcp_server *client);
 sd_event *sd_dhcp_server_get_event(sd_dhcp_server *client);
+
+bool sd_dhcp_server_is_running(sd_dhcp_server *server);
 
 int sd_dhcp_server_start(sd_dhcp_server *server);
 int sd_dhcp_server_stop(sd_dhcp_server *server);
