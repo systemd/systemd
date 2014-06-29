@@ -465,7 +465,7 @@ int deserialize_dhcp_routes(struct sd_dhcp_route **ret, size_t *ret_size, size_t
 
         FOREACH_WORD(word, len, string, state) {
                 /* WORD FORMAT: dst_ip/dst_prefixlen,gw_ip */
-                _cleanup_free_ char* entry;
+                _cleanup_free_ char* entry = NULL;
                 char *tok, *tok_end;
                 unsigned n;
                 int r;
