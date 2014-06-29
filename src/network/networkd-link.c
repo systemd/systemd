@@ -413,7 +413,7 @@ static int link_set_dhcp_routes(Link *link) {
         r = sd_dhcp_lease_get_routes(link->dhcp_lease, &static_routes, &static_routes_size);
         if (r < 0) {
                 if (r != -ENOENT)
-                        log_warning_link(link, "DHCP error: %s", strerror(-r));
+                        log_warning_link(link, "DHCP error: could not get routes: %s", strerror(-r));
                 return r;
         }
 
@@ -519,7 +519,8 @@ static int link_enter_set_routes(Link *link) {
 
                 r = sd_dhcp_lease_get_router(link->dhcp_lease, &gateway);
                 if (r < 0 && r != -ENOENT) {
-                        log_warning_link(link, "DHCP error: %s", strerror(-r));
+                        log_warning_link(link, "DHCP error: could not get gateway: %s",
+                                         strerror(-r));
                         return r;
                 }
 
@@ -1109,7 +1110,8 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
 
         r = sd_dhcp_lease_get_router(lease, &gateway);
         if (r < 0 && r != -ENOENT) {
-                log_warning_link(link, "DHCP error: %s", strerror(-r));
+                log_warning_link(link, "DHCP error: could not get gateway: %s",
+                                 strerror(-r));
                 return r;
         }
 
@@ -1250,7 +1252,7 @@ static void dhcp_handler(sd_dhcp_client *client, int event, void *userdata) {
                         break;
                 default:
                         if (event < 0)
-                                log_warning_link(link, "DHCP error: %s", strerror(-event));
+                                log_warning_link(link, "DHCP error: client failed: %s", strerror(-event));
                         else
                                 log_warning_link(link, "DHCP unknown event: %d", event);
                         break;
