@@ -280,6 +280,14 @@ int parse_uid(const char *s, uid_t* ret_uid) {
         if ((unsigned long) uid != ul)
                 return -ERANGE;
 
+        /* Some libc APIs use (uid_t) -1 as special placeholder */
+        if (uid == (uid_t) 0xFFFFFFFF)
+                return -EINVAL;
+
+        /* A long time ago UIDs where 16bit, hence explicitly avoid the 32bit -1 too */
+        if (uid == (uid_t) 0xFFFF)
+                return -EINVAL;
+
         *ret_uid = uid;
         return 0;
 }
