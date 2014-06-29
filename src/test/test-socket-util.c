@@ -22,6 +22,7 @@
 #include "util.h"
 #include "macro.h"
 #include "log.h"
+#include "async.h"
 
 static void test_socket_address_parse(void) {
         SocketAddress a;
@@ -212,6 +213,58 @@ static void test_in_addr_prefix_next(void) {
 
 }
 
+static void *connect_thread(void *arg) {
+        union sockaddr_union *sa = arg;
+        _cleanup_close_ int fd = -1;
+
+        fd = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0);
+        assert(fd >= 0);
+
+        assert_se(connect(fd, &sa->sa, sizeof(sa->in)) == 0);
+
+        return NULL;
+}
+
+static void test_nameinfo_pretty(void) {
+        _cleanup_free_ char *stdin = NULL, *localhost = NULL;
+
+        union sockaddr_union s = {
+                .in.sin_family = AF_INET,
+                .in.sin_port = 0,
+                .in.sin_addr.s_addr = htonl(INADDR_ANY),
+        };
+        int r;
+
+        union sockaddr_union c = {};
+        socklen_t slen = sizeof(c.in), clen = sizeof(c.in);
+
+        _cleanup_close_ int sfd = -1, cfd = -1, afd = -1;
+        r = getnameinfo_pretty(STDIN_FILENO, &stdin);
+        log_info("No connection remote: %s", strerror(-r));
+
+        assert_se(r < 0);
+
+        sfd = socket(AF_INET, SOCK_STREAM|SOCK_CLOEXEC, 0);
+        assert(sfd >= 0);
+
+        assert_se(bind(sfd, &s.sa, sizeof(s.in)) == 0);
+
+        /* find out the port number */
+        assert_se(getsockname(sfd, &s.sa, &slen) == 0);
+
+        assert_se(listen(sfd, 1) == 0);
+
+        assert_se(asynchronous_job(connect_thread, &s) == 0);
+
+        log_debug("Accepting new connection on fd:%d", sfd);
+        cfd = accept4(sfd, &c.sa, &clen, SOCK_CLOEXEC);
+        assert(cfd >= 0);
+
+        r = getnameinfo_pretty(cfd, &localhost);
+        log_info("Connection from %s", localhost);
+        assert(r == 0);
+}
+
 int main(int argc, char *argv[]) {
 
         log_set_max_level(LOG_DEBUG);
@@ -223,6 +276,8 @@ int main(int argc, char *argv[]) {
 
         test_in_addr_prefix_intersect();
         test_in_addr_prefix_next();
+
+        test_nameinfo_pretty();
 
         return 0;
 }

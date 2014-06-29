@@ -31,6 +31,7 @@
 #include <sys/stat.h>
 #include <stddef.h>
 #include <sys/ioctl.h>
+#include <netdb.h>
 
 #include "macro.h"
 #include "util.h"
@@ -574,13 +575,12 @@ int sockaddr_pretty(const struct sockaddr *_sa, socklen_t salen, bool translate_
 
 int getpeername_pretty(int fd, char **ret) {
         union sockaddr_union sa;
-        socklen_t salen;
+        socklen_t salen = sizeof(sa);
         int r;
 
         assert(fd >= 0);
         assert(ret);
 
-        salen = sizeof(sa);
         if (getpeername(fd, &sa.sa, &salen) < 0)
                 return -errno;
 
@@ -608,12 +608,11 @@ int getpeername_pretty(int fd, char **ret) {
 
 int getsockname_pretty(int fd, char **ret) {
         union sockaddr_union sa;
-        socklen_t salen;
+        socklen_t salen = sizeof(sa);
 
         assert(fd >= 0);
         assert(ret);
 
-        salen = sizeof(sa);
         if (getsockname(fd, &sa.sa, &salen) < 0)
                 return -errno;
 
@@ -623,6 +622,49 @@ int getsockname_pretty(int fd, char **ret) {
          * IPv6 matters. */
 
         return sockaddr_pretty(&sa.sa, salen, false, ret);
+}
+
+int socknameinfo_pretty(union sockaddr_union *sa, socklen_t salen, char **_ret) {
+        int r;
+        char host[NI_MAXHOST], *ret;
+
+        assert(_ret);
+
+        r = getnameinfo(&sa->sa, salen, host, sizeof(host), NULL, 0,
+                        NI_IDN|NI_IDN_USE_STD3_ASCII_RULES);
+        if (r != 0) {
+                _cleanup_free_ char *sockname = NULL;
+                int saved_errno = errno;
+
+                r = sockaddr_pretty(&sa->sa, salen, true, &sockname);
+                if (r < 0)
+                        log_error("sockadd_pretty() failed: %s", strerror(-r));
+                else
+                        log_error("getnameinfo(%s) failed: %s", sockname, strerror(-r));
+                return -saved_errno;
+        }
+
+        ret = strdup(host);
+        if (!ret)
+                return log_oom();
+
+        *_ret = ret;
+        return 0;
+}
+
+int getnameinfo_pretty(int fd, char **ret) {
+        union sockaddr_union sa;
+        socklen_t salen = sizeof(sa);
+
+        assert(fd >= 0);
+        assert(ret);
+
+        if (getsockname(fd, &sa.sa, &salen) < 0) {
+                log_error("getsockname(%d) failed: %m", fd);
+                return -errno;
+        }
+
+        return socknameinfo_pretty(&sa, salen, ret);
 }
 
 int socket_address_unlink(SocketAddress *a) {
