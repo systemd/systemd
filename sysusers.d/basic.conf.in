@@ -35,11 +35,3 @@ g video                         -               -
 
 # Default group for normal users
 g users                         -               -
-
-# Users and groups for specific systemd subsystems
-g systemd-journal               -               -
-u systemd-journal-gateway       -               "systemd Journal Gateway"
-u systemd-bus-proxy             -               "systemd Bus Proxy"
-u systemd-network               -               "systemd Network Management"
-u systemd-resolve               -               "systemd Resolver"
-u systemd-timesync              -               "systemd Time Synchronization"

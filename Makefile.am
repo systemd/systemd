@@ -1846,15 +1846,18 @@ nodist_systemunit_DATA += \
 SYSINIT_TARGET_WANTS += \
 	systemd-sysusers.service
 
-nodist_sysusers_DATA = \
+dist_sysusers_DATA = \
 	sysusers.d/systemd.conf
+
+nodist_sysusers_DATA = \
+	sysusers.d/basic.conf
 
 EXTRA_DIST += \
 	units/systemd-sysusers.service.in \
-	sysusers.d/systemd.conf.in
+	sysusers.d/basic.conf.in
 
 CLEANFILES += \
-	sysusers.d/systemd.conf
+	sysusers.d/basic.conf
 
 INSTALL_DIRS += \
 	$(sysusersdir)
