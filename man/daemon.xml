@@ -321,29 +321,21 @@
                                 interface.</para></listitem>
 
                                 <listitem><para>Instead of using the
-                                <function>syslog()</function> call to log directly to the
-                                system syslog service, a new-style daemon may
-                                choose to simply log to standard error via
-                                <function>fprintf()</function>, which is then forwarded to
-                                syslog by the init system. If log
-                                priorities are necessary, these can be
-                                encoded by prefixing individual log
-                                lines with strings like "&lt;4&gt;"
-                                (for log priority 4 "WARNING" in the
-                                syslog priority scheme), following a
-                                similar style as the Linux kernel's
-                                <function>printk()</function> priority system. In fact,
-                                using this style of logging also
-                                enables the init system to optionally
-                                direct all application logging to the
-                                kernel log buffer (kmsg), as
-                                accessible via
-                                <citerefentry><refentrytitle>dmesg</refentrytitle><manvolnum>1</manvolnum></citerefentry>. This
-                                kind of logging may be enabled by
-                                setting
-                                <varname>StandardError=syslog</varname>
-                                in the service unit file. For details,
-                                see
+                                <function>syslog()</function> call to
+                                log directly to the system syslog
+                                service, a new-style daemon may choose
+                                to simply log to standard error via
+                                <function>fprintf()</function>, which
+                                is then forwarded to syslog by the
+                                init system. If log priorities are
+                                necessary, these can be encoded by
+                                prefixing individual log lines with
+                                strings like "&lt;4&gt;" (for log
+                                priority 4 "WARNING" in the syslog
+                                priority scheme), following a similar
+                                style as the Linux kernel's
+                                <function>printk()</function> priority
+                                system. For details, see
                                 <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                                 and
                                 <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
