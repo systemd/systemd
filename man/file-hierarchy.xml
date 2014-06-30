@@ -181,11 +181,11 @@
                                 certain time are usually automatically
                                 deleted. If applications find the
                                 environment variable
-                                <varname>$TMP</varname> set they
+                                <varname>$TMPDIR</varname> set they
                                 should prefer using the directory
                                 specified in it over directly
                                 referencing
-                                <filename>/tmp</filename>.</para></listitem>
+                                <filename>/tmp</filename> (see <citerefentry><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry> for details).</para></listitem>
                         </varlistentry>
 
                 </variablelist>
@@ -451,11 +451,11 @@
                                 or similar calls should be used to
                                 make use of this directory. If
                                 applications find the environment
-                                variable <varname>$TMP</varname> set
-                                they should prefer using the directory
-                                specified in it over directly
-                                referencing
-                                <filename>/var/tmp</filename>.
+                                variable <varname>$TMPDIR</varname>
+                                set they should prefer using the
+                                directory specified in it over
+                                directly referencing
+                                <filename>/var/tmp</filename> (see <citerefentry><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry> for details).
                                 </para></listitem>
                         </varlistentry>
 
