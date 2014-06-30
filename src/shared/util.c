@@ -3482,6 +3482,17 @@ int wait_for_terminate(pid_t pid, siginfo_t *status) {
         }
 }
 
+/*
+ * Return values:
+ * < 0 : wait_for_terminate() failed to get the state of the
+ *       process, the process was terminated by a signal, or
+ *       failed for an unknown reason.
+ * >=0 : The process terminated normally, and its exit code is
+ *       returned.
+ *
+ * That is, success is indicated by a return value of zero, and an
+ * error is indicated by a non-zero value.
+ */
 int wait_for_terminate_and_warn(const char *name, pid_t pid) {
         int r;
         siginfo_t status;
