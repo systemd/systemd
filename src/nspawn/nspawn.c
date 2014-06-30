@@ -1864,21 +1864,24 @@ static int setup_macvlan(pid_t pid) {
         return 0;
 }
 
-static int audit_still_doesnt_work_in_containers(void) {
+static int setup_seccomp(void) {
 
 #ifdef HAVE_SECCOMP
+        static const int blacklist[] = {
+                SCMP_SYS(kexec_load),
+                SCMP_SYS(open_by_handle_at),
+                SCMP_SYS(init_module),
+                SCMP_SYS(finit_module),
+                SCMP_SYS(delete_module),
+                SCMP_SYS(iopl),
+                SCMP_SYS(ioperm),
+                SCMP_SYS(swapon),
+                SCMP_SYS(swapoff),
+        };
+
         scmp_filter_ctx seccomp;
+        unsigned i;
         int r;
-
-        /*
-           Audit is broken in containers, much of the userspace audit
-           hookup will fail if running inside a container. We don't
-           care and just turn off creation of audit sockets.
-
-           This will make socket(AF_NETLINK, *, NETLINK_AUDIT) fail
-           with EAFNOSUPPORT which audit userspace uses as indication
-           that audit is disabled in the kernel.
-         */
 
         seccomp = seccomp_init(SCMP_ACT_ALLOW);
         if (!seccomp)
@@ -1889,6 +1892,26 @@ static int audit_still_doesnt_work_in_containers(void) {
                 log_error("Failed to add secondary archs to seccomp filter: %s", strerror(-r));
                 goto finish;
         }
+
+        for (i = 0; i < ELEMENTSOF(blacklist); i++) {
+                r = seccomp_rule_add(seccomp, SCMP_ACT_ERRNO(EPERM), blacklist[i], 0);
+                if (r == -EFAULT)
+                        continue; /* unknown syscall */
+                if (r < 0) {
+                        log_error("Failed to block syscall: %s", strerror(-r));
+                        goto finish;
+                }
+        }
+
+        /*
+           Audit is broken in containers, much of the userspace audit
+           hookup will fail if running inside a container. We don't
+           care and just turn off creation of audit sockets.
+
+           This will make socket(AF_NETLINK, *, NETLINK_AUDIT) fail
+           with EAFNOSUPPORT which audit userspace uses as indication
+           that audit is disabled in the kernel.
+         */
 
         r = seccomp_rule_add(
                         seccomp,
@@ -3050,7 +3073,7 @@ int main(int argc, char *argv[]) {
 
                         dev_setup(arg_directory);
 
-                        if (audit_still_doesnt_work_in_containers() < 0)
+                        if (setup_seccomp() < 0)
                                 goto child_fail;
 
                         if (setup_dev_console(arg_directory, console) < 0)
