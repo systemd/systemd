@@ -709,15 +709,15 @@
                       </row>
                       <row>
                         <entry><filename>/run/<replaceable>package</replaceable></filename></entry>
-                        <entry>Runtime data for the package. Packages must be able to create the necessary subdirectories in this tree on their own, since the directory is flushed automatically on boot. Alternatively, a <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> fragment may be used to create the necessary directories during boot.</entry>
+                        <entry>Runtime data for the package. Packages must be able to create the necessary subdirectories in this tree on their own, since the directory is flushed automatically on boot. Alternatively, a <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> fragment may be used to create the necessary directories during boot. Alternatively, the <varname>RuntimeDirectory=</varname> directive of service units may be used (see <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry> for details.)</entry>
                       </row>
                       <row>
                         <entry><filename>/run/log/<replaceable>package</replaceable></filename></entry>
-                        <entry>Runtime log data for the package.</entry>
+                        <entry>Runtime log data for the package. As above, the package needs to make sure to create this directory if necessary, as it will be flushed on every boot.</entry>
                       </row>
                       <row>
                         <entry><filename>/var/cache/<replaceable>package</replaceable></filename></entry>
-                        <entry>Persistent cache data of the package. If this directory is flushed the application should work correctly on next invocation, though possibly slowed done due to the need to rebuild any local cache files.</entry>
+                        <entry>Persistent cache data of the package. If this directory is flushed the application should work correctly on next invocation, though possibly slowed done due to the need to rebuild any local cache files. The application must be capable of recreating this directory should it be missing and necessary.</entry>
                       </row>
                       <row>
                         <entry><filename>/var/lib/<replaceable>package</replaceable></filename></entry>
@@ -725,11 +725,11 @@
                       </row>
                       <row>
                         <entry><filename>/var/log/<replaceable>package</replaceable></filename></entry>
-                        <entry>Persistent log data of the package.</entry>
+                        <entry>Persistent log data of the package. As above, the package should make sure to create this directory if necessary, as it might be missing.</entry>
                       </row>
                       <row>
                         <entry><filename>/var/spool/<replaceable>package</replaceable></filename></entry>
-                        <entry>Persistent spool/queue data of the package.</entry>
+                        <entry>Persistent spool/queue data of the package. As above, the package should make sure to create this directory if necessary, as it might be missing.</entry>
                       </row>
                     </tbody>
                   </tgroup>
@@ -743,7 +743,9 @@
                         <citerefentry><refentrytitle>hier</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd-boot-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 </para>
         </refsect1>
 
