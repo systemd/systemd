@@ -90,6 +90,8 @@ userpresetdir=$(prefix)/lib/systemd/user-preset
 tmpfilesdir=$(prefix)/lib/tmpfiles.d
 sysusersdir=$(prefix)/lib/sysusers.d
 sysctldir=$(prefix)/lib/sysctl.d
+binfmtdir=$(prefix)/lib/binfmt.d
+modulesloaddir=$(prefix)/lib/modules-load.d
 networkdir=$(rootprefix)/lib/systemd/network
 pkgincludedir=$(includedir)/systemd
 systemgeneratordir=$(rootlibexecdir)/system-generators
@@ -5138,7 +5140,11 @@ substitutions = \
        '|DNS_SERVERS=$(DNS_SERVERS)|' \
        '|systemuidmax=$(SYSTEM_UID_MAX)|' \
        '|systemgidmax=$(SYSTEM_GID_MAX)|' \
-       '|TTY_GID=$(TTY_GID)|'
+       '|TTY_GID=$(TTY_GID)|' \
+       '|systemsleepdir=$(systemsleepdir)|' \
+       '|systemshutdowndir=$(systemshutdowndir)|' \
+       '|binfmtdir=$(binfmtdir)|' \
+       '|modulesloaddir=$(modulesloaddir)|'
 
 SED_PROCESS = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
