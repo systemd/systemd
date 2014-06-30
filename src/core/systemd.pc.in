@@ -6,7 +6,6 @@
 #  (at your option) any later version.
 
 prefix=@prefix@
-exec_prefix=@exec_prefix@
 libdir=@libdir@
 systemdutildir=@rootlibexecdir@
 systemdsystemunitdir=@systemunitdir@
