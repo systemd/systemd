@@ -154,6 +154,12 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
                         _a < _b ? _a : _b;      \
                 })
 
+#define MIN3(x,y,z)                              \
+        __extension__ ({                         \
+                        typeof(x) _c = MIN(x,y); \
+                        MIN(_c, z);              \
+                })
+
 #define LESS_BY(A,B)                            \
         __extension__ ({                        \
                         typeof(A) _A = (A);     \
