@@ -322,11 +322,10 @@
                                         <filename>sysroot-usr.mount</filename>
                                         and all mount points found in
                                         <filename>/etc/fstab</filename>
-                                        that have the
-                                        <option>auto</option> and
+                                        that have
                                         <option>x-initrd.mount</option>
-                                        mount options set.
-                                        </para>
+                                        and not have <option>noauto</option>
+                                        mount options set.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
