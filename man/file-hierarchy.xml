@@ -74,12 +74,8 @@
                                 root. Usually writable, but this is
                                 not required. Possibly a temporary
                                 file system (<literal>tmpfs</literal>). Not shared with
-                                other hosts (unless read-only). The
-                                administrator may create additional
-                                top-level subdirectories in this tree,
-                                if required and the name does not
-                                conflict with any of the directories
-                                listed below.</para></listitem>
+                                other hosts (unless read-only).
+                                </para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -90,7 +86,7 @@
                                 System Partition, also see
                                 <citerefentry><refentrytitle>systemd-boot-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>. This
                                 directory is usually strictly local
-                                the host, and should be considered
+                                to the host, and should be considered
                                 read-only, except when a new kernel or
                                 boot loader is installed. This
                                 directory only exists on systems that
@@ -124,9 +120,9 @@
                                 system users. This directory and
                                 possibly the directories contained
                                 within it might only become available
-                                or writable in late boot or even on
-                                user login only. This directory might
-                                be placed on limited-functionality
+                                or writable in late boot or even only
+                                after user authentication. This directory
+                                might be placed on limited-functionality
                                 network file systems, hence
                                 applications should not assume the
                                 full set of file API is available on
@@ -169,7 +165,7 @@
                                 <listitem><para>The place for small
                                 temporary files. This directory is
                                 usually mounted as
-                                <literal>tmpfs</literal> instance, and
+                                a <literal>tmpfs</literal> instance, and
                                 should hence not be used for larger
                                 files. (Use
                                 <filename>/var/tmp</filename> for
@@ -474,7 +470,7 @@
                                 <term><filename>/dev</filename></term>
                                 <listitem><para>The root directory for
                                 device nodes. Usually this directory
-                                is mounted as
+                                is mounted as a
                                 <literal>devtmpfs</literal> instance,
                                 but might be of a different type in
                                 sandboxed/containerized setups. This
@@ -507,7 +503,7 @@
                                 programs) or
                                 <varname>$XDG_RUNTIME_DIR</varname>
                                 (for user programs) instead of POSIX
-                                shared memory segments, since they
+                                shared memory segments, since those
                                 directories are not world-writable and
                                 hence not vulnerable to
                                 security-sensitive name
