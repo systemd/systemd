@@ -3247,63 +3247,61 @@ int main(int argc, char *argv[]) {
                  * join its cgroup which might limit what it can do */
                 r = eventfd_child_succeeded(eventfds[1]);
                 eventfds[1] = safe_close(eventfds[1]);
-                if (r < 0)
-                        goto check_container_status;
 
-                r = register_machine(pid);
-                if (r < 0)
-                        goto finish;
+                if (r >= 0) {
+                        r = register_machine(pid);
+                        if (r < 0)
+                                goto finish;
 
-                r = move_network_interfaces(pid);
-                if (r < 0)
-                        goto finish;
+                        r = move_network_interfaces(pid);
+                        if (r < 0)
+                                goto finish;
 
-                r = setup_veth(pid, veth_name);
-                if (r < 0)
-                        goto finish;
+                        r = setup_veth(pid, veth_name);
+                        if (r < 0)
+                                goto finish;
 
-                r = setup_bridge(veth_name);
-                if (r < 0)
-                        goto finish;
+                        r = setup_bridge(veth_name);
+                        if (r < 0)
+                                goto finish;
 
-                r = setup_macvlan(pid);
-                if (r < 0)
-                        goto finish;
+                        r = setup_macvlan(pid);
+                        if (r < 0)
+                                goto finish;
 
-                /* Block SIGCHLD here, before notifying child.
-                 * process_pty() will handle it with the other signals. */
-                r = sigprocmask(SIG_BLOCK, &mask_chld, NULL);
-                if (r < 0)
-                        goto finish;
+                        /* Block SIGCHLD here, before notifying child.
+                         * process_pty() will handle it with the other signals. */
+                        r = sigprocmask(SIG_BLOCK, &mask_chld, NULL);
+                        if (r < 0)
+                                goto finish;
 
-                /* Reset signal to default */
-                r = default_signals(SIGCHLD, -1);
-                if (r < 0)
-                        goto finish;
+                        /* Reset signal to default */
+                        r = default_signals(SIGCHLD, -1);
+                        if (r < 0)
+                                goto finish;
 
-                /* Notify the child that the parent is ready with all
-                 * its setup, and that the child can now hand over
-                 * control to the code to run inside the container. */
-                r = eventfd_send_state(eventfds[0],
-                                       EVENTFD_PARENT_SUCCEEDED);
-                eventfds[0] = safe_close(eventfds[0]);
-                if (r < 0)
-                        goto finish;
+                        /* Notify the child that the parent is ready with all
+                         * its setup, and that the child can now hand over
+                         * control to the code to run inside the container. */
+                        r = eventfd_send_state(eventfds[0], EVENTFD_PARENT_SUCCEEDED);
+                        eventfds[0] = safe_close(eventfds[0]);
+                        if (r < 0)
+                                goto finish;
 
-                k = process_pty(master, &mask, arg_boot ? pid : 0, SIGRTMIN+3);
-                if (k < 0) {
-                        r = EXIT_FAILURE;
-                        break;
+                        k = process_pty(master, &mask, arg_boot ? pid : 0, SIGRTMIN+3);
+                        if (k < 0) {
+                                r = EXIT_FAILURE;
+                                break;
+                        }
+
+                        if (!arg_quiet)
+                                putc('\n', stdout);
+
+                        /* Kill if it is not dead yet anyway */
+                        terminate_machine(pid);
                 }
 
-                if (!arg_quiet)
-                        putc('\n', stdout);
-
-                /* Kill if it is not dead yet anyway */
-                terminate_machine(pid);
-
-check_container_status:
-                /* Redundant, but better safe than sorry */
+                /* Normally redundant, but better safe than sorry */
                 kill(pid, SIGKILL);
 
                 r = wait_for_container(pid, &container_status);
