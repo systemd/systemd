@@ -282,22 +282,36 @@
 
                         <varlistentry>
                                 <term><filename>/usr/lib</filename></term>
-                                <listitem><para>System libraries and
-                                package-specific
-                                data.</para></listitem>
+                                <listitem><para>Static vendor data
+                                that is compatible with all
+                                architectures (though not necessarily
+                                architecture-independent). Note that
+                                this includes internal
+                                executables or other binaries that are
+                                not regularly invoked from a
+                                shell. Such binaries may be for any
+                                architecture supported by the
+                                system. Do not place public libraries
+                                in this directory, use
+                                <varname>$libdir</varname> (see
+                                below), instead.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term><filename>/usr/lib64</filename></term>
-                                <listitem><para>Secondary library
-                                directory for placing 64bit versions
-                                of system libraries in, if the primary
-                                architecture of the system is 32bit,
-                                and <filename>/usr/lib64</filename> is
-                                defined in the platform ABI. This
-                                directory should not be used for
-                                package-specific data, unless this
-                                data requires 64bit-specific versions,
+                                <term><varname>$libdir</varname></term>
+                                <listitem><para>Location for placing
+                                dynamic libraries in. The precise
+                                location depends on the operating
+                                system and the architecture, and is
+                                sometimes
+                                <filename>/usr/lib</filename>,
+                                <filename>/use/lib64</filename> or
+                                <filename>/usr/lib/</filename>
+                                suffixed by an architecture
+                                identifier. This directory should not
+                                be used for package-specific data,
+                                unless this data is
+                                architecture-dependent,
                                 too.</para></listitem>
                         </varlistentry>
 
@@ -568,23 +582,23 @@
                                 <listitem><para>This compatibility
                                 symlink points to
                                 <filename>/usr/lib</filename>,
-                                ensuring that binaries referencing
+                                ensuring that programs referencing
                                 this legacy path correctly find
-                                their libraries.</para></listitem>
+                                their resources.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
                                 <term><filename>/lib64</filename></term>
 
-                                <listitem><para>This compatibility
-                                symlink points to
-                                <filename>/usr/lib64</filename>,
+                                <listitem><para>On some architecture
+                                ABIs this compatibility symlink points
+                                to <varname>$libdir</varname>,
                                 ensuring that binaries referencing
                                 this legacy path correctly find their
-                                libraries. This symlink only exists on
-                                architectures whose ABI requires a
-                                64bit version of the library
-                                directory.</para></listitem>
+                                dynamic loader. This symlink only
+                                exists on architectures whose ABI
+                                places the dynamic loader in this
+                                path.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -623,23 +637,19 @@
                     <tbody>
                       <row>
                         <entry><filename>/usr/bin</filename></entry>
-                        <entry>Package executables that shall appear in the <varname>$PATH</varname> executable search path. It is not recommended to place internal binaries or binaries that are not commonly invoked from the shell in this directory, such as daemon binaries. As this directory is shared with most other packages of the system special care should be take to pick unique names for files placed here, that are unlikely to clash with other package's files.</entry>
+                        <entry>Package executables that shall appear in the <varname>$PATH</varname> executable search path, compiled for the primary architecture of the operating system. It is not recommended to place internal binaries or binaries that are not commonly invoked from the shell in this directory, such as daemon binaries. As this directory is shared with most other packages of the system special care should be take to pick unique names for files placed here, that are unlikely to clash with other package's files.</entry>
                       </row>
                       <row>
-                        <entry><filename>/usr/lib</filename></entry>
-                        <entry>Public shared libraries of the package, compiled for the primary architecture of the operating system. As above, be careful with using too generic names, and pick unique names for your libraries to place here to avoid name clashes.</entry>
+                        <entry><filename>$libdir</filename></entry>
+                        <entry>Public shared libraries of the package. As above, be careful with using too generic names, and pick unique names for your libraries to place here to avoid name clashes.</entry>
                       </row>
                       <row>
                         <entry><filename>/usr/lib/<replaceable>package</replaceable></filename></entry>
-                        <entry>Private other vendor resources of the package, including private binaries and libraries, but also including any other kind of read-only vendor data.</entry>
+                        <entry>Private static vendor resources of the package, including private binaries and libraries, or any other kind of read-only vendor data.</entry>
                       </row>
                       <row>
-                        <entry><filename>/usr/lib64</filename></entry>
-                        <entry>Public shared libraries of the package, compiled for the secondary, 64bit architecture, if this is part of the platform ABI of the architecture.</entry>
-                      </row>
-                      <row>
-                        <entry><filename>/usr/lib64/<replaceable>package</replaceable></filename></entry>
-                        <entry>Private other vendor resources of the package that are architecture-specific and cannot be shared between primary and secondary architectures. Note that this generally does not include private binaries since binaries of the primary architecture may generally be invoked from secondary architecture code just fine.</entry>
+                        <entry><filename>$libdir/<replaceable>package</replaceable></filename></entry>
+                        <entry>Private other vendor resources of the package that are architecture-specific and cannot be shared between architectures. Note that this generally does not include private exectuables since binaries of a specific architecture may be freely invoked from any other supported system architecture.</entry>
                       </row>
                       <row>
                         <entry><filename>/usr/include/<replaceable>package</replaceable></filename></entry>
