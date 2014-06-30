@@ -2666,8 +2666,10 @@ static int wait_for_container(pid_t pid, ContainerStatus *container) {
         siginfo_t status;
 
         r = wait_for_terminate(pid, &status);
-        if (r < 0)
+        if (r < 0) {
+                log_warning("Failed to wait for container: %s", strerror(-r));
                 return r;
+        }
 
         switch (status.si_code) {
         case CLD_EXITED:
