@@ -698,10 +698,7 @@ static int fd_fd(const char *spec) {
         if (r < 0)
                 return r;
 
-        if (fd >= 0)
-                return -ENOENT;
-
-        return -fd;
+        return -1;
 }
 
 
@@ -1118,14 +1115,8 @@ static int parse_argv(int argc, char *argv[]) {
                         r = fd_fd(optarg);
                         if (r >= 0)
                                 http_socket = r;
-                        else if (r == -ENOENT)
+                        else
                                 arg_listen_http = optarg;
-                        else {
-                                log_error("Invalid port/fd specification %s: %s",
-                                          optarg, strerror(-r));
-                                return -EINVAL;
-                        }
-
                         break;
 
                 case ARG_LISTEN_HTTPS:
@@ -1137,13 +1128,8 @@ static int parse_argv(int argc, char *argv[]) {
                         r = fd_fd(optarg);
                         if (r >= 0)
                                 https_socket = r;
-                        else if (r == -ENOENT)
+                        else
                                 arg_listen_https = optarg;
-                        else {
-                                log_error("Invalid port/fd specification %s: %s",
-                                          optarg, strerror(-r));
-                                return -EINVAL;
-                        }
 
                         break;
 
