@@ -25,6 +25,8 @@ External:
 
 Features:
 
+* sysusers: add "m" command for declaring group members
+
 * refuse mounting on symlinks
 
 * logind: allow users to kill or lock their own sessions
