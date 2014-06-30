@@ -3309,14 +3309,15 @@ check_container_status:
                 r = wait_for_container(pid, &container_status);
                 pid = 0;
 
-                if (r != 0) {
-                        /* If r < 0, explicitly set to EXIT_FAILURE,
-                         * otherwise return the exit code of the
-                         * containered process. */
-                        if (r < 0)
-                                r = EXIT_FAILURE;
+                if (r < 0) {
+                        /* We failed to wait for the container, or the
+                         * container exited abnormally */
+                        r = EXIT_FAILURE;
                         break;
-                } else if (container_status == CONTAINER_TERMINATED)
+                } else if (r > 0 || container_status == CONTAINER_TERMINATED)
+                        /* The container exited with a non-zero
+                         * status, or with zero status and no reboot
+                         * was requested. */
                         break;
 
                 /* CONTAINER_REBOOTED, loop again */
