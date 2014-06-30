@@ -311,8 +311,11 @@
                                 identifier. This directory should not
                                 be used for package-specific data,
                                 unless this data is
-                                architecture-dependent,
-                                too.</para></listitem>
+                                architecture-dependent, too. To query
+                                <varname>$libdir</varname> for the
+                                primary architecture of the system,
+                                invoke
+                                <programlisting># pkg-config --variable=libdir systemd</programlisting></para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -695,6 +698,7 @@
                         <citerefentry><refentrytitle>hier</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd-boot-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 </para>
         </refsect1>
 
