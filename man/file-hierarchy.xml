@@ -130,7 +130,13 @@
                                 network file systems, hence
                                 applications should not assume the
                                 full set of file API is available on
-                                this directory.</para></listitem>
+                                this directory. Applications should
+                                generally not reference this directory
+                                directly, but via the per-user
+                                <varname>$HOME</varname> environment
+                                variable, or via the home directory
+                                field of the user
+                                database.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -165,7 +171,9 @@
                                 usually mounted as
                                 <literal>tmpfs</literal> instance, and
                                 should hence not be used for larger
-                                files. Since the directory is
+                                files. (Use
+                                <filename>/var/tmp</filename> for
+                                larger files.) Since the directory is
                                 accessible to other users of the
                                 system it is essential that this
                                 directory is only written to with the
@@ -175,7 +183,13 @@
                                 usually flushed at boot-up. Also,
                                 files that are not accessed within a
                                 certain time are usually automatically
-                                deleted.</para></listitem>
+                                deleted. If applications find the
+                                environment variable
+                                <varname>$TMP</varname> set they
+                                should prefer using the directory
+                                specified in it over directly
+                                referencing
+                                <filename>/tmp</filename>.</para></listitem>
                         </varlistentry>
 
                 </variablelist>
@@ -278,11 +292,13 @@
                                 <listitem><para>Secondary library
                                 directory for placing 64bit versions
                                 of system libraries in, if the primary
-                                architecture of the system is
-                                32bit. This directory should not be
-                                used for package-specific data, unless
-                                this data requires 64bit-specific
-                                versions, too.</para></listitem>
+                                architecture of the system is 32bit,
+                                and <filename>/usr/lib64</filename> is
+                                defined in the platform ABI. This
+                                directory should not be used for
+                                package-specific data, unless this
+                                data requires 64bit-specific versions,
+                                too.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -291,7 +307,11 @@
                                 betwen multiple packages, such as
                                 documentation, man pages, time zone
                                 information, fonts and other
-                                resources.</para></listitem>
+                                resources. Usually, the precise
+                                location and format of files stored
+                                below this directory is subject to
+                                specifications that ensure
+                                interoperability.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -403,18 +423,26 @@
                                 contrast to <filename>/tmp</filename>
                                 this directory is usually mounted from
                                 a persistent physical file system and
-                                can thus accept larger files. This
-                                directory is generally not flushed at
-                                boot-up, but time-based cleanup of
-                                files that have not been accessed for
-                                a certain time is applied. The same
-                                security restrictions as with
+                                can thus accept larger files. (Use
+                                <filename>/tmp</filename> for smaller
+                                files.) This directory is generally
+                                not flushed at boot-up, but time-based
+                                cleanup of files that have not been
+                                accessed for a certain time is
+                                applied. The same security
+                                restrictions as with
                                 <filename>/tmp</filename> apply, and
                                 hence only
                                 <citerefentry><refentrytitle>mkstemp</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                                 <citerefentry><refentrytitle>mkdtemp</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                                 or similar calls should be used to
-                                make use of this directory.
+                                make use of this directory. If
+                                applications find the environment
+                                variable <varname>$TMP</varname> set
+                                they should prefer using the directory
+                                specified in it over directly
+                                referencing
+                                <filename>/var/tmp</filename>.
                                 </para></listitem>
                         </varlistentry>
 
@@ -607,7 +635,7 @@
                       </row>
                       <row>
                         <entry><filename>/usr/lib64</filename></entry>
-                        <entry>Public shared libraries of the package, compiled for the secondary, 64bit architecture, if this is part of the Operating System ABI.</entry>
+                        <entry>Public shared libraries of the package, compiled for the secondary, 64bit architecture, if this is part of the platform ABI of the architecture.</entry>
                       </row>
                       <row>
                         <entry><filename>/usr/lib64/<replaceable>package</replaceable></filename></entry>
