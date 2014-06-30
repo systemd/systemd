@@ -54,7 +54,7 @@
                 <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 system and service manager are organized based on a
                 file system hierarchy inspired by UNIX, more
-                specificaly the hierarchy described in the <ulink
+                specifically the hierarchy described in the <ulink
                 url="http://refspecs.linuxfoundation.org/FHS_2.3/fhs-2.3.html">File
                 System Hierarchy</ulink> specification and
                 <citerefentry><refentrytitle>hier</refentrytitle><manvolnum>7</manvolnum></citerefentry>. This
@@ -206,7 +206,7 @@
                                 for system packages to place runtime
                                 data in. This directory is flushed on
                                 boot, and generally writable for
-                                priviliged programs
+                                privileged programs
                                 only. Always writable.</para></listitem>
                         </varlistentry>
 
@@ -225,7 +225,7 @@
                                 <term><filename>/run/user</filename></term>
                                 <listitem><para>Contains per-user
                                 runtime directories, each usually
-                                invidually mounted
+                                individually mounted
                                 <literal>tmpfs</literal>
                                 instances. Always writable, flushed at
                                 each reboot and when the user logs
@@ -318,7 +318,7 @@
                         <varlistentry>
                                 <term><filename>/usr/share</filename></term>
                                 <listitem><para>Resources shared
-                                betwen multiple packages, such as
+                                between multiple packages, such as
                                 documentation, man pages, time zone
                                 information, fonts and other
                                 resources. Usually, the precise
@@ -637,7 +637,7 @@
                     <tbody>
                       <row>
                         <entry><filename>/usr/bin</filename></entry>
-                        <entry>Package executables that shall appear in the <varname>$PATH</varname> executable search path, compiled for the primary architecture of the operating system. It is not recommended to place internal binaries or binaries that are not commonly invoked from the shell in this directory, such as daemon binaries. As this directory is shared with most other packages of the system special care should be take to pick unique names for files placed here, that are unlikely to clash with other package's files.</entry>
+                        <entry>Package executables that shall appear in the <varname>$PATH</varname> executable search path, compiled for the primary architecture of the operating system. It is not recommended to place internal binaries or binaries that are not commonly invoked from the shell in this directory, such as daemon binaries. As this directory is shared with most other packages of the system special care should be taken to pick unique names for files placed here, that are unlikely to clash with other package's files.</entry>
                       </row>
                       <row>
                         <entry><filename>$libdir</filename></entry>
@@ -657,7 +657,7 @@
                       </row>
                       <row>
                         <entry><filename>/etc/<replaceable>package</replaceable></filename></entry>
-                        <entry>System-specific configuration for the package. It is recommended to default to safe fallbacks if this configuration is missing, if this is possible. Alternatively, a <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> fragment may be used to copy or symlink the necessary files and directores from <filename>/usr/share/factory</filename> during boot, via the <literal>L</literal> or <literal>C</literal> directives.</entry>
+                        <entry>System-specific configuration for the package. It is recommended to default to safe fallbacks if this configuration is missing, if this is possible. Alternatively, a <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> fragment may be used to copy or symlink the necessary files and directories from <filename>/usr/share/factory</filename> during boot, via the <literal>L</literal> or <literal>C</literal> directives.</entry>
                       </row>
                       <row>
                         <entry><filename>/run/<replaceable>package</replaceable></filename></entry>
