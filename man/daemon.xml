@@ -935,7 +935,7 @@ fi</programlisting>
         <refsect1>
                 <title>Placing Daemon Data</title>
 
-                <para>It is recommended to follow the genreal
+                <para>It is recommended to follow the general
                 guidelines for placing package files, as discussed in
                 <citerefentry><refentrytitle>file-hierarchy</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
         </refsect1>
