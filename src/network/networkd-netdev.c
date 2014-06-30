@@ -221,6 +221,7 @@ static int netdev_enter_ready(NetDev *netdev) {
 
         return 0;
 }
+
 static int netdev_create_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
         NetDev *netdev = userdata;
         int r;
