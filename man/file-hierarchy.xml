@@ -615,6 +615,55 @@
         </refsect1>
 
         <refsect1>
+                <title>Unpriviliged Write Access</title>
+
+                <para>Unpriviliged processes generally lack
+                write access to most of the hierarchy.</para>
+
+                <para>The exceptions for normal users are
+                <filename>/tmp</filename>,
+                <filename>/var/tmp</filename>,
+                <filename>/dev/shm</filename>, as well as the home
+                directory <varname>$HOME</varname> (usually found
+                below <filename>/home</filename>) and the runtime
+                directory <varname>$XDG_RUNTIME_DIR</varname> (found
+                below <filename>/run/user</filename>) of the
+                user, which are all writable.</para>
+
+                <para>For unpriviliged system processes only
+                <filename>/tmp</filename>,
+                <filename>/var/tmp</filename> and
+                <filename>/dev/shm</filename> are writable. If an
+                unpriviliged system process needs a private, writable
+                directory in <filename>/var</filename> or
+                <filename>/run</filename>, it is recommended to either
+                create it before dropping priviliges in the daemon
+                code, to create it via
+                <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                fragments during boot, or via the
+                <varname>RuntimeDirectory=</varname> directive of
+                service units (see
+                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                for details).</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Node Types</title>
+
+                <para>Unix file systems support different types of file
+                nodes, including regular files, directories, symlinks,
+                character and block device nodes, sockets and FIFOs.</para>
+
+                <para>It is strongly recommended that
+                <filename>/dev</filename> is the only location below
+                which device nodes shall be placed. Similar,
+                <filename>/run</filename> shall be the only location
+                to place sockets and FIFOs. Regular files,
+                directories and symlinks may be used in all
+                directories.</para>
+        </refsect1>
+
+        <refsect1>
                 <title>System Packages</title>
 
                 <para>Developers of system packages should follow
