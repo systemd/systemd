@@ -1,0 +1,663 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2014 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="file-hierarchy">
+
+        <refentryinfo>
+                <title>file-hierarchy</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Lennart</firstname>
+                                <surname>Poettering</surname>
+                                <email>lennart@poettering.net</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>file-hierarchy</refentrytitle>
+                <manvolnum>7</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>file-hierarchy</refname>
+                <refpurpose>File system hierarchy overview</refpurpose>
+        </refnamediv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para>Operating systems using the
+                <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                system and service manager are organized based on a
+                file system hierarchy inspired by UNIX, more
+                specificaly the hierarchy described in the <ulink
+                url="http://refspecs.linuxfoundation.org/FHS_2.3/fhs-2.3.html">File
+                System Hierarchy</ulink> specification and
+                <citerefentry><refentrytitle>hier</refentrytitle><manvolnum>7</manvolnum></citerefentry>. This
+                manual page describes a more minimal, modernized
+                subset of these specifications that defines more
+                strictly the suggestions and restrictions systemd
+                makes on the file system hierarchy.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>General Structure</title>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><filename>/</filename></term>
+                                <listitem><para>The file system
+                                root. Usually writable, but this is
+                                not required. Possibly a temporary
+                                file system (<literal>tmpfs</literal>). Not shared with
+                                other hosts (unless read-only). The
+                                administrator may create additional
+                                top-level subdirectories in this tree,
+                                if required and the name does not
+                                conflict with any of the directories
+                                listed below.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><filename>/boot</filename></term>
+                                <listitem><para>The boot partition
+                                used for bringing up the system. On
+                                EFI systems this is possibly the EFI
+                                System Partition, also see
+                                <citerefentry><refentrytitle>systemd-boot-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>. This
+                                directory is usually strictly local
+                                the host, and should be considered
+                                read-only, except when a new kernel or
+                                boot loader is installed. This
+                                directory only exists on systems that
+                                run on physical or emulated hardware
+                                that requires boot
+                                loaders.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><filename>/etc</filename></term>
+                                <listitem><para>System-specific
+                                configuration. This directory may or
+                                may not be read-only. Frequently, this
+                                directory is pre-populated with
+                                vendor-supplied configuration files,
+                                but applications should not make
+                                assumptions about this directory
+                                being fully populated or populated at
+                                all, and should fall back to defaults
+                                if configuration is missing.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><filename>/home</filename></term>
+                                <listitem><para>The location for
+                                normal user's home
+                                directories. Possibly shared with
+                                other systems, and never
+                                read-only. This directory should only
+                                be used for normal users, never for
+                                system users. This directory and
+                                possibly the directories contained
+                                within it might only become available
+                                or writable in late boot or even on
+                                user login only. This directory might
+                                be placed on limited-functionality
+                                network file systems, hence
+                                applications should not assume the
+                                full set of file API is available on
+                                this directory.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><filename>/root</filename></term>
+                                <listitem><para>The home directory of
+                                the root user. The root user's home
+                                directory is located outside of
+                                <filename>/home</filename> in order to
+                                make sure the root user may log in
+                                even without <filename>/home</filename>
+                                being available and
+                                mounted.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><filename>/srv</filename></term>
+                                <listitem><para>The place to store
+                                general server payload, managed by the
+                                administrator. No restrictions are
+                                made how this directory is organized
+                                internally. Generally writable, and
+                                possibly shared among systems. This
+                                directory might become available or
+                                writable only very late during
+                                boot.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><filename>/tmp</filename></term>
+                                <listitem><para>The place for small
+                                temporary files. This directory is
+                                usually mounted as
+                                <literal>tmpfs</literal> instance, and
+                                should hence not be used for larger
+                                files. Since the directory is
+                                accessible to other users of the
+                                system it is essential that this
+                                directory is only written to with the
+                                <citerefentry><refentrytitle>mkstemp</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                                <citerefentry><refentrytitle>mkdtemp</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                                and related calls. This directory is
+                                usually flushed at boot-up. Also,
+                                files that are not accessed within a
+                                certain time are usually automatically
+                                deleted.</para></listitem>
+                        </varlistentry>
+
+                </variablelist>
+        </refsect1>
+
+        <refsect1>
+                <title>Runtime Data</title>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><filename>/run</filename></term>
+                                <listitem><para>A
+                                <literal>tmpfs</literal> file system
+                                for system packages to place runtime
+                                data in. This directory is flushed on
+                                boot, and generally writable for
+                                priviliged programs
+                                only. Always writable.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><filename>/run/log</filename></term>
+                                <listitem><para>Runtime system
+                                logs. System components may place
+                                private logs in this directory. Always
+                                writable, even when
+                                <filename>/var/log</filename> might
+                                not be accessible
+                                yet.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><filename>/run/user</filename></term>
+                                <listitem><para>Contains per-user
+                                runtime directories, each usually
+                                invidually mounted
+                                <literal>tmpfs</literal>
+                                instances. Always writable, flushed at
+                                each reboot and when the user logs
+                                out. User code should not reference
+                                this directory directly, but via the
+                                <varname>$XDG_RUNTIME_DIR</varname>
+                                environment variable, as documented in
+                                the <ulink
+                                url="http://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html">XDG
+                                Base Directory
+                                Specification</ulink>.</para></listitem>
+                        </varlistentry>
+                </variablelist>
+        </refsect1>
+
+        <refsect1>
+                <title>Vendor-supplied Operating System Resources</title>
+
+                <variablelist>
+
+                        <varlistentry>
+                                <term><filename>/usr</filename></term>
+                                <listitem><para>Vendor-supplied
+                                operating system resources. Usually
+                                read-only, but this is not
+                                required. Possibly shared between
+                                multiple hosts. This directory should
+                                not be modified by the administrator,
+                                except when installing or removing
+                                vendor-supplied
+                                packages.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><filename>/usr/bin</filename></term>
+                                <listitem><para>Binaries for user
+                                commands, that shall appear in the
+                                <varname>$PATH</varname> search
+                                path. It is recommended not to place
+                                binaries in this directory that are
+                                not useful for invocation from a shell
+                                (such as daemon binaries); these
+                                should be placed in a subdirectory of
+                                <filename>/usr/lib</filename>
+                                instead.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><filename>/usr/include</filename></term>
+                                <listitem><para>C and C++ API header
+                                files of system
+                                libraries.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><filename>/usr/lib</filename></term>
+                                <listitem><para>System libraries and
+                                package-specific
+                                data.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><filename>/usr/lib64</filename></term>
+                                <listitem><para>Secondary library
+                                directory for placing 64bit versions
+                                of system libraries in, if the primary
+                                architecture of the system is
+                                32bit. This directory should not be
+                                used for package-specific data, unless
+                                this data requires 64bit-specific
+                                versions, too.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><filename>/usr/share</filename></term>
+                                <listitem><para>Resources shared
+                                betwen multiple packages, such as
+                                documentation, man pages, time zone
+                                information, fonts and other
+                                resources.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><filename>/usr/share/doc</filename></term>
+                                <listitem><para>Documentation for the
+                                operating system or system
+                                packages.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><filename>/usr/share/factory/etc</filename></term>
+                                <listitem><para>Repository for
+                                vendor-supplied default configuration
+                                files. This directory should be
+                                populated with pristine vendor versions
+                                of all configuration files that may be
+                                placed in
+                                <filename>/etc</filename>. This is
+                                useful to compare the local
+                                configuration of a system with vendor
+                                defaults and to populate the local
+                                configuration with
+                                defaults.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><filename>/usr/share/factory/var</filename></term>
+
+                                <listitem><para>Similar to
+                                <filename>/usr/share/factory/etc</filename>
+                                but for vendor versions of files in
+                                the variable, persistent data
+                                directory
+                                <filename>/var</filename>.</para></listitem>
+
+                        </varlistentry>
+                </variablelist>
+        </refsect1>
+
+        <refsect1>
+                <title>Persistent Variable System Data</title>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><filename>/var</filename></term>
+                                <listitem><para>Persistent, variable
+                                system data. Must be writable. This
+                                directory might be pre-populated with
+                                vendor-supplied data, but applications
+                                should be able to reconstruct
+                                necessary files and directories in
+                                this subhierarchy should they be
+                                missing, as the system might start up
+                                without this directory being
+                                populated. Persistency is recommended,
+                                but optional, to support ephemeral
+                                systems. This directory might become
+                                available or writable only very late
+                                during boot. Components that are
+                                required to operate during early boot
+                                hence shall not unconditionally rely
+                                on this directory.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><filename>/var/cache</filename></term>
+                                <listitem><para>Persistent system
+                                cache data. System components may
+                                place non-essential data in this
+                                directory. Flushing this directory
+                                should have no effect on operation of
+                                programs, except for increased
+                                runtimes necessary to rebuild these
+                                caches.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><filename>/var/lib</filename></term>
+                                <listitem><para>Persistent system
+                                data. System components may
+                                place private data in this
+                                directory.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><filename>/var/log</filename></term>
+                                <listitem><para>Persistent system
+                                logs. System components may place
+                                private logs in this directory, though
+                                it is recommended to do most logging
+                                via the
+                                <citerefentry><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                                and
+                                <citerefentry><refentrytitle>sd_journal_print</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                                calls.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><filename>/var/spool</filename></term>
+                                <listitem><para>Persistent system
+                                spool data, such as printer or mail
+                                queues.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><filename>/var/tmp</filename></term>
+                                <listitem><para>The place for larger
+                                and persistent temporary files. In
+                                contrast to <filename>/tmp</filename>
+                                this directory is usually mounted from
+                                a persistent physical file system and
+                                can thus accept larger files. This
+                                directory is generally not flushed at
+                                boot-up, but time-based cleanup of
+                                files that have not been accessed for
+                                a certain time is applied. The same
+                                security restrictions as with
+                                <filename>/tmp</filename> apply, and
+                                hence only
+                                <citerefentry><refentrytitle>mkstemp</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                                <citerefentry><refentrytitle>mkdtemp</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                                or similar calls should be used to
+                                make use of this directory.
+                                </para></listitem>
+                        </varlistentry>
+
+                </variablelist>
+        </refsect1>
+
+        <refsect1>
+                <title>Virtual Kernel and API File Systems</title>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><filename>/dev</filename></term>
+                                <listitem><para>The root directory for
+                                device nodes. Usually this directory
+                                is mounted as
+                                <literal>devtmpfs</literal> instance,
+                                but might be of a different type in
+                                sandboxed/containerized setups. This
+                                directory is managed jointly by the
+                                kernel and
+                                <citerefentry><refentrytitle>systemd-udevd</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                                and should not be written to by other
+                                components. A number of special
+                                purpose virtual file systems might be
+                                mounted below this
+                                directory.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><filename>/dev/shm</filename></term>
+                                <listitem><para>Place for POSIX shared
+                                memory segments, as created via
+                                <citerefentry><refentrytitle>shm_open</refentrytitle><manvolnum>3</manvolnum></citerefentry>. This
+                                directory is flushed on boot, and is a
+                                <literal>tmpfs</literal> file
+                                system. Since all users have write
+                                access to this directory, special care
+                                should be taken to avoid name clashes
+                                and vulnerabilities. For normal users,
+                                shared memory segments in this
+                                directory are usually deleted when the
+                                user logs out. Usually it is a better
+                                idea to use memory mapped files in
+                                <filename>/run</filename> (for system
+                                programs) or
+                                <varname>$XDG_RUNTIME_DIR</varname>
+                                (for user programs) instead of POSIX
+                                shared memory segments, since they
+                                directories are not world-writable and
+                                hence not vulnerable to
+                                security-sensitive name
+                                clashes.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><filename>/proc</filename></term>
+                                <listitem><para>A virtual kernel file
+                                system exposing the process list and
+                                other functionality. This file system
+                                is mostly an API to interface with the
+                                kernel and not a place where normal
+                                files may be stored. For details, see
+                                <citerefentry><refentrytitle>proc</refentrytitle><manvolnum>5</manvolnum></citerefentry>. A
+                                number of special purpose virtual file
+                                systems might be mounted below this
+                                directory.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><filename>/proc/sys</filename></term>
+                                <listitem><para>A hierarchy below
+                                <filename>/proc</filename> that
+                                exposes a number of kernel
+                                tunables. The primary way to configure
+                                the settings in this API file tree is
+                                via
+                                <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                files. In sandboxed/containerized
+                                setups this directory is generally
+                                mounted read-only.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><filename>/sys</filename></term>
+                                <listitem><para>A virtual kernel file
+                                system exposing discovered devices and
+                                other functionality. This file system
+                                is mostly an API to interface with the
+                                kernel and not a place where normal
+                                files may be stored. In
+                                sandboxed/containerized setups this
+                                directory is generally mounted
+                                read-only. A number of special purpose
+                                virtual file systems might be mounted
+                                below this
+                                directory.</para></listitem>
+                        </varlistentry>
+
+
+                </variablelist>
+        </refsect1>
+
+        <refsect1>
+                <title>Compatibility Symlinks</title>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><filename>/bin</filename></term>
+                                <term><filename>/sbin</filename></term>
+                                <term><filename>/usr/sbin</filename></term>
+
+                                <listitem><para>These compatibility
+                                symlinks point to
+                                <filename>/usr/bin</filename>,
+                                ensuring that scripts and binaries
+                                referencing these legacy paths
+                                correctly find their binaries.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><filename>/lib</filename></term>
+
+                                <listitem><para>This compatibility
+                                symlink points to
+                                <filename>/usr/lib</filename>,
+                                ensuring that binaries referencing
+                                this legacy path correctly find
+                                their libraries.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><filename>/lib64</filename></term>
+
+                                <listitem><para>This compatibility
+                                symlink points to
+                                <filename>/usr/lib64</filename>,
+                                ensuring that binaries referencing
+                                this legacy path correctly find their
+                                libraries. This symlink only exists on
+                                architectures whose ABI requires a
+                                64bit version of the library
+                                directory.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><filename>/var/run</filename></term>
+
+                                <listitem><para>This compatibility
+                                symlink points to
+                                <filename>/run</filename>, ensuring
+                                that programs referencing this legacy
+                                path correctly find their runtime
+                                data.</para></listitem>
+                        </varlistentry>
+
+                </variablelist>
+        </refsect1>
+
+        <refsect1>
+                <title>System Packages</title>
+
+                <para>Developers of system packages should follow
+                strict rules when placing their own files in the file
+                system. The following table lists recommended
+                locations for specific types of files.</para>
+
+                <table>
+                  <title>System Package Data Location</title>
+                  <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+                    <colspec colname="directory" />
+                    <colspec colname="purpose" />
+                    <thead>
+                      <row>
+                        <entry>Directory</entry>
+                        <entry>Purpose</entry>
+                      </row>
+                    </thead>
+                    <tbody>
+                      <row>
+                        <entry><filename>/usr/bin</filename></entry>
+                        <entry>Package executables that shall appear in the <varname>$PATH</varname> executable search path. It is not recommended to place internal binaries or binaries that are not commonly invoked from the shell in this directory, such as daemon binaries. As this directory is shared with most other packages of the system special care should be take to pick unique names for files placed here, that are unlikely to clash with other package's files.</entry>
+                      </row>
+                      <row>
+                        <entry><filename>/usr/lib</filename></entry>
+                        <entry>Public shared libraries of the package, compiled for the primary architecture of the operating system. As above, be careful with using too generic names, and pick unique names for your libraries to place here to avoid name clashes.</entry>
+                      </row>
+                      <row>
+                        <entry><filename>/usr/lib/<replaceable>package</replaceable></filename></entry>
+                        <entry>Private other vendor resources of the package, including private binaries and libraries, but also including any other kind of read-only vendor data.</entry>
+                      </row>
+                      <row>
+                        <entry><filename>/usr/lib64</filename></entry>
+                        <entry>Public shared libraries of the package, compiled for the secondary, 64bit architecture, if this is part of the Operating System ABI.</entry>
+                      </row>
+                      <row>
+                        <entry><filename>/usr/lib64/<replaceable>package</replaceable></filename></entry>
+                        <entry>Private other vendor resources of the package that are architecture-specific and cannot be shared between primary and secondary architectures. Note that this generally does not include private binaries since binaries of the primary architecture may generally be invoked from secondary architecture code just fine.</entry>
+                      </row>
+                      <row>
+                        <entry><filename>/usr/include/<replaceable>package</replaceable></filename></entry>
+                        <entry>Public C/C++ APIs of public shared libraries of the package.</entry>
+                      </row>
+                      <row>
+                        <entry><filename>/etc/<replaceable>package</replaceable></filename></entry>
+                        <entry>System-specific configuration for the package. It is recommended to default to safe fallbacks if this configuration is missing, if this is possible. Alternatively, a <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> fragment may be used to copy or symlink the necessary files and directores from <filename>/usr/share/factory</filename> during boot, via the <literal>L</literal> or <literal>C</literal> directives.</entry>
+                      </row>
+                      <row>
+                        <entry><filename>/run/<replaceable>package</replaceable></filename></entry>
+                        <entry>Runtime data for the package. Packages must be able to create the necessary subdirectories in this tree on their own, since the directory is flushed automatically on boot. Alternatively, a <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> fragment may be used to create the necessary directories during boot.</entry>
+                      </row>
+                      <row>
+                        <entry><filename>/run/log/<replaceable>package</replaceable></filename></entry>
+                        <entry>Runtime log data for the package.</entry>
+                      </row>
+                      <row>
+                        <entry><filename>/var/cache/<replaceable>package</replaceable></filename></entry>
+                        <entry>Persistent cache data of the package. If this directory is flushed the application should work correctly on next invocation, though possibly slowed done due to the need to rebuild any local cache files.</entry>
+                      </row>
+                      <row>
+                        <entry><filename>/var/lib/<replaceable>package</replaceable></filename></entry>
+                        <entry>Persistent private data of the package. This is the primary place to put persistent data that does not fall into the other categories listed. Packages should be able to create the necessary subdirectories in this tree on their own, since the directory might be missing on boot. Alternatively, a <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> fragment may be used to create the necessary directories during boot.</entry>
+                      </row>
+                      <row>
+                        <entry><filename>/var/log/<replaceable>package</replaceable></filename></entry>
+                        <entry>Persistent log data of the package.</entry>
+                      </row>
+                      <row>
+                        <entry><filename>/var/spool/<replaceable>package</replaceable></filename></entry>
+                        <entry>Persistent spool/queue data of the package.</entry>
+                      </row>
+                    </tbody>
+                  </tgroup>
+                </table>
+        </refsect1>
+
+        <refsect1>
+                <title>See Also</title>
+                <para>
+                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>hier</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd-boot-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                </para>
+        </refsect1>
+
+</refentry>

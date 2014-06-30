@@ -941,6 +941,14 @@ fi</programlisting>
         </refsect1>
 
         <refsect1>
+                <title>Placing Daemon Data</title>
+
+                <para>It is recommended to follow the genreal
+                guidelines for placing package files, as discussed in
+                <citerefentry><refentrytitle>file-hierarchy</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+        </refsect1>
+
+        <refsect1>
                 <title>See Also</title>
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
@@ -948,7 +956,8 @@ fi</programlisting>
                         <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>file-hierarchy</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                 </para>
         </refsect1>
 
