@@ -2645,12 +2645,21 @@ static int change_uid_gid(char **_home) {
 }
 
 /*
- * Return 0 in case the container is being rebooted, has been shut
- * down or exited successfully. On failures a negative value is
- * returned.
+ * Return values:
+ * < 0 : wait_for_terminate() failed to get the state of the
+ *       container, the container was terminated by a signal, or
+ *       failed for an unknown reason.  No change is made to the
+ *       container argument.
+ * > 0 : The program executed in the container terminated with an
+ *       error.  The exit code of the program executed in the
+ *       container is returned.  No change is made to the container
+ *       argument.
+ *   0 : The container is being rebooted, has been shut down or exited
+ *       successfully.  The container argument has been set to either
+ *       CONTAINER_TERMINATED or CONTAINER_REBOOTED.
  *
- * The status of the container "CONTAINER_TERMINATED" or
- * "CONTAINER_REBOOTED" will be saved in the container argument
+ * That is, success is indicated by a return value of zero, and an
+ * error is indicated by a non-zero value.
  */
 static int wait_for_container(pid_t pid, ContainerStatus *container) {
         int r;
@@ -2672,7 +2681,6 @@ static int wait_for_container(pid_t pid, ContainerStatus *container) {
                 } else {
                         log_error("Container %s failed with error code %i.",
                                   arg_machine, status.si_status);
-                        r = -1;
                 }
                 break;
 
@@ -3299,8 +3307,12 @@ check_container_status:
                 r = wait_for_container(pid, &container_status);
                 pid = 0;
 
-                if (r < 0) {
-                        r = EXIT_FAILURE;
+                if (r != 0) {
+                        /* If r < 0, explicitly set to EXIT_FAILURE,
+                         * otherwise return the exit code of the
+                         * containered process. */
+                        if (r < 0)
+                                r = EXIT_FAILURE;
                         break;
                 } else if (container_status == CONTAINER_TERMINATED)
                         break;
