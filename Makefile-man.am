@@ -87,6 +87,7 @@ MANPAGES += \
 	man/systemd-tmpfiles.8 \
 	man/systemd-tty-ask-password-agent.1 \
 	man/systemd-udevd.service.8 \
+	man/systemd-update-done.service.8 \
 	man/systemd-update-utmp.service.8 \
 	man/systemd.1 \
 	man/systemd.automount.5 \
@@ -217,6 +218,7 @@ MANPAGES_ALIAS += \
 	man/systemd-udevd-control.socket.8 \
 	man/systemd-udevd-kernel.socket.8 \
 	man/systemd-udevd.8 \
+	man/systemd-update-done.8 \
 	man/systemd-update-utmp-runlevel.service.8 \
 	man/systemd-update-utmp.8 \
 	man/systemd-user.conf.5
@@ -321,6 +323,7 @@ man/systemd-tmpfiles-setup.service.8: man/systemd-tmpfiles.8
 man/systemd-udevd-control.socket.8: man/systemd-udevd.service.8
 man/systemd-udevd-kernel.socket.8: man/systemd-udevd.service.8
 man/systemd-udevd.8: man/systemd-udevd.service.8
+man/systemd-update-done.8: man/systemd-update-done.service.8
 man/systemd-update-utmp-runlevel.service.8: man/systemd-update-utmp.service.8
 man/systemd-update-utmp.8: man/systemd-update-utmp.service.8
 man/systemd-user.conf.5: man/systemd-system.conf.5
@@ -625,6 +628,9 @@ man/systemd-udevd-kernel.socket.html: man/systemd-udevd.service.html
 	$(html-alias)
 
 man/systemd-udevd.html: man/systemd-udevd.service.html
+	$(html-alias)
+
+man/systemd-update-done.html: man/systemd-update-done.service.html
 	$(html-alias)
 
 man/systemd-update-utmp-runlevel.service.html: man/systemd-update-utmp.service.html
@@ -1633,6 +1639,7 @@ EXTRA_DIST += \
 	man/systemd-tmpfiles.xml \
 	man/systemd-tty-ask-password-agent.xml \
 	man/systemd-udevd.service.xml \
+	man/systemd-update-done.service.xml \
 	man/systemd-update-utmp.service.xml \
 	man/systemd-user-sessions.service.xml \
 	man/systemd-vconsole-setup.service.xml \

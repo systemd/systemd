@@ -7,7 +7,7 @@
 
 [Unit]
 Description=Update is Completed
-Documentation=man:sysusers.d(5) man:systemd-sysusers(8)
+Documentation=man:systemd-update-done.service(8)
 DefaultDependencies=no
 Conflicts=shutdown.target
 After=systemd-readahead-collect.service systemd-readahead-replay.service local-fs.target
