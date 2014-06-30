@@ -231,7 +231,7 @@ int address_update(Address *address, Link *link,
 static int address_acquire(Link *link, Address *original, Address **ret) {
         union in_addr_union in_addr = {};
         struct in_addr broadcast = {};
-        Address *na = NULL;
+        _cleanup_address_free_ Address *na = NULL;
         int r;
 
         assert(link);
@@ -274,11 +274,8 @@ static int address_acquire(Link *link, Address *original, Address **ret) {
 
         if (original->label) {
                 na->label = strdup(original->label);
-
-                if (!na->label) {
-                        free(na);
+                if (!na->label)
                         return -ENOMEM;
-                }
         }
 
         na->broadcast = broadcast;
@@ -287,6 +284,8 @@ static int address_acquire(Link *link, Address *original, Address **ret) {
         LIST_PREPEND(addresses, link->pool_addresses, na);
 
         *ret = na;
+        na = NULL;
+
         return 0;
 }
 
