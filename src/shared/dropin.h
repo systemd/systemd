@@ -21,11 +21,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-int drop_in_file(const char *dir, const char *unit,
+int drop_in_file(const char *dir, const char *unit, unsigned level,
                  const char *name, char **_p, char **_q);
 
-int write_drop_in(const char *dir, const char *unit,
+int write_drop_in(const char *dir, const char *unit, unsigned level,
                   const char *name, const char *data);
 
-int write_drop_in_format(const char *dir, const char *unit,
+int write_drop_in_format(const char *dir, const char *unit, unsigned level,
                          const char *name, const char *format, ...);

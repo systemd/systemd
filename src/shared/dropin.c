@@ -24,16 +24,20 @@
 #include "mkdir.h"
 #include "fileio-label.h"
 
-int drop_in_file(const char *dir, const char *unit,
+int drop_in_file(const char *dir, const char *unit, unsigned level,
                  const char *name, char **_p, char **_q) {
 
         _cleanup_free_ char *b = NULL;
         char *p, *q;
 
+        char prefix[DECIMAL_STR_MAX(unsigned)];
+
         assert(unit);
         assert(name);
         assert(_p);
         assert(_q);
+
+        sprintf(prefix, "%u", level);
 
         b = xescape(name, "/.");
         if (!b)
@@ -46,7 +50,7 @@ int drop_in_file(const char *dir, const char *unit,
         if (!p)
                 return -ENOMEM;
 
-        q = strjoin(p, "/90-", b, ".conf", NULL);
+        q = strjoin(p, "/", prefix, "-", b, ".conf", NULL);
         if (!q) {
                 free(p);
                 return -ENOMEM;
@@ -57,7 +61,7 @@ int drop_in_file(const char *dir, const char *unit,
         return 0;
 }
 
-int write_drop_in(const char *dir, const char *unit,
+int write_drop_in(const char *dir, const char *unit, unsigned level,
                   const char *name, const char *data) {
 
         _cleanup_free_ char *p = NULL, *q = NULL;
@@ -68,7 +72,7 @@ int write_drop_in(const char *dir, const char *unit,
         assert(name);
         assert(data);
 
-        r = drop_in_file(dir, unit, name, &p, &q);
+        r = drop_in_file(dir, unit, level, name, &p, &q);
         if (r < 0)
                 return r;
 
@@ -76,7 +80,7 @@ int write_drop_in(const char *dir, const char *unit,
         return write_string_file_atomic_label(q, data);
 }
 
-int write_drop_in_format(const char *dir, const char *unit,
+int write_drop_in_format(const char *dir, const char *unit, unsigned level,
                          const char *name, const char *format, ...) {
         _cleanup_free_ char *p = NULL;
         va_list ap;
@@ -94,5 +98,5 @@ int write_drop_in_format(const char *dir, const char *unit,
         if (r < 0)
                 return -ENOMEM;
 
-        return write_drop_in(dir, unit, name, p);
+        return write_drop_in(dir, unit, level, name, p);
 }
