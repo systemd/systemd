@@ -166,7 +166,7 @@ int make_socket_fd(int log_level, const char* address, int flags) {
                 }
 
                 if (fd < 0)
-                        log_error("Failed to listen on %s: %s", p, strerror(-r));
+                        log_error("Failed to listen on %s: %s", p, strerror(-fd));
                 else
                         log_full(log_level, "Listening on %s", p);
         }
