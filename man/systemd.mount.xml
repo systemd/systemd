@@ -144,38 +144,70 @@
                 which influence how dependencies are created for mount
                 points from <filename>/etc/fstab</filename>. systemd
                 will create a dependency of type
-                <option>Wants</option> from either
-                <filename>local-fs.target</filename> or
+                <option>Wants</option> or <option>Requires</option>
+                (see option <option>nofail</option> below), from
+                either <filename>local-fs.target</filename> or
                 <filename>remote-fs.target</filename>, depending
-                whether the file system is local or remote. If
-                <option>x-systemd.automount</option> is set, an
-                automount unit will be created for the file
-                system. See
-                <citerefentry><refentrytitle>systemd.automount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                for details. If
-                <option>x-systemd.device-timeout=</option> is
-                specified, it may be used to configure how long systemd
-                should wait for a device to show up before giving up
-                on an entry from
-                <filename>/etc/fstab</filename>. Specify a time in
-                seconds or explicitly specify a unit as
-                <literal>s</literal>, <literal>min</literal>,
-                <literal>h</literal>, <literal>ms</literal>.</para>
+                whether the file system is local or remote.</para>
 
-                <para>If <option>nofail</option> is given, this mount
-                will be only wanted, not required, by the
-                <filename>local-fs.target</filename>. This means that
-                the boot will continue even if this mount point is not
-                mounted successfully. Option <option>fail</option> has
-                the opposite meaning and is the default.</para>
+                <variablelist class='fstab-options'>
 
-                <para>If <option>noauto</option> is given, this mount
-                will not be added as a dependency for
-                <filename>local-fs.target</filename>. This means that
-                it will not be mounted automatically during boot,
-                unless it is pulled in by some other unit. Option
-                <option>auto</option> has the opposite meaning and is
-                the default.</para>
+                  <varlistentry>
+                    <term><option>x-systemd.automount</option></term>
+
+                    <listitem><para>An automount unit will be created
+                    for the file system. See
+                    <citerefentry><refentrytitle>systemd.automount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                    for details.</para></listitem>
+                  </varlistentry>
+
+                  <varlistentry>
+                    <term><option>x-systemd.device-timeout=</option></term>
+
+                    <listitem><para>Configure how long systemd should
+                    wait for a device to show up before giving up on
+                    an entry from
+                    <filename>/etc/fstab</filename>. Specify a time in
+                    seconds or explicitly append a unit as
+                    <literal>s</literal>, <literal>min</literal>,
+                    <literal>h</literal>,
+                    <literal>ms</literal>.</para>
+
+                    <para>Note that this option can only be used in
+                    <filename>/etc/fstab</filename>, and will be
+                    ignored when part of <varname>Options=</varname>
+                    setting in a unit file.</para>
+                    </listitem>
+                  </varlistentry>
+
+                  <varlistentry>
+                    <term><option>nofail</option></term>
+                    <term><option>fail</option></term>
+
+                    <listitem><para>With <option>nofail</option> this
+                    mount will be only wanted, not required, by the
+                    <filename>local-fs.target</filename>. This means
+                    that the boot will continue even if this mount
+                    point is not mounted successfully. Option
+                    <option>fail</option> has the opposite meaning and
+                    is the default.</para>
+                    </listitem>
+                  </varlistentry>
+
+                  <varlistentry>
+                    <term><option>noauto</option></term>
+                    <term><option>auto</option></term>
+
+                    <listitem><para>With <option>noauto</option>, this
+                    mount will not be added as a dependency for
+                    <filename>local-fs.target</filename>. This means
+                    that it will not be mounted automatically during
+                    boot, unless it is pulled in by some other
+                    unit. Option <option>auto</option> has the
+                    opposite meaning and is the default.</para>
+                    </listitem>
+                  </varlistentry>
+                </variablelist>
 
                 <para>If a mount point is configured in both
                 <filename>/etc/fstab</filename> and a unit file that

@@ -109,10 +109,10 @@
                 comma-delimited list of options.  The following
                 options are recognized:</para>
 
-                <variablelist class='crypttab-options'>
+                <variablelist class='fstab-options'>
 
                         <varlistentry>
-                                <term><varname>discard</varname></term>
+                                <term><option>discard</option></term>
 
                                 <listitem><para>Allow discard requests to be
                                 passed through the encrypted block device. This
@@ -121,7 +121,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>cipher=</varname></term>
+                                <term><option>cipher=</option></term>
 
                                 <listitem><para>Specifies the cipher to use. See
                                 <citerefentry><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
@@ -132,7 +132,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>hash=</varname></term>
+                                <term><option>hash=</option></term>
 
                                 <listitem><para>Specifies the hash to use for
                                 password hashing. See
@@ -142,7 +142,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>keyfile-offset=</varname></term>
+                                <term><option>keyfile-offset=</option></term>
 
                                 <listitem><para>Specifies the number of bytes to
                                 skip at the start of the key file. See
@@ -152,7 +152,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>keyfile-size=</varname></term>
+                                <term><option>keyfile-size=</option></term>
 
                                 <listitem><para>Specifies the maximum number
                                 of bytes to read from the key file. See
@@ -164,39 +164,39 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>key-slot=</varname></term>
+                                <term><option>key-slot=</option></term>
 
                                 <listitem><para>Specifies the key slot to
                                 compare the passphrase or key against.
                                 If the key slot does not match the given
                                 passphrase or key, but another would, the
                                 setup of the device will fail regardless.
-                                This option implies <varname>luks</varname>. See
+                                This option implies <option>luks</option>. See
                                 <citerefentry><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                                 for possible values. The default is to try
                                 all key slots in sequential order.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>luks</varname></term>
+                                <term><option>luks</option></term>
 
                                 <listitem><para>Force LUKS mode. When this mode
                                 is used, the following options are ignored since
                                 they are provided by the LUKS header on the
-                                device: <varname>cipher=</varname>,
-                                <varname>hash=</varname>,
-                                <varname>size=</varname>.</para></listitem>
+                                device: <option>cipher=</option>,
+                                <option>hash=</option>,
+                                <option>size=</option>.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>noauto</varname></term>
+                                <term><option>noauto</option></term>
 
                                 <listitem><para>This device will not be
                                 automatically unlocked on boot.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>nofail</varname></term>
+                                <term><option>nofail</option></term>
 
                                 <listitem><para>The system will not wait for the
                                 device to show up and be unlocked at boot, and
@@ -204,20 +204,20 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>plain</varname></term>
+                                <term><option>plain</option></term>
 
                                 <listitem><para>Force plain encryption mode.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>read-only</varname></term><term><varname>readonly</varname></term>
+                                <term><option>read-only</option></term><term><option>readonly</option></term>
 
                                 <listitem><para>Set up the encrypted block
                                 device in read-only mode.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>size=</varname></term>
+                                <term><option>size=</option></term>
 
                                 <listitem><para>Specifies the key size
                                 in bits. See
@@ -227,33 +227,33 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>swap</varname></term>
+                                <term><option>swap</option></term>
 
                                 <listitem><para>The encrypted block device will
                                 be used as a swap device, and will be formatted
                                 accordingly after setting up the encrypted
                                 block device, with
                                 <citerefentry><refentrytitle>mkswap</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-                                This option implies <varname>plain</varname>.</para>
+                                This option implies <option>plain</option>.</para>
 
-                                <para>WARNING: Using the <varname>swap</varname>
+                                <para>WARNING: Using the <option>swap</option>
                                 option will destroy the contents of the named
                                 partition during every boot, so make sure the
                                 underlying block device is specified correctly.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>tcrypt</varname></term>
+                                <term><option>tcrypt</option></term>
 
                                 <listitem><para>Use TrueCrypt encryption mode.
                                 When this mode is used, the following options are
                                 ignored since they are provided by the TrueCrypt
                                 header on the device or do not apply:
-                                <varname>cipher=</varname>,
-                                <varname>hash=</varname>,
-                                <varname>keyfile-offset=</varname>,
-                                <varname>keyfile-size=</varname>,
-                                <varname>size=</varname>.</para>
+                                <option>cipher=</option>,
+                                <option>hash=</option>,
+                                <option>keyfile-offset=</option>,
+                                <option>keyfile-size=</option>,
+                                <option>size=</option>.</para>
 
                                 <para>When this mode is used, the passphrase is
                                 read from the key file given in the third field.
@@ -264,7 +264,7 @@
                                 passphrase and key files to derive a password
                                 for the volume. Therefore, the passphrase and
                                 all key files need to be provided. Use
-                                <varname>tcrypt-keyfile=</varname> to provide
+                                <option>tcrypt-keyfile=</option> to provide
                                 the absolute path to all key files. When using
                                 an empty passphrase in combination with one or
                                 more key files, use <literal>/dev/null</literal>
@@ -272,10 +272,10 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>tcrypt-hidden</varname></term>
+                                <term><option>tcrypt-hidden</option></term>
 
                                 <listitem><para>Use the hidden TrueCrypt volume.
-                                This option implies <varname>tcrypt</varname>.</para>
+                                This option implies <option>tcrypt</option>.</para>
 
                                 <para>This will map the hidden volume that is
                                 inside of the volume provided in the second
@@ -287,29 +287,29 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>tcrypt-keyfile=</varname></term>
+                                <term><option>tcrypt-keyfile=</option></term>
 
                                 <listitem><para>Specifies the absolute path to a
                                 key file to use for a TrueCrypt volume. This
-                                implies <varname>tcrypt</varname> and can be
+                                implies <option>tcrypt</option> and can be
                                 used more than once to provide several key
                                 files.</para>
 
-                                <para>See the entry for <varname>tcrypt</varname>
+                                <para>See the entry for <option>tcrypt</option>
                                 on the behavior of the passphrase and key files
                                 when using TrueCrypt encryption mode.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>tcrypt-system</varname></term>
+                                <term><option>tcrypt-system</option></term>
 
                                 <listitem><para>Use TrueCrypt in system
                                 encryption mode. This option implies
-                                <varname>tcrypt</varname>.</para></listitem>
+                                <option>tcrypt</option>.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>timeout=</varname></term>
+                                <term><option>timeout=</option></term>
 
                                 <listitem><para>Specifies the timeout for
                                 querying for a password. If no unit is
@@ -319,22 +319,22 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>tmp</varname></term>
+                                <term><option>tmp</option></term>
 
                                 <listitem><para>The encrypted block device will
                                 be prepared for using it as <filename>/tmp</filename>;
                                 it will be formatted using
                                 <citerefentry><refentrytitle>mke2fs</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-                                This option implies <varname>plain</varname>.</para>
+                                This option implies <option>plain</option>.</para>
 
-                                <para>WARNING: Using the <varname>tmp</varname>
+                                <para>WARNING: Using the <option>tmp</option>
                                 option will destroy the contents of the named
                                 partition during every boot, so make sure the
                                 underlying block device is specified correctly.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>tries=</varname></term>
+                                <term><option>tries=</option></term>
 
                                 <listitem><para>Specifies the maximum number of
                                 times the user is queried for a password.
@@ -343,7 +343,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>verify</varname></term>
+                                <term><option>verify</option></term>
 
                                 <listitem><para> If the encryption password is
                                 read from console, it has to be entered twice to

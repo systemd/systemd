@@ -113,12 +113,13 @@ TEMPLATE = '''\
         </refsect1>
 
         <refsect1>
-                <title>crypttab options</title>
+                <title><filename>/etc/crypttab</filename> and
+                <filename>/etc/fstab</filename> options</title>
 
                 <para>Options which influence mounted filesystems and
                 encrypted volumes.</para>
 
-                <variablelist id='crypttab-options' />
+                <variablelist id='fstab-options' />
         </refsect1>
 
         <refsect1>
