@@ -189,6 +189,12 @@ CHANGES WITH 215:
           path for the primary architecture of the system), and a
           couple of drop-in directories.
 
+        * udev's predictable network interface names now use the dev_port
+          sysfs attribute, introduced in linux 3.15 instead of dev_id to
+          distinguish between ports of the same PCI function. dev_id should
+          only be used for ports using the same HW address, hence the need
+          for dev_port.
+
 CHANGES WITH 214:
 
         * As an experimental feature, udev now tries to lock the

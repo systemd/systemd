@@ -36,9 +36,9 @@
  *   b<number>                             -- BCMA bus core number
  *   ccw<name>                             -- CCW bus group name
  *   o<index>                              -- on-board device index number
- *   s<slot>[f<function>][d<dev_id>]       -- hotplug slot index number
+ *   s<slot>[f<function>][d<dev_port>]     -- hotplug slot index number
  *   x<MAC>                                -- MAC address
- *   [P<domain>]p<bus>s<slot>[f<function>][d<dev_id>]
+ *   [P<domain>]p<bus>s<slot>[f<function>][d<dev_port>]
  *                                         -- PCI geographical location
  *   [P<domain>]p<bus>s<slot>[f<function>][u<port>][..][c<config>][i<interface>]
  *                                         -- USB port number chain
@@ -172,7 +172,7 @@ out:
 
 static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
         struct udev *udev = udev_device_get_udev(names->pcidev);
-        unsigned domain, bus, slot, func, dev_id = 0;
+        unsigned domain, bus, slot, func, dev_port = 0;
         size_t l;
         char *s;
         const char *attr;
@@ -186,9 +186,9 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
                 return -ENOENT;
 
         /* kernel provided multi-device index */
-        attr = udev_device_get_sysattr_value(dev, "dev_id");
+        attr = udev_device_get_sysattr_value(dev, "dev_port");
         if (attr)
-                dev_id = strtol(attr, NULL, 16);
+                dev_port = strtol(attr, NULL, 10);
 
         /* compose a name based on the raw kernel's PCI bus, slot numbers */
         s = names->pci_path;
@@ -198,8 +198,8 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
         l = strpcpyf(&s, l, "p%ds%d", bus, slot);
         if (func > 0 || is_pci_multifunction(names->pcidev))
                 l = strpcpyf(&s, l, "f%d", func);
-        if (dev_id > 0)
-                l = strpcpyf(&s, l, "d%d", dev_id);
+        if (dev_port > 0)
+                l = strpcpyf(&s, l, "d%d", dev_port);
         if (l == 0)
                 names->pci_path[0] = '\0';
 
@@ -248,8 +248,8 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
                 l = strpcpyf(&s, l, "s%d", hotplug_slot);
                 if (func > 0 || is_pci_multifunction(names->pcidev))
                         l = strpcpyf(&s, l, "f%d", func);
-                if (dev_id > 0)
-                        l = strpcpyf(&s, l, "d%d", dev_id);
+                if (dev_port > 0)
+                        l = strpcpyf(&s, l, "d%d", dev_port);
                 if (l == 0)
                         names->pci_path[0] = '\0';
         }
