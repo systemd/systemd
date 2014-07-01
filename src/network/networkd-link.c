@@ -366,7 +366,7 @@ static int link_enter_configured(Link *link) {
 }
 
 static int route_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
-        Link *link = userdata;
+        _cleanup_link_unref_ Link *link = userdata;
         int r;
 
         assert(link->route_messages > 0);
@@ -376,10 +376,8 @@ static int route_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 
         link->route_messages --;
 
-        if (IN_SET(LINK_STATE_FAILED, LINK_STATE_LINGER)) {
-                link_unref(link);
+        if (IN_SET(LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 1;
-        }
 
         r = sd_rtnl_message_get_errno(m);
         if (r < 0 && r != -EEXIST)
@@ -396,8 +394,6 @@ static int route_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
                 log_debug_link(link, "routes set");
                 link_enter_configured(link);
         }
-
-        link_unref(link);
 
         return 1;
 }
@@ -586,17 +582,15 @@ static int link_enter_set_routes(Link *link) {
 }
 
 static int route_drop_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
-        Link *link = userdata;
+        _cleanup_link_unref_ Link *link = userdata;
         int r;
 
         assert(m);
         assert(link);
         assert(link->ifname);
 
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER)) {
-                link_unref(link);
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 1;
-        }
 
         r = sd_rtnl_message_get_errno(m);
         if (r < 0 && r != -ESRCH)
@@ -607,13 +601,11 @@ static int route_drop_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata)
                                 "ERRNO=%d", -r,
                                 NULL);
 
-        link_unref(link);
-
         return 0;
 }
 
 static int address_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
-        Link *link = userdata;
+        _cleanup_link_unref_ Link *link = userdata;
         int r;
 
         assert(m);
@@ -625,10 +617,8 @@ static int address_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 
         link->addr_messages --;
 
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER)) {
-                link_unref(link);
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 1;
-        }
 
         r = sd_rtnl_message_get_errno(m);
         if (r < 0 && r != -EEXIST)
@@ -643,8 +633,6 @@ static int address_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
                 log_debug_link(link, "addresses set");
                 link_enter_set_routes(link);
         }
-
-        link_unref(link);
 
         return 1;
 }
@@ -780,17 +768,15 @@ static int link_enter_set_addresses(Link *link) {
 }
 
 static int address_update_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
-        Link *link = userdata;
+        _cleanup_link_unref_ Link *link = userdata;
         int r;
 
         assert(m);
         assert(link);
         assert(link->ifname);
 
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER)) {
-                link_unref(link);
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 1;
-        }
 
         r = sd_rtnl_message_get_errno(m);
         if (r < 0 && r != -ENOENT)
@@ -801,23 +787,19 @@ static int address_update_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userd
                                 "ERRNO=%d", -r,
                                 NULL);
 
-        link_unref(link);
-
         return 0;
 }
 
 static int address_drop_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
-        Link *link = userdata;
+        _cleanup_link_unref_ Link *link = userdata;
         int r;
 
         assert(m);
         assert(link);
         assert(link->ifname);
 
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER)) {
-                link_unref(link);
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 1;
-        }
 
         r = sd_rtnl_message_get_errno(m);
         if (r < 0 && r != -EADDRNOTAVAIL)
@@ -828,27 +810,21 @@ static int address_drop_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdat
                                 "ERRNO=%d", -r,
                                 NULL);
 
-        link_unref(link);
-
         return 0;
 }
 
 static int set_hostname_handler(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
-        Link *link = userdata;
+        _cleanup_link_unref_ Link *link = userdata;
         int r;
 
         assert(link);
 
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER)) {
-                link_unref(link);
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 1;
-        }
 
         r = sd_bus_message_get_errno(m);
         if (r < 0)
                 log_warning_link(link, "Could not set hostname: %s", strerror(-r));
-
-        link_unref(link);
 
         return 1;
 }
@@ -883,26 +859,26 @@ static int link_set_hostname(Link *link, const char *hostname) {
                 return r;
 
         r = sd_bus_call_async(link->manager->bus, NULL, m, set_hostname_handler, link, 0);
-        if (r < 0)
+        if (r < 0) {
                 log_error_link(link, "Could not set transient hostname: %s", strerror(-r));
+                return r;
+        }
 
         link_ref(link);
 
-        return r;
+        return 0;
 }
 
 static int set_mtu_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
-        Link *link = userdata;
+        _cleanup_link_unref_ Link *link = userdata;
         int r;
 
         assert(m);
         assert(link);
         assert(link->ifname);
 
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER)) {
-                link_unref(link);
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 1;
-        }
 
         r = sd_rtnl_message_get_errno(m);
         if (r < 0)
@@ -911,8 +887,6 @@ static int set_mtu_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
                                 IFNAMSIZ, link->ifname, strerror(-r),
                                 "ERRNO=%d", -r,
                                 NULL);
-
-        link_unref(link);
 
         return 1;
 }
@@ -1685,15 +1659,13 @@ static int link_update_flags(Link *link, sd_rtnl_message *m) {
 }
 
 static int link_up_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
-        Link *link = userdata;
+        _cleanup_link_unref_ Link *link = userdata;
         int r;
 
         assert(link);
 
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER)) {
-                link_unref(link);
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 1;
-        }
 
         r = sd_rtnl_message_get_errno(m);
         if (r < 0) {
@@ -1706,8 +1678,6 @@ static int link_up_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
                                 "ERRNO=%d", -r,
                                 NULL);
         }
-
-        link_unref(link);
 
         return 1;
 }
@@ -1766,7 +1736,7 @@ static int link_enslaved(Link *link) {
 }
 
 static int enslave_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
-        Link *link = userdata;
+        _cleanup_link_unref_ Link *link = userdata;
         int r;
 
         assert(link);
@@ -1776,10 +1746,8 @@ static int enslave_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 
         link->enslaving --;
 
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER)) {
-                link_unref(link);
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 1;
-        }
 
         r = sd_rtnl_message_get_errno(m);
         if (r < 0) {
@@ -1790,7 +1758,6 @@ static int enslave_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
                                 "ERRNO=%d", -r,
                                 NULL);
                 link_enter_failed(link);
-                link_unref(link);
                 return 1;
         }
 
@@ -1798,8 +1765,6 @@ static int enslave_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 
         if (link->enslaving == 0)
                 link_enslaved(link);
-
-        link_unref(link);
 
         return 1;
 }
@@ -2084,7 +2049,7 @@ static int link_configure(Link *link) {
 }
 
 static int link_initialized_and_synced(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
-        Link *link = userdata;
+        _cleanup_link_unref_ Link *link = userdata;
         Network *network;
         int r;
 
@@ -2093,14 +2058,14 @@ static int link_initialized_and_synced(sd_rtnl *rtnl, sd_rtnl_message *m, void *
         assert(link->manager);
 
         if (link->state != LINK_STATE_INITIALIZING)
-                return 0;
+                return 1;
 
         log_debug_link(link, "link state is up-to-date");
 
         r = network_get(link->manager, link->udev_device, link->ifname, &link->mac, &network);
         if (r == -ENOENT) {
                 link_enter_unmanaged(link);
-                return 0;
+                return 1;
         } else if (r < 0)
                 return r;
 
@@ -2112,7 +2077,7 @@ static int link_initialized_and_synced(sd_rtnl *rtnl, sd_rtnl_message *m, void *
         if (r < 0)
                 return r;
 
-        return 0;
+        return 1;
 }
 
 int link_initialized(Link *link, struct udev_device *device) {
@@ -2143,6 +2108,8 @@ int link_initialized(Link *link, struct udev_device *device) {
         r = sd_rtnl_call_async(link->manager->rtnl, req, link_initialized_and_synced, link, 0, NULL);
         if (r < 0)
                 return r;
+
+        link_ref(link);
 
         return 0;
 }
@@ -2270,12 +2237,13 @@ int link_rtnl_process_address(sd_rtnl *rtnl, sd_rtnl_message *message, void *use
 }
 
 static int link_get_address_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
-        Link *link = userdata;
+        _cleanup_link_unref_ Link *link = userdata;
         int r;
 
         assert(rtnl);
         assert(m);
         assert(link);
+        assert(link->manager);
 
         for (; m; m = sd_rtnl_message_next(m)) {
                 r = sd_rtnl_message_get_errno(m);
@@ -2320,6 +2288,8 @@ int link_add(Manager *m, sd_rtnl_message *message, Link **ret) {
         if (r < 0)
                 return r;
 
+        link_ref(link);
+
         if (detect_container(NULL) <= 0) {
                 /* not in a container, udev will be around */
                 sprintf(ifindex_str, "n%"PRIu64, link->ifindex);
@@ -2339,6 +2309,9 @@ int link_add(Manager *m, sd_rtnl_message *message, Link **ret) {
                 if (r < 0)
                         return r;
         } else {
+                /* we are calling a callback directly, so must take a ref */
+                link_ref(link);
+
                 r = link_initialized_and_synced(m->rtnl, NULL, link);
                 if (r < 0)
                         return r;

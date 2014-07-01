@@ -410,6 +410,8 @@ int manager_udev_listen(Manager *m) {
 int manager_rtnl_listen(Manager *m) {
         int r;
 
+        assert(m);
+
         r = sd_rtnl_attach_event(m->rtnl, m->event, 0);
         if (r < 0)
                 return r;
