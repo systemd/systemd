@@ -1,10 +1,193 @@
 systemd System and Service Manager
 
 CHANGES WITH 215:
-        * A new system group "input" is introduced, and all input
-          device nodes get this group assigned. This is useful for
-          system-level software to get access to input devices. It
+
+        * A new tool systemd-sysusers has been added. This tool
+          creates system users and groups in /etc/passwd and
+          /etc/group, based on static declarative system user/group
+          definitions in /usr/lib/sysusers.d/. This is useful to
+          enable factory resets and volatile systems that boot up with
+          an empty /etc directory, and thus need system users and
+          groups created during early boot. systemd now also ships
+          with two default sysusers.d/ files for the most basic
+          users and groups systemd and the core operating system
+          require.
+
+        * A new tmpfiles snippet has been added that rebuilds the
+          essential files in /etc on boot, should they be missing.
+
+        * A directive for ensuring automatic clean-up of
+          /var/cache/man/ has been removed from the default
+          configuration. This line should now be shipped by the man
+          implementation. The necessary change has been made to the
+          man-db implementation. Note that you need to update your man
+          implementation to one that ships this line, otherwise no
+          automatic clean-up of /var/cache/man will take place.
+
+        * A new condition ConditionNeedsUpdate= has been added that
+          may conditionalize services to only run when /etc or /var
+          are "older" than the vendor operating system resources in
+          /usr. This is useful for reconstructing or updating /etc
+          after an offline update of /usr or a factory reset, on the
+          next reboot. Services that want to run once after such an
+          update or reset should use this condition and order
+          themselves before the new systemd-update-done.service, which
+          will mark the two directories as fully updated. A number of
+          service files have been added making use of this, to rebuild
+          the udev hardware database, the journald message catalog and
+          dynamic loader cache (ldconfig). The systemd-sysusers tool
+          described above also makes use of this now. With this in
+          place it is now possible to start up a minimal operating
+          system with /etc empty cleanly. Fore more information on the
+          concepts involved see this recent blog story:
+
+          http://0pointer.de/blog/projects/stateless.html
+
+        * A new system group "input" has been introduced, and all
+          input device nodes get this group assigned. This is useful
+          for system-level software to get access to input devices. It
           complements what is already done for "audio" and "video".
+
+        * systemd-networkd learnt minimal DHCPv4 server support in
+          addition to the existing DHCPv4 client support. It also
+          learnt DHCPv6 client and IPv6 Router Solicitation client
+          support. The DHCPv4 client gained support for static routes
+          passed in from the server. Note that the [DHCPv4] section
+          known in older systemd-networkd versions has been renamed to
+          [DHCP] and is now also used by the DHCPv6 client. Existing
+          .network files using settings of this section need to be
+          updated.
+
+        * networkd gained support for vxlan virtual networks.
+
+        * networkd gained support for automatic allocation of address
+          ranges for interfaces from a system-wide pool of
+          addresses. This is useful for dynamically managing a large
+          number of interfaces with a single network configuration
+          file. In particular this is useful to easily assign
+          appropriate IP addresses to the veth links of a large number
+          of nspawn instances.
+
+        * RPM macros for processing sysusers, sysctl and binfmt
+          drop-in snippets at package installation time have been
+          added.
+
+        * The /etc/os-release file should now be placed in
+          /usr/lib/os-release. The old location is automatically
+          created as symlink. /usr/lib is the more appropriate
+          location of this file, since it shall actually describe the
+          vendor operating system shipped in /usr, and not the
+          configuration stored in /etc.
+
+        * .mount units gained a new boolean SloppyOptions= setting
+          that maps to mount(8)'s -s option which enables permissive
+          parsing of unknown mount options.
+
+        * tmpfiles learnt a new "L+" directive which creates a symlink
+          but (unlike "L") deletes a pre-existing file first, should
+          it already exist and not already be the correct
+          symlink. Similar, "b+", "c+" and "p+" directives have been
+          added as well, which create block and character devices, as
+          well as fifos in the filesystem, possibly removing any
+          pre-existing files of different types.
+
+        * For tmpfiles' "L", "L+", "C" and "C+" directives the final
+          'argument' field (which so far specified the source to
+          symlink/copy the files from) is now optional. If ommited the
+          same file os copied from /usr/share/factory/ suffixed by the
+          full destination path. This is useful for populating /etc
+          with essential files, by copying them from vendor defaults
+          shipped in /usr/share/factory/etc.
+
+        * A new command "systemctl preset-all" has been added that
+          applies the service preset settings to all installed unit
+          files. A new switch --preset-mode= has been added that
+          controls whether only enable or only disable operations
+          shall be executed.
+
+        * A new command "systemctl is-system-running" has been added
+          that allows checking the overall state of the system, for
+          example whether it is fully up an running.
+
+        * When the system boots up with an empty /etc, the equivalent
+          to "systemctl preset-all" is executed during early boot, to
+          make sure all default services are enabled after a factory
+          reset.
+
+        * systemd now contains a minimal preset file that enables the
+          most basic services systemd ships by default.
+
+        * Unit files' [Install] section gained a new DefaultInstance=
+          field for defining the default instance to create if a
+          template unit is enabled with no instance specified.
+
+        * A new passive target cryptsetup-pre.target has been added
+          that may be used by services that need to make they run and
+          finish before the first LUKS cryptographic device is set up.
+
+        * The /dev/loop-control and /dev/btrfs-control device nodes
+          are now owned by the "disk" group by default, opening up
+          access to this group.
+
+        * systemd-coredump will now automatically generate a
+          stack trace of all core dumps taking place on the system,
+          based on elfutils' libdw library. This stack trace is logged
+          to the journal.
+
+        * systemd-coredump may now optionally store coredumps directly
+          on disk (in /var/lib/systemd/coredump, possibly compressed),
+          instead of storing them unconditionally in the journal. This
+          mode is the new default. A new configuration file
+          /etc/systemd/coredump.conf has been added to configure this
+          and other parameters of systemd-coredump.
+
+        * coredumpctl gained a new "info" verb to show details about a
+          specific coredump. A new switch "-1" has also been added
+          that makes sure to only show information about the most
+          recent entry instead of all entries. Also, as the tool is
+          generally useful now the "systemd-" prefix of the binary
+          name has been removed. Distributions that want to maintain
+          compatibility with the old name should add a symlink from
+          the old name to the new name.
+
+        * journald's SplitMode= now defaults to "uid". This makes sure
+          that unpriviliged users can access their own coredumps with
+          coredumpctl without restrictions.
+
+        * New kernel command line options "systemd.wants=" (for
+          pulling an additional unit during boot), "systemd.mask="
+          (for masking a specific unit for the boot), and
+          "systemd.debug-shell" (for enabling the debug shell on tty9)
+          have been added. This is implemented in the new generator
+          "systemd-debug-generator".
+
+        * systemd-nspawn will now by default filter a couple of
+          syscalls for containers, among them those required for
+          kernel module loading, direct x86 IO port access, swap
+          management, and kexec. Most importantly though
+          open_by_handle_at() is now prohibited for containers,
+          closing a hole similar to a recently discussed vulnerability
+          in docker regarding access to files on file hierarchies the
+          container should normally not have access to. Note that for
+          nspawn we generally make no security claims anyway (and
+          this is explicitly documented in the man page), so this is
+          just a fix for one of the most obvious problems.
+
+        * A new man page file-hierarchy(7) has been added that
+          contains a minimized, modernized version of the file system
+          layout systemd expects, similar in style to the FHS
+          specification or hier(5).
+
+        * Automatic time-based clean-up of $XDG_RUNTIME_DIR is no
+          longer done. Since the directory now has a per-user size
+          limit, and is cleaned on logout this appears unnecessary,
+          in particular since this now brings the lifecycle of this
+          directory closer in line with how IPC objects are handled.
+
+        * systemd.pc now exports a number of additional directories,
+          including $libdir (which is useful to identify the library
+          path for the primary architecture of the system), and a
+          couple of drop-in directories.
 
 CHANGES WITH 214:
 
