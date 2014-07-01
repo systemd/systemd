@@ -292,7 +292,8 @@ static int manager_rtnl_process_link(sd_rtnl *rtnl, sd_rtnl_message *message, vo
                         /* link is new, so add it */
                         r = link_add(m, message, &link);
                         if (r < 0) {
-                                log_debug("could not add new link");
+                                log_debug("could not add new link: %s",
+                                           strerror(-r));
                                 return 0;
                         }
                 }

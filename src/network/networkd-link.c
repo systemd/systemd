@@ -78,7 +78,7 @@ static int link_new(Manager *manager, sd_rtnl_message *message, Link **ret) {
 
         r = sd_rtnl_message_read_ether_addr(message, IFLA_ADDRESS, &link->mac);
         if (r < 0)
-                return r;
+                log_debug_link(link, "MAC address not found for new device, continuing without");
 
         r = asprintf(&link->state_file, "/run/systemd/netif/links/%"PRIu64,
                      link->ifindex);

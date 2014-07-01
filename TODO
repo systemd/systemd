@@ -615,13 +615,11 @@ Features:
    - add reduced [Link] support to .network files
    - add Scope= parsing option for [Network]
    - properly handle routerless dhcp leases
-   - set lifetime on the address acquired from dhcp
-   - patch kernel to support module alias for tunnel device (ipip/sit/gre),
-     then remove remove libkmod dependency and CAP_SYS_MODULE
    - add veth netdev support (c.f. http://shorewall.net/bridge-Shorewall-perl.html#veth)
    - add tun/tap netdev support
    - add more attribute support for SIT tunnel
    - make metric of routes configurable
+   - work with non-ethernet devices
 
 * networkd-wait-online:
    - make operstates to wait for configurable?
