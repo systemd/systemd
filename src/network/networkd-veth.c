@@ -145,6 +145,8 @@ int netdev_create_veth(NetDev *netdev, sd_rtnl_message_handler_t callback) {
                 return r;
         }
 
+        netdev_ref(netdev);
+
         log_debug_netdev(netdev, "Creating veth netdev: %s",
                          netdev_kind_to_string(netdev->kind));
 

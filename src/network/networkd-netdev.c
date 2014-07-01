@@ -224,7 +224,7 @@ static int netdev_enter_ready(NetDev *netdev) {
 
 /* callback for netdev's created without a backing Link */
 static int netdev_create_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
-        NetDev *netdev = userdata;
+        _cleanup_netdev_unref_ NetDev *netdev = userdata;
         int r;
 
         assert(netdev->state != _NETDEV_STATE_INVALID);
@@ -388,9 +388,11 @@ static int netdev_create(NetDev *netdev, Link *link, sd_rtnl_message_handler_t c
 
         if (link)
                 r = sd_rtnl_call_async(netdev->manager->rtnl, req, callback, link, 0, NULL);
-        else
+        else {
                 r = sd_rtnl_call_async(netdev->manager->rtnl, req, &netdev_create_handler, netdev, 0, NULL);
-        if (r < 0) {
+
+                netdev_ref(netdev);
+        } if (r < 0) {
                 log_error_netdev(netdev,
                                  "Could not send rtnetlink message: %s", strerror(-r));
                 return r;
