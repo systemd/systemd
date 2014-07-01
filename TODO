@@ -25,6 +25,10 @@ External:
 
 Features:
 
+* machinectl should show /etc/os-release info from the container
+
+* Add a new verb "systemctl top"
+
 * order OnCalendar timer units after timer-sync.target if DefaultDependencies=no so that we don't trigger them prematurely
 
 * sysusers: add "m" command for declaring group members
