@@ -1723,6 +1723,8 @@ static int link_enslaved(Link *link) {
         assert(link->state == LINK_STATE_ENSLAVING);
         assert(link->network);
 
+        log_debug_link(link, "enslaved");
+
         if (!(link->flags & IFF_UP)) {
                 r = link_up(link);
                 if (r < 0) {
@@ -1749,7 +1751,7 @@ static int enslave_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
                 return 1;
 
         r = sd_rtnl_message_get_errno(m);
-        if (r < 0) {
+        if (r < 0 && r != -EEXIST) {
                 log_struct_link(LOG_ERR, link,
                                 "MESSAGE=%-*s: could not enslave: %s",
                                 IFNAMSIZ,
@@ -1760,9 +1762,7 @@ static int enslave_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
                 return 1;
         }
 
-        log_debug_link(link, "enslaved");
-
-        if (link->enslaving == 0)
+        if (link->enslaving <= 0)
                 link_enslaved(link);
 
         return 1;
