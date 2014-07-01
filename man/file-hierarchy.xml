@@ -294,23 +294,21 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>$libdir</varname></term>
+                                <term><filename>/usr/lib/<replaceable>arch-id</replaceable></filename></term>
                                 <listitem><para>Location for placing
-                                dynamic libraries. The precise
-                                location depends on the operating
-                                system and the architecture, and is
-                                sometimes
+                                dynamic libraries, called <varname>$libdir</varname>.
+                                The architecture identifier to use, is defined on <ulink
+                                url="https://wiki.debian.org/Multiarch/Tuples">Multiarch Architecture Specifiers (Tuples)</ulink>
+                                list. Legacy locations of <varname>$libdir</varname> are
                                 <filename>/usr/lib</filename>,
-                                <filename>/use/lib64</filename> or
-                                <filename>/usr/lib/</filename>
-                                suffixed by an architecture
-                                identifier. This directory should not
+                                <filename>/usr/lib64</filename>.
+                                This directory should not
                                 be used for package-specific data,
                                 unless this data is
                                 architecture-dependent, too. To query
                                 <varname>$libdir</varname> for the
                                 primary architecture of the system,
-                                invoke
+                                invoke:
                                 <programlisting># pkg-config --variable=libdir systemd</programlisting></para></listitem>
                         </varlistentry>
 
@@ -694,7 +692,7 @@
 
                                 <listitem><para>Location for placing
                                 public dynamic libraries. The architecture
-                                identifier to use is defined on <ulink
+                                identifier to use, is defined on <ulink
                                 url="https://wiki.debian.org/Multiarch/Tuples">Multiarch Architecture Specifiers (Tuples)</ulink>
                                 list.</para></listitem>
                         </varlistentry>
@@ -795,7 +793,7 @@
                         <entry>Package executables that shall appear in the <varname>$PATH</varname> executable search path, compiled for the primary architecture of the operating system. It is not recommended to place internal binaries or binaries that are not commonly invoked from the shell in this directory, such as daemon binaries. As this directory is shared with most other packages of the system special care should be taken to pick unique names for files placed here, that are unlikely to clash with other package's files.</entry>
                       </row>
                       <row>
-                        <entry><filename>$libdir</filename></entry>
+                        <entry><filename>/usr/lib/<replaceable>arch-id</replaceable></filename></entry>
                         <entry>Public shared libraries of the package. As above, be careful with using too generic names, and pick unique names for your libraries to place here to avoid name clashes.</entry>
                       </row>
                       <row>
@@ -803,7 +801,7 @@
                         <entry>Private, static vendor resources of the package, including private binaries and libraries, or any other kind of read-only vendor data.</entry>
                       </row>
                       <row>
-                        <entry><filename>$libdir/<replaceable>package</replaceable></filename></entry>
+                        <entry><filename>/usr/lib/<replaceable>arch-id</replaceable>/<replaceable>package</replaceable></filename></entry>
                         <entry>Private other vendor resources of the package that are architecture-specific and cannot be shared between architectures. Note that this generally does not include private exectuables since binaries of a specific architecture may be freely invoked from any other supported system architecture.</entry>
                       </row>
                       <row>
