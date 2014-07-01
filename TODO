@@ -25,6 +25,8 @@ External:
 
 Features:
 
+* order OnCalendar timer units after timer-sync.target if DefaultDependencies=no so that we don't trigger them prematurely
+
 * sysusers: add "m" command for declaring group members
 
 * refuse mounting on symlinks
