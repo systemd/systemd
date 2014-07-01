@@ -254,6 +254,8 @@ static int client_send_message(sd_dhcp6_client *client) {
 
                 r = dhcp6_option_append(&opt, &optlen,
                                         DHCP6_OPTION_RAPID_COMMIT, 0, NULL);
+                if (r < 0)
+                        return r;
 
                 r = dhcp6_option_append_ia(&opt, &optlen, &client->ia_na);
                 if (r < 0)
