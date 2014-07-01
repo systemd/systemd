@@ -190,7 +190,9 @@
                                 should prefer using the directory
                                 specified in it over directly
                                 referencing
-                                <filename>/tmp</filename> (see <citerefentry><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry> for details).</para></listitem>
+                                <filename>/tmp</filename> (see <citerefentry><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                                and
+                                <ulink url="http://pubs.opengroup.org/onlinepubs/9699919799/basedefs/V1_chap08.html#tag_08_03">IEEE Std 1003.1</ulink> for details).</para></listitem>
                         </varlistentry>
 
                 </variablelist>
@@ -461,7 +463,8 @@
                                 set they should prefer using the
                                 directory specified in it over
                                 directly referencing
-                                <filename>/var/tmp</filename> (see <citerefentry><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry> for details).
+                                <filename>/var/tmp</filename> (see <citerefentry><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                                for details).
                                 </para></listitem>
                         </varlistentry>
 
