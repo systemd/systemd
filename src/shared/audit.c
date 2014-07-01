@@ -77,9 +77,6 @@ int audit_loginuid_from_pid(pid_t pid, uid_t *uid) {
         if (r < 0)
                 return r;
 
-        if (u == (uid_t) -1)
-                return -ENXIO;
-
         *uid = (uid_t) u;
         return 0;
 }
