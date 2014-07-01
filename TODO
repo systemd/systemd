@@ -621,6 +621,7 @@ Features:
    - properly handle routerless dhcp leases
    - add veth netdev support (c.f. http://shorewall.net/bridge-Shorewall-perl.html#veth)
    - add tun/tap netdev support
+   - add dummy netdev support
    - add more attribute support for SIT tunnel
    - make metric of routes configurable
    - work with non-ethernet devices
