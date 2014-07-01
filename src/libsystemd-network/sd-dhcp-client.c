@@ -56,6 +56,7 @@ struct sd_dhcp_client {
                 uint8_t type;
                 struct ether_addr mac_addr;
         } _packed_ client_id;
+        char *hostname;
         uint32_t xid;
         usec_t start_time;
         uint16_t secs;
@@ -174,6 +175,27 @@ int sd_dhcp_client_set_mac(sd_dhcp_client *client,
 
         if (need_restart && client->state != DHCP_STATE_STOPPED)
                 sd_dhcp_client_start(client);
+
+        return 0;
+}
+
+int sd_dhcp_client_set_hostname(sd_dhcp_client *client,
+                                const char *hostname) {
+        char *new_hostname = NULL;
+
+        assert_return(client, -EINVAL);
+
+        if (streq_ptr(client->hostname, hostname))
+                return 0;
+
+        if (hostname) {
+                new_hostname = strdup(hostname);
+                if (!new_hostname)
+                        return -ENOMEM;
+        }
+
+        free(client->hostname);
+        client->hostname = new_hostname;
 
         return 0;
 }
@@ -386,6 +408,17 @@ static int client_send_discover(sd_dhcp_client *client) {
                         return r;
         }
 
+        /* it is unclear from RFC 2131 if client should send hostname in
+           DHCPDISCOVER but dhclient does and so we do as well
+        */
+        if (client->hostname) {
+                r = dhcp_option_append(&discover->dhcp, optlen, &optoffset, 0,
+                                       DHCP_OPTION_HOST_NAME,
+                                       strlen(client->hostname), client->hostname);
+                if (r < 0)
+                        return r;
+        }
+
         r = dhcp_option_append(&discover->dhcp, optlen, &optoffset, 0,
                                DHCP_OPTION_END, 0, NULL);
         if (r < 0)
@@ -475,6 +508,14 @@ static int client_send_request(sd_dhcp_client *client) {
         case DHCP_STATE_BOUND:
         case DHCP_STATE_STOPPED:
                 return -EINVAL;
+        }
+
+        if (client->hostname) {
+                r = dhcp_option_append(&request->dhcp, optlen, &optoffset, 0,
+                                       DHCP_OPTION_HOST_NAME,
+                                       strlen(client->hostname), client->hostname);
+                if (r < 0)
+                        return r;
         }
 
         r = dhcp_option_append(&request->dhcp, optlen, &optoffset, 0,
@@ -1364,6 +1405,7 @@ sd_dhcp_client *sd_dhcp_client_unref(sd_dhcp_client *client) {
                 sd_dhcp_lease_unref(client->lease);
 
                 free(client->req_opts);
+                free(client->hostname);
                 free(client);
         }
 

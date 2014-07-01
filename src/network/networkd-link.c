@@ -21,6 +21,7 @@
 
 #include <netinet/ether.h>
 #include <linux/if.h>
+#include <unistd.h>
 
 #include "networkd.h"
 #include "libudev-private.h"
@@ -1927,6 +1928,18 @@ static int link_enter_enslave(Link *link) {
         return 0;
 }
 
+/* make sure the hostname is not "localhost" */
+static bool is_localhost(const char *hostname) {
+        assert(hostname);
+
+        return streq(hostname, "localhost") ||
+               streq(hostname, "localhost.") ||
+               endswith(hostname, ".localhost") ||
+               endswith(hostname, ".localhost.") ||
+               endswith(hostname, ".localdomain") ||
+               endswith(hostname, ".localdomain.");
+}
+
 static int link_configure(Link *link) {
         int r;
 
@@ -1992,6 +2005,7 @@ static int link_configure(Link *link) {
                         if (r < 0)
                                 return r;
                 }
+
                 if (link->network->dhcp_routes) {
                         r = sd_dhcp_client_set_request_option(link->dhcp_client, DHCP_OPTION_STATIC_ROUTE);
                         if (r < 0)
@@ -1999,6 +2013,18 @@ static int link_configure(Link *link) {
                         r = sd_dhcp_client_set_request_option(link->dhcp_client, DHCP_OPTION_CLASSLESS_STATIC_ROUTE);
                         if (r < 0)
                                 return r;
+                }
+
+                if (link->network->dhcp_sendhost) {
+                        _cleanup_free_ char *hostname = gethostname_malloc();
+                        if (!hostname)
+                                return -ENOMEM;
+
+                        if (!is_localhost(hostname)) {
+                                r = sd_dhcp_client_set_hostname(link->dhcp_client, hostname);
+                                if (r < 0)
+                                        return r;
+                        }
                 }
         }
 

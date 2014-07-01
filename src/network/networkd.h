@@ -169,6 +169,7 @@ struct Network {
         bool dhcp_mtu;
         bool dhcp_hostname;
         bool dhcp_domainname;
+        bool dhcp_sendhost;
         bool dhcp_critical;
         bool dhcp_routes;
         bool ipv4ll;

@@ -405,6 +405,13 @@
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
+                                        <term><varname>SendHostname=</varname></term>
+                                        <listitem>
+                                                <para>When true (the default), the machine's hostname will be sent to the DHCP
+                                                server</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
                                         <term><varname>UseHostname=</varname></term>
                                         <listitem>
                                                 <para>When true (the default), the hostname received from the DHCP server
