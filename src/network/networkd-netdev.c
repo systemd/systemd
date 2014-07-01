@@ -222,6 +222,7 @@ static int netdev_enter_ready(NetDev *netdev) {
         return 0;
 }
 
+/* callback for netdev's created without a backing Link */
 static int netdev_create_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
         NetDev *netdev = userdata;
         int r;
@@ -402,6 +403,7 @@ static int netdev_create(NetDev *netdev, Link *link, sd_rtnl_message_handler_t c
         return 0;
 }
 
+/* the callback must be called, possibly after a timeout, as otherwise the Link will hang */
 int netdev_enslave(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callback) {
         int r;
 
@@ -415,7 +417,7 @@ int netdev_enslave(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callbac
         case NETDEV_KIND_GRE:
         case NETDEV_KIND_SIT:
         case NETDEV_KIND_VTI:
-                return netdev_create_tunnel(link, netdev_create_handler);
+                return netdev_create_tunnel(netdev, link, callback);
         default:
                 break;
         }

@@ -349,7 +349,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(NetDev*, netdev_unref);
 int netdev_get(Manager *manager, const char *name, NetDev **ret);
 int netdev_set_ifindex(NetDev *netdev, sd_rtnl_message *newlink);
 int netdev_enslave(NetDev *netdev, Link *link, sd_rtnl_message_handler_t cb);
-int netdev_create_tunnel(Link *link, sd_rtnl_message_handler_t callback);
+int netdev_create_tunnel(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callback);
 int netdev_create_veth(NetDev *netdev, sd_rtnl_message_handler_t callback);
 int netdev_create_vxlan(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callback);
 

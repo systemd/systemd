@@ -468,21 +468,17 @@ static int netdev_fill_vti_rtnl_message(Link *link, sd_rtnl_message *m) {
         return r;
 }
 
-int netdev_create_tunnel(Link *link, sd_rtnl_message_handler_t callback) {
+int netdev_create_tunnel(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callback) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
-        NetDev *netdev;
         int r;
-
-        assert(link);
-        assert(link->network);
-        assert(link->network->tunnel);
-
-        netdev = link->network->tunnel;
 
         assert(netdev);
         assert(netdev->ifname);
         assert(netdev->manager);
         assert(netdev->manager->rtnl);
+        assert(link);
+        assert(link->network);
+        assert(link->network->tunnel == netdev);
 
         r = sd_rtnl_message_new_link(netdev->manager->rtnl, &m, RTM_NEWLINK, 0);
         if (r < 0) {
@@ -517,7 +513,7 @@ int netdev_create_tunnel(Link *link, sd_rtnl_message_handler_t callback) {
                 return -ENOTSUP;
         }
 
-        r = sd_rtnl_call_async(netdev->manager->rtnl, m, callback, netdev, 0, NULL);
+        r = sd_rtnl_call_async(netdev->manager->rtnl, m, callback, link, 0, NULL);
         if (r < 0) {
                 log_error_netdev(netdev,
                                  "Could not send rtnetlink message: %s", strerror(-r));
