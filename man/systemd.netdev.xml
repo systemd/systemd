@@ -163,8 +163,8 @@
                                                 <literal>macvlan</literal>, <literal>vxlan</literal>,
                                                 <literal>ipip</literal>, <literal>gre</literal>,
                                                 <literal>sit</literal>, <literal>vti</literal>,
-                                                <literal>veth</literal> are supported. This option
-                                                is compulsory.</para>
+                                                <literal>veth</literal>, and <literal>dummy</literal>
+                                                are supported. This option is compulsory.</para>
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
@@ -420,6 +420,14 @@ Kind=veth
 
 [Peer]
 Name=veth-peer</programlisting>
+                </example>
+
+                <example>
+                        <title>/etc/systemd/network/dummy.netdev</title>
+                        <programlisting>[NetDev]
+Name=dummy-test
+Kind=dummy
+MACAddress=12:34:56:78:9a:bc</programlisting>
                 </example>
 
         </refsect1>

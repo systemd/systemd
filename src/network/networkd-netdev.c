@@ -41,7 +41,8 @@ static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_GRE] = "gre",
         [NETDEV_KIND_SIT] = "sit",
         [NETDEV_KIND_VETH] = "veth",
-        [NETDEV_KIND_VTI] = "vti"
+        [NETDEV_KIND_VTI] = "vti",
+        [NETDEV_KIND_DUMMY] = "dummy",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(netdev_kind, NetDevKind);
@@ -716,6 +717,14 @@ static int netdev_load_one(Manager *manager, const char *filename) {
                 r = netdev_create_veth(netdev, netdev_create_handler);
                 if (r < 0)
                         return r;
+
+                break;
+        case NETDEV_KIND_DUMMY:
+                r = netdev_create_dummy(netdev, netdev_create_handler);
+                if (r < 0)
+                        return r;
+
+                netdev_ref(netdev);
 
                 break;
         case NETDEV_KIND_BRIDGE:

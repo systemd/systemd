@@ -81,6 +81,7 @@ typedef enum NetDevKind {
         NETDEV_KIND_SIT,
         NETDEV_KIND_VETH,
         NETDEV_KIND_VTI,
+        NETDEV_KIND_DUMMY,
         _NETDEV_KIND_MAX,
         _NETDEV_KIND_INVALID = -1
 } NetDevKind;
@@ -353,6 +354,7 @@ int netdev_enslave(NetDev *netdev, Link *link, sd_rtnl_message_handler_t cb);
 int netdev_create_tunnel(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callback);
 int netdev_create_veth(NetDev *netdev, sd_rtnl_message_handler_t callback);
 int netdev_create_vxlan(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callback);
+int netdev_create_dummy(NetDev *netdev, sd_rtnl_message_handler_t callback);
 
 const char *netdev_kind_to_string(NetDevKind d) _const_;
 NetDevKind netdev_kind_from_string(const char *d) _pure_;

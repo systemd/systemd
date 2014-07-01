@@ -4518,6 +4518,7 @@ libsystemd_networkd_core_la_SOURCES = \
 	src/network/networkd-tunnel.c \
 	src/network/networkd-veth.c \
 	src/network/networkd-vxlan.c \
+	src/network/networkd-dummy.c \
 	src/network/networkd-network.c \
 	src/network/networkd-address.c \
 	src/network/networkd-route.c \
