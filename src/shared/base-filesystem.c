@@ -29,6 +29,7 @@
 #include "base-filesystem.h"
 #include "log.h"
 #include "macro.h"
+#include "strv.h"
 #include "util.h"
 #include "label.h"
 #include "mkdir.h"
@@ -40,11 +41,13 @@ typedef struct BaseFilesystem {
 } BaseFilesystem;
 
 static const BaseFilesystem table[] = {
-        { "bin",      0, "usr/bin"   },
-        { "lib",      0, "usr/lib"   },
-        { "lib64",    0, "usr/lib64" },
+        { "bin",      0, "usr/bin" },
+        { "lib",      0, "usr/lib" },
+#if defined(__i386__) || defined(__x86_64__)
+        { "lib64",    0, "usr/lib/x86_64-linux-gnu\0usr/lib64" },
+#endif
         { "root",  0755, NULL },
-        { "sbin",     0, "usr/sbin"  },
+        { "sbin",     0, "usr/sbin" },
 };
 
 int base_filesystem_create(const char *root) {
@@ -58,11 +61,22 @@ int base_filesystem_create(const char *root) {
 
         for (i = 0; i < ELEMENTSOF(table); i ++) {
                 if (table[i].target) {
-                        /* check if target exists */
-                        if (faccessat(fd, table[i].target, F_OK, AT_SYMLINK_NOFOLLOW) < 0)
+                        const char *target = NULL;
+                        const char *s;
+
+                        /* check if one of the targets exists */
+                        NULSTR_FOREACH(s, table[i].target) {
+                                if (faccessat(fd, s, F_OK, AT_SYMLINK_NOFOLLOW) < 0)
+                                        continue;
+
+                                target = s;
+                                break;
+                        }
+
+                        if (!target)
                                 continue;
 
-                        r = symlinkat(table[i].target, fd, table[i].dir);
+                        r = symlinkat(target, fd, table[i].dir);
                         if (r < 0 && errno != EEXIST) {
                                 log_error("Failed to create symlink at %s/%s: %m", root, table[i].dir);
                                 return -errno;
