@@ -142,6 +142,13 @@
 
                         <variablelist class='network-directives'>
                                 <varlistentry>
+                                        <term><varname>Description=</varname></term>
+                                        <listitem>
+                                                <para>A free-form description of the netdev.
+                                                </para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
                                         <term><varname>Name=</varname></term>
                                         <listitem>
                                                 <para>The interface name used when creating the
@@ -152,13 +159,34 @@
                                         <term><varname>Kind=</varname></term>
                                         <listitem>
                                                 <para>The netdev kind. Currently, <literal>bridge</literal>,
-                                                <literal>bond</literal>, <literal>vlan</literal> and
-                                                <literal>macvlan</literal> are supported. This option
+                                                <literal>bond</literal>, <literal>vlan</literal>,
+                                                <literal>macvlan</literal>, <literal>vxlan</literal>,
+                                                <literal>ipip</literal>, <literal>gre</literal>,
+                                                <literal>sit</literal>, <literal>vti</literal>,
+                                                <literal>veth</literal> are supported. This option
                                                 is compulsory.</para>
                                         </listitem>
                                 </varlistentry>
+                                <varlistentry>
+                                        <term><varname>MTUBytes=</varname></term>
+                                        <listitem>
+                                                <para>The maximum transmission unit in bytes to
+                                                set for the device. The usual suffixes K, M, G,
+                                                are supported and are understood to the base of
+                                                1024.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>MACAddress=</varname></term>
+                                        <listitem>
+                                                <para>The MAC address to use for the device.
+                                                If none is given, one is generated based on
+                                                the interface name and the
+                                                <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+                                                </para>
+                                        </listitem>
+                                </varlistentry>
                         </variablelist>
-
         </refsect1>
 
         <refsect1>
@@ -198,7 +226,119 @@
                         </variablelist>
 
         </refsect1>
+        <refsect1>
+                <title>[VXLAN] Section Options</title>
+                        <para>The <literal>[VXLAN]</literal> section only applies for netdevs of kind
+                        <literal>vxlan</literal>, and accepts the following key:</para>
 
+                        <variablelist class='network-directives'>
+                                <varlistentry>
+                                        <term><varname>Id=</varname></term>
+                                        <listitem>
+                                                <para>The VXLAN ID to use.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>Group=</varname></term>
+                                        <listitem>
+                                                <para>An assigned multicast group IP address.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>TOS=</varname></term>
+                                        <listitem>
+                                                <para>The Type Of Service byte value for a vxlan interface.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>TTL=</varname></term>
+                                        <listitem>
+                                                <para>A fixed Time To Live N on Virtual eXtensible Local Area Network packets.
+                                                N is a number in the range 1-255. 0 is a special value meaning that packets
+                                                inherit the TTL value.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>MacLearning=</varname></term>
+                                        <listitem>
+                                                <para>A boolean. When true, enables dynamic MAC learning
+                                                to discover remote MAC addresses.</para>
+                                        </listitem>
+                                </varlistentry>
+                        </variablelist>
+        </refsect1>
+        <refsect1>
+                <title>[Tunnel] Section Options</title>
+
+                        <para>The <literal>[Tunnel]</literal> section only applies for netdevs of kind
+                        <literal>ipip</literal>, <literal>sit</literal>, <literal>gre</literal> and
+                        <literal>vti</literal> and accepts the following keys:</para>
+
+                        <variablelist class='network-directives'>
+                                <varlistentry>
+                                        <term><varname>Local=</varname></term>
+                                        <listitem>
+                                                <para>A static local address for tunneled packets.
+                                                It must be an address on another interface of this host.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>Remote=</varname></term>
+                                        <listitem>
+                                                <para>The remote endpoint of the tunnel.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>TOS=</varname></term>
+                                        <listitem>
+                                                <para>The Type Of Service byte value for a tunnel interface.
+                                                For details about the TOS see the
+                                                <ulink url="http://tools.ietf.org/html/rfc1349">
+                                                Type of Service in the Internet Protocol Suite
+                                                </ulink> document.
+                                                </para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>TTL=</varname></term>
+                                        <listitem>
+                                                <para>A fixed Time To Live N on tunneled packets.
+                                                N is a number in the range 1-255. 0 is a special value meaning that packets
+                                                inherit the TTL value. The default value for IPv4 tunnels is: inherit.
+                                                The default value for IPv6 tunnels is: 64.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>DiscoverPathMTU=</varname></term>
+                                        <listitem>
+                                                <para>A boolean. When true, enables Path MTU Discovery on the tunnel.</para>
+                                        </listitem>
+                                </varlistentry>
+                        </variablelist>
+        </refsect1>
+        <refsect1>
+                <title>[Peer] Section Options</title>
+
+                        <para>The <literal>[Peer]</literal> section only applies for netdevs of kind <literal>veth</literal>
+                        and accepts the following key:</para>
+
+                        <variablelist class='network-directives'>
+                                <varlistentry>
+                                        <term><varname>Name=</varname></term>
+                                        <listitem>
+                                                <para>The interface name used when creating the netdev.
+                                                This option is compulsory.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>MACAddress=</varname></term>
+                                        <listitem>
+                                                <para>The peer MACAddress, if not set it is generated in the same
+                                                way as the MAC address of the main interface.</para>
+                                        </listitem>
+                                </varlistentry>
+                        </variablelist>
+        </refsect1>
         <refsect1>
                 <title>Example</title>
                 <example>
@@ -222,9 +362,67 @@ Kind=vlan
 [VLAN]
 Id=1</programlisting>
                 </example>
+                <example>
+                        <title>/etc/systemd/network/ipip.netdev</title>
+                        <programlisting>[NetDev]
+Name=ipip-tun
+Kind=ipip
+MTUBytes=1480
+
+[Tunnel]
+Local=192.168.223.238
+Remote=192.169.224.239
+TTL=64</programlisting>
+                </example>
+
+                <example>
+                        <title>/etc/systemd/network/sit.netdev</title>
+                        <programlisting>[NetDev]
+Name=sit-tun
+Kind=sit
+MTUBytes=1480
+
+[Tunnel]
+Local=10.65.223.238
+Remote=10.65.223.239</programlisting>
+                </example>
+
+                <example>
+                        <title>/etc/systemd/network/gre.netdev</title>
+                        <programlisting>[NetDev]
+Name=gre-tun
+Kind=gre
+MTUBytes=1480
+
+[Tunnel]
+Local=10.65.223.238
+Remote=10.65.223.239</programlisting>
+                </example>
+
+                <example>
+                        <title>/etc/systemd/network/vti.netdev</title>
+
+                        <programlisting>[NetDev]
+Name=vti-tun
+Kind=vti
+MTUBytes=1480
+
+[Tunnel]
+Local=10.65.223.238
+Remote=10.65.223.239</programlisting>
+                </example>
+
+                <example>
+                        <title>/etc/systemd/network/veth.netdev</title>
+                        <programlisting>[NetDev]
+Name=veth-test
+Kind=veth
+
+[Peer]
+Name=veth-peer</programlisting>
+                </example>
 
         </refsect1>
-
         <refsect1>
                 <title>See Also</title>
                 <para>
