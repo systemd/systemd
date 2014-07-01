@@ -201,6 +201,14 @@
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
+                                        <term><varname>DHCPServer=</varname></term>
+                                        <listitem>
+                                                <para>A boolean. Enables a basic DHCPv4 server on the
+                                                device. Mostly useful for handing out leases to container
+                                                instances.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
                                         <term><varname>IPv4LL=</varname></term>
                                         <listitem>
                                                 <para>A boolean. When true, enables IPv4 link-local support.
@@ -278,6 +286,7 @@
                                                 This option may be specified more than once.</para>
                                         </listitem>
                                 </varlistentry>
+<!-- TODO: document NTP= option when it is actually used somewhere -->
                                 <varlistentry>
                                         <term><varname>Bridge=</varname></term>
                                         <listitem>
@@ -301,6 +310,20 @@
                                         <term><varname>MACVLAN=</varname></term>
                                         <listitem>
                                                 <para>The name of a MACVLAN to create on the link. This option
+                                                may be specified more than once.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>VXLAN=</varname></term>
+                                        <listitem>
+                                                <para>The name of a VXLAN to create on the link. This option
+                                                may be specified more than once.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>Tunnel=</varname></term>
+                                        <listitem>
+                                                <para>The name of a Tunnel to create on the link. This option
                                                 may be specified more than once.</para>
                                         </listitem>
                                 </varlistentry>
@@ -450,6 +473,45 @@ Name=enp2s0
 
 [Network]
 Bridge=bridge0</programlisting>
+                </example>
+                <example>
+                        <title>/etc/systemd/network/ipip.network</title>
+
+                        <programlisting>[Match]
+Name=em1
+
+[Network]
+Tunnel=ipip-tun</programlisting>
+                </example>
+
+                <example>
+                        <title>/etc/systemd/network/sit.network</title>
+
+                        <programlisting>[Match]
+Name=em1
+
+[Network]
+Tunnel=sit-tun</programlisting>
+                </example>
+
+                <example>
+                        <title>/etc/systemd/network/gre.network</title>
+
+                        <programlisting>[Match]
+Name=em1
+
+[Network]
+Tunnel=gre-tun</programlisting>
+                </example>
+
+                <example>
+                        <title>/etc/systemd/network/vti.network</title>
+
+                        <programlisting>[Match]
+Name=em1
+
+[Network]
+Tunnel=vti-tun</programlisting>
                 </example>
         </refsect1>
 
