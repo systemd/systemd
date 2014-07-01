@@ -532,6 +532,9 @@ error:
 }
 
 static int client_ensure_iaid(sd_dhcp6_client *client) {
+        /* name is a pointer to memory in the udev_device struct, so must
+           have the same scope */
+        _cleanup_udev_device_unref_ struct udev_device *device = NULL;
         const char *name = NULL;
         uint64_t id;
 
@@ -543,7 +546,6 @@ static int client_ensure_iaid(sd_dhcp6_client *client) {
         if (detect_container(NULL) <= 0) {
                 /* not in a container, udev will be around */
                 _cleanup_udev_unref_ struct udev *udev;
-                _cleanup_udev_device_unref_ struct udev_device *device = NULL;
                 char ifindex_str[2 + DECIMAL_STR_MAX(int)];
 
                 udev = udev_new();
