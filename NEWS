@@ -38,7 +38,7 @@ CHANGES WITH 215:
           dynamic loader cache (ldconfig). The systemd-sysusers tool
           described above also makes use of this now. With this in
           place it is now possible to start up a minimal operating
-          system with /etc empty cleanly. Fore more information on the
+          system with /etc empty cleanly. For more information on the
           concepts involved see this recent blog story:
 
           http://0pointer.de/blog/projects/stateless.html
@@ -93,7 +93,7 @@ CHANGES WITH 215:
 
         * For tmpfiles' "L", "L+", "C" and "C+" directives the final
           'argument' field (which so far specified the source to
-          symlink/copy the files from) is now optional. If ommited the
+          symlink/copy the files from) is now optional. If omitted the
           same file os copied from /usr/share/factory/ suffixed by the
           full destination path. This is useful for populating /etc
           with essential files, by copying them from vendor defaults
@@ -107,7 +107,7 @@ CHANGES WITH 215:
 
         * A new command "systemctl is-system-running" has been added
           that allows checking the overall state of the system, for
-          example whether it is fully up an running.
+          example whether it is fully up and running.
 
         * When the system boots up with an empty /etc, the equivalent
           to "systemctl preset-all" is executed during early boot, to
@@ -151,7 +151,7 @@ CHANGES WITH 215:
           the old name to the new name.
 
         * journald's SplitMode= now defaults to "uid". This makes sure
-          that unpriviliged users can access their own coredumps with
+          that unprivileged users can access their own coredumps with
           coredumpctl without restrictions.
 
         * New kernel command line options "systemd.wants=" (for
