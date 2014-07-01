@@ -225,7 +225,7 @@
                 <programlisting>...
 int print_fields(sd_journal *j) {
         const void *data;
-        size_t l;
+        size_t length;
         SD_JOURNAL_FOREACH_DATA(j, data, length)
                 printf("%.*s\n", (int) length, data);
 }
