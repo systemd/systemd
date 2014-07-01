@@ -183,7 +183,7 @@ int main(int argc, char *argv[]) {
                 const char *d;
                 size_t l;
 
-                r = sd_journal_get_data(j, "MESSAGE", &amp;d, &amp;l);
+                r = sd_journal_get_data(j, "MESSAGE", (const void **)&amp;d, &amp;l);
                 if (r &lt; 0) {
                         fprintf(stderr, "Failed to read message field: %s\n", strerror(-r));
                         continue;
