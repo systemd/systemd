@@ -106,8 +106,6 @@ static void link_free(Link *link) {
         if (!link)
                 return;
 
-        assert(link->manager);
-
         while ((address = link->addresses)) {
                 LIST_REMOVE(addresses, link->addresses, address);
                 address_free(address);
@@ -128,7 +126,8 @@ static void link_free(Link *link) {
         sd_dhcp6_client_unref(link->dhcp6_client);
         sd_icmp6_nd_unref(link->icmp6_router_discovery);
 
-        hashmap_remove(link->manager->links, &link->ifindex);
+        if (link->manager)
+                hashmap_remove(link->manager->links, &link->ifindex);
 
         free(link->ifname);
 
