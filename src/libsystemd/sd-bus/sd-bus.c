@@ -1033,8 +1033,10 @@ _public_ int sd_bus_start(sd_bus *bus) {
         else
                 return -EINVAL;
 
-        if (r < 0)
+        if (r < 0) {
+                sd_bus_close(bus);
                 return r;
+        }
 
         return bus_send_hello(bus);
 }
