@@ -388,7 +388,7 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec,
         int r = 0;
         sd_dhcp6_client *client = userdata;
         usec_t time_now, init_retransmit_time, max_retransmit_time;
-        usec_t max_retransmit_duration;
+        usec_t max_retransmit_duration = 0;
         uint8_t max_retransmit_count = 0;
         char time_string[FORMAT_TIMESPAN_MAX];
         uint32_t expire = 0;
@@ -409,8 +409,6 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec,
 
                 init_retransmit_time = DHCP6_SOL_TIMEOUT;
                 max_retransmit_time = DHCP6_SOL_MAX_RT;
-                max_retransmit_count = 0;
-                max_retransmit_duration = 0;
 
                 break;
 
@@ -418,28 +416,22 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec,
                 init_retransmit_time = DHCP6_REQ_TIMEOUT;
                 max_retransmit_time = DHCP6_REQ_MAX_RT;
                 max_retransmit_count = DHCP6_REQ_MAX_RC;
-                max_retransmit_duration = 0;
 
                 break;
 
         case DHCP6_STATE_RENEW:
                 init_retransmit_time = DHCP6_REN_TIMEOUT;
                 max_retransmit_time = DHCP6_REN_MAX_RT;
-                max_retransmit_count = 0;
 
                 /* RFC 3315, section 18.1.3. says max retransmit duration will
                    be the remaining time until T2. Instead of setting MRD,
                    wait for T2 to trigger with the same end result */
-                max_retransmit_duration = 0;
 
                 break;
 
         case DHCP6_STATE_REBIND:
                 init_retransmit_time = DHCP6_REB_TIMEOUT;
                 max_retransmit_time = DHCP6_REB_MAX_RT;
-                max_retransmit_count = 0;
-
-                max_retransmit_duration = 0;
 
                 if (!client->timeout_resend_expire) {
                         r = dhcp6_lease_ia_rebind_expire(&client->lease->ia,
