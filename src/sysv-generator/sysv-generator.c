@@ -768,6 +768,11 @@ static int enumerate_sysv(LookupPaths lp, Hashmap *all_services) {
                         if (!fpath)
                                 return log_oom();
 
+                        if (unit_file_get_state(UNIT_FILE_SYSTEM, NULL, name) >= 0) {
+                                log_debug("Native unit for %s already exists, skipping", name);
+                                continue;
+                        }
+
                         service = new0(SysvStub, 1);
                         if (!service)
                                 return log_oom();
@@ -852,7 +857,8 @@ static int set_dependencies_from_rcnd(LookupPaths lp, Hashmap *all_services) {
 
                                 service = hashmap_get(all_services, name);
                                 if (!service){
-                                        log_warning("Could not find init script for %s", name);
+                                        log_debug("Ignoring %s symlink in %s, not generating %s.",
+                                                  de->d_name, rcnd_table[i].path, name);
                                         continue;
                                 }
 

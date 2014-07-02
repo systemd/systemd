@@ -367,6 +367,18 @@ class SysvGeneratorTest(unittest.TestCase):
         self.assert_enabled('foo.bak.service', [])
         self.assert_enabled('foo.old.service', [])
 
+    def test_existing_native_unit(self):
+        '''existing native unit'''
+
+        with open(os.path.join(self.unit_dir, 'foo.service'), 'w') as f:
+            f.write('[Unit]\n')
+
+        self.add_sysv('foo.sh', {'Provides': 'foo bar'}, enable=True)
+        err, results = self.run_generator()
+        self.assertEqual(list(results), [])
+        # no enablement or alias links, as native unit is disabled
+        self.assertEqual(os.listdir(self.out_dir), [])
+
 
 if __name__ == '__main__':
     unittest.main(testRunner=unittest.TextTestRunner(stream=sys.stdout, verbosity=2))
