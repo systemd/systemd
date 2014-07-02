@@ -203,7 +203,7 @@ static int get_data_size(RemoteSource *source) {
 
         source->data_size = le64toh( *(uint64_t *) data );
         if (source->data_size > DATA_SIZE_MAX) {
-                log_error("Stream declares field with size %zu > %u == DATA_SIZE_MAX",
+                log_error("Stream declares field with size %zu > DATA_SIZE_MAX = %u",
                           source->data_size, DATA_SIZE_MAX);
                 return -EINVAL;
         }
@@ -429,8 +429,8 @@ int process_source(RemoteSource *source, Writer *writer, bool compress, bool sea
                 return r;
 
         /* We have a full event */
-        log_info("Received a full event from source@%p fd:%d (%s)",
-                 source, source->fd, source->name);
+        log_debug("Received a full event from source@%p fd:%d (%s)",
+                  source, source->fd, source->name);
 
         if (!source->iovw.count) {
                 log_warning("Entry with no payload, skipping");

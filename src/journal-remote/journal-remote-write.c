@@ -114,10 +114,12 @@ int writer_write(Writer *s,
         if (r >= 0)
                 return 1;
 
-        log_info("%s: Write failed, rotating", s->journal->path);
+        log_debug("%s: Write failed, rotating: %s", s->journal->path, strerror(-r));
         r = do_rotate(&s->journal, compress, seal);
         if (r < 0)
                 return r;
+        else
+                log_info("%s: Successfully rotated journal", s->journal->path);
 
         log_debug("Retrying write.");
         r = journal_file_append_entry(s->journal, ts, iovw->iovec, iovw->count,

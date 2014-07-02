@@ -500,8 +500,8 @@ static int process_http_upload(
 
         r = get_writer(server, source->name, NULL, &w);
         if (r < 0) {
-                log_warning("Failed to get writer for source %s (%s): %s",
-                            source->name, source->name, strerror(-r));
+                log_warning("Failed to get writer for source %s: %s",
+                            source->name, strerror(-r));
                 return mhd_respondf(connection,
                                     MHD_HTTP_SERVICE_UNAVAILABLE,
                                     "Failed to get writer for connection: %s.\n",
@@ -509,7 +509,7 @@ static int process_http_upload(
         }
 
         if (*upload_data_size) {
-                log_info("Received %zu bytes", *upload_data_size);
+                log_debug("Received %zu bytes", *upload_data_size);
 
                 r = push_data(source, upload_data, *upload_data_size);
                 if (r < 0)
@@ -951,7 +951,7 @@ static int remoteserver_init(RemoteServer *s,
 
         STRV_FOREACH(file, arg_files) {
                 if (streq(*file, "-")) {
-                        log_info("Reading standard input...");
+                        log_info("Using standard input as source.");
 
                         fd = STDIN_FILENO;
                         output_name = "stdin";
@@ -1061,8 +1061,8 @@ static int dispatch_raw_source_event(sd_event_source *event,
 
         r = get_writer(s, source->name, NULL, &w);
         if (r < 0) {
-                log_warning("Failed to get writer for source %s (%s): %s",
-                            source->name, source->name, strerror(-r));
+                log_warning("Failed to get writer for source %s: %s",
+                            source->name, strerror(-r));
                 return r;
         }
 
@@ -1077,7 +1077,7 @@ static int dispatch_raw_source_event(sd_event_source *event,
                 if (remaining > 0)
                         log_warning("Premature EOF. %zu bytes lost.", remaining);
                 remove_source(s, source->fd);
-                log_info("%zd active source remaining", s->active);
+                log_info("%zd active sources remaining", s->active);
                 return 0;
         } else if (r == -E2BIG) {
                 log_error("Entry too big, skipped");
@@ -1195,7 +1195,7 @@ static int parse_config(void) {
 
 static void help(void) {
         printf("%s [OPTIONS...] {FILE|-}...\n\n"
-               "Write external journal events to a journal file.\n\n"
+               "Write external journal events to journal file(s).\n\n"
                "Options:\n"
                "  --url=URL            Read events from systemd-journal-gatewayd at URL\n"
                "  --getter=COMMAND     Read events from the output of COMMAND\n"

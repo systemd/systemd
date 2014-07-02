@@ -479,7 +479,7 @@ static void help(void) {
         printf("%s -u URL {FILE|-}...\n\n"
                "Upload journal events to a remote server.\n\n"
                "Options:\n"
-               "  --url=URL                Upload to this address\n"
+               "  -u --url=URL             Upload to this address\n"
                "  --key=FILENAME           Specify key in PEM format\n"
                "  --cert=FILENAME          Specify certificate in PEM format\n"
                "  --trust=FILENAME         Specify CA certificate in PEM format\n"
