@@ -1209,15 +1209,38 @@ fail:
 
 int bus_set_address_system_remote(sd_bus *b, const char *host) {
         _cleanup_free_ char *e = NULL;
+        char *m = NULL, *c = NULL;
 
         assert(b);
         assert(host);
 
-        e = bus_address_escape(host);
-        if (!e)
-                return -ENOMEM;
+        /* Let's see if we shall enter some container */
+        m = strchr(host, ':');
+        if (m) {
+                m++;
 
-        b->address = strjoin("unixexec:path=ssh,argv1=-xT,argv2=", e, ",argv3=systemd-stdio-bridge", NULL);
+                /* Let's make sure this is not a port of some kind,
+                 * and is a valid machine name. */
+                if (!in_charset(m, "0123456789") && machine_name_is_valid(m)) {
+                        char *t;
+
+                        /* Cut out the host part */
+                        t = strndupa(host, m - host - 1);
+                        e = bus_address_escape(t);
+                        if (!e)
+                                return -ENOMEM;
+
+                        c = strappenda(",argv4=--machine=", m);
+                }
+        }
+
+        if (!e) {
+                e = bus_address_escape(host);
+                if (!e)
+                        return -ENOMEM;
+        }
+
+        b->address = strjoin("unixexec:path=ssh,argv1=-xT,argv2=", e, ",argv3=systemd-stdio-bridge", c, NULL);
         if (!b->address)
                 return -ENOMEM;
 

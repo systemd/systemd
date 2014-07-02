@@ -41,23 +41,6 @@
 #include "cgroup-util.h"
 #include "machined.h"
 
-static bool valid_machine_name(const char *p) {
-        size_t l;
-
-        if (!filename_is_safe(p))
-                return false;
-
-        if (!ascii_is_valid(p))
-                return false;
-
-        l = strlen(p);
-
-        if (l < 1 || l> 64)
-                return false;
-
-        return true;
-}
-
 static int method_get_machine(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *p = NULL;
         Manager *m = userdata;
@@ -185,7 +168,7 @@ static int method_create_or_register_machine(Manager *manager, sd_bus_message *m
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
                 return r;
-        if (!valid_machine_name(name))
+        if (!machine_name_is_valid(name))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid machine name");
 
         r = sd_bus_message_read_array(message, 'y', &v, &n);

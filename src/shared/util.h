@@ -515,6 +515,8 @@ bool plymouth_running(void);
 bool hostname_is_valid(const char *s) _pure_;
 char* hostname_cleanup(char *s, bool lowercase);
 
+bool machine_name_is_valid(const char *s) _pure_;
+
 char* strshorten(char *s, size_t l);
 
 int terminal_vhangup_fd(int fd);

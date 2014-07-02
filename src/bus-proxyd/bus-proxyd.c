@@ -47,7 +47,7 @@
 #include "capability.h"
 #include "bus-policy.h"
 
-static const char *arg_address = DEFAULT_SYSTEM_BUS_PATH;
+static char *arg_address = NULL;
 static char *arg_command_line_buffer = NULL;
 static bool arg_drop_privileges = false;
 static char **arg_configuration = NULL;
@@ -60,8 +60,9 @@ static int help(void) {
                "     --version            Show package version\n"
                "     --drop-privileges    Drop privileges\n"
                "     --configuration=PATH Configuration file or directory\n"
+               "     --machine=MACHINE    Connect to specified machine\n"
                "     --address=ADDRESS    Connect to the bus specified by ADDRESS\n"
-               "                         (default: " KERNEL_SYSTEM_BUS_PATH ")\n",
+               "                          (default: " DEFAULT_SYSTEM_BUS_PATH ")\n",
                program_invocation_short_name);
 
         return 0;
@@ -74,6 +75,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_ADDRESS,
                 ARG_DROP_PRIVILEGES,
                 ARG_CONFIGURATION,
+                ARG_MACHINE,
         };
 
         static const struct option options[] = {
@@ -82,7 +84,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "address",         required_argument, NULL, ARG_ADDRESS         },
                 { "drop-privileges", no_argument,       NULL, ARG_DROP_PRIVILEGES },
                 { "configuration",   required_argument, NULL, ARG_CONFIGURATION   },
-                { NULL,              0,                 NULL, 0                   },
+                { "machine",         required_argument, NULL, ARG_MACHINE         },
+                {},
         };
 
         int c, r;
@@ -103,9 +106,17 @@ static int parse_argv(int argc, char *argv[]) {
                         puts(SYSTEMD_FEATURES);
                         return 0;
 
-                case ARG_ADDRESS:
-                        arg_address = optarg;
+                case ARG_ADDRESS: {
+                        char *a;
+
+                        a = strdup(optarg);
+                        if (!a)
+                                return log_oom();
+
+                        free(arg_address);
+                        arg_address = a;
                         break;
+                }
 
                 case ARG_DROP_PRIVILEGES:
                         arg_drop_privileges = true;
@@ -116,6 +127,28 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_oom();
                         break;
+
+                case ARG_MACHINE: {
+                        _cleanup_free_ char *e = NULL;
+                        char *a;
+
+                        e = bus_address_escape(optarg);
+                        if (!e)
+                                return log_oom();
+
+#ifdef ENABLE_KDBUS
+                        a = strjoin("x-container-kernel:machine=", e, ";x-container-unix:machine=", e, NULL);
+#else
+                        a = strjoin("x-container-unix:machine=", e, NULL);
+#endif
+                        if (!a)
+                                return log_oom();
+
+                        free(arg_address);
+                        arg_address = a;
+
+                        break;
+                }
 
                 case '?':
                         return -EINVAL;
@@ -129,10 +162,15 @@ static int parse_argv(int argc, char *argv[]) {
          * we'll write who we are talking to into it, so that "ps" is
          * explanatory */
         arg_command_line_buffer = argv[optind];
-        if (argc > optind + 1 ||
-            (arg_command_line_buffer && arg_command_line_buffer[strspn(arg_command_line_buffer, "x")] != 0)) {
+        if (argc > optind + 1 || (arg_command_line_buffer && !in_charset(arg_command_line_buffer, "x"))) {
                 log_error("Too many arguments");
                 return -EINVAL;
+        }
+
+        if (!arg_address) {
+                arg_address = strdup(DEFAULT_SYSTEM_BUS_PATH);
+                if (!arg_address)
+                        return log_oom();
         }
 
         return 1;
@@ -1439,9 +1477,12 @@ int main(int argc, char *argv[]) {
 finish:
         sd_bus_flush(a);
         sd_bus_flush(b);
+        sd_bus_close(a);
+        sd_bus_close(b);
 
         policy_free(&policy);
         strv_free(arg_configuration);
+        free(arg_address);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
