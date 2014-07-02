@@ -258,7 +258,7 @@ static char* context_fallback_icon_name(Context *c) {
 }
 
 static bool hostname_is_useful(const char *hn) {
-        return !isempty(hn) && !streq(hn, "localhost");
+        return !isempty(hn) && !is_localhost(hn);
 }
 
 static int context_update_kernel_hostname(Context *c) {

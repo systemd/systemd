@@ -6732,3 +6732,18 @@ char *tempfn_random(const char *p) {
 
         return t;
 }
+
+/* make sure the hostname is not "localhost" */
+bool is_localhost(const char *hostname) {
+        assert(hostname);
+
+        /* This tries to identify local hostnames described in RFC6761
+         * plus the redhatism of .localdomain */
+
+        return streq(hostname, "localhost") ||
+               streq(hostname, "localhost.") ||
+               endswith(hostname, ".localhost") ||
+               endswith(hostname, ".localhost.") ||
+               endswith(hostname, ".localdomain") ||
+               endswith(hostname, ".localdomain.");
+}

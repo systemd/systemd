@@ -1928,18 +1928,6 @@ static int link_enter_enslave(Link *link) {
         return 0;
 }
 
-/* make sure the hostname is not "localhost" */
-static bool is_localhost(const char *hostname) {
-        assert(hostname);
-
-        return streq(hostname, "localhost") ||
-               streq(hostname, "localhost.") ||
-               endswith(hostname, ".localhost") ||
-               endswith(hostname, ".localhost.") ||
-               endswith(hostname, ".localdomain") ||
-               endswith(hostname, ".localdomain.");
-}
-
 static int link_configure(Link *link) {
         int r;
 

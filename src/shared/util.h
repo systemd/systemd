@@ -959,3 +959,5 @@ int fflush_and_check(FILE *f);
 
 char *tempfn_xxxxxx(const char *p);
 char *tempfn_random(const char *p);
+
+bool is_localhost(const char *hostname);

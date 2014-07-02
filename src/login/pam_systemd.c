@@ -357,9 +357,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         if (isempty(class))
                 class = streq(type, "unspecified") ? "background" : "user";
 
-        remote = !isempty(remote_host) &&
-                !streq_ptr(remote_host, "localhost") &&
-                !streq_ptr(remote_host, "localhost.localdomain");
+        remote = !isempty(remote_host) && !is_localhost(remote_host);
 
         /* Talk to logind over the message bus */
 
