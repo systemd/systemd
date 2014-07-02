@@ -43,17 +43,17 @@ static int builtin_net_setup_link(struct udev_device *dev, int argc, char **argv
         r = link_config_get(ctx, dev, &link);
         if (r < 0) {
                 if (r == -ENOENT) {
-                        log_debug("No matching link configuration found");
+                        log_debug("No matching link configuration found.");
                         return EXIT_SUCCESS;
                 } else {
-                        log_error("Could not get link config");
+                        log_error("Could not get link config: %s", strerror(-r));
                         return EXIT_FAILURE;
                 }
         }
 
         r = link_config_apply(ctx, link, dev, &name);
         if (r < 0) {
-                log_error("Could not apply link config to %s", udev_device_get_sysname(dev));
+                log_error("Could not apply link config to %s: %s", udev_device_get_sysname(dev), strerror(-r));
                 return EXIT_FAILURE;
         }
 
@@ -77,18 +77,18 @@ static int builtin_net_setup_link_init(struct udev *udev) {
         if (r < 0)
                 return r;
 
-        log_debug("Created link configuration context");
+        log_debug("Created link configuration context.");
         return 0;
 }
 
 static void builtin_net_setup_link_exit(struct udev *udev) {
         link_config_ctx_free(ctx);
         ctx = NULL;
-        log_debug("Unloaded link configuration context");
+        log_debug("Unloaded link configuration context.");
 }
 
 static bool builtin_net_setup_link_validate(struct udev *udev) {
-        log_debug("Check if link configuration needs reloading");
+        log_debug("Check if link configuration needs reloading.");
         if (!ctx)
                 return false;
 
