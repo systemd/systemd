@@ -1256,7 +1256,7 @@ char *cunescape_length_with_prefix(const char *s, size_t length, const char *pre
                         a = unhexchar(f[1]);
                         b = unhexchar(f[2]);
 
-                        if (a < 0 || b < 0) {
+                        if (a < 0 || b < 0 || (a == 0 && b == 0)) {
                                 /* Invalid escape code, let's take it literal then */
                                 *(t++) = '\\';
                                 *(t++) = 'x';
@@ -1283,7 +1283,7 @@ char *cunescape_length_with_prefix(const char *s, size_t length, const char *pre
                         b = unoctchar(f[1]);
                         c = unoctchar(f[2]);
 
-                        if (a < 0 || b < 0 || c < 0) {
+                        if (a < 0 || b < 0 || c < 0 || (a == 0 && b == 0 && c == 0)) {
                                 /* Invalid escape code, let's take it literal then */
                                 *(t++) = '\\';
                                 *(t++) = f[0];
@@ -1566,8 +1566,7 @@ int chvt(int vt) {
 
 int read_one_char(FILE *f, char *ret, usec_t t, bool *need_nl) {
         struct termios old_termios, new_termios;
-        char c;
-        char line[LINE_MAX];
+        char c, line[LINE_MAX];
 
         assert(f);
         assert(ret);
@@ -1604,9 +1603,10 @@ int read_one_char(FILE *f, char *ret, usec_t t, bool *need_nl) {
                 }
         }
 
-        if (t != (usec_t) -1)
+        if (t != (usec_t) -1) {
                 if (fd_wait_for_event(fileno(f), POLLIN, t) <= 0)
                         return -ETIMEDOUT;
+        }
 
         if (!fgets(line, sizeof(line), f))
                 return -EIO;
@@ -1624,6 +1624,7 @@ int read_one_char(FILE *f, char *ret, usec_t t, bool *need_nl) {
 }
 
 int ask(char *ret, const char *replies, const char *text, ...) {
+        int r;
 
         assert(ret);
         assert(replies);
@@ -1632,7 +1633,6 @@ int ask(char *ret, const char *replies, const char *text, ...) {
         for (;;) {
                 va_list ap;
                 char c;
-                int r;
                 bool need_nl = true;
 
                 if (on_tty())

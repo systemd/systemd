@@ -297,14 +297,16 @@ static void test_undecchar(void) {
 
 static void test_cescape(void) {
         _cleanup_free_ char *escaped;
-        escaped = cescape("abc\\\"\b\f\n\r\t\v\a\003\177\234\313");
+
+        assert_se(escaped = cescape("abc\\\"\b\f\n\r\t\v\a\003\177\234\313"));
         assert_se(streq(escaped, "abc\\\\\\\"\\b\\f\\n\\r\\t\\v\\a\\003\\177\\234\\313"));
 }
 
 static void test_cunescape(void) {
         _cleanup_free_ char *unescaped;
-        unescaped = cunescape("abc\\\\\\\"\\b\\f\\a\\n\\r\\t\\v\\003\\177\\234\\313");
-        assert_se(streq(unescaped, "abc\\\"\b\f\a\n\r\t\v\003\177\234\313"));
+
+        assert_se(unescaped = cunescape("abc\\\\\\\"\\b\\f\\a\\n\\r\\t\\v\\003\\177\\234\\313\\000\\x00"));
+        assert_se(streq(unescaped, "abc\\\"\b\f\a\n\r\t\v\003\177\234\313\\000\\x00"));
 }
 
 static void test_foreach_word(void) {
