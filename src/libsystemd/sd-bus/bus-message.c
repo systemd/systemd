@@ -801,9 +801,10 @@ _public_ sd_bus_message* sd_bus_message_unref(sd_bus_message *m) {
         assert(m->n_ref > 0);
         m->n_ref--;
 
-        if (m->n_ref <= 0)
-                message_free(m);
+        if (m->n_ref > 0)
+                return NULL;
 
+        message_free(m);
         return NULL;
 }
 

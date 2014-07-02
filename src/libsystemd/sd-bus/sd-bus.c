@@ -75,12 +75,6 @@ static void bus_close_fds(sd_bus *b) {
 static void bus_reset_queues(sd_bus *b) {
         assert(b);
 
-        /* NOTE: We _must_ decrement b->Xqueue_size before calling
-         * sd_bus_message_unref() for _each_ message. Otherwise the
-         * self-reference checks in sd_bus_unref() will fire for each message.
-         * We would thus recurse into sd_bus_message_unref() and trigger the
-         * assert(m->n_ref > 0) */
-
         while (b->rqueue_size > 0)
                 sd_bus_message_unref(b->rqueue[--b->rqueue_size]);
 
@@ -1363,53 +1357,6 @@ _public_ sd_bus *sd_bus_unref(sd_bus *bus) {
 
         if (!bus)
                 return NULL;
-
-        /* TODO/FIXME: It's naive to think REFCNT_GET() is thread-safe in any
-         * way but exclusive REFCNT_DEC(). The current logic _must_ lock around
-         * REFCNT_GET() until REFCNT_DEC() or two threads might end up in
-         * parallel in bus_reset_queues(). But locking would totally break the
-         * recursion we introduce by bus_reset_queues()...
-         * (Imagine one thread in sd_bus_message_unref() setting n_ref to 0 and
-         * thus calling into sd_bus_unref(). If at the same time the real
-         * thread calls sd_bus_unref(), both end up with "q == true" and will
-         * call into bus_reset_queues().
-         * If we require the main bus to be alive until all dispatch threads
-         * are done, there is no need to do ref-counts at all. So in both ways,
-         * the REFCNT thing is humbug.)
-         *
-         * On a second note: messages are *not* required to have ->bus set nor
-         * does it have to be _this_ bus that they're assigned to. This whole
-         * ref-cnt checking breaks apart if a message is not assigned to us.
-         * (which is _very_ easy to trigger with the current API). */
-
-        if (REFCNT_GET(bus->n_ref) == bus->rqueue_size + bus->wqueue_size + 1) {
-                bool q = true;
-
-                for (i = 0; i < bus->rqueue_size; i++)
-                        if (bus->rqueue[i]->n_ref > 1) {
-                                q = false;
-                                break;
-                        }
-
-                if (q) {
-                        for (i = 0; i < bus->wqueue_size; i++)
-                                if (bus->wqueue[i]->n_ref > 1) {
-                                        q = false;
-                                        break;
-                                }
-                }
-
-                /* We are the only holders on the messages, and the
-                 * messages are the only holders on us, so let's drop
-                 * the messages and thus implicitly also kill our own
-                 * last references.
-                 * bus_reset_queues() decrements the queue-size before
-                 * calling into sd_bus_message_unref(). Thus, it
-                 * protects us from recursion. */
-
-                if (q)
-                        bus_reset_queues(bus);
-        }
 
         i = REFCNT_DEC(bus->n_ref);
         if (i > 0)
