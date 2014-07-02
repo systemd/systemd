@@ -491,6 +491,7 @@ static int process_http_upload(
         Writer *w;
         int r;
         bool finished = false;
+        size_t remaining;
 
         assert(source);
 
@@ -542,10 +543,12 @@ static int process_http_upload(
 
         /* The upload is finished */
 
-        if (source_non_empty(source)) {
-                log_warning("EOF reached with incomplete data");
-                return mhd_respond(connection, MHD_HTTP_EXPECTATION_FAILED,
-                                   "Trailing data not processed.");
+        remaining = source_non_empty(source);
+        if (remaining > 0) {
+                log_warning("Premature EOFbyte. %zu bytes lost.", remaining);
+                return mhd_respondf(connection, MHD_HTTP_EXPECTATION_FAILED,
+                                    "Premature EOF. %zu bytes of trailing data not processed.",
+                                    remaining);
         }
 
         return mhd_respond(connection, MHD_HTTP_ACCEPTED, "OK.\n");
@@ -1003,6 +1006,7 @@ static int server_destroy(RemoteServer *s, uint64_t *event_count) {
         *event_count = 0;
 
         while ((w = hashmap_steal_first(s->writers))) {
+                log_info("seqnum %"PRIu64, w->seqnum);
                 *event_count += w->seqnum;
 
                 r = writer_close(w);
@@ -1064,10 +1068,14 @@ static int dispatch_raw_source_event(sd_event_source *event,
 
         r = process_source(source, w, arg_compress, arg_seal);
         if (source->state == STATE_EOF) {
+                size_t remaining;
+
                 log_info("EOF reached with source fd:%d (%s)",
                          source->fd, source->name);
-                if (source_non_empty(source))
-                        log_warning("EOF reached with incomplete data");
+
+                remaining = source_non_empty(source);
+                if (remaining > 0)
+                        log_warning("Premature EOF. %zu bytes lost.", remaining);
                 remove_source(s, source->fd);
                 log_info("%zd active source remaining", s->active);
                 return 0;

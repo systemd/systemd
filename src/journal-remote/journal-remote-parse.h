@@ -50,10 +50,10 @@ typedef struct RemoteSource {
         sd_event_source *event;
 } RemoteSource;
 
-static inline int source_non_empty(RemoteSource *source) {
+static inline size_t source_non_empty(RemoteSource *source) {
         assert(source);
 
-        return source->filled > 0;
+        return source->filled;
 }
 
 void source_free(RemoteSource *source);

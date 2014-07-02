@@ -22,7 +22,7 @@
 #include "journal-remote-parse.h"
 #include "journald-native.h"
 
-#define LINE_CHUNK 1024u
+#define LINE_CHUNK 8*1024u
 
 void source_free(RemoteSource *source) {
         if (!source)
@@ -71,13 +71,17 @@ static int get_line(RemoteSource *source, char **line, size_t *size) {
 
                 if (source->size - source->filled < LINE_CHUNK &&
                     !GREEDY_REALLOC(source->buf, source->size,
-                                    MAX(source->filled + LINE_CHUNK, DATA_SIZE_MAX)))
+                                    MIN(source->filled + LINE_CHUNK, DATA_SIZE_MAX)))
                                 return log_oom();
 
-                assert(source->size - source->filled >= LINE_CHUNK);
+                assert(source->size - source->filled >= LINE_CHUNK ||
+                       source->size == DATA_SIZE_MAX);
+
+                // FIXME: the buffer probably needs to be bigger than DATA_SIZE_MAX
+                // to accomodate such big fields.
 
                 n = read(source->fd, source->buf + source->filled,
-                         MAX(source->size, DATA_SIZE_MAX) - source->filled);
+                         source->size - source->filled);
                 if (n < 0) {
                         if (errno != EAGAIN && errno != EWOULDBLOCK)
                                 log_error("read(%d, ..., %zd): %m", source->fd,
