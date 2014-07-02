@@ -19,6 +19,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "journal-remote.h"
 #include "journal-remote-write.h"
 
 int iovw_put(struct iovec_wrapper *iovw, void* data, size_t len) {
@@ -64,31 +65,66 @@ static int do_rotate(JournalFile **f, bool compress, bool seal) {
         return r;
 }
 
-int writer_init(Writer *s) {
-        assert(s);
+Writer* writer_new(RemoteServer *server) {
+        Writer *w;
 
-        s->journal = NULL;
+        w = new0(Writer, 1);
+        if (!w)
+                return NULL;
 
-        memset(&s->metrics, 0xFF, sizeof(s->metrics));
+        memset(&w->metrics, 0xFF, sizeof(w->metrics));
 
-        s->mmap = mmap_cache_new();
-        if (!s->mmap)
-                return log_oom();
-
-        s->seqnum = 0;
-
-        return 0;
-}
-
-int writer_close(Writer *s) {
-        if (s->journal) {
-                journal_file_close(s->journal);
-                log_debug("Journal has been closed.");
+        w->mmap = mmap_cache_new();
+        if (!w->mmap) {
+                free(w);
+                return NULL;
         }
-        if (s->mmap)
-                mmap_cache_unref(s->mmap);
-        return 0;
+
+        w->n_ref = 1;
+        w->server = server;
+
+        return w;
 }
+
+Writer* writer_free(Writer *w) {
+        if (!w)
+                return NULL;
+
+        if (w->journal) {
+                log_debug("Closing journal file %s.", w->journal->path);
+                journal_file_close(w->journal);
+        }
+
+        if (w->server) {
+                w->server->event_count += w->seqnum;
+                if (w->hashmap_key)
+                        hashmap_remove(w->server->writers, w->hashmap_key);
+        }
+
+        free(w->hashmap_key);
+
+        if (w->mmap)
+                mmap_cache_unref(w->mmap);
+
+        free(w);
+
+        return NULL;
+}
+
+Writer* writer_unref(Writer *w) {
+        if (w && (-- w->n_ref <= 0))
+                writer_free(w);
+
+        return NULL;
+}
+
+Writer* writer_ref(Writer *w) {
+        if (w)
+                assert_se(++ w->n_ref >= 2);
+
+        return w;
+}
+
 
 int writer_write(Writer *s,
                  struct iovec_wrapper *iovw,

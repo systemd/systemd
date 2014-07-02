@@ -21,7 +21,6 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -33,7 +32,6 @@
 #include <getopt.h>
 
 #include "sd-daemon.h"
-#include "sd-event.h"
 #include "journal-file.h"
 #include "journald-native.h"
 #include "socket-util.h"
@@ -41,17 +39,15 @@
 #include "build.h"
 #include "macro.h"
 #include "strv.h"
-#include "hashmap.h"
 #include "fileio.h"
 #include "conf-parser.h"
-#include "microhttpd-util.h"
 #include "siphash24.h"
 
 #ifdef HAVE_GNUTLS
 #include <gnutls/gnutls.h>
 #endif
 
-#include "journal-remote-parse.h"
+#include "journal-remote.h"
 #include "journal-remote-write.h"
 
 #define REMOTE_JOURNAL_PATH "/var/log/journal/remote"
@@ -71,7 +67,7 @@ static int arg_seal = false;
 static int http_socket = -1, https_socket = -1;
 static char** arg_gnutls_log = NULL;
 
-static JournalWriteSplitMode arg_split_mode = JOURNAL_WRITE_SPLIT_NONE;
+static JournalWriteSplitMode arg_split_mode = JOURNAL_WRITE_SPLIT_HOST;
 static char* arg_output = NULL;
 
 static char *arg_key = NULL;
@@ -170,7 +166,7 @@ static int spawn_getter(const char *getter, const char *url) {
         return r;
 }
 
-#define filename_escape(s) xescape((s), "./ ")
+#define filename_escape(s) xescape((s), "/ ")
 
 static int open_output(Writer *w, const char* host) {
         _cleanup_free_ char *_output = NULL;
@@ -223,26 +219,78 @@ static int open_output(Writer *w, const char* host) {
  **********************************************************************
  **********************************************************************/
 
-typedef struct MHDDaemonWrapper {
-        uint64_t fd;
-        struct MHD_Daemon *daemon;
+static int init_writer_hashmap(RemoteServer *s) {
+        static const struct {
+                hash_func_t hash_func;
+                compare_func_t compare_func;
+        } functions[] = {
+                [JOURNAL_WRITE_SPLIT_NONE] = {trivial_hash_func,
+                                              trivial_compare_func},
+                [JOURNAL_WRITE_SPLIT_HOST] = {string_hash_func,
+                                              string_compare_func},
+        };
 
-        sd_event_source *event;
-} MHDDaemonWrapper;
+        assert(arg_split_mode >= 0 && arg_split_mode < (int) ELEMENTSOF(functions));
 
-typedef struct RemoteServer {
-        RemoteSource **sources;
-        size_t sources_size;
-        size_t active;
+        s->writers = hashmap_new(functions[arg_split_mode].hash_func,
+                                 functions[arg_split_mode].compare_func);
+        if (!s->writers)
+                return log_oom();
 
-        sd_event *events;
-        sd_event_source *sigterm_event, *sigint_event, *listen_event;
+        return 0;
+}
 
-        Hashmap *writers;
+static int get_writer(RemoteServer *s, const char *host,
+                      Writer **writer) {
+        const void *key;
+        _cleanup_writer_unref_ Writer *w = NULL;
+        int r;
 
-        bool check_trust;
-        Hashmap *daemons;
-} RemoteServer;
+        switch(arg_split_mode) {
+        case JOURNAL_WRITE_SPLIT_NONE:
+                key = "one and only";
+                break;
+
+        case JOURNAL_WRITE_SPLIT_HOST:
+                assert(host);
+                key = host;
+                break;
+
+        default:
+                assert_not_reached("what split mode?");
+        }
+
+        w = hashmap_get(s->writers, key);
+        if (w)
+                writer_ref(w);
+        else {
+                w = writer_new(s);
+                if (!w)
+                        return log_oom();
+
+                if (arg_split_mode == JOURNAL_WRITE_SPLIT_HOST) {
+                        w->hashmap_key = strdup(key);
+                        if (!w->hashmap_key)
+                                return log_oom();
+                }
+
+                r = open_output(w, host);
+                if (r < 0)
+                        return r;
+
+                r = hashmap_put(s->writers, w->hashmap_key ?: key, w);
+                if (r < 0)
+                        return r;
+        }
+
+        *writer = w;
+        w = NULL;
+        return 0;
+}
+
+/**********************************************************************
+ **********************************************************************
+ **********************************************************************/
 
 /* This should go away as soon as µhttpd allows state to be passed around. */
 static RemoteServer *server;
@@ -260,18 +308,31 @@ static int dispatch_http_event(sd_event_source *event,
                                uint32_t revents,
                                void *userdata);
 
-static int get_source_for_fd(RemoteServer *s, int fd, RemoteSource **source) {
+static int get_source_for_fd(RemoteServer *s,
+                             int fd, char *name, RemoteSource **source) {
+        Writer *writer;
+        int r;
+
         assert(fd >= 0);
         assert(source);
 
         if (!GREEDY_REALLOC0(s->sources, s->sources_size, fd + 1))
                 return log_oom();
 
+        r = get_writer(s, name, &writer);
+        if (r < 0) {
+                log_warning("Failed to get writer for source %s: %s",
+                            name, strerror(-r));
+                return r;
+        }
+
         if (s->sources[fd] == NULL) {
-                s->sources[fd] = new0(RemoteSource, 1);
-                if (!s->sources[fd])
+                s->sources[fd] = source_new(fd, false, name, writer);
+                if (!s->sources[fd]) {
+                        writer_unref(writer);
                         return log_oom();
-                s->sources[fd]->fd = -1;
+                }
+
                 s->active++;
         }
 
@@ -296,35 +357,27 @@ static int remove_source(RemoteServer *s, int fd) {
         return 0;
 }
 
-static int add_source(RemoteServer *s, int fd, const char* _name) {
+static int add_source(RemoteServer *s, int fd, char* name, bool own_name) {
 
         RemoteSource *source;
-        char *name;
         int r;
 
         assert(s);
         assert(fd >= 0);
-        assert(_name);
+        assert(name);
 
-        log_debug("Creating source for fd:%d (%s)", fd, _name);
-
-        name = strdup(_name);
-        if (!name)
-                return log_oom();
-
-        r = get_source_for_fd(s, fd, &source);
-        if (r < 0) {
-                log_error("Failed to create source for fd:%d (%s)", fd, name);
-                free(name);
-                return r;
+        if (!own_name) {
+                name = strdup(name);
+                if (!name)
+                        return log_oom();
         }
 
-        assert(source);
-        assert(source->fd < 0);
-        assert(!source->name);
-
-        source->fd = fd;
-        source->name = name;
+        r = get_source_for_fd(s, fd, name, &source);
+        if (r < 0) {
+                log_error("Failed to create source for fd:%d (%s): %s",
+                          fd, name, strerror(-r));
+                return r;
+        }
 
         r = sd_event_add_io(s->events, &source->event,
                             fd, EPOLLIN|EPOLLRDHUP|EPOLLPRI,
@@ -371,96 +424,28 @@ static int setup_raw_socket(RemoteServer *s, const char *address) {
  **********************************************************************
  **********************************************************************/
 
-static int init_writer_hashmap(RemoteServer *s) {
-        static const struct {
-                hash_func_t hash_func;
-                compare_func_t compare_func;
-        } functions[] = {
-                [JOURNAL_WRITE_SPLIT_NONE] = {trivial_hash_func,
-                                              trivial_compare_func},
-                [JOURNAL_WRITE_SPLIT_HOST] = {string_hash_func,
-                                              string_compare_func},
-        };
-
-        assert(arg_split_mode >= 0 && arg_split_mode < (int) ELEMENTSOF(functions));
-
-        s->writers = hashmap_new(functions[arg_split_mode].hash_func,
-                                 functions[arg_split_mode].compare_func);
-        if (!s->writers)
-                return log_oom();
-
-        return 0;
-}
-
-static int get_writer(RemoteServer *s, const char *host, sd_id128_t *machine,
-                      Writer **writer) {
-        const void *key;
-        Writer *w;
-        int r;
-
-        switch(arg_split_mode) {
-        case JOURNAL_WRITE_SPLIT_NONE:
-                key = "one and only";
-                break;
-
-        case JOURNAL_WRITE_SPLIT_HOST:
-                assert(host);
-                key = host;
-                break;
-
-        default:
-                assert_not_reached("what split mode?");
-        }
-
-        w = hashmap_get(s->writers, key);
-        if (!w) {
-                w = new0(Writer, 1);
-                if (!w)
-                        return -ENOMEM;
-
-                r = writer_init(w);
-                if (r < 0) {
-                        free(w);
-                        return r;
-                }
-
-                r = hashmap_put(s->writers, key, w);
-                if (r < 0) {
-                        writer_close(w);
-                        free(w);
-                        return r;
-                }
-
-                r = open_output(w, host);
-                if (r < 0)
-                        return r;
-        }
-
-        *writer = w;
-        return 0;
-}
-
-/**********************************************************************
- **********************************************************************
- **********************************************************************/
-
 static RemoteSource *request_meta(void **connection_cls, int fd, char *hostname) {
         RemoteSource *source;
+        Writer *writer;
+        int r;
 
         assert(connection_cls);
-        if (*connection_cls) {
-                free(hostname);
+        if (*connection_cls)
                 return *connection_cls;
-        }
 
-        source = new0(RemoteSource, 1);
-        if (!source) {
-                free(hostname);
+        r = get_writer(server, hostname, &writer);
+        if (r < 0) {
+                log_warning("Failed to get writer for source %s: %s",
+                            hostname, strerror(-r));
                 return NULL;
         }
 
-        source->fd = -1; /* fd */
-        source->name = hostname;
+        source = source_new(fd, true, hostname, writer);
+        if (!source) {
+                log_oom();
+                writer_unref(writer);
+                return NULL;
+        }
 
         log_debug("Added RemoteSource as connection metadata %p", source);
 
@@ -488,25 +473,14 @@ static int process_http_upload(
                 size_t *upload_data_size,
                 RemoteSource *source) {
 
-        Writer *w;
-        int r;
         bool finished = false;
         size_t remaining;
+        int r;
 
         assert(source);
 
         log_debug("request_handler_upload: connection %p, %zu bytes",
                   connection, *upload_data_size);
-
-        r = get_writer(server, source->name, NULL, &w);
-        if (r < 0) {
-                log_warning("Failed to get writer for source %s: %s",
-                            source->name, strerror(-r));
-                return mhd_respondf(connection,
-                                    MHD_HTTP_SERVICE_UNAVAILABLE,
-                                    "Failed to get writer for connection: %s.\n",
-                                    strerror(-r));
-        }
 
         if (*upload_data_size) {
                 log_debug("Received %zu bytes", *upload_data_size);
@@ -520,8 +494,7 @@ static int process_http_upload(
                 finished = true;
 
         while (true) {
-
-                r = process_source(source, w, arg_compress, arg_seal);
+                r = process_source(source, arg_compress, arg_seal);
                 if (r == -EAGAIN || r == -EWOULDBLOCK)
                         break;
                 else if (r < 0) {
@@ -566,7 +539,7 @@ static int request_handler(
 
         const char *header;
         int r, code, fd;
-        char *hostname;
+        _cleanup_free_ char *hostname = NULL;
 
         assert(connection);
         assert(connection_cls);
@@ -627,6 +600,7 @@ static int request_handler(
 
         if (!request_meta(connection_cls, fd, hostname))
                 return respond_oom(connection);
+        hostname = NULL;
         return MHD_YES;
 }
 
@@ -871,7 +845,7 @@ static int remoteserver_init(RemoteServer *s,
                         else
                                 r = add_raw_socket(s, fd);
                 } else if (sd_is_socket(fd, AF_UNSPEC, 0, true)) {
-                        _cleanup_free_ char *hostname = NULL;
+                        char *hostname;
 
                         r = getnameinfo_pretty(fd, &hostname);
                         if (r < 0) {
@@ -881,7 +855,9 @@ static int remoteserver_init(RemoteServer *s,
 
                         log_info("Received a connection socket (fd:%d) from %s", fd, hostname);
 
-                        r = add_source(s, fd, hostname);
+                        r = add_source(s, fd, hostname, true);
+                        if (r < 0)
+                                free(hostname);
                 } else {
                         log_error("Unknown socket passed on fd:%d", fd);
 
@@ -917,7 +893,7 @@ static int remoteserver_init(RemoteServer *s,
                         startswith(arg_url, "http://") ?:
                         arg_url;
 
-                r = add_source(s, fd, hostname);
+                r = add_source(s, fd, (char*) hostname, false);
                 if (r < 0)
                         return r;
 
@@ -966,7 +942,7 @@ static int remoteserver_init(RemoteServer *s,
                         output_name = *file;
                 }
 
-                r = add_source(s, fd, output_name);
+                r = add_source(s, fd, (char*) output_name, false);
                 if (r < 0)
                         return r;
         }
@@ -987,9 +963,7 @@ static int remoteserver_init(RemoteServer *s,
                 /* In this case we know what the writer will be
                    called, so we can create it and verify that we can
                    create output as expected. */
-                Writer *w;
-
-                r = get_writer(s, NULL, NULL, &w);
+                r = get_writer(s, NULL, &s->_single_writer);
                 if (r < 0)
                         return r;
         }
@@ -997,25 +971,9 @@ static int remoteserver_init(RemoteServer *s,
         return 0;
 }
 
-static int server_destroy(RemoteServer *s, uint64_t *event_count) {
-        int r;
+static void server_destroy(RemoteServer *s) {
         size_t i;
-        Writer *w;
         MHDDaemonWrapper *d;
-
-        *event_count = 0;
-
-        while ((w = hashmap_steal_first(s->writers))) {
-                log_info("seqnum %"PRIu64, w->seqnum);
-                *event_count += w->seqnum;
-
-                r = writer_close(w);
-                if (r < 0)
-                        log_warning("Failed to close writer: %s", strerror(-r));
-                free(w);
-        }
-
-        hashmap_free(s->writers);
 
         while ((d = hashmap_steal_first(s->daemons))) {
                 MHD_stop_daemon(d->daemon);
@@ -1028,8 +986,10 @@ static int server_destroy(RemoteServer *s, uint64_t *event_count) {
         assert(s->sources_size == 0 || s->sources);
         for (i = 0; i < s->sources_size; i++)
                 remove_source(s, i);
-
         free(s->sources);
+
+        writer_unref(s->_single_writer);
+        hashmap_free(s->writers);
 
         sd_event_source_unref(s->sigterm_event);
         sd_event_source_unref(s->sigint_event);
@@ -1037,8 +997,6 @@ static int server_destroy(RemoteServer *s, uint64_t *event_count) {
         sd_event_unref(s->events);
 
         /* fds that we're listening on remain open... */
-
-        return r;
 }
 
 /**********************************************************************
@@ -1050,7 +1008,6 @@ static int dispatch_raw_source_event(sd_event_source *event,
                                      uint32_t revents,
                                      void *userdata) {
 
-        Writer *w;
         RemoteServer *s = userdata;
         RemoteSource *source;
         int r;
@@ -1059,14 +1016,7 @@ static int dispatch_raw_source_event(sd_event_source *event,
         source = s->sources[fd];
         assert(source->fd == fd);
 
-        r = get_writer(s, source->name, NULL, &w);
-        if (r < 0) {
-                log_warning("Failed to get writer for source %s: %s",
-                            source->name, strerror(-r));
-                return r;
-        }
-
-        r = process_source(source, w, arg_compress, arg_seal);
+        r = process_source(source, arg_compress, arg_seal);
         if (source->state == STATE_EOF) {
                 size_t remaining;
 
@@ -1145,7 +1095,7 @@ static int dispatch_raw_connection_event(sd_event_source *event,
                                          uint32_t revents,
                                          void *userdata) {
         RemoteServer *s = userdata;
-        int fd2;
+        int fd2, r;
         SocketAddress addr = {
                 .size = sizeof(union sockaddr_union),
                 .type = SOCK_STREAM,
@@ -1156,7 +1106,10 @@ static int dispatch_raw_connection_event(sd_event_source *event,
         if (fd2 < 0)
                 return fd2;
 
-        return add_source(s, fd2, hostname);
+        r = add_source(s, fd2, hostname, true);
+        if (r < 0)
+                free(hostname);
+        return r;
 }
 
 /**********************************************************************
@@ -1537,9 +1490,8 @@ static int setup_gnutls_logger(char **categories) {
 
 int main(int argc, char **argv) {
         RemoteServer s = {};
-        int r, r2;
+        int r;
         _cleanup_free_ char *key = NULL, *cert = NULL, *trust = NULL;
-        uint64_t entry_count;
 
         log_show_color(true);
         log_parse_environment();
@@ -1585,8 +1537,8 @@ int main(int argc, char **argv) {
                 }
         }
 
-        r2 = server_destroy(&s, &entry_count);
-        log_info("Finishing after writing %" PRIu64 " entries", entry_count);
+        server_destroy(&s);
+        log_info("Finishing after writing %" PRIu64 " entries", s.event_count);
 
         sd_notify(false, "STATUS=Shutting down...");
 
@@ -1594,5 +1546,5 @@ int main(int argc, char **argv) {
         free(arg_cert);
         free(arg_trust);
 
-        return r >= 0 && r2 >= 0 ? EXIT_SUCCESS : EXIT_FAILURE;
+        return r >= 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }

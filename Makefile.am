@@ -3455,6 +3455,7 @@ systemd_journal_remote_SOURCES = \
 	src/journal-remote/journal-remote-parse.c \
 	src/journal-remote/journal-remote-write.h \
 	src/journal-remote/journal-remote-write.c \
+	src/journal-remote/journal-remote.h \
 	src/journal-remote/journal-remote.c
 
 systemd_journal_remote_LDADD = \

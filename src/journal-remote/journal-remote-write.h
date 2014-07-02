@@ -25,6 +25,8 @@
 
 #include "journal-file.h"
 
+typedef struct RemoteServer RemoteServer;
+
 struct iovec_wrapper {
         struct iovec *iovec;
         size_t size_bytes;
@@ -38,12 +40,25 @@ size_t iovw_size(struct iovec_wrapper *iovw);
 typedef struct Writer {
         JournalFile *journal;
         JournalMetrics metrics;
+
         MMapCache *mmap;
+        RemoteServer *server;
+        char *hashmap_key;
+
         uint64_t seqnum;
+
+        int n_ref;
 } Writer;
 
-int writer_init(Writer *s);
-int writer_close(Writer *s);
+Writer* writer_new(RemoteServer* server);
+Writer* writer_free(Writer *w);
+
+Writer* writer_ref(Writer *w);
+Writer* writer_unref(Writer *w);
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(Writer*, writer_unref);
+#define _cleanup_writer_unref_ _cleanup_(writer_unrefp)
+
 int writer_write(Writer *s,
                  struct iovec_wrapper *iovw,
                  dual_timestamp *ts,

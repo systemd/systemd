@@ -35,6 +35,7 @@ typedef enum {
 typedef struct RemoteSource {
         char *name;
         int fd;
+        bool passive_fd;
 
         char *buf;
         size_t size;
@@ -47,8 +48,12 @@ typedef struct RemoteSource {
         source_state state;
         dual_timestamp ts;
 
+        Writer *writer;
+
         sd_event_source *event;
 } RemoteSource;
+
+RemoteSource* source_new(int fd, bool passive_fd, char *name, Writer *writer);
 
 static inline size_t source_non_empty(RemoteSource *source) {
         assert(source);
@@ -59,4 +64,4 @@ static inline size_t source_non_empty(RemoteSource *source) {
 void source_free(RemoteSource *source);
 int process_data(RemoteSource *source);
 int push_data(RemoteSource *source, const char *data, size_t size);
-int process_source(RemoteSource *source, Writer *writer, bool compress, bool seal);
+int process_source(RemoteSource *source, bool compress, bool seal);
