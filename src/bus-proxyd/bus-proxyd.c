@@ -47,7 +47,7 @@
 #include "capability.h"
 #include "bus-policy.h"
 
-static const char *arg_address = KERNEL_SYSTEM_BUS_PATH;
+static const char *arg_address = DEFAULT_SYSTEM_BUS_PATH;
 static char *arg_command_line_buffer = NULL;
 static bool arg_drop_privileges = false;
 static char **arg_configuration = NULL;
@@ -281,6 +281,9 @@ static int process_policy(sd_bus *a, sd_bus *b, sd_bus_message *m) {
         assert(b);
         assert(m);
 
+        if (!a->is_kernel)
+                return 0;
+
         if (!sd_bus_message_is_method_call(m, "org.freedesktop.DBus.Properties", "GetAll"))
                 return 0;
 
@@ -466,6 +469,9 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
         assert(a);
         assert(b);
         assert(m);
+
+        if (!a->is_kernel)
+                return 0;
 
         if (!streq_ptr(sd_bus_message_get_destination(m), "org.freedesktop.DBus"))
                 return 0;
