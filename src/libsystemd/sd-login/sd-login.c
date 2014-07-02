@@ -770,7 +770,7 @@ _public_ int sd_machine_get_class(const char *machine, char **class) {
         const char *p;
         int r;
 
-        assert_return(filename_is_safe(machine), -EINVAL);
+        assert_return(machine_name_is_valid(machine), -EINVAL);
         assert_return(class, -EINVAL);
 
         p = strappenda("/run/systemd/machines/", machine);
