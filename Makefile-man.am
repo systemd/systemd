@@ -74,6 +74,7 @@ MANPAGES += \
 	man/systemd-machine-id-setup.1 \
 	man/systemd-notify.1 \
 	man/systemd-nspawn.1 \
+	man/systemd-path.1 \
 	man/systemd-remount-fs.service.8 \
 	man/systemd-run.1 \
 	man/systemd-shutdownd.service.8 \
@@ -1619,6 +1620,7 @@ EXTRA_DIST += \
 	man/systemd-networkd.service.xml \
 	man/systemd-notify.xml \
 	man/systemd-nspawn.xml \
+	man/systemd-path.xml \
 	man/systemd-quotacheck.service.xml \
 	man/systemd-random-seed.service.xml \
 	man/systemd-readahead-replay.service.xml \

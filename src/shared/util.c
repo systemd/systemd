@@ -5226,8 +5226,8 @@ int get_home_dir(char **_h) {
         assert(_h);
 
         /* Take the user specified one */
-        e = getenv("HOME");
-        if (e) {
+        e = secure_getenv("HOME");
+        if (e && path_is_absolute(e)) {
                 h = strdup(e);
                 if (!h)
                         return -ENOMEM;

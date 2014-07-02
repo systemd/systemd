@@ -86,6 +86,7 @@
 /systemd-networkd-wait-online
 /systemd-notify
 /systemd-nspawn
+/systemd-path
 /systemd-quotacheck
 /systemd-random-seed
 /systemd-rc-local-generator

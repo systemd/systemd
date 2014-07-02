@@ -378,10 +378,44 @@ int strv_push(char ***l, char *value) {
         return 0;
 }
 
+int strv_push_prepend(char ***l, char *value) {
+        char **c;
+        unsigned n, i;
+
+        if (!value)
+                return 0;
+
+        n = strv_length(*l);
+        c = new(char*, n + 2);
+        if (!c)
+                return -ENOMEM;
+
+        for (i = 0; i < n; i++)
+                c[i+1] = (*l)[i];
+
+        c[0] = value;
+        c[n+1] = NULL;
+
+        free(*l);
+        *l = c;
+
+        return 0;
+}
+
 int strv_consume(char ***l, char *value) {
         int r;
 
         r = strv_push(l, value);
+        if (r < 0)
+                free(value);
+
+        return r;
+}
+
+int strv_consume_prepend(char ***l, char *value) {
+        int r;
+
+        r = strv_push_prepend(l, value);
         if (r < 0)
                 free(value);
 

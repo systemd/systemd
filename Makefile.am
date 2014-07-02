@@ -187,6 +187,8 @@ AM_CPPFLAGS = \
 	-DPOLKIT_AGENT_BINARY_PATH=\"$(bindir)/pkttyagent\" \
 	-DQUOTACHECK=\"$(QUOTACHECK)\" \
 	-DKEXEC=\"$(KEXEC)\" \
+	-DLIBDIR=\"$(libdir)\" \
+	-DROOTLIBDIR=\"$(rootlibdir)\" \
 	-I $(top_srcdir)/src \
 	-I $(top_builddir)/src/shared \
 	-I $(top_srcdir)/src/shared \
@@ -344,7 +346,8 @@ bin_PROGRAMS = \
 	systemd-detect-virt \
 	systemd-delta \
 	systemd-analyze \
-	systemd-run
+	systemd-run \
+	systemd-path
 
 dist_bin_SCRIPTS = \
 	src/kernel-install/kernel-install
@@ -2097,6 +2100,14 @@ systemd_notify_LDADD = \
 	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
+systemd_path_SOURCES = \
+	src/path/path.c
+
+systemd_path_LDADD = \
+	libsystemd-internal.la \
+	libsystemd-shared.la
+
+# ------------------------------------------------------------------------------
 systemd_ask_password_SOURCES = \
 	src/ask-password/ask-password.c
 
@@ -2221,6 +2232,7 @@ libsystemd_internal_la_SOURCES = \
 	src/systemd/sd-login.h \
 	src/systemd/sd-id128.h \
 	src/systemd/sd-daemon.h \
+	src/systemd/sd-path.h \
 	src/libsystemd/sd-bus/sd-bus.c \
 	src/libsystemd/sd-bus/bus-control.c \
 	src/libsystemd/sd-bus/bus-control.h \
@@ -2274,7 +2286,8 @@ libsystemd_internal_la_SOURCES = \
 	src/libsystemd/sd-rtnl/rtnl-util.c \
 	src/libsystemd/sd-id128/sd-id128.c \
 	src/libsystemd/sd-daemon/sd-daemon.c \
-	src/libsystemd/sd-login/sd-login.c
+	src/libsystemd/sd-login/sd-login.c \
+	src/libsystemd/sd-path/sd-path.c
 
 nodist_libsystemd_internal_la_SOURCES = \
 	src/libsystemd/libsystemd.sym \
@@ -2377,7 +2390,8 @@ pkginclude_HEADERS += \
 	src/systemd/sd-utf8.h \
 	src/systemd/sd-event.h \
 	src/systemd/sd-rtnl.h \
-	src/systemd/sd-resolve.h
+	src/systemd/sd-resolve.h \
+	src/systemd/sd-path.h
 endif
 
 lib_LTLIBRARIES += \
