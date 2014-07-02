@@ -89,7 +89,7 @@
                                 used for bringing up the system. On
                                 EFI systems this is possibly the EFI
                                 System Partition, also see
-                                <citerefentry><refentrytitle>systemd-boot-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>. This
+                                <citerefentry><refentrytitle>systemd-efi-boot-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>. This
                                 directory is usually strictly local
                                 to the host, and should be considered
                                 read-only, except when a new kernel or
@@ -964,7 +964,7 @@
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>hier</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd-path</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd-boot-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd-efi-boot-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
