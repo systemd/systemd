@@ -801,7 +801,7 @@
                     <tbody>
                       <row>
                         <entry><filename>/usr/bin</filename></entry>
-                        <entry>Package executables that shall appear in the <varname>$PATH</varname> executable search path, compiled for the primary architecture of the operating system. It is not recommended to place internal binaries or binaries that are not commonly invoked from the shell in this directory, such as daemon binaries. As this directory is shared with most other packages of the system special care should be taken to pick unique names for files placed here, that are unlikely to clash with other package's files.</entry>
+                        <entry>Package executables that shall appear in the <varname>$PATH</varname> executable search path, compiled for any of the supported architectures compatible with the operating system. It is not recommended to place internal binaries or binaries that are not commonly invoked from the shell in this directory, such as daemon binaries. As this directory is shared with most other packages of the system special care should be taken to pick unique names for files placed here, that are unlikely to clash with other package's files.</entry>
                       </row>
                       <row>
                         <entry><filename>/usr/lib/<replaceable>arch-id</replaceable></filename></entry>
