@@ -275,7 +275,7 @@ static int get_path(uint64_t type, char **buffer, const char **ret) {
                 return from_home_dir(NULL, ".local/lib", buffer, ret);
 
         case SD_PATH_USER_LIBRARY_ARCH:
-                return from_home_dir(NULL, ".local/lib/" ARCH_TUPLE, buffer, ret);
+                return from_home_dir(NULL, ".local/lib/" LIB_ARCH_TUPLE, buffer, ret);
 
         case SD_PATH_USER_SHARED:
                 return from_home_dir("XDG_DATA_HOME", ".local/share", buffer, ret);
@@ -502,7 +502,7 @@ static int get_search(uint64_t type, char ***list) {
         case SD_PATH_SEARCH_LIBRARY_ARCH:
                 return search_from_environment(list,
                                                NULL,
-                                               ".local/lib/" ARCH_TUPLE,
+                                               ".local/lib/" LIB_ARCH_TUPLE,
                                                "LD_LIBRARY_PATH",
                                                true,
                                                LIBDIR,
