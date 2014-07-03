@@ -2935,13 +2935,9 @@ int config_parse_set_status(
         assert(rvalue);
         assert(data);
 
+        /* Empty assignment resets the list */
         if (isempty(rvalue)) {
-                /* Empty assignment resets the list */
-
-                set_free(status_set->signal);
-                set_free(status_set->code);
-
-                status_set->signal = status_set->code = NULL;
+                exit_status_set_free(status_set);
                 return 0;
         }
 
@@ -2958,7 +2954,7 @@ int config_parse_set_status(
                         val = signal_from_string_try_harder(temp);
 
                         if (val > 0) {
-                                r = set_ensure_allocated(&status_set->signal, trivial_hash_func, trivial_compare_func);
+                                r = set_ensure_allocated(&status_set->signal, NULL, NULL);
                                 if (r < 0)
                                         return log_oom();
 
@@ -2975,11 +2971,11 @@ int config_parse_set_status(
                         if (val < 0 || val > 255)
                                 log_syntax(unit, LOG_ERR, filename, line, ERANGE, "Value %d is outside range 0-255, ignoring", val);
                         else {
-                                r = set_ensure_allocated(&status_set->code, trivial_hash_func, trivial_compare_func);
+                                r = set_ensure_allocated(&status_set->status, NULL, NULL);
                                 if (r < 0)
                                         return log_oom();
 
-                                r = set_put(status_set->code, INT_TO_PTR(val));
+                                r = set_put(status_set->status, INT_TO_PTR(val));
                                 if (r < 0) {
                                         log_syntax(unit, LOG_ERR, filename, line, -r, "Unable to store: %s", w);
                                         return r;

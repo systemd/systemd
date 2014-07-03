@@ -87,7 +87,7 @@ typedef enum ExitStatusLevel {
 } ExitStatusLevel;
 
 typedef struct ExitStatusSet {
-        Set *code;
+        Set *status;
         Set *signal;
 } ExitStatusSet;
 
