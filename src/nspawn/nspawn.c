@@ -3342,6 +3342,21 @@ int main(int argc, char *argv[]) {
                         break;
 
                 /* CONTAINER_REBOOTED, loop again */
+
+                if (arg_keep_unit) {
+                        /* Special handling if we are running as a
+                         * service: instead of simply restarting the
+                         * machine we want to restart the entire
+                         * service, so let's inform systemd about this
+                         * with the special exit code 133. The service
+                         * file uses RestartForceExitStatus=133 so
+                         * that this results in a full nspawn
+                         * restart. This is necessary since we might
+                         * have cgroup parameters set we want to have
+                         * flushed out. */
+                        r = 133;
+                        break;
+                }
         }
 
 finish:

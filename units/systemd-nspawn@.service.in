@@ -13,6 +13,8 @@ Documentation=man:systemd-nspawn(1)
 ExecStart=@bindir@/systemd-nspawn --quiet --keep-unit --boot --link-journal=guest --directory=/var/lib/container/%i
 KillMode=mixed
 Type=notify
+RestartForceExitStatus=133
+SuccessExitStatus=133
 
 [Install]
 WantedBy=multi-user.target
