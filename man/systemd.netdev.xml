@@ -366,7 +366,7 @@
                                         <listitem><para>Takes a boolean argument. Configures whether packets
                                         should be prepened with four extra bytes (two flag bytes and two
                                         protocol bytes). If disabled it indicates that the packets will be
-                                        pure IP packets. Defaults to <literal>yes</literal>.</para>
+                                        pure IP packets. Defaults to <literal>no</literal>.</para>
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
