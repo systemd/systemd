@@ -48,5 +48,8 @@ int main(int argc, char *argv[]) {
         assert_se(a >= 0);
 
         log_info("native architecture=%s", architecture_to_string(a));
+
+        log_info("primary library architecture=" LIB_ARCH_TUPLE);
+
         return 0;
 }
