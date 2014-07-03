@@ -599,10 +599,35 @@ static int route_drop_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata)
         return 0;
 }
 
+static int link_get_address_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
+        _cleanup_link_unref_ Link *link = userdata;
+        int r;
+
+        assert(rtnl);
+        assert(m);
+        assert(link);
+        assert(link->manager);
+
+        for (; m; m = sd_rtnl_message_next(m)) {
+                r = sd_rtnl_message_get_errno(m);
+                if (r < 0) {
+                        log_debug_link(link, "getting address failed: %s", strerror(-r));
+                        continue;
+                }
+
+                r = link_rtnl_process_address(rtnl, m, link->manager);
+                if (r < 0)
+                        log_warning_link(link, "could not process address: %s", strerror(-r));
+        }
+
+        return 1;
+}
+
 static int address_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
         _cleanup_link_unref_ Link *link = userdata;
         int r;
 
+        assert(rtnl);
         assert(m);
         assert(link);
         assert(link->ifname);
@@ -623,6 +648,11 @@ static int address_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
                                 link->ifname, strerror(-r),
                                 "ERRNO=%d", -r,
                                 NULL);
+        if (r >= 0) {
+                /* calling handler directly so take a ref */
+                link_ref(link);
+                link_get_address_handler(rtnl, m, link);
+        }
 
         if (link->addr_messages == 0) {
                 log_debug_link(link, "addresses set");
@@ -2228,30 +2258,6 @@ int link_rtnl_process_address(sd_rtnl *rtnl, sd_rtnl_message *message, void *use
                 break;
         default:
                 assert_not_reached("Received invalid RTNL message type");
-        }
-
-        return 1;
-}
-
-static int link_get_address_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
-        _cleanup_link_unref_ Link *link = userdata;
-        int r;
-
-        assert(rtnl);
-        assert(m);
-        assert(link);
-        assert(link->manager);
-
-        for (; m; m = sd_rtnl_message_next(m)) {
-                r = sd_rtnl_message_get_errno(m);
-                if (r < 0) {
-                        log_debug_link(link, "getting address failed: %s", strerror(-r));
-                        continue;
-                }
-
-                r = link_rtnl_process_address(rtnl, m, link->manager);
-                if (r < 0)
-                        log_warning_link(link, "could not process address: %s", strerror(-r));
         }
 
         return 1;
