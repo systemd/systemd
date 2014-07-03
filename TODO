@@ -10,9 +10,6 @@ Bugfixes:
 
 * properly handle .mount unit state tracking when two mount points are stacked one on top of another on the exact same mount point.
 
-* sd_bus_unref() is broken regarding self-references and "pseudo thread-safety".
-  See the comment in sd_bus_unref() for more..
-
 External:
 * Fedora: when installing fedora with yum --installroot /var/run is a directory, not a symlink
    https://bugzilla.redhat.com/show_bug.cgi?id=975864
@@ -24,6 +21,11 @@ External:
 * Fedora: move kernel image to /usr/lib/modules/, kernel-install will take care of populating /boot
 
 Features:
+
+* new component "systemd-first-boot" which asks for locale, timezone,
+  root password on first boot if the configuration for that has not
+  been provisioned yet. Similar in style to what the distros have, but
+  minimalist, text-only /dev/console stuff.
 
 * machinectl should show /etc/os-release info from the container
 
