@@ -825,10 +825,15 @@ ExecStart=/bin/echo $ONE $TWO ${TWO}</programlisting>
                                         </tgroup>
                                 </table>
 
-                                <para>In addition to the above settings,
-                                the service will not be restarted if the
-                                exit code or signal is specified in
+                                <para>As exceptions to the setting
+                                above the service will not be
+                                restarted if the exit code or signal
+                                is specified in
                                 <varname>RestartPreventExitStatus=</varname>
+                                (see below). Also, the services will
+                                always be restarted if the exit code
+                                or signal is specified in
+                                <varname>RestartForceExitStatus=</varname>
                                 (see below).</para>
 
                                 <para>Setting this to
@@ -838,8 +843,8 @@ ExecStart=/bin/echo $ONE $TWO ${TWO}</programlisting>
                                 reliability by attempting automatic
                                 recovery from errors. For services
                                 that shall be able to terminate on
-                                their own choice (and avoiding
-                                immediate restart),
+                                their own choice (and avoid
+                                immediate restarting),
                                 <option>on-abnormal</option> is an
                                 alternative choice.</para>
                                 </listitem>
