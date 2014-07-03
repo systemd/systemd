@@ -163,7 +163,8 @@
                                                 <literal>macvlan</literal>, <literal>vxlan</literal>,
                                                 <literal>ipip</literal>, <literal>gre</literal>,
                                                 <literal>sit</literal>, <literal>vti</literal>,
-                                                <literal>veth</literal>, and <literal>dummy</literal>
+                                                <literal>veth</literal>, <literal>tun</literal>,
+                                                <literal>tap</literal> and <literal>dummy</literal>
                                                 are supported. This option is compulsory.</para>
                                         </listitem>
                                 </varlistentry>
