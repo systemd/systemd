@@ -41,6 +41,8 @@ static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_VETH] = "veth",
         [NETDEV_KIND_VTI] = "vti",
         [NETDEV_KIND_DUMMY] = "dummy",
+        [NETDEV_KIND_TUN] = "tun",
+        [NETDEV_KIND_TAP] = "tap",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(netdev_kind, NetDevKind);
@@ -86,6 +88,8 @@ static void netdev_free(NetDev *netdev) {
         free(netdev->ifname_peer);
         free(netdev->mac);
         free(netdev->mac_peer);
+        free(netdev->user_name);
+        free(netdev->group_name);
 
         condition_free_list(netdev->match_host);
         condition_free_list(netdev->match_virt);
@@ -484,15 +488,21 @@ int netdev_set_ifindex(NetDev *netdev, sd_rtnl_message *message) {
                 return r;
         }
 
-        kind = netdev_kind_to_string(netdev->kind);
-        if (!kind) {
-                log_error_netdev(netdev, "Could not get kind");
-                netdev_enter_failed(netdev);
-                return -EINVAL;
+        if (netdev->kind == NETDEV_KIND_TAP)
+                /* the kernel does not distinguish between tun and tap */
+                kind = "tun";
+        else {
+                kind = netdev_kind_to_string(netdev->kind);
+                if (!kind) {
+                        log_error_netdev(netdev, "Could not get kind");
+                        netdev_enter_failed(netdev);
+                        return -EINVAL;
+                }
         }
 
         if (!streq(kind, received_kind)) {
-                log_error_netdev(netdev, "Received newlink with wrong KIND %s, "
+                log_error_netdev(netdev,
+                                 "Received newlink with wrong KIND %s, "
                                  "expected %s", received_kind, kind);
                 netdev_enter_failed(netdev);
                 return r;
@@ -589,7 +599,7 @@ static int netdev_load_one(Manager *manager, const char *filename) {
         netdev->learning = true;
 
         r = config_parse(NULL, filename, file,
-                         "Match\0NetDev\0VLAN\0MACVLAN\0VXLAN\0Tunnel\0Peer\0",
+                         "Match\0NetDev\0VLAN\0MACVLAN\0VXLAN\0Tunnel\0Peer\0Tun\0Tap\0",
                          config_item_perf_lookup, (void*) network_netdev_gperf_lookup,
                          false, false, netdev);
         if (r < 0) {
@@ -695,6 +705,14 @@ static int netdev_load_one(Manager *manager, const char *filename) {
                 if (r < 0)
                         return r;
                 break;
+
+        case NETDEV_KIND_TUN:
+        case NETDEV_KIND_TAP:
+                r = netdev_create_tuntap(netdev);
+                if (r < 0)
+                        return r;
+                break;
+
         default:
                 break;
         }

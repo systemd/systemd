@@ -82,6 +82,8 @@ typedef enum NetDevKind {
         NETDEV_KIND_VETH,
         NETDEV_KIND_VTI,
         NETDEV_KIND_DUMMY,
+        NETDEV_KIND_TUN,
+        NETDEV_KIND_TAP,
         _NETDEV_KIND_MAX,
         _NETDEV_KIND_INVALID = -1
 } NetDevKind;
@@ -110,6 +112,8 @@ struct NetDev {
         char *description;
         char *ifname;
         char *ifname_peer;
+        char *user_name;
+        char *group_name;
         size_t mtu;
         struct ether_addr *mac;
         struct ether_addr *mac_peer;
@@ -124,6 +128,10 @@ struct NetDev {
 
         bool tunnel_pmtudisc;
         bool learning;
+        bool one_queue;
+        bool multi_queue;
+        bool packet_info;
+
         unsigned ttl;
         unsigned tos;
         struct in_addr local;
@@ -359,6 +367,7 @@ int netdev_create_vxlan(NetDev *netdev, Link *link, sd_rtnl_message_handler_t ca
 int netdev_create_vlan(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callback);
 int netdev_create_macvlan(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callback);
 int netdev_create_dummy(NetDev *netdev, sd_rtnl_message_handler_t callback);
+int netdev_create_tuntap(NetDev *netdev);
 
 const char *netdev_kind_to_string(NetDevKind d) _const_;
 NetDevKind netdev_kind_from_string(const char *d) _pure_;
