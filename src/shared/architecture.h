@@ -150,10 +150,14 @@ Architecture uname_architecture(void);
 #    endif
 #  else
 #    define native_architecture() ARCHITECTURE_ARM
-#    if defined(__ARM_PCS_VFP)
-#      define LIB_ARCH_TUPLE "arm-linux-gnueabihf"
+#    if defined(__ARM_EABI__)
+#      if defined(__ARM_PCS_VFP)
+#        define LIB_ARCH_TUPLE "arm-linux-gnueabihf"
+#      else
+#        define LIB_ARCH_TUPLE "arm-linux-gnueabi"
+#      endif
 #    else
-#      define LIB_ARCH_TUPLE "arm-linux-gnueabi"
+#      define LIB_ARCH_TUPLE "arm-linux-gnu"
 #    endif
 #  endif
 #elif defined(__sh64__)
