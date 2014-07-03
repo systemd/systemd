@@ -92,14 +92,20 @@ static int link_config_ctx_connect(link_config_ctx *ctx) {
 
         if (ctx->ethtool_fd == -1) {
                 r = ethtool_connect(&ctx->ethtool_fd);
-                if (r < 0)
+                if (r < 0) {
+                        log_warning("link_config: could not connect to ethtool: %s",
+                                    strerror(-r));
                         return r;
+                }
         }
 
         if (!ctx->rtnl) {
                 r = sd_rtnl_open(&ctx->rtnl, 0);
-                if (r < 0)
+                if (r < 0) {
+                        log_warning("link_config: could not connect to rtnl: %s",
+                                    strerror(-r));
                         return r;
+                }
         }
 
         return 0;
