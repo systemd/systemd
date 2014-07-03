@@ -143,13 +143,16 @@ Architecture uname_architecture(void);
 #elif defined(__arm__)
 #  if defined(WORDS_BIGENDIAN)
 #    define native_architecture() ARCHITECTURE_ARM_BE
-#    error "Missing LIB_ARCH_TUPLE for ARM_BE"
-#  else
 #    if defined(__ARM_PCS_VFP)
-#      define native_architecture() ARCHITECTURE_ARM
+#      define LIB_ARCH_TUPLE "armeb-linux-gnueabihf"
+#    else
+#      define LIB_ARCH_TUPLE "armeb-linux-gnueabi"
+#    endif
+#  else
+#    define native_architecture() ARCHITECTURE_ARM
+#    if defined(__ARM_PCS_VFP)
 #      define LIB_ARCH_TUPLE "arm-linux-gnueabihf"
 #    else
-#      define native_architecture() ARCHITECTURE_ARM
 #      define LIB_ARCH_TUPLE "arm-linux-gnueabi"
 #    endif
 #  endif
