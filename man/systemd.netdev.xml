@@ -340,51 +340,45 @@
                         </variablelist>
         </refsect1>
         <refsect1>
-                <title>[TUN] Section Options</title>
+                <title>[Tun] Section Options</title>
 
-                        <para>The <literal>[TUN]</literal> section only applies for netdevs of kind
+                        <para>The <literal>[Tun]</literal> section only applies for netdevs of kind
                         <literal>tun</literal>, and accepts the following keys:</para>
 
                         <variablelist class='network-directives'>
                                 <varlistentry>
                                         <term><varname>OneQueue=</varname></term>
                                         <listitem><para>Takes a boolean argument. Configures whether
-                                        to enable disable one queue . it determines whether all packets
-                                        queue at the device (enabled), or a fixed number queue at the device and
-                                        the rest at the "qdisc". Defaults to <literal>no</literal>.</para>
+                                        all packets are queued at the device (enabled), or a fixed number
+                                        of packets are queued at the device and the rest at the
+                                        <literal>qdisc</literal>. Defaults to <literal>no</literal>.</para>
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
                                         <term><varname>MultiQueue=</varname></term>
-                                        <listitem><para>Takes a boolean argument. Configures whether the
-                                        to disable or disable . Linux supports multiqueue tuntap which can
-                                        uses multiple file descriptors (queues) to parallelize
-                                        packets sending or receiving. The device allocation is the same as before,
-                                        and if user wants to create multiple queues. Defaults to
-                                        <literal>no</literal>.</para>
+                                        <listitem><para>Takes a boolean argument. Configures whether to
+                                        use multiple file descriptors (queues) to parallelize packets
+                                        sending and receiving. Defaults to <literal>no</literal>.</para>
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
                                         <term><varname>PacketInfo=</varname></term>
-                                        <listitem><para>Takes a boolean argument. Configures whether the
-                                        to enable or disable . PacketInfo tells the kernel to not provide packet
-                                        information. The purpose of PacketInfo is to tell the kernel that packets
-                                        will be "pure" IP packets, with no added bytes. Otherwise (if PacketInfo is unset),
-                                        4 extra bytes are added to the beginning of the packet (2 flag bytes and 2 protocol bytes).
-                                        Defaults to <literal>no</literal>.</para>
+                                        <listitem><para>Takes a boolean argument. Configures whether packets
+                                        should be prepened with four extra bytes (two flag bytes and two
+                                        protocol bytes). If disabled it indicates that the packets will be
+                                        pure IP packets. Defaults to <literal>yes</literal>.</para>
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
                                         <term><varname>User=</varname></term>
-                                        <listitem><para>User to be allowed to access this device. Give ownership to unprivileged users,
-                                        so that /dev/net/tun device to be usable by this user.
-                                      </para>
+                                        <listitem><para>User to grant access to the <filename>/dev/net/tun</filename>
+                                        device.</para>
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
                                         <term><varname>Group=</varname></term>
-                                        <listitem><para>Group to be allowed to access this device. Give ownership to unprivileged group,
-                                        so that /dev/net/tun device to be usable by this group.</para>
+                                        <listitem><para>Group to grant access to the <filename>/dev/net/tun</filename>
+                                        device.</para>
                                         </listitem>
                                 </varlistentry>
 
@@ -393,57 +387,12 @@
         </refsect1>
 
         <refsect1>
-                <title>[TAP] Section Options</title>
+                <title>[Tap] Section Options</title>
 
-                        <para>The <literal>[TAP]</literal> section only applies for netdevs of kind
-                        <literal>tap</literal>, and accepts the following keys:</para>
+                        <para>The <literal>[Tap]</literal> section only applies for netdevs of kind
+                        <literal>tap</literal>, and accepts the same keys as the
+                        <literal>[Tun]</literal> section.</para>
         </refsect1>
-
-                        <variablelist class='network-directives'>
-                                <varlistentry>
-                                        <term><varname>OneQueue=</varname></term>
-                                        <listitem><para>Takes a boolean argument. Configures whether
-                                        to enable disable one queue . it determines whether all packets
-                                        queue at the device (enabled), or a fixed number queue at the device and
-                                        the rest at the "qdisc". Defaults to <literal>no</literal>.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>MultiQueue=</varname></term>
-                                        <listitem><para>Takes a boolean argument. Configures whether the
-                                        to disable or disable . From version 3.8, Linux supports multiqueue
-                                        tuntap which can uses multiple file descriptors (queues) to parallelize
-                                        packets sending or receiving. The device allocation is the same as before,
-                                        and if user wants to create multiple queues. Defaults to
-                                        <literal>no</literal>.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>PacketInfo=</varname></term>
-                                        <listitem><para>Takes a boolean argument. Configures whether the
-                                        to enable or disable . PacketInfo tells the kernel to not provide packet
-                                        information. The purpose of PacketInfo is to tell the kernel that packets
-                                        will be "pure" IP packets, with no added bytes. Otherwise (if PacketInfo is unset),
-                                        4 extra bytes are added to the beginning of the packet (2 flag bytes and 2 protocol bytes).
-                                        Defaults to <literal>no</literal>.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>User=</varname></term>
-                                        <listitem><para>User to be allowed to access this device. Give ownership to unprivileged users,
-                                        so that /dev/net/tun device to be usable by this user.
-                                      </para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>Group=</varname></term>
-                                        <listitem><para>Group to be allowed to access this device. Give ownership to unprivileged group,
-                                        so that /dev/net/tun device to be usable by this group.</para>
-                                        </listitem>
-                                </varlistentry>
-
-                        </variablelist>
-
 
         <refsect1>
                 <title>Example</title>
