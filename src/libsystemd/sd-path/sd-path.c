@@ -22,6 +22,7 @@
 #include "path-util.h"
 #include "strv.h"
 #include "sd-path.h"
+#include "missing.h"
 
 static int from_environment(const char *envname, const char *fallback, const char **ret) {
         assert(ret);
