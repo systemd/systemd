@@ -224,6 +224,48 @@ static int print_addresses(sd_bus *bus, const char *name, const char *prefix, co
         return 0;
 }
 
+static int print_os_release(sd_bus *bus, const char *name, const char *prefix) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        const char *k, *v, *pretty = NULL;
+        int r;
+
+        assert(bus);
+        assert(name);
+        assert(prefix);
+
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.machine1",
+                               "/org/freedesktop/machine1",
+                               "org.freedesktop.machine1.Manager",
+                               "GetMachineOSRelease",
+                               NULL,
+                               &reply,
+                               "s", name);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_enter_container(reply, 'a', "{ss}");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        while ((r = sd_bus_message_read(reply, "{ss}", &k, &v)) > 0) {
+                if (streq(k, "PRETTY_NAME"))
+                        pretty = v;
+
+        }
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = sd_bus_message_exit_container(reply);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        if (pretty)
+                printf("%s%s\n", prefix, pretty);
+
+        return 0;
+}
+
 typedef struct MachineStatusInfo {
         char *name;
         sd_id128_t id;
@@ -283,6 +325,8 @@ static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
         print_addresses(bus, i->name,
                        "\t Address: ",
                        "\t          ");
+
+        print_os_release(bus, i->name, "\t      OS: ");
 
         if (i->unit) {
                 printf("\t    Unit: %s\n", i->unit);

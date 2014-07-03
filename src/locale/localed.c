@@ -288,7 +288,7 @@ static int locale_write_data(Context *c) {
         int r, p;
         char **l = NULL;
 
-        r = load_env_file("/etc/locale.conf", NULL, &l);
+        r = load_env_file(NULL, "/etc/locale.conf", NULL, &l);
         if (r < 0 && r != -ENOENT)
                 return r;
 
@@ -393,7 +393,7 @@ static int vconsole_write_data(Context *c) {
         int r;
         _cleanup_strv_free_ char **l = NULL;
 
-        r = load_env_file("/etc/vconsole.conf", NULL, &l);
+        r = load_env_file(NULL, "/etc/vconsole.conf", NULL, &l);
         if (r < 0 && r != -ENOENT)
                 return r;
 

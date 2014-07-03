@@ -28,9 +28,11 @@
 #include "bus-util.h"
 #include "bus-label.h"
 #include "strv.h"
-#include "machine.h"
 #include "rtnl-util.h"
 #include "bus-errors.h"
+#include "copy.h"
+#include "fileio.h"
+#include "machine.h"
 
 static int property_get_id(
                 sd_bus *bus,
@@ -333,6 +335,95 @@ int bus_machine_method_get_addresses(sd_bus *bus, sd_bus_message *message, void 
         return sd_bus_send(bus, reply, NULL);
 }
 
+int bus_machine_method_get_os_release(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_close_ int mntns_fd = -1, root_fd = -1;
+        _cleanup_close_pair_ int pair[2] = { -1, -1 };
+        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        Machine *m = userdata;
+        char **k, **v;
+        siginfo_t si;
+        pid_t child;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        r = namespace_open(m->leader, NULL, &mntns_fd, NULL, &root_fd);
+        if (r < 0)
+                return sd_bus_error_set_errno(error, r);
+
+        if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, pair) < 0)
+                return sd_bus_error_set_errno(error, -errno);
+
+        child = fork();
+        if (child < 0)
+                return sd_bus_error_set_errno(error, -errno);
+
+        if (child == 0) {
+                _cleanup_close_ int fd = -1;
+
+                pair[0] = safe_close(pair[0]);
+
+                r = namespace_enter(-1, mntns_fd, -1, root_fd);
+                if (r < 0)
+                        _exit(EXIT_FAILURE);
+
+                fd = open("/etc/os-release", O_RDONLY|O_CLOEXEC);
+                if (fd < 0) {
+                        fd = open("/usr/lib/os-release", O_RDONLY|O_CLOEXEC);
+                        if (fd < 0)
+                                _exit(EXIT_FAILURE);
+                }
+
+                r = copy_bytes(fd, pair[1], (off_t) -1);
+                if (r < 0)
+                        _exit(EXIT_FAILURE);
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        pair[1] = safe_close(pair[1]);
+
+        f = fdopen(pair[0], "re");
+        if (!f)
+                return sd_bus_error_set_errno(error, -errno);
+
+        pair[0] = -1;
+
+        r = load_env_file_pairs(f, "/etc/os-release", NULL, &l);
+        if (r < 0)
+                return sd_bus_error_set_errno(error, r);
+
+        r = wait_for_terminate(child, &si);
+        if (r < 0)
+                return sd_bus_error_set_errno(error, r);
+        if (si.si_code != CLD_EXITED || si.si_status != EXIT_SUCCESS)
+                return sd_bus_error_set_errno(error, EIO);
+
+        r = sd_bus_message_new_method_return(message, &reply);
+        if (r < 0)
+                return sd_bus_error_set_errno(error, r);
+
+        r = sd_bus_message_open_container(reply, 'a', "{ss}");
+        if (r < 0)
+                return sd_bus_error_set_errno(error, r);
+
+        STRV_FOREACH_PAIR(k, v, l) {
+                r = sd_bus_message_append(reply, "{ss}", *k, *v);
+                if (r < 0)
+                        return sd_bus_error_set_errno(error, r);
+        }
+
+        r = sd_bus_message_close_container(reply);
+        if (r < 0)
+                return sd_bus_error_set_errno(error, r);
+
+        return sd_bus_send(bus, reply, NULL);
+}
+
 const sd_bus_vtable machine_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Name", "s", NULL, offsetof(Machine, name), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -348,7 +439,8 @@ const sd_bus_vtable machine_vtable[] = {
         SD_BUS_METHOD("Terminate", NULL, NULL, bus_machine_method_terminate, SD_BUS_VTABLE_CAPABILITY(CAP_KILL)),
         SD_BUS_METHOD("Kill", "si", NULL, bus_machine_method_kill, SD_BUS_VTABLE_CAPABILITY(CAP_KILL)),
         SD_BUS_METHOD("GetAddresses", NULL, "a(yay)", bus_machine_method_get_addresses, SD_BUS_VTABLE_UNPRIVILEGED),
-         SD_BUS_VTABLE_END
+        SD_BUS_METHOD("GetOSRelease", NULL, "a{ss}", bus_machine_method_get_os_release, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_VTABLE_END
 };
 
 int machine_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {

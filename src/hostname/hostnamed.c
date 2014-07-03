@@ -319,7 +319,7 @@ static int context_write_data_machine_info(Context *c) {
 
         assert(c);
 
-        r = load_env_file("/etc/machine-info", NULL, &l);
+        r = load_env_file(NULL, "/etc/machine-info", NULL, &l);
         if (r < 0 && r != -ENOENT)
                 return r;
 
