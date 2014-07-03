@@ -223,7 +223,6 @@ static int method_create_or_register_machine(Manager *manager, sd_bus_message *m
         m->leader = leader;
         m->class = c;
         m->id = id;
-        m->registered = true;
 
         if (!isempty(service)) {
                 m->service = strdup(service);
@@ -290,6 +289,8 @@ static int method_register_machine(sd_bus *bus, sd_bus_message *message, void *u
                 r = sd_bus_error_set_errnof(error, r, "Failed to determine unit of process "PID_FMT" : %s", m->leader, strerror(-r));
                 goto fail;
         }
+
+        m->registered = true;
 
         r = machine_start(m, NULL, error);
         if (r < 0)
