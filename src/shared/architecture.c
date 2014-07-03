@@ -116,6 +116,7 @@ Architecture uname_architecture(void) {
                 { "tilegx",     ARCHITECTURE_TILEGX   },
 #elif defined(__cris__)
                 { "cris",       ARCHITECTURE_CRIS     },
+                { "crisv32",    ARCHITECTURE_CRIS     },
 #else
 #error "Please register your architecture here!"
 #endif
