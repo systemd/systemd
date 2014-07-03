@@ -216,3 +216,10 @@ void exit_status_set_free(ExitStatusSet *x) {
         set_free(x->signal);
         x->status = x->signal = NULL;
 }
+
+bool exit_status_set_is_empty(ExitStatusSet *x) {
+        if (!x)
+                return true;
+
+        return set_isempty(x->status) && set_isempty(x->signal);
+}

@@ -97,3 +97,4 @@ bool is_clean_exit(int code, int status, ExitStatusSet *success_status);
 bool is_clean_exit_lsb(int code, int status, ExitStatusSet *success_status);
 
 void exit_status_set_free(ExitStatusSet *x);
+bool exit_status_set_is_empty(ExitStatusSet *x);
