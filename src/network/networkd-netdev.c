@@ -192,7 +192,8 @@ static int netdev_enslave_ready(NetDev *netdev, Link* link, sd_rtnl_message_hand
 }
 
 static int netdev_enter_ready(NetDev *netdev) {
-        netdev_enslave_callback *callback;
+        netdev_enslave_callback *callback, *callback_next;
+        int r;
 
         assert(netdev);
         assert(netdev->ifname);
@@ -204,10 +205,16 @@ static int netdev_enter_ready(NetDev *netdev) {
 
         log_info_netdev(netdev, "netdev ready");
 
-        LIST_FOREACH(callbacks, callback, netdev->callbacks) {
+        LIST_FOREACH_SAFE(callbacks, callback, callback_next, netdev->callbacks) {
                 /* enslave the links that were attempted to be enslaved before the
                  * link was ready */
-                netdev_enslave_ready(netdev, callback->link, callback->callback);
+                r = netdev_enslave_ready(netdev, callback->link, callback->callback);
+                if (r < 0)
+                        return r;
+
+                LIST_REMOVE(callbacks, netdev->callbacks, callback);
+                link_unref(callback->link);
+                free(callback);
         }
 
         return 0;
