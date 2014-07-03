@@ -311,6 +311,9 @@ usb:v*p*d*dcEFdsc02dp02*
 usb:v*p*d*dcEFdsc03dp01*
  ID_USB_PROTOCOL_FROM_DATABASE=Cable Based Association
 
+usb:v*p*d*dcEFdsc05*
+ ID_USB_SUBCLASS_FROM_DATABASE=USB3 Vision
+
 usb:v*p*d*dcFE*
  ID_USB_CLASS_FROM_DATABASE=Application Specific Interface
 
