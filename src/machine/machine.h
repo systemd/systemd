@@ -72,6 +72,7 @@ struct Machine {
 
         bool in_gc_queue:1;
         bool started:1;
+        bool registered:1;
 
         sd_bus_message *create_message;
 

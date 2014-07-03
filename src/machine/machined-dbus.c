@@ -223,6 +223,7 @@ static int method_create_or_register_machine(Manager *manager, sd_bus_message *m
         m->leader = leader;
         m->class = c;
         m->id = id;
+        m->registered = true;
 
         if (!isempty(service)) {
                 m->service = strdup(service);
