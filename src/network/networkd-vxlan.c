@@ -70,7 +70,7 @@ static int netdev_fill_vxlan_rtnl_message(NetDev *netdev, Link *link, sd_rtnl_me
                 }
         }
 
-        r = sd_rtnl_message_append_in_addr(m, IFLA_VXLAN_GROUP, &netdev->group);
+        r = sd_rtnl_message_append_in_addr(m, IFLA_VXLAN_GROUP, &netdev->group.in);
         if (r < 0) {
                 log_error_netdev(netdev,
                                  "Could not append IFLA_VXLAN_GROUP attribute: %s",
