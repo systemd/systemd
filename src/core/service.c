@@ -266,15 +266,9 @@ static void service_done(Unit *u) {
         s->control_command = NULL;
         s->main_command = NULL;
 
-        set_free(s->restart_ignore_status.code);
-        s->restart_ignore_status.code = NULL;
-        set_free(s->restart_ignore_status.signal);
-        s->restart_ignore_status.signal = NULL;
-
-        set_free(s->success_status.code);
-        s->success_status.code = NULL;
-        set_free(s->success_status.signal);
-        s->success_status.signal = NULL;
+        exit_status_set_free(&s->restart_prevent_status);
+        exit_status_set_free(&s->restart_force_status);
+        exit_status_set_free(&s->success_status);
 
         /* This will leak a process, but at least no memory or any of
          * our resources */
@@ -337,7 +331,12 @@ static int service_verify(Service *s) {
         }
 
         if (s->type == SERVICE_ONESHOT && s->restart != SERVICE_RESTART_NO) {
-                log_error_unit(UNIT(s)->id, "%s has Restart setting other than no, which isn't allowed for Type=oneshot services. Refusing.", UNIT(s)->id);
+                log_error_unit(UNIT(s)->id, "%s has Restart= setting other than no, which isn't allowed for Type=oneshot services. Refusing.", UNIT(s)->id);
+                return -EINVAL;
+        }
+
+        if (s->type == SERVICE_ONESHOT && !(set_isempty(s->restart_force_status.signal) && set_isempty(s->restart_force_status.code))) {
+                log_error_unit(UNIT(s)->id, "%s has RestartForceStatus= set, which isn't allowed for Type=oneshot services. Refusing.", UNIT(s)->id);
                 return -EINVAL;
         }
 
@@ -1071,11 +1070,11 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
              (s->restart == SERVICE_RESTART_ON_FAILURE && s->result != SERVICE_SUCCESS) ||
              (s->restart == SERVICE_RESTART_ON_ABNORMAL && !IN_SET(s->result, SERVICE_SUCCESS, SERVICE_FAILURE_EXIT_CODE)) ||
              (s->restart == SERVICE_RESTART_ON_WATCHDOG && s->result == SERVICE_FAILURE_WATCHDOG) ||
-             (s->restart == SERVICE_RESTART_ON_ABORT && IN_SET(s->result, SERVICE_FAILURE_SIGNAL, SERVICE_FAILURE_CORE_DUMP))) &&
-            (s->result != SERVICE_FAILURE_EXIT_CODE ||
-             !set_contains(s->restart_ignore_status.code, INT_TO_PTR(s->main_exec_status.status))) &&
-            (s->result != SERVICE_FAILURE_SIGNAL ||
-             !set_contains(s->restart_ignore_status.signal, INT_TO_PTR(s->main_exec_status.status)))) {
+             (s->restart == SERVICE_RESTART_ON_ABORT && IN_SET(s->result, SERVICE_FAILURE_SIGNAL, SERVICE_FAILURE_CORE_DUMP)) ||
+             (s->main_exec_status.code == CLD_EXITED && set_contains(s->restart_force_status.code, INT_TO_PTR(s->main_exec_status.status))) ||
+             (IN_SET(s->main_exec_status.code, CLD_KILLED, CLD_DUMPED) && set_contains(s->restart_force_status.signal, INT_TO_PTR(s->main_exec_status.status)))) &&
+            (s->main_exec_status.code != CLD_EXITED || !set_contains(s->restart_prevent_status.code, INT_TO_PTR(s->main_exec_status.status))) &&
+            (!IN_SET(s->main_exec_status.code, CLD_KILLED, CLD_DUMPED) || !set_contains(s->restart_prevent_status.signal, INT_TO_PTR(s->main_exec_status.status)))) {
 
                 r = service_arm_timer(s, s->restart_usec);
                 if (r < 0)
@@ -1421,8 +1420,7 @@ static void service_enter_start_pre(Service *s) {
         return;
 
 fail:
-        log_warning_unit(UNIT(s)->id,
-                         "%s failed to run 'start-pre' task: %s", UNIT(s)->id, strerror(-r));
+        log_warning_unit(UNIT(s)->id, "%s failed to run 'start-pre' task: %s", UNIT(s)->id, strerror(-r));
         service_enter_dead(s, SERVICE_FAILURE_RESOURCES, true);
 }
 
@@ -1434,8 +1432,7 @@ static void service_enter_restart(Service *s) {
 
         if (UNIT(s)->job && UNIT(s)->job->type == JOB_STOP) {
                 /* Don't restart things if we are going down anyway */
-                log_info_unit(UNIT(s)->id,
-                              "Stop job pending for unit, delaying automatic restart.");
+                log_info_unit(UNIT(s)->id, "Stop job pending for unit, delaying automatic restart.");
 
                 r = service_arm_timer(s, s->restart_usec);
                 if (r < 0)
@@ -1456,8 +1453,7 @@ static void service_enter_restart(Service *s) {
          * it will be canceled as part of the service_stop() call that
          * is executed as part of JOB_RESTART. */
 
-        log_debug_unit(UNIT(s)->id,
-                       "%s scheduled restart job.", UNIT(s)->id);
+        log_debug_unit(UNIT(s)->id, "%s scheduled restart job.", UNIT(s)->id);
         return;
 
 fail:

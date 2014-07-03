@@ -118,7 +118,8 @@ struct Service {
 
         ServiceType type;
         ServiceRestart restart;
-        ExitStatusSet restart_ignore_status;
+        ExitStatusSet restart_prevent_status;
+        ExitStatusSet restart_force_status;
         ExitStatusSet success_status;
 
         /* If set we'll read the main daemon PID from this file */

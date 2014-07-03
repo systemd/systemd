@@ -208,3 +208,11 @@ bool is_clean_exit_lsb(int code, int status, ExitStatusSet *success_status) {
                 code == CLD_EXITED &&
                 (status == EXIT_NOTINSTALLED || status == EXIT_NOTCONFIGURED);
 }
+
+void exit_status_set_free(ExitStatusSet *x) {
+        assert(x);
+
+        set_free(x->code);
+        set_free(x->signal);
+        x->code = x->signal = NULL;
+}

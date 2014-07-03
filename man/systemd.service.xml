@@ -857,7 +857,7 @@ ExecStart=/bin/echo $ONE $TWO ${TWO}</programlisting>
                                 definitions can either be numeric exit
                                 codes or termination signal names,
                                 separated by spaces. For example:
-                                <programlisting>SuccessExitStatus=1 2 8 <constant>SIGKILL</constant></programlisting>
+                                <programlisting>SuccessExitStatus=1 2 8 SIGKILL</programlisting>
                                 ensures that exit codes 1, 2, 8 and
                                 the termination signal
                                 <constant>SIGKILL</constant> are
@@ -897,9 +897,8 @@ ExecStart=/bin/echo $ONE $TWO ${TWO}</programlisting>
                                 spaces. Defaults to the empty list, so
                                 that, by default, no exit status is
                                 excluded from the configured restart
-                                logic. Example:
-                                <literal>RestartPreventExitStatus=1 6
-                                SIGABRT</literal>, ensures that exit
+                                logic. For example:
+                                <programlisting>RestartPreventExitStatus=1 6 SIGABRT</programlisting> ensures that exit
                                 codes 1 and 6 and the termination
                                 signal <constant>SIGABRT</constant> will
                                 not result in automatic service
@@ -911,6 +910,18 @@ ExecStart=/bin/echo $ONE $TWO ${TWO}</programlisting>
                                 list is reset and all prior assignments
                                 of this option will have no
                                 effect.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>RestartForceExitStatus=</varname></term>
+                                <listitem><para>Takes a list of exit
+                                status definitions that when returned
+                                by the main service process will force
+                                automatic service restarts, regardless
+                                of the restart setting configured with
+                                <varname>Restart=</varname>. The
+                                argument format is similar to
+                                <varname>RestartPreventExitStatus=</varname>.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
