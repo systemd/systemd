@@ -86,7 +86,8 @@
                 <programlisting># Type Name ID GECOS
 u httpd 440 "HTTP User"
 u authd /usr/bin/authd "Authorization user"
-g input - -</programlisting>
+g input - -
+m authd input</programlisting>
 
                 <refsect2>
                         <title>Type</title>
@@ -125,6 +126,15 @@ g input - -</programlisting>
                                         created with no password
                                         set.</para></listitem>
                                 </varlistentry>
+
+                                <varlistentry>
+                                        <term><varname>m</varname></term>
+                                        <listitem><para>Add a user to
+                                        a group. If the user or group
+                                        are not existing yet, they
+                                        will be implicitly
+                                        created.</para></listitem>
+                                </varlistentry>
                         </variablelist>
                 </refsect2>
 
@@ -141,13 +151,18 @@ g input - -</programlisting>
                         scheme to guarantee this is by prefixing all
                         system and group names with the underscore,
                         and avoiding too generic names.</para>
+
+                        <para>For <varname>m</varname> lines this
+                        field should contain the user name to add to a
+                        group.</para>
                 </refsect2>
 
                 <refsect2>
                         <title>ID</title>
 
-                        <para>The numeric 32bit UID or GID of the
-                        user/group. Do not use IDs 65535 or
+                        <para>For <varname>u</varname> and
+                        <varname>g</varname> the numeric 32bit UID or
+                        GID of the user/group. Do not use IDs 65535 or
                         4294967295, as they have special placeholder
                         meanings. Specify "-" for automatic UID/GID
                         allocation for the user or
@@ -157,6 +172,10 @@ g input - -</programlisting>
                         useful to create users whose UID/GID match the
                         owners of pre-existing files (such as SUID or
                         SGID binaries).</para>
+
+                        <para>For <varname>m</varname> lines this
+                        field should contain the group name to add to
+                        a user to.</para>
                 </refsect2>
 
                 <refsect2>
@@ -165,6 +184,10 @@ g input - -</programlisting>
                         <para>A short, descriptive string for users to
                         be created, enclosed in quotation marks. Note
                         that this field may not contain colons.</para>
+
+                        <para>Only applies to lines of type
+                        <varname>u</varname> and should otherwise be
+                        left unset.</para>
                 </refsect2>
 
         </refsect1>

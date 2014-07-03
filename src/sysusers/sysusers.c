@@ -38,6 +38,7 @@
 typedef enum ItemType {
         ADD_USER = 'u',
         ADD_GROUP = 'g',
+        ADD_MEMBER = 'm',
 } ItemType;
 typedef struct Item {
         ItemType type;
@@ -69,6 +70,7 @@ static const char conf_file_dirs[] =
 
 static Hashmap *users = NULL, *groups = NULL;
 static Hashmap *todo_uids = NULL, *todo_gids = NULL;
+static Hashmap *members = NULL;
 
 static Hashmap *database_uid = NULL, *database_user = NULL;
 static Hashmap *database_gid = NULL, *database_group = NULL;
@@ -240,11 +242,62 @@ fail:
         return r;
 }
 
+static int putgrent_with_members(const struct group *gr, FILE *group) {
+        char **a;
+
+        assert(gr);
+        assert(group);
+
+        a = hashmap_get(members, gr->gr_name);
+        if (a) {
+                _cleanup_strv_free_ char **l = NULL;
+                bool added = false;
+                char **i;
+
+                l = strv_copy(gr->gr_mem);
+                if (!l)
+                        return -ENOMEM;
+
+                STRV_FOREACH(i, a) {
+                        if (strv_find(l, *i))
+                                continue;
+
+                        if (strv_extend(&l, *i) < 0)
+                                return -ENOMEM;
+
+                        added = true;
+                }
+
+                if (added) {
+                        struct group t;
+
+                        strv_uniq(l);
+                        strv_sort(l);
+
+                        t = *gr;
+                        t.gr_mem = l;
+
+                        errno = 0;
+                        if (putgrent(&t, group) != 0)
+                                return errno ? -errno : -EIO;
+
+                        return 1;
+                }
+        }
+
+        errno = 0;
+        if (putgrent(gr, group) != 0)
+                return errno ? -errno : -EIO;
+
+        return 0;
+}
+
 static int write_files(void) {
 
         _cleanup_fclose_ FILE *passwd = NULL, *group = NULL;
         _cleanup_free_ char *passwd_tmp = NULL, *group_tmp = NULL;
         const char *passwd_path = NULL, *group_path = NULL;
+        bool group_changed = false;
         Iterator iterator;
         Item *i;
         int r;
@@ -252,7 +305,7 @@ static int write_files(void) {
         /* We don't patch /etc/shadow or /etc/gshadow here, since we
          * only create user accounts without passwords anyway. */
 
-        if (hashmap_size(todo_gids) > 0) {
+        if (hashmap_size(todo_gids) > 0 || hashmap_size(members) > 0) {
                 _cleanup_fclose_ FILE *original = NULL;
 
                 group_path = fix_root("/etc/group");
@@ -290,10 +343,12 @@ static int write_files(void) {
                                         goto finish;
                                 }
 
-                                if (putgrent(gr, group) < 0) {
-                                        r = -errno;
+                                r = putgrent_with_members(gr, group);
+                                if (r < 0)
                                         goto finish;
-                                }
+
+                                if (r > 0)
+                                        group_changed = true;
 
                                 errno = 0;
                         }
@@ -314,10 +369,11 @@ static int write_files(void) {
                                 .gr_passwd = (char*) "x",
                         };
 
-                        if (putgrent(&n, group) < 0) {
-                                r = -errno;
+                        r = putgrent_with_members(&n, group);
+                        if (r < 0)
                                 goto finish;
-                        }
+
+                        group_changed = true;
                 }
 
                 r = fflush_and_check(group);
@@ -356,8 +412,9 @@ static int write_files(void) {
                                         goto finish;
                                 }
 
+                                errno = 0;
                                 if (putpwent(pw, passwd) < 0) {
-                                        r = -errno;
+                                        r = errno ? -errno : -EIO;
                                         goto finish;
                                 }
 
@@ -393,8 +450,9 @@ static int write_files(void) {
                                 n.pw_dir = (char*) "/";
                         }
 
-                        if (putpwent(&n, passwd) < 0) {
-                                r = -r;
+                        errno = 0;
+                        if (putpwent(&n, passwd) != 0) {
+                                r = errno ? -errno : -EIO;
                                 goto finish;
                         }
                 }
@@ -405,7 +463,7 @@ static int write_files(void) {
         }
 
         /* Make a backup of the old files */
-        if (group) {
+        if (group && group_changed) {
                 r = make_backup(group_path);
                 if (r < 0)
                         goto finish;
@@ -418,7 +476,7 @@ static int write_files(void) {
         }
 
         /* And make the new files count */
-        if (group) {
+        if (group && group_changed) {
                 if (rename(group_tmp, group_path) < 0) {
                         r = -errno;
                         goto finish;
@@ -438,15 +496,13 @@ static int write_files(void) {
                 passwd_tmp = NULL;
         }
 
-        return 0;
+        r = 0;
 
 finish:
-        if (r < 0) {
-                if (passwd_tmp)
-                        unlink(passwd_tmp);
-                if (group_tmp)
-                        unlink(group_tmp);
-        }
+        if (passwd_tmp)
+                unlink(passwd_tmp);
+        if (group_tmp)
+                unlink(group_tmp);
 
         return r;
 }
@@ -890,9 +946,10 @@ static int process_item(Item *i) {
 
                 return add_group(i);
         }
-        }
 
-        assert_not_reached("Unknown item type");
+        default:
+                assert_not_reached("Unknown item type");
+        }
 }
 
 static void item_free(Item *i) {
@@ -908,6 +965,74 @@ static void item_free(Item *i) {
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Item*, item_free);
+
+static int add_implicit(void) {
+        char *g, **l;
+        Iterator iterator;
+        int r;
+
+        /* Implicitly create additional users and groups, if they were listed in "m" lines */
+
+        HASHMAP_FOREACH_KEY(l, g, members, iterator) {
+                Item *i;
+                char **m;
+
+                i = hashmap_get(groups, g);
+                if (!i) {
+                        _cleanup_(item_freep) Item *j = NULL;
+
+                        r = hashmap_ensure_allocated(&groups, string_hash_func, string_compare_func);
+                        if (r < 0)
+                                return log_oom();
+
+                        j = new0(Item, 1);
+                        if (!j)
+                                return log_oom();
+
+                        j->type = ADD_GROUP;
+                        j->name = strdup(g);
+                        if (!j->name)
+                                return log_oom();
+
+                        r = hashmap_put(groups, j->name, j);
+                        if (r < 0)
+                                return log_oom();
+
+                        log_debug("Adding implicit group '%s' due to m line", j->name);
+                        j = NULL;
+                }
+
+                STRV_FOREACH(m, l) {
+
+                        i = hashmap_get(users, *m);
+                        if (!i) {
+                                _cleanup_(item_freep) Item *j = NULL;
+
+                                r = hashmap_ensure_allocated(&users, string_hash_func, string_compare_func);
+                                if (r < 0)
+                                        return log_oom();
+
+                                j = new0(Item, 1);
+                                if (!j)
+                                        return log_oom();
+
+                                j->type = ADD_USER;
+                                j->name = strdup(*m);
+                                if (!j->name)
+                                        return log_oom();
+
+                                r = hashmap_put(users, j->name, j);
+                                if (r < 0)
+                                        return log_oom();
+
+                                log_debug("Adding implicit user '%s' due to m line", j->name);
+                                j = NULL;
+                        }
+                }
+        }
+
+        return 0;
+}
 
 static bool item_equal(Item *a, Item *b) {
         assert(a);
@@ -994,7 +1119,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 {}
         };
 
-        _cleanup_free_ char *action = NULL, *name = NULL, *id = NULL;
+        _cleanup_free_ char *action = NULL, *name = NULL, *id = NULL, *resolved_name = NULL;
         _cleanup_(item_freep) Item *i = NULL;
         Item *existing;
         Hashmap *h;
@@ -1020,31 +1145,124 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 return -EINVAL;
         }
 
-        if (!IN_SET(action[0], ADD_USER, ADD_GROUP)) {
+        if (!IN_SET(action[0], ADD_USER, ADD_GROUP, ADD_MEMBER)) {
                 log_error("[%s:%u] Unknown command command type '%c'.", fname, line, action[0]);
                 return -EBADMSG;
         }
 
-        i = new0(Item, 1);
-        if (!i)
-                return log_oom();
-
-        i->type = action[0];
-
-        r = specifier_printf(name, specifier_table, NULL, &i->name);
+        r = specifier_printf(name, specifier_table, NULL, &resolved_name);
         if (r < 0) {
                 log_error("[%s:%u] Failed to replace specifiers: %s", fname, line, name);
                 return r;
         }
 
-        if (!valid_user_group_name(i->name)) {
-                log_error("[%s:%u] '%s' is not a valid user or group name.", fname, line, i->name);
+        if (!valid_user_group_name(resolved_name)) {
+                log_error("[%s:%u] '%s' is not a valid user or group name.", fname, line, resolved_name);
                 return -EINVAL;
         }
 
         if (n >= 0) {
                 n += strspn(buffer+n, WHITESPACE);
-                if (buffer[n] != 0 && (buffer[n] != '-' || buffer[n+1] != 0)) {
+
+                if (STR_IN_SET(buffer + n, "", "-"))
+                        n = -1;
+        }
+
+        switch (action[0]) {
+
+        case ADD_MEMBER: {
+                _cleanup_free_ char *resolved_id = NULL;
+                char **l;
+
+                r = hashmap_ensure_allocated(&members, string_hash_func, string_compare_func);
+                if (r < 0)
+                        return log_oom();
+
+                /* Try to extend an existing member or group item */
+
+                if (!id || streq(id, "-")) {
+                        log_error("[%s:%u] Lines of type 'm' require a group name in the third field.", fname, line);
+                        return -EINVAL;
+                }
+
+                r = specifier_printf(id, specifier_table, NULL, &resolved_id);
+                if (r < 0) {
+                        log_error("[%s:%u] Failed to replace specifiers: %s", fname, line, name);
+                        return r;
+                }
+
+                if (!valid_user_group_name(resolved_id)) {
+                        log_error("[%s:%u] '%s' is not a valid user or group name.", fname, line, resolved_id);
+                        return -EINVAL;
+                }
+
+                if (n >= 0) {
+                        log_error("[%s:%u] Lines of type 'm' don't take a GECOS field.", fname, line);
+                        return -EINVAL;
+                }
+
+                l = hashmap_get(members, resolved_id);
+                if (l) {
+                        /* A list for this group name already exists, let's append to it */
+                        r = strv_push(&l, resolved_name);
+                        if (r < 0)
+                                return log_oom();
+
+                        resolved_name = NULL;
+
+                        assert_se(hashmap_update(members, resolved_id, l) >= 0);
+                } else {
+                        /* No list for this group name exists yet, create one */
+
+                        l = new0(char *, 2);
+                        if (!l)
+                                return -ENOMEM;
+
+                        l[0] = resolved_name;
+                        l[1] = NULL;
+
+                        r = hashmap_put(members, resolved_id, l);
+                        if (r < 0) {
+                                free(l);
+                                return log_oom();
+                        }
+
+                        resolved_id = resolved_name = NULL;
+                }
+
+                return 0;
+        }
+
+        case ADD_USER:
+                r = hashmap_ensure_allocated(&users, string_hash_func, string_compare_func);
+                if (r < 0)
+                        return log_oom();
+
+                i = new0(Item, 1);
+                if (!i)
+                        return log_oom();
+
+                if (id && !streq(id, "-")) {
+
+                        if (path_is_absolute(id)) {
+                                i->uid_path = strdup(id);
+                                if (!i->uid_path)
+                                        return log_oom();
+
+                                path_kill_slashes(i->uid_path);
+
+                        } else {
+                                r = parse_uid(id, &i->uid);
+                                if (r < 0) {
+                                        log_error("Failed to parse UID: %s", id);
+                                        return -EBADMSG;
+                                }
+
+                                i->uid_set = true;
+                        }
+                }
+
+                if (n >= 0) {
                         i->description = unquote(buffer+n, "\"");
                         if (!i->description)
                                 return log_oom();
@@ -1054,56 +1272,51 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                                 return -EINVAL;
                         }
                 }
-        }
 
-        if (id && !streq(id, "-")) {
-
-                if (path_is_absolute(id)) {
-                        char *p;
-
-                        p = strdup(id);
-                        if (!p)
-                                return log_oom();
-
-                        path_kill_slashes(p);
-
-                        if (i->type == ADD_USER)
-                                i->uid_path = p;
-                        else
-                                i->gid_path = p;
-
-                } else if (i->type == ADD_USER) {
-                        r = parse_uid(id, &i->uid);
-                        if (r < 0) {
-                                log_error("Failed to parse UID: %s", id);
-                                return -EBADMSG;
-                        }
-
-                        i->uid_set = true;
-
-                } else {
-                        assert(i->type == ADD_GROUP);
-
-                        r = parse_gid(id, &i->gid);
-                        if (r < 0) {
-                                log_error("Failed to parse GID: %s", id);
-                                return -EBADMSG;
-                        }
-
-                        i->gid_set = true;
-                }
-        }
-
-        if (i->type == ADD_USER) {
-                r = hashmap_ensure_allocated(&users, string_hash_func, string_compare_func);
                 h = users;
-        } else {
-                assert(i->type == ADD_GROUP);
+                break;
+
+        case ADD_GROUP:
                 r = hashmap_ensure_allocated(&groups, string_hash_func, string_compare_func);
+                if (r < 0)
+                        return log_oom();
+
+                if (n >= 0) {
+                        log_error("[%s:%u] Lines of type 'g' don't take a GECOS field.", fname, line);
+                        return -EINVAL;
+                }
+
+                i = new0(Item, 1);
+                if (!i)
+                        return log_oom();
+
+                if (id && !streq(id, "-")) {
+
+                        if (path_is_absolute(id)) {
+                                i->gid_path = strdup(id);
+                                if (!i->gid_path)
+                                        return log_oom();
+
+                                path_kill_slashes(i->gid_path);
+                        } else {
+                                r = parse_gid(id, &i->gid);
+                                if (r < 0) {
+                                        log_error("Failed to parse GID: %s", id);
+                                        return -EBADMSG;
+                                }
+
+                                i->gid_set = true;
+                        }
+                }
+
+
                 h = groups;
+                break;
         }
-        if (r < 0)
-                return log_oom();
+
+        i->type = action[0];
+        i->name = resolved_name;
+        resolved_name = NULL;
 
         existing = hashmap_get(h, i->name);
         if (existing) {
@@ -1116,10 +1329,8 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         }
 
         r = hashmap_put(h, i->name, i);
-        if (r < 0) {
-                log_error("Failed to insert item %s: %s", i->name, strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_oom();
 
         i = NULL;
         return 0;
@@ -1292,6 +1503,7 @@ int main(int argc, char *argv[]) {
         Iterator iterator;
         int r, k;
         Item *i;
+        char *n;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -1330,6 +1542,10 @@ int main(int argc, char *argv[]) {
                 }
         }
 
+        r = add_implicit();
+        if (r < 0)
+                goto finish;
+
         lock = take_lock();
         if (lock < 0) {
                 log_error("Failed to take lock: %s", strerror(-lock));
@@ -1365,8 +1581,14 @@ finish:
         while ((i = hashmap_steal_first(users)))
                 item_free(i);
 
+        while ((n = hashmap_first_key(members))) {
+                strv_free(hashmap_steal_first(members));
+                free(n);
+        }
+
         hashmap_free(groups);
         hashmap_free(users);
+        hashmap_free(members);
         hashmap_free(todo_uids);
         hashmap_free(todo_gids);
 
