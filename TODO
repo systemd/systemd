@@ -27,8 +27,6 @@ Features:
   been provisioned yet. Similar in style to what the distros have, but
   minimalist, text-only /dev/console stuff.
 
-* machinectl should show /etc/os-release info from the container
-
 * Add a new verb "systemctl top"
 
 * order OnCalendar timer units after timer-sync.target if DefaultDependencies=no so that we don't trigger them prematurely
