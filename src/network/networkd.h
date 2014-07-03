@@ -339,6 +339,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 
 /* NetDev */
 
+#define VLANID_MAX 4094
+
 int netdev_load(Manager *manager);
 void netdev_drop(NetDev *netdev);
 
@@ -354,6 +356,8 @@ int netdev_enslave(NetDev *netdev, Link *link, sd_rtnl_message_handler_t cb);
 int netdev_create_tunnel(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callback);
 int netdev_create_veth(NetDev *netdev, sd_rtnl_message_handler_t callback);
 int netdev_create_vxlan(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callback);
+int netdev_create_vlan(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callback);
+int netdev_create_macvlan(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callback);
 int netdev_create_dummy(NetDev *netdev, sd_rtnl_message_handler_t callback);
 
 const char *netdev_kind_to_string(NetDevKind d) _const_;
