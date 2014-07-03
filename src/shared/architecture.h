@@ -23,7 +23,10 @@
 
 #include "util.h"
 
-/* A cleaned up architecture definition */
+/* A cleaned up architecture definition. We don't want to get lost in
+ * processor features, models, generations or even ABIs. Hence we
+ * focus on general family, and distuignish word width and
+ * endianess. */
 
 typedef enum Architecture {
         ARCHITECTURE_X86 = 0,
@@ -143,10 +146,14 @@ Architecture uname_architecture(void);
 #elif defined(__arm__)
 #  if defined(WORDS_BIGENDIAN)
 #    define native_architecture() ARCHITECTURE_ARM_BE
-#    if defined(__ARM_PCS_VFP)
-#      define LIB_ARCH_TUPLE "armeb-linux-gnueabihf"
+#    if defined(__ARM_EABI__)
+#      if defined(__ARM_PCS_VFP)
+#        define LIB_ARCH_TUPLE "armeb-linux-gnueabihf"
+#      else
+#        define LIB_ARCH_TUPLE "armeb-linux-gnueabi"
+#      endif
 #    else
-#      define LIB_ARCH_TUPLE "armeb-linux-gnueabi"
+#      define LIB_ARCH_TUPLE "armeb-linux-gnu"
 #    endif
 #  else
 #    define native_architecture() ARCHITECTURE_ARM
