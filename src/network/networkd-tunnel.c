@@ -30,6 +30,7 @@
 #include "network-internal.h"
 #include "util.h"
 #include "missing.h"
+#include "conf-parser.h"
 
 
 static int netdev_fill_ipip_rtnl_message(Link *link, sd_rtnl_message *m) {
@@ -532,6 +533,35 @@ int netdev_create_tunnel(NetDev *netdev, Link *link, sd_rtnl_message_handler_t c
                          netdev_kind_to_string(netdev->kind));
 
         netdev->state = NETDEV_STATE_CREATING;
+
+        return 0;
+}
+
+int config_parse_tunnel_address(const char *unit,
+                                const char *filename,
+                                unsigned line,
+                                const char *section,
+                                unsigned section_line,
+                                const char *lvalue,
+                                int ltype,
+                                const char *rvalue,
+                                void *data,
+                                void *userdata) {
+        NetDev *n = userdata;
+        union in_addr_union *addr = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = net_parse_inaddr(rvalue, &n->family, addr);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Tunnel address is invalid, ignoring assignment: %s", rvalue);
+                return 0;
+        }
 
         return 0;
 }

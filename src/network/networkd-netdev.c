@@ -244,35 +244,6 @@ static int netdev_create_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userda
         return 1;
 }
 
-int config_parse_tunnel_address(const char *unit,
-                                const char *filename,
-                                unsigned line,
-                                const char *section,
-                                unsigned section_line,
-                                const char *lvalue,
-                                int ltype,
-                                const char *rvalue,
-                                void *data,
-                                void *userdata) {
-        NetDev *n = userdata;
-        union in_addr_union *addr = data;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = net_parse_inaddr(rvalue, &n->family, addr);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Tunnel address is invalid, ignoring assignment: %s", rvalue);
-                return 0;
-        }
-
-        return 0;
-}
-
 static int netdev_create(NetDev *netdev) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL;
         const char *kind;
