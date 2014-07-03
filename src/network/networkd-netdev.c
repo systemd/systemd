@@ -254,8 +254,8 @@ int config_parse_tunnel_address(const char *unit,
                                 const char *rvalue,
                                 void *data,
                                 void *userdata) {
-        NetDev *n = data;
-        unsigned char family = AF_INET;
+        NetDev *n = userdata;
+        union in_addr_union *addr = data;
         int r;
 
         assert(filename);
@@ -263,13 +263,14 @@ int config_parse_tunnel_address(const char *unit,
         assert(rvalue);
         assert(data);
 
-        r = net_parse_inaddr(rvalue, &family, n);
+        r = net_parse_inaddr(rvalue, &n->family, addr);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, EINVAL,
                            "Tunnel address is invalid, ignoring assignment: %s", rvalue);
                 return 0;
         }
-       return 0;
+
+        return 0;
 }
 
 static int netdev_create(NetDev *netdev) {
@@ -607,23 +608,45 @@ static int netdev_load_one(Manager *manager, const char *filename) {
                 return r;
         }
 
-        if (netdev->kind == _NETDEV_KIND_INVALID) {
+        switch (netdev->kind) {
+        case _NETDEV_KIND_INVALID:
                 log_warning("NetDev without Kind configured in %s. Ignoring", filename);
                 return 0;
+        case NETDEV_KIND_VLAN:
+                if (netdev->vlanid > VLANID_MAX) {
+                        log_warning("VLAN without valid Id configured in %s. Ignoring", filename);
+                        return 0;
+                }
+                break;
+        case NETDEV_KIND_VXLAN:
+                if (netdev->vxlanid > VXLAN_VID_MAX) {
+                        log_warning("VXLAN without valid Id configured in %s. Ignoring", filename);
+                        return 0;
+                }
+                break;
+        case NETDEV_KIND_IPIP:
+        case NETDEV_KIND_GRE:
+        case NETDEV_KIND_SIT:
+        case NETDEV_KIND_VTI:
+                if (netdev->local.in.s_addr == INADDR_ANY) {
+                        log_warning("Tunnel without local address configured in %s. Ignoring", filename);
+                        return 0;
+                }
+                if (netdev->remote.in.s_addr == INADDR_ANY) {
+                        log_warning("Tunnel without remote address configured in %s. Ignoring", filename);
+                        return 0;
+                }
+                if (netdev->family != AF_INET) {
+                        log_warning("Tunnel with invalid address family configured in %s. Ignoring", filename);
+                        return 0;
+                }
+                break;
+        default:
+                break;
         }
 
         if (!netdev->ifname) {
                 log_warning("NetDev without Name configured in %s. Ignoring", filename);
-                return 0;
-        }
-
-        if (netdev->kind == NETDEV_KIND_VLAN && netdev->vlanid > VLANID_MAX) {
-                log_warning("VLAN without valid Id configured in %s. Ignoring", filename);
-                return 0;
-        }
-
-        if (netdev->kind == NETDEV_KIND_VXLAN && netdev->vxlanid > VXLAN_VID_MAX) {
-                log_warning("VXLAN without valid Id configured in %s. Ignoring", filename);
                 return 0;
         }
 

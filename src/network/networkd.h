@@ -134,9 +134,10 @@ struct NetDev {
 
         unsigned ttl;
         unsigned tos;
-        struct in_addr local;
-        struct in_addr remote;
-        struct in_addr group;
+        unsigned char family;
+        union in_addr_union local;
+        union in_addr_union remote;
+        union in_addr_union group;
 
         LIST_HEAD(netdev_enslave_callback, callbacks);
 };
