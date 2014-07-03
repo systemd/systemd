@@ -55,10 +55,12 @@ CHANGES WITH 215:
           passed in from the server. Note that the [DHCPv4] section
           known in older systemd-networkd versions has been renamed to
           [DHCP] and is now also used by the DHCPv6 client. Existing
-          .network files using settings of this section need to be
-          updated.
+          .network files using settings of this section should be
+          updated, though compatibility is maintained. Optionally, the
+          client hostname may now be sent to the DHCP server.
 
-        * networkd gained support for vxlan virtual networks.
+        * networkd gained support for vxlan virtual networks as well
+          as tun/tap and dummy devices.
 
         * networkd gained support for automatic allocation of address
           ranges for interfaces from a system-wide pool of
@@ -176,7 +178,9 @@ CHANGES WITH 215:
         * A new man page file-hierarchy(7) has been added that
           contains a minimized, modernized version of the file system
           layout systemd expects, similar in style to the FHS
-          specification or hier(5).
+          specification or hier(5). A new tool systemd-path(1) has
+          been added to query many of these paths for the local
+          machine and user.
 
         * Automatic time-based clean-up of $XDG_RUNTIME_DIR is no
           longer done. Since the directory now has a per-user size
@@ -194,6 +198,41 @@ CHANGES WITH 215:
           distinguish between ports of the same PCI function. dev_id should
           only be used for ports using the same HW address, hence the need
           for dev_port.
+
+        * machined has been updated to export the OS version of a
+          container (read from /etc/os-release and
+          /usr/lib/os-release) on the bus. This is now shown in
+          "machinectl status" for a machine.
+
+        * A new service setting RestartForceExitStatus= has been
+          added. If configured to a set of exit signals or process
+          return values, the service will be restarted when the main
+          daemon process exits with any of them, regardless of the
+          Restart= setting.
+
+        * systemctl's -H switch for connecting to remote systemd
+          machines has been extended so that it may be used to
+          directly connect to a specific container on the
+          host. "systemctl -H root@foobar:waldi" will now connect as
+          user "root" to host "foobar", and then proceed directly to
+          the container named "waldi". Note that currently you have to
+          authenticate as user "root" for this to work, as entering
+          containers is a privileged operation.
+
+        Contributions from: Andreas Henriksson, Benjamin Steinwender,
+        Carl Schaefer, Christian Hesse, Colin Ian King, Cristian
+        Rodríguez, Daniel Mack, Dave Reisner, David Herrmann, Eugene
+        Yakubovich, Filipe Brandenburger, Frederic Crozat, Hristo
+        Venev, Jan Engelhardt, Jonathan Boulle, Kay Sievers, Lennart
+        Poettering, Luke Shumaker, Mantas Mikulėnas, Marc-Antoine
+        Perennou, Marcel Holtmann, Michael Marineau, Michael Olbrich,
+        Michał Bartoszkiewicz, Michal Sekletar, Patrik Flykt, Ronan Le
+        Martret, Ronny Chevalier, Ruediger Oertel, Steven Noonan,
+        Susant Sahani, Thadeu Lima de Souza Cascardo, Thomas Hindoe
+        Paaboel Andersen, Tom Gundersen, Tom Hirst, Umut Tezduyar
+        Lindskog, Uoti Urpala, Zbigniew Jędrzejewski-Szmek
+
+        -- Berlin, 2014-07-03
 
 CHANGES WITH 214:
 
