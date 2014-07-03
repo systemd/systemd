@@ -334,7 +334,7 @@ static int make_read_only(BindMount *m) {
 
         if (IN_SET(m->mode, INACCESSIBLE, READONLY))
                 r = bind_remount_recursive(m->path, true);
-        else if (m->mode == READWRITE)
+        else if (IN_SET(m->mode, READWRITE, PRIVATE_TMP, PRIVATE_VAR_TMP, PRIVATE_DEV))
                 r = bind_remount_recursive(m->path, false);
         else
                 r = 0;
