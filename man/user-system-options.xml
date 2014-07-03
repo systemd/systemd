@@ -26,10 +26,15 @@
     <term><option>--host=</option></term>
 
     <listitem id='host-text'>
-      <para>Execute the operation remotely. Specify a hostname, or
+      <para>Execute the operation remotely. Specify a hostname, or a
       username and hostname separated by <literal>@</literal>, to
-      connect to. This will use SSH to talk to the remote machine
-      manager instance.</para>
+      connect to. The hostname may optionally be suffixed by a
+      container name, separated by <literal>:</literal>, which
+      connects directly to a specific container on the specified
+      host. This will use SSH to talk to the remote machine manager
+      instance. Container names may be enumerated with
+      <command>machinectl -H
+      <replaceable>HOST</replaceable></command>.</para>
     </listitem>
   </varlistentry>
 
