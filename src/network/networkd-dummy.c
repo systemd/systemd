@@ -112,6 +112,8 @@ int netdev_create_dummy(NetDev *netdev, sd_rtnl_message_handler_t callback) {
                 return r;
         }
 
+        netdev_ref(netdev);
+
         log_debug_netdev(netdev, "Creating dummy netdev.");
 
         netdev->state = NETDEV_STATE_CREATING;

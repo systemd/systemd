@@ -184,6 +184,8 @@ static int netdev_enslave_ready(NetDev *netdev, Link* link, sd_rtnl_message_hand
                 return r;
         }
 
+        link_ref(link);
+
         log_debug_netdev(netdev, "enslaving link '%s'", link->ifname);
 
         return 0;
@@ -393,6 +395,7 @@ int netdev_enslave(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callbac
 
                 cb->callback = callback;
                 cb->link = link;
+                link_ref(link);
 
                 LIST_PREPEND(callbacks, netdev->callbacks, cb);
         }
@@ -677,8 +680,6 @@ static int netdev_load_one(Manager *manager, const char *filename) {
                 r = netdev_create_dummy(netdev, netdev_create_handler);
                 if (r < 0)
                         return r;
-
-                netdev_ref(netdev);
 
                 break;
         case NETDEV_KIND_BRIDGE:

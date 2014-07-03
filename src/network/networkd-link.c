@@ -436,7 +436,6 @@ static int link_set_dhcp_routes(Link *link) {
                         return r;
                 }
 
-                link_ref(link);
                 link->route_messages ++;
         }
 
@@ -468,7 +467,6 @@ static int link_enter_set_routes(Link *link) {
                         return r;
                 }
 
-                link_ref(link);
                 link->route_messages ++;
         }
 
@@ -503,7 +501,6 @@ static int link_enter_set_routes(Link *link) {
                                 return r;
                         }
 
-                        link_ref(link);
                         link->route_messages ++;
                 }
         }
@@ -551,7 +548,6 @@ static int link_enter_set_routes(Link *link) {
                                 return r;
                         }
 
-                        link_ref(link);
                         link->route_messages ++;
 
                         route->family = AF_INET;
@@ -566,7 +562,6 @@ static int link_enter_set_routes(Link *link) {
                                 return r;
                         }
 
-                        link_ref(link);
                         link->route_messages ++;
                 }
 
@@ -663,7 +658,6 @@ static int link_enter_set_addresses(Link *link) {
                         return r;
                 }
 
-                link_ref(link);
                 link->addr_messages ++;
         }
 
@@ -699,7 +693,6 @@ static int link_enter_set_addresses(Link *link) {
                                 return r;
                         }
 
-                        link_ref(link);
                         link->addr_messages ++;
                 }
         }
@@ -760,7 +753,6 @@ static int link_enter_set_addresses(Link *link) {
                         return r;
                 }
 
-                link_ref(link);
                 link->addr_messages ++;
         }
 
@@ -957,7 +949,6 @@ static int dhcp_lease_lost(Link *link) {
                                         route->dst_prefixlen = routes[i].dst_prefixlen;
 
                                         route_drop(route, link, &route_drop_handler);
-                                        link_ref(link);
                                 }
                         }
                 }
@@ -978,7 +969,6 @@ static int dhcp_lease_lost(Link *link) {
                                 route_gw->scope = RT_SCOPE_LINK;
 
                                 route_drop(route_gw, link, &route_drop_handler);
-                                link_ref(link);
                         }
 
                         r = route_new_dynamic(&route);
@@ -987,7 +977,6 @@ static int dhcp_lease_lost(Link *link) {
                                 route->in_addr.in = gateway;
 
                                 route_drop(route, link, &route_drop_handler);
-                                link_ref(link);
                         }
                 }
 
@@ -1000,7 +989,6 @@ static int dhcp_lease_lost(Link *link) {
                 address->prefixlen = prefixlen;
 
                 address_drop(address, link, &address_drop_handler);
-                link_ref(link);
         }
 
         if (link->network->dhcp_mtu) {
@@ -1267,7 +1255,6 @@ static int ipv4ll_address_update(Link *link, bool deprecate) {
                 address->broadcast.s_addr = address->in_addr.in.s_addr | htonl(0xfffffffflu >> address->prefixlen);
 
                 address_update(address, link, &address_update_handler);
-                link_ref(link);
         }
 
         return 0;
@@ -1300,7 +1287,6 @@ static int ipv4ll_address_lost(Link *link) {
                 address->scope = RT_SCOPE_LINK;
 
                 address_drop(address, link, &address_drop_handler);
-                link_ref(link);
 
                 r = route_new_dynamic(&route);
                 if (r < 0) {
@@ -1314,7 +1300,6 @@ static int ipv4ll_address_lost(Link *link) {
                 route->metrics = 99;
 
                 route_drop(route, link, &route_drop_handler);
-                link_ref(link);
         }
 
         return 0;
@@ -1810,7 +1795,6 @@ static int link_enter_enslave(Link *link) {
                         return r;
                 }
 
-                link_ref(link);
                 link->enslaving ++;
         }
 
@@ -1834,7 +1818,6 @@ static int link_enter_enslave(Link *link) {
                         return r;
                 }
 
-                link_ref(link);
                 link->enslaving ++;
         }
 
@@ -1858,7 +1841,6 @@ static int link_enter_enslave(Link *link) {
                         return r;
                 }
 
-                link_ref(link);
                 link->enslaving ++;
         }
 
@@ -1879,7 +1861,6 @@ static int link_enter_enslave(Link *link) {
                         return r;
                 }
 
-                link_ref(link);
                 link->enslaving ++;
         }
 
@@ -1900,7 +1881,6 @@ static int link_enter_enslave(Link *link) {
                         return r;
                 }
 
-                link_ref(link);
                 link->enslaving ++;
         }
 
@@ -1921,7 +1901,6 @@ static int link_enter_enslave(Link *link) {
                         return r;
                 }
 
-                link_ref(link);
                 link->enslaving ++;
         }
 

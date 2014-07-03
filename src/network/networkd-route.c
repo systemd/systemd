@@ -164,6 +164,8 @@ int route_drop(Route *route, Link *link,
                 return r;
         }
 
+        link_ref(link);
+
         return 0;
 }
 
@@ -234,6 +236,8 @@ int route_configure(Route *route, Link *link,
                 log_error("Could not send rtnetlink message: %s", strerror(-r));
                 return r;
         }
+
+        link_ref(link);
 
         return 0;
 }

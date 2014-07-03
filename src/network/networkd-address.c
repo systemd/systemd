@@ -144,6 +144,8 @@ int address_drop(Address *address, Link *link,
                 return r;
         }
 
+        link_ref(link);
+
         return 0;
 }
 
@@ -224,6 +226,8 @@ int address_update(Address *address, Link *link,
                 log_error("Could not send rtnetlink message: %s", strerror(-r));
                 return r;
         }
+
+        link_ref(link);
 
         return 0;
 }
@@ -372,6 +376,8 @@ int address_configure(Address *address, Link *link,
                 log_error("Could not send rtnetlink message: %s", strerror(-r));
                 return r;
         }
+
+        link_ref(link);
 
         return 0;
 }
