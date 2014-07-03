@@ -569,6 +569,7 @@ static int netdev_load_one(Manager *manager, const char *filename) {
         netdev->vxlanid = VXLAN_VID_MAX + 1;
         netdev->tunnel_pmtudisc = true;
         netdev->learning = true;
+        netdev->packet_info = true;
 
         r = config_parse(NULL, filename, file,
                          "Match\0NetDev\0VLAN\0MACVLAN\0VXLAN\0Tunnel\0Peer\0Tun\0Tap\0",

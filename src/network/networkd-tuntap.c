@@ -35,14 +35,12 @@ static int netdev_fill_tuntap_message(NetDev *netdev, struct ifreq *ifr) {
 
         memset(ifr, 0, sizeof(*ifr));
 
-        if (netdev->kind != NETDEV_KIND_TAP)
-                ifr->ifr_flags |= IFF_TUN;
-        else
+        if (netdev->kind == NETDEV_KIND_TAP)
                 ifr->ifr_flags |= IFF_TAP;
-
-        if (netdev->packet_info)
-                ifr->ifr_flags &= ~IFF_NO_PI;
         else
+                ifr->ifr_flags |= IFF_TUN;
+
+        if (!netdev->packet_info)
                 ifr->ifr_flags |= IFF_NO_PI;
 
         if (netdev->one_queue)
