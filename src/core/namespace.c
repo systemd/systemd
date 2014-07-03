@@ -69,6 +69,7 @@ static int append_mounts(BindMount **p, char **strv, MountMode mode) {
         STRV_FOREACH(i, strv) {
 
                 (*p)->ignore = false;
+                (*p)->done = false;
 
                 if ((mode == INACCESSIBLE || mode == READONLY || mode == READWRITE) && (*i)[0] == '-') {
                         (*p)->ignore = true;
@@ -375,7 +376,7 @@ int setup_namespace(
                 (protect_system == PROTECT_SYSTEM_FULL ? 1 : 0);
 
         if (n > 0) {
-                m = mounts = (BindMount *) alloca(n * sizeof(BindMount));
+                m = mounts = (BindMount *) alloca0(n * sizeof(BindMount));
                 r = append_mounts(&m, read_write_dirs, READWRITE);
                 if (r < 0)
                         return r;
