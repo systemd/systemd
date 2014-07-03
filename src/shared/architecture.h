@@ -142,8 +142,13 @@ Architecture uname_architecture(void);
 #    define native_architecture() ARCHITECTURE_ARM_BE
 #    error "Missing ARCH_TUPLE for ARM_BE"
 #  else
-#    define native_architecture() ARCHITECTURE_ARM
-#    error "Missing ARCH_TUPLE for ARM"
+#    if defined(__ARM_PCS_VFP)
+#      define native_architecture() ARCHITECTURE_ARM
+#      define ARCH_TUPLE "arm-linux-gnueabihf"
+#    else
+#      define native_architecture() ARCHITECTURE_ARM
+#      define ARCH_TUPLE "arm-linux-gnueabi"
+#    endif
 #  endif
 #elif defined(__sh64__)
 #  define native_architecture() ARCHITECTURE_SH64
