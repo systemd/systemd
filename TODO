@@ -619,6 +619,7 @@ Features:
    - add more attribute support for SIT tunnel
    - make metric of routes configurable
    - work with non-ethernet devices
+   - add support for more bond options
 
 * networkd-wait-online:
    - make operstates to wait for configurable?
