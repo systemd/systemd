@@ -11,6 +11,7 @@ Documentation=https://www.kernel.org/doc/Documentation/filesystems/configfs/conf
 Documentation=http://www.freedesktop.org/wiki/Software/systemd/APIFileSystems
 DefaultDependencies=no
 ConditionPathExists=/sys/kernel/config
+ConditionCapability=CAP_SYS_RAWIO
 After=systemd-modules-load.service
 Before=sysinit.target
 

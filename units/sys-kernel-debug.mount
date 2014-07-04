@@ -11,6 +11,7 @@ Documentation=https://www.kernel.org/doc/Documentation/filesystems/debugfs.txt
 Documentation=http://www.freedesktop.org/wiki/Software/systemd/APIFileSystems
 DefaultDependencies=no
 ConditionPathExists=/sys/kernel/debug
+ConditionCapability=CAP_SYS_RAWIO
 Before=sysinit.target
 
 [Mount]
