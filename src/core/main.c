@@ -1543,7 +1543,7 @@ int main(int argc, char *argv[]) {
                 if (in_initrd())
                         log_info("Running in initial RAM disk.");
 
-                empty_etc = dir_is_empty("/etc") > 0;
+                empty_etc = access("/etc/machine-id", F_OK) < 0;
                 if (empty_etc)
                         log_info("Running with unpopulated /etc.");
         } else {
