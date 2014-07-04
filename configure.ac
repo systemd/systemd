@@ -503,12 +503,22 @@ have_xz=no
 AC_ARG_ENABLE(xz, AS_HELP_STRING([--disable-xz], [Disable optional XZ support]))
 if test "x$enable_xz" != "xno"; then
         PKG_CHECK_MODULES(XZ, [ liblzma ],
-                [AC_DEFINE(HAVE_XZ, 1, [Define if XZ is available]) have_xz=yes], have_xz=no)
+                [AC_DEFINE(HAVE_XZ, 1, [Define if XZ is available]) have_xz=yes])
         if test "x$have_xz" = xno -a "x$enable_xz" = xyes; then
-                AC_MSG_ERROR([*** Xz support requested but libraries not found])
+                AC_MSG_ERROR([*** XZ support requested but libraries not found])
         fi
 fi
 AM_CONDITIONAL(HAVE_XZ, [test "$have_xz" = "yes"])
+
+# ------------------------------------------------------------------------------
+have_lz4=no
+AC_ARG_ENABLE(lz4, AS_HELP_STRING([--enable-lz4], [Enable optional LZ4 support]))
+AS_IF([test "x$enable_lz4" == "xyes"], [
+        AC_CHECK_HEADERS(lz4.h,
+               [AC_DEFINE(HAVE_LZ4, 1, [Define in LZ4 is available]) have_lz4=yes],
+               [AC_MSG_ERROR([*** LZ4 support requested but headers not found])])
+])
+AM_CONDITIONAL(HAVE_LZ4, [test "$have_lz4" = "yes"])
 
 # ------------------------------------------------------------------------------
 AC_ARG_ENABLE([pam],
@@ -1266,6 +1276,7 @@ AC_MSG_RESULT([
         SECCOMP:                 ${have_seccomp}
         SMACK:                   ${have_smack}
         XZ:                      ${have_xz}
+        LZ4:                     ${have_lz4}
         ACL:                     ${have_acl}
         GCRYPT:                  ${have_gcrypt}
         QRENCODE:                ${have_qrencode}

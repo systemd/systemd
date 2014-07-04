@@ -49,12 +49,6 @@
 #  include "acl-util.h"
 #endif
 
-#ifdef HAVE_XZ
-#  include <lzma.h>
-#else
-#  define LZMA_PRESET_DEFAULT 0
-#endif
-
 /* The maximum size up to which we process coredumps */
 #define PROCESS_SIZE_MAX ((off_t) (2LLU*1024LLU*1024LLU*1024LLU))
 
@@ -357,7 +351,7 @@ static int save_external_coredump(
                 goto fail;
         }
 
-#ifdef HAVE_XZ
+#if defined(HAVE_XZ) || defined(HAVE_LZ4)
         /* If we will remove the coredump anyway, do not compress. */
         if (maybe_remove_external_coredump(NULL, st.st_size) == 0
             && arg_compress) {
@@ -365,15 +359,15 @@ static int save_external_coredump(
                 _cleanup_free_ char *fn_compressed = NULL, *tmp_compressed = NULL;
                 _cleanup_close_ int fd_compressed = -1;
 
-                fn_compressed = strappend(fn, ".xz");
+                fn_compressed = strappend(fn, COMPRESSED_EXT);
                 if (!fn_compressed) {
-                        r = log_oom();
+                        log_oom();
                         goto uncompressed;
                 }
 
                 tmp_compressed = tempfn_random(fn_compressed);
                 if (!tmp_compressed) {
-                        r = log_oom();
+                        log_oom();
                         goto uncompressed;
                 }
 
@@ -383,7 +377,7 @@ static int save_external_coredump(
                         goto uncompressed;
                 }
 
-                r = compress_stream(fd, fd_compressed, LZMA_PRESET_DEFAULT, -1);
+                r = compress_stream(fd, fd_compressed, -1);
                 if (r < 0) {
                         log_error("Failed to compress %s: %s", tmp_compressed, strerror(-r));
                         goto fail_compressed;

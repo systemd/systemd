@@ -600,7 +600,7 @@ static int save_core(sd_journal *j, int fd, char **path, bool *unlink_temp) {
                 filename = NULL;
         }
 
-        if (filename && !endswith(filename, ".xz")) {
+        if (filename && !endswith(filename, ".xz") && !endswith(filename, ".lz4")) {
                 if (path) {
                         *path = filename;
                         filename = NULL;
@@ -646,7 +646,7 @@ static int save_core(sd_journal *j, int fd, char **path, bool *unlink_temp) {
                                 goto error;
                         }
                 } else if (filename) {
-#ifdef HAVE_XZ
+#if defined(HAVE_XZ) || defined(HAVE_LZ4)
                         _cleanup_close_ int fdf;
 
                         fdf = open(filename, O_RDONLY | O_CLOEXEC);
@@ -656,13 +656,13 @@ static int save_core(sd_journal *j, int fd, char **path, bool *unlink_temp) {
                                 goto error;
                         }
 
-                        r = decompress_stream(fdf, fd, -1);
+                        r = decompress_stream(filename, fdf, fd, -1);
                         if (r < 0) {
                                 log_error("Failed to decompress %s: %s", filename, strerror(-r));
                                 goto error;
                         }
 #else
-                        log_error("Cannot decompress file. Compiled without XZ support.");
+                        log_error("Cannot decompress file. Compiled without compression support.");
                         r = -ENOTSUP;
                         goto error;
 #endif

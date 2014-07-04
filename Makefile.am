@@ -3530,14 +3530,12 @@ test_catalog_CPPFLAGS = \
 test_catalog_LDADD = \
 	libsystemd-journal-core.la
 
-if HAVE_XZ
 test_compress_SOURCES = \
 	src/journal/test-compress.c
 
 test_compress_LDADD = \
 	libsystemd-journal-internal.la \
 	libsystemd-shared.la
-endif
 
 libsystemd_journal_core_la_SOURCES = \
 	src/journal/journald-kmsg.c \
@@ -3621,9 +3619,7 @@ tests += \
 	test-mmap-cache \
 	test-catalog
 
-if HAVE_XZ
 tests += test-compress
-endif
 
 pkginclude_HEADERS += \
 	src/systemd/sd-journal.h \
@@ -3656,15 +3652,20 @@ libsystemd_journal_internal_la_CFLAGS = \
 
 libsystemd_journal_internal_la_LIBADD =
 
-if HAVE_XZ
 libsystemd_journal_internal_la_SOURCES += \
 	src/journal/compress.c
 
+if HAVE_XZ
 libsystemd_journal_internal_la_CFLAGS += \
 	$(XZ_CFLAGS)
 
 libsystemd_journal_internal_la_LIBADD += \
 	$(XZ_LIBS)
+endif
+
+if HAVE_LZ4
+libsystemd_journal_internal_la_LIBADD += \
+	-llz4
 endif
 
 if HAVE_GCRYPT

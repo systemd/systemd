@@ -56,7 +56,8 @@ typedef struct JournalFile {
         int flags;
         int prot;
         bool writable:1;
-        bool compress:1;
+        bool compress_xz:1;
+        bool compress_lz4:1;
         bool seal:1;
 
         bool tail_entry_monotonic_valid:1;
@@ -153,8 +154,11 @@ static inline bool VALID_EPOCH(uint64_t u) {
 #define JOURNAL_HEADER_SEALED(h) \
         (!!(le32toh((h)->compatible_flags) & HEADER_COMPATIBLE_SEALED))
 
-#define JOURNAL_HEADER_COMPRESSED(h) \
-        (!!(le32toh((h)->incompatible_flags) & HEADER_INCOMPATIBLE_COMPRESSED))
+#define JOURNAL_HEADER_COMPRESSED_XZ(h) \
+        (!!(le32toh((h)->incompatible_flags) & HEADER_INCOMPATIBLE_COMPRESSED_XZ))
+
+#define JOURNAL_HEADER_COMPRESSED_LZ4(h) \
+        (!!(le32toh((h)->incompatible_flags) & HEADER_INCOMPATIBLE_COMPRESSED_LZ4))
 
 int journal_file_move_to_object(JournalFile *f, int type, uint64_t offset, Object **ret);
 
