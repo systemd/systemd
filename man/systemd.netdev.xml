@@ -396,6 +396,30 @@
         </refsect1>
 
         <refsect1>
+                <title>[Bond] Section Options</title>
+
+                        <para>The <literal>[Bond]</literal> section accepts the following
+                        key:</para>
+
+                        <variablelist class='network-directives'>
+                                <varlistentry>
+                                        <term><varname>Mode=</varname></term>
+                                        <listitem>
+                                          <para>Specifies one of the bonding policies. The default is balance-rr (round robin).
+                                                <literal>balance-rr</literal>
+                                                <literal>active-backup</literal>
+                                                <literal>balance-xor</literal>
+                                                <literal>broadcast</literal>
+                                                <literal>802.3ad</literal>
+                                                <literal>balance-tlb</literal>
+                                                <literal>balance-alb</literal>
+                                          </para>
+                                        </listitem>
+                                </varlistentry>
+                        </variablelist>
+        </refsect1>
+
+        <refsect1>
                 <title>Example</title>
                 <example>
                         <title>/etc/systemd/network/bridge.netdev</title>

@@ -4575,6 +4575,7 @@ libsystemd_networkd_core_la_SOURCES = \
 	src/network/networkd-macvlan.c \
 	src/network/networkd-dummy.c \
 	src/network/networkd-tuntap.c \
+	src/network/networkd-bond.c \
 	src/network/networkd-network.c \
 	src/network/networkd-address.c \
 	src/network/networkd-route.c \

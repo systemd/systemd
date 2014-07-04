@@ -48,6 +48,7 @@ static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(netdev_kind, NetDevKind);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_netdev_kind, netdev_kind, NetDevKind, "Failed to parse netdev kind");
 
+
 static void netdev_cancel_callbacks(NetDev *netdev) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
         netdev_enslave_callback *callback;
@@ -565,13 +566,14 @@ static int netdev_load_one(Manager *manager, const char *filename) {
         netdev->state = _NETDEV_STATE_INVALID;
         netdev->kind = _NETDEV_KIND_INVALID;
         netdev->macvlan_mode = _NETDEV_MACVLAN_MODE_INVALID;
+        netdev->bond_mode = _NETDEV_BOND_MODE_INVALID;
         netdev->vlanid = VLANID_MAX + 1;
         netdev->vxlanid = VXLAN_VID_MAX + 1;
         netdev->tunnel_pmtudisc = true;
         netdev->learning = true;
 
         r = config_parse(NULL, filename, file,
-                         "Match\0NetDev\0VLAN\0MACVLAN\0VXLAN\0Tunnel\0Peer\0Tun\0Tap\0",
+                         "Match\0NetDev\0VLAN\0MACVLAN\0VXLAN\0Tunnel\0Peer\0Tun\0Tap\0Bond\0",
                          config_item_perf_lookup, (void*) network_netdev_gperf_lookup,
                          false, false, netdev);
         if (r < 0) {
@@ -694,19 +696,15 @@ static int netdev_load_one(Manager *manager, const char *filename) {
 
                 break;
         case NETDEV_KIND_BRIDGE:
-        case NETDEV_KIND_BOND:
                 r = netdev_create(netdev);
                 if (r < 0)
                         return r;
                 break;
-
-        case NETDEV_KIND_TUN:
-        case NETDEV_KIND_TAP:
-                r = netdev_create_tuntap(netdev);
+        case NETDEV_KIND_BOND:
+                r = netdev_create_bond(netdev, netdev_create_handler);
                 if (r < 0)
                         return r;
                 break;
-
         default:
                 break;
         }

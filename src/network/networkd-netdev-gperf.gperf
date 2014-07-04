@@ -48,3 +48,4 @@ Tap.MultiQueue,          config_parse_bool,                  0,                 
 Tap.PacketInfo,          config_parse_bool,                  0,                             offsetof(NetDev, packet_info)
 Tap.User,                config_parse_string,                0,                             offsetof(NetDev, user_name)
 Tap.Group,               config_parse_string,                0,                             offsetof(NetDev, group_name)
+Bond.Mode,               config_parse_bond_mode,             0,                             offsetof(NetDev, bond_mode)

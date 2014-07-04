@@ -70,6 +70,18 @@ typedef enum MacVlanMode {
         _NETDEV_MACVLAN_MODE_INVALID = -1
 } MacVlanMode;
 
+typedef enum BondMode {
+        NETDEV_BOND_MODE_BALANCE_RR,
+        NETDEV_BOND_MODE_ACTIVE_BACKUP,
+        NETDEV_BOND_MODE_BALANCE_XOR,
+        NETDEV_BOND_MODE_BROADCAST,
+        NETDEV_BOND_MODE_802_3AD,
+        NETDEV_BOND_MODE_BALANCE_TLB,
+        NETDEV_BOND_MODE_BALANCE_ALB,
+        _NETDEV_BOND_MODE_MAX,
+        _NETDEV_BOND_MODE_INVALID = -1
+} BondMode;
+
 typedef enum NetDevKind {
         NETDEV_KIND_BRIDGE,
         NETDEV_KIND_BOND,
@@ -122,6 +134,7 @@ struct NetDev {
         uint64_t vlanid;
         uint64_t vxlanid;
         int32_t macvlan_mode;
+        int32_t bond_mode;
 
         int ifindex;
         NetDevState state;
@@ -370,6 +383,8 @@ int netdev_create_vlan(NetDev *netdev, Link *link, sd_rtnl_message_handler_t cal
 int netdev_create_macvlan(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callback);
 int netdev_create_dummy(NetDev *netdev, sd_rtnl_message_handler_t callback);
 int netdev_create_tuntap(NetDev *netdev);
+int netdev_create_bond(NetDev *netdev, sd_rtnl_message_handler_t callback);
+
 
 const char *netdev_kind_to_string(NetDevKind d) _const_;
 NetDevKind netdev_kind_from_string(const char *d) _pure_;
@@ -377,9 +392,14 @@ NetDevKind netdev_kind_from_string(const char *d) _pure_;
 const char *macvlan_mode_to_string(MacVlanMode d) _const_;
 MacVlanMode macvlan_mode_from_string(const char *d) _pure_;
 
+const char *bond_mode_to_string(BondMode d) _const_;
+BondMode bond_mode_from_string(const char *d) _pure_;
+
 int config_parse_netdev_kind(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 
 int config_parse_macvlan_mode(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+
+int config_parse_bond_mode(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 
 /* gperf */
 const struct ConfigPerfItem* network_netdev_gperf_lookup(const char *key, unsigned length);
