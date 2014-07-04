@@ -9,7 +9,7 @@
 Description=Create list of required static device nodes for the current kernel
 DefaultDependencies=no
 Before=sysinit.target systemd-tmpfiles-setup-dev.service
-ConditionCapability=CAP_MKNOD
+ConditionCapability=CAP_SYS_MODULE
 ConditionPathExists=/lib/modules/%v/modules.devname
 
 [Service]
