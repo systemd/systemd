@@ -107,6 +107,12 @@ typedef enum LinkJournal {
         LINK_GUEST
 } LinkJournal;
 
+typedef enum Volatile {
+        VOLATILE_NO,
+        VOLATILE_YES,
+        VOLATILE_STATE,
+} Volatile;
+
 static char *arg_directory = NULL;
 static char *arg_user = NULL;
 static sd_id128_t arg_uuid = {};
@@ -159,6 +165,7 @@ static bool arg_network_veth = false;
 static const char *arg_network_bridge = NULL;
 static unsigned long arg_personality = 0xffffffffLU;
 static const char *arg_image = NULL;
+static Volatile arg_volatile = VOLATILE_NO;
 
 static int help(void) {
 
@@ -207,7 +214,8 @@ static int help(void) {
                "     --share-system         Share system namespaces with host\n"
                "     --register=BOOLEAN     Register container as machine\n"
                "     --keep-unit            Do not register a scope for the machine, reuse\n"
-               "                            the service unit nspawn is running in\n",
+               "                            the service unit nspawn is running in\n"
+               "     --volatile[=MODE]      Run the system in volatile mode\n",
                program_invocation_short_name);
 
         return 0;
@@ -235,6 +243,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NETWORK_VETH,
                 ARG_NETWORK_BRIDGE,
                 ARG_PERSONALITY,
+                ARG_VOLATILE,
         };
 
         static const struct option options[] = {
@@ -267,6 +276,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "network-bridge",        required_argument, NULL, ARG_NETWORK_BRIDGE    },
                 { "personality",           required_argument, NULL, ARG_PERSONALITY       },
                 { "image",                 required_argument, NULL, 'i'                   },
+                { "volatile",              optional_argument, NULL, ARG_VOLATILE          },
                 {}
         };
 
@@ -559,6 +569,25 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_VOLATILE:
+
+                        if (!optarg)
+                                arg_volatile = VOLATILE_YES;
+                        else {
+                                r = parse_boolean(optarg);
+                                if (r < 0) {
+                                        if (streq(optarg, "state"))
+                                                arg_volatile = VOLATILE_STATE;
+                                        else {
+                                                log_error("Failed to parse --volatile= argument: %s", optarg);
+                                                return r;
+                                        }
+                                } else
+                                        arg_volatile = r ? VOLATILE_YES : VOLATILE_NO;
+                        }
+
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -582,6 +611,11 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_directory && arg_image) {
                 log_error("--directory= and --image= may not be combined.");
+                return -EINVAL;
+        }
+
+        if (arg_volatile != VOLATILE_NO && arg_read_only) {
+                log_error("Cannot combine --read-only with --volatile. Note that --volatile already implies a read-only base hierarchy.");
                 return -EINVAL;
         }
 
@@ -712,7 +746,7 @@ static int mount_binds(const char *dest, char **l, bool ro) {
                 }
 
                 /* Create the mount point, but be conservative -- refuse to create block
-                * and char devices. */
+                 * and char devices. */
                 if (S_ISDIR(source_st.st_mode))
                         mkdir_label(where, 0755);
                 else if (S_ISFIFO(source_st.st_mode))
@@ -796,7 +830,6 @@ static int setup_timezone(const char *dest) {
                 if (!y)
                         y = path_startswith(q, "/usr/share/zoneinfo/");
 
-
                 /* Already pointing to the right place? Then do nothing .. */
                 if (y && streq(y, z))
                         return 0;
@@ -815,7 +848,9 @@ static int setup_timezone(const char *dest) {
         if (!what)
                 return log_oom();
 
+        mkdir_parents(where, 0755);
         unlink(where);
+
         if (symlink(what, where) < 0) {
                 log_error("Failed to correct timezone of container: %m");
                 return 0;
@@ -839,9 +874,103 @@ static int setup_resolv_conf(const char *dest) {
 
         /* We don't really care for the results of this really. If it
          * fails, it fails, but meh... */
+        mkdir_parents(where, 0755);
         copy_file("/etc/resolv.conf", where, O_TRUNC|O_NOFOLLOW, 0644);
 
         return 0;
+}
+
+static int setup_volatile_state(const char *directory) {
+        const char *p;
+        int r;
+
+        assert(directory);
+
+        if (arg_volatile != VOLATILE_STATE)
+                return 0;
+
+        /* --volatile=state means we simply overmount /var
+           with a tmpfs, and the rest read-only. */
+
+        r = bind_remount_recursive(directory, true);
+        if (r < 0) {
+                log_error("Failed to remount %s read-only: %s", directory, strerror(-r));
+                return r;
+        }
+
+        p = strappenda(directory, "/var");
+        mkdir(p, 0755);
+
+        if (mount("tmpfs", p, "tmpfs", MS_STRICTATIME, "mode=755") < 0) {
+                log_error("Failed to mount tmpfs to /var: %m");
+                return -errno;
+        }
+
+        return 0;
+}
+
+static int setup_volatile(const char *directory) {
+        bool tmpfs_mounted = false, bind_mounted = false;
+        char template[] = "/tmp/nspawn-volatile-XXXXXX";
+        const char *f, *t;
+        int r;
+
+        assert(directory);
+
+        if (arg_volatile != VOLATILE_YES)
+                return 0;
+
+        /* --volatile=yes means we mount a tmpfs to the root dir, and
+           the original /usr to use inside it, and that read-only. */
+
+        if (!mkdtemp(template)) {
+                log_error("Failed to create temporary directory: %m");
+                return -errno;
+        }
+
+        if (mount("tmpfs", template, "tmpfs", MS_STRICTATIME, "mode=755") < 0) {
+                log_error("Failed to mount tmpfs for root directory: %m");
+                r = -errno;
+                goto fail;
+        }
+
+        tmpfs_mounted = true;
+
+        f = strappenda(directory, "/usr");
+        t = strappenda(template, "/usr");
+
+        mkdir(t, 0755);
+        if (mount(f, t, "bind", MS_BIND|MS_REC, NULL) < 0) {
+                log_error("Failed to create /usr bind mount: %m");
+                r = -errno;
+                goto fail;
+        }
+
+        bind_mounted = true;
+
+        r = bind_remount_recursive(t, true);
+        if (r < 0) {
+                log_error("Failed to remount %s read-only: %s", t, strerror(-r));
+                goto fail;
+        }
+
+        if (mount(template, directory, NULL, MS_MOVE, NULL) < 0) {
+                log_error("Failed to move root mount: %m");
+                r = -errno;
+                goto fail;
+        }
+
+        rmdir(template);
+
+        return 0;
+
+fail:
+        if (bind_mounted)
+                umount(t);
+        if (tmpfs_mounted)
+                umount(template);
+        rmdir(template);
+        return r;
 }
 
 static char* id128_format_as_uuid(sd_id128_t id, char s[37]) {
@@ -2868,7 +2997,11 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
 
-                r = dissect_image(image_fd, &root_device, &root_device_rw, &home_device, &home_device_rw, &srv_device, &srv_device_rw, &secondary);
+                r = dissect_image(image_fd,
+                                  &root_device, &root_device_rw,
+                                  &home_device, &home_device_rw,
+                                  &srv_device, &srv_device_rw,
+                                  &secondary);
                 if (r < 0)
                         goto finish;
         }
@@ -3042,17 +3175,22 @@ int main(int argc, char *argv[]) {
                                           srv_device, srv_device_rw) < 0)
                                 goto child_fail;
 
-                        r = base_filesystem_create(arg_directory);
-                        if (r < 0) {
-                                log_error("Failed to create the base filesystem: %s", strerror(-r));
-                                goto child_fail;
-                        }
-
                         /* Turn directory into bind mount */
                         if (mount(arg_directory, arg_directory, "bind", MS_BIND|MS_REC, NULL) < 0) {
                                 log_error("Failed to make bind mount: %m");
                                 goto child_fail;
                         }
+
+                        r = setup_volatile(arg_directory);
+                        if (r < 0)
+                                goto child_fail;
+
+                        if (setup_volatile_state(arg_directory) < 0)
+                                goto child_fail;
+
+                        r = base_filesystem_create(arg_directory);
+                        if (r < 0)
+                                goto child_fail;
 
                         if (arg_read_only) {
                                 k = bind_remount_recursive(arg_directory, true);
