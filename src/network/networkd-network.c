@@ -92,7 +92,7 @@ static int network_load_one(Manager *manager, const char *filename) {
         network->dhcp_routes = true;
         network->dhcp_sendhost = true;
 
-        r = config_parse(NULL, filename, file, "Match\0Network\0Address\0Route\0DHCPv4\0", config_item_perf_lookup,
+        r = config_parse(NULL, filename, file, "Match\0Network\0Address\0Route\0DHCP\0DHCPv4\0", config_item_perf_lookup,
                         (void*) network_network_gperf_lookup, false, false, network);
         if (r < 0) {
                 log_warning("Could not parse config file %s: %s", filename, strerror(-r));
