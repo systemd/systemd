@@ -495,22 +495,33 @@ static int netdev_load_one(Manager *manager, const char *filename) {
                 return r;
         }
 
+        /* skip out early if configuration does not match the environment */
+        if (net_match_config(NULL, NULL, NULL, NULL, NULL,
+                             netdev->match_host, netdev->match_virt,
+                             netdev->match_kernel, netdev->match_arch,
+                             NULL, NULL, NULL, NULL, NULL, NULL) <= 0)
+                return 0;
+
+        /* verify configuration */
         switch (netdev->kind) {
         case _NETDEV_KIND_INVALID:
                 log_warning("NetDev without Kind configured in %s. Ignoring", filename);
                 return 0;
+
         case NETDEV_KIND_VLAN:
                 if (netdev->vlanid > VLANID_MAX) {
                         log_warning("VLAN without valid Id configured in %s. Ignoring", filename);
                         return 0;
                 }
                 break;
+
         case NETDEV_KIND_VXLAN:
                 if (netdev->vxlanid > VXLAN_VID_MAX) {
                         log_warning("VXLAN without valid Id configured in %s. Ignoring", filename);
                         return 0;
                 }
                 break;
+
         case NETDEV_KIND_IPIP:
         case NETDEV_KIND_GRE:
         case NETDEV_KIND_SIT:
@@ -528,6 +539,24 @@ static int netdev_load_one(Manager *manager, const char *filename) {
                         return 0;
                 }
                 break;
+
+        case NETDEV_KIND_VETH:
+                if (!netdev->ifname_peer) {
+                        log_warning("Veth NetDev without peer name configured "
+                                    "in %s. Ignoring", filename);
+                        return 0;
+                }
+
+                if (!netdev->mac_peer) {
+                        r = netdev_get_mac(netdev->ifname_peer, &netdev->mac_peer);
+                        if (r < 0) {
+                                log_error("Failed to generate predictable MAC address for %s",
+                                          netdev->ifname_peer);
+                                return r;
+                        }
+                }
+                break;
+
         default:
                 break;
         }
@@ -560,12 +589,6 @@ static int netdev_load_one(Manager *manager, const char *filename) {
         if (!netdev->filename)
                 return log_oom();
 
-        if (net_match_config(NULL, NULL, NULL, NULL, NULL,
-                             netdev->match_host, netdev->match_virt,
-                             netdev->match_kernel, netdev->match_arch,
-                             NULL, NULL, NULL, NULL, NULL, NULL) <= 0)
-                return 0;
-
         if (!netdev->mac) {
                 r = netdev_get_mac(netdev->ifname, &netdev->mac);
                 if (r < 0) {
@@ -581,23 +604,9 @@ static int netdev_load_one(Manager *manager, const char *filename) {
 
         LIST_HEAD_INIT(netdev->callbacks);
 
+        /* create netdev */
         switch (netdev->kind) {
         case NETDEV_KIND_VETH:
-                if (!netdev->ifname_peer) {
-                        log_warning("Veth NetDev without peer name configured "
-                                    "in %s. Ignoring", filename);
-                        return 0;
-                }
-
-                if (!netdev->mac) {
-                        r = netdev_get_mac(netdev->ifname_peer, &netdev->mac_peer);
-                        if (r < 0) {
-                                log_error("Failed to generate predictable MAC address for %s",
-                                          netdev->ifname_peer);
-                                return r;
-                        }
-                }
-
                 r = netdev_create_veth(netdev, netdev_create_handler);
                 if (r < 0)
                         return r;
