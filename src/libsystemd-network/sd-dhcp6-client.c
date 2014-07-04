@@ -708,7 +708,8 @@ static int client_receive_reply(sd_dhcp6_client *client, DHCP6Message *reply,
                         return 0;
         }
 
-        dhcp6_lease_clear_timers(&client->lease->ia);
+        if (client->lease)
+            dhcp6_lease_clear_timers(&client->lease->ia);
 
         client->lease = sd_dhcp6_lease_unref(client->lease);
         client->lease = lease;
