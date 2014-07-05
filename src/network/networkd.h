@@ -387,6 +387,7 @@ int netdev_create_macvlan(NetDev *netdev, Link *link, sd_rtnl_message_handler_t 
 int netdev_create_dummy(NetDev *netdev, sd_rtnl_message_handler_t callback);
 int netdev_create_tuntap(NetDev *netdev);
 int netdev_create_bond(NetDev *netdev, sd_rtnl_message_handler_t callback);
+int netdev_create_bridge(NetDev *netdev, sd_rtnl_message_handler_t callback);
 
 
 const char *netdev_kind_to_string(NetDevKind d) _const_;
