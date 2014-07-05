@@ -3537,6 +3537,13 @@ test_compress_LDADD = \
 	libsystemd-journal-internal.la \
 	libsystemd-shared.la
 
+test_compress_benchmark_SOURCES = \
+	src/journal/test-compress-benchmark.c
+
+test_compress_benchmark_LDADD = \
+	libsystemd-journal-internal.la \
+	libsystemd-shared.la
+
 libsystemd_journal_core_la_SOURCES = \
 	src/journal/journald-kmsg.c \
 	src/journal/journald-kmsg.h \
@@ -3619,7 +3626,9 @@ tests += \
 	test-mmap-cache \
 	test-catalog
 
-tests += test-compress
+tests += \
+	test-compress \
+	test-compress-benchmark
 
 pkginclude_HEADERS += \
 	src/systemd/sd-journal.h \

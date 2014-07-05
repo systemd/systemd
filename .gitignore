@@ -142,6 +142,7 @@
 /test-cgroup-mask
 /test-cgroup-util
 /test-compress
+/test-compress-benchmark
 /test-conf-files
 /test-coredump-vacuum
 /test-daemon
