@@ -51,7 +51,7 @@ DEFINE_CONFIG_PARSE_ENUM(config_parse_netdev_kind, netdev_kind, NetDevKind, "Fai
 
 static void netdev_cancel_callbacks(NetDev *netdev) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
-        netdev_enslave_callback *callback;
+        netdev_join_callback *callback;
 
         if (!netdev)
                 return;
@@ -161,6 +161,7 @@ static int netdev_enslave_ready(NetDev *netdev, Link* link, sd_rtnl_message_hand
         assert(netdev->state == NETDEV_STATE_READY);
         assert(netdev->manager);
         assert(netdev->manager->rtnl);
+        assert(IN_SET(netdev->kind, NETDEV_KIND_BRIDGE, NETDEV_KIND_BOND));
         assert(link);
         assert(callback);
 
@@ -197,7 +198,7 @@ static int netdev_enslave_ready(NetDev *netdev, Link* link, sd_rtnl_message_hand
 }
 
 static int netdev_enter_ready(NetDev *netdev) {
-        netdev_enslave_callback *callback, *callback_next;
+        netdev_join_callback *callback, *callback_next;
         int r;
 
         assert(netdev);
@@ -345,9 +346,38 @@ static int netdev_create(NetDev *netdev) {
         return 0;
 }
 
-/* the callback must be called, possibly after a timeout, as otherwise the Link will hang */
-int netdev_enslave(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callback) {
+static int netdev_enslave(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callback) {
         int r;
+
+        assert(netdev);
+        assert(IN_SET(netdev->kind, NETDEV_KIND_BRIDGE, NETDEV_KIND_BOND));
+
+        if (netdev->state == NETDEV_STATE_READY) {
+                r = netdev_enslave_ready(netdev, link, callback);
+                if (r < 0)
+                        return r;
+        } else {
+                /* the netdev is not yet read, save this request for when it is*/
+                netdev_join_callback *cb;
+
+                cb = new0(netdev_join_callback, 1);
+                if (!cb)
+                        return log_oom();
+
+                cb->callback = callback;
+                cb->link = link;
+                link_ref(link);
+
+                LIST_PREPEND(callbacks, netdev->callbacks, cb);
+        }
+
+        return 0;
+}
+
+/* the callback must be called, possibly after a timeout, as otherwise the Link will hang */
+int netdev_join(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callback) {
+
+        assert(netdev);
 
         switch(netdev->kind) {
         case NETDEV_KIND_VLAN:
@@ -361,27 +391,11 @@ int netdev_enslave(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callbac
         case NETDEV_KIND_SIT:
         case NETDEV_KIND_VTI:
                 return netdev_create_tunnel(netdev, link, callback);
+        case NETDEV_KIND_BRIDGE:
+        case NETDEV_KIND_BOND:
+                return netdev_enslave(netdev, link, callback);
         default:
-                break;
-        }
-
-        if (netdev->state == NETDEV_STATE_READY) {
-                r = netdev_enslave_ready(netdev, link, callback);
-                if (r < 0)
-                        return r;
-        } else {
-                /* the netdev is not yet read, save this request for when it is*/
-                netdev_enslave_callback *cb;
-
-                cb = new0(netdev_enslave_callback, 1);
-                if (!cb)
-                        return log_oom();
-
-                cb->callback = callback;
-                cb->link = link;
-                link_ref(link);
-
-                LIST_PREPEND(callbacks, netdev->callbacks, cb);
+                assert_not_reached("Enslaving by invalid netdev kind");
         }
 
         return 0;

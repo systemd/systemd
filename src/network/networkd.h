@@ -53,13 +53,13 @@ typedef struct Route Route;
 typedef struct Manager Manager;
 typedef struct AddressPool AddressPool;
 
-typedef struct netdev_enslave_callback netdev_enslave_callback;
+typedef struct netdev_join_callback netdev_join_callback;
 
-struct netdev_enslave_callback {
+struct netdev_join_callback {
         sd_rtnl_message_handler_t callback;
         Link *link;
 
-        LIST_FIELDS(netdev_enslave_callback, callbacks);
+        LIST_FIELDS(netdev_join_callback, callbacks);
 };
 
 typedef enum MacVlanMode {
@@ -153,7 +153,7 @@ struct NetDev {
         union in_addr_union remote;
         union in_addr_union group;
 
-        LIST_HEAD(netdev_enslave_callback, callbacks);
+        LIST_HEAD(netdev_join_callback, callbacks);
 };
 
 typedef enum DHCPSupport {
@@ -378,7 +378,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(NetDev*, netdev_unref);
 
 int netdev_get(Manager *manager, const char *name, NetDev **ret);
 int netdev_set_ifindex(NetDev *netdev, sd_rtnl_message *newlink);
-int netdev_enslave(NetDev *netdev, Link *link, sd_rtnl_message_handler_t cb);
+int netdev_join(NetDev *netdev, Link *link, sd_rtnl_message_handler_t cb);
 int netdev_create_tunnel(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callback);
 int netdev_create_veth(NetDev *netdev, sd_rtnl_message_handler_t callback);
 int netdev_create_vxlan(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callback);
