@@ -595,7 +595,8 @@ static int save_core(sd_journal *j, int fd, char **path, bool *unlink_temp) {
                 retrieve(data, len, "COREDUMP_FILENAME", &filename);
 
         if (filename && access(filename, R_OK) < 0) {
-                log_debug("File %s is not readable: %m", filename);
+                log_full(errno == ENOENT ? LOG_DEBUG : LOG_WARNING,
+                         "File %s is not readable: %m", filename);
                 free(filename);
                 filename = NULL;
         }
@@ -668,7 +669,7 @@ static int save_core(sd_journal *j, int fd, char **path, bool *unlink_temp) {
 #endif
                 } else {
                         if (r == -ENOENT)
-                                log_error("Coredump neither in journal file nor stored externally on disk.");
+                                log_error("Cannot retrieve coredump from journal nor disk.");
                         else
                                 log_error("Failed to retrieve COREDUMP field: %s", strerror(-r));
                         goto error;
