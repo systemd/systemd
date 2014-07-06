@@ -371,7 +371,7 @@ static int machine_stop_scope(Machine *m) {
         free(m->scope_job);
         m->scope_job = job;
 
-        return r;
+        return 0;
 }
 
 int machine_stop(Machine *m) {
