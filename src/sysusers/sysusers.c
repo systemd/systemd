@@ -1312,6 +1312,8 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
                 h = groups;
                 break;
+        default:
+                return -EBADMSG;
         }
 
         i->type = action[0];
