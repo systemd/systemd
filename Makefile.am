@@ -4590,17 +4590,27 @@ libsystemd_networkd_core_la_CFLAGS = \
 libsystemd_networkd_core_la_SOURCES = \
 	src/libsystemd-network/network-internal.h \
 	src/network/networkd.h \
-	src/network/networkd-link.c \
+	src/network/networkd-netdev.h \
+	src/network/networkd-netdev-tunnel.h \
+	src/network/networkd-netdev-veth.h \
+	src/network/networkd-netdev-vxlan.h \
+	src/network/networkd-netdev-vlan.h \
+	src/network/networkd-netdev-macvlan.h \
+	src/network/networkd-netdev-dummy.h \
+	src/network/networkd-netdev-tuntap.h \
+	src/network/networkd-netdev-bond.h \
+	src/network/networkd-netdev-bridge.h \
 	src/network/networkd-netdev.c \
-	src/network/networkd-tunnel.c \
-	src/network/networkd-veth.c \
-	src/network/networkd-vxlan.c \
-	src/network/networkd-vlan.c \
-	src/network/networkd-macvlan.c \
-	src/network/networkd-dummy.c \
-	src/network/networkd-tuntap.c \
-	src/network/networkd-bond.c \
-	src/network/networkd-bridge.c \
+	src/network/networkd-netdev-tunnel.c \
+	src/network/networkd-netdev-veth.c \
+	src/network/networkd-netdev-vxlan.c \
+	src/network/networkd-netdev-vlan.c \
+	src/network/networkd-netdev-macvlan.c \
+	src/network/networkd-netdev-dummy.c \
+	src/network/networkd-netdev-tuntap.c \
+	src/network/networkd-netdev-bond.c \
+	src/network/networkd-netdev-bridge.c \
+	src/network/networkd-link.c \
 	src/network/networkd-network.c \
 	src/network/networkd-address.c \
 	src/network/networkd-route.c \

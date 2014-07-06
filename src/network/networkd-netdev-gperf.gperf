@@ -1,7 +1,10 @@
 %{
 #include <stddef.h>
 #include "conf-parser.h"
-#include "networkd.h"
+#include "networkd-netdev.h"
+#include "networkd-netdev-tunnel.h"
+#include "networkd-netdev-bond.h"
+#include "networkd-netdev-macvlan.h"
 #include "network-internal.h"
 %}
 struct ConfigPerfItem;

@@ -26,24 +26,22 @@
 #include <linux/if_tunnel.h>
 
 #include "sd-rtnl.h"
-#include "networkd.h"
+#include "networkd-netdev-tunnel.h"
 #include "network-internal.h"
 #include "util.h"
 #include "missing.h"
 #include "conf-parser.h"
 
-
-static int netdev_fill_ipip_rtnl_message(Link *link, sd_rtnl_message *m) {
-        NetDev *netdev;
+static int netdev_ipip_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_message *m) {
         int r;
 
+        assert(netdev);
+        assert(netdev->kind == NETDEV_KIND_IPIP);
+        assert(netdev->ifname);
+        assert(netdev->manager);
+        assert(netdev->manager->rtnl);
         assert(link);
-        assert(link->network);
-        assert(link->network->tunnel);
         assert(m);
-
-        netdev = link->network->tunnel;
-
         assert(netdev->family == AF_INET);
 
         r = sd_rtnl_message_append_string(m, IFLA_IFNAME, netdev->ifname);
@@ -142,17 +140,16 @@ static int netdev_fill_ipip_rtnl_message(Link *link, sd_rtnl_message *m) {
         return r;
 }
 
-static int netdev_fill_sit_rtnl_message(Link *link, sd_rtnl_message *m) {
-        NetDev *netdev;
+static int netdev_sit_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_message *m) {
         int r;
 
+        assert(netdev);
+        assert(netdev->kind == NETDEV_KIND_SIT);
+        assert(netdev->ifname);
+        assert(netdev->manager);
+        assert(netdev->manager->rtnl);
         assert(link);
-        assert(link->network);
-        assert(link->network->tunnel);
         assert(m);
-
-        netdev = link->network->tunnel;
-
         assert(netdev->family == AF_INET);
 
         r = sd_rtnl_message_append_string(m, IFLA_IFNAME, netdev->ifname);
@@ -224,18 +221,10 @@ static int netdev_fill_sit_rtnl_message(Link *link, sd_rtnl_message *m) {
                 return r;
         }
 
-        r = sd_rtnl_message_append_u8(m, IFLA_IPTUN_TOS, netdev->tos);
+        r = sd_rtnl_message_append_u8(m, IFLA_IPTUN_TTL, netdev->ttl);
         if (r < 0) {
                 log_error_netdev(netdev,
-                                 "Could not append IFLA_IPTUN_TOS attribute: %s",
-                                 strerror(-r));
-                return r;
-        }
-
-        r = sd_rtnl_message_append_u8(m, IFLA_IPTUN_PMTUDISC, netdev->tunnel_pmtudisc);
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not append IFLA_IPTUN_PMTUDISC attribute: %s",
+                                 "Could not append IFLA_IPTUN_TTL  attribute: %s",
                                  strerror(-r));
                 return r;
         }
@@ -259,17 +248,16 @@ static int netdev_fill_sit_rtnl_message(Link *link, sd_rtnl_message *m) {
         return r;
 }
 
-static int netdev_fill_ipgre_rtnl_message(Link *link, sd_rtnl_message *m) {
-        NetDev *netdev;
+static int netdev_gre_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_message *m) {
         int r;
 
+        assert(netdev);
+        assert(netdev->kind == NETDEV_KIND_GRE);
+        assert(netdev->ifname);
+        assert(netdev->manager);
+        assert(netdev->manager->rtnl);
         assert(link);
-        assert(link->network);
-        assert(link->network->tunnel);
         assert(m);
-
-        netdev = link->network->tunnel;
-
         assert(netdev->family == AF_INET);
 
         r = sd_rtnl_message_append_string(m, IFLA_IFNAME, netdev->ifname);
@@ -376,17 +364,16 @@ static int netdev_fill_ipgre_rtnl_message(Link *link, sd_rtnl_message *m) {
         return r;
 }
 
-static int netdev_fill_vti_rtnl_message(Link *link, sd_rtnl_message *m) {
-        NetDev *netdev;
+static int netdev_vti_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_message *m) {
         int r;
 
+        assert(netdev);
+        assert(netdev->kind == NETDEV_KIND_VTI);
+        assert(netdev->ifname);
+        assert(netdev->manager);
+        assert(netdev->manager->rtnl);
         assert(link);
-        assert(link->network);
-        assert(link->network->tunnel);
         assert(m);
-
-        netdev = link->network->tunnel;
-
         assert(netdev->family == AF_INET);
 
         r = sd_rtnl_message_append_string(m, IFLA_IFNAME, netdev->ifname);
@@ -477,64 +464,24 @@ static int netdev_fill_vti_rtnl_message(Link *link, sd_rtnl_message *m) {
         return r;
 }
 
-int netdev_create_tunnel(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callback) {
-        _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
-        int r;
-
+static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
         assert(netdev);
-        assert(netdev->ifname);
-        assert(netdev->manager);
-        assert(netdev->manager->rtnl);
-        assert(link);
-        assert(link->network);
-        assert(link->network->tunnel == netdev);
+        assert(filename);
 
-        r = sd_rtnl_message_new_link(netdev->manager->rtnl, &m, RTM_NEWLINK, 0);
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not allocate RTM_NEWLINK message: %s",
-                                 strerror(-r));
-                return r;
+        if (netdev->local.in.s_addr == INADDR_ANY) {
+               log_warning("Tunnel without local address configured in %s. Ignoring", filename);
+               return -EINVAL;
         }
 
-        switch(netdev->kind) {
-        case NETDEV_KIND_IPIP:
-                r = netdev_fill_ipip_rtnl_message(link, m);
-                if(r < 0)
-                        return r;
-                break;
-        case NETDEV_KIND_SIT:
-                r = netdev_fill_sit_rtnl_message(link, m);
-                if(r < 0)
-                        return r;
-                break;
-        case NETDEV_KIND_VTI:
-                netdev_fill_vti_rtnl_message(link, m);
-                if(r < 0)
-                        return r;
-                break;
-        case NETDEV_KIND_GRE:
-                r = netdev_fill_ipgre_rtnl_message(link, m);
-                if(r < 0)
-                        return r;
-                break;
-        default:
-                return -ENOTSUP;
+        if (netdev->remote.in.s_addr == INADDR_ANY) {
+               log_warning("Tunnel without remote address configured in %s. Ignoring", filename);
+               return -EINVAL;
         }
 
-        r = sd_rtnl_call_async(netdev->manager->rtnl, m, callback, link, 0, NULL);
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not send rtnetlink message: %s", strerror(-r));
-                return r;
+        if (netdev->family != AF_INET) {
+              log_warning("Tunnel with invalid address family configured in %s. Ignoring", filename);
+              return -EINVAL;
         }
-
-        link_ref(link);
-
-        log_debug_netdev(netdev, "Creating tunnel netdev: %s",
-                         netdev_kind_to_string(netdev->kind));
-
-        netdev->state = NETDEV_STATE_CREATING;
 
         return 0;
 }
@@ -567,3 +514,23 @@ int config_parse_tunnel_address(const char *unit,
 
         return 0;
 }
+
+const NetDevVTable ipip_vtable = {
+        .fill_message_create_on_link = netdev_ipip_fill_message_create,
+        .config_verify = netdev_tunnel_verify,
+};
+
+const NetDevVTable sit_vtable = {
+        .fill_message_create_on_link = netdev_sit_fill_message_create,
+        .config_verify = netdev_tunnel_verify,
+};
+
+const NetDevVTable vti_vtable = {
+        .fill_message_create_on_link = netdev_vti_fill_message_create,
+        .config_verify = netdev_tunnel_verify,
+};
+
+const NetDevVTable gre_vtable = {
+        .fill_message_create_on_link = netdev_gre_fill_message_create,
+        .config_verify = netdev_tunnel_verify,
+};

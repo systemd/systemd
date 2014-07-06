@@ -23,10 +23,9 @@
 #include <net/if.h>
 #include <linux/if_tun.h>
 
-#include "networkd.h"
+#include "networkd-netdev-tuntap.h"
 
 #define TUN_DEV "/dev/net/tun"
-
 
 static int netdev_fill_tuntap_message(NetDev *netdev, struct ifreq *ifr) {
 
@@ -129,7 +128,7 @@ static int netdev_tuntap_add(NetDev *netdev, struct ifreq *ifr) {
         return r;
 }
 
-int netdev_create_tuntap(NetDev *netdev) {
+static int netdev_create_tuntap(NetDev *netdev) {
         struct ifreq ifr;
         int r;
 
@@ -153,3 +152,11 @@ int netdev_create_tuntap(NetDev *netdev) {
 
         return netdev_tuntap_add(netdev, &ifr);
 }
+
+const NetDevVTable tun_vtable = {
+        .create = netdev_create_tuntap,
+};
+
+const NetDevVTable tap_vtable = {
+        .create = netdev_create_tuntap,
+};

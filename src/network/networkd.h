@@ -41,7 +41,6 @@
 #include "in-addr-util.h"
 
 #define CACHE_INFO_INFINITY_LIFE_TIME 0xFFFFFFFFU
-#define VXLAN_VID_MAX (1u << 24) - 1
 #define DHCP_ROUTE_METRIC 1024
 #define IPV4LL_ROUTE_METRIC 2048
 
@@ -52,109 +51,6 @@ typedef struct Address Address;
 typedef struct Route Route;
 typedef struct Manager Manager;
 typedef struct AddressPool AddressPool;
-
-typedef struct netdev_join_callback netdev_join_callback;
-
-struct netdev_join_callback {
-        sd_rtnl_message_handler_t callback;
-        Link *link;
-
-        LIST_FIELDS(netdev_join_callback, callbacks);
-};
-
-typedef enum MacVlanMode {
-        NETDEV_MACVLAN_MODE_PRIVATE = MACVLAN_MODE_PRIVATE,
-        NETDEV_MACVLAN_MODE_VEPA = MACVLAN_MODE_VEPA,
-        NETDEV_MACVLAN_MODE_BRIDGE = MACVLAN_MODE_BRIDGE,
-        NETDEV_MACVLAN_MODE_PASSTHRU = MACVLAN_MODE_PASSTHRU,
-        _NETDEV_MACVLAN_MODE_MAX,
-        _NETDEV_MACVLAN_MODE_INVALID = -1
-} MacVlanMode;
-
-typedef enum BondMode {
-        NETDEV_BOND_MODE_BALANCE_RR,
-        NETDEV_BOND_MODE_ACTIVE_BACKUP,
-        NETDEV_BOND_MODE_BALANCE_XOR,
-        NETDEV_BOND_MODE_BROADCAST,
-        NETDEV_BOND_MODE_802_3AD,
-        NETDEV_BOND_MODE_BALANCE_TLB,
-        NETDEV_BOND_MODE_BALANCE_ALB,
-        _NETDEV_BOND_MODE_MAX,
-        _NETDEV_BOND_MODE_INVALID = -1
-} BondMode;
-
-typedef enum NetDevKind {
-        NETDEV_KIND_BRIDGE,
-        NETDEV_KIND_BOND,
-        NETDEV_KIND_VLAN,
-        NETDEV_KIND_MACVLAN,
-        NETDEV_KIND_VXLAN,
-        NETDEV_KIND_IPIP,
-        NETDEV_KIND_GRE,
-        NETDEV_KIND_SIT,
-        NETDEV_KIND_VETH,
-        NETDEV_KIND_VTI,
-        NETDEV_KIND_DUMMY,
-        NETDEV_KIND_TUN,
-        NETDEV_KIND_TAP,
-        _NETDEV_KIND_MAX,
-        _NETDEV_KIND_INVALID = -1
-} NetDevKind;
-
-typedef enum NetDevState {
-        NETDEV_STATE_FAILED,
-        NETDEV_STATE_CREATING,
-        NETDEV_STATE_READY,
-        NETDEV_STATE_LINGER,
-        _NETDEV_STATE_MAX,
-        _NETDEV_STATE_INVALID = -1,
-} NetDevState;
-
-struct NetDev {
-        Manager *manager;
-
-        int n_ref;
-
-        char *filename;
-
-        Condition *match_host;
-        Condition *match_virt;
-        Condition *match_kernel;
-        Condition *match_arch;
-
-        char *description;
-        char *ifname;
-        char *ifname_peer;
-        char *user_name;
-        char *group_name;
-        size_t mtu;
-        struct ether_addr *mac;
-        struct ether_addr *mac_peer;
-        NetDevKind kind;
-
-        uint64_t vlanid;
-        uint64_t vxlanid;
-        int32_t macvlan_mode;
-        int32_t bond_mode;
-
-        int ifindex;
-        NetDevState state;
-
-        bool tunnel_pmtudisc;
-        bool learning;
-        bool one_queue;
-        bool multi_queue;
-        bool packet_info;
-
-        unsigned ttl;
-        unsigned tos;
-        unsigned char family;
-        union in_addr_union local;
-        union in_addr_union remote;
-        union in_addr_union group;
-
-        LIST_HEAD(netdev_join_callback, callbacks);
-};
 
 typedef enum DHCPSupport {
         DHCP_SUPPORT_NONE,
@@ -363,51 +259,6 @@ int manager_address_pool_acquire(Manager *m, unsigned family, unsigned prefixlen
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 #define _cleanup_manager_free_ _cleanup_(manager_freep)
 
-/* NetDev */
-
-#define VLANID_MAX 4094
-
-int netdev_load(Manager *manager);
-void netdev_drop(NetDev *netdev);
-
-NetDev *netdev_unref(NetDev *netdev);
-NetDev *netdev_ref(NetDev *netdev);
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(NetDev*, netdev_unref);
-#define _cleanup_netdev_unref_ _cleanup_(netdev_unrefp)
-
-int netdev_get(Manager *manager, const char *name, NetDev **ret);
-int netdev_set_ifindex(NetDev *netdev, sd_rtnl_message *newlink);
-int netdev_join(NetDev *netdev, Link *link, sd_rtnl_message_handler_t cb);
-int netdev_create_tunnel(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callback);
-int netdev_create_veth(NetDev *netdev, sd_rtnl_message_handler_t callback);
-int netdev_create_vxlan(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callback);
-int netdev_create_vlan(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callback);
-int netdev_create_macvlan(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callback);
-int netdev_create_dummy(NetDev *netdev, sd_rtnl_message_handler_t callback);
-int netdev_create_tuntap(NetDev *netdev);
-int netdev_create_bond(NetDev *netdev, sd_rtnl_message_handler_t callback);
-int netdev_create_bridge(NetDev *netdev, sd_rtnl_message_handler_t callback);
-
-
-const char *netdev_kind_to_string(NetDevKind d) _const_;
-NetDevKind netdev_kind_from_string(const char *d) _pure_;
-
-const char *macvlan_mode_to_string(MacVlanMode d) _const_;
-MacVlanMode macvlan_mode_from_string(const char *d) _pure_;
-
-const char *bond_mode_to_string(BondMode d) _const_;
-BondMode bond_mode_from_string(const char *d) _pure_;
-
-int config_parse_netdev_kind(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-
-int config_parse_macvlan_mode(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-
-int config_parse_bond_mode(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-
-/* gperf */
-const struct ConfigPerfItem* network_netdev_gperf_lookup(const char *key, unsigned length);
-
 /* Network */
 
 int network_load(Manager *manager);
@@ -555,18 +406,6 @@ int address_pool_acquire(AddressPool *p, unsigned prefixlen, union in_addr_union
 
 #define log_struct_link(level, link, ...) log_struct(level, "INTERFACE=%s", link->ifname, __VA_ARGS__)
 
-/* More macros which append INTERFACE= to the message */
-
-#define log_full_netdev(level, netdev, fmt, ...) log_meta_object(level, __FILE__, __LINE__, __func__, "INTERFACE=", netdev->ifname, "%-*s: " fmt, IFNAMSIZ, netdev->ifname, ##__VA_ARGS__)
-#define log_debug_netdev(netdev, ...)       log_full_netdev(LOG_DEBUG, netdev, ##__VA_ARGS__)
-#define log_info_netdev(netdev, ...)        log_full_netdev(LOG_INFO, netdev, ##__VA_ARGS__)
-#define log_notice_netdev(netdev, ...)      log_full_netdev(LOG_NOTICE, netdev, ##__VA_ARGS__)
-#define log_warning_netdev(netdev, ...)     log_full_netdev(LOG_WARNING, netdev,## __VA_ARGS__)
-#define log_error_netdev(netdev, ...)       log_full_netdev(LOG_ERR, netdev, ##__VA_ARGS__)
-
-#define log_struct_netdev(level, netdev, ...) log_struct(level, "INTERFACE=%s", netdev->ifname, __VA_ARGS__)
-
-#define NETDEV(netdev) "INTERFACE=%s", netdev->ifname
 #define ADDRESS_FMT_VAL(address)            \
         (address).s_addr & 0xFF,            \
         ((address).s_addr >> 8) & 0xFF,     \

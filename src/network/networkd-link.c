@@ -24,6 +24,7 @@
 #include <unistd.h>
 
 #include "networkd.h"
+#include "networkd-netdev.h"
 #include "libudev-private.h"
 #include "udev-util.h"
 #include "util.h"

@@ -24,15 +24,15 @@
 #include <net/if.h>
 
 #include "sd-rtnl.h"
-#include "networkd.h"
+#include "networkd-netdev-vxlan.h"
 #include "missing.h"
 
-
-static int netdev_fill_vxlan_rtnl_message(NetDev *netdev, Link *link, sd_rtnl_message *m) {
+static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_message *m) {
         int r;
 
+        assert(netdev);
         assert(link);
-        assert(link->network);
+        assert(link->ifname);
         assert(m);
 
         r = sd_rtnl_message_append_string(m, IFLA_IFNAME, netdev->ifname);
@@ -51,8 +51,7 @@ static int netdev_fill_vxlan_rtnl_message(NetDev *netdev, Link *link, sd_rtnl_me
                 return r;
         }
 
-        r = sd_rtnl_message_open_container_union(m, IFLA_INFO_DATA,
-                                                 netdev_kind_to_string(netdev->kind));
+        r = sd_rtnl_message_open_container_union(m, IFLA_INFO_DATA, "vxlan");
         if (r < 0) {
                 log_error_netdev(netdev,
                                  "Could not append IFLA_INFO_DATA attribute: %s",
@@ -125,41 +124,19 @@ static int netdev_fill_vxlan_rtnl_message(NetDev *netdev, Link *link, sd_rtnl_me
         return r;
 }
 
-int netdev_create_vxlan(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callback) {
-        _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
-        int r;
-
+static int netdev_vxlan_verify(NetDev *netdev, const char *filename) {
         assert(netdev);
-        assert(!(netdev->kind == NETDEV_KIND_VXLAN) || (link && callback));
-        assert(netdev->ifname);
-        assert(netdev->manager);
-        assert(netdev->manager->rtnl);
+        assert(filename);
 
-        r = sd_rtnl_message_new_link(netdev->manager->rtnl, &m, RTM_NEWLINK, 0);
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not allocate RTM_NEWLINK message: %s",
-                                 strerror(-r));
-                return r;
+        if (netdev->vxlanid > VXLAN_VID_MAX) {
+                log_warning("VXLAN without valid Id configured in %s. Ignoring", filename);
+                return -EINVAL;
         }
-
-        r = netdev_fill_vxlan_rtnl_message(netdev, link, m);
-        if(r < 0)
-                return r;
-
-        r = sd_rtnl_call_async(netdev->manager->rtnl, m, callback, link, 0, NULL);
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not send rtnetlink message: %s", strerror(-r));
-                return r;
-        }
-
-        link_ref(link);
-
-        log_debug_netdev(netdev, "Creating vxlan netdev: %s",
-                         netdev_kind_to_string(netdev->kind));
-
-        netdev->state = NETDEV_STATE_CREATING;
 
         return 0;
 }
+
+const NetDevVTable vxlan_vtable = {
+        .fill_message_create_on_link = netdev_vxlan_fill_message_create,
+        .config_verify = netdev_vxlan_verify,
+};

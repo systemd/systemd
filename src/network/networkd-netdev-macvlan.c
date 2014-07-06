@@ -21,39 +21,35 @@
 
 #include <net/if.h>
 
-#include "networkd.h"
+#include "networkd-netdev-macvlan.h"
 #include "network-internal.h"
+#include "conf-parser.h"
 #include "list.h"
 
-int netdev_create_vlan(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callback) {
-        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL;
-        const char *kind;
+static const char* const macvlan_mode_table[_NETDEV_MACVLAN_MODE_MAX] = {
+        [NETDEV_MACVLAN_MODE_PRIVATE] = "private",
+        [NETDEV_MACVLAN_MODE_VEPA] = "vepa",
+        [NETDEV_MACVLAN_MODE_BRIDGE] = "bridge",
+        [NETDEV_MACVLAN_MODE_PASSTHRU] = "passthru",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(macvlan_mode, MacVlanMode);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_macvlan_mode, macvlan_mode, MacVlanMode, "Failed to parse macvlan mode");
+
+static int netdev_macvlan_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_message *req) {
         int r;
 
         assert(netdev);
-        assert(netdev->kind == NETDEV_KIND_VLAN);
+        assert(netdev->kind == NETDEV_KIND_MACVLAN);
         assert(link);
-        assert(callback);
         assert(netdev->ifname);
-        assert(netdev->manager);
-        assert(netdev->manager->rtnl);
 
-        r = sd_rtnl_message_new_link(netdev->manager->rtnl, &req, RTM_NEWLINK, 0);
+        r = sd_rtnl_message_append_u32(req, IFLA_LINK, link->ifindex);
         if (r < 0) {
                 log_error_netdev(netdev,
-                                 "Could not allocate RTM_NEWLINK message: %s",
+                                 "Could not append IFLA_LINK attribute: %s",
                                  strerror(-r));
                 return r;
-        }
-
-        if (link) {
-                r = sd_rtnl_message_append_u32(req, IFLA_LINK, link->ifindex);
-                if (r < 0) {
-                        log_error_netdev(netdev,
-                                         "Could not append IFLA_LINK attribute: %s",
-                                         strerror(-r));
-                        return r;
-                }
         }
 
         r = sd_rtnl_message_append_string(req, IFLA_IFNAME, netdev->ifname);
@@ -92,13 +88,7 @@ int netdev_create_vlan(NetDev *netdev, Link *link, sd_rtnl_message_handler_t cal
                 return r;
         }
 
-        kind = netdev_kind_to_string(netdev->kind);
-        if (!kind) {
-                log_error_netdev(netdev, "Invalid kind");
-                return -EINVAL;
-        }
-
-        r = sd_rtnl_message_open_container_union(req, IFLA_INFO_DATA, kind);
+        r = sd_rtnl_message_open_container_union(req, IFLA_INFO_DATA, "macvlan");
         if (r < 0) {
                 log_error_netdev(netdev,
                                  "Could not open IFLA_INFO_DATA container: %s",
@@ -106,12 +96,12 @@ int netdev_create_vlan(NetDev *netdev, Link *link, sd_rtnl_message_handler_t cal
                 return r;
         }
 
-        if (netdev->vlanid <= VLANID_MAX) {
-                r = sd_rtnl_message_append_u16(req, IFLA_VLAN_ID, netdev->vlanid);
-                if (r < 0) {
-                        log_error_netdev(netdev,
-                                         "Could not append IFLA_VLAN_ID attribute: %s",
-                                         strerror(-r));
+        if (netdev->macvlan_mode != _NETDEV_MACVLAN_MODE_INVALID) {
+        r = sd_rtnl_message_append_u32(req, IFLA_MACVLAN_MODE, netdev->macvlan_mode);
+        if (r < 0) {
+                log_error_netdev(netdev,
+                                 "Could not append IFLA_MACVLAN_MODE attribute: %s",
+                                 strerror(-r));
                         return r;
                 }
         }
@@ -132,18 +122,9 @@ int netdev_create_vlan(NetDev *netdev, Link *link, sd_rtnl_message_handler_t cal
                 return r;
         }
 
-        r = sd_rtnl_call_async(netdev->manager->rtnl, req, callback, link, 0, NULL);
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not send rtnetlink message: %s", strerror(-r));
-                return r;
-        }
-
-        link_ref(link);
-
-        log_debug_netdev(netdev, "creating netdev");
-
-        netdev->state = NETDEV_STATE_CREATING;
-
         return 0;
 }
+
+const NetDevVTable macvlan_vtable = {
+        .fill_message_create_on_link = netdev_macvlan_fill_message_create,
+};

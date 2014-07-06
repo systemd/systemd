@@ -26,7 +26,7 @@
 
 #include "conf-parser.h"
 #include "sd-rtnl.h"
-#include "networkd.h"
+#include "networkd-netdev-bond.h"
 #include "missing.h"
 
 static const char* const bond_mode_table[_NETDEV_BOND_MODE_MAX] = {
@@ -63,7 +63,7 @@ static uint8_t bond_mode_to_kernel(BondMode mode) {
         }
 }
 
-static int netdev_fill_bond_rtnl_message(NetDev *netdev, sd_rtnl_message *m) {
+static int netdev_bond_fill_message_create(NetDev *netdev, sd_rtnl_message *m) {
         int r;
 
         assert(m);
@@ -123,41 +123,7 @@ static int netdev_fill_bond_rtnl_message(NetDev *netdev, sd_rtnl_message *m) {
         return r;
 }
 
-int netdev_create_bond(NetDev *netdev, sd_rtnl_message_handler_t callback) {
-        _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
-        int r;
-
-        assert(netdev);
-        assert(netdev->kind == NETDEV_KIND_BOND);
-        assert(netdev->ifname);
-        assert(netdev->manager);
-        assert(netdev->manager->rtnl);
-
-        r = sd_rtnl_message_new_link(netdev->manager->rtnl, &m, RTM_NEWLINK, 0);
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not allocate RTM_NEWLINK message: %s",
-                                 strerror(-r));
-                return r;
-        }
-
-        r = netdev_fill_bond_rtnl_message(netdev, m);
-        if(r < 0)
-                return r;
-
-        r = sd_rtnl_call_async(netdev->manager->rtnl, m, callback, netdev, 0, NULL);
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not send rtnetlink message: %s", strerror(-r));
-                return r;
-        }
-
-        netdev_ref(netdev);
-
-        log_debug_netdev(netdev, "Creating bond netdev: %s",
-                         netdev_kind_to_string(netdev->kind));
-
-        netdev->state = NETDEV_STATE_CREATING;
-
-        return 0;
-}
+const NetDevVTable bond_vtable = {
+        .fill_message_create = netdev_bond_fill_message_create,
+        .enslave = netdev_enslave,
+};
