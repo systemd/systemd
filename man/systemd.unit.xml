@@ -931,7 +931,9 @@
                                 <varname>x86</varname>,
                                 <varname>x86-64</varname>,
                                 <varname>ppc</varname>,
+                                <varname>ppc-le</varname>,
                                 <varname>ppc64</varname>,
+                                <varname>ppc64-le</varname>,
                                 <varname>ia64</varname>,
                                 <varname>parisc</varname>,
                                 <varname>parisc64</varname>,
@@ -940,7 +942,9 @@
                                 <varname>sparc</varname>,
                                 <varname>sparc64</varname>,
                                 <varname>mips</varname>,
+                                <varname>mips-le</varname>,
                                 <varname>mips64</varname>,
+                                <varname>mips64-le</varname>,
                                 <varname>alpha</varname>,
                                 <varname>arm</varname>,
                                 <varname>arm-be</varname>,
@@ -948,7 +952,9 @@
                                 <varname>arm64-be</varname>,
                                 <varname>sh</varname>,
                                 <varname>sh64</varname>,
-                                <varname>m86k</varname> to test
+                                <varname>m86k</varname>,
+                                <varname>tilegx</varname>,
+                                <varname>cris</varname> to test
                                 against a specific architecture. The
                                 architecture is determined from the
                                 information returned by
