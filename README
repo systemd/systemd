@@ -117,6 +117,7 @@ REQUIREMENTS:
         libacl (optional)
         libselinux (optional)
         liblzma (optional)
+        liblz4 >= 119 (optional)
         libgcrypt (optional)
         libqrencode (optional)
         libmicrohttpd (optional)
