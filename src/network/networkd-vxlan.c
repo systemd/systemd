@@ -154,6 +154,8 @@ int netdev_create_vxlan(NetDev *netdev, Link *link, sd_rtnl_message_handler_t ca
                 return r;
         }
 
+        link_ref(link);
+
         log_debug_netdev(netdev, "Creating vxlan netdev: %s",
                          netdev_kind_to_string(netdev->kind));
 

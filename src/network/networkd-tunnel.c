@@ -529,6 +529,8 @@ int netdev_create_tunnel(NetDev *netdev, Link *link, sd_rtnl_message_handler_t c
                 return r;
         }
 
+        link_ref(link);
+
         log_debug_netdev(netdev, "Creating tunnel netdev: %s",
                          netdev_kind_to_string(netdev->kind));
 

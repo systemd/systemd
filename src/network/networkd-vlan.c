@@ -139,6 +139,8 @@ int netdev_create_vlan(NetDev *netdev, Link *link, sd_rtnl_message_handler_t cal
                 return r;
         }
 
+        link_ref(link);
+
         log_debug_netdev(netdev, "creating netdev");
 
         netdev->state = NETDEV_STATE_CREATING;

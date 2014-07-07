@@ -150,6 +150,8 @@ int netdev_create_macvlan(NetDev *netdev, Link *link, sd_rtnl_message_handler_t 
                 return r;
         }
 
+        link_ref(link);
+
         log_debug_netdev(netdev, "creating netdev");
 
         netdev->state = NETDEV_STATE_CREATING;
