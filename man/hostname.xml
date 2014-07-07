@@ -73,8 +73,11 @@
 
                 <para>You may use
                 <citerefentry><refentrytitle>hostnamectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-                to change the value of this file from the command
-                line.</para>
+                to change the value of this file during runtime from
+                the command line. Use
+                <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                to initialize it on mounted (but not booted) system
+                images.</para>
         </refsect1>
 
         <refsect1>
@@ -95,7 +98,8 @@
                           <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>hostnamectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                          <citerefentry><refentrytitle>systemd-hostnamed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                          <citerefentry><refentrytitle>systemd-hostnamed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                   </para>
         </refsect1>
 

@@ -96,6 +96,13 @@
                 configuration files might be checked for locale
                 configuration as well, however only as
                 fallback.</para>
+
+                <para><citerefentry><refentrytitle>localectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                may be used to alter the settings in this file during
+                runtime from the command line. Use
+                <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                to initialize them on mounted (but not booted) system
+                images.</para>
         </refsect1>
 
         <refsect1>
@@ -142,7 +149,9 @@ LC_MESSAGES=en_US.UTF-8</programlisting>
                   <para>
                           <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>locale</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-                          <citerefentry><refentrytitle>systemd-localed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                          <citerefentry><refentrytitle>localectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd-localed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                   </para>
         </refsect1>
 

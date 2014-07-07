@@ -63,6 +63,7 @@ MANPAGES += \
 	man/systemd-delta.1 \
 	man/systemd-detect-virt.1 \
 	man/systemd-efi-boot-generator.8 \
+	man/systemd-firstboot.8 \
 	man/systemd-fsck@.service.8 \
 	man/systemd-fstab-generator.8 \
 	man/systemd-getty-generator.8 \
@@ -193,6 +194,7 @@ MANPAGES_ALIAS += \
 	man/systemd-ask-password-console.path.8 \
 	man/systemd-ask-password-wall.path.8 \
 	man/systemd-ask-password-wall.service.8 \
+	man/systemd-firstboot.service.8 \
 	man/systemd-fsck-root.service.8 \
 	man/systemd-fsck.8 \
 	man/systemd-hibernate.service.8 \
@@ -298,6 +300,7 @@ man/sd_notifyf.3: man/sd_notify.3
 man/systemd-ask-password-console.path.8: man/systemd-ask-password-console.service.8
 man/systemd-ask-password-wall.path.8: man/systemd-ask-password-console.service.8
 man/systemd-ask-password-wall.service.8: man/systemd-ask-password-console.service.8
+man/systemd-firstboot.service.8: man/systemd-firstboot.8
 man/systemd-fsck-root.service.8: man/systemd-fsck@.service.8
 man/systemd-fsck.8: man/systemd-fsck@.service.8
 man/systemd-hibernate.service.8: man/systemd-suspend.service.8
@@ -551,6 +554,9 @@ man/systemd-ask-password-wall.path.html: man/systemd-ask-password-console.servic
 	$(html-alias)
 
 man/systemd-ask-password-wall.service.html: man/systemd-ask-password-console.service.html
+	$(html-alias)
+
+man/systemd-firstboot.service.html: man/systemd-firstboot.html
 	$(html-alias)
 
 man/systemd-fsck-root.service.html: man/systemd-fsck@.service.html
@@ -1600,6 +1606,7 @@ EXTRA_DIST += \
 	man/systemd-delta.xml \
 	man/systemd-detect-virt.xml \
 	man/systemd-efi-boot-generator.xml \
+	man/systemd-firstboot.xml \
 	man/systemd-fsck@.service.xml \
 	man/systemd-fstab-generator.xml \
 	man/systemd-getty-generator.xml \

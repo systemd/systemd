@@ -86,7 +86,10 @@
                 <para>You may use
                 <citerefentry><refentrytitle>timedatectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 to change the settings of this file from the command
-                line.</para>
+                line during runtime. Use
+                <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                to initialize the time zone on mounted (but not
+                booted) system images.</para>
         </refsect1>
 
         <refsect1>
@@ -96,7 +99,8 @@
                           <citerefentry><refentrytitle>tzset</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>localtime</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>timedatectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                          <citerefentry><refentrytitle>systemd-timedated.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                          <citerefentry><refentrytitle>systemd-timedated.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                   </para>
         </refsect1>
 

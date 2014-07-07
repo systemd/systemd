@@ -60,6 +60,11 @@
                 <para><command>timedatectl</command> may be used to
                 query and change the system clock and its
                 settings.</para>
+
+                <para>Use
+                <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                to initialize the system time zone for mounted (but not
+                booted) system images.</para>
         </refsect1>
 
         <refsect1>
@@ -240,7 +245,8 @@ chronyd.service - NTP client/server
                         <citerefentry><refentrytitle>date</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>localtime</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd-timedated.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>systemd-timedated.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 </para>
         </refsect1>
 

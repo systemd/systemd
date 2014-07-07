@@ -81,12 +81,17 @@
                 UUID passed is sufficiently unique and is different
                 for every booted instanced of the VM.</para>
 
-                <para>Similarly, if run inside a Linux container
+                <para>Similar, if run inside a Linux container
                 environment and a UUID is set for the container this
                 is used to initialize the machine ID. For details see
                 the documentation of the <ulink
                 url="http://www.freedesktop.org/wiki/Software/systemd/ContainerInterface">Container
                 Interface</ulink>.</para>
+
+                <para>Use
+                <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                to initialize the machine ID on mounted (but not
+                booted) system images.</para>
 
         </refsect1>
 
@@ -123,7 +128,8 @@
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>dbus-uuidgen</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>dbus-uuidgen</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 </para>
         </refsect1>
 
