@@ -636,7 +636,7 @@ int fsck_exists(const char *fstype) {
         if (r < 0)
                 return r;
 
-        /* An fsck that is linked to /bin/true is a non-existant
+        /* An fsck that is linked to /bin/true is a non-existent
          * fsck */
 
         r = readlink_malloc(p, &d);
