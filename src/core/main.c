@@ -1543,6 +1543,14 @@ int main(int argc, char *argv[]) {
                 if (in_initrd())
                         log_info("Running in initial RAM disk.");
 
+                /* Let's check whether /etc is already populated. We
+                 * don't actually really check for that, but use
+                 * /etc/machine-id as flag file. This allows container
+                 * managers and installers to provision a couple of
+                 * files already. If the container manager wants to
+                 * provision the machine ID itself it should pass
+                 * $container_uuid to PID 1.*/
+
                 empty_etc = access("/etc/machine-id", F_OK) < 0;
                 if (empty_etc)
                         log_info("Running with unpopulated /etc.");
