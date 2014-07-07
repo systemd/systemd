@@ -211,6 +211,7 @@ struct Address {
         struct ifa_cacheinfo cinfo;
 
         union in_addr_union in_addr;
+        union in_addr_union in_addr_peer;
 
         LIST_FIELDS(Address, addresses);
 };

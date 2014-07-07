@@ -345,12 +345,24 @@ int address_configure(Address *address, Link *link,
                 return r;
         }
 
-        if (address->family == AF_INET) {
-                r = sd_rtnl_message_append_in_addr(req, IFA_BROADCAST, &address->broadcast);
+        if (!in_addr_null(address->family, &address->in_addr_peer)) {
+                if (address->family == AF_INET)
+                        r = sd_rtnl_message_append_in_addr(req, IFA_ADDRESS, &address->in_addr_peer.in);
+                else if (address->family == AF_INET6)
+                        r = sd_rtnl_message_append_in6_addr(req, IFA_ADDRESS, &address->in_addr_peer.in6);
                 if (r < 0) {
-                        log_error("Could not append IFA_BROADCAST attribute: %s",
+                        log_error("Could not append IFA_ADDRESS attribute: %s",
                                   strerror(-r));
                         return r;
+                }
+        } else {
+                if (address->family == AF_INET) {
+                        r = sd_rtnl_message_append_in_addr(req, IFA_BROADCAST, &address->broadcast);
+                        if (r < 0) {
+                                log_error("Could not append IFA_BROADCAST attribute: %s",
+                                          strerror(-r));
+                                return r;
+                        }
                 }
         }
 
@@ -488,6 +500,7 @@ int config_parse_address(const char *unit,
         Network *network = userdata;
         _cleanup_address_free_ Address *n = NULL;
         _cleanup_free_ char *address = NULL;
+        union in_addr_union *addr;
         const char *e;
         int r;
 
@@ -506,6 +519,11 @@ int config_parse_address(const char *unit,
         r = address_new_static(network, section_line, &n);
         if (r < 0)
                 return r;
+
+        if (streq(lvalue, "Address"))
+                addr = &n->in_addr;
+        else
+                addr = &n->in_addr_peer;
 
         /* Address=address/prefixlen */
 
@@ -532,7 +550,7 @@ int config_parse_address(const char *unit,
                         return log_oom();
         }
 
-        r = net_parse_inaddr(address, &n->family, &n->in_addr);
+        r = net_parse_inaddr(address, &n->family, addr);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, EINVAL,
                            "Address is invalid, ignoring assignment: %s", address);
