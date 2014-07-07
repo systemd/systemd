@@ -2637,7 +2637,7 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags) {
         if (e) {
                 int status_errno;
 
-                if (safe_atoi(e + 6, &status_errno) < 0)
+                if (safe_atoi(e + 6, &status_errno) < 0 || status_errno < 0)
                         log_warning_unit(u->id, "Failed to parse ERRNO= field in notification message: %s", e);
                 else {
                         log_debug_unit(u->id, "%s: got %s", u->id, e);
