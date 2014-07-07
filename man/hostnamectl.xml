@@ -102,14 +102,6 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>-P</option></term>
-                                <term><option>--privileged</option></term>
-
-                                <listitem><para>Acquire privileges via PolicyKit
-                                before executing the operation.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
                                 <term><option>--static</option></term>
                                 <term><option>--transient</option></term>
                                 <term><option>--pretty</option></term>

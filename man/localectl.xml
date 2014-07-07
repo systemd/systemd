@@ -90,14 +90,6 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>-P</option></term>
-                                <term><option>--privileged</option></term>
-
-                                <listitem><para>Acquire privileges via PolicyKit
-                                before executing the operation.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
                                 <term><option>--no-convert</option></term>
 
                                 <listitem><para>If
