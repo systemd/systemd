@@ -125,7 +125,7 @@ int generator_write_timeouts(const char *dir, const char *what, const char *wher
                 char *prefix, *postfix;
 
                 prefix = strndupa(opts, start - opts - (start != opts));
-                postfix = timeout + len + (timeout[len] != '\0');
+                postfix = timeout + len + (start == opts && timeout[len] != '\0');
                 *filtered = strjoin(prefix, *postfix ? postfix : NULL, NULL);
                 if (!*filtered)
                         return log_oom();
