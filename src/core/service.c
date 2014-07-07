@@ -2575,7 +2575,6 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags) {
         }
 
         if (s->notify_access == NOTIFY_MAIN && pid != s->main_pid) {
-
                 if (s->main_pid != 0)
                         log_warning_unit(u->id, "%s: Got notification message from PID "PID_FMT", but reception only permitted for main PID "PID_FMT, u->id, pid, s->main_pid);
                 else
@@ -2584,14 +2583,10 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags) {
         }
 
         /* Interpret MAINPID= */
-        if ((e = strv_find_prefix(tags, "MAINPID=")) &&
-            (s->state == SERVICE_START ||
-             s->state == SERVICE_START_POST ||
-             s->state == SERVICE_RUNNING ||
-             s->state == SERVICE_RELOAD)) {
-
+        e = strv_find_prefix(tags, "MAINPID=");
+        if (e && IN_SET(s->state, SERVICE_START, SERVICE_START_POST, SERVICE_RUNNING, SERVICE_RELOAD)) {
                 if (parse_pid(e + 8, &pid) < 0)
-                        log_warning_unit(u->id, "Failed to parse notification message %s", e);
+                        log_warning_unit(u->id, "Failed to parse MAINPID= field in notification message: %s", e);
                 else {
                         log_debug_unit(u->id, "%s: got %s", u->id, e);
                         service_set_main_pid(s, pid);
