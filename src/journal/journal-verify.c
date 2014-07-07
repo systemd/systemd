@@ -53,6 +53,7 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
 
         case OBJECT_DATA: {
                 uint64_t h1, h2;
+                int compression, r;
 
                 if (le64toh(o->data.entry_offset) == 0)
                         log_warning(OFSfmt": unused data (entry_offset==0)", offset);
@@ -72,40 +73,22 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
 
                 h1 = le64toh(o->data.hash);
 
-                if (o->object.flags & OBJECT_COMPRESSED_XZ) {
-#ifdef HAVE_XZ
+                compression = o->object.flags & OBJECT_COMPRESSION_MASK;
+                if (compression) {
                         _cleanup_free_ void *b = NULL;
                         uint64_t alloc = 0, b_size;
 
-                        if (!decompress_blob_xz(o->data.payload,
-                                                le64toh(o->object.size) - offsetof(Object, data.payload),
-                                                &b, &alloc, &b_size, 0)) {
-                                log_error(OFSfmt": XZ decompression failed", offset);
-                                return -EBADMSG;
+                        r = decompress_blob(compression,
+                                            o->data.payload,
+                                            le64toh(o->object.size) - offsetof(Object, data.payload),
+                                            &b, &alloc, &b_size, 0);
+                        if (r < 0) {
+                                log_error(OFSfmt": %s decompression failed: %s", offset,
+                                          object_compressed_to_string(compression), strerror(-r));
+                                return r;
                         }
 
                         h2 = hash64(b, b_size);
-#else
-                        log_error("XZ compression is not supported");
-                        return -EPROTONOSUPPORT;
-#endif
-                } else if (o->object.flags & OBJECT_COMPRESSED_LZ4) {
-#ifdef HAVE_XZ
-                        _cleanup_free_ void *b = NULL;
-                        uint64_t alloc = 0, b_size;
-
-                        if (!decompress_blob_xz(o->data.payload,
-                                                le64toh(o->object.size) - offsetof(Object, data.payload),
-                                                &b, &alloc, &b_size, 0)) {
-                                log_error(OFSfmt": LZ4 decompression failed", offset);
-                                return -EBADMSG;
-                        }
-
-                        h2 = hash64(b, b_size);
-#else
-                        log_error("XZ compression is not supported");
-                        return -EPROTONOSUPPORT;
-#endif
                 } else
                         h2 = hash64(o->data.payload, le64toh(o->object.size) - offsetof(Object, data.payload));
 
