@@ -964,3 +964,5 @@ char *tempfn_xxxxxx(const char *p);
 char *tempfn_random(const char *p);
 
 bool is_localhost(const char *hostname);
+
+int take_password_lock(const char *root);

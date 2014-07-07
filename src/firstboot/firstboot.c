@@ -530,7 +530,6 @@ static int write_root_shadow(const char *path, const struct spwd *p) {
         assert(path);
         assert(p);
 
-        mkdir_parents(path, 0755);
         RUN_WITH_UMASK(0777)
                 f = fopen(path, "wex");
         if (!f)
@@ -560,6 +559,8 @@ static int process_root_password(void) {
                 .sp_expire = -1,
                 .sp_flag = (unsigned long) -1, /* this appears to be what everybody does ... */
         };
+
+        _cleanup_close_ int lock = -1;
         char salt[3+16+1+1];
         uint8_t raw[16];
         unsigned i;
@@ -571,6 +572,12 @@ static int process_root_password(void) {
         etc_shadow = prefix_roota("/etc/shadow");
         if (faccessat(AT_FDCWD, etc_shadow, F_OK, AT_SYMLINK_NOFOLLOW) >= 0)
                 return 0;
+
+        mkdir_parents(etc_shadow, 0755);
+
+        lock = take_password_lock(arg_root);
+        if (lock < 0)
+                return lock;
 
         if (arg_copy_root_password && arg_root) {
                 struct spwd *p;

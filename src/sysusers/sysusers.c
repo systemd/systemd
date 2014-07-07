@@ -1379,42 +1379,6 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
         return r;
 }
 
-static int take_lock(void) {
-
-        struct flock flock = {
-                .l_type = F_WRLCK,
-                .l_whence = SEEK_SET,
-                .l_start = 0,
-                .l_len = 0,
-        };
-
-        const char *path;
-        int fd, r;
-
-        /* This is roughly the same as lckpwdf(), but not as awful. We
-         * don't want to use alarm() and signals, hence we implement
-         * our own trivial version of this.
-         *
-         * Note that shadow-utils also takes per-database locks in
-         * addition to lckpwdf(). However, we don't given that they
-         * are redundant as they they invoke lckpwdf() first and keep
-         * it during everything they do. The per-database locks are
-         * awfully racy, and thus we just won't do them. */
-
-        path = fix_root("/etc/.pwd.lock");
-        fd = open(path, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0600);
-        if (fd < 0)
-                return -errno;
-
-        r = fcntl(fd, F_SETLKW, &flock);
-        if (r < 0) {
-                safe_close(fd);
-                return -errno;
-        }
-
-        return fd;
-}
-
 static void free_database(Hashmap *by_name, Hashmap *by_id) {
         char *name;
 
@@ -1548,7 +1512,7 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 goto finish;
 
-        lock = take_lock();
+        lock = take_password_lock(arg_root);
         if (lock < 0) {
                 log_error("Failed to take lock: %s", strerror(-lock));
                 goto finish;
