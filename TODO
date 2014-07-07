@@ -22,10 +22,7 @@ External:
 
 Features:
 
-* new component "systemd-first-boot" which asks for locale, timezone,
-  root password on first boot if the configuration for that has not
-  been provisioned yet. Similar in style to what the distros have, but
-  minimalist, text-only /dev/console stuff.
+* sysusers: also create entries in /etc/shadow, /etc/gshadow
 
 * Add a new verb "systemctl top"
 
