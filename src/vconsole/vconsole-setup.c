@@ -305,7 +305,7 @@ int main(int argc, char **argv) {
 
         r = font_load(vc, vc_font, vc_font_map, vc_font_unimap, &font_pid);
         if (r < 0) {
-                log_error("Failed to start " KBD_LOADKEYS ": %s", strerror(-r));
+                log_error("Failed to start " KBD_SETFONT ": %s", strerror(-r));
                 return EXIT_FAILURE;
         }
 
@@ -314,7 +314,7 @@ int main(int argc, char **argv) {
 
         r = keymap_load(vc, vc_keymap, vc_keymap_toggle, utf8, &keymap_pid);
         if (r < 0) {
-                log_error("Failed to start " KBD_SETFONT ": %s", strerror(-r));
+                log_error("Failed to start " KBD_LOADKEYS ": %s", strerror(-r));
                 return EXIT_FAILURE;
         }
 
