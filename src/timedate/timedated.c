@@ -22,6 +22,7 @@
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/capability.h>
 
 #include "sd-id128.h"
 #include "sd-messages.h"
@@ -56,54 +57,6 @@ static void context_free(Context *c, sd_bus *bus) {
 
         free(c->zone);
         bus_verify_polkit_async_registry_free(bus, c->polkit_registry);
-}
-
-static bool valid_timezone(const char *name) {
-        const char *p;
-        char *t;
-        bool slash = false;
-        int r;
-        struct stat st;
-
-        assert(name);
-
-        if (*name == '/' || *name == 0)
-                return false;
-
-        for (p = name; *p; p++) {
-                if (!(*p >= '0' && *p <= '9') &&
-                    !(*p >= 'a' && *p <= 'z') &&
-                    !(*p >= 'A' && *p <= 'Z') &&
-                    !(*p == '-' || *p == '_' || *p == '+' || *p == '/'))
-                        return false;
-
-                if (*p == '/') {
-
-                        if (slash)
-                                return false;
-
-                        slash = true;
-                } else
-                        slash = false;
-        }
-
-        if (slash)
-                return false;
-
-        t = strappend("/usr/share/zoneinfo/", name);
-        if (!t)
-                return false;
-
-        r = stat(t, &st);
-        free(t);
-
-        if (r < 0)
-                return false;
-
-        if (!S_ISREG(st.st_mode))
-                return false;
-
-        return true;
 }
 
 static int context_read_data(Context *c) {
@@ -502,7 +455,7 @@ static int method_set_timezone(sd_bus *bus, sd_bus_message *m, void *userdata, s
         if (r < 0)
                 return r;
 
-        if (!valid_timezone(z))
+        if (!timezone_is_valid(z))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid time zone '%s'", z);
 
         if (streq_ptr(z, c->zone))
@@ -736,8 +689,6 @@ static int method_set_ntp(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus
 
         return sd_bus_reply_method_return(m, NULL);
 }
-
-#include <sys/capability.h>
 
 static const sd_bus_vtable timedate_vtable[] = {
         SD_BUS_VTABLE_START(0),

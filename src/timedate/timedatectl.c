@@ -355,69 +355,19 @@ static int set_ntp(sd_bus *bus, char **args, unsigned n) {
 }
 
 static int list_timezones(sd_bus *bus, char **args, unsigned n) {
-        _cleanup_fclose_ FILE *f = NULL;
         _cleanup_strv_free_ char **zones = NULL;
-        size_t n_zones = 0;
+        int r;
 
         assert(args);
         assert(n == 1);
 
-        f = fopen("/usr/share/zoneinfo/zone.tab", "re");
-        if (!f) {
-                log_error("Failed to open time zone database: %m");
-                return -errno;
+        r = get_timezones(&zones);
+        if (r < 0) {
+                log_error("Failed to read list of time zones: %s", strerror(-r));
+                return r;
         }
-
-        for (;;) {
-                char l[LINE_MAX], *p, **z, *w;
-                size_t k;
-
-                if (!fgets(l, sizeof(l), f)) {
-                        if (feof(f))
-                                break;
-
-                        log_error("Failed to read time zone database: %m");
-                        return -errno;
-                }
-
-                p = strstrip(l);
-
-                if (isempty(p) || *p == '#')
-                        continue;
-
-                /* Skip over country code */
-                p += strcspn(p, WHITESPACE);
-                p += strspn(p, WHITESPACE);
-
-                /* Skip over coordinates */
-                p += strcspn(p, WHITESPACE);
-                p += strspn(p, WHITESPACE);
-
-                /* Found timezone name */
-                k = strcspn(p, WHITESPACE);
-                if (k <= 0)
-                        continue;
-
-                w = strndup(p, k);
-                if (!w)
-                        return log_oom();
-
-                z = realloc(zones, sizeof(char*) * (n_zones + 2));
-                if (!z) {
-                        free(w);
-                        return log_oom();
-                }
-
-                zones = z;
-                zones[n_zones++] = w;
-        }
-
-        if (zones)
-                zones[n_zones] = NULL;
 
         pager_open_if_enabled();
-
-        strv_sort(zones);
         strv_print(zones);
 
         return 0;

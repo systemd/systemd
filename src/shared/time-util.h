@@ -95,3 +95,6 @@ int parse_sec(const char *t, usec_t *usec);
 int parse_nsec(const char *t, nsec_t *nsec);
 
 bool ntp_synced(void);
+
+int get_timezones(char ***l);
+bool timezone_is_valid(const char *name);

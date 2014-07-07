@@ -38,6 +38,7 @@
 #include "bus-error.h"
 #include "bus-message.h"
 #include "event-util.h"
+#include "locale-util.h"
 
 enum {
         /* We don't list LC_ALL here on purpose. People should be
@@ -848,7 +849,7 @@ static int method_set_locale(sd_bus *bus, sd_bus_message *m, void *userdata, sd_
                         k = strlen(names[p]);
                         if (startswith(*i, names[p]) &&
                             (*i)[k] == '=' &&
-                            string_is_safe((*i) + k + 1)) {
+                            locale_is_valid((*i) + k + 1)) {
                                 valid = true;
                                 passed[p] = true;
 

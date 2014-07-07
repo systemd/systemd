@@ -25,6 +25,7 @@
 
 #include "util.h"
 #include "time-util.h"
+#include "strv.h"
 
 usec_t now(clockid_t clock_id) {
         struct timespec ts;
@@ -822,6 +823,108 @@ bool ntp_synced(void) {
                 return false;
 
         if (txc.status & STA_UNSYNC)
+                return false;
+
+        return true;
+}
+
+int get_timezones(char ***ret) {
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_strv_free_ char **zones = NULL;
+        size_t n_zones = 0, n_allocated = 0;
+
+        assert(ret);
+
+        zones = strv_new("UTC", NULL);
+        if (!zones)
+                return -ENOMEM;
+
+        n_allocated = 2;
+        n_zones = 1;
+
+        f = fopen("/usr/share/zoneinfo/zone.tab", "re");
+        if (f) {
+                char l[LINE_MAX];
+
+                FOREACH_LINE(l, f, return -errno) {
+                        char *p, *w;
+                        size_t k;
+
+                        p = strstrip(l);
+
+                        if (isempty(p) || *p == '#')
+                                continue;
+
+                        /* Skip over country code */
+                        p += strcspn(p, WHITESPACE);
+                        p += strspn(p, WHITESPACE);
+
+                        /* Skip over coordinates */
+                        p += strcspn(p, WHITESPACE);
+                        p += strspn(p, WHITESPACE);
+
+                        /* Found timezone name */
+                        k = strcspn(p, WHITESPACE);
+                        if (k <= 0)
+                                continue;
+
+                        w = strndup(p, k);
+                        if (!w)
+                                return -ENOMEM;
+
+                        if (!GREEDY_REALLOC(zones, n_allocated, n_zones + 2)) {
+                                free(w);
+                                return -ENOMEM;
+                        }
+
+                        zones[n_zones++] = w;
+                        zones[n_zones] = NULL;
+                }
+
+                strv_sort(zones);
+
+        } else if (errno != ENOENT)
+                return -errno;
+
+        *ret = zones;
+        zones = NULL;
+
+        return 0;
+}
+
+bool timezone_is_valid(const char *name) {
+        bool slash = false;
+        const char *p, *t;
+        struct stat st;
+
+        if (!name || *name == 0 || *name == '/')
+                return false;
+
+        for (p = name; *p; p++) {
+                if (!(*p >= '0' && *p <= '9') &&
+                    !(*p >= 'a' && *p <= 'z') &&
+                    !(*p >= 'A' && *p <= 'Z') &&
+                    !(*p == '-' || *p == '_' || *p == '+' || *p == '/'))
+                        return false;
+
+                if (*p == '/') {
+
+                        if (slash)
+                                return false;
+
+                        slash = true;
+                } else
+                        slash = false;
+        }
+
+        if (slash)
+                return false;
+
+        t = strappenda("/usr/share/zoneinfo/", name);
+        if (stat(t, &st) < 0)
+                return false;
+
+        if (!S_ISREG(st.st_mode))
                 return false;
 
         return true;
