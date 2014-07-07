@@ -1,0 +1,193 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2014 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="systemd-escape"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+        <refentryinfo>
+                <title>systemd-escape</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Lennart</firstname>
+                                <surname>Poettering</surname>
+                                <email>lennart@poettering.net</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>systemd-escape</refentrytitle>
+                <manvolnum>1</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>systemd-escape</refname>
+                <refpurpose>Escape strings for usage in system unit names</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <cmdsynopsis>
+                        <command>systemd-escape <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="opt" rep="repeat">STRING</arg></command>
+                </cmdsynopsis>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para><command>systemd-escape</command> may be used to
+                escape strings for inclusion in systemd unit
+                names. The command may be used to escape and to undo
+                escaping of strings.</para>
+
+                <para>The command takes any number of strings on the
+                command line, and will process them individually, one
+                after the other. It will output them separated by
+                spaces to stdout.</para>
+
+                <para>By default this command will escape the strings
+                passed, unless <option>--unescape</option> is passed
+                which results in the inverse operation being
+                applied. If <option>--mangle</option> a special mode
+                of escaping is applied instead, which assumes a string
+                to be already escaped but will escape everything that
+                appears obviously non-escaped.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Options</title>
+
+                <para>The following options are understood:</para>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><option>--suffix=</option></term>
+
+                                <listitem><para>Appends the specified
+                                unit type suffix to the escaped
+                                string. Takes one of the unit types
+                                supported by systemd, such as
+                                <literal>.service</literal> or
+                                <literal>.mount</literal>. May not be
+                                used in conjunction with
+                                <option>--template=</option>,
+                                <option>--unescape</option> or
+                                <option>--mangle</option>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--template=</option></term>
+
+                                <listitem><para>Inserts the escaped
+                                strings in a unit name template. Takes
+                                a unit name template such as
+                                <filename>foobar@.service</filename>
+                                May not be used in conjunction with
+                                <option>--suffix=</option>,
+                                <option>--unescape</option> or
+                                <option>--mangle</option>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--path</option></term>
+                                <term><option>-p</option></term>
+
+                                <listitem><para>When escaping or
+                                unescaping a string, assume it refers
+                                to a file system path. This enables
+                                special processing of the initial
+                                <literal>/</literal> of the
+                                path.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--unescape</option></term>
+
+                                <listitem><para>Instead of escaping
+                                the specified strings, undo the
+                                escaping, reversing the operation. May
+                                not be used in conjunction with
+                                <option>--suffix=</option>,
+                                <option>--template=</option> or
+                                <option>--mangle</option>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--mangle</option></term>
+
+                                <listitem><para>Like
+                                <option>--escape</option>, but only
+                                escape characters that are obviously
+                                not escaped yet, and possibly
+                                automatically append an appropriate
+                                unit type suffix to the string. May
+                                not be used in conjunction with
+                                <option>--suffix=</option>,
+                                <option>--template=</option> or
+                                <option>--unescape</option>.</para></listitem>
+                        </varlistentry>
+
+                        <xi:include href="standard-options.xml" xpointer="help" />
+                        <xi:include href="standard-options.xml" xpointer="version" />
+                </variablelist>
+
+        </refsect1>
+
+        <refsect1>
+                <title>Examples</title>
+
+                <para>Escape a single string:</para>
+                <programlisting>$ systemd-escape 'Hallöchen, Meister'
+Hall\xc3\xb6chen\x2c\x20Meister</programlisting>
+
+                <para>To undo escaping on a single string:</para>
+                <programlisting>$ systemd-escape -u 'Hall\xc3\xb6chen\x2c\x20Meister'
+Hallöchen, Meister</programlisting>
+
+                <para>To generate the mount unit for a path:</para>
+                <programlisting>$ systemd-escape -p --suffix=mount "/tmp//waldi/foobar/"
+tmp-waldi-foobar.mount</programlisting>
+
+                <para>To generate instance names of three strings</para>
+                <programlisting>$ systemd-escape --template=systemd-nspawn@.service 'My Container 1' 'containerb' 'container/III'
+systemd-nspawn@My\x20Container\x201.service systemd-nspawn@containerb.service systemd-nspawn@container-III.service</programlisting>
+        </refsect1>
+
+        <refsect1>
+                <title>Exit status</title>
+
+                <para>On success, 0 is returned, a non-zero failure
+                code otherwise.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>See Also</title>
+                <para>
+                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                </para>
+        </refsect1>
+
+</refentry>
