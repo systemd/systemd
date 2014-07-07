@@ -43,38 +43,6 @@ const char* const network_dirs[] = {
 #endif
         NULL};
 
-static int dispatch_sigterm(sd_event_source *es, const struct signalfd_siginfo *si, void *userdata) {
-        Manager *m = userdata;
-
-        assert(m);
-
-        log_received_signal(LOG_INFO, si);
-
-        sd_event_exit(m->event, 0);
-        return 0;
-}
-
-static int setup_signals(Manager *m) {
-        sigset_t mask;
-        int r;
-
-        assert(m);
-
-        assert_se(sigemptyset(&mask) == 0);
-        sigset_add_many(&mask, SIGINT, SIGTERM, -1);
-        assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) == 0);
-
-        r = sd_event_add_signal(m->event, &m->sigterm_event_source, SIGTERM, dispatch_sigterm, m);
-        if (r < 0)
-                return r;
-
-        r = sd_event_add_signal(m->event, &m->sigint_event_source, SIGINT, dispatch_sigterm, m);
-        if (r < 0)
-                return r;
-
-        return 0;
-}
-
 static int setup_default_address_pool(Manager *m) {
         AddressPool *p;
         int r;
@@ -120,6 +88,9 @@ int manager_new(Manager **ret) {
 
         sd_event_set_watchdog(m->event, true);
 
+        sd_event_add_signal(m->event, NULL, SIGTERM, NULL, NULL);
+        sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
+
         r = sd_rtnl_open(&m->rtnl, 3, RTNLGRP_LINK, RTNLGRP_IPV4_IFADDR,
                          RTNLGRP_IPV6_IFADDR);
         if (r < 0)
@@ -127,10 +98,6 @@ int manager_new(Manager **ret) {
 
         r = sd_bus_default_system(&m->bus);
         if (r < 0 && r != -ENOENT) /* TODO: drop when we can rely on kdbus */
-                return r;
-
-        r = setup_signals(m);
-        if (r < 0)
                 return r;
 
         /* udev does not initialize devices inside containers,
