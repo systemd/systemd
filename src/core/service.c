@@ -2637,6 +2637,23 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags) {
                         free(t);
         }
 
+        /* Interpret ERRNO= */
+        e = strv_find_prefix(tags, "ERRNO=");
+        if (e) {
+                int status_errno;
+
+                if (safe_atoi(e + 6, &status_errno) < 0)
+                        log_warning_unit(u->id, "Failed to parse ERRNO= field in notification message: %s", e);
+                else {
+                        log_debug_unit(u->id, "%s: got %s", u->id, e);
+
+                        if (s->status_errno != status_errno) {
+                                s->status_errno = status_errno;
+                                notify_dbus = true;
+                        }
+                }
+        }
+
         /* Interpret WATCHDOG= */
         if (strv_find(tags, "WATCHDOG=1")) {
                 log_debug_unit(u->id, "%s: got WATCHDOG=1", u->id);
