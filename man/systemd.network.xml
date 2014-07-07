@@ -346,6 +346,13 @@
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
+                                        <term><varname>Peer=</varname></term>
+                                        <listitem>
+                                                <para>The peer address in a point-to-point connection. Accepts the same format as
+                                                the <literal>Address</literal> key.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
                                         <term><varname>Broadcast=</varname></term>
                                         <listitem>
                                                 <para>The broadcast address, which must be in the format described in
