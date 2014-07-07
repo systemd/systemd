@@ -1873,6 +1873,40 @@ INSTALL_DIRS += \
 endif
 
 # ------------------------------------------------------------------------------
+if ENABLE_FIRSTBOOT
+systemd_firstboot_SOURCES = \
+	src/firstboot/firstboot.c
+
+systemd_firstboot_LDADD = \
+	libsystemd-units.la \
+	libsystemd-label.la \
+	libsystemd-capability.la \
+	libsystemd-internal.la \
+	libsystemd-shared.la \
+	-lcrypt
+
+rootbin_PROGRAMS += \
+	systemd-firstboot
+
+nodist_systemunit_DATA += \
+	units/systemd-firstboot.service
+
+EXTRA_DIST += \
+	units/systemd-firstboot.service.in
+
+systemgenerator_PROGRAMS += \
+	systemd-firstboot-generator
+
+systemd_firstboot_generator_SOURCES = \
+	src/firstboot/firstboot-generator.c
+
+systemd_firstboot_generator_LDADD = \
+	libsystemd-label.la \
+	libsystemd-shared.la
+
+endif
+
+# ------------------------------------------------------------------------------
 systemd_machine_id_setup_SOURCES = \
 	src/machine-id-setup/machine-id-setup-main.c \
 	src/core/machine-id-setup.c \

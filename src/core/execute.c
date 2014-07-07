@@ -571,7 +571,7 @@ static int ask_for_confirmation(char *response, char **argv) {
         if (!line)
                 return -ENOMEM;
 
-        r = ask(response, "yns", "Execute %s? [Yes, No, Skip] ", line);
+        r = ask_char(response, "yns", "Execute %s? [Yes, No, Skip] ", line);
 
         restore_confirm_stdio(&saved_stdin, &saved_stdout);
 

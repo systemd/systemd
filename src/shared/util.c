@@ -1624,7 +1624,7 @@ int read_one_char(FILE *f, char *ret, usec_t t, bool *need_nl) {
         return 0;
 }
 
-int ask(char *ret, const char *replies, const char *text, ...) {
+int ask_char(char *ret, const char *replies, const char *text, ...) {
         int r;
 
         assert(ret);
@@ -1669,6 +1669,49 @@ int ask(char *ret, const char *replies, const char *text, ...) {
                 }
 
                 puts("Read unexpected character, please try again.");
+        }
+}
+
+int ask_string(char **ret, const char *text, ...) {
+        assert(ret);
+        assert(text);
+
+        for (;;) {
+                char line[LINE_MAX];
+                va_list ap;
+
+                if (on_tty())
+                        fputs(ANSI_HIGHLIGHT_ON, stdout);
+
+                va_start(ap, text);
+                vprintf(text, ap);
+                va_end(ap);
+
+                if (on_tty())
+                        fputs(ANSI_HIGHLIGHT_OFF, stdout);
+
+                fflush(stdout);
+
+                errno = 0;
+                if (!fgets(line, sizeof(line), stdin))
+                        return errno ? -errno : -EIO;
+
+                if (!endswith(line, "\n"))
+                        putchar('\n');
+                else {
+                        char *s;
+
+                        if (isempty(line))
+                                continue;
+
+                        truncate_nl(line);
+                        s = strdup(line);
+                        if (!s)
+                                return -ENOMEM;
+
+                        *ret = s;
+                        return 0;
+                }
         }
 }
 
@@ -3752,7 +3795,7 @@ bool dirent_is_file_with_suffix(const struct dirent *de, const char *suffix) {
         return endswith(de->d_name, suffix);
 }
 
-void execute_directory(const char *directory, DIR *d, usec_t timeout, char *argv[]) {
+void execute_directory(const char *directory, DIR *d, usec_t timeout, char *argv[], char *env[]) {
         pid_t executor_pid;
         int r;
 
@@ -3783,6 +3826,14 @@ void execute_directory(const char *directory, DIR *d, usec_t timeout, char *argv
 
                 assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
 
+                if (!strv_isempty(env)) {
+                        char **i;
+
+                        STRV_FOREACH(i, env)
+                                putenv(*i);
+                }
+
+
                 if (!d) {
                         d = _d = opendir(directory);
                         if (!d) {
@@ -3807,7 +3858,8 @@ void execute_directory(const char *directory, DIR *d, usec_t timeout, char *argv
                         if (!dirent_is_file(de))
                                 continue;
 
-                        if (asprintf(&path, "%s/%s", directory, de->d_name) < 0) {
+                        path = strjoin(directory, "/", de->d_name, NULL);
+                        if (!path) {
                                 log_oom();
                                 _exit(EXIT_FAILURE);
                         }
