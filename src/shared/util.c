@@ -5350,16 +5350,14 @@ bool filename_is_safe(const char *p) {
 bool string_is_safe(const char *p) {
         const char *t;
 
-        assert(p);
+        if (!p)
+                return false;
 
         for (t = p; *t; t++) {
                 if (*t > 0 && *t < ' ')
                         return false;
 
-                if (*t == 127)
-                        return false;
-
-                if (strchr("\\\"\'", *t))
+                if (strchr("\\\"\'\0x7f", *t))
                         return false;
         }
 
@@ -5367,16 +5365,19 @@ bool string_is_safe(const char *p) {
 }
 
 /**
- * Check if a string contains control characters.
- * Spaces and tabs are not considered control characters.
+ * Check if a string contains control characters. If 'ok' is non-NULL
+ * it may be a string containing additional CCs to be considered OK.
  */
-bool string_has_cc(const char *p) {
+bool string_has_cc(const char *p, const char *ok) {
         const char *t;
 
         assert(p);
 
         for (t = p; *t; t++) {
-                if (*t > 0 && *t < ' ' && *t != '\t')
+                if (ok && strchr(ok, *t))
+                        return false;
+
+                if (*t > 0 && *t < ' ')
                         return true;
 
                 if (*t == 127)

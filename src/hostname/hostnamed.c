@@ -550,8 +550,7 @@ static int set_machine_info(Context *c, sd_bus *bus, sd_bus_message *m, int prop
 
                 if (prop == PROP_ICON_NAME && !filename_is_safe(name))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid icon name '%s'", name);
-                if (prop == PROP_PRETTY_HOSTNAME &&
-                    (string_has_cc(name) || chars_intersect(name, "\t")))
+                if (prop == PROP_PRETTY_HOSTNAME && string_has_cc(name, NULL))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid pretty host name '%s'", name);
                 if (prop == PROP_CHASSIS && !valid_chassis(name))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid chassis '%s'", name);
