@@ -543,5 +543,7 @@ int main(int argc, char *argv[]) {
                 }
         }
 
+        free(arg_root_what);
+
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
