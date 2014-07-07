@@ -20,7 +20,11 @@ External:
 
 * Fedora: move kernel image to /usr/lib/modules/, kernel-install will take care of populating /boot
 
+* Fedora: remove /etc/resolv.conf tmpfiles hack
+
 Features:
+
+* the resolv.conf tmpfiles line should be covered by ENABLE_NETWORKD...
 
 * sysusers: also create entries in /etc/shadow, /etc/gshadow
 
