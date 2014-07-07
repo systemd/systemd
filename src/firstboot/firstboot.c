@@ -531,7 +531,8 @@ static int write_root_shadow(const char *path, const struct spwd *p) {
         assert(p);
 
         mkdir_parents(path, 0755);
-        f = fopen(path, "wex");
+        RUN_WITH_UMASK(0777)
+                f = fopen(path, "wex");
         if (!f)
                 return -errno;
 
