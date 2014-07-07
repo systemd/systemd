@@ -122,6 +122,7 @@ int netdev_create_veth(NetDev *netdev, sd_rtnl_message_handler_t callback) {
         assert(netdev->ifname);
         assert(netdev->manager);
         assert(netdev->manager->rtnl);
+        assert(netdev->kind == NETDEV_KIND_VETH);
 
         r = sd_rtnl_message_new_link(netdev->manager->rtnl, &m, RTM_NEWLINK, 0);
         if (r < 0) {
@@ -130,9 +131,6 @@ int netdev_create_veth(NetDev *netdev, sd_rtnl_message_handler_t callback) {
                                  strerror(-r));
                 return r;
         }
-
-        if(netdev->kind != NETDEV_KIND_VETH)
-                return -ENOTSUP;
 
         r = netdev_fill_veth_rtnl_message(netdev, m);
         if(r < 0)
