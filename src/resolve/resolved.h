@@ -26,6 +26,7 @@
 
 #include "util.h"
 #include "list.h"
+#include "socket-util.h"
 
 typedef struct Address Address;
 typedef struct Manager Manager;
@@ -33,10 +34,7 @@ typedef struct Manager Manager;
 struct Address {
         unsigned char family;
 
-        union {
-                struct in_addr in;
-                struct in6_addr in6;
-        } in_addr;
+        union in_addr_union in_addr;
 
         LIST_FIELDS(Address, addresses);
 };
