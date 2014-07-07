@@ -756,10 +756,12 @@ static void write_env_var(FILE *f, const char *v) {
 }
 
 int write_env_file(const char *fname, char **l) {
-        char **i;
-        _cleanup_free_ char *p = NULL;
         _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *p = NULL;
+        char **i;
         int r;
+
+        assert(fname);
 
         r = fopen_temporary(fname, &f, &p);
         if (r < 0)
@@ -767,24 +769,18 @@ int write_env_file(const char *fname, char **l) {
 
         fchmod_umask(fileno(f), 0644);
 
-        errno = 0;
         STRV_FOREACH(i, l)
                 write_env_var(f, *i);
 
-        fflush(f);
+        r = fflush_and_check(f);
+        if (r >= 0) {
+                if (rename(p, fname) >= 0)
+                        return 0;
 
-        if (ferror(f))
-                r = errno ? -errno : -EIO;
-        else {
-                if (rename(p, fname) < 0)
-                        r = -errno;
-                else
-                        r = 0;
+                r = -errno;
         }
 
-        if (r < 0)
-                unlink(p);
-
+        unlink(p);
         return r;
 }
 
