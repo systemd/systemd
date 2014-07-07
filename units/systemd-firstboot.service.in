@@ -13,6 +13,7 @@ Conflicts=shutdown.target
 After=systemd-readahead-collect.service systemd-readahead-replay.service systemd-remount-fs.service systemd-sysusers.service
 Before=sysinit.target shutdown.target
 ConditionPathIsReadWrite=/etc
+ConditionFirstBoot=yes
 
 [Service]
 Type=oneshot

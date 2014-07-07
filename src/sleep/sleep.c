@@ -110,7 +110,7 @@ static int execute(char **modes, char **states) {
         arguments[1] = (char*) "pre";
         arguments[2] = arg_verb;
         arguments[3] = NULL;
-        execute_directory(SYSTEM_SLEEP_PATH, NULL, DEFAULT_TIMEOUT_USEC, arguments, NULL);
+        execute_directory(SYSTEM_SLEEP_PATH, NULL, DEFAULT_TIMEOUT_USEC, arguments);
 
         log_struct(LOG_INFO,
                    MESSAGE_ID(SD_MESSAGE_SLEEP_START),
@@ -129,7 +129,7 @@ static int execute(char **modes, char **states) {
                    NULL);
 
         arguments[1] = (char*) "post";
-        execute_directory(SYSTEM_SLEEP_PATH, NULL, DEFAULT_TIMEOUT_USEC, arguments, NULL);
+        execute_directory(SYSTEM_SLEEP_PATH, NULL, DEFAULT_TIMEOUT_USEC, arguments);
 
         return r;
 }

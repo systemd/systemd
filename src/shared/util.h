@@ -505,7 +505,7 @@ bool tty_is_console(const char *tty) _pure_;
 int vtnr_from_tty(const char *tty);
 const char *default_term_for_tty(const char *tty);
 
-void execute_directory(const char *directory, DIR *_d, usec_t timeout, char *argv[], char *env[]);
+void execute_directory(const char *directory, DIR *_d, usec_t timeout, char *argv[]);
 
 int kill_and_sigcont(pid_t pid, int sig);
 

@@ -1648,11 +1648,11 @@ int main(int argc, char *argv[]) {
         m->initrd_timestamp = initrd_timestamp;
         m->security_start_timestamp = security_start_timestamp;
         m->security_finish_timestamp = security_finish_timestamp;
-        m->is_first_boot = empty_etc;
 
         manager_set_default_rlimits(m, arg_default_rlimit);
         manager_environment_add(m, NULL, arg_default_environment);
         manager_set_show_status(m, arg_show_status);
+        manager_set_first_boot(m, empty_etc);
 
         /* Remember whether we should queue the default job */
         queue_default_job = !arg_serialization || arg_switched_root;

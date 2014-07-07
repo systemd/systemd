@@ -3795,7 +3795,7 @@ bool dirent_is_file_with_suffix(const struct dirent *de, const char *suffix) {
         return endswith(de->d_name, suffix);
 }
 
-void execute_directory(const char *directory, DIR *d, usec_t timeout, char *argv[], char *env[]) {
+void execute_directory(const char *directory, DIR *d, usec_t timeout, char *argv[]) {
         pid_t executor_pid;
         int r;
 
@@ -3825,14 +3825,6 @@ void execute_directory(const char *directory, DIR *d, usec_t timeout, char *argv
                 assert_se(sigprocmask(SIG_SETMASK, &ss, NULL) == 0);
 
                 assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
-
-                if (!strv_isempty(env)) {
-                        char **i;
-
-                        STRV_FOREACH(i, env)
-                                putenv(*i);
-                }
-
 
                 if (!d) {
                         d = _d = opendir(directory);

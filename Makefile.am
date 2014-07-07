@@ -1894,15 +1894,8 @@ nodist_systemunit_DATA += \
 EXTRA_DIST += \
 	units/systemd-firstboot.service.in
 
-systemgenerator_PROGRAMS += \
-	systemd-firstboot-generator
-
-systemd_firstboot_generator_SOURCES = \
-	src/firstboot/firstboot-generator.c
-
-systemd_firstboot_generator_LDADD = \
-	libsystemd-label.la \
-	libsystemd-shared.la
+SYSINIT_TARGET_WANTS += \
+	systemd-firstboot.service
 
 endif
 

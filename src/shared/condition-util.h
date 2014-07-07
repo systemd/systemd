@@ -45,6 +45,7 @@ typedef enum ConditionType {
         CONDITION_AC_POWER,
         CONDITION_ARCHITECTURE,
         CONDITION_NEEDS_UPDATE,
+        CONDITION_FIRST_BOOT,
         CONDITION_NULL,
         _CONDITION_TYPE_MAX,
         _CONDITION_TYPE_INVALID = -1
