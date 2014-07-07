@@ -396,7 +396,7 @@
                                 <literal>man:</literal>. For more
                                 information about the syntax of these
                                 URIs, see
-                                <citerefentry><refentrytitle>uri</refentrytitle><manvolnum>7</manvolnum></citerefentry>. The
+                                <citerefentry project='man-pages'><refentrytitle>uri</refentrytitle><manvolnum>7</manvolnum></citerefentry>. The
                                 URIs should be listed in order of
                                 relevance, starting with the most
                                 relevant. It is a good idea to first
@@ -1052,7 +1052,7 @@
                                 (i.e. this does not check whether
                                 capability is actually available in
                                 the permitted or effective sets, see
-                                <citerefentry><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                                <citerefentry project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                                 for details). Pass a capability name
                                 such as <literal>CAP_MKNOD</literal>,
                                 possibly prefixed with an exclamation
@@ -1500,7 +1500,7 @@
                         <citerefentry><refentrytitle>systemd.scope</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+                        <citerefentry project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>uname</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 </para>

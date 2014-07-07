@@ -142,7 +142,7 @@
                 <para>These options can also be set in the
                 <filename>/etc/systemd/bootchart.conf</filename>
                 file. See
-                <citerefentry><refentrytitle>bootchart.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+                <citerefentry project='man-pages'><refentrytitle>bootchart.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
                 </para>
 
                 <variablelist>
@@ -316,7 +316,7 @@
         <refsect1>
                 <title>See Also</title>
                 <para>
-                        <citerefentry><refentrytitle>bootchart.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                        <citerefentry project='man-pages'><refentrytitle>bootchart.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 </para>
         </refsect1>
 

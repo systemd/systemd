@@ -181,7 +181,7 @@
                                 with some other numeric value on the
                                 command line. Note that this option is
                                 only supported for the
-                                <citerefentry><refentrytitle>less</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                                <citerefentry project='man-pages'><refentrytitle>less</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                                 pager.</para></listitem>
                         </varlistentry>
 
@@ -540,7 +540,7 @@
                                 the form FROM..TO. The log levels are
                                 the usual syslog log levels as
                                 documented in
-                                <citerefentry><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                                <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                                 i.e. <literal>emerg</literal> (0),
                                 <literal>alert</literal> (1),
                                 <literal>crit</literal> (2),

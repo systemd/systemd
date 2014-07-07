@@ -103,7 +103,7 @@
                                 directory path. Sets the root
                                 directory for executed processes, with
                                 the
-                                <citerefentry><refentrytitle>chroot</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+                                <citerefentry project='man-pages'><refentrytitle>chroot</refentrytitle><manvolnum>2</manvolnum></citerefentry>
                                 system call. If this is used, it must
                                 be ensured that the process and all
                                 its auxiliary files are available in
@@ -304,7 +304,7 @@
 
                                 <para>
                                 See
-                                <citerefentry><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                                <citerefentry project='man-pages'><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                                 for details about environment variables.</para></listitem>
                         </varlistentry>
                         <varlistentry>
@@ -443,7 +443,7 @@
                                 for other processes to release the
                                 terminal. <option>syslog</option>
                                 connects standard output to the
-                                <citerefentry><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                                <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                                 system syslog
                                 service. <option>kmsg</option>
                                 connects it with the kernel log buffer
@@ -568,7 +568,7 @@
                                 <option>local5</option>,
                                 <option>local6</option> or
                                 <option>local7</option>. See
-                                <citerefentry><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                                <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                                 for details. This option is only
                                 useful when
                                 <varname>StandardOutput=</varname> or
@@ -590,7 +590,7 @@
                                 <option>notice</option>,
                                 <option>info</option>,
                                 <option>debug</option>. See
-                                <citerefentry><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                                <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                                 for details. This option is only
                                 useful when
                                 <varname>StandardOutput=</varname> or
@@ -687,7 +687,7 @@
                                 <varname>User=</varname> setting. If
                                 not set, no PAM session will be opened
                                 for the executed processes. See
-                                <citerefentry><refentrytitle>pam</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                                <citerefentry project='man-pages'><refentrytitle>pam</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                                 for details.</para></listitem>
                         </varlistentry>
 
@@ -698,7 +698,7 @@
                                 capabilities to include in the
                                 capability bounding set for the
                                 executed process. See
-                                <citerefentry><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                                <citerefentry project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                                 for details. Takes a whitespace-separated
                                 list of capability names as read by
                                 <citerefentry><refentrytitle>cap_from_name</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
@@ -739,7 +739,7 @@
                                 <term><varname>SecureBits=</varname></term>
                                 <listitem><para>Controls the secure
                                 bits set for the executed process. See
-                                <citerefentry><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                                <citerefentry project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                                 for details. Takes a list of strings:
                                 <option>keep-caps</option>,
                                 <option>keep-caps-locked</option>,
@@ -757,7 +757,7 @@
                         <varlistentry>
                                 <term><varname>Capabilities=</varname></term>
                                 <listitem><para>Controls the
-                                <citerefentry><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                                <citerefentry project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                                 set for the executed process. Take a
                                 capability string describing the
                                 effective, permitted and inherited
@@ -1472,7 +1472,7 @@
                                 or
                                 <varname>StandardError=tty</varname>).
                                 See
-                                <citerefentry><refentrytitle>termcap</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+                                <citerefentry project='man-pages'><refentrytitle>termcap</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
                                 </para></listitem>
                         </varlistentry>
                 </variablelist>
@@ -1488,7 +1488,7 @@
                 <varname>systemd.setenv=</varname> (see
                 <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>). Additional
                 variables may also be set through PAM,
-                cf. <citerefentry><refentrytitle>pam_env</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+                cf. <citerefentry project='man-pages'><refentrytitle>pam_env</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
         </refsect1>
 
         <refsect1>
@@ -1506,7 +1506,7 @@
                           <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-                          <citerefentry><refentrytitle>exec</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                          <citerefentry project='man-pages'><refentrytitle>exec</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                   </para>
         </refsect1>
 

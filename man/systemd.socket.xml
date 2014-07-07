@@ -188,7 +188,7 @@
                                 replaced with a
                                 <constant>NUL</constant> character
                                 before binding. For details, see
-                                <citerefentry><refentrytitle>unix</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+                                <citerefentry project='man-pages'><refentrytitle>unix</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
 
                                 <para>If the address string is a
                                 single number, it is read as port

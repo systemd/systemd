@@ -94,7 +94,7 @@
 
                 <para>When formatting a 128-bit ID into a string, it is
                 often easier to use a format string for
-                <citerefentry><refentrytitle>printf</refentrytitle><manvolnum>3</manvolnum></citerefentry>. This
+                <citerefentry project='man-pages'><refentrytitle>printf</refentrytitle><manvolnum>3</manvolnum></citerefentry>. This
                 is easily done using the
                 <function>SD_ID128_FORMAT_STR</function> and
                 <function>SD_ID128_FORMAT_VAL()</function> macros. For
@@ -119,7 +119,7 @@
                 <para>The <function>sd_id128_to_string()</function>
                 and <function>sd_id128_from_string()</function> interfaces are
                 available as a shared library, which can be compiled and
-                linked to with the <literal>libsystemd</literal> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                linked to with the <literal>libsystemd</literal> <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>
         </refsect1>
 
@@ -129,7 +129,7 @@
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sd-id128</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>printf</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                        <citerefentry project='man-pages'><refentrytitle>printf</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 </para>
         </refsect1>
 

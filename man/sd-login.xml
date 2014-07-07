@@ -98,7 +98,7 @@
                 <para>If the functions return string arrays, these are
                 generally <constant>NULL</constant> terminated and need to be freed by the
                 caller with the libc
-                <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                <citerefentry project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 call after use, including the strings referenced
                 therein. Similarly, individual strings returned need to
                 be freed, as well.</para>
@@ -132,7 +132,7 @@
                         <citerefentry><refentrytitle>sd_login_monitor_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sd-readahead</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                        <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 </para>
         </refsect1>
 

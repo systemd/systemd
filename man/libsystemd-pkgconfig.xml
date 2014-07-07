@@ -7,6 +7,6 @@
 
   <para id='pkgconfig-text'>These APIs are implemented as a shared
   library, which can be compiled and linked to with the
-  <constant>libsystemd</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+  <constant>libsystemd</constant> <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
   file.</para>
 </refsect1>

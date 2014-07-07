@@ -246,7 +246,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <para><function>sd_bus_error_set</function> will return an
     errno-like negative value returned based on parameter
     <parameter>name</parameter> (see
-    <citerefentry><refentrytitle>errno</refentrytitle><manvolnum>3</manvolnum></citerefentry>).
+    <citerefentry project='man-pages'><refentrytitle>errno</refentrytitle><manvolnum>3</manvolnum></citerefentry>).
     Various well-known D-Bus errors are converted to specific values,
     and the remaining ones to <constant>-ENXIO</constant>. Well-known
     D-Bus error names are available as constants
@@ -270,7 +270,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
     <para><function>sd_bus_error_setf</function> is similar to
     <function>sd_bus_error_set</function>, but takes a
-    <citerefentry><refentrytitle>printf</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    <citerefentry project='man-pages'><refentrytitle>printf</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     format string and corresponding arguments to generate
     <structname>message</structname>.</para>
 
@@ -291,7 +291,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <para><function>sd_bus_error_set_errnof</function> is similar to
     <function>sd_bus_error_set_errno</function>, but in addition to
     <parameter>name</parameter>, takes a
-    <citerefentry><refentrytitle>printf</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    <citerefentry project='man-pages'><refentrytitle>printf</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     format and corresponding arguments.
     <structfield>name</structfield> will be generated from
     <parameter>format</parameter> and the arguments.</para>
@@ -322,7 +322,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <para><function>sd_bus_error_free</function> will destroy resources
     held by <parameter>e</parameter>. The parameter itself will not
     be deallocated, and must be
-    <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>d
+    <citerefentry project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>d
     by the caller if necessary.</para>
   </refsect1>
 
@@ -397,7 +397,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <para><function>sd_bus_set_error()</function> and other functions
     described here are available as a shared library, which can be
     compiled and linked to with the
-    <constant>libsystemd</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    <constant>libsystemd</constant> <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     file.</para>
   </refsect1>
 
@@ -407,7 +407,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>errno</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>errno</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>strerror</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     </para>
   </refsect1>

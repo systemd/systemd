@@ -124,7 +124,7 @@
                 <para><function>SD_ID128_FORMAT_STR</function> and
                 <function>SD_ID128_FORMAT_VAL()</function> may be used
                 to format a 128-bit ID in a
-                <citerefentry><refentrytitle>printf</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                <citerefentry project='man-pages'><refentrytitle>printf</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 format string, as shown in the following
                 example:</para>
 
@@ -162,10 +162,10 @@
                         <citerefentry><refentrytitle>sd_id128_to_string</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sd_id128_randomize</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sd_id128_get_machine</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>printf</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                        <citerefentry project='man-pages'><refentrytitle>printf</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sd-journal</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 </para>
         </refsect1>

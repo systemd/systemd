@@ -109,7 +109,7 @@
 
                 <para>On successful return, <parameter>ret</parameter>
                 points to a new string, which must be freed with
-                <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+                <citerefentry project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
                 </para>
         </refsect1>
 
@@ -120,7 +120,7 @@
                 <function>sd_journal_get_catalog_for_message_id()</function>
                 interfaces are available as a shared library, which can
                 be compiled and linked to with the
-                <constant>libsystemd</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                <constant>libsystemd</constant> <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>
         </refsect1>
 

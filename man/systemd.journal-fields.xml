@@ -140,7 +140,7 @@
                                         number causing this entry, if
                                         any. Contains the numeric
                                         value of
-                                        <citerefentry><refentrytitle>errno</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                                        <citerefentry project='man-pages'><refentrytitle>errno</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                                         formatted as a decimal
                                         string.</para>
                                 </listitem>
@@ -202,7 +202,7 @@
                         <varlistentry>
                                 <term><varname>_CAP_EFFECTIVE=</varname></term>
                                 <listitem>
-                                        <para>The effective <citerefentry><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry> of
+                                        <para>The effective <citerefentry project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry> of
                                         the process the journal entry
                                         originates from.</para>
                                 </listitem>

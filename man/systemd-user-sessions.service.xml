@@ -70,7 +70,7 @@
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>pam_nologin</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                        <citerefentry project='man-pages'><refentrytitle>pam_nologin</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                 </para>
         </refsect1>
 

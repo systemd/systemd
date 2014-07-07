@@ -102,7 +102,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
     <para>If the <varname>$DBUS_SESSION_BUS_ADDRESS</varname> environment
     variable is set
-    (cf. <citerefentry><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry>),
+    (cf. <citerefentry project='man-pages'><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry>),
     it will be used as the address of the user bus. This variable can
     contain multiple addresses separated by <literal>;</literal>. If
     this variable is not set, a suitable default for the default user
@@ -195,7 +195,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <para><function>sd_bus_open_user()</function> and other functions
     described here are available as a shared library, which can be
     compiled and linked to with the
-    <constant>libsystemd</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    <constant>libsystemd</constant> <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     file.</para>
   </refsect1>
 

@@ -57,7 +57,7 @@
                 specifically the hierarchy described in the <ulink
                 url="http://refspecs.linuxfoundation.org/FHS_2.3/fhs-2.3.html">File
                 System Hierarchy</ulink> specification and
-                <citerefentry><refentrytitle>hier</refentrytitle><manvolnum>7</manvolnum></citerefentry>. This
+                <citerefentry project='man-pages'><refentrytitle>hier</refentrytitle><manvolnum>7</manvolnum></citerefentry>. This
                 manual page describes a more minimal, modernized
                 subset of these specifications that defines more
                 strictly the suggestions and restrictions systemd
@@ -178,8 +178,8 @@
                                 accessible to other users of the
                                 system it is essential that this
                                 directory is only written to with the
-                                <citerefentry><refentrytitle>mkstemp</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-                                <citerefentry><refentrytitle>mkdtemp</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                                <citerefentry project='man-pages'><refentrytitle>mkstemp</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                                <citerefentry project='man-pages'><refentrytitle>mkdtemp</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                                 and related calls. This directory is
                                 usually flushed at boot-up. Also,
                                 files that are not accessed within a
@@ -190,7 +190,7 @@
                                 should prefer using the directory
                                 specified in it over directly
                                 referencing
-                                <filename>/tmp</filename> (see <citerefentry><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                                <filename>/tmp</filename> (see <citerefentry project='man-pages'><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                                 and
                                 <ulink url="http://pubs.opengroup.org/onlinepubs/9699919799/basedefs/V1_chap08.html#tag_08_03">IEEE Std 1003.1</ulink> for details).</para></listitem>
                         </varlistentry>
@@ -424,7 +424,7 @@
                                 private logs in this directory, though
                                 it is recommended to do most logging
                                 via the
-                                <citerefentry><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                                <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                                 and
                                 <citerefentry><refentrytitle>sd_journal_print</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                                 calls.</para></listitem>
@@ -454,8 +454,8 @@
                                 restrictions as with
                                 <filename>/tmp</filename> apply, and
                                 hence only
-                                <citerefentry><refentrytitle>mkstemp</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-                                <citerefentry><refentrytitle>mkdtemp</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                                <citerefentry project='man-pages'><refentrytitle>mkstemp</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                                <citerefentry project='man-pages'><refentrytitle>mkdtemp</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                                 or similar calls should be used to
                                 make use of this directory. If
                                 applications find the environment
@@ -463,7 +463,7 @@
                                 set they should prefer using the
                                 directory specified in it over
                                 directly referencing
-                                <filename>/var/tmp</filename> (see <citerefentry><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                                <filename>/var/tmp</filename> (see <citerefentry project='man-pages'><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                                 for details).
                                 </para></listitem>
                         </varlistentry>
@@ -527,7 +527,7 @@
                                 is mostly an API to interface with the
                                 kernel and not a place where normal
                                 files may be stored. For details, see
-                                <citerefentry><refentrytitle>proc</refentrytitle><manvolnum>5</manvolnum></citerefentry>. A
+                                <citerefentry project='man-pages'><refentrytitle>proc</refentrytitle><manvolnum>5</manvolnum></citerefentry>. A
                                 number of special purpose virtual file
                                 systems might be mounted below this
                                 directory.</para></listitem>
@@ -965,12 +965,12 @@
                 <title>See Also</title>
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>hier</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+                        <citerefentry project='man-pages'><refentrytitle>hier</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd-path</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd-efi-boot-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 </para>
         </refsect1>

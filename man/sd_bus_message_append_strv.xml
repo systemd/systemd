@@ -97,7 +97,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <para>The <function>sd_bus_append_append_strv()</function> function
     described here is available as a shared library, which can be
     compiled and linked to with the
-    <constant>libsystemd</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    <constant>libsystemd</constant> <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     file.</para>
   </refsect1>
 

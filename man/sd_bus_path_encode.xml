@@ -123,7 +123,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     the return parameter. On failure, a negative errno-style error
     number is returned by either function. The returned strings must
     be
-    <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>'d
+    <citerefentry project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>'d
     by the caller.</para>
   </refsect1>
 
@@ -133,7 +133,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <para><function>sd_bus_path_encode()</function> and
     <function>sd_bus_path_decode()</function> are available as a
     shared library, which can be compiled and linked to with the
-    <constant>libsystemd</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    <constant>libsystemd</constant> <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     file.</para>
   </refsect1>
 
@@ -143,7 +143,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+      <citerefentry project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     </para>
   </refsect1>
 

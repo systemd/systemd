@@ -85,7 +85,7 @@
                 seats. Returns a <constant>NULL</constant> terminated array of seat
                 identifiers. The returned array and all strings it
                 references need to be freed with the libc
-                <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                <citerefentry project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 call after use. Note that instead of an empty array
                 <constant>NULL</constant> may be returned and should be considered
                 equivalent to an empty array.</para>
@@ -124,7 +124,7 @@
                 <function>sd_get_machine_names()</function> interfaces
                 are available as a shared library, which can be compiled
                 and linked to with the
-                <constant>libsystemd</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                <constant>libsystemd</constant> <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>
         </refsect1>
 

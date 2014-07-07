@@ -84,7 +84,7 @@
                 <filename>/usr</filename> are always followed by an
                 update of the modification time of
                 <filename>/usr</filename>, for example by invoking
-                <citerefentry><refentrytitle>touch</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                <citerefentry project='man-pages'><refentrytitle>touch</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 on it.</para>
 
         </refsect1>
@@ -94,7 +94,7 @@
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>touch</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                        <citerefentry project='man-pages'><refentrytitle>touch</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 </para>
         </refsect1>
 

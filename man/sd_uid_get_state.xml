@@ -110,7 +110,7 @@
                 in regards to additional state strings being
                 returned. The returned string needs to be freed with
                 the libc
-                <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                <citerefentry project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 call after use.</para>
 
                 <para><function>sd_uid_is_on_seat()</function> may be
@@ -137,7 +137,7 @@
                 <constant>NULL</constant> terminated string array of session identifiers in
                 <parameter>sessions</parameter> which needs to be
                 freed by the caller with the libc
-                <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                <citerefentry project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 call after use, including all the strings
                 referenced. If the string array parameter is passed as
                 <constant>NULL</constant>, the array will not be filled in, but the return
@@ -185,7 +185,7 @@
                 <para>Functions described here are available as a
                 shared library, and can be compiled and linked to
                 using the
-                <constant>libsystemd</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                <constant>libsystemd</constant> <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 entry.</para>
         </refsect1>
 

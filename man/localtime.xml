@@ -71,7 +71,7 @@
                 <literal>Europe/Berlin</literal> or
                 <literal>Etc/UTC</literal>.  The resulting link should
                 lead to the corresponding binary
-                <citerefentry><refentrytitle>tzfile</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                <citerefentry project='man-pages'><refentrytitle>tzfile</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 timezone data for the configured timezone.</para>
 
                 <para>Because the timezone identifier is extracted from
@@ -81,7 +81,7 @@
 
                 <para>The timezone may be overridden for individual
                 programs by using the TZ environment variable. See
-                <citerefentry><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+                <citerefentry project='man-pages'><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
 
                 <para>You may use
                 <citerefentry><refentrytitle>timedatectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
@@ -96,7 +96,7 @@
                   <title>See Also</title>
                   <para>
                           <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                          <citerefentry><refentrytitle>tzset</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                          <citerefentry project='man-pages'><refentrytitle>tzset</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>localtime</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>timedatectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd-timedated.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,

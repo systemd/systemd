@@ -98,9 +98,9 @@
                 system journal. The first argument is a priority
                 value. This is followed by a format string and its
                 parameters, similar to
-                <citerefentry><refentrytitle>printf</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                <citerefentry project='man-pages'><refentrytitle>printf</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 or
-                <citerefentry><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>. The
+                <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>. The
                 priority value is one of
                 <constant>LOG_EMERG</constant>,
                 <constant>LOG_ALERT</constant>,
@@ -111,7 +111,7 @@
                 <constant>LOG_INFO</constant>,
                 <constant>LOG_DEBUG</constant>, as defined in
                 <filename>syslog.h</filename>, see
-                <citerefentry><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 for details. It is recommended to use this call to
                 submit log messages in the application locale or system
                 locale and in UTF-8 format, but no such restrictions
@@ -165,7 +165,7 @@
                 the passed string, suffixed with ": " and a human
                 readable representation of the current error code
                 stored in
-                <citerefentry><refentrytitle>errno</refentrytitle><manvolnum>3</manvolnum></citerefentry>. If
+                <citerefentry project='man-pages'><refentrytitle>errno</refentrytitle><manvolnum>3</manvolnum></citerefentry>. If
                 the message string is passed as <constant>NULL</constant> or empty string,
                 only the error string representation will be written,
                 prefixed with nothing. An additional journal field
@@ -193,7 +193,7 @@ sd_journal_send("MESSAGE=Hello World, this is PID %lu!", (unsigned long) getpid(
                 SD_JOURNAL_SUPPRESS_LOCATION before including
                 <filename>sd-journal.h</filename>.</para>
 
-                <para><citerefentry><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                <para><citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 and <function>sd_journal_print()</function> may
                 largely be used interchangeably
                 functionality-wise. However, note that log messages
@@ -216,7 +216,7 @@ sd_journal_send("MESSAGE=Hello World, this is PID %lu!", (unsigned long) getpid(
 
                 <para>The four calls return 0 on success or a negative
                 errno-style error code. The
-                <citerefentry><refentrytitle>errno</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                <citerefentry project='man-pages'><refentrytitle>errno</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 variable itself is not altered.</para>
 
                 <para>If
@@ -247,7 +247,7 @@ sd_journal_send("MESSAGE=Hello World, this is PID %lu!", (unsigned long) getpid(
                 <function>sd_journal_sendv()</function> interfaces
                 are available as a shared library, which can be compiled
                 and linked to with the
-                <constant>libsystemd</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                <constant>libsystemd</constant> <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>
         </refsect1>
 
@@ -258,9 +258,9 @@ sd_journal_send("MESSAGE=Hello World, this is PID %lu!", (unsigned long) getpid(
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sd-journal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sd_journal_stream_fd</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                        <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>perror</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>errno</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                        <citerefentry project='man-pages'><refentrytitle>errno</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>signal</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry>

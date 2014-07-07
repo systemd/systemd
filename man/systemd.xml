@@ -191,7 +191,7 @@
 
                                 <listitem><para>Set log level. As
                                 argument this accepts a numerical log
-                                level or the well-known <citerefentry><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                                level or the well-known <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                                 symbolic names (lowercase):
                                 <option>emerg</option>,
                                 <option>alert</option>,
@@ -424,7 +424,7 @@
                 file system hierarchy (beneath
                 <filename>/sys/fs/cgroup/systemd/</filename>), or in tools
                 such as
-                <citerefentry><refentrytitle>ps</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                <citerefentry project='man-pages'><refentrytitle>ps</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 (<command>ps xawf -eo pid,user,cgroup,args</command>
                 is particularly useful to list all processes and the
                 systemd units they belong to.).</para>
@@ -1274,9 +1274,9 @@
                         <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+                        <citerefentry project='man-pages'><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                 </para>
         </refsect1>

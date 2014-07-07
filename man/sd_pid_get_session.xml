@@ -152,7 +152,7 @@
                 threads). For processes not being part of a login
                 session this function will fail. The returned string
                 needs to be freed with the libc
-                <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                <citerefentry project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 call after use.</para>
 
                 <para><function>sd_pid_get_unit()</function> may be
@@ -168,7 +168,7 @@
                 use <function>sd_pid_get_user_unit()</function> for
                 that.) The returned string needs to be freed with the
                 libc
-                <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                <citerefentry project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 call after use.</para>
 
                 <para><function>sd_pid_get_user_unit()</function> may
@@ -194,7 +194,7 @@
                 container is a member of. The machine name is a short
                 string, suitable for usage in file system paths. The
                 returned string needs to be freed with the libc
-                <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                <citerefentry project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 call after use.</para>
 
                 <para><function>sd_pid_get_slice()</function> may be
@@ -203,7 +203,7 @@
                 <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 for details about slices. The returned string needs to
                 be freed with the libc
-                <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                <citerefentry project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 call after use.</para>
 
                 <para>If the <varname>pid</varname> parameter of any
@@ -246,7 +246,7 @@
                 <function>sd_peer_get_slice()</function> interfaces are
                 available as a shared library, which can be compiled
                 and linked to with the
-                <constant>libsystemd</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                <constant>libsystemd</constant> <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>
 
                 <para>Note that the login session identifier as

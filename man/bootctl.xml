@@ -64,7 +64,7 @@
                 <para>Firmware information is available only on EFI
                 systems.</para>
 
-                <para>Currently, only the <citerefentry><refentrytitle>gummiboot</refentrytitle><manvolnum>8</manvolnum></citerefentry> boot
+                <para>Currently, only the <citerefentry project='gummiboot'><refentrytitle>gummiboot</refentrytitle><manvolnum>8</manvolnum></citerefentry> boot
                 manager implements the required boot loader interface
                 to provide complete boot manager information.</para>
         </refsect1>

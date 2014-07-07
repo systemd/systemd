@@ -114,7 +114,7 @@
                                 to the same named levels). These
                                 priority values are the same as
                                 defined by
-                                <citerefentry><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>. Defaults
+                                <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>. Defaults
                                 to <literal>info</literal>. Note that
                                 this simply controls the default,
                                 individual lines may be logged with

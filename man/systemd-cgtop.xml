@@ -63,7 +63,7 @@
                 hierarchy, ordered by their CPU, memory, or disk I/O load. The
                 display is refreshed in regular intervals (by default
                 every 1s), similar in style to
-                <citerefentry><refentrytitle>top</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+                <citerefentry project='man-pages'><refentrytitle>top</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
                 If <command>systemd-cgtop</command> is not connected
                 to a tty, only one iteration is performed and no
                 columns headers are printed. This mode is suitable for
@@ -263,7 +263,7 @@
                         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd-cgls</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>top</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                        <citerefentry project='man-pages'><refentrytitle>top</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 </para>
         </refsect1>
 

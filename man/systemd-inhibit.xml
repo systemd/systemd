@@ -178,7 +178,7 @@
 
                 <para>This burns the ISO image
                 <filename>foobar.iso</filename> on a CD using
-                <citerefentry><refentrytitle>wodim</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                <citerefentry project='man-pages'><refentrytitle>wodim</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                 and inhibits system sleeping, shutdown and idle while
                 doing so.</para>
         </refsect1>

@@ -70,7 +70,7 @@
                 <para><command>systemd-nspawn</command> may be used to
                 run a command or OS in a light-weight namespace
                 container. In many ways it is similar to
-                <citerefentry><refentrytitle>chroot</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                <citerefentry project='man-pages'><refentrytitle>chroot</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                 but more powerful since it fully virtualizes the file
                 system hierarchy, as well as the process tree, the
                 various IPC subsystems and the host and domain
@@ -98,15 +98,15 @@
                 involved with boot and systems management.</para>
 
                 <para>In contrast to
-                <citerefentry><refentrytitle>chroot</refentrytitle><manvolnum>1</manvolnum></citerefentry> <command>systemd-nspawn</command>
+                <citerefentry project='man-pages'><refentrytitle>chroot</refentrytitle><manvolnum>1</manvolnum></citerefentry> <command>systemd-nspawn</command>
                 may be used to boot full Linux-based operating systems
                 in a container.</para>
 
                 <para>Use a tool like
-                <citerefentry><refentrytitle>yum</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                <citerefentry><refentrytitle>debootstrap</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                <citerefentry project='die-net'><refentrytitle>yum</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                <citerefentry project='die-net'><refentrytitle>debootstrap</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                 or
-                <citerefentry><refentrytitle>pacman</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                <citerefentry project='arch'><refentrytitle>pacman</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                 to set up an OS directory tree suitable as file system
                 hierarchy for <command>systemd-nspawn</command>
                 containers.</para>
@@ -393,7 +393,7 @@
                                 additional capabilities to grant the
                                 container. Takes a comma-separated
                                 list of capability names, see
-                                <citerefentry><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                                <citerefentry project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                                 for more information. Note that the
                                 following capabilities will be granted
                                 in any way: CAP_CHOWN,
@@ -581,7 +581,7 @@
                                 accessible via
                                 <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                                 and shown by tools such as
-                                <citerefentry><refentrytitle>ps</refentrytitle><manvolnum>1</manvolnum></citerefentry>. If
+                                <citerefentry project='man-pages'><refentrytitle>ps</refentrytitle><manvolnum>1</manvolnum></citerefentry>. If
                                 the container does not run an init
                                 system, it is recommended to set this
                                 option to <literal>no</literal>. Note
@@ -770,10 +770,10 @@
                 <title>See Also</title>
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>chroot</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>yum</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>debootstrap</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>pacman</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                        <citerefentry project='man-pages'><refentrytitle>chroot</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry project='die-net'><refentrytitle>yum</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                        <citerefentry project='die-net'><refentrytitle>debootstrap</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                        <citerefentry project='arch'><refentrytitle>pacman</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 </para>

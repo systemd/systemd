@@ -748,7 +748,7 @@
                         boot.</para>
 
                         <para>Packages using
-                        <citerefentry><refentrytitle>autoconf</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                        <citerefentry project='die-net'><refentrytitle>autoconf</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                         are recommended to use a configure script
                         excerpt like the following to determine the
                         unit installation path during source
@@ -783,7 +783,7 @@ AM_CONDITIONAL([HAVE_SYSTEMD], [test "x$with_systemdsystemunitdir" != "xno"])</p
                         work, it is recommended to add the following
                         to the top-level <filename>Makefile.am</filename>
                         file in
-                        <citerefentry><refentrytitle>automake</refentrytitle><manvolnum>1</manvolnum></citerefentry>-based
+                        <citerefentry project='die-net'><refentrytitle>automake</refentrytitle><manvolnum>1</manvolnum></citerefentry>-based
                         projects:</para>
 
                         <programlisting>DISTCHECK_CONFIGURE_FLAGS = \
@@ -798,7 +798,7 @@ systemdsystemunit_DATA = \
 endif</programlisting>
 
                         <para>In the
-                        <citerefentry><refentrytitle>rpm</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                        <citerefentry project='die-net'><refentrytitle>rpm</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                         <filename>.spec</filename> file, use snippets
                         like the following to enable/disable the
                         service during

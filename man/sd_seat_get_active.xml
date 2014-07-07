@@ -99,7 +99,7 @@
                 <constant>NULL</constant>, in case only one of the
                 parameters shall be queried. The returned string needs
                 to be freed with the libc
-                <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                <citerefentry project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 call after use.</para>
 
                 <para><function>sd_seat_get_sessions()</function> may
@@ -113,7 +113,7 @@
                 <constant>NULL</constant> in case these values need not to be
                 determined. The arrays and the strings referenced by
                 them need to be freed with the libc
-                <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                <citerefentry project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 call after use. Note that instead of an empty array
                 <constant>NULL</constant> may be returned and should be considered
                 equivalent to an empty array.</para>
@@ -166,7 +166,7 @@
                 <function>sd_seat_can_grapical()</function> interfaces
                 are available as a shared library, which can be compiled
                 and linked to with the
-                <constant>libsystemd</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                <constant>libsystemd</constant> <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>
         </refsect1>
 

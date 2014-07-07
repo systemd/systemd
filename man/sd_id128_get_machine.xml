@@ -83,7 +83,7 @@
                 file exposed by the kernel. It is randomly generated
                 early at boot and is unique for every running kernel
                 instance. See
-                <citerefentry><refentrytitle>random</refentrytitle><manvolnum>4</manvolnum></citerefentry>
+                <citerefentry project='man-pages'><refentrytitle>random</refentrytitle><manvolnum>4</manvolnum></citerefentry>
                 for more information. This function also internally
                 caches the returned ID to make this call a cheap
                 operation.</para>
@@ -118,7 +118,7 @@
                 and <function>sd_id128_get_boot()</function>
                 interfaces are available as a shared library, which can
                 be compiled and linked to with the
-                <literal>libsystemd</literal> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                <literal>libsystemd</literal> <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>
         </refsect1>
 
