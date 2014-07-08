@@ -275,8 +275,13 @@ int seat_switch_to(Seat *s, unsigned int num) {
         if (!num)
                 return -EINVAL;
 
-        if (num >= s->position_count || !s->positions[num])
+        if (num >= s->position_count || !s->positions[num]) {
+                /* allow switching to unused VTs to trigger auto-activate */
+                if (seat_has_vts(s) && num < 64)
+                        return chvt(num);
+
                 return -EINVAL;
+        }
 
         return session_activate(s->positions[num]);
 }
