@@ -337,7 +337,8 @@ rootbin_PROGRAMS = \
 	systemd-notify \
 	systemd-ask-password \
 	systemd-tty-ask-password-agent \
-	systemd-machine-id-setup
+	systemd-machine-id-setup \
+	systemd-escape
 
 bin_PROGRAMS = \
 	systemd-cgls \
@@ -347,8 +348,7 @@ bin_PROGRAMS = \
 	systemd-delta \
 	systemd-analyze \
 	systemd-run \
-	systemd-path \
-	systemd-escape
+	systemd-path
 
 dist_bin_SCRIPTS = \
 	src/kernel-install/kernel-install
