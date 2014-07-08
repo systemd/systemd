@@ -26,6 +26,11 @@
 #include <sys/types.h>
 #include <sys/xattr.h>
 
+#ifdef HAVE_ELFUTILS
+#  include <dwarf.h>
+#  include <elfutils/libdwfl.h>
+#endif
+
 #include "systemd/sd-journal.h"
 #include "systemd/sd-login.h"
 
@@ -686,6 +691,8 @@ int main(int argc, char* argv[]) {
                 r = coredump_make_stack_trace(coredump_fd, exe, &stacktrace);
                 if (r >= 0)
                         core_message = strjoin("MESSAGE=Process ", info[INFO_PID], " (", comm, ") of user ", info[INFO_UID], " dumped core.\n\n", stacktrace, NULL);
+                else if (r == -EINVAL)
+                        log_warning("Failed to generate stack trace: %s", dwfl_errmsg(dwfl_errno()));
                 else
                         log_warning("Failed to generate stack trace: %s", strerror(-r));
         }
