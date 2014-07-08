@@ -2476,7 +2476,7 @@ int journal_file_open(
         f->flags = flags;
         f->prot = prot_from_flags(flags);
         f->writable = (flags & O_ACCMODE) != O_RDONLY;
-#if defined(HAVE_LZ)
+#if defined(HAVE_LZ4)
         f->compress_lz4 = compress;
 #elif defined(HAVE_XZ)
         f->compress_xz = compress;

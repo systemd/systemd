@@ -27,7 +27,7 @@
 # define XZ_OK -EPROTONOSUPPORT
 #endif
 
-#ifdef HAVE_XZ
+#ifdef HAVE_LZ4
 # define LZ4_OK 0
 #else
 # define LZ4_OK -EPROTONOSUPPORT
