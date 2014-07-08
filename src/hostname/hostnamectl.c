@@ -67,6 +67,7 @@ typedef struct StatusInfo {
         char *pretty_hostname;
         char *icon_name;
         char *chassis;
+        char *deployment;
         char *kernel_name;
         char *kernel_release;
         char *os_pretty_name;
@@ -92,9 +93,11 @@ static void print_status_info(StatusInfo *i) {
                 printf("Transient hostname: %s\n", i->hostname);
 
         printf("         Icon name: %s\n"
-               "           Chassis: %s\n",
+               "           Chassis: %s\n"
+               "        Deployment: %s\n",
                strna(i->icon_name),
-               strna(i->chassis));
+               strna(i->chassis),
+               strna(i->deployment));
 
         r = sd_id128_get_machine(&mid);
         if (r >= 0)
@@ -157,6 +160,7 @@ static int show_all_names(sd_bus *bus) {
                 { "PrettyHostname", "s", NULL, offsetof(StatusInfo, pretty_hostname) },
                 { "IconName",       "s", NULL, offsetof(StatusInfo, icon_name) },
                 { "Chassis",        "s", NULL, offsetof(StatusInfo, chassis) },
+                { "Deployment",        "s", NULL, offsetof(StatusInfo, deployment) },
                 { "KernelName",     "s", NULL, offsetof(StatusInfo, kernel_name) },
                 { "KernelRelease",     "s", NULL, offsetof(StatusInfo, kernel_release) },
                 { "OperatingSystemPrettyName",     "s", NULL, offsetof(StatusInfo, os_pretty_name) },
@@ -194,6 +198,7 @@ fail:
         free(info.pretty_hostname);
         free(info.icon_name);
         free(info.chassis);
+        free(info.deployment);
         free(info.kernel_name);
         free(info.kernel_release);
         free(info.os_pretty_name);
@@ -309,6 +314,13 @@ static int set_chassis(sd_bus *bus, char **args, unsigned n) {
         return set_simple_string(bus, "SetChassis", args[1]);
 }
 
+static int set_deployment(sd_bus *bus, char **args, unsigned n) {
+        assert(args);
+        assert(n == 2);
+
+        return set_simple_string(bus, "SetDeployment", args[1]);
+}
+
 static int help(void) {
 
         printf("%s [OPTIONS...] COMMAND ...\n\n"
@@ -325,7 +337,8 @@ static int help(void) {
                "  status                 Show current hostname settings\n"
                "  set-hostname NAME      Set system hostname\n"
                "  set-icon-name NAME     Set icon name for host\n"
-               "  set-chassis NAME       Set chassis type for host\n",
+               "  set-chassis NAME       Set chassis type for host\n"
+               "  set-deployment NAME    Set deployment environment for host\n",
                program_invocation_short_name);
 
         return 0;
@@ -423,6 +436,7 @@ static int hostnamectl_main(sd_bus *bus, int argc, char *argv[]) {
                 { "set-hostname",  EQUAL, 2, set_hostname  },
                 { "set-icon-name", EQUAL, 2, set_icon_name },
                 { "set-chassis",   EQUAL, 2, set_chassis   },
+                { "set-deployment",   EQUAL, 2, set_deployment   },
         };
 
         int left;

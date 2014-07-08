@@ -231,6 +231,27 @@
                                 </listitem>
                         </varlistentry>
 
+                        <varlistentry>
+                                <term><command>set-deployment <replaceable>ENVIRONMENT</replaceable></command></term>
+
+                                <listitem><para>Set the deployment
+                                environment description.
+                                <replaceable>ENVIRONMENT</replaceable>
+                                must be a single word without any
+                                control characters. One of the
+                                following is suggested:
+                                <literal>development</literal>,
+                                <literal>integration</literal>,
+                                <literal>staging</literal>,
+                                <literal>production</literal>.
+                                </para>
+
+                                <para>Pass an empty string to reset to
+                                the default empty value.</para>
+                                </listitem>
+                        </varlistentry>
+
+
                 </variablelist>
         </refsect1>
 

@@ -157,6 +157,20 @@
                                 available.</para></listitem>
                         </varlistentry>
 
+                        <varlistentry>
+                                <term><varname>DEPLOYMENT=</varname></term>
+
+                                <listitem><para>Describes the system
+                                deployment environment. One of the
+                                following is suggested:
+                                <literal>development</literal>,
+                                <literal>integration</literal>,
+                                <literal>staging</literal>,
+                                <literal>production</literal>.
+                                </para></listitem>
+                        </varlistentry>
+
+
                 </variablelist>
 
         </refsect1>
@@ -166,7 +180,8 @@
 
                 <programlisting>PRETTY_HOSTNAME="Lennart's Tablet"
 ICON_NAME=computer-tablet
-CHASSIS=tablet</programlisting>
+CHASSIS=tablet
+DEPLOYMENT=production</programlisting>
         </refsect1>
 
         <refsect1>
