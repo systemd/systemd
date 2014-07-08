@@ -456,7 +456,7 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
                 }
 
                 if (circle_len > 0)
-                        printf("%s%s%s", on_circle, circle ? draw_special_char(DRAW_BLACK_CIRCLE) : "  ", off_circle);
+                        printf("%s%s%s ", on_circle, circle ? draw_special_char(DRAW_BLACK_CIRCLE) : " ", off_circle);
 
                 printf("%s%-*s%s %s%-*s%s %s%-*s %-*s%s %-*s",
                        on_active, id_len, id, off_active,
