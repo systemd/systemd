@@ -42,6 +42,8 @@ typedef struct term_seq term_seq;
 typedef struct term_parser term_parser;
 typedef uint32_t term_charset[96];
 
+typedef struct term_screen term_screen;
+
 /*
  * Miscellaneous
  * Sundry things and external helpers.
@@ -433,8 +435,8 @@ enum {
         TERM_CMD_DA1,                           /* primary-device-attributes */
         TERM_CMD_DA2,                           /* secondary-device-attributes */
         TERM_CMD_DA3,                           /* tertiary-device-attributes */
-        TERM_CMD_DC1,                           /* device-control-1 */
-        TERM_CMD_DC3,                           /* device-control-3 */
+        TERM_CMD_DC1,                           /* device-control-1 or XON */
+        TERM_CMD_DC3,                           /* device-control-3 or XOFF */
         TERM_CMD_DCH,                           /* delete-character */
         TERM_CMD_DECALN,                        /* screen-alignment-pattern */
         TERM_CMD_DECANM,                        /* ansi-mode */
@@ -445,135 +447,135 @@ enum {
         TERM_CMD_DECDHL_BH,                     /* double-width-double-height-line: bottom half */
         TERM_CMD_DECDHL_TH,                     /* double-width-double-height-line: top half */
         TERM_CMD_DECDWL,                        /* double-width-single-height-line */
-        TERM_CMD_DECEFR,
-        TERM_CMD_DECELF,
-        TERM_CMD_DECELR,
-        TERM_CMD_DECERA,
-        TERM_CMD_DECFI,
-        TERM_CMD_DECFRA,
-        TERM_CMD_DECIC,
-        TERM_CMD_DECID,
-        TERM_CMD_DECINVM,
-        TERM_CMD_DECKBD,
-        TERM_CMD_DECKPAM,
-        TERM_CMD_DECKPNM,
-        TERM_CMD_DECLFKC,
-        TERM_CMD_DECLL,
-        TERM_CMD_DECLTOD,
-        TERM_CMD_DECPCTERM,
-        TERM_CMD_DECPKA,
-        TERM_CMD_DECPKFMR,
-        TERM_CMD_DECRARA,
-        TERM_CMD_DECRC,
-        TERM_CMD_DECREQTPARM,
-        TERM_CMD_DECRPKT,
-        TERM_CMD_DECRQCRA,
-        TERM_CMD_DECRQDE,
-        TERM_CMD_DECRQKT,
-        TERM_CMD_DECRQLP,
-        TERM_CMD_DECRQM_ANSI,
-        TERM_CMD_DECRQM_DEC,
-        TERM_CMD_DECRQPKFM,
-        TERM_CMD_DECRQPSR,
-        TERM_CMD_DECRQTSR,
-        TERM_CMD_DECRQUPSS,
-        TERM_CMD_DECSACE,
-        TERM_CMD_DECSASD,
-        TERM_CMD_DECSC,
-        TERM_CMD_DECSCA,
-        TERM_CMD_DECSCL,
-        TERM_CMD_DECSCP,
-        TERM_CMD_DECSCPP,
-        TERM_CMD_DECSCS,
-        TERM_CMD_DECSCUSR,
-        TERM_CMD_DECSDDT,
-        TERM_CMD_DECSDPT,
-        TERM_CMD_DECSED,
-        TERM_CMD_DECSEL,
-        TERM_CMD_DECSERA,
-        TERM_CMD_DECSFC,
-        TERM_CMD_DECSKCV,
-        TERM_CMD_DECSLCK,
-        TERM_CMD_DECSLE,
-        TERM_CMD_DECSLPP,
-        TERM_CMD_DECSLRM_OR_SC,
-        TERM_CMD_DECSMBV,
-        TERM_CMD_DECSMKR,
-        TERM_CMD_DECSNLS,
-        TERM_CMD_DECSPP,
-        TERM_CMD_DECSPPCS,
-        TERM_CMD_DECSPRTT,
-        TERM_CMD_DECSR,
-        TERM_CMD_DECSRFR,
-        TERM_CMD_DECSSCLS,
-        TERM_CMD_DECSSDT,
-        TERM_CMD_DECSSL,
-        TERM_CMD_DECST8C,
-        TERM_CMD_DECSTBM,
-        TERM_CMD_DECSTR,
-        TERM_CMD_DECSTRL,
-        TERM_CMD_DECSWBV,
-        TERM_CMD_DECSWL,
-        TERM_CMD_DECTID,
-        TERM_CMD_DECTME,
-        TERM_CMD_DECTST,
-        TERM_CMD_DL,
-        TERM_CMD_DSR_ANSI,
-        TERM_CMD_DSR_DEC,
-        TERM_CMD_ECH,
-        TERM_CMD_ED,
-        TERM_CMD_EL,
-        TERM_CMD_ENQ,
-        TERM_CMD_EPA,
-        TERM_CMD_FF,
-        TERM_CMD_HPA,
-        TERM_CMD_HPR,
-        TERM_CMD_HT,
-        TERM_CMD_HTS,
-        TERM_CMD_HVP,
-        TERM_CMD_ICH,
-        TERM_CMD_IL,
-        TERM_CMD_IND,
-        TERM_CMD_LF,
-        TERM_CMD_LS1R,
-        TERM_CMD_LS2,
-        TERM_CMD_LS2R,
-        TERM_CMD_LS3,
-        TERM_CMD_LS3R,
-        TERM_CMD_MC_ANSI,
-        TERM_CMD_MC_DEC,
-        TERM_CMD_NEL,
-        TERM_CMD_NP,
-        TERM_CMD_NULL,
-        TERM_CMD_PP,
-        TERM_CMD_PPA,
-        TERM_CMD_PPB,
-        TERM_CMD_PPR,
-        TERM_CMD_RC,
-        TERM_CMD_REP,
-        TERM_CMD_RI,
-        TERM_CMD_RIS,
-        TERM_CMD_RM_ANSI,
-        TERM_CMD_RM_DEC,
-        TERM_CMD_S7C1T,
-        TERM_CMD_S8C1T,
-        TERM_CMD_SCS,
-        TERM_CMD_SD,
-        TERM_CMD_SGR,
-        TERM_CMD_SI,
-        TERM_CMD_SM_ANSI,
-        TERM_CMD_SM_DEC,
-        TERM_CMD_SO,
-        TERM_CMD_SPA,
-        TERM_CMD_SS2,
-        TERM_CMD_SS3,
-        TERM_CMD_ST,
-        TERM_CMD_SU,
-        TERM_CMD_SUB,
-        TERM_CMD_TBC,
-        TERM_CMD_VPA,
-        TERM_CMD_VPR,
-        TERM_CMD_VT,
+        TERM_CMD_DECEFR,                        /* enable-filter-rectangle */
+        TERM_CMD_DECELF,                        /* enable-local-functions */
+        TERM_CMD_DECELR,                        /* enable-locator-reporting */
+        TERM_CMD_DECERA,                        /* erase-rectangular-area */
+        TERM_CMD_DECFI,                         /* forward-index */
+        TERM_CMD_DECFRA,                        /* fill-rectangular-area */
+        TERM_CMD_DECIC,                         /* insert-column */
+        TERM_CMD_DECID,                         /* return-terminal-id */
+        TERM_CMD_DECINVM,                       /* invoke-macro */
+        TERM_CMD_DECKBD,                        /* keyboard-language-selection */
+        TERM_CMD_DECKPAM,                       /* keypad-application-mode */
+        TERM_CMD_DECKPNM,                       /* keypad-numeric-mode */
+        TERM_CMD_DECLFKC,                       /* local-function-key-control */
+        TERM_CMD_DECLL,                         /* load-leds */
+        TERM_CMD_DECLTOD,                       /* load-time-of-day */
+        TERM_CMD_DECPCTERM,                     /* pcterm-mode */
+        TERM_CMD_DECPKA,                        /* program-key-action */
+        TERM_CMD_DECPKFMR,                      /* program-key-free-memory-report */
+        TERM_CMD_DECRARA,                       /* reverse-attributes-in-rectangular-area */
+        TERM_CMD_DECRC,                         /* restore-cursor */
+        TERM_CMD_DECREQTPARM,                   /* request-terminal-parameters */
+        TERM_CMD_DECRPKT,                       /* report-key-type */
+        TERM_CMD_DECRQCRA,                      /* request-checksum-of-rectangular-area */
+        TERM_CMD_DECRQDE,                       /* request-display-extent */
+        TERM_CMD_DECRQKT,                       /* request-key-type */
+        TERM_CMD_DECRQLP,                       /* request-locator-position */
+        TERM_CMD_DECRQM_ANSI,                   /* request-mode-ansi */
+        TERM_CMD_DECRQM_DEC,                    /* request-mode-dec */
+        TERM_CMD_DECRQPKFM,                     /* request-program-key-free-memory */
+        TERM_CMD_DECRQPSR,                      /* request-presentation-state-report */
+        TERM_CMD_DECRQTSR,                      /* request-terminal-state-report */
+        TERM_CMD_DECRQUPSS,                     /* request-user-preferred-supplemental-set */
+        TERM_CMD_DECSACE,                       /* select-attribute-change-extent */
+        TERM_CMD_DECSASD,                       /* select-active-status-display */
+        TERM_CMD_DECSC,                         /* save-cursor */
+        TERM_CMD_DECSCA,                        /* select-character-protection-attribute */
+        TERM_CMD_DECSCL,                        /* select-conformance-level */
+        TERM_CMD_DECSCP,                        /* select-communication-port */
+        TERM_CMD_DECSCPP,                       /* select-columns-per-page */
+        TERM_CMD_DECSCS,                        /* select-communication-speed */
+        TERM_CMD_DECSCUSR,                      /* set-cursor-style */
+        TERM_CMD_DECSDDT,                       /* select-disconnect-delay-time */
+        TERM_CMD_DECSDPT,                       /* select-digital-printed-data-type */
+        TERM_CMD_DECSED,                        /* selective-erase-in-display */
+        TERM_CMD_DECSEL,                        /* selective-erase-in-line */
+        TERM_CMD_DECSERA,                       /* selective-erase-rectangular-area */
+        TERM_CMD_DECSFC,                        /* select-flow-control */
+        TERM_CMD_DECSKCV,                       /* set-key-click-volume */
+        TERM_CMD_DECSLCK,                       /* set-lock-key-style */
+        TERM_CMD_DECSLE,                        /* select-locator-events */
+        TERM_CMD_DECSLPP,                       /* set-lines-per-page */
+        TERM_CMD_DECSLRM_OR_SC,                 /* set-left-and-right-margins or save-cursor */
+        TERM_CMD_DECSMBV,                       /* set-margin-bell-volume */
+        TERM_CMD_DECSMKR,                       /* select-modifier-key-reporting */
+        TERM_CMD_DECSNLS,                       /* set-lines-per-screen */
+        TERM_CMD_DECSPP,                        /* set-port-parameter */
+        TERM_CMD_DECSPPCS,                      /* select-pro-printer-character-set */
+        TERM_CMD_DECSPRTT,                      /* select-printer-type */
+        TERM_CMD_DECSR,                         /* secure-reset */
+        TERM_CMD_DECSRFR,                       /* select-refresh-rate */
+        TERM_CMD_DECSSCLS,                      /* set-scroll-speed */
+        TERM_CMD_DECSSDT,                       /* select-status-display-line-type */
+        TERM_CMD_DECSSL,                        /* select-setup-language */
+        TERM_CMD_DECST8C,                       /* set-tab-at-every-8-columns */
+        TERM_CMD_DECSTBM,                       /* set-top-and-bottom-margins */
+        TERM_CMD_DECSTR,                        /* soft-terminal-reset */
+        TERM_CMD_DECSTRL,                       /* set-transmit-rate-limit */
+        TERM_CMD_DECSWBV,                       /* set-warning-bell-volume */
+        TERM_CMD_DECSWL,                        /* single-width-single-height-line */
+        TERM_CMD_DECTID,                        /* select-terminal-id */
+        TERM_CMD_DECTME,                        /* terminal-mode-emulation */
+        TERM_CMD_DECTST,                        /* invoke-confidence-test */
+        TERM_CMD_DL,                            /* delete-line */
+        TERM_CMD_DSR_ANSI,                      /* device-status-report-ansi */
+        TERM_CMD_DSR_DEC,                       /* device-status-report-dec */
+        TERM_CMD_ECH,                           /* erase-character */
+        TERM_CMD_ED,                            /* erase-in-display */
+        TERM_CMD_EL,                            /* erase-in-line */
+        TERM_CMD_ENQ,                           /* enquiry */
+        TERM_CMD_EPA,                           /* end-of-guarded-area */
+        TERM_CMD_FF,                            /* form-feed */
+        TERM_CMD_HPA,                           /* horizontal-position-absolute */
+        TERM_CMD_HPR,                           /* horizontal-position-relative */
+        TERM_CMD_HT,                            /* horizontal-tab */
+        TERM_CMD_HTS,                           /* horizontal-tab-set */
+        TERM_CMD_HVP,                           /* horizontal-and-vertical-position */
+        TERM_CMD_ICH,                           /* insert-character */
+        TERM_CMD_IL,                            /* insert-line */
+        TERM_CMD_IND,                           /* index */
+        TERM_CMD_LF,                            /* line-feed */
+        TERM_CMD_LS1R,                          /* locking-shift-1-right */
+        TERM_CMD_LS2,                           /* locking-shift-2 */
+        TERM_CMD_LS2R,                          /* locking-shift-2-right */
+        TERM_CMD_LS3,                           /* locking-shift-3 */
+        TERM_CMD_LS3R,                          /* locking-shift-3-right */
+        TERM_CMD_MC_ANSI,                       /* media-copy-ansi */
+        TERM_CMD_MC_DEC,                        /* media-copy-dec */
+        TERM_CMD_NEL,                           /* next-line */
+        TERM_CMD_NP,                            /* next-page */
+        TERM_CMD_NULL,                          /* null */
+        TERM_CMD_PP,                            /* preceding-page */
+        TERM_CMD_PPA,                           /* page-position-absolute */
+        TERM_CMD_PPB,                           /* page-position-backward */
+        TERM_CMD_PPR,                           /* page-position-relative */
+        TERM_CMD_RC,                            /* restore-cursor */
+        TERM_CMD_REP,                           /* repeat */
+        TERM_CMD_RI,                            /* reverse-index */
+        TERM_CMD_RIS,                           /* reset-to-initial-state */
+        TERM_CMD_RM_ANSI,                       /* reset-mode-ansi */
+        TERM_CMD_RM_DEC,                        /* reset-mode-dec */
+        TERM_CMD_S7C1T,                         /* set-7bit-c1-terminal */
+        TERM_CMD_S8C1T,                         /* set-8bit-c1-terminal */
+        TERM_CMD_SCS,                           /* select-character-set */
+        TERM_CMD_SD,                            /* scroll-down */
+        TERM_CMD_SGR,                           /* select-graphics-rendition */
+        TERM_CMD_SI,                            /* shift-in */
+        TERM_CMD_SM_ANSI,                       /* set-mode-ansi */
+        TERM_CMD_SM_DEC,                        /* set-mode-dec */
+        TERM_CMD_SO,                            /* shift-out */
+        TERM_CMD_SPA,                           /* start-of-protected-area */
+        TERM_CMD_SS2,                           /* single-shift-2 */
+        TERM_CMD_SS3,                           /* single-shift-3 */
+        TERM_CMD_ST,                            /* string-terminator */
+        TERM_CMD_SU,                            /* scroll-up */
+        TERM_CMD_SUB,                           /* substitute */
+        TERM_CMD_TBC,                           /* tab-clear */
+        TERM_CMD_VPA,                           /* vertical-line-position-absolute */
+        TERM_CMD_VPR,                           /* vertical-line-position-relative */
+        TERM_CMD_VT,                            /* vertical-tab */
         TERM_CMD_XTERM_CLLHP,                   /* xterm-cursor-lower-left-hp-bugfix */
         TERM_CMD_XTERM_IHMT,                    /* xterm-initiate-highlight-mouse-tracking*/
         TERM_CMD_XTERM_MLHP,                    /* xterm-memory-lock-hp-bugfix */
@@ -684,3 +686,97 @@ int term_parser_feed(term_parser *parser, const term_seq **seq_out, uint32_t raw
 
 #define _term_parser_free_ _cleanup_(term_parser_freep)
 DEFINE_TRIVIAL_CLEANUP_FUNC(term_parser*, term_parser_free);
+
+/*
+ * Screens
+ * A term_screen object represents the terminal-side of the communication. It
+ * connects the term-parser and term-pages and handles all required commands.
+ * All state is managed by it.
+ */
+
+enum {
+        TERM_FLAG_7BIT_MODE                     = (1U << 0),    /* 7bit mode (default: off) */
+        TERM_FLAG_HIDE_CURSOR                   = (1U << 1),    /* hide cursor caret (default: off) */
+        TERM_FLAG_INHIBIT_TPARM                 = (1U << 2),    /* do not send TPARM unrequested (default: off) */
+        TERM_FLAG_NEWLINE_MODE                  = (1U << 3),    /* perform carriage-return on line-feeds (default: off) */
+        TERM_FLAG_ORIGIN_MODE                   = (1U << 4),    /* in origin mode, the cursor is bound by the margins (default: off) */
+        TERM_FLAG_PENDING_WRAP                  = (1U << 5),    /* wrap-around is pending */
+        TERM_FLAG_AUTO_WRAP                     = (1U << 6),    /* auto-wrap mode causes line-wraps at line-ends (default: off) */
+        TERM_FLAG_KEYPAD_MODE                   = (1U << 7),    /* application-keypad mode (default: off) */
+        TERM_FLAG_CURSOR_KEYS                   = (1U << 8),    /* enable application cursor-keys (default: off) */
+};
+
+enum {
+        TERM_CONFORMANCE_LEVEL_VT52,
+        TERM_CONFORMANCE_LEVEL_VT100,
+        TERM_CONFORMANCE_LEVEL_VT400,
+        TERM_CONFORMANCE_LEVEL_CNT,
+};
+
+typedef int (*term_screen_write_fn) (term_screen *screen, void *userdata, const void *buf, size_t size);
+typedef int (*term_screen_cmd_fn) (term_screen *screen, void *userdata, unsigned int cmd, const term_seq *seq);
+
+struct term_screen {
+        unsigned long ref;
+        term_age_t age;
+
+        term_page *page;
+        term_page *page_main;
+        term_page *page_alt;
+        term_history *history;
+        term_history *history_main;
+
+        unsigned int n_tabs;
+        uint8_t *tabs;
+
+        term_utf8 utf8;
+        term_parser *parser;
+
+        term_screen_write_fn write_fn;
+        void *write_fn_data;
+        term_screen_cmd_fn cmd_fn;
+        void *cmd_fn_data;
+
+        unsigned int flags;
+        unsigned int conformance_level;
+        unsigned int cursor_x;
+        unsigned int cursor_y;
+        term_attr attr;
+        term_attr default_attr;
+
+        term_charset **gl;
+        term_charset **gr;
+        term_charset **glt;
+        term_charset **grt;
+        term_charset *g0;
+        term_charset *g1;
+        term_charset *g2;
+        term_charset *g3;
+
+        char *answerback;
+
+        struct {
+                unsigned int cursor_x;
+                unsigned int cursor_y;
+                term_attr attr;
+                term_charset **gl;
+                term_charset **gr;
+                term_charset **glt;
+                term_charset **grt;
+                unsigned int flags;
+        } saved;
+};
+
+int term_screen_new(term_screen **out, term_screen_write_fn write_fn, void *write_fn_data, term_screen_cmd_fn cmd_fn, void *cmd_fn_data);
+term_screen *term_screen_ref(term_screen *screen);
+term_screen *term_screen_unref(term_screen *screen);
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(term_screen*, term_screen_unref);
+
+int term_screen_feed_text(term_screen *screen, const uint8_t *in, size_t size);
+int term_screen_feed_keyboard(term_screen *screen, uint32_t keysym, uint32_t ascii, uint32_t ucs4, unsigned int mods);
+int term_screen_resize(term_screen *screen, unsigned int width, unsigned int height);
+void term_screen_soft_reset(term_screen *screen);
+void term_screen_hard_reset(term_screen *screen);
+
+int term_screen_set_answerback(term_screen *screen, const char *answerback);

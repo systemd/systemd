@@ -2842,6 +2842,7 @@ libsystemd_terminal_la_SOURCES = \
 	src/libsystemd-terminal/term-charset.c \
 	src/libsystemd-terminal/term-page.c \
 	src/libsystemd-terminal/term-parser.c \
+	src/libsystemd-terminal/term-screen.c \
 	src/libsystemd-terminal/term-wcwidth.c
 
 libsystemd_terminal_la_LIBADD = \
