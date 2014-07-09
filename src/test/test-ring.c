@@ -31,7 +31,7 @@
 
 static void test_ring(void) {
         static const char buf[8192];
-        struct ring r;
+        Ring r;
         size_t l;
         struct iovec vec[2];
         int s;
