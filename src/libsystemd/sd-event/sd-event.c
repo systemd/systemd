@@ -1282,7 +1282,8 @@ _public_ int sd_event_source_set_io_events(sd_event_source *s, uint32_t events) 
         assert_return(s->event->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_pid_changed(s->event), -ECHILD);
 
-        if (s->io.events == events)
+        /* edge-triggered updates are never skipped, so we can reset edges */
+        if (s->io.events == events && !(events & EPOLLET))
                 return 0;
 
         if (s->enabled != SD_EVENT_OFF) {
