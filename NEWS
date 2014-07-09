@@ -1,5 +1,12 @@
 systemd System and Service Manager
 
+CHANGES WITH 216:
+        * timedated does no longer read NTP unit names from
+          /usr/lib/systemd/ntp-units.d/*.list. Alternative NTP
+          implementations should add a:
+            Conflicts=systemd-timesyncd.service
+          to take over and replace systemd's NTP functionality.
+
 CHANGES WITH 215:
 
         * A new tool systemd-sysusers has been added. This tool

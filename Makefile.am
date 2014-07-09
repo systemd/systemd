@@ -106,7 +106,6 @@ udevrulesdir=$(udevlibexecdir)/rules.d
 udevhwdbdir=$(udevlibexecdir)/hwdb.d
 catalogdir=$(prefix)/lib/systemd/catalog
 kernelinstalldir = $(prefix)/lib/kernel/install.d
-ntpunitsdir=$(prefix)/lib/systemd/ntp-units.d
 
 # And these are the special ones for /
 rootprefix=@rootprefix@
@@ -4320,10 +4319,6 @@ dist_systemunit_DATA += \
 polkitpolicy_files += \
 	src/timedate/org.freedesktop.timedate1.policy
 
-INSTALL_DIRS += \
-	$(prefix)/lib/systemd/ntp-units.d \
-	$(sysconfdir)/systemd/ntp-units.d
-
 SYSTEM_UNIT_ALIASES += \
 	systemd-timedated.service dbus-org.freedesktop.timedate1.service
 
@@ -4397,10 +4392,6 @@ EXTRA_DIST += \
 
 CLEANFILES += \
 	src/timesync/timesyncd.conf
-
-dist_ntpunits_DATA = \
-	src/timesync/90-systemd.list
-
 endif
 
 # ------------------------------------------------------------------------------
