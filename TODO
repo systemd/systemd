@@ -24,6 +24,8 @@ External:
 
 Features:
 
+* Allow multiple ExecStart= for all Type= settings, so that we can cover rescue.service nicely
+
 * the resolv.conf tmpfiles line should be covered by ENABLE_NETWORKD...
 
 * sysusers: also create entries in /etc/shadow, /etc/gshadow
