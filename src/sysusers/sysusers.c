@@ -1107,7 +1107,11 @@ static bool valid_gecos(const char *d) {
         if (!utf8_is_valid(d))
                 return false;
 
-        if (strpbrk(d, ":\n"))
+        if (string_has_cc(d, NULL))
+                return false;
+
+        /* Colons are used as field separators, and hence not OK */
+        if (strchr(d, ':'))
                 return false;
 
         return true;
