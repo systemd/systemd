@@ -142,7 +142,7 @@ m authd input</programlisting>
                         <title>Name</title>
 
                         <para>The name field specifies the user or
-                        group name. It should be be shorter than 256
+                        group name. It should be be shorter than 31
                         characters and avoid any non-ASCII characters,
                         and not begin with a numeric character. It is
                         strongly recommended to pick user and group

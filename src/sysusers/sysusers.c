@@ -24,6 +24,7 @@
 #include <grp.h>
 #include <shadow.h>
 #include <getopt.h>
+#include <utmp.h>
 
 #include "util.h"
 #include "hashmap.h"
@@ -1093,6 +1094,9 @@ static bool valid_user_group_name(const char *u) {
         assert_se(sz > 0);
 
         if ((size_t) (i-u) > (size_t) sz)
+                return false;
+
+        if ((size_t) (i-u) > UT_NAMESIZE - 1)
                 return false;
 
         return true;
