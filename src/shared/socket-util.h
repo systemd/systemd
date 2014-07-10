@@ -41,11 +41,6 @@ union sockaddr_union {
         struct sockaddr_ll ll;
 };
 
-union in_addr_union {
-        struct in_addr in;
-        struct in6_addr in6;
-};
-
 typedef struct SocketAddress {
         union sockaddr_union sockaddr;
 
@@ -111,15 +106,3 @@ SocketAddressBindIPv6Only socket_address_bind_ipv6_only_from_string(const char *
 
 int netlink_family_to_string_alloc(int b, char **s);
 int netlink_family_from_string(const char *s) _pure_;
-
-int in_addr_null(unsigned family, union in_addr_union *u);
-int in_addr_equal(unsigned family, union in_addr_union *a, union in_addr_union *b);
-int in_addr_prefix_intersect(unsigned family, const union in_addr_union *a, unsigned aprefixlen, const union in_addr_union *b, unsigned bprefixlen);
-int in_addr_prefix_next(unsigned family, union in_addr_union *u, unsigned prefixlen);
-int in_addr_to_string(unsigned family, const union in_addr_union *u, char **ret);
-int in_addr_from_string(unsigned family, const char *s, union in_addr_union *ret);
-
-static inline size_t PROTO_ADDRESS_SIZE(int proto) {
-        assert(proto == AF_INET || proto == AF_INET6);
-        return proto == AF_INET6 ? 16 : 4;
-}

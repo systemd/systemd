@@ -32,7 +32,7 @@
 #include "bus-errors.h"
 #include "copy.h"
 #include "fileio.h"
-#include "socket-util.h"
+#include "in-addr-util.h"
 #include "machine.h"
 
 static int property_get_id(

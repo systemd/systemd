@@ -765,6 +765,8 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/pager.h \
 	src/shared/socket-util.c \
 	src/shared/socket-util.h \
+	src/shared/in-addr-util.c \
+	src/shared/in-addr-util.h \
 	src/shared/conf-files.c \
 	src/shared/conf-files.h \
 	src/shared/cgroup-util.c \

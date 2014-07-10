@@ -18,6 +18,7 @@
 ***/
 
 #include "socket-util.h"
+#include "in-addr-util.h"
 #include "util.h"
 #include "macro.h"
 #include "log.h"

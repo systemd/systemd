@@ -26,7 +26,7 @@
 #include <assert.h>
 #include <sys/socket.h>
 
-#include "socket-util.h"
+#include "in-addr-util.h"
 
 struct local_address {
         int ifindex;

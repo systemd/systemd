@@ -26,7 +26,7 @@
 
 #include "util.h"
 #include "list.h"
-#include "socket-util.h"
+#include "in-addr-util.h"
 
 typedef struct Address Address;
 typedef struct Manager Manager;

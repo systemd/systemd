@@ -38,7 +38,7 @@
 #include "list.h"
 #include "set.h"
 #include "condition-util.h"
-#include "socket-util.h"
+#include "in-addr-util.h"
 
 #define CACHE_INFO_INFINITY_LIFE_TIME 0xFFFFFFFFU
 #define VXLAN_VID_MAX (1u << 24) - 1
