@@ -28,7 +28,9 @@ Features:
 
 * the resolv.conf tmpfiles line should be covered by ENABLE_NETWORKD...
 
-* sysusers: also create entries in /etc/shadow, /etc/gshadow
+* sysusers:
+  - also create entries in /etc/shadow, /etc/gshadow
+  - allow setting the home directory of system users
 
 * Add a new verb "systemctl top"
 
