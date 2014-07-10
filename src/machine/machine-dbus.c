@@ -32,6 +32,7 @@
 #include "bus-errors.h"
 #include "copy.h"
 #include "fileio.h"
+#include "socket-util.h"
 #include "machine.h"
 
 static int property_get_id(
@@ -190,28 +191,40 @@ int bus_machine_method_get_addresses(sd_bus *bus, sd_bus_message *message, void 
                 if (r < 0)
                         _exit(EXIT_FAILURE);
 
-                r = sd_rtnl_message_request_dump(req, true);
-                if (r < 0)
-                        _exit(EXIT_FAILURE);
-
                 r = sd_rtnl_call(rtnl, req, 0, &resp);
                 if (r < 0)
                         _exit(EXIT_FAILURE);
 
                 for (addr = resp; addr; addr = sd_rtnl_message_next(addr)) {
                         uint16_t type;
-                        unsigned char family;
-                        union {
-                                struct in_addr in;
-                                struct in6_addr in6;
-                        } in_addr;
+                        unsigned char family, scope;
+                        union in_addr_union in_addr;
                         struct iovec iov[2];
+                        unsigned char flags;
+
+                        r = sd_rtnl_message_get_errno(addr);
+                        if (r < 0)
+                                _exit(EXIT_FAILURE);
 
                         r = sd_rtnl_message_get_type(addr, &type);
                         if (r < 0)
                                 _exit(EXIT_FAILURE);
 
                         if (type != RTM_NEWADDR)
+                                continue;
+
+                        r = sd_rtnl_message_addr_get_flags(addr, &flags);
+                        if (r < 0)
+                                _exit(EXIT_FAILURE);
+
+                        if (flags & IFA_F_DEPRECATED)
+                                continue;
+
+                        r = sd_rtnl_message_addr_get_scope(addr, &scope);
+                        if (r < 0)
+                                _exit(EXIT_FAILURE);
+
+                        if (scope == RT_SCOPE_HOST || scope == RT_SCOPE_NOWHERE)
                                 continue;
 
                         r = sd_rtnl_message_addr_get_family(addr, &family);
@@ -225,8 +238,11 @@ int bus_machine_method_get_addresses(sd_bus *bus, sd_bus_message *message, void 
                         case AF_INET:
 
                                 r = sd_rtnl_message_read_in_addr(addr, IFA_LOCAL, &in_addr.in);
-                                if (r < 0)
-                                        _exit(EXIT_FAILURE);
+                                if (r < 0) {
+                                        r = sd_rtnl_message_read_in_addr(addr, IFA_ADDRESS, &in_addr.in);
+                                        if (r < 0)
+                                                _exit(EXIT_FAILURE);
+                                }
 
                                 if (in_addr.in.s_addr == htobe32(INADDR_LOOPBACK))
                                         continue;
@@ -236,9 +252,12 @@ int bus_machine_method_get_addresses(sd_bus *bus, sd_bus_message *message, void 
 
                         case AF_INET6:
 
-                                r = sd_rtnl_message_read_in6_addr(addr, IFA_ADDRESS, &in_addr.in6);
-                                if (r < 0)
-                                        _exit(EXIT_FAILURE);
+                                r = sd_rtnl_message_read_in6_addr(addr, IFA_LOCAL, &in_addr.in6);
+                                if (r < 0) {
+                                        r = sd_rtnl_message_read_in6_addr(addr, IFA_ADDRESS, &in_addr.in6);
+                                        if (r < 0)
+                                                _exit(EXIT_FAILURE);
+                                }
 
                                 if (IN6_IS_ADDR_LOOPBACK(&in_addr.in6))
                                         continue;
@@ -271,10 +290,7 @@ int bus_machine_method_get_addresses(sd_bus *bus, sd_bus_message *message, void 
         for (;;) {
                 unsigned char family;
                 ssize_t n;
-                union {
-                        struct in_addr in;
-                        struct in6_addr in6;
-                } in_addr;
+                union in_addr_union in_addr;
                 struct iovec iov[2];
                 struct msghdr mh = {
                         .msg_iov = iov,
