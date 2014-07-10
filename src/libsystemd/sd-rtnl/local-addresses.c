@@ -23,10 +23,10 @@
 #include "sd-rtnl.h"
 #include "rtnl-util.h"
 #include "macro.h"
-#include "addresses.h"
+#include "local-addresses.h"
 
 static int address_compare(const void *_a, const void *_b) {
-        const struct address *a = _a, *b = _b;
+        const struct local_address *a = _a, *b = _b;
 
         /* Order lowest scope first, IPv4 before IPv6, lowest interface index first */
 
@@ -48,13 +48,15 @@ static int address_compare(const void *_a, const void *_b) {
         return 0;
 }
 
-int acquire_addresses(struct address **_list, unsigned *_n_list) {
+int local_addresses(struct local_address **ret) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *reply = NULL;
         _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
-        _cleanup_free_ struct address *list = NULL;
+        _cleanup_free_ struct local_address *list = NULL;
         size_t n_list = 0, n_allocated = 0;
         sd_rtnl_message *m;
         int r;
+
+        assert(ret);
 
         r = sd_rtnl_open(&rtnl, 0);
         if (r < 0)
@@ -69,7 +71,7 @@ int acquire_addresses(struct address **_list, unsigned *_n_list) {
                 return r;
 
         for (m = reply; m; m = sd_rtnl_message_next(m)) {
-                struct address *a;
+                struct local_address *a;
                 unsigned char flags;
                 uint16_t type;
 
@@ -139,11 +141,10 @@ int acquire_addresses(struct address **_list, unsigned *_n_list) {
         };
 
         if (n_list)
-                qsort(list, n_list, sizeof(struct address), address_compare);
+                qsort(list, n_list, sizeof(struct local_address), address_compare);
 
-        *_list = list;
+        *ret = list;
         list = NULL;
-        *_n_list = n_list;
 
-        return 0;
+        return (int) n_list;
 }

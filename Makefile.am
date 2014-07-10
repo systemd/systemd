@@ -2320,6 +2320,8 @@ libsystemd_internal_la_SOURCES = \
 	src/libsystemd/sd-rtnl/rtnl-types.c \
 	src/libsystemd/sd-rtnl/rtnl-util.h \
 	src/libsystemd/sd-rtnl/rtnl-util.c \
+	src/libsystemd/sd-rtnl/local-addresses.h \
+	src/libsystemd/sd-rtnl/local-addresses.c \
 	src/libsystemd/sd-id128/sd-id128.c \
 	src/libsystemd/sd-daemon/sd-daemon.c \
 	src/libsystemd/sd-login/sd-login.c \
@@ -4398,9 +4400,7 @@ endif
 if HAVE_MYHOSTNAME
 libnss_myhostname_la_SOURCES = \
 	src/nss-myhostname/nss-myhostname.sym \
-	src/nss-myhostname/nss-myhostname.c \
-	src/nss-myhostname/addresses.h \
-	src/nss-myhostname/addresses.c
+	src/nss-myhostname/nss-myhostname.c
 
 libnss_myhostname_la_LDFLAGS = \
 	$(AM_LDFLAGS) \

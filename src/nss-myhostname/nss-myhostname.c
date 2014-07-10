@@ -30,7 +30,7 @@
 #include <stdlib.h>
 #include <arpa/inet.h>
 
-#include "addresses.h"
+#include "local-addresses.h"
 #include "macro.h"
 
 /* Ensure that glibc's assert is used. We cannot use assert from macro.h, as
@@ -99,15 +99,15 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
                 int32_t *ttlp) {
 
         struct gaih_addrtuple *r_tuple, *r_tuple_prev = NULL;
-        _cleanup_free_ struct address *addresses = NULL;
+        _cleanup_free_ struct local_address *addresses = NULL;
         _cleanup_free_ char *hn = NULL;
         const char *canonical = NULL;
-        unsigned n_addresses = 0, n;
+        int n_addresses = 0, lo_ifi;
         uint32_t local_address_ipv4;
-        struct address *a;
+        struct local_address *a;
         size_t l, idx, ms;
         char *r_name;
-        int lo_ifi;
+        unsigned n;
 
         assert(name);
         assert(pat);
@@ -136,8 +136,9 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
                         return NSS_STATUS_NOTFOUND;
                 }
 
-                /* If this fails, n_addresses is 0. Which is fine */
-                acquire_addresses(&addresses, &n_addresses);
+                n_addresses = local_addresses(&addresses);
+                if (n_addresses < 0)
+                        n_addresses = 0;
 
                 canonical = hn;
                 local_address_ipv4 = LOCALADDRESS_IPV4;
@@ -184,7 +185,7 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
         }
 
         /* Fourth, fill actual addresses in, but in backwards order */
-        for (a = addresses + n_addresses - 1, n = 0; n < n_addresses; n++, a--) {
+        for (a = addresses + n_addresses - 1, n = 0; (int) n < n_addresses; n++, a--) {
                 r_tuple = (struct gaih_addrtuple*) (buffer + idx);
                 r_tuple->next = r_tuple_prev;
                 r_tuple->name = r_name;
@@ -214,7 +215,7 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
 static enum nss_status fill_in_hostent(
                 const char *canonical, const char *additional,
                 int af,
-                struct address *addresses, unsigned n_addresses,
+                struct local_address *addresses, unsigned n_addresses,
                 uint32_t local_address_ipv4,
                 struct hostent *result,
                 char *buffer, size_t buflen,
@@ -225,7 +226,7 @@ static enum nss_status fill_in_hostent(
         size_t l_canonical, l_additional, idx, ms;
         char *r_addr, *r_name, *r_aliases, *r_alias = NULL, *r_addr_list;
         size_t alen;
-        struct address *a;
+        struct local_address *a;
         unsigned n, c;
 
         assert(canonical);
@@ -351,11 +352,11 @@ enum nss_status _nss_myhostname_gethostbyname3_r(
                 int32_t *ttlp,
                 char **canonp) {
 
-        _cleanup_free_ struct address *addresses = NULL;
+        _cleanup_free_ struct local_address *addresses = NULL;
         const char *canonical, *additional = NULL;
         _cleanup_free_ char *hn = NULL;
         uint32_t local_address_ipv4;
-        unsigned n_addresses = 0;
+        int n_addresses = 0;
 
         assert(name);
         assert(host);
@@ -389,7 +390,9 @@ enum nss_status _nss_myhostname_gethostbyname3_r(
                         return NSS_STATUS_NOTFOUND;
                 }
 
-                acquire_addresses(&addresses, &n_addresses);
+                n_addresses = local_addresses(&addresses);
+                if (n_addresses < 0)
+                        n_addresses = 0;
 
                 canonical = hn;
                 additional = n_addresses <= 0 && af == AF_INET6 ? "localhost" : NULL;
@@ -451,10 +454,11 @@ enum nss_status _nss_myhostname_gethostbyaddr2_r(
 
         const char *canonical = NULL, *additional = NULL;
         uint32_t local_address_ipv4 = LOCALADDRESS_IPV4;
-        _cleanup_free_ struct address *addresses = NULL;
+        _cleanup_free_ struct local_address *addresses = NULL;
         _cleanup_free_ char *hn = NULL;
-        unsigned n_addresses = 0, n;
-        struct address *a;
+        int n_addresses = 0;
+        struct local_address *a;
+        unsigned n;
 
         assert(addr);
         assert(host);
@@ -492,9 +496,11 @@ enum nss_status _nss_myhostname_gethostbyaddr2_r(
                 return NSS_STATUS_UNAVAIL;
         }
 
-        acquire_addresses(&addresses, &n_addresses);
+        n_addresses = local_addresses(&addresses);
+        if (n_addresses < 0)
+                n_addresses = 0;
 
-        for (a = addresses, n = 0; n < n_addresses; n++, a++) {
+        for (a = addresses, n = 0; (int) n < n_addresses; n++, a++) {
                 if (af != a->family)
                         continue;
 

@@ -28,16 +28,10 @@
 
 #include "socket-util.h"
 
-struct address {
+struct local_address {
+        int ifindex;
         unsigned char family, scope;
         union in_addr_union address;
-        int ifindex;
 };
 
-static inline size_t PROTO_ADDRESS_SIZE(int proto) {
-        assert(proto == AF_INET || proto == AF_INET6);
-
-        return proto == AF_INET6 ? 16 : 4;
-}
-
-int acquire_addresses(struct address **_list, unsigned *_n_list);
+int local_addresses(struct local_address **ret);
