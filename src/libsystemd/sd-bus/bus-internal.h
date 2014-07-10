@@ -237,12 +237,7 @@ struct sd_bus {
         Hashmap *vtable_methods;
         Hashmap *vtable_properties;
 
-        union {
-                struct sockaddr sa;
-                struct sockaddr_un un;
-                struct sockaddr_in in;
-                struct sockaddr_in6 in6;
-        } sockaddr;
+        union sockaddr_union sockaddr;
         socklen_t sockaddr_size;
 
         char *kernel;

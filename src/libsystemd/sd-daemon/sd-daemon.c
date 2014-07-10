@@ -37,6 +37,7 @@
 
 #include "util.h"
 #include "path-util.h"
+#include "socket-util.h"
 #include "sd-daemon.h"
 
 _public_ int sd_listen_fds(int unset_environment) {
@@ -196,14 +197,6 @@ static int sd_is_socket_internal(int fd, int type, int listening) {
         return 1;
 }
 
-union sockaddr_union {
-        struct sockaddr sa;
-        struct sockaddr_in in4;
-        struct sockaddr_in6 in6;
-        struct sockaddr_un un;
-        struct sockaddr_storage storage;
-};
-
 _public_ int sd_is_socket(int fd, int family, int type, int listening) {
         int r;
 
@@ -261,7 +254,7 @@ _public_ int sd_is_socket_inet(int fd, int family, int type, int listening, uint
                         if (l < sizeof(struct sockaddr_in))
                                 return -EINVAL;
 
-                        return htons(port) == sockaddr.in4.sin_port;
+                        return htons(port) == sockaddr.in.sin_port;
                 } else {
                         if (l < sizeof(struct sockaddr_in6))
                                 return -EINVAL;
