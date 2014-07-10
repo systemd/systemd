@@ -1388,7 +1388,7 @@ static int drop_capabilities(void) {
         return capability_bounding_set_drop(~arg_retain, false);
 }
 
-static int register_machine(pid_t pid) {
+static int register_machine(pid_t pid, int local_ifindex) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_bus_unref_ sd_bus *bus = NULL;
         int r;
@@ -1408,16 +1408,17 @@ static int register_machine(pid_t pid) {
                                 "org.freedesktop.machine1",
                                 "/org/freedesktop/machine1",
                                 "org.freedesktop.machine1.Manager",
-                                "RegisterMachine",
+                                "RegisterMachineWithNetwork",
                                 &error,
                                 NULL,
-                                "sayssus",
+                                "sayssusai",
                                 arg_machine,
                                 SD_BUS_MESSAGE_APPEND_ID128(arg_uuid),
                                 "nspawn",
                                 "container",
                                 (uint32_t) pid,
-                                strempty(arg_directory));
+                                strempty(arg_directory),
+                                local_ifindex > 0 ? 1 : 0, local_ifindex);
         } else {
                 _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
 
@@ -1427,7 +1428,7 @@ static int register_machine(pid_t pid) {
                                 "org.freedesktop.machine1",
                                 "/org/freedesktop/machine1",
                                 "org.freedesktop.machine1.Manager",
-                                "CreateMachine");
+                                "CreateMachineWithNetwork");
                 if (r < 0) {
                         log_error("Failed to create message: %s", strerror(-r));
                         return r;
@@ -1435,13 +1436,14 @@ static int register_machine(pid_t pid) {
 
                 r = sd_bus_message_append(
                                 m,
-                                "sayssus",
+                                "sayssusai",
                                 arg_machine,
                                 SD_BUS_MESSAGE_APPEND_ID128(arg_uuid),
                                 "nspawn",
                                 "container",
                                 (uint32_t) pid,
-                                strempty(arg_directory));
+                                strempty(arg_directory),
+                                local_ifindex > 0 ? 1 : 0, local_ifindex);
                 if (r < 0) {
                         log_error("Failed to append message arguments: %s", strerror(-r));
                         return r;
@@ -1644,11 +1646,11 @@ static int get_mac(struct ether_addr *mac) {
         return 0;
 }
 
-static int setup_veth(pid_t pid, char iface_name[IFNAMSIZ]) {
+static int setup_veth(pid_t pid, char iface_name[IFNAMSIZ], int *ifi) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
         _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
         struct ether_addr mac;
-        int r;
+        int r, i;
 
         if (!arg_private_network)
                 return 0;
@@ -1748,10 +1750,18 @@ static int setup_veth(pid_t pid, char iface_name[IFNAMSIZ]) {
                 return r;
         }
 
+        i = (int) if_nametoindex(iface_name);
+        if (i <= 0) {
+                log_error("Failed to resolve interface %s: %m", iface_name);
+                return -errno;
+        }
+
+        *ifi = i;
+
         return 0;
 }
 
-static int setup_bridge(const char veth_name[]) {
+static int setup_bridge(const char veth_name[], int *ifi) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
         _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
         int r, bridge;
@@ -1770,6 +1780,8 @@ static int setup_bridge(const char veth_name[]) {
                 log_error("Failed to resolve interface %s: %m", arg_network_bridge);
                 return -errno;
         }
+
+        *ifi = bridge;
 
         r = sd_rtnl_open(&rtnl, 0);
         if (r < 0) {
@@ -3410,23 +3422,25 @@ int main(int argc, char *argv[]) {
                 eventfds[1] = safe_close(eventfds[1]);
 
                 if (r >= 0) {
-                        r = register_machine(pid);
-                        if (r < 0)
-                                goto finish;
+                        int ifi = 0;
 
                         r = move_network_interfaces(pid);
                         if (r < 0)
                                 goto finish;
 
-                        r = setup_veth(pid, veth_name);
+                        r = setup_veth(pid, veth_name, &ifi);
                         if (r < 0)
                                 goto finish;
 
-                        r = setup_bridge(veth_name);
+                        r = setup_bridge(veth_name, &ifi);
                         if (r < 0)
                                 goto finish;
 
                         r = setup_macvlan(pid);
+                        if (r < 0)
+                                goto finish;
+
+                        r = register_machine(pid, ifi);
                         if (r < 0)
                                 goto finish;
 
