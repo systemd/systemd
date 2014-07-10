@@ -24,15 +24,14 @@
 #include <sys/capability.h>
 #include <arpa/inet.h>
 
-#include "sd-rtnl.h"
 #include "bus-util.h"
 #include "bus-label.h"
 #include "strv.h"
-#include "rtnl-util.h"
 #include "bus-errors.h"
 #include "copy.h"
 #include "fileio.h"
 #include "in-addr-util.h"
+#include "local-addresses.h"
 #include "machine.h"
 
 static int property_get_id(
@@ -173,9 +172,9 @@ int bus_machine_method_get_addresses(sd_bus *bus, sd_bus_message *message, void 
                 return sd_bus_error_set_errno(error, -errno);
 
         if (child == 0) {
-                _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *resp = NULL;
-                _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
-                sd_rtnl_message *addr;
+                _cleanup_free_ struct local_address *addresses = NULL;
+                struct local_address *a;
+                int i, n;
 
                 pair[0] = safe_close(pair[0]);
 
@@ -183,96 +182,22 @@ int bus_machine_method_get_addresses(sd_bus *bus, sd_bus_message *message, void 
                 if (r < 0)
                         _exit(EXIT_FAILURE);
 
-                r = sd_rtnl_open(&rtnl, 0);
-                if (r < 0)
+                n = local_addresses(&addresses);
+                if (n < 0)
                         _exit(EXIT_FAILURE);
 
-                r = sd_rtnl_message_new_addr(rtnl, &req, RTM_GETADDR, 0, AF_UNSPEC);
-                if (r < 0)
-                        _exit(EXIT_FAILURE);
-
-                r = sd_rtnl_call(rtnl, req, 0, &resp);
-                if (r < 0)
-                        _exit(EXIT_FAILURE);
-
-                for (addr = resp; addr; addr = sd_rtnl_message_next(addr)) {
-                        uint16_t type;
-                        unsigned char family, scope;
-                        union in_addr_union in_addr;
-                        struct iovec iov[2];
-                        unsigned char flags;
-
-                        r = sd_rtnl_message_get_errno(addr);
-                        if (r < 0)
-                                _exit(EXIT_FAILURE);
-
-                        r = sd_rtnl_message_get_type(addr, &type);
-                        if (r < 0)
-                                _exit(EXIT_FAILURE);
-
-                        if (type != RTM_NEWADDR)
-                                continue;
-
-                        r = sd_rtnl_message_addr_get_flags(addr, &flags);
-                        if (r < 0)
-                                _exit(EXIT_FAILURE);
-
-                        if (flags & IFA_F_DEPRECATED)
-                                continue;
-
-                        r = sd_rtnl_message_addr_get_scope(addr, &scope);
-                        if (r < 0)
-                                _exit(EXIT_FAILURE);
-
-                        if (scope == RT_SCOPE_HOST || scope == RT_SCOPE_NOWHERE)
-                                continue;
-
-                        r = sd_rtnl_message_addr_get_family(addr, &family);
-                        if (r < 0)
-                                _exit(EXIT_FAILURE);
-
-                        iov[0] = (struct iovec) { .iov_base = &family, .iov_len = sizeof(family) };
-
-                        switch (family) {
-
-                        case AF_INET:
-
-                                r = sd_rtnl_message_read_in_addr(addr, IFA_LOCAL, &in_addr.in);
-                                if (r < 0) {
-                                        r = sd_rtnl_message_read_in_addr(addr, IFA_ADDRESS, &in_addr.in);
-                                        if (r < 0)
-                                                _exit(EXIT_FAILURE);
-                                }
-
-                                if (in_addr.in.s_addr == htobe32(INADDR_LOOPBACK))
-                                        continue;
-
-                                iov[1] = (struct iovec) { .iov_base = &in_addr.in, .iov_len = sizeof(in_addr.in) };
-                                break;
-
-                        case AF_INET6:
-
-                                r = sd_rtnl_message_read_in6_addr(addr, IFA_LOCAL, &in_addr.in6);
-                                if (r < 0) {
-                                        r = sd_rtnl_message_read_in6_addr(addr, IFA_ADDRESS, &in_addr.in6);
-                                        if (r < 0)
-                                                _exit(EXIT_FAILURE);
-                                }
-
-                                if (IN6_IS_ADDR_LOOPBACK(&in_addr.in6))
-                                        continue;
-
-                                iov[1] = (struct iovec) { .iov_base = &in_addr.in6, .iov_len = sizeof(in_addr.in6) };
-                                break;
-
-                        default:
-                                continue;
-                        }
+                for (a = addresses, i = 0; i < n; a++, i++) {
+                        struct iovec iov[2] = {
+                                { .iov_base = &a->family, .iov_len = sizeof(a->family) },
+                                { .iov_base = &a->address, .iov_len = PROTO_ADDRESS_SIZE(a->family) },
+                        };
 
                         r = writev(pair[1], iov, 2);
                         if (r < 0)
                                 _exit(EXIT_FAILURE);
                 }
+
+                pair[1] = safe_close(pair[1]);
 
                 _exit(EXIT_SUCCESS);
         }
