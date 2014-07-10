@@ -53,32 +53,28 @@
                 <title>Description</title>
 
                 <para><command>systemd-sysusers</command> uses the
-                files from <filename>/usr/lib/sysusers.d/</filename>
+                files from <filename>sysusers.d</filename> directory
                 to create system users and groups at package
-                installation or boot time. This tool may be used for
-                allocating system users and groups only, it is not
+                installation or boot time. This tool may be used to
+                allocate system users and groups only, it is not
                 useful for creating non-system users and groups, as it
-                accessed <filename>/etc/passwd</filename> and
+                accesses <filename>/etc/passwd</filename> and
                 <filename>/etc/group</filename> directly, bypassing
-                any more complex user database, for example any
+                any more complex user databases, for example any
                 database involving NIS or LDAP.</para>
-
         </refsect1>
 
         <refsect1>
-                <title>File Format</title>
+                <title>Configuration Format</title>
 
-                <para>Each file shall be named in the style of
-                <filename><replaceable>package</replaceable>.conf</filename>.</para>
-
-                <para>All files are sorted by their filename in
-                lexicographic order, regardless of which of the
-                directories they reside in. If multiple files specify
-                the same user or group, the entry in the file with the
-                lexicographically earliest name will be applied, all
-                all other conflicting entries will be logged as
-                errors. Users and groups are
-                processed in the order they are listed.</para>
+                <para>Each configuration file shall be named in the
+                style of
+                <filename><replaceable>package</replaceable>.conf</filename>
+                or
+                <filename><replaceable>package</replaceable>-<replaceable>part</replaceable>.conf</filename>.
+                The second variant should be used when it is desirable
+                to make it easy to override just this part of
+                configuration.</para>
 
                 <para>The file format is one line per user or group
                 containing name, ID and GECOS field description:</para>
@@ -193,10 +189,39 @@ m authd input</programlisting>
         </refsect1>
 
         <refsect1>
+                <title>Overriding vendor configuration</title>
+
+                <para>Note that <command>systemd-sysusers</command>
+                will do nothing if the specified users or groups
+                already exist, so normally there no reason to override
+                <filename>sysusers.d</filename> vendor configuration,
+                except to block certain users or groups from being
+                created.</para>
+
+                <para>Files in <filename>/etc/sysusers.d</filename>
+                override files with the same name in
+                <filename>/usr/lib/sysusers.d</filename> and
+                <filename>/run/sysusers.d</filename>. Files in
+                <filename>/run/sysusers.d</filename> override files
+                with the same name in
+                <filename>/usr/lib/sysusers.d</filename>. The scheme is the same as for
+                <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                except for the directory name.</para>
+
+                <para>If the administrator wants to disable a
+                configuration file supplied by the vendor, the
+                recommended way is to place a symlink to
+                <filename>/dev/null</filename> in
+                <filename>/etc/sysusers.d/</filename> bearing the
+                same filename.</para>
+        </refsect1>
+
+        <refsect1>
                 <title>See Also</title>
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd-sysusers</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>systemd-sysusers</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 </para>
         </refsect1>
 
