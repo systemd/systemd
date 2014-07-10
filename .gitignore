@@ -124,6 +124,7 @@
 /tags
 /test-architecture
 /test-async
+/test-barrier
 /test-boot-timestamp
 /test-bus-chat
 /test-bus-cleanup
