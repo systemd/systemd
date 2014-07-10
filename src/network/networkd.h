@@ -467,6 +467,9 @@ int config_parse_destination(const char *unit, const char *filename, unsigned li
                              const char *section, unsigned section_line, const char *lvalue,
                              int ltype, const char *rvalue, void *data, void *userdata);
 
+int config_parse_route_priority(const char *unit, const char *filename, unsigned line,
+                                const char *section, unsigned section_line, const char *lvalue,
+                                int ltype, const char *rvalue, void *data, void *userdata);
 /* Address */
 int address_new_static(Network *network, unsigned section, Address **ret);
 int address_new_dynamic(Address **ret);

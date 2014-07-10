@@ -389,6 +389,12 @@
                                                 prefixlength. If ommitted, a full-length host route is assumed.</para>
                                         </listitem>
                                 </varlistentry>
+                                <varlistentry>
+                                        <term><varname>Metric=</varname></term>
+                                        <listitem>
+                                                <para>The metric of the route. An unsigned integer</para>
+                                        </listitem>
+                                </varlistentry>
                         </variablelist>
         </refsect1>
 

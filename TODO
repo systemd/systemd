@@ -624,7 +624,6 @@ Features:
    - properly handle routerless dhcp leases
    - default to DHCP unicast, but make broadcast opt-in. detect devices that needs broadcast and opt-in automatically (needs kernel patch?)
    - add more attribute support for SIT tunnel
-   - make metric of routes configurable
    - work with non-ethernet devices
    - add support for more bond options
 

@@ -360,3 +360,39 @@ int config_parse_destination(const char *unit,
 
         return 0;
 }
+
+int config_parse_route_priority(const char *unit,
+                                const char *filename,
+                                unsigned line,
+                                const char *section,
+                                unsigned section_line,
+                                const char *lvalue,
+                                int ltype,
+                                const char *rvalue,
+                                void *data,
+                                void *userdata) {
+        Network *network = userdata;
+        _cleanup_route_free_ Route *n = NULL;
+        _cleanup_free_ char *route = NULL;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = route_new_static(network, section_line, &n);
+        if (r < 0)
+                return r;
+
+        r = config_parse_unsigned(unit, filename, line, section,
+                                  section_line, lvalue, ltype,
+                                  rvalue, &n->metrics, userdata);
+        if (r < 0)
+                return r;
+
+        n = NULL;
+
+        return 0;
+}
