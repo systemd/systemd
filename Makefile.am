@@ -4397,6 +4397,7 @@ endif
 # ------------------------------------------------------------------------------
 if HAVE_MYHOSTNAME
 libnss_myhostname_la_SOURCES = \
+	src/nss-myhostname/nss-myhostname.sym \
 	src/nss-myhostname/nss-myhostname.c \
 	src/nss-myhostname/addresses.h \
 	src/nss-myhostname/addresses.c
@@ -4407,7 +4408,8 @@ libnss_myhostname_la_LDFLAGS = \
 	-export-dynamic \
 	-avoid-version \
 	-shared \
-	-shrext .so.2
+	-shrext .so.2 \
+	-Wl,--version-script=$(top_srcdir)/src/nss-myhostname/nss-myhostname.sym
 
 libnss_myhostname_la_LIBADD = \
 	libsystemd-shared.la \
