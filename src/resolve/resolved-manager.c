@@ -149,6 +149,8 @@ void manager_free(Manager *m) {
         if (!m)
                 return;
 
+        sd_event_source_unref(m->network_event_source);
+        sd_network_monitor_unref(m->network_monitor);
         sd_event_unref(m->event);
 
         while ((address = m->fallback_dns)) {
