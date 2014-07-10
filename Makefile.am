@@ -836,7 +836,8 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/copy.c \
 	src/shared/copy.h \
 	src/shared/base-filesystem.c \
-	src/shared/base-filesystem.h
+	src/shared/base-filesystem.h \
+	src/shared/nss-util.h
 
 nodist_libsystemd_shared_la_SOURCES = \
 	src/shared/errno-from-name.h \

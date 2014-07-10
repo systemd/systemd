@@ -9,11 +9,11 @@
 
 {
 global:
-        _nss_myhostname_gethostbyaddr2_r;
-        _nss_myhostname_gethostbyaddr_r;
+        _nss_myhostname_gethostbyname_r;
         _nss_myhostname_gethostbyname2_r;
         _nss_myhostname_gethostbyname3_r;
         _nss_myhostname_gethostbyname4_r;
-        _nss_myhostname_gethostbyname_r;
+        _nss_myhostname_gethostbyaddr_r;
+        _nss_myhostname_gethostbyaddr2_r;
 local: *;
 };

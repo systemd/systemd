@@ -32,6 +32,8 @@
 
 #include "local-addresses.h"
 #include "macro.h"
+#include "nss-util.h"
+#include "util.h"
 
 /* Ensure that glibc's assert is used. We cannot use assert from macro.h, as
  * libnss_myhostname will be linked into arbitrary programs which will, in turn
@@ -47,49 +49,8 @@
 #define LOCALADDRESS_IPV6 &in6addr_loopback
 #define LOOPBACK_INTERFACE "lo"
 
-enum nss_status _nss_myhostname_gethostbyname4_r(
-                const char *name,
-                struct gaih_addrtuple **pat,
-                char *buffer, size_t buflen,
-                int *errnop, int *h_errnop,
-                int32_t *ttlp) _public_;
-
-enum nss_status _nss_myhostname_gethostbyname3_r(
-                const char *name,
-                int af,
-                struct hostent *host,
-                char *buffer, size_t buflen,
-                int *errnop, int *h_errnop,
-                int32_t *ttlp,
-                char **canonp) _public_;
-
-enum nss_status _nss_myhostname_gethostbyname2_r(
-                const char *name,
-                int af,
-                struct hostent *host,
-                char *buffer, size_t buflen,
-                int *errnop, int *h_errnop) _public_;
-
-enum nss_status _nss_myhostname_gethostbyname_r(
-                const char *name,
-                struct hostent *host,
-                char *buffer, size_t buflen,
-                int *errnop, int *h_errnop) _public_;
-
-enum nss_status _nss_myhostname_gethostbyaddr2_r(
-                const void* addr, socklen_t len,
-                int af,
-                struct hostent *host,
-                char *buffer, size_t buflen,
-                int *errnop, int *h_errnop,
-                int32_t *ttlp) _public_;
-
-enum nss_status _nss_myhostname_gethostbyaddr_r(
-                const void* addr, socklen_t len,
-                int af,
-                struct hostent *host,
-                char *buffer, size_t buflen,
-                int *errnop, int *h_errnop) _public_;
+NSS_GETHOSTBYNAME_PROTOTYPES(myhostname);
+NSS_GETHOSTBYADDR_PROTOTYPES(myhostname);
 
 enum nss_status _nss_myhostname_gethostbyname4_r(
                 const char *name,
@@ -411,39 +372,6 @@ enum nss_status _nss_myhostname_gethostbyname3_r(
                         canonp);
 }
 
-enum nss_status _nss_myhostname_gethostbyname2_r(
-                const char *name,
-                int af,
-                struct hostent *host,
-                char *buffer, size_t buflen,
-                int *errnop, int *h_errnop) {
-
-        return _nss_myhostname_gethostbyname3_r(
-                        name,
-                        af,
-                        host,
-                        buffer, buflen,
-                        errnop, h_errnop,
-                        NULL,
-                        NULL);
-}
-
-enum nss_status _nss_myhostname_gethostbyname_r(
-                const char *name,
-                struct hostent *host,
-                char *buffer, size_t buflen,
-                int *errnop, int *h_errnop) {
-
-        return _nss_myhostname_gethostbyname3_r(
-                        name,
-                        AF_UNSPEC,
-                        host,
-                        buffer, buflen,
-                        errnop, h_errnop,
-                        NULL,
-                        NULL);
-}
-
 enum nss_status _nss_myhostname_gethostbyaddr2_r(
                 const void* addr, socklen_t len,
                 int af,
@@ -538,18 +466,5 @@ found:
 
 }
 
-enum nss_status _nss_myhostname_gethostbyaddr_r(
-                const void* addr, socklen_t len,
-                int af,
-                struct hostent *host,
-                char *buffer, size_t buflen,
-                int *errnop, int *h_errnop) {
-
-        return _nss_myhostname_gethostbyaddr2_r(
-                        addr, len,
-                        af,
-                        host,
-                        buffer, buflen,
-                        errnop, h_errnop,
-                        NULL);
-}
+NSS_GETHOSTBYNAME_FALLBACKS(myhostname);
+NSS_GETHOSTBYADDR_FALLBACKS(myhostname);
