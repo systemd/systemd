@@ -49,7 +49,7 @@ typedef enum UnitFilePresetMode {
         UNIT_FILE_PRESET_FULL,
         UNIT_FILE_PRESET_ENABLE_ONLY,
         UNIT_FILE_PRESET_DISABLE_ONLY,
-        _UNIT_FILE_PRESET_MODE_MAX,
+        _UNIT_FILE_PRESET_MAX,
         _UNIT_FILE_PRESET_INVALID = -1
 } UnitFilePresetMode;
 

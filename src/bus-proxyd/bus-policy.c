@@ -724,5 +724,6 @@ static const char* const policy_item_class_table[_POLICY_ITEM_CLASS_MAX] = {
         [POLICY_ITEM_OWN_PREFIX] = "own-prefix",
         [POLICY_ITEM_USER] = "user",
         [POLICY_ITEM_GROUP] = "group",
+        [POLICY_ITEM_IGNORE] = "ignore",
 };
 DEFINE_STRING_TABLE_LOOKUP(policy_item_class, PolicyItemClass);

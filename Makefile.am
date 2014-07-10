@@ -1453,16 +1453,22 @@ test_list_LDADD = \
 
 test_tables_SOURCES = \
 	src/test/test-tables.c \
-	src/shared/test-tables.h
+	src/shared/test-tables.h \
+	src/bus-proxyd/bus-policy.c \
+	src/bus-proxyd/bus-policy.h \
+	src/journal/journald-server.c \
+	src/journal/journald-server.h
 
 test_tables_CFLAGS = \
 	$(AM_CFLAGS) \
-	$(SECCOMP_CFLAGS)
+	$(SECCOMP_CFLAGS) \
+	-I$(srcdir)/src/bus-proxyd
 
 test_tables_LDADD = \
 	libsystemd-logs.la \
 	libsystemd-journal-internal.la \
 	libsystemd-core.la \
+	libudev-core.la \
 	$(RT_LIBS)
 
 test_prioq_SOURCES = \
@@ -4784,8 +4790,17 @@ test_network_CFLAGS = \
 test_network_LDADD = \
 	libsystemd-networkd-core.la
 
+test_network_tables_SOURCES = \
+	src/network/test-network-tables.c \
+	src/shared/test-tables.h
+
+test_network_tables_LDADD = \
+	libsystemd-networkd-core.la \
+	libudev-core.la
+
 tests += \
-	test-network
+	test-network \
+	test-network-tables
 
 nodist_systemunit_DATA += \
 	units/systemd-networkd.service \

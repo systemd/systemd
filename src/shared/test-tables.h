@@ -49,3 +49,6 @@ static inline void _test_table(const char *name,
 
 #define test_table(lower, upper) \
         _test_table(STRINGIFY(lower), lower##_to_string, lower##_from_string, _##upper##_MAX, false)
+
+#define test_table_sparse(lower, upper) \
+        _test_table(STRINGIFY(lower), lower##_to_string, lower##_from_string, _##upper##_MAX, true)

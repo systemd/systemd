@@ -198,6 +198,7 @@
 /test-mmap-cache
 /test-namespace
 /test-network
+/test-network-tables
 /test-ns
 /test-path-util
 /test-prioq

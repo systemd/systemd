@@ -155,25 +155,6 @@ static const NLType rtnl_link_info_data_ipvti_types[IFLA_VTI_MAX + 1] = {
         [IFLA_VTI_REMOTE]       = { .type = NLA_IN_ADDR  },
 };
 
-typedef enum NLUnionLinkInfoData {
-        NL_UNION_LINK_INFO_DATA_BOND,
-        NL_UNION_LINK_INFO_DATA_BRIDGE,
-        NL_UNION_LINK_INFO_DATA_VLAN,
-        NL_UNION_LINK_INFO_DATA_VETH,
-        NL_UNION_LINK_INFO_DATA_DUMMY,
-        NL_UNION_LINK_INFO_DATA_MACVLAN,
-        NL_UNION_LINK_INFO_DATA_VXLAN,
-        NL_UNION_LINK_INFO_DATA_IPIP_TUNNEL,
-        NL_UNION_LINK_INFO_DATA_IPGRE_TUNNEL,
-        NL_UNION_LINK_INFO_DATA_SIT_TUNNEL,
-        NL_UNION_LINK_INFO_DATA_VTI_TUNNEL,
-        _NL_UNION_LINK_INFO_DATA_MAX,
-        _NL_UNION_LINK_INFO_DATA_INVALID = -1
-} NLUnionLinkInfoData;
-
-const char *nl_union_link_info_data_to_string(NLUnionLinkInfoData p) _const_;
-NLUnionLinkInfoData nl_union_link_info_data_from_string(const char *p) _pure_;
-
 /* these strings must match the .kind entries in the kernel */
 static const char* const nl_union_link_info_data_table[_NL_UNION_LINK_INFO_DATA_MAX] = {
         [NL_UNION_LINK_INFO_DATA_BOND] = "bond",
