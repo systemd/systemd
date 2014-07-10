@@ -42,7 +42,8 @@
 
 #define CACHE_INFO_INFINITY_LIFE_TIME 0xFFFFFFFFU
 #define VXLAN_VID_MAX (1u << 24) - 1
-#define DHCP_STATIC_ROUTE_METRIC 1024
+#define DHCP_ROUTE_METRIC 1024
+#define IPV4LL_ROUTE_METRIC 2048
 
 typedef struct NetDev NetDev;
 typedef struct Network Network;
