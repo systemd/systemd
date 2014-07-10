@@ -23,16 +23,37 @@
 #include "sd-rtnl.h"
 #include "rtnl-util.h"
 #include "macro.h"
-
 #include "ifconf.h"
 
+static int address_compare(const void *_a, const void *_b) {
+        const struct address *a = _a, *b = _b;
+
+        /* Order lowest scope first, IPv4 before IPv6, lowest interface index first */
+
+        if (a->scope < b->scope)
+                return -1;
+        if (a->scope > b->scope)
+                return 1;
+
+        if (a->family == AF_INET && b->family == AF_INET6)
+                return -1;
+        if (a->family == AF_INET6 && b->family == AF_INET)
+                return 1;
+
+        if (a->ifindex < b->ifindex)
+                return -1;
+        if (a->ifindex > b->ifindex)
+                return 1;
+
+        return 0;
+}
+
 int ifconf_acquire_addresses(struct address **_list, unsigned *_n_list) {
-        _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
         _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *reply = NULL;
-        sd_rtnl_message *m;
+        _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
         _cleanup_free_ struct address *list = NULL;
-        struct address *new_list = NULL;
-        unsigned n_list = 0;
+        size_t n_list = 0, n_allocated = 0;
+        sd_rtnl_message *m;
         int r;
 
         r = sd_rtnl_open(&rtnl, 0);
@@ -46,18 +67,11 @@ int ifconf_acquire_addresses(struct address **_list, unsigned *_n_list) {
         r = sd_rtnl_call(rtnl, req, 0, &reply);
         if (r < 0)
                 return r;
-        m = reply;
 
-        do {
-                uint16_t type;
-                unsigned char scope;
+        for (m = reply; m; m = sd_rtnl_message_next(m)) {
+                struct address *a;
                 unsigned char flags;
-                unsigned char family;
-                int ifindex;
-                union {
-                        struct in_addr in;
-                        struct in6_addr in6;
-                } address;
+                uint16_t type;
 
                 r = sd_rtnl_message_get_errno(m);
                 if (r < 0)
@@ -70,13 +84,6 @@ int ifconf_acquire_addresses(struct address **_list, unsigned *_n_list) {
                 if (type != RTM_NEWADDR)
                         continue;
 
-                r = sd_rtnl_message_addr_get_scope(m, &scope);
-                if (r < 0)
-                        return r;
-
-                if (scope == RT_SCOPE_HOST || scope == RT_SCOPE_NOWHERE)
-                        continue;
-
                 r = sd_rtnl_message_addr_get_flags(m, &flags);
                 if (r < 0)
                         return r;
@@ -84,58 +91,59 @@ int ifconf_acquire_addresses(struct address **_list, unsigned *_n_list) {
                 if (flags & IFA_F_DEPRECATED)
                         continue;
 
-                r = sd_rtnl_message_addr_get_family(m, &family);
+                if (!GREEDY_REALLOC(list, n_allocated, n_list+1))
+                        return -ENOMEM;
+
+                a = list + n_list;
+
+                r = sd_rtnl_message_addr_get_scope(m, &a->scope);
                 if (r < 0)
                         return r;
 
-                switch (family) {
+                if (a->scope == RT_SCOPE_HOST || a->scope == RT_SCOPE_NOWHERE)
+                        continue;
+
+                r = sd_rtnl_message_addr_get_family(m, &a->family);
+                if (r < 0)
+                        return r;
+
+                switch (a->family) {
+
                 case AF_INET:
-                        r = sd_rtnl_message_read_in_addr(m, IFA_LOCAL, &address.in);
+                        r = sd_rtnl_message_read_in_addr(m, IFA_LOCAL, &a->address.in);
                         if (r < 0) {
-                                r = sd_rtnl_message_read_in_addr(m, IFA_ADDRESS, &address.in);
+                                r = sd_rtnl_message_read_in_addr(m, IFA_ADDRESS, &a->address.in);
                                 if (r < 0)
                                         continue;
                         }
                         break;
+
                 case AF_INET6:
-                        r = sd_rtnl_message_read_in6_addr(m, IFA_LOCAL, &address.in6);
+                        r = sd_rtnl_message_read_in6_addr(m, IFA_LOCAL, &a->address.in6);
                         if (r < 0) {
-                                r = sd_rtnl_message_read_in6_addr(m, IFA_ADDRESS, &address.in6);
+                                r = sd_rtnl_message_read_in6_addr(m, IFA_ADDRESS, &a->address.in6);
                                 if (r < 0)
                                         continue;
                         }
                         break;
+
                 default:
                         continue;
                 }
 
-                r = sd_rtnl_message_addr_get_ifindex(m, &ifindex);
+                r = sd_rtnl_message_addr_get_ifindex(m, &a->ifindex);
                 if (r < 0)
                         return r;
 
-                new_list = realloc(list, (n_list+1) * sizeof(struct address));
-                if (!new_list)
-                        return -ENOMEM;
-                else
-                        list = new_list;
-
-                assert_cc(sizeof(address) <= 16);
-
-                list[n_list].family = family;
-                list[n_list].scope = scope;
-                memcpy(list[n_list].address, &address, sizeof(address));
-                list[n_list].ifindex = ifindex;
-
                 n_list++;
-
-        } while ((m = sd_rtnl_message_next(m)));
+        };
 
         if (n_list)
                 qsort(list, n_list, sizeof(struct address), address_compare);
 
-        *_n_list = n_list;
         *_list = list;
         list = NULL;
+        *_n_list = n_list;
 
         return 0;
 }
