@@ -1247,7 +1247,8 @@ endif
 if HAVE_MICROHTTPD
 MANPAGES += \
 	man/systemd-journal-gatewayd.service.8 \
-	man/systemd-journal-remote.8
+	man/systemd-journal-remote.8 \
+	man/systemd-journal-upload.8
 MANPAGES_ALIAS += \
 	man/systemd-journal-gatewayd.8 \
 	man/systemd-journal-gatewayd.socket.8
@@ -1621,6 +1622,7 @@ EXTRA_DIST += \
 	man/systemd-initctl.service.xml \
 	man/systemd-journal-gatewayd.service.xml \
 	man/systemd-journal-remote.xml \
+	man/systemd-journal-upload.xml \
 	man/systemd-journald.service.xml \
 	man/systemd-localed.service.xml \
 	man/systemd-logind.service.xml \

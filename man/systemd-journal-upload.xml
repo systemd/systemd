@@ -1,0 +1,193 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+This file is part of systemd.
+
+Copyright 2014 Zbigniew Jędrzejewski-Szmek
+
+systemd is free software; you can redistribute it and/or modify it
+under the terms of the GNU Lesser General Public License as published by
+the Free Software Foundation; either version 2.1 of the License, or
+(at your option) any later version.
+
+systemd is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public License
+along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="systemd-journal-upload" conditional='HAVE_MICROHTTPD'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-journal-upload</title>
+    <productname>systemd</productname>
+
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Zbigniew</firstname>
+        <surname>Jędrzejewski-Szmek</surname>
+        <email>zbyszek@in.waw.pl</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-journal-upload</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-journal-upload</refname>
+    <refpurpose>Send journal messages over the network</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>systemd-journal-upload</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="opt" rep="norepeat">-u/--url=<replaceable>URL</replaceable></arg>
+      <arg choice="opt" rep="repeat">SOURCES</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>
+      <command>systemd-journal-upload</command> will upload journal
+      entries to the URL specified with <option>--url</option>. Unless
+      limited by one of the options specified below, all journal
+      entries accessible to the user the program is running as will be
+      uploaded, and then the program will wait and send new entries
+      as they become available.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>-u</option></term>
+        <term><option>--url=<optional>https://</optional><replaceable>URL</replaceable></option></term>
+        <term><option>--url=<optional>http://</optional><replaceable>URL</replaceable></option></term>
+
+        <listitem><para>Upload to the specified
+        address. <replaceable>URL</replaceable> may specify either
+        just the hostname or both the protocol and
+        hostname. <constant>https</constant> is the default.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--system</option></term>
+        <term><option>--user</option></term>
+
+        <listitem><para>Limit uploaded entries to entries from system
+        services and the kernel, or to entries from services of
+        current user. This has the same meaning as
+        <option>--system</option> and <option>--user</option> options
+        for
+        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>. If
+        neither is specified, all accessible entries are uploaded.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-m</option></term>
+        <term><option>--merge</option></term>
+
+        <listitem><para>Upload entries interleaved from all available
+        journals, including other machines. This has the same meaning
+        as <option>--merge</option> option for
+        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-D</option></term>
+        <term><option>--directory=<replaceable>DIR</replaceable></option></term>
+
+        <listitem><para>Takes a directory path as argument. Upload
+        entries from the specified journal directory
+        <replaceable>DIR</replaceable> instead of the default runtime
+        and system journal paths. This has the same meaning as
+        <option>--directory</option> option for
+        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--file=<replaceable>GLOB</replaceable></option></term>
+
+        <listitem><para>Takes a file glob as an argument. Upload
+        entries from the specified journal files matching
+        <replaceable>GLOB</replaceable> instead of the default runtime
+        and system journal paths. May be specified multiple times, in
+        which case files will be suitably interleaved. This has the same meaning as
+        <option>--file</option> option for
+        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--cursor=</option></term>
+
+        <listitem><para>Upload entries from the location in the
+        journal specified by the passed cursor. This has the same
+        meaning as <option>--cursor</option> option for
+        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--after-cursor=</option></term>
+
+        <listitem><para>Upload entries from the location in the
+        journal <emphasis>after</emphasis> the location specified by
+        the this cursor.  This has the same meaning as
+        <option>--after-cursor</option> option for
+        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+        </para></listitem>
+      </varlistentry>
+
+
+      <varlistentry>
+        <term><option>--save-state</option><optional>=<replaceable>PATH</replaceable></optional></term>
+
+        <listitem><para>Upload entries from the location in the
+        journal <emphasis>after</emphasis> the location specified by
+        the cursor saved in file at <replaceable>PATH</replaceable>
+        (<filename>/var/lib/systemd/journal-upload/state</filename> by default).
+        After an entry is successfully uploaded, update this file
+        with the cursor of that entry.
+        </para></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Exit status</title>
+
+    <para>On success, 0 is returned; otherwise, a non-zero
+    failure code is returned.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd-journal-remote</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-journal-gatewayd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+</refentry>

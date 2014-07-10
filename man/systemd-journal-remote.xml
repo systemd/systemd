@@ -44,14 +44,14 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
   <refnamediv>
     <refname>systemd-journal-remote</refname>
-    <refpurpose>Stream journal messages over the network</refpurpose>
+    <refpurpose>Receive journal messages over the network</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
     <cmdsynopsis>
       <command>systemd-journal-remote</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
-      <arg choice="opt" rep="norepeat">-o/--output=DIR|FILE</arg>
+      <arg choice="opt" rep="norepeat">-o/--output=<replaceable>DIR</replaceable>|<replaceable>FILE</replaceable></arg>
       <arg choice="opt" rep="repeat">SOURCES</arg>
     </cmdsynopsis>
   </refsynopsisdiv>
@@ -320,9 +320,10 @@ systemd-journal-remote --url http://some.host:19531/
   <refsect1>
     <title>See Also</title>
     <para>
+      <citerefentry><refentrytitle>systemd-journal-upload</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-journal-gatewayd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+      <citerefentry><refentrytitle>systemd-journal-gatewayd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     </para>
   </refsect1>
 </refentry>
