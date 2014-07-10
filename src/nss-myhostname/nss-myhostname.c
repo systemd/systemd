@@ -30,7 +30,7 @@
 #include <stdlib.h>
 #include <arpa/inet.h>
 
-#include "ifconf.h"
+#include "addresses.h"
 #include "macro.h"
 
 /* Ensure that glibc's assert is used. We cannot use assert from macro.h, as
@@ -137,7 +137,7 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
                 }
 
                 /* If this fails, n_addresses is 0. Which is fine */
-                ifconf_acquire_addresses(&addresses, &n_addresses);
+                acquire_addresses(&addresses, &n_addresses);
 
                 canonical = hn;
                 local_address_ipv4 = LOCALADDRESS_IPV4;
@@ -389,7 +389,7 @@ enum nss_status _nss_myhostname_gethostbyname3_r(
                         return NSS_STATUS_NOTFOUND;
                 }
 
-                ifconf_acquire_addresses(&addresses, &n_addresses);
+                acquire_addresses(&addresses, &n_addresses);
 
                 canonical = hn;
                 additional = n_addresses <= 0 && af == AF_INET6 ? "localhost" : NULL;
@@ -492,7 +492,7 @@ enum nss_status _nss_myhostname_gethostbyaddr2_r(
                 return NSS_STATUS_UNAVAIL;
         }
 
-        ifconf_acquire_addresses(&addresses, &n_addresses);
+        acquire_addresses(&addresses, &n_addresses);
 
         for (a = addresses, n = 0; n < n_addresses; n++, a++) {
                 if (af != a->family)

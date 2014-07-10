@@ -29,9 +29,8 @@
 #include "socket-util.h"
 
 struct address {
-        unsigned char family;
+        unsigned char family, scope;
         union in_addr_union address;
-        unsigned char scope;
         int ifindex;
 };
 
@@ -41,4 +40,4 @@ static inline size_t PROTO_ADDRESS_SIZE(int proto) {
         return proto == AF_INET6 ? 16 : 4;
 }
 
-int ifconf_acquire_addresses(struct address **_list, unsigned *_n_list);
+int acquire_addresses(struct address **_list, unsigned *_n_list);

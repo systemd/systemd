@@ -23,7 +23,7 @@
 #include "sd-rtnl.h"
 #include "rtnl-util.h"
 #include "macro.h"
-#include "ifconf.h"
+#include "addresses.h"
 
 static int address_compare(const void *_a, const void *_b) {
         const struct address *a = _a, *b = _b;
@@ -48,7 +48,7 @@ static int address_compare(const void *_a, const void *_b) {
         return 0;
 }
 
-int ifconf_acquire_addresses(struct address **_list, unsigned *_n_list) {
+int acquire_addresses(struct address **_list, unsigned *_n_list) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *reply = NULL;
         _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
         _cleanup_free_ struct address *list = NULL;

@@ -4398,8 +4398,8 @@ endif
 if HAVE_MYHOSTNAME
 libnss_myhostname_la_SOURCES = \
 	src/nss-myhostname/nss-myhostname.c \
-	src/nss-myhostname/ifconf.h \
-	src/nss-myhostname/netlink.c
+	src/nss-myhostname/addresses.h \
+	src/nss-myhostname/addresses.c
 
 libnss_myhostname_la_LDFLAGS = \
 	$(AM_LDFLAGS) \
