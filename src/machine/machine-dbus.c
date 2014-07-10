@@ -83,6 +83,31 @@ static int property_get_state(
         return 1;
 }
 
+static int property_get_netif(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Machine *m = userdata;
+        int r;
+
+        assert(bus);
+        assert(reply);
+        assert(m);
+
+        assert_cc(sizeof(int) == sizeof(int32_t));
+
+        r = sd_bus_message_append_array(reply, 'i', m->netif, m->n_netif * sizeof(int));
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_class, machine_class, MachineClass);
 
 int bus_machine_method_terminate(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -376,6 +401,7 @@ const sd_bus_vtable machine_vtable[] = {
         SD_BUS_PROPERTY("Leader", "u", NULL, offsetof(Machine, leader), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Class", "s", property_get_class, offsetof(Machine, class), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RootDirectory", "s", NULL, offsetof(Machine, root_directory), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("NetworkInterfaces", "ai", property_get_netif, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("State", "s", property_get_state, 0, 0),
         SD_BUS_METHOD("Terminate", NULL, NULL, bus_machine_method_terminate, SD_BUS_VTABLE_CAPABILITY(CAP_KILL)),
         SD_BUS_METHOD("Kill", "si", NULL, bus_machine_method_kill, SD_BUS_VTABLE_CAPABILITY(CAP_KILL)),

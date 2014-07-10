@@ -76,6 +76,9 @@ struct Machine {
 
         sd_bus_message *create_message;
 
+        int *netif;
+        unsigned n_netif;
+
         LIST_FIELDS(Machine, gc_queue);
 };
 

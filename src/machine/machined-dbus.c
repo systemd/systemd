@@ -151,14 +151,15 @@ static int method_list_machines(sd_bus *bus, sd_bus_message *message, void *user
         return sd_bus_send(bus, reply, NULL);
 }
 
-static int method_create_or_register_machine(Manager *manager, sd_bus_message *message, Machine **_m, sd_bus_error *error) {
+static int method_create_or_register_machine(Manager *manager, sd_bus_message *message, bool read_network, Machine **_m, sd_bus_error *error) {
         const char *name, *service, *class, *root_directory;
+        const int32_t *netif = NULL;
         MachineClass c;
         uint32_t leader;
         sd_id128_t id;
         const void *v;
         Machine *m;
-        size_t n;
+        size_t n, n_netif = 0;
         int r;
 
         assert(manager);
@@ -184,6 +185,21 @@ static int method_create_or_register_machine(Manager *manager, sd_bus_message *m
         r = sd_bus_message_read(message, "ssus", &service, &class, &leader, &root_directory);
         if (r < 0)
                 return r;
+
+        if (read_network) {
+                size_t i;
+
+                r = sd_bus_message_read_array(message, 'i', (const void**) &netif, &n_netif);
+                if (r < 0)
+                        return r;
+
+                n_netif /= sizeof(int32_t);
+
+                for (i = 0; i < n_netif; i++) {
+                        if (netif[i] <= 0)
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid network interface index %i", netif[i]);
+                }
+        }
 
         if (isempty(class))
                 c = _MACHINE_CLASS_INVALID;
@@ -240,6 +256,17 @@ static int method_create_or_register_machine(Manager *manager, sd_bus_message *m
                 }
         }
 
+        if (n_netif > 0) {
+                assert_cc(sizeof(int32_t) == sizeof(int));
+                m->netif = memdup(netif, sizeof(int32_t) * n_netif);
+                if (!m->netif) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+
+                m->n_netif = n_netif;
+        }
+
         *_m = m;
 
         return 1;
@@ -249,12 +276,12 @@ fail:
         return r;
 }
 
-static int method_create_machine(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_create_machine_internal(sd_bus *bus, sd_bus_message *message, bool read_network, void *userdata, sd_bus_error *error) {
         Manager *manager = userdata;
         Machine *m = NULL;
         int r;
 
-        r = method_create_or_register_machine(manager, message, &m, error);
+        r = method_create_or_register_machine(manager, message, read_network, &m, error);
         if (r < 0)
                 return r;
 
@@ -274,13 +301,21 @@ fail:
         return r;
 }
 
-static int method_register_machine(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_create_machine_with_network(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return method_create_machine_internal(bus, message, true, userdata, error);
+}
+
+static int method_create_machine(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return method_create_machine_internal(bus, message, false, userdata, error);
+}
+
+static int method_register_machine_internal(sd_bus *bus, sd_bus_message *message, bool read_network, void *userdata, sd_bus_error *error) {
         Manager *manager = userdata;
         _cleanup_free_ char *p = NULL;
         Machine *m = NULL;
         int r;
 
-        r = method_create_or_register_machine(manager, message, &m, error);
+        r = method_create_or_register_machine(manager, message, read_network, &m, error);
         if (r < 0)
                 return r;
 
@@ -307,6 +342,14 @@ static int method_register_machine(sd_bus *bus, sd_bus_message *message, void *u
 fail:
         machine_add_to_gc_queue(m);
         return r;
+}
+
+static int method_register_machine_with_network(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return method_register_machine_internal(bus, message, true, userdata, error);
+}
+
+static int method_register_machine(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return method_register_machine_internal(bus, message, false, userdata, error);
 }
 
 static int method_terminate_machine(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -400,6 +443,8 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_METHOD("ListMachines", NULL, "a(ssso)", method_list_machines, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("CreateMachine", "sayssusa(sv)", "o", method_create_machine, 0),
         SD_BUS_METHOD("RegisterMachine", "sayssus", "o", method_register_machine, 0),
+        SD_BUS_METHOD("CreateMachineWithNetwork", "sayssusaia(sv)", "o", method_create_machine_with_network, 0),
+        SD_BUS_METHOD("RegisterMachineWithNetwork", "sayssusai", "o", method_register_machine_with_network, 0),
         SD_BUS_METHOD("KillMachine", "ssi", NULL, method_kill_machine, SD_BUS_VTABLE_CAPABILITY(CAP_KILL)),
         SD_BUS_METHOD("TerminateMachine", "s", NULL, method_terminate_machine, SD_BUS_VTABLE_CAPABILITY(CAP_KILL)),
         SD_BUS_METHOD("GetMachineAddresses", "s", "a(yay)", method_get_machine_addresses, SD_BUS_VTABLE_UNPRIVILEGED),

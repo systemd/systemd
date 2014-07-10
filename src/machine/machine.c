@@ -94,6 +94,7 @@ void machine_free(Machine *m) {
         free(m->state_file);
         free(m->service);
         free(m->root_directory);
+        free(m->netif);
         free(m);
 }
 
@@ -176,6 +177,21 @@ int machine_save(Machine *m) {
                         m->timestamp.realtime,
                         m->timestamp.monotonic);
 
+        if (m->n_netif > 0) {
+                unsigned i;
+
+                fputs("NETIF=", f);
+
+                for (i = 0; i < m->n_netif; i++) {
+                        if (i != 0)
+                                fputc(' ', f);
+
+                        fprintf(f, "%i", m->netif[i]);
+                }
+
+                fputc('\n', f);
+        }
+
         r = fflush_and_check(f);
         if (r < 0)
                 goto finish;
@@ -222,7 +238,7 @@ static void machine_unlink(Machine *m) {
 }
 
 int machine_load(Machine *m) {
-        _cleanup_free_ char *realtime = NULL, *monotonic = NULL, *id = NULL, *leader = NULL, *class = NULL;
+        _cleanup_free_ char *realtime = NULL, *monotonic = NULL, *id = NULL, *leader = NULL, *class = NULL, *netif = NULL;
         int r;
 
         assert(m);
@@ -237,6 +253,7 @@ int machine_load(Machine *m) {
                            "CLASS",     &class,
                            "REALTIME",  &realtime,
                            "MONOTONIC", &monotonic,
+                           "NETIF",     &netif,
                            NULL);
         if (r < 0) {
                 if (r == -ENOENT)
@@ -270,6 +287,35 @@ int machine_load(Machine *m) {
                 unsigned long long l;
                 if (sscanf(monotonic, "%llu", &l) > 0)
                         m->timestamp.monotonic = l;
+        }
+
+        if (netif) {
+                size_t l, allocated = 0, nr = 0;
+                char *w, *state;
+                int *ni = NULL;
+
+                FOREACH_WORD(w, l, netif, state) {
+                        char buf[l+1];
+                        int ifi;
+
+                        *(char*) (mempcpy(buf, w, l)) = 0;
+
+                        if (safe_atoi(buf, &ifi) < 0)
+                                continue;
+                        if (ifi <= 0)
+                                continue;
+
+                        if (!GREEDY_REALLOC(ni, allocated, nr+1)) {
+                                free(ni);
+                                return log_oom();
+                        }
+
+                        ni[nr++] = ifi;
+                }
+
+                free(m->netif);
+                m->netif = ni;
+                m->n_netif = nr;
         }
 
         return r;
