@@ -396,7 +396,13 @@ static int setup_uploader(Uploader *u, const char *url, const char *state_file) 
         memzero(u, sizeof(Uploader));
         u->input = -1;
 
-        u->url = url;
+        if (!startswith(url, "http://") && !startswith(url, "https://"))
+                url = strappenda("https://", url);
+
+        u->url = strappend(url, "/upload");
+        if (!u->url)
+                return log_oom();
+
         u->state_file = state_file;
 
         r = sd_event_default(&u->events);
@@ -423,6 +429,8 @@ static void destroy_uploader(Uploader *u) {
 
         free(u->last_cursor);
         free(u->current_cursor);
+
+        free(u->url);
 
         u->input_event = sd_event_source_unref(u->input_event);
 

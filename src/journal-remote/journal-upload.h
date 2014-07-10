@@ -23,7 +23,7 @@ typedef struct Uploader {
         sd_event *events;
         sd_event_source *sigint_event, *sigterm_event;
 
-        const char *url;
+        char *url;
         CURL *easy;
         bool uploading;
         char error[CURL_ERROR_SIZE];
