@@ -62,12 +62,14 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <para>
       <filename>systemd-journal-remote</filename> is a command to
       receive serialized journal events and store them to the journal.
-      Input streams must be in the
+      Input streams are in the
       <ulink url="http://www.freedesktop.org/wiki/Software/systemd/export">
         Journal Export Format
       </ulink>,
       i.e. like the output from
-      <command>journalctl --output=export</command>.
+      <command>journalctl --output=export</command>. For transport over
+      the network, this serialized stream is usually carried over an
+      HTTPS connection.
     </para>
   </refsect1>
 
@@ -184,17 +186,18 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <title>Sinks</title>
 
     <para>The location of the output journal can be specified
-    with <option>-o</option> or <option>--output=</option>.
+    with <option>-o</option> or <option>--output=</option>. For "active"
+    sources, this option is required.
     </para>
 
     <variablelist>
       <varlistentry>
         <term><option>--output=<replaceable>FILE</replaceable></option></term>
 
-        <listitem><para>Will write to this journal. The filename must
-        end with <filename>.journal</filename>. The file will be
-        created if it does not exist. If necessary (journal file
-        full, or corrupted), the file will be renamed following normal
+        <listitem><para>Will write to this journal file. The filename
+        must end with <filename>.journal</filename>. The file will be
+        created if it does not exist. If necessary (journal file full,
+        or corrupted), the file will be renamed following normal
         journald rules and a new journal file will be created in its
         stead.</para></listitem>
       </varlistentry>
@@ -211,24 +214,18 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       </varlistentry>
     </variablelist>
 
-    <para>If <option>--output=</option> is not used, the output directory
-    <filename>/var/log/journal/<replaceable>machine-id</replaceable>/</filename>
-    will be used, where <replaceable>machine-id</replaceable> is the
-    identifier of the current system (see
-    <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
-    In case the output file is not specified, journal files will be
-    created underneath the selected directory. Files will be called
-    <filename>remote-<replaceable>variable</replaceable>.journal</filename>,
-    where the <replaceable>variable</replaceable> part is generated
-    based on what passive and active sources are specified. It is
-    recommended to give a full output filename.</para>
+    <para>If <option>--output=</option> is not used, the output
+    directory <filename>/var/log/journal/remote/</filename> will be
+    used.  In case the output file is not specified, journal files
+    will be created underneath the selected directory. Files will be
+    called
+    <filename>remote-<replaceable>hostname</replaceable>.journal</filename>,
+    where the <replaceable>hostname</replaceable> part is is the
+    escaped hostname of the source endpoint of the connection, or the
+    numerical address if the hostname cannot be determined.</para>
 
-    <para>In case of "active" sources, if the hostname is known, it
-    will be used in the <replaceable>variable</replaceable> part.
-    Otherwise, local address and port number will be used, or
-    <literal>stdin</literal> for events passed over standard
-    input, and <literal>multiple</literal> if more than one source
-    is specified.</para>
+    <para>In case of "active" sources, the output file name must
+    always be given explicitly.</para>
   </refsect1>
 
   <refsect1>
