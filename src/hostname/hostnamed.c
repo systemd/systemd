@@ -22,7 +22,6 @@
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
-#include <dlfcn.h>
 #include <sys/utsname.h>
 
 #include "util.h"
@@ -123,18 +122,6 @@ static int context_read_data(Context *c) {
                 return r;
 
         return 0;
-}
-
-static bool check_nss(void) {
-        void *dl;
-
-        dl = dlopen("libnss_myhostname.so.2", RTLD_LAZY);
-        if (dl) {
-                dlclose(dl);
-                return true;
-        }
-
-        return false;
 }
 
 static bool valid_chassis(const char *chassis) {
@@ -707,9 +694,6 @@ int main(int argc, char *argv[]) {
                 r = -EINVAL;
                 goto finish;
         }
-
-        if (!check_nss())
-                log_warning("Warning: nss-myhostname is not installed. Changing the local hostname might make it unresolveable. Please install nss-myhostname!");
 
         if (argc != 1) {
                 log_error("This program takes no arguments.");
