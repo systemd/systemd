@@ -39,6 +39,7 @@ _hostnamectl() {
                 [STANDALONE]='status'
                      [ICONS]='set-icon-name'
                       [NAME]='set-hostname'
+                   [CHASSIS]='set-chassis'
         )
 
         for ((i=0; i < COMP_CWORD; i++)); do
@@ -50,6 +51,8 @@ _hostnamectl() {
 
         if [[ -z $verb ]]; then
                 comps=${VERBS[*]}
+        elif __contains_word "$verb" ${VERBS[CHASSIS]}; then
+                comps='desktop laptop server tablet handset watch vm container'
         elif __contains_word "$verb" ${VERBS[STANDALONE]} ${VERBS[ICONS]} ${VERBS[NAME]}; then
                 comps=''
         fi

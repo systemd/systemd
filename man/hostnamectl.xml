@@ -146,13 +146,14 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>set-hostname [NAME]</command></term>
+                                <term><command>set-hostname <replaceable>NAME</replaceable></command></term>
 
                                 <listitem><para>Set the system
-                                hostname. By default, this will alter
-                                the pretty, the static, and the
-                                transient hostname alike; however, if
-                                one or more of
+                                hostname to
+                                <replaceable>NAME</replaceable>. By
+                                default, this will alter the pretty,
+                                the static, and the transient hostname
+                                alike; however, if one or more of
                                 <option>--static</option>,
                                 <option>--transient</option>,
                                 <option>--pretty</option> are used,
@@ -173,55 +174,61 @@
                                 the hostname string is not done if
                                 only the transient and/or static host
                                 names are set, and the pretty host
-                                name is left untouched. Pass the empty
-                                string <literal></literal> as the
-                                hostname to reset the selected
-                                hostnames to their default (usually
+                                name is left untouched.</para>
+
+                                <para>Pass the empty string
+                                <literal></literal> as the hostname to
+                                reset the selected hostnames to their
+                                default (usually
                                 <literal>localhost</literal>).</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>set-icon-name [NAME]</command></term>
+                                <term><command>set-icon-name <replaceable>NAME</replaceable></command></term>
 
                                 <listitem><para>Set the system icon
-                                name. The icon name is used by some
-                                graphical applications to visualize
-                                this host. The icon name should follow
-                                the <ulink
+                                name to
+                                <replaceable>NAME</replaceable>. The
+                                icon name is used by some graphical
+                                applications to visualize this host.
+                                The icon name should follow the <ulink
                                 url="http://standards.freedesktop.org/icon-naming-spec/icon-naming-spec-latest.html">Icon
-                                Naming Specification</ulink>. Pass an
-                                empty string to this operation to
-                                reset the icon name to the default
-                                value, which is determined from chassis
-                                type (see below) and possibly other
+                                Naming Specification</ulink>.</para>
+
+                                <para>Pass an empty string to reset
+                                the icon name to the default value,
+                                which is determined from chassis type
+                                (see below) and possibly other
                                 parameters.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>set-chassis [TYPE]</command></term>
+                                <term><command>set-chassis <replaceable>TYPE</replaceable></command></term>
 
-                                <listitem><para>Set the chassis
-                                type. The chassis type is used by some
+                                <listitem><para>Set the chassis type
+                                to <replaceable>TYPE</replaceable>.
+                                The chassis type is used by some
                                 graphical applications to visualize
-                                the host or alter user
-                                interaction. Currently, the following
-                                chassis types are defined:
+                                the host or alter user interaction.
+                                Currently, the following chassis types
+                                are defined:
                                 <literal>desktop</literal>,
                                 <literal>laptop</literal>,
                                 <literal>server</literal>,
                                 <literal>tablet</literal>,
-				<literal>handset</literal>,
-				<literal>watch</literal>, as well as
+                                <literal>handset</literal>,
+                                <literal>watch</literal>, as well as
                                 the special chassis types
                                 <literal>vm</literal> and
                                 <literal>container</literal> for
                                 virtualized systems that lack an
-                                immediate physical chassis. Pass an
-                                empty string to this operation to
-                                reset the chassis type to the default
-                                value which is determined from the
-                                firmware and possibly other
-                                parameters.</para></listitem>
+                                immediate physical chassis.</para>
+
+                                <para>Pass an empty string to reset
+                                the chassis type to the default value
+                                which is determined from the firmware
+                                and possibly other parameters.</para>
+                                </listitem>
                         </varlistentry>
 
                 </variablelist>

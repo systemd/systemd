@@ -22,8 +22,8 @@ _localectl_set-locale() {
 
 _localectl_set-keymap() {
     local -a _keymaps
-    _keymaps=( ${(f)"$(_call_program locales "$service" list-keymaps)"} )
     if (( CURRENT <= 3 )); then
+        _keymaps=( ${(f)"$(_call_program locales "$service" list-keymaps)"} )
         _describe keymaps _keymaps
     else
         _message "no more options"
@@ -77,7 +77,7 @@ _localectl_command() {
         if (( $+functions[_localectl_$cmd] )); then
             _localectl_$cmd
         else
-            _message "no more options"
+            _message "unknown localectl command: $words[1]"
         fi
     fi
 }

@@ -1,5 +1,30 @@
 #compdef hostnamectl
 
+_hostnamectl_set-hostname() {
+    if (( CURRENT <= 3 )); then
+        _message "new hostname"
+    else
+        _message "no more options"
+    fi
+}
+
+_hostnamectl_set-icon-name() {
+    if (( CURRENT <= 3 )); then
+        _message "new icon name"
+    else
+        _message "no more options"
+    fi
+}
+
+_hostnamectl_set-chassis() {
+    if (( CURRENT <= 3 )); then
+        _chassis=( desktop laptop server tablet handset watch vm container )
+        _describe chassis _chassis
+    else
+        _message "no more options"
+    fi
+}
+
 _hostnamectl_command() {
     local -a _hostnamectl_cmds
     _hostnamectl_cmds=(
@@ -14,8 +39,11 @@ _hostnamectl_command() {
         local curcontext="$curcontext"
         cmd="${${_hostnamectl_cmds[(r)$words[1]:*]%%:*}}"
         if (( $#cmd )); then
-            [[ $cmd == status ]] && msg="no options" || msg="options for $cmd"
-            _message "$msg"
+            if [[ $cmd == status ]]; then
+                _message "no options"
+            else
+                _hostnamectl_$cmd
+            fi
         else
             _message "unknown hostnamectl command: $words[1]"
         fi
