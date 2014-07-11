@@ -448,7 +448,7 @@
                                 service. <option>kmsg</option>
                                 connects it with the kernel log buffer
                                 which is accessible via
-                                <citerefentry><refentrytitle>dmesg</refentrytitle><manvolnum>1</manvolnum></citerefentry>. <option>journal</option>
+                                <citerefentry project='man-pages'><refentrytitle>dmesg</refentrytitle><manvolnum>1</manvolnum></citerefentry>. <option>journal</option>
                                 connects it with the journal which is
                                 accessible via
                                 <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
