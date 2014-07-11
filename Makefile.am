@@ -3667,9 +3667,11 @@ tests += \
 	test-mmap-cache \
 	test-catalog
 
+if HAVE_COMPRESSION
 tests += \
 	test-compress \
 	test-compress-benchmark
+endif
 
 pkginclude_HEADERS += \
 	src/systemd/sd-journal.h \

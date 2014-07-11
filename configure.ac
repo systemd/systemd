@@ -520,6 +520,8 @@ AS_IF([test "x$enable_lz4" == "xyes"], [
 ])
 AM_CONDITIONAL(HAVE_LZ4, [test "$have_lz4" = "yes"])
 
+AM_CONDITIONAL(HAVE_COMPRESSION, [test "$have_xz" = "yes" -o "$have_lz4" = "yes"])
+
 # ------------------------------------------------------------------------------
 AC_ARG_ENABLE([pam],
         AS_HELP_STRING([--disable-pam],[Disable optional PAM support]),

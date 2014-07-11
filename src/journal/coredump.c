@@ -402,9 +402,9 @@ static int save_external_coredump(
         fail_compressed:
                 unlink_noerrno(tmp_compressed);
         }
-#endif
 
 uncompressed:
+#endif
         r = fix_permissions(fd, tmp, fn, info, uid);
         if (r < 0)
                 goto fail;

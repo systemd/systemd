@@ -343,6 +343,7 @@ int decompress_startswith(int compression,
 }
 
 int compress_stream_xz(int fdf, int fdt, off_t max_bytes) {
+#ifdef HAVE_XZ
         _cleanup_(lzma_end) lzma_stream s = LZMA_STREAM_INIT;
         lzma_ret ret;
 
@@ -414,6 +415,9 @@ int compress_stream_xz(int fdf, int fdt, off_t max_bytes) {
                         }
                 }
         }
+#else
+        return -EPROTONOSUPPORT;
+#endif
 }
 
 #define LZ4_BUFSIZE (512*1024)

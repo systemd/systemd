@@ -819,6 +819,7 @@ int journal_file_find_data_object_with_hash(
                         goto next;
 
                 if (o->object.flags & OBJECT_COMPRESSION_MASK) {
+#if defined(HAVE_XZ) || defined(HAVE_LZ4)
                         uint64_t l, rsize;
 
                         l = le64toh(o->object.size);
@@ -843,7 +844,9 @@ int journal_file_find_data_object_with_hash(
 
                                 return 1;
                         }
-
+#else
+                        return -EPROTONOSUPPORT;
+#endif
                 } else if (le64toh(o->object.size) == osize &&
                            memcmp(o->data.payload, data, size) == 0) {
 
@@ -2772,6 +2775,7 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
                         return -E2BIG;
 
                 if (o->object.flags & OBJECT_COMPRESSION_MASK) {
+#if defined(HAVE_XZ) || defined(HAVE_LZ4)
                         uint64_t rsize;
 
                         r = decompress_blob(o->object.flags & OBJECT_COMPRESSION_MASK,
@@ -2781,6 +2785,9 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
 
                         data = from->compress_buffer;
                         l = rsize;
+#else
+                        return -EPROTONOSUPPORT;
+#endif
                 } else
                         data = o->data.payload;
 
