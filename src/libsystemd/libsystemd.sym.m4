@@ -440,5 +440,9 @@ global:
         sd_resolve_query_get_userdata;
         sd_resolve_query_set_userdata;
         sd_resolve_query_get_resolve;
+
+        /* sd-path */
+        sd_path_home;
+        sd_path_search;
 } LIBSYSTEMD_214;
 )

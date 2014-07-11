@@ -326,7 +326,7 @@ static int get_path(uint64_t type, char **buffer, const char **ret) {
         return -ENOTSUP;
 }
 
-int sd_path_home(uint64_t type, const char *suffix, char **path) {
+_public_ int sd_path_home(uint64_t type, const char *suffix, char **path) {
         char *buffer = NULL, *cc;
         const char *ret;
         int r;
@@ -555,7 +555,7 @@ static int get_search(uint64_t type, char ***list) {
         return -ENOTSUP;
 }
 
-int sd_path_search(uint64_t type, const char *suffix, char ***paths) {
+_public_ int sd_path_search(uint64_t type, const char *suffix, char ***paths) {
         char **l, **i, **j, **n;
         int r;
 

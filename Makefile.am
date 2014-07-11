@@ -5640,7 +5640,8 @@ test-libsystemd-sym.c: \
 		src/systemd/sd-login.h \
 		src/systemd/sd-bus.h \
 		src/systemd/sd-utf8.h \
-		src/systemd/sd-resolve.h
+		src/systemd/sd-resolve.h \
+		src/systemd/sd-path.h
 	$(generate-sym-test)
 
 test-libudev-sym.c: \
