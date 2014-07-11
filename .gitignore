@@ -8,6 +8,7 @@
 *.plist
 *.pyc
 *.stamp
+*.swp
 *.trs
 *~
 .deps/
