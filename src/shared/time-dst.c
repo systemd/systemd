@@ -207,8 +207,8 @@ read_again:
                 if (type_idxs[i] >= num_types)
                         return -EINVAL;
 
-        if (BYTE_ORDER == BIG_ENDIAN ? sizeof(time_t) == 8 && trans_width == 4
-                                     : sizeof(time_t) == 4 || trans_width == 4) {
+        if (__BYTE_ORDER == __BIG_ENDIAN ? sizeof(time_t) == 8 && trans_width == 4
+                                         : sizeof(time_t) == 4 || trans_width == 4) {
                 /* Decode the transition times, stored as 4-byte integers in
                    network (big-endian) byte order.  We work from the end of
                    the array so as not to clobber the next element to be
@@ -216,7 +216,7 @@ read_again:
                 i = num_transitions;
                 while (i-- > 0)
                         transitions[i] = decode((char *)transitions + i * 4);
-        } else if (BYTE_ORDER != BIG_ENDIAN && sizeof(time_t) == 8) {
+        } else if (__BYTE_ORDER != __BIG_ENDIAN && sizeof(time_t) == 8) {
                 /* Decode the transition times, stored as 8-byte integers in
                    network (big-endian) byte order.  */
                 for (i = 0; i < num_transitions; ++i)
