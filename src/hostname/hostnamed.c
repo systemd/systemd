@@ -336,7 +336,8 @@ static int context_write_data_machine_info(Context *c) {
                 return r;
 
         for (p = PROP_PRETTY_HOSTNAME; p <= PROP_DEPLOYMENT; p++) {
-                char *t, **u;
+                _cleanup_free_ char *t = NULL;
+                char **u;
 
                 assert(name[p]);
 
@@ -345,12 +346,11 @@ static int context_write_data_machine_info(Context *c) {
                         continue;
                 }
 
-                if (asprintf(&t, "%s=%s", name[p], strempty(c->data[p])) < 0)
+                t = strjoin(name[p], "=", c->data[p], NULL);
+                if (!t)
                         return -ENOMEM;
 
                 u = strv_env_set(l, t);
-                free(t);
-
                 if (!u)
                         return -ENOMEM;
 
@@ -359,7 +359,6 @@ static int context_write_data_machine_info(Context *c) {
         }
 
         if (strv_isempty(l)) {
-
                 if (unlink("/etc/machine-info") < 0)
                         return errno == ENOENT ? 0 : -errno;
 
