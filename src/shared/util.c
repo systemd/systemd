@@ -5419,7 +5419,7 @@ bool string_has_cc(const char *p, const char *ok) {
 
         for (t = p; *t; t++) {
                 if (ok && strchr(ok, *t))
-                        return false;
+                        continue;
 
                 if (*t > 0 && *t < ' ')
                         return true;

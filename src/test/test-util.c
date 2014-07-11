@@ -731,6 +731,20 @@ static void test_filename_is_safe(void) {
         assert_se(filename_is_safe("o.o"));
 }
 
+static void test_string_has_cc(void) {
+        assert_se(string_has_cc("abc\1", NULL));
+        assert_se(string_has_cc("abc\x7f", NULL));
+        assert_se(string_has_cc("abc\x7f", NULL));
+        assert_se(string_has_cc("abc\t\x7f", "\t"));
+        assert_se(string_has_cc("abc\t\x7f", "\t"));
+        assert_se(string_has_cc("\x7f", "\t"));
+        assert_se(string_has_cc("\x7f", "\t\a"));
+
+        assert_se(!string_has_cc("abc\t\t", "\t"));
+        assert_se(!string_has_cc("abc\t\t\a", "\t\a"));
+        assert_se(!string_has_cc("a\ab\tc", "\t\a"));
+}
+
 static void test_ascii_strlower(void) {
         char a[] = "AabBcC Jk Ii Od LKJJJ kkd LK";
         assert_se(streq(ascii_strlower(a), "aabbcc jk ii od lkjjj kkd lk"));
@@ -937,6 +951,7 @@ int main(int argc, char *argv[]) {
         test_log2i();
         test_foreach_string();
         test_filename_is_safe();
+        test_string_has_cc();
         test_ascii_strlower();
         test_files_same();
         test_is_valid_documentation_url();
