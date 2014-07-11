@@ -21,6 +21,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <endian.h>
+
 #include "util.h"
 
 /* A cleaned up architecture definition. We don't want to get lost in

@@ -19,6 +19,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <endian.h>
+
 #include "sd-id128.h"
 
 /* We only support root disk discovery for x86, x86-64 and ARM for
