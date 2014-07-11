@@ -184,9 +184,8 @@ static enum nss_status fill_in_hostent(
                 int32_t *ttlp,
                 char **canonp) {
 
-        size_t l_canonical, l_additional, idx, ms;
+        size_t l_canonical, l_additional, idx, ms, alen;
         char *r_addr, *r_name, *r_aliases, *r_alias = NULL, *r_addr_list;
-        size_t alen;
         struct local_address *a;
         unsigned n, c;
 
@@ -208,7 +207,7 @@ static enum nss_status fill_in_hostent(
                 (additional ? ALIGN(l_additional+1) : 0) +
                 sizeof(char*) +
                 (additional ? sizeof(char*) : 0) +
-                (c > 0 ? c : 1) * ALIGN(alen)+
+                (c > 0 ? c : 1) * ALIGN(alen) +
                 (c > 0 ? c+1 : 2) * sizeof(char*);
 
         if (buflen < ms) {
@@ -266,24 +265,18 @@ static enum nss_status fill_in_hostent(
         /* Fourth, add address pointer array */
         r_addr_list = buffer + idx;
         if (c > 0) {
-                unsigned i = 0;
+                unsigned i;
 
-                for (a = addresses, n = 0; n < n_addresses; a++, n++) {
-                        if (af != a->family)
-                                continue;
+                for (i = 0; i < c; i++)
+                        ((char**) r_addr_list)[i] = r_addr + i*ALIGN(alen);
 
-                        ((char**) r_addr_list)[i] = (r_addr + i*ALIGN(alen));
-                        i++;
-                }
-
-                assert(i == c);
-                ((char**) r_addr_list)[c] = NULL;
-                idx += (c+1)*sizeof(char*);
+                ((char**) r_addr_list)[i] = NULL;
+                idx += (c+1) * sizeof(char*);
 
         } else {
                 ((char**) r_addr_list)[0] = r_addr;
                 ((char**) r_addr_list)[1] = NULL;
-                idx += 2*sizeof(char*);
+                idx += 2 * sizeof(char*);
         }
 
         /* Verify the size matches */
