@@ -412,7 +412,6 @@ dist_sysctl_DATA = \
 dist_systemunit_DATA = \
 	units/graphical.target \
 	units/multi-user.target \
-	units/emergency.service \
 	units/emergency.target \
 	units/sysinit.target \
 	units/basic.target \
