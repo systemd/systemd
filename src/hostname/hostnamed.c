@@ -155,7 +155,7 @@ static bool valid_chassis(const char *chassis) {
 static bool valid_deployment(const char *deployment) {
         assert(deployment);
 
-        return strspn(deployment, VALID_DEPLOYMENT_CHARS) == strlen(deployment);
+        return in_charset(deployment, VALID_DEPLOYMENT_CHARS);
 }
 
 static const char* fallback_chassis(void) {
