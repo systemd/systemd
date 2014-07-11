@@ -319,6 +319,21 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>x-systemd.device-timeout=</option></term>
+
+                                <listitem><para>Specifies how long
+                                systemd should wait for a device to
+                                show up before giving up on the
+                                entry. The argument is a time in
+                                seconds or explicitly specifified
+                                units of <literal>s</literal>,
+                                <literal>min</literal>,
+                                <literal>h</literal>,
+                                <literal>ms</literal>.
+                                </para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>tmp</option></term>
 
                                 <listitem><para>The encrypted block device will
