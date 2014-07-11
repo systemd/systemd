@@ -395,8 +395,8 @@
                                 forwarding to syslog is enabled but no
                                 syslog daemon is running, the
                                 respective option has no effect. By
-                                default, only forwarding to syslog and
-                                wall is enabled. These settings may be
+                                default, only forwarding wall is
+                                enabled. These settings may be
                                 overridden at boot time with the
                                 kernel command line options
                                 <literal>systemd.journald.forward_to_syslog=</literal>,
@@ -405,9 +405,9 @@
                                 and
                                 <literal>systemd.journald.forward_to_wall=</literal>.
                                 When forwarding to the console, the
-                                TTY to log to can be changed
-                                with <varname>TTYPath=</varname>,
-                                described below.</para></listitem>
+                                TTY to log to can be changed with
+                                <varname>TTYPath=</varname>, described
+                                below.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
