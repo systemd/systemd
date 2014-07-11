@@ -204,6 +204,7 @@
 /test-path-util
 /test-prioq
 /test-ratelimit
+/test-pty
 /test-replace-var
 /test-resolve
 /test-ring

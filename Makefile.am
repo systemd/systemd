@@ -843,6 +843,8 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/ring.h \
 	src/shared/barrier.c \
 	src/shared/barrier.h \
+	src/shared/pty.c \
+	src/shared/pty.h \
 	src/shared/async.c \
 	src/shared/async.h \
 	src/shared/copy.c \
@@ -1252,6 +1254,7 @@ tests += \
 	test-util \
 	test-ring \
 	test-barrier \
+	test-pty \
 	test-tmpfiles \
 	test-namespace \
 	test-date \
@@ -1426,6 +1429,12 @@ test_barrier_SOURCES = \
 	src/test/test-barrier.c
 
 test_barrier_LDADD = \
+	libsystemd-core.la
+
+test_pty_SOURCES = \
+	src/test/test-pty.c
+
+test_pty_LDADD = \
 	libsystemd-core.la
 
 test_tmpfiles_SOURCES = \
