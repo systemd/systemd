@@ -43,6 +43,7 @@ enum {
         PROP_ICON_NAME,
         PROP_CHASSIS,
         PROP_DEPLOYMENT,
+        PROP_LOCATION,
         PROP_KERNEL_NAME,
         PROP_KERNEL_RELEASE,
         PROP_KERNEL_VERSION,
@@ -103,6 +104,7 @@ static int context_read_data(Context *c) {
                            "ICON_NAME", &c->data[PROP_ICON_NAME],
                            "CHASSIS", &c->data[PROP_CHASSIS],
                            "DEPLOYMENT", &c->data[PROP_DEPLOYMENT],
+                           "LOCATION", &c->data[PROP_LOCATION],
                            NULL);
         if (r < 0 && r != -ENOENT)
                 return r;
@@ -311,6 +313,7 @@ static int context_write_data_machine_info(Context *c) {
                 [PROP_ICON_NAME] = "ICON_NAME",
                 [PROP_CHASSIS] = "CHASSIS",
                 [PROP_DEPLOYMENT] = "DEPLOYMENT",
+                [PROP_LOCATION] = "LOCATION",
         };
 
         _cleanup_strv_free_ char **l = NULL;
@@ -322,7 +325,7 @@ static int context_write_data_machine_info(Context *c) {
         if (r < 0 && r != -ENOENT)
                 return r;
 
-        for (p = PROP_PRETTY_HOSTNAME; p <= PROP_DEPLOYMENT; p++) {
+        for (p = PROP_PRETTY_HOSTNAME; p <= PROP_LOCATION; p++) {
                 _cleanup_free_ char *t = NULL;
                 char **u;
 
@@ -395,23 +398,6 @@ static int property_get_chassis(
                 name = fallback_chassis();
         else
                 name = c->data[PROP_CHASSIS];
-
-        return sd_bus_message_append(reply, "s", name);
-}
-
-static int property_get_deployment(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Context *c = userdata;
-        const char *name;
-
-        name = c->data[PROP_DEPLOYMENT];
 
         return sd_bus_message_append(reply, "s", name);
 }
@@ -571,6 +557,8 @@ static int set_machine_info(Context *c, sd_bus *bus, sd_bus_message *m, int prop
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid chassis '%s'", name);
                 if (prop == PROP_DEPLOYMENT && !valid_deployment(name))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid deployment '%s'", name);
+                if (prop == PROP_LOCATION && string_has_cc(name, NULL))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid location '%s'", name);
 
                 h = strdup(name);
                 if (!h)
@@ -589,11 +577,13 @@ static int set_machine_info(Context *c, sd_bus *bus, sd_bus_message *m, int prop
         log_info("Changed %s to '%s'",
                  prop == PROP_PRETTY_HOSTNAME ? "pretty host name" :
                  prop == PROP_DEPLOYMENT ? "deployment" :
+                 prop == PROP_LOCATION ? "location" :
                  prop == PROP_CHASSIS ? "chassis" : "icon name", strna(c->data[prop]));
 
         sd_bus_emit_properties_changed(bus, "/org/freedesktop/hostname1", "org.freedesktop.hostname1",
                                        prop == PROP_PRETTY_HOSTNAME ? "PrettyHostname" :
                                        prop == PROP_DEPLOYMENT ? "Deployment" :
+                                       prop == PROP_LOCATION ? "Location" :
                                        prop == PROP_CHASSIS ? "Chassis" : "IconName" , NULL);
 
         return sd_bus_reply_method_return(m, NULL);
@@ -615,6 +605,10 @@ static int method_set_deployment(sd_bus *bus, sd_bus_message *m, void *userdata,
         return set_machine_info(userdata, bus, m, PROP_DEPLOYMENT, method_set_deployment, error);
 }
 
+static int method_set_location(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        return set_machine_info(userdata, bus, m, PROP_LOCATION, method_set_location, error);
+}
+
 static const sd_bus_vtable hostname_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Hostname", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_HOSTNAME, 0),
@@ -622,7 +616,8 @@ static const sd_bus_vtable hostname_vtable[] = {
         SD_BUS_PROPERTY("PrettyHostname", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_PRETTY_HOSTNAME, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("IconName", "s", property_get_icon_name, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Chassis", "s", property_get_chassis, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("Deployment", "s", property_get_deployment, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("Deployment", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_DEPLOYMENT, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("Location", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_LOCATION, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("KernelName", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_KERNEL_NAME, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("KernelRelease", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_KERNEL_RELEASE, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("KernelVersion", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_KERNEL_VERSION, SD_BUS_VTABLE_PROPERTY_CONST),
@@ -634,6 +629,7 @@ static const sd_bus_vtable hostname_vtable[] = {
         SD_BUS_METHOD("SetIconName", "sb", NULL, method_set_icon_name, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetChassis", "sb", NULL, method_set_chassis, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetDeployment", "sb", NULL, method_set_deployment, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SetLocation", "sb", NULL, method_set_location, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_VTABLE_END,
 };
 

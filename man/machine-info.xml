@@ -170,9 +170,19 @@
                                 </para></listitem>
                         </varlistentry>
 
+                        <varlistentry>
+                                <term><varname>LOCATION=</varname></term>
 
+                                <listitem><para>Describes the system
+                                location if applicable and
+                                known. Takes a human-friendly,
+                                free-form string. This may be as
+                                generic as <literal>Berlin,
+                                Germany</literal> or as specific as
+                                <literal>Left Rack, 2nd
+                                Shelf</literal>.</para></listitem>
+                        </varlistentry>
                 </variablelist>
-
         </refsect1>
 
         <refsect1>
