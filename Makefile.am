@@ -4497,6 +4497,25 @@ BUSNAMES_TARGET_WANTS += \
 EXTRA_DIST += \
 	units/systemd-machined.service.in
 
+libnss_mymachines_la_SOURCES = \
+	src/nss-mymachines/nss-mymachines.sym \
+	src/nss-mymachines/nss-mymachines.c
+
+libnss_mymachines_la_LDFLAGS = \
+	$(AM_LDFLAGS) \
+	-module \
+	-export-dynamic \
+	-avoid-version \
+	-shared \
+	-shrext .so.2 \
+	-Wl,--version-script=$(top_srcdir)/src/nss-mymachines/nss-mymachines.sym
+
+libnss_mymachines_la_LIBADD = \
+	libsystemd-shared.la \
+	libsystemd-internal.la
+
+lib_LTLIBRARIES += \
+	libnss_mymachines.la
 endif
 
 # ------------------------------------------------------------------------------

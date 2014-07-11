@@ -786,6 +786,49 @@ _public_ int sd_machine_get_class(const char *machine, char **class) {
         return 0;
 }
 
+_public_ int sd_machine_get_ifindexes(const char *machine, int **ifindexes) {
+        _cleanup_free_ char *netif = NULL;
+        size_t l, allocated = 0, nr = 0;
+        char *w, *state;
+        int *ni = NULL;
+        const char *p;
+        int r;
+
+        assert_return(machine_name_is_valid(machine), -EINVAL);
+        assert_return(ifindexes, -EINVAL);
+
+        p = strappenda("/run/systemd/machines/", machine);
+        r = parse_env_file(p, NEWLINE, "NETIF", &netif, NULL);
+        if (r < 0)
+                return r;
+        if (!netif) {
+                *ifindexes = NULL;
+                return 0;
+        }
+
+        FOREACH_WORD(w, l, netif, state) {
+                char buf[l+1];
+                int ifi;
+
+                *(char*) (mempcpy(buf, w, l)) = 0;
+
+                if (safe_atoi(buf, &ifi) < 0)
+                        continue;
+                if (ifi <= 0)
+                        continue;
+
+                if (!GREEDY_REALLOC(ni, allocated, nr+1)) {
+                        free(ni);
+                        return -ENOMEM;
+                }
+
+                ni[nr++] = ifi;
+        }
+
+        *ifindexes = ni;
+        return nr;
+}
+
 static inline int MONITOR_TO_FD(sd_login_monitor *m) {
         return (int) (unsigned long) m - 1;
 }
