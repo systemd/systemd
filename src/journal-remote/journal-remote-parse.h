@@ -38,10 +38,11 @@ typedef struct RemoteSource {
         bool passive_fd;
 
         char *buf;
-        size_t size;
-        size_t scanned;
-        size_t filled;
-        size_t data_size;
+        size_t size;       /* total size of the buffer */
+        size_t offset;     /* offset to the beginning of live data in the buffer */
+        size_t scanned;    /* number of bytes since the beginning of data without a newline */
+        size_t filled;     /* total number of bytes in the buffer */
+        size_t data_size;  /* size of the binary data chunk being processed */
 
         struct iovec_wrapper iovw;
 

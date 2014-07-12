@@ -36,6 +36,7 @@ struct iovec_wrapper {
 int iovw_put(struct iovec_wrapper *iovw, void* data, size_t len);
 void iovw_free_contents(struct iovec_wrapper *iovw);
 size_t iovw_size(struct iovec_wrapper *iovw);
+void iovw_rebase(struct iovec_wrapper *iovw, char *old, char *new);
 
 typedef struct Writer {
         JournalFile *journal;

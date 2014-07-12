@@ -31,8 +31,6 @@ int iovw_put(struct iovec_wrapper *iovw, void* data, size_t len) {
 }
 
 void iovw_free_contents(struct iovec_wrapper *iovw) {
-        for (size_t j = 0; j < iovw->count; j++)
-                free(iovw->iovec[j].iov_base);
         free(iovw->iovec);
         iovw->iovec = NULL;
         iovw->size_bytes = iovw->count = 0;
@@ -41,10 +39,17 @@ void iovw_free_contents(struct iovec_wrapper *iovw) {
 size_t iovw_size(struct iovec_wrapper *iovw) {
         size_t n = 0, i;
 
-        for(i = 0; i < iovw->count; i++)
+        for (i = 0; i < iovw->count; i++)
                 n += iovw->iovec[i].iov_len;
 
         return n;
+}
+
+void iovw_rebase(struct iovec_wrapper *iovw, char *old, char *new) {
+        size_t i;
+
+        for (i = 0; i < iovw->count; i++)
+                iovw->iovec[i].iov_base = (char*) iovw->iovec[i].iov_base - old + new;
 }
 
 /**********************************************************************
