@@ -111,15 +111,23 @@ static void test_deserialize_dhcp_routes(void) {
         }
 }
 
-static void test_load_config(Manager *manager) {
+static int test_load_config(Manager *manager) {
+        int r;
 /*  TODO: should_reload, is false if the config dirs do not exist, so
  *        so we can't do this test here, move it to a test for paths_check_timestamps
  *        directly
  *
  *        assert_se(network_should_reload(manager) == true);
 */
-        assert_se(manager_load_config(manager) >= 0);
+
+        r = manager_load_config(manager);
+        if (r == -EPERM)
+                return r;
+        assert_se(r >= 0);
+
         assert_se(manager_should_reload(manager) == false);
+
+        return 0;
 }
 
 static void test_network_get(Manager *manager, struct udev_device *loopback) {
@@ -181,6 +189,7 @@ int main(void) {
         _cleanup_manager_free_ Manager *manager = NULL;
         struct udev *udev;
         struct udev_device *loopback;
+        int r;
 
         test_deserialize_in_addr();
         test_deserialize_dhcp_routes();
@@ -188,7 +197,9 @@ int main(void) {
 
         assert_se(manager_new(&manager) >= 0);
 
-        test_load_config(manager);
+        r = test_load_config(manager);
+        if (r == -EPERM)
+                return EXIT_TEST_SKIP;
 
         udev = udev_new();
         assert_se(udev);
