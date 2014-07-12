@@ -362,7 +362,7 @@ int dhcp_server_send_packet(sd_dhcp_server *server,
 static int server_message_init(sd_dhcp_server *server, DHCPPacket **ret,
                                uint8_t type, size_t *_optoffset, DHCPRequest *req) {
         _cleanup_free_ DHCPPacket *packet = NULL;
-        size_t optoffset;
+        size_t optoffset = 0;
         int r;
 
         assert(server);
