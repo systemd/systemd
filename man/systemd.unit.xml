@@ -74,6 +74,8 @@
 <filename>$HOME/.config/systemd/user/*</filename>
 <filename>/etc/systemd/user/*</filename>
 <filename>/run/systemd/user/*</filename>
+<filename>$XDG_DATA_HOME/systemd/user/*</filename>
+<filename>$HOME/.local/share/systemd/user/*</filename>
 <filename>/usr/lib/systemd/user/*</filename>
 <filename>...</filename>
                 </literallayout></para>
@@ -339,8 +341,16 @@
                         <entry>Runtime units</entry>
                       </row>
                       <row>
+                        <entry><filename>$XDG_DATA_HOME/systemd/user</filename></entry>
+                        <entry>Units of packages that have been installed in the home directory (only used when $XDG_DATA_HOME is set)</entry>
+                      </row>
+                      <row>
+                        <entry><filename>$HOME/.local/share/systemd/user</filename></entry>
+                        <entry>Units of packages that have been installed in the home directory (only used when $XDG_DATA_HOME is not set)</entry>
+                      </row>
+                      <row>
                         <entry><filename>/usr/lib/systemd/user</filename></entry>
-                        <entry>Units of installed packages</entry>
+                        <entry>Units of packages that have been installed system-wide</entry>
                       </row>
                     </tbody>
                   </tgroup>
