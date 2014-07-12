@@ -125,26 +125,8 @@ static char** user_dirs(
                         goto fail;
 
         } else if (home) {
-                _cleanup_free_ char *data_home_parent = NULL;
-
                 if (asprintf(&data_home, "%s/.local/share/systemd/user", home) < 0)
                         goto fail;
-
-                /* There is really no need for two unit dirs in $HOME,
-                 * except to be fully compliant with the XDG spec. We
-                 * now try to link the two dirs, so that we can
-                 * minimize disk seeks a little. Further down we'll
-                 * then filter out this link, if it is actually is
-                 * one. */
-
-                if (path_get_parent(data_home, &data_home_parent) >= 0) {
-                        _cleanup_free_ char *config_home_relative = NULL;
-
-                        if (path_make_relative(data_home_parent, config_home, &config_home_relative) >= 0) {
-                                mkdir_parents_label(data_home, 0777);
-                                (void) symlink(config_home_relative, data_home);
-                        }
-                }
         }
 
         e = getenv("XDG_DATA_DIRS");
