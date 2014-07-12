@@ -387,7 +387,7 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec,
                                  void *userdata) {
         int r = 0;
         sd_dhcp6_client *client = userdata;
-        usec_t time_now, init_retransmit_time, max_retransmit_time;
+        usec_t time_now, init_retransmit_time = 0, max_retransmit_time = 0;
         usec_t max_retransmit_duration = 0;
         uint8_t max_retransmit_count = 0;
         char time_string[FORMAT_TIMESPAN_MAX];
