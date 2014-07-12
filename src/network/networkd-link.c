@@ -2122,6 +2122,9 @@ int link_initialized(Link *link, struct udev_device *device) {
         if (link->state != LINK_STATE_INITIALIZING)
                 return 0;
 
+        if (link->udev_device)
+                return 0;
+
         log_debug_link(link, "udev initialized link");
 
         link->udev_device = udev_device_ref(device);
