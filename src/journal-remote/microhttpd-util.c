@@ -297,7 +297,7 @@ int check_permissions(struct MHD_Connection *connection, int *code, char **hostn
 }
 
 #else
-int check_permissions(struct MHD_Connection *connection, int *code) {
+int check_permissions(struct MHD_Connection *connection, int *code, char **hostname) {
         return -EPERM;
 }
 #endif
