@@ -102,7 +102,7 @@ m authd input</programlisting>
                                         group will be set to the group
                                         bearing the same name. The
                                         user's shell will be set to
-                                        <filename>/sbin/login</filename>,
+                                        <filename>/sbin/nologin</filename>,
                                         the home directory to
                                         <filename>/</filename>. The
                                         account will be created
