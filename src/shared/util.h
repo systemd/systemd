@@ -93,6 +93,12 @@
 #define COMMENTS   "#;"
 #define GLOB_CHARS "*?["
 
+/* What characters are special in the shell? */
+/* must be escaped outside and inside double-quotes */
+#define SHELL_NEED_ESCAPE "\"\\`$"
+/* can be escaped or double-quoted */
+#define SHELL_NEED_QUOTES SHELL_NEED_ESCAPE GLOB_CHARS "'()<>|&;"
+
 #define FORMAT_BYTES_MAX 8
 
 #define ANSI_HIGHLIGHT_ON "\x1B[1;39m"
