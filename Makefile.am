@@ -845,8 +845,6 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/barrier.h \
 	src/shared/async.c \
 	src/shared/async.h \
-	src/shared/eventfd-util.c \
-	src/shared/eventfd-util.h \
 	src/shared/copy.c \
 	src/shared/copy.h \
 	src/shared/base-filesystem.c \
