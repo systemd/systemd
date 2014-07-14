@@ -61,8 +61,8 @@
 #define JOURNAL_SIZE_MAX ((size_t) (767LU*1024LU*1024LU))
 
 /* Make sure to not make this larger than the maximum journal entry
- * size. See ENTRY_SIZE_MAX in journald-native.c. */
-assert_cc(JOURNAL_SIZE_MAX <= ENTRY_SIZE_MAX);
+ * size. See DATA_SIZE_MAX in journald-native.c. */
+assert_cc(JOURNAL_SIZE_MAX <= DATA_SIZE_MAX);
 
 enum {
         INFO_PID,
