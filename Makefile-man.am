@@ -687,7 +687,8 @@ endif
 if ENABLE_COREDUMP
 MANPAGES += \
 	man/coredump.conf.5 \
-	man/coredumpctl.1
+	man/coredumpctl.1 \
+	man/systemd-coredump.8
 MANPAGES_ALIAS += \
 	#
 
@@ -1601,6 +1602,7 @@ EXTRA_DIST += \
 	man/systemd-cat.xml \
 	man/systemd-cgls.xml \
 	man/systemd-cgtop.xml \
+	man/systemd-coredump.xml \
 	man/systemd-cryptsetup-generator.xml \
 	man/systemd-cryptsetup@.service.xml \
 	man/systemd-debug-generator.xml \

@@ -5,6 +5,8 @@
 #  the Free Software Foundation; either version 2.1 of the License, or
 #  (at your option) any later version.
 
-# See sysctl.d(5) and core(5) for for details.
+# See sysctl.d(5) for the description of the files in this directory,
+# and systemd-coredump(8) and core(5) for the explanation of the
+# setting below.
 
 kernel.core_pattern=|@rootlibexecdir@/systemd-coredump %p %u %g %s %t %e
