@@ -618,12 +618,11 @@ Features:
 * networkd:
    - add more keys to [Route] and [Address] sections
    - add support for more DHCPv4 options (and, longer term, other kinds of dynamic config)
-   - send hostname to DHCP server
    - add proper initrd support (in particular generate .network/.link files based on /proc/cmdline)
    - add reduced [Link] support to .network files
    - add Scope= parsing option for [Network]
    - properly handle routerless dhcp leases
-   - add veth netdev support (c.f. http://shorewall.net/bridge-Shorewall-perl.html#veth)
+   - default to DHCP unicast, but make broadcast opt-in. detect devices that needs broadcast and opt-in automatically (needs kernel patch?)
    - add more attribute support for SIT tunnel
    - make metric of routes configurable
    - work with non-ethernet devices
