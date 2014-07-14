@@ -634,6 +634,7 @@ Features:
    - figure out how much we can increase Maximum Message Size
    - export timezone information
    - FORCERENEW
+   - support RFC4702 (pass FQDN)
 
 * dhcp6:
    - add functions to set previously stored IPv6 addresses on startup and get
