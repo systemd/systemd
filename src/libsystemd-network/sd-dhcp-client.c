@@ -57,6 +57,7 @@ struct sd_dhcp_client {
                 struct ether_addr mac_addr;
         } _packed_ client_id;
         char *hostname;
+        char *vendor_class_identifier;
         uint32_t xid;
         usec_t start_time;
         uint16_t secs;
@@ -196,6 +197,23 @@ int sd_dhcp_client_set_hostname(sd_dhcp_client *client,
 
         free(client->hostname);
         client->hostname = new_hostname;
+
+        return 0;
+}
+
+int sd_dhcp_client_set_vendor_class_identifier(sd_dhcp_client *client,
+                                               const char *vci) {
+        char *new_vci = NULL;
+
+        assert_return(client, -EINVAL);
+
+        new_vci = strdup(vci);
+        if (!new_vci)
+                return -ENOMEM;
+
+        free(client->vendor_class_identifier);
+
+        client->vendor_class_identifier = new_vci;
 
         return 0;
 }
@@ -415,6 +433,15 @@ static int client_send_discover(sd_dhcp_client *client) {
                 r = dhcp_option_append(&discover->dhcp, optlen, &optoffset, 0,
                                        DHCP_OPTION_HOST_NAME,
                                        strlen(client->hostname), client->hostname);
+                if (r < 0)
+                        return r;
+        }
+
+        if (client->vendor_class_identifier) {
+                r = dhcp_option_append(&discover->dhcp, optlen, &optoffset, 0,
+                                       DHCP_OPTION_VENDOR_CLASS_IDENTIFIER,
+                                       strlen(client->vendor_class_identifier),
+                                       client->vendor_class_identifier);
                 if (r < 0)
                         return r;
         }
@@ -1406,6 +1433,7 @@ sd_dhcp_client *sd_dhcp_client_unref(sd_dhcp_client *client) {
 
                 free(client->req_opts);
                 free(client->hostname);
+                free(client->vendor_class_identifier);
                 free(client);
         }
 

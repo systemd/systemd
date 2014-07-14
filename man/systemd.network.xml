@@ -446,6 +446,12 @@
                                                 if, say, the root filesystem relies on this connection. Defaults to false.</para>
                                         </listitem>
                                 </varlistentry>
+                                    <varlistentry>
+                                        <term><varname>VendorClassIdentifier=</varname></term>
+                                        <listitem>
+                                                <para>The vendor class identifier used to identify vendor type and configuration.</para>
+                                        </listitem>
+                                </varlistentry>
                        </variablelist>
 
         </refsect1>

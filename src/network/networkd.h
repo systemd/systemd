@@ -175,6 +175,8 @@ struct Network {
         char *match_driver;
         char *match_type;
         char *match_name;
+        char *dhcp_vendor_class_identifier;
+
         Condition *match_host;
         Condition *match_virt;
         Condition *match_kernel;

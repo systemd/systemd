@@ -2023,6 +2023,13 @@ static int link_configure(Link *link) {
                                         return r;
                         }
                 }
+
+                if (link->network->dhcp_vendor_class_identifier) {
+                        r = sd_dhcp_client_set_vendor_class_identifier(link->dhcp_client,
+                                                                       link->network->dhcp_vendor_class_identifier);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         if (link->network->dhcp_server) {

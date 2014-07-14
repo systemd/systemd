@@ -166,6 +166,7 @@ void network_free(Network *network) {
         free(network->match_name);
 
         free(network->description);
+        free(network->dhcp_vendor_class_identifier);
 
         while ((address = network->ntp)) {
                 LIST_REMOVE(addresses, network->ntp, address);
