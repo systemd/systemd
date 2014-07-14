@@ -596,7 +596,7 @@ static int route_drop_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata)
                                 "ERRNO=%d", -r,
                                 NULL);
 
-        return 0;
+        return 1;
 }
 
 static int link_get_address_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
@@ -648,7 +648,7 @@ static int address_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
                                 link->ifname, strerror(-r),
                                 "ERRNO=%d", -r,
                                 NULL);
-        if (r >= 0) {
+        else if (r >= 0) {
                 /* calling handler directly so take a ref */
                 link_ref(link);
                 link_get_address_handler(rtnl, m, link);
@@ -809,7 +809,7 @@ static int address_update_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userd
                                 "ERRNO=%d", -r,
                                 NULL);
 
-        return 0;
+        return 1;
 }
 
 static int address_drop_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
@@ -832,7 +832,7 @@ static int address_drop_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdat
                                 "ERRNO=%d", -r,
                                 NULL);
 
-        return 0;
+        return 1;
 }
 
 static int set_hostname_handler(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
