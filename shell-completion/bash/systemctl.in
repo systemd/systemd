@@ -24,8 +24,8 @@ __systemctl() {
 
 __systemd_properties() {
         local mode=$1
-        { __systemctl -a $mode show;
-         systemd --dump-configuration-items; } |
+        { __systemctl $mode show --all;
+         @rootlibexecdir@/systemd --dump-configuration-items; } |
         while IFS='=' read -r key value; do
             [[ $value ]] && echo "$key"
         done

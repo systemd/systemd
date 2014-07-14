@@ -301,12 +301,25 @@ _unit_types() {
     _values -s , "${_types[@]}"
 }
 
+_unit_properties() {
+  if ( [[ ${+_sys_all_properties} -eq 0 ]] || _cache_invalid SYS_ALL_PROPERTIES ) &&
+    ! _retrieve_cache SYS_ALL_PROPERTIES;
+  then
+    _sys_all_properties=( $( {__systemctl show --all;
+       @rootlibexecdir@/systemd --dump-configuration-items; } | {
+       while IFS='=' read -r a b; do [ -n "$b" ] && echo "$a"; done
+    }) )
+    _store_cache SYS_ALL_PROPRTIES _sys_all_properties
+  fi
+  _values -s , "${_sys_all_properties[@]}"
+}
+
 _arguments -s \
     {-h,--help}'[Show help]' \
     '--version[Show package version]' \
     {-t+,--type=}'[List only units of a particular type]:unit type:_unit_types' \
     '--state=[Display units in the specifyied state]:unit state:_unit_states' \
-    \*{-p+,--property=}'[Show only properties by specific name]:unit property' \
+    {-p+,--property=}'[Show only properties by specific name]:unit property:_unit_properties' \
     {-a,--all}'[Show all units/properties, including dead/empty ones]' \
     '--reverse[Show reverse dependencies]' \
     '--after[Show units ordered after]' \
