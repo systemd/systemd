@@ -22,7 +22,7 @@
 
 #include <netinet/ether.h>
 #include <arpa/inet.h>
-#include <net/if.h>
+#include <linux/if_bonding.h>
 
 #include "conf-parser.h"
 #include "sd-rtnl.h"
@@ -41,6 +41,27 @@ static const char* const bond_mode_table[_NETDEV_BOND_MODE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(bond_mode, BondMode);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_bond_mode, bond_mode, BondMode, "Failed to parse bond mode");
+
+static uint8_t bond_mode_to_kernel(BondMode mode) {
+        switch (mode) {
+        case NETDEV_BOND_MODE_BALANCE_RR:
+                return BOND_MODE_ROUNDROBIN;
+        case NETDEV_BOND_MODE_ACTIVE_BACKUP:
+                return BOND_MODE_ACTIVEBACKUP;
+        case NETDEV_BOND_MODE_BALANCE_XOR:
+                return BOND_MODE_XOR;
+        case NETDEV_BOND_MODE_BROADCAST:
+                return BOND_MODE_BROADCAST;
+        case NETDEV_BOND_MODE_802_3AD:
+                return BOND_MODE_8023AD;
+        case NETDEV_BOND_MODE_BALANCE_TLB:
+                return BOND_MODE_TLB;
+        case NETDEV_BOND_MODE_BALANCE_ALB:
+                return BOND_MODE_ALB;
+        default:
+                return (uint8_t) -1;
+        }
+}
 
 static int netdev_fill_bond_rtnl_message(NetDev *netdev, sd_rtnl_message *m) {
         int r;
@@ -73,7 +94,8 @@ static int netdev_fill_bond_rtnl_message(NetDev *netdev, sd_rtnl_message *m) {
         }
 
         if (netdev->bond_mode != _NETDEV_BOND_MODE_INVALID) {
-                r = sd_rtnl_message_append_u8(m, IFLA_BOND_MODE, netdev->bond_mode);
+                r = sd_rtnl_message_append_u8(m, IFLA_BOND_MODE,
+                                              bond_mode_to_kernel(netdev->bond_mode));
                 if (r < 0) {
                         log_error_netdev(netdev,
                                          "Could not append IFLA_BOND_MODE attribute: %s",
