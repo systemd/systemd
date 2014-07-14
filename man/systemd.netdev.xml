@@ -60,7 +60,10 @@
 
                 <para>Virtual Network Device files must have the extension
                 <filename>.netdev</filename>; other extensions are ignored. Virtual
-                network devices are created as soon as networkd is started.</para>
+                network devices are created as soon as networkd is started. If a netdev
+                with the specified name already exists, networkd will use that as-is
+                rather than create its own. Note that the settings of the pre-existing
+                netdev will not be changed by networkd.</para>
 
                 <para>The <filename>.netdev</filename> files are read from the files located in the
                 system network directory <filename>/usr/lib/systemd/network</filename>,
