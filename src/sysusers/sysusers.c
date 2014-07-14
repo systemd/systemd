@@ -35,6 +35,8 @@
 #include "conf-files.h"
 #include "copy.h"
 #include "utf8.h"
+#include "label.h"
+#include "fileio-label.h"
 
 typedef enum ItemType {
         ADD_USER = 'u',
@@ -312,11 +314,7 @@ static int write_files(void) {
                 _cleanup_fclose_ FILE *original = NULL;
 
                 group_path = fix_root("/etc/group");
-                r = label_context_set("/etc/group", S_IFREG);
-                if (r < 0)
-                        goto finish;
-                r = fopen_temporary(group_path, &group, &group_tmp);
-                label_context_clear();
+                r = fopen_temporary_label("/etc/group", group_path, &group, &group_tmp);
                 if (r < 0)
                         goto finish;
 
@@ -392,14 +390,9 @@ static int write_files(void) {
                 _cleanup_fclose_ FILE *original = NULL;
 
                 passwd_path = fix_root("/etc/passwd");
-                r = label_context_set("/etc/passwd", S_IFREG);
+                r = fopen_temporary_label("/etc/passwd", passwd_path, &passwd, &passwd_tmp);
                 if (r < 0)
                         goto finish;
-                r = fopen_temporary(passwd_path, &passwd, &passwd_tmp);
-                label_context_clear();
-                if (r < 0) {
-                        goto finish;
-                }
 
                 if (fchmod(fileno(passwd), 0644) < 0) {
                         r = -errno;
