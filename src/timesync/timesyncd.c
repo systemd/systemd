@@ -210,7 +210,7 @@ static int manager_timeout(sd_event_source *source, usec_t usec, void *userdata)
         assert(m->current_server_name);
         assert(m->current_server_address);
 
-        sockaddr_pretty(&m->current_server_address->sockaddr.sa, m->current_server_address->socklen, true, &pretty);
+        server_address_pretty(m->current_server_address, &pretty);
         log_info("Timed out waiting for reply from %s (%s).", strna(pretty), m->current_server_name->string);
 
         return manager_connect(m);
@@ -250,7 +250,7 @@ static int manager_send_request(Manager *m) {
         ntpmsg.trans_time.sec = htobe32(m->trans_time.tv_sec + OFFSET_1900_1970);
         ntpmsg.trans_time.frac = htobe32(m->trans_time.tv_nsec);
 
-        sockaddr_pretty(&m->current_server_address->sockaddr.sa, m->current_server_address->socklen, true, &pretty);
+        server_address_pretty(m->current_server_address, &pretty);
 
         len = sendto(m->server_socket, &ntpmsg, sizeof(ntpmsg), MSG_DONTWAIT, &m->current_server_address->sockaddr.sa, m->current_server_address->socklen);
         if (len == sizeof(ntpmsg)) {
@@ -782,7 +782,7 @@ static int manager_begin(Manager *m) {
 
         m->poll_interval_usec = NTP_POLL_INTERVAL_MIN_SEC * USEC_PER_SEC;
 
-        sockaddr_pretty(&m->current_server_address->sockaddr.sa, m->current_server_address->socklen, true, &pretty);
+        server_address_pretty(m->current_server_address, &pretty);
         log_info("Using NTP server %s (%s).", strna(pretty), m->current_server_name->string);
         sd_notifyf(false, "STATUS=Using Time Server %s (%s).", strna(pretty), m->current_server_name->string);
 

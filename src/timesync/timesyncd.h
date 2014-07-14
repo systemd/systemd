@@ -42,6 +42,10 @@ struct ServerName {
         LIST_FIELDS(ServerName, names);
 };
 
+static inline int server_address_pretty(ServerAddress *a, char **pretty) {
+        return sockaddr_pretty(&a->sockaddr.sa, a->socklen, true, pretty);
+}
+
 struct Manager {
         sd_event *event;
         sd_resolve *resolve;
