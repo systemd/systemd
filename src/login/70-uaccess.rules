@@ -72,4 +72,7 @@ ENV{DDC_DEVICE}=="?*", TAG+="uaccess"
 # media player raw devices (for user-mode drivers, Android SDK, etc.)
 SUBSYSTEM=="usb", ENV{ID_MEDIA_PLAYER}=="?*", TAG+="uaccess"
 
+# software-defined radio communication devices
+ENV{ID_SOFTWARE_RADIO}=="?*", TAG+="uaccess"
+
 LABEL="uaccess_end"
