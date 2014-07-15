@@ -331,6 +331,9 @@ static int manager_clock_watch(sd_event_source *source, int fd, uint32_t revents
         /* rearm timer */
         manager_clock_watch_setup(m);
 
+        if (!m->current_server_address)
+                return 0;
+
         /* skip our own jumps */
         if (m->jumped) {
                 m->jumped = false;
