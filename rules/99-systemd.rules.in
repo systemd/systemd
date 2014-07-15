@@ -43,7 +43,7 @@ SUBSYSTEM=="net", KERNEL!="lo", TAG+="systemd", ENV{SYSTEMD_ALIAS}+="/sys/subsys
 SUBSYSTEM=="bluetooth", TAG+="systemd", ENV{SYSTEMD_ALIAS}+="/sys/subsystem/bluetooth/devices/%k"
 
 SUBSYSTEM=="bluetooth", TAG+="systemd", ENV{SYSTEMD_WANTS}+="bluetooth.target"
-ENV{ID_SMARTCARD_READER}=="*?", TAG+="systemd", ENV{SYSTEMD_WANTS}+="smartcard.target"
+ENV{ID_SMARTCARD_READER}=="?*", TAG+="systemd", ENV{SYSTEMD_WANTS}+="smartcard.target"
 SUBSYSTEM=="sound", KERNEL=="card*", TAG+="systemd", ENV{SYSTEMD_WANTS}+="sound.target"
 
 SUBSYSTEM=="printer", TAG+="systemd", ENV{SYSTEMD_WANTS}+="printer.target"
