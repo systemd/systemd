@@ -331,9 +331,6 @@ static int manager_clock_watch(sd_event_source *source, int fd, uint32_t revents
         /* rearm timer */
         manager_clock_watch_setup(m);
 
-        if (!m->current_server_address)
-                return 0;
-
         /* skip our own jumps */
         if (m->jumped) {
                 m->jumped = false;
@@ -1046,10 +1043,6 @@ static int manager_new(Manager **ret) {
                 return r;
 
         r = sd_resolve_attach_event(m->resolve, m->event, 0);
-        if (r < 0)
-                return r;
-
-        r = manager_clock_watch_setup(m);
         if (r < 0)
                 return r;
 
