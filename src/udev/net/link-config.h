@@ -39,6 +39,7 @@ typedef enum MACPolicy {
 } MACPolicy;
 
 typedef enum NamePolicy {
+        NAMEPOLICY_KERNEL,
         NAMEPOLICY_DATABASE,
         NAMEPOLICY_ONBOARD,
         NAMEPOLICY_SLOT,

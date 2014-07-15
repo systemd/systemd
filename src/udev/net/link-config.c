@@ -20,10 +20,11 @@
 ***/
 
 #include <netinet/ether.h>
-#include <net/if.h>
+#include <linux/netdevice.h>
 
 #include "sd-id128.h"
 
+#include "missing.h"
 #include "link-config.h"
 #include "ethtool-util.h"
 
@@ -283,8 +284,33 @@ static bool mac_is_random(struct udev_device *device) {
         if (r < 0)
                 return false;
 
-        /* check for NET_ADDR_RANDOM */
-        return type == 1;
+        return type == NET_ADDR_RANDOM;
+}
+
+static bool should_rename(struct udev_device *device, bool respect_predictable) {
+        const char *s;
+        unsigned type;
+        int r;
+
+        s = udev_device_get_sysattr_value(device, "name_assign_type");
+        if (!s)
+                return true; /* if we don't know, assume we should rename */
+        r = safe_atou(s, &type);
+        if (r < 0)
+                return true;
+
+        switch (type) {
+        case NET_NAME_USER:
+        case NET_NAME_RENAMED:
+                return false; /* these were already named by userspace, do not touch again */
+        case NET_NAME_PREDICTABLE:
+                if (respect_predictable)
+                        return false; /* the kernel claims to have given a predictable name */
+                /* fall through */
+        case NET_NAME_ENUM:
+        default:
+                return true; /* the name is known to be bad, or of an unknown type */
+        }
 }
 
 static int get_mac(struct udev_device *device, bool want_random, struct ether_addr *mac) {
@@ -315,6 +341,7 @@ int link_config_apply(link_config_ctx *ctx, link_config *config, struct udev_dev
         const char *new_name = NULL;
         struct ether_addr generated_mac;
         struct ether_addr *mac = NULL;
+        bool respect_predictable = false;
         int r, ifindex;
 
         assert(ctx);
@@ -350,8 +377,12 @@ int link_config_apply(link_config_ctx *ctx, link_config *config, struct udev_dev
         if (ctx->enable_name_policy && config->name_policy) {
                 NamePolicy *policy;
 
-                for (policy = config->name_policy; !new_name && *policy != _NAMEPOLICY_INVALID; policy++) {
+                for (policy = config->name_policy; !respect_predictable && !new_name &&
+                                                   *policy != _NAMEPOLICY_INVALID; policy++) {
                         switch (*policy) {
+                                case NAMEPOLICY_KERNEL:
+                                        respect_predictable = true;
+                                        break;
                                 case NAMEPOLICY_DATABASE:
                                         new_name = udev_device_get_property_value(device, "ID_NET_NAME_FROM_DATABASE");
                                         break;
@@ -373,12 +404,14 @@ int link_config_apply(link_config_ctx *ctx, link_config *config, struct udev_dev
                 }
         }
 
-        if (new_name)
-                *name = new_name; /* a name was set by a policy */
-        else if (config->name)
-                *name = config->name; /* a name was set manually in the config */
-        else
-                *name = NULL;
+        if (should_rename(device, respect_predictable)) {
+                if (!new_name)
+                        /* if not set by policy, fall back manually set name */
+                        new_name = config->name;
+        } else
+                new_name = NULL;
+
+        *name = new_name;
 
         switch (config->mac_policy) {
                 case MACPOLICY_PERSISTENT:
@@ -444,6 +477,7 @@ DEFINE_STRING_TABLE_LOOKUP(mac_policy, MACPolicy);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_mac_policy, mac_policy, MACPolicy, "Failed to parse MAC address policy");
 
 static const char* const name_policy_table[_NAMEPOLICY_MAX] = {
+        [NAMEPOLICY_KERNEL] = "kernel",
         [NAMEPOLICY_DATABASE] = "database",
         [NAMEPOLICY_ONBOARD] = "onboard",
         [NAMEPOLICY_SLOT] = "slot",

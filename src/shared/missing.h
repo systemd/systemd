@@ -525,3 +525,23 @@ static inline int setns(int fd, int nstype) {
 #ifndef BOND_XMIT_POLICY_ENCAP34
 #define BOND_XMIT_POLICY_ENCAP34 4
 #endif
+
+#ifndef NET_ADDR_RANDOM
+#  define NET_ADDR_RANDOM 1
+#endif
+
+#ifndef NET_NAME_ENUM
+#  define NET_NAME_ENUM 1
+#endif
+
+#ifndef NET_NAME_PREDICTABLE
+#  define NET_NAME_PREDICTABLE 2
+#endif
+
+#ifndef NET_NAME_USER
+#  define NET_NAME_USER 3
+#endif
+
+#ifndef NET_NAME_RENAMED
+#  define NET_NAME_RENAMED 4
+#endif

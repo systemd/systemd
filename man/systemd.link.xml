@@ -236,10 +236,20 @@
                                         not set directly, but is exported to udev as
                                         the property <literal>ID_NET_NAME</literal>,
                                         which is, by default, used by a udev rule to set
-                                        <literal>NAME</literal>. The available policies
-                                        are:</para>
+                                        <literal>NAME</literal>. If the name has already
+                                        been set by userspace, no renaming is performed.
+                                        The available policies are:</para>
 
                                         <variablelist>
+                                                <varlistentry>
+                                                        <term><literal>kernel</literal></term>
+                                                        <listitem>
+                                                                <para>If the kernel claims that the name it
+                                                                has set for a device is predictable, then
+                                                                no renaming is performed.
+                                                                </para>
+                                                        </listitem>
+                                                </varlistentry>
                                                 <varlistentry>
                                                         <term><literal>database</literal></term>
                                                         <listitem>
