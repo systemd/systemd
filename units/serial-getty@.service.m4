@@ -25,7 +25,6 @@ IgnoreOnIsolate=yes
 ExecStart=-/sbin/agetty --keep-baud 115200,38400,9600 %I $TERM
 Type=idle
 Restart=always
-RestartSec=0
 UtmpIdentifier=%I
 TTYPath=/dev/%I
 TTYReset=yes
