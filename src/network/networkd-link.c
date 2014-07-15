@@ -1998,6 +1998,10 @@ static int link_configure(Link *link) {
                 if (r < 0)
                         return r;
 
+                r = sd_dhcp_client_set_request_broadcast(link->dhcp_client, link->network->dhcp_broadcast);
+                if (r < 0)
+                        return r;
+
                 if (link->network->dhcp_mtu) {
                         r = sd_dhcp_client_set_request_option(link->dhcp_client, 26);
                         if (r < 0)

@@ -446,10 +446,19 @@
                                                 if, say, the root filesystem relies on this connection. Defaults to false.</para>
                                         </listitem>
                                 </varlistentry>
-                                    <varlistentry>
+                                <varlistentry>
                                         <term><varname>VendorClassIdentifier=</varname></term>
                                         <listitem>
                                                 <para>The vendor class identifier used to identify vendor type and configuration.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>RequestBroadcast=</varname></term>
+                                        <listitem>
+                                                <para>Request the server to use broadcast messages before the IP address has been
+                                                configured. This is necessary for devices that cannot receive RAW packets, or that
+                                                cannot receive packets at all before an IP address has been configured. On the other
+                                                hand, this must not be enabled on networks where broadcasts are filtered out.</para>
                                         </listitem>
                                 </varlistentry>
                        </variablelist>

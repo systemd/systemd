@@ -48,6 +48,7 @@ int sd_dhcp_client_set_callback(sd_dhcp_client *client, sd_dhcp_client_cb_t cb,
 int sd_dhcp_client_set_request_option(sd_dhcp_client *client, uint8_t option);
 int sd_dhcp_client_set_request_address(sd_dhcp_client *client,
                                        const struct in_addr *last_address);
+int sd_dhcp_client_set_request_broadcast(sd_dhcp_client *client, int broadcast);
 int sd_dhcp_client_set_index(sd_dhcp_client *client, int interface_index);
 int sd_dhcp_client_set_mac(sd_dhcp_client *client,
                            const struct ether_addr *addr);

@@ -48,6 +48,7 @@ struct sd_dhcp_client {
         int fd;
         union sockaddr_union link;
         sd_event_source *receive_message;
+        bool request_broadcast;
         uint8_t *req_opts;
         size_t req_opts_allocated;
         size_t req_opts_size;
@@ -92,6 +93,14 @@ int sd_dhcp_client_set_callback(sd_dhcp_client *client, sd_dhcp_client_cb_t cb,
 
         client->cb = cb;
         client->userdata = userdata;
+
+        return 0;
+}
+
+int sd_dhcp_client_set_request_broadcast(sd_dhcp_client *client, int broadcast) {
+        assert_return(client, -EINVAL);
+
+        client->request_broadcast = !!broadcast;
 
         return 0;
 }
@@ -322,8 +331,13 @@ static int client_message_init(sd_dhcp_client *client, DHCPPacket **ret,
            BROADCAST bit in the 'flags' field to 1 in any DHCPDISCOVER or
            DHCPREQUEST messages that client sends.  The BROADCAST bit will
            provide a hint to the DHCP server and BOOTP relay agent to broadcast
-           any messages to the client on the client's subnet. */
-        packet->dhcp.flags = htobe16(0x8000);
+           any messages to the client on the client's subnet.
+
+           Note: some interfaces needs this to be enabled, but some networks
+           needs this to be disabled as broadcasts are filteretd, so this
+           needs to be configurable */
+        if (client->request_broadcast)
+                packet->dhcp.flags = htobe16(0x8000);
 
         /* RFC2132 section 4.1.1:
            The client MUST include its hardware address in the ’chaddr’ field, if
