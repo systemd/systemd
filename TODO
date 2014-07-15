@@ -24,6 +24,16 @@ External:
 
 Features:
 
+* resolved:
+  - CNAME resolver
+  - cache
+  - IDN
+  - DNSSEC
+  - LLMNR
+  - mDNS/DNS-SD
+  - nss client module
+  - DNS-SD service registration from socket units
+
 * Allow multiple ExecStart= for all Type= settings, so that we can cover rescue.service nicely
 
 * the resolv.conf tmpfiles line should be covered by ENABLE_NETWORKD...
