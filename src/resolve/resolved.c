@@ -28,7 +28,7 @@
 #include "capability.h"
 
 int main(int argc, char *argv[]) {
-        _cleanup_manager_free_ Manager *m = NULL;
+        _cleanup_(manager_freep) Manager *m = NULL;
         const char *user = "systemd-resolve";
         uid_t uid;
         gid_t gid;
@@ -43,13 +43,13 @@ int main(int argc, char *argv[]) {
         if (argc != 1) {
                 log_error("This program takes no arguments.");
                 r = -EINVAL;
-                goto out;
+                goto finish;
         }
 
         r = get_user_creds(&user, &uid, &gid, NULL, NULL);
         if (r < 0) {
                 log_error("Cannot resolve user name %s: %s", user, strerror(-r));
-                goto out;
+                goto finish;
         }
 
         /* Always create the directory where resolv.conf will live */
@@ -57,33 +57,31 @@ int main(int argc, char *argv[]) {
         if (r < 0) {
                 log_error("Could not create runtime directory: %s",
                           strerror(-r));
-                goto out;
+                goto finish;
         }
 
         r = drop_privileges(uid, gid, 0);
         if (r < 0)
-                goto out;
+                goto finish;
 
         assert_se(sigprocmask_many(SIG_BLOCK, SIGTERM, SIGINT, -1) == 0);
 
         r = manager_new(&m);
         if (r < 0) {
                 log_error("Could not create manager: %s", strerror(-r));
-                goto out;
+                goto finish;
         }
 
-        r = manager_network_monitor_listen(m);
-        if (r < 0) {
-                log_error("Could not listen for network events: %s", strerror(-r));
-                goto out;
-        }
+        r = manager_parse_config_file(m);
+        if (r < 0)
+                return r;
 
-        /* write out default resolv.conf to avoid a
-         * dangling symlink */
-        r = manager_update_resolv_conf(m);
+        /* write finish default resolv.conf to avoid a dangling
+         * symlink */
+        r = manager_write_resolv_conf(m);
         if (r < 0) {
                 log_error("Could not create resolv.conf: %s", strerror(-r));
-                goto out;
+                goto finish;
         }
 
         sd_notify(false,
@@ -93,12 +91,11 @@ int main(int argc, char *argv[]) {
         r = sd_event_loop(m->event);
         if (r < 0) {
                 log_error("Event loop failed: %s", strerror(-r));
-                goto out;
+                goto finish;
         }
 
-out:
-        sd_notify(false,
-                  "STATUS=Shutting down...");
+finish:
+        sd_notify(false, "STATUS=Shutting down...");
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

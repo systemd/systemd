@@ -4536,11 +4536,22 @@ if ENABLE_RESOLVED
 systemd_resolved_SOURCES = \
 	src/resolve/resolved.h \
 	src/resolve/resolved.c \
-	src/resolve/resolved-manager.c
-
-systemd_resolved_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(KMOD_CFLAGS)
+	src/resolve/resolved-manager.c \
+	src/resolve/resolved-bus.c \
+	src/resolve/resolved-link.h \
+	src/resolve/resolved-link.c \
+	src/resolve/resolved-dns-domain.h \
+	src/resolve/resolved-dns-domain.c \
+	src/resolve/resolved-dns-packet.h \
+	src/resolve/resolved-dns-packet.c \
+	src/resolve/resolved-dns-query.h \
+	src/resolve/resolved-dns-query.c \
+	src/resolve/resolved-dns-scope.h \
+	src/resolve/resolved-dns-scope.c \
+	src/resolve/resolved-dns-server.h \
+	src/resolve/resolved-dns-server.c \
+	src/resolve/resolved-dns-rr.h \
+	src/resolve/resolved-dns-rr.c
 
 nodist_systemd_resolved_SOURCES = \
 	src/resolve/resolved-gperf.c
@@ -4578,6 +4589,21 @@ EXTRA_DIST += \
 
 CLEANFILES += \
 	src/resolve/resolved.conf
+
+tests += \
+	test-dns-domain
+
+test_dns_domain_SOURCES = \
+	src/resolve/resolved-dns-domain.h \
+	src/resolve/resolved-dns-domain.c \
+	src/resolve/test-dns-domain.c
+
+test_dns_domain_LDADD = \
+	libsystemd-capability.la \
+	libsystemd-network.la \
+	libsystemd-label.la \
+	libsystemd-internal.la \
+	libsystemd-shared.la
 
 endif
 

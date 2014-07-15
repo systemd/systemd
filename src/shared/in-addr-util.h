@@ -37,6 +37,7 @@ int in_addr_prefix_intersect(unsigned family, const union in_addr_union *a, unsi
 int in_addr_prefix_next(unsigned family, union in_addr_union *u, unsigned prefixlen);
 int in_addr_to_string(unsigned family, const union in_addr_union *u, char **ret);
 int in_addr_from_string(unsigned family, const char *s, union in_addr_union *ret);
+int in_addr_from_string_auto(const char *s, unsigned *family, union in_addr_union *ret);
 
 static inline size_t PROTO_ADDRESS_SIZE(int proto) {
         assert(proto == AF_INET || proto == AF_INET6);

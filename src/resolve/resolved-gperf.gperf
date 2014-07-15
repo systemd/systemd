@@ -14,4 +14,4 @@ struct ConfigPerfItem;
 %struct-type
 %includes
 %%
-Resolve.DNS,                    config_parse_dnsv,     0, offsetof(Manager, fallback_dns)
+Resolve.DNS,                    config_parse_dnsv,     0, 0

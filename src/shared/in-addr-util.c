@@ -209,3 +209,25 @@ int in_addr_from_string(unsigned family, const char *s, union in_addr_union *ret
 
         return 0;
 }
+
+int in_addr_from_string_auto(const char *s, unsigned *family, union in_addr_union *ret) {
+        int r;
+
+        assert(s);
+        assert(family);
+        assert(ret);
+
+        r = in_addr_from_string(AF_INET, s, ret);
+        if (r >= 0) {
+                *family = AF_INET;
+                return 0;
+        }
+
+        r = in_addr_from_string(AF_INET6, s, ret);
+        if (r >= 0) {
+                *family = AF_INET6;
+                return 0;
+        }
+
+        return -EINVAL;
+}

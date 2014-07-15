@@ -1,5 +1,7 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
+#pragma once
+
 /***
   This file is part of systemd.
 
@@ -19,49 +21,76 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#pragma once
-
 #include "sd-event.h"
 #include "sd-network.h"
-
+#include "sd-rtnl.h"
 #include "util.h"
 #include "list.h"
 #include "in-addr-util.h"
+#include "hashmap.h"
 
-typedef struct Address Address;
 typedef struct Manager Manager;
 
-struct Address {
-        unsigned char family;
-
-        union in_addr_union in_addr;
-
-        LIST_FIELDS(Address, addresses);
-};
+#include "resolved-dns-query.h"
+#include "resolved-dns-server.h"
+#include "resolved-dns-scope.h"
 
 struct Manager {
         sd_event *event;
 
-        LIST_HEAD(Address, fallback_dns);
-
         /* network */
-        sd_event_source *network_event_source;
+        Hashmap *links;
+
+        sd_rtnl *rtnl;
+        sd_event_source *rtnl_event_source;
+
         sd_network_monitor *network_monitor;
+        sd_event_source *network_event_source;
+
+        /* unicast dns */
+        int dns_ipv4_fd;
+        int dns_ipv6_fd;
+
+        sd_event_source *dns_ipv4_event_source;
+        sd_event_source *dns_ipv6_event_source;
+
+        Hashmap *dns_query_transactions;
+        LIST_HEAD(DnsQuery, dns_queries);
+
+        LIST_HEAD(DnsServer, dns_servers);
+        DnsServer *current_dns_server;
+
+        LIST_HEAD(DnsScope, dns_scopes);
+        DnsScope *unicast_scope;
+
+        /* dbus */
+        sd_bus *bus;
+        sd_event_source *bus_retry_event_source;
 };
 
 /* Manager */
 
 int manager_new(Manager **ret);
-void manager_free(Manager *m);
+Manager* manager_free(Manager *m);
 
-int manager_update_resolv_conf(Manager *m);
-int manager_network_monitor_listen(Manager *m);
+int manager_parse_config_file(Manager *m);
+int manager_write_resolv_conf(Manager *m);
+
+DnsServer* manager_find_dns_server(Manager *m, unsigned char family, union in_addr_union *in_addr);
+DnsServer *manager_get_dns_server(Manager *m);
+void manager_next_dns_server(Manager *m);
+
+int manager_dns_ipv4_fd(Manager *m);
+int manager_dns_ipv4_send(Manager *m, DnsServer *srv, int ifindex, DnsPacket *p);
+int manager_dns_ipv4_recv(Manager *m, DnsPacket **ret);
+
+int manager_dns_ipv6_fd(Manager *m);
+int manager_dns_ipv6_send(Manager *m, DnsServer *srv, int ifindex, DnsPacket *p);
+int manager_dns_ipv6_recv(Manager *m, DnsPacket **ret);
+
+int manager_connect_bus(Manager *m);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
-#define _cleanup_manager_free_ _cleanup_(manager_freep)
 
 const struct ConfigPerfItem* resolved_gperf_lookup(const char *key, unsigned length);
-
-int config_parse_dnsv(const char *unit, const char *filename, unsigned line,
-                     const char *section, unsigned section_line, const char *lvalue,
-                     int ltype, const char *rvalue, void *data, void *userdata);
+int config_parse_dnsv(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
