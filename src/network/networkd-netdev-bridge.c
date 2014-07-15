@@ -43,6 +43,16 @@ static int netdev_bridge_fill_message_create(NetDev *netdev, sd_rtnl_message *m)
                 return r;
         }
 
+        if (netdev->mac) {
+                r = sd_rtnl_message_append_ether_addr(m, IFLA_ADDRESS, netdev->mac);
+                if (r < 0) {
+                        log_error_netdev(netdev,
+                                         "Colud not append IFLA_ADDRESS attribute: %s",
+                                         strerror(-r));
+                    return r;
+                }
+        }
+
         r = sd_rtnl_message_open_container(m, IFLA_LINKINFO);
         if (r < 0) {
                 log_error_netdev(netdev,
