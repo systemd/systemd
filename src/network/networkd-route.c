@@ -373,7 +373,6 @@ int config_parse_route_priority(const char *unit,
                                 void *userdata) {
         Network *network = userdata;
         _cleanup_route_free_ Route *n = NULL;
-        _cleanup_free_ char *route = NULL;
         int r;
 
         assert(filename);
