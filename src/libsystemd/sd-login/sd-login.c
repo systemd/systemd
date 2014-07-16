@@ -786,7 +786,7 @@ _public_ int sd_machine_get_class(const char *machine, char **class) {
         return 0;
 }
 
-_public_ int sd_machine_get_ifindexes(const char *machine, int **ifindexes) {
+_public_ int sd_machine_get_ifindices(const char *machine, int **ifindices) {
         _cleanup_free_ char *netif = NULL;
         size_t l, allocated = 0, nr = 0;
         char *w, *state;
@@ -795,14 +795,14 @@ _public_ int sd_machine_get_ifindexes(const char *machine, int **ifindexes) {
         int r;
 
         assert_return(machine_name_is_valid(machine), -EINVAL);
-        assert_return(ifindexes, -EINVAL);
+        assert_return(ifindices, -EINVAL);
 
         p = strappenda("/run/systemd/machines/", machine);
         r = parse_env_file(p, NEWLINE, "NETIF", &netif, NULL);
         if (r < 0)
                 return r;
         if (!netif) {
-                *ifindexes = NULL;
+                *ifindices = NULL;
                 return 0;
         }
 
@@ -825,7 +825,7 @@ _public_ int sd_machine_get_ifindexes(const char *machine, int **ifindexes) {
                 ni[nr++] = ifi;
         }
 
-        *ifindexes = ni;
+        *ifindices = ni;
         return nr;
 }
 

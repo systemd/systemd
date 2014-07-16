@@ -150,7 +150,7 @@ global:
 
 LIBSYSTEMD_216 {
 global:
-        sd_machine_get_ifindexes;
+        sd_machine_get_ifindices;
 } LIBSYSTEMD_214;
 
 m4_ifdef(`ENABLE_KDBUS',

@@ -80,12 +80,12 @@ enum nss_status _nss_mymachines_gethostbyname4_r(
         struct gaih_addrtuple *r_tuple, *r_tuple_first = NULL;
         _cleanup_bus_message_unref_ sd_bus_message* reply = NULL;
         _cleanup_bus_unref_ sd_bus *bus = NULL;
-        _cleanup_free_ int *ifindexes = NULL;
+        _cleanup_free_ int *ifindices = NULL;
         _cleanup_free_ char *class = NULL;
         size_t l, ms, idx;
         unsigned i = 0, c = 0;
         char *r_name;
-        int n_ifindexes, r;
+        int n_ifindices, r;
 
         assert(name);
         assert(pat);
@@ -101,9 +101,9 @@ enum nss_status _nss_mymachines_gethostbyname4_r(
                 goto fail;
         }
 
-        n_ifindexes = sd_machine_get_ifindexes(name, &ifindexes);
-        if (n_ifindexes < 0) {
-                r = n_ifindexes;
+        n_ifindices = sd_machine_get_ifindices(name, &ifindices);
+        if (n_ifindices < 0) {
+                r = n_ifindices;
                 goto fail;
         }
 
@@ -182,7 +182,7 @@ enum nss_status _nss_mymachines_gethostbyname4_r(
                 r_tuple->next = i == c-1 ? NULL : (struct gaih_addrtuple*) ((char*) r_tuple + ALIGN(sizeof(struct gaih_addrtuple)));
                 r_tuple->name = r_name;
                 r_tuple->family = family;
-                r_tuple->scopeid = n_ifindexes == 1 ? ifindexes[0] : 0;
+                r_tuple->scopeid = n_ifindices == 1 ? ifindices[0] : 0;
                 memcpy(r_tuple->addr, a, sz);
 
                 idx += ALIGN(sizeof(struct gaih_addrtuple));
