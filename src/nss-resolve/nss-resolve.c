@@ -43,12 +43,15 @@ NSS_GETHOSTBYADDR_PROTOTYPES(resolve);
 
 #define DNS_CALL_TIMEOUT_USEC (45*USEC_PER_SEC)
 
-static int count_addresses(sd_bus_message *m, unsigned af, unsigned *ret) {
-        unsigned c = 0;
-        int r;
+static int count_addresses(sd_bus_message *m, unsigned af, const char **canonical) {
+        int c = 0, r;
 
         assert(m);
-        assert(ret);
+        assert(canonical);
+
+        r = sd_bus_message_enter_container(m, 'a', "(yayi)");
+        if (r < 0)
+                return r;
 
         while ((r = sd_bus_message_enter_container(m, 'r', "yayi")) > 0) {
                 unsigned char family;
@@ -73,12 +76,19 @@ static int count_addresses(sd_bus_message *m, unsigned af, unsigned *ret) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_rewind(m, false);
+        r = sd_bus_message_exit_container(m);
         if (r < 0)
                 return r;
 
-        *ret = c;
-        return 0;
+        r = sd_bus_message_read(m, "s", canonical);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_rewind(m, true);
+        if (r < 0)
+                return r;
+
+        return c;
 }
 
 enum nss_status _nss_resolve_gethostbyname4_r(
@@ -92,10 +102,10 @@ enum nss_status _nss_resolve_gethostbyname4_r(
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         struct gaih_addrtuple *r_tuple, *r_tuple_first = NULL;
         _cleanup_bus_unref_ sd_bus *bus = NULL;
+        const char *canonical = NULL;
         size_t l, ms, idx;
         char *r_name;
-        unsigned i = 0, c = 0;
-        int r;
+        int c, r, i = 0;
 
         assert(name);
         assert(pat);
@@ -138,21 +148,21 @@ enum nss_status _nss_resolve_gethostbyname4_r(
                 return NSS_STATUS_UNAVAIL;
         }
 
-        r = sd_bus_message_enter_container(reply, 'a', "(yayi)");
-        if (r < 0)
+        c = count_addresses(reply, AF_UNSPEC, &canonical);
+        if (c < 0) {
+                r = c;
                 goto fail;
-
-        r = count_addresses(reply, AF_UNSPEC, &c);
-        if (r < 0)
-                goto fail;
-
-        if (c <= 0) {
+        }
+        if (c == 0) {
                 *errnop = ESRCH;
                 *h_errnop = HOST_NOT_FOUND;
                 return NSS_STATUS_NOTFOUND;
         }
 
-        l = strlen(name);
+        if (isempty(canonical))
+                canonical = name;
+
+        l = strlen(canonical);
         ms = ALIGN(l+1) + ALIGN(sizeof(struct gaih_addrtuple)) * c;
         if (buflen < ms) {
                 *errnop = ENOMEM;
@@ -162,11 +172,16 @@ enum nss_status _nss_resolve_gethostbyname4_r(
 
         /* First, append name */
         r_name = buffer;
-        memcpy(r_name, name, l+1);
+        memcpy(r_name, canonical, l+1);
         idx = ALIGN(l+1);
 
         /* Second, append addresses */
         r_tuple_first = (struct gaih_addrtuple*) (buffer + idx);
+
+        r = sd_bus_message_enter_container(reply, 'a', "(yayi)");
+        if (r < 0)
+                goto fail;
+
         while ((r = sd_bus_message_enter_container(reply, 'r', "yayi")) > 0) {
                 unsigned char family;
                 const void *a;
@@ -212,13 +227,10 @@ enum nss_status _nss_resolve_gethostbyname4_r(
                 idx += ALIGN(sizeof(struct gaih_addrtuple));
                 i++;
         }
-
-        assert(i == c);
-
-        r = sd_bus_message_exit_container(reply);
         if (r < 0)
                 goto fail;
 
+        assert(i == c);
         assert(idx == ms);
 
         if (*pat)
@@ -250,9 +262,9 @@ enum nss_status _nss_resolve_gethostbyname3_r(
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         char *r_name, *r_aliases, *r_addr, *r_addr_list;
         _cleanup_bus_unref_ sd_bus *bus = NULL;
-        unsigned c = 0, i = 0;
         size_t l, idx, ms, alen;
-        int r;
+        const char *canonical;
+        int c, r, i = 0;
 
         assert(name);
         assert(result);
@@ -303,22 +315,22 @@ enum nss_status _nss_resolve_gethostbyname3_r(
                 return NSS_STATUS_UNAVAIL;
         }
 
-        r = sd_bus_message_enter_container(reply, 'a', "(yayi)");
-        if (r < 0)
+        c = count_addresses(reply, af, &canonical);
+        if (c < 0) {
+                r = c;
                 goto fail;
-
-        r = count_addresses(reply, af, &c);
-        if (r < 0)
-                goto fail;
-
-        if (c <= 0) {
+        }
+        if (c == 0) {
                 *errnop = ESRCH;
                 *h_errnop = HOST_NOT_FOUND;
                 return NSS_STATUS_NOTFOUND;
         }
 
+        if (isempty(canonical))
+                canonical = name;
+
         alen = PROTO_ADDRESS_SIZE(af);
-        l = strlen(name);
+        l = strlen(canonical);
 
         ms = ALIGN(l+1) +
                 sizeof(char*) +
@@ -333,16 +345,21 @@ enum nss_status _nss_resolve_gethostbyname3_r(
 
         /* First, append name */
         r_name = buffer;
-        memcpy(r_name, name, l+1);
+        memcpy(r_name, canonical, l+1);
         idx = ALIGN(l+1);
 
-        /* Second, create aliases array */
+        /* Second, create empty aliases array */
         r_aliases = buffer + idx;
         ((char**) r_aliases)[0] = NULL;
         idx += sizeof(char*);
 
         /* Third, append addresses */
         r_addr = buffer + idx;
+
+        r = sd_bus_message_enter_container(reply, 'a', "(yayi)");
+        if (r < 0)
+                goto fail;
+
         while ((r = sd_bus_message_enter_container(reply, 'r', "yayi")) > 0) {
                 unsigned char family;
                 const void *a;
@@ -381,15 +398,13 @@ enum nss_status _nss_resolve_gethostbyname3_r(
                 memcpy(r_addr + i*ALIGN(alen), a, alen);
                 i++;
         }
+        if (r < 0)
+                goto fail;
 
         assert(i == c);
         idx += c * ALIGN(alen);
 
-        r = sd_bus_message_exit_container(reply);
-        if (r < 0)
-                goto fail;
-
-        /* Third, append address pointer array */
+        /* Fourth, append address pointer array */
         r_addr_list = buffer + idx;
         for (i = 0; i < c; i++)
                 ((char**) r_addr_list)[i] = r_addr + i*ALIGN(alen);
@@ -560,6 +575,8 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
 
                 idx += ALIGN(l+1);
         }
+        if (r < 0)
+                goto fail;
 
         ((char**) r_aliases)[c-1] = NULL;
         assert(idx == ms);

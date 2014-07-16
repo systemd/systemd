@@ -43,7 +43,7 @@ static int reply_query_state(DnsQuery *q) {
         switch (q->state) {
 
         case DNS_QUERY_NO_SERVERS:
-                return sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_NAME_SERVERS, "Not appropriate name servers or networks found");
+                return sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_NAME_SERVERS, "No appropriate name servers or networks for name found");
 
         case DNS_QUERY_TIMEOUT:
                 return sd_bus_reply_method_errorf(q->request, SD_BUS_ERROR_TIMEOUT, "Query timed out");
@@ -127,7 +127,7 @@ static int append_address(sd_bus_message *reply, DnsResourceRecord *rr, int ifin
 }
 
 static void bus_method_resolve_hostname_complete(DnsQuery *q) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *cname = NULL;
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *cname = NULL, *canonical = NULL;
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         unsigned i, n, added = 0;
         size_t answer_rindex;
@@ -186,12 +186,15 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
                 if (r < 0)
                         goto finish;
 
+                if (!canonical)
+                        canonical = dns_resource_record_ref(rr);
+
                 added ++;
         }
 
         if (added <= 0) {
                 if (!cname) {
-                        r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_SUCH_RR, "'%s' does not have RR of this type", q->request_hostname);
+                        r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_SUCH_RR, "'%s' does not have any RR of requested type", q->request_hostname);
                         goto finish;
                 }
 
@@ -227,6 +230,9 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
                         if (r < 0)
                                 goto finish;
 
+                        if (!canonical)
+                                canonical = dns_resource_record_ref(rr);
+
                         added++;
                 }
 
@@ -234,6 +240,10 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
                  * query, this time with the cname */
                 if (added <= 0) {
                         r = dns_query_start(q);
+                        if (r == -ESRCH) {
+                                r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_NAME_SERVERS, "No appropriate name servers or networks for name found");
+                                goto finish;
+                        }
                         if (r < 0) {
                                 r = sd_bus_reply_method_errno(q->request, -r, NULL);
                                 goto finish;
@@ -243,6 +253,12 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
         }
 
         r = sd_bus_message_close_container(reply);
+        if (r < 0)
+                goto finish;
+
+        /* Return the precise spelling and uppercasing reported by the server */
+        assert(canonical);
+        r = sd_bus_message_append(reply, "s", canonical->key.name);
         if (r < 0)
                 goto finish;
 
@@ -308,6 +324,10 @@ static int bus_method_resolve_hostname(sd_bus *bus, sd_bus_message *message, voi
         r = dns_query_start(q);
         if (r < 0) {
                 dns_query_free(q);
+
+                if (r == -ESRCH)
+                        sd_bus_error_setf(error, BUS_ERROR_NO_NAME_SERVERS, "No appropriate name servers or networks for name found");
+
                 return r;
         }
 
@@ -369,7 +389,7 @@ static void bus_method_resolve_address_complete(DnsQuery *q) {
 
                 in_addr_to_string(q->request_family, &q->request_address, &ip);
 
-                r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_SUCH_RR, "Address '%s' does not have RR of this type", ip);
+                r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_SUCH_RR, "Address '%s' does not have any RR of requested type", ip);
                 goto finish;
         }
 
@@ -451,7 +471,7 @@ static int bus_method_resolve_address(sd_bus *bus, sd_bus_message *message, void
 
 static const sd_bus_vtable resolve_vtable[] = {
         SD_BUS_VTABLE_START(0),
-        SD_BUS_METHOD("ResolveHostname", "sy", "a(yayi)", bus_method_resolve_hostname, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("ResolveHostname", "sy", "a(yayi)s", bus_method_resolve_hostname, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ResolveAddress", "yayi", "as", bus_method_resolve_address, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_VTABLE_END,
 };
