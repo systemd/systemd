@@ -4575,6 +4575,12 @@ rootlibexec_PROGRAMS += \
 nodist_systemunit_DATA += \
 	units/systemd-resolved.service
 
+dist_dbuspolicy_DATA += \
+	src/resolve/org.freedesktop.resolve1.conf
+
+dist_dbussystemservice_DATA += \
+	src/resolve/org.freedesktop.resolve1.service
+
 EXTRA_DIST += \
 	units/systemd-resolved.service.in
 
