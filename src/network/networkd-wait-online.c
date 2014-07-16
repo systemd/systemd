@@ -252,7 +252,7 @@ int main(int argc, char *argv[]) {
                 goto out;
         }
 
-        r = sd_network_monitor_new(NULL, &m->monitor);
+        r = sd_network_monitor_new(&m->monitor, NULL);
         if (r < 0) {
                 log_error("Could not create monitor: %s", strerror(-r));
                 goto out;

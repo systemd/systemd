@@ -106,7 +106,7 @@ int sd_network_get_ifindices(unsigned **indices);
 typedef struct sd_network_monitor sd_network_monitor;
 
 /* Create a new monitor. Category must be NULL, "links" or "leases". */
-int sd_network_monitor_new(const char *category, sd_network_monitor **ret);
+int sd_network_monitor_new(sd_network_monitor **ret, const char *category);
 
 /* Destroys the passed monitor. Returns NULL. */
 sd_network_monitor* sd_network_monitor_unref(sd_network_monitor *m);

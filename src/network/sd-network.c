@@ -316,7 +316,7 @@ static inline sd_network_monitor* FD_TO_MONITOR(int fd) {
         return (sd_network_monitor*) (unsigned long) (fd + 1);
 }
 
-_public_ int sd_network_monitor_new(const char *category, sd_network_monitor **m) {
+_public_ int sd_network_monitor_new(sd_network_monitor **m, const char *category) {
         int fd, k;
         bool good = false;
 

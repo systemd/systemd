@@ -282,7 +282,7 @@ static int manager_network_monitor_listen(Manager *m) {
 
         assert(m);
 
-        r = sd_network_monitor_new(NULL, &m->network_monitor);
+        r = sd_network_monitor_new(&m->network_monitor, NULL);
         if (r < 0)
                 return r;
 

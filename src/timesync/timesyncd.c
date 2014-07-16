@@ -1152,7 +1152,7 @@ static int manager_network_monitor_listen(Manager *m) {
         _cleanup_network_monitor_unref_ sd_network_monitor *monitor = NULL;
         int r, fd, events;
 
-        r = sd_network_monitor_new(NULL, &monitor);
+        r = sd_network_monitor_new(&monitor, NULL);
         if (r < 0)
                 return r;
 
