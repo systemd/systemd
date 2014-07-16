@@ -35,46 +35,14 @@
 #include "network-internal.h"
 #include "dhcp-lease-internal.h"
 
-static int link_get_flags(unsigned index, unsigned *flags) {
+_public_ int sd_network_get_link_state(int ifindex, char **state) {
         _cleanup_free_ char *s = NULL, *p = NULL;
         int r;
 
-        assert(index);
-        assert(flags);
-
-        if (asprintf(&p, "/run/systemd/netif/links/%u", index) < 0)
-                return -ENOMEM;
-
-        r = parse_env_file(p, NEWLINE, "FLAGS", &s, NULL);
-        if (r == -ENOENT)
-                return -ENODATA;
-        else if (r < 0)
-                return r;
-        else if (!s)
-                return -EIO;
-
-        return safe_atou(s, flags);
-}
-
-_public_ int sd_network_link_is_loopback(unsigned index) {
-        unsigned flags;
-        int r;
-
-        r = link_get_flags(index, &flags);
-        if (r < 0)
-                return 0;
-
-        return flags & IFF_LOOPBACK;
-}
-
-_public_ int sd_network_get_link_state(unsigned index, char **state) {
-        _cleanup_free_ char *s = NULL, *p = NULL;
-        int r;
-
-        assert_return(index, -EINVAL);
+        assert_return(ifindex > 0, -EINVAL);
         assert_return(state, -EINVAL);
 
-        if (asprintf(&p, "/run/systemd/netif/links/%u", index) < 0)
+        if (asprintf(&p, "/run/systemd/netif/links/%d", ifindex) < 0)
                 return -ENOMEM;
 
         r = parse_env_file(p, NEWLINE, "ADMIN_STATE", &s, NULL);
@@ -115,14 +83,14 @@ _public_ int sd_network_get_operational_state(char **state) {
         return 0;
 }
 
-_public_ int sd_network_get_link_operational_state(unsigned index, char **state) {
+_public_ int sd_network_get_link_operational_state(int ifindex, char **state) {
         _cleanup_free_ char *s = NULL, *p = NULL;
         int r;
 
-        assert_return(index, -EINVAL);
+        assert_return(ifindex > 0, -EINVAL);
         assert_return(state, -EINVAL);
 
-        if (asprintf(&p, "/run/systemd/netif/links/%u", index) < 0)
+        if (asprintf(&p, "/run/systemd/netif/links/%d", ifindex) < 0)
                 return -ENOMEM;
 
         r = parse_env_file(p, NEWLINE, "OPER_STATE", &s, NULL);
@@ -139,15 +107,15 @@ _public_ int sd_network_get_link_operational_state(unsigned index, char **state)
         return 0;
 }
 
-_public_ int sd_network_get_dhcp_lease(unsigned index, sd_dhcp_lease **ret) {
+_public_ int sd_network_get_dhcp_lease(int ifindex, sd_dhcp_lease **ret) {
         _cleanup_free_ char *p = NULL, *s = NULL;
         sd_dhcp_lease *lease = NULL;
         int r;
 
-        assert_return(index, -EINVAL);
+        assert_return(ifindex > 0, -EINVAL);
         assert_return(ret, -EINVAL);
 
-        if (asprintf(&p, "/run/systemd/netif/links/%u", index) < 0)
+        if (asprintf(&p, "/run/systemd/netif/links/%d", ifindex) < 0)
                 return -ENOMEM;
 
         r = parse_env_file(p, NEWLINE, "DHCP_LEASE", &s, NULL);
@@ -166,14 +134,14 @@ _public_ int sd_network_get_dhcp_lease(unsigned index, sd_dhcp_lease **ret) {
         return 0;
 }
 
-static int network_get_in_addr(const char *key, unsigned index, struct in_addr **addr) {
+static int network_get_in_addr(const char *key, int ifindex, struct in_addr **addr) {
         _cleanup_free_ char *p = NULL, *s = NULL;
         int r;
 
-        assert_return(index, -EINVAL);
+        assert_return(ifindex > 0, -EINVAL);
         assert_return(addr, -EINVAL);
 
-        if (asprintf(&p, "/run/systemd/netif/links/%u", index) < 0)
+        if (asprintf(&p, "/run/systemd/netif/links/%d", ifindex) < 0)
                 return -ENOMEM;
 
         r = parse_env_file(p, NEWLINE, key, &s, NULL);
@@ -185,22 +153,18 @@ static int network_get_in_addr(const char *key, unsigned index, struct in_addr *
         return deserialize_in_addrs(addr, s);
 }
 
-_public_ int sd_network_get_dns(unsigned index, struct in_addr **addr) {
-        return network_get_in_addr("DNS", index, addr);
+_public_ int sd_network_get_dns(int ifindex, struct in_addr **addr) {
+        return network_get_in_addr("DNS", ifindex, addr);
 }
 
-_public_ int sd_network_get_ntp(unsigned index, struct in_addr **addr) {
-        return network_get_in_addr("NTP", index, addr);
-}
-
-static int network_get_in6_addr(const char *key, unsigned index, struct in6_addr **addr) {
+static int network_get_in6_addr(const char *key, int ifindex, struct in6_addr **addr) {
         _cleanup_free_ char *p = NULL, *s = NULL;
         int r;
 
-        assert_return(index, -EINVAL);
+        assert_return(ifindex > 0, -EINVAL);
         assert_return(addr, -EINVAL);
 
-        if (asprintf(&p, "/run/systemd/netif/links/%u", index) < 0)
+        if (asprintf(&p, "/run/systemd/netif/links/%d", ifindex) < 0)
                 return -ENOMEM;
 
         r = parse_env_file(p, NEWLINE, key, &s, NULL);
@@ -212,21 +176,17 @@ static int network_get_in6_addr(const char *key, unsigned index, struct in6_addr
         return deserialize_in6_addrs(addr, s);
 }
 
-_public_ int sd_network_get_dns6(unsigned index, struct in6_addr **addr) {
-        return network_get_in6_addr("DNS", index, addr);
+_public_ int sd_network_get_dns6(int ifindex, struct in6_addr **addr) {
+        return network_get_in6_addr("DNS", ifindex, addr);
 }
 
-_public_ int sd_network_get_ntp6(unsigned index, struct in6_addr **addr) {
-        return network_get_in6_addr("NTP", index, addr);
-}
-
-static int network_get_boolean(const char *key, unsigned index) {
+static int network_get_boolean(const char *key, int ifindex) {
         _cleanup_free_ char *p = NULL, *s = NULL;
         int r;
 
-        assert_return(index, -EINVAL);
+        assert_return(ifindex > 0, -EINVAL);
 
-        if (asprintf(&p, "/run/systemd/netif/links/%u", index) < 0)
+        if (asprintf(&p, "/run/systemd/netif/links/%d", ifindex) < 0)
                 return -ENOMEM;
 
         r = parse_env_file(p, NEWLINE, key, &s, NULL);
@@ -238,19 +198,19 @@ static int network_get_boolean(const char *key, unsigned index) {
         return parse_boolean(s);
 }
 
-_public_ int sd_network_dhcp_use_dns(unsigned index) {
-        return network_get_boolean("DHCP_USE_DNS", index);
+_public_ int sd_network_dhcp_use_dns(int ifindex) {
+        return network_get_boolean("DHCP_USE_DNS", ifindex);
 }
 
-_public_ int sd_network_dhcp_use_ntp(unsigned index) {
-        return network_get_boolean("DHCP_USE_NTP", index);
+_public_ int sd_network_dhcp_use_ntp(int ifindex) {
+        return network_get_boolean("DHCP_USE_NTP", ifindex);
 }
 
-_public_ int sd_network_get_ifindices(unsigned **indices) {
+_public_ int sd_network_get_ifindices(int **ifindices) {
         _cleanup_closedir_ DIR *d;
         int r = 0;
         unsigned n = 0;
-        _cleanup_free_ uid_t *l = NULL;
+        _cleanup_free_ int *l = NULL;
 
         d = opendir("/run/systemd/netif/links/");
         if (!d)
@@ -259,7 +219,7 @@ _public_ int sd_network_get_ifindices(unsigned **indices) {
         for (;;) {
                 struct dirent *de;
                 int k;
-                unsigned index;
+                int ifindex;
 
                 errno = 0;
                 de = readdir(d);
@@ -274,16 +234,16 @@ _public_ int sd_network_get_ifindices(unsigned **indices) {
                 if (!dirent_is_file(de))
                         continue;
 
-                k = safe_atou(de->d_name, &index);
+                k = safe_atoi(de->d_name, &ifindex);
                 if (k < 0)
                         continue;
 
-                if (indices) {
+                if (ifindices) {
                         if ((unsigned) r >= n) {
-                                unsigned *t;
+                                int *t;
 
                                 n = MAX(16, 2*r);
-                                t = realloc(l, sizeof(unsigned) * n);
+                                t = realloc(l, sizeof(int) * n);
                                 if (!t)
                                         return -ENOMEM;
 
@@ -291,13 +251,13 @@ _public_ int sd_network_get_ifindices(unsigned **indices) {
                         }
 
                         assert((unsigned) r < n);
-                        l[r++] = index;
+                        l[r++] = ifindex;
                 } else
                         r++;
         }
 
-        if (indices) {
-                *indices = l;
+        if (ifindices) {
+                *ifindices = l;
                 l = NULL;
         }
 

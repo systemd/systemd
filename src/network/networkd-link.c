@@ -2506,9 +2506,8 @@ int link_save(Link *link) {
         fprintf(f,
                 "# This is private data. Do not parse.\n"
                 "ADMIN_STATE=%s\n"
-                "OPER_STATE=%s\n"
-                "FLAGS=%u\n",
-                admin_state, oper_state, link->flags);
+                "OPER_STATE=%s\n",
+                admin_state, oper_state);
 
         if (link->network) {
                 serialize_addresses(f, "DNS", link->network->dns);
