@@ -803,7 +803,6 @@ static int remoteserver_init(RemoteServer *s,
                              const char* cert,
                              const char* trust) {
         int r, n, fd;
-        const char *output_name = NULL;
         char **file;
 
         assert(s);
@@ -869,8 +868,6 @@ static int remoteserver_init(RemoteServer *s,
                                   fd, strerror(-r));
                         return r;
                 }
-
-                output_name = "socket";
         }
 
         if (arg_url) {
@@ -896,8 +893,6 @@ static int remoteserver_init(RemoteServer *s,
                 r = add_source(s, fd, (char*) hostname, false);
                 if (r < 0)
                         return r;
-
-                output_name = arg_url;
         }
 
         if (arg_listen_raw) {
@@ -905,27 +900,23 @@ static int remoteserver_init(RemoteServer *s,
                 r = setup_raw_socket(s, arg_listen_raw);
                 if (r < 0)
                         return r;
-
-                output_name = arg_listen_raw;
         }
 
         if (arg_listen_http) {
                 r = setup_microhttpd_socket(s, arg_listen_http, NULL, NULL, NULL);
                 if (r < 0)
                         return r;
-
-                output_name = arg_listen_http;
         }
 
         if (arg_listen_https) {
                 r = setup_microhttpd_socket(s, arg_listen_https, key, cert, trust);
                 if (r < 0)
                         return r;
-
-                output_name = arg_listen_https;
         }
 
         STRV_FOREACH(file, arg_files) {
+                const char *output_name;
+
                 if (streq(*file, "-")) {
                         log_info("Using standard input as source.");
 
@@ -951,9 +942,6 @@ static int remoteserver_init(RemoteServer *s,
                 log_error("Zarro sources specified");
                 return -EINVAL;
         }
-
-        if (!!n + !!arg_url + !!arg_listen_raw + !!arg_files)
-                output_name = "multiple";
 
         r = init_writer_hashmap(s);
         if (r < 0)
