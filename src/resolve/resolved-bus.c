@@ -138,8 +138,10 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
                         added ++;
                 }
 
-                if (added <= 0)
-                        goto parse_fail;
+                if (added <= 0) {
+                        r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_SUCH_RR, "Hostname %s does not have RR of this type", q->request_hostname);
+                        break;
+                }
 
                 r = sd_bus_message_close_container(reply);
                 if (r < 0)
@@ -315,8 +317,10 @@ static void bus_method_resolve_address_complete(DnsQuery *q) {
                         added ++;
                 }
 
-                if (added <= 0)
-                        goto parse_fail;
+                if (added <= 0) {
+                        r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_SUCH_RR, "Address %s does not have RR of this type", ip);
+                        break;
+                }
 
                 r = sd_bus_message_close_container(reply);
                 if (r < 0)

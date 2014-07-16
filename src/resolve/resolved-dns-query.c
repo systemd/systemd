@@ -107,12 +107,9 @@ int dns_query_transaction_reply(DnsQueryTransaction *t, DnsPacket *p) {
 
         t->packet = dns_packet_ref(p);
 
-        if (DNS_PACKET_RCODE(p) == DNS_RCODE_SUCCESS) {
-                if( be16toh(DNS_PACKET_HEADER(p)->ancount) > 0)
-                        dns_query_transaction_set_state(t, DNS_QUERY_SUCCESS);
-                else
-                        dns_query_transaction_set_state(t, DNS_QUERY_INVALID_REPLY);
-        } else
+        if (DNS_PACKET_RCODE(p) == DNS_RCODE_SUCCESS)
+                dns_query_transaction_set_state(t, DNS_QUERY_SUCCESS);
+        else
                 dns_query_transaction_set_state(t, DNS_QUERY_FAILURE);
 
         return 0;
