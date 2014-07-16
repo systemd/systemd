@@ -1,0 +1,377 @@
+# Ukrainian translation for systemd.
+# Copyright (C) 2014 systemd's COPYRIGHT HOLDER
+# This file is distributed under the same license as the systemd package.
+# Eugene Melnik <jeka7js@gmail.com>, 2014.
+# Daniel Korostil <ted.korostiled@gmail.com>, 2014.
+msgid ""
+msgstr ""
+"Project-Id-Version: systemd master\n"
+"Report-Msgid-Bugs-To: https://bugs.freedesktop.org/enter_bug.cgi?product=sys"
+"temd&keywords=I18N+L10N&component=general\n"
+"POT-Creation-Date: 2014-06-06 22:16+0000\n"
+"PO-Revision-Date: 2014-07-16 19:13+0300\n"
+"Last-Translator: Daniel Korostil <ted.korostiled@gmail.com>\n"
+"Language-Team: linux.org.ua\n"
+"Language: uk\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%"
+"10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
+"X-Generator: Virtaal 0.7.1\n"
+
+#: ../src/hostname/org.freedesktop.hostname1.policy.in.h:1
+msgid "Set host name"
+msgstr "Встановити назву вузла"
+
+#: ../src/hostname/org.freedesktop.hostname1.policy.in.h:2
+msgid "Authentication is required to set the local host name."
+msgstr "Засвідчення потрібне, щоб встановити назву локального вузла."
+
+#: ../src/hostname/org.freedesktop.hostname1.policy.in.h:3
+msgid "Set static host name"
+msgstr "Встановити статичну назву вузла"
+
+#: ../src/hostname/org.freedesktop.hostname1.policy.in.h:4
+msgid ""
+"Authentication is required to set the statically configured local host name, "
+"as well as the pretty host name."
+msgstr ""
+"Засвідчення потрібне, щоб вказати статично налаштовану назву локального "
+"вузла, так само й форматовану."
+
+#: ../src/hostname/org.freedesktop.hostname1.policy.in.h:5
+msgid "Set machine information"
+msgstr "Встановити інформацію про машину"
+
+#: ../src/hostname/org.freedesktop.hostname1.policy.in.h:6
+msgid "Authentication is required to set local machine information."
+msgstr "Засвідчення потрібно, щоб вказати локальну інформацію про машини."
+
+#: ../src/locale/org.freedesktop.locale1.policy.in.h:1
+msgid "Set system locale"
+msgstr "Вказати системну локаль"
+
+#: ../src/locale/org.freedesktop.locale1.policy.in.h:2
+msgid "Authentication is required to set the system locale."
+msgstr "Засвідчення потрібно, щоб встановити системну локаль."
+
+#: ../src/locale/org.freedesktop.locale1.policy.in.h:3
+msgid "Set system keyboard settings"
+msgstr "Вказати налаштування системної клавіатури"
+
+#: ../src/locale/org.freedesktop.locale1.policy.in.h:4
+msgid "Authentication is required to set the system keyboard settings."
+msgstr "Засвідчення потрібно, щоб вказати налаштування системної клавіатури."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:1
+msgid "Allow applications to inhibit system shutdown"
+msgstr "Дозволити програмам перешкоджати вимкненню системи"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:2
+msgid ""
+"Authentication is required to allow an application to inhibit system "
+"shutdown."
+msgstr ""
+"Засвідчення потрібно, щоб дозволити програмам перешкоджати вимкненню системи."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:3
+msgid "Allow applications to delay system shutdown"
+msgstr "Дозволити програмам затримувати вимкнення системи"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:4
+msgid ""
+"Authentication is required to allow an application to delay system shutdown."
+msgstr ""
+"Засвідчення потрібно, щоб дозволити програмам затримувати вимкнення системи."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:5
+msgid "Allow applications to inhibit system sleep"
+msgstr "Дозволити програмам перешкоджати засинанню системи"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:6
+msgid ""
+"Authentication is required to allow an application to inhibit system sleep."
+msgstr ""
+"Засвідчення потрібно, щоб дозволити програмам перешкоджати засинанню системи."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:7
+msgid "Allow applications to delay system sleep"
+msgstr "Дозволити програмами затримувати засинання системи"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:8
+msgid ""
+"Authentication is required to allow an application to delay system sleep."
+msgstr ""
+"Засвідчення потрібно, щоб дозволити програмам затримувати засинання системи."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:9
+msgid "Allow applications to inhibit automatic system suspend"
+msgstr "Дозволити програмам перешкоджати автоматичному призупиненню системи"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:10
+msgid ""
+"Authentication is required to allow an application to inhibit automatic "
+"system suspend."
+msgstr ""
+"Засвідчення потрібно, щоб дозволити програмам перешкоджати автоматичному "
+"призупиненню системи."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:11
+msgid "Allow applications to inhibit system handling of the power key"
+msgstr "Дозволити програмам перешкоджати обробленню системою клавіші живлення"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:12
+msgid ""
+"Authentication is required to allow an application to inhibit system "
+"handling of the power key."
+msgstr ""
+"Засвідчення потрібно, щоб дозволити програмам перешкоджати обробленню "
+"системою клавіші живлення."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:13
+msgid "Allow applications to inhibit system handling of the suspend key"
+msgstr ""
+"Дозволити програмам перешкоджати обробленню системою клавіші призупинення"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:14
+msgid ""
+"Authentication is required to allow an application to inhibit system "
+"handling of the suspend key."
+msgstr ""
+"Засвідчення потрібно, щоб дозволити програмам перешкоджати обробленню "
+"системою клавіші призупинення."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:15
+msgid "Allow applications to inhibit system handling of the hibernate key"
+msgstr "Дозволити програмам перешкоджати обробленню системою клавіші присипання"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:16
+msgid ""
+"Authentication is required to allow an application to inhibit system "
+"handling of the hibernate key."
+msgstr ""
+"Засвідчення потрібно, щоб дозволити програмам перешкоджати обробленню "
+"системою клавіші присипання."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:17
+msgid "Allow applications to inhibit system handling of the lid switch"
+msgstr ""
+"Дозволити програмам перешкоджати обробленню системою клавіші перемикання "
+"кришки"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:18
+msgid ""
+"Authentication is required to allow an application to inhibit system "
+"handling of the lid switch."
+msgstr ""
+"Засвідчення потрібно, щоб дозволити програмам перешкоджати обробленню "
+"системою клавіші перемикання кришки."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:19
+msgid "Allow non-logged-in users to run programs"
+msgstr "Дозволити незареєстрованим користувачам запускати програми"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:20
+msgid ""
+"Authentication is required to allow a non-logged-in user to run programs."
+msgstr ""
+"Засвідчення потрібно, щоб дозволити незареєстрованим користувачам запускати "
+"програми."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:21
+msgid "Allow attaching devices to seats"
+msgstr "Дозволити під'єднання пристроїв до місць"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:22
+msgid "Authentication is required for attaching a device to a seat."
+msgstr "Засвідчення потрібно, щоб під'єднувати пристрої до місць."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:23
+msgid "Flush device to seat attachments"
+msgstr "Очисний пристрій для під'єднань до місця"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:24
+msgid ""
+"Authentication is required for resetting how devices are attached to seats."
+msgstr "Засвідчення потрібно, щоб перезапустити спосіб під'єднання до місць."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:25
+msgid "Power off the system"
+msgstr "Вимкнути систему"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:26
+msgid "Authentication is required for powering off the system."
+msgstr "Засвідчення потрібно, щоб вимкнути систему."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:27
+msgid "Power off the system while other users are logged in"
+msgstr "Вимикнути систему, коли інші користувачі ще в ній"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:28
+msgid ""
+"Authentication is required for powering off the system while other users are "
+"logged in."
+msgstr ""
+"Засвідчення потрібно, щоб вимкнути систему, коли інші користувачі в ній."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:29
+msgid "Power off the system while an application asked to inhibit it"
+msgstr "Вимкнути систему, коли програми намагаються першкодити цьому"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:30
+msgid ""
+"Authentication is required for powering off the system while an application "
+"asked to inhibit it."
+msgstr ""
+"Засвідчення потрібно, щоб вимкнути систему, коли програми намагаються "
+"першкодити цьому."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:31
+msgid "Reboot the system"
+msgstr "Перезавантажити систему"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:32
+msgid "Authentication is required for rebooting the system."
+msgstr "Для перезавантаження системи необхідна ідентифікація."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:33
+msgid "Reboot the system while other users are logged in"
+msgstr "Перезавантажити, якщо інщі користувачі в системі"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:34
+msgid ""
+"Authentication is required for rebooting the system while other users are "
+"logged in."
+msgstr ""
+"Засвідчення потрібно, щоб перезапустити систему, коли інші користувачі в "
+"ній."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:35
+msgid "Reboot the system while an application asked to inhibit it"
+msgstr "Перезапустити систему, коли програми намагаються першкодити цьому"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:36
+msgid ""
+"Authentication is required for rebooting the system while an application "
+"asked to inhibit it."
+msgstr ""
+"Засвідчення потрібно, щоб перезапустити систему, коли програми намагаються "
+"першкодити цьому."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:37
+msgid "Suspend the system"
+msgstr "Призупинити систему"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:38
+msgid "Authentication is required for suspending the system."
+msgstr "Засвідчення потрібно, щоб призупинити систему."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:39
+msgid "Suspend the system while other users are logged in"
+msgstr "Призупинити систему, коли інші користувачі в ній"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:40
+msgid ""
+"Authentication is required for suspending the system while other users are "
+"logged in."
+msgstr ""
+"Засвідчення потрібно, щоб призупинити систему, коли інші користувачі в ній."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:41
+msgid "Suspend the system while an application asked to inhibit it"
+msgstr "Призупинити систему, коли програми намагаються першкодити цьому"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:42
+msgid ""
+"Authentication is required for suspending the system while an application "
+"asked to inhibit it."
+msgstr ""
+"Засвідчення потрібно, щоб призупнити систему, коли програми намагаються "
+"першкодити цьому."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:43
+msgid "Hibernate the system"
+msgstr "Приспати систему"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:44
+msgid "Authentication is required for hibernating the system."
+msgstr "Засвідчення потрібно, щоб приспати систему."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:45
+msgid "Hibernate the system while other users are logged in"
+msgstr "Приспати систему, коли інші користувачі в ній"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:46
+msgid ""
+"Authentication is required for hibernating the system while other users are "
+"logged in."
+msgstr ""
+"Засвідчення потрібно, щоб присипання систему, коли інші користувачі в ній."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:47
+msgid "Hibernate the system while an application asked to inhibit it"
+msgstr "Приспати систему, коли програми намагаються першкодити цьому"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:48
+msgid ""
+"Authentication is required for hibernating the system while an application "
+"asked to inhibit it."
+msgstr ""
+"Засвідчення потрібно, щоб приспати систему, коли програми намагаються "
+"першкодити цьому."
+
+#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:1
+msgid "Set system time"
+msgstr "Вказати системний час"
+
+#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:2
+msgid "Authentication is required to set the system time."
+msgstr "Засвідчення потрібно, щоб вказати системний час."
+
+#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:3
+msgid "Set system timezone"
+msgstr "Вказати системний часовий пояс"
+
+#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:4
+msgid "Authentication is required to set the system timezone."
+msgstr "Засвідчення потрібно, щоб вказати системний часовий пояс."
+
+#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:5
+msgid "Set RTC to local timezone or UTC"
+msgstr "Вкажіть RTC для локального часового поясу або UTC"
+
+#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:6
+msgid ""
+"Authentication is required to control whether the RTC stores the local or "
+"UTC time."
+msgstr "Засвідчення потрібно, щоб контролювати, чи RTC зберігає час, чи UTC."
+
+#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:7
+msgid "Turn network time synchronization on or off"
+msgstr "Увімкнути або вимкнути синхронізування через мережу"
+
+#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:8
+msgid ""
+"Authentication is required to control whether network time synchronization "
+"shall be enabled."
+msgstr ""
+"Засвідчення потрібно, щоб контролювати, чи синхронізування часу через мережу "
+"запущено."
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:1
+msgid "Send passphrase back to system"
+msgstr "Надіслати пароль назад у систему"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:2
+msgid ""
+"Authentication is required to send the entered passphrase back to the system."
+msgstr "Засвідчення потрібно, щоб надіслати введений пароль назад у систему."
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:3
+msgid "Privileged system and service manager access"
+msgstr "Привілейований доступ до менеджера системи і служб"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:4
+msgid "Authentication is required to access the system and service manager."
+msgstr "Засвідчення потрібно, щоб доступитись до менеджера системи і служб."
