@@ -4575,6 +4575,9 @@ rootlibexec_PROGRAMS += \
 nodist_systemunit_DATA += \
 	units/systemd-resolved.service
 
+dist_systemunit_DATA += \
+	units/org.freedesktop.resolve1.busname
+
 dist_dbuspolicy_DATA += \
 	src/resolve/org.freedesktop.resolve1.conf
 
@@ -4583,6 +4586,12 @@ dist_dbussystemservice_DATA += \
 
 EXTRA_DIST += \
 	units/systemd-resolved.service.in
+
+SYSTEM_UNIT_ALIASES += \
+	systemd-resolved.service dbus-org.freedesktop.resolve1.service
+
+BUSNAMES_TARGET_WANTS += \
+	org.freedesktop.resolve1.busname
 
 GENERAL_ALIASES += \
 	$(systemunitdir)/systemd-resolved.service $(pkgsysconfdir)/system/multi-user.target.wants/systemd-resolved.service
