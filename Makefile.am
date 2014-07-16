@@ -4847,6 +4847,16 @@ libnss_resolve_la_LIBADD = \
 lib_LTLIBRARIES += \
 	libnss_resolve.la
 
+systemd_resolve_host_SOURCES = \
+	src/resolve-host/resolve-host.c
+
+systemd_resolve_host_LDADD = \
+	libsystemd-internal.la \
+	libsystemd-shared.la
+
+rootlibexec_PROGRAMS += \
+	systemd-resolve-host
+
 endif
 
 # ------------------------------------------------------------------------------
