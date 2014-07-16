@@ -245,7 +245,7 @@ static int parse_line(const char* unit,
                 if (!fn)
                         return -ENOMEM;
 
-                return config_parse(unit, fn, NULL, sections, lookup, table, relaxed, false, userdata);
+                return config_parse(unit, fn, NULL, sections, lookup, table, relaxed, false, false, userdata);
         }
 
         if (*l == '[') {
@@ -326,6 +326,7 @@ int config_parse(const char *unit,
                  const void *table,
                  bool relaxed,
                  bool allow_include,
+                 bool warn,
                  void *userdata) {
 
         _cleanup_free_ char *section = NULL, *continuation = NULL;
@@ -340,7 +341,11 @@ int config_parse(const char *unit,
         if (!f) {
                 f = ours = fopen(filename, "re");
                 if (!f) {
-                        log_full(errno == ENOENT ? LOG_DEBUG : LOG_ERR, "Failed to open configuration file '%s': %m", filename);
+                        /* Only log on request, except for ENOENT,
+                         * since we return 0 to the caller. */
+                        if (warn || errno == ENOENT)
+                                log_full(errno == ENOENT ? LOG_DEBUG : LOG_ERR,
+                                         "Failed to open configuration file '%s': %m", filename);
                         return errno == ENOENT ? 0 : -errno;
                 }
         }
@@ -363,8 +368,11 @@ int config_parse(const char *unit,
 
                 if (continuation) {
                         c = strappend(continuation, l);
-                        if (!c)
+                        if (!c) {
+                                if (warn)
+                                        log_oom();
                                 return -ENOMEM;
+                        }
 
                         free(continuation);
                         continuation = NULL;
@@ -386,8 +394,11 @@ int config_parse(const char *unit,
                                 continuation = c;
                         else {
                                 continuation = strdup(l);
-                                if (!continuation)
+                                if (!continuation) {
+                                        if (warn)
+                                                log_oom();
                                         return -ENOMEM;
+                                }
                         }
 
                         continue;
@@ -408,8 +419,12 @@ int config_parse(const char *unit,
                                userdata);
                 free(c);
 
-                if (r < 0)
+                if (r < 0) {
+                        if (warn)
+                                log_warning("Failed to parse file '%s': %s",
+                                            filename, strerror(-r));
                         return r;
+                }
         }
 
         return 0;

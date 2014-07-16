@@ -373,18 +373,12 @@ int config_parse_dnsv(
 }
 
 int manager_parse_config_file(Manager *m) {
-        int r;
-
         assert(m);
 
-        r = config_parse(NULL, "/etc/systemd/resolved.conf", NULL,
-                         "Resolve\0",
-                         config_item_perf_lookup, resolved_gperf_lookup,
-                         false, false, m);
-        if (r < 0)
-                log_warning("Failed to parse configuration file: %s", strerror(-r));
-
-        return 0;
+        return config_parse(NULL, "/etc/systemd/resolved.conf", NULL,
+                            "Resolve\0",
+                            config_item_perf_lookup, resolved_gperf_lookup,
+                            false, false, true, m);
 }
 
 int manager_new(Manager **ret) {

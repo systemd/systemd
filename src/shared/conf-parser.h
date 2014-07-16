@@ -89,6 +89,7 @@ int config_parse(const char *unit,
                  const void *table,
                  bool relaxed,
                  bool allow_include,
+                 bool warn,
                  void *userdata);
 
 /* Generic parsers */

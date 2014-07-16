@@ -96,11 +96,9 @@ static int network_load_one(Manager *manager, const char *filename) {
         r = config_parse(NULL, filename, file,
                          "Match\0Network\0Address\0Route\0DHCP\0DHCPv4\0",
                          config_item_perf_lookup, network_network_gperf_lookup,
-                         false, false, network);
-        if (r < 0) {
-                log_warning("Could not parse config file %s: %s", filename, strerror(-r));
+                         false, false, true, network);
+        if (r < 0)
                 return r;
-        }
 
         LIST_PREPEND(networks, manager->networks, network);
 

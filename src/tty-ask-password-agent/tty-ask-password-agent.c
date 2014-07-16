@@ -258,25 +258,16 @@ static int parse_password(const char *filename, char **wall) {
                 { NULL, NULL, NULL, 0, NULL }
         };
 
-        FILE *f;
         int r;
 
         assert(filename);
 
-        f = fopen(filename, "re");
-        if (!f) {
-                if (errno == ENOENT)
-                        return 0;
-
-                log_error("open(%s): %m", filename);
-                return -errno;
-        }
-
-        r = config_parse(NULL, filename, f, NULL, config_item_table_lookup, items, true, false, NULL);
-        if (r < 0) {
-                log_error("Failed to parse password file %s: %s", filename, strerror(-r));
-                goto finish;
-        }
+        r = config_parse(NULL, filename, NULL,
+                         NULL,
+                         config_item_table_lookup, items,
+                         true, false, true, NULL);
+        if (r < 0)
+                return r;
 
         if (!socket_name) {
                 log_error("Invalid password file %s", filename);
@@ -414,8 +405,6 @@ static int parse_password(const char *filename, char **wall) {
         }
 
 finish:
-        fclose(f);
-
         safe_close(socket_fd);
 
         free(packet);

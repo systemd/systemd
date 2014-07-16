@@ -682,23 +682,13 @@ static int parse_config_file(void) {
                 {}
         };
 
-        _cleanup_fclose_ FILE *f;
         const char *fn;
-        int r;
 
         fn = arg_running_as == SYSTEMD_SYSTEM ? PKGSYSCONFDIR "/system.conf" : PKGSYSCONFDIR "/user.conf";
-        f = fopen(fn, "re");
-        if (!f) {
-                if (errno == ENOENT)
-                        return 0;
-
-                log_warning("Failed to open configuration file '%s': %m", fn);
-                return 0;
-        }
-
-        r = config_parse(NULL, fn, f, "Manager\0", config_item_table_lookup, items, false, false, NULL);
-        if (r < 0)
-                log_warning("Failed to parse configuration file: %s", strerror(-r));
+        config_parse(NULL, fn, NULL,
+                     "Manager\0",
+                     config_item_table_lookup, items,
+                     false, false, true, NULL);
 
         return 0;
 }

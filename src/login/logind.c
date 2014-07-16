@@ -1097,27 +1097,12 @@ int manager_run(Manager *m) {
 }
 
 static int manager_parse_config_file(Manager *m) {
-        static const char fn[] = "/etc/systemd/logind.conf";
-        _cleanup_fclose_ FILE *f = NULL;
-        int r;
-
         assert(m);
 
-        f = fopen(fn, "re");
-        if (!f) {
-                if (errno == ENOENT)
-                        return 0;
-
-                log_warning("Failed to open configuration file %s: %m", fn);
-                return -errno;
-        }
-
-        r = config_parse(NULL, fn, f, "Login\0", config_item_perf_lookup,
-                         logind_gperf_lookup, false, false, m);
-        if (r < 0)
-                log_warning("Failed to parse configuration file: %s", strerror(-r));
-
-        return r;
+        return config_parse(NULL, "/etc/systemd/logind.conf", NULL,
+                            "Login\0",
+                            config_item_perf_lookup, logind_gperf_lookup,
+                            false, false, true, m);
 }
 
 int main(int argc, char *argv[]) {

@@ -1095,27 +1095,10 @@ int config_parse_servers(
 }
 
 static int manager_parse_config_file(Manager *m) {
-        static const char fn[] = "/etc/systemd/timesyncd.conf";
-        _cleanup_fclose_ FILE *f = NULL;
-        int r;
-
-        assert(m);
-
-        f = fopen(fn, "re");
-        if (!f) {
-                if (errno == ENOENT)
-                        return 0;
-
-                log_warning("Failed to open configuration file %s: %m", fn);
-                return -errno;
-        }
-
-        r = config_parse(NULL, fn, f, "Time\0", config_item_perf_lookup,
-                         timesyncd_gperf_lookup, false, false, m);
-        if (r < 0)
-                log_warning("Failed to parse configuration file: %s", strerror(-r));
-
-        return r;
+        return config_parse(NULL, "/etc/systemd/timesyncd.conf", NULL,
+                            "Time\0",
+                            config_item_perf_lookup, timesyncd_gperf_lookup,
+                            false, false, true, m);
 }
 
 static bool network_is_online(void) {

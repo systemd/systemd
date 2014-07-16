@@ -1122,16 +1122,11 @@ static int parse_config(void) {
                 { "Remote",  "ServerCertificateFile",  config_parse_path,             0, &arg_cert       },
                 { "Remote",  "TrustedCertificateFile", config_parse_path,             0, &arg_trust      },
                 {}};
-        int r;
 
-        r = config_parse(NULL, PKGSYSCONFDIR "/journal-remote.conf", NULL,
-                         "Remote\0",
-                         config_item_table_lookup, items,
-                         false, false, NULL);
-        if (r < 0)
-                log_error("Failed to parse configuration file: %s", strerror(-r));
-
-        return r;
+        return config_parse(NULL, PKGSYSCONFDIR "/journal-remote.conf", NULL,
+                            "Remote\0",
+                            config_item_table_lookup, items,
+                            false, false, true, NULL);
 }
 
 static void help(void) {

@@ -1331,27 +1331,12 @@ static int server_parse_proc_cmdline(Server *s) {
 }
 
 static int server_parse_config_file(Server *s) {
-        static const char fn[] = "/etc/systemd/journald.conf";
-        _cleanup_fclose_ FILE *f = NULL;
-        int r;
-
         assert(s);
 
-        f = fopen(fn, "re");
-        if (!f) {
-                if (errno == ENOENT)
-                        return 0;
-
-                log_warning("Failed to open configuration file %s: %m", fn);
-                return -errno;
-        }
-
-        r = config_parse(NULL, fn, f, "Journal\0", config_item_perf_lookup,
-                         journald_gperf_lookup, false, false, s);
-        if (r < 0)
-                log_warning("Failed to parse configuration file: %s", strerror(-r));
-
-        return r;
+        return config_parse(NULL, "/etc/systemd/journald.conf", NULL,
+                            "Journal\0",
+                            config_item_perf_lookup, journald_gperf_lookup,
+                            false, false, true, s);
 }
 
 static int server_dispatch_sync(sd_event_source *es, usec_t t, void *userdata) {

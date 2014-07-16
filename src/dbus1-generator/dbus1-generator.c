@@ -163,27 +163,17 @@ static int add_dbus(const char *path, const char *fname, const char *type) {
                 { "D-BUS Service", "SystemdService", config_parse_string, 0, &service },
         };
 
-        _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_free_ char *p = NULL;
+        char *p;
         int r;
 
         assert(path);
         assert(fname);
 
-        p = strjoin(path, "/", fname, NULL);
-        if (!p)
-                return log_oom();
-
-        f = fopen(p, "re");
-        if (!f) {
-                if (errno == -ENOENT)
-                        return 0;
-
-                log_error("Failed to read %s: %m", p);
-                return -errno;
-        }
-
-        r = config_parse(NULL, p, f, "D-BUS Service\0", config_item_table_lookup, table, true, false, NULL);
+        p = strappenda3(path, "/", fname);
+        r = config_parse(NULL, p, NULL,
+                         "D-BUS Service\0",
+                         config_item_table_lookup, table,
+                         true, false, true, NULL);
         if (r < 0)
                 return r;
 
