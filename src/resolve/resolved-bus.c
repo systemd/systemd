@@ -25,140 +25,160 @@
 #include "resolved.h"
 #include "resolved-dns-domain.h"
 
-static void bus_method_resolve_hostname_complete(DnsQuery *q) {
+static int reply_query_state(DnsQuery *q) {
+        _cleanup_free_ char *ip = NULL;
+        const char *name;
         int r;
 
-        assert(q);
+        if (q->request_hostname)
+                name = q->request_hostname;
+        else {
+                r = in_addr_to_string(q->request_family, &q->request_address, &ip);
+                if (r < 0)
+                        return r;
 
-        switch(q->state) {
+                name = ip;
+        }
 
-        case DNS_QUERY_SKIPPED:
-                r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_NAME_SERVERS, "Not appropriate name servers or networks found");
-                break;
+        switch (q->state) {
+
+        case DNS_QUERY_NO_SERVERS:
+                return sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_NAME_SERVERS, "Not appropriate name servers or networks found");
 
         case DNS_QUERY_TIMEOUT:
-                r = sd_bus_reply_method_errorf(q->request, SD_BUS_ERROR_TIMEOUT, "Query timed out");
-                break;
+                return sd_bus_reply_method_errorf(q->request, SD_BUS_ERROR_TIMEOUT, "Query timed out");
 
         case DNS_QUERY_ATTEMPTS_MAX:
-                r = sd_bus_reply_method_errorf(q->request, SD_BUS_ERROR_TIMEOUT, "All attempts to contact name servers or networks failed");
-                break;
+                return sd_bus_reply_method_errorf(q->request, SD_BUS_ERROR_TIMEOUT, "All attempts to contact name servers or networks failed");
+
+        case DNS_QUERY_RESOURCES:
+                return sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_RESOURCES, "Not enough resources");
+
+        case DNS_QUERY_INVALID_REPLY:
+                return sd_bus_reply_method_errorf(q->request, BUS_ERROR_INVALID_REPLY, "Received invalid reply");
 
         case DNS_QUERY_FAILURE: {
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
 
-                if (q->rcode == DNS_RCODE_NXDOMAIN)
-                        sd_bus_error_setf(&error, _BUS_ERROR_DNS "NXDOMAIN", "Hostname %s does not exist", q->request_hostname);
+                assert(q->received);
+
+                if (DNS_PACKET_RCODE(q->received) == DNS_RCODE_NXDOMAIN)
+                        sd_bus_error_setf(&error, _BUS_ERROR_DNS "NXDOMAIN", "'%s' not found", name);
                 else {
                         const char *rc, *n;
-                        char p[DECIMAL_STR_MAX(q->rcode)];
+                        char p[3]; /* the rcode is 4 bits long */
 
-                        rc = dns_rcode_to_string(q->rcode);
+                        rc = dns_rcode_to_string(DNS_PACKET_RCODE(q->received));
                         if (!rc) {
-                                sprintf(p, "%i", q->rcode);
+                                sprintf(p, "%i", DNS_PACKET_RCODE(q->received));
                                 rc = p;
                         }
 
                         n = strappenda(_BUS_ERROR_DNS, rc);
-
-                        sd_bus_error_setf(&error, n, "Could not resolve hostname %s, server or network returned error %s", q->request_hostname, rc);
+                        sd_bus_error_setf(&error, n, "Could not resolve '%s', server or network returned error %s", name, rc);
                 }
 
-                r = sd_bus_reply_method_error(q->request, &error);
-                break;
+                return sd_bus_reply_method_error(q->request, &error);
         }
 
-        case DNS_QUERY_SUCCESS: {
-                _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-                unsigned i, n, added = 0;
+        case DNS_QUERY_NULL:
+        case DNS_QUERY_SENT:
+        case DNS_QUERY_SUCCESS:
+                assert_not_reached("Impossible state");
+        }
+}
 
-                assert(q->packet);
+static void bus_method_resolve_hostname_complete(DnsQuery *q) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        unsigned i, n, added = 0;
+        int r;
 
-                r = dns_packet_skip_question(q->packet);
+        assert(q);
+
+        if (q->state != DNS_QUERY_SUCCESS) {
+                r = reply_query_state(q);
+                goto finish;
+        }
+
+        assert(q->received);
+
+        r = dns_packet_skip_question(q->received);
+        if (r < 0)
+                goto parse_fail;
+
+        r = sd_bus_message_new_method_return(q->request, &reply);
+        if (r < 0)
+                goto finish;
+
+        r = sd_bus_message_open_container(reply, 'a', "(yayi)");
+        if (r < 0)
+                goto finish;
+
+        n = DNS_PACKET_ANCOUNT(q->received) +
+            DNS_PACKET_NSCOUNT(q->received) +
+            DNS_PACKET_ARCOUNT(q->received);
+        for (i = 0; i < n; i++) {
+                _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+
+                r = dns_packet_read_rr(q->received, &rr, NULL);
                 if (r < 0)
                         goto parse_fail;
 
-                r = sd_bus_message_new_method_return(q->request, &reply);
+                if (rr->key.class != DNS_CLASS_IN)
+                        continue;
+
+                if (!(q->request_family != AF_INET6 && rr->key.type == DNS_TYPE_A) &&
+                    !(q->request_family != AF_INET && rr->key.type == DNS_TYPE_AAAA))
+                        continue;
+
+                if (!dns_name_equal(rr->key.name, q->request_hostname))
+                        continue;
+
+                r = sd_bus_message_open_container(reply, 'r', "yayi");
                 if (r < 0)
                         goto finish;
 
-                r = sd_bus_message_open_container(reply, 'a', "(yayi)");
+                if (rr->key.type == DNS_TYPE_A) {
+                        r = sd_bus_message_append(reply, "y", AF_INET);
+                        if (r < 0)
+                                goto finish;
+
+                        r = sd_bus_message_append_array(reply, 'y', &rr->a.in_addr, sizeof(struct in_addr));
+                } else {
+                        r = sd_bus_message_append(reply, "y", AF_INET6);
+                        if (r < 0)
+                                goto finish;
+
+                        r = sd_bus_message_append_array(reply, 'y', &rr->aaaa.in6_addr, sizeof(struct in6_addr));
+                }
                 if (r < 0)
                         goto finish;
 
-                n = DNS_PACKET_ANCOUNT(q->packet) +
-                    DNS_PACKET_NSCOUNT(q->packet) +
-                    DNS_PACKET_ARCOUNT(q->packet);
-                for (i = 0; i < n; i++) {
-                        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
-
-                        r = dns_packet_read_rr(q->packet, &rr, NULL);
-                        if (r < 0)
-                                goto parse_fail;
-
-                        if (rr->key.class != DNS_CLASS_IN)
-                                continue;
-
-                        if (!(q->request_family != AF_INET6 && rr->key.type == DNS_TYPE_A) &&
-                            !(q->request_family != AF_INET && rr->key.type == DNS_TYPE_AAAA))
-                                continue;
-
-                        if (!dns_name_equal(rr->key.name, q->request_hostname))
-                                continue;
-
-                        r = sd_bus_message_open_container(reply, 'r', "yayi");
-                        if (r < 0)
-                                goto finish;
-
-                        if (rr->key.type == DNS_TYPE_A) {
-                                r = sd_bus_message_append(reply, "y", AF_INET);
-                                if (r < 0)
-                                        goto finish;
-
-                                r = sd_bus_message_append_array(reply, 'y', &rr->a.in_addr, sizeof(struct in_addr));
-                        } else {
-                                r = sd_bus_message_append(reply, "y", AF_INET6);
-                                if (r < 0)
-                                        goto finish;
-
-                                r = sd_bus_message_append_array(reply, 'y', &rr->aaaa.in6_addr, sizeof(struct in6_addr));
-                        }
-                        if (r < 0)
-                                goto finish;
-
-                        r = sd_bus_message_append(reply, "i", q->packet->ifindex);
-                        if (r < 0)
-                                goto finish;
-
-                        r = sd_bus_message_close_container(reply);
-                        if (r < 0)
-                                goto finish;
-
-                        added ++;
-                }
-
-                if (added <= 0) {
-                        r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_SUCH_RR, "Hostname %s does not have RR of this type", q->request_hostname);
-                        break;
-                }
+                r = sd_bus_message_append(reply, "i", q->received->ifindex);
+                if (r < 0)
+                        goto finish;
 
                 r = sd_bus_message_close_container(reply);
                 if (r < 0)
                         goto finish;
 
-                r = sd_bus_send(q->manager->bus, reply, NULL);
-                break;
+                added ++;
         }
 
-        parse_fail:
-        case DNS_QUERY_INVALID_REPLY:
-                r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_INVALID_REPLY, "Received invalid reply");
-                break;
-
-        case DNS_QUERY_NULL:
-        case DNS_QUERY_SENT:
-                assert_not_reached("Unexpected query state");
+        if (added <= 0) {
+                r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_SUCH_RR, "'%s' does not have RR of this type", q->request_hostname);
+                goto finish;
         }
+
+        r = sd_bus_message_close_container(reply);
+        if (r < 0)
+                goto finish;
+
+        r = sd_bus_send(q->manager->bus, reply, NULL);
+        goto finish;
+
+parse_fail:
+        r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_INVALID_REPLY, "Received invalid reply");
 
 finish:
         if (r < 0)
@@ -223,120 +243,79 @@ static int bus_method_resolve_hostname(sd_bus *bus, sd_bus_message *message, voi
 }
 
 static void bus_method_resolve_address_complete(DnsQuery *q) {
-        _cleanup_free_ char *ip = NULL;
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        unsigned i, n, added = 0;
+        _cleanup_free_ char *reverse = NULL;
         int r;
 
         assert(q);
 
-        in_addr_to_string(q->request_family, &q->request_address, &ip);
-
-        switch(q->state) {
-
-        case DNS_QUERY_SKIPPED:
-                r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_NAME_SERVERS, "Not appropriate name servers or networks found");
-                break;
-
-        case DNS_QUERY_TIMEOUT:
-                r = sd_bus_reply_method_errorf(q->request, SD_BUS_ERROR_TIMEOUT, "Query timed out");
-                break;
-
-        case DNS_QUERY_ATTEMPTS_MAX:
-                r = sd_bus_reply_method_errorf(q->request, SD_BUS_ERROR_TIMEOUT, "All attempts to contact name servers or networks failed");
-                break;
-
-        case DNS_QUERY_FAILURE: {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-
-                if (q->rcode == DNS_RCODE_NXDOMAIN)
-                        sd_bus_error_setf(&error, _BUS_ERROR_DNS "NXDOMAIN", "No hostname known for address %s ", ip);
-                else {
-                        const char *rc, *n;
-                        char p[DECIMAL_STR_MAX(q->rcode)];
-
-                        rc = dns_rcode_to_string(q->rcode);
-                        if (!rc) {
-                                sprintf(p, "%i", q->rcode);
-                                rc = p;
-                        }
-
-                        n = strappenda(_BUS_ERROR_DNS, rc);
-
-                        sd_bus_error_setf(&error, n, "Could not resolve address %s, server or network returned error %s", ip, rc);
-                }
-
-                r = sd_bus_reply_method_error(q->request, &error);
-                break;
+        if (q->state != DNS_QUERY_SUCCESS) {
+                r = reply_query_state(q);
+                goto finish;
         }
 
-        case DNS_QUERY_SUCCESS: {
-                _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-                unsigned i, n, added = 0;
-                _cleanup_free_ char *reverse = NULL;
+        assert(q->received);
 
-                assert(q->packet);
+        r = dns_name_reverse(q->request_family, &q->request_address, &reverse);
+        if (r < 0)
+                goto finish;
 
-                r = dns_name_reverse(q->request_family, &q->request_address, &reverse);
-                if (r < 0)
-                        goto finish;
+        r = dns_packet_skip_question(q->received);
+        if (r < 0)
+                goto parse_fail;
 
-                r = dns_packet_skip_question(q->packet);
+        r = sd_bus_message_new_method_return(q->request, &reply);
+        if (r < 0)
+                goto finish;
+
+        r = sd_bus_message_open_container(reply, 'a', "s");
+        if (r < 0)
+                goto finish;
+
+        n = DNS_PACKET_ANCOUNT(q->received) +
+            DNS_PACKET_NSCOUNT(q->received) +
+            DNS_PACKET_ARCOUNT(q->received);
+
+        for (i = 0; i < n; i++) {
+                _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+
+                r = dns_packet_read_rr(q->received, &rr, NULL);
                 if (r < 0)
                         goto parse_fail;
 
-                r = sd_bus_message_new_method_return(q->request, &reply);
+                if (rr->key.class != DNS_CLASS_IN)
+                        continue;
+                if (rr->key.type != DNS_TYPE_PTR)
+                        continue;
+                if (!dns_name_equal(rr->key.name, reverse))
+                        continue;
+
+                r = sd_bus_message_append(reply, "s", rr->ptr.name);
                 if (r < 0)
                         goto finish;
 
-                r = sd_bus_message_open_container(reply, 'a', "s");
-                if (r < 0)
-                        goto finish;
-
-                n = DNS_PACKET_ANCOUNT(q->packet) +
-                    DNS_PACKET_NSCOUNT(q->packet) +
-                    DNS_PACKET_ARCOUNT(q->packet);
-                for (i = 0; i < n; i++) {
-                        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
-
-                        r = dns_packet_read_rr(q->packet, &rr, NULL);
-                        if (r < 0)
-                                goto parse_fail;
-
-                        if (rr->key.class != DNS_CLASS_IN)
-                                continue;
-                        if (rr->key.type != DNS_TYPE_PTR)
-                                continue;
-                        if (!dns_name_equal(rr->key.name, reverse))
-                                continue;
-
-                        r = sd_bus_message_append(reply, "s", rr->ptr.name);
-                        if (r < 0)
-                                goto finish;
-
-                        added ++;
-                }
-
-                if (added <= 0) {
-                        r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_SUCH_RR, "Address %s does not have RR of this type", ip);
-                        break;
-                }
-
-                r = sd_bus_message_close_container(reply);
-                if (r < 0)
-                        goto finish;
-
-                r = sd_bus_send(q->manager->bus, reply, NULL);
-                break;
+                added ++;
         }
 
-        parse_fail:
-        case DNS_QUERY_INVALID_REPLY:
-                r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_INVALID_REPLY, "Received invalid reply");
-                break;
+        if (added <= 0) {
+                _cleanup_free_ char *ip = NULL;
 
-        case DNS_QUERY_NULL:
-        case DNS_QUERY_SENT:
-                assert_not_reached("Unexpected query state");
+                in_addr_to_string(q->request_family, &q->request_address, &ip);
+
+                r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_SUCH_RR, "Address '%s' does not have RR of this type", ip);
+                goto finish;
         }
+
+        r = sd_bus_message_close_container(reply);
+        if (r < 0)
+                goto finish;
+
+        r = sd_bus_send(q->manager->bus, reply, NULL);
+        goto finish;
+
+parse_fail:
+        r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_INVALID_REPLY, "Received invalid reply");
 
 finish:
         if (r < 0)

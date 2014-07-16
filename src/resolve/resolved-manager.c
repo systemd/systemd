@@ -577,7 +577,7 @@ int manager_dns_ipv4_recv(Manager *m, DnsPacket **ret) {
 
         l = recvmsg(fd, &mh, 0);
         if (l < 0) {
-                if (errno == EAGAIN)
+                if (errno == EAGAIN || errno == EINTR)
                         return 0;
 
                 return -errno;
@@ -626,7 +626,7 @@ int manager_dns_ipv6_recv(Manager *m, DnsPacket **ret) {
 
         l = recvmsg(fd, &mh, 0);
         if (l < 0) {
-                if (errno == EAGAIN)
+                if (errno == EAGAIN || errno == EINTR)
                         return 0;
 
                 return -errno;
@@ -657,7 +657,8 @@ static int on_dns_ipv4_packet(sd_event_source *s, int fd, uint32_t revents, void
         if (!t)
                 return 0;
 
-        return dns_query_transaction_reply(t, p);
+        dns_query_transaction_reply(t, p);
+        return 0;
 }
 
 static int on_dns_ipv6_packet(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
@@ -674,7 +675,8 @@ static int on_dns_ipv6_packet(sd_event_source *s, int fd, uint32_t revents, void
         if (!t)
                 return 0;
 
-        return dns_query_transaction_reply(t, p);
+        dns_query_transaction_reply(t, p);
+        return 0;
 }
 
 int manager_dns_ipv4_fd(Manager *m) {

@@ -19,7 +19,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <netinet/tcp.h>
+
 #include "strv.h"
+#include "socket-util.h"
 #include "resolved-dns-domain.h"
 #include "resolved-dns-scope.h"
 
@@ -92,10 +95,14 @@ int dns_scope_send(DnsScope *s, DnsPacket *p) {
 
         srv = dns_scope_get_server(s);
         if (!srv)
-                return 0;
+                return -ESRCH;
 
-        if (s->link)
+        if (s->link) {
+                if (p->size > s->link->mtu)
+                        return -EMSGSIZE;
+
                 ifindex = s->link->ifindex;
+        }
 
         if (srv->family == AF_INET)
                 r = manager_dns_ipv4_send(s->manager, srv, ifindex, p);
@@ -108,6 +115,52 @@ int dns_scope_send(DnsScope *s, DnsPacket *p) {
                 return r;
 
         return 1;
+}
+
+int dns_scope_tcp_socket(DnsScope *s) {
+        _cleanup_close_ int fd = -1;
+        union sockaddr_union sa = {};
+        socklen_t salen;
+        int one, ifindex, ret;
+        DnsServer *srv;
+        int r;
+
+        assert(s);
+
+        srv = dns_scope_get_server(s);
+        if (!srv)
+                return -ESRCH;
+
+        if (s->link)
+                ifindex = s->link->ifindex;
+
+        sa.sa.sa_family = srv->family;
+        if (srv->family == AF_INET) {
+                sa.in.sin_port = htobe16(53);
+                sa.in.sin_addr = srv->address.in;
+                salen = sizeof(sa.in);
+        } else if (srv->family == AF_INET6) {
+                sa.in6.sin6_port = htobe16(53);
+                sa.in6.sin6_addr = srv->address.in6;
+                sa.in6.sin6_scope_id = ifindex;
+                salen = sizeof(sa.in6);
+        } else
+                return -EAFNOSUPPORT;
+
+        fd = socket(srv->family, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        if (fd < 0)
+                return -errno;
+
+        one = 1;
+        setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
+
+        r = connect(fd, &sa.sa, salen);
+        if (r < 0 && errno != EINPROGRESS)
+                return -errno;
+
+        ret = fd;
+        fd = -1;
+        return ret;
 }
 
 DnsScopeMatch dns_scope_test(DnsScope *s, const char *domain) {

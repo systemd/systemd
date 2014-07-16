@@ -31,7 +31,12 @@ DnsQueryTransaction* dns_query_transaction_free(DnsQueryTransaction *t) {
                 return NULL;
 
         sd_event_source_unref(t->timeout_event_source);
-        dns_packet_unref(t->packet);
+
+        dns_packet_unref(t->sent);
+        dns_packet_unref(t->received);
+
+        sd_event_source_unref(t->tcp_event_source);
+        safe_close(t->tcp_fd);
 
         if (t->query) {
                 LIST_REMOVE(transactions_by_query, t->query->transactions, t);
@@ -62,6 +67,8 @@ static int dns_query_transaction_new(DnsQuery *q, DnsQueryTransaction **ret, Dns
         if (!t)
                 return -ENOMEM;
 
+        t->tcp_fd = -1;
+
         do
                 random_bytes(&t->id, sizeof(t->id));
         while (t->id == 0 ||
@@ -87,6 +94,14 @@ static int dns_query_transaction_new(DnsQuery *q, DnsQueryTransaction **ret, Dns
         return 0;
 }
 
+static void dns_query_transaction_stop(DnsQueryTransaction *t) {
+        assert(t);
+
+        t->timeout_event_source = sd_event_source_unref(t->timeout_event_source);
+        t->tcp_event_source = sd_event_source_unref(t->tcp_event_source);
+        t->tcp_fd = safe_close(t->tcp_fd);
+}
+
 static void dns_query_transaction_set_state(DnsQueryTransaction *t, DnsQueryState state) {
         assert(t);
 
@@ -95,24 +110,179 @@ static void dns_query_transaction_set_state(DnsQueryTransaction *t, DnsQueryStat
 
         t->state = state;
 
-        if (state != DNS_QUERY_SENT)
-                t->timeout_event_source = sd_event_source_unref(t->timeout_event_source);
-
-        dns_query_finish(t->query);
+        if (state != DNS_QUERY_SENT) {
+                dns_query_transaction_stop(t);
+                dns_query_finish(t->query);
+        }
 }
 
-int dns_query_transaction_reply(DnsQueryTransaction *t, DnsPacket *p) {
+static int on_tcp_ready(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        DnsQueryTransaction *t = userdata;
+        int r;
+
+        assert(t);
+
+        if (revents & EPOLLOUT) {
+                struct iovec iov[2];
+                be16_t sz;
+                ssize_t ss;
+
+                sz = htobe16(t->sent->size);
+
+                iov[0].iov_base = &sz;
+                iov[0].iov_len = sizeof(sz);
+                iov[1].iov_base = DNS_PACKET_DATA(t->sent);
+                iov[1].iov_len = t->sent->size;
+
+                IOVEC_INCREMENT(iov, 2, t->tcp_written);
+
+                ss = writev(fd, iov, 2);
+                if (ss < 0) {
+                        if (errno != EINTR && errno != EAGAIN) {
+                                dns_query_transaction_set_state(t, DNS_QUERY_RESOURCES);
+                                return -errno;
+                        }
+                } else
+                        t->tcp_written += ss;
+
+                /* Are we done? If so, disable the event source for EPOLLOUT */
+                if (t->tcp_written >= sizeof(sz) + t->sent->size) {
+                        r = sd_event_source_set_io_events(s, EPOLLIN);
+                        if (r < 0) {
+                                dns_query_transaction_set_state(t, DNS_QUERY_RESOURCES);
+                                return r;
+                        }
+                }
+        }
+
+        if (revents & (EPOLLIN|EPOLLHUP|EPOLLRDHUP)) {
+
+                if (t->tcp_read < sizeof(t->tcp_read_size)) {
+                        ssize_t ss;
+
+                        ss = read(fd, (uint8_t*) &t->tcp_read_size + t->tcp_read, sizeof(t->tcp_read_size) - t->tcp_read);
+                        if (ss < 0) {
+                                if (errno != EINTR && errno != EAGAIN) {
+                                        dns_query_transaction_set_state(t, DNS_QUERY_RESOURCES);
+                                        return -errno;
+                                }
+                        } else if (ss == 0) {
+                                dns_query_transaction_set_state(t, DNS_QUERY_RESOURCES);
+                                return -EIO;
+                        } else
+                                t->tcp_read += ss;
+                }
+
+                if (t->tcp_read >= sizeof(t->tcp_read_size)) {
+
+                        if (be16toh(t->tcp_read_size) < DNS_PACKET_HEADER_SIZE) {
+                                dns_query_transaction_set_state(t, DNS_QUERY_INVALID_REPLY);
+                                return -EBADMSG;
+                        }
+
+                        if (t->tcp_read < sizeof(t->tcp_read_size) + be16toh(t->tcp_read_size)) {
+                                ssize_t ss;
+
+                                if (!t->received) {
+                                        r = dns_packet_new(&t->received, be16toh(t->tcp_read_size));
+                                        if (r < 0) {
+                                                dns_query_transaction_set_state(t, DNS_QUERY_RESOURCES);
+                                                return r;
+                                        }
+                                }
+
+                                ss = read(fd,
+                                          (uint8_t*) DNS_PACKET_DATA(t->received) + t->tcp_read - sizeof(t->tcp_read_size),
+                                          sizeof(t->tcp_read_size) + be16toh(t->tcp_read_size) - t->tcp_read);
+                                if (ss < 0) {
+                                        if (errno != EINTR && errno != EAGAIN) {
+                                                dns_query_transaction_set_state(t, DNS_QUERY_RESOURCES);
+                                                return -errno;
+                                        }
+                                } else if (ss == 0) {
+                                        dns_query_transaction_set_state(t, DNS_QUERY_RESOURCES);
+                                        return -EIO;
+                                }  else
+                                        t->tcp_read += ss;
+                        }
+
+                        if (t->tcp_read >= sizeof(t->tcp_read_size) + be16toh(t->tcp_read_size)) {
+                                t->received->size = be16toh(t->tcp_read_size);
+                                dns_query_transaction_reply(t, t->received);
+                                return 0;
+                        }
+                }
+        }
+
+        return 0;
+}
+
+static int dns_query_transaction_start_tcp(DnsQueryTransaction *t) {
+        int r;
+
+        assert(t);
+
+        if (t->tcp_fd >= 0)
+                return 0;
+
+        t->tcp_written = 0;
+        t->tcp_read = 0;
+        t->received = dns_packet_unref(t->received);
+
+        t->tcp_fd = dns_scope_tcp_socket(t->scope);
+        if (t->tcp_fd < 0)
+                return t->tcp_fd;
+
+        r = sd_event_add_io(t->query->manager->event, &t->tcp_event_source, t->tcp_fd, EPOLLIN|EPOLLOUT, on_tcp_ready, t);
+        if (r < 0) {
+                t->tcp_fd = safe_close(t->tcp_fd);
+                return r;
+        }
+
+        return 0;
+}
+
+void dns_query_transaction_reply(DnsQueryTransaction *t, DnsPacket *p) {
+        int r;
+
         assert(t);
         assert(p);
 
-        t->packet = dns_packet_ref(p);
+        if (t->state != DNS_QUERY_SENT)
+                return;
+
+        if (t->received != p) {
+                dns_packet_unref(t->received);
+                t->received = dns_packet_ref(p);
+        }
+
+        if (t->tcp_fd >= 0) {
+                if (DNS_PACKET_TC(p)) {
+                        /* Truncated via TCP? Somebody must be fucking with us */
+                        dns_query_transaction_set_state(t, DNS_QUERY_INVALID_REPLY);
+                        return;
+                }
+
+                if (DNS_PACKET_ID(p) != t->id) {
+                        /* Not the reply to our query? Somebody must be fucking with us */
+                        dns_query_transaction_set_state(t, DNS_QUERY_INVALID_REPLY);
+                        return;
+                }
+        }
+
+        if (DNS_PACKET_TC(p)) {
+                /* Response was truncated, let's try again with good old TCP */
+                r = dns_query_transaction_start_tcp(t);
+                if (r < 0) {
+                        dns_query_transaction_set_state(t, DNS_QUERY_RESOURCES);
+                        return;
+                }
+        }
 
         if (DNS_PACKET_RCODE(p) == DNS_RCODE_SUCCESS)
                 dns_query_transaction_set_state(t, DNS_QUERY_SUCCESS);
         else
                 dns_query_transaction_set_state(t, DNS_QUERY_FAILURE);
-
-        return 0;
 }
 
 static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdata) {
@@ -127,26 +297,20 @@ static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdat
 
         r = dns_query_transaction_start(t);
         if (r < 0)
-                dns_query_transaction_set_state(t, DNS_QUERY_FAILURE);
+                dns_query_transaction_set_state(t, DNS_QUERY_RESOURCES);
 
         return 0;
 }
 
-int dns_query_transaction_start(DnsQueryTransaction *t) {
+static int dns_query_make_packet(DnsQueryTransaction *t) {
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
         unsigned n;
         int r;
 
         assert(t);
 
-        t->timeout_event_source = sd_event_source_unref(t->timeout_event_source);
-
-        if (t->n_attempts >= ATTEMPTS_MAX) {
-                dns_query_transaction_set_state(t, DNS_QUERY_ATTEMPTS_MAX);
+        if (t->sent)
                 return 0;
-        }
-
-        t->n_attempts++;
 
         r = dns_packet_new_query(&p, 0);
         if (r < 0)
@@ -161,7 +325,38 @@ int dns_query_transaction_start(DnsQueryTransaction *t) {
         DNS_PACKET_HEADER(p)->qdcount = htobe16(t->query->n_keys);
         DNS_PACKET_HEADER(p)->id = t->id;
 
-        r = dns_scope_send(t->scope, p);
+        t->sent = p;
+        p = NULL;
+
+        return 0;
+}
+
+int dns_query_transaction_start(DnsQueryTransaction *t) {
+        int r;
+
+        assert(t);
+
+        dns_query_transaction_stop(t);
+
+        if (t->n_attempts >= ATTEMPTS_MAX) {
+                dns_query_transaction_set_state(t, DNS_QUERY_ATTEMPTS_MAX);
+                return 0;
+        }
+        t->n_attempts++;
+
+        r = dns_query_make_packet(t);
+        if (r < 0)
+                return r;
+
+        /* Try via UDP, and if that fails due to large size try via TCP */
+        r = dns_scope_send(t->scope, t->sent);
+        if (r == -EMSGSIZE)
+                r = dns_query_transaction_start_tcp(t);
+
+        if (r == -ESRCH) {
+                dns_query_transaction_set_state(t, DNS_QUERY_NO_SERVERS);
+                return 0;
+        }
         if (r < 0) {
                 /* Couldn't send? Try immediately again, with a new server */
                 dns_scope_next_dns_server(t->scope);
@@ -169,18 +364,12 @@ int dns_query_transaction_start(DnsQueryTransaction *t) {
                 return dns_query_transaction_start(t);
         }
 
-        if (r > 0) {
-                int q;
+        r = sd_event_add_time(t->query->manager->event, &t->timeout_event_source, CLOCK_MONOTONIC, now(CLOCK_MONOTONIC) + TRANSACTION_TIMEOUT_USEC, 0, on_transaction_timeout, t);
+        if (r < 0)
+                return r;
 
-                q = sd_event_add_time(t->query->manager->event, &t->timeout_event_source, CLOCK_MONOTONIC, now(CLOCK_MONOTONIC) + TRANSACTION_TIMEOUT_USEC, 0, on_transaction_timeout, t);
-                if (q < 0)
-                        return q;
-
-                dns_query_transaction_set_state(t, DNS_QUERY_SENT);
-        } else
-                dns_query_transaction_set_state(t, DNS_QUERY_SKIPPED);
-
-        return r;
+        dns_query_transaction_set_state(t, DNS_QUERY_SENT);
+        return 1;
 }
 
 DnsQuery *dns_query_free(DnsQuery *q) {
@@ -190,7 +379,7 @@ DnsQuery *dns_query_free(DnsQuery *q) {
                 return NULL;
 
         sd_bus_message_unref(q->request);
-        dns_packet_unref(q->packet);
+        dns_packet_unref(q->received);
         sd_event_source_unref(q->timeout_event_source);
 
         while (q->transactions)
@@ -367,8 +556,8 @@ fail:
 
 void dns_query_finish(DnsQuery *q) {
         DnsQueryTransaction *t;
-        DnsQueryState state = DNS_QUERY_SKIPPED;
-        uint16_t rcode = 0;
+        DnsQueryState state = DNS_QUERY_NO_SERVERS;
+        DnsPacket *received = NULL;
 
         assert(q);
 
@@ -381,25 +570,28 @@ void dns_query_finish(DnsQuery *q) {
                 if (t->state == DNS_QUERY_SENT || t->state == DNS_QUERY_NULL)
                         return;
 
-                /* One of the transactions is sucecssful, let's use it */
+                /* One of the transactions is successful, let's use it */
                 if (t->state == DNS_QUERY_SUCCESS) {
-                        q->packet = dns_packet_ref(t->packet);
+                        q->received = dns_packet_ref(t->received);
                         dns_query_set_state(q, DNS_QUERY_SUCCESS);
                         return;
                 }
 
+                /* One of the transactions has failed, let's see
+                 * whether we find anything better, but if not, return
+                 * its response packet */
                 if (t->state == DNS_QUERY_FAILURE) {
+                        received = t->received;
                         state = DNS_QUERY_FAILURE;
+                        continue;
+                }
 
-                        if (rcode == 0 && t->packet)
-                                rcode = DNS_PACKET_RCODE(t->packet);
-
-                } else if (state == DNS_QUERY_SKIPPED && t->state != DNS_QUERY_SKIPPED)
+                if (state == DNS_QUERY_NO_SERVERS && t->state != DNS_QUERY_NO_SERVERS)
                         state = t->state;
         }
 
         if (state == DNS_QUERY_FAILURE)
-                q->rcode = rcode;
+                q->received = dns_packet_ref(received);
 
         dns_query_set_state(q, state);
 }

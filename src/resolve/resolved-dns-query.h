@@ -39,10 +39,11 @@ typedef enum DnsQueryState {
         DNS_QUERY_SENT,
         DNS_QUERY_FAILURE,
         DNS_QUERY_SUCCESS,
-        DNS_QUERY_SKIPPED,
+        DNS_QUERY_NO_SERVERS,
         DNS_QUERY_TIMEOUT,
         DNS_QUERY_ATTEMPTS_MAX,
         DNS_QUERY_INVALID_REPLY,
+        DNS_QUERY_RESOURCES,
 } DnsQueryState;
 
 struct DnsQueryTransaction {
@@ -55,7 +56,13 @@ struct DnsQueryTransaction {
         sd_event_source *timeout_event_source;
         unsigned n_attempts;
 
-        DnsPacket *packet;
+        DnsPacket *sent, *received;
+
+        /* TCP connection logic */
+        int tcp_fd;
+        sd_event_source *tcp_event_source;
+        size_t tcp_written, tcp_read;
+        be16_t tcp_read_size;
 
         LIST_FIELDS(DnsQueryTransaction, transactions_by_query);
         LIST_FIELDS(DnsQueryTransaction, transactions_by_scope);
@@ -71,8 +78,7 @@ struct DnsQuery {
 
         sd_event_source *timeout_event_source;
 
-        uint16_t rcode;
-        DnsPacket *packet;
+        DnsPacket *received;
 
         sd_bus_message *request;
         unsigned char request_family;
@@ -92,6 +98,6 @@ void dns_query_finish(DnsQuery *q);
 
 DnsQueryTransaction* dns_query_transaction_free(DnsQueryTransaction *t);
 int dns_query_transaction_start(DnsQueryTransaction *t);
-int dns_query_transaction_reply(DnsQueryTransaction *t, DnsPacket *p);
+void dns_query_transaction_reply(DnsQueryTransaction *t, DnsPacket *p);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsQuery*, dns_query_free);

@@ -63,4 +63,5 @@
 #define BUS_ERROR_NO_NAME_SERVERS "org.freedesktop.resolve1.NoNameServers"
 #define BUS_ERROR_INVALID_REPLY "org.freedesktop.resolve1.InvalidReply"
 #define BUS_ERROR_NO_SUCH_RR "org.freedesktop.resolve1.NoSuchRR"
+#define BUS_ERROR_NO_RESOURCES "org.freedesktop.resolve1.NoResources"
 #define _BUS_ERROR_DNS "org.freedesktop.resolve1.DnsError."

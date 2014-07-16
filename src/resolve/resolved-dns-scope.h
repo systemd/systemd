@@ -63,6 +63,8 @@ int dns_scope_new(Manager *m, DnsScope **ret, DnsScopeType t);
 DnsScope* dns_scope_free(DnsScope *s);
 
 int dns_scope_send(DnsScope *s, DnsPacket *p);
+int dns_scope_tcp_socket(DnsScope *s);
+
 DnsScopeMatch dns_scope_test(DnsScope *s, const char *domain);
 
 DnsServer *dns_scope_get_server(DnsScope *s);
