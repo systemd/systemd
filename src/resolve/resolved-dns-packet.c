@@ -116,7 +116,6 @@ int dns_packet_validate(DnsPacket *p) {
 }
 
 int dns_packet_validate_reply(DnsPacket *p) {
-        DnsPacketHeader *h;
         int r;
 
         assert(p);
@@ -125,14 +124,10 @@ int dns_packet_validate_reply(DnsPacket *p) {
         if (r < 0)
                 return r;
 
-        h = DNS_PACKET_HEADER(p);
-
-        /* Check QR field */
-        if ((be16toh(h->flags) & 1) == 0)
+        if (DNS_PACKET_QR(p) == 0)
                 return -EBADMSG;
 
-        /* Check opcode field */
-        if (((be16toh(h->flags) >> 1) & 15) != 0)
+        if (DNS_PACKET_OPCODE(p) != 0)
                 return -EBADMSG;
 
         return 0;
@@ -699,7 +694,7 @@ int dns_packet_skip_question(DnsPacket *p) {
         unsigned i, n;
         assert(p);
 
-        n = be16toh(DNS_PACKET_HEADER(p)->qdcount);
+        n = DNS_PACKET_QDCOUNT(p);
         for (i = 0; i < n; i++) {
                 _cleanup_(dns_resource_key_free) DnsResourceKey key = {};
 

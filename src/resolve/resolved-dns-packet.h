@@ -62,6 +62,26 @@ static inline uint8_t* DNS_PACKET_DATA(DnsPacket *p) {
 }
 
 #define DNS_PACKET_HEADER(p) ((DnsPacketHeader*) DNS_PACKET_DATA(p))
+#define DNS_PACKET_ID(p) DNS_PACKET_HEADER(p)->id
+#define DNS_PACKET_QR(p) ((be16toh(DNS_PACKET_HEADER(p)->flags) >> 15) & 1)
+#define DNS_PACKET_OPCODE(p) ((be16toh(DNS_PACKET_HEADER(p)->flags) >> 11) & 15)
+#define DNS_PACKET_RCODE(p) (be16toh(DNS_PACKET_HEADER(p)->flags) & 15)
+#define DNS_PACKET_QDCOUNT(p) be16toh(DNS_PACKET_HEADER(p)->qdcount)
+#define DNS_PACKET_ANCOUNT(p) be16toh(DNS_PACKET_HEADER(p)->ancount)
+#define DNS_PACKET_NSCOUNT(p) be16toh(DNS_PACKET_HEADER(p)->nscount)
+#define DNS_PACKET_ARCOUNT(p) be16toh(DNS_PACKET_HEADER(p)->arcount)
+
+#define DNS_PACKET_MAKE_FLAGS(qr, opcode, aa, tc, rd, ra, ad, cd, rcode) \
+        (((uint16_t) !!qr << 15) |  \
+         ((uint16_t) (opcode & 15) << 11) | \
+         ((uint16_t) !!aa << 10) | \
+         ((uint16_t) !!tc << 9) | \
+         ((uint16_t) !!rd << 8) | \
+         ((uint16_t) !!ra << 7) | \
+         ((uint16_t) !!ad << 5) | \
+         ((uint16_t) !!cd << 4) | \
+         ((uint16_t) (rcode & 15)))
+
 
 int dns_packet_new(DnsPacket **p, size_t mtu);
 int dns_packet_new_query(DnsPacket **p, size_t mtu);
@@ -91,19 +111,6 @@ int dns_packet_read_key(DnsPacket *p, DnsResourceKey *ret, size_t *start);
 int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start);
 
 int dns_packet_skip_question(DnsPacket *p);
-
-#define DNS_PACKET_MAKE_FLAGS(qr, opcode, aa, tc, rd, ra, ad, cd, rcode) \
-        (((uint16_t) !!qr << 15) |  \
-         ((uint16_t) (opcode & 15) << 11) | \
-         ((uint16_t) !!aa << 10) | \
-         ((uint16_t) !!tc << 9) | \
-         ((uint16_t) !!rd << 8) | \
-         ((uint16_t) !!ra << 7) | \
-         ((uint16_t) !!ad << 5) | \
-         ((uint16_t) !!cd << 4) | \
-         ((uint16_t) (rcode & 15)))
-
-#define DNS_PACKET_RCODE(p) (be16toh(DNS_PACKET_HEADER(p)->flags) & 15)
 
 enum {
         DNS_RCODE_SUCCESS = 0,

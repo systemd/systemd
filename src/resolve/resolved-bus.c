@@ -86,10 +86,9 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
                 if (r < 0)
                         goto finish;
 
-                n = be16toh(DNS_PACKET_HEADER(q->packet)->ancount) +
-                    be16toh(DNS_PACKET_HEADER(q->packet)->nscount) +
-                    be16toh(DNS_PACKET_HEADER(q->packet)->arcount);
-
+                n = DNS_PACKET_ANCOUNT(q->packet) +
+                    DNS_PACKET_NSCOUNT(q->packet) +
+                    DNS_PACKET_ARCOUNT(q->packet);
                 for (i = 0; i < n; i++) {
                         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
 
@@ -292,10 +291,9 @@ static void bus_method_resolve_address_complete(DnsQuery *q) {
                 if (r < 0)
                         goto finish;
 
-                n = be16toh(DNS_PACKET_HEADER(q->packet)->ancount) +
-                    be16toh(DNS_PACKET_HEADER(q->packet)->nscount) +
-                    be16toh(DNS_PACKET_HEADER(q->packet)->arcount);
-
+                n = DNS_PACKET_ANCOUNT(q->packet) +
+                    DNS_PACKET_NSCOUNT(q->packet) +
+                    DNS_PACKET_ARCOUNT(q->packet);
                 for (i = 0; i < n; i++) {
                         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
 

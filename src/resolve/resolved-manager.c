@@ -653,7 +653,7 @@ static int on_dns_ipv4_packet(sd_event_source *s, int fd, uint32_t revents, void
         if (r <= 0)
                 return r;
 
-        t = hashmap_get(m->dns_query_transactions, UINT_TO_PTR(DNS_PACKET_HEADER(p)->id));
+        t = hashmap_get(m->dns_query_transactions, UINT_TO_PTR(DNS_PACKET_ID(p)));
         if (!t)
                 return 0;
 
@@ -670,7 +670,7 @@ static int on_dns_ipv6_packet(sd_event_source *s, int fd, uint32_t revents, void
         if (r <= 0)
                 return r;
 
-        t = hashmap_get(m->dns_query_transactions, UINT_TO_PTR(DNS_PACKET_HEADER(p)->id));
+        t = hashmap_get(m->dns_query_transactions, UINT_TO_PTR(DNS_PACKET_ID(p)));
         if (!t)
                 return 0;
 
