@@ -36,14 +36,14 @@ typedef struct DnsQueryTransaction DnsQueryTransaction;
 
 typedef enum DnsQueryState {
         DNS_QUERY_NULL,
-        DNS_QUERY_SENT,
+        DNS_QUERY_PENDING,
         DNS_QUERY_FAILURE,
         DNS_QUERY_SUCCESS,
         DNS_QUERY_NO_SERVERS,
         DNS_QUERY_TIMEOUT,
         DNS_QUERY_ATTEMPTS_MAX,
         DNS_QUERY_INVALID_REPLY,
-        DNS_QUERY_RESOURCES,
+        DNS_QUERY_RESOURCES
 } DnsQueryState;
 
 struct DnsQueryTransaction {
@@ -75,11 +75,13 @@ struct DnsQuery {
         unsigned n_keys;
 
         DnsQueryState state;
+        unsigned n_cname;
 
         sd_event_source *timeout_event_source;
 
         DnsPacket *received;
 
+        /* Bus client information */
         sd_bus_message *request;
         unsigned char request_family;
         const char *request_hostname;
@@ -94,10 +96,12 @@ struct DnsQuery {
 int dns_query_new(Manager *m, DnsQuery **q, DnsResourceKey *keys, unsigned n_keys);
 DnsQuery *dns_query_free(DnsQuery *q);
 int dns_query_start(DnsQuery *q);
-void dns_query_finish(DnsQuery *q);
+int dns_query_follow_cname(DnsQuery *q, const char *name);
+int dns_query_matches_rr(DnsQuery *q, DnsResourceRecord *rr);
+int dns_query_matches_cname(DnsQuery *q, DnsResourceRecord *rr);
 
 DnsQueryTransaction* dns_query_transaction_free(DnsQueryTransaction *t);
-int dns_query_transaction_start(DnsQueryTransaction *t);
 void dns_query_transaction_reply(DnsQueryTransaction *t, DnsPacket *p);
+void dns_query_finish(DnsQuery *q);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsQuery*, dns_query_free);

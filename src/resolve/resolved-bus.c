@@ -82,15 +82,55 @@ static int reply_query_state(DnsQuery *q) {
         }
 
         case DNS_QUERY_NULL:
-        case DNS_QUERY_SENT:
+        case DNS_QUERY_PENDING:
         case DNS_QUERY_SUCCESS:
+        default:
                 assert_not_reached("Impossible state");
         }
 }
 
+static int append_address(sd_bus_message *reply, DnsResourceRecord *rr, int ifindex) {
+        int r;
+
+        assert(reply);
+        assert(rr);
+
+        r = sd_bus_message_open_container(reply, 'r', "yayi");
+        if (r < 0)
+                return r;
+
+        if (rr->key.type == DNS_TYPE_A) {
+                r = sd_bus_message_append(reply, "y", AF_INET);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_append_array(reply, 'y', &rr->a.in_addr, sizeof(struct in_addr));
+        } else {
+                r = sd_bus_message_append(reply, "y", AF_INET6);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_append_array(reply, 'y', &rr->aaaa.in6_addr, sizeof(struct in6_addr));
+        }
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(reply, "i", ifindex);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_close_container(reply);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static void bus_method_resolve_hostname_complete(DnsQuery *q) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *cname = NULL;
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         unsigned i, n, added = 0;
+        size_t answer_rindex;
         int r;
 
         assert(q);
@@ -106,6 +146,8 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
         if (r < 0)
                 goto parse_fail;
 
+        answer_rindex = q->received->rindex;
+
         r = sd_bus_message_new_method_return(q->request, &reply);
         if (r < 0)
                 goto finish;
@@ -117,6 +159,7 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
         n = DNS_PACKET_ANCOUNT(q->received) +
             DNS_PACKET_NSCOUNT(q->received) +
             DNS_PACKET_ARCOUNT(q->received);
+
         for (i = 0; i < n; i++) {
                 _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
 
@@ -124,41 +167,22 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
                 if (r < 0)
                         goto parse_fail;
 
-                if (rr->key.class != DNS_CLASS_IN)
-                        continue;
-
-                if (!(q->request_family != AF_INET6 && rr->key.type == DNS_TYPE_A) &&
-                    !(q->request_family != AF_INET && rr->key.type == DNS_TYPE_AAAA))
-                        continue;
-
-                if (!dns_name_equal(rr->key.name, q->request_hostname))
-                        continue;
-
-                r = sd_bus_message_open_container(reply, 'r', "yayi");
+                r = dns_query_matches_rr(q, rr);
                 if (r < 0)
-                        goto finish;
-
-                if (rr->key.type == DNS_TYPE_A) {
-                        r = sd_bus_message_append(reply, "y", AF_INET);
+                        goto parse_fail;
+                if (r == 0) {
+                        /* Hmm, if this is not an address record,
+                           maybe it's a cname? If so, remember this */
+                        r = dns_query_matches_cname(q, rr);
                         if (r < 0)
-                                goto finish;
+                                goto parse_fail;
+                        if (r > 0)
+                                cname = dns_resource_record_ref(rr);
 
-                        r = sd_bus_message_append_array(reply, 'y', &rr->a.in_addr, sizeof(struct in_addr));
-                } else {
-                        r = sd_bus_message_append(reply, "y", AF_INET6);
-                        if (r < 0)
-                                goto finish;
-
-                        r = sd_bus_message_append_array(reply, 'y', &rr->aaaa.in6_addr, sizeof(struct in6_addr));
+                        continue;
                 }
-                if (r < 0)
-                        goto finish;
 
-                r = sd_bus_message_append(reply, "i", q->received->ifindex);
-                if (r < 0)
-                        goto finish;
-
-                r = sd_bus_message_close_container(reply);
+                r = append_address(reply, rr, q->received->ifindex);
                 if (r < 0)
                         goto finish;
 
@@ -166,8 +190,56 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
         }
 
         if (added <= 0) {
-                r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_SUCH_RR, "'%s' does not have RR of this type", q->request_hostname);
-                goto finish;
+                if (!cname) {
+                        r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_SUCH_RR, "'%s' does not have RR of this type", q->request_hostname);
+                        goto finish;
+                }
+
+                /* This has a cname? Then update the query with the
+                 * new cname. */
+                r = dns_query_follow_cname(q, cname->cname.name);
+                if (r < 0) {
+                        if (r == -ELOOP)
+                                r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_CNAME_LOOP, "CNAME loop on '%s'", q->request_hostname);
+                        else
+                                r = sd_bus_reply_method_errno(q->request, -r, NULL);
+
+                        goto finish;
+                }
+
+                /* Before we restart the query, let's see if any of
+                 * the RRs we already got already answers our query */
+                dns_packet_rewind(q->received, answer_rindex);
+                for (i = 0; i < n; i++) {
+                        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+
+                        r = dns_packet_read_rr(q->received, &rr, NULL);
+                        if (r < 0)
+                                goto parse_fail;
+
+                        r = dns_query_matches_rr(q, rr);
+                        if (r < 0)
+                                goto parse_fail;
+                        if (r == 0)
+                                continue;
+
+                        r = append_address(reply, rr, q->received->ifindex);
+                        if (r < 0)
+                                goto finish;
+
+                        added++;
+                }
+
+                /* If we didn't find anything, then let's restart the
+                 * query, this time with the cname */
+                if (added <= 0) {
+                        r = dns_query_start(q);
+                        if (r < 0) {
+                                r = sd_bus_reply_method_errno(q->request, -r, NULL);
+                                goto finish;
+                        }
+                        return;
+                }
         }
 
         r = sd_bus_message_close_container(reply);
@@ -245,7 +317,6 @@ static int bus_method_resolve_hostname(sd_bus *bus, sd_bus_message *message, voi
 static void bus_method_resolve_address_complete(DnsQuery *q) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         unsigned i, n, added = 0;
-        _cleanup_free_ char *reverse = NULL;
         int r;
 
         assert(q);
@@ -256,10 +327,6 @@ static void bus_method_resolve_address_complete(DnsQuery *q) {
         }
 
         assert(q->received);
-
-        r = dns_name_reverse(q->request_family, &q->request_address, &reverse);
-        if (r < 0)
-                goto finish;
 
         r = dns_packet_skip_question(q->received);
         if (r < 0)
@@ -284,11 +351,10 @@ static void bus_method_resolve_address_complete(DnsQuery *q) {
                 if (r < 0)
                         goto parse_fail;
 
-                if (rr->key.class != DNS_CLASS_IN)
-                        continue;
-                if (rr->key.type != DNS_TYPE_PTR)
-                        continue;
-                if (!dns_name_equal(rr->key.name, reverse))
+                r = dns_query_matches_rr(q, rr);
+                if (r < 0)
+                        goto parse_fail;
+                if (r == 0)
                         continue;
 
                 r = sd_bus_message_append(reply, "s", rr->ptr.name);

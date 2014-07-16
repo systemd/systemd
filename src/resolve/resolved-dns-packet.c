@@ -395,7 +395,7 @@ int dns_packet_read(DnsPacket *p, size_t sz, const void **ret, size_t *start) {
         return 0;
 }
 
-static void dns_packet_rewind(DnsPacket *p, size_t idx) {
+void dns_packet_rewind(DnsPacket *p, size_t idx) {
         assert(p);
         assert(idx <= p->size);
         assert(idx >= DNS_PACKET_HEADER_SIZE);

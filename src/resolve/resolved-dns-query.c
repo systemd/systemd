@@ -25,6 +25,9 @@
 #define TRANSACTION_TIMEOUT_USEC (5 * USEC_PER_SEC)
 #define QUERY_TIMEOUT_USEC (30 * USEC_PER_SEC)
 #define ATTEMPTS_MAX 8
+#define CNAME_MAX 8
+
+static int dns_query_transaction_start(DnsQueryTransaction *t);
 
 DnsQueryTransaction* dns_query_transaction_free(DnsQueryTransaction *t) {
         if (!t)
@@ -110,7 +113,7 @@ static void dns_query_transaction_set_state(DnsQueryTransaction *t, DnsQueryStat
 
         t->state = state;
 
-        if (state != DNS_QUERY_SENT) {
+        if (state != DNS_QUERY_PENDING) {
                 dns_query_transaction_stop(t);
                 dns_query_finish(t->query);
         }
@@ -248,7 +251,7 @@ void dns_query_transaction_reply(DnsQueryTransaction *t, DnsPacket *p) {
         assert(t);
         assert(p);
 
-        if (t->state != DNS_QUERY_SENT)
+        if (t->state != DNS_QUERY_PENDING)
                 return;
 
         if (t->received != p) {
@@ -273,8 +276,21 @@ void dns_query_transaction_reply(DnsQueryTransaction *t, DnsPacket *p) {
         if (DNS_PACKET_TC(p)) {
                 /* Response was truncated, let's try again with good old TCP */
                 r = dns_query_transaction_start_tcp(t);
+                if (r == -ESRCH) {
+                        /* No servers found? Damn! */
+                        dns_query_transaction_set_state(t, DNS_QUERY_NO_SERVERS);
+                        return;
+                }
                 if (r < 0) {
-                        dns_query_transaction_set_state(t, DNS_QUERY_RESOURCES);
+                        /* Couldn't send? Try immediately again, with a new server */
+                        dns_scope_next_dns_server(t->scope);
+
+                        r = dns_query_transaction_start(t);
+                        if (r < 0) {
+                                dns_query_transaction_set_state(t, DNS_QUERY_RESOURCES);
+                                return;
+                        }
+
                         return;
                 }
         }
@@ -331,7 +347,7 @@ static int dns_query_make_packet(DnsQueryTransaction *t) {
         return 0;
 }
 
-int dns_query_transaction_start(DnsQueryTransaction *t) {
+static int dns_query_transaction_start(DnsQueryTransaction *t) {
         int r;
 
         assert(t);
@@ -342,11 +358,13 @@ int dns_query_transaction_start(DnsQueryTransaction *t) {
                 dns_query_transaction_set_state(t, DNS_QUERY_ATTEMPTS_MAX);
                 return 0;
         }
-        t->n_attempts++;
 
         r = dns_query_make_packet(t);
         if (r < 0)
                 return r;
+
+        t->n_attempts++;
+        t->received = dns_packet_unref(t->received);
 
         /* Try via UDP, and if that fails due to large size try via TCP */
         r = dns_scope_send(t->scope, t->sent);
@@ -368,7 +386,7 @@ int dns_query_transaction_start(DnsQueryTransaction *t) {
         if (r < 0)
                 return r;
 
-        dns_query_transaction_set_state(t, DNS_QUERY_SENT);
+        dns_query_transaction_set_state(t, DNS_QUERY_PENDING);
         return 1;
 }
 
@@ -398,10 +416,7 @@ DnsQuery *dns_query_free(DnsQuery *q) {
 
 int dns_query_new(Manager *m, DnsQuery **ret, DnsResourceKey *keys, unsigned n_keys) {
         _cleanup_(dns_query_freep) DnsQuery *q = NULL;
-        DnsScope *s, *first = NULL;
-        DnsScopeMatch found = DNS_SCOPE_NO;
         const char *name = NULL;
-        int n, r;
 
         assert(m);
 
@@ -434,10 +449,67 @@ int dns_query_new(Manager *m, DnsQuery **ret, DnsResourceKey *keys, unsigned n_k
         LIST_PREPEND(queries, m->dns_queries, q);
         q->manager = m;
 
-        LIST_FOREACH(scopes, s, m->dns_scopes) {
+        if (ret)
+                *ret = q;
+        q = NULL;
+
+        return 0;
+}
+
+static void dns_query_stop(DnsQuery *q) {
+        assert(q);
+
+        q->timeout_event_source = sd_event_source_unref(q->timeout_event_source);
+
+        while (q->transactions)
+                dns_query_transaction_free(q->transactions);
+}
+
+static void dns_query_set_state(DnsQuery *q, DnsQueryState state) {
+        DnsQueryState old_state;
+        assert(q);
+
+        if (q->state == state)
+                return;
+
+        old_state = q->state;
+        q->state = state;
+
+        if (!IN_SET(state, DNS_QUERY_NULL, DNS_QUERY_PENDING)) {
+                dns_query_stop(q);
+
+                if (old_state == DNS_QUERY_PENDING && q->complete)
+                        q->complete(q);
+        }
+}
+
+static int on_query_timeout(sd_event_source *s, usec_t usec, void *userdata) {
+        DnsQuery *q = userdata;
+
+        assert(s);
+        assert(q);
+
+        dns_query_set_state(q, DNS_QUERY_TIMEOUT);
+        return 0;
+}
+
+int dns_query_start(DnsQuery *q) {
+        DnsScopeMatch found = DNS_SCOPE_NO;
+        DnsScope *s, *first = NULL;
+        DnsQueryTransaction *t;
+        int r;
+
+        assert(q);
+
+        if (q->state != DNS_QUERY_NULL)
+                return 0;
+
+        assert(q->n_keys > 0);
+
+        LIST_FOREACH(scopes, s, q->manager->dns_scopes) {
                 DnsScopeMatch match;
 
-                match = dns_scope_test(s, name);
+                match = dns_scope_test(s, q->keys[0].name);
                 if (match < 0)
                         return match;
 
@@ -458,17 +530,16 @@ int dns_query_new(Manager *m, DnsQuery **ret, DnsResourceKey *keys, unsigned n_k
         }
 
         if (found == DNS_SCOPE_NO)
-                return -ENETDOWN;
+                return -ESRCH;
 
         r = dns_query_transaction_new(q, NULL, first);
         if (r < 0)
                 return r;
 
-        n = 1;
         LIST_FOREACH(scopes, s, first->scopes_next) {
                 DnsScopeMatch match;
 
-                match = dns_scope_test(s, name);
+                match = dns_scope_test(s, q->keys[0].name);
                 if (match < 0)
                         return match;
 
@@ -478,62 +549,15 @@ int dns_query_new(Manager *m, DnsQuery **ret, DnsResourceKey *keys, unsigned n_k
                 r = dns_query_transaction_new(q, NULL, s);
                 if (r < 0)
                         return r;
-
-                n++;
         }
 
-        if (ret)
-                *ret = q;
-        q = NULL;
-
-        return n;
-}
-
-static void dns_query_set_state(DnsQuery *q, DnsQueryState state) {
-        assert(q);
-
-        if (q->state == state)
-                return;
-
-        q->state = state;
-
-        if (state == DNS_QUERY_SENT)
-                return;
-
-        q->timeout_event_source = sd_event_source_unref(q->timeout_event_source);
-
-        while (q->transactions)
-                dns_query_transaction_free(q->transactions);
-
-        if (q->complete)
-                q->complete(q);
-}
-
-static int on_query_timeout(sd_event_source *s, usec_t usec, void *userdata) {
-        DnsQuery *q = userdata;
-
-        assert(s);
-        assert(q);
-
-        dns_query_set_state(q, DNS_QUERY_TIMEOUT);
-        return 0;
-}
-
-int dns_query_start(DnsQuery *q) {
-        DnsQueryTransaction *t;
-        int r;
-
-        assert(q);
-        assert(q->state == DNS_QUERY_NULL);
-
-        if (!q->transactions)
-                return -ENETDOWN;
+        q->received = dns_packet_unref(q->received);
 
         r = sd_event_add_time(q->manager->event, &q->timeout_event_source, CLOCK_MONOTONIC, now(CLOCK_MONOTONIC) + QUERY_TIMEOUT_USEC, 0, on_query_timeout, q);
         if (r < 0)
                 goto fail;
 
-        dns_query_set_state(q, DNS_QUERY_SENT);
+        dns_query_set_state(q, DNS_QUERY_PENDING);
 
         LIST_FOREACH(transactions_by_query, t, q->transactions) {
 
@@ -541,16 +565,14 @@ int dns_query_start(DnsQuery *q) {
                 if (r < 0)
                         goto fail;
 
-                if (q->state != DNS_QUERY_SENT)
+                if (q->state != DNS_QUERY_PENDING)
                         break;
         }
 
-        return 0;
+        return 1;
 
 fail:
-        while (q->transactions)
-                dns_query_transaction_free(q->transactions);
-
+        dns_query_stop(q);
         return r;
 }
 
@@ -561,13 +583,13 @@ void dns_query_finish(DnsQuery *q) {
 
         assert(q);
 
-        if (q->state != DNS_QUERY_SENT)
+        if (q->state != DNS_QUERY_PENDING)
                 return;
 
         LIST_FOREACH(transactions_by_query, t, q->transactions) {
 
                 /* One of the transactions is still going on, let's wait for it */
-                if (t->state == DNS_QUERY_SENT || t->state == DNS_QUERY_NULL)
+                if (t->state == DNS_QUERY_PENDING || t->state == DNS_QUERY_NULL)
                         return;
 
                 /* One of the transactions is successful, let's use it */
@@ -594,4 +616,89 @@ void dns_query_finish(DnsQuery *q) {
                 q->received = dns_packet_ref(received);
 
         dns_query_set_state(q, state);
+}
+
+int dns_query_follow_cname(DnsQuery *q, const char *name) {
+        DnsResourceKey *keys;
+        unsigned i;
+
+        assert(q);
+
+        if (q->n_cname > CNAME_MAX)
+                return -ELOOP;
+
+        keys = new(DnsResourceKey, q->n_keys);
+        if (!keys)
+                return -ENOMEM;
+
+        for (i = 0; i < q->n_keys; i++) {
+                keys[i].class = q->keys[i].class;
+                keys[i].type = q->keys[i].type;
+                keys[i].name = strdup(name);
+                if (!keys[i].name) {
+
+                        for (; i > 0; i--)
+                                free(keys[i-1].name);
+                        free(keys);
+                        return -ENOMEM;
+                }
+        }
+
+        for (i = 0; i < q->n_keys; i++)
+                free(q->keys[i].name);
+        free(q->keys);
+
+        q->keys = keys;
+
+        q->n_cname++;
+
+        dns_query_set_state(q, DNS_QUERY_NULL);
+        return 0;
+}
+
+int dns_query_matches_rr(DnsQuery *q, DnsResourceRecord *rr) {
+        unsigned i;
+        int r;
+
+        assert(q);
+        assert(rr);
+
+        for (i = 0; i < q->n_keys; i++) {
+
+                if (rr->key.class != q->keys[i].class)
+                        continue;
+
+                if (rr->key.type != q->keys[i].type &&
+                    q->keys[i].type != DNS_TYPE_ANY)
+                        continue;
+
+                r = dns_name_equal(rr->key.name, q->keys[i].name);
+                if (r != 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+int dns_query_matches_cname(DnsQuery *q, DnsResourceRecord *rr) {
+        unsigned i;
+        int r;
+
+        assert(q);
+        assert(rr);
+
+        for (i = 0; i < q->n_keys; i++) {
+
+                if (rr->key.class != q->keys[i].class)
+                        continue;
+
+                if (rr->key.type != DNS_TYPE_CNAME)
+                        continue;
+
+                r = dns_name_equal(rr->key.name, q->keys[i].name);
+                if (r != 0)
+                        return r;
+        }
+
+        return 0;
 }

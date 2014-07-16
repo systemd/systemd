@@ -116,6 +116,8 @@ int dns_packet_read_name(DnsPacket *p, char **ret, size_t *start);
 int dns_packet_read_key(DnsPacket *p, DnsResourceKey *ret, size_t *start);
 int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start);
 
+void dns_packet_rewind(DnsPacket *p, size_t idx);
+
 int dns_packet_skip_question(DnsPacket *p);
 
 enum {
