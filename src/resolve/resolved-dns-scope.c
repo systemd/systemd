@@ -187,6 +187,9 @@ DnsScopeMatch dns_scope_test(DnsScope *s, const char *domain) {
         if (dns_name_root(domain))
                 return DNS_SCOPE_NO;
 
+        if (is_localhost(domain))
+                return DNS_SCOPE_NO;
+
         if (s->type == DNS_SCOPE_MDNS) {
                 if (dns_name_endswith(domain, "254.169.in-addr.arpa") ||
                     dns_name_endswith(domain, "0.8.e.f.ip6.arpa"))
