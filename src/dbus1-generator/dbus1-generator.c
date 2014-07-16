@@ -156,7 +156,7 @@ static int create_dbus_files(
 static int add_dbus(const char *path, const char *fname, const char *type) {
         _cleanup_free_ char *name = NULL, *exec = NULL, *user = NULL, *service = NULL;
 
-        ConfigTableItem table[] = {
+        const ConfigTableItem table[] = {
                 { "D-BUS Service", "Name", config_parse_string, 0, &name },
                 { "D-BUS Service", "Exec", config_parse_string, 0, &exec },
                 { "D-BUS Service", "User", config_parse_string, 0, &user },

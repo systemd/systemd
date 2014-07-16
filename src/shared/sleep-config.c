@@ -57,7 +57,7 @@ int parse_sleep_config(const char *verb, char ***_modes, char ***_states) {
                          "Failed to open configuration file " PKGSYSCONFDIR "/sleep.conf: %m");
         else {
                 r = config_parse(NULL, PKGSYSCONFDIR "/sleep.conf", f, "Sleep\0",
-                                 config_item_table_lookup, (void*) items, false, false, NULL);
+                                 config_item_table_lookup, items, false, false, NULL);
                 if (r < 0)
                         log_warning("Failed to parse configuration file: %s", strerror(-r));
         }

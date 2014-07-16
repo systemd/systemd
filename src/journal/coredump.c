@@ -120,7 +120,7 @@ static int parse_config(void) {
                         NULL,
                         "Coredump\0",
                         config_item_table_lookup,
-                        (void*) items,
+                        items,
                         false,
                         false,
                         NULL);

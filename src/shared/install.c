@@ -1076,7 +1076,7 @@ static int unit_file_load(
                 return -ENOMEM;
         }
 
-        r = config_parse(NULL, path, f, NULL, config_item_table_lookup, (void*) items, true, true, info);
+        r = config_parse(NULL, path, f, NULL, config_item_table_lookup, items, true, true, info);
         if (r < 0)
                 return r;
 

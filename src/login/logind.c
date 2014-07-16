@@ -1113,7 +1113,7 @@ static int manager_parse_config_file(Manager *m) {
         }
 
         r = config_parse(NULL, fn, f, "Login\0", config_item_perf_lookup,
-                         (void*) logind_gperf_lookup, false, false, m);
+                         logind_gperf_lookup, false, false, m);
         if (r < 0)
                 log_warning("Failed to parse configuration file: %s", strerror(-r));
 

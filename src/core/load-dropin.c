@@ -187,7 +187,7 @@ int unit_load_dropin(Unit *u) {
         STRV_FOREACH(f, u->dropin_paths) {
                 config_parse(u->id, *f, NULL,
                              UNIT_VTABLE(u)->sections, config_item_perf_lookup,
-                             (void*) load_fragment_gperf_lookup, false, false, u);
+                             load_fragment_gperf_lookup, false, false, u);
         }
 
         u->dropin_mtime = now(CLOCK_REALTIME);

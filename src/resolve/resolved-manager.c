@@ -377,10 +377,9 @@ int manager_parse_config_file(Manager *m) {
 
         assert(m);
 
-        r = config_parse(NULL,
-                         "/etc/systemd/resolved.conf", NULL,
+        r = config_parse(NULL, "/etc/systemd/resolved.conf", NULL,
                          "Resolve\0",
-                         config_item_perf_lookup, (void*) resolved_gperf_lookup,
+                         config_item_perf_lookup, resolved_gperf_lookup,
                          false, false, m);
         if (r < 0)
                 log_warning("Failed to parse configuration file: %s", strerror(-r));

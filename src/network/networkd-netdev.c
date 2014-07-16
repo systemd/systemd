@@ -525,7 +525,7 @@ static int netdev_load_one(Manager *manager, const char *filename) {
 
         r = config_parse(NULL, filename, file,
                          "Match\0NetDev\0VLAN\0MACVLAN\0VXLAN\0Tunnel\0Peer\0Tun\0Tap\0Bond\0",
-                         config_item_perf_lookup, (void*) network_netdev_gperf_lookup,
+                         config_item_perf_lookup, network_netdev_gperf_lookup,
                          false, false, netdev);
         if (r < 0) {
                 log_warning("Could not parse config file %s: %s", filename, strerror(-r));
