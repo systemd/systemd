@@ -371,6 +371,15 @@ static inline int setns(int fd, int nstype) {
 #define LOOP_CTL_GET_FREE 0x4C82
 #endif
 
+#if !HAVE_DECL_IFLA_MACVLAN_FLAGS
+#define IFLA_MACVLAN_UNSPEC 0
+#define IFLA_MACVLAN_MODE 1
+#define IFLA_MACVLAN_FLAGS 2
+#define __IFLA_MACVLAN_MAX 3
+
+#define IFLA_MACVLAN_MAX (__IFLA_MACVLAN_MAX - 1)
+#endif
+
 #if !HAVE_DECL_IFLA_PHYS_PORT_ID
 #undef IFLA_PROMISCUITY
 #define IFLA_PROMISCUITY 30

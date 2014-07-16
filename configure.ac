@@ -310,7 +310,8 @@ AC_CHECK_DECLS([gettid, pivot_root, name_to_handle_at, setns, LO_FLAGS_PARTSCAN]
 #include <linux/loop.h>
 ]])
 
-AC_CHECK_DECLS([IFLA_PHYS_PORT_ID,
+AC_CHECK_DECLS([IFLA_MACVLAN_FLAGS,
+                IFLA_PHYS_PORT_ID,
                 IFLA_BOND_AD_INFO,
                 IFLA_VLAN_PROTOCOL,
                 IFLA_VXLAN_LOCAL6,
