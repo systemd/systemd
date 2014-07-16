@@ -25,7 +25,6 @@ External:
 Features:
 
 * resolved:
-  - CNAME resolver
   - cache
   - IDN
   - DNSSEC
