@@ -4818,8 +4818,11 @@ systemd_networkd_wait_online_CFLAGS = \
 
 systemd_networkd_wait_online_SOURCES = \
 	src/libsystemd-network/network-internal.h \
+	src/network/networkd-wait-online.h \
+	src/network/networkd-wait-online-link.h \
 	src/network/networkd-wait-online.c \
-	src/network/networkd-wait-online.h
+	src/network/networkd-wait-online-manager.c \
+	src/network/networkd-wait-online-link.c
 
 systemd_networkd_wait_online_LDADD = \
 	libsystemd-network.la \
