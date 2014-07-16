@@ -72,7 +72,7 @@ static void test_compress_decompress(const char* label,
 
                 assert(j > 0);
                 if (j >= i)
-                        log_error("%s \"compressed\" %zu -> " PRIu64, label, i, j);
+                        log_error("%s \"compressed\" %zu -> %" PRIu64, label, i, j);
 
                 r = decompress(buf, j, &buf2, &buf2_allocated, &k, 0);
                 assert(r == 0);
