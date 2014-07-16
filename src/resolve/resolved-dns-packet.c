@@ -20,7 +20,7 @@
  ***/
 
 #include "utf8.h"
-
+#include "util.h"
 #include "resolved-dns-domain.h"
 #include "resolved-dns-packet.h"
 
@@ -37,6 +37,13 @@ int dns_packet_new(DnsPacket **ret, size_t mtu) {
 
         if (a < DNS_PACKET_HEADER_SIZE)
                 a = DNS_PACKET_HEADER_SIZE;
+
+        /* round up to next page size */
+        a = PAGE_ALIGN(ALIGN(sizeof(DnsPacket)) + a) - ALIGN(sizeof(DnsPacket));
+
+        /* make sure we never allocate more than useful */
+        if (a > DNS_PACKET_SIZE_MAX)
+                a = DNS_PACKET_SIZE_MAX;
 
         p = malloc0(ALIGN(sizeof(DnsPacket)) + a);
         if (!p)
@@ -112,6 +119,9 @@ int dns_packet_validate(DnsPacket *p) {
         if (p->size < DNS_PACKET_HEADER_SIZE)
                 return -EBADMSG;
 
+        if (p->size > DNS_PACKET_SIZE_MAX)
+                return -EBADMSG;
+
         return 0;
 }
 
@@ -136,8 +146,35 @@ int dns_packet_validate_reply(DnsPacket *p) {
 static int dns_packet_extend(DnsPacket *p, size_t add, void **ret, size_t *start) {
         assert(p);
 
-        if (p->size + add > p->allocated)
-                return -ENOMEM;
+        if (p->size + add > p->allocated) {
+                size_t a;
+
+                a = PAGE_ALIGN((p->size + add) * 2);
+                if (a > DNS_PACKET_SIZE_MAX)
+                        a = DNS_PACKET_SIZE_MAX;
+
+                if (p->size + add > a)
+                        return -EMSGSIZE;
+
+                if (p->data) {
+                        void *d;
+
+                        d = realloc(p->data, a);
+                        if (!d)
+                                return -ENOMEM;
+
+                        p->data = d;
+                } else {
+                        p->data = malloc(a);
+                        if (!p->data)
+                                return -ENOMEM;
+
+                        memcpy(p->data, (uint8_t*) p + ALIGN(sizeof(DnsPacket)), p->size);
+                        memzero((uint8_t*) p->data + p->size, a - p->size);
+                }
+
+                p->allocated = a;
+        }
 
         if (start)
                 *start = p->size;

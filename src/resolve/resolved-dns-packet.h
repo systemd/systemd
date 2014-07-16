@@ -41,14 +41,19 @@ struct DnsPacketHeader {
 };
 
 #define DNS_PACKET_HEADER_SIZE sizeof(DnsPacketHeader)
+
+/* The various DNS protocols deviate in how large a packet can grow,
+   but the TCP transport has a 16bit size field, hence that appears to
+   be the maximum. */
+#define DNS_PACKET_SIZE_MAX 0xFFFF
 #define DNS_PACKET_SIZE_START 512
 
 struct DnsPacket {
         int n_ref;
+        int ifindex;
         size_t size, allocated, rindex;
         Hashmap *names; /* For name compression */
         void *data;
-        int ifindex;
 };
 
 static inline uint8_t* DNS_PACKET_DATA(DnsPacket *p) {
