@@ -203,6 +203,9 @@ int dns_name_normalize(const char *s, char **_ret) {
                 n += r;
         }
 
+        if (n > DNS_NAME_MAX)
+                return -EINVAL;
+
         if (!GREEDY_REALLOC(ret, allocated, n + 1))
                 return -ENOMEM;
 

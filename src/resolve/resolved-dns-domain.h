@@ -25,6 +25,7 @@
 #include "in-addr-util.h"
 
 #define DNS_LABEL_MAX 63
+#define DNS_NAME_MAX 255
 
 int dns_label_unescape(const char **name, char *dest, size_t sz);
 int dns_label_escape(const char *p, size_t l, char **ret);
