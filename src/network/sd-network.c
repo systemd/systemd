@@ -235,7 +235,7 @@ static int network_get_boolean(const char *key, unsigned index) {
         if (r < 0)
                 return r;
         else if (!s)
-                return -EIO;
+                return false;
 
         return parse_boolean(s);
 }
