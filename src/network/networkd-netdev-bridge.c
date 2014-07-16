@@ -28,67 +28,8 @@
 #include "networkd-netdev-bridge.h"
 #include "missing.h"
 
-static int netdev_bridge_fill_message_create(NetDev *netdev, sd_rtnl_message *m) {
-        int r;
-
-        assert(netdev);
-        assert(netdev->ifname);
-        assert(m);
-
-        r = sd_rtnl_message_append_string(m, IFLA_IFNAME, netdev->ifname);
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not append IFLA_IFNAME, attribute: %s",
-                                 strerror(-r));
-                return r;
-        }
-
-        if (netdev->mac) {
-                r = sd_rtnl_message_append_ether_addr(m, IFLA_ADDRESS, netdev->mac);
-                if (r < 0) {
-                        log_error_netdev(netdev,
-                                         "Could not append IFLA_ADDRESS attribute: %s",
-                                         strerror(-r));
-                    return r;
-                }
-        }
-
-        r = sd_rtnl_message_open_container(m, IFLA_LINKINFO);
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not append IFLA_LINKINFO attribute: %s",
-                                 strerror(-r));
-                return r;
-        }
-
-        r = sd_rtnl_message_open_container_union(m, IFLA_INFO_DATA, "bridge");
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not append IFLA_INFO_DATA attribute: %s",
-                                 strerror(-r));
-                return r;
-        }
-
-        r = sd_rtnl_message_close_container(m);
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not append IFLA_LINKINFO attribute: %s",
-                                 strerror(-r));
-                return r;
-        }
-
-        r = sd_rtnl_message_close_container(m);
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not append IFLA_LINKINFO attribute: %s",
-                                 strerror(-r));
-                return r;
-        }
-
-        return r;
-}
-
 const NetDevVTable bridge_vtable = {
-        .fill_message_create = netdev_bridge_fill_message_create,
-        .enslave = netdev_enslave,
+        .object_size = sizeof(Bridge),
+        .sections = "Match\0NetDev\0",
+        .create_type = NETDEV_CREATE_MASTER,
 };

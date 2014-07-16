@@ -21,9 +21,9 @@
 
 #pragma once
 
-#include "networkd-netdev.h"
+typedef struct Bond Bond;
 
-extern const NetDevVTable bond_vtable;
+#include "networkd-netdev.h"
 
 typedef enum BondMode {
         NETDEV_BOND_MODE_BALANCE_RR,
@@ -36,6 +36,14 @@ typedef enum BondMode {
         _NETDEV_BOND_MODE_MAX,
         _NETDEV_BOND_MODE_INVALID = -1
 } BondMode;
+
+struct Bond {
+        NetDev meta;
+
+        BondMode mode;
+};
+
+extern const NetDevVTable bond_vtable;
 
 const char *bond_mode_to_string(BondMode d) _const_;
 BondMode bond_mode_from_string(const char *d) _pure_;

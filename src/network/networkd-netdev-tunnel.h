@@ -21,7 +21,21 @@
 
 #pragma once
 
+typedef struct Tunnel Tunnel;
+
 #include "networkd-netdev.h"
+
+struct Tunnel {
+        NetDev meta;
+
+        int family;
+
+        unsigned ttl;
+        unsigned tos;
+        union in_addr_union local;
+        union in_addr_union remote;
+        bool pmtudisc;
+};
 
 extern const NetDevVTable ipip_vtable;
 extern const NetDevVTable sit_vtable;

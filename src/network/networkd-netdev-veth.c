@@ -27,46 +27,14 @@
 #include "sd-rtnl.h"
 #include "networkd-netdev-veth.h"
 
-static int netdev_veth_fill_message_create(NetDev *netdev, sd_rtnl_message *m) {
+static int netdev_veth_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_message *m) {
+        Veth *v = VETH(netdev);
         int r;
 
         assert(netdev);
-        assert(netdev->ifname);
+        assert(!link);
+        assert(v);
         assert(m);
-
-        r = sd_rtnl_message_append_string(m, IFLA_IFNAME, netdev->ifname);
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not append IFLA_IFNAME, attribute: %s",
-                                 strerror(-r));
-                return r;
-        }
-
-        if (netdev->mac) {
-                r = sd_rtnl_message_append_ether_addr(m, IFLA_ADDRESS, netdev->mac);
-                if (r < 0) {
-                        log_error_netdev(netdev,
-                                         "Could not append IFLA_ADDRESS attribute: %s",
-                                         strerror(-r));
-                    return r;
-                }
-        }
-
-        r = sd_rtnl_message_open_container(m, IFLA_LINKINFO);
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not append IFLA_LINKINFO attribute: %s",
-                                 strerror(-r));
-                return r;
-        }
-
-        r = sd_rtnl_message_open_container_union(m, IFLA_INFO_DATA, "veth");
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not append IFLA_INFO_DATA attribute: %s",
-                                 strerror(-r));
-                return r;
-        }
 
         r = sd_rtnl_message_open_container(m, VETH_INFO_PEER);
         if (r < 0) {
@@ -76,16 +44,16 @@ static int netdev_veth_fill_message_create(NetDev *netdev, sd_rtnl_message *m) {
                 return r;
         }
 
-        if (netdev->ifname_peer) {
-                r = sd_rtnl_message_append_string(m, IFLA_IFNAME, netdev->ifname_peer);
+        if (v->ifname_peer) {
+                r = sd_rtnl_message_append_string(m, IFLA_IFNAME, v->ifname_peer);
                 if (r < 0) {
                         log_error("Failed to add netlink interface name: %s", strerror(-r));
                         return r;
                 }
         }
 
-        if (netdev->mac_peer) {
-                r = sd_rtnl_message_append_ether_addr(m, IFLA_ADDRESS, netdev->mac_peer);
+        if (v->mac_peer) {
+                r = sd_rtnl_message_append_ether_addr(m, IFLA_ADDRESS, v->mac_peer);
                 if (r < 0) {
                         log_error_netdev(netdev,
                                          "Could not append IFLA_ADDRESS attribute: %s",
@@ -102,34 +70,28 @@ static int netdev_veth_fill_message_create(NetDev *netdev, sd_rtnl_message *m) {
                 return r;
         }
 
-        r = sd_rtnl_message_close_container(m);
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not append IFLA_LINKINFO attribute: %s",
-                                 strerror(-r));
-                return r;
-        }
-
         return r;
 }
 
 static int netdev_veth_verify(NetDev *netdev, const char *filename) {
+        Veth *v = VETH(netdev);
         int r;
 
         assert(netdev);
+        assert(v);
         assert(filename);
 
-        if (!netdev->ifname_peer) {
+        if (!v->ifname_peer) {
                 log_warning("Veth NetDev without peer name configured in %s. Ignoring",
                             filename);
                 return -EINVAL;
         }
 
-        if (!netdev->mac_peer) {
-                r = netdev_get_mac(netdev->ifname_peer, &netdev->mac_peer);
+        if (!v->mac_peer) {
+                r = netdev_get_mac(v->ifname_peer, &v->mac_peer);
                 if (r < 0) {
                         log_warning("Failed to generate predictable MAC address for %s. Ignoring",
-                                  netdev->ifname_peer);
+                                  v->ifname_peer);
                         return -EINVAL;
                 }
         }
@@ -137,7 +99,21 @@ static int netdev_veth_verify(NetDev *netdev, const char *filename) {
         return 0;
 }
 
+static void veth_done(NetDev *n) {
+        Veth *v = VETH(n);
+
+        assert(n);
+        assert(v);
+
+        free(v->ifname_peer);
+        free(v->mac_peer);
+}
+
 const NetDevVTable veth_vtable = {
+        .object_size = sizeof(Veth),
+        .sections = "Match\0NetDev\0Peer\0",
+        .done = veth_done,
         .fill_message_create = netdev_veth_fill_message_create,
+        .create_type = NETDEV_CREATE_INDEPENDENT,
         .config_verify = netdev_veth_verify,
 };

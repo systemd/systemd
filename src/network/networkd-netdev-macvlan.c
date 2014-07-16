@@ -37,67 +37,16 @@ DEFINE_STRING_TABLE_LOOKUP(macvlan_mode, MacVlanMode);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_macvlan_mode, macvlan_mode, MacVlanMode, "Failed to parse macvlan mode");
 
 static int netdev_macvlan_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_message *req) {
+        MacVlan *m = MACVLAN(netdev);
         int r;
 
         assert(netdev);
-        assert(netdev->kind == NETDEV_KIND_MACVLAN);
+        assert(m);
         assert(link);
         assert(netdev->ifname);
 
-        r = sd_rtnl_message_append_u32(req, IFLA_LINK, link->ifindex);
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not append IFLA_LINK attribute: %s",
-                                 strerror(-r));
-                return r;
-        }
-
-        r = sd_rtnl_message_append_string(req, IFLA_IFNAME, netdev->ifname);
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not append IFLA_IFNAME attribute: %s",
-                                 strerror(-r));
-                return r;
-        }
-
-        if (netdev->mtu) {
-                r = sd_rtnl_message_append_u32(req, IFLA_MTU, netdev->mtu);
-                if (r < 0) {
-                        log_error_netdev(netdev,
-                                         "Could not append IFLA_MTU attribute: %s",
-                                         strerror(-r));
-                        return r;
-                }
-        }
-
-        if (netdev->mac) {
-                r = sd_rtnl_message_append_ether_addr(req, IFLA_ADDRESS, netdev->mac);
-                if (r < 0) {
-                        log_error_netdev(netdev,
-                                         "Could not append IFLA_ADDRESS attribute: %s",
-                                         strerror(-r));
-                    return r;
-                }
-        }
-
-        r = sd_rtnl_message_open_container(req, IFLA_LINKINFO);
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not open IFLA_LINKINFO container: %s",
-                                 strerror(-r));
-                return r;
-        }
-
-        r = sd_rtnl_message_open_container_union(req, IFLA_INFO_DATA, "macvlan");
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not open IFLA_INFO_DATA container: %s",
-                                  strerror(-r));
-                return r;
-        }
-
-        if (netdev->macvlan_mode != _NETDEV_MACVLAN_MODE_INVALID) {
-        r = sd_rtnl_message_append_u32(req, IFLA_MACVLAN_MODE, netdev->macvlan_mode);
+        if (m->mode != _NETDEV_MACVLAN_MODE_INVALID) {
+        r = sd_rtnl_message_append_u32(req, IFLA_MACVLAN_MODE, m->mode);
         if (r < 0) {
                 log_error_netdev(netdev,
                                  "Could not append IFLA_MACVLAN_MODE attribute: %s",
@@ -106,25 +55,22 @@ static int netdev_macvlan_fill_message_create(NetDev *netdev, Link *link, sd_rtn
                 }
         }
 
-        r = sd_rtnl_message_close_container(req);
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not close IFLA_INFO_DATA container %s",
-                                 strerror(-r));
-                return r;
-        }
-
-        r = sd_rtnl_message_close_container(req);
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not close IFLA_LINKINFO container %s",
-                                 strerror(-r));
-                return r;
-        }
-
         return 0;
 }
 
+static void macvlan_init(NetDev *n) {
+        MacVlan *m = MACVLAN(n);
+
+        assert(n);
+        assert(m);
+
+        m->mode = _NETDEV_MACVLAN_MODE_INVALID;
+}
+
 const NetDevVTable macvlan_vtable = {
-        .fill_message_create_on_link = netdev_macvlan_fill_message_create,
+        .object_size = sizeof(MacVlan),
+        .init = macvlan_init,
+        .sections = "Match\0NetDev\0MACVLAN\0",
+        .fill_message_create = netdev_macvlan_fill_message_create,
+        .create_type = NETDEV_CREATE_STACKED,
 };

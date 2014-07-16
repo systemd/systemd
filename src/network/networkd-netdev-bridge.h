@@ -21,6 +21,12 @@
 
 #pragma once
 
+typedef struct Bridge Bridge;
+
 #include "networkd-netdev.h"
+
+struct Bridge {
+        NetDev meta;
+};
 
 extern const NetDevVTable bridge_vtable;

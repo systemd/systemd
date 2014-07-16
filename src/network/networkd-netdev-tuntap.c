@@ -28,24 +28,27 @@
 #define TUN_DEV "/dev/net/tun"
 
 static int netdev_fill_tuntap_message(NetDev *netdev, struct ifreq *ifr) {
+        TunTap *t;
 
         assert(netdev);
+        assert(netdev->ifname);
         assert(ifr);
 
-        memset(ifr, 0, sizeof(*ifr));
-
-        if (netdev->kind == NETDEV_KIND_TAP)
+        if (netdev->kind == NETDEV_KIND_TAP) {
+                t = TAP(netdev);
                 ifr->ifr_flags |= IFF_TAP;
-        else
+        } else {
+                t = TUN(netdev);
                 ifr->ifr_flags |= IFF_TUN;
+        }
 
-        if (!netdev->packet_info)
+        if (!t->packet_info)
                 ifr->ifr_flags |= IFF_NO_PI;
 
-        if (netdev->one_queue)
+        if (t->one_queue)
                 ifr->ifr_flags |= IFF_ONE_QUEUE;
 
-        if (netdev->multi_queue)
+        if (t->multi_queue)
                 ifr->ifr_flags |= IFF_MULTI_QUEUE;
 
         strncpy(ifr->ifr_name, netdev->ifname, IFNAMSIZ-1);
@@ -55,11 +58,15 @@ static int netdev_fill_tuntap_message(NetDev *netdev, struct ifreq *ifr) {
 
 static int netdev_tuntap_add(NetDev *netdev, struct ifreq *ifr) {
         _cleanup_close_ int fd;
+        TunTap *t = NULL;
         const char *user;
         const char *group;
         uid_t uid;
         gid_t gid;
         int r = 0;
+
+        assert(netdev);
+        assert(ifr);
 
         fd = open(TUN_DEV, O_RDWR);
         if (fd < 0) {
@@ -77,14 +84,21 @@ static int netdev_tuntap_add(NetDev *netdev, struct ifreq *ifr) {
                 return r;
         }
 
-        if(netdev->user_name) {
+        if (netdev->kind == NETDEV_KIND_TAP)
+                t = TAP(netdev);
+        else
+                t = TUN(netdev);
 
-                user = netdev->user_name;
+        assert(t);
+
+        if(t->user_name) {
+
+                user = t->user_name;
 
                 r = get_user_creds(&user, &uid, NULL, NULL, NULL);
                 if (r < 0) {
                         log_error("Cannot resolve user name %s: %s",
-                                  netdev->user_name, strerror(-r));
+                                  t->user_name, strerror(-r));
                         return 0;
                 }
 
@@ -96,14 +110,14 @@ static int netdev_tuntap_add(NetDev *netdev, struct ifreq *ifr) {
                 }
         }
 
-        if(netdev->group_name) {
+        if(t->group_name) {
 
-                group = netdev->group_name;
+                group = t->group_name;
 
                 r = get_group_creds(&group, &gid);
                 if (r < 0) {
                         log_error("Cannot resolve group name %s: %s",
-                                  netdev->group_name, strerror(-r));
+                                  t->group_name, strerror(-r));
                         return 0;
                 }
 
@@ -129,34 +143,47 @@ static int netdev_tuntap_add(NetDev *netdev, struct ifreq *ifr) {
 }
 
 static int netdev_create_tuntap(NetDev *netdev) {
-        struct ifreq ifr;
+        struct ifreq ifr = {};
         int r;
-
-        assert(netdev);
-        assert(netdev->ifname);
-
-        switch(netdev->kind) {
-        case NETDEV_KIND_TUN:
-        case NETDEV_KIND_TAP:
-                break;
-        default:
-                return -ENOTSUP;
-        }
 
         r = netdev_fill_tuntap_message(netdev, &ifr);
         if(r < 0)
                 return r;
 
-        log_debug_netdev(netdev, "Creating tuntap netdev: %s",
-                         netdev_kind_to_string(netdev->kind));
-
         return netdev_tuntap_add(netdev, &ifr);
 }
 
+static void tuntap_done(NetDev *netdev) {
+        TunTap *t = NULL;
+
+        assert(netdev);
+
+        if (netdev->kind == NETDEV_KIND_TUN)
+                t = TUN(netdev);
+        else
+                t = TAP(netdev);
+
+        assert(t);
+
+        free(t->user_name);
+        t->user_name = NULL;
+
+        free(t->group_name);
+        t->group_name = NULL;
+}
+
 const NetDevVTable tun_vtable = {
+        .object_size = sizeof(TunTap),
+        .sections = "Match\0NetDev\0Tun\0",
+        .done = tuntap_done,
         .create = netdev_create_tuntap,
+        .create_type = NETDEV_CREATE_INDEPENDENT,
 };
 
 const NetDevVTable tap_vtable = {
+        .object_size = sizeof(TunTap),
+        .sections = "Match\0NetDev\0Tap\0",
+        .done = tuntap_done,
         .create = netdev_create_tuntap,
+        .create_type = NETDEV_CREATE_INDEPENDENT,
 };

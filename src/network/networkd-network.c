@@ -66,11 +66,11 @@ static int network_load_one(Manager *manager, const char *filename) {
         if (!network->vlans)
                 return log_oom();
 
-        network->macvlans = hashmap_new(uint64_hash_func, uint64_compare_func);
+        network->macvlans = hashmap_new(string_hash_func, string_compare_func);
         if (!network->macvlans)
                 return log_oom();
 
-        network->vxlans = hashmap_new(uint64_hash_func, uint64_compare_func);
+        network->vxlans = hashmap_new(string_hash_func, string_compare_func);
         if (!network->vxlans)
                 return log_oom();
 
@@ -323,10 +323,11 @@ int config_parse_netdev(const char *unit,
 
                 break;
         case NETDEV_KIND_VLAN:
-                r = hashmap_put(network->vlans, &netdev->vlanid, netdev);
+                r = hashmap_put(network->vlans, netdev->ifname, netdev);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                                   "Can not add VLAN to network: %s", rvalue);
+                                   "Can not add VLAN '%s' to network: %s",
+                                   rvalue, strerror(-r));
                         return 0;
                 }
 
@@ -335,7 +336,8 @@ int config_parse_netdev(const char *unit,
                 r = hashmap_put(network->macvlans, netdev->ifname, netdev);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                                   "Can not add MACVLAN to network: %s", rvalue);
+                                   "Can not add MACVLAN '%s' to network: %s",
+                                   rvalue, strerror(-r));
                         return 0;
                 }
 
@@ -344,7 +346,8 @@ int config_parse_netdev(const char *unit,
                 r = hashmap_put(network->vxlans, netdev->ifname, netdev);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                                   "Can not add VXLAN to network: %s", rvalue);
+                                   "Can not add VXLAN '%s' to network: %s",
+                                   rvalue, strerror(-r));
                         return 0;
                 }
 

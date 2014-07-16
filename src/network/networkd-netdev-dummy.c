@@ -28,58 +28,8 @@
 #include "sd-rtnl.h"
 #include "networkd-netdev-dummy.h"
 
-static int netdev_dummy_fill_message_create(NetDev *netdev, sd_rtnl_message *m) {
-        int r;
-
-        assert(netdev);
-        assert(netdev->ifname);
-        assert(m);
-
-        r = sd_rtnl_message_append_string(m, IFLA_IFNAME, netdev->ifname);
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not append IFLA_IFNAME, attribute: %s",
-                                 strerror(-r));
-                return r;
-        }
-
-        if (netdev->mac) {
-                r = sd_rtnl_message_append_ether_addr(m, IFLA_ADDRESS, netdev->mac);
-                if (r < 0) {
-                        log_error_netdev(netdev,
-                                         "Could not append IFLA_ADDRESS attribute: %s",
-                                         strerror(-r));
-                    return r;
-                }
-        }
-
-        r = sd_rtnl_message_open_container(m, IFLA_LINKINFO);
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not append IFLA_LINKINFO attribute: %s",
-                                 strerror(-r));
-                return r;
-        }
-
-        r = sd_rtnl_message_open_container_union(m, IFLA_INFO_DATA, "dummy");
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not append IFLA_INFO_DATA attribute: %s",
-                                 strerror(-r));
-                return r;
-        }
-
-        r = sd_rtnl_message_close_container(m);
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not append IFLA_LINKINFO attribute: %s",
-                                 strerror(-r));
-                return r;
-        }
-
-        return r;
-}
-
 const NetDevVTable dummy_vtable = {
-        .fill_message_create = netdev_dummy_fill_message_create,
+        .object_size = sizeof(Dummy),
+        .sections = "Match\0NetDev\0",
+        .create_type = NETDEV_CREATE_INDEPENDENT,
 };

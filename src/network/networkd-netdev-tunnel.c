@@ -33,61 +33,14 @@
 #include "conf-parser.h"
 
 static int netdev_ipip_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_message *m) {
+        Tunnel *t = IPIP(netdev);
         int r;
 
         assert(netdev);
-        assert(netdev->kind == NETDEV_KIND_IPIP);
-        assert(netdev->ifname);
-        assert(netdev->manager);
-        assert(netdev->manager->rtnl);
         assert(link);
         assert(m);
-        assert(netdev->family == AF_INET);
-
-        r = sd_rtnl_message_append_string(m, IFLA_IFNAME, netdev->ifname);
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not append IFLA_IFNAME, attribute: %s",
-                                 strerror(-r));
-                return r;
-        }
-
-        if(netdev->mtu) {
-                r = sd_rtnl_message_append_u32(m, IFLA_MTU, netdev->mtu);
-                if (r < 0) {
-                        log_error_netdev(netdev,
-                                         "Could not append IFLA_MTU attribute: %s",
-                                         strerror(-r));
-                        return r;
-                }
-        }
-
-        if (netdev->mac) {
-                r = sd_rtnl_message_append_ether_addr(m, IFLA_ADDRESS, netdev->mac);
-                if (r < 0) {
-                        log_error_netdev(netdev,
-                                         "Could not append IFLA_ADDRESS attribute: %s",
-                                         strerror(-r));
-                    return r;
-                }
-        }
-
-        r = sd_rtnl_message_open_container(m, IFLA_LINKINFO);
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not append IFLA_LINKINFO attribute: %s",
-                                 strerror(-r));
-                return r;
-        }
-
-        r = sd_rtnl_message_open_container_union(m, IFLA_INFO_DATA,
-                                                 netdev_kind_to_string(netdev->kind));
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not append IFLA_INFO_DATA attribute: %s",
-                                 strerror(-r));
-                return r;
-        }
+        assert(t);
+        assert(t->family == AF_INET);
 
         r = sd_rtnl_message_append_u32(m, IFLA_IPTUN_LINK, link->ifindex);
         if (r < 0) {
@@ -97,7 +50,7 @@ static int netdev_ipip_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_m
                 return r;
         }
 
-        r = sd_rtnl_message_append_in_addr(m, IFLA_IPTUN_LOCAL, &netdev->local.in);
+        r = sd_rtnl_message_append_in_addr(m, IFLA_IPTUN_LOCAL, &t->local.in);
         if (r < 0) {
                 log_error_netdev(netdev,
                                  "Could not append IFLA_IPTUN_LOCAL attribute: %s",
@@ -105,7 +58,7 @@ static int netdev_ipip_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_m
                 return r;
         }
 
-        r = sd_rtnl_message_append_in_addr(m, IFLA_IPTUN_REMOTE, &netdev->remote.in);
+        r = sd_rtnl_message_append_in_addr(m, IFLA_IPTUN_REMOTE, &t->remote.in);
         if (r < 0) {
                 log_error_netdev(netdev,
                                  "Could not append IFLA_IPTUN_REMOTE attribute: %s",
@@ -113,26 +66,10 @@ static int netdev_ipip_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_m
                 return r;
         }
 
-        r = sd_rtnl_message_append_u8(m, IFLA_IPTUN_TTL, netdev->ttl);
+        r = sd_rtnl_message_append_u8(m, IFLA_IPTUN_TTL, t->ttl);
         if (r < 0) {
                 log_error_netdev(netdev,
                                  "Could not append IFLA_IPTUN_TTL  attribute: %s",
-                                 strerror(-r));
-                return r;
-        }
-
-        r = sd_rtnl_message_close_container(m);
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not append IFLA_INFO_DATA attribute: %s",
-                                 strerror(-r));
-                return r;
-        }
-
-        r = sd_rtnl_message_close_container(m);
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not append IFLA_LINKINFO attribute: %s",
                                  strerror(-r));
                 return r;
         }
@@ -141,61 +78,14 @@ static int netdev_ipip_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_m
 }
 
 static int netdev_sit_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_message *m) {
+        Tunnel *t = SIT(netdev);
         int r;
 
         assert(netdev);
-        assert(netdev->kind == NETDEV_KIND_SIT);
-        assert(netdev->ifname);
-        assert(netdev->manager);
-        assert(netdev->manager->rtnl);
         assert(link);
         assert(m);
-        assert(netdev->family == AF_INET);
-
-        r = sd_rtnl_message_append_string(m, IFLA_IFNAME, netdev->ifname);
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not append IFLA_IFNAME, attribute: %s",
-                                 strerror(-r));
-                return r;
-        }
-
-        if(netdev->mtu) {
-                r = sd_rtnl_message_append_u32(m, IFLA_MTU, netdev->mtu);
-                if (r < 0) {
-                        log_error_netdev(netdev,
-                                         "Could not append IFLA_MTU attribute: %s",
-                                         strerror(-r));
-                        return r;
-                }
-        }
-
-        if (netdev->mac) {
-                r = sd_rtnl_message_append_ether_addr(m, IFLA_ADDRESS, netdev->mac);
-                if (r < 0) {
-                        log_error_netdev(netdev,
-                                         "Could not append IFLA_ADDRESS attribute: %s",
-                                         strerror(-r));
-                    return r;
-                }
-        }
-
-        r = sd_rtnl_message_open_container(m, IFLA_LINKINFO);
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not append IFLA_LINKINFO attribute: %s",
-                                 strerror(-r));
-                return r;
-        }
-
-        r = sd_rtnl_message_open_container_union(m, IFLA_INFO_DATA,
-                                                 netdev_kind_to_string(netdev->kind));
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not append IFLA_INFO_DATA attribute: %s",
-                                 strerror(-r));
-                return r;
-        }
+        assert(t);
+        assert(t->family == AF_INET);
 
         r = sd_rtnl_message_append_u32(m, IFLA_IPTUN_LINK, link->ifindex);
         if (r < 0) {
@@ -205,7 +95,7 @@ static int netdev_sit_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_me
                 return r;
         }
 
-        r = sd_rtnl_message_append_in_addr(m, IFLA_IPTUN_LOCAL, &netdev->local.in);
+        r = sd_rtnl_message_append_in_addr(m, IFLA_IPTUN_LOCAL, &t->local.in);
         if (r < 0) {
                 log_error_netdev(netdev,
                                  "Could not append IFLA_IPTUN_LOCAL attribute: %s",
@@ -213,7 +103,7 @@ static int netdev_sit_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_me
                 return r;
         }
 
-        r = sd_rtnl_message_append_in_addr(m, IFLA_IPTUN_REMOTE, &netdev->remote.in);
+        r = sd_rtnl_message_append_in_addr(m, IFLA_IPTUN_REMOTE, &t->remote.in);
         if (r < 0) {
                 log_error_netdev(netdev,
                                  "Could not append IFLA_IPTUN_REMOTE attribute: %s",
@@ -221,26 +111,10 @@ static int netdev_sit_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_me
                 return r;
         }
 
-        r = sd_rtnl_message_append_u8(m, IFLA_IPTUN_TTL, netdev->ttl);
+        r = sd_rtnl_message_append_u8(m, IFLA_IPTUN_TTL, t->ttl);
         if (r < 0) {
                 log_error_netdev(netdev,
                                  "Could not append IFLA_IPTUN_TTL  attribute: %s",
-                                 strerror(-r));
-                return r;
-        }
-
-        r = sd_rtnl_message_close_container(m);
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not append IFLA_INFO_DATA attribute: %s",
-                                 strerror(-r));
-                return r;
-        }
-
-        r = sd_rtnl_message_close_container(m);
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not append IFLA_LINKINFO attribute: %s",
                                  strerror(-r));
                 return r;
         }
@@ -249,61 +123,14 @@ static int netdev_sit_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_me
 }
 
 static int netdev_gre_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_message *m) {
+        Tunnel *t = GRE(netdev);
         int r;
 
         assert(netdev);
-        assert(netdev->kind == NETDEV_KIND_GRE);
-        assert(netdev->ifname);
-        assert(netdev->manager);
-        assert(netdev->manager->rtnl);
         assert(link);
         assert(m);
-        assert(netdev->family == AF_INET);
-
-        r = sd_rtnl_message_append_string(m, IFLA_IFNAME, netdev->ifname);
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not append IFLA_IFNAME, attribute: %s",
-                                 strerror(-r));
-                return r;
-        }
-
-        if(netdev->mtu) {
-                r = sd_rtnl_message_append_u32(m, IFLA_MTU, netdev->mtu);
-                if (r < 0) {
-                        log_error_netdev(netdev,
-                                         "Could not append IFLA_MTU attribute: %s",
-                                         strerror(-r));
-                        return r;
-                }
-        }
-
-        if (netdev->mac) {
-                r = sd_rtnl_message_append_ether_addr(m, IFLA_ADDRESS, netdev->mac);
-                if (r < 0) {
-                        log_error_netdev(netdev,
-                                         "Could not append IFLA_ADDRESS attribute: %s",
-                                         strerror(-r));
-                    return r;
-                }
-        }
-
-        r = sd_rtnl_message_open_container(m, IFLA_LINKINFO);
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not append IFLA_LINKINFO attribute: %s",
-                                 strerror(-r));
-                return r;
-        }
-
-        r = sd_rtnl_message_open_container_union(m, IFLA_INFO_DATA,
-                                                 netdev_kind_to_string(netdev->kind));
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not append IFLA_INFO_DATA attribute: %s",
-                                 strerror(-r));
-                return r;
-        }
+        assert(t);
+        assert(t->family == AF_INET);
 
         r = sd_rtnl_message_append_u32(m, IFLA_GRE_LINK, link->ifindex);
         if (r < 0) {
@@ -313,7 +140,7 @@ static int netdev_gre_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_me
                 return r;
         }
 
-        r = sd_rtnl_message_append_in_addr(m, IFLA_GRE_LOCAL, &netdev->local.in);
+        r = sd_rtnl_message_append_in_addr(m, IFLA_GRE_LOCAL, &t->local.in);
         if (r < 0) {
                 log_error_netdev(netdev,
                                  "Could not append IFLA_GRE_LOCAL attribute: %s",
@@ -321,7 +148,7 @@ static int netdev_gre_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_me
                 return r;
         }
 
-        r = sd_rtnl_message_append_in_addr(m, IFLA_GRE_REMOTE, &netdev->remote.in);
+        r = sd_rtnl_message_append_in_addr(m, IFLA_GRE_REMOTE, &t->remote.in);
         if (r < 0) {
                 log_error_netdev(netdev,
                                  "Could not append IFLA_GRE_REMOTE attribute: %s",
@@ -329,7 +156,7 @@ static int netdev_gre_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_me
                 return r;
         }
 
-        r = sd_rtnl_message_append_u8(m, IFLA_GRE_TTL, netdev->ttl);
+        r = sd_rtnl_message_append_u8(m, IFLA_GRE_TTL, t->ttl);
         if (r < 0) {
                 log_error_netdev(netdev,
                                  "Could not append IFLA_GRE_TTL attribute: %s",
@@ -337,26 +164,10 @@ static int netdev_gre_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_me
                 return r;
         }
 
-        r = sd_rtnl_message_append_u8(m, IFLA_GRE_TOS, netdev->tos);
+        r = sd_rtnl_message_append_u8(m, IFLA_GRE_TOS, t->tos);
         if (r < 0) {
                 log_error_netdev(netdev,
                                  "Could not append IFLA_GRE_TOS attribute: %s",
-                                 strerror(-r));
-                return r;
-        }
-
-        r = sd_rtnl_message_close_container(m);
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not append IFLA_INFO_DATA attribute: %s",
-                                 strerror(-r));
-                return r;
-        }
-
-        r = sd_rtnl_message_close_container(m);
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not append IFLA_LINKINFO attribute: %s",
                                  strerror(-r));
                 return r;
         }
@@ -365,61 +176,14 @@ static int netdev_gre_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_me
 }
 
 static int netdev_vti_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_message *m) {
+        Tunnel *t = VTI(netdev);
         int r;
 
         assert(netdev);
-        assert(netdev->kind == NETDEV_KIND_VTI);
-        assert(netdev->ifname);
-        assert(netdev->manager);
-        assert(netdev->manager->rtnl);
         assert(link);
         assert(m);
-        assert(netdev->family == AF_INET);
-
-        r = sd_rtnl_message_append_string(m, IFLA_IFNAME, netdev->ifname);
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not append IFLA_IFNAME, attribute: %s",
-                                 strerror(-r));
-                return r;
-        }
-
-        if(netdev->mtu) {
-                r = sd_rtnl_message_append_u32(m, IFLA_MTU, netdev->mtu);
-                if (r < 0) {
-                        log_error_netdev(netdev,
-                                         "Could not append IFLA_MTU attribute: %s",
-                                         strerror(-r));
-                        return r;
-                }
-        }
-
-        if (netdev->mac) {
-                r = sd_rtnl_message_append_ether_addr(m, IFLA_ADDRESS, netdev->mac);
-                if (r < 0) {
-                        log_error_netdev(netdev,
-                                         "Could not append IFLA_ADDRESS attribute: %s",
-                                         strerror(-r));
-                    return r;
-                }
-        }
-
-        r = sd_rtnl_message_open_container(m, IFLA_LINKINFO);
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not append IFLA_LINKINFO attribute: %s",
-                                 strerror(-r));
-                return r;
-        }
-
-        r = sd_rtnl_message_open_container_union(m, IFLA_INFO_DATA,
-                                                 netdev_kind_to_string(netdev->kind));
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not append IFLA_INFO_DATA attribute: %s",
-                                 strerror(-r));
-                return r;
-        }
+        assert(t);
+        assert(t->family == AF_INET);
 
         r = sd_rtnl_message_append_u32(m, IFLA_VTI_LINK, link->ifindex);
         if (r < 0) {
@@ -429,7 +193,7 @@ static int netdev_vti_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_me
                 return r;
         }
 
-        r = sd_rtnl_message_append_in_addr(m, IFLA_VTI_LOCAL, &netdev->local.in);
+        r = sd_rtnl_message_append_in_addr(m, IFLA_VTI_LOCAL, &t->local.in);
         if (r < 0) {
                 log_error_netdev(netdev,
                                  "Could not append IFLA_IPTUN_LOCAL attribute: %s",
@@ -437,26 +201,10 @@ static int netdev_vti_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_me
                 return r;
         }
 
-        r = sd_rtnl_message_append_in_addr(m, IFLA_VTI_REMOTE, &netdev->remote.in);
+        r = sd_rtnl_message_append_in_addr(m, IFLA_VTI_REMOTE, &t->remote.in);
         if (r < 0) {
                 log_error_netdev(netdev,
                                  "Could not append IFLA_IPTUN_REMOTE attribute: %s",
-                                 strerror(-r));
-                return r;
-        }
-
-        r = sd_rtnl_message_close_container(m);
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not append IFLA_INFO_DATA attribute: %s",
-                                 strerror(-r));
-                return r;
-        }
-
-        r = sd_rtnl_message_close_container(m);
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not append IFLA_LINKINFO attribute: %s",
                                  strerror(-r));
                 return r;
         }
@@ -465,20 +213,41 @@ static int netdev_vti_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_me
 }
 
 static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
+        Tunnel *t = NULL;
+
         assert(netdev);
         assert(filename);
 
-        if (netdev->local.in.s_addr == INADDR_ANY) {
+        switch (netdev->kind) {
+        case NETDEV_KIND_IPIP:
+                t = IPIP(netdev);
+                break;
+        case NETDEV_KIND_SIT:
+                t = SIT(netdev);
+                break;
+        case NETDEV_KIND_GRE:
+                t = GRE(netdev);
+                break;
+        case NETDEV_KIND_VTI:
+                t = VTI(netdev);
+                break;
+        default:
+                assert_not_reached("Invalid tunnel kind");
+        }
+
+        assert(t);
+
+        if (t->local.in.s_addr == INADDR_ANY) {
                log_warning("Tunnel without local address configured in %s. Ignoring", filename);
                return -EINVAL;
         }
 
-        if (netdev->remote.in.s_addr == INADDR_ANY) {
+        if (t->remote.in.s_addr == INADDR_ANY) {
                log_warning("Tunnel without remote address configured in %s. Ignoring", filename);
                return -EINVAL;
         }
 
-        if (netdev->family != AF_INET) {
+        if (t->family != AF_INET) {
               log_warning("Tunnel with invalid address family configured in %s. Ignoring", filename);
               return -EINVAL;
         }
@@ -496,7 +265,7 @@ int config_parse_tunnel_address(const char *unit,
                                 const char *rvalue,
                                 void *data,
                                 void *userdata) {
-        NetDev *n = userdata;
+        Tunnel *t = userdata;
         union in_addr_union *addr = data;
         int r;
 
@@ -505,7 +274,7 @@ int config_parse_tunnel_address(const char *unit,
         assert(rvalue);
         assert(data);
 
-        r = net_parse_inaddr(rvalue, &n->family, addr);
+        r = net_parse_inaddr(rvalue, &t->family, addr);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, EINVAL,
                            "Tunnel address is invalid, ignoring assignment: %s", rvalue);
@@ -515,22 +284,74 @@ int config_parse_tunnel_address(const char *unit,
         return 0;
 }
 
+static void ipip_init(NetDev *n) {
+        Tunnel *t = IPIP(n);
+
+        assert(n);
+        assert(t);
+
+        t->pmtudisc = true;
+}
+
+static void sit_init(NetDev *n) {
+        Tunnel *t = SIT(n);
+
+        assert(n);
+        assert(t);
+
+        t->pmtudisc = true;
+}
+
+static void vti_init(NetDev *n) {
+        Tunnel *t = VTI(n);
+
+        assert(n);
+        assert(t);
+
+        t->pmtudisc = true;
+}
+
+static void gre_init(NetDev *n) {
+        Tunnel *t = GRE(n);
+
+        assert(n);
+        assert(t);
+
+        t->pmtudisc = true;
+}
+
 const NetDevVTable ipip_vtable = {
-        .fill_message_create_on_link = netdev_ipip_fill_message_create,
+        .object_size = sizeof(Tunnel),
+        .init = ipip_init,
+        .sections = "Match\0NetDev\0Tunnel\0",
+        .fill_message_create = netdev_ipip_fill_message_create,
+        .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_tunnel_verify,
 };
 
 const NetDevVTable sit_vtable = {
-        .fill_message_create_on_link = netdev_sit_fill_message_create,
+        .object_size = sizeof(Tunnel),
+        .init = sit_init,
+        .sections = "Match\0NetDev\0Tunnel\0",
+        .fill_message_create = netdev_sit_fill_message_create,
+        .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_tunnel_verify,
 };
 
 const NetDevVTable vti_vtable = {
-        .fill_message_create_on_link = netdev_vti_fill_message_create,
+        .object_size = sizeof(Tunnel),
+        .init = vti_init,
+        .sections = "Match\0NetDev\0Tunnel\0",
+        .fill_message_create = netdev_vti_fill_message_create,
+        .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_tunnel_verify,
 };
 
 const NetDevVTable gre_vtable = {
-        .fill_message_create_on_link = netdev_gre_fill_message_create,
+        .object_size = sizeof(Tunnel),
+        .init = gre_init,
+        .sections = "Match\0NetDev\0Tunnel\0",
+        .fill_message_create = netdev_gre_fill_message_create,
+        .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_tunnel_verify,
 };

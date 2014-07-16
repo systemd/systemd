@@ -26,68 +26,16 @@
 #include "list.h"
 
 static int netdev_vlan_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_message *req) {
+        VLan *v = VLAN(netdev);
         int r;
 
         assert(netdev);
-        assert(netdev->ifname);
-        assert(netdev->kind == NETDEV_KIND_VLAN);
+        assert(v);
         assert(link);
         assert(req);
 
-        r = sd_rtnl_message_append_u32(req, IFLA_LINK, link->ifindex);
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not append IFLA_LINK attribute: %s",
-                                 strerror(-r));
-                return r;
-        }
-
-        r = sd_rtnl_message_append_string(req, IFLA_IFNAME, netdev->ifname);
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not append IFLA_IFNAME attribute: %s",
-                                 strerror(-r));
-                return r;
-        }
-
-        if (netdev->mtu) {
-                r = sd_rtnl_message_append_u32(req, IFLA_MTU, netdev->mtu);
-                if (r < 0) {
-                        log_error_netdev(netdev,
-                                         "Could not append IFLA_MTU attribute: %s",
-                                         strerror(-r));
-                        return r;
-                }
-        }
-
-        if (netdev->mac) {
-                r = sd_rtnl_message_append_ether_addr(req, IFLA_ADDRESS, netdev->mac);
-                if (r < 0) {
-                        log_error_netdev(netdev,
-                                         "Could not append IFLA_ADDRESS attribute: %s",
-                                         strerror(-r));
-                    return r;
-                }
-        }
-
-        r = sd_rtnl_message_open_container(req, IFLA_LINKINFO);
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not open IFLA_LINKINFO container: %s",
-                                 strerror(-r));
-                return r;
-        }
-
-        r = sd_rtnl_message_open_container_union(req, IFLA_INFO_DATA, "vlan");
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not open IFLA_INFO_DATA container: %s",
-                                  strerror(-r));
-                return r;
-        }
-
-        if (netdev->vlanid <= VLANID_MAX) {
-                r = sd_rtnl_message_append_u16(req, IFLA_VLAN_ID, netdev->vlanid);
+        if (v->id <= VLANID_MAX) {
+                r = sd_rtnl_message_append_u16(req, IFLA_VLAN_ID, v->id);
                 if (r < 0) {
                         log_error_netdev(netdev,
                                          "Could not append IFLA_VLAN_ID attribute: %s",
@@ -96,38 +44,38 @@ static int netdev_vlan_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_m
                 }
         }
 
-        r = sd_rtnl_message_close_container(req);
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not close IFLA_INFO_DATA container %s",
-                                 strerror(-r));
-                return r;
-        }
-
-        r = sd_rtnl_message_close_container(req);
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not close IFLA_LINKINFO container %s",
-                                 strerror(-r));
-                return r;
-        }
-
         return 0;
 }
 
 static int netdev_vlan_verify(NetDev *netdev, const char *filename) {
+        VLan *v = VLAN(netdev);
+
         assert(netdev);
+        assert(v);
         assert(filename);
 
-        if (netdev->vlanid > VLANID_MAX) {
-                log_warning("VLAN without valid Id configured in %s. Ignoring", filename);
+        if (v->id > VLANID_MAX) {
+                log_warning("VLAN without valid Id (%"PRIu64") configured in %s. Ignoring", v->id, filename);
                 return -EINVAL;
         }
 
         return 0;
 }
 
+static void vlan_init(NetDev *netdev) {
+        VLan *v = VLAN(netdev);
+
+        assert(netdev);
+        assert(v);
+
+        v->id = VLANID_MAX + 1;
+}
+
 const NetDevVTable vlan_vtable = {
-        .fill_message_create_on_link = netdev_vlan_fill_message_create,
+        .object_size = sizeof(VLan),
+        .init = vlan_init,
+        .sections = "Match\0NetDev\0VLAN\0",
+        .fill_message_create = netdev_vlan_fill_message_create,
+        .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_vlan_verify,
 };

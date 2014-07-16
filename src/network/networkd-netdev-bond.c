@@ -63,49 +63,18 @@ static uint8_t bond_mode_to_kernel(BondMode mode) {
         }
 }
 
-static int netdev_bond_fill_message_create(NetDev *netdev, sd_rtnl_message *m) {
+static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_message *m) {
+        Bond *b = BOND(netdev);
         int r;
 
+        assert(netdev);
+        assert(!link);
+        assert(b);
         assert(m);
 
-        r = sd_rtnl_message_append_string(m, IFLA_IFNAME, netdev->ifname);
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not append IFLA_IFNAME, attribute: %s",
-                                 strerror(-r));
-                return r;
-        }
-
-        if (netdev->mac) {
-                r = sd_rtnl_message_append_ether_addr(m, IFLA_ADDRESS, netdev->mac);
-                if (r < 0) {
-                        log_error_netdev(netdev,
-                                         "Could not append IFLA_ADDRESS attribute: %s",
-                                         strerror(-r));
-                    return r;
-                }
-        }
-
-        r = sd_rtnl_message_open_container(m, IFLA_LINKINFO);
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not append IFLA_LINKINFO attribute: %s",
-                                 strerror(-r));
-                return r;
-        }
-
-        r = sd_rtnl_message_open_container_union(m, IFLA_INFO_DATA,
-                                                 netdev_kind_to_string(netdev->kind));
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not append IFLA_INFO_DATA attribute: %s",
-                                 strerror(-r));
-                return r;
-        }
-
-        if (netdev->bond_mode != _NETDEV_BOND_MODE_INVALID) {
+        if (b->mode != _NETDEV_BOND_MODE_INVALID) {
                 r = sd_rtnl_message_append_u8(m, IFLA_BOND_MODE,
-                                              bond_mode_to_kernel(netdev->bond_mode));
+                                              bond_mode_to_kernel(b->mode));
                 if (r < 0) {
                         log_error_netdev(netdev,
                                          "Could not append IFLA_BOND_MODE attribute: %s",
@@ -114,26 +83,22 @@ static int netdev_bond_fill_message_create(NetDev *netdev, sd_rtnl_message *m) {
                 }
         }
 
-        r = sd_rtnl_message_close_container(m);
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not append IFLA_LINKINFO attribute: %s",
-                                 strerror(-r));
-                return r;
-        }
+        return 0;
+}
 
-        r = sd_rtnl_message_close_container(m);
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not append IFLA_LINKINFO attribute: %s",
-                                 strerror(-r));
-                return r;
-        }
+static void bond_init(NetDev *netdev) {
+        Bond *b = BOND(netdev);
 
-        return r;
+        assert(netdev);
+        assert(b);
+
+        b->mode = _NETDEV_BOND_MODE_INVALID;
 }
 
 const NetDevVTable bond_vtable = {
+        .object_size = sizeof(Bond),
+        .init = bond_init,
+        .sections = "Match\0NetDev\0Bond\0",
         .fill_message_create = netdev_bond_fill_message_create,
-        .enslave = netdev_enslave,
+        .create_type = NETDEV_CREATE_MASTER,
 };

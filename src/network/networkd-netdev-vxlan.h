@@ -21,8 +21,22 @@
 
 #pragma once
 
+typedef struct VxLan VxLan;
+
 #include "networkd-netdev.h"
 
+#include "in-addr-util.h"
+
 #define VXLAN_VID_MAX (1u << 24) - 1
+
+struct VxLan {
+        NetDev meta;
+
+        uint64_t id;
+        union in_addr_union group;
+        unsigned tos;
+        unsigned ttl;
+        bool learning;
+};
 
 extern const NetDevVTable vxlan_vtable;

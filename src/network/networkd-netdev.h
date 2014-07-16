@@ -66,6 +66,14 @@ typedef enum NetDevState {
         _NETDEV_STATE_INVALID = -1,
 } NetDevState;
 
+typedef enum NetDevCreateType {
+        NETDEV_CREATE_INDEPENDENT,
+        NETDEV_CREATE_MASTER,
+        NETDEV_CREATE_STACKED,
+        _NETDEV_CREATE_MAX,
+        _NETDEV_CREATE_INVALID = -1,
+} NetDevCreateType;
+
 struct NetDev {
         Manager *manager;
 
@@ -78,49 +86,50 @@ struct NetDev {
         Condition *match_kernel;
         Condition *match_arch;
 
+        NetDevState state;
+        NetDevKind kind;
         char *description;
         char *ifname;
-        char *ifname_peer;
-        char *user_name;
-        char *group_name;
-        size_t mtu;
         struct ether_addr *mac;
-        struct ether_addr *mac_peer;
-        NetDevKind kind;
-
-        uint64_t vlanid;
-        uint64_t vxlanid;
-        int32_t macvlan_mode;
-        int32_t bond_mode;
-
+        size_t mtu;
         int ifindex;
-        NetDevState state;
-
-        bool tunnel_pmtudisc;
-        bool learning;
-        bool one_queue;
-        bool multi_queue;
-        bool packet_info;
-
-        unsigned ttl;
-        unsigned tos;
-        int family;
-        union in_addr_union local;
-        union in_addr_union remote;
-        union in_addr_union group;
 
         LIST_HEAD(netdev_join_callback, callbacks);
 };
 
+#include "networkd-netdev-bridge.h"
+#include "networkd-netdev-bond.h"
+#include "networkd-netdev-vlan.h"
+#include "networkd-netdev-macvlan.h"
+#include "networkd-netdev-vxlan.h"
+#include "networkd-netdev-veth.h"
+#include "networkd-netdev-tunnel.h"
+#include "networkd-netdev-dummy.h"
+#include "networkd-netdev-tuntap.h"
+
 struct NetDevVTable {
+        /* How much memory does an object of this unit type need */
+        size_t object_size;
+
+        /* Config file sections this netdev kind understands, separated
+         * by NUL chars */
+        const char *sections;
+
+        /* This should reset all type-specific variables. This should
+         * not allocate memory, and is called with zero-initialized
+         * data. It should hence only initialize variables that need
+         * to be set != 0. */
+        void (*init)(NetDev *n);
+
+        /* This should free all kind-specific variables. It should be
+         * idempotent. */
+        void (*done)(NetDev *n);
+
         /* fill in message to create netdev */
-        int (*fill_message_create)(NetDev *netdev, sd_rtnl_message *message);
+        int (*fill_message_create)(NetDev *netdev, Link *link, sd_rtnl_message *message);
 
-        /* fill in message to create netdev on top of a given link */
-        int (*fill_message_create_on_link)(NetDev *netdev, Link *link, sd_rtnl_message *message);
-
-        /* fill in message to enslave link by netdev */
-        int (*enslave)(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callback);
+        /* specifies if netdev is independent, or a master device or a stacked device */
+        NetDevCreateType create_type;
 
         /* create netdev, if not done via rtnl */
         int (*create)(NetDev *netdev);
@@ -132,6 +141,32 @@ struct NetDevVTable {
 extern const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX];
 
 #define NETDEV_VTABLE(n) netdev_vtable[(n)->kind]
+
+/* For casting a netdev into the various netdev kinds */
+#define DEFINE_CAST(UPPERCASE, MixedCase)                                   \
+        static inline MixedCase* UPPERCASE(NetDev *n) {                     \
+                if (_unlikely_(!n || n->kind != NETDEV_KIND_##UPPERCASE))   \
+                        return NULL;                                        \
+                                                                            \
+                return (MixedCase*) n;                                      \
+        }
+
+/* For casting the various netdev kinds into a netdev */
+#define NETDEV(n) (&(n)->meta)
+
+DEFINE_CAST(BRIDGE, Bridge);
+DEFINE_CAST(BOND, Bond);
+DEFINE_CAST(VLAN, VLan);
+DEFINE_CAST(MACVLAN, MacVlan);
+DEFINE_CAST(VXLAN, VxLan);
+DEFINE_CAST(IPIP, Tunnel);
+DEFINE_CAST(GRE, Tunnel);
+DEFINE_CAST(SIT, Tunnel);
+DEFINE_CAST(VTI, Tunnel);
+DEFINE_CAST(VETH, Veth);
+DEFINE_CAST(DUMMY, Dummy);
+DEFINE_CAST(TUN, TunTap);
+DEFINE_CAST(TAP, TunTap);
 
 int netdev_load(Manager *manager);
 void netdev_drop(NetDev *netdev);
@@ -167,4 +202,4 @@ const struct ConfigPerfItem* network_netdev_gperf_lookup(const char *key, unsign
 
 #define log_struct_netdev(level, netdev, ...) log_struct(level, "INTERFACE=%s", netdev->ifname, __VA_ARGS__)
 
-#define NETDEV(netdev) "INTERFACE=%s", netdev->ifname
+#define NETDEVIF(netdev) "INTERFACE=%s", netdev->ifname

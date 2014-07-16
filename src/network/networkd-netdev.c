@@ -22,15 +22,6 @@
 #include <net/if.h>
 
 #include "networkd-netdev.h"
-#include "networkd-netdev-bridge.h"
-#include "networkd-netdev-bond.h"
-#include "networkd-netdev-vlan.h"
-#include "networkd-netdev-macvlan.h"
-#include "networkd-netdev-vxlan.h"
-#include "networkd-netdev-tunnel.h"
-#include "networkd-netdev-veth.h"
-#include "networkd-netdev-dummy.h"
-#include "networkd-netdev-tuntap.h"
 #include "network-internal.h"
 #include "path-util.h"
 #include "conf-files.h"
@@ -111,16 +102,16 @@ static void netdev_free(NetDev *netdev) {
 
         free(netdev->description);
         free(netdev->ifname);
-        free(netdev->ifname_peer);
         free(netdev->mac);
-        free(netdev->mac_peer);
-        free(netdev->user_name);
-        free(netdev->group_name);
 
         condition_free_list(netdev->match_host);
         condition_free_list(netdev->match_virt);
         condition_free_list(netdev->match_kernel);
         condition_free_list(netdev->match_arch);
+
+        if (NETDEV_VTABLE(netdev) &&
+            NETDEV_VTABLE(netdev)->done)
+                NETDEV_VTABLE(netdev)->done(netdev);
 
         free(netdev);
 }
@@ -268,6 +259,8 @@ static int netdev_create_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userda
                 return 1;
         }
 
+        log_debug_netdev(netdev, "created");
+
         return 1;
 }
 
@@ -294,46 +287,10 @@ int netdev_enslave(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callbac
                 link_ref(link);
 
                 LIST_PREPEND(callbacks, netdev->callbacks, cb);
+
+                log_debug_netdev(netdev, "will enslave '%s', when reday",
+                                 link->ifname);
         }
-
-        return 0;
-}
-
-/* the callback must be called, possibly after a timeout, as otherwise the Link will hang */
-int netdev_join(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callback) {
-        int r;
-
-        assert(netdev);
-        assert(netdev->manager);
-        assert(netdev->manager->rtnl);
-        assert(NETDEV_VTABLE(netdev));
-
-        if (NETDEV_VTABLE(netdev)->fill_message_create_on_link) {
-                _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL;
-
-                r = sd_rtnl_message_new_link(netdev->manager->rtnl, &req,
-                                             RTM_NEWLINK, 0);
-                if (r < 0) {
-                        log_error_netdev(netdev,
-                                         "Could not allocate RTM_SETLINK message: %s",
-                                         strerror(-r));
-                        return r;
-                }
-
-                NETDEV_VTABLE(netdev)->fill_message_create_on_link(netdev, link, req);
-
-                r = sd_rtnl_call_async(netdev->manager->rtnl, req, callback, link, 0, NULL);
-                if (r < 0) {
-                        log_error_netdev(netdev,
-                                         "Could not send rtnetlink message: %s", strerror(-r));
-                        return r;
-                }
-
-                link_ref(link);
-        } else if (NETDEV_VTABLE(netdev)->enslave) {
-                return NETDEV_VTABLE(netdev)->enslave(netdev, link, callback);
-        } else
-                assert_not_reached("Joining link to netdev of invalid kind");
 
         return 0;
 }
@@ -487,8 +444,156 @@ int netdev_get_mac(const char *ifname, struct ether_addr **ret) {
         return 0;
 }
 
+static int netdev_create(NetDev *netdev, Link *link) {
+        int r;
+
+        assert(netdev);
+
+        /* create netdev */
+        if (NETDEV_VTABLE(netdev)->create) {
+                r = NETDEV_VTABLE(netdev)->create(netdev);
+                if (r < 0)
+                        return r;
+
+                log_debug_netdev(netdev, "created");
+        } else {
+                _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
+
+                r = sd_rtnl_message_new_link(netdev->manager->rtnl, &m, RTM_NEWLINK, 0);
+                if (r < 0) {
+                        log_error_netdev(netdev,
+                                         "Could not allocate RTM_NEWLINK message: %s",
+                                         strerror(-r));
+                        return r;
+                }
+
+                r = sd_rtnl_message_append_string(m, IFLA_IFNAME, netdev->ifname);
+                if (r < 0) {
+                        log_error_netdev(netdev,
+                                         "Could not append IFLA_IFNAME, attribute: %s",
+                                         strerror(-r));
+                        return r;
+                }
+
+                if (netdev->mac) {
+                        r = sd_rtnl_message_append_ether_addr(m, IFLA_ADDRESS, netdev->mac);
+                        if (r < 0) {
+                                log_error_netdev(netdev,
+                                                 "Could not append IFLA_ADDRESS attribute: %s",
+                                                 strerror(-r));
+                            return r;
+                        }
+                }
+
+                if (netdev->mtu) {
+                        r = sd_rtnl_message_append_u32(m, IFLA_MTU, netdev->mtu);
+                        if (r < 0) {
+                                log_error_netdev(netdev,
+                                                 "Could not append IFLA_MTU attribute: %s",
+                                                 strerror(-r));
+                                return r;
+                        }
+                }
+
+                if (link) {
+                        r = sd_rtnl_message_append_u32(m, IFLA_LINK, link->ifindex);
+                        if (r < 0) {
+                                log_error_netdev(netdev,
+                                                 "Colud not append IFLA_LINK attribute: %s",
+                                                 strerror(-r));
+                                return r;
+                        }
+                }
+
+                r = sd_rtnl_message_open_container(m, IFLA_LINKINFO);
+                if (r < 0) {
+                        log_error_netdev(netdev,
+                                         "Could not append IFLA_LINKINFO attribute: %s",
+                                         strerror(-r));
+                        return r;
+                }
+
+                r = sd_rtnl_message_open_container_union(m, IFLA_INFO_DATA,
+                                                         netdev_kind_to_string(netdev->kind));
+                if (r < 0) {
+                        log_error_netdev(netdev,
+                                         "Could not append IFLA_INFO_DATA attribute: %s",
+                                         strerror(-r));
+                        return r;
+                }
+
+                if (NETDEV_VTABLE(netdev)->fill_message_create) {
+                        r = NETDEV_VTABLE(netdev)->fill_message_create(netdev, link, m);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = sd_rtnl_message_close_container(m);
+                if (r < 0) {
+                        log_error_netdev(netdev,
+                                         "Could not append IFLA_LINKINFO attribute: %s",
+                                         strerror(-r));
+                        return r;
+                }
+
+                r = sd_rtnl_message_close_container(m);
+                if (r < 0) {
+                        log_error_netdev(netdev,
+                                         "Could not append IFLA_LINKINFO attribute: %s",
+                                         strerror(-r));
+                        return r;
+                }
+
+
+                r = sd_rtnl_call_async(netdev->manager->rtnl, m, netdev_create_handler, netdev, 0, NULL);
+                if (r < 0) {
+                        log_error_netdev(netdev,
+                                         "Could not send rtnetlink message: %s", strerror(-r));
+                        return r;
+                }
+
+                netdev_ref(netdev);
+
+                netdev->state = NETDEV_STATE_CREATING;
+
+                log_debug_netdev(netdev, "creating");
+        }
+
+        return 0;
+}
+
+/* the callback must be called, possibly after a timeout, as otherwise the Link will hang */
+int netdev_join(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callback) {
+        int r;
+
+        assert(netdev);
+        assert(netdev->manager);
+        assert(netdev->manager->rtnl);
+        assert(NETDEV_VTABLE(netdev));
+
+        switch (NETDEV_VTABLE(netdev)->create_type) {
+        case NETDEV_CREATE_MASTER:
+                r = netdev_enslave(netdev, link, callback);
+                if (r < 0)
+                        return r;
+
+                break;
+        case NETDEV_CREATE_STACKED:
+                r = netdev_create(netdev, link);
+                if (r < 0)
+                        return r;
+
+                break;
+        default:
+                assert_not_reached("Can not join independent netdev");
+        }
+
+        return 0;
+}
+
 static int netdev_load_one(Manager *manager, const char *filename) {
         _cleanup_netdev_unref_ NetDev *netdev = NULL;
+        _cleanup_free_ NetDev *netdev_raw = NULL;
         _cleanup_fclose_ FILE *file = NULL;
         int r;
 
@@ -508,69 +613,65 @@ static int netdev_load_one(Manager *manager, const char *filename) {
                 return 0;
         }
 
-        netdev = new0(NetDev, 1);
+        netdev_raw = new0(NetDev, 1);
+        if (!netdev_raw)
+                return log_oom();
+
+        netdev_raw->kind = _NETDEV_KIND_INVALID;
+
+        r = config_parse(NULL, filename, file,
+                         "Match\0NetDev\0",
+                         config_item_perf_lookup, network_netdev_gperf_lookup,
+                         true, false, true, netdev_raw);
+        if (r < 0)
+                return r;
+
+        r = fseek(file, 0, SEEK_SET);
+        if (r < 0)
+                return -errno;
+
+        /* skip out early if configuration does not match the environment */
+        if (net_match_config(NULL, NULL, NULL, NULL, NULL,
+                             netdev_raw->match_host, netdev_raw->match_virt,
+                             netdev_raw->match_kernel, netdev_raw->match_arch,
+                             NULL, NULL, NULL, NULL, NULL, NULL) <= 0)
+                return 0;
+
+        if (!NETDEV_VTABLE(netdev_raw)) {
+                log_warning("NetDev with invalid Kind configured in %s. Ignoring", filename);
+                return 0;
+        }
+
+        if (!netdev_raw->ifname) {
+                log_warning("NetDev without Name configured in %s. Ignoring", filename);
+                return 0;
+        }
+
+        netdev = malloc0(NETDEV_VTABLE(netdev_raw)->object_size);
         if (!netdev)
                 return log_oom();
 
         netdev->n_ref = 1;
         netdev->manager = manager;
         netdev->state = _NETDEV_STATE_INVALID;
-        netdev->kind = _NETDEV_KIND_INVALID;
-        netdev->macvlan_mode = _NETDEV_MACVLAN_MODE_INVALID;
-        netdev->bond_mode = _NETDEV_BOND_MODE_INVALID;
-        netdev->vlanid = VLANID_MAX + 1;
-        netdev->vxlanid = VXLAN_VID_MAX + 1;
-        netdev->tunnel_pmtudisc = true;
-        netdev->learning = true;
+        netdev->kind = netdev_raw->kind;
+        netdev->ifname = netdev_raw->ifname;
+
+        if (NETDEV_VTABLE(netdev)->init)
+                NETDEV_VTABLE(netdev)->init(netdev);
 
         r = config_parse(NULL, filename, file,
-                         "Match\0NetDev\0VLAN\0MACVLAN\0VXLAN\0Tunnel\0Peer\0Tun\0Tap\0Bond\0",
+                         NETDEV_VTABLE(netdev)->sections,
                          config_item_perf_lookup, network_netdev_gperf_lookup,
-                         false, false, true, netdev);
+                         false, false, false, netdev);
         if (r < 0)
                 return r;
-
-        /* skip out early if configuration does not match the environment */
-        if (net_match_config(NULL, NULL, NULL, NULL, NULL,
-                             netdev->match_host, netdev->match_virt,
-                             netdev->match_kernel, netdev->match_arch,
-                             NULL, NULL, NULL, NULL, NULL, NULL) <= 0)
-                return 0;
-
-        if (!NETDEV_VTABLE(netdev)) {
-                log_warning("NetDev with invalid Kind configured in %s. Ignoring", filename);
-                return 0;
-        }
 
         /* verify configuration */
         if (NETDEV_VTABLE(netdev)->config_verify) {
                 r = NETDEV_VTABLE(netdev)->config_verify(netdev, filename);
                 if (r < 0)
                         return 0;
-        }
-
-        if (!netdev->ifname) {
-                log_warning("NetDev without Name configured in %s. Ignoring", filename);
-                return 0;
-        }
-
-        if (netdev->kind != NETDEV_KIND_VLAN && netdev->vlanid <= VLANID_MAX) {
-                log_warning("VLAN Id configured for a %s in %s. Ignoring",
-                            netdev_kind_to_string(netdev->kind), filename);
-                return 0;
-        }
-
-        if (netdev->kind != NETDEV_KIND_VXLAN && netdev->vxlanid <= VXLAN_VID_MAX) {
-                log_warning("VXLAN Id configured for a %s in %s. Ignoring",
-                            netdev_kind_to_string(netdev->kind), filename);
-                return 0;
-        }
-
-        if (netdev->kind != NETDEV_KIND_MACVLAN &&
-            netdev->macvlan_mode != _NETDEV_MACVLAN_MODE_INVALID) {
-                log_warning("MACVLAN Mode configured for a %s in %s. Ignoring",
-                            netdev_kind_to_string(netdev->kind), filename);
-                return 0;
         }
 
         netdev->filename = strdup(filename);
@@ -594,38 +695,16 @@ static int netdev_load_one(Manager *manager, const char *filename) {
 
         log_debug_netdev(netdev, "loaded %s", netdev_kind_to_string(netdev->kind));
 
-        /* create netdev */
-        if (NETDEV_VTABLE(netdev)->fill_message_create) {
-                _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
-
-                r = sd_rtnl_message_new_link(netdev->manager->rtnl, &m, RTM_NEWLINK, 0);
-                if (r < 0) {
-                        log_error_netdev(netdev,
-                                         "Could not allocate RTM_NEWLINK message: %s",
-                                         strerror(-r));
-                        return r;
-                }
-
-                r = NETDEV_VTABLE(netdev)->fill_message_create(netdev, m);
+        switch (NETDEV_VTABLE(netdev)->create_type) {
+        case NETDEV_CREATE_MASTER:
+        case NETDEV_CREATE_INDEPENDENT:
+                r = netdev_create(netdev, NULL);
                 if (r < 0)
                         return r;
 
-                r = sd_rtnl_call_async(netdev->manager->rtnl, m, netdev_create_handler, netdev, 0, NULL);
-                if (r < 0) {
-                        log_error_netdev(netdev,
-                                         "Could not send rtnetlink message: %s", strerror(-r));
-                        return r;
-                }
-
-                netdev_ref(netdev);
-
-                log_debug_netdev(netdev, "creating");
-
-                netdev->state = NETDEV_STATE_CREATING;
-        } else if (NETDEV_VTABLE(netdev)->create) {
-                r = NETDEV_VTABLE(netdev)->create(netdev);
-                if (r < 0)
-                        return r;
+                break;
+        default:
+                break;
         }
 
         netdev = NULL;

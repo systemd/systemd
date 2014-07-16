@@ -21,7 +21,19 @@
 
 #pragma once
 
+typedef struct TunTap TunTap;
+
 #include "networkd-netdev.h"
+
+struct TunTap {
+        NetDev meta;
+
+        char *user_name;
+        char *group_name;
+        bool one_queue;
+        bool multi_queue;
+        bool packet_info;
+};
 
 extern const NetDevVTable tun_vtable;
 extern const NetDevVTable tap_vtable;

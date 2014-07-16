@@ -21,6 +21,12 @@
 
 #pragma once
 
+typedef struct Dummy Dummy;
+
 #include "networkd-netdev.h"
+
+struct Dummy {
+        NetDev meta;
+};
 
 extern const NetDevVTable dummy_vtable;

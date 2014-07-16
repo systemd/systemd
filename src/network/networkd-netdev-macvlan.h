@@ -21,9 +21,9 @@
 
 #pragma once
 
-#include "networkd-netdev.h"
+typedef struct MacVlan MacVlan;
 
-extern const NetDevVTable macvlan_vtable;
+#include "networkd-netdev.h"
 
 typedef enum MacVlanMode {
         NETDEV_MACVLAN_MODE_PRIVATE = MACVLAN_MODE_PRIVATE,
@@ -33,6 +33,14 @@ typedef enum MacVlanMode {
         _NETDEV_MACVLAN_MODE_MAX,
         _NETDEV_MACVLAN_MODE_INVALID = -1
 } MacVlanMode;
+
+struct MacVlan {
+        NetDev meta;
+
+        MacVlanMode mode;
+};
+
+extern const NetDevVTable macvlan_vtable;
 
 const char *macvlan_mode_to_string(MacVlanMode d) _const_;
 MacVlanMode macvlan_mode_from_string(const char *d) _pure_;

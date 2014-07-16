@@ -21,8 +21,16 @@
 
 #pragma once
 
+typedef struct VLan VLan;
+
 #include "networkd-netdev.h"
 
 #define VLANID_MAX 4094
+
+struct VLan {
+        NetDev meta;
+
+        uint64_t id;
+};
 
 extern const NetDevVTable vlan_vtable;

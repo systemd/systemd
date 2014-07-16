@@ -21,6 +21,15 @@
 
 #pragma once
 
+typedef struct Veth Veth;
+
 #include "networkd-netdev.h"
+
+struct Veth {
+        NetDev meta;
+
+        char *ifname_peer;
+        struct ether_addr *mac_peer;
+};
 
 extern const NetDevVTable veth_vtable;
