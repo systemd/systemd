@@ -226,7 +226,7 @@ static void *connect_thread(void *arg) {
 }
 
 static void test_nameinfo_pretty(void) {
-        _cleanup_free_ char *stdin = NULL, *localhost = NULL;
+        _cleanup_free_ char *stdin_name = NULL, *localhost = NULL;
 
         union sockaddr_union s = {
                 .in.sin_family = AF_INET,
@@ -238,8 +238,8 @@ static void test_nameinfo_pretty(void) {
         union sockaddr_union c = {};
         socklen_t slen = sizeof(c.in), clen = sizeof(c.in);
 
-        _cleanup_close_ int sfd = -1, cfd = -1, afd = -1;
-        r = getnameinfo_pretty(STDIN_FILENO, &stdin);
+        _cleanup_close_ int sfd = -1, cfd = -1;
+        r = getnameinfo_pretty(STDIN_FILENO, &stdin_name);
         log_info("No connection remote: %s", strerror(-r));
 
         assert_se(r < 0);
