@@ -4605,6 +4605,26 @@ test_dns_domain_LDADD = \
 	libsystemd-internal.la \
 	libsystemd-shared.la
 
+libnss_resolve_la_SOURCES = \
+	src/nss-resolve/nss-resolve.sym \
+	src/nss-resolve/nss-resolve.c
+
+libnss_resolve_la_LDFLAGS = \
+	$(AM_LDFLAGS) \
+	-module \
+	-export-dynamic \
+	-avoid-version \
+	-shared \
+	-shrext .so.2 \
+	-Wl,--version-script=$(top_srcdir)/src/nss-resolve/nss-resolve.sym
+
+libnss_resolve_la_LIBADD = \
+	libsystemd-shared.la \
+	libsystemd-internal.la
+
+lib_LTLIBRARIES += \
+	libnss_resolve.la
+
 endif
 
 # ------------------------------------------------------------------------------

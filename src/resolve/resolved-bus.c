@@ -450,7 +450,7 @@ int manager_connect_bus(Manager *m) {
                 return 0;
         }
 
-        r = sd_bus_add_object_vtable(m->bus, NULL, "/org/freedesktop/resolve1", "org.freedesktop.resolve1", resolve_vtable, m);
+        r = sd_bus_add_object_vtable(m->bus, NULL, "/org/freedesktop/resolve1", "org.freedesktop.resolve1.Manager", resolve_vtable, m);
         if (r < 0) {
                 log_error("Failed to register object: %s", strerror(-r));
                 return r;
