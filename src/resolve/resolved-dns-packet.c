@@ -594,7 +594,7 @@ fail:
 }
 
 int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr;
         size_t saved_rindex, offset;
         uint16_t rdlength;
         const void *d;
@@ -603,11 +603,11 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
         assert(p);
         assert(ret);
 
-        saved_rindex = p->rindex;
-
         rr = dns_resource_record_new();
         if (!rr)
-                goto fail;
+                return -ENOMEM;
+
+        saved_rindex = p->rindex;
 
         r = dns_packet_read_key(p, &rr->key, NULL);
         if (r < 0)
