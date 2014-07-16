@@ -45,6 +45,9 @@ int dns_label_unescape(const char **name, char *dest, size_t sz) {
                 if (sz <= 0)
                         return -ENOSPC;
 
+                if (r >= DNS_LABEL_MAX)
+                        return -EINVAL;
+
                 if (*n == '\\') {
                         /* Escaped character */
 
@@ -113,6 +116,9 @@ int dns_label_escape(const char *p, size_t l, char **ret) {
 
         assert(p);
         assert(ret);
+
+        if (l > DNS_LABEL_MAX)
+                return -EINVAL;
 
         s = malloc(l * 4 + 1);
         if (!s)
