@@ -339,7 +339,7 @@ int net_parse_inaddr(const char *address, unsigned char *family, void *dst) {
         return 0;
 }
 
-void serialize_in_addrs(FILE *f, const char *key, struct in_addr *addresses, size_t size) {
+void serialize_in_addrs(FILE *f, const char *key, const struct in_addr *addresses, size_t size) {
         unsigned i;
 
         assert(f);
@@ -356,14 +356,13 @@ void serialize_in_addrs(FILE *f, const char *key, struct in_addr *addresses, siz
         fputs("\n", f);
 }
 
-int deserialize_in_addrs(struct in_addr **ret, size_t *ret_size, const char *string) {
+int deserialize_in_addrs(struct in_addr **ret, const char *string) {
         _cleanup_free_ struct in_addr *addresses = NULL;
-        size_t size = 0;
+        int size = 0;
         char *word, *state;
         size_t len;
 
         assert(ret);
-        assert(ret_size);
         assert(string);
 
         FOREACH_WORD(word, len, string, state) {
@@ -388,21 +387,19 @@ int deserialize_in_addrs(struct in_addr **ret, size_t *ret_size, const char *str
                 size ++;
         }
 
-        *ret_size = size;
         *ret = addresses;
         addresses = NULL;
 
-        return 0;
+        return size;
 }
 
-int deserialize_in6_addrs(struct in6_addr **ret, size_t *ret_size, const char *string) {
+int deserialize_in6_addrs(struct in6_addr **ret, const char *string) {
         _cleanup_free_ struct in6_addr *addresses = NULL;
-        size_t size = 0;
+        int size = 0;
         char *word, *state;
         size_t len;
 
         assert(ret);
-        assert(ret_size);
         assert(string);
 
         FOREACH_WORD(word, len, string, state) {
@@ -427,11 +424,10 @@ int deserialize_in6_addrs(struct in6_addr **ret, size_t *ret_size, const char *s
                 size++;
         }
 
-        *ret_size = size;
         *ret = addresses;
         addresses = NULL;
 
-        return 0;
+        return size;
 }
 
 void serialize_dhcp_routes(FILE *f, const char *key, struct sd_dhcp_route *routes, size_t size) {

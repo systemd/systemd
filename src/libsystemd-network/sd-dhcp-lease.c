@@ -68,28 +68,26 @@ int sd_dhcp_lease_get_mtu(sd_dhcp_lease *lease, uint16_t *mtu) {
         return 0;
 }
 
-int sd_dhcp_lease_get_dns(sd_dhcp_lease *lease, struct in_addr **addr, size_t *addr_size) {
+int sd_dhcp_lease_get_dns(sd_dhcp_lease *lease, const struct in_addr **addr) {
         assert_return(lease, -EINVAL);
         assert_return(addr, -EINVAL);
-        assert_return(addr_size, -EINVAL);
 
         if (lease->dns_size) {
-                *addr_size = lease->dns_size;
                 *addr = lease->dns;
+                return lease->dns_size;
         } else
                 return -ENOENT;
 
         return 0;
 }
 
-int sd_dhcp_lease_get_ntp(sd_dhcp_lease *lease, struct in_addr **addr, size_t *addr_size) {
+int sd_dhcp_lease_get_ntp(sd_dhcp_lease *lease, const struct in_addr **addr) {
         assert_return(lease, -EINVAL);
         assert_return(addr, -EINVAL);
-        assert_return(addr_size, -EINVAL);
 
         if (lease->ntp_size) {
-                *addr_size = lease->ntp_size;
                 *addr = lease->ntp;
+                return lease->ntp_size;
         } else
                 return -ENOENT;
 
@@ -171,16 +169,14 @@ int sd_dhcp_lease_get_next_server(sd_dhcp_lease *lease, struct in_addr *addr) {
         return 0;
 }
 
-int sd_dhcp_lease_get_routes(sd_dhcp_lease *lease, struct sd_dhcp_route **routes,
-        size_t *routes_size) {
+int sd_dhcp_lease_get_routes(sd_dhcp_lease *lease, struct sd_dhcp_route **routes) {
 
         assert_return(lease, -EINVAL);
         assert_return(routes, -EINVAL);
-        assert_return(routes_size, -EINVAL);
 
         if (lease->static_route_size) {
                 *routes = lease->static_route;
-                *routes_size = lease->static_route_size;
+                return lease->static_route_size;
         } else
                 return -ENOENT;
 
@@ -587,12 +583,10 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
         _cleanup_free_ char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         struct in_addr address;
-        struct in_addr *addresses;
-        size_t addresses_size;
+        const struct in_addr *addresses;
         const char *string;
         uint16_t mtu;
         struct sd_dhcp_route *routes;
-        size_t routes_size;
         int r;
 
         assert(lease);
@@ -635,13 +629,13 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
         if (r >= 0)
                 fprintf(f, "MTU=%" PRIu16 "\n", mtu);
 
-        r = sd_dhcp_lease_get_dns(lease, &addresses, &addresses_size);
+        r = sd_dhcp_lease_get_dns(lease, &addresses);
         if (r >= 0)
-                serialize_in_addrs(f, "DNS", addresses, addresses_size);
+                serialize_in_addrs(f, "DNS", addresses, r);
 
-        r = sd_dhcp_lease_get_ntp(lease, &addresses, &addresses_size);
+        r = sd_dhcp_lease_get_ntp(lease, &addresses);
         if (r >= 0)
-                serialize_in_addrs(f, "NTP", addresses, addresses_size);
+                serialize_in_addrs(f, "NTP", addresses, r);
 
         r = sd_dhcp_lease_get_domainname(lease, &string);
         if (r >= 0)
@@ -655,9 +649,9 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
         if (r >= 0)
                 fprintf(f, "ROOT_PATH=%s\n", string);
 
-        r = sd_dhcp_lease_get_routes(lease, &routes, &routes_size);
+        r = sd_dhcp_lease_get_routes(lease, &routes);
         if (r >= 0)
-                serialize_dhcp_routes(f, "ROUTES", routes, routes_size);
+                serialize_dhcp_routes(f, "ROUTES", routes, r);
 
         r = 0;
 
@@ -750,15 +744,19 @@ int dhcp_lease_load(const char *lease_file, sd_dhcp_lease **ret) {
         }
 
         if (dns) {
-                r = deserialize_in_addrs(&lease->dns, &lease->dns_size, dns);
+                r = deserialize_in_addrs(&lease->dns, dns);
                 if (r < 0)
                         return r;
+
+                lease->dns_size = r;
         }
 
         if (ntp) {
-                r = deserialize_in_addrs(&lease->ntp, &lease->ntp_size, dns);
+                r = deserialize_in_addrs(&lease->ntp, ntp);
                 if (r < 0)
                         return r;
+
+                lease->ntp_size = r;
         }
 
         if (mtu) {

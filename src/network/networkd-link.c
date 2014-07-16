@@ -401,20 +401,18 @@ static int route_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 
 static int link_set_dhcp_routes(Link *link) {
         struct sd_dhcp_route *static_routes;
-        size_t static_routes_size;
-        int r;
-        unsigned i;
+        int r, n, i;
 
         assert(link);
 
-        r = sd_dhcp_lease_get_routes(link->dhcp_lease, &static_routes, &static_routes_size);
-        if (r < 0) {
-                if (r != -ENOENT)
-                        log_warning_link(link, "DHCP error: could not get routes: %s", strerror(-r));
-                return r;
+        n = sd_dhcp_lease_get_routes(link->dhcp_lease, &static_routes);
+        if (n < 0) {
+                if (n != -ENOENT)
+                        log_warning_link(link, "DHCP error: could not get routes: %s", strerror(-n));
+                return n;
         }
 
-        for (i = 0; i < static_routes_size; i++) {
+        for (i = 0; i < n; i++) {
                 _cleanup_route_free_ Route *route = NULL;
 
                 r = route_new_dynamic(&route);
@@ -955,7 +953,6 @@ static int dhcp_lease_lost(Link *link) {
         struct in_addr netmask;
         struct in_addr gateway;
         unsigned prefixlen;
-        unsigned i;
         int r;
 
         assert(link);
@@ -965,11 +962,11 @@ static int dhcp_lease_lost(Link *link) {
 
         if (link->network->dhcp_routes) {
                 struct sd_dhcp_route *routes;
-                size_t routes_size;
+                int n, i;
 
-                r = sd_dhcp_lease_get_routes(link->dhcp_lease, &routes, &routes_size);
-                if (r >= 0) {
-                        for (i = 0; i < routes_size; i++) {
+                n = sd_dhcp_lease_get_routes(link->dhcp_lease, &routes);
+                if (n >= 0) {
+                        for (i = 0; i < n; i++) {
                                 _cleanup_route_free_ Route *route = NULL;
 
                                 r = route_new_dynamic(&route);

@@ -168,13 +168,12 @@ _public_ int sd_network_get_dhcp_lease(unsigned index, sd_dhcp_lease **ret) {
         return 0;
 }
 
-static int network_get_in_addr(const char *key, unsigned index, struct in_addr **addr, size_t *addr_size) {
+static int network_get_in_addr(const char *key, unsigned index, struct in_addr **addr) {
         _cleanup_free_ char *p = NULL, *s = NULL;
         int r;
 
         assert_return(index, -EINVAL);
         assert_return(addr, -EINVAL);
-        assert_return(addr_size, -EINVAL);
 
         if (asprintf(&p, "/run/systemd/netif/links/%u", index) < 0)
                 return -ENOMEM;
@@ -185,24 +184,23 @@ static int network_get_in_addr(const char *key, unsigned index, struct in_addr *
         else if (!s)
                 return -EIO;
 
-        return deserialize_in_addrs(addr, addr_size, s);
+        return deserialize_in_addrs(addr, s);
 }
 
-_public_ int sd_network_get_dns(unsigned index, struct in_addr **addr, size_t *addr_size) {
-        return network_get_in_addr("DNS", index, addr, addr_size);
+_public_ int sd_network_get_dns(unsigned index, struct in_addr **addr) {
+        return network_get_in_addr("DNS", index, addr);
 }
 
-_public_ int sd_network_get_ntp(unsigned index, struct in_addr **addr, size_t *addr_size) {
-        return network_get_in_addr("NTP", index, addr, addr_size);
+_public_ int sd_network_get_ntp(unsigned index, struct in_addr **addr) {
+        return network_get_in_addr("NTP", index, addr);
 }
 
-static int network_get_in6_addr(const char *key, unsigned index, struct in6_addr **addr, size_t *addr_size) {
+static int network_get_in6_addr(const char *key, unsigned index, struct in6_addr **addr) {
         _cleanup_free_ char *p = NULL, *s = NULL;
         int r;
 
         assert_return(index, -EINVAL);
         assert_return(addr, -EINVAL);
-        assert_return(addr_size, -EINVAL);
 
         if (asprintf(&p, "/run/systemd/netif/links/%u", index) < 0)
                 return -ENOMEM;
@@ -213,15 +211,15 @@ static int network_get_in6_addr(const char *key, unsigned index, struct in6_addr
         else if (!s)
                 return -EIO;
 
-        return deserialize_in6_addrs(addr, addr_size, s);
+        return deserialize_in6_addrs(addr, s);
 }
 
-_public_ int sd_network_get_dns6(unsigned index, struct in6_addr **addr, size_t *addr_size) {
-        return network_get_in6_addr("DNS", index, addr, addr_size);
+_public_ int sd_network_get_dns6(unsigned index, struct in6_addr **addr) {
+        return network_get_in6_addr("DNS", index, addr);
 }
 
-_public_ int sd_network_get_ntp6(unsigned index, struct in6_addr **addr, size_t *addr_size) {
-        return network_get_in6_addr("NTP", index, addr, addr_size);
+_public_ int sd_network_get_ntp6(unsigned index, struct in6_addr **addr) {
+        return network_get_in6_addr("NTP", index, addr);
 }
 
 static int network_get_boolean(const char *key, unsigned index) {

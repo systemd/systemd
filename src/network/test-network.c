@@ -28,7 +28,7 @@ static void test_deserialize_in_addr(void) {
         _cleanup_free_ struct in6_addr *addresses6 = NULL;
         struct in_addr  a, b, c;
         struct in6_addr d, e, f;
-        size_t size;
+        int size;
         const char *addresses_string = "192.168.0.1 0:0:0:0:0:FFFF:204.152.189.116 192.168.0.2 ::1 192.168.0.3 1:0:0:0:0:0:0:8";
 
         assert_se(inet_pton(AF_INET, "0:0:0:0:0:FFFF:204.152.189.116", &a) == 0);
@@ -41,13 +41,13 @@ static void test_deserialize_in_addr(void) {
         assert_se(inet_pton(AF_INET6, "::1", &e) == 1);
         assert_se(inet_pton(AF_INET6, "1:0:0:0:0:0:0:8", &f) == 1);
 
-        assert_se(deserialize_in_addrs(&addresses, &size, addresses_string) >= 0);
+        assert_se((size = deserialize_in_addrs(&addresses, addresses_string)) >= 0);
         assert_se(size == 3);
         assert_se(!memcmp(&a, &addresses[0], sizeof(struct in_addr)));
         assert_se(!memcmp(&b, &addresses[1], sizeof(struct in_addr)));
         assert_se(!memcmp(&c, &addresses[2], sizeof(struct in_addr)));
 
-        assert_se(deserialize_in6_addrs(&addresses6, &size, addresses_string) >= 0);
+        assert_se((size = deserialize_in6_addrs(&addresses6, addresses_string)) >= 0);
         assert_se(size == 3);
         assert_se(!memcmp(&d, &addresses6[0], sizeof(struct in6_addr)));
         assert_se(!memcmp(&e, &addresses6[1], sizeof(struct in6_addr)));

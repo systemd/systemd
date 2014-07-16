@@ -38,12 +38,12 @@ int sd_dhcp_lease_get_netmask(sd_dhcp_lease *lease, struct in_addr *addr);
 int sd_dhcp_lease_get_router(sd_dhcp_lease *lease, struct in_addr *addr);
 int sd_dhcp_lease_get_next_server(sd_dhcp_lease *lease, struct in_addr *addr);
 int sd_dhcp_lease_get_server_identifier(sd_dhcp_lease *lease, struct in_addr *addr);
-int sd_dhcp_lease_get_dns(sd_dhcp_lease *lease, struct in_addr **addr, size_t *addr_size);
-int sd_dhcp_lease_get_ntp(sd_dhcp_lease *lease, struct in_addr **addr, size_t *addr_size);
+int sd_dhcp_lease_get_dns(sd_dhcp_lease *lease, const struct in_addr **addr);
+int sd_dhcp_lease_get_ntp(sd_dhcp_lease *lease, const struct in_addr **addr);
 int sd_dhcp_lease_get_mtu(sd_dhcp_lease *lease, uint16_t *mtu);
 int sd_dhcp_lease_get_domainname(sd_dhcp_lease *lease, const char **domainname);
 int sd_dhcp_lease_get_hostname(sd_dhcp_lease *lease, const char **hostname);
 int sd_dhcp_lease_get_root_path(sd_dhcp_lease *lease, const char **root_path);
-int sd_dhcp_lease_get_routes(sd_dhcp_lease *lease, struct sd_dhcp_route **routes, size_t *routes_size);
+int sd_dhcp_lease_get_routes(sd_dhcp_lease *lease, struct sd_dhcp_route **routesgn);
 
 #endif

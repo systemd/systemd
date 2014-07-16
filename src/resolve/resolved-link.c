@@ -100,11 +100,9 @@ int link_update_rtnl(Link *l, sd_rtnl_message *m) {
 
 static int update_dhcp_dns_servers(Link *l) {
         _cleanup_dhcp_lease_unref_ sd_dhcp_lease *lease = NULL;
-        struct in_addr *nameservers = NULL;
+        const struct in_addr *nameservers = NULL;
         DnsServer *s, *nx;
-        unsigned i;
-        size_t n;
-        int r;
+        int r, n, i;
 
         assert(l);
 
@@ -119,9 +117,11 @@ static int update_dhcp_dns_servers(Link *l) {
         LIST_FOREACH(servers, s, l->dhcp_dns_servers)
                 s->marked = true;
 
-        r = sd_dhcp_lease_get_dns(lease, &nameservers, &n);
-        if (r < 0)
+        n = sd_dhcp_lease_get_dns(lease, &nameservers);
+        if (n < 0) {
+                r = n;
                 goto clear;
+        }
 
         for (i = 0; i < n; i++) {
                 union in_addr_union a = { .in = nameservers[i] };
@@ -153,18 +153,18 @@ static int update_link_dns_servers(Link *l) {
         _cleanup_free_ struct in_addr *nameservers = NULL;
         _cleanup_free_ struct in6_addr *nameservers6 = NULL;
         DnsServer *s, *nx;
-        unsigned i;
-        size_t n;
-        int r;
+        int r, n, i;
 
         assert(l);
 
         LIST_FOREACH(servers, s, l->link_dns_servers)
                 s->marked = true;
 
-        r = sd_network_get_dns(l->ifindex, &nameservers, &n);
-        if (r < 0)
+        n = sd_network_get_dns(l->ifindex, &nameservers);
+        if (n < 0) {
+                r = n;
                 goto clear;
+        }
 
         for (i = 0; i < n; i++) {
                 union in_addr_union a = { .in = nameservers[i] };
@@ -179,9 +179,11 @@ static int update_link_dns_servers(Link *l) {
                 }
         }
 
-        r = sd_network_get_dns6(l->ifindex, &nameservers6, &n);
-        if (r < 0)
+        n = sd_network_get_dns6(l->ifindex, &nameservers6);
+        if (n < 0) {
+                r = n;
                 goto clear;
+        }
 
         for (i = 0; i < n; i++) {
                 union in_addr_union a = { .in6 = nameservers6[i] };
