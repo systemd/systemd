@@ -387,6 +387,12 @@ enum nss_status _nss_myhostname_gethostbyaddr2_r(
         assert(errnop);
         assert(h_errnop);
 
+        if (!IN_SET(af, AF_INET, AF_INET6)) {
+                *errnop = EAFNOSUPPORT;
+                *h_errnop = NO_DATA;
+                return NSS_STATUS_UNAVAIL;
+        }
+
         if (len != PROTO_ADDRESS_SIZE(af)) {
                 *errnop = EINVAL;
                 *h_errnop = NO_RECOVERY;
@@ -404,17 +410,14 @@ enum nss_status _nss_myhostname_gethostbyaddr2_r(
                         goto found;
                 }
 
-        } else if (af == AF_INET6) {
+        } else {
+                assert(af == AF_INET6);
 
                 if (memcmp(addr, LOCALADDRESS_IPV6, 16) == 0) {
                         additional = "localhost";
                         goto found;
                 }
 
-        } else {
-                *errnop = EAFNOSUPPORT;
-                *h_errnop = NO_DATA;
-                return NSS_STATUS_UNAVAIL;
         }
 
         n_addresses = local_addresses(&addresses);

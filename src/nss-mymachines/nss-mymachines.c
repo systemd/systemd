@@ -131,7 +131,7 @@ enum nss_status _nss_mymachines_gethostbyname4_r(
                 goto fail;
 
         if (c <= 0) {
-                *errnop = ENOENT;
+                *errnop = ESRCH;
                 *h_errnop = HOST_NOT_FOUND;
                 return NSS_STATUS_NOTFOUND;
         }
@@ -140,7 +140,7 @@ enum nss_status _nss_mymachines_gethostbyname4_r(
         ms = ALIGN(l+1) + ALIGN(sizeof(struct gaih_addrtuple)) * c;
         if (buflen < ms) {
                 *errnop = ENOMEM;
-                *h_errnop = NO_RECOVERY;
+                *h_errnop = TRY_AGAIN;
                 return NSS_STATUS_TRYAGAIN;
         }
 
@@ -167,6 +167,11 @@ enum nss_status _nss_mymachines_gethostbyname4_r(
                 r = sd_bus_message_exit_container(reply);
                 if (r < 0)
                         goto fail;
+
+                if (!IN_SET(family, AF_INET, AF_INET6)) {
+                        r = -EAFNOSUPPORT;
+                        goto fail;
+                }
 
                 if (sz != PROTO_ADDRESS_SIZE(family)) {
                         r = -EINVAL;
