@@ -48,8 +48,8 @@ static int network_load_one(Manager *manager, const char *filename) {
                         return -errno;
         }
 
-        if (null_or_empty_path(filename)) {
-                log_debug("skipping empty file: %s", filename);
+        if (null_or_empty_fd(fileno(file))) {
+                log_debug("Skipping empty file: %s", filename);
                 return 0;
         }
 

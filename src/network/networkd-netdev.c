@@ -495,17 +495,17 @@ static int netdev_load_one(Manager *manager, const char *filename) {
         assert(manager);
         assert(filename);
 
-        if (null_or_empty_path(filename)) {
-                log_debug("skipping empty file: %s", filename);
-                return 0;
-        }
-
         file = fopen(filename, "re");
         if (!file) {
                 if (errno == ENOENT)
                         return 0;
                 else
                         return -errno;
+        }
+
+        if (null_or_empty_fd(fileno(file))) {
+                log_debug("Skipping empty file: %s", filename);
+                return 0;
         }
 
         netdev = new0(NetDev, 1);

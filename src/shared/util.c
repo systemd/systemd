@@ -3604,6 +3604,17 @@ int null_or_empty_path(const char *fn) {
         return null_or_empty(&st);
 }
 
+int null_or_empty_fd(int fd) {
+        struct stat st;
+
+        assert(fd >= 0);
+
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        return null_or_empty(&st);
+}
+
 DIR *xopendirat(int fd, const char *name, int flags) {
         int nfd;
         DIR *d;

@@ -153,17 +153,17 @@ static int load_link(link_config_ctx *ctx, const char *filename) {
         assert(ctx);
         assert(filename);
 
-        if (null_or_empty_path(filename)) {
-                log_debug("skipping empty file: %s", filename);
-                return 0;
-        }
-
         file = fopen(filename, "re");
         if (!file) {
                 if (errno == ENOENT)
                         return 0;
                 else
                         return -errno;
+        }
+
+        if (null_or_empty_fd(fileno(file))) {
+                log_debug("Skipping empty file: %s", filename);
+                return 0;
         }
 
         link = new0(link_config, 1);

@@ -1533,15 +1533,19 @@ static int parse_file(struct udev_rules *rules, const char *filename)
         int line_nr = 0;
         unsigned int i;
 
-        if (null_or_empty_path(filename)) {
-                log_debug("skip empty file: %s", filename);
-                return 0;
-        }
-        log_debug("read rules file: %s", filename);
-
         f = fopen(filename, "re");
-        if (f == NULL)
-                return -1;
+        if (!f) {
+                if (errno == ENOENT)
+                        return 0;
+                else
+                        return -errno;
+        }
+
+        if (null_or_empty_fd(fileno(f))) {
+                log_debug("Skipping empty file: %s", filename);
+                return 0;
+        } else
+                log_debug("Reading rules file: %s", filename);
 
         first_token = rules->token_cur;
         filename_off = rules_add_string(rules, filename);

@@ -499,6 +499,7 @@ noreturn void freeze(void);
 
 bool null_or_empty(struct stat *st) _pure_;
 int null_or_empty_path(const char *fn);
+int null_or_empty_fd(int fd);
 
 DIR *xopendirat(int dirfd, const char *name, int flags);
 
