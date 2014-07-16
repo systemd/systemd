@@ -26,6 +26,7 @@
 #define QUERY_TIMEOUT_USEC (30 * USEC_PER_SEC)
 #define ATTEMPTS_MAX 8
 #define CNAME_MAX 8
+#define QUERIES_MAX 2048
 
 static int dns_query_transaction_start(DnsQueryTransaction *t);
 
@@ -403,8 +404,10 @@ DnsQuery *dns_query_free(DnsQuery *q) {
         while (q->transactions)
                 dns_query_transaction_free(q->transactions);
 
-        if (q->manager)
+        if (q->manager) {
                 LIST_REMOVE(queries, q->manager->dns_queries, q);
+                q->manager->n_dns_queries--;
+        }
 
         for (n = 0; n < q->n_keys; n++)
                 free(q->keys[n].name);
@@ -422,6 +425,9 @@ int dns_query_new(Manager *m, DnsQuery **ret, DnsResourceKey *keys, unsigned n_k
 
         if (n_keys <= 0 || n_keys >= 65535)
                 return -EINVAL;
+
+        if (m->n_dns_queries >= QUERIES_MAX)
+                return -EBUSY;
 
         assert(keys);
 
@@ -447,6 +453,7 @@ int dns_query_new(Manager *m, DnsQuery **ret, DnsResourceKey *keys, unsigned n_k
         }
 
         LIST_PREPEND(queries, m->dns_queries, q);
+        m->n_dns_queries++;
         q->manager = m;
 
         if (ret)

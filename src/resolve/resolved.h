@@ -56,6 +56,7 @@ struct Manager {
 
         Hashmap *dns_query_transactions;
         LIST_HEAD(DnsQuery, dns_queries);
+        unsigned n_dns_queries;
 
         LIST_HEAD(DnsServer, dns_servers);
         DnsServer *current_dns_server;
