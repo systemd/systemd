@@ -58,7 +58,7 @@ struct Link {
         DnsScope *mdns_ipv4_scope;
         DnsScope *mdns_ipv6_scope;
 
-        size_t mtu;
+        uint32_t mtu;
 
         char *operational_state;
 

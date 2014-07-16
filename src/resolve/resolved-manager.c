@@ -878,3 +878,23 @@ void manager_next_dns_server(Manager *m) {
 
         m->current_dns_server = m->dns_servers;
 }
+
+uint32_t manager_find_mtu(Manager *m) {
+        uint32_t mtu = 0;
+        Link *l;
+        Iterator i;
+
+        /* If we don't know on which link a DNS packet would be
+         * delivered, let's find the largest MTU that works on all
+         * interfaces we know of */
+
+        HASHMAP_FOREACH(l, m->links, i) {
+                if (l->mtu <= 0)
+                        continue;
+
+                if (mtu <= 0 || l->mtu < mtu)
+                        mtu = l->mtu;
+        }
+
+        return mtu;
+}

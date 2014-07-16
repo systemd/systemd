@@ -91,6 +91,10 @@ int link_update_rtnl(Link *l, sd_rtnl_message *m) {
         if (r < 0)
                 return r;
 
+        r = sd_rtnl_message_read_u32(m, IFLA_MTU, &l->mtu);
+        if (r < 0)
+                return r;
+
         return 0;
 }
 

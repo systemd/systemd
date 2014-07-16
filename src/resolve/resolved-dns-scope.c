@@ -102,7 +102,18 @@ int dns_scope_send(DnsScope *s, DnsPacket *p) {
                         return -EMSGSIZE;
 
                 ifindex = s->link->ifindex;
+        } else {
+                uint32_t mtu;
+
+                mtu = manager_find_mtu(s->manager);
+                if (mtu > 0) {
+                        if (p->size > mtu)
+                                return -EMSGSIZE;
+                }
         }
+
+        if (p->size > DNS_PACKET_UNICAST_SIZE_MAX)
+                return -EMSGSIZE;
 
         if (srv->family == AF_INET)
                 r = manager_dns_ipv4_send(s->manager, srv, ifindex, p);

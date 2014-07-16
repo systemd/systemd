@@ -79,6 +79,7 @@ int manager_write_resolv_conf(Manager *m);
 DnsServer* manager_find_dns_server(Manager *m, unsigned char family, union in_addr_union *in_addr);
 DnsServer *manager_get_dns_server(Manager *m);
 void manager_next_dns_server(Manager *m);
+uint32_t manager_find_mtu(Manager *m);
 
 int manager_dns_ipv4_fd(Manager *m);
 int manager_dns_ipv4_send(Manager *m, DnsServer *srv, int ifindex, DnsPacket *p);
