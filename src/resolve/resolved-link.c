@@ -96,7 +96,7 @@ int link_update_rtnl(Link *l, sd_rtnl_message *m) {
 
 static int update_dhcp_dns_servers(Link *l) {
         _cleanup_dhcp_lease_unref_ sd_dhcp_lease *lease = NULL;
-        _cleanup_free_ struct in_addr *nameservers = NULL;
+        struct in_addr *nameservers = NULL;
         DnsServer *s, *nx;
         unsigned i;
         size_t n;
