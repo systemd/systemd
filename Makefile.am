@@ -3531,6 +3531,15 @@ nodist_systemunit_DATA += \
 
 EXTRA_DIST += \
 	units/systemd-journal-upload.service.in
+
+nodist_pkgsysconf_DATA += \
+	src/journal-remote/journal-upload.conf
+
+EXTRA_DIST += \
+	src/journal-remote/journal-upload.conf.in
+
+CLEANFILES += \
+	src/journal-remote/journal-upload.conf
 endif
 
 # using _CFLAGS = in the conditional below would suppress AM_CFLAGS

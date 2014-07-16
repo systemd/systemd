@@ -31,7 +31,12 @@
 #include "util.h"
 #include "build.h"
 #include "fileio.h"
+#include "conf-parser.h"
 #include "journal-upload.h"
+
+#define KEY_FILE   CERTIFICATE_ROOT "/private/journal-upload.pem"
+#define CERT_FILE  CERTIFICATE_ROOT "/certs/journal-upload.pem"
+#define TRUST_FILE CERTIFICATE_ROOT "/ca/trusted.pem"
 
 static const char* arg_url;
 
@@ -214,17 +219,17 @@ int start_upload(Uploader *u,
                             "systemd-journal-upload " PACKAGE_STRING,
                             LOG_WARNING, );
 
-                if (arg_key) {
+                if (arg_key || startswith(u->url, "https://")) {
                         assert(arg_cert);
 
-                        easy_setopt(curl, CURLOPT_SSLKEY, arg_key,
+                        easy_setopt(curl, CURLOPT_SSLKEY, arg_key ?: KEY_FILE,
                                     LOG_ERR, return -EXFULL);
-                        easy_setopt(curl, CURLOPT_SSLCERT, arg_cert,
+                        easy_setopt(curl, CURLOPT_SSLCERT, arg_cert ?: CERT_FILE,
                                     LOG_ERR, return -EXFULL);
                 }
 
-                if (arg_trust)
-                        easy_setopt(curl, CURLOPT_CAINFO, arg_trust,
+                if (arg_trust || startswith(u->url, "https://"))
+                        easy_setopt(curl, CURLOPT_CAINFO, arg_trust ?: TRUST_FILE,
                                     LOG_ERR, return -EXFULL);
 
                 if (arg_key || arg_trust)
@@ -483,6 +488,25 @@ static int perform_upload(Uploader *u) {
         return update_cursor_state(u);
 }
 
+static int parse_config(void) {
+        const ConfigTableItem items[] = {
+                { "Upload",  "URL",                    config_parse_string, 0, &arg_url    },
+                { "Upload",  "ServerKeyFile",          config_parse_path,   0, &arg_key    },
+                { "Upload",  "ServerCertificateFile",  config_parse_path,   0, &arg_cert   },
+                { "Upload",  "TrustedCertificateFile", config_parse_path,   0, &arg_trust  },
+                {}};
+        int r;
+
+        r = config_parse(NULL, PKGSYSCONFDIR "/journal-upload.conf", NULL,
+                         "Upload\0",
+                         config_item_table_lookup, items,
+                         false, false, NULL);
+        if (r < 0)
+                log_error("Failed to parse configuration file: %s", strerror(-r));
+
+        return r;
+}
+
 static void help(void) {
         printf("%s -u URL {FILE|-}...\n\n"
                "Upload journal events to a remote server.\n\n"
@@ -722,6 +746,10 @@ int main(int argc, char **argv) {
 
         log_show_color(true);
         log_parse_environment();
+
+        r = parse_config();
+        if (r <= 0)
+                goto finish;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
