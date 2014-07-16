@@ -194,7 +194,7 @@ DnsScopeMatch dns_scope_test(DnsScope *s, const char *domain) {
                 if (dns_name_endswith(domain, "254.169.in-addr.arpa") ||
                     dns_name_endswith(domain, "0.8.e.f.ip6.arpa"))
                         return DNS_SCOPE_YES;
-                else if (dns_name_endswith(domain, "local") ||
+                else if (dns_name_endswith(domain, "local") &&
                          !dns_name_single_label(domain))
                         return DNS_SCOPE_MAYBE;
 
