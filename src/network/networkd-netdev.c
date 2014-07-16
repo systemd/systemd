@@ -538,7 +538,7 @@ static int netdev_load_one(Manager *manager, const char *filename) {
                 return 0;
 
         if (!NETDEV_VTABLE(netdev)) {
-                log_warning("NetDev with invalid Kind configured in %s. Igonring", filename);
+                log_warning("NetDev with invalid Kind configured in %s. Ignoring", filename);
                 return 0;
         }
 

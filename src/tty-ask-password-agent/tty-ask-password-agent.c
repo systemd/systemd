@@ -243,10 +243,9 @@ finish:
 }
 
 static int parse_password(const char *filename, char **wall) {
-        char *socket_name = NULL, *message = NULL, *packet = NULL;
+        _cleanup_free_ char *socket_name = NULL, *message = NULL, *packet = NULL;
         uint64_t not_after = 0;
         unsigned pid = 0;
-        int socket_fd = -1;
         bool accept_cached = false;
 
         const ConfigTableItem items[] = {
@@ -271,24 +270,18 @@ static int parse_password(const char *filename, char **wall) {
 
         if (!socket_name) {
                 log_error("Invalid password file %s", filename);
-                r = -EBADMSG;
-                goto finish;
+                return -EBADMSG;
         }
 
-        if (not_after > 0) {
-                if (now(CLOCK_MONOTONIC) > not_after) {
-                        r = 0;
-                        goto finish;
-                }
-        }
+        if (not_after > 0 && now(CLOCK_MONOTONIC) > not_after)
+                return 0;
 
-        if (pid > 0 && !pid_is_alive(pid)) {
-                r = 0;
-                goto finish;
-        }
+        if (pid > 0 && !pid_is_alive(pid))
+                return 0;
 
         if (arg_action == ACTION_LIST)
                 printf("'%s' (PID %u)\n", message, pid);
+
         else if (arg_action == ACTION_WALL) {
                 char *_wall;
 
@@ -298,43 +291,40 @@ static int parse_password(const char *filename, char **wall) {
                              *wall ? *wall : "",
                              *wall ? "\r\n\r\n" : "",
                              message,
-                             pid) < 0) {
-                        r = log_oom();
-                        goto finish;
-                }
+                             pid) < 0)
+                        return log_oom();
 
                 free(*wall);
                 *wall = _wall;
+
         } else {
-                union {
-                        struct sockaddr sa;
-                        struct sockaddr_un un;
-                } sa = {};
+                union sockaddr_union sa = {};
                 size_t packet_length = 0;
+                _cleanup_close_ int socket_fd = -1;
 
                 assert(arg_action == ACTION_QUERY ||
                        arg_action == ACTION_WATCH);
 
                 if (access(socket_name, W_OK) < 0) {
-
                         if (arg_action == ACTION_QUERY)
                                 log_info("Not querying '%s' (PID %u), lacking privileges.", message, pid);
 
-                        r = 0;
-                        goto finish;
+                        return 0;
                 }
 
                 if (arg_plymouth) {
                         _cleanup_strv_free_ char **passwords = NULL;
 
-                        if ((r = ask_password_plymouth(message, not_after, filename, accept_cached, &passwords)) >= 0) {
+                        r = ask_password_plymouth(message, not_after, filename, accept_cached, &passwords);
+                        if (r >= 0) {
                                 char **p;
 
                                 packet_length = 1;
                                 STRV_FOREACH(p, passwords)
                                         packet_length += strlen(*p) + 1;
 
-                                if (!(packet = new(char, packet_length)))
+                                packet = new(char, packet_length);
+                                if (!packet)
                                         r = -ENOMEM;
                                 else {
                                         char *d;
@@ -349,13 +339,13 @@ static int parse_password(const char *filename, char **wall) {
 
                 } else {
                         int tty_fd = -1;
-                        char *password = NULL;
+                        _cleanup_free_ char *password = NULL;
 
-                        if (arg_console)
-                                if ((tty_fd = acquire_terminal("/dev/console", false, false, false, (usec_t) -1)) < 0) {
-                                        r = tty_fd;
-                                        goto finish;
-                                }
+                        if (arg_console) {
+                                tty_fd = acquire_terminal("/dev/console", false, false, false, (usec_t) -1);
+                                if (tty_fd < 0)
+                                        return tty_fd;
+                        }
 
                         r = ask_password_tty(message, not_after, filename, &password);
 
@@ -365,53 +355,44 @@ static int parse_password(const char *filename, char **wall) {
                         }
 
                         if (r >= 0) {
-                                packet_length = 1+strlen(password)+1;
-                                if (!(packet = new(char, packet_length)))
+                                packet_length = 1 + strlen(password) + 1;
+                                packet = new(char, packet_length);
+                                if (!packet)
                                         r = -ENOMEM;
                                 else {
                                         packet[0] = '+';
-                                        strcpy(packet+1, password);
+                                        strcpy(packet + 1, password);
                                 }
-
-                                free(password);
                         }
                 }
 
-                if (r == -ETIME || r == -ENOENT) {
+                if (r == -ETIME || r == -ENOENT)
                         /* If the query went away, that's OK */
-                        r = 0;
-                        goto finish;
-                }
+                        return 0;
 
                 if (r < 0) {
                         log_error("Failed to query password: %s", strerror(-r));
-                        goto finish;
+                        return r;
                 }
 
-                if ((socket_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0)) < 0) {
+                socket_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0);
+                if (socket_fd < 0) {
                         log_error("socket(): %m");
-                        r = -errno;
-                        goto finish;
+                        return -errno;
                 }
 
                 sa.un.sun_family = AF_UNIX;
                 strncpy(sa.un.sun_path, socket_name, sizeof(sa.un.sun_path));
 
-                if (sendto(socket_fd, packet, packet_length, MSG_NOSIGNAL, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(socket_name)) < 0) {
+                r = sendto(socket_fd, packet, packet_length, MSG_NOSIGNAL, &sa.sa,
+                           offsetof(struct sockaddr_un, sun_path) + strlen(socket_name));
+                if (r < 0) {
                         log_error("Failed to send: %m");
-                        r = -errno;
-                        goto finish;
+                        return r;
                 }
         }
 
-finish:
-        safe_close(socket_fd);
-
-        free(packet);
-        free(socket_name);
-        free(message);
-
-        return r;
+        return 0;
 }
 
 static int wall_tty_block(void) {
