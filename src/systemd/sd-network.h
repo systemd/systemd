@@ -58,14 +58,14 @@ _SD_BEGIN_DECLARATIONS;
  *   -EUNATCH: networkd is not managing this link
  *   -EBUSY: udev is still processing the link, networkd does not yet know if it will manage it
  */
-int sd_network_get_link_state(unsigned index, char **state);
+int sd_network_get_link_state(unsigned ifindex, char **state);
 
 /* Get operatinal state from ifindex.
  * Possible states: unknown, dormant, carrier, degraded, routable
  * Possible return codes:
  *   -ENODATA: networkd is not aware of the link
  */
-int sd_network_get_link_operational_state(unsigned index, char **state);
+int sd_network_get_link_operational_state(unsigned ifindex, char **state);
 
 /* Get overall opeartional state
  * Possible states: unknown, dormant, carrier, degraded, routable
@@ -75,32 +75,32 @@ int sd_network_get_link_operational_state(unsigned index, char **state);
 int sd_network_get_operational_state(char **state);
 
 /* Returns true if link exists and is loopback, and false otherwise */
-int sd_network_link_is_loopback(unsigned index);
+int sd_network_link_is_loopback(unsigned ifindex);
 
 /* Get DHCPv4 lease from ifindex. */
-int sd_network_get_dhcp_lease(unsigned index, sd_dhcp_lease **ret);
+int sd_network_get_dhcp_lease(unsigned ifindex, sd_dhcp_lease **ret);
 
 /* Returns true if link is configured to respect DNS entries received by DHCP */
-int sd_network_dhcp_use_dns(unsigned index);
+int sd_network_dhcp_use_dns(unsigned ifindex);
 
 /* Returns true if link is configured to respect NTP entries received by DHCP */
-int sd_network_dhcp_use_ntp(unsigned index);
+int sd_network_dhcp_use_ntp(unsigned ifindex);
 
 /* Get IPv4 DNS entries statically configured for the link */
-int sd_network_get_dns(unsigned index, struct in_addr **addr);
+int sd_network_get_dns(unsigned ifindex, struct in_addr **addr);
 
 /* Get IPv4 NTP entries statically configured for the link */
-int sd_network_get_ntp(unsigned index, struct in_addr **addr);
+int sd_network_get_ntp(unsigned ifindex, struct in_addr **addr);
 
 /* Get IPv6 DNS entries statically configured for the link */
-int sd_network_get_dns6(unsigned index, struct in6_addr **addr);
+int sd_network_get_dns6(unsigned ifindex, struct in6_addr **addr);
 
 /* Get IPv6 NTP entries statically configured for the link */
-int sd_network_get_ntp6(unsigned index, struct in6_addr **addr);
+int sd_network_get_ntp6(unsigned ifindex, struct in6_addr **addr);
 
 /* Get all network interfaces' indices, and store them in *indices. Returns
  * the number of indices. If indices is NULL, only returns the number of indices. */
-int sd_network_get_ifindices(unsigned **indices);
+int sd_network_get_ifindices(unsigned **ifindices);
 
 /* Monitor object */
 typedef struct sd_network_monitor sd_network_monitor;
