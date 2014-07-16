@@ -3373,16 +3373,6 @@ typelibs_DATA = \
 
 CLEANFILES += $(gir_DATA) $(typelibs_DATA)
 endif # HAVE_INTROSPECTION
-
-# move lib from $(libdir) to $(rootlibdir) and update devel link, if needed
-libgudev-install-hook:
-	libname=libgudev-1.0.so && $(move-to-rootlibdir)
-
-libgudev-uninstall-hook:
-	rm -f $(DESTDIR)$(rootlibdir)/libgudev-1.0.so*
-
-INSTALL_EXEC_HOOKS += libgudev-install-hook
-UNINSTALL_EXEC_HOOKS += libgudev-uninstall-hook
 endif
 
 EXTRA_DIST += \
