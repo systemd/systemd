@@ -243,12 +243,16 @@
 
                 <para>The special expressions
                 <literal>hourly</literal>, <literal>daily</literal>,
-                <literal>monthly</literal> and <literal>weekly</literal>
-                may be used as calendar events which refer to
-                <literal>*-*-* *:00:00</literal>, <literal>*-*-*
-                00:00:00</literal>, <literal>*-*-01 00:00:00</literal> and
-                <literal>Mon *-*-* 00:00:00</literal>,
-                respectively.</para>
+                <literal>monthly</literal>, <literal>weekly</literal>,
+                and <literal>yearly</literal> or
+                <literal>annually</literal> may be used as calendar
+                events which refer to
+                <literal>*-*-* *:00:00</literal>,
+                <literal>*-*-* 00:00:00</literal>,
+                <literal>*-*-01 00:00:00</literal>,
+                <literal>Mon *-*-* 00:00:00</literal>, and
+                <literal>*-01-01 00:00:00</literal> respectively.
+                </para>
 
                 <para>Examples for valid timestamps and their
                 normalized form:</para>
@@ -277,6 +281,8 @@ Wed-Sat,Tue 12-10-15 1:2:3 → Tue-Sat 2012-10-15 01:02:03
                      daily → *-*-* 00:00:00
                    monthly → *-*-01 00:00:00
                     weekly → Mon *-*-* 00:00:00
+                    yearly → *-01-01 00:00:00
+                  annually → *-01-01 00:00:00
                      *:2/3 → *-*-* *:02/3:00</programlisting>
 
                   <para>Calendar events are used by timer units, see
