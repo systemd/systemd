@@ -37,11 +37,11 @@ static size_t rcvsiz = 0;
 static sd_event *event;
 
 static void run_child(Pty *pty) {
-        int r, l;
+        ssize_t r, l;
         char buf[512];
 
         r = read(0, buf, sizeof(buf));
-        assert_se(r == strlen(sndmsg));
+        assert_se((size_t)r == strlen(sndmsg));
         assert_se(!strncmp(buf, sndmsg, r));
 
         l = write(1, buf, r);
