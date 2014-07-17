@@ -23,6 +23,7 @@
 
 #include <nss.h>
 #include <netdb.h>
+#include <resolv.h>
 
 #define NSS_GETHOSTBYNAME_PROTOTYPES(module)            \
 enum nss_status _nss_##module##_gethostbyname4_r(       \
@@ -87,14 +88,27 @@ enum nss_status _nss_##module##_gethostbyname_r(        \
                 struct hostent *host,                   \
                 char *buffer, size_t buflen,            \
                 int *errnop, int *h_errnop) {           \
-        return _nss_##module##_gethostbyname3_r(        \
+        enum nss_status ret = NSS_STATUS_NOTFOUND;      \
+                                                        \
+        if (_res.options & RES_USE_INET6)               \
+                ret = _nss_##module##_gethostbyname3_r( \
                         name,                           \
-                        AF_UNSPEC,                      \
+                        AF_INET6,                       \
                         host,                           \
                         buffer, buflen,                 \
                         errnop, h_errnop,               \
                         NULL,                           \
                         NULL);                          \
+        if (ret == NSS_STATUS_NOTFOUND)                 \
+                ret = _nss_##module##_gethostbyname3_r( \
+                        name,                           \
+                        AF_INET,                        \
+                        host,                           \
+                        buffer, buflen,                 \
+                        errnop, h_errnop,               \
+                        NULL,                           \
+                        NULL);                          \
+       return ret;                                      \
 }
 
 #define NSS_GETHOSTBYADDR_FALLBACKS(module)             \
