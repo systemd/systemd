@@ -218,7 +218,7 @@ int dns_name_normalize(const char *s, char **_ret) {
 
 unsigned long dns_name_hash_func(const void *s, const uint8_t hash_key[HASH_KEY_SIZE]) {
         const char *p = s;
-        unsigned long ul = 0;
+        unsigned long ul = hash_key[0];
         int r;
 
         assert(p);
@@ -233,7 +233,7 @@ unsigned long dns_name_hash_func(const void *s, const uint8_t hash_key[HASH_KEY_
                 label[r] = 0;
                 ascii_strlower(label);
 
-                ul = hash_key[0] * ul + ul + string_hash_func(label, hash_key);
+                ul = ul * hash_key[1] + ul + string_hash_func(label, hash_key);
         }
 
         return ul;

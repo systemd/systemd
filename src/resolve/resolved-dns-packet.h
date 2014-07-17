@@ -57,6 +57,7 @@ struct DnsPacket {
         int ifindex;
         size_t size, allocated, rindex;
         Hashmap *names; /* For name compression */
+        DnsResourceRecord **rrs;
         void *data;
 };
 
@@ -92,6 +93,12 @@ static inline uint8_t* DNS_PACKET_DATA(DnsPacket *p) {
          ((uint16_t) !!cd << 4) | \
          ((uint16_t) (rcode & 15)))
 
+static inline unsigned DNS_PACKET_RRCOUNT(DnsPacket *p) {
+        return
+                (unsigned) DNS_PACKET_ANCOUNT(p) +
+                (unsigned) DNS_PACKET_NSCOUNT(p) +
+                (unsigned) DNS_PACKET_ARCOUNT(p);
+}
 
 int dns_packet_new(DnsPacket **p, size_t mtu);
 int dns_packet_new_query(DnsPacket **p, size_t mtu);
@@ -123,6 +130,7 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start);
 void dns_packet_rewind(DnsPacket *p, size_t idx);
 
 int dns_packet_skip_question(DnsPacket *p);
+int dns_packet_extract_rrs(DnsPacket *p);
 
 enum {
         DNS_RCODE_SUCCESS = 0,

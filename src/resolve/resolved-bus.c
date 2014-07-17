@@ -59,18 +59,21 @@ static int reply_query_state(DnsQuery *q) {
 
         case DNS_QUERY_FAILURE: {
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                int rcode;
 
-                assert(q->received);
+                rcode = dns_query_get_rcode(q);
+                if (rcode < 0)
+                        return rcode;
 
-                if (DNS_PACKET_RCODE(q->received) == DNS_RCODE_NXDOMAIN)
+                if (rcode == DNS_RCODE_NXDOMAIN)
                         sd_bus_error_setf(&error, _BUS_ERROR_DNS "NXDOMAIN", "'%s' not found", name);
                 else {
                         const char *rc, *n;
                         char p[3]; /* the rcode is 4 bits long */
 
-                        rc = dns_rcode_to_string(DNS_PACKET_RCODE(q->received));
+                        rc = dns_rcode_to_string(rcode);
                         if (!rc) {
-                                sprintf(p, "%i", DNS_PACKET_RCODE(q->received));
+                                sprintf(p, "%i", rcode);
                                 rc = p;
                         }
 
@@ -129,9 +132,10 @@ static int append_address(sd_bus_message *reply, DnsResourceRecord *rr, int ifin
 static void bus_method_resolve_hostname_complete(DnsQuery *q) {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *cname = NULL, *canonical = NULL;
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        unsigned i, n, added = 0;
-        size_t answer_rindex;
-        int r;
+        DnsResourceRecord **rrs;
+        unsigned added = 0;
+        int ifindex;
+        int r, n, i;
 
         assert(q);
 
@@ -140,13 +144,11 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
                 goto finish;
         }
 
-        assert(q->received);
-
-        r = dns_packet_skip_question(q->received);
-        if (r < 0)
+        n = dns_query_get_rrs(q, &rrs);
+        if (n < 0) {
+                r = n;
                 goto parse_fail;
-
-        answer_rindex = q->received->rindex;
+        }
 
         r = sd_bus_message_new_method_return(q->request, &reply);
         if (r < 0)
@@ -156,38 +158,32 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
         if (r < 0)
                 goto finish;
 
-        n = DNS_PACKET_ANCOUNT(q->received) +
-            DNS_PACKET_NSCOUNT(q->received) +
-            DNS_PACKET_ARCOUNT(q->received);
+        ifindex = dns_query_get_ifindex(q);
+        if (ifindex < 0)
+                ifindex = 0;
 
         for (i = 0; i < n; i++) {
-                _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
-
-                r = dns_packet_read_rr(q->received, &rr, NULL);
-                if (r < 0)
-                        goto parse_fail;
-
-                r = dns_query_matches_rr(q, rr);
+                r = dns_query_matches_rr(q, rrs[i]);
                 if (r < 0)
                         goto parse_fail;
                 if (r == 0) {
                         /* Hmm, if this is not an address record,
                            maybe it's a cname? If so, remember this */
-                        r = dns_query_matches_cname(q, rr);
+                        r = dns_query_matches_cname(q, rrs[i]);
                         if (r < 0)
                                 goto parse_fail;
                         if (r > 0)
-                                cname = dns_resource_record_ref(rr);
+                                cname = dns_resource_record_ref(rrs[i]);
 
                         continue;
                 }
 
-                r = append_address(reply, rr, q->received->ifindex);
+                r = append_address(reply, rrs[i], ifindex);
                 if (r < 0)
                         goto finish;
 
                 if (!canonical)
-                        canonical = dns_resource_record_ref(rr);
+                        canonical = dns_resource_record_ref(rrs[i]);
 
                 added ++;
         }
@@ -200,7 +196,7 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
 
                 /* This has a cname? Then update the query with the
                  * new cname. */
-                r = dns_query_follow_cname(q, cname->cname.name);
+                r = dns_query_cname_redirect(q, cname->cname.name);
                 if (r < 0) {
                         if (r == -ELOOP)
                                 r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_CNAME_LOOP, "CNAME loop on '%s'", q->request_hostname);
@@ -212,26 +208,19 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
 
                 /* Before we restart the query, let's see if any of
                  * the RRs we already got already answers our query */
-                dns_packet_rewind(q->received, answer_rindex);
                 for (i = 0; i < n; i++) {
-                        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
-
-                        r = dns_packet_read_rr(q->received, &rr, NULL);
-                        if (r < 0)
-                                goto parse_fail;
-
-                        r = dns_query_matches_rr(q, rr);
+                        r = dns_query_matches_rr(q, rrs[i]);
                         if (r < 0)
                                 goto parse_fail;
                         if (r == 0)
                                 continue;
 
-                        r = append_address(reply, rr, q->received->ifindex);
+                        r = append_address(reply, rrs[i], ifindex);
                         if (r < 0)
                                 goto finish;
 
                         if (!canonical)
-                                canonical = dns_resource_record_ref(rr);
+                                canonical = dns_resource_record_ref(rrs[i]);
 
                         added++;
                 }
@@ -239,7 +228,7 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
                 /* If we didn't find anything, then let's restart the
                  * query, this time with the cname */
                 if (added <= 0) {
-                        r = dns_query_start(q);
+                        r = dns_query_go(q);
                         if (r == -ESRCH) {
                                 r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_NAME_SERVERS, "No appropriate name servers or networks for name found");
                                 goto finish;
@@ -321,7 +310,7 @@ static int bus_method_resolve_hostname(sd_bus *bus, sd_bus_message *message, voi
         q->request_hostname = hostname;
         q->complete = bus_method_resolve_hostname_complete;
 
-        r = dns_query_start(q);
+        r = dns_query_go(q);
         if (r < 0) {
                 dns_query_free(q);
 
@@ -336,8 +325,9 @@ static int bus_method_resolve_hostname(sd_bus *bus, sd_bus_message *message, voi
 
 static void bus_method_resolve_address_complete(DnsQuery *q) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        unsigned i, n, added = 0;
-        int r;
+        DnsResourceRecord **rrs;
+        unsigned added = 0;
+        int r, n, i;
 
         assert(q);
 
@@ -346,11 +336,11 @@ static void bus_method_resolve_address_complete(DnsQuery *q) {
                 goto finish;
         }
 
-        assert(q->received);
-
-        r = dns_packet_skip_question(q->received);
-        if (r < 0)
+        n = dns_query_get_rrs(q, &rrs);
+        if (n < 0) {
+                r = n;
                 goto parse_fail;
+        }
 
         r = sd_bus_message_new_method_return(q->request, &reply);
         if (r < 0)
@@ -360,24 +350,14 @@ static void bus_method_resolve_address_complete(DnsQuery *q) {
         if (r < 0)
                 goto finish;
 
-        n = DNS_PACKET_ANCOUNT(q->received) +
-            DNS_PACKET_NSCOUNT(q->received) +
-            DNS_PACKET_ARCOUNT(q->received);
-
         for (i = 0; i < n; i++) {
-                _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
-
-                r = dns_packet_read_rr(q->received, &rr, NULL);
-                if (r < 0)
-                        goto parse_fail;
-
-                r = dns_query_matches_rr(q, rr);
+                r = dns_query_matches_rr(q, rrs[i]);
                 if (r < 0)
                         goto parse_fail;
                 if (r == 0)
                         continue;
 
-                r = sd_bus_message_append(reply, "s", rr->ptr.name);
+                r = sd_bus_message_append(reply, "s", rrs[i]->ptr.name);
                 if (r < 0)
                         goto finish;
 
@@ -412,6 +392,7 @@ finish:
 
 static int bus_method_resolve_address(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(dns_resource_key_free) DnsResourceKey key = {};
+        _cleanup_free_ char *ip = NULL;
         Manager *m = userdata;
         uint8_t family;
         const void *d;
@@ -460,7 +441,7 @@ static int bus_method_resolve_address(sd_bus *bus, sd_bus_message *message, void
         memcpy(&q->request_address, d, sz);
         q->complete = bus_method_resolve_address_complete;
 
-        r = dns_query_start(q);
+        r = dns_query_go(q);
         if (r < 0) {
                 dns_query_free(q);
                 return r;

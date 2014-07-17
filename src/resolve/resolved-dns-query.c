@@ -28,7 +28,7 @@
 #define CNAME_MAX 8
 #define QUERIES_MAX 2048
 
-static int dns_query_transaction_start(DnsQueryTransaction *t);
+static int dns_query_transaction_go(DnsQueryTransaction *t);
 
 DnsQueryTransaction* dns_query_transaction_free(DnsQueryTransaction *t) {
         if (!t)
@@ -38,6 +38,8 @@ DnsQueryTransaction* dns_query_transaction_free(DnsQueryTransaction *t) {
 
         dns_packet_unref(t->sent);
         dns_packet_unref(t->received);
+
+        dns_resource_record_freev(t->cached_rrs, t->n_cached_rrs);
 
         sd_event_source_unref(t->tcp_event_source);
         safe_close(t->tcp_fd);
@@ -106,18 +108,19 @@ static void dns_query_transaction_stop(DnsQueryTransaction *t) {
         t->tcp_fd = safe_close(t->tcp_fd);
 }
 
-static void dns_query_transaction_set_state(DnsQueryTransaction *t, DnsQueryState state) {
+static void dns_query_transaction_complete(DnsQueryTransaction *t, DnsQueryState state) {
         assert(t);
+        assert(!IN_SET(state, DNS_QUERY_NULL, DNS_QUERY_PENDING));
+        assert(IN_SET(t->state, DNS_QUERY_NULL, DNS_QUERY_PENDING));
 
-        if (t->state == state)
-                return;
+        /* Note that this call might invalidate the query. Callers
+         * should hence not attempt to access the query or transaction
+         * after calling this function. */
 
         t->state = state;
 
-        if (state != DNS_QUERY_PENDING) {
-                dns_query_transaction_stop(t);
-                dns_query_finish(t->query);
-        }
+        dns_query_transaction_stop(t);
+        dns_query_finish(t->query);
 }
 
 static int on_tcp_ready(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
@@ -143,7 +146,7 @@ static int on_tcp_ready(sd_event_source *s, int fd, uint32_t revents, void *user
                 ss = writev(fd, iov, 2);
                 if (ss < 0) {
                         if (errno != EINTR && errno != EAGAIN) {
-                                dns_query_transaction_set_state(t, DNS_QUERY_RESOURCES);
+                                dns_query_transaction_complete(t, DNS_QUERY_RESOURCES);
                                 return -errno;
                         }
                 } else
@@ -153,7 +156,7 @@ static int on_tcp_ready(sd_event_source *s, int fd, uint32_t revents, void *user
                 if (t->tcp_written >= sizeof(sz) + t->sent->size) {
                         r = sd_event_source_set_io_events(s, EPOLLIN);
                         if (r < 0) {
-                                dns_query_transaction_set_state(t, DNS_QUERY_RESOURCES);
+                                dns_query_transaction_complete(t, DNS_QUERY_RESOURCES);
                                 return r;
                         }
                 }
@@ -167,11 +170,11 @@ static int on_tcp_ready(sd_event_source *s, int fd, uint32_t revents, void *user
                         ss = read(fd, (uint8_t*) &t->tcp_read_size + t->tcp_read, sizeof(t->tcp_read_size) - t->tcp_read);
                         if (ss < 0) {
                                 if (errno != EINTR && errno != EAGAIN) {
-                                        dns_query_transaction_set_state(t, DNS_QUERY_RESOURCES);
+                                        dns_query_transaction_complete(t, DNS_QUERY_RESOURCES);
                                         return -errno;
                                 }
                         } else if (ss == 0) {
-                                dns_query_transaction_set_state(t, DNS_QUERY_RESOURCES);
+                                dns_query_transaction_complete(t, DNS_QUERY_RESOURCES);
                                 return -EIO;
                         } else
                                 t->tcp_read += ss;
@@ -180,7 +183,7 @@ static int on_tcp_ready(sd_event_source *s, int fd, uint32_t revents, void *user
                 if (t->tcp_read >= sizeof(t->tcp_read_size)) {
 
                         if (be16toh(t->tcp_read_size) < DNS_PACKET_HEADER_SIZE) {
-                                dns_query_transaction_set_state(t, DNS_QUERY_INVALID_REPLY);
+                                dns_query_transaction_complete(t, DNS_QUERY_INVALID_REPLY);
                                 return -EBADMSG;
                         }
 
@@ -190,7 +193,7 @@ static int on_tcp_ready(sd_event_source *s, int fd, uint32_t revents, void *user
                                 if (!t->received) {
                                         r = dns_packet_new(&t->received, be16toh(t->tcp_read_size));
                                         if (r < 0) {
-                                                dns_query_transaction_set_state(t, DNS_QUERY_RESOURCES);
+                                                dns_query_transaction_complete(t, DNS_QUERY_RESOURCES);
                                                 return r;
                                         }
                                 }
@@ -200,11 +203,11 @@ static int on_tcp_ready(sd_event_source *s, int fd, uint32_t revents, void *user
                                           sizeof(t->tcp_read_size) + be16toh(t->tcp_read_size) - t->tcp_read);
                                 if (ss < 0) {
                                         if (errno != EINTR && errno != EAGAIN) {
-                                                dns_query_transaction_set_state(t, DNS_QUERY_RESOURCES);
+                                                dns_query_transaction_complete(t, DNS_QUERY_RESOURCES);
                                                 return -errno;
                                         }
                                 } else if (ss == 0) {
-                                        dns_query_transaction_set_state(t, DNS_QUERY_RESOURCES);
+                                        dns_query_transaction_complete(t, DNS_QUERY_RESOURCES);
                                         return -EIO;
                                 }  else
                                         t->tcp_read += ss;
@@ -221,7 +224,7 @@ static int on_tcp_ready(sd_event_source *s, int fd, uint32_t revents, void *user
         return 0;
 }
 
-static int dns_query_transaction_start_tcp(DnsQueryTransaction *t) {
+static int dns_query_transaction_open_tcp(DnsQueryTransaction *t) {
         int r;
 
         assert(t);
@@ -251,9 +254,11 @@ void dns_query_transaction_reply(DnsQueryTransaction *t, DnsPacket *p) {
 
         assert(t);
         assert(p);
+        assert(t->state == DNS_QUERY_PENDING);
 
-        if (t->state != DNS_QUERY_PENDING)
-                return;
+        /* Note that this call might invalidate the query. Callers
+         * should hence not attempt to access the query or transaction
+         * after calling this function. */
 
         if (t->received != p) {
                 dns_packet_unref(t->received);
@@ -263,32 +268,32 @@ void dns_query_transaction_reply(DnsQueryTransaction *t, DnsPacket *p) {
         if (t->tcp_fd >= 0) {
                 if (DNS_PACKET_TC(p)) {
                         /* Truncated via TCP? Somebody must be fucking with us */
-                        dns_query_transaction_set_state(t, DNS_QUERY_INVALID_REPLY);
+                        dns_query_transaction_complete(t, DNS_QUERY_INVALID_REPLY);
                         return;
                 }
 
                 if (DNS_PACKET_ID(p) != t->id) {
                         /* Not the reply to our query? Somebody must be fucking with us */
-                        dns_query_transaction_set_state(t, DNS_QUERY_INVALID_REPLY);
+                        dns_query_transaction_complete(t, DNS_QUERY_INVALID_REPLY);
                         return;
                 }
         }
 
         if (DNS_PACKET_TC(p)) {
                 /* Response was truncated, let's try again with good old TCP */
-                r = dns_query_transaction_start_tcp(t);
+                r = dns_query_transaction_open_tcp(t);
                 if (r == -ESRCH) {
                         /* No servers found? Damn! */
-                        dns_query_transaction_set_state(t, DNS_QUERY_NO_SERVERS);
+                        dns_query_transaction_complete(t, DNS_QUERY_NO_SERVERS);
                         return;
                 }
                 if (r < 0) {
                         /* Couldn't send? Try immediately again, with a new server */
                         dns_scope_next_dns_server(t->scope);
 
-                        r = dns_query_transaction_start(t);
+                        r = dns_query_transaction_go(t);
                         if (r < 0) {
-                                dns_query_transaction_set_state(t, DNS_QUERY_RESOURCES);
+                                dns_query_transaction_complete(t, DNS_QUERY_RESOURCES);
                                 return;
                         }
 
@@ -296,10 +301,18 @@ void dns_query_transaction_reply(DnsQueryTransaction *t, DnsPacket *p) {
                 }
         }
 
+        /* Parse and update the cache */
+        r = dns_packet_extract_rrs(p);
+        if (r < 0) {
+                dns_query_transaction_complete(t, DNS_QUERY_INVALID_REPLY);
+                return;
+        } else if (r > 0)
+                dns_cache_put_rrs(&t->scope->cache, p->rrs, r, 0);
+
         if (DNS_PACKET_RCODE(p) == DNS_RCODE_SUCCESS)
-                dns_query_transaction_set_state(t, DNS_QUERY_SUCCESS);
+                dns_query_transaction_complete(t, DNS_QUERY_SUCCESS);
         else
-                dns_query_transaction_set_state(t, DNS_QUERY_FAILURE);
+                dns_query_transaction_complete(t, DNS_QUERY_FAILURE);
 }
 
 static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdata) {
@@ -312,9 +325,9 @@ static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdat
         /* Timeout reached? Try again, with a new server */
         dns_scope_next_dns_server(t->scope);
 
-        r = dns_query_transaction_start(t);
+        r = dns_query_transaction_go(t);
         if (r < 0)
-                dns_query_transaction_set_state(t, DNS_QUERY_RESOURCES);
+                dns_query_transaction_complete(t, DNS_QUERY_RESOURCES);
 
         return 0;
 }
@@ -348,7 +361,7 @@ static int dns_query_make_packet(DnsQueryTransaction *t) {
         return 0;
 }
 
-static int dns_query_transaction_start(DnsQueryTransaction *t) {
+static int dns_query_transaction_go(DnsQueryTransaction *t) {
         int r;
 
         assert(t);
@@ -356,38 +369,51 @@ static int dns_query_transaction_start(DnsQueryTransaction *t) {
         dns_query_transaction_stop(t);
 
         if (t->n_attempts >= ATTEMPTS_MAX) {
-                dns_query_transaction_set_state(t, DNS_QUERY_ATTEMPTS_MAX);
+                dns_query_transaction_complete(t, DNS_QUERY_ATTEMPTS_MAX);
                 return 0;
         }
 
+        t->n_attempts++;
+        t->received = dns_packet_unref(t->received);
+        t->cached_rrs = dns_resource_record_freev(t->cached_rrs, t->n_cached_rrs);
+        t->n_cached_rrs = 0;
+
+        /* First, let's try the cache */
+        dns_cache_prune(&t->scope->cache);
+        r = dns_cache_lookup_many(&t->scope->cache, t->query->keys, t->query->n_keys, &t->cached_rrs);
+        if (r < 0)
+                return r;
+        if (r > 0) {
+                t->n_cached_rrs = r;
+                dns_query_transaction_complete(t, DNS_QUERY_SUCCESS);
+                return 0;
+        }
+
+        /* Otherwise, we need to ask the network */
         r = dns_query_make_packet(t);
         if (r < 0)
                 return r;
 
-        t->n_attempts++;
-        t->received = dns_packet_unref(t->received);
-
         /* Try via UDP, and if that fails due to large size try via TCP */
         r = dns_scope_send(t->scope, t->sent);
         if (r == -EMSGSIZE)
-                r = dns_query_transaction_start_tcp(t);
-
+                r = dns_query_transaction_open_tcp(t);
         if (r == -ESRCH) {
-                dns_query_transaction_set_state(t, DNS_QUERY_NO_SERVERS);
+                dns_query_transaction_complete(t, DNS_QUERY_NO_SERVERS);
                 return 0;
         }
         if (r < 0) {
                 /* Couldn't send? Try immediately again, with a new server */
                 dns_scope_next_dns_server(t->scope);
 
-                return dns_query_transaction_start(t);
+                return dns_query_transaction_go(t);
         }
 
         r = sd_event_add_time(t->query->manager->event, &t->timeout_event_source, CLOCK_MONOTONIC, now(CLOCK_MONOTONIC) + TRANSACTION_TIMEOUT_USEC, 0, on_transaction_timeout, t);
         if (r < 0)
                 return r;
 
-        dns_query_transaction_set_state(t, DNS_QUERY_PENDING);
+        t->state = DNS_QUERY_PENDING;
         return 1;
 }
 
@@ -399,6 +425,9 @@ DnsQuery *dns_query_free(DnsQuery *q) {
 
         sd_bus_message_unref(q->request);
         dns_packet_unref(q->received);
+
+        dns_resource_record_freev(q->cached_rrs, q->n_cached_rrs);
+
         sd_event_source_unref(q->timeout_event_source);
 
         while (q->transactions)
@@ -450,6 +479,11 @@ int dns_query_new(Manager *m, DnsQuery **ret, DnsResourceKey *keys, unsigned n_k
                         name = q->keys[q->n_keys].name;
                 else if (!dns_name_equal(name, q->keys[q->n_keys].name))
                         return -EINVAL;
+
+                log_debug("Looking up RR for %s %s %s",
+                          strna(dns_class_to_string(keys[q->n_keys].class)),
+                          strna(dns_type_to_string(keys[q->n_keys].type)),
+                          keys[q->n_keys].name);
         }
 
         LIST_PREPEND(queries, m->dns_queries, q);
@@ -472,22 +506,20 @@ static void dns_query_stop(DnsQuery *q) {
                 dns_query_transaction_free(q->transactions);
 }
 
-static void dns_query_set_state(DnsQuery *q, DnsQueryState state) {
-        DnsQueryState old_state;
+static void dns_query_complete(DnsQuery *q, DnsQueryState state) {
         assert(q);
+        assert(!IN_SET(state, DNS_QUERY_NULL, DNS_QUERY_PENDING));
+        assert(IN_SET(q->state, DNS_QUERY_NULL, DNS_QUERY_PENDING));
 
-        if (q->state == state)
-                return;
+        /* Note that this call might invalidate the query. Callers
+         * should hence not attempt to access the query or transaction
+         * after calling this function. */
 
-        old_state = q->state;
         q->state = state;
 
-        if (!IN_SET(state, DNS_QUERY_NULL, DNS_QUERY_PENDING)) {
-                dns_query_stop(q);
-
-                if (old_state == DNS_QUERY_PENDING && q->complete)
-                        q->complete(q);
-        }
+        dns_query_stop(q);
+        if (q->complete)
+                q->complete(q);
 }
 
 static int on_query_timeout(sd_event_source *s, usec_t usec, void *userdata) {
@@ -496,11 +528,11 @@ static int on_query_timeout(sd_event_source *s, usec_t usec, void *userdata) {
         assert(s);
         assert(q);
 
-        dns_query_set_state(q, DNS_QUERY_TIMEOUT);
+        dns_query_complete(q, DNS_QUERY_TIMEOUT);
         return 0;
 }
 
-int dns_query_start(DnsQuery *q) {
+int dns_query_go(DnsQuery *q) {
         DnsScopeMatch found = DNS_SCOPE_NO;
         DnsScope *s, *first = NULL;
         DnsQueryTransaction *t;
@@ -564,17 +596,17 @@ int dns_query_start(DnsQuery *q) {
         if (r < 0)
                 goto fail;
 
-        dns_query_set_state(q, DNS_QUERY_PENDING);
+        q->state = DNS_QUERY_PENDING;
+        q->block_finish++;
 
         LIST_FOREACH(transactions_by_query, t, q->transactions) {
-
-                r = dns_query_transaction_start(t);
+                r = dns_query_transaction_go(t);
                 if (r < 0)
                         goto fail;
-
-                if (q->state != DNS_QUERY_PENDING)
-                        break;
         }
+
+        q->block_finish--;
+        dns_query_finish(q);
 
         return 1;
 
@@ -589,8 +621,14 @@ void dns_query_finish(DnsQuery *q) {
         DnsPacket *received = NULL;
 
         assert(q);
+        assert(IN_SET(q->state, DNS_QUERY_NULL, DNS_QUERY_PENDING));
 
-        if (q->state != DNS_QUERY_PENDING)
+        /* Note that this call might invalidate the query. Callers
+         * should hence not attempt to access the query or transaction
+         * after calling this function, unless the block_finish
+         * counter was explicitly bumped before doing so. */
+
+        if (q->block_finish > 0)
                 return;
 
         LIST_FOREACH(transactions_by_query, t, q->transactions) {
@@ -599,10 +637,18 @@ void dns_query_finish(DnsQuery *q) {
                 if (t->state == DNS_QUERY_PENDING || t->state == DNS_QUERY_NULL)
                         return;
 
-                /* One of the transactions is successful, let's use it */
+                /* One of the transactions is successful, let's use
+                 * it, and copy its data out */
                 if (t->state == DNS_QUERY_SUCCESS) {
                         q->received = dns_packet_ref(t->received);
-                        dns_query_set_state(q, DNS_QUERY_SUCCESS);
+
+                        /* We simply steal the cached RRs array */
+                        q->cached_rrs = t->cached_rrs;
+                        q->n_cached_rrs = t->n_cached_rrs;
+                        t->cached_rrs = NULL;
+                        t->n_cached_rrs = 0;
+
+                        dns_query_complete(q, DNS_QUERY_SUCCESS);
                         return;
                 }
 
@@ -622,10 +668,10 @@ void dns_query_finish(DnsQuery *q) {
         if (state == DNS_QUERY_FAILURE)
                 q->received = dns_packet_ref(received);
 
-        dns_query_set_state(q, state);
+        dns_query_complete(q, state);
 }
 
-int dns_query_follow_cname(DnsQuery *q, const char *name) {
+int dns_query_cname_redirect(DnsQuery *q, const char *name) {
         DnsResourceKey *keys;
         unsigned i;
 
@@ -659,7 +705,9 @@ int dns_query_follow_cname(DnsQuery *q, const char *name) {
 
         q->n_cname++;
 
-        dns_query_set_state(q, DNS_QUERY_NULL);
+        dns_query_stop(q);
+        q->state = DNS_QUERY_NULL;
+
         return 0;
 }
 
@@ -708,4 +756,58 @@ int dns_query_matches_cname(DnsQuery *q, DnsResourceRecord *rr) {
         }
 
         return 0;
+}
+
+int dns_query_get_rrs(DnsQuery *q, DnsResourceRecord ***rrs) {
+        int r;
+
+        assert(q);
+        assert(rrs);
+
+        if (IN_SET(q->state, DNS_QUERY_NULL, DNS_QUERY_PENDING))
+                return -EBUSY;
+
+        if (q->received) {
+                r = dns_packet_extract_rrs(q->received);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        *rrs = NULL;
+                        return r;
+                }
+
+                *rrs = q->received->rrs;
+                return r;
+        }
+
+        if (q->cached_rrs) {
+                *rrs = q->cached_rrs;
+                return q->n_cached_rrs;
+        }
+
+        return -ESRCH;
+}
+
+int dns_query_get_rcode(DnsQuery *q) {
+        assert(q);
+
+        if (IN_SET(q->state, DNS_QUERY_NULL, DNS_QUERY_PENDING))
+                return -EBUSY;
+
+        if (!q->received)
+                return -ESRCH;
+
+        return DNS_PACKET_RCODE(q->received);
+}
+
+int dns_query_get_ifindex(DnsQuery *q) {
+        assert(q);
+
+        if (IN_SET(q->state, DNS_QUERY_NULL, DNS_QUERY_PENDING))
+                return -EBUSY;
+
+        if (!q->received)
+                return -ESRCH;
+
+        return q->received->ifindex;
 }

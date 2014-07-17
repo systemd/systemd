@@ -4658,7 +4658,9 @@ systemd_resolved_SOURCES = \
 	src/resolve/resolved-dns-server.h \
 	src/resolve/resolved-dns-server.c \
 	src/resolve/resolved-dns-rr.h \
-	src/resolve/resolved-dns-rr.c
+	src/resolve/resolved-dns-rr.c \
+	src/resolve/resolved-dns-cache.h \
+	src/resolve/resolved-dns-cache.c
 
 nodist_systemd_resolved_SOURCES = \
 	src/resolve/resolved-gperf.c

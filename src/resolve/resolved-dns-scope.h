@@ -30,6 +30,7 @@ typedef struct DnsScope DnsScope;
 #include "resolved-dns-server.h"
 #include "resolved-dns-packet.h"
 #include "resolved-dns-query.h"
+#include "resolved-dns-cache.h"
 
 typedef enum DnsScopeType {
         DNS_SCOPE_DNS,
@@ -53,6 +54,8 @@ struct DnsScope {
         Link *link;
 
         char **domains;
+
+        DnsCache cache;
 
         LIST_HEAD(DnsQueryTransaction, transactions);
 

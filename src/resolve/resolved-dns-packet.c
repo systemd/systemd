@@ -91,6 +91,9 @@ static void dns_packet_free(DnsPacket *p) {
 
         assert(p);
 
+        if (p->rrs)
+                dns_resource_record_freev(p->rrs, DNS_PACKET_RRCOUNT(p));
+
         while ((s = hashmap_steal_first_key(p->names)))
                 free(s);
         hashmap_free(p->names);
@@ -726,10 +729,12 @@ fail:
 }
 
 int dns_packet_skip_question(DnsPacket *p) {
+        unsigned i, n;
         int r;
 
-        unsigned i, n;
         assert(p);
+
+        dns_packet_rewind(p, DNS_PACKET_HEADER_SIZE);
 
         n = DNS_PACKET_QDCOUNT(p);
         for (i = 0; i < n; i++) {
@@ -741,6 +746,49 @@ int dns_packet_skip_question(DnsPacket *p) {
         }
 
         return 0;
+}
+
+int dns_packet_extract_rrs(DnsPacket *p) {
+        DnsResourceRecord **rrs = NULL;
+        size_t saved_rindex;
+        unsigned n, added = 0;
+        int r;
+
+        if (p->rrs)
+                return (int) DNS_PACKET_RRCOUNT(p);
+
+        saved_rindex = p->rindex;
+
+        r = dns_packet_skip_question(p);
+        if (r < 0)
+                goto finish;
+
+        n = DNS_PACKET_RRCOUNT(p);
+        if (n <= 0) {
+                r = 0;
+                goto finish;
+        }
+
+        rrs = new0(DnsResourceRecord*, n);
+        if (!rrs) {
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        for (added = 0; added < n; added++) {
+                r = dns_packet_read_rr(p, &rrs[added], NULL);
+                if (r < 0) {
+                        dns_resource_record_freev(rrs, added);
+                        goto finish;
+                }
+        }
+
+        p->rrs = rrs;
+        r = (int) n;
+
+finish:
+        p->rindex = saved_rindex;
+        return r;
 }
 
 static const char* const dns_rcode_table[_DNS_RCODE_MAX_DEFINED] = {

@@ -60,6 +60,8 @@ DnsScope* dns_scope_free(DnsScope *s) {
                 dns_query_finish(q);
         }
 
+        dns_cache_flush(&s->cache);
+
         LIST_REMOVE(scopes, s->manager->dns_scopes, s);
         strv_free(s->domains);
         free(s);

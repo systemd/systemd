@@ -64,6 +64,10 @@ struct DnsQueryTransaction {
         size_t tcp_written, tcp_read;
         be16_t tcp_read_size;
 
+        /* Data from cache */
+        DnsResourceRecord **cached_rrs;
+        unsigned n_cached_rrs;
+
         LIST_FIELDS(DnsQueryTransaction, transactions_by_query);
         LIST_FIELDS(DnsQueryTransaction, transactions_by_scope);
 };
@@ -79,7 +83,10 @@ struct DnsQuery {
 
         sd_event_source *timeout_event_source;
 
+        /* Discovered data */
         DnsPacket *received;
+        DnsResourceRecord **cached_rrs;
+        unsigned n_cached_rrs;
 
         /* Bus client information */
         sd_bus_message *request;
@@ -87,21 +94,30 @@ struct DnsQuery {
         const char *request_hostname;
         union in_addr_union request_address;
 
+        /* Completion callback */
         void (*complete)(DnsQuery* q);
+        unsigned block_finish;
 
         LIST_HEAD(DnsQueryTransaction, transactions);
         LIST_FIELDS(DnsQuery, queries);
 };
 
+DnsQueryTransaction* dns_query_transaction_free(DnsQueryTransaction *t);
+void dns_query_transaction_reply(DnsQueryTransaction *t, DnsPacket *p);
+
 int dns_query_new(Manager *m, DnsQuery **q, DnsResourceKey *keys, unsigned n_keys);
 DnsQuery *dns_query_free(DnsQuery *q);
-int dns_query_start(DnsQuery *q);
-int dns_query_follow_cname(DnsQuery *q, const char *name);
+
+int dns_query_go(DnsQuery *q);
+int dns_query_cname_redirect(DnsQuery *q, const char *name);
+void dns_query_finish(DnsQuery *q);
+
 int dns_query_matches_rr(DnsQuery *q, DnsResourceRecord *rr);
 int dns_query_matches_cname(DnsQuery *q, DnsResourceRecord *rr);
 
-DnsQueryTransaction* dns_query_transaction_free(DnsQueryTransaction *t);
-void dns_query_transaction_reply(DnsQueryTransaction *t, DnsPacket *p);
-void dns_query_finish(DnsQuery *q);
+/* What we found */
+int dns_query_get_rrs(DnsQuery *q, DnsResourceRecord *** rrs);
+int dns_query_get_rcode(DnsQuery *q);
+int dns_query_get_ifindex(DnsQuery *q);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsQuery*, dns_query_free);

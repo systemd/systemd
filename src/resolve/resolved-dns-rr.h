@@ -25,6 +25,7 @@
 #include <netinet/in.h>
 
 #include "util.h"
+#include "hashmap.h"
 
 typedef struct DnsResourceKey DnsResourceKey;
 typedef struct DnsResourceRecord DnsResourceRecord;
@@ -32,6 +33,7 @@ typedef struct DnsResourceRecord DnsResourceRecord;
 /* DNS record classes, see RFC 1035 */
 enum {
         DNS_CLASS_IN   = 0x01,
+        DNS_CLASS_ANY  = 0xFF,
 };
 
 /* DNS record types, see RFC 1035 */
@@ -47,6 +49,8 @@ enum {
         DNS_TYPE_TXT   = 0x10,
         DNS_TYPE_AAAA  = 0x1C,
         DNS_TYPE_SRV   = 0x21,
+        DNS_TYPE_SSHFP = 0x2C,
+        DNS_TYPE_DNAME = 0x27,
 
         /* Special records */
         DNS_TYPE_ANY   = 0xFF,
@@ -107,8 +111,18 @@ struct DnsResourceRecord {
 
 void dns_resource_key_free(DnsResourceKey *key);
 
+unsigned long dns_resource_key_hash_func(const void *i, const uint8_t hash_key[HASH_KEY_SIZE]);
+int dns_resource_key_compare_func(const void *a, const void *b);
+
 DnsResourceRecord* dns_resource_record_new(void);
 DnsResourceRecord* dns_resource_record_ref(DnsResourceRecord *rr);
 DnsResourceRecord* dns_resource_record_unref(DnsResourceRecord *rr);
+
+DnsResourceRecord** dns_resource_record_freev(DnsResourceRecord **rrs, unsigned n);
+
+int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecord *b);
+
+const char *dns_type_to_string(uint16_t type);
+const char *dns_class_to_string(uint16_t type);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsResourceRecord*, dns_resource_record_unref);
