@@ -145,10 +145,8 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
         }
 
         n = dns_query_get_rrs(q, &rrs);
-        if (n < 0) {
-                r = n;
+        if (n < 0)
                 goto parse_fail;
-        }
 
         r = sd_bus_message_new_method_return(q->request, &reply);
         if (r < 0)
@@ -337,10 +335,8 @@ static void bus_method_resolve_address_complete(DnsQuery *q) {
         }
 
         n = dns_query_get_rrs(q, &rrs);
-        if (n < 0) {
-                r = n;
+        if (n < 0)
                 goto parse_fail;
-        }
 
         r = sd_bus_message_new_method_return(q->request, &reply);
         if (r < 0)
