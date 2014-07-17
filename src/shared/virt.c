@@ -173,7 +173,7 @@ int detect_vm(const char **id) {
                         if (streq(cap, "control_d"))
                                 break;
 
-                if (!i)  {
+                if (!cap)  {
                         _id = "xen";
                         r = 1;
                 }
