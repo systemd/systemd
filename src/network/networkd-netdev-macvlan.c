@@ -74,7 +74,7 @@ static int netdev_macvlan_fill_message_create(NetDev *netdev, Link *link, sd_rtn
                 r = sd_rtnl_message_append_ether_addr(req, IFLA_ADDRESS, netdev->mac);
                 if (r < 0) {
                         log_error_netdev(netdev,
-                                         "Colud not append IFLA_ADDRESS attribute: %s",
+                                         "Could not append IFLA_ADDRESS attribute: %s",
                                          strerror(-r));
                     return r;
                 }

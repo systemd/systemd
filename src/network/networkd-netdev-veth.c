@@ -46,7 +46,7 @@ static int netdev_veth_fill_message_create(NetDev *netdev, sd_rtnl_message *m) {
                 r = sd_rtnl_message_append_ether_addr(m, IFLA_ADDRESS, netdev->mac);
                 if (r < 0) {
                         log_error_netdev(netdev,
-                                         "Colud not append IFLA_ADDRESS attribute: %s",
+                                         "Could not append IFLA_ADDRESS attribute: %s",
                                          strerror(-r));
                     return r;
                 }
@@ -88,7 +88,7 @@ static int netdev_veth_fill_message_create(NetDev *netdev, sd_rtnl_message *m) {
                 r = sd_rtnl_message_append_ether_addr(m, IFLA_ADDRESS, netdev->mac_peer);
                 if (r < 0) {
                         log_error_netdev(netdev,
-                                         "Colud not append IFLA_ADDRESS attribute: %s",
+                                         "Could not append IFLA_ADDRESS attribute: %s",
                                          strerror(-r));
                     return r;
                 }
