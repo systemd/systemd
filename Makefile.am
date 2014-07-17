@@ -2849,6 +2849,17 @@ libsystemd_terminal_la_LIBADD = \
 	libsystemd-internal.la \
 	libsystemd-shared.la
 
+noinst_PROGRAMS += \
+	systemd-subterm
+
+systemd_subterm_SOURCES = \
+	src/libsystemd-terminal/subterm.c
+
+systemd_subterm_LDADD = \
+	libsystemd-terminal.la \
+	libsystemd-internal.la \
+	libsystemd-shared.la
+
 test_term_page_SOURCES = \
 	src/libsystemd-terminal/test-term-page.c
 

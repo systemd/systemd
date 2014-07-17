@@ -107,6 +107,7 @@
 /systemd-shutdownd
 /systemd-sleep
 /systemd-socket-proxyd
+/systemd-subterm
 /systemd-sysctl
 /systemd-system-update-generator
 /systemd-sysusers
