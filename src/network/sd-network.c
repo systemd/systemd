@@ -85,9 +85,7 @@ _public_ int sd_network_get_link_state(unsigned index, char **state) {
         else if (!s)
                 return -EIO;
 
-        if (streq(s, "unmanaged"))
-                return -EUNATCH;
-        else if (streq(s, "initializing"))
+        if (streq(s, "initializing"))
                 return -EBUSY;
 
         *state = s;

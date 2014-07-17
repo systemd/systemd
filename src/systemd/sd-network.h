@@ -52,10 +52,9 @@
 _SD_BEGIN_DECLARATIONS;
 
 /* Get state from ifindex.
- * Possible states: failed, configuring, configured
+ * Possible states: failed, configuring, configured, unmanaged
  * Possible return codes:
  *   -ENODATA: networkd is not aware of the link
- *   -EUNATCH: networkd is not managing this link
  *   -EBUSY: udev is still processing the link, networkd does not yet know if it will manage it
  */
 int sd_network_get_link_state(unsigned ifindex, char **state);
