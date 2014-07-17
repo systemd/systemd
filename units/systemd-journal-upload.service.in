@@ -12,7 +12,6 @@ Description=Journal Remote Upload Service
 ExecStart=@rootlibexecdir@/systemd-journal-upload \
           --save-state
 User=systemd-journal-upload
-Group=systemd-journal-uplaod
 PrivateTmp=yes
 PrivateDevices=yes
 WatchdogSec=20min
