@@ -1476,10 +1476,13 @@ test_tables_SOURCES = \
 	src/journal/journald-server.c \
 	src/journal/journald-server.h
 
+test_tables_CPPFLAGS = \
+	$(AM_CPPFLAGS) \
+	-I$(top_srcdir)/src/bus-proxyd
+
 test_tables_CFLAGS = \
 	$(AM_CFLAGS) \
-	$(SECCOMP_CFLAGS) \
-	-I$(srcdir)/src/bus-proxyd
+	$(SECCOMP_CFLAGS)
 
 test_tables_LDADD = \
 	libsystemd-logs.la \
