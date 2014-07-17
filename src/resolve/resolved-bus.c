@@ -392,7 +392,6 @@ finish:
 
 static int bus_method_resolve_address(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(dns_resource_key_free) DnsResourceKey key = {};
-        _cleanup_free_ char *ip = NULL;
         Manager *m = userdata;
         uint8_t family;
         const void *d;
