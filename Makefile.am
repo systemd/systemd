@@ -4552,7 +4552,7 @@ nodist_systemunit_DATA += \
 	units/systemd-timesyncd.service
 
 GENERAL_ALIASES += \
-	$(systemunitdir)/systemd-timesyncd.service $(pkgsysconfdir)/system/multi-user.target.wants/systemd-timesyncd.service
+	$(systemunitdir)/systemd-timesyncd.service $(pkgsysconfdir)/system/sysinit.target.wants/systemd-timesyncd.service
 
 EXTRA_DIST += \
 	units/systemd-timesyncd.service.in
