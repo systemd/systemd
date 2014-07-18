@@ -206,7 +206,8 @@ const uint32_t *term_utf8_decode(term_utf8 *p, size_t *out_len, char c) {
                                         p->n_bytes = 4;
                                         p->i_bytes = 1;
                                         p->valid = 1;
-                                }
+                                } else
+                                        assert_not_reached("Should not happen");
 
                                 p->chars[0] = byte;
                                 p->ucs4 = t << (6 * (p->n_bytes - p->i_bytes));
