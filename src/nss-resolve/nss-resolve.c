@@ -131,7 +131,7 @@ enum nss_status _nss_resolve_gethostbyname4_r(
         if (r < 0)
                 goto fail;
 
-        r = sd_bus_message_append(req, "sy", name, AF_UNSPEC);
+        r = sd_bus_message_append(req, "si", name, AF_UNSPEC);
         if (r < 0)
                 goto fail;
 
@@ -297,7 +297,7 @@ enum nss_status _nss_resolve_gethostbyname3_r(
         if (r < 0)
                 goto fail;
 
-        r = sd_bus_message_append(req, "sy", name, af);
+        r = sd_bus_message_append(req, "si", name, af);
         if (r < 0)
                 goto fail;
 

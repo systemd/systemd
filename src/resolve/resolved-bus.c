@@ -446,8 +446,8 @@ static int bus_method_resolve_address(sd_bus *bus, sd_bus_message *message, void
 
 static const sd_bus_vtable resolve_vtable[] = {
         SD_BUS_VTABLE_START(0),
-        SD_BUS_METHOD("ResolveHostname", "sy", "a(yayi)s", bus_method_resolve_hostname, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("ResolveAddress", "yayi", "as", bus_method_resolve_address, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("ResolveHostname", "si", "a(iayi)s", bus_method_resolve_hostname, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("ResolveAddress", "iayi", "as", bus_method_resolve_address, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_VTABLE_END,
 };
 
