@@ -996,6 +996,7 @@
                                 virtualization solution, or one of
                                 <varname>qemu</varname>,
                                 <varname>kvm</varname>,
+                                <varname>zvm</varname>,
                                 <varname>vmware</varname>,
                                 <varname>microsoft</varname>,
                                 <varname>oracle</varname>,
