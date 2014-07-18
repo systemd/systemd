@@ -233,12 +233,12 @@ int bus_machine_method_get_addresses(sd_bus *bus, sd_bus_message *message, void 
         if (r < 0)
                 return sd_bus_error_set_errno(error, r);
 
-        r = sd_bus_message_open_container(reply, 'a', "(yay)");
+        r = sd_bus_message_open_container(reply, 'a', "(iay)");
         if (r < 0)
                 return sd_bus_error_set_errno(error, r);
 
         for (;;) {
-                unsigned char family;
+                int family;
                 ssize_t n;
                 union in_addr_union in_addr;
                 struct iovec iov[2];
@@ -256,11 +256,11 @@ int bus_machine_method_get_addresses(sd_bus *bus, sd_bus_message *message, void 
                 if ((size_t) n < sizeof(family))
                         break;
 
-                r = sd_bus_message_open_container(reply, 'r', "yay");
+                r = sd_bus_message_open_container(reply, 'r', "iay");
                 if (r < 0)
                         return sd_bus_error_set_errno(error, r);
 
-                r = sd_bus_message_append(reply, "y", family);
+                r = sd_bus_message_append(reply, "i", family);
                 if (r < 0)
                         return sd_bus_error_set_errno(error, r);
 
@@ -405,7 +405,7 @@ const sd_bus_vtable machine_vtable[] = {
         SD_BUS_PROPERTY("State", "s", property_get_state, 0, 0),
         SD_BUS_METHOD("Terminate", NULL, NULL, bus_machine_method_terminate, SD_BUS_VTABLE_CAPABILITY(CAP_KILL)),
         SD_BUS_METHOD("Kill", "si", NULL, bus_machine_method_kill, SD_BUS_VTABLE_CAPABILITY(CAP_KILL)),
-        SD_BUS_METHOD("GetAddresses", NULL, "a(yay)", bus_machine_method_get_addresses, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("GetAddresses", NULL, "a(iay)", bus_machine_method_get_addresses, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetOSRelease", NULL, "a{ss}", bus_machine_method_get_os_release, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_VTABLE_END
 };

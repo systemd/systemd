@@ -188,17 +188,17 @@ static int print_addresses(sd_bus *bus, const char *name, int ifi, const char *p
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_enter_container(reply, 'a', "(yay)");
+        r = sd_bus_message_enter_container(reply, 'a', "(iay)");
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        while ((r = sd_bus_message_enter_container(reply, 'r', "yay")) > 0) {
-                unsigned char family;
+        while ((r = sd_bus_message_enter_container(reply, 'r', "iay")) > 0) {
+                int family;
                 const void *a;
                 size_t sz;
                 char buffer[MAX(INET6_ADDRSTRLEN, INET_ADDRSTRLEN)];
 
-                r = sd_bus_message_read(reply, "y", &family);
+                r = sd_bus_message_read(reply, "i", &family);
                 if (r < 0)
                         return bus_log_parse_error(r);
 

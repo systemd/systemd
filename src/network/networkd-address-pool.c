@@ -26,7 +26,7 @@
 int address_pool_new(
                 Manager *m,
                 AddressPool **ret,
-                unsigned family,
+                int family,
                 const union in_addr_union *u,
                 unsigned prefixlen) {
 
@@ -54,7 +54,7 @@ int address_pool_new(
 int address_pool_new_from_string(
                 Manager *m,
                 AddressPool **ret,
-                unsigned family,
+                int family,
                 const char *p,
                 unsigned prefixlen) {
 

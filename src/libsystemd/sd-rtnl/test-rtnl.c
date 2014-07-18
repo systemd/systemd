@@ -334,8 +334,8 @@ static void test_get_addresses(sd_rtnl *rtnl) {
 
         for (m = reply; m; m = sd_rtnl_message_next(m)) {
                 uint16_t type;
-                unsigned char family, scope, flags;
-                int ifindex;
+                unsigned char scope, flags;
+                int family, ifindex;
 
                 assert_se(sd_rtnl_message_get_type(m, &type) >= 0);
                 assert_se(type == RTM_NEWADDR);

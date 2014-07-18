@@ -467,7 +467,7 @@ finish:
         return r;
 }
 
-int manager_address_pool_acquire(Manager *m, unsigned family, unsigned prefixlen, union in_addr_union *found) {
+int manager_address_pool_acquire(Manager *m, int family, unsigned prefixlen, union in_addr_union *found) {
         AddressPool *p;
         int r;
 

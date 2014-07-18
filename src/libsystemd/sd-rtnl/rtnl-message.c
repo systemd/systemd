@@ -133,7 +133,7 @@ int sd_rtnl_message_route_set_scope(sd_rtnl_message *m, unsigned char scope) {
 }
 
 int sd_rtnl_message_new_route(sd_rtnl *rtnl, sd_rtnl_message **ret,
-                              uint16_t nlmsg_type, unsigned char rtm_family) {
+                              uint16_t nlmsg_type, int rtm_family) {
         struct rtmsg *rtm;
         int r;
 
@@ -275,7 +275,7 @@ int sd_rtnl_message_addr_set_scope(sd_rtnl_message *m, unsigned char scope) {
         return 0;
 }
 
-int sd_rtnl_message_addr_get_family(sd_rtnl_message *m, unsigned char *family) {
+int sd_rtnl_message_addr_get_family(sd_rtnl_message *m, int *family) {
         struct ifaddrmsg *ifa;
 
         assert_return(m, -EINVAL);
@@ -352,7 +352,7 @@ int sd_rtnl_message_addr_get_ifindex(sd_rtnl_message *m, int *ifindex) {
 
 int sd_rtnl_message_new_addr(sd_rtnl *rtnl, sd_rtnl_message **ret,
                              uint16_t nlmsg_type, int index,
-                             unsigned char family) {
+                             int family) {
         struct ifaddrmsg *ifa;
         int r;
 
@@ -383,7 +383,7 @@ int sd_rtnl_message_new_addr(sd_rtnl *rtnl, sd_rtnl_message **ret,
 }
 
 int sd_rtnl_message_new_addr_update(sd_rtnl *rtnl, sd_rtnl_message **ret,
-                             int index, unsigned char family) {
+                             int index, int family) {
         int r;
 
         r = sd_rtnl_message_new_addr(rtnl, ret, RTM_NEWADDR, index, family);

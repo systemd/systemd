@@ -90,7 +90,7 @@ struct DnsQuery {
 
         /* Bus client information */
         sd_bus_message *request;
-        unsigned char request_family;
+        int request_family;
         const char *request_hostname;
         union in_addr_union request_address;
 

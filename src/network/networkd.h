@@ -115,7 +115,7 @@ struct Address {
         Network *network;
         uint64_t section;
 
-        unsigned char family;
+        int family;
         unsigned char prefixlen;
         unsigned char scope;
         char *label;
@@ -133,7 +133,7 @@ struct Route {
         Network *network;
         uint64_t section;
 
-        unsigned char family;
+        int family;
         unsigned char dst_prefixlen;
         unsigned char scope;
         uint32_t metrics;
@@ -209,7 +209,7 @@ struct Link {
 struct AddressPool {
         Manager *manager;
 
-        unsigned family;
+        int family;
         unsigned prefixlen;
 
         union in_addr_union in_addr;
@@ -255,7 +255,7 @@ int manager_bus_listen(Manager *m);
 
 int manager_save(Manager *m);
 
-int manager_address_pool_acquire(Manager *m, unsigned family, unsigned prefixlen, union in_addr_union *found);
+int manager_address_pool_acquire(Manager *m, int family, unsigned prefixlen, union in_addr_union *found);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 #define _cleanup_manager_free_ _cleanup_(manager_freep)
@@ -390,8 +390,8 @@ int config_parse_dhcp(const char *unit, const char *filename, unsigned line,
 
 /* Address Pool */
 
-int address_pool_new(Manager *m, AddressPool **ret, unsigned family, const union in_addr_union *u, unsigned prefixlen);
-int address_pool_new_from_string(Manager *m, AddressPool **ret, unsigned family, const char *p, unsigned prefixlen);
+int address_pool_new(Manager *m, AddressPool **ret, int family, const union in_addr_union *u, unsigned prefixlen);
+int address_pool_new_from_string(Manager *m, AddressPool **ret, int family, const char *p, unsigned prefixlen);
 void address_pool_free(AddressPool *p);
 
 int address_pool_acquire(AddressPool *p, unsigned prefixlen, union in_addr_union *found);

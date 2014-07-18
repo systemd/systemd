@@ -304,7 +304,7 @@ int config_parse_hwaddr(const char *unit,
         return 0;
 }
 
-int net_parse_inaddr(const char *address, unsigned char *family, void *dst) {
+int net_parse_inaddr(const char *address, int *family, void *dst) {
         int r;
 
         assert(address);

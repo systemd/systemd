@@ -94,9 +94,8 @@ fail:
 static int manager_process_address(sd_rtnl *rtnl, sd_rtnl_message *mm, void *userdata) {
         Manager *m = userdata;
         union in_addr_union address;
-        unsigned char family;
         uint16_t type;
-        int r, ifindex;
+        int r, ifindex, family;
         LinkAddress *a;
         Link *l;
 
@@ -311,7 +310,7 @@ static int parse_dns_server_string(Manager *m, const char *string) {
 
         FOREACH_WORD_QUOTED(word, length, string, state) {
                 char buffer[length+1];
-                unsigned family;
+                int family;
                 union in_addr_union addr;
 
                 memcpy(buffer, word, length);
@@ -860,7 +859,7 @@ static int manager_ipv6_send(Manager *m, int fd, int ifindex, struct in6_addr *a
         return sendmsg_loop(fd, &mh, 0);
 }
 
-int manager_send(Manager *m, int fd, int ifindex, unsigned char family, union in_addr_union *addr, uint16_t port, DnsPacket *p) {
+int manager_send(Manager *m, int fd, int ifindex, int family, union in_addr_union *addr, uint16_t port, DnsPacket *p) {
         assert(m);
         assert(fd >= 0);
         assert(addr);
@@ -876,7 +875,7 @@ int manager_send(Manager *m, int fd, int ifindex, unsigned char family, union in
 }
 
 
-DnsServer* manager_find_dns_server(Manager *m, unsigned char family, union in_addr_union *in_addr) {
+DnsServer* manager_find_dns_server(Manager *m, int family, union in_addr_union *in_addr) {
         DnsServer *s;
 
         assert(m);

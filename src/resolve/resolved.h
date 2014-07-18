@@ -89,12 +89,12 @@ Manager* manager_free(Manager *m);
 int manager_parse_config_file(Manager *m);
 int manager_write_resolv_conf(Manager *m);
 
-DnsServer* manager_find_dns_server(Manager *m, unsigned char family, union in_addr_union *in_addr);
+DnsServer* manager_find_dns_server(Manager *m, int family, union in_addr_union *in_addr);
 DnsServer *manager_get_dns_server(Manager *m);
 void manager_next_dns_server(Manager *m);
 uint32_t manager_find_mtu(Manager *m);
 
-int manager_send(Manager *m, int fd, int ifindex, unsigned char family, union in_addr_union *addr, uint16_t port, DnsPacket *p);
+int manager_send(Manager *m, int fd, int ifindex, int family, union in_addr_union *addr, uint16_t port, DnsPacket *p);
 int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret);
 
 int manager_dns_ipv4_fd(Manager *m);

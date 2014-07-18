@@ -31,13 +31,13 @@ union in_addr_union {
         struct in6_addr in6;
 };
 
-int in_addr_null(unsigned family, union in_addr_union *u);
-int in_addr_equal(unsigned family, union in_addr_union *a, union in_addr_union *b);
-int in_addr_prefix_intersect(unsigned family, const union in_addr_union *a, unsigned aprefixlen, const union in_addr_union *b, unsigned bprefixlen);
-int in_addr_prefix_next(unsigned family, union in_addr_union *u, unsigned prefixlen);
-int in_addr_to_string(unsigned family, const union in_addr_union *u, char **ret);
-int in_addr_from_string(unsigned family, const char *s, union in_addr_union *ret);
-int in_addr_from_string_auto(const char *s, unsigned *family, union in_addr_union *ret);
+int in_addr_null(int family, union in_addr_union *u);
+int in_addr_equal(int family, union in_addr_union *a, union in_addr_union *b);
+int in_addr_prefix_intersect(int family, const union in_addr_union *a, unsigned aprefixlen, const union in_addr_union *b, unsigned bprefixlen);
+int in_addr_prefix_next(int family, union in_addr_union *u, unsigned prefixlen);
+int in_addr_to_string(int family, const union in_addr_union *u, char **ret);
+int in_addr_from_string(int family, const char *s, union in_addr_union *ret);
+int in_addr_from_string_auto(const char *s, int *family, union in_addr_union *ret);
 
 static inline size_t FAMILY_ADDRESS_SIZE(int family) {
         assert(family == AF_INET || family == AF_INET6);

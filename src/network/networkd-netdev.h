@@ -104,7 +104,7 @@ struct NetDev {
 
         unsigned ttl;
         unsigned tos;
-        unsigned char family;
+        int family;
         union in_addr_union local;
         union in_addr_union remote;
         union in_addr_union group;

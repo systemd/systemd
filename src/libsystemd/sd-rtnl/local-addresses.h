@@ -29,8 +29,8 @@
 #include "in-addr-util.h"
 
 struct local_address {
-        int ifindex;
-        unsigned char family, scope;
+        int family, ifindex;
+        unsigned char scope;
         union in_addr_union address;
 };
 

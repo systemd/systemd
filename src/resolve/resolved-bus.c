@@ -98,18 +98,18 @@ static int append_address(sd_bus_message *reply, DnsResourceRecord *rr, int ifin
         assert(reply);
         assert(rr);
 
-        r = sd_bus_message_open_container(reply, 'r', "yayi");
+        r = sd_bus_message_open_container(reply, 'r', "iayi");
         if (r < 0)
                 return r;
 
         if (rr->key.type == DNS_TYPE_A) {
-                r = sd_bus_message_append(reply, "y", AF_INET);
+                r = sd_bus_message_append(reply, "i", AF_INET);
                 if (r < 0)
                         return r;
 
                 r = sd_bus_message_append_array(reply, 'y', &rr->a.in_addr, sizeof(struct in_addr));
         } else {
-                r = sd_bus_message_append(reply, "y", AF_INET6);
+                r = sd_bus_message_append(reply, "i", AF_INET6);
                 if (r < 0)
                         return r;
 
@@ -152,7 +152,7 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
         if (r < 0)
                 goto finish;
 
-        r = sd_bus_message_open_container(reply, 'a', "(yayi)");
+        r = sd_bus_message_open_container(reply, 'a', "(iayi)");
         if (r < 0)
                 goto finish;
 
@@ -265,7 +265,7 @@ finish:
 static int bus_method_resolve_hostname(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         const char *hostname;
-        uint8_t family;
+        int family;
         DnsResourceKey keys[2];
         DnsQuery *q;
         unsigned n = 0;
@@ -275,12 +275,12 @@ static int bus_method_resolve_hostname(sd_bus *bus, sd_bus_message *message, voi
         assert(message);
         assert(m);
 
-        r = sd_bus_message_read(message, "sy", &hostname, &family);
+        r = sd_bus_message_read(message, "si", &hostname, &family);
         if (r < 0)
                 return r;
 
         if (!IN_SET(family, AF_INET, AF_INET6, AF_UNSPEC))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown address family %u", family);
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown address family %i", family);
 
         if (!hostname_is_valid(hostname))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid hostname '%s'", hostname);
@@ -389,7 +389,7 @@ finish:
 static int bus_method_resolve_address(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(dns_resource_key_free) DnsResourceKey key = {};
         Manager *m = userdata;
-        uint8_t family;
+        int family;
         const void *d;
         int ifindex;
         DnsQuery *q;
@@ -400,19 +400,18 @@ static int bus_method_resolve_address(sd_bus *bus, sd_bus_message *message, void
         assert(message);
         assert(m);
 
-        r = sd_bus_message_read(message, "y", &family);
+        r = sd_bus_message_read(message, "i", &family);
         if (r < 0)
                 return r;
 
         if (!IN_SET(family, AF_INET, AF_INET6))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown address family %u", family);
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown address family %i", family);
 
         r = sd_bus_message_read_array(message, 'y', &d, &sz);
         if (r < 0)
                 return r;
 
-        if ((family == AF_INET && sz != sizeof(struct in_addr)) ||
-            (family == AF_INET6 && sz != sizeof(struct in6_addr)))
+        if (sz != FAMILY_ADDRESS_SIZE(family))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid address size");
 
         r = sd_bus_message_read(message, "i", &ifindex);

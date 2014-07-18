@@ -26,7 +26,7 @@ int dns_server_new(
                 DnsServer **ret,
                 DnsServerSource source,
                 Link *l,
-                unsigned char family,
+                int family,
                 const union in_addr_union *in_addr) {
 
         DnsServer *s, *tail;

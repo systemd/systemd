@@ -43,7 +43,7 @@ struct DnsServer {
 
         Link *link;
 
-        unsigned char family;
+        int family;
         union in_addr_union address;
 
         bool marked:1;
@@ -56,7 +56,7 @@ int dns_server_new(
                 DnsServer **s,
                 DnsServerSource source,
                 Link *l,
-                unsigned char family,
+                int family,
                 const union in_addr_union *address);
 
 DnsServer* dns_server_free(DnsServer *s);

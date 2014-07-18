@@ -68,11 +68,11 @@ int sd_rtnl_detach_event(sd_rtnl *nl);
 
 /* messages */
 int sd_rtnl_message_new_link(sd_rtnl *rtnl, sd_rtnl_message **ret, uint16_t msg_type, int index);
-int sd_rtnl_message_new_addr_update(sd_rtnl *rtnl, sd_rtnl_message **ret, int index, unsigned char family);
+int sd_rtnl_message_new_addr_update(sd_rtnl *rtnl, sd_rtnl_message **ret, int index, int family);
 int sd_rtnl_message_new_addr(sd_rtnl *rtnl, sd_rtnl_message **ret, uint16_t msg_type, int index,
-                             unsigned char family);
+                             int family);
 int sd_rtnl_message_new_route(sd_rtnl *rtnl, sd_rtnl_message **ret, uint16_t nlmsg_type,
-                              unsigned char rtm_family);
+                              int rtm_family);
 
 sd_rtnl_message *sd_rtnl_message_ref(sd_rtnl_message *m);
 sd_rtnl_message *sd_rtnl_message_unref(sd_rtnl_message *m);
@@ -85,7 +85,7 @@ int sd_rtnl_message_is_broadcast(sd_rtnl_message *m);
 int sd_rtnl_message_addr_set_prefixlen(sd_rtnl_message *m, unsigned char prefixlen);
 int sd_rtnl_message_addr_set_scope(sd_rtnl_message *m, unsigned char scope);
 int sd_rtnl_message_addr_set_flags(sd_rtnl_message *m, unsigned char flags);
-int sd_rtnl_message_addr_get_family(sd_rtnl_message *m, unsigned char *family);
+int sd_rtnl_message_addr_get_family(sd_rtnl_message *m, int *family);
 int sd_rtnl_message_addr_get_prefixlen(sd_rtnl_message *m, unsigned char *prefixlen);
 int sd_rtnl_message_addr_get_scope(sd_rtnl_message *m, unsigned char *scope);
 int sd_rtnl_message_addr_get_flags(sd_rtnl_message *m, unsigned char *flags);

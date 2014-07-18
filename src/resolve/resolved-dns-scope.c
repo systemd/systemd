@@ -28,7 +28,7 @@
 
 #define SEND_TIMEOUT_USEC (2*USEC_PER_SEC)
 
-int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol protocol, unsigned char family) {
+int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol protocol, int family) {
         DnsScope *s;
 
         assert(m);
@@ -106,7 +106,7 @@ void dns_scope_next_dns_server(DnsScope *s) {
 int dns_scope_send(DnsScope *s, DnsPacket *p) {
         union in_addr_union addr;
         int ifindex = 0, r;
-        unsigned char family;
+        int family;
         uint16_t port;
         uint32_t mtu;
         int fd;

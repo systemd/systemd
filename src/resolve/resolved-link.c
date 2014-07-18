@@ -259,7 +259,7 @@ int link_update_monitor(Link *l) {
         return 0;
 }
 
-bool link_relevant(Link *l, unsigned char family) {
+bool link_relevant(Link *l, int family) {
         _cleanup_free_ char *state = NULL;
         LinkAddress *a;
 
@@ -282,7 +282,7 @@ bool link_relevant(Link *l, unsigned char family) {
         return false;
 }
 
-LinkAddress *link_find_address(Link *l, unsigned char family, union in_addr_union *in_addr) {
+LinkAddress *link_find_address(Link *l, int family, union in_addr_union *in_addr) {
         LinkAddress *a;
 
         assert(l);
@@ -294,7 +294,7 @@ LinkAddress *link_find_address(Link *l, unsigned char family, union in_addr_unio
         return NULL;
 }
 
-DnsServer* link_find_dns_server(Link *l, DnsServerSource source, unsigned char family, union in_addr_union *in_addr) {
+DnsServer* link_find_dns_server(Link *l, DnsServerSource source, int family, union in_addr_union *in_addr) {
         DnsServer *first, *s;
 
         assert(l);
@@ -352,7 +352,7 @@ void link_next_dns_server(Link *l) {
         }
 }
 
-int link_address_new(Link *l, LinkAddress **ret, unsigned char family, union in_addr_union *in_addr) {
+int link_address_new(Link *l, LinkAddress **ret, int family, union in_addr_union *in_addr) {
         LinkAddress *a;
 
         assert(l);

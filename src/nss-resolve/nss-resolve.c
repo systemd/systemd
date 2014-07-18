@@ -43,20 +43,20 @@ NSS_GETHOSTBYADDR_PROTOTYPES(resolve);
 
 #define DNS_CALL_TIMEOUT_USEC (45*USEC_PER_SEC)
 
-static int count_addresses(sd_bus_message *m, unsigned af, const char **canonical) {
+static int count_addresses(sd_bus_message *m, int af, const char **canonical) {
         int c = 0, r;
 
         assert(m);
         assert(canonical);
 
-        r = sd_bus_message_enter_container(m, 'a', "(yayi)");
+        r = sd_bus_message_enter_container(m, 'a', "(iayi)");
         if (r < 0)
                 return r;
 
-        while ((r = sd_bus_message_enter_container(m, 'r', "yayi")) > 0) {
-                unsigned char family;
+        while ((r = sd_bus_message_enter_container(m, 'r', "iayi")) > 0) {
+                int family;
 
-                r = sd_bus_message_read(m, "y", &family);
+                r = sd_bus_message_read(m, "i", &family);
                 if (r < 0)
                         return r;
 
@@ -178,17 +178,16 @@ enum nss_status _nss_resolve_gethostbyname4_r(
         /* Second, append addresses */
         r_tuple_first = (struct gaih_addrtuple*) (buffer + idx);
 
-        r = sd_bus_message_enter_container(reply, 'a', "(yayi)");
+        r = sd_bus_message_enter_container(reply, 'a', "(iayi)");
         if (r < 0)
                 goto fail;
 
-        while ((r = sd_bus_message_enter_container(reply, 'r', "yayi")) > 0) {
-                unsigned char family;
+        while ((r = sd_bus_message_enter_container(reply, 'r', "iayi")) > 0) {
+                int family, ifindex;
                 const void *a;
-                int ifindex;
                 size_t sz;
 
-                r = sd_bus_message_read(reply, "y", &family);
+                r = sd_bus_message_read(reply, "i", &family);
                 if (r < 0)
                         goto fail;
 
@@ -356,17 +355,16 @@ enum nss_status _nss_resolve_gethostbyname3_r(
         /* Third, append addresses */
         r_addr = buffer + idx;
 
-        r = sd_bus_message_enter_container(reply, 'a', "(yayi)");
+        r = sd_bus_message_enter_container(reply, 'a', "(iayi)");
         if (r < 0)
                 goto fail;
 
-        while ((r = sd_bus_message_enter_container(reply, 'r', "yayi")) > 0) {
-                unsigned char family;
+        while ((r = sd_bus_message_enter_container(reply, 'r', "iayi")) > 0) {
+                int family, ifindex;
                 const void *a;
-                int ifindex;
                 size_t sz;
 
-                r = sd_bus_message_read(reply, "y", &family);
+                r = sd_bus_message_read(reply, "i", &family);
                 if (r < 0)
                         goto fail;
 
@@ -487,7 +485,7 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
         if (r < 0)
                 goto fail;
 
-        r = sd_bus_message_append(req, "y", af);
+        r = sd_bus_message_append(req, "i", af);
         if (r < 0)
                 goto fail;
 

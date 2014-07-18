@@ -44,7 +44,7 @@ struct DnsScope {
         Manager *manager;
 
         DnsProtocol protocol;
-        unsigned char family;
+        int family;
 
         Link *link;
 
@@ -57,7 +57,7 @@ struct DnsScope {
         LIST_FIELDS(DnsScope, scopes);
 };
 
-int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol p, unsigned char family);
+int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol p, int family);
 DnsScope* dns_scope_free(DnsScope *s);
 
 int dns_scope_send(DnsScope *s, DnsPacket *p);

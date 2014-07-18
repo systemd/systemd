@@ -70,9 +70,9 @@ struct DnsPacket {
 
         /* Packet reception meta data */
         int ifindex;
-        unsigned char family;
+        int family;
         union in_addr_union sender, destination;
-        unsigned ttl;
+        uint32_t ttl;
 };
 
 static inline uint8_t* DNS_PACKET_DATA(DnsPacket *p) {

@@ -32,7 +32,7 @@
 
 NSS_GETHOSTBYNAME_PROTOTYPES(mymachines);
 
-static int count_addresses(sd_bus_message *m, unsigned af, unsigned *ret) {
+static int count_addresses(sd_bus_message *m, int af, unsigned *ret) {
         unsigned c = 0;
         int r;
 
@@ -40,9 +40,9 @@ static int count_addresses(sd_bus_message *m, unsigned af, unsigned *ret) {
         assert(ret);
 
         while ((r = sd_bus_message_enter_container(m, 'r', "yay")) > 0) {
-                unsigned char family;
+                int family;
 
-                r = sd_bus_message_read(m, "y", &family);
+                r = sd_bus_message_read(m, "i", &family);
                 if (r < 0)
                         return r;
 
@@ -122,7 +122,7 @@ enum nss_status _nss_mymachines_gethostbyname4_r(
         if (r < 0)
                 goto fail;
 
-        r = sd_bus_message_enter_container(reply, 'a', "(yay)");
+        r = sd_bus_message_enter_container(reply, 'a', "(iay)");
         if (r < 0)
                 goto fail;
 
@@ -151,12 +151,12 @@ enum nss_status _nss_mymachines_gethostbyname4_r(
 
         /* Second, append addresses */
         r_tuple_first = (struct gaih_addrtuple*) (buffer + idx);
-        while ((r = sd_bus_message_enter_container(reply, 'r', "yay")) > 0) {
-                unsigned char family;
+        while ((r = sd_bus_message_enter_container(reply, 'r', "iay")) > 0) {
+                int family;
                 const void *a;
                 size_t sz;
 
-                r = sd_bus_message_read(reply, "y", &family);
+                r = sd_bus_message_read(reply, "i", &family);
                 if (r < 0)
                         goto fail;
 
@@ -267,7 +267,7 @@ enum nss_status _nss_mymachines_gethostbyname3_r(
         if (r < 0)
                 goto fail;
 
-        r = sd_bus_message_enter_container(reply, 'a', "(yay)");
+        r = sd_bus_message_enter_container(reply, 'a', "(iay)");
         if (r < 0)
                 goto fail;
 
@@ -307,12 +307,12 @@ enum nss_status _nss_mymachines_gethostbyname3_r(
 
         /* Third, append addresses */
         r_addr = buffer + idx;
-        while ((r = sd_bus_message_enter_container(reply, 'r', "yay")) > 0) {
-                unsigned char family;
+        while ((r = sd_bus_message_enter_container(reply, 'r', "iay")) > 0) {
+                int family;
                 const void *a;
                 size_t sz;
 
-                r = sd_bus_message_read(reply, "y", &family);
+                r = sd_bus_message_read(reply, "i", &family);
                 if (r < 0)
                         goto fail;
 
