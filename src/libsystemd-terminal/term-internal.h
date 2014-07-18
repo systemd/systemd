@@ -145,6 +145,11 @@ static inline void term_char_freep(term_char_t *p) {
  */
 
 enum {
+        /* special color-codes */
+        TERM_CCODE_DEFAULT,                                             /* default foreground/background color */
+        TERM_CCODE_256,                                                 /* 256color code */
+        TERM_CCODE_RGB,                                                 /* color is specified as RGB */
+
         /* dark color-codes */
         TERM_CCODE_BLACK,
         TERM_CCODE_RED,
@@ -165,16 +170,12 @@ enum {
         TERM_CCODE_LIGHT_CYAN           = TERM_CCODE_CYAN + 8,
         TERM_CCODE_LIGHT_WHITE          = TERM_CCODE_WHITE + 8,
 
-        /* pseudo colors */
-        TERM_CCODE_FG,                                                  /* selected foreground color */
-        TERM_CCODE_BG,                                                  /* selected background color */
-        TERM_CCODE_RGB,                                                 /* color is specified as RGB */
-
         TERM_CCODE_CNT,
 };
 
 struct term_color {
         uint8_t ccode;
+        uint8_t c256;
         uint8_t red;
         uint8_t green;
         uint8_t blue;
@@ -190,6 +191,7 @@ struct term_attr {
         unsigned int inverse : 1;               /* inverse fg/bg */
         unsigned int protect : 1;               /* protect from erase */
         unsigned int blink : 1;                 /* blink text */
+        unsigned int hidden : 1;                /* hidden */
 };
 
 /*
