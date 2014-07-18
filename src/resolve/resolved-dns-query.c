@@ -191,7 +191,7 @@ static int on_tcp_ready(sd_event_source *s, int fd, uint32_t revents, void *user
                                 ssize_t ss;
 
                                 if (!t->received) {
-                                        r = dns_packet_new(&t->received, be16toh(t->tcp_read_size));
+                                        r = dns_packet_new(&t->received, t->scope->protocol, be16toh(t->tcp_read_size));
                                         if (r < 0) {
                                                 dns_query_transaction_complete(t, DNS_QUERY_RESOURCES);
                                                 return r;
@@ -228,6 +228,9 @@ static int dns_query_transaction_open_tcp(DnsQueryTransaction *t) {
         int r;
 
         assert(t);
+
+        if (t->scope->protocol == DNS_PROTOCOL_DNS)
+                return -ENOTSUP;
 
         if (t->tcp_fd >= 0)
                 return 0;
@@ -334,7 +337,7 @@ static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdat
 
 static int dns_query_make_packet(DnsQueryTransaction *t) {
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
-        unsigned n;
+        unsigned n, added = 0;
         int r;
 
         assert(t);
@@ -342,17 +345,28 @@ static int dns_query_make_packet(DnsQueryTransaction *t) {
         if (t->sent)
                 return 0;
 
-        r = dns_packet_new_query(&p, 0);
+        r = dns_packet_new_query(&p, t->scope->protocol, 0);
         if (r < 0)
                 return r;
 
         for (n = 0; n < t->query->n_keys; n++) {
+                r = dns_scope_good_key(t->scope, &t->query->keys[n]);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+
                 r = dns_packet_append_key(p, &t->query->keys[n], NULL);
                 if (r < 0)
                         return r;
+
+                added++;
         }
 
-        DNS_PACKET_HEADER(p)->qdcount = htobe16(t->query->n_keys);
+        if (added <= 0)
+                return -EDOM;
+
+        DNS_PACKET_HEADER(p)->qdcount = htobe16(added);
         DNS_PACKET_HEADER(p)->id = t->id;
 
         t->sent = p;
@@ -391,6 +405,13 @@ static int dns_query_transaction_go(DnsQueryTransaction *t) {
 
         /* Otherwise, we need to ask the network */
         r = dns_query_make_packet(t);
+        if (r == -EDOM) {
+                /* Not the right request to make on this network?
+                 * (i.e. an A request made on IPv6 or an AAAA request
+                 * made on IPv4, on LLMNR or mDNS.) */
+                dns_query_transaction_complete(t, DNS_QUERY_NO_SERVERS);
+                return 0;
+        }
         if (r < 0)
                 return r;
 
@@ -399,6 +420,7 @@ static int dns_query_transaction_go(DnsQueryTransaction *t) {
         if (r == -EMSGSIZE)
                 r = dns_query_transaction_open_tcp(t);
         if (r == -ESRCH) {
+                /* No servers to send this to? */
                 dns_query_transaction_complete(t, DNS_QUERY_NO_SERVERS);
                 return 0;
         }
@@ -548,7 +570,7 @@ int dns_query_go(DnsQuery *q) {
         LIST_FOREACH(scopes, s, q->manager->dns_scopes) {
                 DnsScopeMatch match;
 
-                match = dns_scope_test(s, q->keys[0].name);
+                match = dns_scope_good_domain(s, q->keys[0].name);
                 if (match < 0)
                         return match;
 
@@ -578,7 +600,7 @@ int dns_query_go(DnsQuery *q) {
         LIST_FOREACH(scopes, s, first->scopes_next) {
                 DnsScopeMatch match;
 
-                match = dns_scope_test(s, q->keys[0].name);
+                match = dns_scope_good_domain(s, q->keys[0].name);
                 if (match < 0)
                         return match;
 

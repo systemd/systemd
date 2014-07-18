@@ -28,7 +28,7 @@
 
 #define SEND_TIMEOUT_USEC (2*USEC_PER_SEC)
 
-int dns_scope_new(Manager *m, DnsScope **ret, DnsScopeType t) {
+int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol protocol, unsigned char family) {
         DnsScope *s;
 
         assert(m);
@@ -39,9 +39,15 @@ int dns_scope_new(Manager *m, DnsScope **ret, DnsScopeType t) {
                 return -ENOMEM;
 
         s->manager = m;
-        s->type = t;
+        s->link = l;
+        s->protocol = protocol;
+        s->family = family;
 
         LIST_PREPEND(scopes, m->dns_scopes, s);
+
+        dns_scope_llmnr_membership(s, true);
+
+        log_debug("New scope on link %s, protocol %s, family %s", strna(l ? l->name : NULL), dns_protocol_to_string(protocol), family_to_string(family));
 
         *ret = s;
         return 0;
@@ -50,6 +56,10 @@ int dns_scope_new(Manager *m, DnsScope **ret, DnsScopeType t) {
 DnsScope* dns_scope_free(DnsScope *s) {
         if (!s)
                 return NULL;
+
+        log_debug("Removing scope on link %s, protocol %s, family %s", strna(s->link ? s->link->name : NULL), dns_protocol_to_string(s->protocol), family_to_string(s->family));
+
+        dns_scope_llmnr_membership(s, false);
 
         while (s->transactions) {
                 DnsQuery *q;
@@ -72,6 +82,9 @@ DnsScope* dns_scope_free(DnsScope *s) {
 DnsServer *dns_scope_get_server(DnsScope *s) {
         assert(s);
 
+        if (s->protocol != DNS_PROTOCOL_DNS)
+                return NULL;
+
         if (s->link)
                 return link_get_dns_server(s->link);
         else
@@ -81,6 +94,9 @@ DnsServer *dns_scope_get_server(DnsScope *s) {
 void dns_scope_next_dns_server(DnsScope *s) {
         assert(s);
 
+        if (s->protocol != DNS_PROTOCOL_DNS)
+                return;
+
         if (s->link)
                 link_next_dns_server(s->link);
         else
@@ -88,42 +104,73 @@ void dns_scope_next_dns_server(DnsScope *s) {
 }
 
 int dns_scope_send(DnsScope *s, DnsPacket *p) {
-        int ifindex = 0;
-        DnsServer *srv;
-        int r;
+        union in_addr_union addr;
+        int ifindex = 0, r;
+        unsigned char family;
+        uint16_t port;
+        uint32_t mtu;
+        int fd;
 
         assert(s);
         assert(p);
-
-        srv = dns_scope_get_server(s);
-        if (!srv)
-                return -ESRCH;
+        assert(p->protocol == s->protocol);
 
         if (s->link) {
-                if (p->size > s->link->mtu)
+                mtu = s->link->mtu;
+                ifindex = s->link->ifindex;
+        } else
+                mtu = manager_find_mtu(s->manager);
+
+        if (s->protocol == DNS_PROTOCOL_DNS) {
+                DnsServer *srv;
+
+                srv = dns_scope_get_server(s);
+                if (!srv)
+                        return -ESRCH;
+
+                family = srv->family;
+                addr = srv->address;
+                port = 53;
+
+                if (p->size > DNS_PACKET_UNICAST_SIZE_MAX)
                         return -EMSGSIZE;
 
-                ifindex = s->link->ifindex;
-        } else {
-                uint32_t mtu;
+                if (p->size > mtu)
+                        return -EMSGSIZE;
 
-                mtu = manager_find_mtu(s->manager);
-                if (mtu > 0) {
-                        if (p->size > mtu)
-                                return -EMSGSIZE;
-                }
-        }
+                if (family == AF_INET)
+                        fd = manager_dns_ipv4_fd(s->manager);
+                else if (family == AF_INET6)
+                        fd = manager_dns_ipv6_fd(s->manager);
+                else
+                        return -EAFNOSUPPORT;
+                if (fd < 0)
+                        return fd;
 
-        if (p->size > DNS_PACKET_UNICAST_SIZE_MAX)
-                return -EMSGSIZE;
+        } else if (s->protocol == DNS_PROTOCOL_LLMNR) {
 
-        if (srv->family == AF_INET)
-                r = manager_dns_ipv4_send(s->manager, srv, ifindex, p);
-        else if (srv->family == AF_INET6)
-                r = manager_dns_ipv6_send(s->manager, srv, ifindex, p);
-        else
+                if (DNS_PACKET_QDCOUNT(p) > 1)
+                        return -ENOTSUP;
+
+                family = s->family;
+                port = 5355;
+
+                if (family == AF_INET) {
+                        addr.in = LLMNR_MULTICAST_IPV4_ADDRESS;
+                        /* fd = manager_dns_ipv4_fd(s->manager); */
+                        fd = manager_llmnr_ipv4_udp_fd(s->manager);
+                } else if (family == AF_INET6) {
+                        addr.in6 = LLMNR_MULTICAST_IPV6_ADDRESS;
+                        fd = manager_llmnr_ipv6_udp_fd(s->manager);
+                        /* fd = manager_dns_ipv6_fd(s->manager); */
+                } else
+                        return -EAFNOSUPPORT;
+                if (fd < 0)
+                        return fd;
+        } else
                 return -EAFNOSUPPORT;
 
+        r = manager_send(s->manager, fd, ifindex, family, &addr, port, p);
         if (r < 0)
                 return r;
 
@@ -176,7 +223,7 @@ int dns_scope_tcp_socket(DnsScope *s) {
         return ret;
 }
 
-DnsScopeMatch dns_scope_test(DnsScope *s, const char *domain) {
+DnsScopeMatch dns_scope_good_domain(DnsScope *s, const char *domain) {
         char **i;
 
         assert(s);
@@ -192,18 +239,7 @@ DnsScopeMatch dns_scope_test(DnsScope *s, const char *domain) {
         if (is_localhost(domain))
                 return DNS_SCOPE_NO;
 
-        if (s->type == DNS_SCOPE_MDNS) {
-                if (dns_name_endswith(domain, "254.169.in-addr.arpa") ||
-                    dns_name_endswith(domain, "0.8.e.f.ip6.arpa"))
-                        return DNS_SCOPE_YES;
-                else if (dns_name_endswith(domain, "local") &&
-                         !dns_name_single_label(domain))
-                        return DNS_SCOPE_MAYBE;
-
-                return DNS_SCOPE_NO;
-        }
-
-        if (s->type == DNS_SCOPE_DNS) {
+        if (s->protocol == DNS_PROTOCOL_DNS) {
                 if (dns_name_endswith(domain, "254.169.in-addr.arpa") ||
                     dns_name_endswith(domain, "0.8.e.f.ip6.arpa") ||
                     dns_name_single_label(domain))
@@ -212,5 +248,76 @@ DnsScopeMatch dns_scope_test(DnsScope *s, const char *domain) {
                 return DNS_SCOPE_MAYBE;
         }
 
-        assert_not_reached("Unknown scope type");
+        if (s->protocol == DNS_PROTOCOL_MDNS) {
+                if (dns_name_endswith(domain, "254.169.in-addr.arpa") ||
+                    dns_name_endswith(domain, "0.8.e.f.ip6.arpa") ||
+                    dns_name_endswith(domain, "local"))
+                        return DNS_SCOPE_MAYBE;
+
+                return DNS_SCOPE_NO;
+        }
+
+        if (s->protocol == DNS_PROTOCOL_LLMNR) {
+                if (dns_name_endswith(domain, "254.169.in-addr.arpa") ||
+                    dns_name_endswith(domain, "0.8.e.f.ip6.arpa") ||
+                    dns_name_single_label(domain))
+                        return DNS_SCOPE_MAYBE;
+
+                return DNS_SCOPE_NO;
+        }
+
+        assert_not_reached("Unknown scope protocol");
+}
+
+int dns_scope_good_key(DnsScope *s, DnsResourceKey *key) {
+        assert(s);
+        assert(key);
+
+        if (s->protocol == DNS_PROTOCOL_DNS)
+                return true;
+
+        /* On mDNS and LLMNR, send A and AAAA queries only on the
+         * respective scopes */
+
+        if (s->family == AF_INET && key->class == DNS_CLASS_IN && key->type == DNS_TYPE_AAAA)
+                return false;
+
+        if (s->family == AF_INET6 && key->class == DNS_CLASS_IN && key->type == DNS_TYPE_A)
+                return false;
+
+        return true;
+}
+
+int dns_scope_llmnr_membership(DnsScope *s, bool b) {
+        int fd;
+
+        if (s->family == AF_INET) {
+                struct ip_mreqn mreqn = {
+                        .imr_multiaddr = LLMNR_MULTICAST_IPV4_ADDRESS,
+                        .imr_ifindex = s->link->ifindex,
+                };
+
+                fd = manager_llmnr_ipv4_udp_fd(s->manager);
+                if (fd < 0)
+                        return fd;
+
+                if (setsockopt(fd, IPPROTO_IP, b ? IP_ADD_MEMBERSHIP : IP_DROP_MEMBERSHIP, &mreqn, sizeof(mreqn)) < 0)
+                        return -errno;
+
+        } else if (s->family == AF_INET6) {
+                struct ipv6_mreq mreq = {
+                        .ipv6mr_multiaddr = LLMNR_MULTICAST_IPV6_ADDRESS,
+                        .ipv6mr_interface = s->link->ifindex,
+                };
+
+                fd = manager_llmnr_ipv6_udp_fd(s->manager);
+                if (fd < 0)
+                        return fd;
+
+                if (setsockopt(fd, IPPROTO_IPV6, b ? IPV6_ADD_MEMBERSHIP : IPV6_DROP_MEMBERSHIP, &mreq, sizeof(mreq)) < 0)
+                        return -errno;
+        } else
+                return -EAFNOSUPPORT;
+
+        return 0;
 }

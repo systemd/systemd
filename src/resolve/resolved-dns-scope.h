@@ -32,11 +32,6 @@ typedef struct DnsScope DnsScope;
 #include "resolved-dns-query.h"
 #include "resolved-dns-cache.h"
 
-typedef enum DnsScopeType {
-        DNS_SCOPE_DNS,
-        DNS_SCOPE_MDNS,
-} DnsScopeType;
-
 typedef enum DnsScopeMatch {
         DNS_SCOPE_NO,
         DNS_SCOPE_MAYBE,
@@ -48,7 +43,7 @@ typedef enum DnsScopeMatch {
 struct DnsScope {
         Manager *manager;
 
-        DnsScopeType type;
+        DnsProtocol protocol;
         unsigned char family;
 
         Link *link;
@@ -62,13 +57,16 @@ struct DnsScope {
         LIST_FIELDS(DnsScope, scopes);
 };
 
-int dns_scope_new(Manager *m, DnsScope **ret, DnsScopeType t);
+int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol p, unsigned char family);
 DnsScope* dns_scope_free(DnsScope *s);
 
 int dns_scope_send(DnsScope *s, DnsPacket *p);
 int dns_scope_tcp_socket(DnsScope *s);
 
-DnsScopeMatch dns_scope_test(DnsScope *s, const char *domain);
+DnsScopeMatch dns_scope_good_domain(DnsScope *s, const char *domain);
+int dns_scope_good_key(DnsScope *s, DnsResourceKey *key);
 
 DnsServer *dns_scope_get_server(DnsScope *s);
 void dns_scope_next_dns_server(DnsScope *s);
+
+int dns_scope_llmnr_membership(DnsScope *s, bool b);

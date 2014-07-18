@@ -21,6 +21,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <net/if.h>
+
 #include "in-addr-util.h"
 #include "ratelimit.h"
 
@@ -55,21 +57,21 @@ struct Link {
         DnsServer *current_dns_server;
 
         DnsScope *unicast_scope;
-        DnsScope *mdns_ipv4_scope;
-        DnsScope *mdns_ipv6_scope;
+        DnsScope *llmnr_ipv4_scope;
+        DnsScope *llmnr_ipv6_scope;
 
+        char name[IF_NAMESIZE];
         uint32_t mtu;
 
-        char *operational_state;
-
         RateLimit mdns_ratelimit;
+        RateLimit llmnr_ratelimit;
 };
 
 int link_new(Manager *m, Link **ret, int ifindex);
 Link *link_free(Link *l);
 int link_update_rtnl(Link *l, sd_rtnl_message *m);
 int link_update_monitor(Link *l);
-bool link_relevant(Link *l);
+bool link_relevant(Link *l, unsigned char family);
 LinkAddress* link_find_address(Link *l, unsigned char family, union in_addr_union *in_addr);
 
 DnsServer* link_find_dns_server(Link *l, DnsServerSource source, unsigned char family, union in_addr_union *in_addr);

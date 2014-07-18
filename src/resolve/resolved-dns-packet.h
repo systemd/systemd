@@ -31,6 +31,14 @@ typedef struct DnsPacket DnsPacket;
 #include "hashmap.h"
 #include "resolved-dns-rr.h"
 
+typedef enum DnsProtocol {
+        DNS_PROTOCOL_DNS,
+        DNS_PROTOCOL_MDNS,
+        DNS_PROTOCOL_LLMNR,
+        _DNS_PROTOCOL_MAX,
+        _DNS_PROTOCOL_INVALID = -1
+} DnsProtocol;
+
 struct DnsPacketHeader {
         uint16_t id;
         be16_t flags;
@@ -54,11 +62,17 @@ struct DnsPacketHeader {
 
 struct DnsPacket {
         int n_ref;
-        int ifindex;
+        DnsProtocol protocol;
         size_t size, allocated, rindex;
+        void *data;
         Hashmap *names; /* For name compression */
         DnsResourceRecord **rrs;
-        void *data;
+
+        /* Packet reception meta data */
+        int ifindex;
+        unsigned char family;
+        union in_addr_union sender, destination;
+        unsigned ttl;
 };
 
 static inline uint8_t* DNS_PACKET_DATA(DnsPacket *p) {
@@ -100,8 +114,8 @@ static inline unsigned DNS_PACKET_RRCOUNT(DnsPacket *p) {
                 (unsigned) DNS_PACKET_ARCOUNT(p);
 }
 
-int dns_packet_new(DnsPacket **p, size_t mtu);
-int dns_packet_new_query(DnsPacket **p, size_t mtu);
+int dns_packet_new(DnsPacket **p, DnsProtocol protocol, size_t mtu);
+int dns_packet_new_query(DnsPacket **p, DnsProtocol protocol, size_t mtu);
 
 DnsPacket *dns_packet_ref(DnsPacket *p);
 DnsPacket *dns_packet_unref(DnsPacket *p);
@@ -157,3 +171,9 @@ enum {
 
 const char* dns_rcode_to_string(int i) _const_;
 int dns_rcode_from_string(const char *s) _pure_;
+
+const char* dns_protocol_to_string(DnsProtocol p) _const_;
+DnsProtocol dns_protocol_from_string(const char *s) _pure_;
+
+#define LLMNR_MULTICAST_IPV4_ADDRESS ((struct in_addr) { .s_addr = htobe32(224U << 24 | 252U) })
+#define LLMNR_MULTICAST_IPV6_ADDRESS ((struct in6_addr) { .s6_addr = { 0xFF, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x03 } })

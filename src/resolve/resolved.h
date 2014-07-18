@@ -38,7 +38,9 @@ typedef struct Manager Manager;
 struct Manager {
         sd_event *event;
 
-        /* network */
+        bool use_llmnr:1;
+
+        /* Network */
         Hashmap *links;
 
         sd_rtnl *rtnl;
@@ -47,22 +49,32 @@ struct Manager {
         sd_network_monitor *network_monitor;
         sd_event_source *network_event_source;
 
-        /* unicast dns */
+        /* DNS query management */
+        Hashmap *dns_query_transactions;
+        LIST_HEAD(DnsQuery, dns_queries);
+        unsigned n_dns_queries;
+
+        /* Unicast dns */
         int dns_ipv4_fd;
         int dns_ipv6_fd;
 
         sd_event_source *dns_ipv4_event_source;
         sd_event_source *dns_ipv6_event_source;
 
-        Hashmap *dns_query_transactions;
-        LIST_HEAD(DnsQuery, dns_queries);
-        unsigned n_dns_queries;
-
         LIST_HEAD(DnsServer, dns_servers);
         DnsServer *current_dns_server;
 
         LIST_HEAD(DnsScope, dns_scopes);
         DnsScope *unicast_scope;
+
+        /* LLMNR */
+        int llmnr_ipv4_udp_fd;
+        int llmnr_ipv6_udp_fd;
+        /* int llmnr_ipv4_tcp_fd; */
+        /* int llmnr_ipv6_tcp_fd; */
+
+        sd_event_source *llmnr_ipv4_udp_event_source;
+        sd_event_source *llmnr_ipv6_udp_event_source;
 
         /* dbus */
         sd_bus *bus;
@@ -82,13 +94,13 @@ DnsServer *manager_get_dns_server(Manager *m);
 void manager_next_dns_server(Manager *m);
 uint32_t manager_find_mtu(Manager *m);
 
-int manager_dns_ipv4_fd(Manager *m);
-int manager_dns_ipv4_send(Manager *m, DnsServer *srv, int ifindex, DnsPacket *p);
-int manager_dns_ipv4_recv(Manager *m, DnsPacket **ret);
+int manager_send(Manager *m, int fd, int ifindex, unsigned char family, union in_addr_union *addr, uint16_t port, DnsPacket *p);
+int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret);
 
+int manager_dns_ipv4_fd(Manager *m);
 int manager_dns_ipv6_fd(Manager *m);
-int manager_dns_ipv6_send(Manager *m, DnsServer *srv, int ifindex, DnsPacket *p);
-int manager_dns_ipv6_recv(Manager *m, DnsPacket **ret);
+int manager_llmnr_ipv4_udp_fd(Manager *m);
+int manager_llmnr_ipv6_udp_fd(Manager *m);
 
 int manager_connect_bus(Manager *m);
 

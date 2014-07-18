@@ -68,8 +68,8 @@ Link *link_free(Link *l) {
                 hashmap_remove(l->manager->links, INT_TO_PTR(l->ifindex));
 
         dns_scope_free(l->unicast_scope);
-        dns_scope_free(l->mdns_ipv4_scope);
-        dns_scope_free(l->mdns_ipv6_scope);
+        dns_scope_free(l->llmnr_ipv4_scope);
+        dns_scope_free(l->llmnr_ipv6_scope);
 
         while (l->dhcp_dns_servers)
                 dns_server_free(l->dhcp_dns_servers);
@@ -79,9 +79,43 @@ Link *link_free(Link *l) {
 
         free(l);
         return NULL;
- }
+}
+
+static void link_allocate_scopes(Link *l) {
+        int r;
+
+        assert(l);
+
+        if (l->link_dns_servers || l->dhcp_dns_servers) {
+                if (!l->unicast_scope) {
+                        r = dns_scope_new(l->manager, &l->unicast_scope, l, DNS_PROTOCOL_DNS, AF_UNSPEC);
+                        if (r < 0)
+                                log_warning("Failed to allocate DNS scope: %s", strerror(-r));
+                }
+        } else
+                l->unicast_scope = dns_scope_free(l->unicast_scope);
+
+        if (link_relevant(l, AF_INET) && l->manager->use_llmnr) {
+                if (!l->llmnr_ipv4_scope) {
+                        r = dns_scope_new(l->manager, &l->llmnr_ipv4_scope, l, DNS_PROTOCOL_LLMNR, AF_INET);
+                        if (r < 0)
+                                log_warning("Failed to allocate LLMNR IPv4 scope: %s", strerror(-r));
+                }
+        } else
+                l->llmnr_ipv4_scope = dns_scope_free(l->llmnr_ipv4_scope);
+
+        if (link_relevant(l, AF_INET6) && l->manager->use_llmnr) {
+                if (!l->llmnr_ipv6_scope) {
+                        r = dns_scope_new(l->manager, &l->llmnr_ipv6_scope, l, DNS_PROTOCOL_LLMNR, AF_INET6);
+                        if (r < 0)
+                                log_warning("Failed to allocate LLMNR IPv6 scope: %s", strerror(-r));
+                }
+        } else
+                l->llmnr_ipv6_scope = dns_scope_free(l->llmnr_ipv6_scope);
+}
 
 int link_update_rtnl(Link *l, sd_rtnl_message *m) {
+        const char *n = NULL;
         int r;
 
         assert(l);
@@ -92,10 +126,17 @@ int link_update_rtnl(Link *l, sd_rtnl_message *m) {
                 return r;
 
         sd_rtnl_message_read_u32(m, IFLA_MTU, &l->mtu);
+
+        if (sd_rtnl_message_read_string(m, IFLA_IFNAME, &n) >= 0) {
+                strncpy(l->name, n, sizeof(l->name));
+                char_array_0(l->name);
+        }
+
+        link_allocate_scopes(l);
         return 0;
 }
 
-static int update_dhcp_dns_servers(Link *l) {
+static int link_update_dhcp_dns_servers(Link *l) {
         _cleanup_dhcp_lease_unref_ sd_dhcp_lease *lease = NULL;
         const struct in_addr *nameservers = NULL;
         DnsServer *s, *nx;
@@ -146,7 +187,7 @@ clear:
         return r;
 }
 
-static int update_link_dns_servers(Link *l) {
+static int link_update_link_dns_servers(Link *l) {
         _cleanup_free_ struct in_addr *nameservers = NULL;
         _cleanup_free_ struct in6_addr *nameservers6 = NULL;
         DnsServer *s, *nx;
@@ -211,18 +252,15 @@ clear:
 int link_update_monitor(Link *l) {
         assert(l);
 
-        free(l->operational_state);
-        l->operational_state = NULL;
-
-        sd_network_get_link_operational_state(l->ifindex, &l->operational_state);
-
-        update_dhcp_dns_servers(l);
-        update_link_dns_servers(l);
+        link_update_dhcp_dns_servers(l);
+        link_update_link_dns_servers(l);
+        link_allocate_scopes(l);
 
         return 0;
 }
 
-bool link_relevant(Link *l) {
+bool link_relevant(Link *l, unsigned char family) {
+        _cleanup_free_ char *state = NULL;
         LinkAddress *a;
 
         assert(l);
@@ -233,11 +271,12 @@ bool link_relevant(Link *l) {
         if (l->flags & IFF_LOOPBACK)
                 return false;
 
-        if (l->operational_state && !STR_IN_SET(l->operational_state, "unknown", "degraded", "routable"))
+        sd_network_get_link_operational_state(l->ifindex, &state);
+        if (state && !STR_IN_SET(state, "unknown", "degraded", "routable"))
                 return false;
 
         LIST_FOREACH(addresses, a, l->addresses)
-                if (link_address_relevant(a))
+                if (a->family == family && link_address_relevant(a))
                         return true;
 
         return false;
@@ -248,12 +287,9 @@ LinkAddress *link_find_address(Link *l, unsigned char family, union in_addr_unio
 
         assert(l);
 
-        LIST_FOREACH(addresses, a, l->addresses) {
-
-                if (a->family == family &&
-                    in_addr_equal(family, &a->in_addr, in_addr))
+        LIST_FOREACH(addresses, a, l->addresses)
+                if (a->family == family && in_addr_equal(family, &a->in_addr, in_addr))
                         return a;
-        }
 
         return NULL;
 }
@@ -265,12 +301,9 @@ DnsServer* link_find_dns_server(Link *l, DnsServerSource source, unsigned char f
 
         first = source == DNS_SERVER_DHCP ? l->dhcp_dns_servers : l->link_dns_servers;
 
-        LIST_FOREACH(servers, s, first) {
-
-                if (s->family == family &&
-                    in_addr_equal(family, &s->address, in_addr))
+        LIST_FOREACH(servers, s, first)
+                if (s->family == family && in_addr_equal(family, &s->address, in_addr))
                         return s;
-        }
 
         return NULL;
 }
@@ -361,10 +394,9 @@ int link_address_update_rtnl(LinkAddress *a, sd_rtnl_message *m) {
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_message_addr_get_scope(m, &a->scope);
-        if (r < 0)
-                return r;
+        sd_rtnl_message_addr_get_scope(m, &a->scope);
 
+        link_allocate_scopes(a->link);
         return 0;
 }
 

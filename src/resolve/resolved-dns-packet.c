@@ -24,7 +24,7 @@
 #include "resolved-dns-domain.h"
 #include "resolved-dns-packet.h"
 
-int dns_packet_new(DnsPacket **ret, size_t mtu) {
+int dns_packet_new(DnsPacket **ret, DnsProtocol protocol, size_t mtu) {
         DnsPacket *p;
         size_t a;
 
@@ -51,6 +51,7 @@ int dns_packet_new(DnsPacket **ret, size_t mtu) {
 
         p->size = p->rindex = DNS_PACKET_HEADER_SIZE;
         p->allocated = a;
+        p->protocol = protocol;
         p->n_ref = 1;
 
         *ret = p;
@@ -58,19 +59,23 @@ int dns_packet_new(DnsPacket **ret, size_t mtu) {
         return 0;
 }
 
-int dns_packet_new_query(DnsPacket **ret, size_t mtu) {
+int dns_packet_new_query(DnsPacket **ret, DnsProtocol protocol, size_t mtu) {
         DnsPacket *p;
         DnsPacketHeader *h;
         int r;
 
         assert(ret);
 
-        r = dns_packet_new(&p, mtu);
+        r = dns_packet_new(&p, protocol, mtu);
         if (r < 0)
                 return r;
 
         h = DNS_PACKET_HEADER(p);
-        h->flags = htobe16(DNS_PACKET_MAKE_FLAGS(0, 0, 0, 0, 1, 0, 0, 0, 0));
+
+        if (protocol == DNS_PROTOCOL_DNS)
+                h->flags = htobe16(DNS_PACKET_MAKE_FLAGS(0, 0, 0, 0, 1, 0, 0, 0, 0)); /* ask for recursion */
+        else
+                h->flags = htobe16(DNS_PACKET_MAKE_FLAGS(0, 0, 0, 0, 0, 0, 0, 0, 0));
 
         *ret = p;
         return 0;
@@ -812,3 +817,10 @@ static const char* const dns_rcode_table[_DNS_RCODE_MAX_DEFINED] = {
         [DNS_RCODE_BADTRUNC] = "BADTRUNC",
 };
 DEFINE_STRING_TABLE_LOOKUP(dns_rcode, int);
+
+static const char* const dns_protocol_table[_DNS_PROTOCOL_MAX] = {
+        [DNS_PROTOCOL_DNS] = "dns",
+        [DNS_PROTOCOL_MDNS] = "mdns",
+        [DNS_PROTOCOL_LLMNR] = "llmnr",
+};
+DEFINE_STRING_TABLE_LOOKUP(dns_protocol, DnsProtocol);

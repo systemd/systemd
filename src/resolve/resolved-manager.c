@@ -21,7 +21,7 @@
 
 #include <arpa/inet.h>
 #include <resolv.h>
-#include <linux/if.h>
+#include <net/if.h>
 #include <sys/ioctl.h>
 #include <sys/poll.h>
 #include <netinet/in.h>
@@ -392,6 +392,9 @@ int manager_new(Manager **ret) {
                 return -ENOMEM;
 
         m->dns_ipv4_fd = m->dns_ipv6_fd = -1;
+        m->llmnr_ipv4_udp_fd = m->llmnr_ipv6_udp_fd = -1;
+
+        m->use_llmnr = true;
 
         r = parse_dns_server_string(m, /* "172.31.0.125 2001:4860:4860::8888 2001:4860:4860::8889" */ DNS_SERVERS);
         if (r < 0)
@@ -406,7 +409,7 @@ int manager_new(Manager **ret) {
 
         sd_event_set_watchdog(m->event, true);
 
-        r = dns_scope_new(m, &m->unicast_scope, DNS_SCOPE_DNS);
+        r = dns_scope_new(m, &m->unicast_scope, NULL, DNS_PROTOCOL_DNS, AF_UNSPEC);
         if (r < 0)
                 return r;
 
@@ -453,9 +456,13 @@ Manager *manager_free(Manager *m) {
 
         sd_event_source_unref(m->dns_ipv4_event_source);
         sd_event_source_unref(m->dns_ipv6_event_source);
-
         safe_close(m->dns_ipv4_fd);
         safe_close(m->dns_ipv6_fd);
+
+        sd_event_source_unref(m->llmnr_ipv4_udp_event_source);
+        sd_event_source_unref(m->llmnr_ipv6_udp_event_source);
+        safe_close(m->llmnr_ipv4_udp_fd);
+        safe_close(m->llmnr_ipv6_udp_fd);
 
         sd_event_source_unref(m->bus_retry_event_source);
         sd_bus_unref(m->bus);
@@ -475,7 +482,7 @@ static void write_resolve_conf_server(DnsServer *s, FILE *f, unsigned *count) {
         assert(count);
 
         r = in_addr_to_string(s->family, &s->address, &t);
-        if (r < 0) {
+       if (r < 0) {
                 log_warning("Invalid DNS address. Ignoring.");
                 return;
         }
@@ -539,19 +546,24 @@ fail:
         return r;
 }
 
-int manager_dns_ipv4_recv(Manager *m, DnsPacket **ret) {
+int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+        union {
+                struct cmsghdr header; /* For alignment */
+                uint8_t buffer[CMSG_SPACE(MAX(sizeof(struct in_pktinfo), sizeof(struct in6_pktinfo)))
+                               + CMSG_SPACE(int) /* ttl/hoplimit */
+                               + 1024 /* kernel appears to require extra buffer space */];
+        } control;
+        union sockaddr_union sa;
         struct msghdr mh = {};
-        int fd, ms = 0, r;
+        struct cmsghdr *cmsg;
         struct iovec iov;
+        int ms = 0, r;
         ssize_t l;
 
         assert(m);
+        assert(fd >= 0);
         assert(ret);
-
-        fd = manager_dns_ipv4_fd(m);
-        if (fd < 0)
-                return fd;
 
         r = ioctl(fd, FIONREAD, &ms);
         if (r < 0)
@@ -559,15 +571,19 @@ int manager_dns_ipv4_recv(Manager *m, DnsPacket **ret) {
         if (ms < 0)
                 return -EIO;
 
-        r = dns_packet_new(&p, ms);
+        r = dns_packet_new(&p, protocol, ms);
         if (r < 0)
                 return r;
 
         iov.iov_base = DNS_PACKET_DATA(p);
         iov.iov_len = p->allocated;
 
+        mh.msg_name = &sa.sa;
+        mh.msg_namelen = sizeof(sa);
         mh.msg_iov = &iov;
         mh.msg_iovlen = 1;
+        mh.msg_control = &control;
+        mh.msg_controllen = sizeof(control);
 
         l = recvmsg(fd, &mh, 0);
         if (l < 0) {
@@ -580,100 +596,89 @@ int manager_dns_ipv4_recv(Manager *m, DnsPacket **ret) {
         if (l <= 0)
                 return -EIO;
 
+        assert(!(mh.msg_flags & MSG_CTRUNC));
+        assert(!(mh.msg_flags & MSG_TRUNC));
+
         p->size = (size_t) l;
 
-        *ret = p;
-        p = NULL;
+        p->family = sa.sa.sa_family;
+        if (p->family == AF_INET)
+                p->sender.in = sa.in.sin_addr;
+        else if (p->family == AF_INET6)
+                p->sender.in6 = sa.in6.sin6_addr;
+        else
+                return -EAFNOSUPPORT;
 
-        return 1;
-}
+        for (cmsg = CMSG_FIRSTHDR(&mh); cmsg; cmsg = CMSG_NXTHDR(&mh, cmsg)) {
 
-int manager_dns_ipv6_recv(Manager *m, DnsPacket **ret) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
-        struct msghdr mh = {};
-        struct iovec iov;
-        int fd, ms = 0, r;
-        ssize_t l;
+                if (cmsg->cmsg_level == IPPROTO_IPV6) {
+                        assert(p->family == AF_INET6);
 
-        assert(m);
-        assert(ret);
+                        switch (cmsg->cmsg_type) {
 
-        fd = manager_dns_ipv6_fd(m);
-        if (fd < 0)
-                return fd;
+                        case IPV6_PKTINFO: {
+                                struct in6_pktinfo *i = (struct in6_pktinfo*) CMSG_DATA(cmsg);
 
-        r = ioctl(fd, FIONREAD, &ms);
-        if (r < 0)
-                return -errno;
-        if (ms < 0)
-                return -EIO;
+                                p->ifindex = i->ipi6_ifindex;
+                                p->destination.in6 = i->ipi6_addr;
+                                break;
+                        }
 
-        r = dns_packet_new(&p, ms);
-        if (r < 0)
-                return r;
+                        case IPV6_HOPLIMIT:
+                                p->ttl = *(int *) CMSG_DATA(cmsg);
+                                break;
 
-        iov.iov_base = DNS_PACKET_DATA(p);
-        iov.iov_len = p->allocated;
+                        }
+                } else if (cmsg->cmsg_level == IPPROTO_IP) {
+                        assert(p->family == AF_INET);
 
-        mh.msg_iov = &iov;
-        mh.msg_iovlen = 1;
+                        switch (cmsg->cmsg_type) {
 
-        l = recvmsg(fd, &mh, 0);
-        if (l < 0) {
-                if (errno == EAGAIN || errno == EINTR)
-                        return 0;
+                        case IP_PKTINFO: {
+                                struct in_pktinfo *i = (struct in_pktinfo*) CMSG_DATA(cmsg);
 
-                return -errno;
+                                p->ifindex = i->ipi_ifindex;
+                                p->destination.in = i->ipi_addr;
+                                break;
+                        }
+
+                        case IP_RECVTTL:
+                                p->ttl = *(int *) CMSG_DATA(cmsg);
+                                break;
+                        }
+                }
         }
 
-        if (l <= 0)
-                return -EIO;
-
-        p->size = (size_t) l;
-
         *ret = p;
         p = NULL;
 
         return 1;
 }
 
-static int on_dns_ipv4_packet(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
         DnsQueryTransaction *t = NULL;
         Manager *m = userdata;
         int r;
 
-        r = manager_dns_ipv4_recv(m, &p);
+        r = manager_recv(m, fd, DNS_PROTOCOL_DNS, &p);
         if (r <= 0)
                 return r;
 
-        t = hashmap_get(m->dns_query_transactions, UINT_TO_PTR(DNS_PACKET_ID(p)));
-        if (!t)
-                return 0;
+        if (dns_packet_validate_reply(p) >= 0) {
+                t = hashmap_get(m->dns_query_transactions, UINT_TO_PTR(DNS_PACKET_ID(p)));
+                if (!t)
+                        return 0;
 
-        dns_query_transaction_reply(t, p);
-        return 0;
-}
+                dns_query_transaction_reply(t, p);
+        } else
+                log_debug("Invalid reply packet.");
 
-static int on_dns_ipv6_packet(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
-        DnsQueryTransaction *t = NULL;
-        Manager *m = userdata;
-        int r;
-
-        r = manager_dns_ipv6_recv(m, &p);
-        if (r <= 0)
-                return r;
-
-        t = hashmap_get(m->dns_query_transactions, UINT_TO_PTR(DNS_PACKET_ID(p)));
-        if (!t)
-                return 0;
-
-        dns_query_transaction_reply(t, p);
         return 0;
 }
 
 int manager_dns_ipv4_fd(Manager *m) {
+        const int one = 1;
         int r;
 
         assert(m);
@@ -685,14 +690,25 @@ int manager_dns_ipv4_fd(Manager *m) {
         if (m->dns_ipv4_fd < 0)
                 return -errno;
 
-        r = sd_event_add_io(m->event, &m->dns_ipv4_event_source, m->dns_ipv4_fd, EPOLLIN, on_dns_ipv4_packet, m);
+        r = setsockopt(m->dns_ipv4_fd, IPPROTO_IP, IP_PKTINFO, &one, sizeof(one));
+        if (r < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        r = sd_event_add_io(m->event, &m->dns_ipv4_event_source, m->dns_ipv4_fd, EPOLLIN, on_dns_packet, m);
         if (r < 0)
-                return r;
+                goto fail;
 
         return m->dns_ipv4_fd;
+
+fail:
+        m->dns_ipv4_fd = safe_close(m->dns_ipv4_fd);
+        return r;
 }
 
 int manager_dns_ipv6_fd(Manager *m) {
+        const int one = 1;
         int r;
 
         assert(m);
@@ -704,11 +720,21 @@ int manager_dns_ipv6_fd(Manager *m) {
         if (m->dns_ipv6_fd < 0)
                 return -errno;
 
-        r = sd_event_add_io(m->event, &m->dns_ipv6_event_source, m->dns_ipv6_fd, EPOLLIN, on_dns_ipv6_packet, m);
+        r = setsockopt(m->dns_ipv6_fd, IPPROTO_IPV6, IPV6_RECVPKTINFO, &one, sizeof(one));
+        if (r < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        r = sd_event_add_io(m->event, &m->dns_ipv6_event_source, m->dns_ipv6_fd, EPOLLIN, on_dns_packet, m);
         if (r < 0)
-                return r;
+                goto fail;
 
         return m->dns_ipv6_fd;
+
+fail:
+        m->dns_ipv6_fd = safe_close(m->dns_ipv6_fd);
+        return r;
 }
 
 static int sendmsg_loop(int fd, struct msghdr *mh, int flags) {
@@ -735,28 +761,28 @@ static int sendmsg_loop(int fd, struct msghdr *mh, int flags) {
         }
 }
 
-int manager_dns_ipv4_send(Manager *m, DnsServer *srv, int ifindex, DnsPacket *p) {
+static int manager_ipv4_send(Manager *m, int fd, int ifindex, struct in_addr *addr, uint16_t port, DnsPacket *p) {
         union sockaddr_union sa = {
                 .in.sin_family = AF_INET,
-                .in.sin_port = htobe16(53),
         };
+        union {
+                struct cmsghdr header; /* For alignment */
+                uint8_t buffer[CMSG_SPACE(sizeof(struct in_pktinfo))];
+        } control;
         struct msghdr mh = {};
         struct iovec iov;
-        uint8_t control[CMSG_SPACE(sizeof(struct in_pktinfo))];
-        int fd;
 
         assert(m);
-        assert(srv);
+        assert(fd >= 0);
+        assert(addr);
+        assert(port > 0);
         assert(p);
-
-        fd = manager_dns_ipv4_fd(m);
-        if (fd < 0)
-                return fd;
 
         iov.iov_base = DNS_PACKET_DATA(p);
         iov.iov_len = p->size;
 
-        sa.in.sin_addr = srv->address.in;
+        sa.in.sin_addr = *addr;
+        sa.in.sin_port = htobe16(port),
 
         mh.msg_iov = &iov;
         mh.msg_iovlen = 1;
@@ -769,7 +795,7 @@ int manager_dns_ipv4_send(Manager *m, DnsServer *srv, int ifindex, DnsPacket *p)
 
                 zero(control);
 
-                mh.msg_control = control;
+                mh.msg_control = &control;
                 mh.msg_controllen = CMSG_LEN(sizeof(struct in_pktinfo));
 
                 cmsg = CMSG_FIRSTHDR(&mh);
@@ -784,29 +810,28 @@ int manager_dns_ipv4_send(Manager *m, DnsServer *srv, int ifindex, DnsPacket *p)
         return sendmsg_loop(fd, &mh, 0);
 }
 
-int manager_dns_ipv6_send(Manager *m, DnsServer *srv, int ifindex, DnsPacket *p) {
+static int manager_ipv6_send(Manager *m, int fd, int ifindex, struct in6_addr *addr, uint16_t port, DnsPacket *p) {
         union sockaddr_union sa = {
                 .in6.sin6_family = AF_INET6,
-                .in6.sin6_port = htobe16(53),
         };
-
+        union {
+                struct cmsghdr header; /* For alignment */
+                uint8_t buffer[CMSG_SPACE(sizeof(struct in6_pktinfo))];
+        } control;
         struct msghdr mh = {};
         struct iovec iov;
-        uint8_t control[CMSG_SPACE(sizeof(struct in6_pktinfo))];
-        int fd;
 
         assert(m);
-        assert(srv);
+        assert(fd >= 0);
+        assert(addr);
+        assert(port > 0);
         assert(p);
-
-        fd = manager_dns_ipv6_fd(m);
-        if (fd < 0)
-                return fd;
 
         iov.iov_base = DNS_PACKET_DATA(p);
         iov.iov_len = p->size;
 
-        sa.in6.sin6_addr = srv->address.in6;
+        sa.in6.sin6_addr = *addr;
+        sa.in6.sin6_port = htobe16(port),
         sa.in6.sin6_scope_id = ifindex;
 
         mh.msg_iov = &iov;
@@ -820,7 +845,7 @@ int manager_dns_ipv6_send(Manager *m, DnsServer *srv, int ifindex, DnsPacket *p)
 
                 zero(control);
 
-                mh.msg_control = control;
+                mh.msg_control = &control;
                 mh.msg_controllen = CMSG_LEN(sizeof(struct in6_pktinfo));
 
                 cmsg = CMSG_FIRSTHDR(&mh);
@@ -834,6 +859,22 @@ int manager_dns_ipv6_send(Manager *m, DnsServer *srv, int ifindex, DnsPacket *p)
 
         return sendmsg_loop(fd, &mh, 0);
 }
+
+int manager_send(Manager *m, int fd, int ifindex, unsigned char family, union in_addr_union *addr, uint16_t port, DnsPacket *p) {
+        assert(m);
+        assert(fd >= 0);
+        assert(addr);
+        assert(port > 0);
+        assert(p);
+
+        if (family == AF_INET)
+                return manager_ipv4_send(m, fd, ifindex, &addr->in, port, p);
+        else if (family == AF_INET6)
+                return manager_ipv6_send(m, fd, ifindex, &addr->in6, port, p);
+
+        return -EAFNOSUPPORT;
+}
+
 
 DnsServer* manager_find_dns_server(Manager *m, unsigned char family, union in_addr_union *in_addr) {
         DnsServer *s;
@@ -897,4 +938,180 @@ uint32_t manager_find_mtu(Manager *m) {
         }
 
         return mtu;
+}
+
+static int on_llmnr_packet(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+        DnsQueryTransaction *t = NULL;
+        Manager *m = userdata;
+        int r;
+
+        r = manager_recv(m, fd, DNS_PROTOCOL_LLMNR, &p);
+        if (r <= 0)
+                return r;
+
+        if (dns_packet_validate_reply(p) >= 0) {
+                t = hashmap_get(m->dns_query_transactions, UINT_TO_PTR(DNS_PACKET_ID(p)));
+                if (!t)
+                        return 0;
+
+                dns_query_transaction_reply(t, p);
+        }
+
+        return 0;
+}
+
+int manager_llmnr_ipv4_udp_fd(Manager *m) {
+        union sockaddr_union sa = {
+                .in.sin_family = AF_INET,
+                .in.sin_port = htobe16(5355),
+        };
+        static const int one = 1, pmtu = IP_PMTUDISC_DONT;
+        int r;
+
+        assert(m);
+
+        if (m->llmnr_ipv4_udp_fd >= 0)
+                return m->llmnr_ipv4_udp_fd;
+
+        m->llmnr_ipv4_udp_fd = socket(AF_INET, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        if (m->llmnr_ipv4_udp_fd < 0)
+                return -errno;
+
+        r = setsockopt(m->llmnr_ipv4_udp_fd, IPPROTO_IP, IP_TTL, &one, sizeof(one));
+        if (r < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        r = setsockopt(m->llmnr_ipv4_udp_fd, IPPROTO_IP, IP_MULTICAST_TTL, &one, sizeof(one));
+        if (r < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        r = setsockopt(m->llmnr_ipv4_udp_fd, IPPROTO_IP, IP_MULTICAST_LOOP, &one, sizeof(one));
+        if (r < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        r = setsockopt(m->llmnr_ipv4_udp_fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
+        if (r < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        r = setsockopt(m->llmnr_ipv4_udp_fd, IPPROTO_IP, IP_PKTINFO, &one, sizeof(one));
+        if (r < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        r = setsockopt(m->llmnr_ipv4_udp_fd, IPPROTO_IP, IP_RECVTTL, &one, sizeof(one));
+        if (r < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        /* Disable Don't-Fragment bit in the IP header */
+        r = setsockopt(m->llmnr_ipv4_udp_fd, IPPROTO_IP, IP_MTU_DISCOVER, &pmtu, sizeof(pmtu));
+        if (r < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        r = bind(m->llmnr_ipv4_udp_fd, &sa.sa, sizeof(sa.in));
+        if (r < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        r = sd_event_add_io(m->event, &m->llmnr_ipv4_udp_event_source, m->llmnr_ipv4_udp_fd, EPOLLIN, on_llmnr_packet, m);
+        if (r < 0)
+                goto fail;
+
+        return m->llmnr_ipv4_udp_fd;
+
+fail:
+        m->llmnr_ipv4_udp_fd = safe_close(m->llmnr_ipv4_udp_fd);
+        return r;
+}
+
+int manager_llmnr_ipv6_udp_fd(Manager *m) {
+        union sockaddr_union sa = {
+                .in6.sin6_family = AF_INET6,
+                .in6.sin6_port = htobe16(5355),
+        };
+        static const int one = 1;
+        int r;
+
+        assert(m);
+
+        if (m->llmnr_ipv6_udp_fd >= 0)
+                return m->llmnr_ipv6_udp_fd;
+
+        m->llmnr_ipv6_udp_fd = socket(AF_INET6, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        if (m->llmnr_ipv6_udp_fd < 0)
+                return -errno;
+
+        r = setsockopt(m->llmnr_ipv6_udp_fd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &one, sizeof(one));
+        if (r < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        r = setsockopt(m->llmnr_ipv6_udp_fd, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, &one, sizeof(one));
+        if (r < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        r = setsockopt(m->llmnr_ipv6_udp_fd, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, &one, sizeof(one));
+        if (r < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        r = setsockopt(m->llmnr_ipv6_udp_fd, IPPROTO_IPV6, IPV6_V6ONLY, &one, sizeof(one));
+        if (r < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        r = setsockopt(m->llmnr_ipv6_udp_fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
+        if (r < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        r = setsockopt(m->llmnr_ipv6_udp_fd, IPPROTO_IPV6, IPV6_RECVPKTINFO, &one, sizeof(one));
+        if (r < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        r = setsockopt(m->llmnr_ipv6_udp_fd, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, &one, sizeof(one));
+        if (r < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        r = bind(m->llmnr_ipv6_udp_fd, &sa.sa, sizeof(sa.in6));
+        if (r < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        r = sd_event_add_io(m->event, &m->llmnr_ipv6_udp_event_source, m->llmnr_ipv6_udp_fd, EPOLLIN, on_llmnr_packet, m);
+        if (r < 0)  {
+                r = -errno;
+                goto fail;
+        }
+
+        return m->llmnr_ipv6_udp_fd;
+
+fail:
+        m->llmnr_ipv6_udp_fd = safe_close(m->llmnr_ipv6_udp_fd);
+        return r;
 }
