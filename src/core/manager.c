@@ -1005,11 +1005,8 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
         dual_timestamp_get(&m->units_load_finish_timestamp);
 
         /* Second, deserialize if there is something to deserialize */
-        if (serialization) {
-                q = manager_deserialize(m, serialization, fds);
-                if (q < 0)
-                        r = q;
-        }
+        if (serialization)
+                r = manager_deserialize(m, serialization, fds);
 
         /* Any fds left? Find some unit which wants them. This is
          * useful to allow container managers to pass some file
@@ -1017,13 +1014,15 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
          * socket-based activation of entire containers. */
         if (fdset_size(fds) > 0) {
                 q = manager_distribute_fds(m, fds);
-                if (q < 0)
+                if (q < 0 && r == 0)
                         r = q;
         }
 
         /* We might have deserialized the notify fd, but if we didn't
          * then let's create the bus now */
-        manager_setup_notify(m);
+        q = manager_setup_notify(m);
+        if (q < 0 && r == 0)
+                r = q;
 
         /* We might have deserialized the kdbus control fd, but if we
          * didn't, then let's create the bus now. */
@@ -1033,7 +1032,7 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
 
         /* Third, fire things up! */
         q = manager_coldplug(m);
-        if (q < 0)
+        if (q < 0 && r == 0)
                 r = q;
 
         if (serialization) {
