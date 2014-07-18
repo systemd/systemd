@@ -164,6 +164,7 @@ static int output_write(Output *o, const void *buf, size_t size) {
         return 0;
 }
 
+_printf_(3,0)
 static int output_vnprintf(Output *o, size_t max, const char *format, va_list args) {
         char buf[4096];
         int r;
@@ -179,6 +180,7 @@ static int output_vnprintf(Output *o, size_t max, const char *format, va_list ar
         return output_write(o, buf, r);
 }
 
+_printf_(3,4)
 static int output_nprintf(Output *o, size_t max, const char *format, ...) {
         va_list args;
         int r;
@@ -190,6 +192,7 @@ static int output_nprintf(Output *o, size_t max, const char *format, ...) {
         return r;
 }
 
+_printf_(2,0)
 static int output_vprintf(Output *o, const char *format, va_list args) {
         char buf[4096];
         int r;
@@ -204,6 +207,7 @@ static int output_vprintf(Output *o, const char *format, va_list args) {
         return output_write(o, buf, r);
 }
 
+_printf_(2,3)
 static int output_printf(Output *o, const char *format, ...) {
         va_list args;
         int r;
@@ -256,6 +260,7 @@ static int output_print_line(Output *o, size_t len) {
         return r;
 }
 
+_printf_(2,3)
 static int output_frame_printl(Output *o, const char *format, ...) {
         va_list args;
         int r;
