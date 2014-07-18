@@ -72,7 +72,7 @@ enum KillWho {
 struct Session {
         Manager *manager;
 
-        char *id;
+        const char *id;
         unsigned int pos;
         SessionType type;
         SessionClass class;
