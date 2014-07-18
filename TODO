@@ -29,7 +29,6 @@ Features:
     releases (probably not even a directory in /run for it)
   - the order between ipv6 and ipv4 dns servers probably matters,
     hence the current DNS apis won't suffice
-  - sd_network_get_ifindices() sounds redundant, rtnetlink can do that too
 
 * resolved:
   - IDN (?)

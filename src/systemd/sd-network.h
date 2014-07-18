@@ -88,10 +88,6 @@ int sd_network_get_dns(int ifindex, struct in_addr **addr);
 /* Get IPv6 DNS entries statically configured for the link */
 int sd_network_get_dns6(int ifindex, struct in6_addr **addr);
 
-/* Get all network interfaces' indices, and store them in *indices. Returns
- * the number of indices. If indices is NULL, only returns the number of indices. */
-int sd_network_get_ifindices(int **ifindices);
-
 /* Monitor object */
 typedef struct sd_network_monitor sd_network_monitor;
 

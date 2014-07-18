@@ -206,64 +206,6 @@ _public_ int sd_network_dhcp_use_ntp(int ifindex) {
         return network_get_boolean("DHCP_USE_NTP", ifindex);
 }
 
-_public_ int sd_network_get_ifindices(int **ifindices) {
-        _cleanup_closedir_ DIR *d;
-        int r = 0;
-        unsigned n = 0;
-        _cleanup_free_ int *l = NULL;
-
-        d = opendir("/run/systemd/netif/links/");
-        if (!d)
-                return -errno;
-
-        for (;;) {
-                struct dirent *de;
-                int k;
-                int ifindex;
-
-                errno = 0;
-                de = readdir(d);
-                if (!de && errno != 0)
-                        return -errno;
-
-                if (!de)
-                        break;
-
-                dirent_ensure_type(d, de);
-
-                if (!dirent_is_file(de))
-                        continue;
-
-                k = safe_atoi(de->d_name, &ifindex);
-                if (k < 0)
-                        continue;
-
-                if (ifindices) {
-                        if ((unsigned) r >= n) {
-                                int *t;
-
-                                n = MAX(16, 2*r);
-                                t = realloc(l, sizeof(int) * n);
-                                if (!t)
-                                        return -ENOMEM;
-
-                                l = t;
-                        }
-
-                        assert((unsigned) r < n);
-                        l[r++] = ifindex;
-                } else
-                        r++;
-        }
-
-        if (ifindices) {
-                *ifindices = l;
-                l = NULL;
-        }
-
-        return r;
-}
-
 static inline int MONITOR_TO_FD(sd_network_monitor *m) {
         return (int) (unsigned long) m - 1;
 }
