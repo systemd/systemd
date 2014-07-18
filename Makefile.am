@@ -2831,8 +2831,17 @@ tests += \
 	test-dhcp6-client
 
 # ------------------------------------------------------------------------------
+if ENABLE_TERMINAL
 noinst_LTLIBRARIES += \
 	libsystemd-terminal.la
+
+noinst_PROGRAMS += \
+	systemd-subterm
+
+tests += \
+	test-term-page \
+	test-term-parser
+endif
 
 libsystemd_terminal_la_CFLAGS = \
 	$(AM_CFLAGS)
@@ -2848,9 +2857,6 @@ libsystemd_terminal_la_SOURCES = \
 libsystemd_terminal_la_LIBADD = \
 	libsystemd-internal.la \
 	libsystemd-shared.la
-
-noinst_PROGRAMS += \
-	systemd-subterm
 
 systemd_subterm_SOURCES = \
 	src/libsystemd-terminal/subterm.c
@@ -2875,10 +2881,6 @@ test_term_parser_LDADD = \
 	libsystemd-terminal.la \
 	libsystemd-internal.la \
 	libsystemd-shared.la
-
-tests += \
-	test-term-page \
-	test-term-parser
 
 # ------------------------------------------------------------------------------
 if ENABLE_GTK_DOC
