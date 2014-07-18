@@ -231,15 +231,3 @@ int in_addr_from_string_auto(const char *s, int *family, union in_addr_union *re
 
         return -EINVAL;
 }
-
-static const char* const family_table[] = {
-        [AF_UNSPEC] = "unspec",
-        [AF_UNIX] = "unix",
-        [AF_INET] = "inet",
-        [AF_INET6] = "inet6",
-        [AF_NETLINK] = "netlink",
-        [AF_PACKET] = "packet",
-        [AF_BLUETOOTH] = "bluetooth",
-        [AF_NFC] = "nfc",
-};
-DEFINE_STRING_TABLE_LOOKUP(family, int);

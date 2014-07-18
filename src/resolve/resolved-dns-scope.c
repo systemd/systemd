@@ -23,6 +23,7 @@
 
 #include "strv.h"
 #include "socket-util.h"
+#include "af-list.h"
 #include "resolved-dns-domain.h"
 #include "resolved-dns-scope.h"
 
@@ -47,7 +48,7 @@ int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol protocol, int
 
         dns_scope_llmnr_membership(s, true);
 
-        log_debug("New scope on link %s, protocol %s, family %s", strna(l ? l->name : NULL), dns_protocol_to_string(protocol), family_to_string(family));
+        log_debug("New scope on link %s, protocol %s, family %s", l ? l->name : "*", dns_protocol_to_string(protocol), family == AF_UNSPEC ? "*" : af_to_name(family));
 
         *ret = s;
         return 0;
@@ -57,7 +58,7 @@ DnsScope* dns_scope_free(DnsScope *s) {
         if (!s)
                 return NULL;
 
-        log_debug("Removing scope on link %s, protocol %s, family %s", strna(s->link ? s->link->name : NULL), dns_protocol_to_string(s->protocol), family_to_string(s->family));
+        log_debug("Removing scope on link %s, protocol %s, family %s", s->link ? s->link->name : "*", dns_protocol_to_string(s->protocol), s->family == AF_UNSPEC ? "*" : af_to_name(s->family));
 
         dns_scope_llmnr_membership(s, false);
 

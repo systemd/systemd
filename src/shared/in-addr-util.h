@@ -43,6 +43,3 @@ static inline size_t FAMILY_ADDRESS_SIZE(int family) {
         assert(family == AF_INET || family == AF_INET6);
         return family == AF_INET6 ? 16 : 4;
 }
-
-const char* family_to_string(int i) _const_;
-int family_from_string(const char *s) _pure_;
