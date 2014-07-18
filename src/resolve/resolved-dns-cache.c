@@ -21,7 +21,10 @@
 
 #include "resolved-dns-cache.h"
 
+/* Never cache more than 1K entries */
 #define CACHE_MAX 1024
+
+/* We never keep any item longer than 10min in our cache */
 #define CACHE_TTL_MAX_USEC (10 * USEC_PER_MINUTE)
 
 static void dns_cache_item_free(DnsCacheItem *i) {
@@ -79,7 +82,7 @@ void dns_cache_remove(DnsCache *c, DnsResourceKey *key) {
         assert(c);
         assert(key);
 
-        while ((i = hashmap_get(c->rrsets, &key)))
+        while ((i = hashmap_get(c->rrsets, key)))
                 dns_cache_item_remove_and_free(c, i);
 }
 
@@ -105,6 +108,10 @@ static void dns_cache_make_space(DnsCache *c, unsigned add) {
                         break;
 
                 i = prioq_peek(c->expire);
+                assert(i);
+
+                /* Take an extra reference to the RR so that the key
+                 * doesn't go away in the middle of the remove call */
                 rr = dns_resource_record_ref(i->rr);
                 dns_cache_remove(c, &rr->key);
         }
@@ -118,6 +125,7 @@ void dns_cache_prune(DnsCache *c) {
         /* Remove all entries that are past their TTL */
 
         for (;;) {
+                _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
                 DnsCacheItem *i;
                 usec_t ttl;
 
@@ -135,7 +143,10 @@ void dns_cache_prune(DnsCache *c) {
                 if (i->timestamp + ttl > t)
                         break;
 
-                dns_cache_remove(c, &i->rr->key);
+                /* Take an extra reference to the RR so that the key
+                 * doesn't go away in the middle of the remove call */
+                rr = dns_resource_record_ref(i->rr);
+                dns_cache_remove(c, &rr->key);
         }
 }
 
@@ -165,11 +176,11 @@ static void dns_cache_item_update(DnsCache *c, DnsCacheItem *i, DnsResourceRecor
                 assert_se(hashmap_replace(c->rrsets, &rr->key, i) >= 0);
         }
 
+        dns_resource_record_ref(rr);
         dns_resource_record_unref(i->rr);
-        i->rr = dns_resource_record_ref(rr);
+        i->rr = rr;
 
         i->timestamp = timestamp;
-
         prioq_reshuffle(c->expire, i, &i->expire_prioq_idx);
 }
 
