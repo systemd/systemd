@@ -173,7 +173,7 @@ enum nss_status _nss_mymachines_gethostbyname4_r(
                         goto fail;
                 }
 
-                if (sz != PROTO_ADDRESS_SIZE(family)) {
+                if (sz != FAMILY_ADDRESS_SIZE(family)) {
                         r = -EINVAL;
                         goto fail;
                 }
@@ -281,7 +281,7 @@ enum nss_status _nss_mymachines_gethostbyname3_r(
                 return NSS_STATUS_NOTFOUND;
         }
 
-        alen = PROTO_ADDRESS_SIZE(af);
+        alen = FAMILY_ADDRESS_SIZE(af);
         l = strlen(name);
 
         ms = ALIGN(l+1) +

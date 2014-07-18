@@ -195,7 +195,7 @@ static enum nss_status fill_in_hostent(
         assert(errnop);
         assert(h_errnop);
 
-        alen = PROTO_ADDRESS_SIZE(af);
+        alen = FAMILY_ADDRESS_SIZE(af);
 
         for (a = addresses, n = 0, c = 0; n < n_addresses; a++, n++)
                 if (af == a->family)
@@ -393,7 +393,7 @@ enum nss_status _nss_myhostname_gethostbyaddr2_r(
                 return NSS_STATUS_UNAVAIL;
         }
 
-        if (len != PROTO_ADDRESS_SIZE(af)) {
+        if (len != FAMILY_ADDRESS_SIZE(af)) {
                 *errnop = EINVAL;
                 *h_errnop = NO_RECOVERY;
                 return NSS_STATUS_UNAVAIL;
@@ -428,7 +428,7 @@ enum nss_status _nss_myhostname_gethostbyaddr2_r(
                 if (af != a->family)
                         continue;
 
-                if (memcmp(addr, &a->address, PROTO_ADDRESS_SIZE(af)) == 0)
+                if (memcmp(addr, &a->address, FAMILY_ADDRESS_SIZE(af)) == 0)
                         goto found;
         }
 

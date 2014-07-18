@@ -214,7 +214,7 @@ int bus_machine_method_get_addresses(sd_bus *bus, sd_bus_message *message, void 
                 for (a = addresses, i = 0; i < n; a++, i++) {
                         struct iovec iov[2] = {
                                 { .iov_base = &a->family, .iov_len = sizeof(a->family) },
-                                { .iov_base = &a->address, .iov_len = PROTO_ADDRESS_SIZE(a->family) },
+                                { .iov_base = &a->address, .iov_len = FAMILY_ADDRESS_SIZE(a->family) },
                         };
 
                         r = writev(pair[1], iov, 2);

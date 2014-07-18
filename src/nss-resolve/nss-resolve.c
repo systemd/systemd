@@ -207,7 +207,7 @@ enum nss_status _nss_resolve_gethostbyname4_r(
                 if (!IN_SET(family, AF_INET, AF_INET6))
                         continue;
 
-                if (sz != PROTO_ADDRESS_SIZE(family)) {
+                if (sz != FAMILY_ADDRESS_SIZE(family)) {
                         r = -EINVAL;
                         goto fail;
                 }
@@ -329,7 +329,7 @@ enum nss_status _nss_resolve_gethostbyname3_r(
         if (isempty(canonical))
                 canonical = name;
 
-        alen = PROTO_ADDRESS_SIZE(af);
+        alen = FAMILY_ADDRESS_SIZE(af);
         l = strlen(canonical);
 
         ms = ALIGN(l+1) +
@@ -463,7 +463,7 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
                 return NSS_STATUS_UNAVAIL;
         }
 
-        if (len != PROTO_ADDRESS_SIZE(af)) {
+        if (len != FAMILY_ADDRESS_SIZE(af)) {
                 *errnop = EINVAL;
                 *h_errnop = NO_RECOVERY;
                 return NSS_STATUS_UNAVAIL;

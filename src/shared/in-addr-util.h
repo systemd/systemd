@@ -39,7 +39,7 @@ int in_addr_to_string(unsigned family, const union in_addr_union *u, char **ret)
 int in_addr_from_string(unsigned family, const char *s, union in_addr_union *ret);
 int in_addr_from_string_auto(const char *s, unsigned *family, union in_addr_union *ret);
 
-static inline size_t PROTO_ADDRESS_SIZE(int proto) {
-        assert(proto == AF_INET || proto == AF_INET6);
-        return proto == AF_INET6 ? 16 : 4;
+static inline size_t FAMILY_ADDRESS_SIZE(int family) {
+        assert(family == AF_INET || family == AF_INET6);
+        return family == AF_INET6 ? 16 : 4;
 }
