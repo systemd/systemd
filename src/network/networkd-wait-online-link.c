@@ -86,7 +86,7 @@ Link *link_free(Link *l) {
  }
 
 int link_update_rtnl(Link *l, sd_rtnl_message *m) {
-        char *ifname;
+        const char *ifname;
         int r;
 
         assert(l);
@@ -139,18 +139,8 @@ int link_update_monitor(Link *l) {
 bool link_relevant(Link *l) {
         assert(l);
 
-        /* A link is relevant if it isn't a loopback device and has at
-         * least one relevant IP address */
-
         if (l->flags & IFF_LOOPBACK)
                 return false;
-/*
-        if (l->operational_state && !STR_IN_SET(l->operational_state, "unknown", "degraded", "routable"))
-                return false;
 
-        LIST_FOREACH(addresses, a, l->addresses)
-                if (link_address_relevant(a))
-                        return true;
-*/
         return true;
 }

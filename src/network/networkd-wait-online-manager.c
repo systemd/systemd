@@ -80,7 +80,7 @@ static int manager_process_link(sd_rtnl *rtnl, sd_rtnl_message *mm, void *userda
         Manager *m = userdata;
         uint16_t type;
         Link *l;
-        char *ifname;
+        const char *ifname;
         int ifindex, r;
 
         assert(rtnl);
