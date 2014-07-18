@@ -341,8 +341,8 @@ int netdev_join(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callback) 
 int netdev_set_ifindex(NetDev *netdev, sd_rtnl_message *message) {
         uint16_t type;
         const char *kind;
-        char *received_kind;
-        char *received_name;
+        const char *received_kind;
+        const char *received_name;
         int r, ifindex;
 
         assert(netdev);

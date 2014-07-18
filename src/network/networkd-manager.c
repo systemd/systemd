@@ -227,7 +227,7 @@ static int manager_rtnl_process_link(sd_rtnl *rtnl, sd_rtnl_message *message, vo
         Link *link = NULL;
         NetDev *netdev = NULL;
         uint16_t type;
-        char *name;
+        const char *name;
         int r, ifindex;
 
         assert(rtnl);

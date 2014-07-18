@@ -42,7 +42,7 @@ static bool ipv4ll_is_bound(sd_ipv4ll *ll);
 static int link_new(Manager *manager, sd_rtnl_message *message, Link **ret) {
         _cleanup_link_unref_ Link *link = NULL;
         uint16_t type;
-        char *ifname;
+        const char *ifname;
         int r, ifindex;
 
         assert(manager);
@@ -2337,7 +2337,7 @@ int link_add(Manager *m, sd_rtnl_message *message, Link **ret) {
 
 int link_update(Link *link, sd_rtnl_message *m) {
         struct ether_addr mac;
-        char *ifname;
+        const char *ifname;
         int r;
 
         assert(link);

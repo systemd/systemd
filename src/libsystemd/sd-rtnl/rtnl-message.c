@@ -786,7 +786,7 @@ int rtnl_message_read_internal(sd_rtnl_message *m, unsigned short type, void **d
         return RTA_PAYLOAD(rta);
 }
 
-int sd_rtnl_message_read_string(sd_rtnl_message *m, unsigned short type, char **data) {
+int sd_rtnl_message_read_string(sd_rtnl_message *m, unsigned short type, const char **data) {
         int r;
         void *attr_data;
 
@@ -800,7 +800,7 @@ int sd_rtnl_message_read_string(sd_rtnl_message *m, unsigned short type, char **
         else if (strnlen(attr_data, r) >= (size_t) r)
                 return -EIO;
 
-        *data = (char *) attr_data;
+        *data = (const char *) attr_data;
 
         return 0;
 }
@@ -962,7 +962,7 @@ int sd_rtnl_message_enter_container(sd_rtnl_message *m, unsigned short type) {
                         return r;
         } else if (nl_type->type == NLA_UNION) {
                 const NLTypeSystemUnion *type_system_union;
-                char *key;
+                const char *key;
 
                 r = type_system_get_type_system_union(m->container_type_system[m->n_containers],
                                                       &type_system_union,

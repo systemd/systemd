@@ -35,7 +35,7 @@ static void test_link_configure(sd_rtnl *rtnl, int ifindex) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *message;
         const char *mac = "98:fe:94:3f:c6:18", *name = "test";
         unsigned int mtu = 1450, mtu_out;
-        char *name_out;
+        const char *name_out;
         struct ether_addr mac_out;
 
         /* we'd really like to test NEWLINK, but let's not mess with the running kernel */
@@ -61,7 +61,7 @@ static void test_link_get(sd_rtnl *rtnl, int ifindex) {
         sd_rtnl_message *m;
         sd_rtnl_message *r;
         unsigned int mtu = 1500;
-        char *str_data;
+        const char *str_data;
         uint8_t u8_data;
         uint32_t u32_data;
         struct ether_addr eth_data;
@@ -108,7 +108,7 @@ static void test_address_get(sd_rtnl *rtnl, int ifindex) {
         sd_rtnl_message *r;
         struct in_addr in_data;
         struct ifa_cacheinfo cache;
-        char *label;
+        const char *label;
 
         assert_se(sd_rtnl_message_new_addr(rtnl, &m, RTM_GETADDR, ifindex, AF_INET) >= 0);
         assert_se(m);
@@ -174,7 +174,8 @@ static void test_multiple(void) {
 }
 
 static int link_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
-        char *ifname = userdata, *data;
+        char *ifname = userdata;
+        const char *data;
 
         assert_se(rtnl);
         assert_se(m);
@@ -277,7 +278,7 @@ static void test_container(void) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
         uint16_t u16_data;
         uint32_t u32_data;
-        char *string_data;
+        const char *string_data;
 
         assert_se(sd_rtnl_message_new_link(NULL, &m, RTM_NEWLINK, 0) >= 0);
 
@@ -355,7 +356,7 @@ int main(void) {
         sd_rtnl *rtnl;
         sd_rtnl_message *m;
         sd_rtnl_message *r;
-        char *string_data;
+        const char *string_data;
         int if_loopback;
         uint16_t type;
 
