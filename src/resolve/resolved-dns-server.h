@@ -21,10 +21,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "in-addr-util.h"
+
 typedef struct DnsServer DnsServer;
 typedef enum DnsServerSource DnsServerSource;
 
-#include "in-addr-util.h"
 #include "resolved.h"
 #include "resolved-link.h"
 #include "resolved-dns-server.h"
@@ -40,12 +41,12 @@ struct DnsServer {
         Manager *manager;
         DnsServerSource source;
 
+        Link *link;
+
         unsigned char family;
         union in_addr_union address;
 
-        bool marked;
-
-        Link *link;
+        bool marked:1;
 
         LIST_FIELDS(DnsServer, servers);
 };
@@ -56,6 +57,6 @@ int dns_server_new(
                 DnsServerSource source,
                 Link *l,
                 unsigned char family,
-                union in_addr_union *in_addr);
+                const union in_addr_union *address);
 
 DnsServer* dns_server_free(DnsServer *s);
