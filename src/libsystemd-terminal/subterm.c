@@ -386,7 +386,7 @@ static void output_draw_frame(Output *o) {
 static void output_draw_menu(Output *o) {
         assert(o);
 
-        output_frame_printl(o, "");
+        output_frame_printl(o, "%s", "");
         output_frame_printl(o, "    Menu: (the following keys are recognized)");
         output_frame_printl(o, "      q: quit");
         output_frame_printl(o, "     ^C: send ^C to the PTY");
