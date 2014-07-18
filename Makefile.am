@@ -2838,9 +2838,15 @@ noinst_LTLIBRARIES += \
 noinst_PROGRAMS += \
 	systemd-subterm
 
+unifontdatadir=$(datadir)/unifont
+
+dist_unifontdata_DATA = \
+	src/libsystemd-terminal/unifont-glyph-array.bin
+
 tests += \
 	test-term-page \
-	test-term-parser
+	test-term-parser \
+	test-unifont
 endif
 
 libsystemd_terminal_la_CFLAGS = \
@@ -2852,7 +2858,9 @@ libsystemd_terminal_la_SOURCES = \
 	src/libsystemd-terminal/term-page.c \
 	src/libsystemd-terminal/term-parser.c \
 	src/libsystemd-terminal/term-screen.c \
-	src/libsystemd-terminal/term-wcwidth.c
+	src/libsystemd-terminal/term-wcwidth.c \
+	src/libsystemd-terminal/unifont-internal.h \
+	src/libsystemd-terminal/unifont.c
 
 libsystemd_terminal_la_LIBADD = \
 	libsystemd-internal.la \
@@ -2881,6 +2889,20 @@ test_term_parser_LDADD = \
 	libsystemd-terminal.la \
 	libsystemd-internal.la \
 	libsystemd-shared.la
+
+test_unifont_SOURCES = \
+	src/libsystemd-terminal/test-unifont.c
+
+test_unifont_LDADD = \
+	libsystemd-terminal.la \
+	libsystemd-internal.la \
+	libsystemd-shared.la
+
+update-unifont:
+	$(AM_V_GEN)cat $(top_srcdir)/src/libsystemd-terminal/unifont.hex | $(PYTHON) $(top_srcdir)/tools/compile-unifont.py >$(top_srcdir)/src/libsystemd-terminal/unifont-glyph-array.bin
+	@echo "unifont-glyph-array.bin has been regenerated"
+
+.PHONY: update-unifont
 
 # ------------------------------------------------------------------------------
 if ENABLE_GTK_DOC

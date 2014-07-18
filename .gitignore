@@ -225,6 +225,7 @@
 /test-time
 /test-tmpfiles
 /test-udev
+/test-unifont
 /test-unit-file
 /test-unit-name
 /test-utf8
