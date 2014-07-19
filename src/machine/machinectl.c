@@ -376,6 +376,8 @@ static int map_netif(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_
         r = sd_bus_message_read_array(m, SD_BUS_TYPE_INT32, &v, &l);
         if (r < 0)
                 return r;
+        if (r == 0)
+                return -EBADMSG;
 
         i->n_netif = l / sizeof(int32_t);
         i->netif = memdup(v, l);
