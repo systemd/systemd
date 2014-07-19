@@ -105,6 +105,7 @@ int pty_new(Pty **out) {
 
         pty->ref = 1;
         pty->fd = -1;
+        pty->barrier = (Barrier) BARRIER_NULL;
 
         pty->fd = posix_openpt(O_RDWR | O_NOCTTY | O_CLOEXEC | O_NONBLOCK);
         if (pty->fd < 0)
@@ -127,7 +128,7 @@ int pty_new(Pty **out) {
         if (r < 0)
                 return -errno;
 
-        r = barrier_init(&pty->barrier);
+        r = barrier_create(&pty->barrier);
         if (r < 0)
                 return r;
 

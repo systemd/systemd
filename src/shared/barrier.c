@@ -93,7 +93,7 @@
  */
 
 /**
- * barrier_init() - Initialize a barrier object
+ * barrier_create() - Initialize a barrier object
  * @obj: barrier to initialize
  *
  * This initializes a barrier object. The caller is responsible of allocating
@@ -111,26 +111,16 @@
  *
  * Returns: 0 on success, negative error code on failure.
  */
-int barrier_init(Barrier *obj) {
-        _cleanup_(barrier_destroy) Barrier b = { };
-        int r;
+int barrier_create(Barrier *b) {
+        assert(b);
 
-        assert_return(obj, -EINVAL);
-
-        b.me = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
-        if (b.me < 0)
+        if ((b->me = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK)) < 0 ||
+            (b->them = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK)) < 0 ||
+            pipe2(b->pipe, O_CLOEXEC | O_NONBLOCK) < 0) {
+                barrier_destroy(b);
                 return -errno;
+        }
 
-        b.them = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
-        if (b.them < 0)
-                return -errno;
-
-        r = pipe2(b.pipe, O_CLOEXEC | O_NONBLOCK);
-        if (r < 0)
-                return -errno;
-
-        memcpy(obj, &b, sizeof(b));
-        zero(b);
         return 0;
 }
 
@@ -138,15 +128,11 @@ int barrier_init(Barrier *obj) {
  * barrier_destroy() - Destroy a barrier object
  * @b: barrier to destroy or NULL
  *
- * This destroys a barrier object that has previously been initialized via
- * barrier_init(). The object is released and reset to invalid state.
- * Therefore, it is safe to call barrier_destroy() multiple times or even if
- * barrier_init() failed. However, you must not call barrier_destroy() if you
- * never called barrier_init() on the object before.
- *
- * It is safe to initialize a barrier via zero() / memset(.., 0, ...). Even
- * though it has embedded FDs, barrier_destroy() can deal with zeroed objects
- * just fine.
+ * This destroys a barrier object that has previously been passed to
+ * barrier_create(). The object is released and reset to invalid
+ * state. Therefore, it is safe to call barrier_destroy() multiple
+ * times or even if barrier_create() failed. However, barrier must be
+ * always initalized with BARRIER_NULL.
  *
  * If @b is NULL, this is a no-op.
  */
@@ -154,21 +140,9 @@ void barrier_destroy(Barrier *b) {
         if (!b)
                 return;
 
-        /* @me and @them cannot be both FD 0. Lets be pedantic and check the
-         * pipes and barriers, too. If all are 0, the object was zero()ed and
-         * is invalid. This allows users to use zero(barrier) to reset the
-         * backing memory. */
-        if (b->me == 0 &&
-            b->them == 0 &&
-            b->pipe[0] == 0 &&
-            b->pipe[1] == 0 &&
-            b->barriers == 0)
-                return;
-
         b->me = safe_close(b->me);
         b->them = safe_close(b->them);
-        b->pipe[0] = safe_close(b->pipe[0]);
-        b->pipe[1] = safe_close(b->pipe[1]);
+        safe_close_pair(b->pipe);
         b->barriers = 0;
 }
 
@@ -177,13 +151,14 @@ void barrier_destroy(Barrier *b) {
  * @b: barrier to operate on
  * @role: role to set on the barrier
  *
- * This sets the roles on a barrier object. This is needed to know which
- * side of the barrier you're on. Usually, the parent creates the barrier via
- * barrier_init() and then calls fork() or clone(). Therefore, the FDs are
- * duplicated and the child retains the same barrier object.
+ * This sets the roles on a barrier object. This is needed to know
+ * which side of the barrier you're on. Usually, the parent creates
+ * the barrier via barrier_create() and then calls fork() or clone().
+ * Therefore, the FDs are duplicated and the child retains the same
+ * barrier object.
  *
- * Both sides need to call barrier_set_role() after fork() or clone() are done.
- * If this is not done, barriers will not work correctly.
+ * Both sides need to call barrier_set_role() after fork() or clone()
+ * are done. If this is not done, barriers will not work correctly.
  *
  * Note that barriers could be supported without fork() or clone(). However,
  * this is currently not needed so it hasn't been implemented.
@@ -196,9 +171,9 @@ void barrier_set_role(Barrier *b, unsigned int role) {
         /* make sure this is only called once */
         assert(b->pipe[1] >= 0 && b->pipe[1] >= 0);
 
-        if (role == BARRIER_PARENT) {
+        if (role == BARRIER_PARENT)
                 b->pipe[1] = safe_close(b->pipe[1]);
-        } else {
+        else {
                 b->pipe[0] = safe_close(b->pipe[0]);
 
                 /* swap me/them for children */
@@ -218,7 +193,7 @@ static bool barrier_write(Barrier *b, uint64_t buf) {
 
         do {
                 len = write(b->me, &buf, sizeof(buf));
-        } while (len < 0 && (errno == EAGAIN || errno == EINTR));
+        } while (len < 0 && IN_SET(errno, EAGAIN, EINTR));
 
         if (len != sizeof(buf))
                 goto error;
@@ -229,9 +204,8 @@ static bool barrier_write(Barrier *b, uint64_t buf) {
                         b->barriers = BARRIER_WE_ABORTED;
                 else
                         b->barriers = BARRIER_I_ABORTED;
-        } else if (!barrier_is_aborted(b)) {
+        } else if (!barrier_is_aborted(b))
                 b->barriers += buf;
-        }
 
         return !barrier_i_aborted(b);
 
@@ -241,52 +215,48 @@ error:
          * pipe-ends and treat this as abortion. The other end will notice the
          * pipe-close and treat it as abortion, too. */
 
-        b->pipe[0] = safe_close(b->pipe[0]);
-        b->pipe[1] = safe_close(b->pipe[1]);
+        safe_close_pair(b->pipe);
         b->barriers = BARRIER_WE_ABORTED;
         return false;
 }
 
 /* waits for barriers; returns false if they aborted, otherwise true */
 static bool barrier_read(Barrier *b, int64_t comp) {
-        uint64_t buf;
-        ssize_t len;
-        struct pollfd pfd[2] = { };
-        int r;
-
         if (barrier_they_aborted(b))
                 return false;
 
         while (b->barriers > comp) {
-                pfd[0].fd = (b->pipe[0] >= 0) ? b->pipe[0] : b->pipe[1];
-                pfd[0].events = POLLHUP;
-                pfd[0].revents = 0;
-                pfd[1].fd = b->them;
-                pfd[1].events = POLLIN;
-                pfd[1].revents = 0;
+                struct pollfd pfd[2] = {
+                        { .fd = b->pipe[0] >= 0 ? b->pipe[0] : b->pipe[1],
+                          .events = POLLHUP },
+                        { .fd = b->them,
+                          .events = POLLIN }};
+                uint64_t buf;
+                int r;
 
                 r = poll(pfd, 2, -1);
-                if (r < 0 && (errno == EAGAIN || errno == EINTR))
+                if (r < 0 && IN_SET(errno, EAGAIN, EINTR))
                         continue;
                 else if (r < 0)
                         goto error;
 
                 if (pfd[1].revents) {
-                        /* events on @them signal us new data */
+                        ssize_t len;
+
+                        /* events on @them signal new data for us */
                         len = read(b->them, &buf, sizeof(buf));
-                        if (len < 0 && (errno == EAGAIN || errno == EINTR))
+                        if (len < 0 && IN_SET(errno, EAGAIN, EINTR))
                                 continue;
 
                         if (len != sizeof(buf))
                                 goto error;
-                } else if (pfd[0].revents & (POLLHUP | POLLERR | POLLNVAL)) {
+                } else if (pfd[0].revents & (POLLHUP | POLLERR | POLLNVAL))
                         /* POLLHUP on the pipe tells us the other side exited.
                          * We treat this as implicit abortion. But we only
                          * handle it if there's no event on the eventfd. This
                          * guarantees that exit-abortions do not overwrite real
                          * barriers. */
                         buf = BARRIER_ABORTION;
-                }
 
                 /* lock if they aborted */
                 if (buf >= (uint64_t)BARRIER_ABORTION) {
@@ -294,9 +264,8 @@ static bool barrier_read(Barrier *b, int64_t comp) {
                                 b->barriers = BARRIER_WE_ABORTED;
                         else
                                 b->barriers = BARRIER_THEY_ABORTED;
-                } else if (!barrier_is_aborted(b)) {
+                } else if (!barrier_is_aborted(b))
                         b->barriers -= buf;
-                }
         }
 
         return !barrier_they_aborted(b);
@@ -307,8 +276,7 @@ error:
          * pipe-ends and treat this as abortion. The other end will notice the
          * pipe-close and treat it as abortion, too. */
 
-        b->pipe[0] = safe_close(b->pipe[0]);
-        b->pipe[1] = safe_close(b->pipe[1]);
+        safe_close_pair(b->pipe);
         b->barriers = BARRIER_WE_ABORTED;
         return false;
 }

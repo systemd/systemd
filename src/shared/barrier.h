@@ -57,7 +57,9 @@ struct Barrier {
         int64_t barriers;
 };
 
-int barrier_init(Barrier *obj);
+#define BARRIER_NULL {-1, -1, {-1, -1}, 0}
+
+int barrier_create(Barrier *obj);
 void barrier_destroy(Barrier *b);
 
 void barrier_set_role(Barrier *b, unsigned int role);

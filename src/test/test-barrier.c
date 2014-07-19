@@ -59,10 +59,10 @@ static void msleep(unsigned long msecs) {
 
 #define TEST_BARRIER(_FUNCTION, _CHILD_CODE, _WAIT_CHILD, _PARENT_CODE, _WAIT_PARENT)  \
         static void _FUNCTION(void) {                                   \
-                Barrier b;                                              \
+                Barrier b = BARRIER_NULL;                               \
                 pid_t pid1, pid2;                                       \
                                                                         \
-                assert_se(barrier_init(&b) >= 0);                       \
+                assert_se(barrier_create(&b) >= 0);                     \
                                                                         \
                 pid1 = fork();                                          \
                 assert_se(pid1 >= 0);                                   \

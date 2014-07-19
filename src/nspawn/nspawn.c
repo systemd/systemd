@@ -3073,13 +3073,13 @@ int main(int argc, char *argv[]) {
 
         for (;;) {
                 ContainerStatus container_status;
-                _cleanup_(barrier_destroy) Barrier barrier = { };
+                _cleanup_(barrier_destroy) Barrier barrier = BARRIER_NULL;
                 struct sigaction sa = {
                         .sa_handler = nop_handler,
                         .sa_flags = SA_NOCLDSTOP,
                 };
 
-                r = barrier_init(&barrier);
+                r = barrier_create(&barrier);
                 if (r < 0) {
                         log_error("Cannot initialize IPC barrier: %s", strerror(-r));
                         goto finish;
