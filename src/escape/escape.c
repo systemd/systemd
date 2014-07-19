@@ -235,5 +235,5 @@ int main(int argc, char *argv[]) {
         fputc('\n', stdout);
 
 finish:
-        return r ? EXIT_FAILURE : EXIT_SUCCESS;
+        return r <= 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
