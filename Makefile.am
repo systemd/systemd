@@ -2898,11 +2898,12 @@ test_unifont_LDADD = \
 	libsystemd-internal.la \
 	libsystemd-shared.la
 
-update-unifont:
-	$(AM_V_GEN)cat $(top_srcdir)/src/libsystemd-terminal/unifont.hex | $(PYTHON) $(top_srcdir)/tools/compile-unifont.py >$(top_srcdir)/src/libsystemd-terminal/unifont-glyph-array.bin
-	@echo "unifont-glyph-array.bin has been regenerated"
-
 .PHONY: update-unifont
+update-unifont: tools/compile-unifont.py
+	$(AM_V_GEN)$(PYTHON) $< \
+		<$(top_srcdir)/src/libsystemd-terminal/unifont.hex \
+		>$(top_srcdir)/src/libsystemd-terminal/unifont-glyph-array.bin
+	@echo "unifont-glyph-array.bin has been regenerated"
 
 # ------------------------------------------------------------------------------
 if ENABLE_GTK_DOC
