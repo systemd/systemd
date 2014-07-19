@@ -132,7 +132,7 @@ int decompress_blob_xz(const void *src, uint64_t src_size,
 
         space = MIN(src_size * 2, dst_max ?: (uint64_t) -1);
         if (!greedy_realloc(dst, dst_alloc_size, space, 1))
-                return false;
+                return -ENOMEM;
 
         s.next_in = src;
         s.avail_in = src_size;
@@ -158,7 +158,7 @@ int decompress_blob_xz(const void *src, uint64_t src_size,
                 used = space - s.avail_out;
                 space = MIN(2 * space, dst_max ?: (uint64_t) -1);
                 if (!greedy_realloc(dst, dst_alloc_size, space, 1))
-                        return false;
+                        return -ENOMEM;
 
                 s.avail_out = space - used;
                 s.next_out = *dst + used;
