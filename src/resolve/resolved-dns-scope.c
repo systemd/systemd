@@ -182,7 +182,7 @@ int dns_scope_tcp_socket(DnsScope *s) {
         _cleanup_close_ int fd = -1;
         union sockaddr_union sa = {};
         socklen_t salen;
-        int one, ifindex, ret;
+        int one, ret;
         DnsServer *srv;
         int r;
 
@@ -192,9 +192,6 @@ int dns_scope_tcp_socket(DnsScope *s) {
         if (!srv)
                 return -ESRCH;
 
-        if (s->link)
-                ifindex = s->link->ifindex;
-
         sa.sa.sa_family = srv->family;
         if (srv->family == AF_INET) {
                 sa.in.sin_port = htobe16(53);
@@ -203,7 +200,7 @@ int dns_scope_tcp_socket(DnsScope *s) {
         } else if (srv->family == AF_INET6) {
                 sa.in6.sin6_port = htobe16(53);
                 sa.in6.sin6_addr = srv->address.in6;
-                sa.in6.sin6_scope_id = ifindex;
+                sa.in6.sin6_scope_id = s->link ? s->link->ifindex : 0;
                 salen = sizeof(sa.in6);
         } else
                 return -EAFNOSUPPORT;
