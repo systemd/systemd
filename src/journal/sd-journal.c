@@ -2399,7 +2399,7 @@ _public_ int sd_journal_get_cutoff_realtime_usec(sd_journal *j, uint64_t *from, 
 _public_ int sd_journal_get_cutoff_monotonic_usec(sd_journal *j, sd_id128_t boot_id, uint64_t *from, uint64_t *to) {
         Iterator i;
         JournalFile *f;
-        bool first = true;
+        bool found = false;
         int r;
 
         assert_return(j, -EINVAL);
@@ -2418,21 +2418,21 @@ _public_ int sd_journal_get_cutoff_monotonic_usec(sd_journal *j, sd_id128_t boot
                 if (r == 0)
                         continue;
 
-                if (first) {
-                        if (from)
-                                *from = fr;
-                        if (to)
-                                *to = t;
-                        first = false;
-                } else {
+                if (found) {
                         if (from)
                                 *from = MIN(fr, *from);
                         if (to)
                                 *to = MAX(t, *to);
+                } else {
+                        if (from)
+                                *from = fr;
+                        if (to)
+                                *to = t;
+                        found = true;
                 }
         }
 
-        return first ? 0 : 1;
+        return found;
 }
 
 void journal_print_header(sd_journal *j) {
