@@ -257,6 +257,8 @@ static bool barrier_read(Barrier *b, int64_t comp) {
                          * guarantees that exit-abortions do not overwrite real
                          * barriers. */
                         buf = BARRIER_ABORTION;
+                else
+                        continue;
 
                 /* lock if they aborted */
                 if (buf >= (uint64_t)BARRIER_ABORTION) {
