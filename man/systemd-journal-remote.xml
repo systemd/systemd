@@ -21,7 +21,8 @@ You should have received a copy of the GNU Lesser General Public License
 along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="systemd-journal-remote" conditional='HAVE_MICROHTTPD'>
+<refentry id="systemd-journal-remote" conditional='HAVE_MICROHTTPD'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>systemd-journal-remote</title>
@@ -235,21 +236,6 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
     <variablelist>
       <varlistentry>
-        <term><option>--help</option></term>
-        <term><option>-h</option></term>
-
-        <listitem><para>Print a short help
-        text and exit.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--version</option></term>
-
-        <listitem><para>Print a short version
-        string and exit.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><option>--split-mode</option></term>
 
         <listitem><para>One of <constant>none</constant> or
@@ -293,6 +279,9 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <programlisting>--getter='wget --header="Accept: application/vnd.fdo.journal" -O- https://some.host:19531/'</programlisting>
         </listitem>
       </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
   </refsect1>
 

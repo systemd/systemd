@@ -278,8 +278,8 @@ static void help(void) {
                "Check if unit files can be correctly loaded.\n\n"
                "  -h --help           Show this help\n"
                "     --version        Show package version\n"
-               "     --system         Connect to system manager\n"
-               "     --user           Connect to user service manager\n"
+               "     --system         Test system units\n"
+               "     --user           Test user units\n"
                "     --no-man         Do not check for existence of man pages\n"
                , program_invocation_short_name);
 }
