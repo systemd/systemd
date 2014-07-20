@@ -27,8 +27,10 @@
 #include "log.h"
 #include "strv.h"
 #include "build.h"
+#include "pager.h"
 
 SystemdRunningAs arg_running_as = SYSTEMD_SYSTEM;
+bool arg_no_man = false;
 
 static int generate_path(char **var, char **filenames) {
         char **filename;
@@ -140,6 +142,37 @@ static int verify_executables(Unit *u) {
         return r;
 }
 
+static int verify_documentation(Unit *u) {
+        char **p;
+        int r = 0, k;
+
+        if (arg_no_man)
+                return 0;
+
+        STRV_FOREACH(p, u->documentation) {
+                log_debug_unit(u->id, "%s: found documentation item %s.", u->id, *p);
+                if (startswith(*p, "man:")) {
+                        k = show_man_page(*p + 4, true);
+                        if (k != 0) {
+                                if (k < 0)
+                                        log_error_unit(u->id, "%s: can't show %s: %s",
+                                                       u->id, *p, strerror(-r));
+                                else {
+                                        log_error_unit(u->id, "%s: man %s command failed with code %d",
+                                                       u->id, *p + 4, k);
+                                        k = -ENOEXEC;
+                                }
+                                if (r == 0)
+                                        r = k;
+                        }
+                }
+        }
+
+        /* Check remote URLs? */
+
+        return r;
+}
+
 static int test_unit(Unit *u) {
         _cleanup_bus_error_free_ sd_bus_error err = SD_BUS_ERROR_NULL;
         Job *j;
@@ -164,6 +197,10 @@ static int test_unit(Unit *u) {
                 r = k;
 
         k = verify_executables(u);
+        if (k < 0 && r == 0)
+                r = k;
+
+        k = verify_documentation(u);
         if (k < 0 && r == 0)
                 r = k;
 
@@ -242,8 +279,9 @@ static void help(void) {
                "  -h --help           Show this help\n"
                "     --version        Show package version\n"
                "     --system         Connect to system manager\n"
-               "     --user           Connect to user service manager\n",
-               program_invocation_short_name);
+               "     --user           Connect to user service manager\n"
+               "     --no-man         Do not check for existence of man pages\n"
+               , program_invocation_short_name);
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -251,6 +289,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERSION = 0x100,
                 ARG_USER,
                 ARG_SYSTEM,
+                ARG_NO_MAN,
         };
 
         static const struct option options[] = {
@@ -286,6 +325,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_SYSTEM:
                         arg_running_as = SYSTEMD_SYSTEM;
+                        break;
+
+                case ARG_NO_MAN:
+                        arg_no_man = true;
                         break;
 
                 case '?':

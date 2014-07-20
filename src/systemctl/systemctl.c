@@ -3503,50 +3503,11 @@ static void show_unit_help(UnitStatusInfo *i) {
                 return;
         }
 
-        STRV_FOREACH(p, i->documentation) {
-
-                if (startswith(*p, "man:")) {
-                        const char *args[4] = { "man", NULL, NULL, NULL };
-                        _cleanup_free_ char *page = NULL, *section = NULL;
-                        char *e = NULL;
-                        pid_t pid;
-                        size_t k;
-
-                        k = strlen(*p);
-
-                        if ((*p)[k-1] == ')')
-                                e = strrchr(*p, '(');
-
-                        if (e) {
-                                page = strndup((*p) + 4, e - *p - 4);
-                                section = strndup(e + 1, *p + k - e - 2);
-                                if (!page || !section) {
-                                        log_oom();
-                                        return;
-                                }
-
-                                args[1] = section;
-                                args[2] = page;
-                        } else
-                                args[1] = *p + 4;
-
-                        pid = fork();
-                        if (pid < 0) {
-                                log_error("Failed to fork: %m");
-                                continue;
-                        }
-
-                        if (pid == 0) {
-                                /* Child */
-                                execvp(args[0], (char**) args);
-                                log_error("Failed to execute man: %m");
-                                _exit(EXIT_FAILURE);
-                        }
-
-                        wait_for_terminate(pid, NULL);
-                } else
+        STRV_FOREACH(p, i->documentation)
+                if (startswith(*p, "man:"))
+                        show_man_page(*p + 4, false);
+                else
                         log_info("Can't show: %s", *p);
-        }
 }
 
 static int status_property(const char *name, sd_bus_message *m, UnitStatusInfo *i, const char *contents) {
