@@ -275,8 +275,10 @@
                 (<option>--user</option>) and the variable
                 <varname>$SYSTEMD_UNIT_PATH</varname> is set, this
                 contents of this variable overrides the unit load
-                path.
-                </para>
+                path. If <varname>$SYSTEMD_UNIT_PATH</varname> ends
+                with an empty component (<literal>:</literal>), the
+                usual unit load path will be appended to the contents
+                of the variable.</para>
 
                 <table>
                   <title>
