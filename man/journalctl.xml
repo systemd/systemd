@@ -84,10 +84,11 @@
                 field, then they are automatically matched as
                 alternatives, i.e. the resulting output will show
                 entries matching any of the specified matches for the
-                same field. Finally, if the character
-                <literal>+</literal> appears as a separate word on the
-                command line, all matches before and after are combined
-                in a disjunction (i.e. logical OR).</para>
+                same field. Finally, the character
+                <literal>+</literal> may appears as a separate word
+                between other terms on the command line. This causes
+                all matches before and after to be combined in a
+                disjunction (i.e. logical OR).</para>
 
                 <para>As shortcuts for a few types of field/value
                 matches, file paths may be specified. If a file path
@@ -98,10 +99,20 @@
                 <literal>_KERNEL_DEVICE=</literal> match for the
                 device.</para>
 
+                <para>Additional contraints may be added using options
+                <option>--boot</option>, <option>--unit=</option>,
+                etc, to futher limit what entries will be shown
+                (logical AND).</para>
+
                 <para>Output is interleaved from all accessible
                 journal files, whether they are rotated or currently
                 being written, and regardless of whether they belong to the
                 system itself or are accessible user journals.</para>
+
+                <para>The set of journal files which will be used
+                can be modified using the <option>--user</option>,
+                <option>--system</option>, <option>--directory</option>,
+                and <option>--file</option> options, see below.</para>
 
                 <para>All users are granted access to their private
                 per-user journals. However, by default, only root and
