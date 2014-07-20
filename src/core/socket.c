@@ -180,9 +180,8 @@ static int socket_arm_timer(Socket *s) {
                         socket_dispatch_timer, s);
 }
 
-static int socket_instantiate_service(Socket *s) {
-        _cleanup_free_ char *prefix = NULL;
-        _cleanup_free_ char *name = NULL;
+int socket_instantiate_service(Socket *s) {
+        _cleanup_free_ char *prefix = NULL, *name = NULL;
         int r;
         Unit *u;
 
@@ -193,10 +192,8 @@ static int socket_instantiate_service(Socket *s) {
          * here. For Accept=no this is mostly a NOP since the service
          * is figured out at load time anyway. */
 
-        if (UNIT_DEREF(s->service))
+        if (UNIT_DEREF(s->service) || !s->accept)
                 return 0;
-
-        assert(s->accept);
 
         prefix = unit_name_to_prefix(UNIT(s)->id);
         if (!prefix)

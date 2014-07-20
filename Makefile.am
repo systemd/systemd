@@ -350,7 +350,8 @@ bin_PROGRAMS = \
 	systemd-delta \
 	systemd-analyze \
 	systemd-run \
-	systemd-path
+	systemd-path \
+	systemd-verify
 
 dist_bin_SCRIPTS = \
 	src/kernel-install/kernel-install
@@ -1224,6 +1225,20 @@ CLEANFILES += \
 	src/core/org.freedesktop.systemd1.policy.in
 
 # ------------------------------------------------------------------------------
+
+systemd_verify_SOURCES = \
+	src/verify/verify.c
+
+systemd_verify_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(SECCOMP_CFLAGS)
+
+systemd_verify_LDADD = \
+	libsystemd-core.la \
+	$(RT_LIBS)
+
+# ------------------------------------------------------------------------------
+
 manual_tests += \
 	test-ns \
 	test-loopback \
