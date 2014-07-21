@@ -47,11 +47,20 @@ typedef enum BondXmitHashPolicy {
         _NETDEV_BOND_XMIT_HASH_POLICY_INVALID = -1
 } BondXmitHashPolicy;
 
+
+typedef enum BondLacpRate {
+        NETDEV_BOND_LACP_RATE_SLOW,
+        NETDEV_BOND_LACP_RATE_FAST,
+        _NETDEV_BOND_LACP_RATE_MAX,
+        _NETDEV_BOND_LACP_RATE_INVALID = -1,
+} BondLacpRate;
+
 struct Bond {
         NetDev meta;
 
         BondMode mode;
         BondXmitHashPolicy xmit_hash_policy;
+        BondLacpRate lacp_rate;
 };
 
 extern const NetDevVTable bond_vtable;
@@ -62,5 +71,9 @@ BondMode bond_mode_from_string(const char *d) _pure_;
 const char *bond_xmit_hash_policy_to_string(BondXmitHashPolicy d) _const_;
 BondXmitHashPolicy bond_xmit_hash_policy_from_string(const char *d) _pure_;
 
+const char *bond_lacp_rate_to_string(BondLacpRate d) _const_;
+BondLacpRate bond_lacp_rate_from_string(const char *d) _pure_;
+
 int config_parse_bond_mode(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_bond_xmit_hash_policy(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+int config_parse_bond_lacp_rate(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);

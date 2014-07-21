@@ -408,14 +408,15 @@
                                 <varlistentry>
                                         <term><varname>Mode=</varname></term>
                                         <listitem>
-                                          <para>Specifies one of the bonding policies. The default is balance-rr (round robin).
-                                                <literal>balance-rr</literal>
-                                                <literal>active-backup</literal>
-                                                <literal>balance-xor</literal>
-                                                <literal>broadcast</literal>
-                                                <literal>802.3ad</literal>
-                                                <literal>balance-tlb</literal>
-                                                <literal>balance-alb</literal>
+                                          <para>Specifies one of the bonding policies. The default is
+                                          <literal>balance-rr</literal> (round robin). Possible values are
+                                                <literal>balance-rr</literal>,
+                                                <literal>active-backup</literal>,
+                                                <literal>balance-xor</literal>,
+                                                <literal>broadcast</literal>,
+                                                <literal>802.3ad</literal>,
+                                                <literal>balance-tlb</literal>, and
+                                                <literal>balance-alb</literal>.
                                           </para>
                                         </listitem>
                                 </varlistentry>
@@ -424,17 +425,28 @@
                                   <term><varname>TransmitHashPolicy=</varname></term>
                                   <listitem>
                                     <para>Selects the transmit hash policy to use for slave selection in
-                                    balance-xor, 802.3ad, and tlb modes.
-                                    <literal>layer2</literal>
-                                    <literal>layer3+4</literal>
-                                    <literal>layer2+3</literal>
-                                    <literal>encap2+3</literal>
-                                    <literal>802.3ad</literal>
-                                    <literal>encap3+4</literal>
+                                    balance-xor, 802.3ad, and tlb modes. Possible values are
+                                    <literal>layer2</literal>,
+                                    <literal>layer3+4</literal>,
+                                    <literal>layer2+3</literal>,
+                                    <literal>encap2+3</literal>,
+                                    <literal>802.3ad</literal>, and
+                                    <literal>encap3+4</literal>.
                                     </para>
                                   </listitem>
                                 </varlistentry>
 
+                                <varlistentry>
+                                  <term><varname>LACPTransmitRate=</varname></term>
+                                  <listitem>
+                                    <para>Specifies the rate with which link partner
+                                    transmits Link Aggregation Control Protocol Data Unit packets
+                                    in 802.3ad mode. Possible values are
+                                    <literal>slow</literal>, which requests partner to transmit LACPDUs every 30 seconds, and
+                                    <literal>fast</literal>, which requests partner to transmit LACPDUs every second.
+                                    The default value is <literal>slow</literal>.</para>
+                                  </listitem>
+                                </varlistentry>
                         </variablelist>
         </refsect1>
 

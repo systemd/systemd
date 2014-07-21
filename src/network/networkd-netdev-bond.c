@@ -57,6 +57,14 @@ DEFINE_CONFIG_PARSE_ENUM(config_parse_bond_xmit_hash_policy,
                          BondXmitHashPolicy,
                          "Failed to parse bond transmit hash policy")
 
+static const char* const bond_lacp_rate_table[_NETDEV_BOND_LACP_RATE_MAX] = {
+        [NETDEV_BOND_LACP_RATE_SLOW] = "slow",
+        [NETDEV_BOND_LACP_RATE_FAST] = "fast",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(bond_lacp_rate, BondLacpRate);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_bond_lacp_rate, bond_lacp_rate, BondLacpRate, "Failed to parse bond lacp rate")
+
 static uint8_t bond_mode_to_kernel(BondMode mode) {
         switch (mode) {
         case NETDEV_BOND_MODE_BALANCE_RR:
@@ -126,6 +134,17 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_m
                 }
         }
 
+        if (b->lacp_rate != _NETDEV_BOND_LACP_RATE_INVALID &&
+            b->mode == NETDEV_BOND_MODE_802_3AD) {
+                r = sd_rtnl_message_append_u8(m, IFLA_BOND_AD_LACP_RATE, b->lacp_rate );
+                if (r < 0) {
+                        log_error_netdev(netdev,
+                                         "Could not append IFLA_BOND_AD_LACP_RATE attribute: %s",
+                                         strerror(-r));
+                        return r;
+                }
+        }
+
         return 0;
 }
 
@@ -137,6 +156,7 @@ static void bond_init(NetDev *netdev) {
 
         b->mode = _NETDEV_BOND_MODE_INVALID;
         b->xmit_hash_policy = _NETDEV_BOND_XMIT_HASH_POLICY_INVALID;
+        b->lacp_rate = _NETDEV_BOND_LACP_RATE_INVALID;
 }
 
 const NetDevVTable bond_vtable = {
