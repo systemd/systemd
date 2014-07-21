@@ -35,11 +35,6 @@
 #include "nss-util.h"
 #include "util.h"
 
-/* Ensure that glibc's assert is used. We cannot use assert from macro.h, as
- * libnss_myhostname will be linked into arbitrary programs which will, in turn
- * attempt to write to the journal via log_dispatch() */
-#include <assert.h>
-
 /* We use 127.0.0.2 as IPv4 address. This has the advantage over
  * 127.0.0.1 that it can be translated back to the local hostname. For
  * IPv6 we use ::1 which unfortunately will not translate back to the
