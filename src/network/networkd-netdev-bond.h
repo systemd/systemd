@@ -61,6 +61,10 @@ struct Bond {
         BondMode mode;
         BondXmitHashPolicy xmit_hash_policy;
         BondLacpRate lacp_rate;
+
+        usec_t miimon;
+        usec_t updelay;
+        usec_t downdelay;
 };
 
 extern const NetDevVTable bond_vtable;

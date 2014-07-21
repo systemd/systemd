@@ -54,3 +54,6 @@ Tap.Group,               config_parse_string,                0,                 
 Bond.Mode,               config_parse_bond_mode,             0,                             offsetof(Bond, mode)
 Bond.TransmitHashPolicy, config_parse_bond_xmit_hash_policy, 0,                             offsetof(Bond, xmit_hash_policy)
 Bond.LACPTransmitRate,   config_parse_bond_lacp_rate,        0,                             offsetof(Bond, lacp_rate)
+Bond.MIIMonitorSec,      config_parse_sec,                   0,                             offsetof(Bond, miimon)
+Bond.UpDelaySec,         config_parse_sec,                   0,                             offsetof(Bond, updelay)
+Bond.DownDelaySec,       config_parse_sec,                   0,                             offsetof(Bond, downdelay)

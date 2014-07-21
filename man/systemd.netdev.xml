@@ -447,6 +447,35 @@
                                     The default value is <literal>slow</literal>.</para>
                                   </listitem>
                                 </varlistentry>
+
+                                <varlistentry>
+                                  <term><varname>MIIMonitorSec=</varname></term>
+                                  <listitem>
+                                    <para>Specifies the frequency that Media Independent Interface link
+                                    monitoring will occur. A value of zero disables MII link monitoring.
+                                    This values is rounded down to the nearest millisecond. The default
+                                    value is 0.</para>
+                                  </listitem>
+                                </varlistentry>
+
+                                <varlistentry>
+                                  <term><varname>UpDelaySec=</varname></term>
+                                  <listitem>
+                                    <para>Specifies the delay before a link is enabled after a link up
+                                    status has been detected. This value is rounded down to a multiple of
+                                    MIIMonitorSec. The default value is 0.</para>
+                                  </listitem>
+                                </varlistentry>
+
+                                <varlistentry>
+                                  <term><varname>DownDelaySec=</varname></term>
+                                  <listitem>
+                                    <para>Specifies the delay before a link is disabled after a link down
+                                    status has been detected. This value is rounded down to a multiple of
+                                    MIIMonitorSec. The default value is 0.</para>
+                                  </listitem>
+                                </varlistentry>
+
                         </variablelist>
         </refsect1>
 
