@@ -186,6 +186,20 @@ int sd_rtnl_message_link_set_type(sd_rtnl_message *m, unsigned type) {
         return 0;
 }
 
+int sd_rtnl_message_link_set_family(sd_rtnl_message *m, unsigned family) {
+        struct ifinfomsg *ifi;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(rtnl_message_type_is_link(m->hdr->nlmsg_type), -EINVAL);
+
+        ifi = NLMSG_DATA(m->hdr);
+
+        ifi->ifi_family = family;
+
+        return 0;
+}
+
 int sd_rtnl_message_new_link(sd_rtnl *rtnl, sd_rtnl_message **ret,
                              uint16_t nlmsg_type, int index) {
         struct ifinfomsg *ifi;

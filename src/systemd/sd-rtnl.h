@@ -93,6 +93,7 @@ int sd_rtnl_message_addr_get_ifindex(sd_rtnl_message *m, int *ifindex);
 
 int sd_rtnl_message_link_set_flags(sd_rtnl_message *m, unsigned flags, unsigned change);
 int sd_rtnl_message_link_set_type(sd_rtnl_message *m, unsigned type);
+int sd_rtnl_message_link_set_family(sd_rtnl_message *m, unsigned family);
 int sd_rtnl_message_link_get_ifindex(sd_rtnl_message *m, int *ifindex);
 int sd_rtnl_message_link_get_flags(sd_rtnl_message *m, unsigned *flags);
 int sd_rtnl_message_link_get_type(sd_rtnl_message *m, unsigned *type);
