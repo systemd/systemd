@@ -211,7 +211,23 @@ static const NLTypeSystem rtnl_link_info_type_system = {
         .types = rtnl_link_info_types,
 };
 
-static const NLType rtnl_link_types[IFLA_MAX + 1] = {
+static const struct NLType rtnl_bridge_port_types[IFLA_BRPORT_MAX + 1] = {
+        [IFLA_BRPORT_STATE]     = { .type = NLA_U8 },
+        [IFLA_BRPORT_COST]      = { .type = NLA_U32 },
+        [IFLA_BRPORT_PRIORITY]  = { .type = NLA_U16 },
+        [IFLA_BRPORT_MODE]      = { .type = NLA_U8 },
+        [IFLA_BRPORT_GUARD]     = { .type = NLA_U8 },
+        [IFLA_BRPORT_PROTECT]   = { .type = NLA_U8 },
+        [IFLA_BRPORT_LEARNING]  = { .type = NLA_U8 },
+        [IFLA_BRPORT_UNICAST_FLOOD] = { .type = NLA_U8 },
+};
+
+static const NLTypeSystem rtnl_bridge_port_type_system = {
+        .max = ELEMENTSOF(rtnl_bridge_port_types) - 1,
+        .types = rtnl_bridge_port_types,
+};
+
+static const NLType rtnl_link_types[IFLA_MAX + 1 ] = {
         [IFLA_ADDRESS]          = { .type = NLA_ETHER_ADDR, },
         [IFLA_BROADCAST]        = { .type = NLA_ETHER_ADDR, },
         [IFLA_IFNAME]           = { .type = NLA_STRING, .size = IFNAMSIZ - 1, },
@@ -228,6 +244,7 @@ static const NLType rtnl_link_types[IFLA_MAX + 1] = {
         [IFLA_WIRELESS],
         [IFLA_PROTINFO],
 */
+        [IFLA_PROTINFO]         = { .type = NLA_NESTED, .type_system = &rtnl_bridge_port_type_system },
         [IFLA_TXQLEN]           = { .type = NLA_U32 },
 /*
         [IFLA_MAP]              = { .len = sizeof(struct rtnl_link_ifmap) },
