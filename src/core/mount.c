@@ -380,7 +380,8 @@ static int mount_add_default_dependencies(Mount *m) {
         if (!p)
                 return 0;
 
-        if (path_equal(m->where, "/"))
+        if (path_equal(m->where, "/") ||
+            path_equal(m->where, "/usr"))
                 return 0;
 
         if (mount_is_network(p)) {
