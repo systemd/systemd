@@ -42,6 +42,21 @@ static const char* const bond_mode_table[_NETDEV_BOND_MODE_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(bond_mode, BondMode);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_bond_mode, bond_mode, BondMode, "Failed to parse bond mode");
 
+
+static const char* const bond_xmit_hash_policy_table[_NETDEV_BOND_XMIT_HASH_POLICY_MAX] = {
+        [NETDEV_BOND_XMIT_HASH_POLICY_LAYER2] = "layer2",
+        [NETDEV_BOND_XMIT_HASH_POLICY_LAYER34] = "layer3+4",
+        [NETDEV_BOND_XMIT_HASH_POLICY_LAYER23] = "layer2+3",
+        [NETDEV_BOND_XMIT_HASH_POLICY_ENCAP23] = "encap2+3",
+        [NETDEV_BOND_XMIT_HASH_POLICY_ENCAP34] = "encap3+4",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(bond_xmit_hash_policy, BondXmitHashPolicy);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_bond_xmit_hash_policy,
+                         bond_xmit_hash_policy,
+                         BondXmitHashPolicy,
+                         "Failed to parse bond transmit hash policy")
+
 static uint8_t bond_mode_to_kernel(BondMode mode) {
         switch (mode) {
         case NETDEV_BOND_MODE_BALANCE_RR:
@@ -58,6 +73,23 @@ static uint8_t bond_mode_to_kernel(BondMode mode) {
                 return BOND_MODE_TLB;
         case NETDEV_BOND_MODE_BALANCE_ALB:
                 return BOND_MODE_ALB;
+        default:
+                return (uint8_t) -1;
+        }
+}
+
+static uint8_t bond_xmit_hash_policy_to_kernel(BondXmitHashPolicy policy) {
+        switch (policy) {
+        case NETDEV_BOND_XMIT_HASH_POLICY_LAYER2:
+                return BOND_XMIT_POLICY_LAYER2;
+        case NETDEV_BOND_XMIT_HASH_POLICY_LAYER34:
+                return BOND_XMIT_POLICY_LAYER34;
+        case NETDEV_BOND_XMIT_HASH_POLICY_LAYER23:
+                return BOND_XMIT_POLICY_LAYER23;
+        case NETDEV_BOND_XMIT_HASH_POLICY_ENCAP23:
+                return BOND_XMIT_POLICY_ENCAP23;
+        case NETDEV_BOND_XMIT_HASH_POLICY_ENCAP34:
+                return BOND_XMIT_POLICY_ENCAP34;
         default:
                 return (uint8_t) -1;
         }
@@ -83,6 +115,17 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_m
                 }
         }
 
+        if (b->xmit_hash_policy != _NETDEV_BOND_XMIT_HASH_POLICY_INVALID) {
+                r = sd_rtnl_message_append_u8(m, IFLA_BOND_XMIT_HASH_POLICY,
+                                              bond_xmit_hash_policy_to_kernel(b->xmit_hash_policy));
+                if (r < 0) {
+                        log_error_netdev(netdev,
+                                         "Could not append IFLA_BOND_XMIT_HASH_POLICY attribute: %s",
+                                         strerror(-r));
+                        return r;
+                }
+        }
+
         return 0;
 }
 
@@ -93,6 +136,7 @@ static void bond_init(NetDev *netdev) {
         assert(b);
 
         b->mode = _NETDEV_BOND_MODE_INVALID;
+        b->xmit_hash_policy = _NETDEV_BOND_XMIT_HASH_POLICY_INVALID;
 }
 
 const NetDevVTable bond_vtable = {

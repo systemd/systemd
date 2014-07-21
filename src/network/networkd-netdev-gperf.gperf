@@ -52,3 +52,4 @@ Tap.PacketInfo,          config_parse_bool,                  0,                 
 Tap.User,                config_parse_string,                0,                             offsetof(TunTap, user_name)
 Tap.Group,               config_parse_string,                0,                             offsetof(TunTap, group_name)
 Bond.Mode,               config_parse_bond_mode,             0,                             offsetof(Bond, mode)
+Bond.TransmitHashPolicy, config_parse_bond_xmit_hash_policy, 0,                             offsetof(Bond, xmit_hash_policy)

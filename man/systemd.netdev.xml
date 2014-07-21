@@ -419,6 +419,22 @@
                                           </para>
                                         </listitem>
                                 </varlistentry>
+
+                                <varlistentry>
+                                  <term><varname>TransmitHashPolicy=</varname></term>
+                                  <listitem>
+                                    <para>Selects the transmit hash policy to use for slave selection in
+                                    balance-xor, 802.3ad, and tlb modes.
+                                    <literal>layer2</literal>
+                                    <literal>layer3+4</literal>
+                                    <literal>layer2+3</literal>
+                                    <literal>encap2+3</literal>
+                                    <literal>802.3ad</literal>
+                                    <literal>encap3+4</literal>
+                                    </para>
+                                  </listitem>
+                                </varlistentry>
+
                         </variablelist>
         </refsect1>
 
