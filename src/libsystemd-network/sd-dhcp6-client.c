@@ -293,7 +293,6 @@ static int client_send_message(sd_dhcp6_client *client) {
                 break;
 
         case DHCP6_STATE_STOPPED:
-        case DHCP6_STATE_RS:
         case DHCP6_STATE_BOUND:
                 return -EINVAL;
         }
@@ -446,7 +445,6 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec,
                 break;
 
         case DHCP6_STATE_STOPPED:
-        case DHCP6_STATE_RS:
         case DHCP6_STATE_BOUND:
                 return 0;
         }
@@ -843,7 +841,6 @@ static int client_receive_message(sd_event_source *s, int fd, uint32_t revents,
                 break;
 
         case DHCP6_STATE_STOPPED:
-        case DHCP6_STATE_RS:
                 return 0;
         }
 
@@ -874,7 +871,6 @@ static int client_start(sd_dhcp6_client *client, enum DHCP6State state)
 
         switch (state) {
         case DHCP6_STATE_STOPPED:
-        case DHCP6_STATE_RS:
         case DHCP6_STATE_SOLICITATION:
 
                 r = client_ensure_iaid(client);
