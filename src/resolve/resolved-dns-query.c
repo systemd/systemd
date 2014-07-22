@@ -335,8 +335,9 @@ void dns_query_transaction_process_reply(DnsQueryTransaction *t, DnsPacket *p) {
         if (r < 0) {
                 dns_query_transaction_complete(t, DNS_QUERY_INVALID_REPLY);
                 return;
-        } else
-                dns_cache_put(&t->scope->cache, p->question, DNS_PACKET_RCODE(p), p->answer, 0);
+        }
+
+        dns_cache_put(&t->scope->cache, p->question, DNS_PACKET_RCODE(p), p->answer, 0);
 
         if (DNS_PACKET_RCODE(p) == DNS_RCODE_SUCCESS)
                 dns_query_transaction_complete(t, DNS_QUERY_SUCCESS);
@@ -575,7 +576,8 @@ static int on_query_timeout(sd_event_source *s, usec_t usec, void *userdata) {
         return 0;
 }
 
-static int dns_query_add_transaction(DnsQuery *q, DnsScope *s) {
+static int dns_query_add_transaction(DnsQuery *q, DnsScope *s, DnsResourceKey *key) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
         DnsQueryTransaction *t;
         int r;
 
@@ -585,12 +587,23 @@ static int dns_query_add_transaction(DnsQuery *q, DnsScope *s) {
         if (r < 0)
                 return r;
 
+        if (key) {
+                question = dns_question_new(1);
+                if (!question)
+                        return -ENOMEM;
+
+                r = dns_question_add(question, key);
+                if (r < 0)
+                        return r;
+        } else
+                question = dns_question_ref(q->question);
+
         LIST_FOREACH(transactions_by_scope, t, s->transactions)
-                if (dns_question_is_superset(t->question, q->question))
+                if (dns_question_is_superset(t->question, question))
                         break;
 
         if (!t) {
-                r = dns_query_transaction_new(&t, s, q->question);
+                r = dns_query_transaction_new(&t, s, question);
                 if (r < 0)
                         return r;
         }
@@ -614,6 +627,33 @@ static int dns_query_add_transaction(DnsQuery *q, DnsScope *s) {
 fail:
         dns_query_transaction_gc(t);
         return r;
+}
+
+static int dns_query_add_transaction_split(DnsQuery *q, DnsScope *s) {
+        int r;
+
+        assert(q);
+        assert(s);
+
+        if (s->protocol == DNS_PROTOCOL_MDNS) {
+                r = dns_query_add_transaction(q, s, NULL);
+                if (r < 0)
+                        return r;
+        } else {
+                unsigned i;
+
+                /* On DNS and LLMNR we can only send a single
+                 * question per datagram, hence issue multiple
+                 * transactions. */
+
+                for (i = 0; i < q->question->n_keys; i++) {
+                        r = dns_query_add_transaction(q, s, q->question->keys[i]);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        return 0;
 }
 
 int dns_query_go(DnsQuery *q) {
@@ -660,7 +700,7 @@ int dns_query_go(DnsQuery *q) {
         if (found == DNS_SCOPE_NO)
                 return -ESRCH;
 
-        r = dns_query_add_transaction(q, first);
+        r = dns_query_add_transaction_split(q, first);
         if (r < 0)
                 return r;
 
@@ -674,7 +714,7 @@ int dns_query_go(DnsQuery *q) {
                 if (match != found)
                         continue;
 
-                r = dns_query_add_transaction(q, s);
+                r = dns_query_add_transaction_split(q, s);
                 if (r < 0)
                         return r;
         }
@@ -711,8 +751,9 @@ fail:
 void dns_query_ready(DnsQuery *q) {
         DnsQueryTransaction *t;
         DnsQueryState state = DNS_QUERY_NO_SERVERS;
-        DnsAnswer *failure_answer = NULL;
-        int failure_rcode = 0, failure_ifindex = 0;
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        int rcode = 0;
+        DnsScope *scope = NULL;
         Iterator i;
 
         assert(q);
@@ -728,6 +769,10 @@ void dns_query_ready(DnsQuery *q) {
 
         SET_FOREACH(t, q->transactions, i) {
 
+                /* If we found a successful answer, ignore all answers from other scopes */
+                if (state == DNS_QUERY_SUCCESS && t->scope != scope)
+                        continue;
+
                 /* One of the transactions is still going on, let's wait for it */
                 if (t->state == DNS_QUERY_PENDING || t->state == DNS_QUERY_NULL)
                         return;
@@ -735,34 +780,55 @@ void dns_query_ready(DnsQuery *q) {
                 /* One of the transactions is successful, let's use
                  * it, and copy its data out */
                 if (t->state == DNS_QUERY_SUCCESS) {
+                        DnsAnswer *a;
+
                         if (t->received) {
-                                q->answer = dns_answer_ref(t->received->answer);
-                                q->answer_ifindex = t->received->ifindex;
-                                q->answer_rcode = DNS_PACKET_RCODE(t->received);
+                                rcode = DNS_PACKET_RCODE(t->received);
+                                a = t->received->answer;
                         } else {
-                                q->answer = dns_answer_ref(t->cached);
-                                q->answer_ifindex = t->scope->link ? t->scope->link->ifindex : 0;
-                                q->answer_rcode = t->cached_rcode;
+                                rcode = t->cached_rcode;
+                                a = t->cached;
                         }
 
-                        dns_query_complete(q, DNS_QUERY_SUCCESS);
-                        return;
+                        if (state == DNS_QUERY_SUCCESS) {
+                                DnsAnswer *merged;
+
+                                merged = dns_answer_merge(answer, a);
+                                if (!merged) {
+                                        dns_query_complete(q, DNS_QUERY_RESOURCES);
+                                        return;
+                                }
+
+                                dns_answer_unref(answer);
+                                answer = merged;
+                        } else {
+                                dns_answer_unref(answer);
+                                answer = dns_answer_ref(a);
+                        }
+
+                        scope = t->scope;
+                        state = DNS_QUERY_SUCCESS;
+                        continue;
                 }
 
                 /* One of the transactions has failed, let's see
                  * whether we find anything better, but if not, return
-                 * its response packet */
-                if (t->state == DNS_QUERY_FAILURE) {
+                 * its response data */
+                if (state != DNS_QUERY_SUCCESS && t->state == DNS_QUERY_FAILURE) {
+                        DnsAnswer *a;
+
                         if (t->received) {
-                                failure_answer = t->received->answer;
-                                failure_ifindex = t->received->ifindex;
-                                failure_rcode = DNS_PACKET_RCODE(t->received);
+                                rcode = DNS_PACKET_RCODE(t->received);
+                                a = t->received->answer;
                         } else {
-                                failure_answer = t->cached;
-                                failure_ifindex = t->scope->link ? t->scope->link->ifindex : 0;
-                                failure_rcode = t->cached_rcode;
+                                rcode = t->cached_rcode;
+                                a = t->cached;
                         }
 
+                        dns_answer_unref(answer);
+                        answer = dns_answer_ref(a);
+
+                        scope = t->scope;
                         state = DNS_QUERY_FAILURE;
                         continue;
                 }
@@ -771,10 +837,10 @@ void dns_query_ready(DnsQuery *q) {
                         state = t->state;
         }
 
-        if (state == DNS_QUERY_FAILURE) {
-                q->answer = dns_answer_ref(failure_answer);
-                q->answer_ifindex = failure_ifindex;
-                q->answer_rcode = failure_rcode;
+        if (IN_SET(state, DNS_QUERY_SUCCESS, DNS_QUERY_FAILURE)) {
+                q->answer = dns_answer_ref(answer);
+                q->answer_rcode = rcode;
+                q->answer_ifindex = (scope && scope->link) ? scope->link->ifindex : 0;
         }
 
         dns_query_complete(q, state);

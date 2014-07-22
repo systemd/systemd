@@ -90,7 +90,6 @@ struct DnsQuery {
         sd_event_source *timeout_event_source;
 
         /* Discovered data */
-        DnsPacket *received;
         DnsAnswer *answer;
         int answer_ifindex;
         int answer_rcode;

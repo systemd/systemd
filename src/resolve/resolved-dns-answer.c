@@ -138,3 +138,40 @@ int dns_answer_find_soa(DnsAnswer *a, DnsResourceKey *key, DnsResourceRecord **r
 
         return 0;
 }
+
+DnsAnswer *dns_answer_merge(DnsAnswer *a, DnsAnswer *b) {
+        _cleanup_(dns_answer_unrefp) DnsAnswer *ret = NULL;
+        DnsAnswer *k;
+        unsigned i;
+        int r;
+
+        if (a && (!b || b->n_rrs <= 0))
+                return dns_answer_ref(a);
+        if ((!a || a->n_rrs <= 0) && b)
+                return dns_answer_ref(b);
+
+        ret = dns_answer_new((a ? a->n_rrs : 0) + (b ? b->n_rrs : 0));
+        if (!ret)
+                return NULL;
+
+        if (a) {
+                for (i = 0; i < a->n_rrs; i++) {
+                        r = dns_answer_add(ret, a->rrs[i]);
+                        if (r < 0)
+                                return NULL;
+                }
+        }
+
+        if (b) {
+                for (i = 0; i < b->n_rrs; i++) {
+                        r = dns_answer_add(ret, b->rrs[i]);
+                        if (r < 0)
+                                return NULL;
+                }
+        }
+
+        k = ret;
+        ret = NULL;
+
+        return k;
+}
