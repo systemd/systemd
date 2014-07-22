@@ -415,7 +415,7 @@ static int link_set_dhcp_routes(Link *link) {
         for (i = 0; i < n; i++) {
                 _cleanup_route_free_ Route *route = NULL;
 
-                r = route_new_dynamic(&route);
+                r = route_new_dynamic(&route, RTPROT_DHCP);
                 if (r < 0) {
                         log_error_link(link, "Could not allocate route: %s",
                                        strerror(-r));
@@ -481,7 +481,7 @@ static int link_enter_set_routes(Link *link) {
                 }
 
                 if (r != -ENOENT) {
-                        r = route_new_dynamic(&route);
+                        r = route_new_dynamic(&route, RTPROT_STATIC);
                         if (r < 0) {
                                 log_error_link(link, "Could not allocate route: %s",
                                                strerror(-r));
@@ -517,14 +517,14 @@ static int link_enter_set_routes(Link *link) {
                 }
 
                 if (r >= 0) {
-                        r = route_new_dynamic(&route);
+                        r = route_new_dynamic(&route, RTPROT_DHCP);
                         if (r < 0) {
                                 log_error_link(link, "Could not allocate route: %s",
                                                strerror(-r));
                                 return r;
                         }
 
-                        r = route_new_dynamic(&route_gw);
+                        r = route_new_dynamic(&route_gw, RTPROT_DHCP);
                         if (r < 0) {
                                 log_error_link(link, "Could not allocate route: %s",
                                                strerror(-r));
@@ -969,7 +969,7 @@ static int dhcp_lease_lost(Link *link) {
                         for (i = 0; i < n; i++) {
                                 _cleanup_route_free_ Route *route = NULL;
 
-                                r = route_new_dynamic(&route);
+                                r = route_new_dynamic(&route, RTPROT_UNSPEC);
                                 if (r >= 0) {
                                         route->family = AF_INET;
                                         route->in_addr.in = routes[i].gw_addr;
@@ -989,7 +989,7 @@ static int dhcp_lease_lost(Link *link) {
                         _cleanup_route_free_ Route *route_gw = NULL;
                         _cleanup_route_free_ Route *route = NULL;
 
-                        r = route_new_dynamic(&route_gw);
+                        r = route_new_dynamic(&route_gw, RTPROT_UNSPEC);
                         if (r >= 0) {
                                 route_gw->family = AF_INET;
                                 route_gw->dst_addr.in = gateway;
@@ -999,7 +999,7 @@ static int dhcp_lease_lost(Link *link) {
                                 route_drop(route_gw, link, &route_drop_handler);
                         }
 
-                        r = route_new_dynamic(&route);
+                        r = route_new_dynamic(&route, RTPROT_UNSPEC);
                         if (r >= 0) {
                                 route->family = AF_INET;
                                 route->in_addr.in = gateway;
@@ -1316,7 +1316,7 @@ static int ipv4ll_address_lost(Link *link) {
 
                 address_drop(address, link, &address_drop_handler);
 
-                r = route_new_dynamic(&route);
+                r = route_new_dynamic(&route, RTPROT_UNSPEC);
                 if (r < 0) {
                         log_error_link(link, "Could not allocate route: %s",
                                        strerror(-r));

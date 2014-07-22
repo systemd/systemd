@@ -49,6 +49,7 @@ int route_new_static(Network *network, unsigned section, Route **ret) {
 
         route->family = AF_UNSPEC;
         route->scope = RT_SCOPE_UNIVERSE;
+        route->protocol = RTPROT_STATIC;
 
         route->network = network;
 
@@ -65,7 +66,7 @@ int route_new_static(Network *network, unsigned section, Route **ret) {
         return 0;
 }
 
-int route_new_dynamic(Route **ret) {
+int route_new_dynamic(Route **ret, unsigned char rtm_protocol) {
         _cleanup_route_free_ Route *route = NULL;
 
         route = new0(Route, 1);
@@ -74,6 +75,7 @@ int route_new_dynamic(Route **ret) {
 
         route->family = AF_UNSPEC;
         route->scope = RT_SCOPE_UNIVERSE;
+        route->protocol = rtm_protocol;
 
         *ret = route;
         route = NULL;
@@ -108,7 +110,8 @@ int route_drop(Route *route, Link *link,
         assert(route->family == AF_INET || route->family == AF_INET6);
 
         r = sd_rtnl_message_new_route(link->manager->rtnl, &req,
-                                      RTM_DELROUTE, route->family);
+                                      RTM_DELROUTE, route->family,
+                                      route->protocol);
         if (r < 0) {
                 log_error("Could not create RTM_DELROUTE message: %s", strerror(-r));
                 return r;
@@ -181,7 +184,8 @@ int route_configure(Route *route, Link *link,
         assert(route->family == AF_INET || route->family == AF_INET6);
 
         r = sd_rtnl_message_new_route(link->manager->rtnl, &req,
-                                      RTM_NEWROUTE, route->family);
+                                      RTM_NEWROUTE, route->family,
+                                      route->protocol);
         if (r < 0) {
                 log_error("Could not create RTM_NEWROUTE message: %s", strerror(-r));
                 return r;

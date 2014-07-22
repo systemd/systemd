@@ -132,7 +132,7 @@ static void test_route(void) {
         uint32_t index = 2, u32_data;
         int r;
 
-        r = sd_rtnl_message_new_route(NULL, &req, RTM_NEWROUTE, AF_INET);
+        r = sd_rtnl_message_new_route(NULL, &req, RTM_NEWROUTE, AF_INET, RTPROT_STATIC);
         if (r < 0) {
                 log_error("Could not create RTM_NEWROUTE message: %s", strerror(-r));
                 return;

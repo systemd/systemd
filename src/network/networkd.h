@@ -137,6 +137,7 @@ struct Route {
         unsigned char dst_prefixlen;
         unsigned char scope;
         uint32_t metrics;
+        unsigned char protocol;  /* RTPROT_* */
 
         union in_addr_union in_addr;
         union in_addr_union dst_addr;
@@ -305,7 +306,7 @@ const struct ConfigPerfItem* network_network_gperf_lookup(const char *key, unsig
 
 /* Route */
 int route_new_static(Network *network, unsigned section, Route **ret);
-int route_new_dynamic(Route **ret);
+int route_new_dynamic(Route **ret, unsigned char rtm_protocol);
 void route_free(Route *route);
 int route_configure(Route *route, Link *link, sd_rtnl_message_handler_t callback);
 int route_drop(Route *route, Link *link, sd_rtnl_message_handler_t callback);

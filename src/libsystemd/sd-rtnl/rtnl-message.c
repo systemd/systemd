@@ -133,7 +133,8 @@ int sd_rtnl_message_route_set_scope(sd_rtnl_message *m, unsigned char scope) {
 }
 
 int sd_rtnl_message_new_route(sd_rtnl *rtnl, sd_rtnl_message **ret,
-                              uint16_t nlmsg_type, int rtm_family) {
+                              uint16_t nlmsg_type, int rtm_family,
+                              unsigned char rtm_protocol) {
         struct rtmsg *rtm;
         int r;
 
@@ -154,7 +155,7 @@ int sd_rtnl_message_new_route(sd_rtnl *rtnl, sd_rtnl_message **ret,
         rtm->rtm_scope = RT_SCOPE_UNIVERSE;
         rtm->rtm_type = RTN_UNICAST;
         rtm->rtm_table = RT_TABLE_MAIN;
-        rtm->rtm_protocol = RTPROT_BOOT;
+        rtm->rtm_protocol = rtm_protocol;
 
         return 0;
 }
