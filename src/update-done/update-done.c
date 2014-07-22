@@ -20,6 +20,7 @@
 ***/
 
 #include "util.h"
+#include "label.h"
 
 static int apply_timestamp(const char *path, struct timespec *ts) {
         struct timespec twice[2];
@@ -51,10 +52,20 @@ static int apply_timestamp(const char *path, struct timespec *ts) {
 
         } else if (errno == ENOENT) {
                 _cleanup_close_ int fd = -1;
+                int r;
 
                 /* The timestamp file doesn't exist yet? Then let's create it. */
 
+                r = label_context_set(path, S_IFREG);
+                if (r < 0) {
+                        log_error("Failed to set SELinux context for %s: %s",
+                                  path, strerror(-r));
+                        return r;
+                }
+
                 fd = open(path, O_CREAT|O_EXCL|O_WRONLY|O_TRUNC|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0644);
+                label_context_clear();
+
                 if (fd < 0) {
 
                         if (errno == EROFS) {
@@ -83,7 +94,7 @@ static int apply_timestamp(const char *path, struct timespec *ts) {
 
 int main(int argc, char *argv[]) {
         struct stat st;
-        int r, q;
+        int r, q = 0;
 
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
@@ -94,11 +105,15 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
+        r = label_init(NULL);
+        if (r < 0) {
+                log_error("SELinux setup failed: %s", strerror(-r));
+                goto finish;
+        }
+
         r = apply_timestamp("/etc/.updated", &st.st_mtim);
-
         q = apply_timestamp("/var/.updated", &st.st_mtim);
-        if (q < 0 && r == 0)
-                r = q;
 
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+finish:
+        return r < 0 || q < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
