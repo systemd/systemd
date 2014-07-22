@@ -311,6 +311,7 @@ AC_CHECK_DECLS([gettid, pivot_root, name_to_handle_at, setns, LO_FLAGS_PARTSCAN]
 ]])
 
 AC_CHECK_DECLS([IFLA_MACVLAN_FLAGS,
+                IFLA_VTI_REMOTE,
                 IFLA_PHYS_PORT_ID,
                 IFLA_BOND_AD_INFO,
                 IFLA_VLAN_PROTOCOL,

@@ -380,6 +380,18 @@ static inline int setns(int fd, int nstype) {
 #define IFLA_MACVLAN_MAX (__IFLA_MACVLAN_MAX - 1)
 #endif
 
+#if !HAVE_DECL_IFLA_VTI_REMOTE
+#define IFLA_VTI_UNSPEC 0
+#define IFLA_VTI_LINK 1
+#define IFLA_VTI_IKEY 2
+#define IFLA_VTI_OKEY 3
+#define IFLA_VTI_LOCAL 4
+#define IFLA_VTI_REMOTE 5
+#define __IFLA_VTI_MAX 6
+
+#define IFLA_VTI_MAX (__IFLA_VTI_MAX - 1)
+#endif
+
 #if !HAVE_DECL_IFLA_PHYS_PORT_ID
 #undef IFLA_PROMISCUITY
 #define IFLA_PROMISCUITY 30
