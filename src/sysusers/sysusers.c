@@ -195,8 +195,9 @@ static int load_group_database(void) {
         return 0;
 }
 
-static int make_backup(const char *x) {
-        _cleanup_close_ int src = -1, dst = -1;
+static int make_backup(const char *target, const char *x) {
+        _cleanup_close_ int src = -1;
+        _cleanup_fclose_ FILE *dst = NULL;
         char *backup, *temp;
         struct timespec ts[2];
         struct stat st;
@@ -213,30 +214,30 @@ static int make_backup(const char *x) {
         if (fstat(src, &st) < 0)
                 return -errno;
 
-        temp = strappenda(x, ".XXXXXX");
-        dst = mkostemp_safe(temp, O_WRONLY|O_CLOEXEC|O_NOCTTY);
-        if (dst < 0)
-                return dst;
+        r = fopen_temporary_label(target, x, &dst, &temp);
+        if (r < 0)
+                return r;
 
-        r = copy_bytes(src, dst, (off_t) -1);
+        r = copy_bytes(src, fileno(dst), (off_t) -1);
         if (r < 0)
                 goto fail;
 
-        /* Copy over the access mask */
-        if (fchmod(dst, st.st_mode & 07777) < 0) {
-                r = -errno;
-                goto fail;
-        }
+        /* Don't fail on chmod() or chown(). If it stays owned by us
+         * and/or unreadable by others, then it isn't too bad... */
 
-        /* Don't fail on chmod(). If it stays owned by us, then it
-         * isn't too bad... */
-        fchown(dst, st.st_uid, st.st_gid);
+        backup = strappenda(x, "-");
+
+        /* Copy over the access mask */
+        if (fchmod(fileno(dst), st.st_mode & 07777) < 0)
+                log_warning("Failed to change mode on %s: %m", backup);
+
+        if (fchown(fileno(dst), st.st_uid, st.st_gid)< 0)
+                log_warning("Failed to change ownership of %s: %m", backup);
 
         ts[0] = st.st_atim;
         ts[1] = st.st_mtim;
-        futimens(dst, ts);
+        futimens(fileno(dst), ts);
 
-        backup = strappenda(x, "-");
         if (rename(temp, backup) < 0)
                 goto fail;
 
@@ -469,13 +470,13 @@ static int write_files(void) {
 
         /* Make a backup of the old files */
         if (group && group_changed) {
-                r = make_backup(group_path);
+                r = make_backup("/etc/group", group_path);
                 if (r < 0)
                         goto finish;
         }
 
         if (passwd) {
-                r = make_backup(passwd_path);
+                r = make_backup("/etc/passwd", passwd_path);
                 if (r < 0)
                         goto finish;
         }
@@ -1493,9 +1494,11 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        label_init(NULL);
-
-        r = 0;
+        r = label_init(NULL);
+        if (r < 0) {
+                log_error("SELinux setup failed: %s", strerror(-r));
+                goto finish;
+        }
 
         if (optind < argc) {
                 int j;

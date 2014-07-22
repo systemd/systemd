@@ -59,7 +59,7 @@ int fopen_temporary_label(const char *target,
                           const char *path, FILE **f, char **temp_path) {
         int r;
 
-        r = label_context_set("/etc/passwd", S_IFREG);
+        r = label_context_set(target, S_IFREG);
         if (r < 0)
                 return r;
 
