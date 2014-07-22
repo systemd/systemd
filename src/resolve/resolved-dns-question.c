@@ -65,8 +65,19 @@ DnsQuestion *dns_question_unref(DnsQuestion *q) {
 }
 
 int dns_question_add(DnsQuestion *q, DnsResourceKey *key) {
+        unsigned i;
+        int r;
+
         assert(q);
         assert(key);
+
+        for (i = 0; i < q->n_keys; i++) {
+                r = dns_resource_key_equal(q->keys[i], key);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        return 0;
+        }
 
         if (q->n_keys >= q->n_allocated)
                 return -ENOSPC;

@@ -38,5 +38,7 @@ DnsAnswer *dns_answer_ref(DnsAnswer *a);
 DnsAnswer *dns_answer_unref(DnsAnswer *a);
 
 int dns_answer_add(DnsAnswer *a, DnsResourceRecord *rr);
+int dns_answer_contains(DnsAnswer *a, DnsResourceKey *key);
+int dns_answer_find_soa(DnsAnswer *a, DnsResourceKey *key, DnsResourceRecord **ret);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsAnswer*, dns_answer_unref);

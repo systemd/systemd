@@ -199,6 +199,9 @@ DnsResourceRecord* dns_resource_record_unref(DnsResourceRecord *rr) {
                 else if (rr->key->type == DNS_TYPE_HINFO) {
                         free(rr->hinfo.cpu);
                         free(rr->hinfo.os);
+                } else if (rr->key->type == DNS_TYPE_SOA) {
+                        free(rr->soa.mname);
+                        free(rr->soa.rname);
                 } else if (!IN_SET(rr->key->type, DNS_TYPE_A, DNS_TYPE_AAAA))
                         free(rr->generic.data);
 
@@ -229,7 +232,20 @@ int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecor
                 return memcmp(&a->a.in_addr, &b->a.in_addr, sizeof(struct in_addr)) == 0;
         else if (a->key->type == DNS_TYPE_AAAA)
                 return memcmp(&a->aaaa.in6_addr, &b->aaaa.in6_addr, sizeof(struct in6_addr)) == 0;
-        else
+        else if (a->key->type == DNS_TYPE_SOA) {
+                r = dns_name_equal(a->soa.mname, b->soa.mname);
+                if (r <= 0)
+                        return r;
+                r = dns_name_equal(a->soa.rname, b->soa.rname);
+                if (r <= 0)
+                        return r;
+
+                return a->soa.serial  == b->soa.serial &&
+                       a->soa.refresh == b->soa.refresh &&
+                       a->soa.retry   == b->soa.retry &&
+                       a->soa.expire  == b->soa.expire &&
+                       a->soa.minimum == b->soa.minimum;
+        } else
                 return a->generic.size == b->generic.size &&
                         memcmp(a->generic.data, b->generic.data, a->generic.size) == 0;
 }

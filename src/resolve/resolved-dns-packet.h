@@ -21,14 +21,16 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
  ***/
 
-typedef struct DnsPacketHeader DnsPacketHeader;
-typedef struct DnsPacket DnsPacket;
-
 #include <inttypes.h>
 
 #include "macro.h"
 #include "sparse-endian.h"
 #include "hashmap.h"
+#include "in-addr-util.h"
+
+typedef struct DnsPacketHeader DnsPacketHeader;
+typedef struct DnsPacket DnsPacket;
+
 #include "resolved-dns-rr.h"
 #include "resolved-dns-question.h"
 #include "resolved-dns-answer.h"

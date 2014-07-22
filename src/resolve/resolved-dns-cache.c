@@ -20,6 +20,7 @@
 ***/
 
 #include "resolved-dns-cache.h"
+#include "resolved-dns-packet.h"
 
 /* Never cache more than 1K entries */
 #define CACHE_MAX 1024
@@ -32,6 +33,7 @@ static void dns_cache_item_free(DnsCacheItem *i) {
                 return;
 
         dns_resource_record_unref(i->rr);
+        dns_resource_key_unref(i->key);
         free(i);
 }
 
@@ -45,15 +47,15 @@ static void dns_cache_item_remove_and_free(DnsCache *c, DnsCacheItem *i) {
         if (!i)
                 return;
 
-        first = hashmap_get(c->rrsets, i->rr->key);
-        LIST_REMOVE(rrsets, first, i);
+        first = hashmap_get(c->by_key, i->key);
+        LIST_REMOVE(by_key, first, i);
 
         if (first)
-                assert_se(hashmap_replace(c->rrsets, first->rr->key, first) >= 0);
+                assert_se(hashmap_replace(c->by_key, first->key, first) >= 0);
         else
-                hashmap_remove(c->rrsets, i->rr->key);
+                hashmap_remove(c->by_key, i->key);
 
-        prioq_remove(c->expire, i, &i->expire_prioq_idx);
+        prioq_remove(c->by_expiry, i, &i->prioq_idx);
 
         dns_cache_item_free(i);
 }
@@ -63,26 +65,26 @@ void dns_cache_flush(DnsCache *c) {
 
         assert(c);
 
-        while ((i = hashmap_first(c->rrsets)))
+        while ((i = hashmap_first(c->by_key)))
                 dns_cache_item_remove_and_free(c, i);
 
-        assert(hashmap_size(c->rrsets) == 0);
-        assert(prioq_size(c->expire) == 0);
+        assert(hashmap_size(c->by_key) == 0);
+        assert(prioq_size(c->by_expiry) == 0);
 
-        hashmap_free(c->rrsets);
-        c->rrsets = NULL;
+        hashmap_free(c->by_key);
+        c->by_key = NULL;
 
-        prioq_free(c->expire);
-        c->expire = NULL;
+        prioq_free(c->by_expiry);
+        c->by_expiry = NULL;
 }
 
-void dns_cache_remove(DnsCache *c, DnsResourceKey *key) {
+static void dns_cache_remove(DnsCache *c, DnsResourceKey *key) {
         DnsCacheItem *i;
 
         assert(c);
         assert(key);
 
-        while ((i = hashmap_get(c->rrsets, key)))
+        while ((i = hashmap_get(c->by_key, key)))
                 dns_cache_item_remove_and_free(c, i);
 }
 
@@ -101,18 +103,18 @@ static void dns_cache_make_space(DnsCache *c, unsigned add) {
                 _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
                 DnsCacheItem *i;
 
-                if (prioq_size(c->expire) <= 0)
+                if (prioq_size(c->by_expiry) <= 0)
                         break;
 
-                if (prioq_size(c->expire) + add < CACHE_MAX)
+                if (prioq_size(c->by_expiry) + add < CACHE_MAX)
                         break;
 
-                i = prioq_peek(c->expire);
+                i = prioq_peek(c->by_expiry);
                 assert(i);
 
                 /* Take an extra reference to the key so that it
                  * doesn't go away in the middle of the remove call */
-                key = dns_resource_key_ref(i->rr->key);
+                key = dns_resource_key_ref(i->key);
                 dns_cache_remove(c, key);
         }
 }
@@ -127,61 +129,72 @@ void dns_cache_prune(DnsCache *c) {
         for (;;) {
                 _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
                 DnsCacheItem *i;
-                usec_t ttl;
 
-                i = prioq_peek(c->expire);
+                i = prioq_peek(c->by_expiry);
                 if (!i)
                         break;
-
-                ttl = i->rr->ttl * USEC_PER_SEC;
-                if (ttl > CACHE_TTL_MAX_USEC)
-                        ttl = CACHE_TTL_MAX_USEC;
 
                 if (t <= 0)
                         t = now(CLOCK_MONOTONIC);
 
-                if (i->timestamp + ttl > t)
+                if (i->until > t)
                         break;
 
                 /* Take an extra reference to the key so that it
                  * doesn't go away in the middle of the remove call */
-                key = dns_resource_key_ref(i->rr->key);
+                key = dns_resource_key_ref(i->key);
                 dns_cache_remove(c, key);
         }
 }
 
 static int dns_cache_item_prioq_compare_func(const void *a, const void *b) {
-        usec_t t, z;
         const DnsCacheItem *x = a, *y = b;
 
-        t = x->timestamp + x->rr->ttl * USEC_PER_SEC;
-        z = y->timestamp + y->rr->ttl * USEC_PER_SEC;
-
-        if (t < z)
+        if (x->until < y->until)
                 return -1;
-        if (t > z)
+        if (x->until > y->until)
                 return 1;
         return 0;
 }
 
-static void dns_cache_item_update(DnsCache *c, DnsCacheItem *i, DnsResourceRecord *rr, usec_t timestamp) {
+static int init_cache(DnsCache *c) {
+        int r;
+
+        r = prioq_ensure_allocated(&c->by_expiry, dns_cache_item_prioq_compare_func);
+        if (r < 0)
+                return r;
+
+        r = hashmap_ensure_allocated(&c->by_key, dns_resource_key_hash_func, dns_resource_key_compare_func);
+        if (r < 0)
+                return r;
+
+        return r;
+}
+
+static int dns_cache_link_item(DnsCache *c, DnsCacheItem *i) {
+        DnsCacheItem *first;
+        int r;
+
         assert(c);
         assert(i);
-        assert(rr);
 
-        if (!i->rrsets_prev) {
-                /* We are the first item in the list, we need to
-                 * update the key used in the hashmap */
+        r = prioq_put(c->by_expiry, i, &i->prioq_idx);
+        if (r < 0)
+                return r;
 
-                assert_se(hashmap_replace(c->rrsets, rr->key, i) >= 0);
+        first = hashmap_get(c->by_key, i->key);
+        if (first) {
+                LIST_PREPEND(by_key, first, i);
+                assert_se(hashmap_replace(c->by_key, first->key, first) >= 0);
+        } else {
+                r = hashmap_put(c->by_key, i->key, i);
+                if (r < 0) {
+                        prioq_remove(c->by_expiry, i, &i->prioq_idx);
+                        return r;
+                }
         }
 
-        dns_resource_record_ref(rr);
-        dns_resource_record_unref(i->rr);
-        i->rr = rr;
-
-        i->timestamp = timestamp;
-        prioq_reshuffle(c->expire, i, &i->expire_prioq_idx);
+        return 0;
 }
 
 static DnsCacheItem* dns_cache_get(DnsCache *c, DnsResourceRecord *rr) {
@@ -190,16 +203,42 @@ static DnsCacheItem* dns_cache_get(DnsCache *c, DnsResourceRecord *rr) {
         assert(c);
         assert(rr);
 
-        LIST_FOREACH(rrsets, i, hashmap_get(c->rrsets, rr->key))
-                if (dns_resource_record_equal(i->rr, rr))
+        LIST_FOREACH(by_key, i, hashmap_get(c->by_key, rr->key))
+                if (i->rr && dns_resource_record_equal(i->rr, rr))
                         return i;
 
         return NULL;
 }
 
-int dns_cache_put(DnsCache *c, DnsResourceRecord *rr, usec_t timestamp) {
+static void dns_cache_item_update_positive(DnsCache *c, DnsCacheItem *i, DnsResourceRecord *rr, usec_t timestamp) {
+        assert(c);
+        assert(i);
+        assert(rr);
+
+        i->type = DNS_CACHE_POSITIVE;
+
+        if (!i->by_key_prev) {
+                /* We are the first item in the list, we need to
+                 * update the key used in the hashmap */
+
+                assert_se(hashmap_replace(c->by_key, rr->key, i) >= 0);
+        }
+
+        dns_resource_record_ref(rr);
+        dns_resource_record_unref(i->rr);
+        i->rr = rr;
+
+        dns_resource_key_unref(i->key);
+        i->key = dns_resource_key_ref(rr->key);
+
+        i->until = timestamp + MIN(rr->ttl * USEC_PER_SEC, CACHE_TTL_MAX_USEC);
+
+        prioq_reshuffle(c->by_expiry, i, &i->prioq_idx);
+}
+
+static int dns_cache_put_positive(DnsCache *c, DnsResourceRecord *rr, usec_t timestamp) {
         _cleanup_(dns_cache_item_freep) DnsCacheItem *i = NULL;
-        DnsCacheItem *first = NULL, *existing;
+        DnsCacheItem *existing;
         int r;
 
         assert(c);
@@ -214,16 +253,12 @@ int dns_cache_put(DnsCache *c, DnsResourceRecord *rr, usec_t timestamp) {
         /* Entry exists already? Update TTL and timestamp */
         existing = dns_cache_get(c, rr);
         if (existing) {
-                dns_cache_item_update(c, existing, rr, timestamp);
+                dns_cache_item_update_positive(c, existing, rr, timestamp);
                 return 0;
         }
 
         /* Otherwise, add the new RR */
-        r = prioq_ensure_allocated(&c->expire, dns_cache_item_prioq_compare_func);
-        if (r < 0)
-                return r;
-
-        r = hashmap_ensure_allocated(&c->rrsets, dns_resource_key_hash_func, dns_resource_key_compare_func);
+        r = init_cache(c);
         if (r < 0)
                 return r;
 
@@ -233,51 +268,106 @@ int dns_cache_put(DnsCache *c, DnsResourceRecord *rr, usec_t timestamp) {
         if (!i)
                 return -ENOMEM;
 
+        i->type = DNS_CACHE_POSITIVE;
+        i->key = dns_resource_key_ref(rr->key);
         i->rr = dns_resource_record_ref(rr);
-        i->timestamp = timestamp;
-        i->expire_prioq_idx = PRIOQ_IDX_NULL;
+        i->until = timestamp + MIN(i->rr->ttl * USEC_PER_SEC, CACHE_TTL_MAX_USEC);
+        i->prioq_idx = PRIOQ_IDX_NULL;
 
-        r = prioq_put(c->expire, i, &i->expire_prioq_idx);
+        r = dns_cache_link_item(c, i);
         if (r < 0)
                 return r;
 
-        first = hashmap_get(c->rrsets, i->rr->key);
-        if (first) {
-                LIST_PREPEND(rrsets, first, i);
-                assert_se(hashmap_replace(c->rrsets, first->rr->key, first) >= 0);
-        } else {
-                r = hashmap_put(c->rrsets, i->rr->key, i);
-                if (r < 0) {
-                        prioq_remove(c->expire, i, &i->expire_prioq_idx);
-                        return r;
-                }
-        }
-
         i = NULL;
-
         return 0;
 }
 
-int dns_cache_put_answer(DnsCache *c, DnsAnswer *answer, usec_t timestamp) {
-        unsigned i, added = 0;
+static int dns_cache_put_negative(DnsCache *c, DnsResourceKey *key, int rcode, usec_t timestamp, uint32_t soa_ttl) {
+        _cleanup_(dns_cache_item_freep) DnsCacheItem *i = NULL;
+        int r;
+
+        assert(c);
+        assert(key);
+
+        dns_cache_remove(c, key);
+
+        if (!IN_SET(rcode, DNS_RCODE_SUCCESS, DNS_RCODE_NXDOMAIN))
+                return 0;
+
+        r = init_cache(c);
+        if (r < 0)
+                return r;
+
+        dns_cache_make_space(c, 1);
+
+        i = new0(DnsCacheItem, 1);
+        if (!i)
+                return -ENOMEM;
+
+        i->type = rcode == DNS_RCODE_SUCCESS ? DNS_CACHE_NODATA : DNS_CACHE_NXDOMAIN;
+        i->key = dns_resource_key_ref(key);
+        i->until = timestamp + MIN(soa_ttl * USEC_PER_SEC, CACHE_TTL_MAX_USEC);
+        i->prioq_idx = PRIOQ_IDX_NULL;
+
+        r = dns_cache_link_item(c, i);
+        if (r < 0)
+                return r;
+
+        i = NULL;
+        return 0;
+}
+
+int dns_cache_put(DnsCache *c, DnsQuestion *q, int rcode, DnsAnswer *answer, usec_t timestamp) {
+        unsigned i;
         int r;
 
         assert(c);
         assert(answer);
 
-        /* First iteration, delete all matching old RRs, so that we
-         * only keep complete rrsets in place. */
+        /* First, delete all matching old RRs, so that we only keep
+         * complete by_key in place. */
+        for (i = 0; i < q->n_keys; i++)
+                dns_cache_remove(c, q->keys[i]);
         for (i = 0; i < answer->n_rrs; i++)
                 dns_cache_remove(c, answer->rrs[i]->key);
 
-        dns_cache_make_space(c, answer->n_rrs);
+        /* We only care for positive replies and NXDOMAINs, on all
+         * other replies we will simply flush the respective entries,
+         * and that's it */
 
-        /* Second iteration, add in new RRs */
-        for (added = 0; added < answer->n_rrs; added++) {
-                if (timestamp <= 0)
-                        timestamp = now(CLOCK_MONOTONIC);
+        if (!IN_SET(rcode, DNS_RCODE_SUCCESS, DNS_RCODE_NXDOMAIN))
+                return 0;
 
-                r = dns_cache_put(c, answer->rrs[added], timestamp);
+        /* Make some space for our new entries */
+        dns_cache_make_space(c, answer->n_rrs + q->n_keys);
+
+        if (timestamp <= 0)
+                timestamp = now(CLOCK_MONOTONIC);
+
+        /* Second, add in positive entries for all contained RRs */
+        for (i = 0; i < answer->n_rrs; i++) {
+                r = dns_cache_put_positive(c, answer->rrs[i], timestamp);
+                if (r < 0)
+                        goto fail;
+        }
+
+        /* Third, add in negative entries for all keys with no RR */
+        for (i = 0; i < q->n_keys; i++) {
+                DnsResourceRecord *soa = NULL;
+
+                r = dns_answer_contains(answer, q->keys[i]);
+                if (r < 0)
+                        goto fail;
+                if (r > 0)
+                        continue;
+
+                r = dns_answer_find_soa(answer, q->keys[i], &soa);
+                if (r < 0)
+                        goto fail;
+                if (r == 0)
+                        continue;
+
+                r = dns_cache_put_negative(c, q->keys[i], rcode, timestamp, MIN(soa->soa.minimum, soa->ttl));
                 if (r < 0)
                         goto fail;
         }
@@ -288,16 +378,19 @@ fail:
         /* Adding all RRs failed. Let's clean up what we already
          * added, just in case */
 
-        for (i = 0; i < added; i++)
+        for (i = 0; i < q->n_keys; i++)
+                dns_cache_remove(c, q->keys[i]);
+        for (i = 0; i < answer->n_rrs; i++)
                 dns_cache_remove(c, answer->rrs[i]->key);
 
         return r;
 }
 
-int dns_cache_lookup(DnsCache *c, DnsQuestion *q, DnsAnswer **ret) {
+int dns_cache_lookup(DnsCache *c, DnsQuestion *q, int *rcode, DnsAnswer **ret) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
         unsigned i, n = 0;
         int r;
+        bool nxdomain = false;
 
         assert(c);
         assert(q);
@@ -305,24 +398,34 @@ int dns_cache_lookup(DnsCache *c, DnsQuestion *q, DnsAnswer **ret) {
 
         if (q->n_keys <= 0) {
                 *ret = NULL;
+                *rcode = 0;
                 return 0;
         }
 
         for (i = 0; i < q->n_keys; i++) {
                 DnsCacheItem *j;
 
-                j = hashmap_get(c->rrsets, q->keys[i]);
+                j = hashmap_get(c->by_key, q->keys[i]);
                 if (!j) {
                         /* If one question cannot be answered we need to refresh */
                         *ret = NULL;
+                        *rcode = 0;
                         return 0;
                 }
 
-                LIST_FOREACH(rrsets, j, j)
-                        n++;
+                LIST_FOREACH(by_key, j, j) {
+                        if (j->rr)
+                                n++;
+                        else if (j->type == DNS_CACHE_NXDOMAIN)
+                                nxdomain = true;
+                }
         }
 
-        assert(n > 0);
+        if (n <= 0) {
+                *ret = NULL;
+                *rcode = nxdomain ? DNS_RCODE_NXDOMAIN : DNS_RCODE_SUCCESS;
+                return 1;
+        }
 
         answer = dns_answer_new(n);
         if (!answer)
@@ -331,17 +434,18 @@ int dns_cache_lookup(DnsCache *c, DnsQuestion *q, DnsAnswer **ret) {
         for (i = 0; i < q->n_keys; i++) {
                 DnsCacheItem *j;
 
-                j = hashmap_get(c->rrsets, q->keys[i]);
-                LIST_FOREACH(rrsets, j, j) {
-                        r = dns_answer_add(answer, j->rr);
-                        if (r < 0)
-                                return r;
+                j = hashmap_get(c->by_key, q->keys[i]);
+                LIST_FOREACH(by_key, j, j) {
+                        if (j->rr) {
+                                r = dns_answer_add(answer, j->rr);
+                                if (r < 0)
+                                        return r;
+                        }
                 }
         }
 
-        assert(n >= answer->n_rrs);
-
         *ret = answer;
+        *rcode = DNS_RCODE_SUCCESS;
         answer = NULL;
 
         return n;

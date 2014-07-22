@@ -711,6 +711,34 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                 memcpy(&rr->aaaa.in6_addr, d, sizeof(struct in6_addr));
                 break;
 
+        case DNS_TYPE_SOA:
+                r = dns_packet_read_name(p, &rr->soa.mname, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_read_name(p, &rr->soa.rname, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_read_uint32(p, &rr->soa.serial, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_read_uint32(p, &rr->soa.refresh, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_read_uint32(p, &rr->soa.retry, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_read_uint32(p, &rr->soa.expire, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_read_uint32(p, &rr->soa.minimum, NULL);
+                break;
+
         default:
                 r = dns_packet_read(p, rdlength, &d, NULL);
                 if (r < 0)

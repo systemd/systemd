@@ -31,27 +31,31 @@
 typedef struct DnsCacheItem DnsCacheItem;
 
 typedef struct DnsCache {
-        Hashmap *rrsets;
-        Prioq *expire;
+        Hashmap *by_key;
+        Prioq *by_expiry;
 } DnsCache;
 
 #include "resolved-dns-rr.h"
 #include "resolved-dns-question.h"
 #include "resolved-dns-answer.h"
 
+typedef enum DnsCacheItemType {
+        DNS_CACHE_POSITIVE,
+        DNS_CACHE_NODATA,
+        DNS_CACHE_NXDOMAIN,
+} DnsCacheItemType;
+
 typedef struct DnsCacheItem {
+        DnsResourceKey *key;
         DnsResourceRecord *rr;
-        usec_t timestamp;
-        unsigned expire_prioq_idx;
-        LIST_FIELDS(DnsCacheItem, rrsets);
+        usec_t until;
+        DnsCacheItemType type;
+        unsigned prioq_idx;
+        LIST_FIELDS(DnsCacheItem, by_key);
 } DnsCacheItem;
 
 void dns_cache_flush(DnsCache *c);
 void dns_cache_prune(DnsCache *c);
 
-void dns_cache_remove(DnsCache *c, DnsResourceKey *key);
-
-int dns_cache_put(DnsCache *c, DnsResourceRecord *rr, usec_t timestamp);
-int dns_cache_put_answer(DnsCache *c, DnsAnswer *answer, usec_t timestamp);
-
-int dns_cache_lookup(DnsCache *c, DnsQuestion *q, DnsAnswer **ret);
+int dns_cache_put(DnsCache *c, DnsQuestion *q, int rcode, DnsAnswer *answer, usec_t timestamp);
+int dns_cache_lookup(DnsCache *c, DnsQuestion *q, int *rcode, DnsAnswer **answer);

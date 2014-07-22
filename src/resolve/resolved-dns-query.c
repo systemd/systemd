@@ -335,8 +335,8 @@ void dns_query_transaction_process_reply(DnsQueryTransaction *t, DnsPacket *p) {
         if (r < 0) {
                 dns_query_transaction_complete(t, DNS_QUERY_INVALID_REPLY);
                 return;
-        } else if (r > 0)
-                dns_cache_put_answer(&t->scope->cache, p->answer, 0);
+        } else
+                dns_cache_put(&t->scope->cache, p->question, DNS_PACKET_RCODE(p), p->answer, 0);
 
         if (DNS_PACKET_RCODE(p) == DNS_RCODE_SUCCESS)
                 dns_query_transaction_complete(t, DNS_QUERY_SUCCESS);
@@ -416,14 +416,18 @@ static int dns_query_transaction_go(DnsQueryTransaction *t) {
         t->n_attempts++;
         t->received = dns_packet_unref(t->received);
         t->cached = dns_answer_unref(t->cached);
+        t->cached_rcode = 0;
 
         /* First, let's try the cache */
         dns_cache_prune(&t->scope->cache);
-        r = dns_cache_lookup(&t->scope->cache, t->question, &t->cached);
+        r = dns_cache_lookup(&t->scope->cache, t->question, &t->cached_rcode, &t->cached);
         if (r < 0)
                 return r;
         if (r > 0) {
-                dns_query_transaction_complete(t, DNS_QUERY_SUCCESS);
+                if (t->cached_rcode == DNS_RCODE_SUCCESS)
+                        dns_query_transaction_complete(t, DNS_QUERY_SUCCESS);
+                else
+                        dns_query_transaction_complete(t, DNS_QUERY_FAILURE);
                 return 0;
         }
 
@@ -707,7 +711,8 @@ fail:
 void dns_query_ready(DnsQuery *q) {
         DnsQueryTransaction *t;
         DnsQueryState state = DNS_QUERY_NO_SERVERS;
-        DnsPacket *received = NULL;
+        DnsAnswer *failure_answer = NULL;
+        int failure_rcode = 0, failure_ifindex = 0;
         Iterator i;
 
         assert(q);
@@ -737,7 +742,7 @@ void dns_query_ready(DnsQuery *q) {
                         } else {
                                 q->answer = dns_answer_ref(t->cached);
                                 q->answer_ifindex = t->scope->link ? t->scope->link->ifindex : 0;
-                                q->answer_rcode = 0;
+                                q->answer_rcode = t->cached_rcode;
                         }
 
                         dns_query_complete(q, DNS_QUERY_SUCCESS);
@@ -748,7 +753,16 @@ void dns_query_ready(DnsQuery *q) {
                  * whether we find anything better, but if not, return
                  * its response packet */
                 if (t->state == DNS_QUERY_FAILURE) {
-                        received = t->received;
+                        if (t->received) {
+                                failure_answer = t->received->answer;
+                                failure_ifindex = t->received->ifindex;
+                                failure_rcode = DNS_PACKET_RCODE(t->received);
+                        } else {
+                                failure_answer = t->cached;
+                                failure_ifindex = t->scope->link ? t->scope->link->ifindex : 0;
+                                failure_rcode = t->cached_rcode;
+                        }
+
                         state = DNS_QUERY_FAILURE;
                         continue;
                 }
@@ -758,9 +772,9 @@ void dns_query_ready(DnsQuery *q) {
         }
 
         if (state == DNS_QUERY_FAILURE) {
-                q->answer = dns_answer_ref(received->answer);
-                q->answer_ifindex = received->ifindex;
-                q->answer_rcode = DNS_PACKET_RCODE(received);
+                q->answer = dns_answer_ref(failure_answer);
+                q->answer_ifindex = failure_ifindex;
+                q->answer_rcode = failure_rcode;
         }
 
         dns_query_complete(q, state);

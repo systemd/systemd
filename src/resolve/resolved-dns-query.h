@@ -60,6 +60,7 @@ struct DnsQueryTransaction {
 
         DnsPacket *sent, *received;
         DnsAnswer *cached;
+        int cached_rcode;
 
         sd_event_source *timeout_event_source;
         unsigned n_attempts;
