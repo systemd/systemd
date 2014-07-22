@@ -95,6 +95,12 @@
                         <arg choice="plain">set-log-level</arg>
                         <arg choice="opt"><replaceable>LEVEL</replaceable></arg>
                 </cmdsynopsis>
+                <cmdsynopsis>
+                        <command>systemd-analyze</command>
+                        <arg choice="opt" rep="repeat">OPTIONS</arg>
+                        <arg choice="plain">verify</arg>
+                        <arg choice="opt" rep="repeat"><replaceable>FILES</replaceable></arg>
+                </cmdsynopsis>
         </refsynopsisdiv>
 
         <refsect1>
@@ -103,7 +109,8 @@
                 <para><command>systemd-analyze</command> may be used
                 to determine system boot-up performance statistics and
                 retrieve other state and tracing information from the
-                system and service manager.</para>
+                system and service manager, and to verify the
+                correctness of unit files.</para>
 
                 <para><command>systemd-analyze time</command>
                 prints the time spent in the kernel before
@@ -171,6 +178,17 @@
                 described in
                 <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>).</para>
 
+                <para><command>systemd-analyze verify</command> will
+                load unit files and print warnings if any errors are
+                detected. Files specified on the command line will be
+                loaded, but also any other units referenced by
+                them. This command works by prepending the directories
+                for all command line arguments at the beginning of the
+                unit load path, which means that all units files found
+                in those directories will be used in preference to the
+                unit files found in the standard locations, even if
+                not listed explicitly.</para>
+
                 <para>If no command is passed, <command>systemd-analyze
                 time</command> is implied.</para>
 
@@ -185,17 +203,16 @@
                         <varlistentry>
                                 <term><option>--user</option></term>
 
-                                <listitem><para>Shows performance data
-                                of user sessions instead of the system
-                                manager.</para></listitem>
+                                <listitem><para>Operates on the user
+                                systemd instance.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
                                 <term><option>--system</option></term>
 
-                                <listitem><para>Shows performance data
-                                of the system manager. This is the
-                                implied default.</para></listitem>
+                                <listitem><para>Operates on the system
+                                systemd instance. This is the implied
+                                default.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -257,6 +274,14 @@
                                 e.g. "50ms".</para></listitem>
                         </varlistentry>
 
+                        <varlistentry>
+                                <term><option>--no-man</option></term>
+
+                                <listitem><para>Do not invoke man to verify the existence
+                                of man pages listen in <varname>Documentation=</varname>.
+                                </para></listitem>
+                        </varlistentry>
+
                         <xi:include href="user-system-options.xml" xpointer="host" />
                         <xi:include href="user-system-options.xml" xpointer="machine" />
 
@@ -275,20 +300,87 @@
         </refsect1>
 
         <refsect1>
-                <title>Examples</title>
+                <title>Examples for <command>dot</command></title>
 
-                <para>This plots all dependencies of any unit whose
-                name starts with <literal>avahi-daemon.</literal>:</para>
+                <example>
+                        <title>Plots all dependencies of any unit whose
+                        name starts with <literal>avahi-daemon</literal></title>
 
-                <programlisting>$ systemd-analyze dot 'avahi-daemon.*' | dot -Tsvg > avahi.svg
-$ eog avahi.svg</programlisting>
+                        <programlisting>$ systemd-analyze dot 'avahi-daemon.*' | dot -Tsvg > avahi.svg
+                        $ eog avahi.svg</programlisting>
+                </example>
 
-                <para>This plots the dependencies between all known target units:</para>
+                <example>
+                        <title>Plots the dependencies between all known target units</title>
 
-                <programlisting>systemd-analyze dot --to-pattern='*.target' --from-pattern='*.target' | dot -Tsvg > targets.svg
+                        <programlisting>systemd-analyze dot --to-pattern='*.target' --from-pattern='*.target' | dot -Tsvg > targets.svg
 $ eog targets.svg</programlisting>
+                </example>
+        </refsect1>
 
+        <refsect1>
+                <title>Examples for <command>verify</command></title>
 
+                <para>The following errors are currently detected:</para>
+                <itemizedlist>
+                        <listitem><para>unknown sections and
+                        directives, </para></listitem>
+
+                        <listitem><para>missing dependencies which are
+                        required to start the given unit,
+                        </para></listitem>
+
+                        <listitem><para>man pages listed in
+                        <varname>Documentation=</varname> which are
+                        not found in the system,</para></listitem>
+
+                        <listitem><para>commands listed in
+                        <varname>ExecStart=</varname> and similar
+                        which are not found in the system or not
+                        executable.</para></listitem>
+                </itemizedlist>
+
+                <example>
+                        <title>Misspelt directives</title>
+
+                        <programlisting>$ cat ./user.slice
+[Unit]
+WhatIsThis=11
+Documentation=man:nosuchfile(1)
+Requires=different.service
+
+[Service]
+Desription=x
+
+$ systemd-verify ./user.slice
+[./user.slice:9] Unknown lvalue 'WhatIsThis' in section 'Unit'
+[./user.slice:13] Unknown section 'Service'. Ignoring.
+Error: org.freedesktop.systemd1.LoadFailed:
+         Unit different.service failed to load:
+         No such file or directory.
+Failed to create user.slice/start: Invalid argument
+user.slice: man nosuchfile(1) command failed with code 16
+                        </programlisting>
+                </example>
+
+                <example>
+                        <title>Missing service units</title>
+
+                        <programlisting>$ tail ./a.socket ./b.socket
+==> ./a.socket &lt;==
+[Socket]
+ListenStream=100
+
+==> ./b.socket &lt;==
+[Socket]
+ListenStream=100
+Accept=yes
+
+$ systemd-verify ./a.socket ./b.socket
+Service a.service not loaded, a.socket cannot be started.
+Service b@0.service not loaded, b.socket cannot be started.
+                        </programlisting>
+                </example>
         </refsect1>
 
         <xi:include href="less-variables.xml" />

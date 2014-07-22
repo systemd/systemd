@@ -92,7 +92,6 @@ MANPAGES += \
 	man/systemd-udevd.service.8 \
 	man/systemd-update-done.service.8 \
 	man/systemd-update-utmp.service.8 \
-	man/systemd-verify.1 \
 	man/systemd.1 \
 	man/systemd.automount.5 \
 	man/systemd.device.5 \
@@ -1659,7 +1658,6 @@ EXTRA_DIST += \
 	man/systemd-update-utmp.service.xml \
 	man/systemd-user-sessions.service.xml \
 	man/systemd-vconsole-setup.service.xml \
-	man/systemd-verify.xml \
 	man/systemd.automount.xml \
 	man/systemd.device.xml \
 	man/systemd.directives.xml \
