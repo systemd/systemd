@@ -4710,6 +4710,12 @@ systemd_resolved_SOURCES = \
 	src/resolve/resolved-link.c \
 	src/resolve/resolved-dns-domain.h \
 	src/resolve/resolved-dns-domain.c \
+	src/resolve/resolved-dns-rr.h \
+	src/resolve/resolved-dns-rr.c \
+	src/resolve/resolved-dns-question.h \
+	src/resolve/resolved-dns-question.c \
+	src/resolve/resolved-dns-answer.h \
+	src/resolve/resolved-dns-answer.c \
 	src/resolve/resolved-dns-packet.h \
 	src/resolve/resolved-dns-packet.c \
 	src/resolve/resolved-dns-query.h \
@@ -4718,8 +4724,6 @@ systemd_resolved_SOURCES = \
 	src/resolve/resolved-dns-scope.c \
 	src/resolve/resolved-dns-server.h \
 	src/resolve/resolved-dns-server.c \
-	src/resolve/resolved-dns-rr.h \
-	src/resolve/resolved-dns-rr.c \
 	src/resolve/resolved-dns-cache.h \
 	src/resolve/resolved-dns-cache.c
 

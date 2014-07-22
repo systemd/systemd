@@ -62,17 +62,15 @@ enum {
 };
 
 struct DnsResourceKey {
-        uint16_t class;
-        uint16_t type;
-        char *name;
+        unsigned n_ref;
+        uint16_t class, type;
+        char *_name; /* don't access directy, use DNS_RESOURCE_KEY_NAME()! */
 };
 
 struct DnsResourceRecord {
         unsigned n_ref;
-
-        DnsResourceKey key;
+        DnsResourceKey *key;
         uint32_t ttl;
-
         union {
                 struct {
                         void *data;
@@ -109,20 +107,32 @@ struct DnsResourceRecord {
         };
 };
 
-void dns_resource_key_free(DnsResourceKey *key);
+static inline const char* DNS_RESOURCE_KEY_NAME(const DnsResourceKey *key) {
+        if (_unlikely_(!key))
+                return NULL;
 
+        if (key->_name)
+                return key->_name;
+
+        return (char*) key + sizeof(DnsResourceKey);
+}
+
+DnsResourceKey* dns_resource_key_new(uint16_t class, uint16_t type, const char *name);
+DnsResourceKey* dns_resource_key_new_consume(uint16_t class, uint16_t type, char *name);
+DnsResourceKey* dns_resource_key_ref(DnsResourceKey *key);
+DnsResourceKey* dns_resource_key_unref(DnsResourceKey *key);
+int dns_resource_key_equal(const DnsResourceKey *a, const DnsResourceKey *b);
+int dns_resource_key_match_rr(const DnsResourceKey *key, const DnsResourceRecord *rr);
+int dns_resource_key_match_cname(const DnsResourceKey *key, const DnsResourceRecord *rr);
 unsigned long dns_resource_key_hash_func(const void *i, const uint8_t hash_key[HASH_KEY_SIZE]);
 int dns_resource_key_compare_func(const void *a, const void *b);
+DEFINE_TRIVIAL_CLEANUP_FUNC(DnsResourceKey*, dns_resource_key_unref);
 
-DnsResourceRecord* dns_resource_record_new(void);
+DnsResourceRecord* dns_resource_record_new(DnsResourceKey *key);
 DnsResourceRecord* dns_resource_record_ref(DnsResourceRecord *rr);
 DnsResourceRecord* dns_resource_record_unref(DnsResourceRecord *rr);
-
-DnsResourceRecord** dns_resource_record_freev(DnsResourceRecord **rrs, unsigned n);
-
 int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecord *b);
+DEFINE_TRIVIAL_CLEANUP_FUNC(DnsResourceRecord*, dns_resource_record_unref);
 
 const char *dns_type_to_string(uint16_t type);
 const char *dns_class_to_string(uint16_t type);
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(DnsResourceRecord*, dns_resource_record_unref);

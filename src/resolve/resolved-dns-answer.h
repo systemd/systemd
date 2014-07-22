@@ -21,37 +21,22 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/types.h>
-
-#include "hashmap.h"
-#include "prioq.h"
-#include "time-util.h"
-#include "list.h"
-
-typedef struct DnsCacheItem DnsCacheItem;
-
-typedef struct DnsCache {
-        Hashmap *rrsets;
-        Prioq *expire;
-} DnsCache;
+typedef struct DnsAnswer DnsAnswer;
 
 #include "resolved-dns-rr.h"
-#include "resolved-dns-question.h"
-#include "resolved-dns-answer.h"
 
-typedef struct DnsCacheItem {
-        DnsResourceRecord *rr;
-        usec_t timestamp;
-        unsigned expire_prioq_idx;
-        LIST_FIELDS(DnsCacheItem, rrsets);
-} DnsCacheItem;
+/* A simple array of resource records */
 
-void dns_cache_flush(DnsCache *c);
-void dns_cache_prune(DnsCache *c);
+struct DnsAnswer {
+        unsigned n_ref;
+        unsigned n_rrs, n_allocated;
+        DnsResourceRecord* rrs[0];
+};
 
-void dns_cache_remove(DnsCache *c, DnsResourceKey *key);
+DnsAnswer *dns_answer_new(unsigned n);
+DnsAnswer *dns_answer_ref(DnsAnswer *a);
+DnsAnswer *dns_answer_unref(DnsAnswer *a);
 
-int dns_cache_put(DnsCache *c, DnsResourceRecord *rr, usec_t timestamp);
-int dns_cache_put_answer(DnsCache *c, DnsAnswer *answer, usec_t timestamp);
+int dns_answer_add(DnsAnswer *a, DnsResourceRecord *rr);
 
-int dns_cache_lookup(DnsCache *c, DnsQuestion *q, DnsAnswer **ret);
+DEFINE_TRIVIAL_CLEANUP_FUNC(DnsAnswer*, dns_answer_unref);

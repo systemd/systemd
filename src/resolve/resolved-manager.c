@@ -395,7 +395,7 @@ int manager_new(Manager **ret) {
 
         m->use_llmnr = true;
 
-        r = parse_dns_server_string(m, /* "172.31.0.125 2001:4860:4860::8888 2001:4860:4860::8889" */ DNS_SERVERS);
+        r = parse_dns_server_string(m, DNS_SERVERS);
         if (r < 0)
                 return r;
 
@@ -669,7 +669,7 @@ static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *use
                 if (!t)
                         return 0;
 
-                dns_query_transaction_reply(t, p);
+                dns_query_transaction_process_reply(t, p);
         } else
                 log_debug("Invalid reply packet.");
 
@@ -954,7 +954,7 @@ static int on_llmnr_packet(sd_event_source *s, int fd, uint32_t revents, void *u
                 if (!t)
                         return 0;
 
-                dns_query_transaction_reply(t, p);
+                dns_query_transaction_process_reply(t, p);
         }
 
         return 0;

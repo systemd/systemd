@@ -55,6 +55,8 @@ int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol protocol, int
 }
 
 DnsScope* dns_scope_free(DnsScope *s) {
+        DnsQueryTransaction *t;
+
         if (!s)
                 return NULL;
 
@@ -62,13 +64,16 @@ DnsScope* dns_scope_free(DnsScope *s) {
 
         dns_scope_llmnr_membership(s, false);
 
-        while (s->transactions) {
-                DnsQuery *q;
+        while ((t = s->transactions)) {
 
-                q = s->transactions->query;
-                dns_query_transaction_free(s->transactions);
+                /* Abort the transaction, but make sure it is not
+                 * freed while we still look at it */
 
-                dns_query_finish(q);
+                t->block_gc++;
+                dns_query_transaction_complete(t, DNS_QUERY_ABORTED);
+                t->block_gc--;
+
+                dns_query_transaction_free(t);
         }
 
         dns_cache_flush(&s->cache);
@@ -228,37 +233,37 @@ DnsScopeMatch dns_scope_good_domain(DnsScope *s, const char *domain) {
         assert(domain);
 
         STRV_FOREACH(i, s->domains)
-                if (dns_name_endswith(domain, *i))
+                if (dns_name_endswith(domain, *i) > 0)
                         return DNS_SCOPE_YES;
 
-        if (dns_name_root(domain))
+        if (dns_name_root(domain) != 0)
                 return DNS_SCOPE_NO;
 
         if (is_localhost(domain))
                 return DNS_SCOPE_NO;
 
         if (s->protocol == DNS_PROTOCOL_DNS) {
-                if (dns_name_endswith(domain, "254.169.in-addr.arpa") ||
-                    dns_name_endswith(domain, "0.8.e.f.ip6.arpa") ||
-                    dns_name_single_label(domain))
-                        return DNS_SCOPE_NO;
+                if (dns_name_endswith(domain, "254.169.in-addr.arpa") == 0 &&
+                    dns_name_endswith(domain, "0.8.e.f.ip6.arpa") == 0 &&
+                    dns_name_single_label(domain) == 0)
+                        return DNS_SCOPE_MAYBE;
 
-                return DNS_SCOPE_MAYBE;
+                return DNS_SCOPE_NO;
         }
 
         if (s->protocol == DNS_PROTOCOL_MDNS) {
-                if (dns_name_endswith(domain, "254.169.in-addr.arpa") ||
-                    dns_name_endswith(domain, "0.8.e.f.ip6.arpa") ||
-                    dns_name_endswith(domain, "local"))
+                if (dns_name_endswith(domain, "254.169.in-addr.arpa") > 0 ||
+                    dns_name_endswith(domain, "0.8.e.f.ip6.arpa") > 0 ||
+                    (dns_name_endswith(domain, "local") > 0 && dns_name_equal(domain, "local") == 0))
                         return DNS_SCOPE_MAYBE;
 
                 return DNS_SCOPE_NO;
         }
 
         if (s->protocol == DNS_PROTOCOL_LLMNR) {
-                if (dns_name_endswith(domain, "254.169.in-addr.arpa") ||
-                    dns_name_endswith(domain, "0.8.e.f.ip6.arpa") ||
-                    dns_name_single_label(domain))
+                if (dns_name_endswith(domain, "254.169.in-addr.arpa") > 0 ||
+                    dns_name_endswith(domain, "0.8.e.f.ip6.arpa") > 0 ||
+                    dns_name_single_label(domain) > 0)
                         return DNS_SCOPE_MAYBE;
 
                 return DNS_SCOPE_NO;

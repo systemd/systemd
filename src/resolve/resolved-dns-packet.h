@@ -30,6 +30,8 @@ typedef struct DnsPacket DnsPacket;
 #include "sparse-endian.h"
 #include "hashmap.h"
 #include "resolved-dns-rr.h"
+#include "resolved-dns-question.h"
+#include "resolved-dns-answer.h"
 
 typedef enum DnsProtocol {
         DNS_PROTOCOL_DNS,
@@ -64,9 +66,12 @@ struct DnsPacket {
         int n_ref;
         DnsProtocol protocol;
         size_t size, allocated, rindex;
-        void *data;
+        void *_data; /* don't access directly, use DNS_PACKET_DATA()! */
         Hashmap *names; /* For name compression */
-        DnsResourceRecord **rrs;
+
+        /* Parsed data */
+        DnsQuestion *question;
+        DnsAnswer *answer;
 
         /* Packet reception meta data */
         int ifindex;
@@ -79,8 +84,8 @@ static inline uint8_t* DNS_PACKET_DATA(DnsPacket *p) {
         if (_unlikely_(!p))
                 return NULL;
 
-        if (p->data)
-                return p->data;
+        if (p->_data)
+                return p->_data;
 
         return ((uint8_t*) p) + ALIGN(sizeof(DnsPacket));
 }
@@ -138,13 +143,13 @@ int dns_packet_read_uint16(DnsPacket *p, uint16_t *ret, size_t *start);
 int dns_packet_read_uint32(DnsPacket *p, uint32_t *ret, size_t *start);
 int dns_packet_read_string(DnsPacket *p, char **ret, size_t *start);
 int dns_packet_read_name(DnsPacket *p, char **ret, size_t *start);
-int dns_packet_read_key(DnsPacket *p, DnsResourceKey *ret, size_t *start);
+int dns_packet_read_key(DnsPacket *p, DnsResourceKey **ret, size_t *start);
 int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start);
 
 void dns_packet_rewind(DnsPacket *p, size_t idx);
 
 int dns_packet_skip_question(DnsPacket *p);
-int dns_packet_extract_rrs(DnsPacket *p);
+int dns_packet_extract(DnsPacket *p);
 
 enum {
         DNS_RCODE_SUCCESS = 0,

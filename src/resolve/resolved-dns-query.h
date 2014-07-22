@@ -25,6 +25,7 @@
 
 #include "sd-bus.h"
 #include "util.h"
+#include "set.h"
 
 typedef struct DnsQuery DnsQuery;
 typedef struct DnsQueryTransaction DnsQueryTransaction;
@@ -33,6 +34,8 @@ typedef struct DnsQueryTransaction DnsQueryTransaction;
 #include "resolved-dns-scope.h"
 #include "resolved-dns-rr.h"
 #include "resolved-dns-packet.h"
+#include "resolved-dns-question.h"
+#include "resolved-dns-answer.h"
 
 typedef enum DnsQueryState {
         DNS_QUERY_NULL,
@@ -43,20 +46,23 @@ typedef enum DnsQueryState {
         DNS_QUERY_TIMEOUT,
         DNS_QUERY_ATTEMPTS_MAX,
         DNS_QUERY_INVALID_REPLY,
-        DNS_QUERY_RESOURCES
+        DNS_QUERY_RESOURCES,
+        DNS_QUERY_ABORTED,
 } DnsQueryState;
 
 struct DnsQueryTransaction {
-        DnsQuery *query;
         DnsScope *scope;
+
+        DnsQuestion *question;
 
         DnsQueryState state;
         uint16_t id;
 
+        DnsPacket *sent, *received;
+        DnsAnswer *cached;
+
         sd_event_source *timeout_event_source;
         unsigned n_attempts;
-
-        DnsPacket *sent, *received;
 
         /* TCP connection logic */
         int tcp_fd;
@@ -64,29 +70,29 @@ struct DnsQueryTransaction {
         size_t tcp_written, tcp_read;
         be16_t tcp_read_size;
 
-        /* Data from cache */
-        DnsResourceRecord **cached_rrs;
-        unsigned n_cached_rrs;
+        /* Queries this transaction is referenced by and that shall by
+         * notified about this specific transaction completing. */
+        Set *queries;
 
-        LIST_FIELDS(DnsQueryTransaction, transactions_by_query);
+        unsigned block_gc;
+
         LIST_FIELDS(DnsQueryTransaction, transactions_by_scope);
 };
 
 struct DnsQuery {
         Manager *manager;
-
-        DnsResourceKey *keys;
-        unsigned n_keys;
+        DnsQuestion *question;
 
         DnsQueryState state;
-        unsigned n_cname;
+        unsigned n_cname_redirects;
 
         sd_event_source *timeout_event_source;
 
         /* Discovered data */
         DnsPacket *received;
-        DnsResourceRecord **cached_rrs;
-        unsigned n_cached_rrs;
+        DnsAnswer *answer;
+        int answer_ifindex;
+        int answer_rcode;
 
         /* Bus client information */
         sd_bus_message *request;
@@ -96,28 +102,24 @@ struct DnsQuery {
 
         /* Completion callback */
         void (*complete)(DnsQuery* q);
-        unsigned block_finish;
+        unsigned block_ready;
 
-        LIST_HEAD(DnsQueryTransaction, transactions);
+        Set *transactions;
+
         LIST_FIELDS(DnsQuery, queries);
 };
 
 DnsQueryTransaction* dns_query_transaction_free(DnsQueryTransaction *t);
-void dns_query_transaction_reply(DnsQueryTransaction *t, DnsPacket *p);
+void dns_query_transaction_complete(DnsQueryTransaction *t, DnsQueryState state);
 
-int dns_query_new(Manager *m, DnsQuery **q, DnsResourceKey *keys, unsigned n_keys);
+void dns_query_transaction_process_reply(DnsQueryTransaction *t, DnsPacket *p);
+
+int dns_query_new(Manager *m, DnsQuery **q, DnsQuestion *question);
 DnsQuery *dns_query_free(DnsQuery *q);
 
 int dns_query_go(DnsQuery *q);
+void dns_query_ready(DnsQuery *q);
+
 int dns_query_cname_redirect(DnsQuery *q, const char *name);
-void dns_query_finish(DnsQuery *q);
-
-int dns_query_matches_rr(DnsQuery *q, DnsResourceRecord *rr);
-int dns_query_matches_cname(DnsQuery *q, DnsResourceRecord *rr);
-
-/* What we found */
-int dns_query_get_rrs(DnsQuery *q, DnsResourceRecord *** rrs);
-int dns_query_get_rcode(DnsQuery *q);
-int dns_query_get_ifindex(DnsQuery *q);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsQuery*, dns_query_free);

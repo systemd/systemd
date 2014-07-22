@@ -96,14 +96,14 @@ static void dns_packet_free(DnsPacket *p) {
 
         assert(p);
 
-        if (p->rrs)
-                dns_resource_record_freev(p->rrs, DNS_PACKET_RRCOUNT(p));
+        dns_question_unref(p->question);
+        dns_answer_unref(p->answer);
 
         while ((s = hashmap_steal_first_key(p->names)))
                 free(s);
         hashmap_free(p->names);
 
-        free(p->data);
+        free(p->_data);
         free(p);
 }
 
@@ -164,21 +164,21 @@ static int dns_packet_extend(DnsPacket *p, size_t add, void **ret, size_t *start
                 if (p->size + add > a)
                         return -EMSGSIZE;
 
-                if (p->data) {
+                if (p->_data) {
                         void *d;
 
-                        d = realloc(p->data, a);
+                        d = realloc(p->_data, a);
                         if (!d)
                                 return -ENOMEM;
 
-                        p->data = d;
+                        p->_data = d;
                 } else {
-                        p->data = malloc(a);
-                        if (!p->data)
+                        p->_data = malloc(a);
+                        if (!p->_data)
                                 return -ENOMEM;
 
-                        memcpy(p->data, (uint8_t*) p + ALIGN(sizeof(DnsPacket)), p->size);
-                        memzero((uint8_t*) p->data + p->size, a - p->size);
+                        memcpy(p->_data, (uint8_t*) p + ALIGN(sizeof(DnsPacket)), p->size);
+                        memzero((uint8_t*) p->_data + p->size, a - p->size);
                 }
 
                 p->allocated = a;
@@ -365,7 +365,7 @@ int dns_packet_append_key(DnsPacket *p, const DnsResourceKey *k, size_t *start) 
 
         saved_size = p->size;
 
-        r = dns_packet_append_name(p, k->name, NULL);
+        r = dns_packet_append_name(p, DNS_RESOURCE_KEY_NAME(k), NULL);
         if (r < 0)
                 goto fail;
 
@@ -599,8 +599,10 @@ fail:
         return r;
 }
 
-int dns_packet_read_key(DnsPacket *p, DnsResourceKey *ret, size_t *start) {
-        _cleanup_(dns_resource_key_free) DnsResourceKey k = {};
+int dns_packet_read_key(DnsPacket *p, DnsResourceKey **ret, size_t *start) {
+        _cleanup_free_ char *name = NULL;
+        uint16_t class, type;
+        DnsResourceKey *key;
         size_t saved_rindex;
         int r;
 
@@ -609,20 +611,26 @@ int dns_packet_read_key(DnsPacket *p, DnsResourceKey *ret, size_t *start) {
 
         saved_rindex = p->rindex;
 
-        r = dns_packet_read_name(p, &k.name, NULL);
+        r = dns_packet_read_name(p, &name, NULL);
         if (r < 0)
                 goto fail;
 
-        r = dns_packet_read_uint16(p, &k.type, NULL);
+        r = dns_packet_read_uint16(p, &type, NULL);
         if (r < 0)
                 goto fail;
 
-        r = dns_packet_read_uint16(p, &k.class, NULL);
+        r = dns_packet_read_uint16(p, &class, NULL);
         if (r < 0)
                 goto fail;
 
-        *ret = k;
-        zero(k);
+        key = dns_resource_key_new_consume(class, type, name);
+        if (!key) {
+                r = -ENOMEM;
+                goto fail;
+        }
+
+        name = NULL;
+        *ret = key;
 
         if (start)
                 *start = saved_rindex;
@@ -634,7 +642,8 @@ fail:
 }
 
 int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr;
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
         size_t saved_rindex, offset;
         uint16_t rdlength;
         const void *d;
@@ -643,15 +652,17 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
         assert(p);
         assert(ret);
 
-        rr = dns_resource_record_new();
-        if (!rr)
-                return -ENOMEM;
-
         saved_rindex = p->rindex;
 
-        r = dns_packet_read_key(p, &rr->key, NULL);
+        r = dns_packet_read_key(p, &key, NULL);
         if (r < 0)
                 goto fail;
+
+        rr = dns_resource_record_new(key);
+        if (!rr) {
+                r = -ENOMEM;
+                goto fail;
+        }
 
         r = dns_packet_read_uint32(p, &rr->ttl, NULL);
         if (r < 0)
@@ -668,7 +679,7 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
 
         offset = p->rindex;
 
-        switch (rr->key.type) {
+        switch (rr->key->type) {
 
         case DNS_TYPE_PTR:
         case DNS_TYPE_NS:
@@ -733,63 +744,65 @@ fail:
         return r;
 }
 
-int dns_packet_skip_question(DnsPacket *p) {
-        unsigned i, n;
+int dns_packet_extract(DnsPacket *p) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        size_t saved_rindex;
+        unsigned n, i;
         int r;
 
-        assert(p);
-
+        saved_rindex = p->rindex;
         dns_packet_rewind(p, DNS_PACKET_HEADER_SIZE);
 
         n = DNS_PACKET_QDCOUNT(p);
-        for (i = 0; i < n; i++) {
-                _cleanup_(dns_resource_key_free) DnsResourceKey key = {};
-
-                r = dns_packet_read_key(p, &key, NULL);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
-}
-
-int dns_packet_extract_rrs(DnsPacket *p) {
-        DnsResourceRecord **rrs = NULL;
-        size_t saved_rindex;
-        unsigned n, added = 0;
-        int r;
-
-        if (p->rrs)
-                return (int) DNS_PACKET_RRCOUNT(p);
-
-        saved_rindex = p->rindex;
-
-        r = dns_packet_skip_question(p);
-        if (r < 0)
-                goto finish;
-
-        n = DNS_PACKET_RRCOUNT(p);
-        if (n <= 0) {
-                r = 0;
-                goto finish;
-        }
-
-        rrs = new0(DnsResourceRecord*, n);
-        if (!rrs) {
-                r = -ENOMEM;
-                goto finish;
-        }
-
-        for (added = 0; added < n; added++) {
-                r = dns_packet_read_rr(p, &rrs[added], NULL);
-                if (r < 0) {
-                        dns_resource_record_freev(rrs, added);
+        if (n > 0) {
+                question = dns_question_new(n);
+                if (!question) {
+                        r = -ENOMEM;
                         goto finish;
+                }
+
+                for (i = 0; i < n; i++) {
+                        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+
+                        r = dns_packet_read_key(p, &key, NULL);
+                        if (r < 0)
+                                goto finish;
+
+                        r = dns_question_add(question, key);
+                        if (r < 0)
+                                goto finish;
                 }
         }
 
-        p->rrs = rrs;
-        r = (int) n;
+        n = DNS_PACKET_RRCOUNT(p);
+        if (n > 0) {
+                answer = dns_answer_new(n);
+                if (!answer) {
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                for (i = 0; i < n; i++) {
+                        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+
+                        r = dns_packet_read_rr(p, &rr, NULL);
+                        if (r < 0)
+                                goto finish;
+
+                        r = dns_answer_add(answer, rr);
+                        if (r < 0)
+                                goto finish;
+                }
+        }
+
+        p->question = question;
+        question = NULL;
+
+        p->answer = answer;
+        answer = NULL;
+
+        r = 0;
 
 finish:
         p->rindex = saved_rindex;
