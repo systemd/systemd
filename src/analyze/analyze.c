@@ -41,6 +41,7 @@
 #include "special.h"
 #include "hashmap.h"
 #include "pager.h"
+#include "analyze-verify.h"
 
 #define SCALE_X (0.1 / 1000.0)   /* pixels per us */
 #define SCALE_Y (20.0)
@@ -74,6 +75,7 @@ static bool arg_no_pager = false;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static char *arg_host = NULL;
 static bool arg_user = false;
+static bool arg_man = true;
 
 struct boot_times {
         usec_t firmware_time;
@@ -1178,17 +1180,17 @@ static int set_log_level(sd_bus *bus, char **args) {
         return 0;
 }
 
-static int help(void) {
+static void help(void) {
 
         pager_open_if_enabled();
 
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
-               "Process systemd profiling information.\n\n"
+               "Profile systemd, show unit dependencies, check unit files.\n\n"
                "  -h --help               Show this help\n"
                "     --version            Show package version\n"
                "     --no-pager           Do not pipe output into a pager\n"
-               "     --system             Connect to system manager\n"
-               "     --user               Connect to user manager\n"
+               "     --system             Operate on system systemd instance\n"
+               "     --user               Operate on user systemd instance\n"
                "  -H --host=[USER@]HOST   Operate on remote host\n"
                "  -M --machine=CONTAINER  Operate on local container\n"
                "     --order              When generating a dependency graph, show only order\n"
@@ -1200,6 +1202,7 @@ static int help(void) {
                "                          services, which finished TIMESPAN earlier, than the\n"
                "                          latest in the branch. The unit of TIMESPAN is seconds\n"
                "                          unless specified with a different unit, i.e. 50ms\n\n"
+               "     --no-man             Do not check for existence of man pages\n"
                "Commands:\n"
                "  time                    Print time spent in the kernel before reaching userspace\n"
                "  blame                   Print list of running units ordered by time to init\n"
@@ -1207,14 +1210,13 @@ static int help(void) {
                "  plot                    Output SVG graphic showing service initialization\n"
                "  dot                     Output dependency graph in dot(1) format\n"
                "  set-log-level LEVEL     Set logging threshold for systemd\n"
-               "  dump                    Output state serialization of service manager\n",
-               program_invocation_short_name);
+               "  dump                    Output state serialization of service manager\n"
+               "  verify                  Check unit files for correctness\n"
+               , program_invocation_short_name);
 
         /* When updating this list, including descriptions, apply
-         * changes to shell-completion/bash/systemd and
-         * shell-completion/systemd-zsh-completion.zsh too. */
-
-        return 0;
+         * changes to shell-completion/bash/systemd-analyze and
+         * shell-completion/zsh/_systemd-analyze too. */
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -1227,7 +1229,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_DOT_FROM_PATTERN,
                 ARG_DOT_TO_PATTERN,
                 ARG_FUZZ,
-                ARG_NO_PAGER
+                ARG_NO_PAGER,
+                ARG_NO_MAN,
         };
 
         static const struct option options[] = {
@@ -1251,12 +1254,15 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
+        opterr = 0;
+
         while ((c = getopt_long(argc, argv, "hH:M:", options, NULL)) >= 0) {
 
                 switch (c) {
 
                 case 'h':
-                        return help();
+                        help();
+                        return 0;
 
                 case ARG_VERSION:
                         puts(PACKAGE_STRING);
@@ -1311,19 +1317,27 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_host = optarg;
                         break;
 
+                case ARG_NO_MAN:
+                        arg_man = false;
+                        break;
+
                 case '?':
+                        log_error("Unknown option %s.", argv[optind-1]);
+                        return -EINVAL;
+
+                case ':':
+                        log_error("Missing argument to %s.", argv[optind-1]);
                         return -EINVAL;
 
                 default:
-                        assert_not_reached("Unhandled option");
+                        assert_not_reached("Unhandled option code.");
                 }
         }
 
-        return 1;
+        return 1; /* work to do */
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_bus_unref_ sd_bus *bus = NULL;
         int r;
 
         setlocale(LC_ALL, "");
@@ -1335,28 +1349,36 @@ int main(int argc, char *argv[]) {
         if (r <= 0)
                 goto finish;
 
-        r = bus_open_transport_systemd(arg_transport, arg_host, arg_user, &bus);
-        if (r < 0) {
-                log_error("Failed to create bus connection: %s", strerror(-r));
-                goto finish;
-        }
+        if (streq(argv[optind], "verify"))
+                r = verify_units(argv+optind+1,
+                                 arg_user ? SYSTEMD_USER : SYSTEMD_SYSTEM,
+                                 arg_man);
+        else {
+                _cleanup_bus_unref_ sd_bus *bus = NULL;
 
-        if (!argv[optind] || streq(argv[optind], "time"))
-                r = analyze_time(bus);
-        else if (streq(argv[optind], "blame"))
-                r = analyze_blame(bus);
-        else if (streq(argv[optind], "critical-chain"))
-                r = analyze_critical_chain(bus, argv+optind+1);
-        else if (streq(argv[optind], "plot"))
-                r = analyze_plot(bus);
-        else if (streq(argv[optind], "dot"))
-                r = dot(bus, argv+optind+1);
-        else if (streq(argv[optind], "dump"))
-                r = dump(bus, argv+optind+1);
-        else if (streq(argv[optind], "set-log-level"))
-                r = set_log_level(bus, argv+optind+1);
-        else
-                log_error("Unknown operation '%s'.", argv[optind]);
+                r = bus_open_transport_systemd(arg_transport, arg_host, arg_user, &bus);
+                if (r < 0) {
+                        log_error("Failed to create bus connection: %s", strerror(-r));
+                        goto finish;
+                }
+
+                if (!argv[optind] || streq(argv[optind], "time"))
+                        r = analyze_time(bus);
+                else if (streq(argv[optind], "blame"))
+                        r = analyze_blame(bus);
+                else if (streq(argv[optind], "critical-chain"))
+                        r = analyze_critical_chain(bus, argv+optind+1);
+                else if (streq(argv[optind], "plot"))
+                        r = analyze_plot(bus);
+                else if (streq(argv[optind], "dot"))
+                        r = dot(bus, argv+optind+1);
+                else if (streq(argv[optind], "dump"))
+                        r = dump(bus, argv+optind+1);
+                else if (streq(argv[optind], "set-log-level"))
+                        r = set_log_level(bus, argv+optind+1);
+                else
+                        log_error("Unknown operation '%s'.", argv[optind]);
+        }
 
 finish:
         pager_close();

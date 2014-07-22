@@ -212,7 +212,7 @@ int lookup_paths_init(
         if (!p->unit_path || append) {
                 /* Let's figure something out. */
 
-                char **unit_path;
+                _cleanup_strv_free_ char **unit_path;
                 int r;
 
                 /* For the user units we include share/ in the search

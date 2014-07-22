@@ -28,9 +28,7 @@
 #include "strv.h"
 #include "build.h"
 #include "pager.h"
-
-SystemdRunningAs arg_running_as = SYSTEMD_SYSTEM;
-bool arg_no_man = false;
+#include "analyze-verify.h"
 
 static int generate_path(char **var, char **filenames) {
         char **filename;
@@ -142,16 +140,13 @@ static int verify_executables(Unit *u) {
         return r;
 }
 
-static int verify_documentation(Unit *u) {
+static int verify_documentation(Unit *u, bool check_man) {
         char **p;
         int r = 0, k;
 
-        if (arg_no_man)
-                return 0;
-
         STRV_FOREACH(p, u->documentation) {
                 log_debug_unit(u->id, "%s: found documentation item %s.", u->id, *p);
-                if (startswith(*p, "man:")) {
+                if (check_man && startswith(*p, "man:")) {
                         k = show_man_page(*p + 4, true);
                         if (k != 0) {
                                 if (k < 0)
@@ -173,7 +168,7 @@ static int verify_documentation(Unit *u) {
         return r;
 }
 
-static int test_unit(Unit *u) {
+static int verify_unit(Unit *u, bool check_man) {
         _cleanup_bus_error_free_ sd_bus_error err = SD_BUS_ERROR_NULL;
         Job *j;
         int r, k;
@@ -200,26 +195,29 @@ static int test_unit(Unit *u) {
         if (k < 0 && r == 0)
                 r = k;
 
-        k = verify_documentation(u);
+        k = verify_documentation(u, check_man);
         if (k < 0 && r == 0)
                 r = k;
 
         return r;
 }
 
-static int test_units(char **filenames) {
+int verify_units(char **filenames, SystemdRunningAs running_as, bool check_man) {
         _cleanup_bus_error_free_ sd_bus_error err = SD_BUS_ERROR_NULL;
         Manager *m = NULL;
         FILE *serial = NULL;
         FDSet *fdset = NULL;
 
-        _cleanup_free_ char *var;
+        _cleanup_free_ char *var = NULL;
 
         char **filename;
         int r = 0, k;
 
         Unit *units[strv_length(filenames)];
         int i, count = 0;
+
+        if (strv_isempty(filenames))
+                return 0;
 
         /* set the path */
         r = generate_path(&var, filenames);
@@ -230,7 +228,7 @@ static int test_units(char **filenames) {
 
         assert_se(set_unit_path(var) >= 0);
 
-        r = manager_new(arg_running_as, true, &m);
+        r = manager_new(running_as, true, &m);
         if (r < 0) {
                 log_error("Failed to initalize manager: %s", strerror(-r));
                 return r;
@@ -249,20 +247,28 @@ static int test_units(char **filenames) {
         log_debug("Loading remaining units from the command line...");
 
         STRV_FOREACH(filename, filenames) {
+                char fname[UNIT_NAME_MAX + 2 + 1] = "./";
+
                 log_debug("Handling %s...", *filename);
 
-                k = manager_load_unit(m, NULL, *filename, &err, &units[count]);
+                /* manager_load_unit does not like pure basenames, so prepend
+                 * the local directory, but only for valid names. manager_load_unit
+                 * will print the error for other ones. */
+                if (!strchr(*filename, '/') && strlen(*filename) <= UNIT_NAME_MAX) {
+                        strncat(fname + 2, *filename, UNIT_NAME_MAX);
+                        k = manager_load_unit(m, NULL, fname, &err, &units[count]);
+                } else
+                        k = manager_load_unit(m, NULL, *filename, &err, &units[count]);
                 if (k < 0) {
-                        log_error("Failed to load %s: %s", *filename, strerror(-r));
+                        log_error("Failed to load %s: %s", *filename, strerror(-k));
                         if (r == 0)
                                 r = k;
-                }
-
-                count ++;
+                } else
+                        count ++;
         }
 
         for (i = 0; i < count; i++) {
-                k = test_unit(units[i]);
+                k = verify_unit(units[i], check_man);
                 if (k < 0 && r == 0)
                         r = k;
         }
@@ -271,93 +277,4 @@ finish:
         manager_free(m);
 
         return r;
-}
-
-static void help(void) {
-        printf("%s [OPTIONS...] {COMMAND} ...\n\n"
-               "Check if unit files can be correctly loaded.\n\n"
-               "  -h --help           Show this help\n"
-               "     --version        Show package version\n"
-               "     --system         Test system units\n"
-               "     --user           Test user units\n"
-               "     --no-man         Do not check for existence of man pages\n"
-               , program_invocation_short_name);
-}
-
-static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_USER,
-                ARG_SYSTEM,
-                ARG_NO_MAN,
-        };
-
-        static const struct option options[] = {
-                { "help",                no_argument,       NULL, 'h'                     },
-                { "version",             no_argument,       NULL, ARG_VERSION             },
-                { "user",                no_argument,       NULL, ARG_USER                },
-                { "system",              no_argument,       NULL, ARG_SYSTEM              },
-                {}
-        };
-
-        int c;
-
-        assert(argc >= 1);
-        assert(argv);
-
-        opterr = 0;
-
-        while ((c = getopt_long(argc, argv, ":h", options, NULL)) >= 0)
-                switch (c) {
-
-                case 'h':
-                        help();
-                        return 0;
-
-                case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0;
-
-                case ARG_USER:
-                        arg_running_as = SYSTEMD_USER;
-                        break;
-
-                case ARG_SYSTEM:
-                        arg_running_as = SYSTEMD_SYSTEM;
-                        break;
-
-                case ARG_NO_MAN:
-                        arg_no_man = true;
-                        break;
-
-                case '?':
-                        log_error("Unknown option %s.", argv[optind-1]);
-                        return -EINVAL;
-
-                case ':':
-                        log_error("Missing argument to %s.", argv[optind-1]);
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached("Unhandled option code.");
-                }
-
-        return 1; /* work to do */
-}
-
-int main(int argc, char *argv[]) {
-        int r;
-
-        log_parse_environment();
-        log_open();
-
-        r = parse_argv(argc, argv);
-        if (r <= 0)
-                goto finish;
-
-        r = test_units(argv + optind);
-
-finish:
-        return r >= 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }

@@ -122,7 +122,6 @@
 /systemd-update-utmp
 /systemd-user-sessions
 /systemd-vconsole-setup
-/systemd-verify
 /tags
 /test-architecture
 /test-async

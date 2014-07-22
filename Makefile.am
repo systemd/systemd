@@ -350,8 +350,7 @@ bin_PROGRAMS = \
 	systemd-delta \
 	systemd-analyze \
 	systemd-run \
-	systemd-path \
-	systemd-verify
+	systemd-path
 
 dist_bin_SCRIPTS = \
 	src/kernel-install/kernel-install
@@ -1226,19 +1225,6 @@ CLEANFILES += \
 
 # ------------------------------------------------------------------------------
 
-systemd_verify_SOURCES = \
-	src/verify/verify.c
-
-systemd_verify_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(SECCOMP_CFLAGS)
-
-systemd_verify_LDADD = \
-	libsystemd-core.la \
-	$(RT_LIBS)
-
-# ------------------------------------------------------------------------------
-
 manual_tests += \
 	test-ns \
 	test-loopback \
@@ -1738,11 +1724,19 @@ endif
 
 # ------------------------------------------------------------------------------
 systemd_analyze_SOURCES = \
-	src/analyze/analyze.c
+	src/analyze/analyze.c \
+	src/analyze/analyze-verify.c \
+	src/analyze/analyze-verify.h
+
+systemd_verify_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(SECCOMP_CFLAGS)
 
 systemd_analyze_LDADD = \
+	libsystemd-core.la \
 	libsystemd-internal.la \
-	libsystemd-shared.la
+	libsystemd-shared.la \
+	$(RT_LIBS)
 
 # ------------------------------------------------------------------------------
 systemd_initctl_SOURCES = \
