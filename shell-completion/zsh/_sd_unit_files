@@ -1,0 +1,9 @@
+#autoload
+
+_sd_unit_files() {
+    local files expl
+    files=( '*:files:->files' )
+
+    _description files expl 'unit file'
+    _files "$expl[@]" -g '*.(automount|busname|device|mount|path|service|snapshot|socket|swap|target|timer)'
+}

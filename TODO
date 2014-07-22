@@ -704,6 +704,9 @@ External:
 
 * register catalog database signature as file magic
 
+* zsh shell completion: <command> <verb> -<TAB> should complete options, but currently
+  does not
+
 Regularly:
 
 * look for close() vs. close_nointr() vs. close_nointr_nofail()

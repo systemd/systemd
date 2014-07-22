@@ -261,7 +261,9 @@ for fun in set-environment unset-environment ; do
   }
 done
 
-(( $+functions[_systemctl_link] )) || _systemctl_link() { _files }
+(( $+functions[_systemctl_link] )) || _systemctl_link() {
+   _sd_unit_files
+}
 
 # no systemctl completion for:
 #    [STANDALONE]='daemon-reexec daemon-reload default
@@ -297,7 +299,7 @@ _unit_states() {
 
 _unit_types() {
     local -a _types
-    _types=(automount device mount path service snapshot socket swap target timer)
+    _types=(automount busname device mount path service snapshot socket swap target timer)
     _values -s , "${_types[@]}"
 }
 

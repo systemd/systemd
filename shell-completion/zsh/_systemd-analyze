@@ -6,6 +6,10 @@ _systemd_analyze_set-log-level() {
     _describe -t level 'logging level' _levels || compadd "$@"
 }
 
+_systemd_analyze_verify() {
+    _sd_unit_files
+}
+
 _systemd_analyze_command(){
     local -a _systemd_analyze_cmds
     # Descriptions taken from systemd-analyze --help.
@@ -17,6 +21,7 @@ _systemd_analyze_command(){
         'dot:Dump dependency graph (in dot(1) format)'
         'dump:Dump server status'
         'set-log-level:Set systemd log threshold'
+        'verify:Check unit files for correctness'
     )
 
     if (( CURRENT == 1 )); then
@@ -38,7 +43,12 @@ _systemd_analyze_command(){
 
 _arguments \
     {-h,--help}'[Show help text.]' \
-    '--user[Shows performance data of user sessions instead of the system manager.]' \
+    '--system[Operate on system systemd instance.]' \
+    '--user[Operate on user systemd instance.]' \
+    '--no-pager[Do not user pager.]' \
+    '--no-man[Do not check man pages.]' \
     '--order[When generating graph for dot, show only order]' \
     '--require[When generating graph for dot, show only requirement]' \
+    {-H+,--host=}'[Operate on remote host]:userathost:_sd_hosts_or_user_at_host' \
+    {-M+,--machine=}'[Operate on local container]:machine' \
     '*::systemd-analyze commands:_systemd_analyze_command'

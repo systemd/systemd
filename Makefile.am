@@ -407,6 +407,8 @@ dist_zshcompletion_DATA = \
 	shell-completion/zsh/_systemd-analyze \
 	shell-completion/zsh/_systemd-run \
 	shell-completion/zsh/_sd_hosts_or_user_at_host \
+	shell-completion/zsh/_sd_outputmodes \
+	shell-completion/zsh/_sd_unit_files \
 	shell-completion/zsh/_systemd-delta \
 	shell-completion/zsh/_systemd
 

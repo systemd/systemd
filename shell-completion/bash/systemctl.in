@@ -89,7 +89,7 @@ _systemctl () {
                                 comps=$(compgen -A signal)
                         ;;
                         --type|-t)
-                                comps='automount device mount path service snapshot socket swap target timer'
+                                comps='automount busname device mount path service snapshot socket swap target timer'
                         ;;
                         --state)
                                 comps='loaded not-found stub
