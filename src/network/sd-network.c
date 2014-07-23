@@ -134,12 +134,13 @@ _public_ int sd_network_get_dhcp_lease(int ifindex, sd_dhcp_lease **ret) {
         return 0;
 }
 
-static int network_get_in_addr(const char *key, int ifindex, struct in_addr **addr) {
+static int network_get_strv(const char *key, int ifindex, char ***ret) {
         _cleanup_free_ char *p = NULL, *s = NULL;
+        _cleanup_strv_free_ char **a = NULL;
         int r;
 
         assert_return(ifindex > 0, -EINVAL);
-        assert_return(addr, -EINVAL);
+        assert_return(ret, -EINVAL);
 
         if (asprintf(&p, "/run/systemd/netif/links/%d", ifindex) < 0)
                 return -ENOMEM;
@@ -147,63 +148,31 @@ static int network_get_in_addr(const char *key, int ifindex, struct in_addr **ad
         r = parse_env_file(p, NEWLINE, key, &s, NULL);
         if (r < 0)
                 return r;
-        else if (!s)
-                return -EIO;
+        else if (!s) {
+                *ret = NULL;
 
-        return deserialize_in_addrs(addr, s);
-}
+                return 0;
+        }
 
-_public_ int sd_network_get_dns(int ifindex, struct in_addr **addr) {
-        return network_get_in_addr("DNS", ifindex, addr);
-}
-
-static int network_get_in6_addr(const char *key, int ifindex, struct in6_addr **addr) {
-        _cleanup_free_ char *p = NULL, *s = NULL;
-        int r;
-
-        assert_return(ifindex > 0, -EINVAL);
-        assert_return(addr, -EINVAL);
-
-        if (asprintf(&p, "/run/systemd/netif/links/%d", ifindex) < 0)
+        a = strv_split(s, " ");
+        if (!a)
                 return -ENOMEM;
 
-        r = parse_env_file(p, NEWLINE, key, &s, NULL);
-        if (r < 0)
-                return r;
-        else if (!s)
-                return -EIO;
+        strv_uniq(a);
+        r = strv_length(a);
 
-        return deserialize_in6_addrs(addr, s);
+        *ret = a;
+        a = NULL;
+
+        return r;
 }
 
-_public_ int sd_network_get_dns6(int ifindex, struct in6_addr **addr) {
-        return network_get_in6_addr("DNS", ifindex, addr);
+_public_ int sd_network_get_dns(int ifindex, char ***ret) {
+        return network_get_strv("DNS", ifindex, ret);
 }
 
-static int network_get_boolean(const char *key, int ifindex) {
-        _cleanup_free_ char *p = NULL, *s = NULL;
-        int r;
-
-        assert_return(ifindex > 0, -EINVAL);
-
-        if (asprintf(&p, "/run/systemd/netif/links/%d", ifindex) < 0)
-                return -ENOMEM;
-
-        r = parse_env_file(p, NEWLINE, key, &s, NULL);
-        if (r < 0)
-                return r;
-        else if (!s)
-                return false;
-
-        return parse_boolean(s);
-}
-
-_public_ int sd_network_dhcp_use_dns(int ifindex) {
-        return network_get_boolean("DHCP_USE_DNS", ifindex);
-}
-
-_public_ int sd_network_dhcp_use_ntp(int ifindex) {
-        return network_get_boolean("DHCP_USE_NTP", ifindex);
+_public_ int sd_network_get_ntp(int ifindex, char ***ret) {
+        return network_get_strv("NTP", ifindex, ret);
 }
 
 static inline int MONITOR_TO_FD(sd_network_monitor *m) {

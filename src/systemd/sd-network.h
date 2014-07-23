@@ -76,17 +76,13 @@ int sd_network_get_operational_state(char **state);
 /* Get DHCPv4 lease from ifindex. */
 int sd_network_get_dhcp_lease(int ifindex, sd_dhcp_lease **ret);
 
-/* Returns true if link is configured to respect DNS entries received by DHCP */
-int sd_network_dhcp_use_dns(int ifindex);
+/* Get DNS entries for a given link. These are string representations of
+ * IP addresses */
+int sd_network_get_dns(int ifindex, char ***addr);
 
-/* Returns true if link is configured to respect NTP entries received by DHCP */
-int sd_network_dhcp_use_ntp(int ifindex);
-
-/* Get IPv4 DNS entries statically configured for the link */
-int sd_network_get_dns(int ifindex, struct in_addr **addr);
-
-/* Get IPv6 DNS entries statically configured for the link */
-int sd_network_get_dns6(int ifindex, struct in6_addr **addr);
+/* Get NTP entries for a given link. These are domain names or string
+ * reperesentations of IP addresses */
+int sd_network_get_ntp(int ifindex, char ***addr);
 
 /* Monitor object */
 typedef struct sd_network_monitor sd_network_monitor;

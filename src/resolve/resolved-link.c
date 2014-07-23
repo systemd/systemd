@@ -133,49 +133,33 @@ int link_update_rtnl(Link *l, sd_rtnl_message *m) {
 }
 
 static int link_update_dns_servers(Link *l) {
-        _cleanup_free_ struct in_addr *nameservers = NULL;
-        _cleanup_free_ struct in6_addr *nameservers6 = NULL;
+        _cleanup_strv_free_ char **nameservers = NULL;
+        char **nameserver;
         DnsServer *s, *nx;
-        int r, n, i;
+        int r;
 
         assert(l);
 
         LIST_FOREACH(servers, s, l->dns_servers)
                 s->marked = true;
 
-        n = sd_network_get_dns(l->ifindex, &nameservers);
-        if (n < 0) {
-                r = n;
+        r = sd_network_get_dns(l->ifindex, &nameservers);
+        if (r < 0)
                 goto clear;
-        }
 
-        for (i = 0; i < n; i++) {
-                union in_addr_union a = { .in = nameservers[i] };
+        STRV_FOREACH(nameserver, nameservers) {
+                union in_addr_union a;
+                int family;
 
-                s = link_find_dns_server(l, AF_INET, &a);
+                r = in_addr_from_string_auto(*nameserver, &family, &a);
+                if (r < 0)
+                        goto clear;
+
+                s = link_find_dns_server(l, family, &a);
                 if (s)
                         s->marked = false;
                 else {
-                        r = dns_server_new(l->manager, NULL, l, AF_INET, &a);
-                        if (r < 0)
-                                goto clear;
-                }
-        }
-
-        n = sd_network_get_dns6(l->ifindex, &nameservers6);
-        if (n < 0) {
-                r = n;
-                goto clear;
-        }
-
-        for (i = 0; i < n; i++) {
-                union in_addr_union a = { .in6 = nameservers6[i] };
-
-                s = link_find_dns_server(l, AF_INET6, &a);
-                if (s)
-                        s->marked = false;
-                else {
-                        r = dns_server_new(l->manager, NULL, l, AF_INET6, &a);
+                        r = dns_server_new(l->manager, NULL, l, family, &a);
                         if (r < 0)
                                 goto clear;
                 }
