@@ -221,7 +221,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     will be created underneath the selected directory. Files will be
     called
     <filename>remote-<replaceable>hostname</replaceable>.journal</filename>,
-    where the <replaceable>hostname</replaceable> part is is the
+    where the <replaceable>hostname</replaceable> part is the
     escaped hostname of the source endpoint of the connection, or the
     numerical address if the hostname cannot be determined.</para>
 

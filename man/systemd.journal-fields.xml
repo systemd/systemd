@@ -582,7 +582,7 @@
                                         microseconds, formatted as a decimal
                                         string. To be useful as an
                                         address for the entry, this
-                                        should be combined with with the
+                                        should be combined with the
                                         boot ID in <literal>_BOOT_ID=</literal>.
                                         </para>
                                 </listitem>

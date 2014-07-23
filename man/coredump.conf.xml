@@ -126,7 +126,7 @@
         to 15% of the total disk size). Note that the disk space used
         by coredumps might temporarily exceed these limits while
         coredumps are processed. Note that old coredumps are also
-        removed based on on time via
+        removed based on time via
         <citerefentry><refentrytitle>systemd-tmpfiles</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para></listitem>
       </varlistentry>
     </variablelist>
