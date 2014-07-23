@@ -56,7 +56,7 @@
                 <para><filename>systemd-suspend.service</filename></para>
                 <para><filename>systemd-hibernate.service</filename></para>
                 <para><filename>systemd-hybrid-sleep.service</filename></para>
-                <para><filename>/usr/lib/systemd/systemd-sleep</filename></para>
+                <para><filename>/usr/lib/systemd/system-sleep</filename></para>
         </refsynopsisdiv>
 
         <refsect1>
