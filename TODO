@@ -40,7 +40,6 @@ Features:
   - nss module: fallback to glibc dns modules if resolved cannot be contacted
   - edns0 + dname
   - cname on PTR (?)
-  - negative caching
 
 * Allow multiple ExecStart= for all Type= settings, so that we can cover rescue.service nicely
 
