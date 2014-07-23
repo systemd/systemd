@@ -629,13 +629,17 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
         if (r >= 0)
                 fprintf(f, "MTU=%" PRIu16 "\n", mtu);
 
+        fputs("DNS=", f);
         r = sd_dhcp_lease_get_dns(lease, &addresses);
         if (r >= 0)
-                serialize_in_addrs(f, "DNS", addresses, r);
+                serialize_in_addrs(f, addresses, r);
+        fputs("\n", f);
 
+        fputs("NTP=", f);
         r = sd_dhcp_lease_get_ntp(lease, &addresses);
         if (r >= 0)
-                serialize_in_addrs(f, "NTP", addresses, r);
+                serialize_in_addrs(f, addresses, r);
+        fputs("\n", f);
 
         r = sd_dhcp_lease_get_domainname(lease, &string);
         if (r >= 0)

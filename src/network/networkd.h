@@ -105,8 +105,7 @@ struct Network {
         Hashmap *addresses_by_section;
         Hashmap *routes_by_section;
 
-        LIST_HEAD(Address, dns);
-        LIST_HEAD(Address, ntp);
+        char **dns, **ntp;
 
         LIST_FIELDS(Network, networks);
 };
@@ -337,10 +336,6 @@ bool address_equal(Address *a1, Address *a2);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Address*, address_free);
 #define _cleanup_address_free_ _cleanup_(address_freep)
-
-int config_parse_dns(const char *unit, const char *filename, unsigned line,
-                     const char *section, unsigned section_line, const char *lvalue,
-                     int ltype, const char *rvalue, void *data, void *userdata);
 
 int config_parse_address(const char *unit, const char *filename, unsigned line,
                          const char *section, unsigned section_line, const char *lvalue,

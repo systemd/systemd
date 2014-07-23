@@ -136,57 +136,6 @@ int link_update_rtnl(Link *l, sd_rtnl_message *m) {
         return 0;
 }
 
-static int link_update_dhcp_dns_servers(Link *l) {
-        _cleanup_dhcp_lease_unref_ sd_dhcp_lease *lease = NULL;
-        const struct in_addr *nameservers = NULL;
-        DnsServer *s, *nx;
-        int r, n, i;
-
-        assert(l);
-
-        r = sd_network_dhcp_use_dns(l->ifindex);
-        if (r <= 0)
-                goto clear;
-
-        r = sd_network_get_dhcp_lease(l->ifindex, &lease);
-        if (r < 0)
-                goto clear;
-
-        LIST_FOREACH(servers, s, l->dhcp_dns_servers)
-                s->marked = true;
-
-        n = sd_dhcp_lease_get_dns(lease, &nameservers);
-        if (n < 0) {
-                r = n;
-                goto clear;
-        }
-
-        for (i = 0; i < n; i++) {
-                union in_addr_union a = { .in = nameservers[i] };
-
-                s = link_find_dns_server(l, DNS_SERVER_DHCP, AF_INET, &a);
-                if (s)
-                        s->marked = false;
-                else {
-                        r = dns_server_new(l->manager, NULL, DNS_SERVER_DHCP, l, AF_INET, &a);
-                        if (r < 0)
-                                goto clear;
-                }
-        }
-
-        LIST_FOREACH_SAFE(servers, s, nx, l->dhcp_dns_servers)
-                if (s->marked)
-                        dns_server_free(s);
-
-        return 0;
-
-clear:
-        while (l->dhcp_dns_servers)
-                dns_server_free(l->dhcp_dns_servers);
-
-        return r;
-}
-
 static int link_update_link_dns_servers(Link *l) {
         _cleanup_free_ struct in_addr *nameservers = NULL;
         _cleanup_free_ struct in6_addr *nameservers6 = NULL;
@@ -252,7 +201,6 @@ clear:
 int link_update_monitor(Link *l) {
         assert(l);
 
-        link_update_dhcp_dns_servers(l);
         link_update_link_dns_servers(l);
         link_allocate_scopes(l);
 

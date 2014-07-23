@@ -2419,27 +2419,6 @@ int link_update(Link *link, sd_rtnl_message *m) {
         return link_update_flags(link, m);
 }
 
-static void serialize_addresses(FILE *f, const char *key, Address *address) {
-        Address *ad;
-
-        assert(f);
-        assert(key);
-
-        if (!address)
-                return;
-
-        fprintf(f, "%s=", key);
-
-        LIST_FOREACH(addresses, ad, address) {
-                char buf[INET6_ADDRSTRLEN];
-
-                if (inet_ntop(ad->family, &ad->in_addr, buf, INET6_ADDRSTRLEN))
-                        fprintf(f, "%s%s", buf, (ad->addresses_next) ? " ": "");
-        }
-
-        fputs("\n", f);
-}
-
 static void link_update_operstate(Link *link) {
 
         assert(link);
@@ -2510,8 +2489,47 @@ int link_save(Link *link) {
                 admin_state, oper_state);
 
         if (link->network) {
-                serialize_addresses(f, "DNS", link->network->dns);
-                serialize_addresses(f, "NTP", link->network->ntp);
+                char **address;
+
+                fputs("DNS=", f);
+
+                if (link->network->dhcp_dns &&
+                    link->dhcp_lease) {
+                        const struct in_addr *addresses;
+
+                        r = sd_dhcp_lease_get_dns(link->dhcp_lease, &addresses);
+                        if (r > 0) {
+                                serialize_in_addrs(f, addresses, r);
+                                if (link->network->dns)
+                                        fputs(" ", f);
+                        }
+                }
+
+                STRV_FOREACH(address, link->network->dns)
+                        fprintf(f, "%s%s", *address,
+                                (address + 1 ? " " : ""));
+
+                fputs("\n", f);
+
+                fprintf(f, "NTP=");
+
+                if (link->network->dhcp_ntp &&
+                    link->dhcp_lease) {
+                        const struct in_addr *addresses;
+
+                        r = sd_dhcp_lease_get_ntp(link->dhcp_lease, &addresses);
+                        if (r > 0) {
+                                serialize_in_addrs(f, addresses, r);
+                                if (link->network->ntp)
+                                        fputs(" ", f);
+                        }
+                }
+
+                STRV_FOREACH(address, link->network->ntp)
+                        fprintf(f, "%s%s", *address,
+                                (address + 1 ? " " : ""));
+
+                fputs("\n", f);
         }
 
         if (link->dhcp_lease) {
@@ -2522,12 +2540,8 @@ int link_save(Link *link) {
                         goto finish;
 
                 fprintf(f,
-                        "DHCP_LEASE=%s\n"
-                        "DHCP_USE_DNS=%s\n"
-                        "DHCP_USE_NTP=%s\n",
-                        link->lease_file,
-                        yes_no(link->network->dhcp_dns),
-                        yes_no(link->network->dhcp_ntp));
+                        "DHCP_LEASE=%s\n",
+                        link->lease_file);
         } else
                 unlink(link->lease_file);
 

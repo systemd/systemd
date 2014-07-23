@@ -169,15 +169,8 @@ void network_free(Network *network) {
         free(network->description);
         free(network->dhcp_vendor_class_identifier);
 
-        while ((address = network->ntp)) {
-                LIST_REMOVE(addresses, network->ntp, address);
-                address_free(address);
-        }
-
-        while ((address = network->dns)) {
-                LIST_REMOVE(addresses, network->dns, address);
-                address_free(address);
-        }
+        strv_free(network->ntp);
+        strv_free(network->dns);
 
         netdev_unref(network->bridge);
 

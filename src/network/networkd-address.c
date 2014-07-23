@@ -394,55 +394,6 @@ int address_configure(Address *address, Link *link,
         return 0;
 }
 
-int config_parse_dns(const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-        Network *network = userdata;
-        Address *tail;
-        _cleanup_address_free_ Address *n = NULL;
-        int r;
-
-        assert(filename);
-        assert(section);
-        assert(lvalue);
-        assert(rvalue);
-        assert(network);
-
-        r = address_new_dynamic(&n);
-        if (r < 0)
-                return r;
-
-        r = net_parse_inaddr(rvalue, &n->family, &n->in_addr);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "DNS address is invalid, ignoring assignment: %s", rvalue);
-                return 0;
-        }
-
-        if (streq(lvalue, "DNS")) {
-                LIST_FIND_TAIL(addresses, network->dns, tail);
-                LIST_INSERT_AFTER(addresses, network->dns, tail, n);
-        } else if (streq(lvalue, "NTP")) {
-                LIST_FIND_TAIL(addresses, network->ntp, tail);
-                LIST_INSERT_AFTER(addresses, network->ntp, tail, n);
-        } else {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Key is invalid, ignoring assignment: %s=%s", lvalue, rvalue);
-                return 0;
-        }
-
-        n = NULL;
-
-        return 0;
-}
-
 int config_parse_broadcast(const char *unit,
                 const char *filename,
                 unsigned line,

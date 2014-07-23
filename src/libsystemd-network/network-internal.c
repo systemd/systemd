@@ -339,21 +339,16 @@ int net_parse_inaddr(const char *address, int *family, void *dst) {
         return 0;
 }
 
-void serialize_in_addrs(FILE *f, const char *key, const struct in_addr *addresses, size_t size) {
+void serialize_in_addrs(FILE *f, const struct in_addr *addresses, size_t size) {
         unsigned i;
 
         assert(f);
-        assert(key);
         assert(addresses);
         assert(size);
-
-        fprintf(f, "%s=", key);
 
         for (i = 0; i < size; i++)
                 fprintf(f, "%s%s", inet_ntoa(addresses[i]),
                         (i < (size - 1)) ? " ": "");
-
-        fputs("\n", f);
 }
 
 int deserialize_in_addrs(struct in_addr **ret, const char *string) {
