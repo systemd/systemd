@@ -52,8 +52,7 @@ struct Link {
 
         LIST_HEAD(LinkAddress, addresses);
 
-        LIST_HEAD(DnsServer, link_dns_servers);
-        LIST_HEAD(DnsServer, dhcp_dns_servers);
+        LIST_HEAD(DnsServer, dns_servers);
         DnsServer *current_dns_server;
 
         DnsScope *unicast_scope;
@@ -74,7 +73,7 @@ int link_update_monitor(Link *l);
 bool link_relevant(Link *l, int family);
 LinkAddress* link_find_address(Link *l, int family, union in_addr_union *in_addr);
 
-DnsServer* link_find_dns_server(Link *l, DnsServerSource source, int family, union in_addr_union *in_addr);
+DnsServer* link_find_dns_server(Link *l, int family, union in_addr_union *in_addr);
 DnsServer* link_get_dns_server(Link *l);
 void link_next_dns_server(Link *l);
 

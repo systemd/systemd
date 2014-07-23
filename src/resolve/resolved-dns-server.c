@@ -24,7 +24,6 @@
 int dns_server_new(
                 Manager *m,
                 DnsServer **ret,
-                DnsServerSource source,
                 Link *l,
                 int family,
                 const union in_addr_union *in_addr) {
@@ -33,30 +32,23 @@ int dns_server_new(
 
         assert(m);
         assert(in_addr);
-        assert(source < _DNS_SERVER_SOURCE_MAX);
 
         s = new0(DnsServer, 1);
         if (!s)
                 return -ENOMEM;
 
-        s->source = source;
         s->family = family;
         s->address = *in_addr;
 
-        if (source == DNS_SERVER_LINK) {
-                assert(l);
-                LIST_FIND_TAIL(servers, l->link_dns_servers, tail);
-                LIST_INSERT_AFTER(servers, l->link_dns_servers, tail, s);
+        if (l) {
+                LIST_FIND_TAIL(servers, l->dns_servers, tail);
+                LIST_INSERT_AFTER(servers, l->dns_servers, tail, s);
                 s->link = l;
-        } else if (source == DNS_SERVER_DHCP) {
-                assert(l);
-                LIST_FIND_TAIL(servers, l->dhcp_dns_servers, tail);
-                LIST_INSERT_AFTER(servers, l->dhcp_dns_servers, tail, s);
-                s->link = l;
+                s->source = DNS_SERVER_LINK;
         } else {
-                assert(!l);
                 LIST_FIND_TAIL(servers, m->dns_servers, tail);
                 LIST_INSERT_AFTER(servers, m->dns_servers, tail, s);
+                s->source = DNS_SERVER_SYSTEM;
         }
 
         s->manager = m;
@@ -74,12 +66,7 @@ DnsServer* dns_server_free(DnsServer *s)  {
         if (s->source == DNS_SERVER_LINK) {
 
                 if (s->link)
-                        LIST_REMOVE(servers, s->link->link_dns_servers, s);
-        } else if (s->source == DNS_SERVER_DHCP) {
-
-                if (s->link)
-                        LIST_REMOVE(servers, s->link->dhcp_dns_servers, s);
-
+                        LIST_REMOVE(servers, s->link->dns_servers, s);
         } else if (s->source == DNS_SERVER_SYSTEM) {
 
                 if (s->manager)

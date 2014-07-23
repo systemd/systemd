@@ -33,7 +33,6 @@ typedef enum DnsServerSource DnsServerSource;
 enum DnsServerSource {
         DNS_SERVER_SYSTEM,
         DNS_SERVER_LINK,
-        DNS_SERVER_DHCP,
         _DNS_SERVER_SOURCE_MAX
 };
 
@@ -54,7 +53,6 @@ struct DnsServer {
 int dns_server_new(
                 Manager *m,
                 DnsServer **s,
-                DnsServerSource source,
                 Link *l,
                 int family,
                 const union in_addr_union *address);

@@ -22,7 +22,6 @@
 #include <net/if.h>
 
 #include "sd-network.h"
-#include "dhcp-lease-internal.h"
 #include "strv.h"
 #include "resolved-link.h"
 
@@ -71,11 +70,8 @@ Link *link_free(Link *l) {
         dns_scope_free(l->llmnr_ipv4_scope);
         dns_scope_free(l->llmnr_ipv6_scope);
 
-        while (l->dhcp_dns_servers)
-                dns_server_free(l->dhcp_dns_servers);
-
-        while (l->link_dns_servers)
-                dns_server_free(l->link_dns_servers);
+        while (l->dns_servers)
+                dns_server_free(l->dns_servers);
 
         free(l);
         return NULL;
@@ -86,7 +82,7 @@ static void link_allocate_scopes(Link *l) {
 
         assert(l);
 
-        if (l->link_dns_servers || l->dhcp_dns_servers) {
+        if (l->dns_servers) {
                 if (!l->unicast_scope) {
                         r = dns_scope_new(l->manager, &l->unicast_scope, l, DNS_PROTOCOL_DNS, AF_UNSPEC);
                         if (r < 0)
@@ -136,7 +132,7 @@ int link_update_rtnl(Link *l, sd_rtnl_message *m) {
         return 0;
 }
 
-static int link_update_link_dns_servers(Link *l) {
+static int link_update_dns_servers(Link *l) {
         _cleanup_free_ struct in_addr *nameservers = NULL;
         _cleanup_free_ struct in6_addr *nameservers6 = NULL;
         DnsServer *s, *nx;
@@ -144,7 +140,7 @@ static int link_update_link_dns_servers(Link *l) {
 
         assert(l);
 
-        LIST_FOREACH(servers, s, l->link_dns_servers)
+        LIST_FOREACH(servers, s, l->dns_servers)
                 s->marked = true;
 
         n = sd_network_get_dns(l->ifindex, &nameservers);
@@ -156,11 +152,11 @@ static int link_update_link_dns_servers(Link *l) {
         for (i = 0; i < n; i++) {
                 union in_addr_union a = { .in = nameservers[i] };
 
-                s = link_find_dns_server(l, DNS_SERVER_LINK, AF_INET, &a);
+                s = link_find_dns_server(l, AF_INET, &a);
                 if (s)
                         s->marked = false;
                 else {
-                        r = dns_server_new(l->manager, NULL, DNS_SERVER_LINK, l, AF_INET, &a);
+                        r = dns_server_new(l->manager, NULL, l, AF_INET, &a);
                         if (r < 0)
                                 goto clear;
                 }
@@ -175,25 +171,25 @@ static int link_update_link_dns_servers(Link *l) {
         for (i = 0; i < n; i++) {
                 union in_addr_union a = { .in6 = nameservers6[i] };
 
-                s = link_find_dns_server(l, DNS_SERVER_LINK, AF_INET6, &a);
+                s = link_find_dns_server(l, AF_INET6, &a);
                 if (s)
                         s->marked = false;
                 else {
-                        r = dns_server_new(l->manager, NULL, DNS_SERVER_LINK, l, AF_INET6, &a);
+                        r = dns_server_new(l->manager, NULL, l, AF_INET6, &a);
                         if (r < 0)
                                 goto clear;
                 }
         }
 
-        LIST_FOREACH_SAFE(servers, s, nx, l->link_dns_servers)
+        LIST_FOREACH_SAFE(servers, s, nx, l->dns_servers)
                 if (s->marked)
                         dns_server_free(s);
 
         return 0;
 
 clear:
-        while (l->link_dns_servers)
-                dns_server_free(l->link_dns_servers);
+        while (l->dns_servers)
+                dns_server_free(l->dns_servers);
 
         return r;
 }
@@ -201,7 +197,7 @@ clear:
 int link_update_monitor(Link *l) {
         assert(l);
 
-        link_update_link_dns_servers(l);
+        link_update_dns_servers(l);
         link_allocate_scopes(l);
 
         return 0;
@@ -242,14 +238,12 @@ LinkAddress *link_find_address(Link *l, int family, union in_addr_union *in_addr
         return NULL;
 }
 
-DnsServer* link_find_dns_server(Link *l, DnsServerSource source, int family, union in_addr_union *in_addr) {
-        DnsServer *first, *s;
+DnsServer* link_find_dns_server(Link *l, int family, union in_addr_union *in_addr) {
+        DnsServer *s;
 
         assert(l);
 
-        first = source == DNS_SERVER_DHCP ? l->dhcp_dns_servers : l->link_dns_servers;
-
-        LIST_FOREACH(servers, s, first)
+        LIST_FOREACH(servers, s, l->dns_servers)
                 if (s->family == family && in_addr_equal(family, &s->address, in_addr))
                         return s;
 
@@ -260,9 +254,7 @@ DnsServer *link_get_dns_server(Link *l) {
         assert(l);
 
         if (!l->current_dns_server)
-                l->current_dns_server = l->link_dns_servers;
-        if (!l->current_dns_server)
-                l->current_dns_server = l->dhcp_dns_servers;
+                l->current_dns_server = l->dns_servers;
 
         return l->current_dns_server;
 }
@@ -273,13 +265,7 @@ void link_next_dns_server(Link *l) {
         /* Switch to the next DNS server */
 
         if (!l->current_dns_server) {
-                l->current_dns_server = l->link_dns_servers;
-                if (l->current_dns_server)
-                        return;
-        }
-
-        if (!l->current_dns_server) {
-                l->current_dns_server = l->dhcp_dns_servers;
+                l->current_dns_server = l->dns_servers;
                 if (l->current_dns_server)
                         return;
         }
@@ -292,12 +278,7 @@ void link_next_dns_server(Link *l) {
                 return;
         }
 
-        if (l->current_dns_server->source == DNS_SERVER_LINK)
-                l->current_dns_server = l->dhcp_dns_servers;
-        else {
-                assert(l->current_dns_server->source == DNS_SERVER_DHCP);
-                l->current_dns_server = l->link_dns_servers;
-        }
+        l->current_dns_server = l->dns_servers;
 }
 
 int link_address_new(Link *l, LinkAddress **ret, int family, union in_addr_union *in_addr) {

@@ -29,8 +29,6 @@
 #include "rtnl-util.h"
 #include "event-util.h"
 #include "network-util.h"
-#include "sd-dhcp-lease.h"
-#include "dhcp-lease-internal.h"
 #include "network-internal.h"
 #include "conf-parser.h"
 #include "socket-util.h"
@@ -326,7 +324,7 @@ static int parse_dns_server_string(Manager *m, const char *string) {
                 if (manager_find_dns_server(m, family, &addr))
                         continue;
 
-                r = dns_server_new(m, NULL, DNS_SERVER_SYSTEM, NULL, family, &addr);
+                r = dns_server_new(m, NULL, NULL, family, &addr);
                 if (r < 0)
                         return r;
         }
@@ -517,13 +515,9 @@ int manager_write_resolv_conf(Manager *m) {
               "# resolv.conf(5) in a different way, replace the symlink by a\n"
               "# static file or a different symlink.\n\n", f);
 
-        HASHMAP_FOREACH(l, m->links, i) {
-                LIST_FOREACH(servers, s, l->link_dns_servers)
+        HASHMAP_FOREACH(l, m->links, i)
+                LIST_FOREACH(servers, s, l->dns_servers)
                         write_resolve_conf_server(s, f, &count);
-
-                LIST_FOREACH(servers, s, l->dhcp_dns_servers)
-                        write_resolve_conf_server(s, f, &count);
-        }
 
         LIST_FOREACH(servers, s, m->dns_servers)
                 write_resolve_conf_server(s, f, &count);
