@@ -148,6 +148,12 @@ static const MountEntry protect_system_yes_table[] = {
         { "/usr",                READONLY,     false },
         { "/boot",               READONLY,     true  },
         { "/efi",                READONLY,     true  },
+#if HAVE_SPLIT_USR
+        { "/lib",                READONLY,     true  },
+        { "/lib64",              READONLY,     true  },
+        { "/bin",                READONLY,     true  },
+        { "/sbin",               READONLY,     true  },
+#endif
 };
 
 /* ProtectSystem=full includes ProtectSystem=yes */
@@ -156,6 +162,12 @@ static const MountEntry protect_system_full_table[] = {
         { "/boot",               READONLY,     true  },
         { "/efi",                READONLY,     true  },
         { "/etc",                READONLY,     false },
+#if HAVE_SPLIT_USR
+        { "/lib",                READONLY,     true  },
+        { "/lib64",              READONLY,     true  },
+        { "/bin",                READONLY,     true  },
+        { "/sbin",               READONLY,     true  },
+#endif
 };
 
 /*
