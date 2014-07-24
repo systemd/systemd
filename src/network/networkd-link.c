@@ -471,14 +471,6 @@ static int link_enter_set_routes(Link *link) {
 
         if (link->ipv4ll && !link->dhcp_lease) {
                 _cleanup_route_free_ Route *route = NULL;
-                struct in_addr addr;
-
-                r = sd_ipv4ll_get_address(link->ipv4ll, &addr);
-                if (r < 0 && r != -ENOENT) {
-                        log_warning_link(link, "IPV4LL error: no address: %s",
-                                        strerror(-r));
-                        return r;
-                }
 
                 if (r != -ENOENT) {
                         r = route_new_dynamic(&route, RTPROT_STATIC);
