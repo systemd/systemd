@@ -98,3 +98,5 @@ bool ntp_synced(void);
 
 int get_timezones(char ***l);
 bool timezone_is_valid(const char *name);
+
+clockid_t clock_boottime_or_monotonic(void);

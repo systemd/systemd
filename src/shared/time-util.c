@@ -22,6 +22,7 @@
 #include <time.h>
 #include <string.h>
 #include <sys/timex.h>
+#include <sys/timerfd.h>
 
 #include "util.h"
 #include "time-util.h"
@@ -928,4 +929,22 @@ bool timezone_is_valid(const char *name) {
                 return false;
 
         return true;
+}
+
+clockid_t clock_boottime_or_monotonic(void) {
+        static clockid_t clock = -1;
+        int fd;
+
+        if (clock != -1)
+                return clock;
+
+        fd = timerfd_create(CLOCK_BOOTTIME, TFD_NONBLOCK|TFD_CLOEXEC);
+        if (fd < 0)
+                clock = CLOCK_MONOTONIC;
+        else {
+                safe_close(fd);
+                clock = CLOCK_BOOTTIME;
+        }
+
+        return clock;
 }
