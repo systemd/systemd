@@ -265,6 +265,9 @@ Socket.SmackLabelIPOut,          config_parse_string,                0,         
 `Socket.SmackLabel,              config_parse_warn_compat,           0,                             0
 Socket.SmackLabelIPIn,           config_parse_warn_compat,           0,                             0
 Socket.SmackLabelIPOut,          config_parse_warn_compat,           0,                             0')
+m4_ifdef(`HAVE_SELINUX',
+`Socket.SELinuxContextFromNet,   config_parse_bool,                  0,                             offsetof(Socket, selinux_context_from_net)',
+`Socket.SELinuxContextFromNet,   config_parse_warn_compat,           0,                             0')
 EXEC_CONTEXT_CONFIG_ITEMS(Socket)m4_dnl
 CGROUP_CONTEXT_CONFIG_ITEMS(Socket)m4_dnl
 KILL_CONTEXT_CONFIG_ITEMS(Socket)m4_dnl

@@ -84,6 +84,7 @@
 #include "mkdir.h"
 #include "apparmor-util.h"
 #include "bus-kernel.h"
+#include "label.h"
 
 #ifdef HAVE_SECCOMP
 #include "seccomp-util.h"
@@ -1665,11 +1666,29 @@ static int exec_child(ExecCommand *command,
 #endif
 
 #ifdef HAVE_SELINUX
-                if (context->selinux_context && use_selinux()) {
-                        err = setexeccon(context->selinux_context);
-                        if (err < 0 && !context->selinux_context_ignore) {
-                                *error = EXIT_SELINUX_CONTEXT;
-                                return err;
+                if (use_selinux()) {
+                        if (context->selinux_context) {
+                                err = setexeccon(context->selinux_context);
+                                if (err < 0 && !context->selinux_context_ignore) {
+                                        *error = EXIT_SELINUX_CONTEXT;
+                                        return err;
+                                }
+                        }
+
+                        if (params->selinux_context_net && socket_fd >= 0) {
+                                _cleanup_free_ char *label = NULL;
+
+                                err = label_get_child_mls_label(socket_fd, command->path, &label);
+                                if (err < 0) {
+                                        *error = EXIT_SELINUX_CONTEXT;
+                                        return err;
+                                }
+
+                                err = setexeccon(label);
+                                if (err < 0) {
+                                        *error = EXIT_SELINUX_CONTEXT;
+                                        return err;
+                                }
                         }
                 }
 #endif

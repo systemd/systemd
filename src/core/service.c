@@ -901,6 +901,7 @@ static int service_spawn(
                 .apply_chroot      = apply_chroot,
                 .apply_tty_stdin   = apply_tty_stdin,
                 .bus_endpoint_fd   = -1,
+                .selinux_context_net = s->socket_fd_selinux_context_net
         };
 
         assert(s);
@@ -2748,7 +2749,7 @@ static void service_bus_name_owner_change(
         }
 }
 
-int service_set_socket_fd(Service *s, int fd, Socket *sock) {
+int service_set_socket_fd(Service *s, int fd, Socket *sock, bool selinux_context_net) {
         _cleanup_free_ char *peer = NULL;
         int r;
 
@@ -2786,6 +2787,7 @@ int service_set_socket_fd(Service *s, int fd, Socket *sock) {
         }
 
         s->socket_fd = fd;
+        s->socket_fd_selinux_context_net = selinux_context_net;
 
         unit_ref_set(&s->accept_socket, UNIT(sock));
 

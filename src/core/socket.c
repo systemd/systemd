@@ -489,7 +489,8 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sPassCredentials: %s\n"
                 "%sPassSecurity: %s\n"
                 "%sTCPCongestion: %s\n"
-                "%sRemoveOnStop: %s\n",
+                "%sRemoveOnStop: %s\n"
+                "%sSELinuxContextFromNet: %s\n",
                 prefix, socket_state_to_string(s->state),
                 prefix, socket_result_to_string(s->result),
                 prefix, socket_address_bind_ipv6_only_to_string(s->bind_ipv6_only),
@@ -504,7 +505,8 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, yes_no(s->pass_cred),
                 prefix, yes_no(s->pass_sec),
                 prefix, strna(s->tcp_congestion),
-                prefix, yes_no(s->remove_on_stop));
+                prefix, yes_no(s->remove_on_stop),
+                prefix, yes_no(s->selinux_context_from_net));
 
         if (s->control_pid > 0)
                 fprintf(f,
@@ -1128,8 +1130,12 @@ static int socket_open_fds(Socket *s) {
                         continue;
 
                 if (p->type == SOCKET_SOCKET) {
-
-                        if (!know_label) {
+                        if (!know_label && s->selinux_context_from_net) {
+                                r = label_get_our_label(&label);
+                                if (r < 0)
+                                        return r;
+                                know_label = true;
+                        } else if (!know_label) {
 
                                 r = socket_instantiate_service(s);
                                 if (r < 0)
@@ -1821,7 +1827,7 @@ static void socket_enter_running(Socket *s, int cfd) {
 
                 unit_choose_id(UNIT(service), name);
 
-                r = service_set_socket_fd(service, cfd, s);
+                r = service_set_socket_fd(service, cfd, s, s->selinux_context_from_net);
                 if (r < 0)
                         goto fail;
 

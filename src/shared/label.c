@@ -31,6 +31,7 @@
 #ifdef HAVE_SELINUX
 #include <selinux/selinux.h>
 #include <selinux/label.h>
+#include <selinux/context.h>
 #endif
 
 #include "label.h"
@@ -41,6 +42,12 @@
 #include "smack-util.h"
 
 #ifdef HAVE_SELINUX
+DEFINE_TRIVIAL_CLEANUP_FUNC(security_context_t, freecon);
+DEFINE_TRIVIAL_CLEANUP_FUNC(context_t, context_free);
+
+#define _cleanup_security_context_free_ _cleanup_(freeconp)
+#define _cleanup_context_free_ _cleanup_(context_freep)
+
 static struct selabel_handle *label_hnd = NULL;
 #endif
 
@@ -240,6 +247,112 @@ fail:
         freecon(fcon);
 #endif
 
+        return r;
+}
+
+int label_get_our_label(char **label) {
+        int r = -EOPNOTSUPP;
+        char *l = NULL;
+
+#ifdef HAVE_SELINUX
+        r = getcon(&l);
+        if (r < 0)
+                return r;
+
+        *label = l;
+#endif
+
+        return r;
+}
+
+int label_get_child_mls_label(int socket_fd, const char *exe, char **label) {
+        int r = -EOPNOTSUPP;
+
+#ifdef HAVE_SELINUX
+
+        _cleanup_security_context_free_ security_context_t mycon = NULL, peercon = NULL, fcon = NULL, ret = NULL;
+        _cleanup_context_free_ context_t pcon = NULL, bcon = NULL;
+        security_class_t sclass;
+
+        const char *range = NULL;
+
+        assert(socket_fd >= 0);
+        assert(exe);
+        assert(label);
+
+        r = getcon(&mycon);
+        if (r < 0) {
+                r = -EINVAL;
+                goto out;
+        }
+
+        r = getpeercon(socket_fd, &peercon);
+        if (r < 0) {
+                r = -EINVAL;
+                goto out;
+        }
+
+        r = getexeccon(&fcon);
+        if (r < 0) {
+                r = -EINVAL;
+                goto out;
+        }
+
+        if (!fcon) {
+                /* If there is no context set for next exec let's use context
+                   of target executable */
+                r = getfilecon(exe, &fcon);
+                if (r < 0) {
+                        r = -errno;
+                        goto out;
+                }
+        }
+
+        bcon = context_new(mycon);
+        if (!bcon) {
+                r = -ENOMEM;
+                goto out;
+        }
+
+        pcon = context_new(peercon);
+        if (!pcon) {
+                r = -ENOMEM;
+                goto out;
+        }
+
+        range = context_range_get(pcon);
+        if (!range) {
+                r = -errno;
+                goto out;
+        }
+
+        r = context_range_set(bcon, range);
+        if (r) {
+                r = -errno;
+                goto out;
+        }
+
+        freecon(mycon);
+        mycon = context_str(bcon);
+        if (!mycon) {
+                r = -errno;
+                goto out;
+        }
+
+        sclass = string_to_security_class("process");
+        r = security_compute_create(mycon, fcon, sclass, &ret);
+        if (r < 0) {
+                r = -EINVAL;
+                goto out;
+        }
+
+        *label = ret;
+        r = 0;
+
+out:
+        if (r < 0 && security_getenforce() == 1)
+                return r;
+#endif
         return r;
 }
 

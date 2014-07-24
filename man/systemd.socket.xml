@@ -676,6 +676,32 @@
                         </varlistentry>
 
                         <varlistentry>
+                          <term><varname>SELinuxContextFromNet=</varname></term>
+                                 <listitem><para>Takes a boolean
+                                 argument. When true systemd will attempt
+                                 to figure out the SELinux label used
+                                 for the instantiated service from the
+                                 information handed by the peer over the
+                                 network. Note that only the security
+                                 level is used from the information
+                                 provided by the peer. Other parts of
+                                 the resulting SELinux context originate
+                                 from either the target binary that is
+                                 effectively triggered by socket unit
+                                 are taken from the value of the
+                                 <varname>SELinuxContext=</varname>
+                                 option.This configuration option only
+                                 affects sockets with
+                                 <varname>Accept=</varname> mode set to
+                                 <literal>true</literal>. Also note that
+                                 this option is useful only when
+                                 MLS/MCS SELinux policy is
+                                 deployed. Defaults to
+                                 <literal>false</literal>.
+                                 </para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>PipeSize=</varname></term>
                                 <listitem><para>Takes a size in
                                 bytes. Controls the pipe buffer size
