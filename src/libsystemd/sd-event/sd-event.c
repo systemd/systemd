@@ -43,6 +43,7 @@
 typedef enum EventSourceType {
         SOURCE_IO,
         SOURCE_TIME_REALTIME,
+        SOURCE_TIME_BOOTTIME,
         SOURCE_TIME_MONOTONIC,
         SOURCE_TIME_REALTIME_ALARM,
         SOURCE_TIME_BOOTTIME_ALARM,
@@ -56,7 +57,7 @@ typedef enum EventSourceType {
         _SOURCE_EVENT_SOURCE_TYPE_INVALID = -1
 } EventSourceType;
 
-#define EVENT_SOURCE_IS_TIME(t) IN_SET((t), SOURCE_TIME_REALTIME, SOURCE_TIME_MONOTONIC, SOURCE_TIME_REALTIME_ALARM, SOURCE_TIME_BOOTTIME_ALARM)
+#define EVENT_SOURCE_IS_TIME(t) IN_SET((t), SOURCE_TIME_REALTIME, SOURCE_TIME_BOOTTIME, SOURCE_TIME_MONOTONIC, SOURCE_TIME_REALTIME_ALARM, SOURCE_TIME_BOOTTIME_ALARM)
 
 struct sd_event_source {
         unsigned n_ref;
@@ -142,10 +143,11 @@ struct sd_event {
         Prioq *pending;
         Prioq *prepare;
 
-        /* timerfd_create() only supports these four clocks so far. We
+        /* timerfd_create() only supports these five clocks so far. We
          * can add support for more clocks when the kernel learns to
          * deal with them, too. */
         struct clock_data realtime;
+        struct clock_data boottime;
         struct clock_data monotonic;
         struct clock_data realtime_alarm;
         struct clock_data boottime_alarm;
@@ -377,6 +379,7 @@ static void event_free(sd_event *e) {
         safe_close(e->watchdog_fd);
 
         free_clock_data(&e->realtime);
+        free_clock_data(&e->boottime);
         free_clock_data(&e->monotonic);
         free_clock_data(&e->realtime_alarm);
         free_clock_data(&e->boottime_alarm);
@@ -403,8 +406,8 @@ _public_ int sd_event_new(sd_event** ret) {
                 return -ENOMEM;
 
         e->n_ref = 1;
-        e->signal_fd = e->watchdog_fd = e->epoll_fd = e->realtime.fd = e->monotonic.fd = e->realtime_alarm.fd = e->boottime_alarm.fd = -1;
-        e->realtime.next = e->monotonic.next = e->realtime_alarm.next = e->boottime_alarm.next = (usec_t) -1;
+        e->signal_fd = e->watchdog_fd = e->epoll_fd = e->realtime.fd = e->boottime.fd = e->monotonic.fd = e->realtime_alarm.fd = e->boottime_alarm.fd = -1;
+        e->realtime.next = e->boottime.next = e->monotonic.next = e->realtime_alarm.next = e->boottime_alarm.next = (usec_t) -1;
         e->original_pid = getpid();
         e->perturb = (usec_t) -1;
 
@@ -517,6 +520,9 @@ static clockid_t event_source_type_to_clock(EventSourceType t) {
         case SOURCE_TIME_REALTIME:
                 return CLOCK_REALTIME;
 
+        case SOURCE_TIME_BOOTTIME:
+                return CLOCK_BOOTTIME;
+
         case SOURCE_TIME_MONOTONIC:
                 return CLOCK_MONOTONIC;
 
@@ -537,6 +543,9 @@ static EventSourceType clock_to_event_source_type(clockid_t clock) {
 
         case CLOCK_REALTIME:
                 return SOURCE_TIME_REALTIME;
+
+        case CLOCK_BOOTTIME:
+                return SOURCE_TIME_BOOTTIME;
 
         case CLOCK_MONOTONIC:
                 return SOURCE_TIME_MONOTONIC;
@@ -559,6 +568,9 @@ static struct clock_data* event_get_clock_data(sd_event *e, EventSourceType t) {
 
         case SOURCE_TIME_REALTIME:
                 return &e->realtime;
+
+        case SOURCE_TIME_BOOTTIME:
+                return &e->boottime;
 
         case SOURCE_TIME_MONOTONIC:
                 return &e->monotonic;
@@ -593,6 +605,7 @@ static void source_disconnect(sd_event_source *s) {
                 break;
 
         case SOURCE_TIME_REALTIME:
+        case SOURCE_TIME_BOOTTIME:
         case SOURCE_TIME_MONOTONIC:
         case SOURCE_TIME_REALTIME_ALARM:
         case SOURCE_TIME_BOOTTIME_ALARM: {
@@ -1383,6 +1396,7 @@ _public_ int sd_event_source_set_enabled(sd_event_source *s, int m) {
                         break;
 
                 case SOURCE_TIME_REALTIME:
+                case SOURCE_TIME_BOOTTIME:
                 case SOURCE_TIME_MONOTONIC:
                 case SOURCE_TIME_REALTIME_ALARM:
                 case SOURCE_TIME_BOOTTIME_ALARM: {
@@ -1445,6 +1459,7 @@ _public_ int sd_event_source_set_enabled(sd_event_source *s, int m) {
                         break;
 
                 case SOURCE_TIME_REALTIME:
+                case SOURCE_TIME_BOOTTIME:
                 case SOURCE_TIME_MONOTONIC:
                 case SOURCE_TIME_REALTIME_ALARM:
                 case SOURCE_TIME_BOOTTIME_ALARM: {
@@ -2005,6 +2020,7 @@ static int source_dispatch(sd_event_source *s) {
                 break;
 
         case SOURCE_TIME_REALTIME:
+        case SOURCE_TIME_BOOTTIME:
         case SOURCE_TIME_MONOTONIC:
         case SOURCE_TIME_REALTIME_ALARM:
         case SOURCE_TIME_BOOTTIME_ALARM:
@@ -2205,6 +2221,10 @@ _public_ int sd_event_run(sd_event *e, uint64_t timeout) {
         if (r < 0)
                 goto finish;
 
+        r = event_arm_timer(e, &e->boottime);
+        if (r < 0)
+                goto finish;
+
         r = event_arm_timer(e, &e->monotonic);
         if (r < 0)
                 goto finish;
@@ -2239,6 +2259,8 @@ _public_ int sd_event_run(sd_event *e, uint64_t timeout) {
 
                 if (ev_queue[i].data.ptr == INT_TO_PTR(SOURCE_TIME_REALTIME))
                         r = flush_timer(e, e->realtime.fd, ev_queue[i].events, &e->realtime.next);
+                else if (ev_queue[i].data.ptr == INT_TO_PTR(SOURCE_TIME_BOOTTIME))
+                        r = flush_timer(e, e->boottime.fd, ev_queue[i].events, &e->boottime.next);
                 else if (ev_queue[i].data.ptr == INT_TO_PTR(SOURCE_TIME_MONOTONIC))
                         r = flush_timer(e, e->monotonic.fd, ev_queue[i].events, &e->monotonic.next);
                 else if (ev_queue[i].data.ptr == INT_TO_PTR(SOURCE_TIME_REALTIME_ALARM))
@@ -2261,6 +2283,10 @@ _public_ int sd_event_run(sd_event *e, uint64_t timeout) {
                 goto finish;
 
         r = process_timer(e, e->timestamp.realtime, &e->realtime);
+        if (r < 0)
+                goto finish;
+
+        r = process_timer(e, e->timestamp_boottime, &e->boottime);
         if (r < 0)
                 goto finish;
 
@@ -2369,6 +2395,7 @@ _public_ int sd_event_now(sd_event *e, clockid_t clock, uint64_t *usec) {
                 *usec = e->timestamp.monotonic;
                 break;
 
+        case CLOCK_BOOTTIME:
         case CLOCK_BOOTTIME_ALARM:
                 *usec = e->timestamp_boottime;
                 break;
