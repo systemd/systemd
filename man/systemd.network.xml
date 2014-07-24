@@ -212,9 +212,6 @@
                                         <term><varname>IPv4LL=</varname></term>
                                         <listitem>
                                                 <para>A boolean. When true, enables IPv4 link-local support.
-                                                If <literal>DHCP=</literal> is also true, acquiring DHCP address
-                                                will deprecate previously acquired IPv4 link-local address or
-                                                stop acquiring process if one has not been acquired before.
                                                 </para>
                                         </listitem>
                                 </varlistentry>
