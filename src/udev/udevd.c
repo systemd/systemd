@@ -285,26 +285,17 @@ static void worker_new(struct event *event)
                                 udev_event->exec_delay = exec_delay;
 
                         /*
-                         * Take a "read lock" on the device node; this establishes
+                         * Take a shared lock on the device node; this establishes
                          * a concept of device "ownership" to serialize device
-                         * access. External processes holding a "write lock" will
+                         * access. External processes holding an exclusive lock will
                          * cause udev to skip the event handling; in the case udev
-                         * acquired the lock, the external process will block until
+                         * acquired the lock, the external process can block until
                          * udev has finished its event handling.
                          */
-
-                        /*
-                         * <kabi_> since we make check - device seems unused - we try
-                         *         ioctl to deactivate - and device is found to be opened
-                         * <kay> sure, you try to take a write lock
-                         * <kay> if you get it udev is out
-                         * <kay> if you can't get it, udev is busy
-                         * <kabi_> we cannot deactivate openned device  (as it is in-use)
-                         * <kay> maybe we should just exclude dm from that thing entirely
-                         * <kabi_> IMHO this sounds like a good plan for this moment
-                         */
-                        if (streq_ptr("block", udev_device_get_subsystem(dev)) &&
-                            !startswith(udev_device_get_sysname(dev), "dm-")) {
+                        if (!streq_ptr(udev_device_get_action(dev), "remove") &&
+                            streq_ptr("block", udev_device_get_subsystem(dev)) &&
+                            !startswith(udev_device_get_sysname(dev), "dm-") &&
+                            !startswith(udev_device_get_sysname(dev), "md")) {
                                 struct udev_device *d = dev;
 
                                 if (streq_ptr("partition", udev_device_get_devtype(d)))
