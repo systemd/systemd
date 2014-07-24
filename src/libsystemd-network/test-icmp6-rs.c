@@ -108,7 +108,7 @@ static void test_rs_done(sd_icmp6_nd *nd, int event, void *userdata) {
 }
 
 static void test_rs(sd_event *e) {
-        usec_t time_now = now(CLOCK_MONOTONIC);
+        usec_t time_now = now(clock_boottime_or_monotonic());
         sd_icmp6_nd *nd;
 
         if (verbose)
@@ -123,7 +123,7 @@ static void test_rs(sd_event *e) {
         assert(sd_icmp6_nd_set_mac(nd, &mac_addr) >= 0);
         assert(sd_icmp6_nd_set_callback(nd, test_rs_done, e) >= 0);
 
-        assert(sd_event_add_time(e, &test_hangcheck, CLOCK_MONOTONIC,
+        assert(sd_event_add_time(e, &test_hangcheck, clock_boottime_or_monotonic(),
                                  time_now + 2 *USEC_PER_SEC, 0,
                                  test_rs_hangcheck, NULL) >= 0);
 

@@ -460,7 +460,7 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec,
                 client->retransmit_count++;
 
 
-        r = sd_event_now(client->event, CLOCK_MONOTONIC, &time_now);
+        r = sd_event_now(client->event, clock_boottime_or_monotonic(), &time_now);
         if (r < 0)
                 goto error;
 
@@ -484,7 +484,7 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec,
                                          client->retransmit_time, 0));
 
         r = sd_event_add_time(client->event, &client->timeout_resend,
-                              CLOCK_MONOTONIC,
+                              clock_boottime_or_monotonic(),
                               time_now + client->retransmit_time,
                               10 * USEC_PER_MSEC, client_timeout_resend,
                               client);
@@ -503,7 +503,7 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec,
 
                 r = sd_event_add_time(client->event,
                                       &client->timeout_resend_expire,
-                                      CLOCK_MONOTONIC,
+                                      clock_boottime_or_monotonic(),
                                       time_now + max_retransmit_duration,
                                       USEC_PER_SEC,
                                       client_timeout_resend_expire, client);
@@ -908,7 +908,7 @@ static int client_start(sd_dhcp6_client *client, enum DHCP6State state)
 
         case DHCP6_STATE_BOUND:
 
-                r = sd_event_now(client->event, CLOCK_MONOTONIC, &time_now);
+                r = sd_event_now(client->event, clock_boottime_or_monotonic(), &time_now);
                 if (r < 0)
                         return r;
 
@@ -931,7 +931,7 @@ static int client_start(sd_dhcp6_client *client, enum DHCP6State state)
 
                 r = sd_event_add_time(client->event,
                                       &client->lease->ia.timeout_t1,
-                                      CLOCK_MONOTONIC, time_now + timeout,
+                                      clock_boottime_or_monotonic(), time_now + timeout,
                                       10 * USEC_PER_SEC, client_timeout_t1,
                                       client);
                 if (r < 0)
@@ -951,7 +951,7 @@ static int client_start(sd_dhcp6_client *client, enum DHCP6State state)
 
                 r = sd_event_add_time(client->event,
                                       &client->lease->ia.timeout_t2,
-                                      CLOCK_MONOTONIC, time_now + timeout,
+                                      clock_boottime_or_monotonic(), time_now + timeout,
                                       10 * USEC_PER_SEC, client_timeout_t2,
                                       client);
                 if (r < 0)
@@ -970,7 +970,7 @@ static int client_start(sd_dhcp6_client *client, enum DHCP6State state)
         client->transaction_id = random_u32() & htobe32(0x00ffffff);
 
         r = sd_event_add_time(client->event, &client->timeout_resend,
-                              CLOCK_MONOTONIC, 0, 0, client_timeout_resend,
+                              clock_boottime_or_monotonic(), 0, 0, client_timeout_resend,
                               client);
         if (r < 0)
                 return r;

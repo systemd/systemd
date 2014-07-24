@@ -537,7 +537,7 @@ static void test_client_solicit_cb(sd_dhcp6_client *client, int event,
 
 static int test_client_solicit(sd_event *e) {
         sd_dhcp6_client *client;
-        usec_t time_now = now(CLOCK_MONOTONIC);
+        usec_t time_now = now(clock_boottime_or_monotonic());
 
         if (verbose)
                 printf("* %s\n", __FUNCTION__);
@@ -553,7 +553,7 @@ static int test_client_solicit(sd_event *e) {
         assert_se(sd_dhcp6_client_set_callback(client,
                                                test_client_solicit_cb, e) >= 0);
 
-        assert_se(sd_event_add_time(e, &hangcheck, CLOCK_MONOTONIC,
+        assert_se(sd_event_add_time(e, &hangcheck, clock_boottime_or_monotonic(),
                                     time_now + 2 * USEC_PER_SEC, 0,
                                     test_hangcheck, NULL) >= 0);
 
