@@ -4999,11 +4999,10 @@ static int enable_sysv_units(const char *verb, char **args) {
                         _cleanup_free_ char *path = NULL;
 
                         if (!isempty(arg_root))
-                                asprintf(&path, "%s/%s/%s", arg_root, *k, name);
+                                j = asprintf(&path, "%s/%s/%s", arg_root, *k, name);
                         else
-                                asprintf(&path, "%s/%s", *k, name);
-
-                        if (!path) {
+                                j = asprintf(&path, "%s/%s", *k, name);
+                        if (j < 0) {
                                 r = log_oom();
                                 goto finish;
                         }
@@ -5017,10 +5016,10 @@ static int enable_sysv_units(const char *verb, char **args) {
                         continue;
 
                 if (!isempty(arg_root))
-                        asprintf(&p, "%s/" SYSTEM_SYSVINIT_PATH "/%s", arg_root, name);
+                        j = asprintf(&p, "%s/" SYSTEM_SYSVINIT_PATH "/%s", arg_root, name);
                 else
-                        asprintf(&p, SYSTEM_SYSVINIT_PATH "/%s", name);
-                if (!p) {
+                        j = asprintf(&p, SYSTEM_SYSVINIT_PATH "/%s", name);
+                if (j < 0) {
                         r = log_oom();
                         goto finish;
                 }

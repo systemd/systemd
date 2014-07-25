@@ -549,13 +549,18 @@ int main(int argc, char *argv[]) {
                         description = NULL;
                 }
 
+                k = 0;
                 if (mount_point && description)
-                        asprintf(&name_buffer, "%s (%s) on %s", description, argv[2], mount_point);
+                        k = asprintf(&name_buffer, "%s (%s) on %s", description, argv[2], mount_point);
                 else if (mount_point)
-                        asprintf(&name_buffer, "%s on %s", argv[2], mount_point);
+                        k = asprintf(&name_buffer, "%s on %s", argv[2], mount_point);
                 else if (description)
-                        asprintf(&name_buffer, "%s (%s)", description, argv[2]);
+                        k = asprintf(&name_buffer, "%s (%s)", description, argv[2]);
 
+                if (k < 0) {
+                        log_oom();
+                        goto finish;
+                }
                 name = name_buffer ? name_buffer : argv[2];
 
                 k = crypt_init(&cd, argv[3]);

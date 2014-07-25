@@ -591,9 +591,9 @@ int main(int argc, char* argv[]) {
         }
 
         if (sd_pid_get_owner_uid(pid, &owner_uid) >= 0) {
-                asprintf(&core_owner_uid, "COREDUMP_OWNER_UID=" UID_FMT, owner_uid);
-
-                if (core_owner_uid)
+                r = asprintf(&core_owner_uid,
+                             "COREDUMP_OWNER_UID=" UID_FMT, owner_uid);
+                if (r > 0)
                         IOVEC_SET_STRING(iovec[j++], core_owner_uid);
         }
 

@@ -182,7 +182,7 @@ static int specifier_user_name(char specifier, void *data, void *userdata, char 
         char *printed = NULL;
         Unit *u = userdata;
         ExecContext *c;
-        int r;
+        int r = 0;
 
         assert(u);
 
@@ -208,7 +208,7 @@ static int specifier_user_name(char specifier, void *data, void *userdata, char 
                                 if (r < 0)
                                         return -ENODATA;
 
-                                asprintf(&printed, UID_FMT, uid);
+                                r = asprintf(&printed, UID_FMT, uid);
                         }
                 }
 
@@ -231,10 +231,10 @@ static int specifier_user_name(char specifier, void *data, void *userdata, char 
                 if (specifier == 'u')
                         printed = strdup(username);
                 else
-                        asprintf(&printed, UID_FMT, uid);
+                        r = asprintf(&printed, UID_FMT, uid);
         }
 
-        if (!printed)
+        if (r < 0 || !printed)
                 return -ENOMEM;
 
         *ret = printed;

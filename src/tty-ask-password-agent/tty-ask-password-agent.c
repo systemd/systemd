@@ -102,8 +102,9 @@ static int ask_password_plymouth(
         if (accept_cached) {
                 packet = strdup("c");
                 n = 1;
-        } else
-                asprintf(&packet, "*\002%c%s%n", (int) (strlen(message) + 1), message, &n);
+        } else if (asprintf(&packet, "*\002%c%s%n", (int) (strlen(message) + 1),
+                            message, &n) < 0)
+                packet = NULL;
 
         if (!packet) {
                 r = -ENOMEM;

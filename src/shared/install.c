@@ -88,13 +88,16 @@ static int get_config_path(UnitFileScope scope, bool runtime, const char *root_d
 
         case UNIT_FILE_SYSTEM:
 
-                if (root_dir && runtime)
-                        asprintf(&p, "%s/run/systemd/system", root_dir);
-                else if (runtime)
+                if (root_dir && runtime) {
+                        if (asprintf(&p, "%s/run/systemd/system", root_dir) < 0)
+                                return -ENOMEM;
+                } else if (runtime)
                         p = strdup("/run/systemd/system");
-                else if (root_dir)
-                        asprintf(&p, "%s/%s", root_dir, SYSTEM_CONFIG_UNIT_PATH);
-                else
+                else if (root_dir) {
+                        if (asprintf(&p, "%s/%s", root_dir,
+                                     SYSTEM_CONFIG_UNIT_PATH) < 0)
+                                return -ENOMEM;
+                } else
                         p = strdup(SYSTEM_CONFIG_UNIT_PATH);
 
                 break;
