@@ -731,8 +731,8 @@ error:
         return 0;
 }
 
-static int client_initialize_events(sd_dhcp_client *client,
-                                    sd_event_io_handler_t io_callback) {
+static int client_initialize_io_events(sd_dhcp_client *client,
+                                       sd_event_io_handler_t io_callback) {
         int r;
 
         assert(client);
@@ -748,6 +748,19 @@ static int client_initialize_events(sd_dhcp_client *client,
                                          client->event_priority);
         if (r < 0)
                 goto error;
+
+error:
+        if (r < 0)
+                client_stop(client, r);
+
+        return 0;
+}
+
+static int client_initialize_time_events(sd_dhcp_client *client) {
+        int r;
+
+        assert(client);
+        assert(client->event);
 
         client->timeout_resend = sd_event_source_unref(client->timeout_resend);
 
@@ -768,6 +781,14 @@ error:
 
         return 0;
 
+}
+
+static int client_initialize_events(sd_dhcp_client *client,
+                                    sd_event_io_handler_t io_callback) {
+        client_initialize_io_events(client, io_callback);
+        client_initialize_time_events(client);
+
+        return 0;
 }
 
 static int client_start(sd_dhcp_client *client) {
@@ -846,16 +867,7 @@ static int client_timeout_t1(sd_event_source *s, uint64_t usec,
         client->state = DHCP_STATE_RENEWING;
         client->attempt = 1;
 
-        r = dhcp_network_bind_udp_socket(client->lease->address,
-                                         DHCP_PORT_CLIENT);
-        if (r < 0) {
-                log_dhcp_client(client, "could not bind UDP socket");
-                return 0;
-        }
-
-        client->fd = r;
-
-        return client_initialize_events(client, client_receive_message_udp);
+        return client_initialize_time_events(client);
 }
 
 static int client_handle_offer(sd_dhcp_client *client, DHCPMessage *offer,
@@ -1175,15 +1187,23 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message,
                         if (r < 0)
                                 goto error;
 
+                        r = dhcp_network_bind_udp_socket(client->lease->address,
+                                                         DHCP_PORT_CLIENT);
+                        if (r < 0) {
+                                log_dhcp_client(client, "could not bind UDP socket");
+                                goto error;
+                        }
+
+                        client->fd = r;
+
+                        client_initialize_io_events(client, client_receive_message_udp);
+
                         if (notify_event) {
                                 client_notify(client, notify_event);
                                 if (client->state == DHCP_STATE_STOPPED)
                                         return 0;
                         }
 
-                        client->receive_message =
-                                sd_event_source_unref(client->receive_message);
-                        client->fd = asynchronous_close(client->fd);
                 } else if (r == -EADDRNOTAVAIL) {
                         /* got a NAK, let's restart the client */
                         client->timeout_resend =
