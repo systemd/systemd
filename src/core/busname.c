@@ -763,7 +763,7 @@ static void busname_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 f = BUSNAME_FAILURE_EXIT_CODE;
         else if (code == CLD_KILLED)
                 f = BUSNAME_FAILURE_SIGNAL;
-        else if (code == CLD_KILLED)
+        else if (code == CLD_DUMPED)
                 f = BUSNAME_FAILURE_CORE_DUMP;
         else
                 assert_not_reached("Unknown sigchld code");
