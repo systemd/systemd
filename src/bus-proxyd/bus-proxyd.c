@@ -1397,7 +1397,7 @@ int main(int argc, char *argv[]) {
                                 else {
                                         k = sd_bus_send(a, m, NULL);
                                         if (k < 0) {
-                                                if (r == -ECONNRESET)
+                                                if (k == -ECONNRESET)
                                                         r = 0;
                                                 else {
                                                         r = k;
