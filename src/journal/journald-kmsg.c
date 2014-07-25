@@ -274,6 +274,9 @@ static void dev_kmsg_record(Server *s, char *p, size_t l) {
         if (asprintf(&syslog_priority, "PRIORITY=%i", priority & LOG_PRIMASK) >= 0)
                 IOVEC_SET_STRING(iovec[n++], syslog_priority);
 
+        if (asprintf(&syslog_facility, "SYSLOG_FACILITY=%i", LOG_FAC(priority)) >= 0)
+                IOVEC_SET_STRING(iovec[n++], syslog_facility);
+
         if ((priority & LOG_FACMASK) == LOG_KERN)
                 IOVEC_SET_STRING(iovec[n++], "SYSLOG_IDENTIFIER=kernel");
         else {
@@ -295,9 +298,6 @@ static void dev_kmsg_record(Server *s, char *p, size_t l) {
                         if (syslog_pid)
                                 IOVEC_SET_STRING(iovec[n++], syslog_pid);
                 }
-
-                if (asprintf(&syslog_facility, "SYSLOG_FACILITY=%i", LOG_FAC(priority)) >= 0)
-                        IOVEC_SET_STRING(iovec[n++], syslog_facility);
         }
 
         message = cunescape_length_with_prefix(p, pl, "MESSAGE=");
