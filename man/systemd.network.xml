@@ -219,6 +219,15 @@
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
+                                        <term><varname>IPv4LLRoute=</varname></term>
+                                        <listitem>
+                                                <para>A boolean. When true, sets up the route needed for
+                                                non-IPv4LL hosts to communicate with IPv4LL-only hosts. Defaults
+                                                to true.
+                                                </para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
                                         <term><varname>Address=</varname></term>
                                         <listitem>
                                                 <para>A static IPv4 or IPv6 address and its prefix length,

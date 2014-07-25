@@ -86,6 +86,8 @@ static int network_load_one(Manager *manager, const char *filename) {
         if (!network->filename)
                 return log_oom();
 
+        network->ipv4ll_route = true;
+
         network->dhcp_ntp = true;
         network->dhcp_dns = true;
         network->dhcp_hostname = true;
@@ -246,6 +248,26 @@ int network_apply(Manager *manager, Network *network, Link *link) {
         int r;
 
         link->network = network;
+
+        if (network->ipv4ll_route) {
+                Route *route;
+
+                r = route_new_static(network, 0, &route);
+                if (r < 0)
+                        return r;
+
+                r = inet_pton(AF_INET, "169.254.0.0", &route->dst_addr.in);
+                if (r == 0)
+                        return -EINVAL;
+                if (r < 0)
+                        return -errno;
+
+                route->family = AF_INET;
+                route->dst_prefixlen = 16;
+                route->scope = RT_SCOPE_LINK;
+                route->metrics = IPV4LL_ROUTE_METRIC;
+                route->protocol = RTPROT_STATIC;
+        }
 
         if (network->dns || network->ntp) {
                 r = link_save(link);

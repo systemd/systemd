@@ -33,6 +33,7 @@ Network.VXLAN,               config_parse_netdev,                0,             
 Network.DHCP,                config_parse_dhcp,                  0,                             offsetof(Network, dhcp)
 Network.DHCPServer,          config_parse_bool,                  0,                             offsetof(Network, dhcp_server)
 Network.IPv4LL,              config_parse_bool,                  0,                             offsetof(Network, ipv4ll)
+Network.IPv4LLRoute,         config_parse_bool,                  0,                             offsetof(Network, ipv4ll_route)
 Network.Address,             config_parse_address,               0,                             0
 Network.Gateway,             config_parse_gateway,               0,                             0
 Network.DNS,                 config_parse_strv,                  0,                             offsetof(Network, dns)

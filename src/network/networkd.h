@@ -96,6 +96,7 @@ struct Network {
         bool dhcp_critical;
         bool dhcp_routes;
         bool ipv4ll;
+        bool ipv4ll_route;
 
         bool dhcp_server;
 
