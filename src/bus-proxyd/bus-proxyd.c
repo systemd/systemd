@@ -768,7 +768,7 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, NULL);
 
-                if (err > 0)
+                if (err < 0)
                         return synthetic_reply_method_errno(m, err, NULL);
 
                 return synthetic_reply_return_strv(m, owners);
