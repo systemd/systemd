@@ -126,7 +126,7 @@ int dhcp_network_bind_udp_socket(be32_t address, uint16_t port) {
                 .in.sin_addr.s_addr = address,
         };
         _cleanup_close_ int s = -1;
-        int r, tos = IPTOS_CLASS_CS6;
+        int r, on = 1, tos = IPTOS_CLASS_CS6;
 
         s = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
         if (s < 0)
@@ -136,18 +136,20 @@ int dhcp_network_bind_udp_socket(be32_t address, uint16_t port) {
         if (r < 0)
                 return -errno;
 
+        r = setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
+        if (r < 0)
+                return -errno;
+
         if (address == INADDR_ANY) {
-                int on = 1;
-
-                r = setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
-                if (r < 0)
-                        return -errno;
-
                 r = setsockopt(s, IPPROTO_IP, IP_PKTINFO, &on, sizeof(on));
                 if (r < 0)
                         return -errno;
 
                 r = setsockopt(s, SOL_SOCKET, SO_BROADCAST, &on, sizeof(on));
+                if (r < 0)
+                        return -errno;
+        } else {
+                r = setsockopt(s, IPPROTO_IP, IP_FREEBIND, &on, sizeof(on));
                 if (r < 0)
                         return -errno;
         }
