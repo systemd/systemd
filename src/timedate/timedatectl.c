@@ -203,9 +203,10 @@ static void print_status_info(const StatusInfo *i) {
 
         if (i->rtc_local)
                 fputs("\n" ANSI_HIGHLIGHT_ON
-                      "Warning: The RTC is configured to maintain time in the local time zone. This\n"
-                      "         mode is not fully supported and will create various problems with time\n"
-                      "         zone changes and daylight saving time adjustments. If at all possible, use\n"
+                      "Warning: The system is configured to read the RTC time in the local time zone. This\n"
+                      "         mode can not be fully supported. It will create various problems with time\n"
+                      "         zone changes and daylight saving time adjustments. The RTC time is never updated,\n"
+                      "         it relies on external facilities to maintain it. If at all possible, use\n"
                       "         RTC in UTC by calling 'timedatectl set-local-rtc 0'" ANSI_HIGHLIGHT_OFF ".\n", stdout);
 }
 

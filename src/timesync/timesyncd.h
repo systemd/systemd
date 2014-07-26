@@ -97,6 +97,9 @@ struct Manager {
 
         /* Retry connections */
         sd_event_source *event_retry;
+
+        /* RTC runs in local time, leave it alone */
+        bool rtc_local_time;
 };
 
 const struct ConfigPerfItem* timesyncd_gperf_lookup(const char *key, unsigned length);

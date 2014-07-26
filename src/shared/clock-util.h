@@ -23,6 +23,6 @@
 
 int clock_is_localtime(void);
 int clock_set_timezone(int *min);
-int clock_reset_timezone(void);
+int clock_reset_timewarp(void);
 int clock_get_hwclock(struct tm *tm);
 int clock_set_hwclock(const struct tm *tm);

@@ -124,9 +124,10 @@ int clock_set_timezone(int *min) {
         tz.tz_dsttime = 0; /* DST_NONE*/
 
         /*
-         * If the hardware clock does not run in UTC, but in local time:
-         * The very first time we set the kernel's timezone, it will warp
-         * the clock so that it runs in UTC instead of local time.
+         * If the RTC does not run in UTC but in local time, the very first
+         * call to settimeofday() will set the kernel's timezone and will warp the
+         * system clock, so that it runs in UTC instead of the local time we
+         * have read from the RTC.
          */
         if (settimeofday(tv_null, &tz) < 0)
                 return -errno;
@@ -135,7 +136,7 @@ int clock_set_timezone(int *min) {
         return 0;
 }
 
-int clock_reset_timezone(void) {
+int clock_reset_timewarp(void) {
         const struct timeval *tv_null = NULL;
         struct timezone tz;
 
@@ -143,9 +144,9 @@ int clock_reset_timezone(void) {
         tz.tz_dsttime = 0; /* DST_NONE*/
 
         /*
-         * The very first time we set the kernel's timezone, it will warp
-         * the clock. Do a dummy call here, so the time warping is sealed
-         * and we set only the timezone with the next call.
+         * The very first call to settimeofday() does time warp magic. Do a
+         * dummy call here, so the time warping is sealed and all later calls
+         * behave as expected.
          */
         if (settimeofday(tv_null, &tz) < 0)
                 return -errno;

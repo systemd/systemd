@@ -386,9 +386,6 @@ static int manager_adjust_clock(Manager *m, double offset, int leap_sec) {
         /*
          * For small deltas, tell the kernel to gradually adjust the system
          * clock to the NTP time, larger deltas are just directly set.
-         *
-         * Clear STA_UNSYNC, it will enable the kernel's 11-minute mode, which
-         * syncs the system time periodically to the hardware clock.
          */
         if (fabs(offset) < NTP_MAX_ADJUST) {
                 tmx.modes = ADJ_STATUS | ADJ_NANO | ADJ_OFFSET | ADJ_TIMECONST | ADJ_MAXERROR | ADJ_ESTERROR;
@@ -399,7 +396,7 @@ static int manager_adjust_clock(Manager *m, double offset, int leap_sec) {
                 tmx.esterror = 0;
                 log_debug("  adjust (slew): %+.3f sec\n", offset);
         } else {
-                tmx.modes = ADJ_SETOFFSET | ADJ_NANO;
+                tmx.modes = ADJ_STATUS | ADJ_NANO | ADJ_SETOFFSET;
 
                 /* ADJ_NANO uses nanoseconds in the microseconds field */
                 tmx.time.tv_sec = (long)offset;
@@ -414,6 +411,17 @@ static int manager_adjust_clock(Manager *m, double offset, int leap_sec) {
                 m->jumped = true;
                 log_debug("  adjust (jump): %+.3f sec\n", offset);
         }
+
+        /*
+         * An unset STA_UNSYNC will enable the kernel's 11-minute mode,
+         * which syncs the system time periodically to the RTC.
+         *
+         * In case the RTC runs in local time, never touch the RTC,
+         * we have no way to properly handle daylight saving changes and
+         * mobile devices moving between time zones.
+         */
+        if (m->rtc_local_time)
+                tmx.status |= STA_UNSYNC;
 
         switch (leap_sec) {
         case 1:
@@ -437,7 +445,7 @@ static int manager_adjust_clock(Manager *m, double offset, int leap_sec) {
                   "  constant     : %li\n"
                   "  offset       : %+.3f sec\n"
                   "  freq offset  : %+li (%i ppm)\n",
-                  tmx.status, tmx.status & STA_UNSYNC ? "" : "sync",
+                  tmx.status, tmx.status & STA_UNSYNC ? "unsync" : "sync",
                   tmx.time.tv_sec, (unsigned long long) (tmx.time.tv_usec / NSEC_PER_MSEC),
                   tmx.constant,
                   (double)tmx.offset / NSEC_PER_SEC,
@@ -1216,6 +1224,12 @@ int main(int argc, char *argv[]) {
         if (r < 0) {
                 log_error("Failed to allocate manager: %s", strerror(-r));
                 goto out;
+        }
+
+        if (clock_is_localtime() > 0) {
+                log_info("The system is configured to read the RTC time in the local time zone. "
+                         "This mode can not be fully supported. All system time to RTC updates are disabled.");
+                m->rtc_local_time = true;
         }
 
         manager_add_server_string(m, NTP_SERVERS);
