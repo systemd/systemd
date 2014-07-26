@@ -1129,35 +1129,6 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message,
         assert(client->event);
         assert(message);
 
-        if (be32toh(message->magic) != DHCP_MAGIC_COOKIE) {
-                log_dhcp_client(client, "not a DHCP message: ignoring");
-                return 0;
-        }
-
-        if (message->op != BOOTREPLY) {
-                log_dhcp_client(client, "not a BOOTREPLY message: ignoring");
-                return 0;
-        }
-
-        if (be32toh(message->xid) != client->xid) {
-                log_dhcp_client(client, "received xid (%u) does not match "
-                                "expected (%u): ignoring",
-                                be32toh(message->xid), client->xid);
-                return 0;
-        }
-
-        if (message->htype != ARPHRD_ETHER || message->hlen != ETHER_ADDR_LEN) {
-                log_dhcp_client(client, "not an ethernet packet");
-                return 0;
-        }
-
-        if (memcmp(&message->chaddr[0], &client->client_id.mac_addr,
-                   ETH_ALEN)) {
-                log_dhcp_client(client, "received chaddr does not match "
-                                "expected: ignoring");
-                return 0;
-        }
-
         switch (client->state) {
         case DHCP_STATE_SELECTING:
 
@@ -1290,8 +1261,39 @@ static int client_receive_message_udp(sd_event_source *s, int fd,
                 log_dhcp_client(client, "could not receive message from UDP "
                                 "socket: %m");
                 return 0;
-        } else if ((size_t)len < sizeof(DHCPMessage))
+        } else if ((size_t)len < sizeof(DHCPMessage)) {
+                log_dhcp_client(client, "too small to be a DHCP message: ignoring");
                 return 0;
+        }
+
+        if (be32toh(message->magic) != DHCP_MAGIC_COOKIE) {
+                log_dhcp_client(client, "not a DHCP message: ignoring");
+                return 0;
+        }
+
+        if (message->op != BOOTREPLY) {
+                log_dhcp_client(client, "not a BOOTREPLY message: ignoring");
+                return 0;
+        }
+
+        if (be32toh(message->xid) != client->xid) {
+                log_dhcp_client(client, "received xid (%u) does not match "
+                                "expected (%u): ignoring",
+                                be32toh(message->xid), client->xid);
+                return 0;
+        }
+
+        if (message->htype != ARPHRD_ETHER || message->hlen != ETHER_ADDR_LEN) {
+                log_dhcp_client(client, "not an ethernet packet");
+                return 0;
+        }
+
+        if (memcmp(&message->chaddr[0], &client->client_id.mac_addr,
+                   ETH_ALEN)) {
+                log_dhcp_client(client, "received chaddr does not match "
+                                "expected: ignoring");
+                return 0;
+        }
 
         return client_handle_message(client, message, len);
 }
