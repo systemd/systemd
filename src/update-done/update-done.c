@@ -22,6 +22,11 @@
 #include "util.h"
 #include "label.h"
 
+#define MESSAGE                                                         \
+        "This file was created by systemd-update-done. Its only \n"     \
+        "purpose is to hold a timestamp of the time this directory\n"   \
+        "was updated. See systemd-update-done.service(8).\n"
+
 static int apply_timestamp(const char *path, struct timespec *ts) {
         struct timespec twice[2];
         struct stat st;
@@ -76,6 +81,8 @@ static int apply_timestamp(const char *path, struct timespec *ts) {
                         log_error("Failed to create timestamp file %s: %m", path);
                         return -errno;
                 }
+
+                (void) loop_write(fd, MESSAGE, strlen(MESSAGE), false);
 
                 twice[0] = *ts;
                 twice[1] = *ts;
