@@ -5002,10 +5002,8 @@ static int enable_sysv_units(const char *verb, char **args) {
                                 j = asprintf(&path, "%s/%s/%s", arg_root, *k, name);
                         else
                                 j = asprintf(&path, "%s/%s", *k, name);
-                        if (j < 0) {
-                                r = log_oom();
-                                goto finish;
-                        }
+                        if (j < 0)
+                                return log_oom();
 
                         found_native = access(path, F_OK) >= 0;
                         if (found_native)
@@ -5019,10 +5017,8 @@ static int enable_sysv_units(const char *verb, char **args) {
                         j = asprintf(&p, "%s/" SYSTEM_SYSVINIT_PATH "/%s", arg_root, name);
                 else
                         j = asprintf(&p, SYSTEM_SYSVINIT_PATH "/%s", name);
-                if (j < 0) {
-                        r = log_oom();
-                        goto finish;
-                }
+                if (j < 0)
+                        return log_oom();
 
                 p[strlen(p) - strlen(".service")] = 0;
                 found_sysv = access(p, F_OK) >= 0;
@@ -5044,18 +5040,15 @@ static int enable_sysv_units(const char *verb, char **args) {
                 argv[c] = NULL;
 
                 l = strv_join((char**)argv, " ");
-                if (!l) {
-                        r = log_oom();
-                        goto finish;
-                }
+                if (!l)
+                        return log_oom();
 
                 log_info("Executing %s", l);
 
                 pid = fork();
                 if (pid < 0) {
                         log_error("Failed to fork: %m");
-                        r = -errno;
-                        goto finish;
+                        return -errno;
                 } else if (pid == 0) {
                         /* Child */
 
@@ -5066,8 +5059,7 @@ static int enable_sysv_units(const char *verb, char **args) {
                 j = wait_for_terminate(pid, &status);
                 if (j < 0) {
                         log_error("Failed to wait for child: %s", strerror(-r));
-                        r = j;
-                        goto finish;
+                        return j;
                 }
 
                 if (status.si_code == CLD_EXITED) {
@@ -5081,17 +5073,12 @@ static int enable_sysv_units(const char *verb, char **args) {
                                                 puts("disabled");
                                 }
 
-                        } else if (status.si_status != 0) {
-                                r = -EINVAL;
-                                goto finish;
-                        }
-                } else {
-                        r = -EPROTO;
-                        goto finish;
-                }
+                        } else if (status.si_status != 0)
+                                return -EINVAL;
+                } else
+                        return -EPROTO;
         }
 
-finish:
         /* Drop all SysV units */
         for (f = 0, t = 0; args[f]; f++) {
 
