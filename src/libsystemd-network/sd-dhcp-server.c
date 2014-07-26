@@ -456,6 +456,39 @@ static int server_send_nak(sd_dhcp_server *server, DHCPRequest *req) {
         return 0;
 }
 
+static int server_send_forcerenew(sd_dhcp_server *server, be32_t address, be32_t gateway,
+                                  uint8_t chaddr[]) {
+        _cleanup_free_ DHCPPacket *packet = NULL;
+        size_t optoffset = 0;
+        int r;
+
+        assert(server);
+        assert(address != INADDR_ANY);
+        assert(chaddr);
+
+        packet = malloc0(sizeof(DHCPPacket) + DHCP_MIN_OPTIONS_SIZE);
+        if (!packet)
+                return -ENOMEM;
+
+        r = dhcp_message_init(&packet->dhcp, BOOTREPLY, 0,
+                              DHCP_FORCERENEW, DHCP_MIN_OPTIONS_SIZE,
+                              &optoffset);
+        if (r < 0)
+                return r;
+
+        r = dhcp_option_append(&packet->dhcp, DHCP_MIN_OPTIONS_SIZE,
+                               &optoffset, 0, DHCP_OPTION_END, 0, NULL);
+        if (r < 0)
+                return r;
+
+        memcpy(&packet->dhcp.chaddr, chaddr, ETH_ALEN);
+
+        r = dhcp_server_send_udp(server, address, &packet->dhcp,
+                                 sizeof(DHCPMessage) + optoffset);
+
+        return 0;
+}
+
 static int parse_request(uint8_t code, uint8_t len, const uint8_t *option,
                          void *user_data) {
         DHCPRequest *req = user_data;
@@ -709,6 +742,8 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
                                         return -ENOMEM;
                                 }
                                 lease->client_id.length = req->client_id.length;
+                                memcpy(&lease->chaddr, &req->message->chaddr, ETH_ALEN);
+                                lease->gateway = req->message->giaddr;
                         } else
                                 lease = existing_lease;
 
@@ -878,4 +913,29 @@ int sd_dhcp_server_start(sd_dhcp_server *server) {
         log_dhcp_server(server, "STARTED");
 
         return 0;
+}
+
+int sd_dhcp_server_forcerenew(sd_dhcp_server *server) {
+        unsigned i;
+        int r;
+
+        assert_return(server, -EINVAL);
+        assert(server->bound_leases);
+
+        for (i = 0; i < server->pool_size; i++) {
+                DHCPLease *lease = server->bound_leases[i];
+
+                if (!lease)
+                        continue;
+
+                r = server_send_forcerenew(server, lease->address,
+                                           lease->gateway,
+                                           lease->chaddr);
+                if (r < 0)
+                        return r;
+                else
+                        log_dhcp_server(server, "FORCERENEW");
+        }
+
+        return r;
 }
