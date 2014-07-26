@@ -162,6 +162,20 @@ static void test_prefixes(void) {
         }
 }
 
+static void test_path_join(void) {
+        assert_se(streq(path_join("/root", "/a/b", "/c"), "/root/a/b/c"));
+        assert_se(streq(path_join("/root", "a/b", "c"), "/root/a/b/c"));
+        assert_se(streq(path_join("/root", "/a/b", "c"), "/root/a/b/c"));
+        assert_se(streq(path_join("/root", "/", "c"), "/root//c"));
+        assert_se(streq(path_join("/root", "/", NULL), "/root/"));
+
+        assert_se(streq(path_join(NULL, "/a/b", "/c"), "/a/b/c"));
+        assert_se(streq(path_join(NULL, "a/b", "c"), "a/b/c"));
+        assert_se(streq(path_join(NULL, "/a/b", "c"), "/a/b/c"));
+        assert_se(streq(path_join(NULL, "/", "c"), "//c"));
+        assert_se(streq(path_join(NULL, "/", NULL), "/"));
+}
+
 static void test_fsck_exists(void) {
         /* Ensure we use a sane default for PATH. */
         unsetenv("PATH");
@@ -225,6 +239,7 @@ int main(int argc, char **argv) {
         test_path();
         test_find_binary(argv[0]);
         test_prefixes();
+        test_path_join();
         test_fsck_exists();
         test_make_relative();
         test_strv_resolve();

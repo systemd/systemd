@@ -88,18 +88,10 @@ static int get_config_path(UnitFileScope scope, bool runtime, const char *root_d
 
         case UNIT_FILE_SYSTEM:
 
-                if (root_dir && runtime) {
-                        if (asprintf(&p, "%s/run/systemd/system", root_dir) < 0)
-                                return -ENOMEM;
-                } else if (runtime)
-                        p = strdup("/run/systemd/system");
-                else if (root_dir) {
-                        if (asprintf(&p, "%s/%s", root_dir,
-                                     SYSTEM_CONFIG_UNIT_PATH) < 0)
-                                return -ENOMEM;
-                } else
-                        p = strdup(SYSTEM_CONFIG_UNIT_PATH);
-
+                if (runtime)
+                        p = path_join(root_dir, "/run/systemd/system", NULL);
+                else
+                        p = path_join(root_dir, SYSTEM_CONFIG_UNIT_PATH, NULL);
                 break;
 
         case UNIT_FILE_GLOBAL:
@@ -1664,11 +1656,7 @@ int unit_file_get_default(
                 _cleanup_free_ char *path = NULL, *tmp = NULL;
                 char *n;
 
-                if (isempty(root_dir))
-                        path = strappend(*p, "/" SPECIAL_DEFAULT_TARGET);
-                else
-                        path = strjoin(root_dir, "/", *p, "/" SPECIAL_DEFAULT_TARGET, NULL);
-
+                path = path_join(root_dir, *p, SPECIAL_DEFAULT_TARGET);
                 if (!path)
                         return -ENOMEM;
 
@@ -1725,15 +1713,12 @@ UnitFileState unit_file_get_state(
                 free(path);
                 path = NULL;
 
-                if (root_dir)
-                        asprintf(&path, "%s/%s/%s", root_dir, *i, name);
-                else
-                        asprintf(&path, "%s/%s", *i, name);
+                path = path_join(root_dir, *i, name);
                 if (!path)
                         return -ENOMEM;
 
                 if (root_dir)
-                        partial = path + strlen(root_dir) + 1;
+                        partial = path + strlen(root_dir);
                 else
                         partial = path;
 
@@ -1960,17 +1945,11 @@ int unit_file_preset_all(
 
         STRV_FOREACH(i, paths.unit_path) {
                 _cleanup_closedir_ DIR *d = NULL;
-                _cleanup_free_ char *buf = NULL;
-                const char *units_dir;
+                _cleanup_free_ char *units_dir;
 
-                if (!isempty(root_dir)) {
-                        buf = strjoin(root_dir, "/", *i, NULL);
-                        if (!buf)
-                                return -ENOMEM;
-
-                        units_dir = buf;
-                } else
-                        units_dir = *i;
+                units_dir = path_join(root_dir, *i, NULL);
+                if (!units_dir)
+                        return -ENOMEM;
 
                 d = opendir(units_dir);
                 if (!d) {
@@ -2069,17 +2048,11 @@ int unit_file_get_list(
 
         STRV_FOREACH(i, paths.unit_path) {
                 _cleanup_closedir_ DIR *d = NULL;
-                _cleanup_free_ char *buf = NULL;
-                const char *units_dir;
+                _cleanup_free_ char *units_dir;
 
-                if (!isempty(root_dir)) {
-                        buf = strjoin(root_dir, "/", *i, NULL);
-                        if (!buf)
-                                return -ENOMEM;
-
-                        units_dir = buf;
-                } else
-                        units_dir = *i;
+                units_dir = path_join(root_dir, *i, NULL);
+                if (!units_dir)
+                        return -ENOMEM;
 
                 d = opendir(units_dir);
                 if (!d) {

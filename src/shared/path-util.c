@@ -435,6 +435,22 @@ bool path_equal(const char *a, const char *b) {
         }
 }
 
+char* path_join(const char *root, const char *path, const char *rest) {
+        assert(path);
+
+        if (!isempty(root))
+                return strjoin(root, "/",
+                               path[0] == '/' ? path+1 : path,
+                               rest ? "/" : NULL,
+                               rest && rest[0] == '/' ? rest+1 : rest,
+                               NULL);
+        else
+                return strjoin(path,
+                               rest ? "/" : NULL,
+                               rest && rest[0] == '/' ? rest+1 : rest,
+                               NULL);
+}
+
 int path_is_mount_point(const char *t, bool allow_symlink) {
 
         union file_handle_union h = {

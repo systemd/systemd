@@ -4998,11 +4998,8 @@ static int enable_sysv_units(const char *verb, char **args) {
                 STRV_FOREACH(k, paths.unit_path) {
                         _cleanup_free_ char *path = NULL;
 
-                        if (!isempty(arg_root))
-                                j = asprintf(&path, "%s/%s/%s", arg_root, *k, name);
-                        else
-                                j = asprintf(&path, "%s/%s", *k, name);
-                        if (j < 0)
+                        path = path_join(arg_root, *k, name);
+                        if (!path)
                                 return log_oom();
 
                         found_native = access(path, F_OK) >= 0;
@@ -5013,11 +5010,8 @@ static int enable_sysv_units(const char *verb, char **args) {
                 if (found_native)
                         continue;
 
-                if (!isempty(arg_root))
-                        j = asprintf(&p, "%s/" SYSTEM_SYSVINIT_PATH "/%s", arg_root, name);
-                else
-                        j = asprintf(&p, SYSTEM_SYSVINIT_PATH "/%s", name);
-                if (j < 0)
+                p = path_join(arg_root, SYSTEM_SYSVINIT_PATH, name);
+                if (!p)
                         return log_oom();
 
                 p[strlen(p) - strlen(".service")] = 0;
