@@ -1402,11 +1402,20 @@ static int bus_kernel_translate_policy(const BusNamePolicy *policy, struct kdbus
         return 0;
 }
 
-int bus_kernel_open_bus_fd(const char *bus) {
+int bus_kernel_open_bus_fd(const char *bus, char **path) {
         char *p;
         int fd;
+        size_t len;
 
-        p = alloca(strlen("/dev/kdbus/") + DECIMAL_STR_MAX(uid_t) + 1 + strlen(bus) + strlen("/bus") + 1);
+        len = strlen("/dev/kdbus/") + DECIMAL_STR_MAX(uid_t) + 1 + strlen(bus) + strlen("/bus") + 1;
+
+        if (path) {
+                p = malloc(len);
+                if (!p)
+                        return -ENOMEM;
+                *path = p;
+        } else
+                p = alloca(len);
         sprintf(p, "/dev/kdbus/" UID_FMT "-%s/bus", getuid(), bus);
 
         fd = open(p, O_RDWR|O_NOCTTY|O_CLOEXEC);
@@ -1549,7 +1558,7 @@ int bus_kernel_create_monitor(const char *bus) {
 
         assert(bus);
 
-        fd = bus_kernel_open_bus_fd(bus);
+        fd = bus_kernel_open_bus_fd(bus, NULL);
         if (fd < 0)
                 return fd;
 

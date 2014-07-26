@@ -290,14 +290,19 @@ static int busname_watch_fd(BusName *n) {
 }
 
 static int busname_open_fd(BusName *n) {
+        _cleanup_free_ char *path = NULL;
+        const char *mode;
+
         assert(n);
 
         if (n->starter_fd >= 0)
                 return 0;
 
-        n->starter_fd = bus_kernel_open_bus_fd(UNIT(n)->manager->running_as == SYSTEMD_SYSTEM ? "system" : "user");
+        mode = UNIT(n)->manager->running_as == SYSTEMD_SYSTEM ? "system" : "user";
+        n->starter_fd = bus_kernel_open_bus_fd(mode, &path);
         if (n->starter_fd < 0) {
-                log_warning_unit(UNIT(n)->id, "Failed to create starter fd: %s", strerror(-n->starter_fd));
+                log_warning_unit(UNIT(n)->id, "Failed to open %s: %s",
+                                 path ?: "kdbus", strerror(-n->starter_fd));
                 return n->starter_fd;
         }
 
