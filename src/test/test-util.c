@@ -129,6 +129,7 @@ static void test_parse_boolean(void) {
 
         assert_se(parse_boolean("garbage") < 0);
         assert_se(parse_boolean("") < 0);
+        assert_se(parse_boolean("full") < 0);
 }
 
 static void test_parse_pid(void) {
