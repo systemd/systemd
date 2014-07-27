@@ -158,20 +158,25 @@ _systemctl () {
 
         elif __contains_word "$verb" ${VERBS[ALL_UNITS]}; then
                 comps=$( __get_all_units $mode )
+                compopt -o filenames
 
         elif __contains_word "$verb" ${VERBS[ENABLED_UNITS]}; then
                 comps=$( __get_enabled_units $mode )
+                compopt -o filenames
 
         elif __contains_word "$verb" ${VERBS[DISABLED_UNITS]}; then
                 comps=$( __get_disabled_units $mode )
+                compopt -o filenames
 
         elif __contains_word "$verb" ${VERBS[REENABLABLE_UNITS]}; then
                 comps=$( __get_disabled_units $mode;
                          __get_enabled_units $mode )
+                compopt -o filenames
 
         elif __contains_word "$verb" ${VERBS[STARTABLE_UNITS]}; then
                 comps=$( __filter_units_by_property $mode CanStart yes \
                       $( __get_startable_units $mode))
+                compopt -o filenames
 
         elif __contains_word "$verb" ${VERBS[RESTARTABLE_UNITS]}; then
                 comps=$( __filter_units_by_property $mode CanStart yes \
@@ -179,24 +184,30 @@ _systemctl () {
                         | while read -r line; do \
                                 [[ "$line" =~ \.(device|snapshot|socket|timer)$ ]] || echo " $line"; \
                         done ))
+                compopt -o filenames
 
         elif __contains_word "$verb" ${VERBS[STOPPABLE_UNITS]}; then
                 comps=$( __filter_units_by_property $mode CanStop yes \
                       $( __get_active_units $mode ) )
+                compopt -o filenames
 
         elif __contains_word "$verb" ${VERBS[RELOADABLE_UNITS]}; then
                 comps=$( __filter_units_by_property $mode CanReload yes \
                       $( __get_active_units $mode ) )
+                compopt -o filenames
 
         elif __contains_word "$verb" ${VERBS[ISOLATABLE_UNITS]}; then
                 comps=$( __filter_units_by_property $mode AllowIsolate yes \
                       $( __get_all_units $mode ) )
+                compopt -o filenames
 
         elif __contains_word "$verb" ${VERBS[FAILED_UNITS]}; then
                 comps=$( __get_failed_units $mode )
+                compopt -o filenames
 
         elif __contains_word "$verb" ${VERBS[MASKED_UNITS]}; then
                 comps=$( __get_masked_units $mode )
+                compopt -o filenames
 
         elif __contains_word "$verb" ${VERBS[STANDALONE]} ${VERBS[NAME]}; then
                 comps=''
@@ -221,7 +232,7 @@ _systemctl () {
                         | { while read -r a b; do echo " $a"; done; } )
         fi
 
-        COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+        COMPREPLY=( $(compgen -o filenames -W '$comps' -- "$cur") )
         return 0
 }
 
