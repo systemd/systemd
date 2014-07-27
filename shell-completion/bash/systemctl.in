@@ -51,11 +51,13 @@ __filter_units_by_property () {
         done
 }
 
-__get_all_units      () { __systemctl $1 list-units --all \
+__get_all_units      () { { __systemctl $1 list-unit-files; __systemctl $1 list-units --all; } \
         | { while read -r a b; do echo " $a"; done; }; }
 __get_active_units   () { __systemctl $1 list-units       \
         | { while read -r a b; do echo " $a"; done; }; }
-__get_startable_units () { __systemctl $1 list-units --all -t service,timer,socket,mount,automount,path,snapshot,swap \
+__get_startable_units () { {
+        __systemctl $1 list-units --all -t service,timer,socket,mount,automount,path,snapshot,swap
+        __systemctl $1 list-unit-files -t service,timer,socket,mount,automount,path,snapshot,swap; } \
         | { while read -r a b c d; do [[ $c == "inactive" || $c == "failed" ]] && echo " $a"; done; }; }
 __get_failed_units   () { __systemctl $1 list-units       \
         | { while read -r a b c d; do [[ $c == "failed"   ]] && echo " $a"; done; }; }
