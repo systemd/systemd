@@ -1027,8 +1027,8 @@
                                 namespace related options
                                 (<varname>PrivateTmp=</varname>,
                                 <varname>PrivateDevices=</varname>,
-                                <varname>ReadOnlySystem=</varname>,
-                                <varname>ProtectedHome=</varname>,
+                                <varname>ProtectSystem=</varname>,
+                                <varname>ProtectHome=</varname>,
                                 <varname>ReadOnlyDirectories=</varname>,
                                 <varname>InaccessibleDirectories=</varname>
                                 and
