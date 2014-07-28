@@ -46,7 +46,6 @@ static int link_new(Manager *manager, sd_rtnl_message *message, Link **ret) {
         int r, ifindex;
 
         assert(manager);
-        assert(manager->links);
         assert(message);
         assert(ret);
 
@@ -82,17 +81,19 @@ static int link_new(Manager *manager, sd_rtnl_message *message, Link **ret) {
         if (r < 0)
                 log_debug_link(link, "MAC address not found for new device, continuing without");
 
-        r = asprintf(&link->state_file, "/run/systemd/netif/links/%"PRIu64,
-                     link->ifindex);
+        r = asprintf(&link->state_file, "/run/systemd/netif/links/%d", link->ifindex);
         if (r < 0)
                 return -ENOMEM;
 
-        r = asprintf(&link->lease_file, "/run/systemd/netif/leases/%"PRIu64,
-                     link->ifindex);
+        r = asprintf(&link->lease_file, "/run/systemd/netif/leases/%d", link->ifindex);
         if (r < 0)
                 return -ENOMEM;
 
-        r = hashmap_put(manager->links, &link->ifindex, link);
+        r = hashmap_ensure_allocated(&manager->links, NULL, NULL);
+        if (r < 0)
+                return r;
+
+        r = hashmap_put(manager->links, INT_TO_PTR(link->ifindex), link);
         if (r < 0)
                 return r;
 
@@ -129,7 +130,7 @@ static void link_free(Link *link) {
         sd_icmp6_nd_unref(link->icmp6_router_discovery);
 
         if (link->manager)
-                hashmap_remove(link->manager->links, &link->ifindex);
+                hashmap_remove(link->manager->links, INT_TO_PTR(link->ifindex));
 
         free(link->ifname);
 
@@ -157,15 +158,12 @@ Link *link_ref(Link *link) {
 
 int link_get(Manager *m, int ifindex, Link **ret) {
         Link *link;
-        uint64_t ifindex_64;
 
         assert(m);
-        assert(m->links);
         assert(ifindex);
         assert(ret);
 
-        ifindex_64 = ifindex;
-        link = hashmap_get(m->links, &ifindex_64);
+        link = hashmap_get(m->links, INT_TO_PTR(ifindex));
         if (!link)
                 return -ENODEV;
 
@@ -2282,7 +2280,7 @@ int link_add(Manager *m, sd_rtnl_message *message, Link **ret) {
 
         link = *ret;
 
-        log_debug_link(link, "link %"PRIu64" added", link->ifindex);
+        log_debug_link(link, "link %d added", link->ifindex);
 
         r = sd_rtnl_message_new_addr(m->rtnl, &req, RTM_GETADDR, link->ifindex, 0);
         if (r < 0)
@@ -2296,7 +2294,7 @@ int link_add(Manager *m, sd_rtnl_message *message, Link **ret) {
 
         if (detect_container(NULL) <= 0) {
                 /* not in a container, udev will be around */
-                sprintf(ifindex_str, "n%"PRIu64, link->ifindex);
+                sprintf(ifindex_str, "n%d", link->ifindex);
                 device = udev_device_new_from_device_id(m->udev, ifindex_str);
                 if (!device) {
                         log_warning_link(link, "could not find udev device");

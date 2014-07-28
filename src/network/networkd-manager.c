@@ -114,10 +114,6 @@ int manager_new(Manager **ret) {
                         return -ENOMEM;
         }
 
-        m->links = hashmap_new(uint64_hash_func, uint64_compare_func);
-        if (!m->links)
-                return -ENOMEM;
-
         m->netdevs = hashmap_new(string_hash_func, string_compare_func);
         if (!m->netdevs)
                 return -ENOMEM;

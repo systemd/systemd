@@ -173,7 +173,7 @@ struct Link {
 
         int n_ref;
 
-        uint64_t ifindex;
+        int ifindex;
         char *ifname;
         char *state_file;
         struct ether_addr mac;
