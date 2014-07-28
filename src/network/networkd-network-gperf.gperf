@@ -27,9 +27,10 @@ Match.Architecture,          config_parse_net_condition,         CONDITION_ARCHI
 Network.Description,         config_parse_string,                0,                             offsetof(Network, description)
 Network.Bridge,              config_parse_netdev,                0,                             offsetof(Network, bridge)
 Network.Bond,                config_parse_netdev,                0,                             offsetof(Network, bond)
-Network.VLAN,                config_parse_netdev,                0,                             offsetof(Network, vlans)
-Network.MACVLAN,             config_parse_netdev,                0,                             offsetof(Network, macvlans)
-Network.VXLAN,               config_parse_netdev,                0,                             offsetof(Network, vxlans)
+Network.VLAN,                config_parse_netdev,                0,                             0
+Network.MACVLAN,             config_parse_netdev,                0,                             0
+Network.VXLAN,               config_parse_netdev,                0,                             0
+Network.Tunnel,              config_parse_tunnel,                0,                             0
 Network.DHCP,                config_parse_dhcp,                  0,                             offsetof(Network, dhcp)
 Network.DHCPServer,          config_parse_bool,                  0,                             offsetof(Network, dhcp_server)
 Network.IPv4LL,              config_parse_bool,                  0,                             offsetof(Network, ipv4ll)
@@ -38,7 +39,6 @@ Network.Address,             config_parse_address,               0,             
 Network.Gateway,             config_parse_gateway,               0,                             0
 Network.DNS,                 config_parse_strv,                  0,                             offsetof(Network, dns)
 Network.NTP,                 config_parse_strv,                  0,                             offsetof(Network, ntp)
-Network.Tunnel,              config_parse_tunnel,                0,                             offsetof(Network, tunnel)
 Address.Address,             config_parse_address,               0,                             0
 Address.Peer,                config_parse_address,               0,                             0
 Address.Broadcast,           config_parse_broadcast,             0,                             0

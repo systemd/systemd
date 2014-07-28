@@ -62,16 +62,8 @@ static int network_load_one(Manager *manager, const char *filename) {
         LIST_HEAD_INIT(network->static_addresses);
         LIST_HEAD_INIT(network->static_routes);
 
-        network->vlans = hashmap_new(string_hash_func, string_compare_func);
-        if (!network->vlans)
-                return log_oom();
-
-        network->macvlans = hashmap_new(string_hash_func, string_compare_func);
-        if (!network->macvlans)
-                return log_oom();
-
-        network->vxlans = hashmap_new(string_hash_func, string_compare_func);
-        if (!network->vxlans)
+        network->stacked_netdevs = hashmap_new(string_hash_func, string_compare_func);
+        if (!network->stacked_netdevs)
                 return log_oom();
 
         network->addresses_by_section = hashmap_new(uint64_hash_func, uint64_compare_func);
@@ -178,19 +170,9 @@ void network_free(Network *network) {
 
         netdev_unref(network->bond);
 
-        netdev_unref(network->tunnel);
-
-        HASHMAP_FOREACH(netdev, network->vlans, i)
+        HASHMAP_FOREACH(netdev, network->stacked_netdevs, i)
                 netdev_unref(netdev);
-        hashmap_free(network->vlans);
-
-        HASHMAP_FOREACH(netdev, network->macvlans, i)
-                netdev_unref(netdev);
-        hashmap_free(network->macvlans);
-
-        HASHMAP_FOREACH(netdev, network->vxlans, i)
-                netdev_unref(netdev);
-        hashmap_free(network->vxlans);
+        hashmap_free(network->stacked_netdevs);
 
         while ((route = network->static_routes))
                 route_free(route);
@@ -338,30 +320,12 @@ int config_parse_netdev(const char *unit,
 
                 break;
         case NETDEV_KIND_VLAN:
-                r = hashmap_put(network->vlans, netdev->ifname, netdev);
+        case NETDEV_KIND_MACVLAN:
+        case NETDEV_KIND_VXLAN:
+                r = hashmap_put(network->stacked_netdevs, netdev->ifname, netdev);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, EINVAL,
                                    "Can not add VLAN '%s' to network: %s",
-                                   rvalue, strerror(-r));
-                        return 0;
-                }
-
-                break;
-        case NETDEV_KIND_MACVLAN:
-                r = hashmap_put(network->macvlans, netdev->ifname, netdev);
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                                   "Can not add MACVLAN '%s' to network: %s",
-                                   rvalue, strerror(-r));
-                        return 0;
-                }
-
-                break;
-        case NETDEV_KIND_VXLAN:
-                r = hashmap_put(network->vxlans, netdev->ifname, netdev);
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                                   "Can not add VXLAN '%s' to network: %s",
                                    rvalue, strerror(-r));
                         return 0;
                 }
@@ -411,7 +375,15 @@ int config_parse_tunnel(const char *unit,
                 return 0;
         }
 
-        network->tunnel = netdev;
+        r = hashmap_put(network->stacked_netdevs, netdev->ifname, netdev);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Can not add VLAN '%s' to network: %s",
+                           rvalue, strerror(-r));
+                return 0;
+        }
+
+        netdev_ref(netdev);
 
         return 0;
 }

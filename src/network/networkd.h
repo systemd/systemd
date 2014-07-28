@@ -81,10 +81,7 @@ struct Network {
         char *description;
         NetDev *bridge;
         NetDev *bond;
-        NetDev *tunnel;
-        Hashmap *vlans;
-        Hashmap *macvlans;
-        Hashmap *vxlans;
+        Hashmap *stacked_netdevs;
         DHCPSupport dhcp;
         bool dhcp_dns;
         bool dhcp_ntp;

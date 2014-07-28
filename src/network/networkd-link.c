@@ -1770,7 +1770,7 @@ static int netdev_join_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata
 }
 
 static int link_enter_join_netdev(Link *link) {
-        NetDev *vlan, *macvlan, *vxlan;
+        NetDev *netdev;
         Iterator i;
         int r;
 
@@ -1784,10 +1784,7 @@ static int link_enter_join_netdev(Link *link) {
 
         if (!link->network->bridge &&
             !link->network->bond &&
-            !link->network->tunnel &&
-            hashmap_isempty(link->network->vlans) &&
-            hashmap_isempty(link->network->macvlans) &&
-            hashmap_isempty(link->network->vxlans))
+            hashmap_isempty(link->network->stacked_netdevs))
                 return link_joined(link);
 
         if (link->network->bond) {
@@ -1836,82 +1833,19 @@ static int link_enter_join_netdev(Link *link) {
                 link->enslaving ++;
         }
 
-        if (link->network->tunnel) {
+        HASHMAP_FOREACH(netdev, link->network->stacked_netdevs, i) {
                 log_struct_link(LOG_DEBUG, link,
                                 "MESSAGE=%-*s: enslaving by '%s'",
                                 IFNAMSIZ,
-                                link->ifname, link->network->tunnel->ifname,
-                                NETDEVIF(link->network->tunnel),
-                                NULL);
+                                link->ifname, netdev->ifname, NETDEVIF(netdev), NULL);
 
-                r = netdev_join(link->network->tunnel, link, &netdev_join_handler);
+                r = netdev_join(netdev, link, &netdev_join_handler);
                 if (r < 0) {
                         log_struct_link(LOG_WARNING, link,
                                         "MESSAGE=%-*s: could not join netdev '%s': %s",
                                         IFNAMSIZ,
-                                        link->ifname, link->network->tunnel->ifname, strerror(-r),
-                                        NETDEVIF(link->network->tunnel),
-                                        NULL);
-                        link_enter_failed(link);
-                        return r;
-                }
-
-                link->enslaving ++;
-        }
-
-        HASHMAP_FOREACH(vlan, link->network->vlans, i) {
-                log_struct_link(LOG_DEBUG, link,
-                                "MESSAGE=%-*s: enslaving by '%s'",
-                                IFNAMSIZ,
-                                link->ifname, vlan->ifname, NETDEVIF(vlan), NULL);
-
-                r = netdev_join(vlan, link, &netdev_join_handler);
-                if (r < 0) {
-                        log_struct_link(LOG_WARNING, link,
-                                        "MESSAGE=%-*s: could not join netdev '%s': %s",
-                                        IFNAMSIZ,
-                                        link->ifname, vlan->ifname, strerror(-r),
-                                        NETDEVIF(vlan), NULL);
-                        link_enter_failed(link);
-                        return r;
-                }
-
-                link->enslaving ++;
-        }
-
-        HASHMAP_FOREACH(macvlan, link->network->macvlans, i) {
-                log_struct_link(LOG_DEBUG, link,
-                                "MESSAGE=%-*s: enslaving by '%s'",
-                                IFNAMSIZ,
-                                link->ifname, macvlan->ifname, NETDEVIF(macvlan), NULL);
-
-                r = netdev_join(macvlan, link, &netdev_join_handler);
-                if (r < 0) {
-                        log_struct_link(LOG_WARNING, link,
-                                        "MESSAGE=%-*s: could not join netdev '%s': %s",
-                                        IFNAMSIZ,
-                                        link->ifname, macvlan->ifname, strerror(-r),
-                                        NETDEVIF(macvlan), NULL);
-                        link_enter_failed(link);
-                        return r;
-                }
-
-                link->enslaving ++;
-        }
-
-        HASHMAP_FOREACH(vxlan, link->network->vxlans, i) {
-                log_struct_link(LOG_DEBUG, link,
-                                "MESSAGE=%*s: enslaving by '%s'",
-                                IFNAMSIZ,
-                                link->ifname, vxlan->ifname, NETDEVIF(vxlan), NULL);
-
-                r = netdev_join(vxlan, link, &netdev_join_handler);
-                if (r < 0) {
-                        log_struct_link(LOG_WARNING, link,
-                                        "MESSAGE=%*s: could not join netdev '%s': %s",
-                                        IFNAMSIZ,
-                                        link->ifname, vxlan->ifname, strerror(-r),
-                                        NETDEVIF(vxlan), NULL);
+                                        link->ifname, netdev->ifname, strerror(-r),
+                                        NETDEVIF(netdev), NULL);
                         link_enter_failed(link);
                         return r;
                 }
