@@ -66,11 +66,11 @@ static int network_load_one(Manager *manager, const char *filename) {
         if (!network->stacked_netdevs)
                 return log_oom();
 
-        network->addresses_by_section = hashmap_new(uint64_hash_func, uint64_compare_func);
+        network->addresses_by_section = hashmap_new(NULL, NULL);
         if (!network->addresses_by_section)
                 return log_oom();
 
-        network->routes_by_section = hashmap_new(uint64_hash_func, uint64_compare_func);
+        network->routes_by_section = hashmap_new(NULL, NULL);
         if (!network->routes_by_section)
                 return log_oom();
 

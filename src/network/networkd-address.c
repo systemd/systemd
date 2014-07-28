@@ -41,8 +41,7 @@ int address_new_static(Network *network, unsigned section, Address **ret) {
         _cleanup_address_free_ Address *address = NULL;
 
         if (section) {
-                uint64_t key = section;
-                address = hashmap_get(network->addresses_by_section, &key);
+                address = hashmap_get(network->addresses_by_section, UINT_TO_PTR(section));
                 if (address) {
                         *ret = address;
                         address = NULL;
@@ -63,7 +62,8 @@ int address_new_static(Network *network, unsigned section, Address **ret) {
 
         if (section) {
                 address->section = section;
-                hashmap_put(network->addresses_by_section, &address->section, address);
+                hashmap_put(network->addresses_by_section,
+                            UINT_TO_PTR(address->section), address);
         }
 
         *ret = address;
@@ -96,7 +96,7 @@ void address_free(Address *address) {
 
                 if (address->section)
                         hashmap_remove(address->network->addresses_by_section,
-                                       &address->section);
+                                       UINT_TO_PTR(address->section));
         }
 
         free(address);

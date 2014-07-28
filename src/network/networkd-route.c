@@ -32,9 +32,8 @@ int route_new_static(Network *network, unsigned section, Route **ret) {
         _cleanup_route_free_ Route *route = NULL;
 
         if (section) {
-                uint64_t key = section;
-
-                route = hashmap_get(network->routes_by_section, &key);
+                route = hashmap_get(network->routes_by_section,
+                                    UINT_TO_PTR(section));
                 if (route) {
                         *ret = route;
                         route = NULL;
@@ -57,7 +56,8 @@ int route_new_static(Network *network, unsigned section, Route **ret) {
 
         if (section) {
                 route->section = section;
-                hashmap_put(network->routes_by_section, &route->section, route);
+                hashmap_put(network->routes_by_section,
+                            UINT_TO_PTR(route->section), route);
         }
 
         *ret = route;
@@ -92,7 +92,7 @@ void route_free(Route *route) {
 
                 if (route->section)
                         hashmap_remove(route->network->routes_by_section,
-                                       &route->section);
+                                       UINT_TO_PTR(route->section));
         }
 
         free(route);

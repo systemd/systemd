@@ -110,7 +110,7 @@ struct Network {
 
 struct Address {
         Network *network;
-        uint64_t section;
+        unsigned section;
 
         int family;
         unsigned char prefixlen;
@@ -128,7 +128,7 @@ struct Address {
 
 struct Route {
         Network *network;
-        uint64_t section;
+        unsigned section;
 
         int family;
         unsigned char dst_prefixlen;
