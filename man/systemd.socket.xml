@@ -488,6 +488,17 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>NoDelay=</varname></term>
+                                <listitem><para>Takes a boolean
+                                argument. TCP Nagle's algorithm works by combining a number of
+                                small outgoing messages, and sending them all at once.
+                                This controls the TCP_NODELAY socket option (see
+                                <citerefentry><refentrytitle>tcp</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                                Defaults to
+                                <option>false</option>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>Priority=</varname></term>
                                 <listitem><para>Takes an integer
                                 argument controlling the priority for

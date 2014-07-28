@@ -231,6 +231,7 @@ Socket.DirectoryMode,            config_parse_mode,                  0,         
 Socket.Accept,                   config_parse_bool,                  0,                             offsetof(Socket, accept)
 Socket.MaxConnections,           config_parse_unsigned,              0,                             offsetof(Socket, max_connections)
 Socket.KeepAlive,                config_parse_bool,                  0,                             offsetof(Socket, keep_alive)
+Socket.NoDelay,                  config_parse_bool,                  0,                             offsetof(Socket, no_delay)
 Socket.Priority,                 config_parse_int,                   0,                             offsetof(Socket, priority)
 Socket.ReceiveBuffer,            config_parse_iec_size,              0,                             offsetof(Socket, receive_buffer)
 Socket.SendBuffer,               config_parse_iec_size,              0,                             offsetof(Socket, send_buffer)

@@ -480,6 +480,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sSocketMode: %04o\n"
                 "%sDirectoryMode: %04o\n"
                 "%sKeepAlive: %s\n"
+                "%sNoDelay: %s\n"
                 "%sFreeBind: %s\n"
                 "%sTransparent: %s\n"
                 "%sBroadcast: %s\n"
@@ -494,6 +495,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, s->socket_mode,
                 prefix, s->directory_mode,
                 prefix, yes_no(s->keep_alive),
+                prefix, yes_no(s->no_delay),
                 prefix, yes_no(s->free_bind),
                 prefix, yes_no(s->transparent),
                 prefix, yes_no(s->broadcast),
@@ -788,6 +790,12 @@ static void socket_apply_socket_options(Socket *s, int fd) {
                 int b = s->keep_alive;
                 if (setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &b, sizeof(b)) < 0)
                         log_warning_unit(UNIT(s)->id, "SO_KEEPALIVE failed: %m");
+        }
+
+        if (s->no_delay) {
+                int b = s->no_delay;
+                if (setsockopt(fd, SOL_TCP, TCP_NODELAY, &b, sizeof(b)) < 0)
+                        log_warning_unit(UNIT(s)->id, "TCP_NODELAY failed: %m");
         }
 
         if (s->broadcast) {
