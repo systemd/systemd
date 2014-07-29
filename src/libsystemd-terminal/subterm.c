@@ -564,7 +564,7 @@ static void output_draw(Output *o, bool menu, term_screen *screen) {
  */
 
 static void terminal_dirty(Terminal *t) {
-        uint64_t usec;
+        usec_t usec;
         int r;
 
         assert(t);
