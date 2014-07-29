@@ -106,6 +106,8 @@ udevrulesdir=$(udevlibexecdir)/rules.d
 udevhwdbdir=$(udevlibexecdir)/hwdb.d
 catalogdir=$(prefix)/lib/systemd/catalog
 kernelinstalldir = $(prefix)/lib/kernel/install.d
+factory_etcdir = $(prefix)/share/factory/etc
+factory_pamdir = $(prefix)/share/factory/etc/pam.d
 
 # And these are the special ones for /
 rootprefix=@rootprefix@
@@ -1928,6 +1930,14 @@ INSTALL_DIRS += \
 endif
 
 # ------------------------------------------------------------------------------
+dist_factory_etc_DATA = \
+	factory/etc/nsswitch.conf
+
+dist_factory_pam_DATA = \
+	factory/etc/pam.d/system-auth \
+	factory/etc/pam.d/other
+
+# ------------------------------------------------------------------------------
 if ENABLE_FIRSTBOOT
 systemd_firstboot_SOURCES = \
 	src/firstboot/firstboot.c
@@ -1951,7 +1961,6 @@ EXTRA_DIST += \
 
 SYSINIT_TARGET_WANTS += \
 	systemd-firstboot.service
-
 endif
 
 # ------------------------------------------------------------------------------
