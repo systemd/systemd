@@ -300,7 +300,7 @@ static int property_get_timer_slack_nsec(
         assert(reply);
         assert(c);
 
-        if (c->timer_slack_nsec != (nsec_t) -1)
+        if (c->timer_slack_nsec != NSEC_INFINITY)
                 u = (uint64_t) c->timer_slack_nsec;
         else
                 u = (uint64_t) prctl(PR_GET_TIMERSLACK);

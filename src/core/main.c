@@ -109,7 +109,7 @@ static usec_t arg_shutdown_watchdog = 10 * USEC_PER_MINUTE;
 static char **arg_default_environment = NULL;
 static struct rlimit *arg_default_rlimit[_RLIMIT_MAX] = {};
 static uint64_t arg_capability_bounding_set_drop = 0;
-static nsec_t arg_timer_slack_nsec = (nsec_t) -1;
+static nsec_t arg_timer_slack_nsec = NSEC_INFINITY;
 static usec_t arg_default_timer_accuracy_usec = 1 * USEC_PER_MINUTE;
 static Set* arg_syscall_archs = NULL;
 static FILE* arg_serialization = NULL;
@@ -1604,7 +1604,7 @@ int main(int argc, char *argv[]) {
         if (arg_running_as == SYSTEMD_SYSTEM && arg_runtime_watchdog > 0)
                 watchdog_set_timeout(&arg_runtime_watchdog);
 
-        if (arg_timer_slack_nsec != (nsec_t) -1)
+        if (arg_timer_slack_nsec != NSEC_INFINITY)
                 if (prctl(PR_SET_TIMERSLACK, arg_timer_slack_nsec) < 0)
                         log_error("Failed to adjust timer slack: %m");
 

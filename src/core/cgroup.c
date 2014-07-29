@@ -41,7 +41,7 @@ void cgroup_context_init(CGroupContext *c) {
         c->blockio_weight = (unsigned long) -1;
         c->startup_blockio_weight = (unsigned long) -1;
 
-        c->cpu_quota_per_sec_usec = (usec_t) -1;
+        c->cpu_quota_per_sec_usec = USEC_INFINITY;
 }
 
 void cgroup_context_free_device_allow(CGroupContext *c, CGroupDeviceAllow *a) {
@@ -311,7 +311,7 @@ void cgroup_context_apply(CGroupContext *c, CGroupControllerMask mask, const cha
                 if (r < 0)
                         log_warning("Failed to set cpu.cfs_period_us on %s: %s", path, strerror(-r));
 
-                if (c->cpu_quota_per_sec_usec != (usec_t) -1) {
+                if (c->cpu_quota_per_sec_usec != USEC_INFINITY) {
                         sprintf(buf, USEC_FMT "\n", c->cpu_quota_per_sec_usec * CGROUP_CPU_QUOTA_PERIOD_USEC / USEC_PER_SEC);
                         r = cg_set_attribute("cpu", path, "cpu.cfs_quota_us", buf);
                 } else
@@ -447,7 +447,7 @@ CGroupControllerMask cgroup_context_get_mask(CGroupContext *c) {
         if (c->cpu_accounting ||
             c->cpu_shares != (unsigned long) -1 ||
             c->startup_cpu_shares != (unsigned long) -1 ||
-            c->cpu_quota_per_sec_usec != (usec_t) -1)
+            c->cpu_quota_per_sec_usec != USEC_INFINITY)
                 mask |= CGROUP_CPUACCT | CGROUP_CPU;
 
         if (c->blockio_accounting ||

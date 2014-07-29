@@ -333,7 +333,7 @@ static int setup_input(const ExecContext *context, int socket_fd, bool apply_tty
                                       i == EXEC_INPUT_TTY_FAIL,
                                       i == EXEC_INPUT_TTY_FORCE,
                                       false,
-                                      (usec_t) -1);
+                                      USEC_INFINITY);
                 if (fd < 0)
                         return fd;
 
@@ -1464,7 +1464,7 @@ int exec_spawn(ExecCommand *command,
                                 goto fail_child;
                         }
 
-                if (context->timer_slack_nsec != (nsec_t) -1)
+                if (context->timer_slack_nsec != NSEC_INFINITY)
                         if (prctl(PR_SET_TIMERSLACK, context->timer_slack_nsec) < 0) {
                                 err = -errno;
                                 r = EXIT_TIMERSLACK;
@@ -1833,7 +1833,7 @@ void exec_context_init(ExecContext *c) {
         c->syslog_priority = LOG_DAEMON|LOG_INFO;
         c->syslog_level_prefix = true;
         c->ignore_sigpipe = true;
-        c->timer_slack_nsec = (nsec_t) -1;
+        c->timer_slack_nsec = NSEC_INFINITY;
         c->personality = 0xffffffffUL;
         c->runtime_directory_mode = 0755;
 }
@@ -2177,7 +2177,7 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 fputs("\n", f);
         }
 
-        if (c->timer_slack_nsec != (nsec_t) -1)
+        if (c->timer_slack_nsec != NSEC_INFINITY)
                 fprintf(f, "%sTimerSlackNSec: "NSEC_FMT "\n", prefix, c->timer_slack_nsec);
 
         fprintf(f,

@@ -407,9 +407,9 @@ _public_ int sd_event_new(sd_event** ret) {
 
         e->n_ref = 1;
         e->signal_fd = e->watchdog_fd = e->epoll_fd = e->realtime.fd = e->boottime.fd = e->monotonic.fd = e->realtime_alarm.fd = e->boottime_alarm.fd = -1;
-        e->realtime.next = e->boottime.next = e->monotonic.next = e->realtime_alarm.next = e->boottime_alarm.next = (usec_t) -1;
+        e->realtime.next = e->boottime.next = e->monotonic.next = e->realtime_alarm.next = e->boottime_alarm.next = USEC_INFINITY;
         e->original_pid = getpid();
-        e->perturb = (usec_t) -1;
+        e->perturb = USEC_INFINITY;
 
         assert_se(sigemptyset(&e->sigset) == 0);
 
@@ -796,7 +796,7 @@ static void initialize_perturb(sd_event *e) {
            bit. Here, we calculate a perturbation usec offset from the
            boot ID. */
 
-        if (_likely_(e->perturb != (usec_t) -1))
+        if (_likely_(e->perturb != USEC_INFINITY))
                 return;
 
         if (sd_id128_get_boot(&bootid) >= 0)
@@ -1751,7 +1751,7 @@ static int event_arm_timer(
                 if (d->fd < 0)
                         return 0;
 
-                if (d->next == (usec_t) -1)
+                if (d->next == USEC_INFINITY)
                         return 0;
 
                 /* disarm */
@@ -1759,7 +1759,7 @@ static int event_arm_timer(
                 if (r < 0)
                         return r;
 
-                d->next = (usec_t) -1;
+                d->next = USEC_INFINITY;
                 return 0;
         }
 
@@ -1827,7 +1827,7 @@ static int flush_timer(sd_event *e, int fd, uint32_t events, usec_t *next) {
                 return -EIO;
 
         if (next)
-                *next = (usec_t) -1;
+                *next = USEC_INFINITY;
 
         return 0;
 }

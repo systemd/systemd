@@ -89,15 +89,15 @@ static void patch_realtime(
         assert(realtime);
 
         x = timespec_load(&st->st_ctim);
-        if (x > 0 && x != (usec_t) -1 && x < *realtime)
+        if (x > 0 && x != USEC_INFINITY && x < *realtime)
                 *realtime = x;
 
         x = timespec_load(&st->st_atim);
-        if (x > 0 && x != (usec_t) -1 && x < *realtime)
+        if (x > 0 && x != USEC_INFINITY && x < *realtime)
                 *realtime = x;
 
         x = timespec_load(&st->st_mtim);
-        if (x > 0 && x != (usec_t) -1 && x < *realtime)
+        if (x > 0 && x != USEC_INFINITY && x < *realtime)
                 *realtime = x;
 
         /* Let's read the original creation time, if possible. Ideally

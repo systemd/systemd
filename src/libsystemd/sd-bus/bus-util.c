@@ -1265,7 +1265,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                         if (r < 0)
                                 return bus_log_create_error(r);
 
-                        r = sd_bus_message_append(m, "v", "t", (usec_t) -1);
+                        r = sd_bus_message_append(m, "v", "t", USEC_INFINITY);
 
                 } else if (endswith(eq, "%")) {
                         double percent;

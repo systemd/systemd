@@ -343,7 +343,7 @@ static int parse_password(const char *filename, char **wall) {
                         _cleanup_free_ char *password = NULL;
 
                         if (arg_console) {
-                                tty_fd = acquire_terminal("/dev/console", false, false, false, (usec_t) -1);
+                                tty_fd = acquire_terminal("/dev/console", false, false, false, USEC_INFINITY);
                                 if (tty_fd < 0)
                                         return tty_fd;
                         }

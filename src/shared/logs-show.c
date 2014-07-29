@@ -1032,7 +1032,7 @@ static int show_journal(FILE *f,
                 if (!(flags & OUTPUT_FOLLOW))
                         break;
 
-                r = sd_journal_wait(j, (usec_t) -1);
+                r = sd_journal_wait(j, USEC_INFINITY);
                 if (r < 0)
                         goto finish;
 

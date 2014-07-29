@@ -47,7 +47,7 @@ static void server(sd_bus *b, size_t *result) {
                 assert_se(r >= 0);
 
                 if (r == 0)
-                        assert_se(sd_bus_wait(b, (usec_t) -1) >= 0);
+                        assert_se(sd_bus_wait(b, USEC_INFINITY) >= 0);
                 if (!m)
                         continue;
 

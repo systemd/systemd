@@ -65,7 +65,7 @@ int main(int argc, char *argv[]) {
                   "STATUS=Processing requests...");
 
         for (;;) {
-                usec_t t = (usec_t) -1, n;
+                usec_t t = USEC_INFINITY, n;
 
                 r = sd_event_get_state(server.event);
                 if (r < 0)

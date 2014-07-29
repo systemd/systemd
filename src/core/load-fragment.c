@@ -2510,7 +2510,7 @@ int config_parse_cpu_quota(
         assert(rvalue);
 
         if (isempty(rvalue)) {
-                c->cpu_quota_per_sec_usec = (usec_t) -1;
+                c->cpu_quota_per_sec_usec = USEC_INFINITY;
                 return 0;
         }
 

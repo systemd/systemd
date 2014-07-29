@@ -67,7 +67,7 @@ int polkit_agent_open(void) {
                 log_error("Failed to fork TTY ask password agent: %s", strerror(-r));
         else
                 /* Wait until the agent closes the fd */
-                fd_wait_for_event(pipe_fd[0], POLLHUP, (usec_t) -1);
+                fd_wait_for_event(pipe_fd[0], POLLHUP, USEC_INFINITY);
 
         safe_close(pipe_fd[0]);
 

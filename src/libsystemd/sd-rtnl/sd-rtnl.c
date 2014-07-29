@@ -473,7 +473,7 @@ static usec_t calc_elapse(uint64_t usec) {
 static int rtnl_poll(sd_rtnl *rtnl, bool need_more, uint64_t timeout_usec) {
         struct pollfd p[1] = {};
         struct timespec ts;
-        usec_t m = (usec_t) -1;
+        usec_t m = USEC_INFINITY;
         int r, e;
 
         assert(rtnl);

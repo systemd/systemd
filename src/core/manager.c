@@ -1875,7 +1875,7 @@ int manager_loop(Manager *m) {
                         if (wait_usec <= 0)
                                 wait_usec = 1;
                 } else
-                        wait_usec = (usec_t) -1;
+                        wait_usec = USEC_INFINITY;
 
                 r = sd_event_run(m->event, wait_usec);
                 if (r < 0) {

@@ -29,7 +29,7 @@
 #include "log.h"
 
 static int watchdog_fd = -1;
-static usec_t watchdog_timeout = (usec_t) -1;
+static usec_t watchdog_timeout = USEC_INFINITY;
 
 static int update_timeout(void) {
         int r;
@@ -37,7 +37,7 @@ static int update_timeout(void) {
         if (watchdog_fd < 0)
                 return 0;
 
-        if (watchdog_timeout == (usec_t) -1)
+        if (watchdog_timeout == USEC_INFINITY)
                 return 0;
         else if (watchdog_timeout == 0) {
                 int flags;
@@ -104,7 +104,7 @@ int watchdog_set_timeout(usec_t *usec) {
 
         /* If we didn't open the watchdog yet and didn't get any
          * explicit timeout value set, don't do anything */
-        if (watchdog_fd < 0 && watchdog_timeout == (usec_t) -1)
+        if (watchdog_fd < 0 && watchdog_timeout == USEC_INFINITY)
                 return 0;
 
         if (watchdog_fd < 0)

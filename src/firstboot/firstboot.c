@@ -68,7 +68,7 @@ static bool press_any_key(void) {
         printf("-- Press any key to proceed --");
         fflush(stdout);
 
-        read_one_char(stdin, &k, (usec_t) -1, &need_nl);
+        read_one_char(stdin, &k, USEC_INFINITY, &need_nl);
 
         if (need_nl)
                 putchar('\n');

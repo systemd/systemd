@@ -2646,7 +2646,7 @@ static int bus_poll(sd_bus *bus, bool need_more, uint64_t timeout_usec) {
         struct pollfd p[2] = {};
         int r, e, n;
         struct timespec ts;
-        usec_t m = (usec_t) -1;
+        usec_t m = USEC_INFINITY;
 
         assert(bus);
 
