@@ -4086,9 +4086,6 @@ dist_bashcompletion_DATA += \
 dist_zshcompletion_DATA += \
 	shell-completion/zsh/_coredumpctl
 
-GENERAL_ALIASES += \
-	$(bindir)/coredumpctl $(bindir)/systemd-coredumpctl
-
 sysctl_DATA = \
 	sysctl.d/50-coredump.conf
 
