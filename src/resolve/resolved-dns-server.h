@@ -30,16 +30,8 @@ typedef enum DnsServerSource DnsServerSource;
 #include "resolved-link.h"
 #include "resolved-dns-server.h"
 
-enum DnsServerSource {
-        DNS_SERVER_ANY,
-        DNS_SERVER_SYSTEM,
-        DNS_SERVER_LINK,
-        _DNS_SERVER_SOURCE_MAX
-};
-
 struct DnsServer {
         Manager *manager;
-        DnsServerSource source;
 
         Link *link;
 

@@ -44,11 +44,9 @@ int dns_server_new(
                 LIST_FIND_TAIL(servers, l->dns_servers, tail);
                 LIST_INSERT_AFTER(servers, l->dns_servers, tail, s);
                 s->link = l;
-                s->source = DNS_SERVER_LINK;
         } else {
                 LIST_FIND_TAIL(servers, m->dns_servers, tail);
                 LIST_INSERT_AFTER(servers, m->dns_servers, tail, s);
-                s->source = DNS_SERVER_SYSTEM;
         }
 
         s->manager = m;
@@ -63,13 +61,10 @@ DnsServer* dns_server_free(DnsServer *s)  {
         if (!s)
                 return NULL;
 
-        if (s->source == DNS_SERVER_LINK) {
-
+        if (s->manager) {
                 if (s->link)
                         LIST_REMOVE(servers, s->link->dns_servers, s);
-        } else if (s->source == DNS_SERVER_SYSTEM) {
-
-                if (s->manager)
+                else
                         LIST_REMOVE(servers, s->manager->dns_servers, s);
         }
 
