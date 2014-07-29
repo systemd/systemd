@@ -40,5 +40,5 @@ typedef struct DnsCache {
 void dns_cache_flush(DnsCache *c);
 void dns_cache_prune(DnsCache *c);
 
-int dns_cache_put(DnsCache *c, DnsQuestion *q, int rcode, DnsAnswer *answer, usec_t timestamp);
+int dns_cache_put(DnsCache *c, DnsQuestion *q, int rcode, DnsAnswer *answer, unsigned max_rrs, usec_t timestamp);
 int dns_cache_lookup(DnsCache *c, DnsQuestion *q, int *rcode, DnsAnswer **answer);

@@ -337,7 +337,7 @@ static int dns_cache_put_negative(DnsCache *c, DnsResourceKey *key, int rcode, u
         return 0;
 }
 
-int dns_cache_put(DnsCache *c, DnsQuestion *q, int rcode, DnsAnswer *answer, usec_t timestamp) {
+int dns_cache_put(DnsCache *c, DnsQuestion *q, int rcode, DnsAnswer *answer, unsigned max_rrs, usec_t timestamp) {
         unsigned i;
         int r;
 
@@ -365,7 +365,7 @@ int dns_cache_put(DnsCache *c, DnsQuestion *q, int rcode, DnsAnswer *answer, use
                 timestamp = now(CLOCK_MONOTONIC);
 
         /* Second, add in positive entries for all contained RRs */
-        for (i = 0; i < answer->n_rrs; i++) {
+        for (i = 0; i < MIN(max_rrs, answer->n_rrs); i++) {
                 r = dns_cache_put_positive(c, answer->rrs[i], timestamp);
                 if (r < 0)
                         goto fail;

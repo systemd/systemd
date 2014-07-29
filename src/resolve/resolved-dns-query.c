@@ -344,7 +344,8 @@ void dns_query_transaction_process_reply(DnsQueryTransaction *t, DnsPacket *p) {
                 return;
         }
 
-        dns_cache_put(&t->scope->cache, p->question, DNS_PACKET_RCODE(p), p->answer, 0);
+        /* According to RFC 4795, section 2.9. only the RRs from the answer section shall be cached */
+        dns_cache_put(&t->scope->cache, p->question, DNS_PACKET_RCODE(p), p->answer, DNS_PACKET_ANCOUNT(p), 0);
 
         if (DNS_PACKET_RCODE(p) == DNS_RCODE_SUCCESS)
                 dns_query_transaction_complete(t, DNS_QUERY_SUCCESS);
