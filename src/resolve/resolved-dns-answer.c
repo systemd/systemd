@@ -122,6 +122,10 @@ int dns_answer_find_soa(DnsAnswer *a, DnsResourceKey *key, DnsResourceRecord **r
         assert(key);
         assert(ret);
 
+        /* For a SOA record we can never find a matching SOA record */
+        if (key->type == DNS_TYPE_SOA)
+                return 0;
+
         for (i = 0; i < a->n_rrs; i++) {
 
                 if (a->rrs[i]->key->class != DNS_CLASS_IN)
