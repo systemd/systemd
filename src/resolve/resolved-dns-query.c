@@ -19,6 +19,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "af-list.h"
+
 #include "resolved-dns-query.h"
 #include "resolved-dns-domain.h"
 
@@ -131,6 +133,12 @@ void dns_query_transaction_complete(DnsQueryTransaction *t, DnsQueryState state)
         /* Note that this call might invalidate the query. Callers
          * should hence not attempt to access the query or transaction
          * after calling this function. */
+
+        log_debug("Transaction on scope %s on %s/%s now complete with %s",
+                  dns_protocol_to_string(t->scope->protocol),
+                  t->scope->link ? t->scope->link->name : "*",
+                  t->scope->family == AF_UNSPEC ? "*" : af_to_name(t->scope->family),
+                  dns_query_state_to_string(state));
 
         t->state = state;
 
@@ -418,6 +426,11 @@ static int dns_query_transaction_go(DnsQueryTransaction *t) {
         assert(t);
 
         dns_query_transaction_stop(t);
+
+        log_debug("Beginning transaction on scope %s on %s/%s",
+                  dns_protocol_to_string(t->scope->protocol),
+                  t->scope->link ? t->scope->link->name : "*",
+                  t->scope->family == AF_UNSPEC ? "*" : af_to_name(t->scope->family));
 
         if (t->n_attempts >= ATTEMPTS_MAX) {
                 dns_query_transaction_complete(t, DNS_QUERY_ATTEMPTS_MAX);
@@ -889,3 +902,17 @@ int dns_query_cname_redirect(DnsQuery *q, const char *name) {
 
         return 0;
 }
+
+static const char* const dns_query_state_table[_DNS_QUERY_STATE_MAX] = {
+        [DNS_QUERY_NULL] = "null",
+        [DNS_QUERY_PENDING] = "pending",
+        [DNS_QUERY_FAILURE] = "failure",
+        [DNS_QUERY_SUCCESS] = "success",
+        [DNS_QUERY_NO_SERVERS] = "no-servers",
+        [DNS_QUERY_TIMEOUT] = "timeout",
+        [DNS_QUERY_ATTEMPTS_MAX] = "attempts-max",
+        [DNS_QUERY_INVALID_REPLY] = "invalid-reply",
+        [DNS_QUERY_RESOURCES] = "resources",
+        [DNS_QUERY_ABORTED] = "aborted",
+};
+DEFINE_STRING_TABLE_LOOKUP(dns_query_state, DnsQueryState);

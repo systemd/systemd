@@ -32,6 +32,7 @@
 #include "network-internal.h"
 #include "conf-parser.h"
 #include "socket-util.h"
+#include "af-list.h"
 #include "resolved.h"
 
 #define SEND_TIMEOUT_USEC (200 * USEC_PER_MSEC)
@@ -58,10 +59,10 @@ static int manager_process_link(sd_rtnl *rtnl, sd_rtnl_message *mm, void *userda
 
         switch (type) {
 
-        case RTM_NEWLINK:
-                if (!l) {
-                        log_debug("Found link %i", ifindex);
+        case RTM_NEWLINK:{
+                bool is_new = !l;
 
+                if (!l) {
                         r = link_new(m, &l, ifindex);
                         if (r < 0)
                                 goto fail;
@@ -71,11 +72,15 @@ static int manager_process_link(sd_rtnl *rtnl, sd_rtnl_message *mm, void *userda
                 if (r < 0)
                         goto fail;
 
+                if (is_new)
+                        log_debug("Found new link %i/%s", ifindex, l->name);
+
                 break;
+        }
 
         case RTM_DELLINK:
                 if (l) {
-                        log_debug("Removing link %i", l->ifindex);
+                        log_debug("Removing link %i/%s", l->ifindex, l->name);
                         link_free(l);
                 }
 
@@ -908,6 +913,8 @@ int manager_send(Manager *m, int fd, int ifindex, int family, const union in_add
         assert(port > 0);
         assert(p);
 
+        log_debug("Sending %s packet with id %u on interface %i/%s", DNS_PACKET_QR(p) ? "response" : "query", DNS_PACKET_ID(p), ifindex, af_to_name(family));
+
         if (family == AF_INET)
                 return manager_ipv4_send(m, fd, ifindex, &addr->in, port, p);
         else if (family == AF_INET6)
@@ -915,7 +922,6 @@ int manager_send(Manager *m, int fd, int ifindex, int family, const union in_add
 
         return -EAFNOSUPPORT;
 }
-
 
 DnsServer* manager_find_dns_server(Manager *m, int family, const union in_addr_union *in_addr) {
         DnsServer *s;
@@ -992,6 +998,8 @@ static int on_llmnr_packet(sd_event_source *s, int fd, uint32_t revents, void *u
                 return r;
 
         if (dns_packet_validate_reply(p) > 0) {
+                log_debug("Got reply packet for id %u", DNS_PACKET_ID(p));
+
                 t = hashmap_get(m->dns_query_transactions, UINT_TO_PTR(DNS_PACKET_ID(p)));
                 if (!t)
                         return 0;

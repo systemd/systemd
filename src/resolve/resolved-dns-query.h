@@ -49,6 +49,8 @@ typedef enum DnsQueryState {
         DNS_QUERY_INVALID_REPLY,
         DNS_QUERY_RESOURCES,
         DNS_QUERY_ABORTED,
+        _DNS_QUERY_STATE_MAX,
+        _DNS_QUERY_STATE_INVALID = -1
 } DnsQueryState;
 
 struct DnsQueryTransaction {
@@ -119,5 +121,8 @@ int dns_query_go(DnsQuery *q);
 void dns_query_ready(DnsQuery *q);
 
 int dns_query_cname_redirect(DnsQuery *q, const char *name);
+
+const char* dns_query_state_to_string(DnsQueryState p) _const_;
+DnsQueryState dns_query_state_from_string(const char *s) _pure_;
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsQuery*, dns_query_free);
