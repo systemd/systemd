@@ -1288,14 +1288,36 @@ tests += \
 	test-ratelimit
 
 EXTRA_DIST += \
+	test/a.service \
+	test/basic.target \
+	test/b.service \
+	test/c.service \
+	test/daughter.service \
+	test/d.service \
+	test/end.service \
+	test/e.service \
+	test/f.service \
+	test/grandchild.service \
+	test/g.service \
+	test/hello-after-sleep.target \
+	test/hello.service \
+	test/h.service \
+	test/parent-deep.slice \
+	test/parent.slice \
+	test/paths.target \
 	test/sched_idle_bad.service \
 	test/sched_idle_ok.service \
 	test/sched_rr_bad.service \
-	test/sched_rr_ok.service \
 	test/sched_rr_change.service \
+	test/sched_rr_ok.service \
+	test/shutdown.target \
+	test/sleep.service \
+	test/sockets.target \
 	test/son.service \
-	test/daughter.service \
-	test/parent.slice
+	test/sysinit.target \
+	test/testsuite.target \
+	test/timers.target \
+	test/unstoppable.service
 
 EXTRA_DIST += \
 	src/test/test-helper.h
