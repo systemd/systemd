@@ -74,6 +74,7 @@ static bool reload;
 static int children;
 static int children_max;
 static int exec_delay;
+static int event_timeout = 30;
 static sigset_t sigmask_orig;
 static UDEV_LIST(event_list);
 static UDEV_LIST(worker_list);
@@ -311,6 +312,9 @@ static void worker_new(struct event *event)
                                         }
                                 }
                         }
+
+                        if (event_timeout != 30)
+                                udev_event->timeout_usec = event_timeout * USEC_PER_SEC;
 
                         /* apply rules, create node, symlinks */
                         udev_event_execute_rules(udev_event, rules, &sigmask_orig);
@@ -1009,6 +1013,8 @@ static void kernel_cmdline_options(struct udev *udev)
                         children_max = strtoul(opt + 18, NULL, 0);
                 } else if (startswith(opt, "udev.exec-delay=")) {
                         exec_delay = strtoul(opt + 16, NULL, 0);
+                } else if (startswith(opt, "udev.event-timeout=")) {
+                        event_timeout = strtoul(opt + 16, NULL, 0);
                 }
 
                 free(s);
@@ -1026,6 +1032,7 @@ int main(int argc, char *argv[])
                 { "debug", no_argument, NULL, 'D' },
                 { "children-max", required_argument, NULL, 'c' },
                 { "exec-delay", required_argument, NULL, 'e' },
+                { "event-timeout", required_argument, NULL, 't' },
                 { "resolve-names", required_argument, NULL, 'N' },
                 { "help", no_argument, NULL, 'h' },
                 { "version", no_argument, NULL, 'V' },
@@ -1068,6 +1075,9 @@ int main(int argc, char *argv[])
                         break;
                 case 'e':
                         exec_delay = strtoul(optarg, NULL, 0);
+                        break;
+                case 't':
+                        event_timeout = strtoul(optarg, NULL, 0);
                         break;
                 case 'D':
                         debug = true;
@@ -1406,7 +1416,7 @@ int main(int argc, char *argv[])
                                 if (worker->state != WORKER_RUNNING)
                                         continue;
 
-                                if ((now(CLOCK_MONOTONIC) - worker->event_start_usec) > 30 * USEC_PER_SEC) {
+                                if ((now(CLOCK_MONOTONIC) - worker->event_start_usec) > event_timeout * USEC_PER_SEC) {
                                         log_error("worker [%u] %s timeout; kill it", worker->pid,
                                             worker->event ? worker->event->devpath : "<idle>");
                                         kill(worker->pid, SIGKILL);

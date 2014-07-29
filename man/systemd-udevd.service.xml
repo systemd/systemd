@@ -44,6 +44,7 @@
       <arg><option>--debug</option></arg>
       <arg><option>--children-max=</option></arg>
       <arg><option>--exec-delay=</option></arg>
+      <arg><option>--event-timeout=</option></arg>
       <arg><option>--resolve-names=early|late|never</option></arg>
       <arg><option>--version</option></arg>
       <arg><option>--help</option></arg>
@@ -92,6 +93,15 @@
           might be useful when debugging system crashes during
           coldplug caused by loading non-working kernel
           modules.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--event-timeout=</option></term>
+        <listitem>
+          <para>Wait for the event to finish up to the given
+          number of seconds. After this time the event will
+          be terminated. Default is 30.</para>
         </listitem>
       </varlistentry>
 
@@ -153,6 +163,15 @@
           number of seconds. This option might be useful when
           debugging system crashes during coldplug caused by loading
           non-working kernel modules.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>udev.event-timeout=</varname></term>
+        <term><varname>rd.udev.event-timeout=</varname></term>
+        <listitem>
+          <para>Wait for events to finish up to the given number
+          of seconds. This option might be useful if events are
+          terminated due to a timeout in large configurations.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
