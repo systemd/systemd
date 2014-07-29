@@ -269,17 +269,6 @@ void dns_query_transaction_process_reply(DnsQueryTransaction *t, DnsPacket *p) {
                 if (p->family != t->scope->family)
                         return;
 
-                /* Don't accept UDP packets directed to anything but
-                 * the LLMNR multicast addresses. */
-
-                if (p->ipproto == IPPROTO_UDP) {
-                        if (p->family == AF_INET && !in_addr_equal(AF_INET, &p->destination, (union in_addr_union*) &LLMNR_MULTICAST_IPV4_ADDRESS))
-                                return;
-
-                        if (p->family == AF_INET6 && !in_addr_equal(AF_INET6, &p->destination, (union in_addr_union*) &LLMNR_MULTICAST_IPV6_ADDRESS))
-                                return;
-                }
-
                 /* Tentative replies shall be discarded, see RFC 4795,
                  * 2.1.1 */
 

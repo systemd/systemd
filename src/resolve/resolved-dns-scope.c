@@ -452,6 +452,18 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
         if (p->protocol != DNS_PROTOCOL_LLMNR)
                 return;
 
+        if (p->ipproto == IPPROTO_UDP) {
+                /* Don't accept UDP queries directed to anything but
+                 * the LLMNR multicast addresses. See RFC 4795,
+                 * section 2.5.*/
+
+                if (p->family == AF_INET && !in_addr_equal(AF_INET, &p->destination, (union in_addr_union*) &LLMNR_MULTICAST_IPV4_ADDRESS))
+                        return;
+
+                if (p->family == AF_INET6 && !in_addr_equal(AF_INET6, &p->destination, (union in_addr_union*) &LLMNR_MULTICAST_IPV6_ADDRESS))
+                        return;
+        }
+
         r = dns_packet_extract(p);
         if (r < 0) {
                 log_debug("Failed to extract resources from incoming packet: %s", strerror(-r));
