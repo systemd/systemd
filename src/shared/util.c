@@ -332,6 +332,26 @@ int safe_atoi(const char *s, int *ret_i) {
         return 0;
 }
 
+int safe_atou8(const char *s, uint8_t *ret) {
+        char *x = NULL;
+        unsigned long l;
+
+        assert(s);
+        assert(ret);
+
+        errno = 0;
+        l = strtoul(s, &x, 0);
+
+        if (!x || x == s || *x || errno)
+                return errno > 0 ? -errno : -EINVAL;
+
+        if ((unsigned long) (uint8_t) l != l)
+                return -ERANGE;
+
+        *ret = (uint8_t) l;
+        return 0;
+}
+
 int safe_atollu(const char *s, long long unsigned *ret_llu) {
         char *x = NULL;
         unsigned long long l;

@@ -48,7 +48,7 @@ static int dns_stream_update_io(DnsStream *s) {
         return sd_event_source_set_io_events(s->io_event_source, f);
 }
 
-static int stream_complete(DnsStream *s, int error) {
+static int dns_stream_complete(DnsStream *s, int error) {
         assert(s);
 
         dns_stream_stop(s);
@@ -61,161 +61,7 @@ static int stream_complete(DnsStream *s, int error) {
         return 0;
 }
 
-static int on_stream_timeout(sd_event_source *es, usec_t usec, void *userdata) {
-        DnsStream *s = userdata;
-
-        assert(s);
-
-        return stream_complete(s, ETIMEDOUT);
-}
-
-static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
-        DnsStream *s = userdata;
-        int r;
-
-        assert(s);
-
-        if ((revents & EPOLLOUT) &&
-            s->write_packet &&
-            s->n_written < sizeof(s->write_size) + s->write_packet->size) {
-
-                struct iovec iov[2];
-                ssize_t ss;
-
-                iov[0].iov_base = &s->write_size;
-                iov[0].iov_len = sizeof(s->write_size);
-                iov[1].iov_base = DNS_PACKET_DATA(s->write_packet);
-                iov[1].iov_len = s->write_packet->size;
-
-                IOVEC_INCREMENT(iov, 2, s->n_written);
-
-                ss = writev(fd, iov, 2);
-                if (ss < 0) {
-                        if (errno != EINTR && errno != EAGAIN)
-                                return stream_complete(s, errno);
-                } else
-                        s->n_written += ss;
-
-                /* Are we done? If so, disable the event source for EPOLLOUT */
-                if (s->n_written >= sizeof(s->write_size) + s->write_packet->size) {
-                        r = dns_stream_update_io(s);
-                        if (r < 0)
-                                return stream_complete(s, -r);
-                }
-        }
-
-        if ((revents & (EPOLLIN|EPOLLHUP|EPOLLRDHUP)) &&
-            (!s->read_packet ||
-             s->n_read < sizeof(s->read_size) + s->read_packet->size)) {
-
-                if (s->n_read < sizeof(s->read_size)) {
-                        ssize_t ss;
-
-                        ss = read(fd, (uint8_t*) &s->read_size + s->n_read, sizeof(s->read_size) - s->n_read);
-                        if (ss < 0) {
-                                if (errno != EINTR && errno != EAGAIN)
-                                        return stream_complete(s, errno);
-                        } else if (ss == 0)
-                                return stream_complete(s, ECONNRESET);
-                        else
-                                s->n_read += ss;
-                }
-
-                if (s->n_read >= sizeof(s->read_size)) {
-
-                        if (be16toh(s->read_size) < DNS_PACKET_HEADER_SIZE)
-                                return stream_complete(s, EBADMSG);
-
-                        if (s->n_read < sizeof(s->read_size) + be16toh(s->read_size)) {
-                                ssize_t ss;
-
-                                if (!s->read_packet) {
-                                        r = dns_packet_new(&s->read_packet, s->protocol, be16toh(s->read_size));
-                                        if (r < 0)
-                                                return stream_complete(s, -r);
-
-                                        s->read_packet->size = be16toh(s->read_size);
-                                        s->read_packet->ipproto = IPPROTO_TCP;
-                                        s->read_packet->family = s->peer.sa.sa_family;
-                                        s->read_packet->ttl = s->ttl;
-                                        s->read_packet->ifindex = s->ifindex;
-
-                                        if (s->read_packet->family == AF_INET) {
-                                                s->read_packet->sender.in = s->peer.in.sin_addr;
-                                                s->read_packet->sender_port = be16toh(s->peer.in.sin_port);
-                                                s->read_packet->destination.in = s->local.in.sin_addr;
-                                                s->read_packet->destination_port = be16toh(s->local.in.sin_port);
-                                        } else {
-                                                assert(s->read_packet->family == AF_INET6);
-                                                s->read_packet->sender.in6 = s->peer.in6.sin6_addr;
-                                                s->read_packet->sender_port = be16toh(s->peer.in6.sin6_port);
-                                                s->read_packet->destination.in6 = s->local.in6.sin6_addr;
-                                                s->read_packet->destination_port = be16toh(s->local.in6.sin6_port);
-
-                                                if (s->read_packet->ifindex == 0)
-                                                        s->read_packet->ifindex = s->peer.in6.sin6_scope_id;
-                                                if (s->read_packet->ifindex == 0)
-                                                        s->read_packet->ifindex = s->local.in6.sin6_scope_id;
-                                        }
-                                }
-
-                                ss = read(fd,
-                                          (uint8_t*) DNS_PACKET_DATA(s->read_packet) + s->n_read - sizeof(s->read_size),
-                                          sizeof(s->read_size) + be16toh(s->read_size) - s->n_read);
-                                if (ss < 0) {
-                                        if (errno != EINTR && errno != EAGAIN)
-                                                return stream_complete(s, errno);
-                                } else if (ss == 0)
-                                        return stream_complete(s, ECONNRESET);
-                                else
-                                        s->n_read += ss;
-                        }
-
-                        /* Are we done? If so, disable the event source for EPOLLIN */
-                        if (s->n_read >= sizeof(s->read_size) + be16toh(s->read_size)) {
-                                r = dns_stream_update_io(s);
-                                if (r < 0)
-                                        return stream_complete(s, -r);
-
-                                /* If there's a packet handler
-                                 * installed, call that. Note that
-                                 * this is optional... */
-                                if (s->on_packet)
-                                        return s->on_packet(s);
-                        }
-                }
-        }
-
-        if ((s->write_packet && s->n_written >= sizeof(s->write_size) + s->write_packet->size) &&
-            (s->read_packet && s->n_read >= sizeof(s->read_size) + s->read_packet->size))
-                return stream_complete(s, 0);
-
-        return 0;
-}
-
-DnsStream *dns_stream_free(DnsStream *s) {
-        if (!s)
-                return NULL;
-
-        dns_stream_stop(s);
-
-        if (s->manager) {
-                LIST_REMOVE(streams, s->manager->dns_streams, s);
-                s->manager->n_dns_streams--;
-        }
-
-        dns_packet_unref(s->write_packet);
-        dns_packet_unref(s->read_packet);
-
-        free(s);
-
-        return 0;
-}
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(DnsStream*, dns_stream_free);
-
-int dns_stream_new(Manager *m, DnsStream **ret, DnsProtocol protocol, int fd) {
-        static const int one = 1;
+static int dns_stream_identify(DnsStream *s) {
         union {
                 struct cmsghdr header; /* For alignment */
                 uint8_t buffer[CMSG_SPACE(MAX(sizeof(struct in_pktinfo), sizeof(struct in6_pktinfo)))
@@ -223,38 +69,29 @@ int dns_stream_new(Manager *m, DnsStream **ret, DnsProtocol protocol, int fd) {
         } control;
         struct msghdr mh = {};
         struct cmsghdr *cmsg;
-        _cleanup_(dns_stream_freep) DnsStream *s = NULL;
         socklen_t sl;
         int r;
 
-        assert(m);
-        assert(fd >= 0);
+        assert(s);
 
-        if (m->n_dns_streams > DNS_STREAMS_MAX)
-                return -EBUSY;
-
-        s = new0(DnsStream, 1);
-        if (!s)
-                return -ENOMEM;
-
-        s->fd = -1;
-        s->protocol = protocol;
-
-        /* Query the remote side */
-        s->peer_salen = sizeof(s->peer);
-        r = getpeername(fd, &s->peer.sa, &s->peer_salen);
-        if (r < 0)
-                return -errno;
-        if (s->peer.sa.sa_family == AF_INET6)
-                s->ifindex = s->peer.in6.sin6_scope_id;
+        if (s->identified)
+                return 0;
 
         /* Query the local side */
         s->local_salen = sizeof(s->local);
-        r = getsockname(fd, &s->local.sa, &s->local_salen);
+        r = getsockname(s->fd, &s->local.sa, &s->local_salen);
         if (r < 0)
                 return -errno;
         if (s->local.sa.sa_family == AF_INET6 && s->ifindex <= 0)
                 s->ifindex = s->local.in6.sin6_scope_id;
+
+        /* Query the remote side */
+        s->peer_salen = sizeof(s->peer);
+        r = getpeername(s->fd, &s->peer.sa, &s->peer_salen);
+        if (r < 0)
+                return -errno;
+        if (s->peer.sa.sa_family == AF_INET6 && s->ifindex <= 0)
+                s->ifindex = s->peer.in6.sin6_scope_id;
 
         /* Check consistency */
         assert(s->peer.sa.sa_family == s->local.sa.sa_family);
@@ -263,16 +100,16 @@ int dns_stream_new(Manager *m, DnsStream **ret, DnsProtocol protocol, int fd) {
         /* Query connection meta information */
         sl = sizeof(control);
         if (s->peer.sa.sa_family == AF_INET) {
-                r = getsockopt(fd, IPPROTO_IP, IP_PKTOPTIONS, &control, &sl);
+                r = getsockopt(s->fd, IPPROTO_IP, IP_PKTOPTIONS, &control, &sl);
                 if (r < 0)
                         return -errno;
-        } else {
-                assert(s->peer.sa.sa_family == AF_INET6);
+        } else if (s->peer.sa.sa_family == AF_INET6) {
 
-                r = getsockopt(fd, IPPROTO_IPV6, IPV6_2292PKTOPTIONS, &control, &sl);
+                r = getsockopt(s->fd, IPPROTO_IPV6, IPV6_2292PKTOPTIONS, &control, &sl);
                 if (r < 0)
                         return -errno;
-        }
+        } else
+                return -EAFNOSUPPORT;
 
         mh.msg_control = &control;
         mh.msg_controllen = sl;
@@ -320,32 +157,212 @@ int dns_stream_new(Manager *m, DnsStream **ret, DnsProtocol protocol, int fd) {
          * device if the connection came from the local host since it
          * avoids the routing table in such a case. Let's unset the
          * interface index in such a case. */
-        if (s->ifindex > 0 && manager_ifindex_is_loopback(m, s->ifindex) != 0)
+        if (s->ifindex > 0 && manager_ifindex_is_loopback(s->manager, s->ifindex) != 0)
                 s->ifindex = 0;
 
         /* If we don't know the interface index still, we look for the
          * first local interface with a matching address. Yuck! */
         if (s->ifindex <= 0)
-                s->ifindex = manager_find_ifindex(m, s->local.sa.sa_family, s->local.sa.sa_family == AF_INET ? (union in_addr_union*) &s->local.in.sin_addr : (union in_addr_union*)  &s->local.in6.sin6_addr);
-
-        r = setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
-        if (r < 0)
-                return -errno;
+                s->ifindex = manager_find_ifindex(s->manager, s->local.sa.sa_family, s->local.sa.sa_family == AF_INET ? (union in_addr_union*) &s->local.in.sin_addr : (union in_addr_union*)  &s->local.in6.sin6_addr);
 
         if (s->protocol == DNS_PROTOCOL_LLMNR && s->ifindex > 0) {
                 uint32_t ifindex = htobe32(s->ifindex);
 
                 /* Make sure all packets for this connection are sent on the same interface */
                 if (s->local.sa.sa_family == AF_INET) {
-                        r = setsockopt(fd, IPPROTO_IP, IP_UNICAST_IF, &ifindex, sizeof(ifindex));
+                        r = setsockopt(s->fd, IPPROTO_IP, IP_UNICAST_IF, &ifindex, sizeof(ifindex));
                         if (r < 0)
                                 return -errno;
                 } else if (s->local.sa.sa_family == AF_INET6) {
-                        r = setsockopt(fd, IPPROTO_IPV6, IPV6_UNICAST_IF, &ifindex, sizeof(ifindex));
+                        r = setsockopt(s->fd, IPPROTO_IPV6, IPV6_UNICAST_IF, &ifindex, sizeof(ifindex));
                         if (r < 0)
                                 return -errno;
                 }
         }
+
+        s->identified = true;
+
+        return 0;
+}
+
+static int on_stream_timeout(sd_event_source *es, usec_t usec, void *userdata) {
+        DnsStream *s = userdata;
+
+        assert(s);
+
+        return dns_stream_complete(s, ETIMEDOUT);
+}
+
+static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
+        DnsStream *s = userdata;
+        int r;
+
+        assert(s);
+
+        r = dns_stream_identify(s);
+        if (r < 0)
+                return dns_stream_complete(s, -r);
+
+        if ((revents & EPOLLOUT) &&
+            s->write_packet &&
+            s->n_written < sizeof(s->write_size) + s->write_packet->size) {
+
+                struct iovec iov[2];
+                ssize_t ss;
+
+                iov[0].iov_base = &s->write_size;
+                iov[0].iov_len = sizeof(s->write_size);
+                iov[1].iov_base = DNS_PACKET_DATA(s->write_packet);
+                iov[1].iov_len = s->write_packet->size;
+
+                IOVEC_INCREMENT(iov, 2, s->n_written);
+
+                ss = writev(fd, iov, 2);
+                if (ss < 0) {
+                        if (errno != EINTR && errno != EAGAIN)
+                                return dns_stream_complete(s, errno);
+                } else
+                        s->n_written += ss;
+
+                /* Are we done? If so, disable the event source for EPOLLOUT */
+                if (s->n_written >= sizeof(s->write_size) + s->write_packet->size) {
+                        r = dns_stream_update_io(s);
+                        if (r < 0)
+                                return dns_stream_complete(s, -r);
+                }
+        }
+
+        if ((revents & (EPOLLIN|EPOLLHUP|EPOLLRDHUP)) &&
+            (!s->read_packet ||
+             s->n_read < sizeof(s->read_size) + s->read_packet->size)) {
+
+                if (s->n_read < sizeof(s->read_size)) {
+                        ssize_t ss;
+
+                        ss = read(fd, (uint8_t*) &s->read_size + s->n_read, sizeof(s->read_size) - s->n_read);
+                        if (ss < 0) {
+                                if (errno != EINTR && errno != EAGAIN)
+                                        return dns_stream_complete(s, errno);
+                        } else if (ss == 0)
+                                return dns_stream_complete(s, ECONNRESET);
+                        else
+                                s->n_read += ss;
+                }
+
+                if (s->n_read >= sizeof(s->read_size)) {
+
+                        if (be16toh(s->read_size) < DNS_PACKET_HEADER_SIZE)
+                                return dns_stream_complete(s, EBADMSG);
+
+                        if (s->n_read < sizeof(s->read_size) + be16toh(s->read_size)) {
+                                ssize_t ss;
+
+                                if (!s->read_packet) {
+                                        r = dns_packet_new(&s->read_packet, s->protocol, be16toh(s->read_size));
+                                        if (r < 0)
+                                                return dns_stream_complete(s, -r);
+
+                                        s->read_packet->size = be16toh(s->read_size);
+                                        s->read_packet->ipproto = IPPROTO_TCP;
+                                        s->read_packet->family = s->peer.sa.sa_family;
+                                        s->read_packet->ttl = s->ttl;
+                                        s->read_packet->ifindex = s->ifindex;
+
+                                        if (s->read_packet->family == AF_INET) {
+                                                s->read_packet->sender.in = s->peer.in.sin_addr;
+                                                s->read_packet->sender_port = be16toh(s->peer.in.sin_port);
+                                                s->read_packet->destination.in = s->local.in.sin_addr;
+                                                s->read_packet->destination_port = be16toh(s->local.in.sin_port);
+                                        } else {
+                                                assert(s->read_packet->family == AF_INET6);
+                                                s->read_packet->sender.in6 = s->peer.in6.sin6_addr;
+                                                s->read_packet->sender_port = be16toh(s->peer.in6.sin6_port);
+                                                s->read_packet->destination.in6 = s->local.in6.sin6_addr;
+                                                s->read_packet->destination_port = be16toh(s->local.in6.sin6_port);
+
+                                                if (s->read_packet->ifindex == 0)
+                                                        s->read_packet->ifindex = s->peer.in6.sin6_scope_id;
+                                                if (s->read_packet->ifindex == 0)
+                                                        s->read_packet->ifindex = s->local.in6.sin6_scope_id;
+                                        }
+                                }
+
+                                ss = read(fd,
+                                          (uint8_t*) DNS_PACKET_DATA(s->read_packet) + s->n_read - sizeof(s->read_size),
+                                          sizeof(s->read_size) + be16toh(s->read_size) - s->n_read);
+                                if (ss < 0) {
+                                        if (errno != EINTR && errno != EAGAIN)
+                                                return dns_stream_complete(s, errno);
+                                } else if (ss == 0)
+                                        return dns_stream_complete(s, ECONNRESET);
+                                else
+                                        s->n_read += ss;
+                        }
+
+                        /* Are we done? If so, disable the event source for EPOLLIN */
+                        if (s->n_read >= sizeof(s->read_size) + be16toh(s->read_size)) {
+                                r = dns_stream_update_io(s);
+                                if (r < 0)
+                                        return dns_stream_complete(s, -r);
+
+                                /* If there's a packet handler
+                                 * installed, call that. Note that
+                                 * this is optional... */
+                                if (s->on_packet)
+                                        return s->on_packet(s);
+                        }
+                }
+        }
+
+        if ((s->write_packet && s->n_written >= sizeof(s->write_size) + s->write_packet->size) &&
+            (s->read_packet && s->n_read >= sizeof(s->read_size) + s->read_packet->size))
+                return dns_stream_complete(s, 0);
+
+        return 0;
+}
+
+DnsStream *dns_stream_free(DnsStream *s) {
+        if (!s)
+                return NULL;
+
+        dns_stream_stop(s);
+
+        if (s->manager) {
+                LIST_REMOVE(streams, s->manager->dns_streams, s);
+                s->manager->n_dns_streams--;
+        }
+
+        dns_packet_unref(s->write_packet);
+        dns_packet_unref(s->read_packet);
+
+        free(s);
+
+        return 0;
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(DnsStream*, dns_stream_free);
+
+int dns_stream_new(Manager *m, DnsStream **ret, DnsProtocol protocol, int fd) {
+        static const int one = 1;
+        _cleanup_(dns_stream_freep) DnsStream *s = NULL;
+        int r;
+
+        assert(m);
+        assert(fd >= 0);
+
+        if (m->n_dns_streams > DNS_STREAMS_MAX)
+                return -EBUSY;
+
+        s = new0(DnsStream, 1);
+        if (!s)
+                return -ENOMEM;
+
+        s->fd = -1;
+        s->protocol = protocol;
+
+        r = setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
+        if (r < 0)
+                return -errno;
 
         r = sd_event_add_io(m->event, &s->io_event_source, fd, EPOLLIN, on_stream_io, s);
         if (r < 0)

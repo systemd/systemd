@@ -159,6 +159,24 @@ static void test_dns_name_single_label(void) {
         assert_se(dns_name_single_label("xx.yy") == false);
 }
 
+static void test_dns_name_reverse_one(const char *address, const char *name) {
+        _cleanup_free_ char *p = NULL;
+        union in_addr_union a, b;
+        int familya, familyb;
+
+        assert_se(in_addr_from_string_auto(address, &familya, &a) >= 0);
+        assert_se(dns_name_reverse(familya, &a, &p) >= 0);
+        assert_se(streq(p, name));
+        assert_se(dns_name_address(p, &familyb, &b) > 0);
+        assert_se(familya == familyb);
+        assert_se(in_addr_equal(familya, &a, &b));
+}
+
+static void test_dns_name_reverse(void) {
+        test_dns_name_reverse_one("47.11.8.15", "15.8.11.47.in-addr.arpa");
+        test_dns_name_reverse_one("fe80::47", "7.4.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.e.f.ip6.arpa");
+}
+
 int main(int argc, char *argv[]) {
 
         test_dns_label_unescape();
@@ -168,6 +186,7 @@ int main(int argc, char *argv[]) {
         test_dns_name_endswith();
         test_dns_name_root();
         test_dns_name_single_label();
+        test_dns_name_reverse();
 
         return 0;
 }

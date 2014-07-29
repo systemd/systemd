@@ -360,6 +360,93 @@ int dns_name_reverse(int family, const union in_addr_union *a, char **ret) {
         return 0;
 }
 
+int dns_name_address(const char *p, int *family, union in_addr_union *address) {
+        int r;
+
+        assert(p);
+        assert(family);
+        assert(address);
+
+        r = dns_name_endswith(p, "in-addr.arpa");
+        if (r < 0)
+                return r;
+        if (r > 0) {
+                uint8_t a[4];
+                unsigned i;
+
+                for (i = 0; i < ELEMENTSOF(a); i++) {
+                        char label[DNS_LABEL_MAX+1];
+
+                        r = dns_label_unescape(&p, label, sizeof(label));
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                return -EINVAL;
+                        if (r > 3)
+                                return -EINVAL;
+
+                        r = safe_atou8(label, &a[i]);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = dns_name_equal(p, "in-addr.arpa");
+                if (r <= 0)
+                        return r;
+
+                *family = AF_INET;
+                address->in.s_addr = htobe32(((uint32_t) a[3] << 24) |
+                                             ((uint32_t) a[2] << 16) |
+                                             ((uint32_t) a[1] << 8) |
+                                              (uint32_t) a[0]);
+
+                return 1;
+        }
+
+        r = dns_name_endswith(p, "ip6.arpa");
+        if (r < 0)
+                return r;
+        if (r > 0) {
+                struct in6_addr a;
+                unsigned i;
+
+                for (i = 0; i < ELEMENTSOF(a.s6_addr); i++) {
+                        char label[DNS_LABEL_MAX+1];
+                        int x, y;
+
+                        r = dns_label_unescape(&p, label, sizeof(label));
+                        if (r <= 0)
+                                return r;
+                        if (r != 1)
+                                return -EINVAL;
+                        x = unhexchar(label[0]);
+                        if (x < 0)
+                                return -EINVAL;
+
+                        r = dns_label_unescape(&p, label, sizeof(label));
+                        if (r <= 0)
+                                return r;
+                        if (r != 1)
+                                return -EINVAL;
+                        y = unhexchar(label[0]);
+                        if (y < 0)
+                                return -EINVAL;
+
+                        a.s6_addr[ELEMENTSOF(a.s6_addr) - i - 1] = (uint8_t) y << 4 | (uint8_t) x;
+                }
+
+                r = dns_name_equal(p, "ip6.arpa");
+                if (r <= 0)
+                        return r;
+
+                *family = AF_INET6;
+                address->in6 = a;
+                return 1;
+        }
+
+        return 0;
+}
+
 int dns_name_root(const char *name) {
         char label[DNS_LABEL_MAX+1];
         int r;
@@ -382,7 +469,6 @@ int dns_name_single_label(const char *name) {
         r = dns_label_unescape(&name, label, sizeof(label));
         if (r < 0)
                 return r;
-
         if (r == 0)
                 return 0;
 

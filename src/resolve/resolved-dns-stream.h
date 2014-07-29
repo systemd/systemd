@@ -39,6 +39,7 @@ struct DnsStream {
         socklen_t local_salen;
         int ifindex;
         uint32_t ttl;
+        bool identified;
 
         sd_event_source *io_event_source;
         sd_event_source *timeout_event_source;

@@ -235,3 +235,38 @@ int dns_question_cname_redirect(DnsQuestion *q, const char *name, DnsQuestion **
 
         return 1;
 }
+
+int dns_question_endswith(DnsQuestion *q, const char *suffix) {
+        unsigned i;
+
+        assert(q);
+        assert(suffix);
+
+        for (i = 0; i < q->n_keys; i++) {
+                int k;
+
+                k = dns_name_endswith(DNS_RESOURCE_KEY_NAME(q->keys[i]), suffix);
+                if (k <= 0)
+                        return k;
+        }
+
+        return 1;
+}
+
+int dns_question_extract_reverse_address(DnsQuestion *q, int *family, union in_addr_union *address) {
+        unsigned i;
+
+        assert(q);
+        assert(family);
+        assert(address);
+
+        for (i = 0; i < q->n_keys; i++) {
+                int k;
+
+                k = dns_name_address(DNS_RESOURCE_KEY_NAME(q->keys[i]), family, address);
+                if (k != 0)
+                        return k;
+        }
+
+        return 0;
+}

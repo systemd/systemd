@@ -312,8 +312,8 @@ DnsScopeMatch dns_scope_good_domain(DnsScope *s, const char *domain) {
         }
 
         if (s->protocol == DNS_PROTOCOL_LLMNR) {
-                if (dns_name_endswith(domain, "254.169.in-addr.arpa") > 0 ||
-                    dns_name_endswith(domain, "0.8.e.f.ip6.arpa") > 0 ||
+                if (dns_name_endswith(domain, "in-addr.arpa") > 0 ||
+                    dns_name_endswith(domain, "ip6.arpa") > 0 ||
                     dns_name_single_label(domain) > 0)
                         return DNS_SCOPE_MAYBE;
 

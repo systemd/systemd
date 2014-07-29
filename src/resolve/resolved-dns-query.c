@@ -165,7 +165,14 @@ static int on_stream_complete(DnsStream *s, int error) {
                 return 0;
         }
 
+        t->block_gc++;
         dns_query_transaction_process_reply(t, p);
+        t->block_gc--;
+
+        /* If the response wasn't useful, then complete the transition now */
+        if (t->state == DNS_QUERY_PENDING)
+                dns_query_transaction_complete(t, DNS_QUERY_INVALID_REPLY);
+
         return 0;
 }
 
@@ -181,10 +188,25 @@ static int dns_query_transaction_open_tcp(DnsQueryTransaction *t) {
         if (t->scope->protocol == DNS_PROTOCOL_DNS)
                 fd = dns_scope_tcp_socket(t->scope, AF_UNSPEC, NULL, 53);
         else if (t->scope->protocol == DNS_PROTOCOL_LLMNR) {
-                if (!t->received)
-                        return -EINVAL;
 
-                fd = dns_scope_tcp_socket(t->scope, t->received->family, &t->received->sender, t->received->sender_port);
+                /* When we already received a query to this (but it was truncated), send to its sender address */
+                if (t->received)
+                        fd = dns_scope_tcp_socket(t->scope, t->received->family, &t->received->sender, t->received->sender_port);
+                else {
+                        union in_addr_union address;
+                        int family;
+
+                        /* Otherwise, try to talk to the owner of a
+                         * the IP address, in case this is a reverse
+                         * PTR lookup */
+                        r = dns_question_extract_reverse_address(t->question, &family, &address);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                return -EINVAL;
+
+                        fd = dns_scope_tcp_socket(t->scope, family, &address, 5355);
+                }
         } else
                 return -EAFNOSUPPORT;
 
@@ -205,6 +227,13 @@ static int dns_query_transaction_open_tcp(DnsQueryTransaction *t) {
 
         t->received = dns_packet_unref(t->received);
         t->stream->complete = on_stream_complete;
+        t->stream->transaction = t;
+
+        /* The interface index is difficult to determine if we are
+         * connecting to the local host, hence fill this in right away
+         * instead of determining it from the socket */
+        if (t->scope->link)
+                t->stream->ifindex = t->scope->link->ifindex;
 
         return 0;
 }
@@ -416,10 +445,19 @@ static int dns_query_transaction_go(DnsQueryTransaction *t) {
         if (r < 0)
                 return r;
 
-        /* Try via UDP, and if that fails due to large size try via TCP */
-        r = dns_scope_send(t->scope, t->sent);
-        if (r == -EMSGSIZE)
+        if (t->scope->protocol == DNS_PROTOCOL_LLMNR &&
+            (dns_question_endswith(t->question, "in-addr.arpa") > 0 ||
+             dns_question_endswith(t->question, "ip6.arpa") > 0)) {
+
+                /* RFC 4795, Section 2.4. says reverse lookups shall
+                 * always be made via TCP on LLMNR */
                 r = dns_query_transaction_open_tcp(t);
+        } else {
+                /* Try via UDP, and if that fails due to large size try via TCP */
+                r = dns_scope_send(t->scope, t->sent);
+                if (r == -EMSGSIZE)
+                        r = dns_query_transaction_open_tcp(t);
+        }
         if (r == -ESRCH) {
                 /* No servers to send this to? */
                 dns_query_transaction_complete(t, DNS_QUERY_NO_SERVERS);
