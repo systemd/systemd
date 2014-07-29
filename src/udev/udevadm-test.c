@@ -32,8 +32,7 @@
 #include "udev.h"
 #include "udev-util.h"
 
-static int adm_test(struct udev *udev, int argc, char *argv[])
-{
+static int adm_test(struct udev *udev, int argc, char *argv[]) {
         int resolve_names = 1;
         char filename[UTIL_PATH_SIZE];
         const char *action = "add";

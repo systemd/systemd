@@ -47,8 +47,7 @@
 static void get_cap_mask(struct udev_device *dev,
                          struct udev_device *pdev, const char* attr,
                          unsigned long *bitmask, size_t bitmask_size,
-                         bool test)
-{
+                         bool test) {
         char text[4096];
         unsigned i;
         char* word;
@@ -96,8 +95,7 @@ static void test_pointers (struct udev_device *dev,
                            const unsigned long* bitmask_abs,
                            const unsigned long* bitmask_key,
                            const unsigned long* bitmask_rel,
-                           bool test)
-{
+                           bool test) {
         int is_mouse = 0;
         int is_touchpad = 0;
 
@@ -154,8 +152,7 @@ static void test_pointers (struct udev_device *dev,
 static void test_key (struct udev_device *dev,
                       const unsigned long* bitmask_ev,
                       const unsigned long* bitmask_key,
-                      bool test)
-{
+                      bool test) {
         unsigned i;
         unsigned long found;
         unsigned long mask;
@@ -193,8 +190,7 @@ static void test_key (struct udev_device *dev,
                 udev_builtin_add_property(dev, test, "ID_INPUT_KEYBOARD", "1");
 }
 
-static int builtin_input_id(struct udev_device *dev, int argc, char *argv[], bool test)
-{
+static int builtin_input_id(struct udev_device *dev, int argc, char *argv[], bool test) {
         struct udev_device *pdev;
         unsigned long bitmask_ev[NBITS(EV_MAX)];
         unsigned long bitmask_abs[NBITS(ABS_MAX)];

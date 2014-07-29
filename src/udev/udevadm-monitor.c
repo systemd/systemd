@@ -37,14 +37,12 @@
 
 static bool udev_exit;
 
-static void sig_handler(int signum)
-{
+static void sig_handler(int signum) {
         if (signum == SIGINT || signum == SIGTERM)
                 udev_exit = true;
 }
 
-static void print_device(struct udev_device *device, const char *source, int prop)
-{
+static void print_device(struct udev_device *device, const char *source, int prop) {
         struct timespec ts;
 
         clock_gettime(CLOCK_MONOTONIC, &ts);
@@ -75,8 +73,7 @@ static void help(void) {
                "  -h,--help\n\n");
 }
 
-static int adm_monitor(struct udev *udev, int argc, char *argv[])
-{
+static int adm_monitor(struct udev *udev, int argc, char *argv[]) {
         struct sigaction act = {};
         sigset_t mask;
         bool prop = false;

@@ -38,8 +38,7 @@
 static int verbose;
 static int dry_run;
 
-static void exec_list(struct udev_enumerate *udev_enumerate, const char *action)
-{
+static void exec_list(struct udev_enumerate *udev_enumerate, const char *action) {
         struct udev_list_entry *entry;
 
         udev_list_entry_foreach(entry, udev_enumerate_get_list_entry(udev_enumerate)) {
@@ -60,8 +59,7 @@ static void exec_list(struct udev_enumerate *udev_enumerate, const char *action)
         }
 }
 
-static const char *keyval(const char *str, const char **val, char *buf, size_t size)
-{
+static const char *keyval(const char *str, const char **val, char *buf, size_t size) {
         char *pos;
 
         strscpy(buf, size,str);
@@ -93,8 +91,7 @@ static void help(void) {
                "  -h,--help\n\n");
 }
 
-static int adm_trigger(struct udev *udev, int argc, char *argv[])
-{
+static int adm_trigger(struct udev *udev, int argc, char *argv[]) {
         static const struct option options[] = {
                 { "verbose",           no_argument,       NULL, 'v' },
                 { "dry-run",           no_argument,       NULL, 'n' },

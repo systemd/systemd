@@ -183,8 +183,7 @@ static int builtin_hwdb(struct udev_device *dev, int argc, char *argv[], bool te
 }
 
 /* called at udev startup and reload */
-static int builtin_hwdb_init(struct udev *udev)
-{
+static int builtin_hwdb_init(struct udev *udev) {
         if (hwdb)
                 return 0;
         hwdb = udev_hwdb_new(udev);
@@ -194,14 +193,12 @@ static int builtin_hwdb_init(struct udev *udev)
 }
 
 /* called on udev shutdown and reload request */
-static void builtin_hwdb_exit(struct udev *udev)
-{
+static void builtin_hwdb_exit(struct udev *udev) {
         hwdb = udev_hwdb_unref(hwdb);
 }
 
 /* called every couple of seconds during event activity; 'true' if config has changed */
-static bool builtin_hwdb_validate(struct udev *udev)
-{
+static bool builtin_hwdb_validate(struct udev *udev) {
         return udev_hwdb_validate(hwdb);
 }
 

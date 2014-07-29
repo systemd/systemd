@@ -44,8 +44,7 @@ static void help(void) {
                "  -h,--help\n\n");
 }
 
-static int adm_settle(struct udev *udev, int argc, char *argv[])
-{
+static int adm_settle(struct udev *udev, int argc, char *argv[]) {
         static const struct option options[] = {
                 { "seq-start",      required_argument, NULL, '\0' }, /* removed */
                 { "seq-end",        required_argument, NULL, '\0' }, /* removed */

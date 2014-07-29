@@ -27,8 +27,7 @@
 
 #include "udev.h"
 
-static bool set_loading(struct udev *udev, char *loadpath, const char *state)
-{
+static bool set_loading(struct udev *udev, char *loadpath, const char *state) {
         FILE *ldfile;
 
         ldfile = fopen(loadpath, "we");
@@ -41,8 +40,7 @@ static bool set_loading(struct udev *udev, char *loadpath, const char *state)
         return true;
 }
 
-static bool copy_firmware(struct udev *udev, const char *source, const char *target, size_t size)
-{
+static bool copy_firmware(struct udev *udev, const char *source, const char *target, size_t size) {
         char *buf;
         FILE *fsource = NULL, *ftarget = NULL;
         bool ret = false;
@@ -74,8 +72,7 @@ exit:
         return ret;
 }
 
-static int builtin_firmware(struct udev_device *dev, int argc, char *argv[], bool test)
-{
+static int builtin_firmware(struct udev_device *dev, int argc, char *argv[], bool test) {
         struct udev *udev = udev_device_get_udev(dev);
         static const char *searchpath[] = { FIRMWARE_PATH };
         char loadpath[UTIL_PATH_SIZE];

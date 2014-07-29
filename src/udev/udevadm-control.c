@@ -28,8 +28,7 @@
 #include "udev.h"
 #include "udev-util.h"
 
-static void print_help(void)
-{
+static void print_help(void) {
         printf("Usage: udevadm control COMMAND\n"
                 "  -e,--exit                 instruct the daemon to cleanup and exit\n"
                 "  -l,--log-priority=LEVEL   set the udev log level for the daemon\n"
@@ -42,8 +41,7 @@ static void print_help(void)
                 "  -h,--help                 print this help text\n\n");
 }
 
-static int adm_control(struct udev *udev, int argc, char *argv[])
-{
+static int adm_control(struct udev *udev, int argc, char *argv[]) {
         _cleanup_udev_ctrl_unref_ struct udev_ctrl *uctrl = NULL;
         int timeout = 60;
         int rc = 1, c;

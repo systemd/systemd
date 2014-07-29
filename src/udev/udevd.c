@@ -57,8 +57,7 @@ static bool debug;
 
 void udev_main_log(struct udev *udev, int priority,
                    const char *file, int line, const char *fn,
-                   const char *format, va_list args)
-{
+                   const char *format, va_list args) {
         log_metav(priority, file, line, fn, format, args);
 }
 
@@ -106,8 +105,7 @@ struct event {
 #endif
 };
 
-static inline struct event *node_to_event(struct udev_list_node *node)
-{
+static inline struct event *node_to_event(struct udev_list_node *node) {
         return container_of(node, struct event, node);
 }
 
@@ -137,34 +135,29 @@ struct worker_message {
         int exitcode;
 };
 
-static inline struct worker *node_to_worker(struct udev_list_node *node)
-{
+static inline struct worker *node_to_worker(struct udev_list_node *node) {
         return container_of(node, struct worker, node);
 }
 
-static void event_queue_delete(struct event *event)
-{
+static void event_queue_delete(struct event *event) {
         udev_list_node_remove(&event->node);
         udev_device_unref(event->dev);
         free(event);
 }
 
-static struct worker *worker_ref(struct worker *worker)
-{
+static struct worker *worker_ref(struct worker *worker) {
         worker->refcount++;
         return worker;
 }
 
-static void worker_cleanup(struct worker *worker)
-{
+static void worker_cleanup(struct worker *worker) {
         udev_list_node_remove(&worker->node);
         udev_monitor_unref(worker->monitor);
         children--;
         free(worker);
 }
 
-static void worker_unref(struct worker *worker)
-{
+static void worker_unref(struct worker *worker) {
         worker->refcount--;
         if (worker->refcount > 0)
                 return;
@@ -172,8 +165,7 @@ static void worker_unref(struct worker *worker)
         worker_cleanup(worker);
 }
 
-static void worker_list_cleanup(struct udev *udev)
-{
+static void worker_list_cleanup(struct udev *udev) {
         struct udev_list_node *loop, *tmp;
 
         udev_list_node_foreach_safe(loop, tmp, &worker_list) {
@@ -183,8 +175,7 @@ static void worker_list_cleanup(struct udev *udev)
         }
 }
 
-static void worker_new(struct event *event)
-{
+static void worker_new(struct event *event) {
         struct udev *udev = event->udev;
         struct worker *worker;
         struct udev_monitor *worker_monitor;
@@ -416,8 +407,7 @@ out:
         }
 }
 
-static void event_run(struct event *event)
-{
+static void event_run(struct event *event) {
         struct udev_list_node *loop;
 
         udev_list_node_foreach(loop, &worker_list) {
@@ -452,8 +442,7 @@ static void event_run(struct event *event)
         worker_new(event);
 }
 
-static int event_queue_insert(struct udev_device *dev)
-{
+static int event_queue_insert(struct udev_device *dev) {
         struct event *event;
 
         event = new0(struct event, 1);
@@ -482,8 +471,7 @@ static int event_queue_insert(struct udev_device *dev)
         return 0;
 }
 
-static void worker_kill(struct udev *udev)
-{
+static void worker_kill(struct udev *udev) {
         struct udev_list_node *loop;
 
         udev_list_node_foreach(loop, &worker_list) {
@@ -498,8 +486,7 @@ static void worker_kill(struct udev *udev)
 }
 
 /* lookup event for identical, parent, child device */
-static bool is_devpath_busy(struct event *event)
-{
+static bool is_devpath_busy(struct event *event) {
         struct udev_list_node *loop;
         size_t common;
 
@@ -576,8 +563,7 @@ static bool is_devpath_busy(struct event *event)
         return false;
 }
 
-static void event_queue_start(struct udev *udev)
-{
+static void event_queue_start(struct udev *udev) {
         struct udev_list_node *loop;
 
         udev_list_node_foreach(loop, &event_list) {
@@ -594,8 +580,7 @@ static void event_queue_start(struct udev *udev)
         }
 }
 
-static void event_queue_cleanup(struct udev *udev, enum event_state match_type)
-{
+static void event_queue_cleanup(struct udev *udev, enum event_state match_type) {
         struct udev_list_node *loop, *tmp;
 
         udev_list_node_foreach_safe(loop, tmp, &event_list) {
@@ -608,8 +593,7 @@ static void event_queue_cleanup(struct udev *udev, enum event_state match_type)
         }
 }
 
-static void worker_returned(int fd_worker)
-{
+static void worker_returned(int fd_worker) {
         for (;;) {
                 struct worker_message msg;
                 ssize_t size;
@@ -641,8 +625,7 @@ static void worker_returned(int fd_worker)
 }
 
 /* receive the udevd message from userspace */
-static struct udev_ctrl_connection *handle_ctrl_msg(struct udev_ctrl *uctrl)
-{
+static struct udev_ctrl_connection *handle_ctrl_msg(struct udev_ctrl *uctrl) {
         struct udev *udev = udev_ctrl_get_udev(uctrl);
         struct udev_ctrl_connection *ctrl_conn;
         struct udev_ctrl_msg *ctrl_msg = NULL;
@@ -831,8 +814,7 @@ static int synthesize_change(struct udev_device *dev) {
         return 0;
 }
 
-static int handle_inotify(struct udev *udev)
-{
+static int handle_inotify(struct udev *udev) {
         int nbytes, pos;
         char *buf;
         struct inotify_event *ev;
@@ -871,8 +853,7 @@ static int handle_inotify(struct udev *udev)
         return 0;
 }
 
-static void handle_signal(struct udev *udev, int signo)
-{
+static void handle_signal(struct udev *udev, int signo) {
         switch (signo) {
         case SIGINT:
         case SIGTERM:
@@ -932,8 +913,7 @@ static void handle_signal(struct udev *udev, int signo)
         }
 }
 
-static int systemd_fds(struct udev *udev, int *rctrl, int *rnetlink)
-{
+static int systemd_fds(struct udev *udev, int *rctrl, int *rnetlink) {
         int ctrl = -1, netlink = -1;
         int fd, n;
 
@@ -974,8 +954,7 @@ static int systemd_fds(struct udev *udev, int *rctrl, int *rnetlink)
  *   udev.children-max=<number of workers>  events are fully serialized if set to 1
  *   udev.exec-delay=<number of seconds>    delay execution of every executed program
  */
-static void kernel_cmdline_options(struct udev *udev)
-{
+static void kernel_cmdline_options(struct udev *udev) {
         _cleanup_free_ char *line = NULL;
         char *w, *state;
         size_t l;

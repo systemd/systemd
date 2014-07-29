@@ -34,8 +34,7 @@
 #include "udev.h"
 #include "rtnl-util.h"
 
-struct udev_event *udev_event_new(struct udev_device *dev)
-{
+struct udev_event *udev_event_new(struct udev_device *dev) {
         struct udev *udev = udev_device_get_udev(dev);
         struct udev_event *event;
 
@@ -51,8 +50,7 @@ struct udev_event *udev_event_new(struct udev_device *dev)
         return event;
 }
 
-void udev_event_unref(struct udev_event *event)
-{
+void udev_event_unref(struct udev_event *event) {
         if (event == NULL)
                 return;
         udev_list_cleanup(&event->run_list);
@@ -62,8 +60,7 @@ void udev_event_unref(struct udev_event *event)
         free(event);
 }
 
-size_t udev_event_apply_format(struct udev_event *event, const char *src, char *dest, size_t size)
-{
+size_t udev_event_apply_format(struct udev_event *event, const char *src, char *dest, size_t size) {
         struct udev_device *dev = event->dev;
         enum subst_type {
                 SUBST_UNKNOWN,
@@ -377,8 +374,7 @@ out:
 
 static int spawn_exec(struct udev_event *event,
                       const char *cmd, char *const argv[], char **envp, const sigset_t *sigmask,
-                      int fd_stdout, int fd_stderr)
-{
+                      int fd_stdout, int fd_stderr) {
         int err;
         int fd;
 
@@ -424,8 +420,7 @@ static void spawn_read(struct udev_event *event,
                        usec_t timeout_usec,
                        const char *cmd,
                        int fd_stdout, int fd_stderr,
-                       char *result, size_t ressize)
-{
+                       char *result, size_t ressize) {
         size_t respos = 0;
         int fd_ep = -1;
         struct epoll_event ep_outpipe, ep_errpipe;
@@ -623,8 +618,7 @@ out:
         return err;
 }
 
-int udev_build_argv(struct udev *udev, char *cmd, int *argc, char *argv[])
-{
+int udev_build_argv(struct udev *udev, char *cmd, int *argc, char *argv[]) {
         int i = 0;
         char *pos;
 
@@ -750,8 +744,7 @@ out:
         return err;
 }
 
-static int rename_netif(struct udev_event *event)
-{
+static int rename_netif(struct udev_event *event) {
         struct udev_device *dev = event->dev;
         _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
         char name[IFNAMSIZ];

@@ -32,8 +32,7 @@
 #include "udev.h"
 #include "smack-util.h"
 
-static int node_symlink(struct udev_device *dev, const char *node, const char *slink)
-{
+static int node_symlink(struct udev_device *dev, const char *node, const char *slink) {
         struct stat stats;
         char target[UTIL_PATH_SIZE];
         char *s;
@@ -126,8 +125,7 @@ exit:
 }
 
 /* find device node of device with highest priority */
-static const char *link_find_prioritized(struct udev_device *dev, bool add, const char *stackdir, char *buf, size_t bufsize)
-{
+static const char *link_find_prioritized(struct udev_device *dev, bool add, const char *stackdir, char *buf, size_t bufsize) {
         struct udev *udev = udev_device_get_udev(dev);
         DIR *dir;
         int priority = 0;
@@ -180,8 +178,7 @@ static const char *link_find_prioritized(struct udev_device *dev, bool add, cons
 }
 
 /* manage "stack of names" with possibly specified device priorities */
-static void link_update(struct udev_device *dev, const char *slink, bool add)
-{
+static void link_update(struct udev_device *dev, const char *slink, bool add) {
         struct udev *udev = udev_device_get_udev(dev);
         char name_enc[UTIL_PATH_SIZE];
         char filename[UTIL_PATH_SIZE * 2];
@@ -224,8 +221,7 @@ static void link_update(struct udev_device *dev, const char *slink, bool add)
         }
 }
 
-void udev_node_update_old_links(struct udev_device *dev, struct udev_device *dev_old)
-{
+void udev_node_update_old_links(struct udev_device *dev, struct udev_device *dev_old) {
         struct udev_list_entry *list_entry;
 
         /* update possible left-over symlinks */
@@ -353,8 +349,7 @@ void udev_node_add(struct udev_device *dev, bool apply,
                         link_update(dev, udev_list_entry_get_name(list_entry), true);
 }
 
-void udev_node_remove(struct udev_device *dev)
-{
+void udev_node_remove(struct udev_device *dev) {
         struct udev_list_entry *list_entry;
         char filename[UTIL_PATH_SIZE];
 

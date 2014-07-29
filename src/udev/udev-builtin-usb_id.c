@@ -31,8 +31,7 @@
 
 #include "udev.h"
 
-static void set_usb_iftype(char *to, int if_class_num, size_t len)
-{
+static void set_usb_iftype(char *to, int if_class_num, size_t len) {
         const char *type = "generic";
 
         switch (if_class_num) {
@@ -82,8 +81,7 @@ static void set_usb_iftype(char *to, int if_class_num, size_t len)
         to[len-1] = '\0';
 }
 
-static int set_usb_mass_storage_ifsubtype(char *to, const char *from, size_t len)
-{
+static int set_usb_mass_storage_ifsubtype(char *to, const char *from, size_t len) {
         int type_num = 0;
         char *eptr;
         const char *type = "generic";
@@ -114,8 +112,7 @@ static int set_usb_mass_storage_ifsubtype(char *to, const char *from, size_t len
         return type_num;
 }
 
-static void set_scsi_type(char *to, const char *from, size_t len)
-{
+static void set_scsi_type(char *to, const char *from, size_t len) {
         int type_num;
         char *eptr;
         const char *type = "generic";
@@ -148,8 +145,7 @@ static void set_scsi_type(char *to, const char *from, size_t len)
 #define USB_DT_DEVICE                        0x01
 #define USB_DT_INTERFACE                0x04
 
-static int dev_if_packed_info(struct udev_device *dev, char *ifs_str, size_t len)
-{
+static int dev_if_packed_info(struct udev_device *dev, char *ifs_str, size_t len) {
         _cleanup_free_ char *filename = NULL;
         _cleanup_close_ int fd = -1;
         ssize_t size;
@@ -232,8 +228,7 @@ static int dev_if_packed_info(struct udev_device *dev, char *ifs_str, size_t len
  * 6.) If the device supplies a serial number, this number
  *     is concatenated with the identification with an underscore '_'.
  */
-static int builtin_usb_id(struct udev_device *dev, int argc, char *argv[], bool test)
-{
+static int builtin_usb_id(struct udev_device *dev, int argc, char *argv[], bool test) {
         char vendor_str[64];
         char vendor_str_enc[256];
         const char *vendor_id;

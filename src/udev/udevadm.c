@@ -27,13 +27,11 @@
 
 void udev_main_log(struct udev *udev, int priority,
                    const char *file, int line, const char *fn,
-                   const char *format, va_list args)
-{
+                   const char *format, va_list args) {
         log_metav(priority, file, line, fn, format, args);
 }
 
-static int adm_version(struct udev *udev, int argc, char *argv[])
-{
+static int adm_version(struct udev *udev, int argc, char *argv[]) {
         printf("%s\n", VERSION);
         return 0;
 }
@@ -63,8 +61,7 @@ static const struct udevadm_cmd *udevadm_cmds[] = {
         &udevadm_help,
 };
 
-static int adm_help(struct udev *udev, int argc, char *argv[])
-{
+static int adm_help(struct udev *udev, int argc, char *argv[]) {
         unsigned int i;
 
         fprintf(stderr, "Usage: udevadm [--help] [--version] [--debug] COMMAND [COMMAND OPTIONS]\n");
@@ -75,16 +72,14 @@ static int adm_help(struct udev *udev, int argc, char *argv[])
         return 0;
 }
 
-static int run_command(struct udev *udev, const struct udevadm_cmd *cmd, int argc, char *argv[])
-{
+static int run_command(struct udev *udev, const struct udevadm_cmd *cmd, int argc, char *argv[]) {
         if (cmd->debug)
                 log_set_max_level(LOG_DEBUG);
         log_debug("calling: %s", cmd->name);
         return cmd->cmd(udev, argc, argv);
 }
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
         struct udev *udev;
         static const struct option options[] = {
                 { "debug", no_argument, NULL, 'd' },

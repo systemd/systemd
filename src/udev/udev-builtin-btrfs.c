@@ -35,8 +35,7 @@ struct btrfs_ioctl_vol_args {
 #define BTRFS_IOCTL_MAGIC 0x94
 #define BTRFS_IOC_DEVICES_READY _IOR(BTRFS_IOCTL_MAGIC, 39, struct btrfs_ioctl_vol_args)
 
-static int builtin_btrfs(struct udev_device *dev, int argc, char *argv[], bool test)
-{
+static int builtin_btrfs(struct udev_device *dev, int argc, char *argv[], bool test) {
         struct  btrfs_ioctl_vol_args args;
         _cleanup_close_ int fd = -1;
         int err;

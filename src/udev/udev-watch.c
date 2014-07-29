@@ -36,8 +36,7 @@ static int inotify_fd = -1;
  * set to cloexec since we need our children to be able to add
  * watches for us
  */
-int udev_watch_init(struct udev *udev)
-{
+int udev_watch_init(struct udev *udev) {
         inotify_fd = inotify_init1(IN_CLOEXEC);
         if (inotify_fd < 0)
                 log_error("inotify_init failed: %m");
@@ -47,8 +46,7 @@ int udev_watch_init(struct udev *udev)
 /* move any old watches directory out of the way, and then restore
  * the watches
  */
-void udev_watch_restore(struct udev *udev)
-{
+void udev_watch_restore(struct udev *udev) {
         if (inotify_fd < 0)
                 return;
 
@@ -94,8 +92,7 @@ unlink:
         }
 }
 
-void udev_watch_begin(struct udev *udev, struct udev_device *dev)
-{
+void udev_watch_begin(struct udev *udev, struct udev_device *dev) {
         char filename[UTIL_PATH_SIZE];
         int wd;
         int r;
@@ -121,8 +118,7 @@ void udev_watch_begin(struct udev *udev, struct udev_device *dev)
         udev_device_set_watch_handle(dev, wd);
 }
 
-void udev_watch_end(struct udev *udev, struct udev_device *dev)
-{
+void udev_watch_end(struct udev *udev, struct udev_device *dev) {
         int wd;
         char filename[UTIL_PATH_SIZE];
 
@@ -142,8 +138,7 @@ void udev_watch_end(struct udev *udev, struct udev_device *dev)
         udev_device_set_watch_handle(dev, -1);
 }
 
-struct udev_device *udev_watch_lookup(struct udev *udev, int wd)
-{
+struct udev_device *udev_watch_lookup(struct udev *udev, int wd) {
         char filename[UTIL_PATH_SIZE];
         char device[UTIL_NAME_SIZE];
         ssize_t len;
