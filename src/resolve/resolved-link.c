@@ -96,7 +96,7 @@ static void link_allocate_scopes(Link *l) {
         } else
                 l->unicast_scope = dns_scope_free(l->unicast_scope);
 
-        if (link_relevant(l, AF_INET) && l->manager->use_llmnr) {
+        if (link_relevant(l, AF_INET) && (l->flags & IFF_MULTICAST) && l->manager->use_llmnr) {
                 if (!l->llmnr_ipv4_scope) {
                         r = dns_scope_new(l->manager, &l->llmnr_ipv4_scope, l, DNS_PROTOCOL_LLMNR, AF_INET);
                         if (r < 0)
@@ -105,7 +105,7 @@ static void link_allocate_scopes(Link *l) {
         } else
                 l->llmnr_ipv4_scope = dns_scope_free(l->llmnr_ipv4_scope);
 
-        if (link_relevant(l, AF_INET6) && l->manager->use_llmnr) {
+        if (link_relevant(l, AF_INET6) && (l->flags & IFF_MULTICAST) && l->manager->use_llmnr) {
                 if (!l->llmnr_ipv6_scope) {
                         r = dns_scope_new(l->manager, &l->llmnr_ipv6_scope, l, DNS_PROTOCOL_LLMNR, AF_INET6);
                         if (r < 0)
