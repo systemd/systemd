@@ -39,6 +39,9 @@ Features:
         - verify new RRs
         - detect conflicts
         - queries with ANY types or classes
+        - collect multiple responses
+        - jitter interval support
+        - add SOA record to empty responses
   - mDNS/DNS-SD
   - DNS-SD service registration from socket units
   - port sd-resolve to direct bus calls
