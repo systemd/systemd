@@ -25,6 +25,10 @@
 #include "strv.h"
 #include "resolved-link.h"
 
+#define DEFAULT_TTL (10)
+
+static void link_address_add_rrs(LinkAddress *a);
+
 int link_new(Manager *m, Link **ret, int ifindex) {
         _cleanup_(link_freep) Link *l = NULL;
         int r;
@@ -110,6 +114,13 @@ static void link_allocate_scopes(Link *l) {
                 l->llmnr_ipv6_scope = dns_scope_free(l->llmnr_ipv6_scope);
 }
 
+static void link_add_rrs(Link *l) {
+        LinkAddress *a;
+
+        LIST_FOREACH(addresses, a, l->addresses)
+                link_address_add_rrs(a);
+}
+
 int link_update_rtnl(Link *l, sd_rtnl_message *m) {
         const char *n = NULL;
         int r;
@@ -129,6 +140,8 @@ int link_update_rtnl(Link *l, sd_rtnl_message *m) {
         }
 
         link_allocate_scopes(l);
+        link_add_rrs(l);
+
         return 0;
 }
 
@@ -183,6 +196,7 @@ int link_update_monitor(Link *l) {
 
         link_update_dns_servers(l);
         link_allocate_scopes(l);
+        link_add_rrs(l);
 
         return 0;
 }
@@ -210,7 +224,7 @@ bool link_relevant(Link *l, int family) {
         return false;
 }
 
-LinkAddress *link_find_address(Link *l, int family, union in_addr_union *in_addr) {
+LinkAddress *link_find_address(Link *l, int family, const union in_addr_union *in_addr) {
         LinkAddress *a;
 
         assert(l);
@@ -222,7 +236,7 @@ LinkAddress *link_find_address(Link *l, int family, union in_addr_union *in_addr
         return NULL;
 }
 
-DnsServer* link_find_dns_server(Link *l, int family, union in_addr_union *in_addr) {
+DnsServer* link_find_dns_server(Link *l, int family, const union in_addr_union *in_addr) {
         DnsServer *s;
 
         assert(l);
@@ -230,7 +244,6 @@ DnsServer* link_find_dns_server(Link *l, int family, union in_addr_union *in_add
         LIST_FOREACH(servers, s, l->dns_servers)
                 if (s->family == family && in_addr_equal(family, &s->address, in_addr))
                         return s;
-
         return NULL;
 }
 
@@ -265,7 +278,7 @@ void link_next_dns_server(Link *l) {
         l->current_dns_server = l->dns_servers;
 }
 
-int link_address_new(Link *l, LinkAddress **ret, int family, union in_addr_union *in_addr) {
+int link_address_new(Link *l, LinkAddress **ret, int family, const union in_addr_union *in_addr) {
         LinkAddress *a;
 
         assert(l);
@@ -291,11 +304,128 @@ LinkAddress *link_address_free(LinkAddress *a) {
         if (!a)
                 return NULL;
 
-        if (a->link)
+        if (a->link) {
                 LIST_REMOVE(addresses, a->link->addresses, a);
+
+                if (a->llmnr_address_rr) {
+
+                        if (a->family == AF_INET && a->link->llmnr_ipv4_scope)
+                                dns_zone_remove_rr(&a->link->llmnr_ipv4_scope->zone, a->llmnr_address_rr);
+                        else if (a->family == AF_INET6 && a->link->llmnr_ipv6_scope)
+                                dns_zone_remove_rr(&a->link->llmnr_ipv6_scope->zone, a->llmnr_address_rr);
+
+                        dns_resource_record_unref(a->llmnr_address_rr);
+                }
+
+                if (a->llmnr_ptr_rr) {
+                        if (a->family == AF_INET && a->link->llmnr_ipv4_scope)
+                                dns_zone_remove_rr(&a->link->llmnr_ipv4_scope->zone, a->llmnr_ptr_rr);
+                        else if (a->family == AF_INET6 && a->link->llmnr_ipv6_scope)
+                                dns_zone_remove_rr(&a->link->llmnr_ipv6_scope->zone, a->llmnr_ptr_rr);
+
+                        dns_resource_record_unref(a->llmnr_ptr_rr);
+                }
+        }
 
         free(a);
         return NULL;
+}
+
+static void link_address_add_rrs(LinkAddress *a) {
+        int r;
+
+        assert(a);
+
+        if (a->family == AF_INET && a->link->llmnr_ipv4_scope) {
+
+                if (!a->link->manager->host_ipv4_key) {
+                        a->link->manager->host_ipv4_key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, a->link->manager->hostname);
+                        if (!a->link->manager->host_ipv4_key) {
+                                r = -ENOMEM;
+                                goto fail;
+                        }
+                }
+
+                if (!a->llmnr_address_rr) {
+                        a->llmnr_address_rr = dns_resource_record_new(a->link->manager->host_ipv4_key);
+                        if (!a->llmnr_address_rr) {
+                                r = -ENOMEM;
+                                goto fail;
+                        }
+
+                        a->llmnr_address_rr->a.in_addr = a->in_addr.in;
+                        a->llmnr_address_rr->ttl = DEFAULT_TTL;
+                }
+
+                if (!a->llmnr_ptr_rr) {
+                        r = dns_resource_record_new_reverse(&a->llmnr_ptr_rr, a->family, &a->in_addr, a->link->manager->hostname);
+                        if (r < 0)
+                                goto fail;
+
+                        a->llmnr_ptr_rr->ttl = DEFAULT_TTL;
+                }
+
+                if (link_address_relevant(a)) {
+                        r = dns_zone_put(&a->link->llmnr_ipv4_scope->zone, a->llmnr_address_rr);
+                        if (r < 0)
+                                goto fail;
+
+                        r = dns_zone_put(&a->link->llmnr_ipv4_scope->zone, a->llmnr_ptr_rr);
+                        if (r < 0)
+                                goto fail;
+                } else {
+                        dns_zone_remove_rr(&a->link->llmnr_ipv4_scope->zone, a->llmnr_address_rr);
+                        dns_zone_remove_rr(&a->link->llmnr_ipv4_scope->zone, a->llmnr_ptr_rr);
+                }
+        }
+
+        if (a->family == AF_INET6 && a->link->llmnr_ipv6_scope) {
+
+                if (!a->link->manager->host_ipv6_key) {
+                        a->link->manager->host_ipv6_key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_AAAA, a->link->manager->hostname);
+                        if (!a->link->manager->host_ipv6_key) {
+                                r = -ENOMEM;
+                                goto fail;
+                        }
+                }
+
+                if (!a->llmnr_address_rr) {
+                        a->llmnr_address_rr = dns_resource_record_new(a->link->manager->host_ipv6_key);
+                        if (!a->llmnr_address_rr) {
+                                r = -ENOMEM;
+                                goto fail;
+                        }
+
+                        a->llmnr_address_rr->aaaa.in6_addr = a->in_addr.in6;
+                        a->llmnr_address_rr->ttl = DEFAULT_TTL;
+                }
+
+                if (!a->llmnr_ptr_rr) {
+                        r = dns_resource_record_new_reverse(&a->llmnr_ptr_rr, a->family, &a->in_addr, a->link->manager->hostname);
+                        if (r < 0)
+                                goto fail;
+
+                        a->llmnr_ptr_rr->ttl = DEFAULT_TTL;
+                }
+
+                if (link_address_relevant(a)) {
+                        r = dns_zone_put(&a->link->llmnr_ipv6_scope->zone, a->llmnr_address_rr);
+                        if (r < 0)
+                                goto fail;
+
+                        r = dns_zone_put(&a->link->llmnr_ipv6_scope->zone, a->llmnr_ptr_rr);
+                        if (r < 0)
+                                goto fail;
+                } else {
+                        dns_zone_remove_rr(&a->link->llmnr_ipv6_scope->zone, a->llmnr_address_rr);
+                        dns_zone_remove_rr(&a->link->llmnr_ipv6_scope->zone, a->llmnr_ptr_rr);
+                }
+        }
+
+        return;
+
+fail:
+        log_debug("Failed to update address RRs: %s", strerror(-r));
 }
 
 int link_address_update_rtnl(LinkAddress *a, sd_rtnl_message *m) {
@@ -310,6 +440,8 @@ int link_address_update_rtnl(LinkAddress *a, sd_rtnl_message *m) {
         sd_rtnl_message_addr_get_scope(m, &a->scope);
 
         link_allocate_scopes(a->link);
+        link_add_rrs(a->link);
+
         return 0;
 }
 

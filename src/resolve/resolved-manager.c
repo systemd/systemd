@@ -390,12 +390,17 @@ int manager_new(Manager **ret) {
 
         m->dns_ipv4_fd = m->dns_ipv6_fd = -1;
         m->llmnr_ipv4_udp_fd = m->llmnr_ipv6_udp_fd = -1;
+        m->llmnr_ipv4_tcp_fd = m->llmnr_ipv6_tcp_fd = -1;
 
         m->use_llmnr = true;
 
         r = parse_dns_server_string(m, DNS_SERVERS);
         if (r < 0)
                 return r;
+
+        m->hostname = gethostname_malloc();
+        if (!m->hostname)
+                return -ENOMEM;
 
         r = sd_event_default(&m->event);
         if (r < 0)
@@ -419,6 +424,19 @@ int manager_new(Manager **ret) {
                 return r;
 
         r = manager_connect_bus(m);
+        if (r < 0)
+                return r;
+
+        r = manager_llmnr_ipv4_udp_fd(m);
+        if (r < 0)
+                return r;
+        r = manager_llmnr_ipv6_udp_fd(m);
+        if (r < 0)
+                return r;
+        r = manager_llmnr_ipv4_tcp_fd(m);
+        if (r < 0)
+                return r;
+        r = manager_llmnr_ipv6_tcp_fd(m);
         if (r < 0)
                 return r;
 
@@ -461,10 +479,19 @@ Manager *manager_free(Manager *m) {
         safe_close(m->llmnr_ipv4_udp_fd);
         safe_close(m->llmnr_ipv6_udp_fd);
 
+        sd_event_source_unref(m->llmnr_ipv4_tcp_event_source);
+        sd_event_source_unref(m->llmnr_ipv6_tcp_event_source);
+        safe_close(m->llmnr_ipv4_tcp_fd);
+        safe_close(m->llmnr_ipv6_tcp_fd);
+
         sd_event_source_unref(m->bus_retry_event_source);
         sd_bus_unref(m->bus);
 
         sd_event_unref(m->event);
+
+        dns_resource_key_unref(m->host_ipv4_key);
+        dns_resource_key_unref(m->host_ipv6_key);
+        free(m->hostname);
         free(m);
 
         return NULL;
@@ -545,7 +572,7 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
                 struct cmsghdr header; /* For alignment */
                 uint8_t buffer[CMSG_SPACE(MAX(sizeof(struct in_pktinfo), sizeof(struct in6_pktinfo)))
                                + CMSG_SPACE(int) /* ttl/hoplimit */
-                               + 1024 /* kernel appears to require extra buffer space */];
+                               + EXTRA_CMSG_SPACE /* kernel appears to require extra buffer space */];
         } control;
         union sockaddr_union sa;
         struct msghdr mh = {};
@@ -595,11 +622,15 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
         p->size = (size_t) l;
 
         p->family = sa.sa.sa_family;
-        if (p->family == AF_INET)
+        p->ipproto = IPPROTO_UDP;
+        if (p->family == AF_INET) {
                 p->sender.in = sa.in.sin_addr;
-        else if (p->family == AF_INET6)
+                p->sender_port = be16toh(sa.in.sin_port);
+        } else if (p->family == AF_INET6) {
                 p->sender.in6 = sa.in6.sin6_addr;
-        else
+                p->sender_port = be16toh(sa.in6.sin6_port);
+                p->ifindex = sa.in6.sin6_scope_id;
+        } else
                 return -EAFNOSUPPORT;
 
         for (cmsg = CMSG_FIRSTHDR(&mh); cmsg; cmsg = CMSG_NXTHDR(&mh, cmsg)) {
@@ -612,7 +643,9 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
                         case IPV6_PKTINFO: {
                                 struct in6_pktinfo *i = (struct in6_pktinfo*) CMSG_DATA(cmsg);
 
-                                p->ifindex = i->ipi6_ifindex;
+                                if (p->ifindex <= 0)
+                                        p->ifindex = i->ipi6_ifindex;
+
                                 p->destination.in6 = i->ipi6_addr;
                                 break;
                         }
@@ -630,17 +663,31 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
                         case IP_PKTINFO: {
                                 struct in_pktinfo *i = (struct in_pktinfo*) CMSG_DATA(cmsg);
 
-                                p->ifindex = i->ipi_ifindex;
+                                if (p->ifindex <= 0)
+                                        p->ifindex = i->ipi_ifindex;
+
                                 p->destination.in = i->ipi_addr;
                                 break;
                         }
 
-                        case IP_RECVTTL:
+                        case IP_TTL:
                                 p->ttl = *(int *) CMSG_DATA(cmsg);
                                 break;
                         }
                 }
         }
+
+        /* The Linux kernel sets the interface index to the loopback
+         * device if the packet came from the local host since it
+         * avoids the routing table in such a case. Let's unset the
+         * interface index in such a case. */
+        if (p->ifindex > 0 && manager_ifindex_is_loopback(m, p->ifindex) != 0)
+                p->ifindex = 0;
+
+        /* If we don't know the interface index still, we look for the
+         * first local interface with a matching address. Yuck! */
+        if (p->ifindex <= 0)
+                p->ifindex = manager_find_ifindex(m, p->family, &p->destination);
 
         *ret = p;
         p = NULL;
@@ -658,14 +705,15 @@ static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *use
         if (r <= 0)
                 return r;
 
-        if (dns_packet_validate_reply(p) >= 0) {
+        if (dns_packet_validate_reply(p) > 0) {
                 t = hashmap_get(m->dns_query_transactions, UINT_TO_PTR(DNS_PACKET_ID(p)));
                 if (!t)
                         return 0;
 
                 dns_query_transaction_process_reply(t, p);
+
         } else
-                log_debug("Invalid reply packet.");
+                log_debug("Invalid DNS packet.");
 
         return 0;
 }
@@ -754,7 +802,7 @@ static int sendmsg_loop(int fd, struct msghdr *mh, int flags) {
         }
 }
 
-static int manager_ipv4_send(Manager *m, int fd, int ifindex, struct in_addr *addr, uint16_t port, DnsPacket *p) {
+static int manager_ipv4_send(Manager *m, int fd, int ifindex, const struct in_addr *addr, uint16_t port, DnsPacket *p) {
         union sockaddr_union sa = {
                 .in.sin_family = AF_INET,
         };
@@ -803,7 +851,7 @@ static int manager_ipv4_send(Manager *m, int fd, int ifindex, struct in_addr *ad
         return sendmsg_loop(fd, &mh, 0);
 }
 
-static int manager_ipv6_send(Manager *m, int fd, int ifindex, struct in6_addr *addr, uint16_t port, DnsPacket *p) {
+static int manager_ipv6_send(Manager *m, int fd, int ifindex, const struct in6_addr *addr, uint16_t port, DnsPacket *p) {
         union sockaddr_union sa = {
                 .in6.sin6_family = AF_INET6,
         };
@@ -853,7 +901,7 @@ static int manager_ipv6_send(Manager *m, int fd, int ifindex, struct in6_addr *a
         return sendmsg_loop(fd, &mh, 0);
 }
 
-int manager_send(Manager *m, int fd, int ifindex, int family, union in_addr_union *addr, uint16_t port, DnsPacket *p) {
+int manager_send(Manager *m, int fd, int ifindex, int family, const union in_addr_union *addr, uint16_t port, DnsPacket *p) {
         assert(m);
         assert(fd >= 0);
         assert(addr);
@@ -869,7 +917,7 @@ int manager_send(Manager *m, int fd, int ifindex, int family, union in_addr_unio
 }
 
 
-DnsServer* manager_find_dns_server(Manager *m, int family, union in_addr_union *in_addr) {
+DnsServer* manager_find_dns_server(Manager *m, int family, const union in_addr_union *in_addr) {
         DnsServer *s;
 
         assert(m);
@@ -943,13 +991,30 @@ static int on_llmnr_packet(sd_event_source *s, int fd, uint32_t revents, void *u
         if (r <= 0)
                 return r;
 
-        if (dns_packet_validate_reply(p) >= 0) {
+        if (dns_packet_validate_reply(p) > 0) {
                 t = hashmap_get(m->dns_query_transactions, UINT_TO_PTR(DNS_PACKET_ID(p)));
                 if (!t)
                         return 0;
 
                 dns_query_transaction_process_reply(t, p);
-        }
+
+        } else if (dns_packet_validate_query(p) > 0) {
+                Link *l;
+
+                l = hashmap_get(m->links, INT_TO_PTR(p->ifindex));
+                if (l) {
+                        DnsScope *scope = NULL;
+
+                        if (p->family == AF_INET)
+                                scope = l->llmnr_ipv4_scope;
+                        else if (p->family == AF_INET6)
+                                scope = l->llmnr_ipv6_scope;
+
+                        if (scope)
+                                dns_scope_process_query(scope, NULL, p);
+                }
+        } else
+                log_debug("Invalid LLMNR packet.");
 
         return 0;
 }
@@ -1107,4 +1172,226 @@ int manager_llmnr_ipv6_udp_fd(Manager *m) {
 fail:
         m->llmnr_ipv6_udp_fd = safe_close(m->llmnr_ipv6_udp_fd);
         return r;
+}
+
+static int on_llmnr_stream_packet(DnsStream *s) {
+        assert(s);
+
+        if (dns_packet_validate_query(s->read_packet) > 0) {
+                Link *l;
+
+                l = hashmap_get(s->manager->links, INT_TO_PTR(s->read_packet->ifindex));
+                if (l) {
+                        DnsScope *scope = NULL;
+
+                        if (s->read_packet->family == AF_INET)
+                                scope = l->llmnr_ipv4_scope;
+                        else if (s->read_packet->family == AF_INET6)
+                                scope = l->llmnr_ipv6_scope;
+
+                        if (scope) {
+                                dns_scope_process_query(scope, s, s->read_packet);
+
+                                /* If no reply packet was set, we free the stream */
+                                if (s->write_packet)
+                                        return 0;
+                        }
+                }
+        }
+
+        dns_stream_free(s);
+        return 0;
+}
+
+static int on_llmnr_stream(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        DnsStream *stream;
+        Manager *m = userdata;
+        int cfd, r;
+
+        cfd = accept4(fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC);
+        if (cfd < 0) {
+                if (errno == EAGAIN || errno == EINTR)
+                        return 0;
+
+                return -errno;
+        }
+
+        r = dns_stream_new(m, &stream, DNS_PROTOCOL_LLMNR, cfd);
+        if (r < 0) {
+                safe_close(cfd);
+                return r;
+        }
+
+        stream->on_packet = on_llmnr_stream_packet;
+        return 0;
+}
+
+int manager_llmnr_ipv4_tcp_fd(Manager *m) {
+        union sockaddr_union sa = {
+                .in.sin_family = AF_INET,
+                .in.sin_port = htobe16(5355),
+        };
+        static const int one = 1, pmtu = IP_PMTUDISC_DONT;
+        int r;
+
+        assert(m);
+
+        if (m->llmnr_ipv4_tcp_fd >= 0)
+                return m->llmnr_ipv4_tcp_fd;
+
+        m->llmnr_ipv4_tcp_fd = socket(AF_INET, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        if (m->llmnr_ipv4_tcp_fd < 0)
+                return -errno;
+
+        r = setsockopt(m->llmnr_ipv4_tcp_fd, IPPROTO_IP, IP_TTL, &one, sizeof(one));
+        if (r < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        r = setsockopt(m->llmnr_ipv4_tcp_fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
+        if (r < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        r = setsockopt(m->llmnr_ipv4_tcp_fd, IPPROTO_IP, IP_PKTINFO, &one, sizeof(one));
+        if (r < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        r = setsockopt(m->llmnr_ipv4_tcp_fd, IPPROTO_IP, IP_RECVTTL, &one, sizeof(one));
+        if (r < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        /* Disable Don't-Fragment bit in the IP header */
+        r = setsockopt(m->llmnr_ipv4_tcp_fd, IPPROTO_IP, IP_MTU_DISCOVER, &pmtu, sizeof(pmtu));
+        if (r < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        r = bind(m->llmnr_ipv4_tcp_fd, &sa.sa, sizeof(sa.in));
+        if (r < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        r = listen(m->llmnr_ipv4_tcp_fd, SOMAXCONN);
+        if (r < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        r = sd_event_add_io(m->event, &m->llmnr_ipv4_tcp_event_source, m->llmnr_ipv4_tcp_fd, EPOLLIN, on_llmnr_stream, m);
+        if (r < 0)
+                goto fail;
+
+        return m->llmnr_ipv4_tcp_fd;
+
+fail:
+        m->llmnr_ipv4_tcp_fd = safe_close(m->llmnr_ipv4_tcp_fd);
+        return r;
+}
+
+int manager_llmnr_ipv6_tcp_fd(Manager *m) {
+        union sockaddr_union sa = {
+                .in6.sin6_family = AF_INET6,
+                .in6.sin6_port = htobe16(5355),
+        };
+        static const int one = 1;
+        int r;
+
+        assert(m);
+
+        if (m->llmnr_ipv6_tcp_fd >= 0)
+                return m->llmnr_ipv6_tcp_fd;
+
+        m->llmnr_ipv6_tcp_fd = socket(AF_INET6, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        if (m->llmnr_ipv6_tcp_fd < 0)
+                return -errno;
+
+        r = setsockopt(m->llmnr_ipv6_tcp_fd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &one, sizeof(one));
+        if (r < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        r = setsockopt(m->llmnr_ipv6_tcp_fd, IPPROTO_IPV6, IPV6_V6ONLY, &one, sizeof(one));
+        if (r < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        r = setsockopt(m->llmnr_ipv6_tcp_fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
+        if (r < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        r = setsockopt(m->llmnr_ipv6_tcp_fd, IPPROTO_IPV6, IPV6_RECVPKTINFO, &one, sizeof(one));
+        if (r < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        r = setsockopt(m->llmnr_ipv6_tcp_fd, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, &one, sizeof(one));
+        if (r < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        r = bind(m->llmnr_ipv6_tcp_fd, &sa.sa, sizeof(sa.in6));
+        if (r < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        r = listen(m->llmnr_ipv6_tcp_fd, SOMAXCONN);
+        if (r < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        r = sd_event_add_io(m->event, &m->llmnr_ipv6_tcp_event_source, m->llmnr_ipv6_tcp_fd, EPOLLIN, on_llmnr_stream, m);
+        if (r < 0)  {
+                r = -errno;
+                goto fail;
+        }
+
+        return m->llmnr_ipv6_tcp_fd;
+
+fail:
+        m->llmnr_ipv6_tcp_fd = safe_close(m->llmnr_ipv6_tcp_fd);
+        return r;
+}
+
+int manager_ifindex_is_loopback(Manager *m, int ifindex) {
+        Link *l;
+        assert(m);
+
+        if (ifindex <= 0)
+                return -EINVAL;
+
+        l = hashmap_get(m->links, INT_TO_PTR(ifindex));
+        if (l->flags & IFF_LOOPBACK)
+                return 1;
+
+        return 0;
+}
+
+int manager_find_ifindex(Manager *m, int family, const union in_addr_union *in_addr) {
+        Link *l;
+        Iterator i;
+
+        assert(m);
+
+        HASHMAP_FOREACH(l, m->links, i)
+                if (link_find_address(l, family, in_addr))
+                        return l->ifindex;
+
+        return 0;
 }

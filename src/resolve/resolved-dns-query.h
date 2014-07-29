@@ -36,6 +36,7 @@ typedef struct DnsQueryTransaction DnsQueryTransaction;
 #include "resolved-dns-packet.h"
 #include "resolved-dns-question.h"
 #include "resolved-dns-answer.h"
+#include "resolved-dns-stream.h"
 
 typedef enum DnsQueryState {
         DNS_QUERY_NULL,
@@ -65,11 +66,8 @@ struct DnsQueryTransaction {
         sd_event_source *timeout_event_source;
         unsigned n_attempts;
 
-        /* TCP connection logic */
-        int tcp_fd;
-        sd_event_source *tcp_event_source;
-        size_t tcp_written, tcp_read;
-        be16_t tcp_read_size;
+        /* TCP connection logic, if we need it */
+        DnsStream *stream;
 
         /* Queries this transaction is referenced by and that shall by
          * notified about this specific transaction completing. */

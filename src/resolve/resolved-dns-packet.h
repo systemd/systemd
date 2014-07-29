@@ -77,8 +77,9 @@ struct DnsPacket {
 
         /* Packet reception meta data */
         int ifindex;
-        int family;
+        int family, ipproto;
         union in_addr_union sender, destination;
+        uint16_t sender_port, destination_port;
         uint32_t ttl;
 };
 
@@ -131,15 +132,20 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(DnsPacket*, dns_packet_unref);
 
 int dns_packet_validate(DnsPacket *p);
 int dns_packet_validate_reply(DnsPacket *p);
+int dns_packet_validate_query(DnsPacket *p);
 
+int dns_packet_append_blob(DnsPacket *p, const void *d, size_t sz, size_t *start);
 int dns_packet_append_uint8(DnsPacket *p, uint8_t v, size_t *start);
 int dns_packet_append_uint16(DnsPacket *p, uint16_t v, size_t *start);
+int dns_packet_append_uint32(DnsPacket *p, uint32_t v, size_t *start);
 int dns_packet_append_string(DnsPacket *p, const char *s, size_t *start);
 int dns_packet_append_label(DnsPacket *p, const char *s, size_t l, size_t *start);
 int dns_packet_append_name(DnsPacket *p, const char *name, size_t *start);
-int dns_packet_append_key(DnsPacket *p, const DnsResourceKey *k, size_t *start);
+int dns_packet_append_key(DnsPacket *p, const DnsResourceKey *key, size_t *start);
+int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *start);
 
 int dns_packet_read(DnsPacket *p, size_t sz, const void **ret, size_t *start);
+int dns_packet_read_blob(DnsPacket *p, void *d, size_t sz, size_t *start);
 int dns_packet_read_uint8(DnsPacket *p, uint8_t *ret, size_t *start);
 int dns_packet_read_uint16(DnsPacket *p, uint16_t *ret, size_t *start);
 int dns_packet_read_uint32(DnsPacket *p, uint32_t *ret, size_t *start);

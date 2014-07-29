@@ -43,8 +43,7 @@ DnsQueryTransaction* dns_query_transaction_free(DnsQueryTransaction *t) {
         dns_packet_unref(t->received);
         dns_answer_unref(t->cached);
 
-        sd_event_source_unref(t->tcp_event_source);
-        safe_close(t->tcp_fd);
+        dns_stream_free(t->stream);
 
         if (t->scope) {
                 LIST_REMOVE(transactions_by_scope, t->scope->transactions, t);
@@ -90,7 +89,6 @@ static int dns_query_transaction_new(DnsQueryTransaction **ret, DnsScope *s, Dns
         if (!t)
                 return -ENOMEM;
 
-        t->tcp_fd = -1;
         t->question = dns_question_ref(q);
 
         do
@@ -119,8 +117,7 @@ static void dns_query_transaction_stop(DnsQueryTransaction *t) {
         assert(t);
 
         t->timeout_event_source = sd_event_source_unref(t->timeout_event_source);
-        t->tcp_event_source = sd_event_source_unref(t->tcp_event_source);
-        t->tcp_fd = safe_close(t->tcp_fd);
+        t->stream = dns_stream_free(t->stream);
 }
 
 void dns_query_transaction_complete(DnsQueryTransaction *t, DnsQueryState state) {
@@ -149,131 +146,65 @@ void dns_query_transaction_complete(DnsQueryTransaction *t, DnsQueryState state)
         dns_query_transaction_gc(t);
 }
 
-static int on_tcp_ready(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        DnsQueryTransaction *t = userdata;
-        int r;
+static int on_stream_complete(DnsStream *s, int error) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+        DnsQueryTransaction *t;
 
-        assert(t);
+        assert(s);
+        assert(s->transaction);
 
-        if (revents & EPOLLOUT) {
-                struct iovec iov[2];
-                be16_t sz;
-                ssize_t ss;
+        /* Copy the data we care about out of the stream before we
+         * destroy it. */
+        t = s->transaction;
+        p = dns_packet_ref(s->read_packet);
 
-                sz = htobe16(t->sent->size);
+        t->stream = dns_stream_free(t->stream);
 
-                iov[0].iov_base = &sz;
-                iov[0].iov_len = sizeof(sz);
-                iov[1].iov_base = DNS_PACKET_DATA(t->sent);
-                iov[1].iov_len = t->sent->size;
-
-                IOVEC_INCREMENT(iov, 2, t->tcp_written);
-
-                ss = writev(fd, iov, 2);
-                if (ss < 0) {
-                        if (errno != EINTR && errno != EAGAIN) {
-                                dns_query_transaction_complete(t, DNS_QUERY_RESOURCES);
-                                return -errno;
-                        }
-                } else
-                        t->tcp_written += ss;
-
-                /* Are we done? If so, disable the event source for EPOLLOUT */
-                if (t->tcp_written >= sizeof(sz) + t->sent->size) {
-                        r = sd_event_source_set_io_events(s, EPOLLIN);
-                        if (r < 0) {
-                                dns_query_transaction_complete(t, DNS_QUERY_RESOURCES);
-                                return r;
-                        }
-                }
+        if (error != 0) {
+                dns_query_transaction_complete(t, DNS_QUERY_RESOURCES);
+                return 0;
         }
 
-        if (revents & (EPOLLIN|EPOLLHUP|EPOLLRDHUP)) {
-
-                if (t->tcp_read < sizeof(t->tcp_read_size)) {
-                        ssize_t ss;
-
-                        ss = read(fd, (uint8_t*) &t->tcp_read_size + t->tcp_read, sizeof(t->tcp_read_size) - t->tcp_read);
-                        if (ss < 0) {
-                                if (errno != EINTR && errno != EAGAIN) {
-                                        dns_query_transaction_complete(t, DNS_QUERY_RESOURCES);
-                                        return -errno;
-                                }
-                        } else if (ss == 0) {
-                                dns_query_transaction_complete(t, DNS_QUERY_RESOURCES);
-                                return -EIO;
-                        } else
-                                t->tcp_read += ss;
-                }
-
-                if (t->tcp_read >= sizeof(t->tcp_read_size)) {
-
-                        if (be16toh(t->tcp_read_size) < DNS_PACKET_HEADER_SIZE) {
-                                dns_query_transaction_complete(t, DNS_QUERY_INVALID_REPLY);
-                                return -EBADMSG;
-                        }
-
-                        if (t->tcp_read < sizeof(t->tcp_read_size) + be16toh(t->tcp_read_size)) {
-                                ssize_t ss;
-
-                                if (!t->received) {
-                                        r = dns_packet_new(&t->received, t->scope->protocol, be16toh(t->tcp_read_size));
-                                        if (r < 0) {
-                                                dns_query_transaction_complete(t, DNS_QUERY_RESOURCES);
-                                                return r;
-                                        }
-                                }
-
-                                ss = read(fd,
-                                          (uint8_t*) DNS_PACKET_DATA(t->received) + t->tcp_read - sizeof(t->tcp_read_size),
-                                          sizeof(t->tcp_read_size) + be16toh(t->tcp_read_size) - t->tcp_read);
-                                if (ss < 0) {
-                                        if (errno != EINTR && errno != EAGAIN) {
-                                                dns_query_transaction_complete(t, DNS_QUERY_RESOURCES);
-                                                return -errno;
-                                        }
-                                } else if (ss == 0) {
-                                        dns_query_transaction_complete(t, DNS_QUERY_RESOURCES);
-                                        return -EIO;
-                                }  else
-                                        t->tcp_read += ss;
-                        }
-
-                        if (t->tcp_read >= sizeof(t->tcp_read_size) + be16toh(t->tcp_read_size)) {
-                                t->received->size = be16toh(t->tcp_read_size);
-                                dns_query_transaction_process_reply(t, t->received);
-                                return 0;
-                        }
-                }
-        }
-
+        dns_query_transaction_process_reply(t, p);
         return 0;
 }
 
 static int dns_query_transaction_open_tcp(DnsQueryTransaction *t) {
+        _cleanup_close_ int fd = -1;
         int r;
 
         assert(t);
 
-        if (t->scope->protocol == DNS_PROTOCOL_DNS)
-                return -ENOTSUP;
-
-        if (t->tcp_fd >= 0)
+        if (t->stream)
                 return 0;
 
-        t->tcp_written = 0;
-        t->tcp_read = 0;
-        t->received = dns_packet_unref(t->received);
+        if (t->scope->protocol == DNS_PROTOCOL_DNS)
+                fd = dns_scope_tcp_socket(t->scope, AF_UNSPEC, NULL, 53);
+        else if (t->scope->protocol == DNS_PROTOCOL_LLMNR) {
+                if (!t->received)
+                        return -EINVAL;
 
-        t->tcp_fd = dns_scope_tcp_socket(t->scope);
-        if (t->tcp_fd < 0)
-                return t->tcp_fd;
+                fd = dns_scope_tcp_socket(t->scope, t->received->family, &t->received->sender, t->received->sender_port);
+        } else
+                return -EAFNOSUPPORT;
 
-        r = sd_event_add_io(t->scope->manager->event, &t->tcp_event_source, t->tcp_fd, EPOLLIN|EPOLLOUT, on_tcp_ready, t);
+        if (fd < 0)
+                return fd;
+
+        r = dns_stream_new(t->scope->manager, &t->stream, t->scope->protocol, fd);
+        if (r < 0)
+                return r;
+
+        fd = -1;
+
+        r = dns_stream_write_packet(t->stream, t->sent);
         if (r < 0) {
-                t->tcp_fd = safe_close(t->tcp_fd);
+                t->stream = dns_stream_free(t->stream);
                 return r;
         }
+
+        t->received = dns_packet_unref(t->received);
+        t->stream->complete = on_stream_complete;
 
         return 0;
 }
@@ -289,12 +220,46 @@ void dns_query_transaction_process_reply(DnsQueryTransaction *t, DnsPacket *p) {
          * should hence not attempt to access the query or transaction
          * after calling this function. */
 
+        if (t->scope->protocol == DNS_PROTOCOL_LLMNR) {
+                assert(t->scope->link);
+
+                /* For LLMNR we will not accept any packets from other
+                 * interfaces */
+
+                if (p->ifindex != t->scope->link->ifindex)
+                        return;
+
+                if (p->family != t->scope->family)
+                        return;
+
+                if (p->ipproto == IPPROTO_UDP) {
+                        if (p->family == AF_INET && !in_addr_equal(AF_INET, &p->destination, (union in_addr_union*) &LLMNR_MULTICAST_IPV4_ADDRESS))
+                                return;
+
+                        if (p->family == AF_INET6 && !in_addr_equal(AF_INET6, &p->destination, (union in_addr_union*) &LLMNR_MULTICAST_IPV6_ADDRESS))
+                                return;
+                }
+        }
+
+        if (t->scope->protocol == DNS_PROTOCOL_DNS) {
+
+                /* For DNS we are fine with accepting packets on any
+                 * interface, but the source IP address must be one of
+                 * a valid DNS server */
+
+                if (!dns_scope_good_dns_server(t->scope, p->family, &p->sender))
+                        return;
+
+                if (p->sender_port != 53)
+                        return;
+        }
+
         if (t->received != p) {
                 dns_packet_unref(t->received);
                 t->received = dns_packet_ref(p);
         }
 
-        if (t->tcp_fd >= 0) {
+        if (p->ipproto == IPPROTO_TCP) {
                 if (DNS_PACKET_TC(p)) {
                         /* Truncated via TCP? Somebody must be fucking with us */
                         dns_query_transaction_complete(t, DNS_QUERY_INVALID_REPLY);
@@ -317,7 +282,14 @@ void dns_query_transaction_process_reply(DnsQueryTransaction *t, DnsPacket *p) {
                         return;
                 }
                 if (r < 0) {
-                        /* Couldn't send? Try immediately again, with a new server */
+                        /* On LLMNR, if we cannot connect to the host,
+                         * we immediately give up */
+                        if (t->scope->protocol == DNS_PROTOCOL_LLMNR) {
+                                dns_query_transaction_complete(t, DNS_QUERY_RESOURCES);
+                                return;
+                        }
+
+                        /* On DNS, couldn't send? Try immediately again, with a new server */
                         dns_scope_next_dns_server(t->scope);
 
                         r = dns_query_transaction_go(t);

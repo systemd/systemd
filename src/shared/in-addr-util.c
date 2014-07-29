@@ -23,7 +23,7 @@
 
 #include "in-addr-util.h"
 
-int in_addr_null(int family, union in_addr_union *u) {
+int in_addr_null(int family, const union in_addr_union *u) {
         assert(u);
 
         if (family == AF_INET)
@@ -40,7 +40,7 @@ int in_addr_null(int family, union in_addr_union *u) {
 }
 
 
-int in_addr_equal(int family, union in_addr_union *a, union in_addr_union *b) {
+int in_addr_equal(int family, const union in_addr_union *a, const union in_addr_union *b) {
         assert(a);
         assert(b);
 

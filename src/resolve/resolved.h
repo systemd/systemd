@@ -34,6 +34,7 @@ typedef struct Manager Manager;
 #include "resolved-dns-query.h"
 #include "resolved-dns-server.h"
 #include "resolved-dns-scope.h"
+#include "resolved-dns-stream.h"
 
 struct Manager {
         sd_event *event;
@@ -54,6 +55,9 @@ struct Manager {
         LIST_HEAD(DnsQuery, dns_queries);
         unsigned n_dns_queries;
 
+        LIST_HEAD(DnsStream, dns_streams);
+        unsigned n_dns_streams;
+
         /* Unicast dns */
         int dns_ipv4_fd;
         int dns_ipv6_fd;
@@ -70,15 +74,22 @@ struct Manager {
         /* LLMNR */
         int llmnr_ipv4_udp_fd;
         int llmnr_ipv6_udp_fd;
-        /* int llmnr_ipv4_tcp_fd; */
-        /* int llmnr_ipv6_tcp_fd; */
+        int llmnr_ipv4_tcp_fd;
+        int llmnr_ipv6_tcp_fd;
 
         sd_event_source *llmnr_ipv4_udp_event_source;
         sd_event_source *llmnr_ipv6_udp_event_source;
+        sd_event_source *llmnr_ipv4_tcp_event_source;
+        sd_event_source *llmnr_ipv6_tcp_event_source;
 
         /* dbus */
         sd_bus *bus;
         sd_event_source *bus_retry_event_source;
+
+        /* The hostname we publish on LLMNR and mDNS */
+        char *hostname;
+        DnsResourceKey *host_ipv4_key;
+        DnsResourceKey *host_ipv6_key;
 };
 
 /* Manager */
@@ -89,18 +100,23 @@ Manager* manager_free(Manager *m);
 int manager_parse_config_file(Manager *m);
 int manager_write_resolv_conf(Manager *m);
 
-DnsServer* manager_find_dns_server(Manager *m, int family, union in_addr_union *in_addr);
+DnsServer* manager_find_dns_server(Manager *m, int family, const union in_addr_union *in_addr);
 DnsServer *manager_get_dns_server(Manager *m);
 void manager_next_dns_server(Manager *m);
 uint32_t manager_find_mtu(Manager *m);
 
-int manager_send(Manager *m, int fd, int ifindex, int family, union in_addr_union *addr, uint16_t port, DnsPacket *p);
+int manager_send(Manager *m, int fd, int ifindex, int family, const union in_addr_union *addr, uint16_t port, DnsPacket *p);
 int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret);
 
 int manager_dns_ipv4_fd(Manager *m);
 int manager_dns_ipv6_fd(Manager *m);
 int manager_llmnr_ipv4_udp_fd(Manager *m);
 int manager_llmnr_ipv6_udp_fd(Manager *m);
+int manager_llmnr_ipv4_tcp_fd(Manager *m);
+int manager_llmnr_ipv6_tcp_fd(Manager *m);
+
+int manager_ifindex_is_loopback(Manager *m, int ifindex);
+int manager_find_ifindex(Manager *m, int family, const union in_addr_union *in_addr);
 
 int manager_connect_bus(Manager *m);
 
@@ -108,3 +124,5 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 
 const struct ConfigPerfItem* resolved_gperf_lookup(const char *key, unsigned length);
 int config_parse_dnsv(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+
+#define EXTRA_CMSG_SPACE 1024

@@ -28,8 +28,6 @@
 #include "time-util.h"
 #include "list.h"
 
-typedef struct DnsCacheItem DnsCacheItem;
-
 typedef struct DnsCache {
         Hashmap *by_key;
         Prioq *by_expiry;
@@ -38,21 +36,6 @@ typedef struct DnsCache {
 #include "resolved-dns-rr.h"
 #include "resolved-dns-question.h"
 #include "resolved-dns-answer.h"
-
-typedef enum DnsCacheItemType {
-        DNS_CACHE_POSITIVE,
-        DNS_CACHE_NODATA,
-        DNS_CACHE_NXDOMAIN,
-} DnsCacheItemType;
-
-typedef struct DnsCacheItem {
-        DnsResourceKey *key;
-        DnsResourceRecord *rr;
-        usec_t until;
-        DnsCacheItemType type;
-        unsigned prioq_idx;
-        LIST_FIELDS(DnsCacheItem, by_key);
-} DnsCacheItem;
 
 void dns_cache_flush(DnsCache *c);
 void dns_cache_prune(DnsCache *c);

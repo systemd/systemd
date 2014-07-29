@@ -31,6 +31,8 @@ typedef struct DnsScope DnsScope;
 #include "resolved-dns-packet.h"
 #include "resolved-dns-query.h"
 #include "resolved-dns-cache.h"
+#include "resolved-dns-zone.h"
+#include "resolved-dns-stream.h"
 
 typedef enum DnsScopeMatch {
         DNS_SCOPE_NO,
@@ -51,6 +53,7 @@ struct DnsScope {
         char **domains;
 
         DnsCache cache;
+        DnsZone zone;
 
         LIST_HEAD(DnsQueryTransaction, transactions);
 
@@ -61,12 +64,15 @@ int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol p, int family
 DnsScope* dns_scope_free(DnsScope *s);
 
 int dns_scope_send(DnsScope *s, DnsPacket *p);
-int dns_scope_tcp_socket(DnsScope *s);
+int dns_scope_tcp_socket(DnsScope *s, int family, const union in_addr_union *address, uint16_t port);
 
 DnsScopeMatch dns_scope_good_domain(DnsScope *s, const char *domain);
 int dns_scope_good_key(DnsScope *s, DnsResourceKey *key);
+int dns_scope_good_dns_server(DnsScope *s, int family, const union in_addr_union *address);
 
 DnsServer *dns_scope_get_server(DnsScope *s);
 void dns_scope_next_dns_server(DnsScope *s);
 
 int dns_scope_llmnr_membership(DnsScope *s, bool b);
+
+void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p);

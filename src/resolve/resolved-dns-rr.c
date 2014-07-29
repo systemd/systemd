@@ -213,6 +213,40 @@ DnsResourceRecord* dns_resource_record_unref(DnsResourceRecord *rr) {
         return NULL;
 }
 
+int dns_resource_record_new_reverse(DnsResourceRecord **ret, int family, const union in_addr_union *address, const char *hostname) {
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_free_ char *ptr = NULL;
+        int r;
+
+        assert(ret);
+        assert(address);
+        assert(hostname);
+
+        r = dns_name_reverse(family, address, &ptr);
+        if (r < 0)
+                return r;
+
+        key = dns_resource_key_new_consume(DNS_CLASS_IN, DNS_TYPE_PTR, ptr);
+        if (!key)
+                return -ENOMEM;
+
+        ptr = NULL;
+
+        rr = dns_resource_record_new(key);
+        if (!rr)
+                return -ENOMEM;
+
+        rr->ptr.name = strdup(hostname);
+        if (!rr->ptr.name)
+                return -ENOMEM;
+
+        *ret = rr;
+        rr = NULL;
+
+        return 0;
+}
+
 int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecord *b) {
         int r;
 

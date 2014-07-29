@@ -28,6 +28,24 @@
 /* We never keep any item longer than 10min in our cache */
 #define CACHE_TTL_MAX_USEC (10 * USEC_PER_MINUTE)
 
+typedef enum DnsCacheItemType DnsCacheItemType;
+typedef struct DnsCacheItem DnsCacheItem;
+
+enum DnsCacheItemType {
+        DNS_CACHE_POSITIVE,
+        DNS_CACHE_NODATA,
+        DNS_CACHE_NXDOMAIN,
+};
+
+struct DnsCacheItem {
+        DnsResourceKey *key;
+        DnsResourceRecord *rr;
+        usec_t until;
+        DnsCacheItemType type;
+        unsigned prioq_idx;
+        LIST_FIELDS(DnsCacheItem, by_key);
+};
+
 static void dns_cache_item_free(DnsCacheItem *i) {
         if (!i)
                 return;
@@ -157,8 +175,10 @@ static int dns_cache_item_prioq_compare_func(const void *a, const void *b) {
         return 0;
 }
 
-static int init_cache(DnsCache *c) {
+static int dns_cache_init(DnsCache *c) {
         int r;
+
+        assert(c);
 
         r = prioq_ensure_allocated(&c->by_expiry, dns_cache_item_prioq_compare_func);
         if (r < 0)
@@ -258,7 +278,7 @@ static int dns_cache_put_positive(DnsCache *c, DnsResourceRecord *rr, usec_t tim
         }
 
         /* Otherwise, add the new RR */
-        r = init_cache(c);
+        r = dns_cache_init(c);
         if (r < 0)
                 return r;
 
@@ -294,7 +314,7 @@ static int dns_cache_put_negative(DnsCache *c, DnsResourceKey *key, int rcode, u
         if (!IN_SET(rcode, DNS_RCODE_SUCCESS, DNS_RCODE_NXDOMAIN))
                 return 0;
 
-        r = init_cache(c);
+        r = dns_cache_init(c);
         if (r < 0)
                 return r;
 
@@ -394,6 +414,7 @@ int dns_cache_lookup(DnsCache *c, DnsQuestion *q, int *rcode, DnsAnswer **ret) {
 
         assert(c);
         assert(q);
+        assert(rcode);
         assert(ret);
 
         if (q->n_keys <= 0) {

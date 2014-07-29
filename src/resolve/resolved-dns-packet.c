@@ -130,7 +130,7 @@ int dns_packet_validate(DnsPacket *p) {
         if (p->size > DNS_PACKET_SIZE_MAX)
                 return -EBADMSG;
 
-        return 0;
+        return 1;
 }
 
 int dns_packet_validate_reply(DnsPacket *p) {
@@ -142,13 +142,44 @@ int dns_packet_validate_reply(DnsPacket *p) {
         if (r < 0)
                 return r;
 
-        if (DNS_PACKET_QR(p) == 0)
-                return -EBADMSG;
+        if (DNS_PACKET_QR(p) != 1)
+                return 0;
 
         if (DNS_PACKET_OPCODE(p) != 0)
                 return -EBADMSG;
 
-        return 0;
+        return 1;
+}
+
+int dns_packet_validate_query(DnsPacket *p) {
+        int r;
+
+        assert(p);
+
+        r = dns_packet_validate(p);
+        if (r < 0)
+                return r;
+
+        if (DNS_PACKET_QR(p) != 0)
+                return 0;
+
+        if (DNS_PACKET_OPCODE(p) != 0)
+                return -EBADMSG;
+
+        if (DNS_PACKET_TC(p))
+                return -EBADMSG;
+
+        if (p->protocol == DNS_PROTOCOL_LLMNR &&
+            DNS_PACKET_QDCOUNT(p) != 1)
+                return -EBADMSG;
+
+        if (DNS_PACKET_ANCOUNT(p) > 0)
+                return -EBADMSG;
+
+        if (DNS_PACKET_NSCOUNT(p) > 0)
+                return -EBADMSG;
+
+        return 1;
 }
 
 static int dns_packet_extend(DnsPacket *p, size_t add, void **ret, size_t *start) {
@@ -216,6 +247,20 @@ static void dns_packet_truncate(DnsPacket *p, size_t sz) {
         p->size = sz;
 }
 
+int dns_packet_append_blob(DnsPacket *p, const void *d, size_t l, size_t *start) {
+        void *q;
+        int r;
+
+        assert(p);
+
+        r = dns_packet_extend(p, l, &q, start);
+        if (r < 0)
+                return r;
+
+        memcpy(q, d, l);
+        return 0;
+}
+
 int dns_packet_append_uint8(DnsPacket *p, uint8_t v, size_t *start) {
         void *d;
         int r;
@@ -242,7 +287,25 @@ int dns_packet_append_uint16(DnsPacket *p, uint16_t v, size_t *start) {
                 return r;
 
         ((uint8_t*) d)[0] = (uint8_t) (v >> 8);
-        ((uint8_t*) d)[1] = (uint8_t) (v & 255);
+        ((uint8_t*) d)[1] = (uint8_t) v;
+
+        return 0;
+}
+
+int dns_packet_append_uint32(DnsPacket *p, uint32_t v, size_t *start) {
+        void *d;
+        int r;
+
+        assert(p);
+
+        r = dns_packet_extend(p, sizeof(uint32_t), &d, start);
+        if (r < 0)
+                return r;
+
+        ((uint8_t*) d)[0] = (uint8_t) (v >> 24);
+        ((uint8_t*) d)[1] = (uint8_t) (v >> 16);
+        ((uint8_t*) d)[2] = (uint8_t) (v >> 8);
+        ((uint8_t*) d)[3] = (uint8_t) v;
 
         return 0;
 }
@@ -387,6 +450,114 @@ fail:
         return r;
 }
 
+int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *start) {
+        size_t saved_size, rdlength_offset, end, rdlength;
+        int r;
+
+        assert(p);
+        assert(rr);
+
+        saved_size = p->size;
+
+        r = dns_packet_append_key(p, rr->key, NULL);
+        if (r < 0)
+                goto fail;
+
+        r = dns_packet_append_uint32(p, rr->ttl, NULL);
+        if (r < 0)
+                goto fail;
+
+        /* Initially we write 0 here */
+        r = dns_packet_append_uint16(p, 0, &rdlength_offset);
+        if (r < 0)
+                goto fail;
+
+        switch (rr->key->type) {
+
+        case DNS_TYPE_PTR:
+        case DNS_TYPE_NS:
+        case DNS_TYPE_CNAME:
+                r = dns_packet_append_name(p, rr->ptr.name, NULL);
+                break;
+
+        case DNS_TYPE_HINFO:
+                r = dns_packet_append_string(p, rr->hinfo.cpu, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_string(p, rr->hinfo.os, NULL);
+                break;
+
+        case DNS_TYPE_A:
+                r = dns_packet_append_blob(p, &rr->a.in_addr, sizeof(struct in_addr), NULL);
+                break;
+
+        case DNS_TYPE_AAAA:
+                r = dns_packet_append_blob(p, &rr->aaaa.in6_addr, sizeof(struct in6_addr), NULL);
+                break;
+
+        case DNS_TYPE_SOA:
+                r = dns_packet_append_name(p, rr->soa.mname, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_name(p, rr->soa.rname, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_uint32(p, rr->soa.serial, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_uint32(p, rr->soa.refresh, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_uint32(p, rr->soa.retry, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_uint32(p, rr->soa.expire, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_uint32(p, rr->soa.minimum, NULL);
+                break;
+
+        case DNS_TYPE_MX:
+        case DNS_TYPE_TXT:
+        case DNS_TYPE_SRV:
+        case DNS_TYPE_DNAME:
+        case DNS_TYPE_SSHFP:
+        default:
+                r = dns_packet_append_blob(p, rr->generic.data, rr->generic.size, NULL);
+                break;
+        }
+        if (r < 0)
+                goto fail;
+
+        /* Let's calculate the actual data size and update the field */
+        rdlength = p->size - rdlength_offset - sizeof(uint16_t);
+        if (rdlength > 0xFFFF) {
+                r = ENOSPC;
+                goto fail;
+        }
+
+        end = p->size;
+        p->size = rdlength_offset;
+        r = dns_packet_append_uint16(p, rdlength, NULL);
+        if (r < 0)
+                goto fail;
+        p->size = end;
+
+        return 0;
+
+fail:
+        dns_packet_truncate(p, saved_size);
+        return r;
+}
+
+
 int dns_packet_read(DnsPacket *p, size_t sz, const void **ret, size_t *start) {
         assert(p);
 
@@ -409,6 +580,21 @@ void dns_packet_rewind(DnsPacket *p, size_t idx) {
         assert(idx >= DNS_PACKET_HEADER_SIZE);
 
         p->rindex = idx;
+}
+
+int dns_packet_read_blob(DnsPacket *p, void *d, size_t sz, size_t *start) {
+        const void *q;
+        int r;
+
+        assert(p);
+        assert(d);
+
+        r = dns_packet_read(p, sz, &q, start);
+        if (r < 0)
+                return r;
+
+        memcpy(d, q, sz);
+        return 0;
 }
 
 int dns_packet_read_uint8(DnsPacket *p, uint8_t *ret, size_t *start) {
@@ -696,19 +882,11 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                 break;
 
         case DNS_TYPE_A:
-                r = dns_packet_read(p, sizeof(struct in_addr), &d, NULL);
-                if (r < 0)
-                        goto fail;
-
-                memcpy(&rr->a.in_addr, d, sizeof(struct in_addr));
+                r = dns_packet_read_blob(p, &rr->a.in_addr, sizeof(struct in_addr), NULL);
                 break;
 
         case DNS_TYPE_AAAA:
-                r = dns_packet_read(p, sizeof(struct in6_addr), &d, NULL);
-                if (r < 0)
-                        goto fail;
-
-                memcpy(&rr->aaaa.in6_addr, d, sizeof(struct in6_addr));
+                r = dns_packet_read_blob(p, &rr->aaaa.in6_addr, sizeof(struct in6_addr), NULL);
                 break;
 
         case DNS_TYPE_SOA:
@@ -739,6 +917,11 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                 r = dns_packet_read_uint32(p, &rr->soa.minimum, NULL);
                 break;
 
+        case DNS_TYPE_MX:
+        case DNS_TYPE_TXT:
+        case DNS_TYPE_SRV:
+        case DNS_TYPE_DNAME:
+        case DNS_TYPE_SSHFP:
         default:
                 r = dns_packet_read(p, rdlength, &d, NULL);
                 if (r < 0)

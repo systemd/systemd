@@ -32,6 +32,7 @@ typedef struct LinkAddress LinkAddress;
 #include "resolved.h"
 #include "resolved-dns-server.h"
 #include "resolved-dns-scope.h"
+#include "resolved-dns-rr.h"
 
 struct LinkAddress {
         Link *link;
@@ -40,6 +41,9 @@ struct LinkAddress {
         union in_addr_union in_addr;
 
         unsigned char flags, scope;
+
+        DnsResourceRecord *llmnr_address_rr;
+        DnsResourceRecord *llmnr_ptr_rr;
 
         LIST_FIELDS(LinkAddress, addresses);
 };
@@ -71,13 +75,13 @@ Link *link_free(Link *l);
 int link_update_rtnl(Link *l, sd_rtnl_message *m);
 int link_update_monitor(Link *l);
 bool link_relevant(Link *l, int family);
-LinkAddress* link_find_address(Link *l, int family, union in_addr_union *in_addr);
+LinkAddress* link_find_address(Link *l, int family, const union in_addr_union *in_addr);
 
-DnsServer* link_find_dns_server(Link *l, int family, union in_addr_union *in_addr);
+DnsServer* link_find_dns_server(Link *l, int family, const union in_addr_union *in_addr);
 DnsServer* link_get_dns_server(Link *l);
 void link_next_dns_server(Link *l);
 
-int link_address_new(Link *l, LinkAddress **ret, int family, union in_addr_union *in_addr);
+int link_address_new(Link *l, LinkAddress **ret, int family, const union in_addr_union *in_addr);
 LinkAddress *link_address_free(LinkAddress *a);
 int link_address_update_rtnl(LinkAddress *a, sd_rtnl_message *m);
 bool link_address_relevant(LinkAddress *l);

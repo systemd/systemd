@@ -26,6 +26,7 @@
 
 #include "util.h"
 #include "hashmap.h"
+#include "in-addr-util.h"
 
 typedef struct DnsResourceKey DnsResourceKey;
 typedef struct DnsResourceRecord DnsResourceRecord;
@@ -49,8 +50,8 @@ enum {
         DNS_TYPE_TXT   = 0x10,
         DNS_TYPE_AAAA  = 0x1C,
         DNS_TYPE_SRV   = 0x21,
-        DNS_TYPE_SSHFP = 0x2C,
         DNS_TYPE_DNAME = 0x27,
+        DNS_TYPE_SSHFP = 0x2C,
 
         /* Special records */
         DNS_TYPE_ANY   = 0xFF,
@@ -141,6 +142,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(DnsResourceKey*, dns_resource_key_unref);
 DnsResourceRecord* dns_resource_record_new(DnsResourceKey *key);
 DnsResourceRecord* dns_resource_record_ref(DnsResourceRecord *rr);
 DnsResourceRecord* dns_resource_record_unref(DnsResourceRecord *rr);
+int dns_resource_record_new_reverse(DnsResourceRecord **ret, int family, const union in_addr_union *address, const char *name);
 int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecord *b);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsResourceRecord*, dns_resource_record_unref);
 

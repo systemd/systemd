@@ -499,3 +499,7 @@ static inline int setns(int fd, int nstype) {
 
 #define IFLA_BRIDGE_MAX (__IFLA_BRIDGE_MAX - 1)
 #endif
+
+#ifndef IPV6_UNICAST_IF
+#define IPV6_UNICAST_IF 76
+#endif

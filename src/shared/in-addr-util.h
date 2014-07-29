@@ -31,8 +31,8 @@ union in_addr_union {
         struct in6_addr in6;
 };
 
-int in_addr_null(int family, union in_addr_union *u);
-int in_addr_equal(int family, union in_addr_union *a, union in_addr_union *b);
+int in_addr_null(int family, const union in_addr_union *u);
+int in_addr_equal(int family, const union in_addr_union *a, const union in_addr_union *b);
 int in_addr_prefix_intersect(int family, const union in_addr_union *a, unsigned aprefixlen, const union in_addr_union *b, unsigned bprefixlen);
 int in_addr_prefix_next(int family, union in_addr_union *u, unsigned prefixlen);
 int in_addr_to_string(int family, const union in_addr_union *u, char **ret);

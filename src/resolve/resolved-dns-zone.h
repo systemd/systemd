@@ -21,41 +21,20 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "in-addr-util.h"
+#include "hashmap.h"
 
-typedef struct DnsServer DnsServer;
-typedef enum DnsServerSource DnsServerSource;
+typedef struct DnsZone {
+        Hashmap *by_key;
+        Hashmap *by_name;
+} DnsZone;
 
-#include "resolved.h"
-#include "resolved-link.h"
-#include "resolved-dns-server.h"
+#include "resolved-dns-rr.h"
+#include "resolved-dns-question.h"
+#include "resolved-dns-answer.h"
 
-enum DnsServerSource {
-        DNS_SERVER_ANY,
-        DNS_SERVER_SYSTEM,
-        DNS_SERVER_LINK,
-        _DNS_SERVER_SOURCE_MAX
-};
+void dns_zone_flush(DnsZone *z);
 
-struct DnsServer {
-        Manager *manager;
-        DnsServerSource source;
+int dns_zone_put(DnsZone *z, DnsResourceRecord *rr);
+void dns_zone_remove_rr(DnsZone *z, DnsResourceRecord *rr);
 
-        Link *link;
-
-        int family;
-        union in_addr_union address;
-
-        bool marked:1;
-
-        LIST_FIELDS(DnsServer, servers);
-};
-
-int dns_server_new(
-                Manager *m,
-                DnsServer **s,
-                Link *l,
-                int family,
-                const union in_addr_union *address);
-
-DnsServer* dns_server_free(DnsServer *s);
+int dns_zone_lookup(DnsZone *z, DnsQuestion *q, DnsAnswer **answer);

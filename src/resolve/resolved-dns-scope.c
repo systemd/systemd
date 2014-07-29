@@ -21,6 +21,7 @@
 
 #include <netinet/tcp.h>
 
+#include "missing.h"
 #include "strv.h"
 #include "socket-util.h"
 #include "af-list.h"
@@ -77,6 +78,7 @@ DnsScope* dns_scope_free(DnsScope *s) {
         }
 
         dns_cache_flush(&s->cache);
+        dns_zone_flush(&s->zone);
 
         LIST_REMOVE(scopes, s->manager->dns_scopes, s);
         strv_free(s->domains);
@@ -130,6 +132,9 @@ int dns_scope_send(DnsScope *s, DnsPacket *p) {
         if (s->protocol == DNS_PROTOCOL_DNS) {
                 DnsServer *srv;
 
+                if (DNS_PACKET_QDCOUNT(p) > 1)
+                        return -ENOTSUP;
+
                 srv = dns_scope_get_server(s);
                 if (!srv)
                         return -ESRCH;
@@ -163,12 +168,10 @@ int dns_scope_send(DnsScope *s, DnsPacket *p) {
 
                 if (family == AF_INET) {
                         addr.in = LLMNR_MULTICAST_IPV4_ADDRESS;
-                        /* fd = manager_dns_ipv4_fd(s->manager); */
                         fd = manager_llmnr_ipv4_udp_fd(s->manager);
                 } else if (family == AF_INET6) {
                         addr.in6 = LLMNR_MULTICAST_IPV6_ADDRESS;
                         fd = manager_llmnr_ipv6_udp_fd(s->manager);
-                        /* fd = manager_dns_ipv6_fd(s->manager); */
                 } else
                         return -EAFNOSUPPORT;
                 if (fd < 0)
@@ -183,39 +186,86 @@ int dns_scope_send(DnsScope *s, DnsPacket *p) {
         return 1;
 }
 
-int dns_scope_tcp_socket(DnsScope *s) {
+int dns_scope_tcp_socket(DnsScope *s, int family, const union in_addr_union *address, uint16_t port) {
         _cleanup_close_ int fd = -1;
         union sockaddr_union sa = {};
         socklen_t salen;
-        int one, ret;
-        DnsServer *srv;
-        int r;
+        static const int one = 1;
+        int ret, r;
 
         assert(s);
+        assert((family == AF_UNSPEC) == !address);
 
-        srv = dns_scope_get_server(s);
-        if (!srv)
-                return -ESRCH;
+        if (family == AF_UNSPEC) {
+                DnsServer *srv;
 
-        sa.sa.sa_family = srv->family;
-        if (srv->family == AF_INET) {
-                sa.in.sin_port = htobe16(53);
-                sa.in.sin_addr = srv->address.in;
-                salen = sizeof(sa.in);
-        } else if (srv->family == AF_INET6) {
-                sa.in6.sin6_port = htobe16(53);
-                sa.in6.sin6_addr = srv->address.in6;
-                sa.in6.sin6_scope_id = s->link ? s->link->ifindex : 0;
-                salen = sizeof(sa.in6);
-        } else
-                return -EAFNOSUPPORT;
+                srv = dns_scope_get_server(s);
+                if (!srv)
+                        return -ESRCH;
 
-        fd = socket(srv->family, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+                sa.sa.sa_family = srv->family;
+                if (srv->family == AF_INET) {
+                        sa.in.sin_port = htobe16(port);
+                        sa.in.sin_addr = srv->address.in;
+                        salen = sizeof(sa.in);
+                } else if (srv->family == AF_INET6) {
+                        sa.in6.sin6_port = htobe16(port);
+                        sa.in6.sin6_addr = srv->address.in6;
+                        sa.in6.sin6_scope_id = s->link ? s->link->ifindex : 0;
+                        salen = sizeof(sa.in6);
+                } else
+                        return -EAFNOSUPPORT;
+        } else {
+                sa.sa.sa_family = family;
+
+                if (family == AF_INET) {
+                        sa.in.sin_port = htobe16(port);
+                        sa.in.sin_addr = address->in;
+                        salen = sizeof(sa.in);
+                } else if (family == AF_INET6) {
+                        sa.in6.sin6_port = htobe16(port);
+                        sa.in6.sin6_addr = address->in6;
+                        sa.in6.sin6_scope_id = s->link ? s->link->ifindex : 0;
+                        salen = sizeof(sa.in6);
+                } else
+                        return -EAFNOSUPPORT;
+        }
+
+        fd = socket(sa.sa.sa_family, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
         if (fd < 0)
                 return -errno;
 
-        one = 1;
-        setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
+        r = setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
+        if (r < 0)
+                return -errno;
+
+        if (s->link) {
+                uint32_t ifindex = htobe32(s->link->ifindex);
+
+                if (sa.sa.sa_family == AF_INET) {
+                        r = setsockopt(fd, IPPROTO_IP, IP_UNICAST_IF, &ifindex, sizeof(ifindex));
+                        if (r < 0)
+                                return -errno;
+                } else if (sa.sa.sa_family == AF_INET6) {
+                        r = setsockopt(fd, IPPROTO_IPV6, IPV6_UNICAST_IF, &ifindex, sizeof(ifindex));
+                        if (r < 0)
+                                return -errno;
+                }
+        }
+
+        if (s->protocol == DNS_PROTOCOL_LLMNR) {
+                /* RFC 4795, section 2.5 suggests the TTL to be set to 1 */
+
+                if (sa.sa.sa_family == AF_INET) {
+                        r = setsockopt(fd, IPPROTO_IP, IP_TTL, &one, sizeof(one));
+                        if (r < 0)
+                                return -errno;
+                } else if (sa.sa.sa_family == AF_INET6) {
+                        r = setsockopt(fd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &one, sizeof(one));
+                        if (r < 0)
+                                return -errno;
+                }
+        }
 
         r = connect(fd, &sa.sa, salen);
         if (r < 0 && errno != EINPROGRESS)
@@ -223,6 +273,7 @@ int dns_scope_tcp_socket(DnsScope *s) {
 
         ret = fd;
         fd = -1;
+
         return ret;
 }
 
@@ -323,4 +374,116 @@ int dns_scope_llmnr_membership(DnsScope *s, bool b) {
                 return -EAFNOSUPPORT;
 
         return 0;
+}
+
+int dns_scope_good_dns_server(DnsScope *s, int family, const union in_addr_union *address) {
+        assert(s);
+        assert(address);
+
+        if (s->protocol != DNS_PROTOCOL_DNS)
+                return 1;
+
+        if (s->link)
+                return !!link_find_dns_server(s->link,  family, address);
+        else
+                return !!manager_find_dns_server(s->manager, family, address);
+}
+
+static int dns_scope_make_reply_packet(DnsScope *s, uint16_t id, int rcode, DnsQuestion *q, DnsAnswer *a, DnsPacket **ret) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+        unsigned i;
+        int r;
+
+        assert(s);
+
+        if (q->n_keys <= 0 && a->n_rrs <= 0)
+                return -EINVAL;
+
+        r = dns_packet_new(&p, s->protocol, 0);
+        if (r < 0)
+                return r;
+
+        DNS_PACKET_HEADER(p)->id = id;
+        DNS_PACKET_HEADER(p)->flags = htobe16(DNS_PACKET_MAKE_FLAGS(1, 0, 0, 0, 0, 0, 0, 0, rcode));
+
+        if (q) {
+                for (i = 0; i < q->n_keys; i++) {
+                        r = dns_packet_append_key(p, q->keys[i], NULL);
+                        if (r < 0)
+                                return r;
+                }
+
+                DNS_PACKET_HEADER(p)->qdcount = htobe16(q->n_keys);
+        }
+
+        if (a) {
+                for (i = 0; i < a->n_rrs; i++) {
+                        r = dns_packet_append_rr(p, a->rrs[i], NULL);
+                        if (r < 0)
+                                return r;
+                }
+
+                DNS_PACKET_HEADER(p)->ancount = htobe16(a->n_rrs);
+        }
+
+        *ret = p;
+        p = NULL;
+
+        return 0;
+}
+
+void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *reply = NULL;
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        int r, fd;
+
+        assert(s);
+        assert(p);
+
+        if (p->protocol != DNS_PROTOCOL_LLMNR)
+                return;
+
+        r = dns_packet_extract(p);
+        if (r < 0) {
+                log_debug("Failed to extract resources from incoming packet: %s", strerror(-r));
+                return;
+        }
+
+        r = dns_zone_lookup(&s->zone, p->question, &answer);
+        if (r < 0) {
+                log_debug("Failed to lookup key: %s", strerror(-r));
+                return;
+        }
+        if (r == 0)
+                return;
+
+        r = dns_scope_make_reply_packet(s, DNS_PACKET_ID(p), DNS_RCODE_SUCCESS, p->question, answer, &reply);
+        if (r < 0) {
+                log_debug("Failed to build reply packet: %s", strerror(-r));
+                return;
+        }
+
+        if (stream)
+                r = dns_stream_write_packet(stream, reply);
+        else {
+                if (p->family == AF_INET)
+                        fd = manager_llmnr_ipv4_udp_fd(s->manager);
+                else if (p->family == AF_INET6)
+                        fd = manager_llmnr_ipv6_udp_fd(s->manager);
+                else {
+                        log_debug("Unknown protocol");
+                        return;
+                }
+                if (fd < 0) {
+                        log_debug("Failed to get reply socket: %s", strerror(-fd));
+                        return;
+                }
+
+                r = manager_send(s->manager, fd, p->ifindex, p->family, &p->sender, p->sender_port, reply);
+        }
+
+        if (r < 0) {
+                log_debug("Failed to send reply packet: %s", strerror(-r));
+                return;
+        }
 }
