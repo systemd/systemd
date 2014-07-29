@@ -157,13 +157,14 @@ static void test_strv_quote_unquote(const char* const *split, const char *quoted
         }
 }
 
-static void test_strv_quote_unquote2(const char *quoted, const char ** list) {
+static void test_strv_unquote(const char *quoted, const char **list) {
         _cleanup_strv_free_ char **s;
         unsigned i = 0;
         char **t;
 
         s = strv_split_quoted(quoted);
         assert_se(s);
+        strv_print(s);
 
         STRV_FOREACH(t, s)
                 assert_se(streq(list[i++], *t));
@@ -414,17 +415,20 @@ int main(int argc, char *argv[]) {
         test_strv_quote_unquote(input_table_quotes, QUOTES_STRING);
         test_strv_quote_unquote(input_table_spaces, SPACES_STRING);
 
-        test_strv_quote_unquote2("    foo=bar     \"waldo\"    zzz    ", (const char*[]) { "foo=bar", "waldo", "zzz", NULL });
-        test_strv_quote_unquote2("", (const char*[]) { NULL });
-        test_strv_quote_unquote2(" ", (const char*[]) { NULL });
-        test_strv_quote_unquote2("   ", (const char*[]) { NULL });
-        test_strv_quote_unquote2("   x", (const char*[]) { "x", NULL });
-        test_strv_quote_unquote2("x   ", (const char*[]) { "x", NULL });
-        test_strv_quote_unquote2("  x   ", (const char*[]) { "x", NULL });
-        test_strv_quote_unquote2("  \"x\"   ", (const char*[]) { "x", NULL });
-        test_strv_quote_unquote2("  \'x\'   ", (const char*[]) { "x", NULL });
-        test_strv_quote_unquote2("  \'x\"\'   ", (const char*[]) { "x\"", NULL });
-        test_strv_quote_unquote2("  \"x\'\"   ", (const char*[]) { "x\'", NULL });
+        test_strv_unquote("    foo=bar     \"waldo\"    zzz    ", (const char*[]) { "foo=bar", "waldo", "zzz", NULL });
+        test_strv_unquote("", (const char*[]) { NULL });
+        test_strv_unquote(" ", (const char*[]) { NULL });
+        test_strv_unquote("   ", (const char*[]) { NULL });
+        test_strv_unquote("   x", (const char*[]) { "x", NULL });
+        test_strv_unquote("x   ", (const char*[]) { "x", NULL });
+        test_strv_unquote("  x   ", (const char*[]) { "x", NULL });
+        test_strv_unquote("  \"x\"   ", (const char*[]) { "x", NULL });
+        test_strv_unquote("  'x'   ", (const char*[]) { "x", NULL });
+        test_strv_unquote("  'x\"'   ", (const char*[]) { "x\"", NULL });
+        test_strv_unquote("  \"x'\"   ", (const char*[]) { "x'", NULL });
+        test_strv_unquote("a  '--b=c \"d e\"'", (const char*[]) { "a", "--b=c \"d e\"", NULL });
+
+        test_strv_unquote("a  --b='c \"d e\"'", (const char*[]) { "a", "--b='c", "\"d", "e\"'", NULL });
 
         test_strv_split();
         test_strv_split_newlines();
