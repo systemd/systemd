@@ -25,7 +25,8 @@
 #include "strv.h"
 #include "resolved-link.h"
 
-#define DEFAULT_TTL (10)
+/* RFC 4795 Section 2.8. suggests a TTL of 30s by default */
+#define LLMNR_DEFAULT_TTL (30)
 
 static void link_address_add_rrs(LinkAddress *a);
 
@@ -354,7 +355,7 @@ static void link_address_add_rrs(LinkAddress *a) {
                         }
 
                         a->llmnr_address_rr->a.in_addr = a->in_addr.in;
-                        a->llmnr_address_rr->ttl = DEFAULT_TTL;
+                        a->llmnr_address_rr->ttl = LLMNR_DEFAULT_TTL;
                 }
 
                 if (!a->llmnr_ptr_rr) {
@@ -362,7 +363,7 @@ static void link_address_add_rrs(LinkAddress *a) {
                         if (r < 0)
                                 goto fail;
 
-                        a->llmnr_ptr_rr->ttl = DEFAULT_TTL;
+                        a->llmnr_ptr_rr->ttl = LLMNR_DEFAULT_TTL;
                 }
 
                 if (link_address_relevant(a)) {
@@ -397,7 +398,7 @@ static void link_address_add_rrs(LinkAddress *a) {
                         }
 
                         a->llmnr_address_rr->aaaa.in6_addr = a->in_addr.in6;
-                        a->llmnr_address_rr->ttl = DEFAULT_TTL;
+                        a->llmnr_address_rr->ttl = LLMNR_DEFAULT_TTL;
                 }
 
                 if (!a->llmnr_ptr_rr) {
@@ -405,7 +406,7 @@ static void link_address_add_rrs(LinkAddress *a) {
                         if (r < 0)
                                 goto fail;
 
-                        a->llmnr_ptr_rr->ttl = DEFAULT_TTL;
+                        a->llmnr_ptr_rr->ttl = LLMNR_DEFAULT_TTL;
                 }
 
                 if (link_address_relevant(a)) {

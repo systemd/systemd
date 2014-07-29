@@ -24,11 +24,26 @@
 #include "resolved-dns-query.h"
 #include "resolved-dns-domain.h"
 
-#define TRANSACTION_TIMEOUT_USEC (5 * USEC_PER_SEC)
+/* After how much time to repeat classic DNS requests */
+#define DNS_TRANSACTION_TIMEOUT_USEC (5 * USEC_PER_SEC)
+
+/* After how much time to repeat LLMNR requests, see RFC 4795 Section 7 */
+#define LLMNR_TRANSACTION_TIMEOUT_USEC (1 * USEC_PER_SEC)
+
+/* How long to wait for the query in total */
 #define QUERY_TIMEOUT_USEC (30 * USEC_PER_SEC)
-#define ATTEMPTS_MAX 8
+
+/* Maximum attempts to send DNS requests, across all DNS servers */
+#define DNS_TRANSACTION_ATTEMPTS_MAX 8
+
+/* Maximum attempts to send LLMNR requests, see RFC 4795 Section 2.7 */
+#define LLMNR_TRANSACTION_ATTEMPTS_MAX 3
+
 #define CNAME_MAX 8
 #define QUERIES_MAX 2048
+
+#define TRANSACTION_TIMEOUT_USEC(p) ((t)->scope->protocol == DNS_PROTOCOL_LLMNR ? LLMNR_TRANSACTION_TIMEOUT_USEC : DNS_TRANSACTION_TIMEOUT_USEC)
+#define TRANSACTION_ATTEMPTS_MAX(p) ((t)->scope->protocol == DNS_PROTOCOL_LLMNR ? LLMNR_TRANSACTION_ATTEMPTS_MAX : DNS_TRANSACTION_ATTEMPTS_MAX)
 
 static int dns_query_transaction_go(DnsQueryTransaction *t);
 
@@ -411,9 +426,12 @@ static int dns_query_make_packet(DnsQueryTransaction *t) {
 }
 
 static int dns_query_transaction_go(DnsQueryTransaction *t) {
+        bool had_stream;
         int r;
 
         assert(t);
+
+        had_stream = !!t->stream;
 
         dns_query_transaction_stop(t);
 
@@ -422,7 +440,14 @@ static int dns_query_transaction_go(DnsQueryTransaction *t) {
                   t->scope->link ? t->scope->link->name : "*",
                   t->scope->family == AF_UNSPEC ? "*" : af_to_name(t->scope->family));
 
-        if (t->n_attempts >= ATTEMPTS_MAX) {
+        if (t->n_attempts >= TRANSACTION_ATTEMPTS_MAX(t)) {
+                dns_query_transaction_complete(t, DNS_QUERY_ATTEMPTS_MAX);
+                return 0;
+        }
+
+        if (t->scope->protocol == DNS_PROTOCOL_LLMNR && had_stream) {
+                /* If we already tried via a stream, then we don't
+                 * retry on LLMNR. See RFC 4795, Section 2.7. */
                 dns_query_transaction_complete(t, DNS_QUERY_ATTEMPTS_MAX);
                 return 0;
         }
@@ -482,7 +507,7 @@ static int dns_query_transaction_go(DnsQueryTransaction *t) {
                 return dns_query_transaction_go(t);
         }
 
-        r = sd_event_add_time(t->scope->manager->event, &t->timeout_event_source, CLOCK_MONOTONIC, now(CLOCK_MONOTONIC) + TRANSACTION_TIMEOUT_USEC, 0, on_transaction_timeout, t);
+        r = sd_event_add_time(t->scope->manager->event, &t->timeout_event_source, CLOCK_MONOTONIC, now(CLOCK_MONOTONIC) + TRANSACTION_TIMEOUT_USEC(t), 0, on_transaction_timeout, t);
         if (r < 0)
                 return r;
 
