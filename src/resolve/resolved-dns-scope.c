@@ -254,7 +254,7 @@ int dns_scope_tcp_socket(DnsScope *s, int family, const union in_addr_union *add
         }
 
         if (s->protocol == DNS_PROTOCOL_LLMNR) {
-                /* RFC 4795, section 2.5 suggests the TTL to be set to 1 */
+                /* RFC 4795, section 2.5 requires the TTL to be set to 1 */
 
                 if (sa.sa.sa_family == AF_INET) {
                         r = setsockopt(fd, IPPROTO_IP, IP_TTL, &one, sizeof(one));

@@ -1024,7 +1024,7 @@ int manager_llmnr_ipv4_udp_fd(Manager *m) {
                 .in.sin_family = AF_INET,
                 .in.sin_port = htobe16(5355),
         };
-        static const int one = 1, pmtu = IP_PMTUDISC_DONT;
+        static const int one = 1, pmtu = IP_PMTUDISC_DONT, ttl = 255;
         int r;
 
         assert(m);
@@ -1036,13 +1036,14 @@ int manager_llmnr_ipv4_udp_fd(Manager *m) {
         if (m->llmnr_ipv4_udp_fd < 0)
                 return -errno;
 
-        r = setsockopt(m->llmnr_ipv4_udp_fd, IPPROTO_IP, IP_TTL, &one, sizeof(one));
+        /* RFC 4795, section 2.5 recommends setting the TTL of UDP packets to 255. */
+        r = setsockopt(m->llmnr_ipv4_udp_fd, IPPROTO_IP, IP_TTL, &ttl, sizeof(ttl));
         if (r < 0) {
                 r = -errno;
                 goto fail;
         }
 
-        r = setsockopt(m->llmnr_ipv4_udp_fd, IPPROTO_IP, IP_MULTICAST_TTL, &one, sizeof(one));
+        r = setsockopt(m->llmnr_ipv4_udp_fd, IPPROTO_IP, IP_MULTICAST_TTL, &ttl, sizeof(ttl));
         if (r < 0) {
                 r = -errno;
                 goto fail;
@@ -1101,7 +1102,7 @@ int manager_llmnr_ipv6_udp_fd(Manager *m) {
                 .in6.sin6_family = AF_INET6,
                 .in6.sin6_port = htobe16(5355),
         };
-        static const int one = 1;
+        static const int one = 1, ttl = 255;
         int r;
 
         assert(m);
@@ -1113,13 +1114,14 @@ int manager_llmnr_ipv6_udp_fd(Manager *m) {
         if (m->llmnr_ipv6_udp_fd < 0)
                 return -errno;
 
-        r = setsockopt(m->llmnr_ipv6_udp_fd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &one, sizeof(one));
+        r = setsockopt(m->llmnr_ipv6_udp_fd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &ttl, sizeof(ttl));
         if (r < 0) {
                 r = -errno;
                 goto fail;
         }
 
-        r = setsockopt(m->llmnr_ipv6_udp_fd, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, &one, sizeof(one));
+        /* RFC 4795, section 2.5 recommends setting the TTL of UDP packets to 255. */
+        r = setsockopt(m->llmnr_ipv6_udp_fd, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, &ttl, sizeof(ttl));
         if (r < 0) {
                 r = -errno;
                 goto fail;
@@ -1243,6 +1245,7 @@ int manager_llmnr_ipv4_tcp_fd(Manager *m) {
         if (m->llmnr_ipv4_tcp_fd < 0)
                 return -errno;
 
+        /* RFC 4795, section 2.5. requires setting the TTL of TCP streams to 1 */
         r = setsockopt(m->llmnr_ipv4_tcp_fd, IPPROTO_IP, IP_TTL, &one, sizeof(one));
         if (r < 0) {
                 r = -errno;
@@ -1314,6 +1317,7 @@ int manager_llmnr_ipv6_tcp_fd(Manager *m) {
         if (m->llmnr_ipv6_tcp_fd < 0)
                 return -errno;
 
+        /* RFC 4795, section 2.5. requires setting the TTL of TCP streams to 1 */
         r = setsockopt(m->llmnr_ipv6_tcp_fd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &one, sizeof(one));
         if (r < 0) {
                 r = -errno;
