@@ -176,7 +176,7 @@ TEST_BARRIER(test_barrier_wait_next_twice,
                 set_alarm(BASE_TIME * 10);
                 assert_se(barrier_place(&b));
                 assert_se(barrier_place(&b));
-                sleep_for(BASE_TIME * 2);
+                sleep_for(BASE_TIME * 4);
         }),
         TEST_BARRIER_WAIT_SUCCESS(pid2));
 
@@ -201,7 +201,7 @@ TEST_BARRIER(test_barrier_wait_next_twice_local,
                 set_alarm(BASE_TIME * 10);
                 assert_se(barrier_place(&b));
                 assert_se(barrier_place(&b));
-                sleep_for(BASE_TIME * 2);
+                sleep_for(BASE_TIME * 4);
         }),
         TEST_BARRIER_WAIT_SUCCESS(pid2));
 
