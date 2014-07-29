@@ -1493,6 +1493,7 @@ test_tables_CFLAGS = \
 test_tables_LDADD = \
 	libsystemd-logs.la \
 	libsystemd-journal-internal.la \
+	libsystemd-journal-core.la \
 	libsystemd-core.la \
 	libudev-core.la \
 	$(RT_LIBS)
