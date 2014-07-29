@@ -404,7 +404,16 @@ static int dns_scope_make_reply_packet(DnsScope *s, uint16_t id, int rcode, DnsQ
                 return r;
 
         DNS_PACKET_HEADER(p)->id = id;
-        DNS_PACKET_HEADER(p)->flags = htobe16(DNS_PACKET_MAKE_FLAGS(1, 0, 0, 0, 0, 0, 0, 0, rcode));
+        DNS_PACKET_HEADER(p)->flags = htobe16(DNS_PACKET_MAKE_FLAGS(
+                                                              1 /* qr */,
+                                                              0 /* opcode */,
+                                                              0 /* c */,
+                                                              0 /* tc */,
+                                                              0 /* t */,
+                                                              0 /* (ra) */,
+                                                              0 /* (ad) */,
+                                                              0 /* (cd) */,
+                                                              rcode));
 
         if (q) {
                 for (i = 0; i < q->n_keys; i++) {
@@ -446,6 +455,11 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
         r = dns_packet_extract(p);
         if (r < 0) {
                 log_debug("Failed to extract resources from incoming packet: %s", strerror(-r));
+                return;
+        }
+
+        if (DNS_PACKET_C(p)) {
+                /* FIXME: Somebody notified us about a likely conflict */
                 return;
         }
 

@@ -72,10 +72,26 @@ int dns_packet_new_query(DnsPacket **ret, DnsProtocol protocol, size_t mtu) {
 
         h = DNS_PACKET_HEADER(p);
 
-        if (protocol == DNS_PROTOCOL_DNS)
-                h->flags = htobe16(DNS_PACKET_MAKE_FLAGS(0, 0, 0, 0, 1, 0, 0, 0, 0)); /* ask for recursion */
+        if (protocol == DNS_PROTOCOL_LLMNR)
+                h->flags = htobe16(DNS_PACKET_MAKE_FLAGS(0 /* qr */,
+                                                         0 /* opcode */,
+                                                         0 /* c */,
+                                                         0 /* tc */,
+                                                         0 /* t */,
+                                                         0 /* ra */,
+                                                         0 /* ad */,
+                                                         0 /* cd */,
+                                                         0 /* rcode */));
         else
-                h->flags = htobe16(DNS_PACKET_MAKE_FLAGS(0, 0, 0, 0, 0, 0, 0, 0, 0));
+                h->flags = htobe16(DNS_PACKET_MAKE_FLAGS(0 /* qr */,
+                                                         0 /* opcode */,
+                                                         0 /* aa */,
+                                                         0 /* tc */,
+                                                         1 /* rd (ask for recursion) */,
+                                                         0 /* ra */,
+                                                         0 /* ad */,
+                                                         0 /* cd */,
+                                                         0 /* rcode */));
 
         *ret = p;
         return 0;
@@ -148,6 +164,11 @@ int dns_packet_validate_reply(DnsPacket *p) {
         if (DNS_PACKET_OPCODE(p) != 0)
                 return -EBADMSG;
 
+        /* RFC 4795, Section 2.1.1. says to discard all replies with QDCOUNT != 1 */
+        if (p->protocol == DNS_PROTOCOL_LLMNR &&
+            DNS_PACKET_QDCOUNT(p) != 1)
+                return -EBADMSG;
+
         return 1;
 }
 
@@ -169,13 +190,16 @@ int dns_packet_validate_query(DnsPacket *p) {
         if (DNS_PACKET_TC(p))
                 return -EBADMSG;
 
+        /* RFC 4795, Section 2.1.1. says to discard all queries with QDCOUNT != 1 */
         if (p->protocol == DNS_PROTOCOL_LLMNR &&
             DNS_PACKET_QDCOUNT(p) != 1)
                 return -EBADMSG;
 
+        /* RFC 4795, Section 2.1.1. says to discard all queries with ANCOUNT != 0 */
         if (DNS_PACKET_ANCOUNT(p) > 0)
                 return -EBADMSG;
 
+        /* RFC 4795, Section 2.1.1. says to discard all queries with NSCOUNT != 0 */
         if (DNS_PACKET_NSCOUNT(p) > 0)
                 return -EBADMSG;
 
