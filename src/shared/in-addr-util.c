@@ -23,7 +23,7 @@
 
 #include "in-addr-util.h"
 
-int in_addr_null(int family, const union in_addr_union *u) {
+int in_addr_is_null(int family, const union in_addr_union *u) {
         assert(u);
 
         if (family == AF_INET)
@@ -39,6 +39,17 @@ int in_addr_null(int family, const union in_addr_union *u) {
         return -EAFNOSUPPORT;
 }
 
+int in_addr_is_link_local(int family, const union in_addr_union *u) {
+        assert(u);
+
+        if (family == AF_INET)
+                return (be32toh(u->in.s_addr) & 0xFFFF0000) == (169U << 24 | 254U << 16);
+
+        if (family == AF_INET6)
+                return IN6_IS_ADDR_LINKLOCAL(&u->in6);
+
+        return -EAFNOSUPPORT;
+}
 
 int in_addr_equal(int family, const union in_addr_union *a, const union in_addr_union *b) {
         assert(a);

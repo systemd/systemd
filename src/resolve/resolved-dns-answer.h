@@ -42,5 +42,6 @@ int dns_answer_contains(DnsAnswer *a, DnsResourceKey *key);
 int dns_answer_find_soa(DnsAnswer *a, DnsResourceKey *key, DnsResourceRecord **ret);
 
 DnsAnswer *dns_answer_merge(DnsAnswer *a, DnsAnswer *b);
+void dns_answer_order_by_scope(DnsAnswer *a, bool prefer_link_local);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsAnswer*, dns_answer_unref);

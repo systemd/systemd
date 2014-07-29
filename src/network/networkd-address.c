@@ -243,7 +243,7 @@ static int address_acquire(Link *link, Address *original, Address **ret) {
         assert(ret);
 
         /* Something useful was configured? just use it */
-        if (in_addr_null(original->family, &original->in_addr) <= 0)
+        if (in_addr_is_null(original->family, &original->in_addr) <= 0)
                 return 0;
 
         /* The address is configured to be 0.0.0.0 or [::] by the user?
@@ -345,7 +345,7 @@ int address_configure(Address *address, Link *link,
                 return r;
         }
 
-        if (!in_addr_null(address->family, &address->in_addr_peer)) {
+        if (!in_addr_is_null(address->family, &address->in_addr_peer)) {
                 if (address->family == AF_INET)
                         r = sd_rtnl_message_append_in_addr(req, IFA_ADDRESS, &address->in_addr_peer.in);
                 else if (address->family == AF_INET6)

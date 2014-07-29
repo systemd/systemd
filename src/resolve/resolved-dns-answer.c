@@ -175,3 +175,34 @@ DnsAnswer *dns_answer_merge(DnsAnswer *a, DnsAnswer *b) {
 
         return k;
 }
+
+void dns_answer_order_by_scope(DnsAnswer *a, bool prefer_link_local) {
+        DnsResourceRecord **rrs;
+        unsigned i, start, end;
+        assert(a);
+
+        if (a->n_rrs <= 1)
+                return;
+
+        start = 0;
+        end = a->n_rrs-1;
+
+        /* RFC 4795, Section 2.6 suggests we should order entries
+         * depending on whether the sender is a link-local address. */
+
+        rrs = newa(DnsResourceRecord*, a->n_rrs);
+        for (i = 0; i < a->n_rrs; i++) {
+
+                if (a->rrs[i]->key->class == DNS_CLASS_IN &&
+                    ((a->rrs[i]->key->type == DNS_TYPE_A && in_addr_is_link_local(AF_INET, (union in_addr_union*) &a->rrs[i]->a.in_addr) != prefer_link_local) ||
+                     (a->rrs[i]->key->type == DNS_TYPE_AAAA && in_addr_is_link_local(AF_INET6, (union in_addr_union*) &a->rrs[i]->aaaa.in6_addr) != prefer_link_local)))
+                        /* Order address records that are are not preferred to the end of the array */
+                        rrs[end--] = a->rrs[i];
+                else
+                        /* Order all other records to the beginning of the array */
+                        rrs[start++] = a->rrs[i];
+        }
+
+        assert(start == end+1);
+        memcpy(a->rrs, rrs, sizeof(DnsResourceRecord*) * a->n_rrs);
+}

@@ -483,6 +483,8 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
         if (r == 0)
                 return;
 
+        dns_answer_order_by_scope(answer, in_addr_is_link_local(p->family, &p->sender) > 0);
+
         r = dns_scope_make_reply_packet(s, DNS_PACKET_ID(p), DNS_RCODE_SUCCESS, p->question, answer, &reply);
         if (r < 0) {
                 log_debug("Failed to build reply packet: %s", strerror(-r));

@@ -283,7 +283,7 @@ static Address* link_find_dhcp_server_address(Link *link) {
                 if (address->family != AF_INET)
                         continue;
 
-                if (in_addr_null(address->family, &address->in_addr))
+                if (in_addr_is_null(address->family, &address->in_addr))
                         continue;
 
                 return address;
