@@ -99,9 +99,8 @@
       <varlistentry>
         <term><option>--event-timeout=</option></term>
         <listitem>
-          <para>Wait for the event to finish up to the given
-          number of seconds. After this time the event will
-          be terminated. Default is 30.</para>
+          <para>Set the number of seconds to wait for events to finish. After
+          this time the event will be terminated. The default is 30 seconds.</para>
         </listitem>
       </varlistentry>
 
@@ -171,7 +170,7 @@
         <listitem>
           <para>Wait for events to finish up to the given number
           of seconds. This option might be useful if events are
-          terminated due to a timeout in large configurations.</para>
+          terminated due to kernel drivers taking too long to initialize.</para>
         </listitem>
       </varlistentry>
       <varlistentry>

@@ -48,7 +48,6 @@ struct udev_event *udev_event_new(struct udev_device *dev)
         udev_list_init(udev, &event->seclabel_list, false);
         event->fd_signal = -1;
         event->birth_usec = now(CLOCK_MONOTONIC);
-        event->timeout_usec = 30 * 1000 * 1000;
         return event;
 }
 
@@ -422,9 +421,10 @@ static int spawn_exec(struct udev_event *event,
 }
 
 static void spawn_read(struct udev_event *event,
-                      const char *cmd,
-                      int fd_stdout, int fd_stderr,
-                      char *result, size_t ressize)
+                       usec_t timeout_usec,
+                       const char *cmd,
+                       int fd_stdout, int fd_stderr,
+                       char *result, size_t ressize)
 {
         size_t respos = 0;
         int fd_ep = -1;
@@ -467,15 +467,15 @@ static void spawn_read(struct udev_event *event,
                 struct epoll_event ev[4];
                 int i;
 
-                if (event->timeout_usec > 0) {
+                if (timeout_usec > 0) {
                         usec_t age_usec;
 
                         age_usec = now(CLOCK_MONOTONIC) - event->birth_usec;
-                        if (age_usec >= event->timeout_usec) {
+                        if (age_usec >= timeout_usec) {
                                 log_error("timeout '%s'", cmd);
                                 goto out;
                         }
-                        timeout = ((event->timeout_usec - age_usec) / 1000) + 1000;
+                        timeout = ((timeout_usec - age_usec) / USEC_PER_MSEC) + MSEC_PER_SEC;
                 } else {
                         timeout = -1;
                 }
@@ -543,8 +543,9 @@ out:
                 close(fd_ep);
 }
 
-static int spawn_wait(struct udev_event *event, const char *cmd, pid_t pid)
-{
+static int spawn_wait(struct udev_event *event,
+                      usec_t timeout_usec,
+                      const char *cmd, pid_t pid) {
         struct pollfd pfd[1];
         int err = 0;
 
@@ -555,14 +556,14 @@ static int spawn_wait(struct udev_event *event, const char *cmd, pid_t pid)
                 int timeout;
                 int fdcount;
 
-                if (event->timeout_usec > 0) {
+                if (timeout_usec > 0) {
                         usec_t age_usec;
 
                         age_usec = now(CLOCK_MONOTONIC) - event->birth_usec;
-                        if (age_usec >= event->timeout_usec)
+                        if (age_usec >= timeout_usec)
                                 timeout = 1000;
                         else
-                                timeout = ((event->timeout_usec - age_usec) / 1000) + 1000;
+                                timeout = ((timeout_usec - age_usec) / USEC_PER_MSEC) + MSEC_PER_SEC;
                 } else {
                         timeout = -1;
                 }
@@ -657,9 +658,9 @@ out:
 }
 
 int udev_event_spawn(struct udev_event *event,
+                     usec_t timeout_usec,
                      const char *cmd, char **envp, const sigset_t *sigmask,
-                     char *result, size_t ressize)
-{
+                     char *result, size_t ressize) {
         struct udev *udev = event->udev;
         int outpipe[2] = {-1, -1};
         int errpipe[2] = {-1, -1};
@@ -728,11 +729,13 @@ int udev_event_spawn(struct udev_event *event,
                         errpipe[WRITE_END] = -1;
                 }
 
-                spawn_read(event, cmd,
-                         outpipe[READ_END], errpipe[READ_END],
-                         result, ressize);
+                spawn_read(event,
+                           timeout_usec,
+                           cmd,
+                           outpipe[READ_END], errpipe[READ_END],
+                           result, ressize);
 
-                err = spawn_wait(event, cmd, pid);
+                err = spawn_wait(event, timeout_usec, cmd, pid);
         }
 
 out:
@@ -776,8 +779,9 @@ static int rename_netif(struct udev_event *event)
         return r;
 }
 
-void udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules, const sigset_t *sigmask)
-{
+void udev_event_execute_rules(struct udev_event *event,
+                              usec_t timeout_usec,
+                              struct udev_rules *rules, const sigset_t *sigmask) {
         struct udev_device *dev = event->dev;
 
         if (udev_device_get_subsystem(dev) == NULL)
@@ -791,7 +795,7 @@ void udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules
                 if (major(udev_device_get_devnum(dev)) != 0)
                         udev_watch_end(event->udev, dev);
 
-                udev_rules_apply_to_event(rules, event, sigmask);
+                udev_rules_apply_to_event(rules, event, timeout_usec, sigmask);
 
                 if (major(udev_device_get_devnum(dev)) != 0)
                         udev_node_remove(dev);
@@ -808,7 +812,7 @@ void udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules
                                 udev_watch_end(event->udev, event->dev_db);
                 }
 
-                udev_rules_apply_to_event(rules, event, sigmask);
+                udev_rules_apply_to_event(rules, event, timeout_usec, sigmask);
 
                 /* rename a new network interface, if needed */
                 if (udev_device_get_ifindex(dev) > 0 && streq(udev_device_get_action(dev), "add") &&
@@ -883,8 +887,7 @@ void udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules
         }
 }
 
-void udev_event_execute_run(struct udev_event *event, const sigset_t *sigmask)
-{
+void udev_event_execute_run(struct udev_event *event, usec_t timeout_usec, const sigset_t *sigmask) {
         struct udev_list_entry *list_entry;
 
         udev_list_entry_foreach(list_entry, udev_list_get_entry(&event->run_list)) {
@@ -907,7 +910,7 @@ void udev_event_execute_run(struct udev_event *event, const sigset_t *sigmask)
 
                         udev_event_apply_format(event, cmd, program, sizeof(program));
                         envp = udev_device_get_properties_envp(event->dev);
-                        udev_event_spawn(event, program, envp, sigmask, NULL, 0);
+                        udev_event_spawn(event, timeout_usec, program, envp, sigmask, NULL, 0);
                 }
         }
 }

@@ -74,7 +74,7 @@ static bool reload;
 static int children;
 static int children_max;
 static int exec_delay;
-static int event_timeout = 30;
+static usec_t event_timeout_usec = 30 * USEC_PER_SEC;
 static sigset_t sigmask_orig;
 static UDEV_LIST(event_list);
 static UDEV_LIST(worker_list);
@@ -313,13 +313,10 @@ static void worker_new(struct event *event)
                                 }
                         }
 
-                        if (event_timeout != 30)
-                                udev_event->timeout_usec = event_timeout * USEC_PER_SEC;
-
                         /* apply rules, create node, symlinks */
-                        udev_event_execute_rules(udev_event, rules, &sigmask_orig);
+                        udev_event_execute_rules(udev_event, event_timeout_usec, rules, &sigmask_orig);
 
-                        udev_event_execute_run(udev_event, &sigmask_orig);
+                        udev_event_execute_run(udev_event, event_timeout_usec, &sigmask_orig);
 
                         /* apply/restore inotify watch */
                         if (udev_event->inotify_watch) {
@@ -1014,15 +1011,14 @@ static void kernel_cmdline_options(struct udev *udev)
                 } else if (startswith(opt, "udev.exec-delay=")) {
                         exec_delay = strtoul(opt + 16, NULL, 0);
                 } else if (startswith(opt, "udev.event-timeout=")) {
-                        event_timeout = strtoul(opt + 16, NULL, 0);
+                        event_timeout_usec = strtoul(opt + 16, NULL, 0) * USEC_PER_SEC;
                 }
 
                 free(s);
         }
 }
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
         struct udev *udev;
         sigset_t mask;
         int daemonize = false;
@@ -1077,7 +1073,7 @@ int main(int argc, char *argv[])
                         exec_delay = strtoul(optarg, NULL, 0);
                         break;
                 case 't':
-                        event_timeout = strtoul(optarg, NULL, 0);
+                        event_timeout_usec = strtoul(optarg, NULL, 0) * USEC_PER_SEC;
                         break;
                 case 'D':
                         debug = true;
@@ -1103,6 +1099,7 @@ int main(int argc, char *argv[])
                                "  --debug\n"
                                "  --children-max=<maximum number of workers>\n"
                                "  --exec-delay=<seconds to wait before executing RUN=>\n"
+                               "  --event-timeout=<seconds to wait before terminating an event>\n"
                                "  --resolve-names=early|late|never\n"
                                "  --version\n"
                                "  --help\n"
@@ -1416,20 +1413,17 @@ int main(int argc, char *argv[])
                                 if (worker->state != WORKER_RUNNING)
                                         continue;
 
-                                if ((now(CLOCK_MONOTONIC) - worker->event_start_usec) > event_timeout * USEC_PER_SEC) {
-                                        log_error("worker [%u] %s timeout; kill it", worker->pid,
-                                            worker->event ? worker->event->devpath : "<idle>");
+                                if ((now(CLOCK_MONOTONIC) - worker->event_start_usec) > event_timeout_usec) {
+                                        log_error("worker [%u] %s timeout; kill it", worker->pid, worker->event->devpath);
                                         kill(worker->pid, SIGKILL);
                                         worker->state = WORKER_KILLED;
 
                                         /* drop reference taken for state 'running' */
                                         worker_unref(worker);
-                                        if (worker->event) {
-                                                log_error("seq %llu '%s' killed", udev_device_get_seqnum(worker->event->dev), worker->event->devpath);
-                                                worker->event->exitcode = -64;
-                                                event_queue_delete(worker->event);
-                                                worker->event = NULL;
-                                        }
+                                        log_error("seq %llu '%s' killed", udev_device_get_seqnum(worker->event->dev), worker->event->devpath);
+                                        worker->event->exitcode = -64;
+                                        event_queue_delete(worker->event);
+                                        worker->event = NULL;
                                 }
                         }
 
