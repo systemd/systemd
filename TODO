@@ -33,7 +33,12 @@ Features:
 * resolved:
   - IDN (?)
   - DNSSEC
-  - LLMNR
+  - LLMNR:
+        - process incoming notification of conflict
+        - send notifications of conflict
+        - verify new RRs
+        - detect conflicts
+        - queries with ANY types or classes
   - mDNS/DNS-SD
   - DNS-SD service registration from socket units
   - port sd-resolve to direct bus calls
