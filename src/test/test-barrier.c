@@ -43,18 +43,19 @@
  * alarm/sleep timers. If this timeout is too small for slow machines to perform
  * the requested operations, we have to increase it. On an i7 this works fine
  * with 1ms base-time, so 20ms should be just fine for everyone. */
-#define BASE_TIME 20
+#define BASE_TIME (20 * USEC_PER_MSEC)
 
-static void malarm(unsigned long msecs) {
+static void set_alarm(usec_t usecs) {
         struct itimerval v = { };
 
-        timeval_store(&v.it_value, msecs * USEC_PER_MSEC);
+        timeval_store(&v.it_value, usecs);
         assert_se(setitimer(ITIMER_REAL, &v, NULL) >= 0);
 }
 
-static void msleep(unsigned long msecs) {
-        assert_se(msecs < MSEC_PER_SEC);
-        usleep(msecs * USEC_PER_MSEC);
+static void sleep_for(usec_t usecs) {
+        /* stupid usleep() might fail if >1000000 */
+        assert_se(usecs < USEC_PER_SEC);
+        usleep(usecs);
 }
 
 #define TEST_BARRIER(_FUNCTION, _CHILD_CODE, _WAIT_CHILD, _PARENT_CODE, _WAIT_PARENT)  \
@@ -81,10 +82,10 @@ static void msleep(unsigned long msecs) {
                 }                                                       \
                                                                         \
                 barrier_destroy(&b);                                    \
-                malarm(999);                                            \
+                set_alarm(999999);                                      \
                 { _WAIT_CHILD; }                                        \
                 { _WAIT_PARENT; }                                       \
-                malarm(0);                                              \
+                set_alarm(0);                                           \
         }
 
 #define TEST_BARRIER_WAIT_SUCCESS(_pid) \
@@ -108,22 +109,22 @@ static void msleep(unsigned long msecs) {
 /*
  * Test basic sync points
  * This places a barrier in both processes and waits synchronously for them.
- * The timeout makes sure the sync works as expected. The msleep() on one side
+ * The timeout makes sure the sync works as expected. The sleep_for() on one side
  * makes sure the exit of the parent does not overwrite previous barriers. Due
- * to the msleep(), we know that the parent already exited, thus there's a
+ * to the sleep_for(), we know that the parent already exited, thus there's a
  * pending HUP on the pipe. However, the barrier_sync() prefers reads on the
  * eventfd, thus we can safely wait on the barrier.
  */
 TEST_BARRIER(test_barrier_sync,
         ({
-                malarm(BASE_TIME * 10);
+                set_alarm(BASE_TIME * 10);
                 assert_se(barrier_place(&b));
-                msleep(BASE_TIME * 2);
+                sleep_for(BASE_TIME * 2);
                 assert_se(barrier_sync(&b));
         }),
         TEST_BARRIER_WAIT_SUCCESS(pid1),
         ({
-                malarm(BASE_TIME * 10);
+                set_alarm(BASE_TIME * 10);
                 assert_se(barrier_place(&b));
                 assert_se(barrier_sync(&b));
         }),
@@ -138,15 +139,15 @@ TEST_BARRIER(test_barrier_sync,
  */
 TEST_BARRIER(test_barrier_wait_next,
         ({
-                msleep(100);
-                malarm(BASE_TIME * 10);
+                sleep_for(BASE_TIME);
+                set_alarm(BASE_TIME * 10);
                 assert_se(barrier_wait_next(&b));
                 assert_se(barrier_place(&b));
                 assert_se(barrier_sync(&b));
         }),
         TEST_BARRIER_WAIT_SUCCESS(pid1),
         ({
-                malarm(400);
+                set_alarm(BASE_TIME * 4);
                 assert_se(barrier_place(&b));
                 assert_se(barrier_sync(&b));
         }),
@@ -164,18 +165,18 @@ TEST_BARRIER(test_barrier_wait_next,
  */
 TEST_BARRIER(test_barrier_wait_next_twice,
         ({
-                msleep(BASE_TIME);
-                malarm(BASE_TIME);
+                sleep_for(BASE_TIME);
+                set_alarm(BASE_TIME);
                 assert_se(barrier_wait_next(&b));
                 assert_se(barrier_wait_next(&b));
                 assert_se(0);
         }),
         TEST_BARRIER_WAIT_ALARM(pid1),
         ({
-                malarm(BASE_TIME * 10);
+                set_alarm(BASE_TIME * 10);
                 assert_se(barrier_place(&b));
                 assert_se(barrier_place(&b));
-                msleep(BASE_TIME * 2);
+                sleep_for(BASE_TIME * 2);
         }),
         TEST_BARRIER_WAIT_SUCCESS(pid2));
 
@@ -187,8 +188,8 @@ TEST_BARRIER(test_barrier_wait_next_twice,
  */
 TEST_BARRIER(test_barrier_wait_next_twice_local,
         ({
-                msleep(BASE_TIME);
-                malarm(BASE_TIME);
+                sleep_for(BASE_TIME);
+                set_alarm(BASE_TIME);
                 assert_se(barrier_wait_next(&b));
                 assert_se(barrier_place(&b));
                 assert_se(barrier_place(&b));
@@ -197,10 +198,10 @@ TEST_BARRIER(test_barrier_wait_next_twice_local,
         }),
         TEST_BARRIER_WAIT_ALARM(pid1),
         ({
-                malarm(BASE_TIME * 10);
+                set_alarm(BASE_TIME * 10);
                 assert_se(barrier_place(&b));
                 assert_se(barrier_place(&b));
-                msleep(BASE_TIME * 2);
+                sleep_for(BASE_TIME * 2);
         }),
         TEST_BARRIER_WAIT_SUCCESS(pid2));
 
@@ -212,14 +213,14 @@ TEST_BARRIER(test_barrier_wait_next_twice_local,
  */
 TEST_BARRIER(test_barrier_wait_next_twice_sync,
         ({
-                msleep(BASE_TIME);
-                malarm(BASE_TIME);
+                sleep_for(BASE_TIME);
+                set_alarm(BASE_TIME);
                 assert_se(barrier_wait_next(&b));
                 assert_se(barrier_sync_next(&b));
         }),
         TEST_BARRIER_WAIT_SUCCESS(pid1),
         ({
-                malarm(BASE_TIME * 10);
+                set_alarm(BASE_TIME * 10);
                 assert_se(barrier_place(&b));
                 assert_se(barrier_place(&b));
         }),
@@ -233,8 +234,8 @@ TEST_BARRIER(test_barrier_wait_next_twice_sync,
  */
 TEST_BARRIER(test_barrier_wait_next_twice_local_sync,
         ({
-                msleep(BASE_TIME);
-                malarm(BASE_TIME);
+                sleep_for(BASE_TIME);
+                set_alarm(BASE_TIME);
                 assert_se(barrier_wait_next(&b));
                 assert_se(barrier_place(&b));
                 assert_se(barrier_place(&b));
@@ -242,7 +243,7 @@ TEST_BARRIER(test_barrier_wait_next_twice_local_sync,
         }),
         TEST_BARRIER_WAIT_SUCCESS(pid1),
         ({
-                malarm(BASE_TIME * 10);
+                set_alarm(BASE_TIME * 10);
                 assert_se(barrier_place(&b));
                 assert_se(barrier_place(&b));
         }),
@@ -255,7 +256,7 @@ TEST_BARRIER(test_barrier_wait_next_twice_local_sync,
  */
 TEST_BARRIER(test_barrier_sync_next,
         ({
-                malarm(BASE_TIME * 10);
+                set_alarm(BASE_TIME * 10);
                 assert_se(barrier_sync_next(&b));
                 assert_se(barrier_sync(&b));
                 assert_se(barrier_place(&b));
@@ -266,8 +267,8 @@ TEST_BARRIER(test_barrier_sync_next,
         }),
         TEST_BARRIER_WAIT_SUCCESS(pid1),
         ({
-                malarm(BASE_TIME * 10);
-                msleep(BASE_TIME);
+                set_alarm(BASE_TIME * 10);
+                sleep_for(BASE_TIME);
                 assert_se(barrier_place(&b));
                 assert_se(barrier_place(&b));
                 assert_se(barrier_sync(&b));
@@ -281,14 +282,14 @@ TEST_BARRIER(test_barrier_sync_next,
  */
 TEST_BARRIER(test_barrier_sync_next_local,
         ({
-                malarm(BASE_TIME);
+                set_alarm(BASE_TIME);
                 assert_se(barrier_place(&b));
                 assert_se(barrier_sync_next(&b));
                 assert_se(0);
         }),
         TEST_BARRIER_WAIT_ALARM(pid1),
         ({
-                msleep(BASE_TIME * 2);
+                sleep_for(BASE_TIME * 2);
         }),
         TEST_BARRIER_WAIT_SUCCESS(pid2));
 
@@ -299,7 +300,7 @@ TEST_BARRIER(test_barrier_sync_next_local,
  */
 TEST_BARRIER(test_barrier_sync_next_local_abort,
         ({
-                malarm(BASE_TIME * 10);
+                set_alarm(BASE_TIME * 10);
                 assert_se(barrier_place(&b));
                 assert_se(!barrier_sync_next(&b));
         }),
@@ -315,7 +316,7 @@ TEST_BARRIER(test_barrier_sync_next_local_abort,
  */
 TEST_BARRIER(test_barrier_wait_abortion,
         ({
-                malarm(BASE_TIME * 10);
+                set_alarm(BASE_TIME * 10);
                 assert_se(barrier_wait_abortion(&b));
         }),
         TEST_BARRIER_WAIT_SUCCESS(pid1),
@@ -331,13 +332,13 @@ TEST_BARRIER(test_barrier_wait_abortion,
  */
 TEST_BARRIER(test_barrier_wait_abortion_unmatched,
         ({
-                malarm(BASE_TIME);
+                set_alarm(BASE_TIME);
                 assert_se(barrier_wait_abortion(&b));
                 assert_se(0);
         }),
         TEST_BARRIER_WAIT_ALARM(pid1),
         ({
-                msleep(BASE_TIME * 2);
+                sleep_for(BASE_TIME * 2);
         }),
         TEST_BARRIER_WAIT_SUCCESS(pid2));
 
@@ -347,7 +348,7 @@ TEST_BARRIER(test_barrier_wait_abortion_unmatched,
  */
 TEST_BARRIER(test_barrier_wait_abortion_local,
         ({
-                malarm(BASE_TIME * 10);
+                set_alarm(BASE_TIME * 10);
                 assert_se(barrier_abort(&b));
                 assert_se(!barrier_wait_abortion(&b));
         }),
@@ -363,14 +364,14 @@ TEST_BARRIER(test_barrier_wait_abortion_local,
  */
 TEST_BARRIER(test_barrier_wait_abortion_local_unmatched,
         ({
-                malarm(BASE_TIME);
+                set_alarm(BASE_TIME);
                 assert_se(barrier_abort(&b));
                 assert_se(!barrier_wait_abortion(&b));
                 assert_se(0);
         }),
         TEST_BARRIER_WAIT_ALARM(pid1),
         ({
-                msleep(BASE_TIME * 2);
+                sleep_for(BASE_TIME * 2);
         }),
         TEST_BARRIER_WAIT_SUCCESS(pid2));
 
@@ -384,7 +385,7 @@ TEST_BARRIER(test_barrier_exit,
         }),
         TEST_BARRIER_WAIT_SUCCESS(pid1),
         ({
-                malarm(BASE_TIME * 10);
+                set_alarm(BASE_TIME * 10);
                 assert_se(barrier_place(&b));
                 assert_se(!barrier_sync(&b));
         }),
@@ -398,11 +399,11 @@ TEST_BARRIER(test_barrier_exit,
  */
 TEST_BARRIER(test_barrier_no_exit,
         ({
-                msleep(BASE_TIME * 2);
+                sleep_for(BASE_TIME * 2);
         }),
         TEST_BARRIER_WAIT_SUCCESS(pid1),
         ({
-                malarm(BASE_TIME);
+                set_alarm(BASE_TIME);
                 assert_se(barrier_place(&b));
                 assert_se(!barrier_sync(&b));
         }),
@@ -420,8 +421,8 @@ TEST_BARRIER(test_barrier_no_exit,
  */
 TEST_BARRIER(test_barrier_pending_exit,
         ({
-                malarm(BASE_TIME * 4);
-                msleep(BASE_TIME * 2);
+                set_alarm(BASE_TIME * 4);
+                sleep_for(BASE_TIME * 2);
                 assert_se(barrier_wait_next(&b));
                 assert_se(barrier_sync_next(&b));
                 assert_se(barrier_place(&b));
