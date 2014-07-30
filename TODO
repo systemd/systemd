@@ -38,7 +38,6 @@ Features:
         - send notifications of conflict
         - verify new RR uniqueness
         - detect conflicts
-        - cache lookups with ANY types or classes
         - collect multiple responses
         - jitter interval support
         - add SOA record to empty responses
