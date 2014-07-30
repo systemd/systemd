@@ -1436,6 +1436,7 @@ static int add_rule(struct udev_rules *rules, char *line,
                                 rule_add_key(&rule_tmp, TK_A_DEVLINK_PRIO, op, NULL, &prio);
                         }
 
+                        pos = strstr(value, "string_escape=");
                         if (pos != NULL) {
                                 pos = &pos[strlen("string_escape=")];
                                 if (startswith(pos, "none"))
