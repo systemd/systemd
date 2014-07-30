@@ -753,9 +753,9 @@ int cg_pid_get_path(const char *controller, pid_t pid, char **path) {
         cs = strlen(controller);
 
         FOREACH_LINE(line, f, return -errno) {
-                char *l, *p, *w, *e;
+                char *l, *p, *e;
                 size_t k;
-                char *state;
+                const char *word, *state;
                 bool found = false;
 
                 truncate_nl(line);
@@ -771,16 +771,16 @@ int cg_pid_get_path(const char *controller, pid_t pid, char **path) {
 
                 *e = 0;
 
-                FOREACH_WORD_SEPARATOR(w, k, l, ",", state) {
+                FOREACH_WORD_SEPARATOR(word, k, l, ",", state) {
 
-                        if (k == cs && memcmp(w, controller, cs) == 0) {
+                        if (k == cs && memcmp(word, controller, cs) == 0) {
                                 found = true;
                                 break;
                         }
 
                         if (k == 5 + cs &&
-                            memcmp(w, "name=", 5) == 0 &&
-                            memcmp(w+5, controller, cs) == 0) {
+                            memcmp(word, "name=", 5) == 0 &&
+                            memcmp(word+5, controller, cs) == 0) {
                                 found = true;
                                 break;
                         }

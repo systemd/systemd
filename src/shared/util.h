@@ -234,7 +234,7 @@ static inline int safe_atoi64(const char *s, int64_t *ret_i) {
         return safe_atolli(s, (long long int*) ret_i);
 }
 
-char *split(const char *c, size_t *l, const char *separator, bool quoted, char **state);
+const char* split(const char **state, size_t *l, const char *separator, bool quoted);
 
 #define FOREACH_WORD(word, length, s, state)                            \
         _FOREACH_WORD(word, length, s, WHITESPACE, false, state)
@@ -249,7 +249,7 @@ char *split(const char *c, size_t *l, const char *separator, bool quoted, char *
         _FOREACH_WORD(word, length, s, separator, true, state)
 
 #define _FOREACH_WORD(word, length, s, separator, quoted, state)        \
-        for ((state) = NULL, (word) = split((s), &(length), (separator), (quoted), &(state)); (word); (word) = split((s), &(length), (separator), (quoted), &(state)))
+        for ((state) = (s), (word) = split(&(state), &(length), (separator), (quoted)); (word); (word) = split(&(state), &(length), (separator), (quoted)))
 
 pid_t get_parent_of_pid(pid_t pid, pid_t *ppid);
 int get_starttime_of_pid(pid_t pid, unsigned long long *st);

@@ -455,9 +455,8 @@ static int config_parse_cpu_affinity2(
                 void *data,
                 void *userdata) {
 
-        char *w;
+        const char *word, *state;
         size_t l;
-        char *state;
         cpu_set_t *c = NULL;
         unsigned ncpus = 0;
 
@@ -465,12 +464,12 @@ static int config_parse_cpu_affinity2(
         assert(lvalue);
         assert(rvalue);
 
-        FOREACH_WORD_QUOTED(w, l, rvalue, state) {
+        FOREACH_WORD_QUOTED(word, l, rvalue, state) {
                 char *t;
                 int r;
                 unsigned cpu;
 
-                if (!(t = strndup(w, l)))
+                if (!(t = strndup(word, l)))
                         return log_oom();
 
                 r = safe_atou(t, &cpu);
@@ -559,7 +558,7 @@ static int config_parse_join_controllers(const char *unit,
                                          void *userdata) {
 
         unsigned n = 0;
-        char *state, *w;
+        const char *word, *state;
         size_t length;
 
         assert(filename);
@@ -568,10 +567,10 @@ static int config_parse_join_controllers(const char *unit,
 
         free_join_controllers();
 
-        FOREACH_WORD_QUOTED(w, length, rvalue, state) {
+        FOREACH_WORD_QUOTED(word, length, rvalue, state) {
                 char *s, **l;
 
-                s = strndup(w, length);
+                s = strndup(word, length);
                 if (!s)
                         return log_oom();
 

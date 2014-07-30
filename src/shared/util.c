@@ -415,37 +415,50 @@ static size_t strcspn_escaped(const char *s, const char *reject) {
                 else if (s[n] == '\\')
                         escaped = true;
                 else if (strchr(reject, s[n]))
-                        return n;
+                        break;
         }
-        return n;
+        /* if s ends in \, return index of previous char */
+        return n - escaped;
 }
 
 /* Split a string into words. */
-char *split(const char *c, size_t *l, const char *separator, bool quoted, char **state) {
-        char *current;
+const char* split(const char **state, size_t *l, const char *separator, bool quoted) {
+        const char *current;
 
-        current = *state ? *state : (char*) c;
+        current = *state;
 
-        if (!*current || *c == 0)
+        if (!*current) {
+                assert(**state == '\0');
                 return NULL;
-
-        current += strspn(current, separator);
-        if (!*current)
-                return NULL;
-
-        if (quoted && strchr("\'\"", *current)) {
-                char quotechar = *(current++);
-                *l = strcspn_escaped(current, (char[]){quotechar, '\0'});
-                *state = current+*l+1;
-        } else if (quoted) {
-                *l = strcspn_escaped(current, separator);
-                *state = current+*l;
-        } else {
-                *l = strcspn(current, separator);
-                *state = current+*l;
         }
 
-        return (char*) current;
+        current += strspn(current, separator);
+        if (!*current) {
+                *state = current;
+                return NULL;
+        }
+
+        if (quoted && strchr("\'\"", *current)) {
+                char quotechars[2] = {*current, '\0'};
+
+                *l = strcspn_escaped(current + 1, quotechars);
+                if (current[*l + 1] == '\0' ||
+                    (current[*l + 2] && !strchr(separator, current[*l + 2]))) {
+                        /* right quote missing or garbage at the end*/
+                        *state = current;
+                        return NULL;
+                }
+                assert(current[*l + 1] == quotechars[0]);
+                *state = current++ + *l + 2;
+        } else if (quoted) {
+                *l = strcspn_escaped(current, separator);
+                *state = current + *l;
+        } else {
+                *l = strcspn(current, separator);
+                *state = current + *l;
+        }
+
+        return current;
 }
 
 int get_parent_of_pid(pid_t pid, pid_t *_ppid) {
@@ -6059,7 +6072,7 @@ int split_pair(const char *s, const char *sep, char **l, char **r) {
 
 int shall_restore_state(void) {
         _cleanup_free_ char *line = NULL;
-        char *w, *state;
+        const char *word, *state;
         size_t l;
         int r;
 
@@ -6071,12 +6084,12 @@ int shall_restore_state(void) {
 
         r = 1;
 
-        FOREACH_WORD_QUOTED(w, l, line, state) {
+        FOREACH_WORD_QUOTED(word, l, line, state) {
                 const char *e;
                 char n[l+1];
                 int k;
 
-                memcpy(n, w, l);
+                memcpy(n, word, l);
                 n[l] = 0;
 
                 e = startswith(n, "systemd.restore_state=");
@@ -6120,7 +6133,7 @@ int proc_cmdline(char **ret) {
 
 int parse_proc_cmdline(int (*parse_item)(const char *key, const char *value)) {
         _cleanup_free_ char *line = NULL;
-        char *w, *state;
+        const char *w, *state;
         size_t l;
         int r;
 

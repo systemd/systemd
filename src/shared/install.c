@@ -946,20 +946,19 @@ static int config_parse_also(
                 void *data,
                 void *userdata) {
 
-        char *w;
         size_t l;
-        char *state;
+        const char *word, *state;
         InstallContext *c = data;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
 
-        FOREACH_WORD_QUOTED(w, l, rvalue, state) {
+        FOREACH_WORD_QUOTED(word, l, rvalue, state) {
                 _cleanup_free_ char *n;
                 int r;
 
-                n = strndup(w, l);
+                n = strndup(word, l);
                 if (!n)
                         return -ENOMEM;
 

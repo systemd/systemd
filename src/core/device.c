@@ -220,7 +220,7 @@ static int device_make_description(Unit *u, struct udev_device *dev, const char 
 
 static int device_add_udev_wants(Unit *u, struct udev_device *dev) {
         const char *wants;
-        char *state, *w;
+        const char *word, *state;
         size_t l;
         int r;
 
@@ -234,11 +234,11 @@ static int device_add_udev_wants(Unit *u, struct udev_device *dev) {
         if (!wants)
                 return 0;
 
-        FOREACH_WORD_QUOTED(w, l, wants, state) {
+        FOREACH_WORD_QUOTED(word, l, wants, state) {
                 _cleanup_free_ char *n = NULL;
                 char e[l+1];
 
-                memcpy(e, w, l);
+                memcpy(e, word, l);
                 e[l] = 0;
 
                 n = unit_name_mangle(e, MANGLE_NOGLOB);
@@ -393,13 +393,13 @@ static int device_process_new_device(Manager *m, struct udev_device *dev) {
          * aliases */
         alias = udev_device_get_property_value(dev, "SYSTEMD_ALIAS");
         if (alias) {
-                char *state, *w;
+                const char *word, *state;
                 size_t l;
 
-                FOREACH_WORD_QUOTED(w, l, alias, state) {
+                FOREACH_WORD_QUOTED(word, l, alias, state) {
                         char e[l+1];
 
-                        memcpy(e, w, l);
+                        memcpy(e, word, l);
                         e[l] = 0;
 
                         if (path_is_absolute(e))

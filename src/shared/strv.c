@@ -201,8 +201,7 @@ int strv_extend_strv_concat(char ***a, char **b, const char *suffix) {
 }
 
 char **strv_split(const char *s, const char *separator) {
-        char *state;
-        char *w;
+        const char *word, *state;
         size_t l;
         unsigned n, i;
         char **r;
@@ -210,7 +209,7 @@ char **strv_split(const char *s, const char *separator) {
         assert(s);
 
         n = 0;
-        FOREACH_WORD_SEPARATOR(w, l, s, separator, state)
+        FOREACH_WORD_SEPARATOR(word, l, s, separator, state)
                 n++;
 
         r = new(char*, n+1);
@@ -218,8 +217,8 @@ char **strv_split(const char *s, const char *separator) {
                 return NULL;
 
         i = 0;
-        FOREACH_WORD_SEPARATOR(w, l, s, separator, state) {
-                r[i] = strndup(w, l);
+        FOREACH_WORD_SEPARATOR(word, l, s, separator, state) {
+                r[i] = strndup(word, l);
                 if (!r[i]) {
                         strv_free(r);
                         return NULL;
@@ -233,8 +232,7 @@ char **strv_split(const char *s, const char *separator) {
 }
 
 char **strv_split_quoted(const char *s) {
-        char *state;
-        char *w;
+        const char *word, *state;
         size_t l;
         unsigned n, i;
         char **r;
@@ -242,16 +240,19 @@ char **strv_split_quoted(const char *s) {
         assert(s);
 
         n = 0;
-        FOREACH_WORD_QUOTED(w, l, s, state)
+        FOREACH_WORD_QUOTED(word, l, s, state)
                 n++;
+        if (*state)
+                /* bad syntax */
+                return NULL;
 
         r = new(char*, n+1);
         if (!r)
                 return NULL;
 
         i = 0;
-        FOREACH_WORD_QUOTED(w, l, s, state) {
-                r[i] = cunescape_length(w, l);
+        FOREACH_WORD_QUOTED(word, l, s, state) {
+                r[i] = cunescape_length(word, l);
                 if (!r[i]) {
                         strv_free(r);
                         return NULL;

@@ -226,11 +226,10 @@ _public_ int sd_uid_get_display(uid_t uid, char **session) {
 }
 
 _public_ int sd_uid_is_on_seat(uid_t uid, int require_active, const char *seat) {
-        char *w, *state;
         _cleanup_free_ char *t = NULL, *s = NULL, *p = NULL;
         size_t l;
         int r;
-        const char *variable;
+        const char *word, *variable, *state;
 
         assert_return(seat, -EINVAL);
 
@@ -251,8 +250,8 @@ _public_ int sd_uid_is_on_seat(uid_t uid, int require_active, const char *seat) 
         if (asprintf(&t, UID_FMT, uid) < 0)
                 return -ENOMEM;
 
-        FOREACH_WORD(w, l, s, state) {
-                if (strneq(t, w, l))
+        FOREACH_WORD(word, l, s, state) {
+                if (strneq(t, word, l))
                         return 1;
         }
 
@@ -587,10 +586,10 @@ _public_ int sd_seat_get_sessions(const char *seat, char ***sessions, uid_t **ui
         }
 
         if (uids && t) {
-                char *w, *state;
+                const char *word, *state;
                 size_t l;
 
-                FOREACH_WORD(w, l, t, state)
+                FOREACH_WORD(word, l, t, state)
                         n++;
 
                 if (n > 0) {
@@ -600,10 +599,10 @@ _public_ int sd_seat_get_sessions(const char *seat, char ***sessions, uid_t **ui
                         if (!b)
                                 return -ENOMEM;
 
-                        FOREACH_WORD(w, l, t, state) {
+                        FOREACH_WORD(word, l, t, state) {
                                 _cleanup_free_ char *k = NULL;
 
-                                k = strndup(w, l);
+                                k = strndup(word, l);
                                 if (!k)
                                         return -ENOMEM;
 
@@ -789,9 +788,8 @@ _public_ int sd_machine_get_class(const char *machine, char **class) {
 _public_ int sd_machine_get_ifindices(const char *machine, int **ifindices) {
         _cleanup_free_ char *netif = NULL;
         size_t l, allocated = 0, nr = 0;
-        char *w, *state;
         int *ni = NULL;
-        const char *p;
+        const char *p, *word, *state;
         int r;
 
         assert_return(machine_name_is_valid(machine), -EINVAL);
@@ -806,11 +804,11 @@ _public_ int sd_machine_get_ifindices(const char *machine, int **ifindices) {
                 return 0;
         }
 
-        FOREACH_WORD(w, l, netif, state) {
+        FOREACH_WORD(word, l, netif, state) {
                 char buf[l+1];
                 int ifi;
 
-                *(char*) (mempcpy(buf, w, l)) = 0;
+                *(char*) (mempcpy(buf, word, l)) = 0;
 
                 if (safe_atoi(buf, &ifi) < 0)
                         continue;

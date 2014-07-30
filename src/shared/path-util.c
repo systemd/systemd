@@ -574,7 +574,7 @@ int find_binary(const char *name, char **filename) {
                 return 0;
         } else {
                 const char *path;
-                char *state, *w;
+                const char *word, *state;
                 size_t l;
 
                 /**
@@ -585,10 +585,10 @@ int find_binary(const char *name, char **filename) {
                 if (!path)
                         path = DEFAULT_PATH;
 
-                FOREACH_WORD_SEPARATOR(w, l, path, ":", state) {
+                FOREACH_WORD_SEPARATOR(word, l, path, ":", state) {
                         _cleanup_free_ char *p = NULL;
 
-                        if (asprintf(&p, "%.*s/%s", (int) l, w, name) < 0)
+                        if (asprintf(&p, "%.*s/%s", (int) l, word, name) < 0)
                                 return -ENOMEM;
 
                         if (access(p, X_OK) < 0)

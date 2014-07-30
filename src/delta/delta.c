@@ -488,23 +488,23 @@ static int help(void) {
 }
 
 static int parse_flags(const char *flag_str, int flags) {
-        char *w, *state;
+        const char *word, *state;
         size_t l;
 
-        FOREACH_WORD(w, l, flag_str, state) {
-                if (strneq("masked", w, l))
+        FOREACH_WORD(word, l, flag_str, state) {
+                if (strneq("masked", word, l))
                         flags |= SHOW_MASKED;
-                else if (strneq ("equivalent", w, l))
+                else if (strneq ("equivalent", word, l))
                         flags |= SHOW_EQUIVALENT;
-                else if (strneq("redirected", w, l))
+                else if (strneq("redirected", word, l))
                         flags |= SHOW_REDIRECTED;
-                else if (strneq("overridden", w, l))
+                else if (strneq("overridden", word, l))
                         flags |= SHOW_OVERRIDDEN;
-                else if (strneq("unchanged", w, l))
+                else if (strneq("unchanged", word, l))
                         flags |= SHOW_UNCHANGED;
-                else if (strneq("extended", w, l))
+                else if (strneq("extended", word, l))
                         flags |= SHOW_EXTENDED;
-                else if (strneq("default", w, l))
+                else if (strneq("default", word, l))
                         flags |= SHOW_DEFAULTS;
                 else
                         return -EINVAL;

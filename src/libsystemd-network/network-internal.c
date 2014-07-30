@@ -354,7 +354,7 @@ void serialize_in_addrs(FILE *f, const struct in_addr *addresses, size_t size) {
 int deserialize_in_addrs(struct in_addr **ret, const char *string) {
         _cleanup_free_ struct in_addr *addresses = NULL;
         int size = 0;
-        char *word, *state;
+        const char *word, *state;
         size_t len;
 
         assert(ret);
@@ -391,7 +391,7 @@ int deserialize_in_addrs(struct in_addr **ret, const char *string) {
 int deserialize_in6_addrs(struct in6_addr **ret, const char *string) {
         _cleanup_free_ struct in6_addr *addresses = NULL;
         int size = 0;
-        char *word, *state;
+        const char *word, *state;
         size_t len;
 
         assert(ret);
@@ -446,7 +446,7 @@ void serialize_dhcp_routes(FILE *f, const char *key, struct sd_dhcp_route *route
 int deserialize_dhcp_routes(struct sd_dhcp_route **ret, size_t *ret_size, size_t *ret_allocated, const char *string) {
         _cleanup_free_ struct sd_dhcp_route *routes = NULL;
         size_t size = 0, allocated = 0;
-        char *word, *state;
+        const char *word, *state;
         size_t len;
 
         assert(ret);

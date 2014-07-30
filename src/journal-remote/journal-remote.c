@@ -1344,7 +1344,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_GNUTLS_LOG: {
 #ifdef HAVE_GNUTLS
-                        char *word, *state;
+                        const char *word, *state;
                         size_t size;
 
                         FOREACH_WORD_SEPARATOR(word, size, optarg, ",", state) {

@@ -159,17 +159,27 @@ static void test_strv_quote_unquote(const char* const *split, const char *quoted
 
 static void test_strv_unquote(const char *quoted, const char **list) {
         _cleanup_strv_free_ char **s;
+        _cleanup_free_ char *j;
         unsigned i = 0;
         char **t;
 
         s = strv_split_quoted(quoted);
         assert_se(s);
-        strv_print(s);
+        j = strv_join(s, " | ");
+        assert(j);
+        puts(j);
 
         STRV_FOREACH(t, s)
                 assert_se(streq(list[i++], *t));
 
         assert_se(list[i] == NULL);
+}
+
+static void test_invalid_unquote(const char *quoted) {
+        char **s;
+
+        s = strv_split_quoted(quoted);
+        assert(s == NULL);
 }
 
 static void test_strv_split(void) {
@@ -428,7 +438,9 @@ int main(int argc, char *argv[]) {
         test_strv_unquote("  \"x'\"   ", (const char*[]) { "x'", NULL });
         test_strv_unquote("a  '--b=c \"d e\"'", (const char*[]) { "a", "--b=c \"d e\"", NULL });
 
-        test_strv_unquote("a  --b='c \"d e\"'", (const char*[]) { "a", "--b='c", "\"d", "e\"'", NULL });
+        test_invalid_unquote("a  --b='c \"d e\"'");
+        test_invalid_unquote("a  --b='c \"d e\" '");
+        test_invalid_unquote("a  --b='c \"d e\"garbage");
 
         test_strv_split();
         test_strv_split_newlines();

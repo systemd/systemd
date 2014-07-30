@@ -675,7 +675,8 @@ int config_parse_strv(const char *unit,
                       void *data,
                       void *userdata) {
 
-        char *** sv = data, *w, *state;
+        char ***sv = data;
+        const char *word, *state;
         size_t l;
         int r;
 
@@ -700,10 +701,10 @@ int config_parse_strv(const char *unit,
                 return 0;
         }
 
-        FOREACH_WORD_QUOTED(w, l, rvalue, state) {
+        FOREACH_WORD_QUOTED(word, l, rvalue, state) {
                 char *n;
 
-                n = strndup(w, l);
+                n = strndup(word, l);
                 if (!n)
                         return log_oom();
 

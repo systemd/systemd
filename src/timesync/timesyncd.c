@@ -984,17 +984,17 @@ static int manager_add_server(Manager *m, const char *server) {
 }
 
 static int manager_add_server_string(Manager *m, const char *string) {
-        char *w, *state;
+        const char *word, *state;
         size_t l;
         int r;
 
         assert(m);
         assert(string);
 
-        FOREACH_WORD_QUOTED(w, l, string, state) {
+        FOREACH_WORD_QUOTED(word, l, string, state) {
                 char t[l+1];
 
-                memcpy(t, w, l);
+                memcpy(t, word, l);
                 t[l] = 0;
 
                 r = manager_add_server(m, t);

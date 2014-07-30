@@ -956,7 +956,7 @@ static int systemd_fds(struct udev *udev, int *rctrl, int *rnetlink) {
  */
 static void kernel_cmdline_options(struct udev *udev) {
         _cleanup_free_ char *line = NULL;
-        char *w, *state;
+        const char *word, *state;
         size_t l;
         int r;
 
@@ -966,10 +966,10 @@ static void kernel_cmdline_options(struct udev *udev) {
         if (r <= 0)
                 return;
 
-        FOREACH_WORD_QUOTED(w, l, line, state) {
+        FOREACH_WORD_QUOTED(word, l, line, state) {
                 char *s, *opt;
 
-                s = strndup(w, l);
+                s = strndup(word, l);
                 if (!s)
                         break;
 

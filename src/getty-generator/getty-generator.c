@@ -154,14 +154,14 @@ int main(int argc, char *argv[]) {
 
                 r = getenv_for_pid(1, "container_ttys", &container_ttys);
                 if (r > 0) {
-                        char *w, *state;
+                        const char *word, *state;
                         size_t l;
 
-                        FOREACH_WORD(w, l, container_ttys, state) {
+                        FOREACH_WORD(word, l, container_ttys, state) {
                                 const char *t;
                                 char tty[l + 1];
 
-                                memcpy(tty, w, l);
+                                memcpy(tty, word, l);
                                 tty[l] = 0;
 
                                 /* First strip off /dev/ if it is specified */
@@ -184,15 +184,15 @@ int main(int argc, char *argv[]) {
         }
 
         if (read_one_line_file("/sys/class/tty/console/active", &active) >= 0) {
-                char *w, *state;
+                const char *word, *state;
                 size_t l;
 
                 /* Automatically add in a serial getty on all active
                  * kernel consoles */
-                FOREACH_WORD(w, l, active, state) {
+                FOREACH_WORD(word, l, active, state) {
                         _cleanup_free_ char *tty = NULL;
 
-                        tty = strndup(w, l);
+                        tty = strndup(word, l);
                         if (!tty) {
                                 log_oom();
                                 return EXIT_FAILURE;

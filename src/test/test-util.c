@@ -311,7 +311,7 @@ static void test_cunescape(void) {
 }
 
 static void test_foreach_word(void) {
-        char *w, *state;
+        const char *word, *state;
         size_t l;
         int i = 0;
         const char test[] = "test abc d\te   f   ";
@@ -325,13 +325,12 @@ static void test_foreach_word(void) {
                 NULL
         };
 
-        FOREACH_WORD(w, l, test, state) {
-                assert_se(strneq(expected[i++], w, l));
-        }
+        FOREACH_WORD(word, l, test, state)
+                assert_se(strneq(expected[i++], word, l));
 }
 
 static void test_foreach_word_quoted(void) {
-        char *w, *state;
+        const char *word, *state;
         size_t l;
         int i = 0;
         const char test[] = "test a b c 'd' e '' '' hhh '' '' \"a b c\"";
@@ -352,11 +351,11 @@ static void test_foreach_word_quoted(void) {
         };
 
         printf("<%s>\n", test);
-        FOREACH_WORD_QUOTED(w, l, test, state) {
+        FOREACH_WORD_QUOTED(word, l, test, state) {
                 _cleanup_free_ char *t = NULL;
 
-                assert_se(t = strndup(w, l));
-                assert_se(strneq(expected[i++], w, l));
+                assert_se(t = strndup(word, l));
+                assert_se(strneq(expected[i++], word, l));
                 printf("<%s>\n", t);
         }
 }

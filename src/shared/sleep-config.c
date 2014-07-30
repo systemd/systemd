@@ -98,7 +98,7 @@ int parse_sleep_config(const char *verb, char ***_modes, char ***_states) {
 }
 
 int can_sleep_state(char **types) {
-        char *w, *state, **type;
+        char **type;
         int r;
         _cleanup_free_ char *p = NULL;
 
@@ -114,11 +114,12 @@ int can_sleep_state(char **types) {
                 return false;
 
         STRV_FOREACH(type, types) {
+                const char *word, *state;
                 size_t l, k;
 
                 k = strlen(*type);
-                FOREACH_WORD_SEPARATOR(w, l, p, WHITESPACE, state)
-                        if (l == k && memcmp(w, *type, l) == 0)
+                FOREACH_WORD_SEPARATOR(word, l, p, WHITESPACE, state)
+                        if (l == k && memcmp(word, *type, l) == 0)
                                 return true;
         }
 
@@ -126,7 +127,7 @@ int can_sleep_state(char **types) {
 }
 
 int can_sleep_disk(char **types) {
-        char *w, *state, **type;
+        char **type;
         int r;
         _cleanup_free_ char *p = NULL;
 
@@ -142,14 +143,18 @@ int can_sleep_disk(char **types) {
                 return false;
 
         STRV_FOREACH(type, types) {
+                const char *word, *state;
                 size_t l, k;
 
                 k = strlen(*type);
-                FOREACH_WORD_SEPARATOR(w, l, p, WHITESPACE, state) {
-                        if (l == k && memcmp(w, *type, l) == 0)
+                FOREACH_WORD_SEPARATOR(word, l, p, WHITESPACE, state) {
+                        if (l == k && memcmp(word, *type, l) == 0)
                                 return true;
 
-                        if (l == k + 2 && w[0] == '[' && memcmp(w + 1, *type, l - 2) == 0 && w[l-1] == ']')
+                        if (l == k + 2 &&
+                            word[0] == '[' &&
+                            memcmp(word + 1, *type, l - 2) == 0 &&
+                            word[l-1] == ']')
                                 return true;
                 }
         }

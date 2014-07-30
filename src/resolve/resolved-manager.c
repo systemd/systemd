@@ -304,7 +304,7 @@ static int manager_network_monitor_listen(Manager *m) {
 }
 
 static int parse_dns_server_string(Manager *m, const char *string) {
-        char *word, *state;
+        const char *word, *state;
         size_t length;
         int r;
 

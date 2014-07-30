@@ -170,7 +170,7 @@ int log_syntax_internal(const char *unit, int level,
                      void *userdata) {                                         \
                                                                                \
                 type **enums = data, *xs, x, *ys;                              \
-                char *w, *state;                                               \
+                const char *word, *state;                                      \
                 size_t l, i = 0;                                               \
                                                                                \
                 assert(filename);                                              \
@@ -181,10 +181,10 @@ int log_syntax_internal(const char *unit, int level,
                 xs = new0(type, 1);                                            \
                 *xs = invalid;                                                 \
                                                                                \
-                FOREACH_WORD(w, l, rvalue, state) {                            \
+                FOREACH_WORD(word, l, rvalue, state) {                         \
                         _cleanup_free_ char *en = NULL;                        \
                                                                                \
-                        en = strndup(w, l);                                    \
+                        en = strndup(word, l);                                 \
                         if (!en)                                               \
                                 return -ENOMEM;                                \
                                                                                \

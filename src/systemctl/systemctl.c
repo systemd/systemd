@@ -5733,7 +5733,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         return 0;
 
                 case 't': {
-                        char *word, *state;
+                        const char *word, *state;
                         size_t size;
 
                         FOREACH_WORD_SEPARATOR(word, size, optarg, ",", state) {
@@ -5782,7 +5782,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                 if (!arg_properties)
                                         return log_oom();
                         } else {
-                                char *word, *state;
+                                const char *word, *state;
                                 size_t size;
 
                                 FOREACH_WORD_SEPARATOR(word, size, optarg, ",", state) {
@@ -5952,7 +5952,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_STATE: {
-                        char *word, *state;
+                        const char *word, *state;
                         size_t size;
 
                         FOREACH_WORD_SEPARATOR(word, size, optarg, ",", state) {

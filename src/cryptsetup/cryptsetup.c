@@ -175,16 +175,16 @@ static int parse_one_option(const char *option) {
 }
 
 static int parse_options(const char *options) {
-        char *state, *w;
+        const char *word, *state;
         size_t l;
         int r;
 
         assert(options);
 
-        FOREACH_WORD_SEPARATOR(w, l, options, ",", state) {
+        FOREACH_WORD_SEPARATOR(word, l, options, ",", state) {
                 _cleanup_free_ char *o;
 
-                o = strndup(w, l);
+                o = strndup(word, l);
                 if (!o)
                         return -ENOMEM;
                 r = parse_one_option(o);

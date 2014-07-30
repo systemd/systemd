@@ -395,7 +395,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_CAPABILITY:
                 case ARG_DROP_CAPABILITY: {
-                        char *state, *word;
+                        const char *state, *word;
                         size_t length;
 
                         FOREACH_WORD_SEPARATOR(word, length, optarg, ",", state) {
@@ -2602,7 +2602,8 @@ static int spawn_getent(const char *database, const char *key, pid_t *rpid) {
 }
 
 static int change_uid_gid(char **_home) {
-        char line[LINE_MAX], *w, *x, *state, *u, *g, *h;
+        char line[LINE_MAX], *x, *u, *g, *h;
+        const char *word, *state;
         _cleanup_free_ uid_t *uids = NULL;
         _cleanup_free_ char *home = NULL;
         _cleanup_fclose_ FILE *f = NULL;
@@ -2752,10 +2753,10 @@ static int change_uid_gid(char **_home) {
         x += strcspn(x, WHITESPACE);
         x += strspn(x, WHITESPACE);
 
-        FOREACH_WORD(w, l, x, state) {
+        FOREACH_WORD(word, l, x, state) {
                 char c[l+1];
 
-                memcpy(c, w, l);
+                memcpy(c, word, l);
                 c[l] = 0;
 
                 if (!GREEDY_REALLOC(uids, sz, n_uids+1))

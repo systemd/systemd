@@ -74,7 +74,8 @@ void condition_free_list(Condition *first) {
 }
 
 bool condition_test_kernel_command_line(Condition *c) {
-        char *line, *w, *state, *word = NULL;
+        char *line, *word = NULL;
+        const char *w, *state;
         bool equal;
         int r;
         size_t l, pl;
