@@ -231,7 +231,7 @@ keyboard:dmi:bvn*:bvr*:bd*:svnDell*:pnXPS*:pvr*
 
 # Dell Latitude microphone mute
 keyboard:name:Dell WMI hotkeys:dmi:bvn*:bvr*:bd*:svnDell*:pnLatitude*
- KEYBOARD_KEY_150=f20                                   # Mic mute toggle
+ KEYBOARD_KEY_150=f20                                   # Mic mute toggle, should be micmute
 
 ###########################################################
 # Everex
@@ -505,7 +505,7 @@ keyboard:name:ThinkPad Extra Buttons:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*
  KEYBOARD_KEY_15=volumedown
  KEYBOARD_KEY_16=mute
  KEYBOARD_KEY_17=prog1
- KEYBOARD_KEY_1a=f20
+ KEYBOARD_KEY_1a=f20                                    # Microphone mute button; should be micmute
 
 # ThinkPad Keyboard with TrackPoint
 keyboard:usb:v17EFp6009*
@@ -573,7 +573,7 @@ keyboard:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*IdeaPad*Y550*:pvr*
 
 keyboard:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*IdeaPad*U300s*:pvr*
  KEYBOARD_KEY_f1=f21
- KEYBOARD_KEY_ce=f20
+ KEYBOARD_KEY_ce=f20                                    # micmute
 
 keyboard:dmi:bvn*:bvr*:svnLENOVO*:pn*IdeaPad*Z370*:pvr*
  KEYBOARD_KEY_a0=!mute
@@ -809,7 +809,7 @@ keyboard:dmi:bvn*:bvr*:bd*:svnOLPC:pnXO:*
  KEYBOARD_KEY_f3=f17
  KEYBOARD_KEY_f2=f18
  KEYBOARD_KEY_f1=f19
- KEYBOARD_KEY_f0=f20
+ KEYBOARD_KEY_f0=f20                                    # micmute
  KEYBOARD_KEY_ef=f21
  KEYBOARD_KEY_ee=chat
  KEYBOARD_KEY_e4=chat
