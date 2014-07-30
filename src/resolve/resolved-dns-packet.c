@@ -868,6 +868,12 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
         if (r < 0)
                 goto fail;
 
+        if (key->class == DNS_CLASS_ANY ||
+            key->type == DNS_TYPE_ANY) {
+                r = -EBADMSG;
+                goto fail;
+        }
+
         rr = dns_resource_record_new(key);
         if (!rr) {
                 r = -ENOMEM;
