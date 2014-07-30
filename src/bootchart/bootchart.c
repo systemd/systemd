@@ -164,21 +164,21 @@ static void help(void) {
 }
 
 static int parse_args(int argc, char *argv[]) {
-        static struct option options[] = {
-                {"rel",       no_argument,        NULL,  'r'},
-                {"freq",      required_argument,  NULL,  'f'},
-                {"samples",   required_argument,  NULL,  'n'},
-                {"pss",       no_argument,        NULL,  'p'},
-                {"output",    required_argument,  NULL,  'o'},
-                {"init",      required_argument,  NULL,  'i'},
-                {"no-filter", no_argument,        NULL,  'F'},
-                {"cmdline",   no_argument,        NULL,  'C'},
-                {"control-group", no_argument,    NULL,  'c'},
-                {"help",      no_argument,        NULL,  'h'},
-                {"scale-x",   required_argument,  NULL,  'x'},
-                {"scale-y",   required_argument,  NULL,  'y'},
-                {"entropy",   no_argument,        NULL,  'e'},
-                {NULL, 0, NULL, 0}
+        static const struct option options[] = {
+                {"rel",           no_argument,        NULL,  'r'},
+                {"freq",          required_argument,  NULL,  'f'},
+                {"samples",       required_argument,  NULL,  'n'},
+                {"pss",           no_argument,        NULL,  'p'},
+                {"output",        required_argument,  NULL,  'o'},
+                {"init",          required_argument,  NULL,  'i'},
+                {"no-filter",     no_argument,        NULL,  'F'},
+                {"cmdline",       no_argument,        NULL,  'C'},
+                {"control-group", no_argument,        NULL,  'c'},
+                {"help",          no_argument,        NULL,  'h'},
+                {"scale-x",       required_argument,  NULL,  'x'},
+                {"scale-y",       required_argument,  NULL,  'y'},
+                {"entropy",       no_argument,        NULL,  'e'},
+                {}
         };
         int c;
 
