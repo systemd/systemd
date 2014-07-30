@@ -36,17 +36,17 @@
 static int arg_family = AF_UNSPEC;
 static int arg_ifindex = 0;
 
-static int resolve_host(sd_bus *bus, const char *name, int _family, int _ifindex) {
+static int resolve_host(sd_bus *bus, const char *name) {
 
         _cleanup_bus_message_unref_ sd_bus_message *req = NULL, *reply = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        const char *canonical = NULL;
         unsigned c = 0;
         int r;
 
         assert(name);
 
-        log_debug("Resolving %s (family %s)",
-                  name, af_to_name(_family));
+        log_debug("Resolving %s (family %s, ifindex %i).", name, af_to_name(arg_family) ?: "*", arg_ifindex);
 
         r = sd_bus_message_new_method_call(
                         bus,
@@ -62,7 +62,7 @@ static int resolve_host(sd_bus *bus, const char *name, int _family, int _ifindex
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_message_append(req, "si", name, AF_UNSPEC);
+        r = sd_bus_message_append(req, "si", name, arg_family);
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -99,10 +99,8 @@ static int resolve_host(sd_bus *bus, const char *name, int _family, int _ifindex
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                if ((_family != AF_UNSPEC && family != _family) ||
-                    !IN_SET(family, AF_INET, AF_INET6)) {
-                        log_debug("%s: skipping entry with family %hu (%s)",
-                                  name, family, af_to_name(family) ?: "unknown");
+                if (!IN_SET(family, AF_INET, AF_INET6)) {
+                        log_debug("%s: skipping entry with family %hu (%s)", name, family, af_to_name(family) ?: "unknown");
                         continue;
                 }
 
@@ -128,7 +126,7 @@ static int resolve_host(sd_bus *bus, const char *name, int _family, int _ifindex
                         }
                 }
 
-                if (_ifindex > 0 && ifindex > 0 && ifindex != _ifindex) {
+                if (arg_ifindex > 0 && ifindex > 0 && ifindex != arg_ifindex) {
                         log_debug("%s: skipping entry with ifindex %i (%s)",
                                   name, ifindex, ifname);
                         continue;
@@ -140,37 +138,163 @@ static int resolve_host(sd_bus *bus, const char *name, int _family, int _ifindex
                         continue;
                 }
 
-                log_info("%*s%s %s%s%.*s",
-                         (int) strlen(name), c == 0 ? name : "", c == 0 ? ":" : " ",
-                         pretty,
-                         *ifname ? "%" : "", (int) sizeof(ifname), *ifname ? ifname: "");
+                printf("%*s%s %s%s%s\n",
+                       (int) strlen(name), c == 0 ? name : "", c == 0 ? ":" : " ",
+                       pretty,
+                       isempty(ifname) ? "" : "%", ifname);
 
                 c++;
         }
-
-        if (c == 0) {
-                log_error("%s: no addresses found", name);
-                return -ENONET;
-        }
+        if (r < 0)
+                return bus_log_parse_error(r);
 
         r = sd_bus_message_exit_container(reply);
         if (r < 0)
                 return bus_log_parse_error(r);
 
+        r = sd_bus_message_read(reply, "s", &canonical);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        if (!streq(name, canonical)) {
+                printf("%*s%s (%s)\n",
+                       (int) strlen(name), c == 0 ? name : "", c == 0 ? ":" : " ",
+                       canonical);
+        }
+
+        if (c == 0) {
+                log_error("%s: no addresses found", name);
+                return -ESRCH;
+        }
+
+        return 0;
+}
+
+static int resolve_address(sd_bus *bus, int family, const union in_addr_union *address, int ifindex) {
+        _cleanup_bus_message_unref_ sd_bus_message *req = NULL, *reply = NULL;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *pretty = NULL;
+        char ifname[IF_NAMESIZE] = "";
+        unsigned c = 0;
+        const char *n;
+        int r;
+
+        assert(bus);
+        assert(IN_SET(family, AF_INET, AF_INET6));
+        assert(address);
+
+        r = in_addr_to_string(family, address, &pretty);
+        if (r < 0)
+                return log_oom();
+
+        if (ifindex > 0) {
+                char *t;
+
+                t = if_indextoname(ifindex, ifname);
+                if (!t) {
+                        log_error("Failed to resolve interface name for index %i", ifindex);
+                        return -errno;
+                }
+        }
+
+        log_debug("Resolving %s%s%s.", pretty, isempty(ifname) ? "" : "%", ifname);
+
+        r = sd_bus_message_new_method_call(
+                        bus,
+                        &req,
+                        "org.freedesktop.resolve1",
+                        "/org/freedesktop/resolve1",
+                        "org.freedesktop.resolve1.Manager",
+                        "ResolveAddress");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_set_auto_start(req, false);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append(req, "i", family);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append_array(req, 'y', address, FAMILY_ADDRESS_SIZE(family));
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append(req, "i", ifindex);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_call(bus, req, DNS_CALL_TIMEOUT_USEC, &error, &reply);
+        if (r < 0) {
+                log_error("%s: resolve call failed: %s", pretty, bus_error_message(&error, r));
+                return r;
+        }
+
+        r = sd_bus_message_enter_container(reply, 'a', "s");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        while ((r = sd_bus_message_read(reply, "s", &n)) > 0) {
+
+                printf("%*s%s%s%s %s\n",
+                       (int) strlen(pretty), c == 0 ? pretty : "",
+                       isempty(ifname) ? "" : "%", ifname,
+                       c == 0 ? ":" : " ",
+                       n);
+
+                c++;
+        }
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = sd_bus_message_exit_container(reply);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        if (c == 0) {
+                log_error("%s: no names found", pretty);
+                return -ESRCH;
+        }
+
+        return 0;
+}
+
+static int parse_address(const char *s, int *family, union in_addr_union *address, int *ifindex) {
+        const char *percent, *a;
+        int ifi = 0;
+        int r;
+
+        percent = strchr(s, '%');
+        if (percent) {
+                r = safe_atoi(percent+1, &ifi);
+                if (r < 0 || ifi <= 0) {
+                        ifi = if_nametoindex(percent+1);
+                        if (ifi <= 0)
+                                return -EINVAL;
+                }
+
+                a = strndupa(s, percent - s);
+        } else
+                a = s;
+
+        r = in_addr_from_string_auto(a, family, address);
+        if (r < 0)
+                return r;
+
+        *ifindex = ifi;
         return 0;
 }
 
 static void help(void) {
         printf("%s [OPTIONS...]\n\n"
                "Resolve IPv4 or IPv6 addresses.\n\n"
-               "Options:\n"
-               "  -4                       Resolve IPv4 addresses\n"
-               "  -6                       Resolve IPv6 addresses\n"
-               "  -i INTERFACE             Filter by interface\n"
-               "  -h --help                Show this help and exit\n"
-               "  --version                Print version string and exit\n"
-               , program_invocation_short_name
-               );
+               "  -h --help             Show this help\n"
+               "     --version          Show package version\n"
+               "  -4                    Resolve IPv4 addresses\n"
+               "  -6                    Resolve IPv6 addresses\n"
+               "  -i INTERFACE          Filter by interface\n"
+               , program_invocation_short_name);
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -189,7 +313,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h46i:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "h46i:", options, NULL)) >= 0) {
                 switch(c) {
 
                 case 'h':
@@ -223,6 +347,7 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached("Unhandled option");
                 }
+        }
 
         return 1 /* work to do */;
 }
@@ -236,22 +361,36 @@ int main(int argc, char **argv) {
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                goto end;
+                goto finish;
+
+        if (optind >= argc) {
+                log_error("No arguments passed");
+                r = -EINVAL;
+                goto finish;
+        }
 
         r = sd_bus_open_system(&bus);
         if (r < 0) {
                 log_error("sd_bus_open_system: %s", strerror(-r));
-                goto end;
+                goto finish;
         }
 
         while (argv[optind]) {
-                int k;
+                int family, ifindex, k;
+                union in_addr_union a;
 
-                k = resolve_host(bus, argv[optind++], arg_family, arg_ifindex);
+                k = parse_address(argv[optind], &family, &a, &ifindex);
+                if (k >= 0)
+                        k = resolve_address(bus, family, &a, ifindex);
+                else
+                        k = resolve_host(bus, argv[optind]);
+
                 if (r == 0)
                         r = k;
+
+                optind++;
         }
 
- end:
+finish:
         return r == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }
