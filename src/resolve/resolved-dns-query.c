@@ -567,10 +567,13 @@ int dns_query_new(Manager *m, DnsQuery **ret, DnsQuestion *question) {
         q->question = dns_question_ref(question);
 
         for (i = 0; i < question->n_keys; i++) {
-                log_debug("Looking up RR for %s %s %s",
-                          strna(dns_class_to_string(question->keys[i]->class)),
-                          strna(dns_type_to_string(question->keys[i]->type)),
-                          DNS_RESOURCE_KEY_NAME(question->keys[i]));
+                _cleanup_free_ char *p;
+
+                r = dns_resource_key_to_string(question->keys[i], &p);
+                if (r < 0)
+                        return r;
+
+                log_debug("Looking up RR for %s", p);
         }
 
         LIST_PREPEND(queries, m->dns_queries, q);
@@ -801,6 +804,7 @@ void dns_query_ready(DnsQuery *q) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
         int rcode = 0;
         DnsScope *scope = NULL;
+        bool pending = false;
         Iterator i;
 
         assert(q);
@@ -820,9 +824,11 @@ void dns_query_ready(DnsQuery *q) {
                 if (state == DNS_QUERY_SUCCESS && t->scope != scope)
                         continue;
 
-                /* One of the transactions is still going on, let's wait for it */
-                if (t->state == DNS_QUERY_PENDING || t->state == DNS_QUERY_NULL)
-                        return;
+                /* One of the transactions is still going on, let's maybe wait for it */
+                if (IN_SET(t->state, DNS_QUERY_PENDING, DNS_QUERY_NULL)) {
+                        pending = true;
+                        continue;
+                }
 
                 /* One of the transactions is successful, let's use
                  * it, and copy its data out */
@@ -882,6 +888,21 @@ void dns_query_ready(DnsQuery *q) {
 
                 if (state == DNS_QUERY_NO_SERVERS && t->state != DNS_QUERY_NO_SERVERS)
                         state = t->state;
+        }
+
+        if (pending) {
+
+                /* If so far we weren't successful, and there's
+                 * something still pending, then wait for it */
+                if (state != DNS_QUERY_SUCCESS)
+                        return;
+
+                /* If we already were successful, then only wait for
+                 * other transactions on the same scope to finish. */
+                SET_FOREACH(t, q->transactions, i) {
+                        if (t->scope == scope && IN_SET(t->state, DNS_QUERY_PENDING, DNS_QUERY_NULL))
+                                return;
+                }
         }
 
         if (IN_SET(state, DNS_QUERY_SUCCESS, DNS_QUERY_FAILURE)) {
