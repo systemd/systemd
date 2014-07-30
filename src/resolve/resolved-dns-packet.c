@@ -574,6 +574,9 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *star
                 goto fail;
         p->size = end;
 
+        if (start)
+                *start = saved_size;
+
         return 0;
 
 fail:
