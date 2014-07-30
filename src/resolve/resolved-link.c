@@ -25,9 +25,6 @@
 #include "strv.h"
 #include "resolved-link.h"
 
-/* RFC 4795 Section 2.8. suggests a TTL of 30s by default */
-#define LLMNR_DEFAULT_TTL (30)
-
 static void link_address_add_rrs(LinkAddress *a);
 
 int link_new(Manager *m, Link **ret, int ifindex) {

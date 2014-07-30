@@ -38,3 +38,6 @@ int dns_zone_put(DnsZone *z, DnsResourceRecord *rr);
 void dns_zone_remove_rr(DnsZone *z, DnsResourceRecord *rr);
 
 int dns_zone_lookup(DnsZone *z, DnsQuestion *q, DnsAnswer **answer, DnsAnswer **soa);
+
+/* RFC 4795 Section 2.8. suggests a TTL of 30s by default */
+#define LLMNR_DEFAULT_TTL (30)

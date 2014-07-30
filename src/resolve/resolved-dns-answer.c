@@ -97,12 +97,14 @@ int dns_answer_add(DnsAnswer *a, DnsResourceRecord *rr) {
         return 1;
 }
 
-int dns_answer_add_soa(DnsAnswer *a, const char *name) {
+int dns_answer_add_soa(DnsAnswer *a, const char *name, uint32_t ttl) {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *soa = NULL;
 
         soa = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SOA, name);
         if (!soa)
                 return -ENOMEM;
+
+        soa->ttl = ttl;
 
         soa->soa.mname = strdup(name);
         if (!soa->soa.mname)
@@ -116,7 +118,7 @@ int dns_answer_add_soa(DnsAnswer *a, const char *name) {
         soa->soa.refresh = 1;
         soa->soa.retry = 1;
         soa->soa.expire = 1;
-        soa->soa.minimum = 1;
+        soa->soa.minimum = ttl;
 
         return dns_answer_add(a, soa);
 }

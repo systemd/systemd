@@ -275,7 +275,7 @@ int dns_zone_lookup(DnsZone *z, DnsQuestion *q, DnsAnswer **ret_answer, DnsAnswe
                                 if (k < 0)
                                         return k;
                                 if (k == 0)
-                                        r = dns_answer_add_soa(soa, DNS_RESOURCE_KEY_NAME(q->keys[i]));
+                                        r = dns_answer_add_soa(soa, DNS_RESOURCE_KEY_NAME(q->keys[i]), LLMNR_DEFAULT_TTL);
                                 else
                                         r = dns_answer_add(answer, j->rr);
                                 if (r < 0)
@@ -292,7 +292,7 @@ int dns_zone_lookup(DnsZone *z, DnsQuestion *q, DnsAnswer **ret_answer, DnsAnswe
                                 }
                         } else {
                                 if (hashmap_get(z->by_name, DNS_RESOURCE_KEY_NAME(q->keys[i]))) {
-                                        r = dns_answer_add_soa(soa, DNS_RESOURCE_KEY_NAME(q->keys[i]));
+                                        r = dns_answer_add_soa(soa, DNS_RESOURCE_KEY_NAME(q->keys[i]), LLMNR_DEFAULT_TTL);
                                         if (r < 0)
                                                 return r;
                                 }
