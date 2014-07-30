@@ -2146,7 +2146,7 @@ int link_add(Manager *m, sd_rtnl_message *message, Link **ret) {
                 sprintf(ifindex_str, "n%d", link->ifindex);
                 device = udev_device_new_from_device_id(m->udev, ifindex_str);
                 if (!device) {
-                        log_warning_link(link, "could not find udev device");
+                        log_warning_link(link, "could not find udev device: %m");
                         return -errno;
                 }
 
