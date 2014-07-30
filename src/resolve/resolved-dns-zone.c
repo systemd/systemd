@@ -194,9 +194,9 @@ int dns_zone_put(DnsZone *z, DnsResourceRecord *rr) {
 
 int dns_zone_lookup(DnsZone *z, DnsQuestion *q, DnsAnswer **ret) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
-        int r;
-        unsigned i, n = 0;
         bool has_other_rrs = false;
+        unsigned i, n = 0;
+        int r;
 
         assert(z);
         assert(q);
@@ -210,16 +210,39 @@ int dns_zone_lookup(DnsZone *z, DnsQuestion *q, DnsAnswer **ret) {
         for (i = 0; i < q->n_keys; i++) {
                 DnsZoneItem *j;
 
-                j = hashmap_get(z->by_key, q->keys[i]);
-                if (!j) {
-                        if (hashmap_get(z->by_name, DNS_RESOURCE_KEY_NAME(q->keys[i])))
+                if (q->keys[i]->type == DNS_TYPE_ANY ||
+                    q->keys[i]->class == DNS_CLASS_ANY) {
+                        int k;
+
+                        /* If this is a generic match, then we have to
+                         * go through the list by the name and look
+                         * for everything manually */
+
+                        j = hashmap_get(z->by_name, DNS_RESOURCE_KEY_NAME(q->keys[i]));
+                        LIST_FOREACH(by_name, j, j) {
                                 has_other_rrs = true;
 
-                        continue;
-                }
+                                k = dns_resource_key_match_rr(q->keys[i], j->rr);
+                                if (k < 0)
+                                        return k;
+                                if (k == 0)
+                                        continue;
 
-                LIST_FOREACH(by_name, j, j)
-                        n++;
+                                n++;
+                        }
+
+                } else {
+                        j = hashmap_get(z->by_key, q->keys[i]);
+                        if (!j) {
+                                if (hashmap_get(z->by_name, DNS_RESOURCE_KEY_NAME(q->keys[i])))
+                                        has_other_rrs = true;
+
+                                continue;
+                        }
+
+                        LIST_FOREACH(by_key, j, j)
+                                n++;
+                }
         }
 
         if (n <= 0) {
@@ -234,11 +257,30 @@ int dns_zone_lookup(DnsZone *z, DnsQuestion *q, DnsAnswer **ret) {
         for (i = 0; i < q->n_keys; i++) {
                 DnsZoneItem *j;
 
-                j = hashmap_get(z->by_key, q->keys[i]);
-                LIST_FOREACH(by_key, j, j) {
-                        r = dns_answer_add(answer, j->rr);
-                        if (r < 0)
-                                return r;
+                if (q->keys[i]->type == DNS_TYPE_ANY ||
+                    q->keys[i]->class == DNS_CLASS_ANY) {
+                        int k;
+
+                        j = hashmap_get(z->by_name, DNS_RESOURCE_KEY_NAME(q->keys[i]));
+                        LIST_FOREACH(by_name, j, j) {
+                                k = dns_resource_key_match_rr(q->keys[i], j->rr);
+                                if (k < 0)
+                                        return k;
+                                if (k == 0)
+                                        continue;
+
+                                r = dns_answer_add(answer, j->rr);
+                                if (r < 0)
+                                        return r;
+                        }
+                } else {
+
+                        j = hashmap_get(z->by_key, q->keys[i]);
+                        LIST_FOREACH(by_key, j, j) {
+                                r = dns_answer_add(answer, j->rr);
+                                if (r < 0)
+                                        return r;
+                        }
                 }
         }
 
