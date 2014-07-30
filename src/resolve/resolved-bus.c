@@ -149,33 +149,36 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
         if (r < 0)
                 goto finish;
 
-        answer = dns_answer_ref(q->answer);
         ifindex = q->answer_ifindex;
 
-        for (i = 0; i < answer->n_rrs; i++) {
-                r = dns_question_matches_rr(q->question, answer->rrs[i]);
-                if (r < 0)
-                        goto parse_fail;
-                if (r == 0) {
-                        /* Hmm, if this is not an address record,
-                           maybe it's a cname? If so, remember this */
-                        r = dns_question_matches_cname(q->question, answer->rrs[i]);
+        if (q->answer) {
+                answer = dns_answer_ref(q->answer);
+
+                for (i = 0; i < answer->n_rrs; i++) {
+                        r = dns_question_matches_rr(q->question, answer->rrs[i]);
                         if (r < 0)
                                 goto parse_fail;
-                        if (r > 0)
-                                cname = dns_resource_record_ref(answer->rrs[i]);
+                        if (r == 0) {
+                                /* Hmm, if this is not an address record,
+                                   maybe it's a cname? If so, remember this */
+                                r = dns_question_matches_cname(q->question, answer->rrs[i]);
+                                if (r < 0)
+                                        goto parse_fail;
+                                if (r > 0)
+                                        cname = dns_resource_record_ref(answer->rrs[i]);
 
-                        continue;
+                                continue;
+                        }
+
+                        r = append_address(reply, answer->rrs[i], ifindex);
+                        if (r < 0)
+                                goto finish;
+
+                        if (!canonical)
+                                canonical = dns_resource_record_ref(answer->rrs[i]);
+
+                        added ++;
                 }
-
-                r = append_address(reply, answer->rrs[i], ifindex);
-                if (r < 0)
-                        goto finish;
-
-                if (!canonical)
-                        canonical = dns_resource_record_ref(answer->rrs[i]);
-
-                added ++;
         }
 
         if (added <= 0) {
@@ -347,20 +350,22 @@ static void bus_method_resolve_address_complete(DnsQuery *q) {
         if (r < 0)
                 goto finish;
 
-        answer = dns_answer_ref(q->answer);
+        if (q->answer) {
+                answer = dns_answer_ref(q->answer);
 
-        for (i = 0; i < answer->n_rrs; i++) {
-                r = dns_question_matches_rr(q->question, answer->rrs[i]);
-                if (r < 0)
-                        goto parse_fail;
-                if (r == 0)
-                        continue;
+                for (i = 0; i < answer->n_rrs; i++) {
+                        r = dns_question_matches_rr(q->question, answer->rrs[i]);
+                        if (r < 0)
+                                goto parse_fail;
+                        if (r == 0)
+                                continue;
 
-                r = sd_bus_message_append(reply, "s", answer->rrs[i]->ptr.name);
-                if (r < 0)
-                        goto finish;
+                        r = sd_bus_message_append(reply, "s", answer->rrs[i]->ptr.name);
+                        if (r < 0)
+                                goto finish;
 
-                added ++;
+                        added ++;
+                }
         }
 
         if (added <= 0) {
