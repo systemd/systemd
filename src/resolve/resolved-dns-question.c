@@ -115,7 +115,7 @@ int dns_question_matches_cname(DnsQuestion *q, DnsResourceRecord *rr) {
                         return r;
         }
 
-        return 1;
+        return 0;
 }
 
 int dns_question_is_valid(DnsQuestion *q) {
@@ -137,6 +137,8 @@ int dns_question_is_valid(DnsQuestion *q) {
 
         /* Check that all keys in this question bear the same name */
         for (i = 1; i < q->n_keys; i++) {
+                assert(q->keys[i]);
+
                 r = dns_name_equal(DNS_RESOURCE_KEY_NAME(q->keys[i]), name);
                 if (r <= 0)
                         return r;
@@ -218,7 +220,7 @@ int dns_question_cname_redirect(DnsQuestion *q, const char *name, DnsQuestion **
                 return -ENOMEM;
 
         /* Create a new question, and patch in the new name */
-        for (n->n_keys = 0; n->n_keys < q->n_keys; n->n_keys++) {
+        for (i = 0; i < q->n_keys; i++) {
                 _cleanup_(dns_resource_key_unrefp) DnsResourceKey *k = NULL;
 
                 k = dns_resource_key_new(q->keys[i]->class, q->keys[i]->type, name);
