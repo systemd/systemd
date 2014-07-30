@@ -36,9 +36,9 @@ Features:
   - LLMNR:
         - process incoming notification of conflict
         - send notifications of conflict
-        - verify new RRs
+        - verify new RR uniqueness
         - detect conflicts
-        - queries with ANY types or classes
+        - cache lookups with ANY types or classes
         - collect multiple responses
         - jitter interval support
         - add SOA record to empty responses
@@ -46,7 +46,8 @@ Features:
   - DNS-SD service registration from socket units
   - port sd-resolve to direct bus calls
   - nss module: fallback to glibc dns modules if resolved cannot be contacted
-  - edns0 + dname
+  - edns0
+  - dname
   - cname on PTR (?)
 
 * Allow multiple ExecStart= for all Type= settings, so that we can cover rescue.service nicely
