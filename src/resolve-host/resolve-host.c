@@ -55,22 +55,16 @@ static int resolve_host(sd_bus *bus, const char *name, int _family, int _ifindex
                         "/org/freedesktop/resolve1",
                         "org.freedesktop.resolve1.Manager",
                         "ResolveHostname");
-        if (r < 0) {
-                log_error("sd_bus_message_new_method_call: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return bus_log_create_error(r);
 
         r = sd_bus_message_set_auto_start(req, false);
-        if (r < 0) {
-                log_error("sd_bus_message_set_auto_start: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return bus_log_create_error(r);
 
         r = sd_bus_message_append(req, "si", name, AF_UNSPEC);
-        if (r < 0) {
-                log_error("sd_bus_message_append: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return bus_log_create_error(r);
 
         r = sd_bus_call(bus, req, DNS_CALL_TIMEOUT_USEC, &error, &reply);
         if (r < 0) {
@@ -79,10 +73,8 @@ static int resolve_host(sd_bus *bus, const char *name, int _family, int _ifindex
         }
 
         r = sd_bus_message_enter_container(reply, 'a', "(iayi)");
-        if (r < 0) {
-                log_error("%s: failed to parse reply: %s", name, bus_error_message(&error, r));
-                return r;
-        }
+        if (r < 0)
+                return bus_log_parse_error(r);
 
         while ((r = sd_bus_message_enter_container(reply, 'r', "iayi")) > 0) {
                 const void *a;
@@ -92,28 +84,20 @@ static int resolve_host(sd_bus *bus, const char *name, int _family, int _ifindex
                 char ifname[IF_NAMESIZE] = "";
 
                 r = sd_bus_message_read(reply, "i", &family);
-                if (r < 0) {
-                        log_error("Cannot parse message, aborting.");
-                        return -EBADMSG;
-                }
+                if (r < 0)
+                        return bus_log_parse_error(r);
 
                 r = sd_bus_message_read_array(reply, 'y', &a, &sz);
-                if (r < 0) {
-                        log_error("Cannot parse message, aborting.");
-                        return -EBADMSG;
-                }
+                if (r < 0)
+                        return bus_log_parse_error(r);
 
                 r = sd_bus_message_read(reply, "i", &ifindex);
-                if (r < 0) {
-                        log_error("Cannot parse message, aborting.");
-                        return -EBADMSG;
-                }
+                if (r < 0)
+                        return bus_log_parse_error(r);
 
                 r = sd_bus_message_exit_container(reply);
-                if (r < 0) {
-                        log_error("Cannot parse message, aborting.");
-                        return -EBADMSG;
-                }
+                if (r < 0)
+                        return bus_log_parse_error(r);
 
                 if ((_family != AF_UNSPEC && family != _family) ||
                     !IN_SET(family, AF_INET, AF_INET6)) {
@@ -169,7 +153,11 @@ static int resolve_host(sd_bus *bus, const char *name, int _family, int _ifindex
                 return -ENONET;
         }
 
-        return sd_bus_message_exit_container(reply);
+        r = sd_bus_message_exit_container(reply);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        return 0;
 }
 
 static void help(void) {
@@ -238,7 +226,6 @@ static int parse_argv(int argc, char *argv[]) {
 
         return 1 /* work to do */;
 }
-
 
 int main(int argc, char **argv) {
         _cleanup_bus_unref_ sd_bus *bus = NULL;
