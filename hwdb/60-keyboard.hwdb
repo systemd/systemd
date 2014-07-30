@@ -229,6 +229,10 @@ keyboard:dmi:bvn*:bvr*:bd*:svnDell*:pnPrecision*:pvr*
 keyboard:dmi:bvn*:bvr*:bd*:svnDell*:pnXPS*:pvr*
  KEYBOARD_KEY_8c=!unknown
 
+# Dell Latitude microphone mute
+keyboard:name:Dell WMI hotkeys:dmi:bvn*:bvr*:bd*:svnDell*:pnLatitude*
+ KEYBOARD_KEY_150=f20                                   # Mic mute toggle
+
 ###########################################################
 # Everex
 ###########################################################
