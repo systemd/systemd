@@ -352,12 +352,16 @@ int dns_cache_put(DnsCache *c, DnsQuestion *q, int rcode, DnsAnswer *answer, uns
         int r;
 
         assert(c);
-        assert(answer);
+        assert(q);
 
         /* First, delete all matching old RRs, so that we only keep
          * complete by_key in place. */
         for (i = 0; i < q->n_keys; i++)
                 dns_cache_remove(c, q->keys[i]);
+
+        if (!answer)
+                return 0;
+
         for (i = 0; i < answer->n_rrs; i++)
                 dns_cache_remove(c, answer->rrs[i]->key);
 
