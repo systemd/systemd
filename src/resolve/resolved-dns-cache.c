@@ -270,6 +270,11 @@ static int dns_cache_put_positive(DnsCache *c, DnsResourceRecord *rr, usec_t tim
                 return 0;
         }
 
+        if (rr->key->class == DNS_CLASS_ANY)
+                return 0;
+        if (rr->key->type == DNS_TYPE_ANY)
+                return 0;
+
         /* Entry exists already? Update TTL and timestamp */
         existing = dns_cache_get(c, rr);
         if (existing) {
@@ -310,6 +315,11 @@ static int dns_cache_put_negative(DnsCache *c, DnsResourceKey *key, int rcode, u
         assert(key);
 
         dns_cache_remove(c, key);
+
+        if (key->class == DNS_CLASS_ANY)
+                return 0;
+        if (key->type == DNS_TYPE_ANY)
+                return 0;
 
         if (!IN_SET(rcode, DNS_RCODE_SUCCESS, DNS_RCODE_NXDOMAIN))
                 return 0;
@@ -425,6 +435,14 @@ int dns_cache_lookup(DnsCache *c, DnsQuestion *q, int *rcode, DnsAnswer **ret) {
 
         for (i = 0; i < q->n_keys; i++) {
                 DnsCacheItem *j;
+
+                if (q->keys[i]->type == DNS_TYPE_ANY ||
+                    q->keys[i]->class == DNS_CLASS_ANY) {
+                        /* If we have ANY lookups we simply refresh */
+                        *ret = NULL;
+                        *rcode = 0;
+                        return 0;
+                }
 
                 j = hashmap_get(c->by_key, q->keys[i]);
                 if (!j) {
