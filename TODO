@@ -32,6 +32,7 @@ Features:
   - IDN (?)
   - DNSSEC
   - LLMNR:
+        - do not fail daemon startup if socket is already busy (container)
         - process incoming notification of conflict
         - send notifications of conflict
         - verify new RR uniqueness
@@ -46,6 +47,10 @@ Features:
   - edns0
   - dname
   - cname on PTR (?)
+
+* Ignore .busname units on classic D-Bus boots, systemd-resolved cannot be started on kdbus
+  without the active policy and should get a Wants=org.freedesktop.resolve1.busname to
+  pull-in the policy.
 
 * Allow multiple ExecStart= for all Type= settings, so that we can cover rescue.service nicely
 
