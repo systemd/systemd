@@ -165,6 +165,11 @@ int dns_zone_put(DnsZone *z, DnsResourceRecord *rr) {
         assert(z);
         assert(rr);
 
+        if (rr->key->class == DNS_CLASS_ANY)
+                return -EINVAL;
+        if (rr->key->type == DNS_TYPE_ANY)
+                return -EINVAL;
+
         existing = dns_zone_get(z, rr);
         if (existing)
                 return 0;
