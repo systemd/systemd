@@ -97,6 +97,30 @@ int dns_answer_add(DnsAnswer *a, DnsResourceRecord *rr) {
         return 1;
 }
 
+int dns_answer_add_soa(DnsAnswer *a, const char *name) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *soa = NULL;
+
+        soa = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SOA, name);
+        if (!soa)
+                return -ENOMEM;
+
+        soa->soa.mname = strdup(name);
+        if (!soa->soa.mname)
+                return -ENOMEM;
+
+        soa->soa.rname = strappend("root.", name);
+        if (!soa->soa.rname)
+                return -ENOMEM;
+
+        soa->soa.serial = 1;
+        soa->soa.refresh = 1;
+        soa->soa.retry = 1;
+        soa->soa.expire = 1;
+        soa->soa.minimum = 1;
+
+        return dns_answer_add(a, soa);
+}
+
 int dns_answer_contains(DnsAnswer *a, DnsResourceKey *key) {
         unsigned i;
         int r;

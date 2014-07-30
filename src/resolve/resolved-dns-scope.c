@@ -389,14 +389,14 @@ int dns_scope_good_dns_server(DnsScope *s, int family, const union in_addr_union
                 return !!manager_find_dns_server(s->manager, family, address);
 }
 
-static int dns_scope_make_reply_packet(DnsScope *s, uint16_t id, int rcode, DnsQuestion *q, DnsAnswer *a, DnsPacket **ret) {
+static int dns_scope_make_reply_packet(DnsScope *s, uint16_t id, int rcode, DnsQuestion *q, DnsAnswer *answer, DnsAnswer *soa, DnsPacket **ret) {
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
         unsigned i;
         int r;
 
         assert(s);
 
-        if (q->n_keys <= 0 && a->n_rrs <= 0)
+        if (q->n_keys <= 0 && answer->n_rrs <= 0 && soa->n_rrs <= 0)
                 return -EINVAL;
 
         r = dns_packet_new(&p, s->protocol, 0);
@@ -425,14 +425,24 @@ static int dns_scope_make_reply_packet(DnsScope *s, uint16_t id, int rcode, DnsQ
                 DNS_PACKET_HEADER(p)->qdcount = htobe16(q->n_keys);
         }
 
-        if (a) {
-                for (i = 0; i < a->n_rrs; i++) {
-                        r = dns_packet_append_rr(p, a->rrs[i], NULL);
+        if (answer) {
+                for (i = 0; i < answer->n_rrs; i++) {
+                        r = dns_packet_append_rr(p, answer->rrs[i], NULL);
                         if (r < 0)
                                 return r;
                 }
 
-                DNS_PACKET_HEADER(p)->ancount = htobe16(a->n_rrs);
+                DNS_PACKET_HEADER(p)->ancount = htobe16(answer->n_rrs);
+        }
+
+        if (soa) {
+                for (i = 0; i < soa->n_rrs; i++) {
+                        r = dns_packet_append_rr(p, soa->rrs[i], NULL);
+                        if (r < 0)
+                                return r;
+                }
+
+                DNS_PACKET_HEADER(p)->arcount = htobe16(soa->n_rrs);
         }
 
         *ret = p;
@@ -443,7 +453,7 @@ static int dns_scope_make_reply_packet(DnsScope *s, uint16_t id, int rcode, DnsQ
 
 void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
         _cleanup_(dns_packet_unrefp) DnsPacket *reply = NULL;
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL, *soa = NULL;
         int r, fd;
 
         assert(s);
@@ -475,7 +485,7 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
                 return;
         }
 
-        r = dns_zone_lookup(&s->zone, p->question, &answer);
+        r = dns_zone_lookup(&s->zone, p->question, &answer, &soa);
         if (r < 0) {
                 log_debug("Failed to lookup key: %s", strerror(-r));
                 return;
@@ -485,7 +495,7 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
 
         dns_answer_order_by_scope(answer, in_addr_is_link_local(p->family, &p->sender) > 0);
 
-        r = dns_scope_make_reply_packet(s, DNS_PACKET_ID(p), DNS_RCODE_SUCCESS, p->question, answer, &reply);
+        r = dns_scope_make_reply_packet(s, DNS_PACKET_ID(p), DNS_RCODE_SUCCESS, p->question, answer, soa, &reply);
         if (r < 0) {
                 log_debug("Failed to build reply packet: %s", strerror(-r));
                 return;

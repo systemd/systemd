@@ -37,4 +37,4 @@ void dns_zone_flush(DnsZone *z);
 int dns_zone_put(DnsZone *z, DnsResourceRecord *rr);
 void dns_zone_remove_rr(DnsZone *z, DnsResourceRecord *rr);
 
-int dns_zone_lookup(DnsZone *z, DnsQuestion *q, DnsAnswer **answer);
+int dns_zone_lookup(DnsZone *z, DnsQuestion *q, DnsAnswer **answer, DnsAnswer **soa);

@@ -172,6 +172,16 @@ DnsResourceRecord* dns_resource_record_new(DnsResourceKey *key) {
         return rr;
 }
 
+DnsResourceRecord* dns_resource_record_new_full(uint16_t class, uint16_t type, const char *name) {
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+
+        key = dns_resource_key_new(class, type, name);
+        if (!key)
+                return NULL;
+
+        return dns_resource_record_new(key);
+}
+
 DnsResourceRecord* dns_resource_record_ref(DnsResourceRecord *rr) {
         if (!rr)
                 return NULL;

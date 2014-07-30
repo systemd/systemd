@@ -192,21 +192,23 @@ int dns_zone_put(DnsZone *z, DnsResourceRecord *rr) {
         return 0;
 }
 
-int dns_zone_lookup(DnsZone *z, DnsQuestion *q, DnsAnswer **ret) {
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
-        bool has_other_rrs = false;
-        unsigned i, n = 0;
+int dns_zone_lookup(DnsZone *z, DnsQuestion *q, DnsAnswer **ret_answer, DnsAnswer **ret_soa) {
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL, *soa = NULL;
+        unsigned i, n_answer = 0, n_soa = 0;
         int r;
 
         assert(z);
         assert(q);
-        assert(ret);
+        assert(ret_answer);
+        assert(ret_soa);
 
         if (q->n_keys <= 0) {
-                *ret = NULL;
+                *ret_answer = NULL;
+                *ret_soa = NULL;
                 return 0;
         }
 
+        /* First iteration, count what we have */
         for (i = 0; i < q->n_keys; i++) {
                 DnsZoneItem *j;
 
@@ -220,40 +222,46 @@ int dns_zone_lookup(DnsZone *z, DnsQuestion *q, DnsAnswer **ret) {
 
                         j = hashmap_get(z->by_name, DNS_RESOURCE_KEY_NAME(q->keys[i]));
                         LIST_FOREACH(by_name, j, j) {
-                                has_other_rrs = true;
-
                                 k = dns_resource_key_match_rr(q->keys[i], j->rr);
                                 if (k < 0)
                                         return k;
                                 if (k == 0)
-                                        continue;
-
-                                n++;
+                                        n_soa++;
+                                else
+                                        n_answer++;
                         }
 
                 } else {
                         j = hashmap_get(z->by_key, q->keys[i]);
-                        if (!j) {
+                        if (j) {
+                                LIST_FOREACH(by_key, j, j)
+                                        n_answer++;
+                        } else {
                                 if (hashmap_get(z->by_name, DNS_RESOURCE_KEY_NAME(q->keys[i])))
-                                        has_other_rrs = true;
-
-                                continue;
+                                        n_soa ++;
                         }
-
-                        LIST_FOREACH(by_key, j, j)
-                                n++;
                 }
         }
 
-        if (n <= 0) {
-                *ret = NULL;
-                return has_other_rrs;
+        if (n_answer <= 0 && n_soa <= 0) {
+                *ret_answer = NULL;
+                *ret_soa = NULL;
+                return 0;
         }
 
-        answer = dns_answer_new(n);
-        if (!answer)
-                return -ENOMEM;
+        if (n_answer > 0) {
+                answer = dns_answer_new(n_answer);
+                if (!answer)
+                        return -ENOMEM;
+        }
 
+        if (n_soa > 0) {
+                soa = dns_answer_new(n_soa);
+                if (!soa)
+                        return -ENOMEM;
+        }
+
+        /* Second iteration, actually add the RRs to the answers */
         for (i = 0; i < q->n_keys; i++) {
                 DnsZoneItem *j;
 
@@ -267,25 +275,36 @@ int dns_zone_lookup(DnsZone *z, DnsQuestion *q, DnsAnswer **ret) {
                                 if (k < 0)
                                         return k;
                                 if (k == 0)
-                                        continue;
-
-                                r = dns_answer_add(answer, j->rr);
+                                        r = dns_answer_add_soa(soa, DNS_RESOURCE_KEY_NAME(q->keys[i]));
+                                else
+                                        r = dns_answer_add(answer, j->rr);
                                 if (r < 0)
                                         return r;
                         }
                 } else {
 
                         j = hashmap_get(z->by_key, q->keys[i]);
-                        LIST_FOREACH(by_key, j, j) {
-                                r = dns_answer_add(answer, j->rr);
-                                if (r < 0)
-                                        return r;
+                        if (j) {
+                                LIST_FOREACH(by_key, j, j) {
+                                        r = dns_answer_add(answer, j->rr);
+                                        if (r < 0)
+                                                return r;
+                                }
+                        } else {
+                                if (hashmap_get(z->by_name, DNS_RESOURCE_KEY_NAME(q->keys[i]))) {
+                                        r = dns_answer_add_soa(soa, DNS_RESOURCE_KEY_NAME(q->keys[i]));
+                                        if (r < 0)
+                                                return r;
+                                }
                         }
                 }
         }
 
-        *ret = answer;
+        *ret_answer = answer;
         answer = NULL;
+
+        *ret_soa = soa;
+        soa = NULL;
 
         return 1;
 }
