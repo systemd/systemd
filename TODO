@@ -27,8 +27,6 @@ Features:
 * libsystemd-network:
   - I don't think there should be a client side object for dhcp
     releases (probably not even a directory in /run for it)
-  - the order between ipv6 and ipv4 dns servers probably matters,
-    hence the current DNS apis won't suffice
 
 * resolved:
   - IDN (?)
