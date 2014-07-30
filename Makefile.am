@@ -4848,7 +4848,17 @@ lib_LTLIBRARIES += \
 	libnss_resolve.la
 
 systemd_resolve_host_SOURCES = \
-	src/resolve-host/resolve-host.c
+	src/resolve-host/resolve-host.c \
+	src/resolve/resolved-dns-packet.c \
+	src/resolve/resolved-dns-packet.h \
+	src/resolve/resolved-dns-rr.c \
+	src/resolve/resolved-dns-rr.h \
+	src/resolve/resolved-dns-answer.c \
+	src/resolve/resolved-dns-answer.h \
+	src/resolve/resolved-dns-question.c \
+	src/resolve/resolved-dns-question.h \
+	src/resolve/resolved-dns-domain.c \
+	src/resolve/resolved-dns-domain.h
 
 systemd_resolve_host_LDADD = \
 	libsystemd-internal.la \

@@ -159,6 +159,31 @@ int dns_resource_key_compare_func(const void *a, const void *b) {
         return 0;
 }
 
+int dns_resource_key_to_string(const DnsResourceKey *key, char **ret) {
+        char cbuf[DECIMAL_STR_MAX(uint16_t)], tbuf[DECIMAL_STR_MAX(uint16_t)];
+        const char *c, *t;
+        char *s;
+
+        c = dns_class_to_string(key->class);
+        if (!c) {
+                sprintf(cbuf, "%i", key->class);
+                c = cbuf;
+        }
+
+        t = dns_type_to_string(key->type);
+        if (!t){
+                sprintf(tbuf, "%i", key->type);
+                t = tbuf;
+        }
+
+        s = strjoin(DNS_RESOURCE_KEY_NAME(key), " ", c, " ", t, NULL);
+        if (!s)
+                return -ENOMEM;
+
+        *ret = s;
+        return 0;
+}
+
 DnsResourceRecord* dns_resource_record_new(DnsResourceKey *key) {
         DnsResourceRecord *rr;
 
@@ -267,16 +292,24 @@ int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecor
         if (r <= 0)
                 return r;
 
-        if (IN_SET(a->key->type, DNS_TYPE_PTR, DNS_TYPE_NS, DNS_TYPE_CNAME))
+        switch (a->key->type) {
+
+        case DNS_TYPE_PTR:
+        case DNS_TYPE_NS:
+        case DNS_TYPE_CNAME:
                 return dns_name_equal(a->ptr.name, b->ptr.name);
-        else if (a->key->type == DNS_TYPE_HINFO)
-                return strcasecmp(a->hinfo.cpu, b->hinfo.cpu) == 0 &&
-                       strcasecmp(a->hinfo.os, b->hinfo.os) == 0;
-        else if (a->key->type == DNS_TYPE_A)
+
+        case DNS_TYPE_HINFO:
+                return strcaseeq(a->hinfo.cpu, b->hinfo.cpu) &&
+                       strcaseeq(a->hinfo.os, b->hinfo.os);
+
+        case DNS_TYPE_A:
                 return memcmp(&a->a.in_addr, &b->a.in_addr, sizeof(struct in_addr)) == 0;
-        else if (a->key->type == DNS_TYPE_AAAA)
+
+        case DNS_TYPE_AAAA:
                 return memcmp(&a->aaaa.in6_addr, &b->aaaa.in6_addr, sizeof(struct in6_addr)) == 0;
-        else if (a->key->type == DNS_TYPE_SOA) {
+
+        case DNS_TYPE_SOA:
                 r = dns_name_equal(a->soa.mname, b->soa.mname);
                 if (r <= 0)
                         return r;
@@ -289,9 +322,95 @@ int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecor
                        a->soa.retry   == b->soa.retry &&
                        a->soa.expire  == b->soa.expire &&
                        a->soa.minimum == b->soa.minimum;
-        } else
+        default:
                 return a->generic.size == b->generic.size &&
                         memcmp(a->generic.data, b->generic.data, a->generic.size) == 0;
+        }
+}
+
+int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
+        _cleanup_free_ char *k = NULL;
+        char *s;
+        int r;
+
+        assert(rr);
+
+        r = dns_resource_key_to_string(rr->key, &k);
+        if (r < 0)
+                return r;
+
+        switch (rr->key->type) {
+
+        case DNS_TYPE_PTR:
+        case DNS_TYPE_NS:
+        case DNS_TYPE_CNAME:
+                s = strjoin(k, " ", rr->ptr.name, NULL);
+                if (!s)
+                        return -ENOMEM;
+
+                break;
+
+        case DNS_TYPE_HINFO:
+                s = strjoin(k, " ", rr->hinfo.cpu, " ", rr->hinfo.os, NULL);
+                if (!s)
+                        return -ENOMEM;
+                break;
+
+        case DNS_TYPE_A: {
+                _cleanup_free_ char *x = NULL;
+
+                r = in_addr_to_string(AF_INET, (const union in_addr_union*) &rr->a.in_addr, &x);
+                if (r < 0)
+                        return r;
+
+                s = strjoin(k, " ", x, NULL);
+                if (!s)
+                        return -ENOMEM;
+                break;
+        }
+
+        case DNS_TYPE_AAAA: {
+                _cleanup_free_ char *x = NULL;
+
+                r = in_addr_to_string(AF_INET6, (const union in_addr_union*) &rr->aaaa.in6_addr, &x);
+                if (r < 0)
+                        return r;
+
+                s = strjoin(k, " ", x, NULL);
+                if (!s)
+                        return -ENOMEM;
+                break;
+        }
+
+        case DNS_TYPE_SOA:
+                r = asprintf(&s, "%s %s %s %u %u %u %u %u",
+                             k,
+                             strna(rr->soa.mname),
+                             strna(rr->soa.rname),
+                             rr->soa.serial,
+                             rr->soa.refresh,
+                             rr->soa.retry,
+                             rr->soa.expire,
+                             rr->soa.minimum);
+                if (r < 0)
+                        return -ENOMEM;
+                break;
+
+        default: {
+                _cleanup_free_ char *x = NULL;
+
+                x = hexmem(rr->generic.data, rr->generic.size);
+                if (!x)
+                        return -ENOMEM;
+
+                s = strjoin(k, " ", x, NULL);
+                if (!s)
+                        return -ENOMEM;
+                break;
+        }}
+
+        *ret = s;
+        return 0;
 }
 
 const char *dns_class_to_string(uint16_t class) {
@@ -308,64 +427,66 @@ const char *dns_class_to_string(uint16_t class) {
         return NULL;
 }
 
+int dns_class_from_string(const char *s, uint16_t *class) {
+        assert(s);
+        assert(class);
+
+        if (strcaseeq(s, "IN"))
+                *class = DNS_CLASS_IN;
+        else if (strcaseeq(s, "ANY"))
+                *class = DNS_TYPE_ANY;
+        else
+                return -EINVAL;
+
+        return 0;
+}
+
+static const struct {
+        uint16_t type;
+        const char *name;
+} dns_types[] = {
+        { DNS_TYPE_A,     "A"     },
+        { DNS_TYPE_NS,    "NS"    },
+        { DNS_TYPE_CNAME, "CNAME" },
+        { DNS_TYPE_SOA,   "SOA"   },
+        { DNS_TYPE_PTR,   "PTR"   },
+        { DNS_TYPE_HINFO, "HINFO" },
+        { DNS_TYPE_MX,    "MX"    },
+        { DNS_TYPE_TXT,   "TXT"   },
+        { DNS_TYPE_AAAA,  "AAAA"  },
+        { DNS_TYPE_SRV,   "SRV"   },
+        { DNS_TYPE_SSHFP, "SSHFP" },
+        { DNS_TYPE_DNAME, "DNAME" },
+        { DNS_TYPE_ANY,   "ANY"   },
+        { DNS_TYPE_OPT,   "OPT"   },
+        { DNS_TYPE_TKEY,  "TKEY"  },
+        { DNS_TYPE_TSIG,  "TSIG"  },
+        { DNS_TYPE_IXFR,  "IXFR"  },
+        { DNS_TYPE_AXFR,  "AXFR"  },
+};
+
+
 const char *dns_type_to_string(uint16_t type) {
+        unsigned i;
 
-        switch (type) {
-
-        case DNS_TYPE_A:
-                return "A";
-
-        case DNS_TYPE_NS:
-                return "NS";
-
-        case DNS_TYPE_CNAME:
-                return "CNAME";
-
-        case DNS_TYPE_SOA:
-                return "SOA";
-
-        case DNS_TYPE_PTR:
-                return "PTR";
-
-        case DNS_TYPE_HINFO:
-                return "HINFO";
-
-        case DNS_TYPE_MX:
-                return "MX";
-
-        case DNS_TYPE_TXT:
-                return "TXT";
-
-        case DNS_TYPE_AAAA:
-                return "AAAA";
-
-        case DNS_TYPE_SRV:
-                return "SRV";
-
-        case DNS_TYPE_SSHFP:
-                return "SSHFP";
-
-        case DNS_TYPE_DNAME:
-                return "DNAME";
-
-        case DNS_TYPE_ANY:
-                return "ANY";
-
-        case DNS_TYPE_OPT:
-                return "OPT";
-
-        case DNS_TYPE_TKEY:
-                return "TKEY";
-
-        case DNS_TYPE_TSIG:
-                return "TSIG";
-
-        case DNS_TYPE_IXFR:
-                return "IXFR";
-
-        case DNS_TYPE_AXFR:
-                return "AXFR";
-        }
+        for (i = 0; i < ELEMENTSOF(dns_types); i++)
+                if (dns_types[i].type == type)
+                        return dns_types[i].name;
 
         return NULL;
+}
+
+int dns_type_from_string(const char *s, uint16_t *type) {
+        unsigned i;
+
+        assert(s);
+        assert(type);
+
+        for (i = 0; i < ELEMENTSOF(dns_types); i++)
+                if (strcaseeq(dns_types[i].name, s)) {
+                        *type = dns_types[i].type;
+                        return 0;
+                }
+
+        return -EINVAL;
 }

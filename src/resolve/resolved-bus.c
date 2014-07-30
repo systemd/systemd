@@ -157,13 +157,13 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
                 for (i = 0; i < answer->n_rrs; i++) {
                         r = dns_question_matches_rr(q->question, answer->rrs[i]);
                         if (r < 0)
-                                goto parse_fail;
+                                goto finish;
                         if (r == 0) {
                                 /* Hmm, if this is not an address record,
                                    maybe it's a cname? If so, remember this */
                                 r = dns_question_matches_cname(q->question, answer->rrs[i]);
                                 if (r < 0)
-                                        goto parse_fail;
+                                        goto finish;
                                 if (r > 0)
                                         cname = dns_resource_record_ref(answer->rrs[i]);
 
@@ -204,7 +204,7 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
                 for (i = 0; i < answer->n_rrs; i++) {
                         r = dns_question_matches_rr(q->question, answer->rrs[i]);
                         if (r < 0)
-                                goto parse_fail;
+                                goto finish;
                         if (r == 0)
                                 continue;
 
@@ -230,6 +230,7 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
                                 r = sd_bus_reply_method_errno(q->request, -r, NULL);
                                 goto finish;
                         }
+
                         return;
                 }
         }
@@ -245,14 +246,12 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
                 goto finish;
 
         r = sd_bus_send(q->manager->bus, reply, NULL);
-        goto finish;
-
-parse_fail:
-        r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_INVALID_REPLY, "Received invalid reply");
 
 finish:
-        if (r < 0)
-                log_error("Failed to send bus reply: %s", strerror(-r));
+        if (r < 0) {
+                log_error("Failed to send hostname reply: %s", strerror(-r));
+                sd_bus_reply_method_errno(q->request, -r, NULL);
+        }
 
         dns_query_free(q);
 }
@@ -356,7 +355,7 @@ static void bus_method_resolve_address_complete(DnsQuery *q) {
                 for (i = 0; i < answer->n_rrs; i++) {
                         r = dns_question_matches_rr(q->question, answer->rrs[i]);
                         if (r < 0)
-                                goto parse_fail;
+                                goto finish;
                         if (r == 0)
                                 continue;
 
@@ -382,14 +381,12 @@ static void bus_method_resolve_address_complete(DnsQuery *q) {
                 goto finish;
 
         r = sd_bus_send(q->manager->bus, reply, NULL);
-        goto finish;
-
-parse_fail:
-        r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_INVALID_REPLY, "Received invalid reply");
 
 finish:
-        if (r < 0)
-                log_error("Failed to send bus reply: %s", strerror(-r));
+        if (r < 0) {
+                log_error("Failed to send address reply: %s", strerror(-r));
+                sd_bus_reply_method_errno(q->request, -r, NULL);
+        }
 
         dns_query_free(q);
 }
@@ -469,10 +466,144 @@ static int bus_method_resolve_address(sd_bus *bus, sd_bus_message *message, void
         return 1;
 }
 
+static void bus_method_resolve_record_complete(DnsQuery *q) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        unsigned added = 0, i;
+        int r;
+
+        assert(q);
+
+        if (q->state != DNS_QUERY_SUCCESS) {
+                r = reply_query_state(q);
+                goto finish;
+        }
+
+        r = sd_bus_message_new_method_return(q->request, &reply);
+        if (r < 0)
+                goto finish;
+
+        r = sd_bus_message_open_container(reply, 'a', "(qqay)");
+        if (r < 0)
+                goto finish;
+
+        if (q->answer) {
+                answer = dns_answer_ref(q->answer);
+
+                for (i = 0; i < answer->n_rrs; i++) {
+                        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+                        size_t start;
+
+                        r = dns_question_matches_rr(q->question, answer->rrs[i]);
+                        if (r < 0)
+                                goto finish;
+                        if (r == 0)
+                                continue;
+
+                        r = dns_packet_new(&p, DNS_PROTOCOL_DNS, 0);
+                        if (r < 0)
+                                goto finish;
+
+                        r = dns_packet_append_rr(p, answer->rrs[i], &start);
+                        if (r < 0)
+                                goto finish;
+
+                        r = sd_bus_message_open_container(reply, 'r', "qqay");
+                        if (r < 0)
+                                goto finish;
+
+                        r = sd_bus_message_append(reply, "qq", answer->rrs[i]->key->class, answer->rrs[i]->key->type);
+                        if (r < 0)
+                                goto finish;
+
+                        r = sd_bus_message_append_array(reply, 'y', DNS_PACKET_DATA(p) + start, p->size - start);
+                        if (r < 0)
+                                goto finish;
+
+                        r = sd_bus_message_close_container(reply);
+                        if (r < 0)
+                                goto finish;
+
+                        added ++;
+                }
+        }
+
+        if (added <= 0) {
+                r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_SUCH_RR, "Name '%s' does not have any RR of the requested type", q->request_hostname);
+                goto finish;
+        }
+
+        r = sd_bus_message_close_container(reply);
+        if (r < 0)
+                goto finish;
+
+        r = sd_bus_send(q->manager->bus, reply, NULL);
+
+finish:
+        if (r < 0) {
+                log_error("Failed to send record reply: %s", strerror(-r));
+                sd_bus_reply_method_errno(q->request, -r, NULL);
+        }
+
+        dns_query_free(q);
+}
+
+static int bus_method_resolve_record(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+        _cleanup_free_ char *reverse = NULL;
+        Manager *m = userdata;
+        DnsQuery *q;
+        int r;
+        uint16_t class, type;
+        const char *name;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read(message, "sqq", &name, &class, &type);
+        if (r < 0)
+                return r;
+
+        question = dns_question_new(1);
+        if (!question)
+                return -ENOMEM;
+
+        key = dns_resource_key_new(class, type, name);
+        if (!key)
+                return -ENOMEM;
+
+        r = dns_question_add(question, key);
+        if (r < 0)
+                return r;
+
+        r = dns_query_new(m, &q, question);
+        if (r < 0)
+                return r;
+
+        q->request = sd_bus_message_ref(message);
+        q->request_hostname = name;
+        q->complete = bus_method_resolve_record_complete;
+
+        r = dns_query_go(q);
+        if (r < 0) {
+                dns_query_free(q);
+
+                if (r == -ESRCH)
+                        sd_bus_error_setf(error, BUS_ERROR_NO_NAME_SERVERS, "No appropriate name servers or networks for name found");
+
+                return r;
+        }
+
+        return 1;
+}
+
 static const sd_bus_vtable resolve_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_METHOD("ResolveHostname", "si", "a(iayi)s", bus_method_resolve_hostname, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ResolveAddress", "iayi", "as", bus_method_resolve_address, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("ResolveRecord", "sqq", "a(qqay)", bus_method_resolve_record, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_VTABLE_END,
 };
 

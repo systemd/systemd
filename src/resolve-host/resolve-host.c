@@ -31,10 +31,14 @@
 #include "af-list.h"
 #include "build.h"
 
+#include "resolved-dns-packet.h"
+
 #define DNS_CALL_TIMEOUT_USEC (45*USEC_PER_SEC)
 
 static int arg_family = AF_UNSPEC;
 static int arg_ifindex = 0;
+static uint16_t arg_type = 0;
+static uint16_t arg_class = 0;
 
 static int resolve_host(sd_bus *bus, const char *name) {
 
@@ -286,6 +290,103 @@ static int parse_address(const char *s, int *family, union in_addr_union *addres
         return 0;
 }
 
+static int resolve_record(sd_bus *bus, const char *name) {
+
+        _cleanup_bus_message_unref_ sd_bus_message *req = NULL, *reply = NULL;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        unsigned n = 0;
+        int r;
+
+        assert(name);
+
+        log_debug("Resolving %s %s %s.", name, dns_class_to_string(arg_class), dns_type_to_string(arg_type));
+
+        r = sd_bus_message_new_method_call(
+                        bus,
+                        &req,
+                        "org.freedesktop.resolve1",
+                        "/org/freedesktop/resolve1",
+                        "org.freedesktop.resolve1.Manager",
+                        "ResolveRecord");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_set_auto_start(req, false);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append(req, "sqq", name, arg_class, arg_type);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_call(bus, req, DNS_CALL_TIMEOUT_USEC, &error, &reply);
+        if (r < 0) {
+                log_error("%s: resolve call failed: %s", name, bus_error_message(&error, r));
+                return r;
+        }
+
+        r = sd_bus_message_enter_container(reply, 'a', "(qqay)");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        while ((r = sd_bus_message_enter_container(reply, 'r', "qqay")) > 0) {
+                _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+                _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+                _cleanup_free_ char *s = NULL;
+                uint16_t c, t;
+                const void *d;
+                size_t l;
+
+                r = sd_bus_message_read(reply, "qq", &c, &t);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                r = sd_bus_message_read_array(reply, 'y', &d, &l);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                r = sd_bus_message_exit_container(reply);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                r = dns_packet_new(&p, DNS_PROTOCOL_DNS, 0);
+                if (r < 0)
+                        return log_oom();
+
+                r = dns_packet_append_blob(p, d, l, NULL);
+                if (r < 0)
+                        return log_oom();
+
+                r = dns_packet_read_rr(p, &rr, NULL);
+                if (r < 0) {
+                        log_error("Failed to parse RR.");
+                        return r;
+                }
+
+                r = dns_resource_record_to_string(rr, &s);
+                if (r < 0) {
+                        log_error("Failed to format RR.");
+                        return r;
+                }
+
+                printf("%s\n", s);
+                n++;
+        }
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = sd_bus_message_exit_container(reply);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        if (n == 0) {
+                log_error("%s: no records found", name);
+                return -ESRCH;
+        }
+
+        return 0;
+}
+
 static void help(void) {
         printf("%s [OPTIONS...]\n\n"
                "Resolve IPv4 or IPv6 addresses.\n\n"
@@ -294,6 +395,8 @@ static void help(void) {
                "  -4                    Resolve IPv4 addresses\n"
                "  -6                    Resolve IPv6 addresses\n"
                "  -i INTERFACE          Filter by interface\n"
+               "  -t --type=TYPE        Query RR with DNS type\n"
+               "  -c --class=CLASS      Query RR with DNS class\n"
                , program_invocation_short_name);
 }
 
@@ -305,15 +408,17 @@ static int parse_argv(int argc, char *argv[]) {
         static const struct option options[] = {
                 { "help",        no_argument,       NULL, 'h'           },
                 { "version",     no_argument,       NULL, ARG_VERSION   },
+                { "type",        no_argument,       NULL, 't'           },
+                { "class",       no_argument,       NULL, 'c'           },
                 {}
         };
 
-        int c;
+        int c, r;
 
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h46i:", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "h46i:t:c:", options, NULL)) >= 0) {
                 switch(c) {
 
                 case 'h':
@@ -337,7 +442,23 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_ifindex = if_nametoindex(optarg);
                         if (arg_ifindex <= 0) {
                                 log_error("Unknown interfaces %s: %m", optarg);
-                                return -EINVAL;
+                                return -errno;
+                        }
+                        break;
+
+                case 't':
+                        r = dns_type_from_string(optarg, &arg_type);
+                        if (r < 0) {
+                                log_error("Failed to parse RR record type %s", optarg);
+                                return r;
+                        }
+                        break;
+
+                case 'c':
+                        r = dns_class_from_string(optarg, &arg_class);
+                        if (r < 0) {
+                                log_error("Failed to parse RR record class %s", optarg);
+                                return r;
                         }
                         break;
 
@@ -348,6 +469,14 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
         }
+
+        if (arg_type == 0 && arg_class != 0) {
+                log_error("--class= may only be used in conjunction with --type=");
+                return -EINVAL;
+        }
+
+        if (arg_type != 0 && arg_class == 0)
+                arg_class = DNS_CLASS_IN;
 
         return 1 /* work to do */;
 }
@@ -379,11 +508,15 @@ int main(int argc, char **argv) {
                 int family, ifindex, k;
                 union in_addr_union a;
 
-                k = parse_address(argv[optind], &family, &a, &ifindex);
-                if (k >= 0)
-                        k = resolve_address(bus, family, &a, ifindex);
-                else
-                        k = resolve_host(bus, argv[optind]);
+                if (arg_type != 0)
+                        k = resolve_record(bus, argv[optind]);
+                else {
+                        k = parse_address(argv[optind], &family, &a, &ifindex);
+                        if (k >= 0)
+                                k = resolve_address(bus, family, &a, ifindex);
+                        else
+                                k = resolve_host(bus, argv[optind]);
+                }
 
                 if (r == 0)
                         r = k;
