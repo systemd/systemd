@@ -358,6 +358,7 @@ static void test_foreach_word_quoted(void) {
                 assert_se(strneq(expected[i++], word, l));
                 printf("<%s>\n", t);
         }
+        assert(isempty(state));
 }
 
 static void test_default_term_for_tty(void) {

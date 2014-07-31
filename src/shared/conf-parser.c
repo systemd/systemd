@@ -717,6 +717,9 @@ int config_parse_strv(const char *unit,
                 if (r < 0)
                         return log_oom();
         }
+        if (!isempty(state))
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Trailing garbage, ignoring.");
 
         return 0;
 }

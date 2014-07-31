@@ -333,6 +333,7 @@ static int parse_dns_server_string(Manager *m, const char *string) {
                 if (r < 0)
                         return r;
         }
+        /* do not warn about state here, since probably systemd already did */
 
         return 0;
 }

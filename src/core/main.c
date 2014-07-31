@@ -488,6 +488,9 @@ static int config_parse_cpu_affinity2(
 
                 CPU_SET_S(cpu, CPU_ALLOC_SIZE(ncpus), c);
         }
+        if (!isempty(state))
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Trailing garbage, ignoring.");
 
         if (c) {
                 if (sched_setaffinity(0, CPU_ALLOC_SIZE(ncpus), c) < 0)
@@ -636,6 +639,9 @@ static int config_parse_join_controllers(const char *unit,
                         arg_join_controllers = t;
                 }
         }
+        if (!isempty(state))
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Trailing garbage, ignoring.");
 
         return 0;
 }

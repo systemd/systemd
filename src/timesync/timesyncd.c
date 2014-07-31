@@ -1001,6 +1001,8 @@ static int manager_add_server_string(Manager *m, const char *string) {
                 if (r < 0)
                         log_error("Failed to add server %s to configuration, ignoring: %s", t, strerror(-r));
         }
+        if (!isempty(state))
+                log_warning("Trailing garbage at the end of server list, ignoring.");
 
         return 0;
 }

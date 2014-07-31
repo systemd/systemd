@@ -966,6 +966,9 @@ static int config_parse_also(
                 if (r < 0)
                         return r;
         }
+        if (!isempty(state))
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Trailing garbage, ignoring.");
 
         return 0;
 }

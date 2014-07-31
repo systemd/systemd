@@ -880,6 +880,8 @@ void log_parse_environment(void) {
                                 break;
                         }
                 }
+                if (!isempty(state))
+                        log_warning("Trailing garbage and the end of kernel commandline, ignoring.");
         }
 
         e = secure_getenv("SYSTEMD_LOG_TARGET");

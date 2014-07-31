@@ -210,6 +210,7 @@ static int x11_read_data(Context *c) {
         FILE *f;
         char line[LINE_MAX];
         bool in_section = false;
+        int r;
 
         context_free_x11(c);
 
@@ -229,10 +230,10 @@ static int x11_read_data(Context *c) {
                 if (in_section && first_word(l, "Option")) {
                         char **a;
 
-                        a = strv_split_quoted(l);
-                        if (!a) {
+                        r = strv_split_quoted(&a, l);
+                        if (r < 0) {
                                 fclose(f);
-                                return -ENOMEM;
+                                return r;
                         }
 
                         if (strv_length(a) == 3) {
@@ -256,8 +257,8 @@ static int x11_read_data(Context *c) {
                 } else if (!in_section && first_word(l, "Section")) {
                         char **a;
 
-                        a = strv_split_quoted(l);
-                        if (!a) {
+                        r = strv_split_quoted(&a, l);
+                        if (r < 0) {
                                 fclose(f);
                                 return -ENOMEM;
                         }
@@ -533,6 +534,7 @@ static int read_next_mapping(FILE *f, unsigned *n, char ***a) {
         for (;;) {
                 char line[LINE_MAX];
                 char *l, **b;
+                int r;
 
                 errno = 0;
                 if (!fgets(line, sizeof(line), f)) {
@@ -549,9 +551,9 @@ static int read_next_mapping(FILE *f, unsigned *n, char ***a) {
                 if (l[0] == 0 || l[0] == '#')
                         continue;
 
-                b = strv_split_quoted(l);
-                if (!b)
-                        return -ENOMEM;
+                r = strv_split_quoted(&b, l);
+                if (r < 0)
+                        return r;
 
                 if (strv_length(b) < 5) {
                         log_error("Invalid line "SYSTEMD_KBD_MODEL_MAP":%u, ignoring.", *n);

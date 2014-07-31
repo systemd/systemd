@@ -124,6 +124,8 @@ int config_parse_unit_deps(const char* unit,
                         log_syntax(unit, LOG_ERR, filename, line, -r,
                                    "Failed to add dependency on %s, ignoring: %s", k, strerror(-r));
         }
+        if (!isempty(state))
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Invalid syntax, ignoring.");
 
         return 0;
 }
@@ -269,6 +271,8 @@ int config_parse_unit_path_strv_printf(
 
                 k = NULL;
         }
+        if (!isempty(state))
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Invalid syntax, ignoring.");
 
         return 0;
 }
@@ -568,11 +572,17 @@ int config_parse_exec(const char *unit,
                 k = 0;
                 FOREACH_WORD_QUOTED(word, l, rvalue, state) {
                         if (strneq(word, ";", MAX(l, 1U)))
-                                break;
+                                goto found;
 
                         k++;
                 }
+                if (!isempty(state)) {
+                        log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                                   "Trailing garbage, ignoring.");
+                        return 0;
+                }
 
+        found:
                 n = new(char*, k + !honour_argv0);
                 if (!n)
                         return log_oom();
@@ -895,6 +905,9 @@ int config_parse_exec_cpu_affinity(const char *unit,
 
                 CPU_SET_S(cpu, CPU_ALLOC_SIZE(c->cpuset_ncpus), c->cpuset);
         }
+        if (!isempty(state))
+                log_syntax(unit, LOG_WARNING, filename, line, EINVAL,
+                           "Trailing garbage, ignoring.");
 
         return 0;
 }
@@ -977,6 +990,9 @@ int config_parse_exec_secure_bits(const char *unit,
                         return 0;
                 }
         }
+        if (!isempty(state))
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Invalid syntax, garbage at the end, ignoring.");
 
         return 0;
 }
@@ -1031,6 +1047,9 @@ int config_parse_bounding_set(const char *unit,
 
                 sum |= ((uint64_t) 1ULL) << (uint64_t) cap;
         }
+        if (!isempty(state))
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Trailing garbage, ignoring.");
 
         if (invert)
                 *capability_bounding_set_drop |= sum;
@@ -1187,6 +1206,9 @@ int config_parse_exec_mount_flags(const char *unit,
                         return 0;
                 }
         }
+        if (!isempty(state))
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Trailing garbage, ignoring.");
 
         c->mount_flags = flags;
         return 0;
@@ -1570,6 +1592,9 @@ int config_parse_service_sockets(const char *unit,
                 if (r < 0)
                         return r;
         }
+        if (!isempty(state))
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Trailing garbage, ignoring.");
 
         return 0;
 }
@@ -1827,6 +1852,9 @@ int config_parse_environ(const char *unit,
                 strv_free(*env);
                 *env = x;
         }
+        if (!isempty(state))
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Trailing garbage, ignoring.");
 
         return 0;
 }
@@ -2077,6 +2105,9 @@ int config_parse_unit_requires_mounts_for(
                         continue;
                 }
         }
+        if (!isempty(state))
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Trailing garbage, ignoring.");
 
         return 0;
 }
@@ -2231,6 +2262,9 @@ int config_parse_syscall_filter(
                 } else
                         set_remove(c->syscall_filter, INT_TO_PTR(id + 1));
         }
+        if (!isempty(state))
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Trailing garbage, ignoring.");
 
         /* Turn on NNP, but only if it wasn't configured explicitly
          * before, and only if we are in user mode. */
@@ -2287,6 +2321,9 @@ int config_parse_syscall_archs(
                 if (r < 0)
                         return log_oom();
         }
+        if (!isempty(state))
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Trailing garbage, ignoring.");
 
         return 0;
 }
@@ -2397,6 +2434,9 @@ int config_parse_address_families(
                 } else
                         set_remove(c->address_families, INT_TO_PTR(af));
         }
+        if (!isempty(state))
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Trailing garbage, ignoring.");
 
         return 0;
 }
@@ -2905,6 +2945,9 @@ int config_parse_runtime_directory(
 
                 n = NULL;
         }
+        if (!isempty(state))
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Trailing garbage, ignoring.");
 
         return 0;
 }
@@ -2979,6 +3022,9 @@ int config_parse_set_status(
                         }
                 }
         }
+        if (!isempty(state))
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Trailing garbage, ignoring.");
 
         return 0;
 }
@@ -3039,6 +3085,9 @@ int config_parse_namespace_path_strv(
 
                 n = NULL;
         }
+        if (!isempty(state))
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Trailing garbage, ignoring.");
 
         return 0;
 }

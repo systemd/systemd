@@ -494,6 +494,10 @@ static int load_sysv(SysvStub *s) {
                                                                "[%s:%u] Failed to add LSB Provides name %s, ignoring: %s",
                                                                s->path, line, m, strerror(-r));
                                 }
+                                if (!isempty(state_))
+                                        log_error_unit(s->name,
+                                                       "[%s:%u] Trailing garbage in Provides, ignoring.",
+                                                       s->path, line);
 
                         } else if (startswith_no_case(t, "Required-Start:") ||
                                    startswith_no_case(t, "Should-Start:") ||
@@ -552,6 +556,11 @@ static int load_sysv(SysvStub *s) {
                                                                "[%s:%u] Failed to add dependency on %s, ignoring: %s",
                                                                s->path, line, m, strerror(-r));
                                 }
+                                if (!isempty(state_))
+                                        log_error_unit(s->name,
+                                                       "[%s:%u] Trailing garbage in %*s, ignoring.",
+                                                       s->path, line,
+                                                       (int)(strchr(t, ':') - t), t);
 
                         } else if (startswith_no_case(t, "Description:")) {
                                 char *d, *j;

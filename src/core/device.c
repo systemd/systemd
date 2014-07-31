@@ -223,14 +223,13 @@ static int device_add_udev_wants(Unit *u, struct udev_device *dev) {
         const char *word, *state;
         size_t l;
         int r;
+        const char *property;
 
         assert(u);
         assert(dev);
 
-        wants = udev_device_get_property_value(
-                        dev,
-                        u->manager->running_as == SYSTEMD_USER ? "SYSTEMD_USER_WANTS" : "SYSTEMD_WANTS");
-
+        property = u->manager->running_as == SYSTEMD_USER ? "SYSTEMD_USER_WANTS" : "SYSTEMD_WANTS";
+        wants = udev_device_get_property_value(dev, property);
         if (!wants)
                 return 0;
 
@@ -249,6 +248,9 @@ static int device_add_udev_wants(Unit *u, struct udev_device *dev) {
                 if (r < 0)
                         return r;
         }
+        if (!isempty(state))
+                log_warning_unit(u->id, "Property %s on %s has trailing garbage, ignoring.",
+                                 property, strna(udev_device_get_syspath(dev)));
 
         return 0;
 }
@@ -407,6 +409,8 @@ static int device_process_new_device(Manager *m, struct udev_device *dev) {
                         else
                                 log_warning("SYSTEMD_ALIAS for %s is not an absolute path, ignoring: %s", sysfs, e);
                 }
+                if (!isempty(state))
+                        log_warning("SYSTEMD_ALIAS for %s has trailing garbage, ignoring.", sysfs);
         }
 
         return 0;

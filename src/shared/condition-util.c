@@ -114,6 +114,8 @@ bool condition_test_kernel_command_line(Condition *c) {
                 }
 
         }
+        if (!isempty(state))
+                log_warning("Trailing garbage and the end of kernel commandline, ignoring.");
 
         free(word);
         free(line);

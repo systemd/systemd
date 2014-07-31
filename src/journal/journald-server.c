@@ -1326,6 +1326,7 @@ static int server_parse_proc_cmdline(Server *s) {
                 } else if (startswith(word, "systemd.journald"))
                         log_warning("Invalid systemd.journald parameter. Ignoring.");
         }
+        /* do not warn about state here, since probably systemd already did */
 
         return 0;
 }

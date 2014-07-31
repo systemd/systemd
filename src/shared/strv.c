@@ -231,7 +231,7 @@ char **strv_split(const char *s, const char *separator) {
         return r;
 }
 
-char **strv_split_quoted(const char *s) {
+int strv_split_quoted(char ***t, const char *s) {
         const char *word, *state;
         size_t l;
         unsigned n, i;
@@ -242,26 +242,27 @@ char **strv_split_quoted(const char *s) {
         n = 0;
         FOREACH_WORD_QUOTED(word, l, s, state)
                 n++;
-        if (*state)
+        if (!isempty(state))
                 /* bad syntax */
-                return NULL;
+                return -EINVAL;
 
         r = new(char*, n+1);
         if (!r)
-                return NULL;
+                return -ENOMEM;
 
         i = 0;
         FOREACH_WORD_QUOTED(word, l, s, state) {
                 r[i] = cunescape_length(word, l);
                 if (!r[i]) {
                         strv_free(r);
-                        return NULL;
+                        return -ENOMEM;
                 }
                 i++;
         }
 
         r[i] = NULL;
-        return r;
+        *t = r;
+        return 0;
 }
 
 char **strv_split_newlines(const char *s) {
