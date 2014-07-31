@@ -320,6 +320,8 @@ static int dns_cache_put_negative(DnsCache *c, DnsResourceKey *key, int rcode, u
                 return 0;
         if (key->type == DNS_TYPE_ANY)
                 return 0;
+        if (soa_ttl <= 0)
+                return 0;
 
         if (!IN_SET(rcode, DNS_RCODE_SUCCESS, DNS_RCODE_NXDOMAIN))
                 return 0;
