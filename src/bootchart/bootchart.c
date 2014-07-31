@@ -350,6 +350,14 @@ int main(int argc, char *argv[]) {
 
         log_uptime();
 
+        if (graph_start < 0.0) {
+                fprintf(stderr,
+                        "Failed to setup graph start time.\n\nThe system uptime "
+                        "probably includes time that the system was suspended. "
+                        "Use --rel to bypass this issue.\n");
+                exit (EXIT_FAILURE);
+        }
+
         has_procfs = access("/proc/vmstat", F_OK) == 0;
 
         LIST_HEAD_INIT(head);
