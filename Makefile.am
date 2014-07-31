@@ -4775,7 +4775,8 @@ systemd_resolved_LDADD = \
 	libsystemd-network.la \
 	libsystemd-label.la \
 	libsystemd-internal.la \
-	libsystemd-shared.la
+	libsystemd-shared.la \
+	-lm
 
 rootlibexec_PROGRAMS += \
 	systemd-resolved
@@ -4863,7 +4864,8 @@ systemd_resolve_host_SOURCES = \
 
 systemd_resolve_host_LDADD = \
 	libsystemd-internal.la \
-	libsystemd-shared.la
+	libsystemd-shared.la \
+	-lm
 
 rootlibexec_PROGRAMS += \
 	systemd-resolve-host

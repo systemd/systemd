@@ -51,6 +51,7 @@ enum {
         DNS_TYPE_MX    = 0x0F,
         DNS_TYPE_TXT   = 0x10,
         DNS_TYPE_AAAA  = 0x1C,
+        DNS_TYPE_LOC   = 0x1D,
         DNS_TYPE_SRV   = 0x21,
         DNS_TYPE_DNAME = 0x27,
         DNS_TYPE_SSHFP = 0x2C,
@@ -78,6 +79,7 @@ struct DnsResourceRecord {
         unsigned n_ref;
         DnsResourceKey *key;
         uint32_t ttl;
+        bool unparseable;
         union {
                 struct {
                         void *data;
@@ -126,6 +128,16 @@ struct DnsResourceRecord {
                         uint16_t priority;
                         char *exchange;
                 } mx;
+
+                struct {
+                        uint8_t version;
+                        uint8_t size;
+                        uint8_t horiz_pre;
+                        uint8_t vert_pre;
+                        uint32_t latitude;
+                        uint32_t longitude;
+                        uint32_t altitude;
+                } loc;
         };
 };
 

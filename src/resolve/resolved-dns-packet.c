@@ -497,7 +497,7 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *star
         if (r < 0)
                 goto fail;
 
-        switch (rr->key->type) {
+        switch (rr->unparseable ? _DNS_TYPE_INVALID : rr->key->type) {
 
         case DNS_TYPE_PTR:
         case DNS_TYPE_NS:
@@ -570,10 +570,40 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *star
                 r = dns_packet_append_name(p, rr->mx.exchange, NULL);
                 break;
 
+        case DNS_TYPE_LOC:
+                r = dns_packet_append_uint8(p, rr->loc.version, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_uint8(p, rr->loc.size, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_uint8(p, rr->loc.horiz_pre, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_uint8(p, rr->loc.vert_pre, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_uint16(p, rr->loc.latitude, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_uint16(p, rr->loc.longitude, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_uint16(p, rr->loc.altitude, NULL);
+                break;
+
         case DNS_TYPE_SRV:
         case DNS_TYPE_DNAME:
         case DNS_TYPE_SSHFP:
+        case _DNS_TYPE_INVALID: /* unparseable */
         default:
+
                 r = dns_packet_append_blob(p, rr->generic.data, rr->generic.size, NULL);
                 break;
         }
@@ -993,6 +1023,49 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
 
                 r = dns_packet_read_name(p, &rr->mx.exchange, NULL);
                 break;
+
+        case DNS_TYPE_LOC: {
+                uint8_t t;
+                size_t pos;
+
+                r = dns_packet_read_uint8(p, &t, &pos);
+                if (r < 0)
+                        goto fail;
+
+                if (t == 0) {
+                        rr->loc.version = t;
+
+                        r = dns_packet_read_uint8(p, &rr->loc.size, NULL);
+                        if (r < 0)
+                                goto fail;
+
+                        r = dns_packet_read_uint8(p, &rr->loc.horiz_pre, NULL);
+                        if (r < 0)
+                                goto fail;
+
+                        r = dns_packet_read_uint8(p, &rr->loc.vert_pre, NULL);
+                        if (r < 0)
+                                goto fail;
+
+                        r = dns_packet_read_uint32(p, &rr->loc.latitude, NULL);
+                        if (r < 0)
+                                goto fail;
+
+                        r = dns_packet_read_uint32(p, &rr->loc.longitude, NULL);
+                        if (r < 0)
+                                goto fail;
+
+                        r = dns_packet_read_uint32(p, &rr->loc.altitude, NULL);
+                        if (r < 0)
+                                goto fail;
+
+                        break;
+                } else {
+                        dns_packet_rewind(p, pos);
+                        rr->unparseable = true;
+                        /* fall through */
+                }
+        }
 
         case DNS_TYPE_SRV:
         case DNS_TYPE_DNAME:

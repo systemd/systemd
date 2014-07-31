@@ -19,6 +19,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <math.h>
+
 #include "strv.h"
 
 #include "resolved-dns-domain.h"
@@ -252,6 +254,7 @@ DnsResourceRecord* dns_resource_record_unref(DnsResourceRecord *rr) {
                 case DNS_TYPE_MX:
                         free(rr->mx.exchange);
                         break;
+                case DNS_TYPE_LOC:
                 case DNS_TYPE_A:
                 case DNS_TYPE_AAAA:
                         break;
@@ -357,11 +360,53 @@ int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecor
 
                 return dns_name_equal(a->mx.exchange, b->mx.exchange);
 
+        case DNS_TYPE_LOC:
+                assert(a->loc.version == b->loc.version);
+
+                return a->loc.size == b->loc.size &&
+                       a->loc.horiz_pre == b->loc.horiz_pre &&
+                       a->loc.vert_pre == b->loc.vert_pre &&
+                       a->loc.latitude == b->loc.latitude &&
+                       a->loc.longitude == b->loc.longitude &&
+                       a->loc.altitude == b->loc.altitude;
+
         default:
                 return a->generic.size == b->generic.size &&
                         memcmp(a->generic.data, b->generic.data, a->generic.size) == 0;
         }
 }
+
+static char* format_location(uint32_t latitude, uint32_t longitude, uint32_t altitude,
+                             uint8_t size, uint8_t horiz_pre, uint8_t vert_pre) {
+        char *s;
+        char NS = latitude >= 1U<<31 ? 'N' : 'S';
+        char EW = longitude >= 1U<<31 ? 'E' : 'W';
+
+        int lat = latitude >= 1U<<31 ? (int) (latitude - (1U<<31)) : (int) ((1U<<31) - latitude);
+        int lon = longitude >= 1U<<31 ? (int) (longitude - (1U<<31)) : (int) ((1U<<31) - longitude);
+        double alt = altitude >= 10000000u ? altitude - 10000000u : -(double)(10000000u - altitude);
+        double siz = (size >> 4) * exp10((double) (size & 0xF));
+        double hor = (horiz_pre >> 4) * exp10((double) (horiz_pre & 0xF));
+        double ver = (vert_pre >> 4) * exp10((double) (vert_pre & 0xF));
+
+        if (asprintf(&s, "%d %d %.3f %c %d %d %.3f %c %.2fm %.2fm %.2fm %.2fm",
+                     (lat / 60000 / 60),
+                     (lat / 60000) % 60,
+                     (lat % 60000) / 1000.,
+                     NS,
+                     (lon / 60000 / 60),
+                     (lon / 60000) % 60,
+                     (lon % 60000) / 1000.,
+                     EW,
+                     alt / 100.,
+                     siz / 100.,
+                     hor / 100.,
+                     ver / 100.) < 0)
+                return NULL;
+
+        return s;
+}
+
 
 int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
         _cleanup_free_ char *k = NULL;
@@ -374,7 +419,7 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
         if (r < 0)
                 return r;
 
-        switch (rr->key->type) {
+        switch (rr->unparseable ? _DNS_TYPE_INVALID : rr->key->type) {
 
         case DNS_TYPE_PTR:
         case DNS_TYPE_NS:
@@ -455,6 +500,26 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
                         return -ENOMEM;
                 break;
 
+        case DNS_TYPE_LOC: {
+                _cleanup_free_ char *loc;
+                assert(rr->loc.version == 0);
+
+                loc = format_location(rr->loc.latitude,
+                                      rr->loc.longitude,
+                                      rr->loc.altitude,
+                                      rr->loc.size,
+                                      rr->loc.horiz_pre,
+                                      rr->loc.vert_pre);
+                if (!loc)
+                        return -ENOMEM;
+
+                s = strjoin(k, " ", loc, NULL);
+                if (!s)
+                        return -ENOMEM;
+
+                break;
+        }
+
         default: {
                 _cleanup_free_ char *x = NULL;
 
@@ -513,6 +578,7 @@ static const struct {
         { DNS_TYPE_MX,    "MX"    },
         { DNS_TYPE_TXT,   "TXT"   },
         { DNS_TYPE_AAAA,  "AAAA"  },
+        { DNS_TYPE_LOC,   "LOC"   },
         { DNS_TYPE_SRV,   "SRV"   },
         { DNS_TYPE_SSHFP, "SSHFP" },
         { DNS_TYPE_SPF,   "SPF"   },
