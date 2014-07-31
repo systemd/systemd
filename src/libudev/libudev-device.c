@@ -644,12 +644,16 @@ struct udev_device *udev_device_new(struct udev *udev)
         struct udev_device *udev_device;
         struct udev_list_entry *list_entry;
 
-        if (udev == NULL)
+        if (udev == NULL) {
+                errno = EINVAL;
                 return NULL;
+        }
 
         udev_device = new0(struct udev_device, 1);
-        if (udev_device == NULL)
+        if (udev_device == NULL) {
+                errno = ENOMEM;
                 return NULL;
+        }
         udev_device->refcount = 1;
         udev_device->udev = udev;
         udev_list_init(udev, &udev_device->devlinks_list, true);
@@ -688,22 +692,30 @@ _public_ struct udev_device *udev_device_new_from_syspath(struct udev *udev, con
         struct stat statbuf;
         struct udev_device *udev_device;
 
-        if (udev == NULL)
+        if (udev == NULL) {
+                errno = EINVAL;
                 return NULL;
-        if (syspath == NULL)
+        }
+
+        if (syspath == NULL) {
+                errno = EINVAL;
                 return NULL;
+        }
 
         /* path starts in sys */
         if (!startswith(syspath, "/sys")) {
                 udev_dbg(udev, "not in sys :%s\n", syspath);
+                errno = EINVAL;
                 return NULL;
         }
 
         /* path is not a root directory */
         subdir = syspath + strlen("/sys");
         pos = strrchr(subdir, '/');
-        if (pos == NULL || pos[1] == '\0' || pos < &subdir[2])
+        if (pos == NULL || pos[1] == '\0' || pos < &subdir[2]) {
+                errno = EINVAL;
                 return NULL;
+        }
 
         /* resolve possible symlink to real path */
         strscpy(path, sizeof(path), syspath);
@@ -757,8 +769,10 @@ _public_ struct udev_device *udev_device_new_from_devnum(struct udev *udev, char
                 type_str = "block";
         else if (type == 'c')
                 type_str = "char";
-        else
+        else {
+                errno = EINVAL;
                 return NULL;
+        }
 
         /* use /sys/dev/{block,char}/<maj>:<min> link */
         snprintf(path, sizeof(path), "/sys/dev/%s/%u:%u",
@@ -804,8 +818,10 @@ _public_ struct udev_device *udev_device_new_from_device_id(struct udev *udev, c
                 int ifindex;
 
                 ifindex = strtoul(&id[1], NULL, 10);
-                if (ifindex <= 0)
+                if (ifindex <= 0) {
+                        errno = EINVAL;
                         return NULL;
+                }
 
                 sk = socket(PF_INET, SOCK_DGRAM, 0);
                 if (sk < 0)
@@ -823,18 +839,24 @@ _public_ struct udev_device *udev_device_new_from_device_id(struct udev *udev, c
                         return NULL;
                 if (udev_device_get_ifindex(dev) == ifindex)
                         return dev;
+
+                /* this is racy, so we may end up with the wrong device */
                 udev_device_unref(dev);
+                errno = ENODEV;
                 return NULL;
         }
         case '+':
                 strscpy(subsys, sizeof(subsys), &id[1]);
                 sysname = strchr(subsys, ':');
-                if (sysname == NULL)
+                if (sysname == NULL) {
+                        errno = EINVAL;
                         return NULL;
+                }
                 sysname[0] = '\0';
                 sysname = &sysname[1];
                 return udev_device_new_from_subsystem_sysname(udev, subsys, sysname);
         default:
+                errno = EINVAL;
                 return NULL;
         }
 }
@@ -898,7 +920,9 @@ _public_ struct udev_device *udev_device_new_from_subsystem_sysname(struct udev 
                         strscpyl(path, sizeof(path), "/sys/bus/", subsys, "/drivers/", driver, NULL);
                         if (stat(path, &statbuf) == 0)
                                 goto found;
-                }
+                } else
+                        errno = EINVAL;
+
                 goto out;
         }
 
@@ -974,6 +998,8 @@ static struct udev_device *device_new_from_parent(struct udev_device *udev_devic
                 if (udev_device_parent != NULL)
                         return udev_device_parent;
         }
+
+        errno = ENOENT;
         return NULL;
 }
 
@@ -997,8 +1023,10 @@ static struct udev_device *device_new_from_parent(struct udev_device *udev_devic
  **/
 _public_ struct udev_device *udev_device_get_parent(struct udev_device *udev_device)
 {
-        if (udev_device == NULL)
+        if (udev_device == NULL) {
+                errno = EINVAL;
                 return NULL;
+        }
         if (!udev_device->parent_set) {
                 udev_device->parent_set = true;
                 udev_device->parent_device = device_new_from_parent(udev_device);
@@ -1031,8 +1059,10 @@ _public_ struct udev_device *udev_device_get_parent_with_subsystem_devtype(struc
 {
         struct udev_device *parent;
 
-        if (subsystem == NULL)
+        if (subsystem == NULL) {
+                errno = EINVAL;
                 return NULL;
+        }
 
         parent = udev_device_get_parent(udev_device);
         while (parent != NULL) {
@@ -1049,6 +1079,10 @@ _public_ struct udev_device *udev_device_get_parent_with_subsystem_devtype(struc
                 }
                 parent = udev_device_get_parent(parent);
         }
+
+        if (!parent)
+                errno = ENOENT;
+
         return parent;
 }
 
