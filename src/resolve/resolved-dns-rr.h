@@ -86,12 +86,12 @@ struct DnsResourceRecord {
                         uint16_t size;
                 } generic;
 
-                /* struct { */
-                /*         uint16_t priority; */
-                /*         uint16_t weight; */
-                /*         uint16_t port; */
-                /*         char *name; */
-                /* } srv; */
+                struct {
+                        uint16_t priority;
+                        uint16_t weight;
+                        uint16_t port;
+                        char *name;
+                } srv;
 
                 struct {
                         char *name;

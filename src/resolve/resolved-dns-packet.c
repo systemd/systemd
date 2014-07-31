@@ -499,6 +499,22 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *star
 
         switch (rr->unparseable ? _DNS_TYPE_INVALID : rr->key->type) {
 
+        case DNS_TYPE_SRV:
+                r = dns_packet_append_uint16(p, rr->srv.priority, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_uint16(p, rr->srv.weight, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_uint16(p, rr->srv.port, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_name(p, rr->srv.name, NULL);
+                break;
+
         case DNS_TYPE_PTR:
         case DNS_TYPE_NS:
         case DNS_TYPE_CNAME:
@@ -600,7 +616,6 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *star
                 r = dns_packet_append_uint16(p, rr->loc.altitude, NULL);
                 break;
 
-        case DNS_TYPE_SRV:
         case DNS_TYPE_SSHFP:
         case _DNS_TYPE_INVALID: /* unparseable */
         default:
@@ -951,6 +966,19 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
 
         switch (rr->key->type) {
 
+        case DNS_TYPE_SRV:
+                r = dns_packet_read_uint16(p, &rr->srv.priority, NULL);
+                if (r < 0)
+                        goto fail;
+                r = dns_packet_read_uint16(p, &rr->srv.weight, NULL);
+                if (r < 0)
+                        goto fail;
+                r = dns_packet_read_uint16(p, &rr->srv.port, NULL);
+                if (r < 0)
+                        goto fail;
+                r = dns_packet_read_name(p, &rr->srv.name, NULL);
+                break;
+
         case DNS_TYPE_PTR:
         case DNS_TYPE_NS:
         case DNS_TYPE_CNAME:
@@ -1071,7 +1099,6 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                 }
         }
 
-        case DNS_TYPE_SRV:
         case DNS_TYPE_SSHFP:
         default:
                 r = dns_packet_read(p, rdlength, &d, NULL);
