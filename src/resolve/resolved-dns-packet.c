@@ -840,7 +840,7 @@ int dns_packet_read_name(DnsPacket *p, char **_ret, size_t *start) {
                         else
                                 first = false;
 
-                        memcpy(ret + n, t, c);
+                        memcpy(ret + n, t, r);
                         n += r;
                         continue;
                 } else if ((c & 0xc0) == 0xc0) {
