@@ -144,7 +144,7 @@ sub pci_vendor {
                         my $sub_device = uc $2;
                         my $sub_text = $3;
                         $sub_text =~ s/^\Q$device_text\E\s*//;
-                        $sub_text =~ s/(.+)/\ (\1\)/;
+                        $sub_text =~ s/(.+)/\ ($1)/;
                         print(OUT "\n");
                         print(OUT "pci:v0000" . $vendor . "d0000" . $device . "sv0000" . $sub_vendor . "sd0000" . $sub_device . "*\n");
                         print(OUT " ID_MODEL_FROM_DATABASE=" . $device_text . $sub_text . "\n");
