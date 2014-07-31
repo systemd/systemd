@@ -95,7 +95,7 @@ struct DnsResourceRecord {
 
                 struct {
                         char *name;
-                } ptr, ns, cname;
+                } ptr, ns, cname, dname;
 
                 struct {
                         char *cpu;

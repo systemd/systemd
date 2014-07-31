@@ -237,6 +237,7 @@ DnsResourceRecord* dns_resource_record_unref(DnsResourceRecord *rr) {
                 case DNS_TYPE_PTR:
                 case DNS_TYPE_NS:
                 case DNS_TYPE_CNAME:
+                case DNS_TYPE_DNAME:
                         free(rr->ptr.name);
                         break;
                 case DNS_TYPE_HINFO:
@@ -319,6 +320,7 @@ int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecor
         case DNS_TYPE_PTR:
         case DNS_TYPE_NS:
         case DNS_TYPE_CNAME:
+        case DNS_TYPE_DNAME:
                 return dns_name_equal(a->ptr.name, b->ptr.name);
 
         case DNS_TYPE_HINFO:
@@ -424,6 +426,7 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
         case DNS_TYPE_PTR:
         case DNS_TYPE_NS:
         case DNS_TYPE_CNAME:
+        case DNS_TYPE_DNAME:
                 s = strjoin(k, " ", rr->ptr.name, NULL);
                 if (!s)
                         return -ENOMEM;
@@ -590,7 +593,6 @@ static const struct {
         { DNS_TYPE_IXFR,  "IXFR"  },
         { DNS_TYPE_AXFR,  "AXFR"  },
 };
-
 
 const char *dns_type_to_string(uint16_t type) {
         unsigned i;
