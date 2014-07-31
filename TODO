@@ -35,13 +35,14 @@ Features:
         - do not fail daemon startup if socket is already busy (container)
         - process incoming notification of conflict
         - send notifications of conflict
-        - verify new RR uniqueness
         - detect conflicts
         - collect multiple responses
         - jitter interval support
-        - add SOA record to empty responses
         - watch udev initialization state
+        - watch local host name
+        - reprobe after suspend
   - mDNS/DNS-SD
+        - avahi compat
   - DNS-SD service registration from socket units
   - port sd-resolve to direct bus calls
   - nss module: fallback to glibc dns modules if resolved cannot be contacted
