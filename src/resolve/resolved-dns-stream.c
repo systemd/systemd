@@ -368,7 +368,12 @@ int dns_stream_new(Manager *m, DnsStream **ret, DnsProtocol protocol, int fd) {
         if (r < 0)
                 return r;
 
-        r = sd_event_add_time(m->event, &s->timeout_event_source, CLOCK_MONOTONIC, now(CLOCK_MONOTONIC) + DNS_STREAM_TIMEOUT_USEC, 0, on_stream_timeout, s);
+        r = sd_event_add_time(
+                        m->event,
+                        &s->timeout_event_source,
+                        clock_boottime_or_monotonic(),
+                        now(clock_boottime_or_monotonic()) + DNS_STREAM_TIMEOUT_USEC, 0,
+                        on_stream_timeout, s);
         if (r < 0)
                 return r;
 

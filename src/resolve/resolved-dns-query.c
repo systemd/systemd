@@ -278,7 +278,12 @@ int dns_query_go(DnsQuery *q) {
         q->answer_ifindex = 0;
         q->answer_rcode = 0;
 
-        r = sd_event_add_time(q->manager->event, &q->timeout_event_source, CLOCK_MONOTONIC, now(CLOCK_MONOTONIC) + QUERY_TIMEOUT_USEC, 0, on_query_timeout, q);
+        r = sd_event_add_time(
+                        q->manager->event,
+                        &q->timeout_event_source,
+                        clock_boottime_or_monotonic(),
+                        now(clock_boottime_or_monotonic()) + QUERY_TIMEOUT_USEC, 0,
+                        on_query_timeout, q);
         if (r < 0)
                 goto fail;
 

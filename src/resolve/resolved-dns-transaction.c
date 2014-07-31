@@ -515,7 +515,12 @@ int dns_transaction_go(DnsTransaction *t) {
                 return dns_transaction_go(t);
         }
 
-        r = sd_event_add_time(t->scope->manager->event, &t->timeout_event_source, CLOCK_MONOTONIC, now(CLOCK_MONOTONIC) + TRANSACTION_TIMEOUT_USEC(t->scope->protocol), 0, on_transaction_timeout, t);
+        r = sd_event_add_time(
+                        t->scope->manager->event,
+                        &t->timeout_event_source,
+                        clock_boottime_or_monotonic(),
+                        now(clock_boottime_or_monotonic()) + TRANSACTION_TIMEOUT_USEC(t->scope->protocol), 0,
+                        on_transaction_timeout, t);
         if (r < 0)
                 return r;
 

@@ -153,7 +153,7 @@ void dns_cache_prune(DnsCache *c) {
                         break;
 
                 if (t <= 0)
-                        t = now(CLOCK_MONOTONIC);
+                        t = now(CLOCK_BOOTTIME);
 
                 if (i->until > t)
                         break;
@@ -376,7 +376,7 @@ int dns_cache_put(DnsCache *c, DnsQuestion *q, int rcode, DnsAnswer *answer, uns
         dns_cache_make_space(c, answer->n_rrs + q->n_keys);
 
         if (timestamp <= 0)
-                timestamp = now(CLOCK_MONOTONIC);
+                timestamp = now(CLOCK_BOOTTIME);
 
         /* Second, add in positive entries for all contained RRs */
         for (i = 0; i < MIN(max_rrs, answer->n_rrs); i++) {
