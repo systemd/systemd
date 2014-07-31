@@ -524,6 +524,7 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *star
                                 goto fail;
                 }
 
+                r = 0;
                 break;
         }
 
@@ -977,7 +978,9 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                         r = strv_consume(&rr->txt.strings, s);
                         if (r < 0)
                                 goto fail;
-                };
+                }
+
+                r = 0;
                 break;
         }
 
