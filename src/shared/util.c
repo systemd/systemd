@@ -1230,7 +1230,7 @@ char *cunescape_length_with_prefix(const char *s, size_t length, const char *pre
 
         r = new(char, pl+length+1);
         if (!r)
-                return r;
+                return NULL;
 
         if (prefix)
                 memcpy(r, prefix, pl);
