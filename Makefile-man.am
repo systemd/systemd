@@ -118,6 +118,7 @@ MANPAGES += \
 	man/telinit.8 \
 	man/tmpfiles.d.5 \
 	man/udev.7 \
+	man/udev.conf.5 \
 	man/udevadm.8
 MANPAGES_ALIAS += \
 	man/SD_ALERT.3 \
@@ -1688,6 +1689,7 @@ EXTRA_DIST += \
 	man/telinit.xml \
 	man/timedatectl.xml \
 	man/tmpfiles.d.xml \
+	man/udev.conf.xml \
 	man/udev.xml \
 	man/udevadm.xml \
 	man/user-system-options.xml \

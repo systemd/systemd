@@ -22,7 +22,6 @@
   <refmeta>
     <refentrytitle>systemd-udevd.service</refentrytitle>
     <manvolnum>8</manvolnum>
-    <refmiscinfo class="version"></refmiscinfo>
   </refmeta>
 
   <refnamediv>
@@ -54,12 +53,16 @@
 
   <refsect1><title>Description</title>
     <para><command>systemd-udevd</command> listens to kernel uevents.
-      For every event, systemd-udevd executes matching instructions
-      specified in udev rules. See <citerefentry>
-      <refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum>
-      </citerefentry>.</para>
-    <para>The behavior of the running daemon can be changed with
-    <command>udevadm control</command>.</para>
+    For every event, systemd-udevd executes matching instructions
+    specified in udev rules. See <citerefentry>
+    <refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum>
+    </citerefentry>.</para>
+
+    <para>The behavior of the running daemon can be changed
+    dynamically with <command>udevadm control</command>, or
+    configured using
+    <citerefentry><refentrytitle>udev.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    </para>
   </refsect1>
 
   <refsect1><title>Options</title>
@@ -185,29 +188,12 @@
          in kernel-command-line.xml -->
  </refsect1>
 
- <refsect1><title>Configuration file</title>
-   <para>udev expects its main configuration file at <filename>/etc/udev/udev.conf</filename>.
-   It consists of a set of variables allowing the user to override default udev values. All
-   empty lines or lines beginning with '#' are ignored. The following variables can be
-   set:</para>
-   <variablelist>
-     <varlistentry>
-       <term><varname>udev_log</varname></term>
-       <listitem>
-         <para>The logging priority. Valid values are the numerical syslog priorities
-         or their textual representations: <option>err</option>, <option>info</option>
-         and <option>debug</option>.</para>
-       </listitem>
-     </varlistentry>
-   </variablelist>
- </refsect1>
-
   <refsect1>
     <title>See Also</title>
-    <para><citerefentry>
-        <refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum>
-      </citerefentry>, <citerefentry>
-        <refentrytitle>udevadm</refentrytitle><manvolnum>8</manvolnum>
-    </citerefentry></para>
+    <para>
+      <citerefentry><refentrytitle>udev.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>udevadm</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    </para>
   </refsect1>
 </refentry>
