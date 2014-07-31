@@ -23,7 +23,7 @@ SUBSYSTEM=="block", ENV{DEVTYPE}=="disk", KERNEL=="md*", TEST!="md/array_state",
 SUBSYSTEM=="block", ENV{DEVTYPE}=="disk", KERNEL=="md*", ATTR{md/array_state}=="|clear|inactive", ENV{SYSTEMD_READY}="0"
 
 # Ignore loop devices that don't have any file attached
-SUBSYSTEM=="block", KERNEL=="loop[0-9]*", TEST!="loop/backing_file", ENV{SYSTEMD_READY}="0"
+SUBSYSTEM=="block", KERNEL=="loop[0-9]*", ENV{DEVTYPE}=="disk", TEST!="loop/backing_file", ENV{SYSTEMD_READY}="0"
 
 # Ignore nbd devices in the "add" event, with "change" the nbd is ready
 ACTION=="add", SUBSYSTEM=="block", KERNEL=="nbd*", ENV{SYSTEMD_READY}="0"
