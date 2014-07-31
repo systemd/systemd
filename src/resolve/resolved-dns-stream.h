@@ -26,6 +26,8 @@
 typedef struct DnsStream DnsStream;
 
 #include "resolved.h"
+#include "resolved-dns-packet.h"
+#include "resolved-dns-transaction.h"
 
 struct DnsStream {
         Manager *manager;
@@ -51,7 +53,7 @@ struct DnsStream {
         int (*on_packet)(DnsStream *s);
         int (*complete)(DnsStream *s, int error);
 
-        DnsQueryTransaction *transaction;
+        DnsTransaction *transaction;
 
         LIST_FIELDS(DnsStream, streams);
 };

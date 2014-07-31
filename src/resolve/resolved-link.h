@@ -76,7 +76,7 @@ int link_update_rtnl(Link *l, sd_rtnl_message *m);
 int link_update_monitor(Link *l);
 bool link_relevant(Link *l, int family);
 LinkAddress* link_find_address(Link *l, int family, const union in_addr_union *in_addr);
-
+void link_add_rrs(Link *l, bool force_remove);
 DnsServer* link_find_dns_server(Link *l, int family, const union in_addr_union *in_addr);
 DnsServer* link_get_dns_server(Link *l);
 void link_next_dns_server(Link *l);
@@ -85,5 +85,6 @@ int link_address_new(Link *l, LinkAddress **ret, int family, const union in_addr
 LinkAddress *link_address_free(LinkAddress *a);
 int link_address_update_rtnl(LinkAddress *a, sd_rtnl_message *m);
 bool link_address_relevant(LinkAddress *l);
+void link_address_add_rrs(LinkAddress *a, bool force_remove);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_free);

@@ -55,7 +55,7 @@ struct DnsScope {
         DnsCache cache;
         DnsZone zone;
 
-        LIST_HEAD(DnsQueryTransaction, transactions);
+        LIST_HEAD(DnsTransaction, transactions);
 
         LIST_FIELDS(DnsScope, scopes);
 };
@@ -76,3 +76,5 @@ void dns_scope_next_dns_server(DnsScope *s);
 int dns_scope_llmnr_membership(DnsScope *s, bool b);
 
 void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p);
+
+DnsTransaction *dns_scope_find_transaction(DnsScope *scope, DnsQuestion *question);

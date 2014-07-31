@@ -42,22 +42,22 @@ static int reply_query_state(DnsQuery *q) {
 
         switch (q->state) {
 
-        case DNS_QUERY_NO_SERVERS:
+        case DNS_TRANSACTION_NO_SERVERS:
                 return sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_NAME_SERVERS, "No appropriate name servers or networks for name found");
 
-        case DNS_QUERY_TIMEOUT:
+        case DNS_TRANSACTION_TIMEOUT:
                 return sd_bus_reply_method_errorf(q->request, SD_BUS_ERROR_TIMEOUT, "Query timed out");
 
-        case DNS_QUERY_ATTEMPTS_MAX:
+        case DNS_TRANSACTION_ATTEMPTS_MAX_REACHED:
                 return sd_bus_reply_method_errorf(q->request, SD_BUS_ERROR_TIMEOUT, "All attempts to contact name servers or networks failed");
 
-        case DNS_QUERY_RESOURCES:
+        case DNS_TRANSACTION_RESOURCES:
                 return sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_RESOURCES, "Not enough resources");
 
-        case DNS_QUERY_INVALID_REPLY:
+        case DNS_TRANSACTION_INVALID_REPLY:
                 return sd_bus_reply_method_errorf(q->request, BUS_ERROR_INVALID_REPLY, "Received invalid reply");
 
-        case DNS_QUERY_FAILURE: {
+        case DNS_TRANSACTION_FAILURE: {
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
 
                 if (q->answer_rcode == DNS_RCODE_NXDOMAIN)
@@ -79,9 +79,9 @@ static int reply_query_state(DnsQuery *q) {
                 return sd_bus_reply_method_error(q->request, &error);
         }
 
-        case DNS_QUERY_NULL:
-        case DNS_QUERY_PENDING:
-        case DNS_QUERY_SUCCESS:
+        case DNS_TRANSACTION_NULL:
+        case DNS_TRANSACTION_PENDING:
+        case DNS_TRANSACTION_SUCCESS:
         default:
                 assert_not_reached("Impossible state");
         }
@@ -136,7 +136,7 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
 
         assert(q);
 
-        if (q->state != DNS_QUERY_SUCCESS) {
+        if (q->state != DNS_TRANSACTION_SUCCESS) {
                 r = reply_query_state(q);
                 goto finish;
         }
@@ -336,7 +336,7 @@ static void bus_method_resolve_address_complete(DnsQuery *q) {
 
         assert(q);
 
-        if (q->state != DNS_QUERY_SUCCESS) {
+        if (q->state != DNS_TRANSACTION_SUCCESS) {
                 r = reply_query_state(q);
                 goto finish;
         }
@@ -474,7 +474,7 @@ static void bus_method_resolve_record_complete(DnsQuery *q) {
 
         assert(q);
 
-        if (q->state != DNS_QUERY_SUCCESS) {
+        if (q->state != DNS_TRANSACTION_SUCCESS) {
                 r = reply_query_state(q);
                 goto finish;
         }

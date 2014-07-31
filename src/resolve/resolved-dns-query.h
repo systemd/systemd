@@ -28,63 +28,20 @@
 #include "set.h"
 
 typedef struct DnsQuery DnsQuery;
-typedef struct DnsQueryTransaction DnsQueryTransaction;
 
 #include "resolved.h"
 #include "resolved-dns-scope.h"
 #include "resolved-dns-rr.h"
-#include "resolved-dns-packet.h"
 #include "resolved-dns-question.h"
 #include "resolved-dns-answer.h"
 #include "resolved-dns-stream.h"
-
-typedef enum DnsQueryState {
-        DNS_QUERY_NULL,
-        DNS_QUERY_PENDING,
-        DNS_QUERY_FAILURE,
-        DNS_QUERY_SUCCESS,
-        DNS_QUERY_NO_SERVERS,
-        DNS_QUERY_TIMEOUT,
-        DNS_QUERY_ATTEMPTS_MAX,
-        DNS_QUERY_INVALID_REPLY,
-        DNS_QUERY_RESOURCES,
-        DNS_QUERY_ABORTED,
-        _DNS_QUERY_STATE_MAX,
-        _DNS_QUERY_STATE_INVALID = -1
-} DnsQueryState;
-
-struct DnsQueryTransaction {
-        DnsScope *scope;
-
-        DnsQuestion *question;
-
-        DnsQueryState state;
-        uint16_t id;
-
-        DnsPacket *sent, *received;
-        DnsAnswer *cached;
-        int cached_rcode;
-
-        sd_event_source *timeout_event_source;
-        unsigned n_attempts;
-
-        /* TCP connection logic, if we need it */
-        DnsStream *stream;
-
-        /* Queries this transaction is referenced by and that shall by
-         * notified about this specific transaction completing. */
-        Set *queries;
-
-        unsigned block_gc;
-
-        LIST_FIELDS(DnsQueryTransaction, transactions_by_scope);
-};
+#include "resolved-dns-transaction.h"
 
 struct DnsQuery {
         Manager *manager;
         DnsQuestion *question;
 
-        DnsQueryState state;
+        DnsTransactionState state;
         unsigned n_cname_redirects;
 
         sd_event_source *timeout_event_source;
@@ -109,11 +66,6 @@ struct DnsQuery {
         LIST_FIELDS(DnsQuery, queries);
 };
 
-DnsQueryTransaction* dns_query_transaction_free(DnsQueryTransaction *t);
-void dns_query_transaction_complete(DnsQueryTransaction *t, DnsQueryState state);
-
-void dns_query_transaction_process_reply(DnsQueryTransaction *t, DnsPacket *p);
-
 int dns_query_new(Manager *m, DnsQuery **q, DnsQuestion *question);
 DnsQuery *dns_query_free(DnsQuery *q);
 
@@ -121,8 +73,5 @@ int dns_query_go(DnsQuery *q);
 void dns_query_ready(DnsQuery *q);
 
 int dns_query_cname_redirect(DnsQuery *q, const char *name);
-
-const char* dns_query_state_to_string(DnsQueryState p) _const_;
-DnsQueryState dns_query_state_from_string(const char *s) _pure_;
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsQuery*, dns_query_free);

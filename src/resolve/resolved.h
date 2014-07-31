@@ -51,7 +51,7 @@ struct Manager {
         sd_event_source *network_event_source;
 
         /* DNS query management */
-        Hashmap *dns_query_transactions;
+        Hashmap *dns_transactions;
         LIST_HEAD(DnsQuery, dns_queries);
         unsigned n_dns_queries;
 
@@ -103,6 +103,7 @@ int manager_write_resolv_conf(Manager *m);
 DnsServer* manager_find_dns_server(Manager *m, int family, const union in_addr_union *in_addr);
 DnsServer *manager_get_dns_server(Manager *m);
 void manager_next_dns_server(Manager *m);
+
 uint32_t manager_find_mtu(Manager *m);
 
 int manager_send(Manager *m, int fd, int ifindex, int family, const union in_addr_union *addr, uint16_t port, DnsPacket *p);
@@ -117,7 +118,11 @@ int manager_llmnr_ipv6_tcp_fd(Manager *m);
 
 int manager_ifindex_is_loopback(Manager *m, int ifindex);
 int manager_find_ifindex(Manager *m, int family, const union in_addr_union *in_addr);
+LinkAddress* manager_find_address(Manager *m, int family, const union in_addr_union *in_addr);
 
+int manager_next_hostname(Manager *m);
+
+int manager_our_packet(Manager *m, DnsPacket *p);
 int manager_connect_bus(Manager *m);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);

@@ -28,8 +28,6 @@
 #include "resolved-dns-domain.h"
 #include "resolved-dns-scope.h"
 
-#define SEND_TIMEOUT_USEC (2*USEC_PER_SEC)
-
 int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol protocol, int family) {
         DnsScope *s;
 
@@ -56,7 +54,7 @@ int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol protocol, int
 }
 
 DnsScope* dns_scope_free(DnsScope *s) {
-        DnsQueryTransaction *t;
+        DnsTransaction *t;
 
         if (!s)
                 return NULL;
@@ -71,10 +69,10 @@ DnsScope* dns_scope_free(DnsScope *s) {
                  * freed while we still look at it */
 
                 t->block_gc++;
-                dns_query_transaction_complete(t, DNS_QUERY_ABORTED);
+                dns_transaction_complete(t, DNS_TRANSACTION_ABORTED);
                 t->block_gc--;
 
-                dns_query_transaction_free(t);
+                dns_transaction_free(t);
         }
 
         dns_cache_flush(&s->cache);
@@ -389,7 +387,16 @@ int dns_scope_good_dns_server(DnsScope *s, int family, const union in_addr_union
                 return !!manager_find_dns_server(s->manager, family, address);
 }
 
-static int dns_scope_make_reply_packet(DnsScope *s, uint16_t id, int rcode, DnsQuestion *q, DnsAnswer *answer, DnsAnswer *soa, DnsPacket **ret) {
+static int dns_scope_make_reply_packet(
+                DnsScope *s,
+                uint16_t id,
+                int rcode,
+                DnsQuestion *q,
+                DnsAnswer *answer,
+                DnsAnswer *soa,
+                bool tentative,
+                DnsPacket **ret) {
+
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
         unsigned i;
         int r;
@@ -409,7 +416,7 @@ static int dns_scope_make_reply_packet(DnsScope *s, uint16_t id, int rcode, DnsQ
                                                               0 /* opcode */,
                                                               0 /* c */,
                                                               0 /* tc */,
-                                                              0 /* t */,
+                                                              tentative,
                                                               0 /* (ra) */,
                                                               0 /* (ad) */,
                                                               0 /* (cd) */,
@@ -454,6 +461,7 @@ static int dns_scope_make_reply_packet(DnsScope *s, uint16_t id, int rcode, DnsQ
 void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
         _cleanup_(dns_packet_unrefp) DnsPacket *reply = NULL;
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL, *soa = NULL;
+        bool tentative = false;
         int r, fd;
 
         assert(s);
@@ -485,7 +493,7 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
                 return;
         }
 
-        r = dns_zone_lookup(&s->zone, p->question, &answer, &soa);
+        r = dns_zone_lookup(&s->zone, p->question, &answer, &soa, &tentative);
         if (r < 0) {
                 log_debug("Failed to lookup key: %s", strerror(-r));
                 return;
@@ -496,7 +504,7 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
         if (answer)
                 dns_answer_order_by_scope(answer, in_addr_is_link_local(p->family, &p->sender) > 0);
 
-        r = dns_scope_make_reply_packet(s, DNS_PACKET_ID(p), DNS_RCODE_SUCCESS, p->question, answer, soa, &reply);
+        r = dns_scope_make_reply_packet(s, DNS_PACKET_ID(p), DNS_RCODE_SUCCESS, p->question, answer, soa, tentative, &reply);
         if (r < 0) {
                 log_debug("Failed to build reply packet: %s", strerror(-r));
                 return;
@@ -525,4 +533,20 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
                 log_debug("Failed to send reply packet: %s", strerror(-r));
                 return;
         }
+}
+
+DnsTransaction *dns_scope_find_transaction(DnsScope *scope, DnsQuestion *question) {
+        DnsTransaction *t;
+
+        assert(scope);
+        assert(question);
+
+        /* Try to find an ongoing transaction that is a equal or a
+         * superset of the specified question */
+
+        LIST_FOREACH(transactions_by_scope, t, scope->transactions)
+                if (dns_question_is_superset(t->question, question) > 0)
+                        return t;
+
+        return NULL;
 }

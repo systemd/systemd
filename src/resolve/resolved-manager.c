@@ -461,7 +461,7 @@ Manager *manager_free(Manager *m) {
         while (m->dns_queries)
                 dns_query_free(m->dns_queries);
 
-        hashmap_free(m->dns_query_transactions);
+        hashmap_free(m->dns_transactions);
 
         while ((l = hashmap_first(m->links)))
                link_free(l);
@@ -703,7 +703,7 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
 
 static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
-        DnsQueryTransaction *t = NULL;
+        DnsTransaction *t = NULL;
         Manager *m = userdata;
         int r;
 
@@ -712,11 +712,11 @@ static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *use
                 return r;
 
         if (dns_packet_validate_reply(p) > 0) {
-                t = hashmap_get(m->dns_query_transactions, UINT_TO_PTR(DNS_PACKET_ID(p)));
+                t = hashmap_get(m->dns_transactions, UINT_TO_PTR(DNS_PACKET_ID(p)));
                 if (!t)
                         return 0;
 
-                dns_query_transaction_process_reply(t, p);
+                dns_transaction_process_reply(t, p);
 
         } else
                 log_debug("Invalid DNS packet.");
@@ -990,7 +990,7 @@ uint32_t manager_find_mtu(Manager *m) {
 
 static int on_llmnr_packet(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
-        DnsQueryTransaction *t = NULL;
+        DnsTransaction *t = NULL;
         Manager *m = userdata;
         int r;
 
@@ -1001,11 +1001,11 @@ static int on_llmnr_packet(sd_event_source *s, int fd, uint32_t revents, void *u
         if (dns_packet_validate_reply(p) > 0) {
                 log_debug("Got reply packet for id %u", DNS_PACKET_ID(p));
 
-                t = hashmap_get(m->dns_query_transactions, UINT_TO_PTR(DNS_PACKET_ID(p)));
+                t = hashmap_get(m->dns_transactions, UINT_TO_PTR(DNS_PACKET_ID(p)));
                 if (!t)
                         return 0;
 
-                dns_query_transaction_process_reply(t, p);
+                dns_transaction_process_reply(t, p);
 
         } else if (dns_packet_validate_query(p) > 0) {
                 Link *l;
@@ -1397,14 +1397,80 @@ int manager_ifindex_is_loopback(Manager *m, int ifindex) {
 }
 
 int manager_find_ifindex(Manager *m, int family, const union in_addr_union *in_addr) {
-        Link *l;
-        Iterator i;
+        LinkAddress *a;
 
         assert(m);
 
-        HASHMAP_FOREACH(l, m->links, i)
-                if (link_find_address(l, family, in_addr))
-                        return l->ifindex;
+        a = manager_find_address(m, family, in_addr);
+        if (a)
+                return a->link->ifindex;
 
         return 0;
+}
+
+int manager_next_hostname(Manager *m) {
+        const char *p;
+        Iterator i;
+        uint64_t u;
+        char *h;
+        Link *l;
+
+        assert(m);
+
+        p = strchr(m->hostname, 0);
+        assert(p);
+
+        while (p > m->hostname) {
+                if (!strchr("0123456789", p[-1]))
+                        break;
+
+                p--;
+        }
+
+        if (*p == 0 || safe_atou64(p, &u) < 0 || u <= 0)
+                u = 1;
+
+        u++;
+
+        if (asprintf(&h, "%.*s%" PRIu64, (int) (p - m->hostname), m->hostname, u) < 0)
+                return -ENOMEM;
+
+        log_info("Hostname conflict, changing local hostname from '%s' to '%s'.", m->hostname, h);
+
+        free(m->hostname);
+        m->hostname = h;
+
+        m->host_ipv4_key = dns_resource_key_unref(m->host_ipv4_key);
+        m->host_ipv6_key = dns_resource_key_unref(m->host_ipv6_key);
+
+        HASHMAP_FOREACH(l, m->links, i) {
+                link_add_rrs(l, true);
+                link_add_rrs(l, false);
+        }
+
+        return 0;
+}
+
+LinkAddress* manager_find_address(Manager *m, int family, const union in_addr_union *in_addr) {
+        Iterator i;
+        Link *l;
+
+        assert(m);
+
+        HASHMAP_FOREACH(l, m->links, i) {
+                LinkAddress *a;
+
+                a = link_find_address(l, family, in_addr);
+                if (a)
+                        return a;
+        }
+
+        return NULL;
+}
+
+int manager_our_packet(Manager *m, DnsPacket *p) {
+        assert(m);
+        assert(p);
+
+        return !!manager_find_address(m, p->family, &p->sender);
 }

@@ -28,16 +28,46 @@ typedef struct DnsZone {
         Hashmap *by_name;
 } DnsZone;
 
+typedef struct DnsZoneItem DnsZoneItem;
+typedef enum DnsZoneItemState DnsZoneItemState;
+
 #include "resolved-dns-rr.h"
 #include "resolved-dns-question.h"
 #include "resolved-dns-answer.h"
-
-void dns_zone_flush(DnsZone *z);
-
-int dns_zone_put(DnsZone *z, DnsResourceRecord *rr);
-void dns_zone_remove_rr(DnsZone *z, DnsResourceRecord *rr);
-
-int dns_zone_lookup(DnsZone *z, DnsQuestion *q, DnsAnswer **answer, DnsAnswer **soa);
+#include "resolved-dns-transaction.h"
 
 /* RFC 4795 Section 2.8. suggests a TTL of 30s by default */
 #define LLMNR_DEFAULT_TTL (30)
+
+enum DnsZoneItemState {
+        DNS_ZONE_ITEM_PROBING,
+        DNS_ZONE_ITEM_ESTABLISHED,
+        DNS_ZONE_ITEM_VERIFYING,
+        DNS_ZONE_ITEM_WITHDRAWN,
+};
+
+struct DnsZoneItem {
+        DnsScope *scope;
+        DnsResourceRecord *rr;
+
+        DnsZoneItemState state;
+
+        unsigned block_ready;
+
+        bool probing_enabled;
+
+        LIST_FIELDS(DnsZoneItem, by_key);
+        LIST_FIELDS(DnsZoneItem, by_name);
+
+        DnsTransaction *probe_transaction;
+};
+
+void dns_zone_flush(DnsZone *z);
+
+int dns_zone_put(DnsZone *z, DnsScope *s, DnsResourceRecord *rr, bool probe);
+void dns_zone_remove_rr(DnsZone *z, DnsResourceRecord *rr);
+
+int dns_zone_lookup(DnsZone *z, DnsQuestion *q, DnsAnswer **answer, DnsAnswer **soa, bool *tentative);
+
+void dns_zone_item_conflict(DnsZoneItem *i);
+void dns_zone_item_ready(DnsZoneItem *i);
