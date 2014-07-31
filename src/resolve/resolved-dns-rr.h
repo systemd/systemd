@@ -55,7 +55,6 @@ enum {
         DNS_TYPE_SRV   = 0x21,
         DNS_TYPE_DNAME = 0x27,
         DNS_TYPE_SSHFP = 0x2C,
-
         DNS_TYPE_SPF   = 0x63,
 
         /* Special records */
@@ -138,6 +137,13 @@ struct DnsResourceRecord {
                         uint32_t longitude;
                         uint32_t altitude;
                 } loc;
+
+                struct {
+                        uint8_t algorithm;
+                        uint8_t fptype;
+                        void *key;
+                        size_t key_size;
+                } sshfp;
         };
 };
 

@@ -265,6 +265,10 @@ DnsResourceRecord* dns_resource_record_unref(DnsResourceRecord *rr) {
                         free(rr->mx.exchange);
                         break;
 
+                case DNS_TYPE_SSHFP:
+                        free(rr->sshfp.key);
+                        break;
+
                 case DNS_TYPE_LOC:
                 case DNS_TYPE_A:
                 case DNS_TYPE_AAAA:
@@ -393,6 +397,12 @@ int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecor
                        a->loc.longitude == b->loc.longitude &&
                        a->loc.altitude == b->loc.altitude;
 
+        case DNS_TYPE_SSHFP:
+                return a->sshfp.algorithm == b->sshfp.algorithm &&
+                       a->sshfp.fptype == b->sshfp.fptype &&
+                       a->sshfp.key_size == b->sshfp.key_size &&
+                       memcmp(a->sshfp.key, b->sshfp.key, a->sshfp.key_size) == 0;
+
         default:
                 return a->generic.size == b->generic.size &&
                         memcmp(a->generic.data, b->generic.data, a->generic.size) == 0;
@@ -429,7 +439,6 @@ static char* format_location(uint32_t latitude, uint32_t longitude, uint32_t alt
 
         return s;
 }
-
 
 int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
         _cleanup_free_ char *k = NULL;
@@ -552,6 +561,23 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
                 if (!s)
                         return -ENOMEM;
 
+                break;
+        }
+
+        case DNS_TYPE_SSHFP: {
+                _cleanup_free_ char *x = NULL;
+
+                x = hexmem(rr->sshfp.key, rr->sshfp.key_size);
+                if (!x)
+                        return -ENOMEM;
+
+                r = asprintf(&s, "%s %u %u %s",
+                             k,
+                             rr->sshfp.algorithm,
+                             rr->sshfp.fptype,
+                             x);
+                if (r < 0)
+                        return -ENOMEM;
                 break;
         }
 

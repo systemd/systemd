@@ -617,6 +617,16 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *star
                 break;
 
         case DNS_TYPE_SSHFP:
+                r = dns_packet_append_uint8(p, rr->sshfp.algorithm, NULL);
+                if (r < 0)
+                        goto fail;
+                r = dns_packet_append_uint8(p, rr->sshfp.fptype, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_blob(p, rr->sshfp.key, rr->sshfp.key_size, NULL);
+                break;
+
         case _DNS_TYPE_INVALID: /* unparseable */
         default:
 
@@ -1100,6 +1110,28 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
         }
 
         case DNS_TYPE_SSHFP:
+
+                r = dns_packet_read_uint8(p, &rr->sshfp.algorithm, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_read_uint8(p, &rr->sshfp.fptype, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_read(p, rdlength - 2, &d, NULL);
+                if (r < 0)
+                        goto fail;
+
+                rr->sshfp.key = memdup(d, rdlength - 2);
+                if (!rr->sshfp.key) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+
+                rr->sshfp.key_size = rdlength - 2;
+                break;
+
         default:
                 r = dns_packet_read(p, rdlength, &d, NULL);
                 if (r < 0)
