@@ -330,7 +330,10 @@ int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecor
         if (r <= 0)
                 return r;
 
-        switch (a->key->type) {
+        if (a->unparseable != b->unparseable)
+                return 0;
+
+        switch (a->unparseable ? _DNS_TYPE_INVALID : a->key->type) {
 
         case DNS_TYPE_SRV:
                 r = dns_name_equal(a->srv.name, b->srv.name);
