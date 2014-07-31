@@ -104,7 +104,7 @@ struct DnsResourceRecord {
 
                 struct {
                         char **strings;
-                } txt;
+                } txt, spf;
 
                 struct {
                         struct in_addr in_addr;
