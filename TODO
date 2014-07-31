@@ -29,7 +29,6 @@ Features:
     releases (probably not even a directory in /run for it)
 
 * resolved:
-  - IDN (?)
   - DNSSEC
   - LLMNR:
         - do not fail daemon startup if socket is already busy (container)
@@ -39,12 +38,10 @@ Features:
         - collect multiple responses
         - jitter interval support
         - watch udev initialization state
-        - watch local host name
         - reprobe after suspend
   - mDNS/DNS-SD
         - avahi compat
   - DNS-SD service registration from socket units
-  - port sd-resolve to direct bus calls
   - nss module: fallback to glibc dns modules if resolved cannot be contacted
   - edns0
   - dname
