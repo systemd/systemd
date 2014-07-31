@@ -29,7 +29,7 @@
 #include <dirent.h>
 #include <getopt.h>
 
-#include <systemd/sd-login.h>
+#include "systemd/sd-login.h"
 #include "logind-acl.h"
 #include "udev.h"
 #include "util.h"

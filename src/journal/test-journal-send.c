@@ -19,7 +19,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <systemd/sd-journal.h>
+#include "systemd/sd-journal.h"
 #include <stdlib.h>
 #include <unistd.h>
 

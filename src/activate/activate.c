@@ -27,7 +27,7 @@
 #include <sys/wait.h>
 #include <getopt.h>
 
-#include <systemd/sd-daemon.h>
+#include "systemd/sd-daemon.h"
 
 #include "socket-util.h"
 #include "build.h"

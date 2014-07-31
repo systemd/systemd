@@ -52,7 +52,7 @@
 #include <sys/fanotify.h>
 #endif
 
-#include <systemd/sd-daemon.h>
+#include "systemd/sd-daemon.h"
 
 #include "missing.h"
 #include "util.h"

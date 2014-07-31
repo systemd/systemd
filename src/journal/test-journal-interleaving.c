@@ -23,7 +23,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-#include <systemd/sd-journal.h>
+#include "systemd/sd-journal.h"
 
 #include "journal-file.h"
 #include "journal-internal.h"

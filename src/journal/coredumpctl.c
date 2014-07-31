@@ -26,7 +26,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-#include <systemd/sd-journal.h>
+#include "systemd/sd-journal.h"
 
 #include "build.h"
 #include "set.h"

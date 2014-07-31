@@ -40,7 +40,7 @@
 #include "acl-util.h"
 #endif
 
-#include <systemd/sd-journal.h>
+#include "systemd/sd-journal.h"
 
 #include "log.h"
 #include "logs-show.h"

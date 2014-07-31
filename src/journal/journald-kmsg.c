@@ -25,7 +25,7 @@
 #include <sys/mman.h>
 #include <sys/socket.h>
 
-#include <systemd/sd-messages.h>
+#include "systemd/sd-messages.h"
 #include <libudev.h>
 
 #include "journald-server.h"

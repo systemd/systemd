@@ -48,7 +48,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stdbool.h>
-#include <systemd/sd-journal.h>
+#include "systemd/sd-journal.h"
 
 #include "util.h"
 #include "fileio.h"

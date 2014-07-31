@@ -25,7 +25,7 @@
 #include <time.h>
 #include <stdio.h>
 
-#include <systemd/sd-journal.h>
+#include "systemd/sd-journal.h"
 
 #include "pyutil.h"
 #include "macro.h"

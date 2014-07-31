@@ -27,7 +27,7 @@
 #include <errno.h>
 #include <fcntl.h>
 
-#include <systemd/sd-journal.h>
+#include "systemd/sd-journal.h"
 
 #include "util.h"
 #include "build.h"

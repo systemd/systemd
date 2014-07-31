@@ -24,9 +24,9 @@
 #include <errno.h>
 #include <unistd.h>
 
-#include <systemd/sd-journal.h>
-#include <systemd/sd-messages.h>
-#include <systemd/sd-daemon.h>
+#include "systemd/sd-journal.h"
+#include "systemd/sd-messages.h"
+#include "systemd/sd-daemon.h"
 
 #include "journal-authenticate.h"
 #include "journald-server.h"

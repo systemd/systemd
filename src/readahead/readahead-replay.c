@@ -35,7 +35,7 @@
 #include <getopt.h>
 #include <sys/inotify.h>
 
-#include <systemd/sd-daemon.h>
+#include "systemd/sd-daemon.h"
 
 #include "missing.h"
 #include "util.h"

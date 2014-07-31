@@ -21,7 +21,7 @@
 
 #include <Python.h>
 
-#include <systemd/sd-messages.h>
+#include "systemd/sd-messages.h"
 
 #include "pyutil.h"
 #include "log.h"

@@ -27,7 +27,7 @@
 #include <fcntl.h>
 #include <sys/mount.h>
 
-#include <systemd/sd-id128.h>
+#include "systemd/sd-id128.h"
 
 #include "machine-id-setup.h"
 #include "macro.h"

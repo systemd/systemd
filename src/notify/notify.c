@@ -27,7 +27,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <systemd/sd-daemon.h>
+#include "systemd/sd-daemon.h"
 
 #include "strv.h"
 #include "util.h"

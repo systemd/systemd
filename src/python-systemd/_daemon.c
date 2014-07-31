@@ -29,7 +29,7 @@
 #include <assert.h>
 #include <sys/socket.h>
 
-#include <systemd/sd-daemon.h>
+#include "systemd/sd-daemon.h"
 #include "pyutil.h"
 #include "macro.h"
 

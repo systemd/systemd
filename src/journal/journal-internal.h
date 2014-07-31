@@ -25,7 +25,7 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
-#include <systemd/sd-id128.h>
+#include "systemd/sd-id128.h"
 
 #include "journal-def.h"
 #include "list.h"

@@ -26,8 +26,8 @@
 #include <sys/types.h>
 #include <sys/xattr.h>
 
-#include <systemd/sd-journal.h>
-#include <systemd/sd-login.h>
+#include "systemd/sd-journal.h"
+#include "systemd/sd-login.h"
 
 #include "log.h"
 #include "util.h"

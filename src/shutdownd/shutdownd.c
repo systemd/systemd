@@ -30,8 +30,8 @@
 #include <fcntl.h>
 #include <stddef.h>
 
-#include <systemd/sd-daemon.h>
-#include <systemd/sd-shutdown.h>
+#include "systemd/sd-daemon.h"
+#include "systemd/sd-shutdown.h"
 
 #include "log.h"
 #include "macro.h"
