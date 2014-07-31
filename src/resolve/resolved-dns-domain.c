@@ -88,7 +88,7 @@ int dns_label_unescape(const char **name, char *dest, size_t sz) {
                         } else
                                 return -EINVAL;
 
-                } else if (*n >= ' ' && *n != 127) {
+                } else if ((uint8_t) *n >= (uint8_t) ' ' && *n != 127) {
 
                         /* Normal character */
                         *(d++) = *(n++);
@@ -141,13 +141,13 @@ int dns_label_escape(const char *p, size_t l, char **ret) {
 
                         /* Proper character */
                         *(q++) = *p;
-                } else if (*p >= ' ' && *p != 127) {
+                } else if ((uint8_t) *p >= (uint8_t) ' ' && *p != 127) {
 
                         /* Everything else */
                         *(q++) = '\\';
-                        *(q++) = '0' + (char) ((unsigned) *p / 100);
-                        *(q++) = '0' + (char) (((unsigned) *p / 10) % 10);
-                        *(q++) = '0' + (char) ((unsigned) *p % 10);
+                        *(q++) = '0' + (char) ((uint8_t) *p / 100);
+                        *(q++) = '0' + (char) (((uint8_t) *p / 10) % 10);
+                        *(q++) = '0' + (char) ((uint8_t) *p % 10);
 
                 } else
                         return -EINVAL;
