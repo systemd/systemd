@@ -275,7 +275,8 @@ static int bus_method_resolve_hostname(sd_bus *bus, sd_bus_message *message, voi
         if (!IN_SET(family, AF_INET, AF_INET6, AF_UNSPEC))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown address family %i", family);
 
-        if (!hostname_is_valid(hostname))
+        r = dns_name_normalize(hostname, NULL);
+        if (r < 0)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid hostname '%s'", hostname);
 
         question = dns_question_new(family == AF_UNSPEC ? 2 : 1);
@@ -565,6 +566,10 @@ static int bus_method_resolve_record(sd_bus *bus, sd_bus_message *message, void 
         r = sd_bus_message_read(message, "sqq", &name, &class, &type);
         if (r < 0)
                 return r;
+
+        r = dns_name_normalize(name, NULL);
+        if (r < 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid name '%s'", name);
 
         question = dns_question_new(1);
         if (!question)

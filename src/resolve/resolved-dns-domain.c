@@ -172,7 +172,6 @@ int dns_name_normalize(const char *s, char **_ret) {
         int r;
 
         assert(s);
-        assert(_ret);
 
         for (;;) {
                 _cleanup_free_ char *t = NULL;
@@ -210,8 +209,11 @@ int dns_name_normalize(const char *s, char **_ret) {
                 return -ENOMEM;
 
         ret[n] = 0;
-        *_ret = ret;
-        ret = NULL;
+
+        if (_ret) {
+                *_ret = ret;
+                ret = NULL;
+        }
 
         return 0;
 }
