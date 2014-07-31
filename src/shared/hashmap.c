@@ -753,59 +753,6 @@ at_end:
         return NULL;
 }
 
-void *hashmap_iterate_backwards(Hashmap *h, Iterator *i, const void **key) {
-        struct hashmap_entry *e;
-
-        assert(i);
-
-        if (!h)
-                goto at_beginning;
-
-        if (*i == ITERATOR_FIRST)
-                goto at_beginning;
-
-        if (*i == ITERATOR_LAST && !h->iterate_list_tail)
-                goto at_beginning;
-
-        e = *i == ITERATOR_LAST ? h->iterate_list_tail : (struct hashmap_entry*) *i;
-
-        if (e->iterate_previous)
-                *i = (Iterator) e->iterate_previous;
-        else
-                *i = ITERATOR_FIRST;
-
-        if (key)
-                *key = e->key;
-
-        return e->value;
-
-at_beginning:
-        *i = ITERATOR_FIRST;
-
-        if (key)
-                *key = NULL;
-
-        return NULL;
-}
-
-void *hashmap_iterate_skip(Hashmap *h, const void *key, Iterator *i) {
-        unsigned hash;
-        struct hashmap_entry *e;
-
-        if (!h)
-                return NULL;
-
-        hash = bucket_hash(h, key);
-
-        e = hash_scan(h, hash, key);
-        if (!e)
-                return NULL;
-
-        *i = (Iterator) e;
-
-        return e->value;
-}
-
 void* hashmap_first(Hashmap *h) {
 
         if (!h)
@@ -826,17 +773,6 @@ void* hashmap_first_key(Hashmap *h) {
                 return NULL;
 
         return (void*) h->iterate_list_head->key;
-}
-
-void* hashmap_last(Hashmap *h) {
-
-        if (!h)
-                return NULL;
-
-        if (!h->iterate_list_tail)
-                return NULL;
-
-        return h->iterate_list_tail->value;
 }
 
 void* hashmap_steal_first(Hashmap *h) {

@@ -109,8 +109,6 @@ bool hashmap_isempty(Hashmap *h) _pure_;
 unsigned hashmap_buckets(Hashmap *h) _pure_;
 
 void *hashmap_iterate(Hashmap *h, Iterator *i, const void **key);
-void *hashmap_iterate_backwards(Hashmap *h, Iterator *i, const void **key);
-void *hashmap_iterate_skip(Hashmap *h, const void *key, Iterator *i);
 
 void hashmap_clear(Hashmap *h);
 void hashmap_clear_free(Hashmap *h);
@@ -120,7 +118,6 @@ void *hashmap_steal_first(Hashmap *h);
 void *hashmap_steal_first_key(Hashmap *h);
 void *hashmap_first(Hashmap *h) _pure_;
 void *hashmap_first_key(Hashmap *h) _pure_;
-void *hashmap_last(Hashmap *h) _pure_;
 
 void *hashmap_next(Hashmap *h, const void *key);
 
@@ -131,9 +128,6 @@ char **hashmap_get_strv(Hashmap *h);
 
 #define HASHMAP_FOREACH_KEY(e, k, h, i) \
         for ((i) = ITERATOR_FIRST, (e) = hashmap_iterate((h), &(i), (const void**) &(k)); (e); (e) = hashmap_iterate((h), &(i), (const void**) &(k)))
-
-#define HASHMAP_FOREACH_BACKWARDS(e, h, i) \
-        for ((i) = ITERATOR_LAST, (e) = hashmap_iterate_backwards((h), &(i), NULL); (e); (e) = hashmap_iterate_backwards((h), &(i), NULL))
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Hashmap*, hashmap_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Hashmap*, hashmap_free_free);

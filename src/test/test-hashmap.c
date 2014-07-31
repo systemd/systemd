@@ -343,44 +343,6 @@ static void test_hashmap_foreach(void) {
         hashmap_free_free(m);
 }
 
-static void test_hashmap_foreach_backwards(void) {
-        Hashmap *m;
-        Iterator i;
-        char *val1, *val2, *val3, *val4, *s;
-        bool value_found[] = { false, false, false, false };
-
-        val1 = strdup("my val1");
-        assert_se(val1);
-        val2 = strdup("my val2");
-        assert_se(val2);
-        val3 = strdup("my val3");
-        assert_se(val3);
-        val4 = strdup("my val4");
-        assert_se(val4);
-
-        m = hashmap_new(&string_hash_ops);
-        hashmap_put(m, "Key 1", val1);
-        hashmap_put(m, "Key 2", val2);
-        hashmap_put(m, "Key 3", val3);
-        hashmap_put(m, "Key 4", val4);
-
-        HASHMAP_FOREACH_BACKWARDS(s, m, i) {
-                if (!value_found[0] && streq(s, val1))
-                        value_found[0] = true;
-                else if (!value_found[1] && streq(s, val2))
-                        value_found[1] = true;
-                else if (!value_found[2] && streq(s, val3))
-                        value_found[2] = true;
-                else if (!value_found[3] && streq(s, val4))
-                        value_found[3] = true;
-        }
-
-        assert_se(m);
-        assert_se(value_found[0] && value_found[1] && value_found[2] && value_found[3]);
-
-        hashmap_free_free(m);
-}
-
 static void test_hashmap_merge(void) {
         Hashmap *m;
         Hashmap *n;
@@ -532,21 +494,6 @@ static void test_hashmap_first_key(void) {
         assert_se(streq(hashmap_first_key(m), "key 2"));
 }
 
-static void test_hashmap_last(void) {
-        _cleanup_hashmap_free_ Hashmap *m = NULL;
-
-        m = hashmap_new(&string_hash_ops);
-        assert_se(m);
-
-        assert_se(!hashmap_last(m));
-        assert_se(hashmap_put(m, "key 1", (void *) (const char *) "val 1") == 1);
-        assert_se(streq(hashmap_last(m), "val 1"));
-        assert_se(hashmap_put(m, "key 2", (void *) (const char *) "bar") == 1);
-        assert_se(streq(hashmap_last(m), "bar"));
-        assert_se(hashmap_remove(m, "key 2"));
-        assert_se(streq(hashmap_last(m), "val 1"));
-}
-
 static void test_hashmap_steal_first_key(void) {
         _cleanup_hashmap_free_ Hashmap *m = NULL;
 
@@ -604,7 +551,6 @@ int main(int argc, const char *argv[]) {
         test_hashmap_remove_and_put();
         test_hashmap_ensure_allocated();
         test_hashmap_foreach();
-        test_hashmap_foreach_backwards();
         test_hashmap_foreach_key();
         test_hashmap_contains();
         test_hashmap_merge();
@@ -613,7 +559,6 @@ int main(int argc, const char *argv[]) {
         test_hashmap_size();
         test_hashmap_many();
         test_hashmap_first_key();
-        test_hashmap_last();
         test_hashmap_steal_first_key();
         test_hashmap_clear_free_free();
         test_uint64_compare_func();

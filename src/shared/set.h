@@ -57,23 +57,17 @@ unsigned set_size(Set *s);
 bool set_isempty(Set *s);
 
 void *set_iterate(Set *s, Iterator *i);
-void *set_iterate_backwards(Set *s, Iterator *i);
-void *set_iterate_skip(Set *s, void *value, Iterator *i);
 
 void set_clear(Set *s);
 void set_clear_free(Set *s);
 
 void *set_steal_first(Set *s);
 void* set_first(Set *s);
-void* set_last(Set *s);
 
 char **set_get_strv(Set *s);
 
 #define SET_FOREACH(e, s, i) \
         for ((i) = ITERATOR_FIRST, (e) = set_iterate((s), &(i)); (e); (e) = set_iterate((s), &(i)))
-
-#define SET_FOREACH_BACKWARDS(e, s, i) \
-        for ((i) = ITERATOR_LAST, (e) = set_iterate_backwards((s), &(i)); (e); (e) = set_iterate_backwards((s), &(i)))
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Set*, set_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Set*, set_free_free);

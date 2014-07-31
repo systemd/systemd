@@ -125,24 +125,12 @@ void *set_iterate(Set *s, Iterator *i) {
         return hashmap_iterate(MAKE_HASHMAP(s), i, NULL);
 }
 
-void *set_iterate_backwards(Set *s, Iterator *i) {
-        return hashmap_iterate_backwards(MAKE_HASHMAP(s), i, NULL);
-}
-
-void *set_iterate_skip(Set *s, void *value, Iterator *i) {
-        return hashmap_iterate_skip(MAKE_HASHMAP(s), value, i);
-}
-
 void *set_steal_first(Set *s) {
         return hashmap_steal_first(MAKE_HASHMAP(s));
 }
 
 void* set_first(Set *s) {
         return hashmap_first(MAKE_HASHMAP(s));
-}
-
-void* set_last(Set *s) {
-        return hashmap_last(MAKE_HASHMAP(s));
 }
 
 int set_merge(Set *s, Set *other) {
