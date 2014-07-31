@@ -481,9 +481,11 @@ enum kdbus_policy_type {
  *				a well-know name for a process to be started
  *				when traffic arrives
  * @KDBUS_HELLO_POLICY_HOLDER:	Special-purpose connection which registers
- *				policy entries for one or multiple names. The
- *				provided names are not activated, and are not
- *				registered with the name database
+ *				policy entries for a name. The provided name
+ *				is not activated and not registered with the
+ *				name database, it only allows unprivileged
+ *				connections to aquire a name, talk or discover
+ *				a service
  * @KDBUS_HELLO_MONITOR:	Special-purpose connection to monitor
  *				bus traffic
  */
@@ -602,9 +604,7 @@ enum kdbus_name_flags {
  * struct kdbus_cmd_name - struct to describe a well-known name
  * @size:		The total size of the struct
  * @flags:		Flags for a name entry (KDBUS_NAME_*)
- * @owner_id:		The current owner of the name. For requests,
- *			privileged users may set this field to
- *			(de)register names on behalf of other connections.
+ * @owner_id:		The current owner of the name.
  * @conn_flags:		The flags of the owning connection (KDBUS_HELLO_*)
  * @name:		The well-known name
  *
