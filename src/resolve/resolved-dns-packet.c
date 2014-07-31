@@ -605,15 +605,15 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *star
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_uint16(p, rr->loc.latitude, NULL);
+                r = dns_packet_append_uint32(p, rr->loc.latitude, NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_uint16(p, rr->loc.longitude, NULL);
+                r = dns_packet_append_uint32(p, rr->loc.longitude, NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_uint16(p, rr->loc.altitude, NULL);
+                r = dns_packet_append_uint32(p, rr->loc.altitude, NULL);
                 break;
 
         case DNS_TYPE_SSHFP:
@@ -930,6 +930,12 @@ fail:
         return r;
 }
 
+static bool loc_size_ok(uint8_t size) {
+        uint8_t m = size >> 4, e = size & 0xF;
+
+        return m <= 9 && e <= 9 && (m > 0 || e == 0);
+}
+
 int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
@@ -1081,13 +1087,28 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                         if (r < 0)
                                 goto fail;
 
+                        if (!loc_size_ok(rr->loc.size)) {
+                                r = -EBADMSG;
+                                goto fail;
+                        }
+
                         r = dns_packet_read_uint8(p, &rr->loc.horiz_pre, NULL);
                         if (r < 0)
                                 goto fail;
 
+                        if (!loc_size_ok(rr->loc.horiz_pre)) {
+                                r = -EBADMSG;
+                                goto fail;
+                        }
+
                         r = dns_packet_read_uint8(p, &rr->loc.vert_pre, NULL);
                         if (r < 0)
                                 goto fail;
+
+                        if (!loc_size_ok(rr->loc.vert_pre)) {
+                                r = -EBADMSG;
+                                goto fail;
+                        }
 
                         r = dns_packet_read_uint32(p, &rr->loc.latitude, NULL);
                         if (r < 0)
@@ -1105,7 +1126,7 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                 } else {
                         dns_packet_rewind(p, pos);
                         rr->unparseable = true;
-                        /* fall through */
+                        goto unparseable;
                 }
         }
 
@@ -1133,6 +1154,7 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                 break;
 
         default:
+        unparseable:
                 r = dns_packet_read(p, rdlength, &d, NULL);
                 if (r < 0)
                         goto fail;
