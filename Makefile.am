@@ -1936,7 +1936,8 @@ SYSINIT_TARGET_WANTS += \
 	systemd-sysusers.service
 
 dist_sysusers_DATA = \
-	sysusers.d/systemd.conf
+	sysusers.d/systemd.conf \
+	sysusers.d/systemd-remote.conf
 
 nodist_sysusers_DATA = \
 	sysusers.d/basic.conf
