@@ -131,7 +131,9 @@
                                 not graph the time elapsed since boot
                                 and before systemd-bootchart was
                                 started, as it may result in extremely
-                                large graphs.  </para></listitem>
+                                large graphs. The time elapsed since boot
+                                might also include any time that the system
+                                was suspended.</para></listitem>
                         </varlistentry>
                 </variablelist>
         </refsect1>
