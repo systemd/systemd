@@ -811,6 +811,21 @@ fi
 AM_CONDITIONAL(HAVE_LIBCURL, [test "$have_libcurl" = "yes"])
 
 # ------------------------------------------------------------------------------
+have_libidn=no
+AC_ARG_ENABLE(libidn, AS_HELP_STRING([--disable-libidn], [Disable optional LIBIDN support]))
+if test "x$enable_libidn" != "xno"; then
+        PKG_CHECK_MODULES(LIBIDN, [libidn],
+               [AC_DEFINE(HAVE_LIBIDN, 1, [Define if libidn is available])
+                have_libidn=yes
+                M4_DEFINES="$M4_DEFINES -DHAVE_LIBIDN"],
+               [have_libidn=no])
+        if test "x$have_libidn" = "xno" -a "x$enable_libidn" = "xyes"; then
+                AC_MSG_ERROR([*** libidn support requested but libraries not found])
+        fi
+fi
+AM_CONDITIONAL(HAVE_LIBIDN, [test "$have_libidn" = "yes"])
+
+# ------------------------------------------------------------------------------
 have_binfmt=no
 AC_ARG_ENABLE(binfmt, AS_HELP_STRING([--disable-binfmt], [disable binfmt tool]))
 if test "x$enable_binfmt" != "xno"; then
@@ -1326,6 +1341,7 @@ AC_MSG_RESULT([
         CHKCONFIG:               ${have_chkconfig}
         GNUTLS:                  ${have_gnutls}
         libcurl:                 ${have_libcurl}
+        libidn:                  ${have_libidn}
         ELFUTILS:                ${have_elfutils}
         binfmt:                  ${have_binfmt}
         vconsole:                ${have_vconsole}

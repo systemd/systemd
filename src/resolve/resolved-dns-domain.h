@@ -30,6 +30,9 @@
 int dns_label_unescape(const char **name, char *dest, size_t sz);
 int dns_label_escape(const char *p, size_t l, char **ret);
 
+int dns_label_apply_idna(const char *encoded, size_t encoded_size, char *decoded, size_t decoded_max);
+int dns_label_undo_idna(const char *encoded, size_t encoded_size, char *decoded, size_t decoded_max);
+
 int dns_name_normalize(const char *s, char **_ret);
 
 unsigned long dns_name_hash_func(const void *s, const uint8_t hash_key[HASH_KEY_SIZE]);

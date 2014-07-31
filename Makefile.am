@@ -4778,7 +4778,8 @@ systemd_resolved_LDADD = \
 	libsystemd-label.la \
 	libsystemd-internal.la \
 	libsystemd-shared.la \
-	-lm
+	-lm \
+	$(LIBIDN_LIBS)
 
 rootlibexec_PROGRAMS += \
 	systemd-resolved
@@ -4829,7 +4830,8 @@ test_dns_domain_LDADD = \
 	libsystemd-network.la \
 	libsystemd-label.la \
 	libsystemd-internal.la \
-	libsystemd-shared.la
+	libsystemd-shared.la \
+	$(LIBIDN_LIBS)
 
 libnss_resolve_la_SOURCES = \
 	src/nss-resolve/nss-resolve.sym \
@@ -4867,7 +4869,8 @@ systemd_resolve_host_SOURCES = \
 systemd_resolve_host_LDADD = \
 	libsystemd-internal.la \
 	libsystemd-shared.la \
-	-lm
+	-lm \
+	$(LIBIDN_LIBS)
 
 rootlibexec_PROGRAMS += \
 	systemd-resolve-host

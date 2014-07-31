@@ -390,6 +390,7 @@ int dns_packet_append_name(DnsPacket *p, const char *name, size_t *start) {
                 _cleanup_free_ char *s = NULL;
                 char label[DNS_LABEL_MAX];
                 size_t n;
+                int k;
 
                 n = PTR_TO_SIZE(hashmap_get(p->names, name));
                 if (n > 0) {
@@ -413,6 +414,17 @@ int dns_packet_append_name(DnsPacket *p, const char *name, size_t *start) {
                 r = dns_label_unescape(&name, label, sizeof(label));
                 if (r < 0)
                         goto fail;
+
+                if (p->protocol == DNS_PROTOCOL_DNS)
+                        k = dns_label_apply_idna(label, r, label, sizeof(label));
+                else
+                        k = dns_label_undo_idna(label, r, label, sizeof(label));
+                if (k < 0) {
+                        r = k;
+                        goto fail;
+                }
+                if (k > 0)
+                        r = k;
 
                 r = dns_packet_append_label(p, label, r, &n);
                 if (r < 0)

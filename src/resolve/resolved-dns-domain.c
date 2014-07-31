@@ -19,6 +19,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
  ***/
 
+#ifdef HAVE_LIBIDN
+#include <idna.h>
+#include <stringprep.h>
+#endif
+
 #include "resolved-dns-domain.h"
 
 int dns_label_unescape(const char **name, char *dest, size_t sz) {
@@ -164,6 +169,83 @@ int dns_label_escape(const char *p, size_t l, char **ret) {
         return r;
 }
 
+int dns_label_apply_idna(const char *encoded, size_t encoded_size, char *decoded, size_t decoded_max) {
+#ifdef HAVE_LIBIDN
+        _cleanup_free_ uint32_t *input = NULL;
+        size_t input_size;
+        const char *p;
+        bool contains_8bit = false;
+
+        assert(encoded);
+        assert(decoded);
+        assert(decoded_max >= DNS_LABEL_MAX);
+
+        if (encoded_size <= 0)
+                return 0;
+
+        for (p = encoded; p < encoded + encoded_size; p++)
+                if ((uint8_t) *p > 127)
+                        contains_8bit = true;
+
+        if (!contains_8bit)
+                return 0;
+
+        input = stringprep_utf8_to_ucs4(encoded, encoded_size, &input_size);
+        if (!input)
+                return -ENOMEM;
+
+        if (idna_to_ascii_4i(input, input_size, decoded, 0) != 0)
+                return -EINVAL;
+
+        return strlen(decoded);
+#else
+        return 0;
+#endif
+}
+
+int dns_label_undo_idna(const char *encoded, size_t encoded_size, char *decoded, size_t decoded_max) {
+#ifdef HAVE_LIBIDN
+        size_t input_size, output_size;
+        _cleanup_free_ uint32_t *input = NULL;
+        _cleanup_free_ char *result = NULL;
+        uint32_t *output = NULL;
+        size_t w;
+
+        /* To be invoked after unescaping */
+
+        assert(encoded);
+        assert(decoded);
+
+        if (encoded_size < sizeof(IDNA_ACE_PREFIX)-1)
+                return 0;
+
+        if (memcmp(encoded, IDNA_ACE_PREFIX, sizeof(IDNA_ACE_PREFIX) -1) != 0)
+                return 0;
+
+        input = stringprep_utf8_to_ucs4(encoded, encoded_size, &input_size);
+        if (!input)
+                return -ENOMEM;
+
+        output_size = input_size;
+        output = newa(uint32_t, output_size);
+
+        idna_to_unicode_44i(input, input_size, output, &output_size, 0);
+
+        result = stringprep_ucs4_to_utf8(output, output_size, NULL, &w);
+        if (!result)
+                return -ENOMEM;
+        if (w <= 0)
+                return 0;
+        if (w+1 > decoded_max)
+                return -EINVAL;
+
+        memcpy(decoded, result, w+1);
+        return w;
+#else
+        return 0;
+#endif
+}
+
 int dns_name_normalize(const char *s, char **_ret) {
         _cleanup_free_ char *ret = NULL;
         size_t n = 0, allocated = 0;
@@ -176,6 +258,7 @@ int dns_name_normalize(const char *s, char **_ret) {
         for (;;) {
                 _cleanup_free_ char *t = NULL;
                 char label[DNS_LABEL_MAX];
+                int k;
 
                 r = dns_label_unescape(&p, label, sizeof(label));
                 if (r < 0)
@@ -185,6 +268,12 @@ int dns_name_normalize(const char *s, char **_ret) {
                                 return -EINVAL;
                         break;
                 }
+
+                k = dns_label_undo_idna(label, r, label, sizeof(label));
+                if (k < 0)
+                        return k;
+                if (k > 0)
+                        r = k;
 
                 r = dns_label_escape(label, r, &t);
                 if (r < 0)
@@ -227,10 +316,17 @@ unsigned long dns_name_hash_func(const void *s, const uint8_t hash_key[HASH_KEY_
 
         while (*p) {
                 char label[DNS_LABEL_MAX+1];
+                int k;
 
                 r = dns_label_unescape(&p, label, sizeof(label));
                 if (r < 0)
                         break;
+
+                k = dns_label_undo_idna(label, r, label, sizeof(label));
+                if (k < 0)
+                        return k;
+                if (k > 0)
+                        r = k;
 
                 label[r] = 0;
                 ascii_strlower(label);
@@ -243,7 +339,7 @@ unsigned long dns_name_hash_func(const void *s, const uint8_t hash_key[HASH_KEY_
 
 int dns_name_compare_func(const void *a, const void *b) {
         const char *x = a, *y = b;
-        int r, q;
+        int r, q, k, w;
 
         assert(a);
         assert(b);
@@ -259,6 +355,15 @@ int dns_name_compare_func(const void *a, const void *b) {
                 if (r < 0 || q < 0)
                         return r - q;
 
+                k = dns_label_undo_idna(la, r, la, sizeof(la));
+                w = dns_label_undo_idna(lb, q, lb, sizeof(lb));
+                if (k < 0 || w < 0)
+                        return k - w;
+                if (k > 0)
+                        r = k;
+                if (w > 0)
+                        r = w;
+
                 la[r] = lb[q] = 0;
                 r = strcasecmp(la, lb);
                 if (r != 0)
@@ -267,7 +372,7 @@ int dns_name_compare_func(const void *a, const void *b) {
 }
 
 int dns_name_equal(const char *x, const char *y) {
-        int r, q;
+        int r, q, k, w;
 
         assert(x);
         assert(y);
@@ -282,9 +387,20 @@ int dns_name_equal(const char *x, const char *y) {
                 if (r < 0)
                         return r;
 
+                k = dns_label_undo_idna(la, r, la, sizeof(la));
+                if (k < 0)
+                        return k;
+                if (k > 0)
+                        r = k;
+
                 q = dns_label_unescape(&y, lb, sizeof(lb));
                 if (q < 0)
                         return q;
+                w = dns_label_undo_idna(lb, q, lb, sizeof(lb));
+                if (w < 0)
+                        return w;
+                if (w > 0)
+                        q = w;
 
                 la[r] = lb[q] = 0;
                 if (strcasecmp(la, lb))
@@ -294,7 +410,7 @@ int dns_name_equal(const char *x, const char *y) {
 
 int dns_name_endswith(const char *name, const char *suffix) {
         const char *n, *s, *saved_n = NULL;
-        int r, q;
+        int r, q, k, w;
 
         assert(name);
         assert(suffix);
@@ -308,6 +424,11 @@ int dns_name_endswith(const char *name, const char *suffix) {
                 r = dns_label_unescape(&n, ln, sizeof(ln));
                 if (r < 0)
                         return r;
+                k = dns_label_undo_idna(ln, r, ln, sizeof(ln));
+                if (k < 0)
+                        return k;
+                if (k > 0)
+                        r = k;
 
                 if (!saved_n)
                         saved_n = n;
@@ -315,6 +436,11 @@ int dns_name_endswith(const char *name, const char *suffix) {
                 q = dns_label_unescape(&s, ls, sizeof(ls));
                 if (r < 0)
                         return r;
+                w = dns_label_undo_idna(ls, r, ls, sizeof(ls));
+                if (w < 0)
+                        return w;
+                if (w > 0)
+                        q = w;
 
                 if (r == 0 && q == 0)
                         return true;
