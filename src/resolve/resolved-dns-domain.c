@@ -324,7 +324,7 @@ unsigned long dns_name_hash_func(const void *s, const uint8_t hash_key[HASH_KEY_
 
                 k = dns_label_undo_idna(label, r, label, sizeof(label));
                 if (k < 0)
-                        return k;
+                        break;
                 if (k > 0)
                         r = k;
 
@@ -436,7 +436,7 @@ int dns_name_endswith(const char *name, const char *suffix) {
                 q = dns_label_unescape(&s, ls, sizeof(ls));
                 if (r < 0)
                         return r;
-                w = dns_label_undo_idna(ls, r, ls, sizeof(ls));
+                w = dns_label_undo_idna(ls, q, ls, sizeof(ls));
                 if (w < 0)
                         return w;
                 if (w > 0)
