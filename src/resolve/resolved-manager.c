@@ -34,6 +34,8 @@
 #include "socket-util.h"
 #include "af-list.h"
 #include "resolved.h"
+#include "utf8.h"
+#include "resolved-dns-domain.h"
 
 #define SEND_TIMEOUT_USEC (200 * USEC_PER_MSEC)
 
@@ -384,6 +386,92 @@ int manager_parse_config_file(Manager *m) {
                             false, false, true, m);
 }
 
+static int determine_hostname(char **ret) {
+        _cleanup_free_ char *h = NULL, *n = NULL;
+        int r;
+
+        assert(ret);
+
+        h = gethostname_malloc();
+        if (!h)
+                return log_oom();
+
+        if (!utf8_is_valid(h)) {
+                log_error("System hostname is not UTF-8 clean.");
+                return -EINVAL;
+        }
+
+        r = dns_name_normalize(h, &n);
+        if (r < 0) {
+                log_error("System hostname '%s' cannot be normalized.", h);
+                return r;
+        }
+
+        *ret = n;
+        n = NULL;
+
+        return 0;
+}
+
+static int on_hostname_change(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
+        _cleanup_free_ char *h = NULL;
+        Manager *m = userdata;
+        int r;
+
+        assert(m);
+
+        r = determine_hostname(&h);
+        if (r < 0)
+                return 0; /* ignore invalid hostnames */
+
+        if (streq(h, m->hostname))
+                return 0;
+
+        log_info("System hostname changed to '%s'.", h);
+        free(m->hostname);
+        m->hostname = h;
+        h = NULL;
+
+        manager_refresh_rrs(m);
+
+        return 0;
+}
+
+static int manager_watch_hostname(Manager *m) {
+        _cleanup_free_ char *h = NULL;
+        int r;
+
+        assert(m);
+
+        m->hostname_fd = open("/proc/sys/kernel/hostname", O_RDONLY|O_CLOEXEC|O_NDELAY|O_NOCTTY);
+        if (m->hostname_fd < 0) {
+                log_warning("Failed to watch hostname: %m");
+                return 0;
+        }
+
+        r = sd_event_add_io(m->event, &m->hostname_event_source, m->hostname_fd, 0, on_hostname_change, m);
+        if (r < 0) {
+                if (r == -EPERM)
+                        /* kernels prior to 3.2 don't support polling this file. Ignore the failure. */
+                        m->hostname_fd = safe_close(m->hostname_fd);
+                else {
+                        log_error("Failed to add hostname event source: %s", strerror(-r));
+                        return r;
+                }
+        }
+
+        r = determine_hostname(&m->hostname);
+        if (r < 0) {
+                log_info("Defaulting to hostname 'linux'.");
+                m->hostname = strdup("linux");
+                if (!m->hostname)
+                        return log_oom();
+        } else
+                log_info("Using system hostname '%s'.", m->hostname);
+
+        return 0;
+}
+
 int manager_new(Manager **ret) {
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
@@ -397,16 +485,13 @@ int manager_new(Manager **ret) {
         m->dns_ipv4_fd = m->dns_ipv6_fd = -1;
         m->llmnr_ipv4_udp_fd = m->llmnr_ipv6_udp_fd = -1;
         m->llmnr_ipv4_tcp_fd = m->llmnr_ipv6_tcp_fd = -1;
+        m->hostname_fd = -1;
 
         m->use_llmnr = true;
 
         r = parse_dns_server_string(m, DNS_SERVERS);
         if (r < 0)
                 return r;
-
-        m->hostname = gethostname_malloc();
-        if (!m->hostname)
-                return -ENOMEM;
 
         r = sd_event_default(&m->event);
         if (r < 0)
@@ -416,6 +501,10 @@ int manager_new(Manager **ret) {
         sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
 
         sd_event_set_watchdog(m->event, true);
+
+        r = manager_watch_hostname(m);
+        if (r < 0)
+                return r;
 
         r = dns_scope_new(m, &m->unicast_scope, NULL, DNS_PROTOCOL_DNS, AF_UNSPEC);
         if (r < 0)
@@ -497,7 +586,11 @@ Manager *manager_free(Manager *m) {
 
         dns_resource_key_unref(m->host_ipv4_key);
         dns_resource_key_unref(m->host_ipv6_key);
+
+        safe_close(m->hostname_fd);
+        sd_event_source_unref(m->hostname_event_source);
         free(m->hostname);
+
         free(m);
 
         return NULL;
@@ -1408,12 +1501,25 @@ int manager_find_ifindex(Manager *m, int family, const union in_addr_union *in_a
         return 0;
 }
 
+void manager_refresh_rrs(Manager *m) {
+        Iterator i;
+        Link *l;
+
+        assert(m);
+
+        m->host_ipv4_key = dns_resource_key_unref(m->host_ipv4_key);
+        m->host_ipv6_key = dns_resource_key_unref(m->host_ipv6_key);
+
+        HASHMAP_FOREACH(l, m->links, i) {
+                link_add_rrs(l, true);
+                link_add_rrs(l, false);
+        }
+}
+
 int manager_next_hostname(Manager *m) {
         const char *p;
-        Iterator i;
         uint64_t u;
         char *h;
-        Link *l;
 
         assert(m);
 
@@ -1435,18 +1541,12 @@ int manager_next_hostname(Manager *m) {
         if (asprintf(&h, "%.*s%" PRIu64, (int) (p - m->hostname), m->hostname, u) < 0)
                 return -ENOMEM;
 
-        log_info("Hostname conflict, changing local hostname from '%s' to '%s'.", m->hostname, h);
+        log_info("Hostname conflict, changing published hostname from '%s' to '%s'.", m->hostname, h);
 
         free(m->hostname);
         m->hostname = h;
 
-        m->host_ipv4_key = dns_resource_key_unref(m->host_ipv4_key);
-        m->host_ipv6_key = dns_resource_key_unref(m->host_ipv6_key);
-
-        HASHMAP_FOREACH(l, m->links, i) {
-                link_add_rrs(l, true);
-                link_add_rrs(l, false);
-        }
+        manager_refresh_rrs(m);
 
         return 0;
 }

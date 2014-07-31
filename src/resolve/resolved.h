@@ -90,6 +90,10 @@ struct Manager {
         char *hostname;
         DnsResourceKey *host_ipv4_key;
         DnsResourceKey *host_ipv6_key;
+
+        /* Watch the system hostname */
+        int hostname_fd;
+        sd_event_source *hostname_event_source;
 };
 
 /* Manager */
@@ -120,6 +124,7 @@ int manager_ifindex_is_loopback(Manager *m, int ifindex);
 int manager_find_ifindex(Manager *m, int family, const union in_addr_union *in_addr);
 LinkAddress* manager_find_address(Manager *m, int family, const union in_addr_union *in_addr);
 
+void manager_refresh_rrs(Manager *m);
 int manager_next_hostname(Manager *m);
 
 int manager_our_packet(Manager *m, DnsPacket *p);
