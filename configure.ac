@@ -62,7 +62,7 @@ AS_IF([test x"$intltool_found" != xyes],
       ])
 
 AM_NLS
-AS_IF([test x"$enable_nls" != xno], [
+AS_IF([test x"$enable_nls" != xno -o "x$enable_polkit" != xno], [
     # intltoolize greps for '^(AC|IT)_PROG_INTLTOOL', so it needs to be on its own line
 IT_PROG_INTLTOOL([0.40.0])
 ])
