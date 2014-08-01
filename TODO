@@ -45,7 +45,6 @@ Features:
   - edns0
   - dname
   - cname on PTR (?)
-  - read /etc/resolv.conf if it is not pointing to our own
 
 * Ignore .busname units on classic D-Bus boots, systemd-resolved cannot be started on kdbus
   without the active policy and should get a Wants=org.freedesktop.resolve1.busname to
