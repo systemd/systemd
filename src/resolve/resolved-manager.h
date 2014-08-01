@@ -35,6 +35,7 @@ typedef struct Manager Manager;
 #include "resolved-dns-server.h"
 #include "resolved-dns-scope.h"
 #include "resolved-dns-stream.h"
+#include "resolved-link.h"
 
 typedef enum Support {
         SUPPORT_NO,
@@ -136,7 +137,6 @@ void manager_refresh_rrs(Manager *m);
 int manager_next_hostname(Manager *m);
 
 int manager_our_packet(Manager *m, DnsPacket *p);
-int manager_connect_bus(Manager *m);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 

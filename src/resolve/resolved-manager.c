@@ -35,9 +35,10 @@
 #include "af-list.h"
 #include "utf8.h"
 
-#include "resolved.h"
-#include "resolved-conf.h"
 #include "resolved-dns-domain.h"
+#include "resolved-conf.h"
+#include "resolved-bus.h"
+#include "resolved-manager.h"
 
 #define SEND_TIMEOUT_USEC (200 * USEC_PER_MSEC)
 

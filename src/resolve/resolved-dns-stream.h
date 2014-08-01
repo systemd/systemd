@@ -25,9 +25,9 @@
 
 typedef struct DnsStream DnsStream;
 
-#include "resolved.h"
 #include "resolved-dns-packet.h"
 #include "resolved-dns-transaction.h"
+#include "resolved-manager.h"
 
 struct DnsStream {
         Manager *manager;

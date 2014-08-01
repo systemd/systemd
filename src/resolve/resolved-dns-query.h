@@ -29,13 +29,13 @@
 
 typedef struct DnsQuery DnsQuery;
 
-#include "resolved.h"
 #include "resolved-dns-scope.h"
 #include "resolved-dns-rr.h"
 #include "resolved-dns-question.h"
 #include "resolved-dns-answer.h"
 #include "resolved-dns-stream.h"
 #include "resolved-dns-transaction.h"
+#include "resolved-manager.h"
 
 struct DnsQuery {
         Manager *manager;

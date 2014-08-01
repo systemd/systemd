@@ -22,8 +22,8 @@
 #include "bus-errors.h"
 #include "bus-util.h"
 
-#include "resolved.h"
 #include "resolved-dns-domain.h"
+#include "resolved-bus.h"
 
 static int reply_query_state(DnsQuery *q) {
         _cleanup_free_ char *ip = NULL;

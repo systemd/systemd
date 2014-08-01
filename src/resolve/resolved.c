@@ -24,7 +24,7 @@
 #include "mkdir.h"
 #include "capability.h"
 
-#include "resolved.h"
+#include "resolved-manager.h"
 #include "resolved-conf.h"
 
 int main(int argc, char *argv[]) {

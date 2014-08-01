@@ -21,41 +21,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "in-addr-util.h"
-
-typedef struct DnsServer DnsServer;
-typedef enum DnsServerSource DnsServerSource;
-
 #include "resolved-manager.h"
-#include "resolved-link.h"
 
-typedef enum DnsServerType {
-        DNS_SERVER_SYSTEM,
-        DNS_SERVER_FALLBACK,
-        DNS_SERVER_LINK,
-} DnsServerType;
-
-struct DnsServer {
-        Manager *manager;
-
-        DnsServerType type;
-
-        Link *link;
-
-        int family;
-        union in_addr_union address;
-
-        bool marked:1;
-
-        LIST_FIELDS(DnsServer, servers);
-};
-
-int dns_server_new(
-                Manager *m,
-                DnsServer **s,
-                DnsServerType type,
-                Link *l,
-                int family,
-                const union in_addr_union *address);
-
-DnsServer* dns_server_free(DnsServer *s);
+int manager_connect_bus(Manager *m);

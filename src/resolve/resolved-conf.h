@@ -21,7 +21,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "resolved.h"
+#include "resolved-manager.h"
 
 int manager_parse_dns_server(Manager *m, DnsServerType type, const char *string);
 int manager_parse_config_file(Manager *m);

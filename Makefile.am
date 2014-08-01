@@ -4732,12 +4732,13 @@ endif
 # ------------------------------------------------------------------------------
 if ENABLE_RESOLVED
 systemd_resolved_SOURCES = \
-	src/resolve/resolved.h \
 	src/resolve/resolved.c \
 	src/resolve/resolved-manager.c \
+	src/resolve/resolved-manager.h \
 	src/resolve/resolved-conf.c \
 	src/resolve/resolved-conf.h \
 	src/resolve/resolved-bus.c \
+	src/resolve/resolved-bus.h \
 	src/resolve/resolved-link.h \
 	src/resolve/resolved-link.c \
 	src/resolve/resolved-dns-domain.h \
