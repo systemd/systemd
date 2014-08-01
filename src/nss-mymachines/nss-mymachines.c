@@ -205,6 +205,11 @@ enum nss_status _nss_mymachines_gethostbyname4_r(
         if (ttlp)
                 *ttlp = 0;
 
+        /* Explicitly reset all error variables */
+        *errnop = 0;
+        *h_errnop = NETDB_SUCCESS;
+        h_errno = 0;
+
         return NSS_STATUS_SUCCESS;
 
 fail:
@@ -364,6 +369,11 @@ enum nss_status _nss_mymachines_gethostbyname3_r(
 
         if (canonp)
                 *canonp = r_name;
+
+        /* Explicitly reset all error variables */
+        *errnop = 0;
+        *h_errnop = NETDB_SUCCESS;
+        h_errno = 0;
 
         return NSS_STATUS_SUCCESS;
 

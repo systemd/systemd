@@ -281,6 +281,11 @@ enum nss_status _nss_resolve_gethostbyname4_r(
         if (ttlp)
                 *ttlp = 0;
 
+        /* Explicitly reset all error variables */
+        *errnop = 0;
+        *h_errnop = NETDB_SUCCESS;
+        h_errno = 0;
+
         return NSS_STATUS_SUCCESS;
 
 fail:
@@ -482,6 +487,11 @@ enum nss_status _nss_resolve_gethostbyname3_r(
         result->h_length = alen;
         result->h_addr_list = (char**) r_addr_list;
 
+        /* Explicitly reset all error variables */
+        *errnop = 0;
+        *h_errnop = NETDB_SUCCESS;
+        h_errno = 0;
+
         if (ttlp)
                 *ttlp = 0;
 
@@ -674,6 +684,11 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
 
         if (ttlp)
                 *ttlp = 0;
+
+        /* Explicitly reset all error variables */
+        *errnop = 0;
+        *h_errnop = NETDB_SUCCESS;
+        h_errno = 0;
 
         return NSS_STATUS_SUCCESS;
 

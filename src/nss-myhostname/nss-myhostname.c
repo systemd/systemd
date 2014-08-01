@@ -165,6 +165,11 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
         if (ttlp)
                 *ttlp = 0;
 
+        /* Explicitly reset all error variables */
+        *errnop = 0;
+        *h_errnop = NETDB_SUCCESS;
+        h_errno = 0;
+
         return NSS_STATUS_SUCCESS;
 }
 
@@ -288,6 +293,11 @@ static enum nss_status fill_in_hostent(
 
         if (canonp)
                 *canonp = r_name;
+
+        /* Explicitly reset all error variables */
+        *errnop = 0;
+        *h_errnop = NETDB_SUCCESS;
+        h_errno = 0;
 
         return NSS_STATUS_SUCCESS;
 }
