@@ -237,6 +237,8 @@ DnsResourceRecord* dns_resource_record_unref(DnsResourceRecord *rr) {
                 } else if (rr->key->type == DNS_TYPE_SOA) {
                         free(rr->soa.mname);
                         free(rr->soa.rname);
+                } else if (rr->key->type == DNS_TYPE_MX) {
+                        free(rr->mx.exchange);
                 } else if (!IN_SET(rr->key->type, DNS_TYPE_A, DNS_TYPE_AAAA))
                         free(rr->generic.data);
 
@@ -322,6 +324,12 @@ int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecor
                        a->soa.retry   == b->soa.retry &&
                        a->soa.expire  == b->soa.expire &&
                        a->soa.minimum == b->soa.minimum;
+        case DNS_TYPE_MX:
+                if (a->mx.priority != b->mx.priority)
+                        return 0;
+
+                return dns_name_equal(a->mx.exchange, b->mx.exchange);
+
         default:
                 return a->generic.size == b->generic.size &&
                         memcmp(a->generic.data, b->generic.data, a->generic.size) == 0;
@@ -392,6 +400,15 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
                              rr->soa.retry,
                              rr->soa.expire,
                              rr->soa.minimum);
+                if (r < 0)
+                        return -ENOMEM;
+                break;
+
+        case DNS_TYPE_MX:
+                r = asprintf(&s, "%s %u %s",
+                             k,
+                             rr->mx.priority,
+                             rr->mx.exchange);
                 if (r < 0)
                         return -ENOMEM;
                 break;

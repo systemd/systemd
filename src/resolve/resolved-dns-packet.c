@@ -549,6 +549,13 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *star
                 break;
 
         case DNS_TYPE_MX:
+                r = dns_packet_append_uint16(p, rr->mx.priority, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_name(p, rr->mx.exchange, NULL);
+                break;
+
         case DNS_TYPE_TXT:
         case DNS_TYPE_SRV:
         case DNS_TYPE_DNAME:
@@ -951,6 +958,13 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                 break;
 
         case DNS_TYPE_MX:
+                r = dns_packet_read_uint16(p, &rr->mx.priority, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_read_name(p, &rr->mx.exchange, NULL);
+                break;
+
         case DNS_TYPE_TXT:
         case DNS_TYPE_SRV:
         case DNS_TYPE_DNAME:

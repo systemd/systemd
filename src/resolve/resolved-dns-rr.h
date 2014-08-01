@@ -119,6 +119,11 @@ struct DnsResourceRecord {
                         uint32_t expire;
                         uint32_t minimum;
                 } soa;
+
+                struct {
+                        uint16_t priority;
+                        char *exchange;
+                } mx;
         };
 };
 
