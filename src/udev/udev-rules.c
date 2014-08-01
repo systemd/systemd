@@ -459,7 +459,6 @@ static uid_t add_uid(struct udev_rules *rules, const char *owner) {
         unsigned int i;
         uid_t uid;
         unsigned int off;
-        int r;
 
         /* lookup, if we know it already */
         for (i = 0; i < rules->uids_cur; i++) {
@@ -469,9 +468,7 @@ static uid_t add_uid(struct udev_rules *rules, const char *owner) {
                         return uid;
                 }
         }
-        r = get_user_creds(&owner, &uid, NULL, NULL, NULL);
-        if (r < 0)
-                uid = 0;
+        uid = util_lookup_user(rules->udev, owner);
 
         /* grow buffer if needed */
         if (rules->uids_cur+1 >= rules->uids_max) {
@@ -502,7 +499,6 @@ static gid_t add_gid(struct udev_rules *rules, const char *group) {
         unsigned int i;
         gid_t gid;
         unsigned int off;
-        int r;
 
         /* lookup, if we know it already */
         for (i = 0; i < rules->gids_cur; i++) {
@@ -512,9 +508,7 @@ static gid_t add_gid(struct udev_rules *rules, const char *group) {
                         return gid;
                 }
         }
-        r = get_group_creds(&group, &gid);
-        if (r < 0)
-                gid = 0;
+        gid = util_lookup_group(rules->udev, group);
 
         /* grow buffer if needed */
         if (rules->gids_cur+1 >= rules->gids_max) {
@@ -2176,7 +2170,6 @@ int udev_rules_apply_to_event(struct udev_rules *rules,
                         break;
                 case TK_A_OWNER: {
                         char owner[UTIL_NAME_SIZE];
-                        int r;
 
                         if (event->owner_final)
                                 break;
@@ -2184,9 +2177,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules,
                                 event->owner_final = true;
                         udev_event_apply_format(event, rules_str(rules, cur->key.value_off), owner, sizeof(owner));
                         event->owner_set = true;
-                        r = get_user_creds(&owner, &event->uid, NULL, NULL, NULL);
-                        if (r < 0)
-                                event->uid = 0;
+                        event->uid = util_lookup_user(event->udev, owner);
                         log_debug("OWNER %u %s:%u",
                                   event->uid,
                                   rules_str(rules, rule->rule.filename_off),
@@ -2195,7 +2186,6 @@ int udev_rules_apply_to_event(struct udev_rules *rules,
                 }
                 case TK_A_GROUP: {
                         char group[UTIL_NAME_SIZE];
-                        int r;
 
                         if (event->group_final)
                                 break;
@@ -2203,9 +2193,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules,
                                 event->group_final = true;
                         udev_event_apply_format(event, rules_str(rules, cur->key.value_off), group, sizeof(group));
                         event->group_set = true;
-                        r = get_group_creds(&group, &event->gid);
-                        if (r < 0)
-                                event->gid = 0;
+                        event->gid = util_lookup_group(event->udev, group);
                         log_debug("GROUP %u %s:%u",
                                   event->gid,
                                   rules_str(rules, rule->rule.filename_off),

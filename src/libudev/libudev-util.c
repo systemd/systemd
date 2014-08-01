@@ -77,6 +77,70 @@ int util_delete_path(struct udev *udev, const char *path)
         return err;
 }
 
+uid_t util_lookup_user(struct udev *udev, const char *user)
+{
+        char *endptr;
+        struct passwd pwbuf;
+        struct passwd *pw;
+        uid_t uid;
+        size_t buflen = sysconf(_SC_GETPW_R_SIZE_MAX);
+        char *buf = alloca(buflen);
+
+        if (streq(user, "root"))
+                return 0;
+        uid = strtoul(user, &endptr, 10);
+        if (endptr[0] == '\0')
+                return uid;
+
+        errno = getpwnam_r(user, &pwbuf, buf, buflen, &pw);
+        if (pw != NULL)
+                return pw->pw_uid;
+        if (errno == 0 || errno == ENOENT || errno == ESRCH)
+                udev_err(udev, "specified user '%s' unknown\n", user);
+        else
+                udev_err(udev, "error resolving user '%s': %m\n", user);
+        return 0;
+}
+
+gid_t util_lookup_group(struct udev *udev, const char *group)
+{
+        char *endptr;
+        struct group grbuf;
+        struct group *gr;
+        gid_t gid = 0;
+        size_t buflen = sysconf(_SC_GETPW_R_SIZE_MAX);
+        char *buf = NULL;
+
+        if (streq(group, "root"))
+                return 0;
+        gid = strtoul(group, &endptr, 10);
+        if (endptr[0] == '\0')
+                return gid;
+        gid = 0;
+        for (;;) {
+                char *newbuf;
+
+                newbuf = realloc(buf, buflen);
+                if (!newbuf)
+                        break;
+                buf = newbuf;
+                errno = getgrnam_r(group, &grbuf, buf, buflen, &gr);
+                if (gr != NULL) {
+                        gid = gr->gr_gid;
+                } else if (errno == ERANGE) {
+                        buflen *= 2;
+                        continue;
+                } else if (errno == 0 || errno == ENOENT || errno == ESRCH) {
+                        udev_err(udev, "specified group '%s' unknown\n", group);
+                } else {
+                        udev_err(udev, "error resolving group '%s': %m\n", group);
+                }
+                break;
+        }
+        free(buf);
+        return gid;
+}
+
 /* handle "[<SUBSYSTEM>/<KERNEL>]<attribute>" format */
 int util_resolve_subsys_kernel(struct udev *udev, const char *string,
                                char *result, size_t maxsize, int read_value)
