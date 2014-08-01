@@ -511,3 +511,11 @@ static inline int setns(int fd, int nstype) {
 #ifndef IFF_DORMANT
 #define IFF_DORMANT 0x20000
 #endif
+
+#ifndef BOND_XMIT_POLICY_ENCAP23
+#define BOND_XMIT_POLICY_ENCAP23 3
+#endif
+
+#ifndef BOND_XMIT_POLICY_ENCAP34
+#define BOND_XMIT_POLICY_ENCAP34 4
+#endif
