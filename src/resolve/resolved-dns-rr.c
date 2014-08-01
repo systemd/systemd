@@ -231,20 +231,33 @@ DnsResourceRecord* dns_resource_record_unref(DnsResourceRecord *rr) {
         }
 
         if (rr->key) {
-                if (IN_SET(rr->key->type, DNS_TYPE_PTR, DNS_TYPE_NS, DNS_TYPE_CNAME))
+                switch(rr->key->type) {
+                case DNS_TYPE_PTR:
+                case DNS_TYPE_NS:
+                case DNS_TYPE_CNAME:
                         free(rr->ptr.name);
-                else if (rr->key->type == DNS_TYPE_HINFO) {
+                        break;
+                case DNS_TYPE_HINFO:
                         free(rr->hinfo.cpu);
                         free(rr->hinfo.os);
-                } else if (rr->key->type == DNS_TYPE_TXT) {
+                        break;
+                case DNS_TYPE_SPF:
+                case DNS_TYPE_TXT:
                         strv_free(rr->txt.strings);
-                } else if (rr->key->type == DNS_TYPE_SOA) {
+                        break;
+                case DNS_TYPE_SOA:
                         free(rr->soa.mname);
                         free(rr->soa.rname);
-                } else if (rr->key->type == DNS_TYPE_MX) {
+                        break;
+                case DNS_TYPE_MX:
                         free(rr->mx.exchange);
-                } else if (!IN_SET(rr->key->type, DNS_TYPE_A, DNS_TYPE_AAAA))
+                        break;
+                case DNS_TYPE_A:
+                case DNS_TYPE_AAAA:
+                        break;
+                default:
                         free(rr->generic.data);
+                }
 
                 dns_resource_key_unref(rr->key);
         }
@@ -309,6 +322,7 @@ int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecor
                 return strcaseeq(a->hinfo.cpu, b->hinfo.cpu) &&
                        strcaseeq(a->hinfo.os, b->hinfo.os);
 
+        case DNS_TYPE_SPF: /* exactly the same as TXT */
         case DNS_TYPE_TXT: {
                 int i;
 
@@ -377,6 +391,7 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
                         return -ENOMEM;
                 break;
 
+        case DNS_TYPE_SPF: /* exactly the same as TXT */
         case DNS_TYPE_TXT: {
                 _cleanup_free_ char *t;
 
@@ -500,6 +515,7 @@ static const struct {
         { DNS_TYPE_AAAA,  "AAAA"  },
         { DNS_TYPE_SRV,   "SRV"   },
         { DNS_TYPE_SSHFP, "SSHFP" },
+        { DNS_TYPE_SPF,   "SPF"   },
         { DNS_TYPE_DNAME, "DNAME" },
         { DNS_TYPE_ANY,   "ANY"   },
         { DNS_TYPE_OPT,   "OPT"   },

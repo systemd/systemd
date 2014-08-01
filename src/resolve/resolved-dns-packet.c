@@ -513,6 +513,7 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *star
                 r = dns_packet_append_string(p, rr->hinfo.os, NULL);
                 break;
 
+        case DNS_TYPE_SPF: /* exactly the same as TXT */
         case DNS_TYPE_TXT: {
                 char **s;
 
@@ -933,6 +934,7 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                 r = dns_packet_read_string(p, &rr->hinfo.os, NULL);
                 break;
 
+        case DNS_TYPE_SPF: /* exactly the same as TXT */
         case DNS_TYPE_TXT: {
                 char *s;
 

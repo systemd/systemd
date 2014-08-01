@@ -55,6 +55,8 @@ enum {
         DNS_TYPE_DNAME = 0x27,
         DNS_TYPE_SSHFP = 0x2C,
 
+        DNS_TYPE_SPF   = 0x63,
+
         /* Special records */
         DNS_TYPE_ANY   = 0xFF,
         DNS_TYPE_OPT   = 0x29,      /* EDNS0 option */
