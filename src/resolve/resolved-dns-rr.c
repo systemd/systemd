@@ -180,8 +180,7 @@ int dns_resource_key_to_string(const DnsResourceKey *key, char **ret) {
                 t = tbuf;
         }
 
-        s = strjoin(DNS_RESOURCE_KEY_NAME(key), " ", c, " ", t, NULL);
-        if (!s)
+        if (asprintf(&s, "%s %s %-5s", DNS_RESOURCE_KEY_NAME(key), c, t) < 0)
                 return -ENOMEM;
 
         *ret = s;
