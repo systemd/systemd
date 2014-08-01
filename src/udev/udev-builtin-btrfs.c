@@ -24,15 +24,13 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <sys/ioctl.h>
+#ifdef HAVE_LINUX_BTRFS_H
+#include <linux/btrfs.h>
+#endif
 
+#include "missing.h"
 #include "udev.h"
 
-#define BTRFS_PATH_NAME_MAX 4087
-struct btrfs_ioctl_vol_args {
-        int64_t fd;
-        char name[BTRFS_PATH_NAME_MAX + 1];
-};
-#define BTRFS_IOCTL_MAGIC 0x94
 #define BTRFS_IOC_DEVICES_READY _IOR(BTRFS_IOCTL_MAGIC, 39, struct btrfs_ioctl_vol_args)
 
 static int builtin_btrfs(struct udev_device *dev, int argc, char *argv[], bool test) {

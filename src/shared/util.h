@@ -84,6 +84,7 @@
 #endif
 
 #include "macro.h"
+#include "missing.h"
 #include "time-util.h"
 
 /* What is interpreted as whitespace? */
