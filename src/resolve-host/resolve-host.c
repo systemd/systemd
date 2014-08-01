@@ -39,6 +39,7 @@ static int arg_family = AF_UNSPEC;
 static int arg_ifindex = 0;
 static uint16_t arg_type = 0;
 static uint16_t arg_class = 0;
+static bool arg_legend = true;
 
 static int resolve_host(sd_bus *bus, const char *name) {
 
@@ -387,6 +388,32 @@ static int resolve_record(sd_bus *bus, const char *name) {
         return 0;
 }
 
+static void help_dns_types(void) {
+        int i;
+        const char *t;
+
+        if (arg_legend)
+                puts("Known dns types:");
+        for (i = 0; i < _DNS_TYPE_MAX; i++) {
+                t = dns_type_to_string(i);
+                if (t)
+                        puts(t);
+        }
+}
+
+static void help_dns_classes(void) {
+        int i;
+        const char *t;
+
+        if (arg_legend)
+                puts("Known dns classes:");
+        for (i = 0; i < _DNS_CLASS_MAX; i++) {
+                t = dns_class_to_string(i);
+                if (t)
+                        puts(t);
+        }
+}
+
 static void help(void) {
         printf("%s [OPTIONS...]\n\n"
                "Resolve IPv4 or IPv6 addresses.\n\n"
@@ -397,12 +424,14 @@ static void help(void) {
                "  -i INTERFACE          Filter by interface\n"
                "  -t --type=TYPE        Query RR with DNS type\n"
                "  -c --class=CLASS      Query RR with DNS class\n"
+               "  --no-legend           Do not print column headers\n"
                , program_invocation_short_name);
 }
 
 static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
+                ARG_NO_LEGEND,
         };
 
         static const struct option options[] = {
@@ -410,6 +439,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",     no_argument,       NULL, ARG_VERSION   },
                 { "type",        no_argument,       NULL, 't'           },
                 { "class",       no_argument,       NULL, 'c'           },
+                { "no-legend",   no_argument,       NULL, ARG_NO_LEGEND },
                 {}
         };
 
@@ -447,19 +477,35 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 't':
+                        if (streq(optarg, "help")) {
+                                help_dns_types();
+                                return 0;
+                        }
+
                         r = dns_type_from_string(optarg, &arg_type);
                         if (r < 0) {
                                 log_error("Failed to parse RR record type %s", optarg);
                                 return r;
                         }
+
                         break;
 
                 case 'c':
+                        if (streq(optarg, "help")) {
+                                help_dns_classes();
+                                return 0;
+                        }
+
                         r = dns_class_from_string(optarg, &arg_class);
                         if (r < 0) {
                                 log_error("Failed to parse RR record class %s", optarg);
                                 return r;
                         }
+
+                        break;
+
+                case ARG_NO_LEGEND:
+                        arg_legend = false;
                         break;
 
                 case '?':

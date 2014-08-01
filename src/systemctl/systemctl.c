@@ -5627,18 +5627,17 @@ static int runlevel_help(void) {
         return 0;
 }
 
-static int help_types(void) {
+static void help_types(void) {
         int i;
         const char *t;
 
-        puts("Available unit types:");
+        if (!arg_no_legend)
+                puts("Available unit types:");
         for (i = 0; i < _UNIT_TYPE_MAX; i++) {
                 t = unit_type_to_string(i);
                 if (t)
                         puts(t);
         }
-
-        return 0;
 }
 
 static int systemctl_parse_argv(int argc, char *argv[]) {

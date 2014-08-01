@@ -35,6 +35,8 @@ typedef struct DnsResourceRecord DnsResourceRecord;
 enum {
         DNS_CLASS_IN   = 0x01,
         DNS_CLASS_ANY  = 0xFF,
+        _DNS_CLASS_MAX,
+        _DNS_CLASS_INVALID = -1
 };
 
 /* DNS record types, see RFC 1035 */
@@ -60,6 +62,8 @@ enum {
         DNS_TYPE_TSIG  = 0xFA,
         DNS_TYPE_IXFR  = 0xFB,
         DNS_TYPE_AXFR  = 0xFC,
+        _DNS_TYPE_MAX,
+        _DNS_TYPE_INVALID = -1
 };
 
 struct DnsResourceKey {
