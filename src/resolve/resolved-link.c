@@ -248,7 +248,7 @@ DnsServer* link_find_dns_server(Link *l, int family, const union in_addr_union *
         return NULL;
 }
 
-static DnsServer* link_set_dns_server(Link *l, DnsServer *s) {
+DnsServer* link_set_dns_server(Link *l, DnsServer *s) {
         assert(l);
 
         if (l->current_dns_server == s)
@@ -259,10 +259,13 @@ static DnsServer* link_set_dns_server(Link *l, DnsServer *s) {
 
                 in_addr_to_string(s->family, &s->address, &ip);
                 log_info("Switching to DNS server %s for interface %s.", strna(ip), l->name);
-        } else
-                log_info("No DNS server set for interface %s.", l->name);
+        }
 
         l->current_dns_server = s;
+
+        if (l->unicast_scope)
+                dns_cache_flush(&l->unicast_scope->cache);
+
         return s;
 }
 

@@ -85,7 +85,7 @@ DnsScope* dns_scope_free(DnsScope *s) {
         return NULL;
 }
 
-DnsServer *dns_scope_get_server(DnsScope *s) {
+DnsServer *dns_scope_get_dns_server(DnsScope *s) {
         assert(s);
 
         if (s->protocol != DNS_PROTOCOL_DNS)
@@ -133,7 +133,7 @@ int dns_scope_send(DnsScope *s, DnsPacket *p) {
                 if (DNS_PACKET_QDCOUNT(p) > 1)
                         return -ENOTSUP;
 
-                srv = dns_scope_get_server(s);
+                srv = dns_scope_get_dns_server(s);
                 if (!srv)
                         return -ESRCH;
 
@@ -197,7 +197,7 @@ int dns_scope_tcp_socket(DnsScope *s, int family, const union in_addr_union *add
         if (family == AF_UNSPEC) {
                 DnsServer *srv;
 
-                srv = dns_scope_get_server(s);
+                srv = dns_scope_get_dns_server(s);
                 if (!srv)
                         return -ESRCH;
 
@@ -384,7 +384,7 @@ int dns_scope_good_dns_server(DnsScope *s, int family, const union in_addr_union
         if (s->link)
                 return !!link_find_dns_server(s->link,  family, address);
         else
-                return manager_known_dns_server(s->manager, family, address);
+                return !!manager_find_dns_server(s->manager, family, address);
 }
 
 static int dns_scope_make_reply_packet(

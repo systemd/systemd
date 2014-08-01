@@ -465,18 +465,27 @@ int dns_transaction_go(DnsTransaction *t) {
         t->cached = dns_answer_unref(t->cached);
         t->cached_rcode = 0;
 
-        /* First, let's try the cache */
+        /* Before trying the cache, let's make sure we figured out a
+         * server to use. Should this cause a change of server this
+         * might flush the cache. */
+        dns_scope_get_dns_server(t->scope);
+
+        /* Let's then prune all outdated entries */
         dns_cache_prune(&t->scope->cache);
+
         r = dns_cache_lookup(&t->scope->cache, t->question, &t->cached_rcode, &t->cached);
         if (r < 0)
                 return r;
         if (r > 0) {
+                log_debug("Cache hit!");
                 if (t->cached_rcode == DNS_RCODE_SUCCESS)
                         dns_transaction_complete(t, DNS_TRANSACTION_SUCCESS);
                 else
                         dns_transaction_complete(t, DNS_TRANSACTION_FAILURE);
                 return 0;
         }
+
+        log_debug("Cache miss!");
 
         /* Otherwise, we need to ask the network */
         r = dns_transaction_make_packet(t);

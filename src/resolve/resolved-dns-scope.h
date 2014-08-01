@@ -70,7 +70,7 @@ DnsScopeMatch dns_scope_good_domain(DnsScope *s, const char *domain);
 int dns_scope_good_key(DnsScope *s, DnsResourceKey *key);
 int dns_scope_good_dns_server(DnsScope *s, int family, const union in_addr_union *address);
 
-DnsServer *dns_scope_get_server(DnsScope *s);
+DnsServer *dns_scope_get_dns_server(DnsScope *s);
 void dns_scope_next_dns_server(DnsScope *s);
 
 int dns_scope_llmnr_membership(DnsScope *s, bool b);

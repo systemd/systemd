@@ -1053,7 +1053,7 @@ int manager_send(Manager *m, int fd, int ifindex, int family, const union in_add
         return -EAFNOSUPPORT;
 }
 
-bool manager_known_dns_server(Manager *m, int family, const union in_addr_union *in_addr) {
+DnsServer* manager_find_dns_server(Manager *m, int family, const union in_addr_union *in_addr) {
         DnsServer *s;
 
         assert(m);
@@ -1061,16 +1061,16 @@ bool manager_known_dns_server(Manager *m, int family, const union in_addr_union 
 
         LIST_FOREACH(servers, s, m->dns_servers)
                 if (s->family == family && in_addr_equal(family, &s->address, in_addr) > 0)
-                        return true;
+                        return s;
 
         LIST_FOREACH(servers, s, m->fallback_dns_servers)
                 if (s->family == family && in_addr_equal(family, &s->address, in_addr) > 0)
-                        return true;
+                        return s;
 
-        return false;
+        return NULL;
 }
 
-static DnsServer *manager_set_dns_server(Manager *m, DnsServer *s) {
+DnsServer *manager_set_dns_server(Manager *m, DnsServer *s) {
         assert(m);
 
         if (m->current_dns_server == s)
@@ -1081,10 +1081,13 @@ static DnsServer *manager_set_dns_server(Manager *m, DnsServer *s) {
 
                 in_addr_to_string(s->family, &s->address, &ip);
                 log_info("Switching to system DNS server %s.", strna(ip));
-        } else
-                log_info("No system DNS server set.");
+        }
 
         m->current_dns_server = s;
+
+        if (m->unicast_scope)
+                dns_cache_flush(&m->unicast_scope->cache);
+
         return s;
 }
 
