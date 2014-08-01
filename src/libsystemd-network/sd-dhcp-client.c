@@ -59,6 +59,7 @@ struct sd_dhcp_client {
         } _packed_ client_id;
         char *hostname;
         char *vendor_class_identifier;
+        uint32_t mtu;
         uint32_t xid;
         usec_t start_time;
         uint16_t secs;
@@ -227,6 +228,15 @@ int sd_dhcp_client_set_vendor_class_identifier(sd_dhcp_client *client,
         return 0;
 }
 
+int sd_dhcp_client_set_mtu(sd_dhcp_client *client, uint32_t mtu) {
+        assert_return(client, -EINVAL);
+        assert_return(mtu >= DHCP_DEFAULT_MIN_SIZE, -ERANGE);
+
+        client->mtu = mtu;
+
+        return 0;
+}
+
 int sd_dhcp_client_get_lease(sd_dhcp_client *client, sd_dhcp_lease **ret) {
         assert_return(client, -EINVAL);
         assert_return(ret, -EINVAL);
@@ -366,9 +376,23 @@ static int client_message_init(sd_dhcp_client *client, DHCPPacket **ret,
            Note (from ConnMan): Some DHCP servers will send bigger DHCP packets
            than the defined default size unless the Maximum Messge Size option
            is explicitely set
+
+           RFC3442 "Requirements to Avoid Sizing Constraints":
+           Because a full routing table can be quite large, the standard 576
+           octet maximum size for a DHCP message may be too short to contain
+           some legitimate Classless Static Route options.  Because of this,
+           clients implementing the Classless Static Route option SHOULD send a
+           Maximum DHCP Message Size [4] option if the DHCP client's TCP/IP
+           stack is capable of receiving larger IP datagrams.  In this case, the
+           client SHOULD set the value of this option to at least the MTU of the
+           interface that the client is configuring.  The client MAY set the
+           value of this option higher, up to the size of the largest UDP packet
+           it is prepared to accept.  (Note that the value specified in the
+           Maximum DHCP Message Size option is the total maximum packet size,
+           including IP and UDP headers.)
          */
         max_size = htobe16(size);
-        r = dhcp_option_append(&packet->dhcp, optlen, &optoffset, 0,
+        r = dhcp_option_append(&packet->dhcp, client->mtu, &optoffset, 0,
                                DHCP_OPTION_MAXIMUM_MESSAGE_SIZE,
                                2, &max_size);
         if (r < 0)
@@ -1505,6 +1529,7 @@ int sd_dhcp_client_new(sd_dhcp_client **ret) {
         client->index = -1;
         client->fd = -1;
         client->attempt = 1;
+        client->mtu = DHCP_DEFAULT_MIN_SIZE;
 
         client->req_opts_size = ELEMENTSOF(default_req_opts);
 
