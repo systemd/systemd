@@ -353,6 +353,12 @@ int dns_scope_llmnr_membership(DnsScope *s, bool b) {
                 if (fd < 0)
                         return fd;
 
+                /* Always first try to drop membership before we add
+                 * one. This is necessary on some devices, such as
+                 * veth. */
+                if (b)
+                        setsockopt(fd, IPPROTO_IP, IP_DROP_MEMBERSHIP, &mreqn, sizeof(mreqn));
+
                 if (setsockopt(fd, IPPROTO_IP, b ? IP_ADD_MEMBERSHIP : IP_DROP_MEMBERSHIP, &mreqn, sizeof(mreqn)) < 0)
                         return -errno;
 
@@ -365,6 +371,9 @@ int dns_scope_llmnr_membership(DnsScope *s, bool b) {
                 fd = manager_llmnr_ipv6_udp_fd(s->manager);
                 if (fd < 0)
                         return fd;
+
+                if (b)
+                        setsockopt(fd, IPPROTO_IPV6, IPV6_DROP_MEMBERSHIP, &mreq, sizeof(mreq));
 
                 if (setsockopt(fd, IPPROTO_IPV6, b ? IPV6_ADD_MEMBERSHIP : IPV6_DROP_MEMBERSHIP, &mreq, sizeof(mreq)) < 0)
                         return -errno;
