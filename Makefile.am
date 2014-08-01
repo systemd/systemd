@@ -201,6 +201,7 @@ AM_CPPFLAGS = \
 	-I $(top_srcdir)/src/timedate \
 	-I $(top_srcdir)/src/timesync \
 	-I $(top_srcdir)/src/resolve \
+	-I $(top_builddir)/src/resolve \
 	-I $(top_srcdir)/src/systemd \
 	-I $(top_builddir)/src/core \
 	-I $(top_srcdir)/src/core \
@@ -1148,19 +1149,23 @@ CLEANFILES += \
 	src/shared/errno-list.txt \
 	src/shared/errno-from-name.gperf \
 	src/shared/af-list.txt \
-	src/shared/af-from-name.gperf
+	src/shared/af-from-name.gperf \
+	src/shared/dns_type-list.txt \
+	src/shared/dns_type-from-name.gperf
 
 BUILT_SOURCES += \
 	src/shared/errno-from-name.h \
 	src/shared/errno-to-name.h \
 	src/shared/af-from-name.h \
-	src/shared/af-to-name.h
+	src/shared/af-to-name.h \
+	src/resolve/dns_type-from-name.h \
+	src/resolve/dns_type-to-name.h
 
-src/shared/%-from-name.gperf: src/shared/%-list.txt
-	$(AM_V_GEN)$(AWK) 'BEGIN{ print "struct $*_name { const char* name; int id; };"; print "%null-strings"; print "%%";} { printf "%s, %s\n", $$1, $$1 }' <$< >$@
+%-from-name.gperf: %-list.txt
+	$(AM_V_GEN)$(AWK) 'BEGIN{ print "struct $(notdir $*)_name { const char* name; int id; };"; print "%null-strings"; print "%%";} { printf "%s, %s\n", $$1, $$1 }' <$< >$@
 
-src/shared/%-from-name.h: src/shared/%-from-name.gperf
-	$(AM_V_GPERF)$(GPERF) -L ANSI-C -t --ignore-case -N lookup_$* -H hash_$*_name -p -C <$< >$@
+%-from-name.h: %-from-name.gperf
+	$(AM_V_GPERF)$(GPERF) -L ANSI-C -t --ignore-case -N lookup_$(notdir $*) -H hash_$(notdir $*)_name -p -C <$< >$@
 
 
 src/shared/errno-list.txt:
@@ -1177,6 +1182,17 @@ src/shared/af-list.txt:
 
 src/shared/af-to-name.h: src/shared/af-list.txt
 	$(AM_V_GEN)$(AWK) 'BEGIN{ print "static const char* const af_names[] = { "} !/AF_FILE/ && !/AF_ROUTE/ && !/AF_LOCAL/ { printf "[%s] = \"%s\",\n", $$1, $$1 } END{print "};"}' <$< >$@
+
+
+src/resolve/dns_type-list.txt: src/resolve/dns-type.h
+	$(AM_V_at)$(MKDIR_P) $(dir $@)
+	$(AM_V_GEN)$(SED) -n -r 's/.* DNS_TYPE_(\w+).*/\1/p' <$< >$@
+
+src/resolve/dns_type-to-name.h: src/resolve/dns_type-list.txt
+	$(AM_V_GEN)$(AWK) 'BEGIN{ print "const char *dns_type_to_string(uint16_t type) {\n\tswitch(type) {" } {printf "        case DNS_TYPE_%s: return ", $$1; sub(/_/, "-"); printf "\"%s\";\n", $$1 } END{ print "\ndefault: return NULL;\n\t}\n}\n" }' <$< >$@
+
+src/resolve/dns_type-from-name.gperf: src/resolve/dns_type-list.txt
+	$(AM_V_GEN)$(AWK) 'BEGIN{ print "struct dns_type_name { const char* name; int id; };"; print "%null-strings"; print "%%";} { s=$$1; sub(/_/, "-", s); printf "%s, ", $$s; printf "DNS_TYPE_%s\n", $$1 }' <$< >$@
 
 # ------------------------------------------------------------------------------
 systemd_SOURCES = \
@@ -4754,13 +4770,18 @@ systemd_resolved_SOURCES = \
 	src/resolve/resolved-dns-zone.h \
 	src/resolve/resolved-dns-zone.c \
 	src/resolve/resolved-dns-stream.h \
-	src/resolve/resolved-dns-stream.c
+	src/resolve/resolved-dns-stream.c \
+	src/resolve/dns-type.c \
+	src/resolve/dns-type.h \
+	src/resolve/dns_type-from-name.h \
+	src/resolve/dns_type-to-name.h
 
 nodist_systemd_resolved_SOURCES = \
 	src/resolve/resolved-gperf.c
 
 EXTRA_DIST += \
-	src/resolve/resolved-gperf.gperf
+	src/resolve/resolved-gperf.gperf \
+	src/resolve/dns_type-from-name.gperf
 
 CLEANFILES += \
 	src/resolve/resolved-gperf.c
@@ -4857,7 +4878,11 @@ systemd_resolve_host_SOURCES = \
 	src/resolve/resolved-dns-question.c \
 	src/resolve/resolved-dns-question.h \
 	src/resolve/resolved-dns-domain.c \
-	src/resolve/resolved-dns-domain.h
+	src/resolve/resolved-dns-domain.h \
+	src/resolve/dns-type.c \
+	src/resolve/dns-type.h \
+	src/resolve/dns_type-from-name.h \
+	src/resolve/dns_type-to-name.h
 
 systemd_resolve_host_LDADD = \
 	libsystemd-internal.la \

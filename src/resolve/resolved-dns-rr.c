@@ -25,6 +25,7 @@
 
 #include "resolved-dns-domain.h"
 #include "resolved-dns-rr.h"
+#include "dns-type.h"
 
 DnsResourceKey* dns_resource_key_new(uint16_t class, uint16_t type, const char *name) {
         DnsResourceKey *k;
@@ -626,55 +627,4 @@ int dns_class_from_string(const char *s, uint16_t *class) {
                 return -EINVAL;
 
         return 0;
-}
-
-static const struct {
-        uint16_t type;
-        const char *name;
-} dns_types[] = {
-        { DNS_TYPE_A,     "A"     },
-        { DNS_TYPE_NS,    "NS"    },
-        { DNS_TYPE_CNAME, "CNAME" },
-        { DNS_TYPE_SOA,   "SOA"   },
-        { DNS_TYPE_PTR,   "PTR"   },
-        { DNS_TYPE_HINFO, "HINFO" },
-        { DNS_TYPE_MX,    "MX"    },
-        { DNS_TYPE_TXT,   "TXT"   },
-        { DNS_TYPE_AAAA,  "AAAA"  },
-        { DNS_TYPE_LOC,   "LOC"   },
-        { DNS_TYPE_SRV,   "SRV"   },
-        { DNS_TYPE_SSHFP, "SSHFP" },
-        { DNS_TYPE_SPF,   "SPF"   },
-        { DNS_TYPE_DNAME, "DNAME" },
-        { DNS_TYPE_ANY,   "ANY"   },
-        { DNS_TYPE_OPT,   "OPT"   },
-        { DNS_TYPE_TKEY,  "TKEY"  },
-        { DNS_TYPE_TSIG,  "TSIG"  },
-        { DNS_TYPE_IXFR,  "IXFR"  },
-        { DNS_TYPE_AXFR,  "AXFR"  },
-};
-
-const char *dns_type_to_string(uint16_t type) {
-        unsigned i;
-
-        for (i = 0; i < ELEMENTSOF(dns_types); i++)
-                if (dns_types[i].type == type)
-                        return dns_types[i].name;
-
-        return NULL;
-}
-
-int dns_type_from_string(const char *s, uint16_t *type) {
-        unsigned i;
-
-        assert(s);
-        assert(type);
-
-        for (i = 0; i < ELEMENTSOF(dns_types); i++)
-                if (strcaseeq(dns_types[i].name, s)) {
-                        *type = dns_types[i].type;
-                        return 0;
-                }
-
-        return -EINVAL;
 }

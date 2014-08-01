@@ -27,6 +27,7 @@
 #include "util.h"
 #include "hashmap.h"
 #include "in-addr-util.h"
+#include "dns-type.h"
 
 typedef struct DnsResourceKey DnsResourceKey;
 typedef struct DnsResourceRecord DnsResourceRecord;
@@ -37,35 +38,6 @@ enum {
         DNS_CLASS_ANY  = 0xFF,
         _DNS_CLASS_MAX,
         _DNS_CLASS_INVALID = -1
-};
-
-/* DNS record types, see RFC 1035 */
-enum {
-        /* Normal records */
-        DNS_TYPE_A     = 0x01,
-        DNS_TYPE_NS    = 0x02,
-        DNS_TYPE_CNAME = 0x05,
-        DNS_TYPE_SOA   = 0x06,
-        DNS_TYPE_PTR   = 0x0C,
-        DNS_TYPE_HINFO = 0x0D,
-        DNS_TYPE_MX    = 0x0F,
-        DNS_TYPE_TXT   = 0x10,
-        DNS_TYPE_AAAA  = 0x1C,
-        DNS_TYPE_LOC   = 0x1D,
-        DNS_TYPE_SRV   = 0x21,
-        DNS_TYPE_DNAME = 0x27,
-        DNS_TYPE_SSHFP = 0x2C,
-        DNS_TYPE_SPF   = 0x63,
-
-        /* Special records */
-        DNS_TYPE_ANY   = 0xFF,
-        DNS_TYPE_OPT   = 0x29,      /* EDNS0 option */
-        DNS_TYPE_TKEY  = 0xF9,
-        DNS_TYPE_TSIG  = 0xFA,
-        DNS_TYPE_IXFR  = 0xFB,
-        DNS_TYPE_AXFR  = 0xFC,
-        _DNS_TYPE_MAX,
-        _DNS_TYPE_INVALID = -1
 };
 
 struct DnsResourceKey {
@@ -177,9 +149,6 @@ int dns_resource_record_new_reverse(DnsResourceRecord **ret, int family, const u
 int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecord *b);
 int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsResourceRecord*, dns_resource_record_unref);
-
-const char *dns_type_to_string(uint16_t type);
-int dns_type_from_string(const char *name, uint16_t *type);
 
 const char *dns_class_to_string(uint16_t type);
 int dns_class_from_string(const char *name, uint16_t *class);
