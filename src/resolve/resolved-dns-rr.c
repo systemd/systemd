@@ -19,6 +19,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "strv.h"
+
 #include "resolved-dns-domain.h"
 #include "resolved-dns-rr.h"
 
@@ -234,6 +236,8 @@ DnsResourceRecord* dns_resource_record_unref(DnsResourceRecord *rr) {
                 else if (rr->key->type == DNS_TYPE_HINFO) {
                         free(rr->hinfo.cpu);
                         free(rr->hinfo.os);
+                } else if (rr->key->type == DNS_TYPE_TXT) {
+                        strv_free(rr->txt.strings);
                 } else if (rr->key->type == DNS_TYPE_SOA) {
                         free(rr->soa.mname);
                         free(rr->soa.rname);
@@ -305,6 +309,15 @@ int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecor
                 return strcaseeq(a->hinfo.cpu, b->hinfo.cpu) &&
                        strcaseeq(a->hinfo.os, b->hinfo.os);
 
+        case DNS_TYPE_TXT: {
+                int i;
+
+                for (i = 0; a->txt.strings[i] || b->txt.strings[i]; i++)
+                        if (!streq_ptr(a->txt.strings[i], b->txt.strings[i]))
+                                return false;
+                return true;
+        }
+
         case DNS_TYPE_A:
                 return memcmp(&a->a.in_addr, &b->a.in_addr, sizeof(struct in_addr)) == 0;
 
@@ -363,6 +376,20 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
                 if (!s)
                         return -ENOMEM;
                 break;
+
+        case DNS_TYPE_TXT: {
+                _cleanup_free_ char *t;
+
+                t = strv_join_quoted(rr->txt.strings);
+                if (!t)
+                        return -ENOMEM;
+
+                s = strjoin(k, " ", t, NULL);
+                if (!s)
+                        return -ENOMEM;
+
+                break;
+        }
 
         case DNS_TYPE_A: {
                 _cleanup_free_ char *x = NULL;

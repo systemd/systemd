@@ -21,6 +21,7 @@
 
 #include "utf8.h"
 #include "util.h"
+#include "strv.h"
 #include "resolved-dns-domain.h"
 #include "resolved-dns-packet.h"
 
@@ -512,6 +513,18 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *star
                 r = dns_packet_append_string(p, rr->hinfo.os, NULL);
                 break;
 
+        case DNS_TYPE_TXT: {
+                char **s;
+
+                STRV_FOREACH(s, rr->txt.strings) {
+                        r = dns_packet_append_string(p, *s, NULL);
+                        if (r < 0)
+                                goto fail;
+                }
+
+                break;
+        }
+
         case DNS_TYPE_A:
                 r = dns_packet_append_blob(p, &rr->a.in_addr, sizeof(struct in_addr), NULL);
                 break;
@@ -556,7 +569,6 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *star
                 r = dns_packet_append_name(p, rr->mx.exchange, NULL);
                 break;
 
-        case DNS_TYPE_TXT:
         case DNS_TYPE_SRV:
         case DNS_TYPE_DNAME:
         case DNS_TYPE_SSHFP:
@@ -921,6 +933,21 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                 r = dns_packet_read_string(p, &rr->hinfo.os, NULL);
                 break;
 
+        case DNS_TYPE_TXT: {
+                char *s;
+
+                while (p->rindex < p->size) {
+                        r = dns_packet_read_string(p, &s, NULL);
+                        if (r < 0)
+                                goto fail;
+
+                        r = strv_consume(&rr->txt.strings, s);
+                        if (r < 0)
+                                goto fail;
+                };
+                break;
+        }
+
         case DNS_TYPE_A:
                 r = dns_packet_read_blob(p, &rr->a.in_addr, sizeof(struct in_addr), NULL);
                 break;
@@ -965,7 +992,6 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                 r = dns_packet_read_name(p, &rr->mx.exchange, NULL);
                 break;
 
-        case DNS_TYPE_TXT:
         case DNS_TYPE_SRV:
         case DNS_TYPE_DNAME:
         case DNS_TYPE_SSHFP:

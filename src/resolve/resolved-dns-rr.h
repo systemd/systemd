@@ -98,9 +98,9 @@ struct DnsResourceRecord {
                         char *os;
                 } hinfo;
 
-                /* struct { */
-                /*         char **list; */
-                /* } txt; */
+                struct {
+                        char **strings;
+                } txt;
 
                 struct {
                         struct in_addr in_addr;
