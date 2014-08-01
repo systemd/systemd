@@ -184,7 +184,6 @@ fail:
         return 0;
 }
 
-
 static int manager_rtnl_listen(Manager *m) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *reply = NULL;
         sd_rtnl_message *i;
@@ -410,6 +409,7 @@ int manager_new(Manager **ret) {
         m->hostname_fd = -1;
 
         m->llmnr_support = SUPPORT_YES;
+        m->read_resolv_conf = true;
 
         r = manager_parse_dns_server(m, DNS_SERVER_FALLBACK, DNS_SERVERS);
         if (r < 0)
@@ -520,6 +520,110 @@ Manager *manager_free(Manager *m) {
         return NULL;
 }
 
+int manager_read_resolv_conf(Manager *m) {
+        _cleanup_fclose_ FILE *f = NULL;
+        struct stat st, own;
+        char line[LINE_MAX];
+        DnsServer *s, *nx;
+        usec_t t;
+        int r;
+
+        assert(m);
+
+        /* Reads the system /etc/resolv.conf, if it exists and is not
+         * symlinked to our own resolv.conf instance */
+
+        if (!m->read_resolv_conf)
+                return 0;
+
+        r = stat("/etc/resolv.conf", &st);
+        if (r < 0) {
+                if (errno != ENOENT)
+                        log_warning("Failed to open /etc/resolv.conf: %m");
+                r = -errno;
+                goto clear;
+        }
+
+        /* Have we already seen the file? */
+        t = timespec_load(&st.st_mtim);
+        if (t == m->resolv_conf_mtime)
+                return 0;
+
+        m->resolv_conf_mtime = t;
+
+        /* Is it symlinked to our own file? */
+        if (stat("/run/systemd/resolve/resolv.conf", &own) >= 0 &&
+            st.st_dev == own.st_dev &&
+            st.st_ino == own.st_ino) {
+                r = 0;
+                goto clear;
+        }
+
+        f = fopen("/etc/resolv.conf", "re");
+        if (!f) {
+                if (errno != ENOENT)
+                        log_warning("Failed to open /etc/resolv.conf: %m");
+                r = -errno;
+                goto clear;
+        }
+
+        if (fstat(fileno(f), &st) < 0) {
+                log_error("Failed to stat open file: %m");
+                r = -errno;
+                goto clear;
+        }
+
+        LIST_FOREACH(servers, s, m->dns_servers)
+                s->marked = true;
+
+        FOREACH_LINE(line, f, r = -errno; goto clear) {
+                union in_addr_union address;
+                int family;
+                char *l;
+                const char *a;
+
+                truncate_nl(line);
+
+                l = strstrip(line);
+                if (*l == '#' || *l == ';')
+                        continue;
+
+                a = first_word(l, "nameserver");
+                if (!a)
+                        continue;
+
+                r = in_addr_from_string_auto(a, &family, &address);
+                if (r < 0) {
+                        log_warning("Failed to parse name server %s.", a);
+                        continue;
+                }
+
+                LIST_FOREACH(servers, s, m->dns_servers)
+                        if (s->family == family && in_addr_equal(family, &s->address, &address) > 0)
+                                break;
+
+                if (s)
+                        s->marked = false;
+                else {
+                        r = dns_server_new(m, NULL, DNS_SERVER_SYSTEM, NULL, family, &address);
+                        if (r < 0)
+                                goto clear;
+                }
+        }
+
+        LIST_FOREACH_SAFE(servers, s, nx, m->dns_servers)
+                if (s->marked)
+                        dns_server_free(s);
+
+        return 0;
+
+clear:
+        while (m->dns_servers)
+                dns_server_free(m->dns_servers);
+
+        return r;
+}
+
 static void write_resolve_conf_server(DnsServer *s, FILE *f, unsigned *count) {
         _cleanup_free_ char *t  = NULL;
         int r;
@@ -552,6 +656,9 @@ int manager_write_resolv_conf(Manager *m) {
         int r;
 
         assert(m);
+
+        /* Read the system /etc/resolv.conf first */
+        manager_read_resolv_conf(m);
 
         r = fopen_temporary(path, &f, &temp_path);
         if (r < 0)
@@ -953,11 +1060,11 @@ bool manager_known_dns_server(Manager *m, int family, const union in_addr_union 
         assert(in_addr);
 
         LIST_FOREACH(servers, s, m->dns_servers)
-                if (s->family == family && in_addr_equal(family, &s->address, in_addr))
+                if (s->family == family && in_addr_equal(family, &s->address, in_addr) > 0)
                         return true;
 
         LIST_FOREACH(servers, s, m->fallback_dns_servers)
-                if (s->family == family && in_addr_equal(family, &s->address, in_addr))
+                if (s->family == family && in_addr_equal(family, &s->address, in_addr) > 0)
                         return true;
 
         return false;
@@ -984,6 +1091,9 @@ static DnsServer *manager_set_dns_server(Manager *m, DnsServer *s) {
 DnsServer *manager_get_dns_server(Manager *m) {
         Link *l;
         assert(m);
+
+        /* Try to read updates resolv.conf */
+        manager_read_resolv_conf(m);
 
         if (!m->current_dns_server)
                 manager_set_dns_server(m, m->dns_servers);

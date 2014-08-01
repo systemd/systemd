@@ -169,7 +169,7 @@ static inline const char *startswith_no_case(const char *s, const char *prefix) 
 
 char *endswith(const char *s, const char *postfix) _pure_;
 
-bool first_word(const char *s, const char *word) _pure_;
+char *first_word(const char *s, const char *word) _pure_;
 
 int close_nointr(int fd);
 int safe_close(int fd);

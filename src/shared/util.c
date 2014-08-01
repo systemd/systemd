@@ -140,26 +140,38 @@ char* endswith(const char *s, const char *postfix) {
         return (char*) s + sl - pl;
 }
 
-bool first_word(const char *s, const char *word) {
+char* first_word(const char *s, const char *word) {
         size_t sl, wl;
+        const char *p;
 
         assert(s);
         assert(word);
+
+        /* Checks if the string starts with the specified word, either
+         * followed by NUL or by whitespace. Returns a pointer to the
+         * NUL or the first character after the whitespace. */
 
         sl = strlen(s);
         wl = strlen(word);
 
         if (sl < wl)
-                return false;
+                return NULL;
 
         if (wl == 0)
-                return true;
+                return (char*) s;
 
         if (memcmp(s, word, wl) != 0)
-                return false;
+                return NULL;
 
-        return s[wl] == 0 ||
-                strchr(WHITESPACE, s[wl]);
+        p = s + wl;
+        if (*p == 0)
+                return (char*) p;
+
+        if (!strchr(WHITESPACE, *p))
+                return NULL;
+
+        p += strspn(p, WHITESPACE);
+        return (char*) p;
 }
 
 int close_nointr(int fd) {

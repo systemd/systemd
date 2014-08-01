@@ -150,12 +150,12 @@ static int link_update_dns_servers(Link *l) {
 
         assert(l);
 
-        LIST_FOREACH(servers, s, l->dns_servers)
-                s->marked = true;
-
         r = sd_network_get_dns(l->ifindex, &nameservers);
         if (r < 0)
                 goto clear;
+
+        LIST_FOREACH(servers, s, l->dns_servers)
+                s->marked = true;
 
         STRV_FOREACH(nameserver, nameservers) {
                 union in_addr_union a;

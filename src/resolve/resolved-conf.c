@@ -94,19 +94,26 @@ int config_parse_dnsv(
         else
                 l = &m->dns_servers;
 
-        /* Empty assignment means clear the list */
         if (isempty(rvalue)) {
+
+                /* Empty assignment means clear the list */
                 while (*l)
                         dns_server_free(*l);
 
-                return 0;
+        } else {
+
+                /* Otherwise add to the list */
+                r = manager_parse_dns_server(m, ltype, rvalue);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, -r, "Failed to parse DNS server string '%s'. Ignoring.", rvalue);
+                        return 0;
+                }
         }
 
-        r = manager_parse_dns_server(m, ltype, rvalue);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, -r, "Failed to parse DNS server string '%s'. Ignoring.", rvalue);
-                return 0;
-        }
+        /* If we have a manual setting, then we stop reading
+         * /etc/resolv.conf */
+        if (ltype == DNS_SERVER_SYSTEM)
+                m->read_resolv_conf = false;
 
         return 0;
 }

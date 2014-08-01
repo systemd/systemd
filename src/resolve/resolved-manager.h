@@ -78,6 +78,9 @@ struct Manager {
         LIST_HEAD(DnsServer, fallback_dns_servers);
         DnsServer *current_dns_server;
 
+        bool read_resolv_conf;
+        usec_t resolv_conf_mtime;
+
         LIST_HEAD(DnsScope, dns_scopes);
         DnsScope *unicast_scope;
 
@@ -111,6 +114,7 @@ struct Manager {
 int manager_new(Manager **ret);
 Manager* manager_free(Manager *m);
 
+int manager_read_resolv_conf(Manager *m);
 int manager_write_resolv_conf(Manager *m);
 
 bool manager_known_dns_server(Manager *m, int family, const union in_addr_union *in_addr);
