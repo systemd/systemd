@@ -33,8 +33,10 @@
 #include "conf-parser.h"
 #include "socket-util.h"
 #include "af-list.h"
-#include "resolved.h"
 #include "utf8.h"
+
+#include "resolved.h"
+#include "resolved-conf.h"
 #include "resolved-dns-domain.h"
 
 #define SEND_TIMEOUT_USEC (200 * USEC_PER_MSEC)
@@ -305,87 +307,6 @@ static int manager_network_monitor_listen(Manager *m) {
         return 0;
 }
 
-static int parse_dns_server_string(Manager *m, const char *string) {
-        const char *word, *state;
-        size_t length;
-        int r;
-
-        assert(m);
-        assert(string);
-
-        FOREACH_WORD_QUOTED(word, length, string, state) {
-                char buffer[length+1];
-                int family;
-                union in_addr_union addr;
-
-                memcpy(buffer, word, length);
-                buffer[length] = 0;
-
-                r = in_addr_from_string_auto(buffer, &family, &addr);
-                if (r < 0) {
-                        log_warning("Ignoring invalid DNS address '%s'", buffer);
-                        continue;
-                }
-
-                /* filter out duplicates */
-                if (manager_find_dns_server(m, family, &addr))
-                        continue;
-
-                r = dns_server_new(m, NULL, NULL, family, &addr);
-                if (r < 0)
-                        return r;
-        }
-        /* do not warn about state here, since probably systemd already did */
-
-        return 0;
-}
-
-int config_parse_dnsv(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        Manager *m = userdata;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(m);
-
-        /* Empty assignment means clear the list */
-        if (isempty(rvalue)) {
-                while (m->dns_servers)
-                        dns_server_free(m->dns_servers);
-
-                return 0;
-        }
-
-        r = parse_dns_server_string(m, rvalue);
-        if (r < 0) {
-                log_error("Failed to parse DNS server string");
-                return r;
-        }
-
-        return 0;
-}
-
-int manager_parse_config_file(Manager *m) {
-        assert(m);
-
-        return config_parse(NULL, "/etc/systemd/resolved.conf", NULL,
-                            "Resolve\0",
-                            config_item_perf_lookup, resolved_gperf_lookup,
-                            false, false, true, m);
-}
-
 static int determine_hostname(char **ret) {
         _cleanup_free_ char *h = NULL, *n = NULL;
         int r;
@@ -487,9 +408,9 @@ int manager_new(Manager **ret) {
         m->llmnr_ipv4_tcp_fd = m->llmnr_ipv6_tcp_fd = -1;
         m->hostname_fd = -1;
 
-        m->use_llmnr = true;
+        m->llmnr_support = SUPPORT_YES;
 
-        r = parse_dns_server_string(m, DNS_SERVERS);
+        r = manager_parse_dns_server(m, DNS_SERVER_FALLBACK, DNS_SERVERS);
         if (r < 0)
                 return r;
 
@@ -560,6 +481,8 @@ Manager *manager_free(Manager *m) {
 
         while (m->dns_servers)
                 dns_server_free(m->dns_servers);
+        while (m->fallback_dns_servers)
+                dns_server_free(m->fallback_dns_servers);
 
         sd_event_source_unref(m->network_event_source);
         sd_network_monitor_unref(m->network_monitor);
@@ -605,8 +528,8 @@ static void write_resolve_conf_server(DnsServer *s, FILE *f, unsigned *count) {
         assert(count);
 
         r = in_addr_to_string(s->family, &s->address, &t);
-       if (r < 0) {
-                log_warning("Invalid DNS address. Ignoring.");
+        if (r < 0) {
+                log_warning("Invalid DNS address. Ignoring: %s", strerror(-r));
                 return;
         }
 
@@ -618,7 +541,7 @@ static void write_resolve_conf_server(DnsServer *s, FILE *f, unsigned *count) {
 }
 
 int manager_write_resolv_conf(Manager *m) {
-        const char *path = "/run/systemd/resolve/resolv.conf";
+        static const char path[] = "/run/systemd/resolve/resolv.conf";
         _cleanup_free_ char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         unsigned count = 0;
@@ -641,12 +564,17 @@ int manager_write_resolv_conf(Manager *m) {
               "# resolv.conf(5) in a different way, replace the symlink by a\n"
               "# static file or a different symlink.\n\n", f);
 
+        LIST_FOREACH(servers, s, m->dns_servers)
+                write_resolve_conf_server(s, f, &count);
+
         HASHMAP_FOREACH(l, m->links, i)
                 LIST_FOREACH(servers, s, l->dns_servers)
                         write_resolve_conf_server(s, f, &count);
 
-        LIST_FOREACH(servers, s, m->dns_servers)
-                write_resolve_conf_server(s, f, &count);
+        if (count == 0) {
+                LIST_FOREACH(servers, s, m->fallback_dns_servers)
+                        write_resolve_conf_server(s, f, &count);
+        }
 
         r = fflush_and_check(f);
         if (r < 0)
@@ -1017,27 +945,65 @@ int manager_send(Manager *m, int fd, int ifindex, int family, const union in_add
         return -EAFNOSUPPORT;
 }
 
-DnsServer* manager_find_dns_server(Manager *m, int family, const union in_addr_union *in_addr) {
+bool manager_known_dns_server(Manager *m, int family, const union in_addr_union *in_addr) {
         DnsServer *s;
 
         assert(m);
         assert(in_addr);
 
-        LIST_FOREACH(servers, s, m->dns_servers) {
+        LIST_FOREACH(servers, s, m->dns_servers)
+                if (s->family == family && in_addr_equal(family, &s->address, in_addr))
+                        return true;
 
-                if (s->family == family &&
-                    in_addr_equal(family, &s->address, in_addr))
-                        return s;
-        }
+        LIST_FOREACH(servers, s, m->fallback_dns_servers)
+                if (s->family == family && in_addr_equal(family, &s->address, in_addr))
+                        return true;
 
-        return NULL;
+        return false;
+}
+
+static DnsServer *manager_set_dns_server(Manager *m, DnsServer *s) {
+        assert(m);
+
+        if (m->current_dns_server == s)
+                return s;
+
+        if (s) {
+                _cleanup_free_ char *ip = NULL;
+
+                in_addr_to_string(s->family, &s->address, &ip);
+                log_info("Switching to system DNS server %s.", strna(ip));
+        } else
+                log_info("No system DNS server set.");
+
+        m->current_dns_server = s;
+        return s;
 }
 
 DnsServer *manager_get_dns_server(Manager *m) {
+        Link *l;
         assert(m);
 
         if (!m->current_dns_server)
-                m->current_dns_server = m->dns_servers;
+                manager_set_dns_server(m, m->dns_servers);
+
+        if (!m->current_dns_server) {
+                bool found = false;
+                Iterator i;
+
+                /* No DNS servers configured, let's see if there are
+                 * any on any links. If not, we use the fallback
+                 * servers */
+
+                HASHMAP_FOREACH(l, m->links, i)
+                        if (l->dns_servers) {
+                                found = true;
+                                break;
+                        }
+
+                if (!found)
+                        manager_set_dns_server(m, m->fallback_dns_servers);
+        }
 
         return m->current_dns_server;
 }
@@ -1045,20 +1011,23 @@ DnsServer *manager_get_dns_server(Manager *m) {
 void manager_next_dns_server(Manager *m) {
         assert(m);
 
-        if (!m->current_dns_server) {
-                m->current_dns_server = m->dns_servers;
-                return;
-        }
-
+        /* If there's currently no DNS server set, then the next
+         * manager_get_dns_server() will find one */
         if (!m->current_dns_server)
                 return;
 
+        /* Change to the next one */
         if (m->current_dns_server->servers_next) {
-                m->current_dns_server = m->current_dns_server->servers_next;
+                manager_set_dns_server(m, m->current_dns_server->servers_next);
                 return;
         }
 
-        m->current_dns_server = m->dns_servers;
+        /* If there was no next one, then start from the beginning of
+         * the list */
+        if (m->current_dns_server->type == DNS_SERVER_FALLBACK)
+                manager_set_dns_server(m, m->fallback_dns_servers);
+        else
+                manager_set_dns_server(m, m->dns_servers);
 }
 
 uint32_t manager_find_mtu(Manager *m) {
@@ -1494,7 +1463,7 @@ int manager_find_ifindex(Manager *m, int family, const union in_addr_union *in_a
 
         assert(m);
 
-        a = manager_find_address(m, family, in_addr);
+        a = manager_find_link_address(m, family, in_addr);
         if (a)
                 return a->link->ifindex;
 
@@ -1551,7 +1520,7 @@ int manager_next_hostname(Manager *m) {
         return 0;
 }
 
-LinkAddress* manager_find_address(Manager *m, int family, const union in_addr_union *in_addr) {
+LinkAddress* manager_find_link_address(Manager *m, int family, const union in_addr_union *in_addr) {
         Iterator i;
         Link *l;
 
@@ -1572,5 +1541,12 @@ int manager_our_packet(Manager *m, DnsPacket *p) {
         assert(m);
         assert(p);
 
-        return !!manager_find_address(m, p->family, &p->sender);
+        return !!manager_find_link_address(m, p->family, &p->sender);
 }
+
+static const char* const support_table[_SUPPORT_MAX] = {
+        [SUPPORT_NO] = "no",
+        [SUPPORT_YES] = "yes",
+        [SUPPORT_RESOLVE] = "resolve",
+};
+DEFINE_STRING_TABLE_LOOKUP(support, Support);

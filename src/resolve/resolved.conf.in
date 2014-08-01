@@ -8,4 +8,6 @@
 # See resolved.conf(5) for details
 
 [Resolve]
-#DNS=@DNS_SERVERS@
+#DNS=
+#FallbackDNS=@DNS_SERVERS@
+#LLMNR=yes

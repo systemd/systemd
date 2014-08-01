@@ -30,8 +30,16 @@ typedef enum DnsServerSource DnsServerSource;
 #include "resolved-link.h"
 #include "resolved-dns-server.h"
 
+typedef enum DnsServerType {
+        DNS_SERVER_SYSTEM,
+        DNS_SERVER_FALLBACK,
+        DNS_SERVER_LINK,
+} DnsServerType;
+
 struct DnsServer {
         Manager *manager;
+
+        DnsServerType type;
 
         Link *link;
 
@@ -46,6 +54,7 @@ struct DnsServer {
 int dns_server_new(
                 Manager *m,
                 DnsServer **s,
+                DnsServerType type,
                 Link *l,
                 int family,
                 const union in_addr_union *address);

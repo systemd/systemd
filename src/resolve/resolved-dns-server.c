@@ -24,6 +24,7 @@
 int dns_server_new(
                 Manager *m,
                 DnsServer **ret,
+                DnsServerType type,
                 Link *l,
                 int family,
                 const union in_addr_union *in_addr) {
@@ -31,25 +32,39 @@ int dns_server_new(
         DnsServer *s, *tail;
 
         assert(m);
+        assert((type == DNS_SERVER_LINK) == !!l);
         assert(in_addr);
 
         s = new0(DnsServer, 1);
         if (!s)
                 return -ENOMEM;
 
+        s->type = type;
         s->family = family;
         s->address = *in_addr;
 
-        if (l) {
+        if (type == DNS_SERVER_LINK) {
                 LIST_FIND_TAIL(servers, l->dns_servers, tail);
                 LIST_INSERT_AFTER(servers, l->dns_servers, tail, s);
                 s->link = l;
-        } else {
+        } else if (type == DNS_SERVER_SYSTEM) {
                 LIST_FIND_TAIL(servers, m->dns_servers, tail);
                 LIST_INSERT_AFTER(servers, m->dns_servers, tail, s);
-        }
+        } else if (type == DNS_SERVER_FALLBACK) {
+                LIST_FIND_TAIL(servers, m->fallback_dns_servers, tail);
+                LIST_INSERT_AFTER(servers, m->fallback_dns_servers, tail, s);
+        } else
+                assert_not_reached("Unknown server type");
 
         s->manager = m;
+
+        /* A new DNS server that isn't fallback is added and the one
+         * we used so far was a fallback one? Then let's try to pick
+         * the new one */
+        if (type != DNS_SERVER_FALLBACK &&
+            s->manager->current_dns_server &&
+            s->manager->current_dns_server->type == DNS_SERVER_FALLBACK)
+                s->manager->current_dns_server = NULL;
 
         if (ret)
                 *ret = s;
@@ -62,10 +77,14 @@ DnsServer* dns_server_free(DnsServer *s)  {
                 return NULL;
 
         if (s->manager) {
-                if (s->link)
+                if (s->type == DNS_SERVER_LINK)
                         LIST_REMOVE(servers, s->link->dns_servers, s);
-                else
+                else if (s->type == DNS_SERVER_SYSTEM)
                         LIST_REMOVE(servers, s->manager->dns_servers, s);
+                else if (s->type == DNS_SERVER_FALLBACK)
+                        LIST_REMOVE(servers, s->manager->fallback_dns_servers, s);
+                else
+                        assert_not_reached("Unknown server type");
         }
 
         if (s->link && s->link->current_dns_server == s)

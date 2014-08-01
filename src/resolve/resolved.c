@@ -21,11 +21,11 @@
 
 #include "sd-event.h"
 #include "sd-daemon.h"
-
-#include "resolved.h"
-
 #include "mkdir.h"
 #include "capability.h"
+
+#include "resolved.h"
+#include "resolved-conf.h"
 
 int main(int argc, char *argv[]) {
         _cleanup_(manager_freep) Manager *m = NULL;
@@ -55,8 +55,7 @@ int main(int argc, char *argv[]) {
         /* Always create the directory where resolv.conf will live */
         r = mkdir_safe_label("/run/systemd/resolve", 0755, uid, gid);
         if (r < 0) {
-                log_error("Could not create runtime directory: %s",
-                          strerror(-r));
+                log_error("Could not create runtime directory: %s", strerror(-r));
                 goto finish;
         }
 
@@ -74,15 +73,13 @@ int main(int argc, char *argv[]) {
 
         r = manager_parse_config_file(m);
         if (r < 0)
-                return r;
+                log_warning("Failed to parse configuration file: %s", strerror(-r));
 
-        /* write finish default resolv.conf to avoid a dangling
+        /* Write finish default resolv.conf to avoid a dangling
          * symlink */
         r = manager_write_resolv_conf(m);
-        if (r < 0) {
-                log_error("Could not create resolv.conf: %s", strerror(-r));
-                goto finish;
-        }
+        if (r < 0)
+                log_warning("Could not create resolv.conf: %s", strerror(-r));
 
         sd_notify(false,
                   "READY=1\n"

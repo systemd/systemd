@@ -5,7 +5,7 @@
 /***
   This file is part of systemd.
 
-  Copyright 2013 Tom Gundersen <teg@jklm.no>
+  Copyright 2014 Tom Gundersen <teg@jklm.no>
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -36,10 +36,18 @@ typedef struct Manager Manager;
 #include "resolved-dns-scope.h"
 #include "resolved-dns-stream.h"
 
+typedef enum Support {
+        SUPPORT_NO,
+        SUPPORT_YES,
+        SUPPORT_RESOLVE,
+        _SUPPORT_MAX,
+        _SUPPORT_INVALID = -1
+} Support;
+
 struct Manager {
         sd_event *event;
 
-        bool use_llmnr:1;
+        Support llmnr_support;
 
         /* Network */
         Hashmap *links;
@@ -66,6 +74,7 @@ struct Manager {
         sd_event_source *dns_ipv6_event_source;
 
         LIST_HEAD(DnsServer, dns_servers);
+        LIST_HEAD(DnsServer, fallback_dns_servers);
         DnsServer *current_dns_server;
 
         LIST_HEAD(DnsScope, dns_scopes);
@@ -101,10 +110,9 @@ struct Manager {
 int manager_new(Manager **ret);
 Manager* manager_free(Manager *m);
 
-int manager_parse_config_file(Manager *m);
 int manager_write_resolv_conf(Manager *m);
 
-DnsServer* manager_find_dns_server(Manager *m, int family, const union in_addr_union *in_addr);
+bool manager_known_dns_server(Manager *m, int family, const union in_addr_union *in_addr);
 DnsServer *manager_get_dns_server(Manager *m);
 void manager_next_dns_server(Manager *m);
 
@@ -122,7 +130,7 @@ int manager_llmnr_ipv6_tcp_fd(Manager *m);
 
 int manager_ifindex_is_loopback(Manager *m, int ifindex);
 int manager_find_ifindex(Manager *m, int family, const union in_addr_union *in_addr);
-LinkAddress* manager_find_address(Manager *m, int family, const union in_addr_union *in_addr);
+LinkAddress* manager_find_link_address(Manager *m, int family, const union in_addr_union *in_addr);
 
 void manager_refresh_rrs(Manager *m);
 int manager_next_hostname(Manager *m);
@@ -132,7 +140,7 @@ int manager_connect_bus(Manager *m);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 
-const struct ConfigPerfItem* resolved_gperf_lookup(const char *key, unsigned length);
-int config_parse_dnsv(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-
 #define EXTRA_CMSG_SPACE 1024
+
+const char* support_to_string(Support p) _const_;
+int support_from_string(const char *s) _pure_;

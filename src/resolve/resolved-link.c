@@ -92,7 +92,7 @@ static void link_allocate_scopes(Link *l) {
         } else
                 l->unicast_scope = dns_scope_free(l->unicast_scope);
 
-        if (link_relevant(l, AF_INET) && l->manager->use_llmnr) {
+        if (link_relevant(l, AF_INET) && l->manager->llmnr_support != SUPPORT_NO) {
                 if (!l->llmnr_ipv4_scope) {
                         r = dns_scope_new(l->manager, &l->llmnr_ipv4_scope, l, DNS_PROTOCOL_LLMNR, AF_INET);
                         if (r < 0)
@@ -101,7 +101,7 @@ static void link_allocate_scopes(Link *l) {
         } else
                 l->llmnr_ipv4_scope = dns_scope_free(l->llmnr_ipv4_scope);
 
-        if (link_relevant(l, AF_INET6) && l->manager->use_llmnr) {
+        if (link_relevant(l, AF_INET6) && l->manager->llmnr_support != SUPPORT_NO) {
                 if (!l->llmnr_ipv6_scope) {
                         r = dns_scope_new(l->manager, &l->llmnr_ipv6_scope, l, DNS_PROTOCOL_LLMNR, AF_INET6);
                         if (r < 0)
@@ -169,7 +169,7 @@ static int link_update_dns_servers(Link *l) {
                 if (s)
                         s->marked = false;
                 else {
-                        r = dns_server_new(l->manager, NULL, l, family, &a);
+                        r = dns_server_new(l->manager, NULL, DNS_SERVER_LINK, l, family, &a);
                         if (r < 0)
                                 goto clear;
                 }
@@ -248,11 +248,29 @@ DnsServer* link_find_dns_server(Link *l, int family, const union in_addr_union *
         return NULL;
 }
 
+static DnsServer* link_set_dns_server(Link *l, DnsServer *s) {
+        assert(l);
+
+        if (l->current_dns_server == s)
+                return s;
+
+        if (s) {
+                _cleanup_free_ char *ip = NULL;
+
+                in_addr_to_string(s->family, &s->address, &ip);
+                log_info("Switching to DNS server %s for interface %s.", strna(ip), l->name);
+        } else
+                log_info("No DNS server set for interface %s.", l->name);
+
+        l->current_dns_server = s;
+        return s;
+}
+
 DnsServer *link_get_dns_server(Link *l) {
         assert(l);
 
         if (!l->current_dns_server)
-                l->current_dns_server = l->dns_servers;
+                link_set_dns_server(l, l->dns_servers);
 
         return l->current_dns_server;
 }
@@ -260,23 +278,15 @@ DnsServer *link_get_dns_server(Link *l) {
 void link_next_dns_server(Link *l) {
         assert(l);
 
-        /* Switch to the next DNS server */
-
-        if (!l->current_dns_server) {
-                l->current_dns_server = l->dns_servers;
-                if (l->current_dns_server)
-                        return;
-        }
-
         if (!l->current_dns_server)
                 return;
 
         if (l->current_dns_server->servers_next) {
-                l->current_dns_server = l->current_dns_server->servers_next;
+                link_set_dns_server(l, l->current_dns_server->servers_next);
                 return;
         }
 
-        l->current_dns_server = l->dns_servers;
+        link_set_dns_server(l, l->dns_servers);
 }
 
 int link_address_new(Link *l, LinkAddress **ret, int family, const union in_addr_union *in_addr) {
@@ -337,7 +347,11 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
 
         if (a->family == AF_INET) {
 
-                if (!force_remove && link_address_relevant(a) && a->link->llmnr_ipv4_scope) {
+                if (!force_remove &&
+                    link_address_relevant(a) &&
+                    a->link->llmnr_ipv4_scope &&
+                    a->link->manager->llmnr_support == SUPPORT_YES) {
+
                         if (!a->link->manager->host_ipv4_key) {
                                 a->link->manager->host_ipv4_key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, a->link->manager->hostname);
                                 if (!a->link->manager->host_ipv4_key) {
@@ -389,7 +403,11 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
 
         if (a->family == AF_INET6) {
 
-                if (!force_remove && link_address_relevant(a) && a->link->llmnr_ipv6_scope) {
+                if (!force_remove &&
+                    link_address_relevant(a) &&
+                    a->link->llmnr_ipv6_scope &&
+                    a->link->manager->llmnr_support == SUPPORT_YES) {
+
                         if (!a->link->manager->host_ipv6_key) {
                                 a->link->manager->host_ipv6_key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_AAAA, a->link->manager->hostname);
                                 if (!a->link->manager->host_ipv6_key) {
