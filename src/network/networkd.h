@@ -174,6 +174,7 @@ struct Link {
         char *ifname;
         char *state_file;
         struct ether_addr mac;
+        uint32_t mtu;
         struct udev_device *udev_device;
 
         unsigned flags;

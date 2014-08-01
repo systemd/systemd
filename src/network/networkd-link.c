@@ -1835,6 +1835,12 @@ static int link_configure(Link *link) {
                 if (r < 0)
                         return r;
 
+                if (link->mtu) {
+                        r = sd_dhcp_client_set_mtu(link->dhcp_client, link->mtu);
+                        if (r < 0)
+                                return r;
+                }
+
                 if (link->network->dhcp_mtu) {
                         r = sd_dhcp_client_set_request_option(link->dhcp_client, DHCP_OPTION_INTERFACE_MTU);
                         if (r < 0)
@@ -2174,6 +2180,7 @@ int link_add(Manager *m, sd_rtnl_message *message, Link **ret) {
 int link_update(Link *link, sd_rtnl_message *m) {
         struct ether_addr mac;
         const char *ifname;
+        uint32_t mtu;
         int r;
 
         assert(link);
@@ -2196,11 +2203,23 @@ int link_update(Link *link, sd_rtnl_message *m) {
                         return -ENOMEM;
         }
 
-        if (!link->original_mtu) {
-                r = sd_rtnl_message_read_u16(m, IFLA_MTU, &link->original_mtu);
-                if (r >= 0)
+        r = sd_rtnl_message_read_u32(m, IFLA_MTU, &mtu);
+        if (r >= 0 && mtu > 0) {
+                link->mtu = mtu;
+                if (!link->original_mtu) {
+                        link->original_mtu = mtu;
                         log_debug_link(link, "saved original MTU: %"
-                                       PRIu16, link->original_mtu);
+                                       PRIu32, link->original_mtu);
+                }
+
+                if (link->dhcp_client) {
+                        r = sd_dhcp_client_set_mtu(link->dhcp_client, link->mtu);
+                        if (r < 0) {
+                                log_warning_link(link, "Could not update MTU in DHCP client: %s",
+                                                 strerror(-r));
+                                return r;
+                        }
+                }
         }
 
         /* The kernel may broadcast NEWLINK messages without the MAC address
