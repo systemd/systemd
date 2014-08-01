@@ -649,7 +649,6 @@ Features:
    - add reduced [Link] support to .network files
    - add Scope= parsing option for [Network]
    - properly handle routerless dhcp leases
-   - default to DHCP unicast, but make broadcast opt-in. detect devices that needs broadcast and opt-in automatically (needs kernel patch?)
    - add more attribute support for SIT tunnel
    - work with non-ethernet devices
    - add support for more bond options
@@ -660,7 +659,6 @@ Features:
 * dhcp:
    - figure out how much we can increase Maximum Message Size
    - export timezone information
-   - FORCERENEW
    - support RFC4702 (pass FQDN)
 
 * dhcp6:
