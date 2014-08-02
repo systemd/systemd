@@ -552,7 +552,6 @@ finish:
 static int bus_method_resolve_record(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
         _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
-        _cleanup_free_ char *reverse = NULL;
         Manager *m = userdata;
         DnsQuery *q;
         int r;

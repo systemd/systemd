@@ -359,7 +359,6 @@ static int on_hostname_change(sd_event_source *es, int fd, uint32_t revents, voi
 }
 
 static int manager_watch_hostname(Manager *m) {
-        _cleanup_free_ char *h = NULL;
         int r;
 
         assert(m);
