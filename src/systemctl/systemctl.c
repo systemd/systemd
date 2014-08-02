@@ -5432,7 +5432,7 @@ static int is_system_running(sd_bus *bus, char **args) {
         return streq(state, "running") ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
-static int systemctl_help(void) {
+static void systemctl_help(void) {
 
         pager_open_if_enabled();
 
@@ -5557,12 +5557,9 @@ static int systemctl_help(void) {
                "  hibernate                       Hibernate the system\n"
                "  hybrid-sleep                    Hibernate and suspend the system\n",
                program_invocation_short_name);
-
-        return 0;
 }
 
-static int halt_help(void) {
-
+static void halt_help(void) {
         printf("%s [OPTIONS...]%s\n\n"
                "%s the system.\n\n"
                "     --help      Show this help\n"
@@ -5578,12 +5575,9 @@ static int halt_help(void) {
                arg_action == ACTION_REBOOT   ? "Reboot" :
                arg_action == ACTION_POWEROFF ? "Power off" :
                                                "Halt");
-
-        return 0;
 }
 
-static int shutdown_help(void) {
-
+static void shutdown_help(void) {
         printf("%s [OPTIONS...] [TIME] [WALL...]\n\n"
                "Shut down the system.\n\n"
                "     --help      Show this help\n"
@@ -5595,12 +5589,9 @@ static int shutdown_help(void) {
                "     --no-wall   Don't send wall message before halt/power-off/reboot\n"
                "  -c             Cancel a pending shutdown\n",
                program_invocation_short_name);
-
-        return 0;
 }
 
-static int telinit_help(void) {
-
+static void telinit_help(void) {
         printf("%s [OPTIONS...] {COMMAND}\n\n"
                "Send control commands to the init daemon.\n\n"
                "     --help      Show this help\n"
@@ -5613,18 +5604,13 @@ static int telinit_help(void) {
                "  q, Q           Reload init daemon configuration\n"
                "  u, U           Reexecute init daemon\n",
                program_invocation_short_name);
-
-        return 0;
 }
 
-static int runlevel_help(void) {
-
+static void runlevel_help(void) {
         printf("%s [OPTIONS...]\n\n"
                "Prints the previous and current runlevel of the init system.\n\n"
                "     --help      Show this help\n",
                program_invocation_short_name);
-
-        return 0;
 }
 
 static void help_types(void) {
@@ -5719,12 +5705,13 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "ht:p:alqfs:H:M:n:o:ir", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "ht:p:alqfs:H:M:n:o:ir", options, NULL)) >= 0)
 
                 switch (c) {
 
                 case 'h':
-                        return systemctl_help();
+                        systemctl_help();
+                        return 0;
 
                 case ARG_VERSION:
                         puts(PACKAGE_STRING);
@@ -5992,7 +5979,6 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached("Unhandled option");
                 }
-        }
 
         if (arg_transport != BUS_TRANSPORT_LOCAL && arg_scope != UNIT_FILE_SYSTEM) {
                 log_error("Cannot access user instance remotely.");
@@ -6032,11 +6018,12 @@ static int halt_parse_argv(int argc, char *argv[]) {
                 if (runlevel == '0' || runlevel == '6')
                         arg_force = 2;
 
-        while ((c = getopt_long(argc, argv, "pfwdnih", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "pfwdnih", options, NULL)) >= 0)
                 switch (c) {
 
                 case ARG_HELP:
-                        return halt_help();
+                        halt_help();
+                        return 0;
 
                 case ARG_HALT:
                         arg_action = ACTION_HALT;
@@ -6079,7 +6066,6 @@ static int halt_parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached("Unhandled option");
                 }
-        }
 
         if (arg_action == ACTION_REBOOT && (argc == optind || argc == optind + 1)) {
                 r = update_reboot_param_file(argc == optind + 1 ? argv[optind] : NULL);
@@ -6164,11 +6150,12 @@ static int shutdown_parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "HPrhkt:afFc", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "HPrhkt:afFc", options, NULL)) >= 0)
                 switch (c) {
 
                 case ARG_HELP:
-                        return shutdown_help();
+                        shutdown_help();
+                        return 0;
 
                 case 'H':
                         arg_action = ACTION_HALT;
@@ -6217,7 +6204,6 @@ static int shutdown_parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached("Unhandled option");
                 }
-        }
 
         if (argc > optind && arg_action != ACTION_CANCEL_SHUTDOWN) {
                 r = parse_time_spec(argv[optind], &arg_when);
@@ -6278,11 +6264,12 @@ static int telinit_parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "", options, NULL)) >= 0)
                 switch (c) {
 
                 case ARG_HELP:
-                        return telinit_help();
+                        telinit_help();
+                        return 0;
 
                 case ARG_NO_WALL:
                         arg_no_wall = true;
@@ -6294,10 +6281,10 @@ static int telinit_parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached("Unhandled option");
                 }
-        }
 
         if (optind >= argc) {
-                telinit_help();
+                log_error("%s: required argument missing.",
+                          program_invocation_short_name);
                 return -EINVAL;
         }
 
@@ -6343,11 +6330,12 @@ static int runlevel_parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "", options, NULL)) >= 0)
                 switch (c) {
 
                 case ARG_HELP:
-                        return runlevel_help();
+                        runlevel_help();
+                        return 0;
 
                 case '?':
                         return -EINVAL;
@@ -6355,7 +6343,6 @@ static int runlevel_parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached("Unhandled option");
                 }
-        }
 
         if (optind < argc) {
                 log_error("Too many arguments.");

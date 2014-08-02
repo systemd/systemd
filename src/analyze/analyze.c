@@ -1255,10 +1255,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        opterr = 0;
-
-        while ((c = getopt_long(argc, argv, "hH:M:", options, NULL)) >= 0) {
-
+        while ((c = getopt_long(argc, argv, "hH:M:", options, NULL)) >= 0)
                 switch (c) {
 
                 case 'h':
@@ -1323,17 +1320,11 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case '?':
-                        log_error("Unknown option %s.", argv[optind-1]);
-                        return -EINVAL;
-
-                case ':':
-                        log_error("Missing argument to %s.", argv[optind-1]);
                         return -EINVAL;
 
                 default:
                         assert_not_reached("Unhandled option code.");
                 }
-        }
 
         return 1; /* work to do */
 }

@@ -32,17 +32,14 @@
 #include "util.h"
 #include "utf8.h"
 
-static int help(void) {
-
+static void help(void) {
         printf("%s [OPTIONS...] COMMAND ...\n\n"
                "Query or change firmware and boot manager settings.\n\n"
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
                "Commands:\n"
-               "  status                 Show current boot settings\n",
-               program_invocation_short_name);
-
-        return 0;
+               "  status                 Show current boot settings\n"
+               , program_invocation_short_name);
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -51,8 +48,8 @@ static int parse_argv(int argc, char *argv[]) {
         };
 
         static const struct option options[] = {
-                { "help",                no_argument,       NULL, 'h'                     },
-                { "version",             no_argument,       NULL, ARG_VERSION             },
+                { "help",        no_argument, NULL, 'h'          },
+                { "version",     no_argument, NULL, ARG_VERSION  },
                 {}
         };
 
@@ -61,12 +58,13 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "+h", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
 
                 switch (c) {
 
                 case 'h':
-                        return help();
+                        help();
+                        return 0;
 
                 case ARG_VERSION:
                         puts(PACKAGE_STRING);
@@ -79,7 +77,6 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached("Unhandled option");
                 }
-        }
 
         return 1;
 }
@@ -268,21 +265,17 @@ static int bootctl_main(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
-        int r, retval = EXIT_FAILURE;
+        int r;
 
         log_parse_environment();
         log_open();
 
         r = parse_argv(argc, argv);
-        if (r < 0)
+        if (r <= 0)
                 goto finish;
-        else if (r == 0) {
-                retval = EXIT_SUCCESS;
-                goto finish;
-        }
 
         r = bootctl_main(argc, argv);
-        retval = r < 0 ? EXIT_FAILURE : r;
-finish:
-        return retval;
+
+ finish:
+        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

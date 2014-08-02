@@ -181,15 +181,12 @@ static int apply_file(struct kmod_ctx *ctx, const char *path, bool ignore_enoent
         return r;
 }
 
-static int help(void) {
-
+static void help(void) {
         printf("%s [OPTIONS...] [CONFIGURATION FILE...]\n\n"
                "Loads statically configured kernel modules.\n\n"
                "  -h --help             Show this help\n"
                "     --version          Show package version\n",
                program_invocation_short_name);
-
-        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -209,12 +206,13 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
 
                 switch (c) {
 
                 case 'h':
-                        return help();
+                        help();
+                        return 0;
 
                 case ARG_VERSION:
                         puts(PACKAGE_STRING);
@@ -227,7 +225,6 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached("Unhandled option");
                 }
-        }
 
         return 1;
 }

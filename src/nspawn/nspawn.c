@@ -166,8 +166,7 @@ static unsigned long arg_personality = 0xffffffffLU;
 static const char *arg_image = NULL;
 static Volatile arg_volatile = VOLATILE_NO;
 
-static int help(void) {
-
+static void help(void) {
         printf("%s [OPTIONS...] [PATH] [ARGUMENTS...]\n\n"
                "Spawn a minimal namespace container for debugging, testing and building.\n\n"
                "  -h --help                 Show this help\n"
@@ -216,8 +215,6 @@ static int help(void) {
                "                            the service unit nspawn is running in\n"
                "     --volatile[=MODE]      Run the system in volatile mode\n",
                program_invocation_short_name);
-
-        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -285,12 +282,13 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "+hD:u:bL:M:jS:Z:qi:", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "+hD:u:bL:M:jS:Z:qi:", options, NULL)) >= 0)
 
                 switch (c) {
 
                 case 'h':
-                        return help();
+                        help();
+                        return 0;
 
                 case ARG_VERSION:
                         puts(PACKAGE_STRING);
@@ -593,7 +591,6 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached("Unhandled option");
                 }
-        }
 
         if (arg_share_system)
                 arg_register = false;

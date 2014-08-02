@@ -374,8 +374,7 @@ static int list_timezones(sd_bus *bus, char **args, unsigned n) {
         return 0;
 }
 
-static int help(void) {
-
+static void help(void) {
         printf("%s [OPTIONS...] COMMAND ...\n\n"
                "Query or change system time and date settings.\n\n"
                "  -h --help                Show this help message\n"
@@ -393,8 +392,6 @@ static int help(void) {
                "  set-local-rtc BOOL       Control whether RTC is in local time\n"
                "  set-ntp BOOL             Control whether NTP is enabled\n",
                program_invocation_short_name);
-
-        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -422,12 +419,13 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hH:M:", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hH:M:", options, NULL)) >= 0)
 
                 switch (c) {
 
                 case 'h':
-                        return help();
+                        help();
+                        return 0;
 
                 case ARG_VERSION:
                         puts(PACKAGE_STRING);
@@ -462,7 +460,6 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached("Unhandled option");
                 }
-        }
 
         return 1;
 }

@@ -160,7 +160,7 @@ static int parse_boot_descriptor(const char *x, sd_id128_t *boot_id, int *offset
         return 0;
 }
 
-static int help(void) {
+static void help(void) {
 
         pager_open_if_enabled();
 
@@ -218,8 +218,6 @@ static int help(void) {
                "     --verify              Verify journal file consistency\n"
 #endif
                , program_invocation_short_name);
-
-        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -306,12 +304,13 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hefo:aln::qmb::kD:p:c:u:F:xrM:", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hefo:aln::qmb::kD:p:c:u:F:xrM:", options, NULL)) >= 0)
 
                 switch (c) {
 
                 case 'h':
-                        return help();
+                        help();
+                        return 0;
 
                 case ARG_VERSION:
                         puts(PACKAGE_STRING);
@@ -633,7 +632,6 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached("Unhandled option");
                 }
-        }
 
         if (arg_follow && !arg_no_tail && arg_lines < 0)
                 arg_lines = 10;

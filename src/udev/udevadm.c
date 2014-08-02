@@ -1,3 +1,4 @@
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 /*
  * Copyright (C) 2007-2012 Kay Sievers <kay@vrfy.org>
  *
@@ -89,7 +90,7 @@ int main(int argc, char *argv[]) {
         };
         const char *command;
         unsigned int i;
-        int rc = 1;
+        int rc = 1, c;
 
         udev = udev_new();
         if (udev == NULL)
@@ -100,32 +101,30 @@ int main(int argc, char *argv[]) {
         udev_set_log_fn(udev, udev_main_log);
         label_init("/dev");
 
-        for (;;) {
-                int option;
+        while ((c = getopt_long(argc, argv, "+dhV", options, NULL)) >= 0)
+                switch (c) {
 
-                option = getopt_long(argc, argv, "+dhV", options, NULL);
-                if (option == -1)
-                        break;
-
-                switch (option) {
                 case 'd':
                         log_set_max_level(LOG_DEBUG);
                         udev_set_log_priority(udev, LOG_DEBUG);
                         break;
+
                 case 'h':
                         rc = adm_help(udev, argc, argv);
                         goto out;
+
                 case 'V':
                         rc = adm_version(udev, argc, argv);
                         goto out;
+
                 default:
                         goto out;
                 }
-        }
+
         command = argv[optind];
 
         if (command != NULL)
-                for (i = 0; i < ELEMENTSOF(udevadm_cmds); i++) {
+                for (i = 0; i < ELEMENTSOF(udevadm_cmds); i++)
                         if (streq(udevadm_cmds[i]->name, command)) {
                                 argc -= optind;
                                 argv += optind;
@@ -134,10 +133,8 @@ int main(int argc, char *argv[]) {
                                 rc = run_command(udev, udevadm_cmds[i], argc, argv);
                                 goto out;
                         }
-                }
 
-        fprintf(stderr, "missing or unknown command\n\n");
-        adm_help(udev, argc, argv);
+        fprintf(stderr, "%s: missing or unknown command", program_invocation_short_name);
         rc = 2;
 out:
         label_finish();

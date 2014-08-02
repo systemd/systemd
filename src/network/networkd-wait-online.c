@@ -30,17 +30,14 @@
 static bool arg_quiet = false;
 static char **arg_interfaces = NULL;
 
-static int help(void) {
-
+static void help(void) {
         printf("%s [OPTIONS...]\n\n"
                "Block until network is configured.\n\n"
                "  -h --help                 Show this help\n"
                "     --version              Print version string\n"
                "  -q --quiet                Do not show status information\n"
-               "  -i --interface=INTERFACE  Block until at least these interfaces have appeared\n",
-               program_invocation_short_name);
-
-        return 0;
+               "  -i --interface=INTERFACE  Block until at least these interfaces have appeared\n"
+               , program_invocation_short_name);
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -62,12 +59,13 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "+hq", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "+hq", options, NULL)) >= 0)
 
                 switch (c) {
 
                 case 'h':
-                        return help();
+                        help();
+                        return 0;
 
                 case 'q':
                         arg_quiet = true;
@@ -90,7 +88,6 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached("Unhandled option");
                 }
-        }
 
         return 1;
 }

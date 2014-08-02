@@ -50,8 +50,7 @@ static usec_t arg_timeout = DEFAULT_TIMEOUT_USEC;
 static bool arg_accept_cached = false;
 static bool arg_multiple = false;
 
-static int help(void) {
-
+static void help(void) {
         printf("%s [OPTIONS...] MESSAGE\n\n"
                "Query the user for a system passphrase, via the TTY or an UI agent.\n\n"
                "  -h --help          Show this help\n"
@@ -60,10 +59,8 @@ static int help(void) {
                "     --no-tty        Ask question via agent even on TTY\n"
                "     --accept-cached Accept cached passwords\n"
                "     --multiple      List multiple passwords if available\n"
-               "     --id=ID         Query identifier (e.g. cryptsetup:/dev/sda5)\n",
-               program_invocation_short_name);
-
-        return 0;
+               "     --id=ID         Query identifier (e.g. cryptsetup:/dev/sda5)\n"
+               , program_invocation_short_name);
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -93,12 +90,13 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
 
                 switch (c) {
 
                 case 'h':
-                        return help();
+                        help();
+                        return 0;
 
                 case ARG_ICON:
                         arg_icon = optarg;
@@ -133,10 +131,9 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached("Unhandled option");
                 }
-        }
 
-        if (optind != argc-1) {
-                help();
+        if (optind != argc - 1) {
+                log_error("%s: required argument missing.", program_invocation_short_name);
                 return -EINVAL;
         }
 
@@ -151,7 +148,8 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
-        if ((r = parse_argv(argc, argv)) <= 0)
+        r = parse_argv(argc, argv);
+        if (r <= 0)
                 goto finish;
 
         if (arg_timeout > 0)

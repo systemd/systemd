@@ -163,7 +163,7 @@ static void help(void) {
                 DEFAULT_INIT);
 }
 
-static int parse_args(int argc, char *argv[]) {
+static int parse_argv(int argc, char *argv[]) {
         static const struct option options[] = {
                 {"rel",           no_argument,        NULL,  'r'},
                 {"freq",          required_argument,  NULL,  'f'},
@@ -180,12 +180,14 @@ static int parse_args(int argc, char *argv[]) {
                 {"entropy",       no_argument,        NULL,  'e'},
                 {}
         };
-        int c;
+        int c, r;
 
-        while ((c = getopt_long(argc, argv, "erpf:n:o:i:FCchx:y:", options, NULL)) >= 0) {
-                int r;
+        if (getpid() == 1)
+                opterr = 0;
 
+        while ((c = getopt_long(argc, argv, "erpf:n:o:i:FCchx:y:", options, NULL)) >= 0)
                 switch (c) {
+
                 case 'r':
                         arg_relative = true;
                         break;
@@ -238,18 +240,22 @@ static int parse_args(int argc, char *argv[]) {
                         break;
                 case 'h':
                         help();
-                        exit (EXIT_SUCCESS);
+                        return 0;
+                case '?':
+                        if (getpid() != 1)
+                                return -EINVAL;
+                        else
+                                return 0;
                 default:
-                        break;
+                        assert_not_reached("Unhandled option code.");
                 }
-        }
 
-        if (arg_hz <= 0.0) {
-                fprintf(stderr, "Error: Frequency needs to be > 0\n");
+        if (arg_hz <= 0) {
+                log_error("Frequency needs to be > 0");
                 return -EINVAL;
         }
 
-        return 0;
+        return 1;
 }
 
 static void do_journal_append(char *file) {
@@ -314,9 +320,9 @@ int main(int argc, char *argv[]) {
 
         parse_conf();
 
-        r = parse_args(argc, argv);
-        if (r < 0)
-                return EXIT_FAILURE;
+        r = parse_argv(argc, argv);
+        if (r <= 0)
+                return r == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 
         /*
          * If the kernel executed us through init=/usr/lib/systemd/systemd-bootchart, then

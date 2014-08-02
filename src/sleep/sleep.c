@@ -134,8 +134,7 @@ static int execute(char **modes, char **states) {
         return r;
 }
 
-static int help(void) {
-
+static void help(void) {
         printf("%s COMMAND\n\n"
                "Suspend the system, hibernate the system, or both.\n\n"
                "Commands:\n"
@@ -144,10 +143,7 @@ static int help(void) {
                "  suspend              Suspend the system\n"
                "  hibernate            Hibernate the system\n"
                "  hybrid-sleep         Both hibernate and suspend the system\n"
-               , program_invocation_short_name
-               );
-
-        return 0;
+               , program_invocation_short_name);
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -166,10 +162,11 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "+h", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
                 switch(c) {
                 case 'h':
-                        return help();
+                        help();
+                        return 0; /* done */
 
                 case ARG_VERSION:
                         puts(PACKAGE_STRING);

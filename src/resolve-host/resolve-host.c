@@ -448,7 +448,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h46i:t:c:", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "h46i:t:c:", options, NULL)) >= 0)
                 switch(c) {
 
                 case 'h':
@@ -514,7 +514,6 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached("Unhandled option");
                 }
-        }
 
         if (arg_type == 0 && arg_class != 0) {
                 log_error("--class= may only be used in conjunction with --type=");

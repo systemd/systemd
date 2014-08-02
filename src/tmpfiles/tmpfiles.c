@@ -1407,8 +1407,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         return 0;
 }
 
-static int help(void) {
-
+static void help(void) {
         printf("%s [OPTIONS...] [CONFIGURATION FILE...]\n\n"
                "Creates, deletes and cleans up volatile and temporary files and directories.\n\n"
                "  -h --help                 Show this help\n"
@@ -1421,8 +1420,6 @@ static int help(void) {
                "     --exclude-prefix=PATH  Ignore rules that apply to paths with the specified prefix\n"
                "     --root=PATH            Operate on an alternate filesystem root\n",
                program_invocation_short_name);
-
-        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -1456,12 +1453,13 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
 
                 switch (c) {
 
                 case 'h':
-                        return help();
+                        help();
+                        return 0;
 
                 case ARG_VERSION:
                         puts(PACKAGE_STRING);
@@ -1509,7 +1507,6 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached("Unhandled option");
                 }
-        }
 
         if (!arg_clean && !arg_create && !arg_remove) {
                 log_error("You need to specify at least one of --clean, --create or --remove.");

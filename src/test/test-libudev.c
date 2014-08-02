@@ -1,3 +1,4 @@
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 /***
   This file is part of systemd.
 
@@ -423,6 +424,7 @@ int main(int argc, char *argv[]) {
         const char *syspath = "/devices/virtual/mem/null";
         const char *subsystem = NULL;
         char path[1024];
+        int c;
 
         udev = udev_new();
         printf("context: %p\n", udev);
@@ -433,34 +435,38 @@ int main(int argc, char *argv[]) {
         udev_set_log_fn(udev, log_fn);
         printf("set log: %p\n", log_fn);
 
-        for (;;) {
-                int option;
 
-                option = getopt_long(argc, argv, "+p:s:dhV", options, NULL);
-                if (option == -1)
-                        break;
+        while ((c = getopt_long(argc, argv, "p:s:dhV", options, NULL)) >= 0)
+                switch (c) {
 
-                switch (option) {
                 case 'p':
                         syspath = optarg;
                         break;
+
                 case 's':
                         subsystem = optarg;
                         break;
+
                 case 'd':
                         if (udev_get_log_priority(udev) < LOG_INFO)
                                 udev_set_log_priority(udev, LOG_INFO);
                         break;
+
                 case 'h':
                         printf("--debug --syspath= --subsystem= --help\n");
                         goto out;
+
                 case 'V':
                         printf("%s\n", VERSION);
                         goto out;
-                default:
+
+                case '?':
                         goto out;
+
+                default:
+                        assert_not_reached("Unhandled option code.");
                 }
-        }
+
 
         /* add sys path if needed */
         if (!startswith(syspath, "/sys")) {

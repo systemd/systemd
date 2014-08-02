@@ -952,13 +952,13 @@ static int parse_argv(int argc, char *argv[]) {
                          * parse_proc_cmdline_word() or ignore. */
 
                 case '?':
-                default:
-                        if (getpid() != 1) {
-                                log_error("Unknown option code %c", c);
+                        if (getpid() != 1)
                                 return -EINVAL;
-                        }
+                        else
+                                return 0;
 
-                        break;
+                default:
+                        assert_not_reached("Unhandled option code.");
                 }
 
         if (optind < argc && getpid() != 1) {

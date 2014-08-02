@@ -77,18 +77,6 @@ static const char* const path_table[_SD_PATH_MAX] = {
         [SD_PATH_SEARCH_CONFIGURATION] = "search-configuration",
 };
 
-static int help(void) {
-
-        printf("%s [OPTIONS...] [NAME...]\n\n"
-               "Show system and user paths.\n\n"
-               "  -h --help             Show this help\n"
-               "     --version          Show package version\n"
-               "     --suffix=SUFFIX    Suffix to append to paths\n",
-               program_invocation_short_name);
-
-        return 0;
-}
-
 static int list_homes(void) {
         uint64_t i = 0;
         int r = 0;
@@ -135,6 +123,15 @@ static int print_home(const char *n) {
         return -ENOTSUP;
 }
 
+static void help(void) {
+        printf("%s [OPTIONS...] [NAME...]\n\n"
+               "Show system and user paths.\n\n"
+               "  -h --help             Show this help\n"
+               "     --version          Show package version\n"
+               "     --suffix=SUFFIX    Suffix to append to paths\n",
+               program_invocation_short_name);
+}
+
 static int parse_argv(int argc, char *argv[]) {
 
         enum {
@@ -154,12 +151,13 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
 
                 switch (c) {
 
                 case 'h':
-                        return help();
+                        help();
+                        return 0;
 
                 case ARG_VERSION:
                         puts(PACKAGE_STRING);
@@ -176,7 +174,6 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached("Unhandled option");
                 }
-        }
 
         return 1;
 }

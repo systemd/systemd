@@ -122,8 +122,7 @@ static int print_inhibitors(sd_bus *bus, sd_bus_error *error) {
         return 0;
 }
 
-static int help(void) {
-
+static void help(void) {
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
                "Execute a process while inhibiting shutdown/sleep/idle.\n\n"
                "  -h --help               Show this help\n"
@@ -135,10 +134,8 @@ static int help(void) {
                "     --who=STRING         A descriptive string who is inhibiting\n"
                "     --why=STRING         A descriptive string why is being inhibited\n"
                "     --mode=MODE          One of block or delay\n"
-               "     --list               List active inhibitors\n",
-               program_invocation_short_name);
-
-        return 0;
+               "     --list               List active inhibitors\n"
+               , program_invocation_short_name);
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -168,12 +165,13 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "+h", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "+h", options, NULL)) >= 0)
 
                 switch (c) {
 
                 case 'h':
-                        return help();
+                        help();
+                        return 0;
 
                 case ARG_VERSION:
                         puts(PACKAGE_STRING);
@@ -206,7 +204,6 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached("Unhandled option");
                 }
-        }
 
         if (arg_action == ACTION_INHIBIT && argc == 1)
                 arg_action = ACTION_LIST;

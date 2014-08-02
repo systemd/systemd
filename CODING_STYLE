@@ -167,3 +167,8 @@
   caching for any thread that is not the main thread. Use
   is_main_thread() to detect whether the calling thread is the main
   thread.
+
+- Option parsing:
+  - Do not print full help() on error, be specific about the error.
+  - Do not print messages to stdout on error.
+  - Do not POSIX_ME_HARDER unless necessary, i.e. avoid "+" in option string.

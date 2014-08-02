@@ -279,7 +279,7 @@ static int install_chld_handler(void) {
         return r;
 }
 
-static int help(void) {
+static void help(void) {
         printf("%s [OPTIONS...]\n\n"
                "Listen on sockets and launch child on connection.\n\n"
                "Options:\n"
@@ -290,10 +290,7 @@ static int help(void) {
                "  --version                Print version string and exit\n"
                "\n"
                "Note: file descriptors from sd_listen_fds() will be passed through.\n"
-               , program_invocation_short_name
-               );
-
-        return 0;
+               , program_invocation_short_name);
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -319,7 +316,8 @@ static int parse_argv(int argc, char *argv[]) {
         while ((c = getopt_long(argc, argv, "+hl:aE:", options, NULL)) >= 0)
                 switch(c) {
                 case 'h':
-                        return help();
+                        help();
+                        return 0;
 
                 case ARG_VERSION:
                         puts(PACKAGE_STRING);
@@ -354,7 +352,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
         if (optind == argc) {
-                log_error("Usage: %s [OPTION...] PROGRAM [OPTION...]",
+                log_error("%s: command to execute is missing.",
                           program_invocation_short_name);
                 return -EINVAL;
         }

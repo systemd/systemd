@@ -37,8 +37,7 @@ static const char *arg_suffix = NULL;
 static const char *arg_template = NULL;
 static bool arg_path = false;
 
-static int help(void) {
-
+static void help(void) {
         printf("%s [OPTIONS...] [NAME...]\n\n"
                "Show system and user paths.\n\n"
                "  -h --help               Show this help\n"
@@ -47,10 +46,8 @@ static int help(void) {
                "     --template=TEMPLATE  Insert strings as instance into template\n"
                "  -u --unescape           Unescape strings\n"
                "  -m --mangle             Mangle strings\n"
-               "  -p --path               When escaping/unescaping assume the string is a path\n",
-               program_invocation_short_name);
-
-        return 0;
+               "  -p --path               When escaping/unescaping assume the string is a path\n"
+               , program_invocation_short_name);
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -77,12 +74,13 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hump", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hump", options, NULL)) >= 0)
 
                 switch (c) {
 
                 case 'h':
-                        return help();
+                        help();
+                        return 0;
 
                 case ARG_VERSION:
                         puts(PACKAGE_STRING);
@@ -127,7 +125,6 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached("Unhandled option");
                 }
-        }
 
         if (optind >= argc) {
                 log_error("Not enough arguments.");

@@ -1370,8 +1370,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        log_error("Unknown option code %c", c);
-                        return -EINVAL;
+                        assert_not_reached("Unknown option code.");
                 }
 
         if (optind < argc)

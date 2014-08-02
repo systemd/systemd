@@ -320,7 +320,6 @@ static int status(sd_bus *bus, char *argv[]) {
 }
 
 static int help(void) {
-
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
                "Introspect the bus.\n\n"
                "  -h --help               Show this help\n"
@@ -341,8 +340,8 @@ static int help(void) {
                "  list                    List bus names\n"
                "  monitor [SERVICE...]    Show bus traffic\n"
                "  status NAME             Show name status\n"
-               "  help                    Show this help\n",
-               program_invocation_short_name);
+               "  help                    Show this help\n"
+               , program_invocation_short_name);
 
         return 0;
 }
@@ -386,7 +385,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hH:M:", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hH:M:", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -455,7 +454,6 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached("Unhandled option");
                 }
-        }
 
         if (!arg_unique && !arg_acquired && !arg_activatable)
                 arg_unique = arg_acquired = arg_activatable = true;

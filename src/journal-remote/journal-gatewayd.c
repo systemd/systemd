@@ -857,8 +857,7 @@ static int request_handler(
         return mhd_respond(connection, MHD_HTTP_NOT_FOUND, "Not found.\n");
 }
 
-static int help(void) {
-
+static void help(void) {
         printf("%s [OPTIONS...] ...\n\n"
                "HTTP server for journal events.\n\n"
                "  -h --help           Show this help\n"
@@ -867,8 +866,6 @@ static int help(void) {
                "     --key=KEY.PEM    Server key in PEM format\n"
                "     --trust=CERT.PEM Certificat authority certificate in PEM format\n",
                program_invocation_short_name);
-
-        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -898,7 +895,8 @@ static int parse_argv(int argc, char *argv[]) {
                 switch(c) {
 
                 case 'h':
-                        return help();
+                        help();
+                        return 0;
 
                 case ARG_VERSION:
                         puts(PACKAGE_STRING);
