@@ -132,7 +132,7 @@
     the offset is specified as zero and the size specified as
     UINT64_MAX the full memory file descriptor contents is used. The
     memory file descriptor is sealed by this call if it hasn't been
-    sealed yet, and cannot be modified a after this call. See
+    sealed yet, and cannot be modified after this call. See
     <citerefentry
     project='man-pages'><refentrytitle>memfd_create</refentrytitle><manvolnum>2</manvolnum></citerefentry>
     for details about memory file descriptors. Appending arrays with
@@ -171,7 +171,7 @@
     copying items to the message, it returns a pointer to the
     destination area to the caller in pointer
     <parameter>p</parameter>. The caller should subsequently write the
-    array contents to this memory. Modifications of the memory
+    array contents to this memory. Modifications to the memory
     pointed to should only occur until the next operation on the bus
     message is invoked. Most importantly, the memory should not be
     altered anymore when another field has been added to the message

@@ -82,7 +82,7 @@
 
     <para><function>sd_event_add_signal()</function> adds a new signal
     event source to an event loop object. The event loop is specified
-    in <parameter>event</parameter>, the event source is returned in
+    in <parameter>event</parameter>, and the event source is returned in
     the <parameter>source</parameter> parameter. The
     <parameter>signal</parameter> parameter specifies the signal to be handled
     (see
@@ -149,7 +149,7 @@
       <varlistentry>
         <term><constant>-EBUSY</constant></term>
 
-        <listitem><para>An handler is already installed for this
+        <listitem><para>A handler is already installed for this
         signal or the signal was not blocked previously.</para></listitem>
 
       </varlistentry>

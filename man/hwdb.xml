@@ -34,7 +34,7 @@
 
   <refsect1><title>Description</title>
     <para>The hardware database is a key-value store for associating modalias-like keys to
-    udev-properties-like values. It is used primarily by udev to add the relevant properties
+    udev-property-like values. It is used primarily by udev to add the relevant properties
     to matching devices, but it can also be queried directly.</para>
   </refsect1>
 
@@ -57,7 +57,7 @@
       associated key-value pairs. Every record in the hwdb starts with one or
       more match strings, specifying a shell glob to compare the database
       lookup string against. Multiple match lines are specified in additional
-      consecutive lines. Every match line is compared individually, they are
+      consecutive lines. Every match line is compared individually, and they are
       combined by OR. Every match line must start at the first character of
       the line.</para>
 

@@ -145,7 +145,7 @@
     <function>sd_is_socket()</function> and related calls is not
     sufficient. Note that the names used are not unique in any
     way. The returned array of strings has as many entries as file
-    descriptors has been received, plus a final NULL pointer
+    descriptors have been received, plus a final NULL pointer
     terminating the array. The caller needs to free the array itself
     and each of its elements with libc's <function>free()</function>
     call after use. If the <parameter>names</parameter> parameter is

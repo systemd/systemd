@@ -344,7 +344,7 @@
         must be shifted to the container UID base that is
         used during container runtime.</para>
 
-        <para>It is recommended to assign as least 65536 UIDs to each
+        <para>It is recommended to assign at least 65536 UIDs to each
         container, so that the usable UID range in the container
         covers 16 bit. For best security, do not assign overlapping UID
         ranges to multiple containers. It is hence a good idea to use
@@ -458,7 +458,7 @@
         which case <literal>tcp</literal> is assumed. The container
         port number and its colon may be omitted, in which case the
         same port as the host port is implied. This option is only
-        supported if private networking is used, such as
+        supported if private networking is used, such as with
         <option>--network-veth</option> or
         <option>--network-bridge=</option>.</para></listitem>
       </varlistentry>
@@ -693,7 +693,7 @@
         <listitem><para>Controls whether the container is registered
         with
         <citerefentry><refentrytitle>systemd-machined</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-        Takes a boolean argument, defaults to <literal>yes</literal>.
+        Takes a boolean argument, which defaults to <literal>yes</literal>.
         This option should be enabled when the container runs a full
         Operating System (more specifically: an init system), and is
         useful to ensure that the container is accessible via
@@ -753,7 +753,7 @@
         <listitem><para>Boots the container in volatile mode. When no
         mode parameter is passed or when mode is specified as
         <option>yes</option>, full volatile mode is enabled. This
-        means the root directory is mounted as mostly unpopulated
+        means the root directory is mounted as a mostly unpopulated
         <literal>tmpfs</literal> instance, and
         <filename>/usr</filename> from the OS tree is mounted into it,
         read-only (the system thus starts up with read-only OS
@@ -761,9 +761,9 @@
         to the either are lost on shutdown). When the mode parameter
         is specified as <option>state</option>, the OS tree is
         mounted read-only, but <filename>/var</filename> is mounted as
-        <literal>tmpfs</literal> instance into it (the system thus
+        a <literal>tmpfs</literal> instance into it (the system thus
         starts up with read-only OS resources and configuration, but
-        pristine state, any changes to the latter are lost on
+        pristine state, and any changes to the latter are lost on
         shutdown). When the mode parameter is specified as
         <option>no</option> (the default), the whole OS tree is made
         available writable.</para>
@@ -816,7 +816,7 @@
 
         <para>If this option is set to <option>trusted</option>, the
         file is searched, read and used the same way, but regardless
-        if found in <filename>/etc/systemd/nspawn/</filename>,
+        of being found in <filename>/etc/systemd/nspawn/</filename>,
         <filename>/run/systemd/nspawn/</filename> or next to the image
         file or container root directory, all settings will take
         effect, however, command line arguments still take precedence

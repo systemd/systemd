@@ -244,7 +244,7 @@
         different names to submitted file descriptors, submit them in
         seperate invocations of
         <function>sd_pid_notify_with_fds()</function>. The name may
-        consist of any ASCII characters, but must not contain control
+        consist of any ASCII character, but must not contain control
         characters or <literal>:</literal>. It may not be longer than
         255 characters. If a submitted name does not follow these
         restrictions, it is ignored.</para></listitem>

@@ -157,7 +157,7 @@
       <varlistentry>
         <term><constant>-EBUSY</constant></term>
 
-        <listitem><para>An handler is already installed for this
+        <listitem><para>A handler is already installed for this
         child.</para></listitem>
 
       </varlistentry>

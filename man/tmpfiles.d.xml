@@ -387,7 +387,7 @@
           <varname>+</varname> (the default one) causes the
           attribute(s) to be added; <varname>-</varname> causes the
           attribute(s) to be removed; <varname>=</varname> causes the
-          attributes to set exactly as the following letters. The
+          attributes to be set exactly as the following letters. The
           letters <literal>aAcCdDeijsStTu</literal> select the new
           attributes for the files, see
           <citerefentry project='man-pages'><refentrytitle>chattr</refentrytitle>
@@ -414,7 +414,7 @@
           <term><varname>a</varname></term>
           <term><varname>a+</varname></term>
           <listitem><para>Set POSIX ACLs (access control lists). If
-          suffixed with <varname>+</varname>, specified entries will
+          suffixed with <varname>+</varname>, the specified entries will
           be added to the existing set.
           <command>systemd-tmpfiles</command> will automatically add
           the required base entries for user and group based on the
@@ -537,7 +537,7 @@
       <para>The user and group to use for this file or directory. This
       may either be a numeric user/group ID or a user or group
       name. If omitted or when set to <literal>-</literal>, the
-      default 0 (root) is used. For <varname>z</varname>,
+      default 0 (root) is used. For <varname>z</varname> and
       <varname>Z</varname> lines, when omitted or when set to
       <literal>-</literal>, the file ownership will not be
       modified. These parameters are ignored for <varname>x</varname>,
@@ -552,16 +552,16 @@
       delete when cleaning. If a file or directory is older than the
       current time minus the age field, it is deleted. The field
       format is a series of integers each followed by one of the
-      following postfixes for the respective time units:
+      following suffixes for the respective time units:
       <constant>s</constant>,
       <constant>m</constant> or <constant>min</constant>,
       <constant>h</constant>,
       <constant>d</constant>,
       <constant>w</constant>,
-      <constant>ms</constant>,
+      <constant>ms</constant>, and
       <constant>us</constant>,
-      respectively meaning seconds, minutes, hours, days, weeks,
-      milliseconds, and microseconds. Full names of the time units can
+      meaning seconds, minutes, hours, days, weeks,
+      milliseconds, and microseconds, respectively. Full names of the time units can
       be used too.
       </para>
 
@@ -590,18 +590,18 @@
       <title>Argument</title>
 
       <para>For <varname>L</varname> lines determines the destination
-      path of the symlink. For <varname>c</varname>,
-      <varname>b</varname> determines the major/minor of the device
+      path of the symlink. For <varname>c</varname> and
+      <varname>b</varname>, determines the major/minor of the device
       node, with major and minor formatted as integers, separated by
       <literal>:</literal>, e.g.  <literal>1:3</literal>. For
       <varname>f</varname>, <varname>F</varname>, and
-      <varname>w</varname> may be used to specify a short string that
+      <varname>w</varname>, the argument may be used to specify a short string that
       is written to the file, suffixed by a newline. For
       <varname>C</varname>, specifies the source file or
-      directory. For <varname>t</varname>, <varname>T</varname>,
+      directory. For <varname>t</varname> and <varname>T</varname>,
       determines extended attributes to be set. For
-      <varname>a</varname>, <varname>A</varname>, determines ACL
-      attributes to be set. For <varname>h</varname>,
+      <varname>a</varname> and <varname>A</varname>, determines ACL
+      attributes to be set. For <varname>h</varname> and
       <varname>H</varname>, determines the file attributes to
       set. Ignored for all other lines.</para>
     </refsect2>

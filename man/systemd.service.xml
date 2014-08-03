@@ -283,7 +283,7 @@
         <term><varname>ExecStart=</varname></term>
         <listitem><para>Commands with their arguments that are
         executed when this service is started. The value is split into
-        zero or more command lines is according to the rules described
+        zero or more command lines according to the rules described
         below (see section "Command Lines" below).
         </para>
 
@@ -343,7 +343,7 @@
 
         <para><varname>ExecStartPost=</varname> commands are only run after
         the service has started, as determined by <varname>Type=</varname>
-        (i.e. The process has been started for <varname>Type=simple</varname>
+        (i.e. the process has been started for <varname>Type=simple</varname>
         or <varname>Type=idle</varname>, the process exits successfully for
         <varname>Type=oneshot</varname>, the initial process exits successfully
         for <varname>Type=forking</varname>, <literal>READY=1</literal> is sent
@@ -859,7 +859,7 @@
         <option>reboot-immediate</option> causes immediate execution
         of the
         <citerefentry><refentrytitle>reboot</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-        system call, which might result in data loss. Similar,
+        system call, which might result in data loss. Similarly,
         <option>poweroff</option>, <option>poweroff-force</option>,
         <option>poweroff-immediate</option> have the effect of
         powering down the system with similar semantics. Defaults to
@@ -909,9 +909,9 @@
         <ulink
         url="https://www.kernel.org/doc/Documentation/usb/functionfs.txt">USB
         FunctionFS</ulink> descriptors, for implementation of USB
-        gadget functions. This is is used only in conjunction with a
+        gadget functions. This is used only in conjunction with a
         socket unit with <varname>ListenUSBFunction=</varname>
-        configured. The contents of this file is written to the
+        configured. The contents of this file are written to the
         <filename>ep0</filename> file after it is
         opened.</para></listitem>
       </varlistentry>
@@ -1216,7 +1216,7 @@ WantedBy=multi-user.target</programlisting>
       then execute another to shut it down, but no process remains
       active while they are considered "started". Network
       configuration can sometimes fall into this category. Another use
-      case is if a oneshot service shall not be executed a each time
+      case is if a oneshot service shall not be executed each time
       when they are pulled in as a dependency, but only the first
       time.</para>
 

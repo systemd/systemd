@@ -139,7 +139,7 @@
     placeholders instead of timestamps: <literal>now</literal> may be
     used to refer to the current time (or of the invocation of the
     command that is currently executed). <literal>today</literal>,
-    <literal>yesterday</literal>, <literal>tomorrow</literal> refer to
+    <literal>yesterday</literal>, and <literal>tomorrow</literal> refer to
     00:00:00 of the current day, the day before, or the next day,
     respectively.</para>
 

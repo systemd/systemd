@@ -224,7 +224,7 @@
       </varlistentry>
       <varlistentry>
         <term><varname>SD_BUS_ERROR_FILE_EXISTS</varname></term>
-        <listitem><para>The requested file exists already.</para></listitem>
+        <listitem><para>The requested file already exists.</para></listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>SD_BUS_ERROR_UNKNOWN_METHOD</varname></term>

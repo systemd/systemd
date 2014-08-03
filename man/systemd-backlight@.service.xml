@@ -58,8 +58,8 @@
     that restores the display backlight brightness at early boot and
     saves it at shutdown. On disk, the backlight brightness is stored
     in <filename>/var/lib/systemd/backlight/</filename>. During
-    loading, if udev property <option>ID_BACKLIGHT_CLAMP</option> is
-    not set to false value, the brightness is clamped to a value of at
+    loading, if the udev property <option>ID_BACKLIGHT_CLAMP</option> is
+    not set to false, the brightness is clamped to a value of at
     least 1 or 5% of maximum brightness, whichever is greater. This
     restriction will be removed when the kernel allows user space to
     reliably set a brightness value which does not turn off the

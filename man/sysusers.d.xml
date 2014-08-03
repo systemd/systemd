@@ -207,7 +207,7 @@ u root 0 "Superuser" /root</programlisting>
 
     <para>Note that <command>systemd-sysusers</command> will do
     nothing if the specified users or groups already exist, so
-    normally, there no reason to override
+    normally, there is no reason to override
     <filename>sysusers.d</filename> vendor configuration, except to
     block certain users or groups from being created.</para>
   </refsect1>

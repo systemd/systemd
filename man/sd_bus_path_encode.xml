@@ -144,7 +144,7 @@
     (<literal>char **</literal>) via varargs. The decoded label
     will be stored there. Each <literal>%</literal> character will
     only match the current label. It will never match across labels.
-    Furthermore, only a single such directive is allowed per label.
+    Furthermore, only a single directive is allowed per label.
     If <literal>NULL</literal> is passed as output storage, the
     label is verified but not returned to the caller.</para>
   </refsect1>

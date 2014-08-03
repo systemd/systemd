@@ -181,7 +181,7 @@
     <function>udev_device_get_parent_with_subsystem_devtype()</function>
     return a pointer to the parent device. No additional reference
     to this device is acquired, but the child device owns a reference
-    to such parent device. On failure, <constant>NULL</constant>
+    to such a parent device. On failure, <constant>NULL</constant>
     is returned.</para>
 
     <para>On success, <function>udev_device_get_is_initialized()</function>

@@ -73,7 +73,7 @@
     to specific containers. The syntax of these files is inspired by
     <filename>.desktop</filename> files following the <ulink
     url="http://standards.freedesktop.org/desktop-entry-spec/latest/">XDG
-    Desktop Entry Specification</ulink>, which are in turn inspired by
+    Desktop Entry Specification</ulink>, which in turn are inspired by
     Microsoft Windows <filename>.ini</filename> files.</para>
 
     <para>Boolean arguments used in these settings files can be
@@ -112,7 +112,7 @@
     host (such as files or directories) are ignored. To which options
     this applies is documented below.</para>
 
-    <para>Persistent settings file created and maintained by the
+    <para>Persistent settings files created and maintained by the
     administrator (and thus trusted) should be placed in
     <filename>/etc/systemd/nspawn/</filename>, while automatically
     downloaded (and thus potentially untrusted) settings files are
@@ -122,7 +122,7 @@
     files acquired from the image vendor, it is recommended to copy the
     settings files into <filename>/etc/systemd/nspawn/</filename> and
     edit them there, so that the privileged options become
-    available. The precise algorithm how the files are searched and
+    available. The precise algorithm for how the files are searched and
     interpreted may be configured with
     <command>systemd-nspawn</command>'s <option>--settings=</option>
     switch, see
@@ -141,7 +141,7 @@
       <varlistentry>
         <term><varname>Boot=</varname></term>
 
-        <listitem><para>Takes a boolean argument, defaults to off. If
+        <listitem><para>Takes a boolean argument, which defaults to off. If
         enabled, <command>systemd-nspawn</command> will automatically
         search for an <filename>init</filename> executable and invoke
         it. In this case, the specified parameters using
@@ -240,7 +240,7 @@
       <varlistentry>
         <term><varname>ReadOnly=</varname></term>
 
-        <listitem><para>Takes a boolean argument, defaults to off. If
+        <listitem><para>Takes a boolean argument, which defaults to off. If
         specified, the container will be run with a read-only file
         system. This setting corresponds to the
         <option>--read-only</option> command line
@@ -303,7 +303,7 @@
       <varlistentry>
         <term><varname>Private=</varname></term>
 
-        <listitem><para>Takes a boolean argument, defaults to off. If
+        <listitem><para>Takes a boolean argument, which defaults to off. If
         enabled, the container will run in its own network namespace
         and not share network interfaces and configuration with the
         host. This setting corresponds to the
@@ -315,7 +315,7 @@
         <term><varname>VirtualEthernet=</varname></term>
 
         <listitem><para>Takes a boolean argument. Configures whether
-        to create a virtual ethernet connection
+        to create a virtual Ethernet connection
         (<literal>veth</literal>) between host and the container. This
         setting implies <varname>Private=yes</varname>. This setting
         corresponds to the <option>--network-veth</option> command

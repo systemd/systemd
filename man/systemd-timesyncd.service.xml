@@ -85,7 +85,7 @@
         <term><filename>/var/lib/systemd/clock</filename></term>
 
         <listitem>
-          <para>This file contains the timestamp of last successful
+          <para>This file contains the timestamp of the last successful
           synchronization.</para>
         </listitem>
       </varlistentry>

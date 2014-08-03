@@ -90,7 +90,7 @@
   <refsect1>
     <title>Description</title>
 
-    <para>Those three functions add new event sources to an event loop
+    <para>These three functions add new event sources to an event loop
     object. The event loop is specified in
     <parameter>event</parameter>, the event source is returned in the
     <parameter>source</parameter> parameter. The event sources are

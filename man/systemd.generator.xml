@@ -87,7 +87,7 @@
     dynamically into native unit files.</para>
 
     <para>Generators are loaded from a set of paths determined during
-    compilation, listed above. System and user generators are loaded
+    compilation, as listed above. System and user generators are loaded
     from directories with names ending in
     <filename>system-generators/</filename> and
     <filename>user-generators/</filename>, respectively. Generators
@@ -169,14 +169,14 @@
             or <command>systemd</command> itself (this means: no
             <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>!). They
             can however rely on the most basic kernel functionality to
-            be available, including mounted <filename>/sys</filename>,
+            be available, including a mounted <filename>/sys</filename>,
             <filename>/proc</filename>, <filename>/dev</filename>.
           </para>
         </listitem>
 
         <listitem>
           <para>
-            Units written by generators are removed when configuration
+            Units written by generators are removed when the configuration
             is reloaded. That means the lifetime of the generated
             units is closely bound to the reload cycles of
             <command>systemd</command> itself.
@@ -233,7 +233,7 @@
           <para>
             If you are careful, you can implement generators in shell
             scripts. We do recommend C code however, since generators
-            delay are executed synchronously and hence delay the
+            are executed synchronously and hence delay the
             entire boot if they are slow.
           </para>
         </listitem>

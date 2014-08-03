@@ -268,7 +268,7 @@
         implementation of USB gadget functions. This expects an
         absolute file system path as the argument. Behavior otherwise
         is very similar to the <varname>ListenFIFO=</varname>
-        directive above. Use this to open FunctionFS endpoint
+        directive above. Use this to open the FunctionFS endpoint
         <filename>ep0</filename>. When using this option, the
         activated service has to have the
         <varname>USBFunctionDescriptors=</varname> and
@@ -376,7 +376,7 @@
         activation.</para>
 
         <para>For IPv4 and IPv6 connections, the <varname>REMOTE_ADDR</varname>
-        environment variable will contain the remote IP, and <varname>REMOTE_PORT</varname>
+        environment variable will contain the remote IP address, and <varname>REMOTE_PORT</varname>
         will contain the remote port. This is the same as the format used by CGI.
         For SOCK_RAW, the port is the IP protocol.</para></listitem>
       </varlistentry>
@@ -432,7 +432,7 @@
         <term><varname>KeepAliveIntervalSec=</varname></term>
         <listitem><para>Takes time (in seconds) as argument between
         individual keepalive probes, if the socket option SO_KEEPALIVE
-        has been set on this socket seconds as argument. This controls
+        has been set on this socket. This controls
         the TCP_KEEPINTVL socket option (see
         <citerefentry project='man-pages'><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry>
         and the <ulink
@@ -443,7 +443,7 @@
 
       <varlistentry>
         <term><varname>KeepAliveProbes=</varname></term>
-        <listitem><para>Takes integer as argument. It's the number of
+        <listitem><para>Takes an integer as argument. It's the number of
         unacknowledged probes to send before considering the
         connection dead and notifying the application layer. This
         controls the TCP_KEEPCNT socket option (see
@@ -752,12 +752,12 @@
         <term><varname>FileDescriptorName=</varname></term>
         <listitem><para>Assigns a name to all file descriptors this
         socket unit encapsulates. This is useful to help activated
-        services to identify specific file descriptors, if multiple
+        services identify specific file descriptors, if multiple fds
         are passed. Services may use the
         <citerefentry><refentrytitle>sd_listen_fds_with_names</refentrytitle><manvolnum>3</manvolnum></citerefentry>
         call to acquire the names configured for the received file
         descriptors. Names may contain any ASCII character, but must
-        exclude control characters or <literal>:</literal>, and must
+        exclude control characters and <literal>:</literal>, and must
         be at most 255 characters in length. If this setting is not
         used, the file descriptor name defaults to the name of the
         socket unit, including its <filename>.socket</filename>

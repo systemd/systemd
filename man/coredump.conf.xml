@@ -98,7 +98,7 @@
         <term><varname>Compress=</varname></term>
 
         <listitem><para>Controls compression for external
-        storage. Takes a boolean argument, defaults to
+        storage. Takes a boolean argument, which defaults to
         <literal>yes</literal>.</para>
         </listitem>
       </varlistentry>

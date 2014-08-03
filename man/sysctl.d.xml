@@ -142,8 +142,8 @@ net.bridge.bridge-nf-call-arptables = 0
       <para>This method applies settings when the module is
       loaded. Please note that, unless the <filename>br_netfilter</filename>
       module is loaded, bridged packets will not be filtered by
-      netfilter (starting with kernel 3.18), so simply not loading the
-      module is suffient to avoid filtering.</para>
+      Netfilter (starting with kernel 3.18), so simply not loading the
+      module is sufficient to avoid filtering.</para>
     </example>
 
     <example>
@@ -163,9 +163,9 @@ net.bridge.bridge-nf-call-arptables = 0
 
       <para>This method forces the module to be always loaded. Please
       note that, unless the <filename>br_netfilter</filename> module is
-      loaded, bridged packets will not be filtered with netfilter
+      loaded, bridged packets will not be filtered with Netfilter
       (starting with kernel 3.18), so simply not loading the module is
-      suffient to avoid filtering.</para>
+      sufficient to avoid filtering.</para>
     </example>
   </refsect1>
 

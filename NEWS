@@ -117,7 +117,7 @@ CHANGES WITH 227:
 
         * File descriptors passed during socket activation may now be
           named. A new API sd_listen_fds_with_names() is added to
-          access the names.  The default names may be overriden,
+          access the names.  The default names may be overridden,
           either in the .socket file using the FileDescriptorName=
           parameter, or by passing FDNAME= when storing the file
           descriptors using sd_notify().
@@ -1209,7 +1209,7 @@ CHANGES WITH 218:
 
         * journalctl gained two new commands --vacuum-size= and
           --vacuum-time= to delete old journal files until the
-          remaining ones take up no more the specified size on disk,
+          remaining ones take up no more than the specified size on disk,
           or are not older than the specified time.
 
         * A new, native PPPoE library has been added to sd-network,
@@ -1303,7 +1303,7 @@ CHANGES WITH 218:
           a fixed machine ID for subsequent boots.
 
         * networkd's .netdev files now provide a large set of
-          configuration parameters for VXLAN devices. Similar, the
+          configuration parameters for VXLAN devices. Similarly, the
           bridge port cost parameter is now configurable in .network
           files. There's also new support for configuring IP source
           routing. networkd .link files gained support for a new
@@ -1636,7 +1636,7 @@ CHANGES WITH 216:
 
         * .socket units gained a new DeferAcceptSec= setting that
           controls the kernels' TCP_DEFER_ACCEPT sockopt for
-          TCP. Similar, support for controlling TCP keep-alive
+          TCP. Similarly, support for controlling TCP keep-alive
           settings has been added (KeepAliveTimeSec=,
           KeepAliveIntervalSec=, KeepAliveProbes=). Also, support for
           turning off Nagle's algorithm on TCP has been added
@@ -1852,7 +1852,7 @@ CHANGES WITH 215:
         * tmpfiles learnt a new "L+" directive which creates a symlink
           but (unlike "L") deletes a pre-existing file first, should
           it already exist and not already be the correct
-          symlink. Similar, "b+", "c+" and "p+" directives have been
+          symlink. Similarly, "b+", "c+" and "p+" directives have been
           added as well, which create block and character devices, as
           well as fifos in the filesystem, possibly removing any
           pre-existing files of different types.
@@ -2035,14 +2035,14 @@ CHANGES WITH 214:
           CAP_NET_BROADCAST, CAP_NET_RAW capabilities though, but
           loses the ability to write to files owned by root this way.
 
-        * Similar, systemd-resolved now runs under its own
+        * Similarly, systemd-resolved now runs under its own
           "systemd-resolve" user with no capabilities remaining.
 
-        * Similar, systemd-bus-proxyd now runs under its own
+        * Similarly, systemd-bus-proxyd now runs under its own
           "systemd-bus-proxy" user with only CAP_IPC_OWNER remaining.
 
         * systemd-networkd gained support for setting up "veth"
-          virtual ethernet devices for container connectivity, as well
+          virtual Ethernet devices for container connectivity, as well
           as GRE and VTI tunnels.
 
         * systemd-networkd will no longer automatically attempt to
@@ -2744,7 +2744,7 @@ CHANGES WITH 209:
         * The configuration of network interface naming rules for
           "permanent interface names" has changed: a new NamePolicy=
           setting in the [Link] section of .link files determines the
-          priority of possible naming schemes (onboard, slot, mac,
+          priority of possible naming schemes (onboard, slot, MAC,
           path). The default value of this setting is determined by
           /usr/lib/net/links/99-default.link. Old
           80-net-name-slot.rules udev configuration file has been

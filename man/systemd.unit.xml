@@ -363,7 +363,7 @@
   <refsect1>
     <title>[Unit] Section Options</title>
 
-    <para>Unit file may include a [Unit] section, which carries
+    <para>The unit file may include a [Unit] section, which carries
     generic information about the unit that is not dependent on the
     type of unit:</para>
 
@@ -1025,7 +1025,7 @@
 
         <listitem><para>Similar to the
         <varname>ConditionArchitecture=</varname>,
-        <varname>ConditionVirtualization=</varname>, ... condition
+        <varname>ConditionVirtualization=</varname>, etc., condition
         settings described above, these settings add assertion checks
         to the start-up of the unit. However, unlike the conditions
         settings, any assertion setting that is not met results in

@@ -239,7 +239,7 @@
         <term><option>--pty</option></term>
         <term><option>-t</option></term>
 
-        <listitem><para>When invoking a command as service connects
+        <listitem><para>When invoking a command, the service connects
         its standard input and output to the invoking tty via a
         pseudo TTY device. This allows invoking binaries as services
         that expect interactive user input, such as interactive

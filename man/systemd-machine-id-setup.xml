@@ -88,7 +88,7 @@
       and is different for every booted instance of the
       VM.</para></listitem>
 
-      <listitem><para>Similar, if run inside a Linux container
+      <listitem><para>Similarly, if run inside a Linux container
       environment and a UUID is configured for the container, this is
       used to initialize the machine ID. For details, see the
       documentation of the <ulink

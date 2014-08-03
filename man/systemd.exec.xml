@@ -493,7 +493,7 @@
       </varlistentry>
       <varlistentry>
         <term><varname>SyslogLevel=</varname></term>
-        <listitem><para>Default syslog level to use when logging to
+        <listitem><para>The default syslog level to use when logging to
         syslog or the kernel log buffer. One of
         <option>emerg</option>,
         <option>alert</option>,
@@ -951,13 +951,13 @@
          invoked process must implement a
          <command>getty</command>-compatible utmp/wtmp logic. If
          <literal>login</literal> is set, first an
-         <constant>INIT_PROCESS</constant> entry, followed by an
+         <constant>INIT_PROCESS</constant> entry, followed by a
          <constant>LOGIN_PROCESS</constant> entry is generated. In
          this case, the invoked process must implement a <citerefentry
          project='die-net'><refentrytitle>login</refentrytitle><manvolnum>1</manvolnum></citerefentry>-compatible
          utmp/wtmp logic. If <literal>user</literal> is set, first an
          <constant>INIT_PROCESS</constant> entry, then a
-         <constant>LOGIN_PROCESS</constant> entry and finally an
+         <constant>LOGIN_PROCESS</constant> entry and finally a
          <constant>USER_PROCESS</constant> entry is generated. In this
          case, the invoked process may be any process that is suitable
          to be run as session leader. Defaults to

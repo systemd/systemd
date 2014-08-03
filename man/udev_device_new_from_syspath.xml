@@ -141,7 +141,7 @@
     and
     <citerefentry><refentrytitle>udev_device_get_sysname</refentrytitle><manvolnum>3</manvolnum></citerefentry>)
     and <function>udev_device_new_from_device_id</function> looks up devices based on the provided
-    device id, which is a special string in one of the following four forms:
+    device ID, which is a special string in one of the following four forms:
     <table>
       <title>Device ID strings</title>
 

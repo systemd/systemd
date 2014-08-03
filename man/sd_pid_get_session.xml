@@ -205,7 +205,7 @@
     determine the Unix UID (user identifier) of the owner of the
     session of a process identified the specified PID. Note that this
     function will succeed for user processes which are shared between
-    multiple login sessions of the same user, where
+    multiple login sessions of the same user, whereas
     <function>sd_pid_get_session()</function> will fail. For processes
     not being part of a login session and not being a shared process
     of a user, this function will fail with -ENODATA.</para>
@@ -227,7 +227,7 @@
     <citerefentry project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     call after use.</para>
 
-    <para>Similar, <function>sd_pid_get_user_slice()</function>
+    <para>Similarly, <function>sd_pid_get_user_slice()</function>
     returns the user slice (as managed by the user's systemd instance)
     of a process.</para>
 
@@ -294,7 +294,7 @@
       <varlistentry>
         <term><constant>-ENODATA</constant></term>
 
-        <listitem><para>Given field is not specified for the described
+        <listitem><para>The given field is not specified for the described
         process or peer.</para>
         </listitem>
       </varlistentry>

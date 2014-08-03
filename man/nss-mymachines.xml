@@ -76,7 +76,7 @@
 
     <para>It is recommended to place <literal>mymachines</literal>
     near the end of the <filename>nsswitch.conf</filename> lines to
-    make sure that its mappings are only used as fallback, and any
+    make sure that its mappings are only used as fallback, and that any
     other mappings, such as DNS or <filename>/etc/hosts</filename>
     based mappings, take precedence.</para>
   </refsect1>

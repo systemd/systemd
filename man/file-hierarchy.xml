@@ -245,7 +245,7 @@
 
       <varlistentry>
         <term><filename>/usr/lib/<replaceable>arch-id</replaceable></filename></term>
-        <listitem><para>Location for placing dynamic libraries, also
+        <listitem><para>Location for placing dynamic libraries into, also
         called <varname>$libdir</varname>. The architecture identifier
         to use is defined on <ulink
         url="https://wiki.debian.org/Multiarch/Tuples">Multiarch
@@ -405,7 +405,7 @@
         when the user logs out. Usually, it is a better idea to use
         memory mapped files in <filename>/run</filename> (for system
         programs) or <varname>$XDG_RUNTIME_DIR</varname> (for user
-        programs) instead of POSIX shared memory segments, since those
+        programs) instead of POSIX shared memory segments, since these
         directories are not world-writable and hence not vulnerable to
         security-sensitive name clashes.</para></listitem>
       </varlistentry>
@@ -513,7 +513,7 @@
         directory should have no effect on operation of programs,
         except for increased runtimes necessary to rebuild these
         caches. If an application finds
-        <varname>$XDG_CACHE_HOME</varname> set, is should use the
+        <varname>$XDG_CACHE_HOME</varname> set, it should use the
         directory specified in it instead of this
         directory.</para></listitem>
       </varlistentry>
@@ -525,7 +525,7 @@
         new user is created, this directory will be empty or not exist
         at all. Applications should fall back to defaults should their
         configuration or state in this directory be missing. If an
-        application finds <varname>$XDG_CONFIG_HOME</varname> set, is
+        application finds <varname>$XDG_CONFIG_HOME</varname> set, it
         should use the directory specified in it instead of this
         directory.</para></listitem>
       </varlistentry>
@@ -568,7 +568,7 @@
         such as fonts or artwork. Usually, the precise location and
         format of files stored below this directory is subject to
         specifications that ensure interoperability. If an application
-        finds <varname>$XDG_DATA_HOME</varname> set, is should use the
+        finds <varname>$XDG_DATA_HOME</varname> set, it should use the
         directory specified in it instead of this
         directory.</para></listitem>
       </varlistentry>
@@ -618,7 +618,7 @@
 
     <para>It is strongly recommended that <filename>/dev</filename> is
     the only location below which device nodes shall be placed.
-    Similar, <filename>/run</filename> shall be the only location to
+    Similarly, <filename>/run</filename> shall be the only location to
     place sockets and FIFOs. Regular files, directories and symlinks
     may be used in all directories.</para>
   </refsect1>

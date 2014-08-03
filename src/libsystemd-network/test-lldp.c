@@ -54,7 +54,7 @@ static int lldp_build_tlv_packet(tlv_packet **ret) {
                 .ether_type = htons(ETHERTYPE_LLDP),
         };
 
-        /* Append ethernet header */
+        /* Append Ethernet header */
         memcpy(&ether.ether_dhost, lldp_dst, ETHER_ADDR_LEN);
         memcpy(&ether.ether_shost, &mac_addr, ETHER_ADDR_LEN);
 

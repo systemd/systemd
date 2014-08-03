@@ -68,7 +68,7 @@
     system.</para>
 
     <para><command>bootctl status</command> checks and prints the
-    currently installed versions of the boot loader binaries and the
+    currently installed versions of the boot loader binaries and
     all current EFI boot variables.</para>
 
     <para><command>bootctl update</command> updates all installed

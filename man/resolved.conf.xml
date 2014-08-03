@@ -59,7 +59,7 @@
     <title>Description</title>
 
     <para>These configuration files control local DNS and LLMNR
-    name resolving.</para>
+    name resolution.</para>
 
   </refsect1>
 
@@ -104,8 +104,8 @@
         Resolution support (<ulink
         url="https://tools.ietf.org/html/rfc4795">RFC 4794</ulink>) on
         the local host. If true, enables full LLMNR responder and
-        resolver support. If false, disable both. If set to
-        <literal>resolve</literal>, only resolving support is enabled,
+        resolver support. If false, disables both. If set to
+        <literal>resolve</literal>, only resolution support is enabled,
         but responding is disabled. Note that
         <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         also maintains per-interface LLMNR settings. LLMNR will be

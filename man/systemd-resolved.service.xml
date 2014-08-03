@@ -75,7 +75,7 @@
     <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for details. To improve compatibility,
     <filename>/etc/resolv.conf</filename> is read in order to discover
-    configured system DNS servers, however only if it is not a symlink
+    configured system DNS servers, but only if it is not a symlink
     to <filename>/run/systemd/resolve/resolv.conf</filename> (see above).</para>
 
     <para><command>systemd-resolved</command> synthesizes DNS RRs for the following cases:</para>

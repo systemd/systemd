@@ -231,7 +231,7 @@
           be augmented with data from
           <filename>/proc</filename>. When this is turned on, the data
           shown is possibly inconsistent, as the data read from
-          <filename>/proc</filename> might be more recent than rest of
+          <filename>/proc</filename> might be more recent than the rest of
           the credential information. Defaults to <literal>yes</literal>.</para>
         </listitem>
       </varlistentry>
@@ -281,7 +281,7 @@
         <replaceable>SERVICE</replaceable> is specified, show messages
         to or from this peer, identified by its well-known or unique
         name. Otherwise, show all messages on the bus. Use Ctrl-C to
-        terminate dump.</para></listitem>
+        terminate the dump.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -344,7 +344,7 @@
       <varlistentry>
         <term><command>set-property</command> <arg choice="plain"><replaceable>SERVICE</replaceable></arg> <arg choice="plain"><replaceable>OBJECT</replaceable></arg> <arg choice="plain"><replaceable>INTERFACE</replaceable></arg> <arg choice="plain"><replaceable>PROPERTY</replaceable></arg> <arg choice="plain"><replaceable>SIGNATURE</replaceable></arg> <arg choice="plain" rep="repeat"><replaceable>ARGUMENT</replaceable></arg></term>
 
-        <listitem><para>Set the current value an object
+        <listitem><para>Set the current value of an object
         property. Takes a service name, object path, interface name,
         property name, property signature, followed by a list of
         parameters formatted as strings.</para></listitem>
@@ -370,9 +370,9 @@
     types, each parameter following the signature should simply be the
     parameter's value formatted as string. Positive boolean values may
     be formatted as <literal>true</literal>, <literal>yes</literal>,
-    <literal>on</literal>, <literal>1</literal>; negative boolean
+    <literal>on</literal>, or <literal>1</literal>; negative boolean
     values may be specified as <literal>false</literal>,
-    <literal>no</literal>, <literal>off</literal>,
+    <literal>no</literal>, <literal>off</literal>, or
     <literal>0</literal>. For arrays, a numeric argument for the
     number of entries followed by the entries shall be specified. For
     variants, the signature of the contents shall be specified,
@@ -456,7 +456,7 @@ ARRAY "s" {
       of the <literal>org.freedesktop.systemd1</literal>
       service, and passes it two strings
       <literal>cups.service</literal> and
-      <literal>replace</literal>. As result of the method
+      <literal>replace</literal>. As a result of the method
       call, a single object path parameter is received and
       shown:</para>
 

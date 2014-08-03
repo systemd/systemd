@@ -42,7 +42,7 @@
 
   <refnamediv>
     <refname>systemd-machine-id-commit.service</refname>
-    <refpurpose>Commit a transient machine-id to disk</refpurpose>
+    <refpurpose>Commit a transient machine ID to disk</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>

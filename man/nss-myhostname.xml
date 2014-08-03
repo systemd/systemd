@@ -100,7 +100,7 @@
 
     <para>It is recommended to place <literal>myhostname</literal>
     last in the <filename>nsswitch.conf</filename> line to make sure
-    that this mapping is only used as fallback, and any DNS or
+    that this mapping is only used as fallback, and that any DNS or
     <filename>/etc/hosts</filename> based mapping takes
     precedence.</para>
   </refsect1>

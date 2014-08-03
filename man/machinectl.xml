@@ -245,7 +245,7 @@
         <literal>checksum</literal> and <literal>signature</literal>.
         If <literal>no</literal>, no verification is done. If
         <literal>checksum</literal> is specified, the download is
-        checked for integrity after transfer is complete, but no
+        checked for integrity after the transfer is complete, but no
         signatures are verified. If <literal>signature</literal> is
         specified, the checksum is verified and the images's signature
         is checked against a local keyring of trustable vendors. It is
@@ -423,7 +423,7 @@
 
         <para>When using the <command>shell</command> command without
         arguments, (thus invoking the executed shell or command on the
-        local host), it is similar in many ways to a <citerefentry
+        local host), it is in many ways similar to a <citerefentry
         project='die-net'><refentrytitle>su</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         session, but, unlike <command>su</command>, completely isolates
         the new session from the originating session, so that it
@@ -433,7 +433,7 @@
         environment variables or resource limits, among other
         properties.</para>
 
-        <para>Note that the
+        <para>Note that
         <citerefentry><refentrytitle>systemd-run</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         may be used in place of the <command>shell</command> command,
         and allows more detailed, low-level configuration of the
@@ -633,7 +633,7 @@
       <varlistentry>
         <term><command>set-limit</command> [<replaceable>NAME</replaceable>] <replaceable>BYTES</replaceable></term>
 
-        <listitem><para>Sets the maximum size in bytes a specific
+        <listitem><para>Sets the maximum size in bytes that a specific
         container or VM image, or all images, may grow up to on disk
         (disk quota). Takes either one or two parameters. The first,
         optional parameter refers to a container or VM image name. If
@@ -646,7 +646,7 @@
 
         <para>Note that per-container size limits are only supported
         on btrfs file systems. Also note that, if
-        <command>set-limit</command> is invoked without image
+        <command>set-limit</command> is invoked without an image
         parameter, and <filename>/var/lib/machines</filename> is
         empty, and the directory is not located on btrfs, a btrfs
         loopback file is implicitly created as
@@ -656,7 +656,7 @@
         loopback may later be readjusted with
         <command>set-limit</command>, as well. If such a
         loopback-mounted <filename>/var/lib/machines</filename>
-        directory is used, <command>set-limit</command> without image
+        directory is used, <command>set-limit</command> without an image
         name alters both the quota setting within the file system as
         well as the loopback file and file system size
         itself.</para></listitem>
@@ -802,7 +802,7 @@
         and places it under the specified name in
         <filename>/var/lib/machines/</filename>. When
         <command>import-tar</command> is used, the file specified as
-        first argument should be a tar archive, possibly compressed
+        the first argument should be a tar archive, possibly compressed
         with xz, gzip or bzip2. It will then be unpacked into its own
         subvolume in <filename>/var/lib/machines</filename>. When
         <command>import-raw</command> is used, the file should be a
@@ -883,17 +883,17 @@
     semantics. Specifically, they must consist of one or more
     non-empty label strings, separated by dots. No leading or trailing
     dots are allowed. No sequences of multiple dots are allowed. The
-    label strings may only consists of alphanumeric characters as well
+    label strings may only consist of alphanumeric characters as well
     as the dash and underscore. The maximum length of a machine name
     is 64 characters.</para>
 
     <para>A special machine with the name <literal>.host</literal>
     refers to the running host system itself. This is useful for execution
-    operations or inspecting the host system as well. Not that
+    operations or inspecting the host system as well. Note that
     <command>machinectl list</command> will not show this special
     machine unless the <option>--all</option> switch is specified.</para>
 
-    <para>Requirements on image names are less strict, however must be
+    <para>Requirements on image names are less strict, however, they must be
     valid UTF-8, must be suitable as file names (hence not be the
     single or double dot, and not include a slash), and may not
     contain control characters. Since many operations search for an
@@ -901,7 +901,7 @@
     images in the same strict fashion as machines.</para>
 
     <para>A special image with the name <literal>.host</literal>
-    refers to the image of the running host system. It is hence
+    refers to the image of the running host system. It hence
     conceptually maps to the special <literal>.host</literal> machine
     name described above. Note that <command>machinectl
     list-images</command> won't show this special image either, unless
@@ -943,7 +943,7 @@
       <listitem><para>A simple directory tree, containing the files
       and directories of the container to boot.</para></listitem>
 
-      <listitem><para>A subvolume (on btrfs file systems), which are
+      <listitem><para>Subvolumes (on btrfs file systems), which are
       similar to the simple directories, described above. However,
       they have additional benefits, such as efficient cloning and
       quota reporting.</para></listitem>
@@ -956,7 +956,7 @@
 
     <para>See
     <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    for more information on image formats, in particular it's
+    for more information on image formats, in particular its
     <option>--directory=</option> and <option>--image=</option>
     options.</para>
   </refsect1>
@@ -1010,8 +1010,8 @@
 
       <programlisting># machinectl export-tar fedora myfedora.tar.xz</programlisting>
 
-      <para>Exports the container <literal>fedora</literal> in an
-      xz-compress tar file <filename>myfedora.tar.xz</filename> in the
+      <para>Exports the container <literal>fedora</literal> as an
+      xz-compressed tar file <filename>myfedora.tar.xz</filename> into the
       current directory.</para>
     </example>
 
