@@ -1361,3 +1361,15 @@ static const char* const dns_protocol_table[_DNS_PROTOCOL_MAX] = {
         [DNS_PROTOCOL_LLMNR] = "llmnr",
 };
 DEFINE_STRING_TABLE_LOOKUP(dns_protocol, DnsProtocol);
+
+static const char* const dnssec_algorithm_table[_DNSSEC_ALGORITHM_MAX_DEFINED] = {
+        [DNSSEC_ALGORITHM_RSAMD5]     = "RSAMD5",
+        [DNSSEC_ALGORITHM_DH]         = "DH",
+        [DNSSEC_ALGORITHM_DSA]        = "DSA",
+        [DNSSEC_ALGORITHM_ECC]        = "ECC",
+        [DNSSEC_ALGORITHM_RSASHA1]    = "RSASHA1",
+        [DNSSEC_ALGORITHM_INDIRECT]   = "INDIRECT",
+        [DNSSEC_ALGORITHM_PRIVATEDNS] = "PRIVATEDNS",
+        [DNSSEC_ALGORITHM_PRIVATEOID] = "PRIVATEOID",
+};
+DEFINE_STRING_TABLE_LOOKUP(dnssec_algorithm, int);

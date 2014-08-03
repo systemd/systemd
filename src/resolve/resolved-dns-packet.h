@@ -200,3 +200,19 @@ static inline uint16_t dnskey_to_flags(const DnsResourceRecord *rr) {
         return (rr->dnskey.zone_key_flag * DNSKEY_FLAG_ZONE_KEY |
                 rr->dnskey.sep_flag * DNSKEY_FLAG_SEP);
 }
+
+/* http://tools.ietf.org/html/rfc4034#appendix-A.1 */
+enum {
+        DNSSEC_ALGORITHM_RSAMD5 = 1,
+        DNSSEC_ALGORITHM_DH,
+        DNSSEC_ALGORITHM_DSA,
+        DNSSEC_ALGORITHM_ECC,
+        DNSSEC_ALGORITHM_RSASHA1,
+        DNSSEC_ALGORITHM_INDIRECT = 252,
+        DNSSEC_ALGORITHM_PRIVATEDNS,
+        DNSSEC_ALGORITHM_PRIVATEOID,
+        _DNSSEC_ALGORITHM_MAX_DEFINED
+};
+
+const char* dnssec_algorithm_to_string(int i) _const_;
+int dnssec_algorithm_from_string(const char *s) _pure_;

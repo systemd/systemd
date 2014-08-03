@@ -584,19 +584,25 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
                         return -ENOMEM;
                 break;
 
-        case DNS_TYPE_DNSKEY:
+        case DNS_TYPE_DNSKEY: {
+                const char *alg;
+
+                alg = dnssec_algorithm_to_string(rr->dnskey.algorithm);
+
                 t = hexmem(rr->dnskey.key, rr->dnskey.key_size);
                 if (!t)
                         return -ENOMEM;
 
-                r = asprintf(&s, "%s %u 3 %u %s",
+                r = asprintf(&s, "%s %u 3 %.*s%.*u %s",
                              k,
                              dnskey_to_flags(rr),
-                             rr->dnskey.algorithm,
+                             alg ? -1 : 0, alg,
+                             alg ? 0 : 1, alg ? 0u : (unsigned) rr->dnskey.algorithm,
                              t);
                 if (r < 0)
                         return -ENOMEM;
                 break;
+        }
 
         default:
                 t = hexmem(rr->generic.data, rr->generic.size);
