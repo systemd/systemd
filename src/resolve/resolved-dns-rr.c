@@ -274,6 +274,11 @@ DnsResourceRecord* dns_resource_record_unref(DnsResourceRecord *rr) {
                         free(rr->dnskey.key);
                         break;
 
+                case DNS_TYPE_RRSIG:
+                        free(rr->rrsig.signer);
+                        free(rr->rrsig.signature);
+                        break;
+
                 case DNS_TYPE_LOC:
                 case DNS_TYPE_A:
                 case DNS_TYPE_AAAA:
@@ -417,6 +422,21 @@ int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecor
                        a->dnskey.algorithm == b->dnskey.algorithm &&
                        a->dnskey.key_size == b->dnskey.key_size &&
                        memcmp(a->dnskey.key, b->dnskey.key, a->dnskey.key_size) == 0;
+
+        case DNS_TYPE_RRSIG:
+                /* do the fast comparisons first */
+                if (a->rrsig.type_covered != a->rrsig.type_covered ||
+                    a->rrsig.algorithm != a->rrsig.algorithm ||
+                    a->rrsig.labels != a->rrsig.labels ||
+                    a->rrsig.original_ttl != a->rrsig.original_ttl ||
+                    a->rrsig.expiration != a->rrsig.expiration ||
+                    a->rrsig.inception != a->rrsig.inception ||
+                    a->rrsig.key_tag != a->rrsig.key_tag ||
+                    a->rrsig.signature_size != b->rrsig.signature_size ||
+                    memcmp(a->rrsig.signature, b->rrsig.signature, a->rrsig.signature_size) != 0)
+                        return false;
+
+                return dns_name_equal(a->rrsig.signer, b->rrsig.signer);
 
         default:
                 return a->generic.size == b->generic.size &&
@@ -598,6 +618,37 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
                              dnskey_to_flags(rr),
                              alg ? -1 : 0, alg,
                              alg ? 0 : 1, alg ? 0u : (unsigned) rr->dnskey.algorithm,
+                             t);
+                if (r < 0)
+                        return -ENOMEM;
+                break;
+        }
+
+        case DNS_TYPE_RRSIG: {
+                const char *type, *alg;
+
+                type = dns_type_to_string(rr->rrsig.type_covered);
+                alg = dnssec_algorithm_to_string(rr->rrsig.algorithm);
+
+                t = hexmem(rr->rrsig.signature, rr->rrsig.signature_size);
+                if (!t)
+                        return -ENOMEM;
+
+                /* TYPE?? follows
+                 * http://tools.ietf.org/html/rfc3597#section-5 */
+
+                r = asprintf(&s, "%s %s%.*u %.*s%.*u %u %u %u %u %u %s %s",
+                             k,
+                             type ?: "TYPE",
+                             type ? 0 : 1, type ? 0u : (unsigned) rr->rrsig.type_covered,
+                             alg ? -1 : 0, alg,
+                             alg ? 0 : 1, alg ? 0u : (unsigned) rr->rrsig.algorithm,
+                             rr->rrsig.labels,
+                             rr->rrsig.original_ttl,
+                             rr->rrsig.expiration,
+                             rr->rrsig.inception,
+                             rr->rrsig.key_tag,
+                             rr->rrsig.signer,
                              t);
                 if (r < 0)
                         return -ENOMEM;

@@ -32,6 +32,7 @@ Features:
   - DNSSEC
         - use base64 for key presentation?
         - add display of private key types (http://tools.ietf.org/html/rfc4034#appendix-A.1.1)?
+        - add nice formatting of DNS timestamps
   - LLMNR:
         - do not fail daemon startup if socket is already busy (container)
         - process incoming notification of conflict

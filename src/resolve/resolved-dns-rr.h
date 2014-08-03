@@ -125,6 +125,20 @@ struct DnsResourceRecord {
                         void* key;
                         size_t key_size;
                 } dnskey;
+
+                /* http://tools.ietf.org/html/rfc4034#section-3.1 */
+                struct {
+                        uint16_t type_covered;
+                        uint8_t algorithm;
+                        uint8_t labels;
+                        uint32_t original_ttl;
+                        uint32_t expiration;
+                        uint32_t inception;
+                        uint16_t key_tag;
+                        char *signer;
+                        void *signature;
+                        size_t signature_size;
+                } rrsig;
         };
 };
 
