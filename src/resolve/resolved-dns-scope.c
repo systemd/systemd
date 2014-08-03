@@ -412,7 +412,9 @@ static int dns_scope_make_reply_packet(
 
         assert(s);
 
-        if (q->n_keys <= 0 && answer->n_rrs <= 0 && soa->n_rrs <= 0)
+        if ((!q || q->n_keys <= 0)
+            && (!answer || answer->n_rrs <= 0)
+            && (!soa || soa->n_rrs <= 0))
                 return -EINVAL;
 
         r = dns_packet_new(&p, s->protocol, 0);
