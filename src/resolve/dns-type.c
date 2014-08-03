@@ -32,16 +32,14 @@ lookup_dns_type (register const char *str, register unsigned int len);
 #include "dns_type-from-name.h"
 #include "dns_type-to-name.h"
 
-int dns_type_from_string(const char *s, uint16_t *type) {
+int dns_type_from_string(const char *s) {
         const struct dns_type_name *sc;
 
         assert(s);
-        assert(type);
 
         sc = lookup_dns_type(s, strlen(s));
         if (!sc)
-                return -EINVAL;
+                return _DNS_TYPE_INVALID;
 
-        *type = sc->id;
-        return 0;
+        return sc->id;
 }
