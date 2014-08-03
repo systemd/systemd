@@ -42,7 +42,7 @@ AC_DEFUN([CC_CHECK_FLAG_APPEND], [
                  AS_TR_SH([cc_cv_$2_$3]),
           [eval "AS_TR_SH([cc_save_$2])='${$2}'"
            eval "AS_TR_SH([$2])='-Werror $3'"
-           AC_LINK_IFELSE([AC_LANG_SOURCE([int a = 0; int main(void) { return a; } ])],
+           AC_LINK_IFELSE([AC_LANG_SOURCE([int main(void) { return 0; } ])],
                           [eval "AS_TR_SH([cc_cv_$2_$3])='yes'"],
                           [eval "AS_TR_SH([cc_cv_$2_$3])='no'"])
            eval "AS_TR_SH([$2])='$cc_save_$2'"])
