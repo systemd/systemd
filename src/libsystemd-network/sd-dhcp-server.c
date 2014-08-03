@@ -919,7 +919,7 @@ int sd_dhcp_server_start(sd_dhcp_server *server) {
 
 int sd_dhcp_server_forcerenew(sd_dhcp_server *server) {
         unsigned i;
-        int r;
+        int r = 0;
 
         assert_return(server, -EINVAL);
         assert(server->bound_leases);
