@@ -105,7 +105,7 @@ static int resolve_host(sd_bus *bus, const char *name) {
                         return bus_log_parse_error(r);
 
                 if (!IN_SET(family, AF_INET, AF_INET6)) {
-                        log_debug("%s: skipping entry with family %hu (%s)", name, family, af_to_name(family) ?: "unknown");
+                        log_debug("%s: skipping entry with family %d (%s)", name, family, af_to_name(family) ?: "unknown");
                         continue;
                 }
 
