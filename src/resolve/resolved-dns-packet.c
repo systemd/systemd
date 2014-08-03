@@ -632,11 +632,28 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *star
                 r = dns_packet_append_uint8(p, rr->sshfp.algorithm, NULL);
                 if (r < 0)
                         goto fail;
+
                 r = dns_packet_append_uint8(p, rr->sshfp.fptype, NULL);
                 if (r < 0)
                         goto fail;
 
                 r = dns_packet_append_blob(p, rr->sshfp.key, rr->sshfp.key_size, NULL);
+                break;
+
+        case DNS_TYPE_DNSKEY:
+                r = dns_packet_append_uint16(p, dnskey_to_flags(rr), NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_uint8(p, 3u, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_uint8(p, rr->dnskey.algorithm, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_blob(p, rr->dnskey.key, rr->dnskey.key_size, NULL);
                 break;
 
         case _DNS_TYPE_INVALID: /* unparseable */
@@ -942,10 +959,39 @@ fail:
         return r;
 }
 
+static int dns_packet_read_public_key(DnsPacket *p, size_t length,
+                                      void **dp, size_t *lengthp,
+                                      size_t *start) {
+        int r;
+        const void *d;
+        void *d2;
+
+        r = dns_packet_read(p, length, &d, NULL);
+        if (r < 0)
+                return r;
+
+        d2 = memdup(d, length);
+        if (!d2)
+                return -ENOMEM;
+
+        *dp = d2;
+        *lengthp = length;
+        return 0;
+}
+
 static bool loc_size_ok(uint8_t size) {
         uint8_t m = size >> 4, e = size & 0xF;
 
         return m <= 9 && e <= 9 && (m > 0 || e == 0);
+}
+
+static int dnskey_parse_flags(DnsResourceRecord *rr, uint16_t flags) {
+        if (flags & ~(DNSKEY_FLAG_SEP | DNSKEY_FLAG_ZONE_KEY))
+                return -EBADMSG;
+
+        rr->dnskey.zone_key_flag = flags & DNSKEY_FLAG_ZONE_KEY;
+        rr->dnskey.sep_flag = flags & DNSKEY_FLAG_SEP;
+        return 0;
 }
 
 int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
@@ -1143,7 +1189,6 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
         }
 
         case DNS_TYPE_SSHFP:
-
                 r = dns_packet_read_uint8(p, &rr->sshfp.algorithm, NULL);
                 if (r < 0)
                         goto fail;
@@ -1152,18 +1197,42 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_read(p, rdlength - 2, &d, NULL);
+                r = dns_packet_read_public_key(p, rdlength - 2,
+                                               &rr->sshfp.key, &rr->sshfp.key_size,
+                                               NULL);
+                break;
+
+        case DNS_TYPE_DNSKEY: {
+                uint16_t flags;
+                uint8_t proto;
+
+                r = dns_packet_read_uint16(p, &flags, NULL);
                 if (r < 0)
                         goto fail;
 
-                rr->sshfp.key = memdup(d, rdlength - 2);
-                if (!rr->sshfp.key) {
-                        r = -ENOMEM;
+                r = dnskey_parse_flags(rr, flags);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_read_uint8(p, &proto, NULL);
+                if (r < 0)
+                        goto fail;
+
+                /* protocol is required to be always 3 */
+                if (proto != 3) {
+                        r = -EBADMSG;
                         goto fail;
                 }
 
-                rr->sshfp.key_size = rdlength - 2;
+                r = dns_packet_read_uint8(p, &rr->dnskey.algorithm, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_read_public_key(p, rdlength - 4,
+                                               &rr->dnskey.key, &rr->dnskey.key_size,
+                                               NULL);
                 break;
+        }
 
         default:
         unparseable:

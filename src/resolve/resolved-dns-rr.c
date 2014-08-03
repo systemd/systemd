@@ -25,6 +25,7 @@
 
 #include "resolved-dns-domain.h"
 #include "resolved-dns-rr.h"
+#include "resolved-dns-packet.h"
 #include "dns-type.h"
 
 DnsResourceKey* dns_resource_key_new(uint16_t class, uint16_t type, const char *name) {
@@ -269,6 +270,10 @@ DnsResourceRecord* dns_resource_record_unref(DnsResourceRecord *rr) {
                         free(rr->sshfp.key);
                         break;
 
+                case DNS_TYPE_DNSKEY:
+                        free(rr->dnskey.key);
+                        break;
+
                 case DNS_TYPE_LOC:
                 case DNS_TYPE_A:
                 case DNS_TYPE_AAAA:
@@ -406,6 +411,13 @@ int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecor
                        a->sshfp.key_size == b->sshfp.key_size &&
                        memcmp(a->sshfp.key, b->sshfp.key, a->sshfp.key_size) == 0;
 
+        case DNS_TYPE_DNSKEY:
+                return a->dnskey.zone_key_flag == b->dnskey.zone_key_flag &&
+                       a->dnskey.sep_flag == b->dnskey.sep_flag &&
+                       a->dnskey.algorithm == b->dnskey.algorithm &&
+                       a->dnskey.key_size == b->dnskey.key_size &&
+                       memcmp(a->dnskey.key, b->dnskey.key, a->dnskey.key_size) == 0;
+
         default:
                 return a->generic.size == b->generic.size &&
                         memcmp(a->generic.data, b->generic.data, a->generic.size) == 0;
@@ -444,7 +456,7 @@ static char* format_location(uint32_t latitude, uint32_t longitude, uint32_t alt
 }
 
 int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
-        _cleanup_free_ char *k = NULL;
+        _cleanup_free_ char *k = NULL, *t = NULL;
         char *s;
         int r;
 
@@ -484,9 +496,7 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
                 break;
 
         case DNS_TYPE_SPF: /* exactly the same as TXT */
-        case DNS_TYPE_TXT: {
-                _cleanup_free_ char *t;
-
+        case DNS_TYPE_TXT:
                 t = strv_join_quoted(rr->txt.strings);
                 if (!t)
                         return -ENOMEM;
@@ -496,7 +506,6 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
                         return -ENOMEM;
 
                 break;
-        }
 
         case DNS_TYPE_A: {
                 _cleanup_free_ char *x = NULL;
@@ -511,18 +520,15 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
                 break;
         }
 
-        case DNS_TYPE_AAAA: {
-                _cleanup_free_ char *x = NULL;
-
-                r = in_addr_to_string(AF_INET6, (const union in_addr_union*) &rr->aaaa.in6_addr, &x);
+        case DNS_TYPE_AAAA:
+                r = in_addr_to_string(AF_INET6, (const union in_addr_union*) &rr->aaaa.in6_addr, &t);
                 if (r < 0)
                         return r;
 
-                s = strjoin(k, " ", x, NULL);
+                s = strjoin(k, " ", t, NULL);
                 if (!s)
                         return -ENOMEM;
                 break;
-        }
 
         case DNS_TYPE_SOA:
                 r = asprintf(&s, "%s %s %s %u %u %u %u %u",
@@ -547,55 +553,61 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
                         return -ENOMEM;
                 break;
 
-        case DNS_TYPE_LOC: {
-                _cleanup_free_ char *loc;
+        case DNS_TYPE_LOC:
                 assert(rr->loc.version == 0);
 
-                loc = format_location(rr->loc.latitude,
-                                      rr->loc.longitude,
-                                      rr->loc.altitude,
-                                      rr->loc.size,
-                                      rr->loc.horiz_pre,
-                                      rr->loc.vert_pre);
-                if (!loc)
+                t = format_location(rr->loc.latitude,
+                                    rr->loc.longitude,
+                                    rr->loc.altitude,
+                                    rr->loc.size,
+                                    rr->loc.horiz_pre,
+                                    rr->loc.vert_pre);
+                if (!t)
                         return -ENOMEM;
 
-                s = strjoin(k, " ", loc, NULL);
+                s = strjoin(k, " ", t, NULL);
                 if (!s)
                         return -ENOMEM;
-
                 break;
-        }
 
-        case DNS_TYPE_SSHFP: {
-                _cleanup_free_ char *x = NULL;
-
-                x = hexmem(rr->sshfp.key, rr->sshfp.key_size);
-                if (!x)
+        case DNS_TYPE_SSHFP:
+                t = hexmem(rr->sshfp.key, rr->sshfp.key_size);
+                if (!t)
                         return -ENOMEM;
 
                 r = asprintf(&s, "%s %u %u %s",
                              k,
                              rr->sshfp.algorithm,
                              rr->sshfp.fptype,
-                             x);
+                             t);
                 if (r < 0)
                         return -ENOMEM;
                 break;
-        }
 
-        default: {
-                _cleanup_free_ char *x = NULL;
-
-                x = hexmem(rr->generic.data, rr->generic.size);
-                if (!x)
+        case DNS_TYPE_DNSKEY:
+                t = hexmem(rr->dnskey.key, rr->dnskey.key_size);
+                if (!t)
                         return -ENOMEM;
 
-                s = strjoin(k, " ", x, NULL);
+                r = asprintf(&s, "%s %u 3 %u %s",
+                             k,
+                             dnskey_to_flags(rr),
+                             rr->dnskey.algorithm,
+                             t);
+                if (r < 0)
+                        return -ENOMEM;
+                break;
+
+        default:
+                t = hexmem(rr->generic.data, rr->generic.size);
+                if (!t)
+                        return -ENOMEM;
+
+                s = strjoin(k, " ", t, NULL);
                 if (!s)
                         return -ENOMEM;
                 break;
-        }}
+        }
 
         *ret = s;
         return 0;

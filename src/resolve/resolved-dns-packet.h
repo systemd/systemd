@@ -192,3 +192,11 @@ DnsProtocol dns_protocol_from_string(const char *s) _pure_;
 
 #define LLMNR_MULTICAST_IPV4_ADDRESS ((struct in_addr) { .s_addr = htobe32(224U << 24 | 252U) })
 #define LLMNR_MULTICAST_IPV6_ADDRESS ((struct in6_addr) { .s6_addr = { 0xFF, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x03 } })
+
+#define DNSKEY_FLAG_ZONE_KEY (1u << 8)
+#define DNSKEY_FLAG_SEP      (1u << 0)
+
+static inline uint16_t dnskey_to_flags(const DnsResourceRecord *rr) {
+        return (rr->dnskey.zone_key_flag * DNSKEY_FLAG_ZONE_KEY |
+                rr->dnskey.sep_flag * DNSKEY_FLAG_SEP);
+}
