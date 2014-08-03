@@ -80,12 +80,15 @@ static int network_load_one(Manager *manager, const char *filename) {
 
         network->ipv4ll_route = true;
 
+        network->dhcp = DHCP_SUPPORT_NONE;
         network->dhcp_ntp = true;
         network->dhcp_dns = true;
         network->dhcp_hostname = true;
         network->dhcp_domainname = true;
         network->dhcp_routes = true;
         network->dhcp_sendhost = true;
+
+        network->llmnr = LLMNR_SUPPORT_YES;
 
         r = config_parse(NULL, filename, file,
                          "Match\0Network\0Address\0Route\0DHCP\0DHCPv4\0",
@@ -384,6 +387,109 @@ int config_parse_tunnel(const char *unit,
         }
 
         netdev_ref(netdev);
+
+        return 0;
+}
+
+static const char* const dhcp_support_table[_DHCP_SUPPORT_MAX] = {
+        [DHCP_SUPPORT_NONE] = "none",
+        [DHCP_SUPPORT_BOTH] = "both",
+        [DHCP_SUPPORT_V4] = "v4",
+        [DHCP_SUPPORT_V6] = "v6",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(dhcp_support, DHCPSupport);
+
+int config_parse_dhcp(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        DHCPSupport *dhcp = data;
+        int k;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        /* Our enum shall be a superset of booleans, hence first try
+         * to parse as boolean, and then as enum */
+
+        k = parse_boolean(rvalue);
+        if (k > 0)
+                *dhcp = DHCP_SUPPORT_BOTH;
+        else if (k == 0)
+                *dhcp = DHCP_SUPPORT_NONE;
+        else {
+                DHCPSupport s;
+
+                s = dhcp_support_from_string(rvalue);
+                if (s < 0){
+                        log_syntax(unit, LOG_ERR, filename, line, -s, "Failed to parse DHCP option, ignoring: %s", rvalue);
+                        return 0;
+                }
+
+                *dhcp = s;
+        }
+
+        return 0;
+}
+
+static const char* const llmnr_support_table[_LLMNR_SUPPORT_MAX] = {
+        [LLMNR_SUPPORT_NO] = "no",
+        [LLMNR_SUPPORT_YES] = "yes",
+        [LLMNR_SUPPORT_RESOLVE] = "resolve",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(llmnr_support, LLMNRSupport);
+
+int config_parse_llmnr(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        LLMNRSupport *llmnr = data;
+        int k;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        /* Our enum shall be a superset of booleans, hence first try
+         * to parse as boolean, and then as enum */
+
+        k = parse_boolean(rvalue);
+        if (k > 0)
+                *llmnr = LLMNR_SUPPORT_YES;
+        else if (k == 0)
+                *llmnr = LLMNR_SUPPORT_NO;
+        else {
+                LLMNRSupport s;
+
+                s = llmnr_support_from_string(rvalue);
+                if (s < 0){
+                        log_syntax(unit, LOG_ERR, filename, line, -s, "Failed to parse LLMNR option, ignoring: %s", rvalue);
+                        return 0;
+                }
+
+                *llmnr = s;
+        }
 
         return 0;
 }

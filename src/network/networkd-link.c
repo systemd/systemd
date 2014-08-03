@@ -2385,6 +2385,8 @@ int link_save(Link *link) {
                                 (address + 1 ? " " : ""));
 
                 fputs("\n", f);
+
+                fprintf(f, "LLMNR=%s\n", llmnr_support_to_string(link->network->llmnr));
         }
 
         if (link->dhcp_lease) {
@@ -2437,55 +2439,3 @@ static const char* const link_operstate_table[_LINK_OPERSTATE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(link_operstate, LinkOperationalState);
-
-static const char* const dhcp_support_table[_DHCP_SUPPORT_MAX] = {
-        [DHCP_SUPPORT_NONE] = "none",
-        [DHCP_SUPPORT_BOTH] = "both",
-        [DHCP_SUPPORT_V4] = "v4",
-        [DHCP_SUPPORT_V6] = "v6",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(dhcp_support, DHCPSupport);
-
-int config_parse_dhcp(
-                const char* unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        DHCPSupport *dhcp = data;
-        int k;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        /* Our enum shall be a superset of booleans, hence first try
-         * to parse as boolean, and then as enum */
-
-        k = parse_boolean(rvalue);
-        if (k > 0)
-                *dhcp = DHCP_SUPPORT_BOTH;
-        else if (k == 0)
-                *dhcp = DHCP_SUPPORT_NONE;
-        else {
-                DHCPSupport s;
-
-                s = dhcp_support_from_string(rvalue);
-                if (s < 0){
-                        log_syntax(unit, LOG_ERR, filename, line, -s, "Failed to parse DHCP option, ignoring: %s", rvalue);
-                        return 0;
-                }
-
-                *dhcp = s;
-        }
-
-        return 0;
-}

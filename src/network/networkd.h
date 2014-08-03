@@ -61,6 +61,14 @@ typedef enum DHCPSupport {
         _DHCP_SUPPORT_INVALID = -1,
 } DHCPSupport;
 
+typedef enum LLMNRSupport {
+        LLMNR_SUPPORT_NO,
+        LLMNR_SUPPORT_YES,
+        LLMNR_SUPPORT_RESOLVE,
+        _LLMNR_SUPPORT_MAX,
+        _LLMNR_SUPPORT_INVALID = -1,
+} LLMNRSupport;
+
 struct Network {
         Manager *manager;
 
@@ -104,6 +112,8 @@ struct Network {
         Hashmap *routes_by_section;
 
         char **dns, **ntp;
+
+        LLMNRSupport llmnr;
 
         LIST_FIELDS(Network, networks);
 };
@@ -380,6 +390,15 @@ const char* dhcp_support_to_string(DHCPSupport i) _const_;
 DHCPSupport dhcp_support_from_string(const char *s) _pure_;
 
 int config_parse_dhcp(const char *unit, const char *filename, unsigned line,
+                      const char *section, unsigned section_line, const char *lvalue,
+                      int ltype, const char *rvalue, void *data, void *userdata);
+
+/* LLMNR support */
+
+const char* llmnr_support_to_string(LLMNRSupport i) _const_;
+LLMNRSupport llmnr_support_from_string(const char *s) _pure_;
+
+int config_parse_llmnr(const char *unit, const char *filename, unsigned line,
                       const char *section, unsigned section_line, const char *lvalue,
                       int ltype, const char *rvalue, void *data, void *userdata);
 

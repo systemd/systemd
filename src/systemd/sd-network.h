@@ -76,6 +76,12 @@ int sd_network_get_operational_state(char **state);
 /* Get DHCPv4 lease from ifindex. */
 int sd_network_get_dhcp_lease(int ifindex, sd_dhcp_lease **ret);
 
+/* Indicates whether or not LLMNR should be enabled for the link
+ * Possible levels of support: yes, no, resolve
+ * Possible return codes:
+ *   -ENODATA: networkd is not aware of the link*/
+int sd_network_get_llmnr(int ifindex, char **llmnr);
+
 /* Get DNS entries for a given link. These are string representations of
  * IP addresses */
 int sd_network_get_dns(int ifindex, char ***addr);

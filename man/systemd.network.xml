@@ -225,6 +225,15 @@
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
+                                        <term><varname>LLMNR=</varname></term>
+                                        <listitem>
+                                                <para>A boolean or <literal>resolve</literal>. When true, enables
+                                                Link-Local Multicast Name Resolution on the link, when set to
+                                                <literal>resolve</literal> only resolution is enabled, but not
+                                                announcement. Defaults to true.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
                                         <term><varname>Address=</varname></term>
                                         <listitem>
                                                 <para>A static IPv4 or IPv6 address and its prefix length,

@@ -107,6 +107,25 @@ _public_ int sd_network_get_link_operational_state(int ifindex, char **state) {
         return 0;
 }
 
+_public_ int sd_network_get_llmnr(int ifindex, char **llmnr) {
+        _cleanup_free_ char *s = NULL, *p = NULL;
+        int r;
+
+        assert_return(ifindex > 0, -EINVAL);
+        assert_return(llmnr, -EINVAL);
+
+        r = parse_env_file(p, NEWLINE, "LLMNR", &s, NULL);
+        if (r == -ENOENT)
+                return -ENODATA;
+        else if (r < 0)
+                return r;
+
+        *llmnr = s;
+        s = NULL;
+
+        return 0;
+}
+
 _public_ int sd_network_get_dhcp_lease(int ifindex, sd_dhcp_lease **ret) {
         _cleanup_free_ char *p = NULL, *s = NULL;
         sd_dhcp_lease *lease = NULL;
