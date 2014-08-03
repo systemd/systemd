@@ -485,6 +485,8 @@ static int server_send_forcerenew(sd_dhcp_server *server, be32_t address, be32_t
 
         r = dhcp_server_send_udp(server, address, &packet->dhcp,
                                  sizeof(DHCPMessage) + optoffset);
+        if (r < 0)
+                return r;
 
         return 0;
 }
