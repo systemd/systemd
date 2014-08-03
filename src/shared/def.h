@@ -73,6 +73,11 @@
 #define UNIX_USER_BUS_FMT "unix:path=%s/bus"
 #define KERNEL_USER_BUS_FMT "kernel:path=/dev/kdbus/"UID_FMT"-user/bus"
 
+#define PLYMOUTH_SOCKET {                                       \
+                .un.sun_family = AF_UNIX,                       \
+                .un.sun_path = "\0/org/freedesktop/plymouthd",  \
+        }
+
 #ifndef TTY_GID
 #define TTY_GID 5
 #endif
