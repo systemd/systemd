@@ -61,7 +61,7 @@
     <title>Description</title>
 
     <para><command>systemd-activate</command> can be used to
-    launch a socket activated daemon from the command line for
+    launch a socket-activated daemon from the command line for
     testing purposes. It can also be used to launch single instances
     of the daemon per connection (inetd-style).
     </para>
@@ -164,7 +164,7 @@
     </example>
 
     <example>
-      <title>Run a socket activated instance of <citerefentry><refentrytitle>systemd-journal-gatewayd</refentrytitle><manvolnum>8</manvolnum></citerefentry></title>
+      <title>Run a socket-activated instance of <citerefentry><refentrytitle>systemd-journal-gatewayd</refentrytitle><manvolnum>8</manvolnum></citerefentry></title>
 
       <programlisting>$ /usr/lib/systemd/systemd-activate -l 19531 /usr/lib/systemd/systemd-journal-gatewayd</programlisting>
     </example>

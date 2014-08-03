@@ -70,7 +70,7 @@
     appends a sequence of fields to the D-Bus message object
     <parameter>m</parameter>. The type string
     <parameter>types</parameter> describes the types of the field
-    arguments that follow. For each type specified in the type string
+    arguments that follow. For each type specified in the type string,
     one or more arguments need to be specified, in the same order as
     declared in the type string.</para>
 

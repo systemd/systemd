@@ -104,7 +104,7 @@
     <function>udev_list_entry_get_name()</function> and
     <function>udev_list_entry_get_value()</function> return a
     pointer to a constant string representing the requested value.
-    The string is bound to the lifetime of the list-entry itself.
+    The string is bound to the lifetime of the list entry itself.
     On failure, <constant>NULL</constant> is returned.</para>
   </refsect1>
 

@@ -2828,7 +2828,7 @@ static int load_settings(void) {
                         p = j;
                         j = NULL;
 
-                        /* By default we trust configuration from /etc and /run */
+                        /* By default, we trust configuration from /etc and /run */
                         if (arg_settings_trusted < 0)
                                 arg_settings_trusted = true;
 
@@ -2858,7 +2858,7 @@ static int load_settings(void) {
                         if (!f && errno != ENOENT)
                                 return log_error_errno(errno, "Failed to open %s: %m", p);
 
-                        /* By default we do not trust configuration from /var/lib/machines */
+                        /* By default, we do not trust configuration from /var/lib/machines */
                         if (arg_settings_trusted < 0)
                                 arg_settings_trusted = false;
                 }

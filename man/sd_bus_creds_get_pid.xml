@@ -374,14 +374,14 @@
     the systemd unit name (in the system instance of systemd) that the
     process is part of. See
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>. For
-    processes that are not part of a unit returns -ENXIO.
+    processes that are not part of a unit, returns -ENXIO.
     </para>
 
     <para><function>sd_bus_creds_get_user_unit()</function> will
     retrieve the systemd unit name (in the user instance of systemd)
     that the process is part of. See
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>. For
-    processes that are not part of a user unit returns -ENXIO.
+    processes that are not part of a user unit, returns -ENXIO.
     </para>
 
     <para><function>sd_bus_creds_get_slice()</function> will retrieve
@@ -396,14 +396,14 @@
     retrieve the identifier of the login session that the process is
     part of. See
     <citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>. For
-    processes that are not part of a session returns -ENXIO.
+    processes that are not part of a session, returns -ENXIO.
     </para>
 
     <para><function>sd_bus_creds_get_owner_uid()</function> will
     retrieve the numeric UID (user identifier) of the user who owns
     the login session that the process is part of. See
     <citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-    For processes that are not part of a session returns -ENXIO.
+    For processes that are not part of a session, returns -ENXIO.
     </para>
 
     <para><function>sd_bus_creds_has_effective_cap()</function> will

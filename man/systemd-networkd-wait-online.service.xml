@@ -86,7 +86,7 @@
       <varlistentry>
         <term><option>--ignore=</option></term>
         <listitem><para>Network interfaces to be ignored when deciding
-        if the system is online. By default only the loopback
+        if the system is online. By default, only the loopback
         interface is ignored. This option may be used more than once
         to ignore multiple network interfaces. </para></listitem>
       </varlistentry>

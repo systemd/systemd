@@ -142,7 +142,7 @@
     </table>
 
     <para>The <filename>/home</filename> and <filename>/srv</filename>
-    partitions may be encrypted in LUKS format. In this case a device
+    partitions may be encrypted in LUKS format. In this case, a device
     mapper device is set up under the names
     <filename>/dev/mapper/home</filename> and
     <filename>/dev/mapper/srv</filename>. Note that this might create
@@ -151,8 +151,8 @@
     device name.</para>
 
     <para>Mount and automount units for the EFI System Partition (ESP),
-    mounting it to <filename>/boot</filename> are generated on EFI
-    systems, where the boot loader communicates the used ESP to the operating
+    mounting it to <filename>/boot</filename>, are generated on EFI
+    systems where the boot loader communicates the used ESP to the operating
     system. Since this generator creates an automount unit, the mount will
     only be activated on-demand, when accessed. On systems where
     <filename>/boot</filename> is an explicitly configured mount

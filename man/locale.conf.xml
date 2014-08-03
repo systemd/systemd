@@ -54,7 +54,7 @@
     <title>Description</title>
 
     <para>The <filename>/etc/locale.conf</filename> file configures
-    system-wide locale settings. It is read at early-boot by
+    system-wide locale settings. It is read at early boot by
     <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
 
     <para>The basic file format of <filename>locale.conf</filename> is

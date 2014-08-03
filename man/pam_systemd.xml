@@ -197,7 +197,7 @@
         as <constant>AF_UNIX</constant> sockets, FIFOs, PID files and
         similar. It is guaranteed that this directory is local and
         offers the greatest possible file system feature set the
-        operating system provides. For further details see the <ulink
+        operating system provides. For further details, see the <ulink
         url="http://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html">XDG
         Base Directory Specification</ulink>.</para></listitem>
       </varlistentry>

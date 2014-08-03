@@ -55,7 +55,7 @@
     <title>Description</title>
 
     <para><filename>systemd-vconsole-setup.service</filename> is an
-    early-boot service that configures the virtual console font and
+    early boot service that configures the virtual console font and
     console keymap. Internally it calls
     <citerefentry project='mankier'><refentrytitle>loadkeys</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     and

@@ -66,7 +66,7 @@
       and logging startup information in the background.
     </para>
     <para>
-      After collecting a certain amount of data (usually 15-30
+      After collecting a certain amount of data (usually 15–30
       seconds, default 20 s) the logging stops and a graph is
       generated from the logged information. This graph contains vital
       clues as to which resources are being used, in which order, and
@@ -114,7 +114,7 @@
         <term><emphasis>Started as a standalone program</emphasis></term>
         <listitem><para>One can execute
         <command>systemd-bootchart</command> as normal application
-        from the command line. In this mode it is highly recommended
+        from the command line. In this mode, it is highly recommended
         to pass the <option>-r</option> flag in order to not graph the
         time elapsed since boot and before systemd-bootchart was
         started, as it may result in extremely large graphs. The time
@@ -149,7 +149,7 @@
         <term><option>--freq <replaceable>f</replaceable></option></term>
         <listitem><para>Specify the sample log frequency, a positive
         real <replaceable>f</replaceable>, in Hz. Most systems can
-        cope with values up to 25-50 without creating too much
+        cope with values up to 25–50 without creating too much
         overhead.</para></listitem>
       </varlistentry>
 

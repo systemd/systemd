@@ -86,7 +86,7 @@
         <term><varname>Frequency=25</varname></term>
         <listitem><para>Configure the sample log frequency. This can
         be a fractional number, but must be larger than 0.0. Most
-        systems can cope with values under 25-50 without impacting
+        systems can cope with values under 25–50 without impacting
         boot time severely.</para></listitem>
       </varlistentry>
 

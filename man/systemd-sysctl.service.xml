@@ -54,7 +54,7 @@
   <refsect1>
     <title>Description</title>
 
-    <para><filename>systemd-sysctl.service</filename> is an early-boot
+    <para><filename>systemd-sysctl.service</filename> is an early boot
     service that configures
     <citerefentry project='man-pages'><refentrytitle>sysctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     kernel parameters.</para>

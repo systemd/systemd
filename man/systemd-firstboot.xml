@@ -85,7 +85,7 @@
     copied from a host system that is used to set up the system
     image.</para>
 
-    <para>If a setting is already initialized it will not be
+    <para>If a setting is already initialized, it will not be
     overwritten and the user will not be prompted for the
     setting.</para>
 
@@ -169,7 +169,7 @@
         directly on the command line,
         <option>--root-password-file=</option> reads it from a file.
         Note that it is not recommended specifying passwords on the
-        command line as other users might be able to see them simply
+        command line, as other users might be able to see them simply
         by invoking
         <citerefentry project='die-net'><refentrytitle>ps</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para></listitem>
       </varlistentry>

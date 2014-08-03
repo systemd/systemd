@@ -111,7 +111,7 @@
         system and the initrd.</para>
         <para>If /etc/crypttab contains entries with the same UUID,
         then the name, keyfile and options specified there will be
-        used. Otherwise the device will have the name
+        used. Otherwise, the device will have the name
         <literal>luks-UUID</literal>.</para>
         <para>If /etc/crypttab exists, only those UUIDs
         specified on the kernel command line

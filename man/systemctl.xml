@@ -134,7 +134,7 @@
 
           <para>Properties for units vary by unit type, so showing any
           unit (even a non-existent one) is a way to list properties
-          pertaining to this type. Similarly showing any job will list
+          pertaining to this type. Similarly, showing any job will list
           properties pertaining to all jobs. Properties for units are
           documented in
           <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
@@ -359,7 +359,7 @@
 
       <!-- we do not document -failed here, as it has been made
            redundant by -state=failed, which it predates. To keep
-           things simple we only document the new switch, while
+           things simple, we only document the new switch, while
            keeping the old one around for compatibility only. -->
 
       <varlistentry>
@@ -458,7 +458,7 @@
         <listitem>
           <para>When used with <command>kill</command>, choose which
           signal to send to selected processes. Must be one of the
-          well known signal specifiers such as <constant>SIGTERM</constant>, <constant>SIGINT</constant> or
+          well-known signal specifiers such as <constant>SIGTERM</constant>, <constant>SIGINT</constant> or
           <constant>SIGSTOP</constant>. If omitted, defaults to
           <option>SIGTERM</option>.</para>
         </listitem>
@@ -831,7 +831,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
 
             <para>This function is intended to generate human-readable
             output. If you are looking for computer-parsable output,
-            use <command>show</command> instead. By default this
+            use <command>show</command> instead. By default, this
             function only shows 10 lines of output and ellipsizes
             lines to fit in the terminal window. This can be changes
             with <option>--lines</option> and <option>--full</option>,
@@ -983,7 +983,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             starting any of the units being enabled. If this
             is desired, either <option>--now</option> should be used
             together with this command, or an additional <command>start</command>
-            command must be invoked for the unit. Also note that in case of
+            command must be invoked for the unit. Also note that, in case of
             instance enablement, symlinks named the same as instances
             are created in the install location, however they all point to the
             same template unit file.</para>
@@ -1249,7 +1249,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             <para>Depending on whether <option>--system</option> (the default),
             <option>--user</option>, or <option>--global</option> is specified,
             this creates a drop-in file for each unit either for the system,
-            for the calling user or for all futures logins of all users. Then,
+            for the calling user, or for all futures logins of all users. Then,
             the editor (see the "Environment" section below) is invoked on
             temporary files which will be written to the real location if the
             editor exits successfully.</para>
@@ -1261,8 +1261,8 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             be made temporarily in <filename>/run</filename> and they will be
             lost on the next reboot.</para>
 
-            <para>If the temporary file is empty upon exit the modification of
-            the related unit is canceled</para>
+            <para>If the temporary file is empty upon exit, the modification of
+            the related unit is canceled.</para>
 
             <para>After the units have been edited, systemd configuration is
             reloaded (in a way that is equivalent to <command>daemon-reload</command>).
@@ -1270,7 +1270,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
 
             <para>Note that this command cannot be used to remotely edit units
             and that you cannot temporarily edit units which are in
-            <filename>/etc</filename> since they take precedence over
+            <filename>/etc</filename>, since they take precedence over
             <filename>/run</filename>.</para>
           </listitem>
         </varlistentry>
@@ -1684,7 +1684,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             <para>Switches to a different root directory and executes a
             new system manager process below it. This is intended for
             usage in initial RAM disks ("initrd"), and will transition
-            from the initrd's system manager process (a.k.a "init"
+            from the initrd's system manager process (a.k.a. "init"
             process) to the main system manager process. This call takes two
             arguments: the directory that is to become the new root directory, and
             the path to the new system manager binary below it to

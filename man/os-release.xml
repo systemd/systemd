@@ -67,7 +67,7 @@
     without implementing a shell compatible execution engine. Variable
     assignment values must be enclosed in double or single quotes if
     they include spaces, semicolons or other special characters
-    outside of A-Z, a-z, 0-9. Shell special characters ("$", quotes,
+    outside of A–Z, a–z, 0–9. Shell special characters ("$", quotes,
     backslash, backtick) must be escaped with backslashes, following
     shell style. All strings should be in UTF-8 format, and
     non-printable characters should not be used. It is not supported
@@ -141,7 +141,7 @@
         <term><varname>ID=</varname></term>
 
         <listitem><para>A lower-case string (no spaces or other
-        characters outside of 0-9, a-z, ".", "_" and "-") identifying
+        characters outside of 0–9, a–z, ".", "_" and "-") identifying
         the operating system, excluding any version information and
         suitable for processing by scripts or usage in generated
         filenames. If not set, defaults to
@@ -179,7 +179,7 @@
         <term><varname>VERSION_ID=</varname></term>
 
         <listitem><para>A lower-case string (mostly numeric, no spaces
-        or other characters outside of 0-9, a-z, ".", "_" and "-")
+        or other characters outside of 0–9, a–z, ".", "_" and "-")
         identifying the operating system version, excluding any OS
         name information or release code name, and suitable for
         processing by scripts or usage in generated filenames. This
@@ -298,7 +298,7 @@
 
         <listitem><para>
         A lower-case string (no spaces or other characters outside of
-        0-9, a-z, ".", "_" and "-"), identifying a specific variant or
+        0–9, a–z, ".", "_" and "-"), identifying a specific variant or
         edition of the operating system. This may be interpreted by
         other packages in order to determine a divergent default
         configuration. This field is optional and may not be

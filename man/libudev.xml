@@ -99,11 +99,11 @@
 
     <para>Furthermore, libudev also exports legacy APIs that should
     not be used by new software (and as such are not documented as
-    part of this manual). This includes the hardware-database known
+    part of this manual). This includes the hardware database known
     as <constant>udev_hwdb</constant> (please use the new
     <citerefentry><refentrytitle>sd-hwdb</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     API instead) and the <constant>udev_queue</constant> object to
-    query the udev-daemon (which should not be used by new software
+    query the udev daemon (which should not be used by new software
     at all).</para>
   </refsect1>
 

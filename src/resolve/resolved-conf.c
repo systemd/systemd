@@ -97,7 +97,7 @@ int config_parse_dnsv(
                 /* Empty assignment means clear the list */
                 manager_flush_dns_servers(m, ltype);
         else {
-                /* Otherwise add to the list */
+                /* Otherwise, add to the list */
                 r = manager_parse_dns_server(m, ltype, rvalue);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse DNS server string '%s'. Ignoring.", rvalue);

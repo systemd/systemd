@@ -943,7 +943,7 @@ static int add_user(Item *i) {
                 }
         }
 
-        /* Otherwise try to reuse the group ID */
+        /* Otherwise, try to reuse the group ID */
         if (!i->uid_set && i->gid_set) {
                 r = uid_is_ok((uid_t) i->gid, i->name);
                 if (r < 0)

@@ -81,7 +81,7 @@
     name in <filename>/usr/lib</filename>. This can be used to
     override a system-supplied configuration file with a local file if
     needed. As a special case, an empty file (file size 0) or symlink
-    with the same name pointing to <filename>/dev/null</filename>,
+    with the same name pointing to <filename>/dev/null</filename>
     disable the configuration file entirely (it is "masked").</para>
   </refsect1>
 
@@ -414,7 +414,7 @@
         <term><varname>TTL=</varname></term>
         <listitem>
           <para>A fixed Time To Live N on Virtual eXtensible Local
-          Area Network packets. N is a number in the range 1-255. 0
+          Area Network packets. N is a number in the range 1–255. 0
           is a special value meaning that packets inherit the TTL
           value.</para>
         </listitem>
@@ -430,7 +430,7 @@
         <term><varname>FDBAgeingSec=</varname></term>
         <listitem>
           <para>The lifetime of Forwarding Database entry learnt by
-          the kernel in seconds.</para>
+          the kernel, in seconds.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -456,33 +456,33 @@
       <varlistentry>
         <term><varname>RouteShortCircuit=</varname></term>
         <listitem>
-          <para>A boolean. When true route short circuit is turned
+          <para>A boolean. When true, route short circuit is turned
           on.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>UDPCheckSum=</varname></term>
         <listitem>
-          <para>A boolean. When true transmitting UDP checksums when doing VXLAN/IPv4 is turned on.</para>
+          <para>A boolean. When true, transmitting UDP checksums when doing VXLAN/IPv4 is turned on.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>UDP6ZeroChecksumTx=</varname></term>
         <listitem>
-          <para>A boolean. When true sending zero checksums in VXLAN/IPv6 is turned on.</para>
+          <para>A boolean. When true, sending zero checksums in VXLAN/IPv6 is turned on.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>UDP6ZeroCheckSumRx=</varname></term>
         <listitem>
-          <para>A boolean. When true receiving zero checksums in VXLAN/IPv6 is turned on.</para>
+          <para>A boolean. When true, receiving zero checksums in VXLAN/IPv6 is turned on.</para>
         </listitem>
       </varlistentry>
     <varlistentry>
       <term><varname>GroupPolicyExtension=</varname></term>
       <listitem>
-        <para>A boolean. When true it enables Group Policy VXLAN extension security label mechanism
-        across network peers based on VXLAN. For details about the Group Policy VXLAN see the
+        <para>A boolean. When true, it enables Group Policy VXLAN extension security label mechanism
+        across network peers based on VXLAN. For details about the Group Policy VXLAN, see the
         <ulink url="https://tools.ietf.org/html/draft-smith-vxlan-group-policy">
         VXLAN Group Policy </ulink> document. Defaults to false.</para>
       </listitem>
@@ -523,7 +523,7 @@
         <term><varname>TOS=</varname></term>
         <listitem>
           <para>The Type Of Service byte value for a tunnel interface.
-          For details about the TOS see the
+          For details about the TOS, see the
           <ulink url="http://tools.ietf.org/html/rfc1349"> Type of
           Service in the Internet Protocol Suite </ulink> document.
           </para>
@@ -533,9 +533,9 @@
         <term><varname>TTL=</varname></term>
         <listitem>
           <para>A fixed Time To Live N on tunneled packets. N is a
-          number in the range 1-255. 0 is a special value meaning that
+          number in the range 1–255. 0 is a special value meaning that
           packets inherit the TTL value. The default value for IPv4
-          tunnels is: inherit. The default value for IPv6 tunnels is:
+          tunnels is: inherit. The default value for IPv6 tunnels is
           64.</para>
         </listitem>
       </varlistentry>
@@ -580,7 +580,7 @@
           value of zero means that a packet carrying that option may not enter
           another tunnel before exiting the current tunnel.
           (see <ulink url="https://tools.ietf.org/html/rfc2473#section-4.1.1"> RFC 2473</ulink>).
-          The valid range is 0-255 and <literal>none</literal>. Defaults to 4.
+          The valid range is 0–255 and <literal>none</literal>. Defaults to 4.
         </para>
         </listitem>
       </varlistentry>
@@ -615,7 +615,7 @@
         <varlistentry>
           <term><varname>MACAddress=</varname></term>
           <listitem>
-            <para>The peer MACAddress, if not set it is generated in
+            <para>The peer MACAddress, if not set, it is generated in
             the same way as the MAC address of the main
             interface.</para>
           </listitem>
@@ -651,7 +651,7 @@
         <term><varname>PacketInfo=</varname></term>
         <listitem><para>Takes a boolean argument. Configures whether
         packets should be prepended with four extra bytes (two flag
-        bytes and two protocol bytes). If disabled it indicates that
+        bytes and two protocol bytes). If disabled, it indicates that
         the packets will be pure IP packets. Defaults to
         <literal>no</literal>.</para>
         </listitem>
@@ -778,7 +778,7 @@
         <listitem>
           <para>Specifies the number of seconds between instances where the bonding
           driver sends learning packets to each slaves peer switch.
-          The valid range is 1 - 0x7fffffff; the default value is 1. This Option
+          The valid range is 1–0x7fffffff; the default value is 1. This Option
           has effect only in balance-tlb and balance-alb modes.</para>
         </listitem>
       </varlistentry>
@@ -880,7 +880,7 @@
           <para>Specifies the number of IGMP membership reports to be issued after
           a failover event. One membership report is issued immediately after
           the failover, subsequent packets are sent in each 200ms interval.
-          The valid range is (0 - 255). Defaults to 1. A value of 0
+          The valid range is 0–255. Defaults to 1. A value of 0
           prevents the IGMP membership report from being issued in response
           to the failover event.
           </para>
@@ -890,9 +890,9 @@
       <varlistentry>
         <term><varname>PacketsPerSlave=</varname></term>
         <listitem>
-          <para> Specify the number of packets to transmit through a slave before
-            moving to the next one. When set to 0 then a slave is chosen at
-            random. The valid range is (0 - 65535). Defaults to 1. This option
+          <para>Specify the number of packets to transmit through a slave before
+            moving to the next one. When set to 0, then a slave is chosen at
+            random. The valid range is 0–65535. Defaults to 1. This option
             has effect only in balance-rr mode.
           </para>
         </listitem>
@@ -903,11 +903,11 @@
         <listitem>
           <para>Specify the number of peer notifications (gratuitous ARPs and
             unsolicited IPv6 Neighbor Advertisements) to be issued after a
-            failover event.  As soon as the link is up on the new slave
+            failover event.  As soon as the link is up on the new slave,
             a peer notification is sent on the  bonding device and each
             VLAN sub-device.  This is repeated at each link monitor interval
             (ARPIntervalSec or MIIMonitorSec, whichever is active) if the number is
-            greater than 1. The valid range is (0 - 255). Default value is 1.
+            greater than 1. The valid range is 0–255. Default value is 1.
             These options affect only the active-backup mode.
           </para>
         </listitem>

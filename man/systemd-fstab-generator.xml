@@ -126,7 +126,7 @@
         <varname>mount.usr=</varname> will default to the value set in
         <varname>root=</varname>.</para>
 
-        <para>Otherwise this parameter defaults to the
+        <para>Otherwise, this parameter defaults to the
         <filename>/usr</filename> entry found in
         <filename>/etc/fstab</filename> on the root filesystem.</para>
 
@@ -143,7 +143,7 @@
         <varname>mount.usrfstype=</varname> will default to the value
         set in <varname>rootfstype=</varname>.</para>
 
-        <para>Otherwise this value will be read from the
+        <para>Otherwise, this value will be read from the
         <filename>/usr</filename> entry in
         <filename>/etc/fstab</filename> on the root filesystem.</para>
 
@@ -159,7 +159,7 @@
         <varname>mount.usrflags=</varname> will default to the value
         set in <varname>rootflags=</varname>.</para>
 
-        <para>Otherwise this value will be read from the
+        <para>Otherwise, this value will be read from the
         <filename>/usr</filename> entry in
         <filename>/etc/fstab</filename> on the root filesystem.</para>
 

@@ -186,7 +186,7 @@
         <listitem><para>Show terse runtime status information about
         one or more sessions, followed by the most recent log data
         from the journal. Takes one or more session identifiers as
-        parameters. If no session identifiers are passed the status of
+        parameters. If no session identifiers are passed, the status of
         the caller's session is shown. This function is intended to
         generate human-readable output. If you are looking for
         computer-parsable output, use <command>show-session</command>
@@ -212,9 +212,9 @@
         <term><command>activate</command> <optional><replaceable>ID</replaceable></optional></term>
 
         <listitem><para>Activate a session. This brings a session into
-        the foreground, if another session is currently in the
+        the foreground if another session is currently in the
         foreground on the respective seat. Takes a session identifier
-        as argument. If no argument is specified the session of the
+        as argument. If no argument is specified, the session of the
         caller is put into foreground.</para></listitem>
       </varlistentry>
 
@@ -225,7 +225,7 @@
         <listitem><para>Activates/deactivates the screen lock on one
         or more sessions, if the session supports it. Takes one or
         more session identifiers as arguments. If no argument is
-        specified the session of the caller is locked/unlocked.
+        specified, the session of the caller is locked/unlocked.
         </para></listitem>
       </varlistentry>
 
@@ -269,7 +269,7 @@
         <listitem><para>Show terse runtime status information about
         one or more logged in users, followed by the most recent log
         data from the journal. Takes one or more user names or numeric
-        user IDs as parameters. If no parameters are passed the status
+        user IDs as parameters. If no parameters are passed, the status
         of the caller's user is shown. This function is intended to
         generate human-readable output. If you are looking for
         computer-parsable output, use <command>show-user</command>
@@ -301,7 +301,7 @@
         spawned for the user at boot and kept around after logouts.
         This allows users who are not logged in to run long-running
         services. Takes one or more user names or numeric UIDs as
-        argument. If no argument is specified enables/disables
+        argument. If no argument is specified, enables/disables
         lingering for the user of the session of the caller.
         </para></listitem>
       </varlistentry>
@@ -365,7 +365,7 @@
         seat. The devices should be specified via device paths in the
         <filename>/sys</filename> file system. To create a new seat,
         attach at least one graphics card to a previously unused seat
-        name. Seat names may consist only of a-z, A-Z, 0-9,
+        name. Seat names may consist only of a–z, A–Z, 0–9,
         <literal>-</literal> and <literal>_</literal> and must be
         prefixed with <literal>seat</literal>. To drop assignment of a
         device to a specific seat, just reassign it to a different

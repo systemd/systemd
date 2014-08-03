@@ -80,7 +80,7 @@
     <title>Example</title>
 
     <para>Here's an example <filename>/etc/nsswitch.conf</filename>
-    file, that enables <command>resolve</command> correctly:</para>
+    file that enables <command>resolve</command> correctly:</para>
 
 <programlisting>passwd:         compat mymachines
 group:          compat mymachines

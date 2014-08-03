@@ -67,7 +67,7 @@
     and will process them individually, one after the other. It will
     output them separated by spaces to stdout.</para>
 
-    <para>By default this command will escape the strings passed,
+    <para>By default, this command will escape the strings passed,
     unless <option>--unescape</option> is passed which results in the
     inverse operation being applied. If <option>--mangle</option> a
     special mode of escaping is applied instead, which assumes a

@@ -72,7 +72,7 @@
     in <citerefentry project='man-pages'><refentrytitle>core</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     In particular, the coredump will only be processed when the
     related resource limits are high enough. For programs started by
-    <command>systemd</command> those may be set using
+    <command>systemd</command>, those may be set using
     <varname>LimitCore=</varname> (see
     <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
     </para>

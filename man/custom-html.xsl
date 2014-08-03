@@ -171,7 +171,7 @@
   <!--
     - If stable URLs with fragment markers (references to the ID) turn out not to be important:
     - generatedID could simply take the value of generate-id(), and various other helper templates may be dropped entirely.
-    - Alternatively if xsltproc is patched to generate reproducible generate-id() output the same simplifications can be
+    - Alternatively, if xsltproc is patched to generate reproducible generate-id() output, the same simplifications can be
     - applied at the cost of breaking compatibility with URLs generated from output of previous versions of this stylesheet.
    -->
   <xsl:variable name="generatedID">

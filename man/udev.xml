@@ -470,7 +470,7 @@
                 <term><literal>program</literal></term>
                 <listitem>
                   <para>Execute an external program specified as the assigned
-                  value and if it returns successfully
+                  value and, if it returns successfully,
                   import its output, which must be in environment key
                   format. Path specification, command/argument separation,
                   and quoting work like in <varname>RUN</varname>.</para>
@@ -536,7 +536,7 @@
               <varlistentry>
                 <term><option>string_escape=<replaceable>none|replace</replaceable></option></term>
                 <listitem>
-                  <para>Usually control and other possibly unsafe characters are replaced
+                  <para>Usually, control and other possibly unsafe characters are replaced
                   in strings used for device naming. The mode of replacement can be specified
                   with this option.</para>
                 </listitem>

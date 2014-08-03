@@ -57,9 +57,9 @@
     <para><filename>systemd-user-sessions.service</filename> is a
     service that controls user logins through
     <citerefentry project='man-pages'><refentrytitle>pam_nologin</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-    After basic system initialization is complete it removes
+    After basic system initialization is complete, it removes
     <filename>/run/nologin</filename>, thus permitting logins. Before
-    system shutdown it creates <filename>/run/nologin</filename>, thus
+    system shutdown, it creates <filename>/run/nologin</filename>, thus
     prohibiting further logins.</para>
   </refsect1>
 

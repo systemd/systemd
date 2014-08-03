@@ -234,7 +234,7 @@
         rotated journal files are kept as history.</para>
 
         <para>Specify values in bytes or use K, M, G, T, P, E as
-        units for the specified sizes (equal to 1024, 1024²,... bytes).
+        units for the specified sizes (equal to 1024, 1024², ... bytes).
         Note that size limits are enforced synchronously when journal
         files are extended, and no explicit rotation step triggered by
         time is needed.</para>
@@ -244,7 +244,7 @@
         individual journal files to keep at maximum. Note that only
         archived files are deleted to reduce the number of files until
         this limit is reached; active files will stay around. This
-        means that in effect there might still be more journal files
+        means that, in effect, there might still be more journal files
         around in total than this limit after a vacuuming operation is
         complete. This setting defaults to 100.</para></listitem>
       </varlistentry>
@@ -345,7 +345,7 @@
         <literal>notice</literal>,
         <literal>info</literal>,
         <literal>debug</literal>,
-        or integer values in the range of 0..7 (corresponding to the
+        or integer values in the range of 0–7 (corresponding to the
         same levels). Messages equal or below the log level specified
         are stored/forwarded, messages above are dropped. Defaults to
         <literal>debug</literal> for <varname>MaxLevelStore=</varname>

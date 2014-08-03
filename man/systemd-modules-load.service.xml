@@ -55,7 +55,7 @@
     <title>Description</title>
 
     <para><filename>systemd-modules-load.service</filename> is an
-    early-boot service that loads kernel modules based on static
+    early boot service that loads kernel modules based on static
     configuration.</para>
 
     <para>See

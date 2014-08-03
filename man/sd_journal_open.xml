@@ -100,8 +100,8 @@
     <para><function>sd_journal_open()</function> opens the log journal
     for reading. It will find all journal files automatically and
     interleave them automatically when reading. As first argument it
-    takes a pointer to a <varname>sd_journal</varname> pointer, which
-    on success will contain a journal context object. The second
+    takes a pointer to a <varname>sd_journal</varname> pointer, which,
+    on success, will contain a journal context object. The second
     argument is a flags field, which may consist of the following
     flags ORed together: <constant>SD_JOURNAL_LOCAL_ONLY</constant>
     makes sure only journal files generated on the local machine will

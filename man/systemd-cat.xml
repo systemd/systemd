@@ -112,7 +112,7 @@
         <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
         Defaults to <literal>info</literal>. Note that this simply
         controls the default, individual lines may be logged with
-        different levels if they are prefixed accordingly. For details
+        different levels if they are prefixed accordingly. For details,
         see <option>--level-prefix=</option> below.</para></listitem>
       </varlistentry>
 

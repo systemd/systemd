@@ -194,7 +194,7 @@
         refers to TCP sockets, <constant>SOCK_DGRAM</constant> (i.e.
         <varname>ListenDatagram=</varname>) to UDP.</para>
 
-        <para>These options may be specified more than once in which
+        <para>These options may be specified more than once, in which
         case incoming traffic on any of the sockets will trigger
         service activation, and all listed sockets will be passed to
         the service, regardless of whether there is incoming traffic
@@ -375,10 +375,10 @@
         to work unmodified with systemd socket
         activation.</para>
 
-        <para>For IPv4 and IPv6 connections the <varname>REMOTE_ADDR</varname>
+        <para>For IPv4 and IPv6 connections, the <varname>REMOTE_ADDR</varname>
         environment variable will contain the remote IP, and <varname>REMOTE_PORT</varname>
         will contain the remote port. This is the same as the format used by CGI.
-        For SOCK_RAW the port is the IP protocol.</para></listitem>
+        For SOCK_RAW, the port is the IP protocol.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -386,7 +386,7 @@
         <listitem><para>Takes a boolean argument. May only be used in
         conjunction with <varname>ListenSpecial=</varname>. If true,
         the specified special file is opened in read-write mode, if
-        false in read-only mode. Defaults to false.</para></listitem>
+        false, in read-only mode. Defaults to false.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -418,7 +418,7 @@
 
       <varlistentry>
         <term><varname>KeepAliveTimeSec=</varname></term>
-        <listitem><para>Takes time (in seconds) as argument . The connection needs to remain
+        <listitem><para>Takes time (in seconds) as argument. The connection needs to remain
         idle before TCP starts sending keepalive probes. This controls the TCP_KEEPIDLE
         socket option (see
         <citerefentry project='man-pages'><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry>
@@ -759,7 +759,7 @@
         descriptors. Names may contain any ASCII character, but must
         exclude control characters or <literal>:</literal>, and must
         be at most 255 characters in length. If this setting is not
-        used the file descriptor name defaults to the name of the
+        used, the file descriptor name defaults to the name of the
         socket unit, including its <filename>.socket</filename>
         suffix.</para></listitem>
       </varlistentry>

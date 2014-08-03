@@ -108,7 +108,7 @@
     <citerefentry><refentrytitle>sd_bus_message_get_realtime_usec</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
     <citerefentry><refentrytitle>sd_bus_message_get_seqnum</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     to query the timestamps of incoming messages. If negotiation is
-    disabled or not supported these calls will fail with
+    disabled or not supported, these calls will fail with
     <constant>-ENODATA</constant>. Note that not all transports
     support timestamping of messages. Specifically, timestamping is
     only available on the kdbus transport, but not on dbus1. The
@@ -140,7 +140,7 @@
     <citerefentry><refentrytitle>sd_bus_start</refentrytitle><manvolnum>3</manvolnum></citerefentry>. Both
     <function>sd_bus_negotiate_timestamp()</function> and
     <function>sd_bus_negotiate_creds()</function> may also be called
-    after a connection has been set up. Note that when operating on a
+    after a connection has been set up. Note that, when operating on a
     connection that is shared between multiple components of the same
     program (for example via
     <citerefentry><refentrytitle>sd_bus_default</refentrytitle><manvolnum>3</manvolnum></citerefentry>)
