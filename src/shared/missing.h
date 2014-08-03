@@ -210,7 +210,8 @@ struct btrfs_ioctl_fs_info_args {
 #endif
 
 #ifndef BTRFS_IOC_DEFRAG
-#define BTRFS_IOC_DEFRAG _IOW(BTRFS_IOCTL_MAGIC, 2, struct btrfs_ioctl_vol_args)
+#define BTRFS_IOC_DEFRAG _IOW(BTRFS_IOCTL_MAGIC, 2, \
+                                 struct btrfs_ioctl_vol_args)
 #endif
 
 #ifndef BTRFS_IOC_DEV_INFO
@@ -220,7 +221,12 @@ struct btrfs_ioctl_fs_info_args {
 
 #ifndef BTRFS_IOC_FS_INFO
 #define BTRFS_IOC_FS_INFO _IOR(BTRFS_IOCTL_MAGIC, 31, \
-                               struct btrfs_ioctl_fs_info_args)
+                                 struct btrfs_ioctl_fs_info_args)
+#endif
+
+#ifndef BTRFS_IOC_DEVICES_READY
+#define BTRFS_IOC_DEVICES_READY _IOR(BTRFS_IOCTL_MAGIC, 39, \
+                                 struct btrfs_ioctl_vol_args)
 #endif
 
 #ifndef BTRFS_SUPER_MAGIC
