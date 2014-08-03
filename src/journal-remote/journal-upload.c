@@ -34,9 +34,9 @@
 #include "conf-parser.h"
 #include "journal-upload.h"
 
-#define KEY_FILE   CERTIFICATE_ROOT "/private/journal-upload.pem"
-#define CERT_FILE  CERTIFICATE_ROOT "/certs/journal-upload.pem"
-#define TRUST_FILE CERTIFICATE_ROOT "/ca/trusted.pem"
+#define PRIV_KEY_FILE CERTIFICATE_ROOT "/private/journal-upload.pem"
+#define CERT_FILE     CERTIFICATE_ROOT "/certs/journal-upload.pem"
+#define TRUST_FILE    CERTIFICATE_ROOT "/ca/trusted.pem"
 
 static const char* arg_url;
 
@@ -222,7 +222,7 @@ int start_upload(Uploader *u,
                 if (arg_key || startswith(u->url, "https://")) {
                         assert(arg_cert);
 
-                        easy_setopt(curl, CURLOPT_SSLKEY, arg_key ?: KEY_FILE,
+                        easy_setopt(curl, CURLOPT_SSLKEY, arg_key ?: PRIV_KEY_FILE,
                                     LOG_ERR, return -EXFULL);
                         easy_setopt(curl, CURLOPT_SSLCERT, arg_cert ?: CERT_FILE,
                                     LOG_ERR, return -EXFULL);

@@ -52,9 +52,9 @@
 
 #define REMOTE_JOURNAL_PATH "/var/log/journal/remote"
 
-#define KEY_FILE   CERTIFICATE_ROOT "/private/journal-remote.pem"
-#define CERT_FILE  CERTIFICATE_ROOT "/certs/journal-remote.pem"
-#define TRUST_FILE CERTIFICATE_ROOT "/ca/trusted.pem"
+#define PRIV_KEY_FILE CERTIFICATE_ROOT "/private/journal-remote.pem"
+#define CERT_FILE     CERTIFICATE_ROOT "/certs/journal-remote.pem"
+#define TRUST_FILE    CERTIFICATE_ROOT "/ca/trusted.pem"
 
 static char* arg_url = NULL;
 static char* arg_getter = NULL;
@@ -1144,7 +1144,7 @@ static void help(void) {
                "  --[no-]compress      Use XZ-compression in the output journal (default: yes)\n"
                "  --[no-]seal          Use Event sealing in the output journal (default: no)\n"
                "  --key=FILENAME       Specify key in PEM format (default:\n"
-               "                           \"" KEY_FILE "\")\n"
+               "                           \"" PRIV_KEY_FILE "\")\n"
                "  --cert=FILENAME      Specify certificate in PEM format (default:\n"
                "                           \"" CERT_FILE "\")\n"
                "  --trust=FILENAME|all Specify CA certificate or disable checking (default:\n"
@@ -1420,10 +1420,10 @@ static int parse_argv(int argc, char *argv[]) {
 static int load_certificates(char **key, char **cert, char **trust) {
         int r;
 
-        r = read_full_file(arg_key ?: KEY_FILE, key, NULL);
+        r = read_full_file(arg_key ?: PRIV_KEY_FILE, key, NULL);
         if (r < 0) {
                 log_error("Failed to read key from file '%s': %s",
-                          arg_key ?: KEY_FILE, strerror(-r));
+                          arg_key ?: PRIV_KEY_FILE, strerror(-r));
                 return r;
         }
 
