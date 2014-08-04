@@ -732,7 +732,7 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, NULL);
 
-                if (service_name_is_valid(arg0) < 0)
+                if (!service_name_is_valid(arg0))
                         return synthetic_reply_method_errno(m, -EINVAL, NULL);
 
                 cmd.flags = KDBUS_NAME_LIST_QUEUED;
@@ -779,7 +779,7 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, NULL);
 
-                if (service_name_is_valid(name) < 0)
+                if (!service_name_is_valid(name))
                         return synthetic_reply_method_errno(m, -EINVAL, NULL);
 
                 if (streq(name, "org.freedesktop.DBus"))
@@ -798,7 +798,7 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, NULL);
 
-                if (service_name_is_valid(name) < 0)
+                if (!service_name_is_valid(name))
                         return synthetic_reply_method_errno(m, -EINVAL, NULL);
 
                 r = sd_bus_release_name(a, name);
@@ -828,7 +828,7 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, NULL);
 
-                if (service_name_is_valid(name) < 0)
+                if (!service_name_is_valid(name))
                         return synthetic_reply_method_errno(m, -EINVAL, NULL);
                 if ((flags & ~(BUS_NAME_ALLOW_REPLACEMENT|BUS_NAME_REPLACE_EXISTING|BUS_NAME_DO_NOT_QUEUE)) != 0)
                         return synthetic_reply_method_errno(m, -EINVAL, NULL);
@@ -856,7 +856,7 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, NULL);
 
-                if (service_name_is_valid(name) < 0)
+                if (!service_name_is_valid(name))
                         return synthetic_reply_method_errno(m, -EINVAL, NULL);
                 if (flags != 0)
                         return synthetic_reply_method_errno(m, -EINVAL, NULL);
