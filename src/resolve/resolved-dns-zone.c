@@ -260,14 +260,34 @@ int dns_zone_put(DnsZone *z, DnsScope *s, DnsResourceRecord *rr, bool probe) {
                 return r;
 
         if (probe) {
-                r = dns_zone_item_probe_start(i);
-                if (r < 0) {
-                        dns_zone_item_remove_and_free(z, i);
-                        i = NULL;
-                        return r;
+                DnsZoneItem *first, *j;
+                bool established = false;
+
+                /* Check if there's already an RR with the same name
+                 * established. If so, it has been probed already, and
+                 * we don't ned to probe again. */
+
+                LIST_FIND_HEAD(by_name, i, first);
+                LIST_FOREACH(by_name, j, first) {
+                        if (i == j)
+                                continue;
+
+                        if (j->state == DNS_ZONE_ITEM_ESTABLISHED)
+                                established = true;
                 }
 
-                i->state = DNS_ZONE_ITEM_PROBING;
+                if (established)
+                        i->state = DNS_ZONE_ITEM_ESTABLISHED;
+                else {
+                        r = dns_zone_item_probe_start(i);
+                        if (r < 0) {
+                                dns_zone_item_remove_and_free(z, i);
+                                i = NULL;
+                                return r;
+                        }
+
+                        i->state = DNS_ZONE_ITEM_PROBING;
+                }
         } else
                 i->state = DNS_ZONE_ITEM_ESTABLISHED;
 
