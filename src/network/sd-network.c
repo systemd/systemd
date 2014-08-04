@@ -122,6 +122,8 @@ _public_ int sd_network_get_llmnr(int ifindex, char **llmnr) {
                 return -ENODATA;
         else if (r < 0)
                 return r;
+        else if (!s)
+                return -ENODATA;
 
         *llmnr = s;
         s = NULL;
