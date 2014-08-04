@@ -524,14 +524,11 @@ Manager *manager_free(Manager *m) {
         if (!m)
                 return NULL;
 
-        while (m->dns_queries)
-                dns_query_free(m->dns_queries);
-
-        hashmap_free(m->dns_transactions);
-
         while ((l = hashmap_first(m->links)))
                link_free(l);
-        hashmap_free(m->links);
+
+        while (m->dns_queries)
+                dns_query_free(m->dns_queries);
 
         dns_scope_free(m->unicast_scope);
 
@@ -539,6 +536,9 @@ Manager *manager_free(Manager *m) {
                 dns_server_free(m->dns_servers);
         while (m->fallback_dns_servers)
                 dns_server_free(m->fallback_dns_servers);
+
+        hashmap_free(m->links);
+        hashmap_free(m->dns_transactions);
 
         sd_event_source_unref(m->network_event_source);
         sd_network_monitor_unref(m->network_monitor);
