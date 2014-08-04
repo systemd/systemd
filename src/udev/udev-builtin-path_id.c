@@ -481,7 +481,8 @@ out:
 static int builtin_path_id(struct udev_device *dev, int argc, char *argv[], bool test) {
         struct udev_device *parent;
         char *path = NULL;
-        bool some_transport = false;
+        bool supported_transport = false;
+        bool supported_parent = false;
 
         /* S390 ccw bus */
         parent = udev_device_get_parent_with_subsystem_devtype(dev, "ccw", NULL);
@@ -502,47 +503,62 @@ static int builtin_path_id(struct udev_device *dev, int argc, char *argv[], bool
                         handle_scsi_tape(parent, &path);
                 } else if (streq(subsys, "scsi")) {
                         parent = handle_scsi(parent, &path);
-                        some_transport = true;
+                        supported_transport = true;
                 } else if (streq(subsys, "cciss")) {
                         parent = handle_cciss(parent, &path);
-                        some_transport = true;
+                        supported_transport = true;
                 } else if (streq(subsys, "usb")) {
                         parent = handle_usb(parent, &path);
-                        some_transport = true;
+                        supported_transport = true;
                 } else if (streq(subsys, "bcma")) {
                         parent = handle_bcma(parent, &path);
-                        some_transport = true;
+                        supported_transport = true;
                 } else if (streq(subsys, "serio")) {
                         path_prepend(&path, "serio-%s", udev_device_get_sysnum(parent));
                         parent = skip_subsystem(parent, "serio");
                 } else if (streq(subsys, "pci")) {
                         path_prepend(&path, "pci-%s", udev_device_get_sysname(parent));
                         parent = skip_subsystem(parent, "pci");
+                        supported_parent = true;
                 } else if (streq(subsys, "platform")) {
                         path_prepend(&path, "platform-%s", udev_device_get_sysname(parent));
                         parent = skip_subsystem(parent, "platform");
-                        some_transport = true;
+                        supported_transport = true;
+                        supported_parent = true;
                 } else if (streq(subsys, "acpi")) {
                         path_prepend(&path, "acpi-%s", udev_device_get_sysname(parent));
                         parent = skip_subsystem(parent, "acpi");
+                        supported_parent = true;
                 } else if (streq(subsys, "xen")) {
                         path_prepend(&path, "xen-%s", udev_device_get_sysname(parent));
                         parent = skip_subsystem(parent, "xen");
+                        supported_parent = true;
                 } else if (streq(subsys, "scm")) {
                         path_prepend(&path, "scm-%s", udev_device_get_sysname(parent));
                         parent = skip_subsystem(parent, "scm");
-                        some_transport = true;
+                        supported_transport = true;
+                        supported_parent = true;
                 }
 
                 parent = udev_device_get_parent(parent);
         }
 
         /*
-         * Do not return a single-parent-device-only for block
-         * devices, they might have entire buses behind it which
-         * do not get unique IDs only by using the parent device.
+         * Do return devices with have an unknown type of parent device, they
+         * might produce conflicting IDs below multiple independent parent
+         * devices.
          */
-        if (!some_transport && streq(udev_device_get_subsystem(dev), "block")) {
+        if (!supported_parent) {
+                free(path);
+                path = NULL;
+        }
+
+        /*
+         * Do not return a have-only a single-parent block devices, some
+         * have entire hidden buses behind it, and not create predictable
+         * IDs that way.
+         */
+        if (streq(udev_device_get_subsystem(dev), "block") && !supported_transport) {
                 free(path);
                 path = NULL;
         }
