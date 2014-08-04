@@ -1090,7 +1090,7 @@ static int patch_sender(sd_bus *a, sd_bus_message *m) {
 
 int main(int argc, char *argv[]) {
 
-        _cleanup_bus_unref_ sd_bus *a = NULL, *b = NULL;
+        _cleanup_bus_close_unref_ sd_bus *a = NULL, *b = NULL;
         sd_id128_t server_id;
         int r, in_fd, out_fd;
         bool got_hello = false;
@@ -1474,11 +1474,6 @@ int main(int argc, char *argv[]) {
         }
 
 finish:
-        sd_bus_flush(a);
-        sd_bus_flush(b);
-        sd_bus_close(a);
-        sd_bus_close(b);
-
         policy_free(&policy);
         strv_free(arg_configuration);
         free(arg_address);

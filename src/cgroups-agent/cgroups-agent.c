@@ -26,7 +26,7 @@
 #include "bus-util.h"
 
 int main(int argc, char *argv[]) {
-        _cleanup_bus_unref_ sd_bus *bus = NULL;
+        _cleanup_bus_close_unref_ sd_bus *bus = NULL;
         int r;
 
         if (argc != 2) {
@@ -61,8 +61,6 @@ int main(int argc, char *argv[]) {
                 log_debug("Failed to send signal message on private connection: %s", strerror(-r));
                 return EXIT_FAILURE;
         }
-
-        sd_bus_flush(bus);
 
         return EXIT_SUCCESS;
 }

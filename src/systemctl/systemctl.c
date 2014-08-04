@@ -617,7 +617,7 @@ static int get_unit_list_recursive(
                         return r;
 
                 STRV_FOREACH(i, machines) {
-                        _cleanup_bus_unref_ sd_bus *container = NULL;
+                        _cleanup_bus_close_unref_ sd_bus *container = NULL;
                         int k;
 
                         r = sd_bus_open_system_container(&container, *i);
@@ -1688,7 +1688,7 @@ static int compare_machine_info(const void *a, const void *b) {
 }
 
 static int get_machine_properties(sd_bus *bus, struct machine_info *mi) {
-        _cleanup_bus_unref_ sd_bus *container = NULL;
+        _cleanup_bus_close_unref_ sd_bus *container = NULL;
         int r;
 
         assert(mi);
@@ -6828,7 +6828,7 @@ static int runlevel_main(void) {
 }
 
 int main(int argc, char*argv[]) {
-        _cleanup_bus_unref_ sd_bus *bus = NULL;
+        _cleanup_bus_close_unref_ sd_bus *bus = NULL;
         int r;
 
         setlocale(LC_ALL, "");

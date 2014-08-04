@@ -661,7 +661,7 @@ static int openpt_in_namespace(pid_t pid, int flags) {
 static int login_machine(sd_bus *bus, char **args, unsigned n) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL, *reply2 = NULL, *reply3 = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_unref_ sd_bus *container_bus = NULL;
+        _cleanup_bus_close_unref_ sd_bus *container_bus = NULL;
         _cleanup_close_ int master = -1;
         _cleanup_free_ char *getty = NULL;
         const char *path, *pty, *p;
@@ -989,7 +989,7 @@ static int machinectl_main(sd_bus *bus, int argc, char *argv[]) {
 }
 
 int main(int argc, char*argv[]) {
-        _cleanup_bus_unref_ sd_bus *bus = NULL;
+        _cleanup_bus_close_unref_ sd_bus *bus = NULL;
         int r;
 
         setlocale(LC_ALL, "");

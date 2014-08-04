@@ -1346,7 +1346,7 @@ int main(int argc, char *argv[]) {
                                  arg_user ? SYSTEMD_USER : SYSTEMD_SYSTEM,
                                  arg_man);
         else {
-                _cleanup_bus_unref_ sd_bus *bus = NULL;
+                _cleanup_bus_close_unref_ sd_bus *bus = NULL;
 
                 r = bus_open_transport_systemd(arg_transport, arg_host, arg_user, &bus);
                 if (r < 0) {

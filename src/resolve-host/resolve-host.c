@@ -529,7 +529,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 int main(int argc, char **argv) {
-        _cleanup_bus_unref_ sd_bus *bus = NULL;
+        _cleanup_bus_close_unref_ sd_bus *bus = NULL;
         int r;
 
         log_parse_environment();
