@@ -311,7 +311,7 @@ static int link_enter_configured(Link *link) {
 
                 log_debug_link(link, "offering DHCPv4 leases");
 
-                r = sd_dhcp_server_set_address(link->dhcp_server, &address->in_addr.in);
+                r = sd_dhcp_server_set_address(link->dhcp_server, &address->in_addr.in, address->prefixlen);
                 if (r < 0)
                         return r;
 

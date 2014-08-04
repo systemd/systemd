@@ -51,13 +51,16 @@ int sd_dhcp_server_set_lease_pool(sd_dhcp_server *server, struct in_addr *addres
         return 0;
 }
 
-int sd_dhcp_server_set_address(sd_dhcp_server *server, struct in_addr *address) {
+int sd_dhcp_server_set_address(sd_dhcp_server *server, struct in_addr *address, unsigned char prefixlen) {
         assert_return(server, -EINVAL);
         assert_return(address, -EINVAL);
         assert_return(address->s_addr, -EINVAL);
+        assert_return(prefixlen <= 32, -ERANGE);
         assert_return(server->address == htobe32(INADDR_ANY), -EBUSY);
+        assert_return(server->netmask == htobe32(INADDR_ANY), -EBUSY);
 
         server->address = address->s_addr;
+        server->netmask = htobe32(0xfffffffflu << (32 - prefixlen));
 
         return 0;
 }
@@ -150,6 +153,7 @@ int sd_dhcp_server_new(sd_dhcp_server **ret, int ifindex) {
         server->fd_raw = -1;
         server->fd = -1;
         server->address = htobe32(INADDR_ANY);
+        server->netmask = htobe32(INADDR_ANY);
         server->index = ifindex;
         server->leases_by_client_id = hashmap_new(client_id_hash_func, client_id_compare_func);
 
@@ -408,6 +412,16 @@ static int server_send_offer(sd_dhcp_server *server, DHCPRequest *req, be32_t ad
         if (r < 0)
                 return r;
 
+        r = dhcp_option_append(&packet->dhcp, req->max_optlen, &offset, 0,
+                               DHCP_OPTION_SUBNET_MASK, 4, &server->netmask);
+        if (r < 0)
+                return r;
+
+        r = dhcp_option_append(&packet->dhcp, req->max_optlen, &offset, 0,
+                               DHCP_OPTION_ROUTER, 4, &server->address);
+        if (r < 0)
+                return r;
+
         r = dhcp_server_send_packet(server, req, packet, DHCP_OFFER, offset);
         if (r < 0)
                 return r;
@@ -430,6 +444,16 @@ static int server_send_ack(sd_dhcp_server *server, DHCPRequest *req, be32_t addr
         lease_time = htobe32(req->lifetime);
         r = dhcp_option_append(&packet->dhcp, req->max_optlen, &offset, 0,
                                DHCP_OPTION_IP_ADDRESS_LEASE_TIME, 4, &lease_time);
+        if (r < 0)
+                return r;
+
+        r = dhcp_option_append(&packet->dhcp, req->max_optlen, &offset, 0,
+                               DHCP_OPTION_SUBNET_MASK, 4, &server->netmask);
+        if (r < 0)
+                return r;
+
+        r = dhcp_option_append(&packet->dhcp, req->max_optlen, &offset, 0,
+                               DHCP_OPTION_ROUTER, 4, &server->address);
         if (r < 0)
                 return r;
 
