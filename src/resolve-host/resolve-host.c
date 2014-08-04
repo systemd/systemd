@@ -425,7 +425,7 @@ static void help(void) {
                "  -i INTERFACE          Filter by interface\n"
                "  -t --type=TYPE        Query RR with DNS type\n"
                "  -c --class=CLASS      Query RR with DNS class\n"
-               "  --no-legend           Do not print column headers\n"
+               "     --no-legend        Do not print column headers\n"
                , program_invocation_short_name);
 }
 
