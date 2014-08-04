@@ -30,6 +30,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "terminal-util.h"
 
 DnsResourceKey* dns_resource_key_new(uint16_t class, uint16_t type, const char *name) {
         DnsResourceKey *k;
@@ -958,23 +959,27 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
 
         case DNS_TYPE_DNSKEY: {
                 _cleanup_free_ char *alg = NULL;
+                int n;
 
                 r = dnssec_algorithm_to_string_alloc(rr->dnskey.algorithm, &alg);
                 if (r < 0)
                         return NULL;
 
-                t = base64mem(rr->dnskey.key, rr->dnskey.key_size);
-                if (!t)
-                        return NULL;
-
-                r = asprintf(&s, "%s %u %u %s %s",
+                r = asprintf(&s, "%s %u %u %s %n",
                              k,
                              rr->dnskey.flags,
                              rr->dnskey.protocol,
                              alg,
-                             t);
+                             &n);
                 if (r < 0)
                         return NULL;
+
+                r = base64_append(&s, n,
+                                  rr->dnskey.key, rr->dnskey.key_size,
+                                  8, columns());
+                if (r < 0)
+                        return NULL;
+
                 break;
         }
 
@@ -982,15 +987,12 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                 _cleanup_free_ char *alg = NULL;
                 char expiration[strlen("YYYYMMDDHHmmSS") + 1], inception[strlen("YYYYMMDDHHmmSS") + 1];
                 const char *type;
+                int n;
 
                 type = dns_type_to_string(rr->rrsig.type_covered);
 
                 r = dnssec_algorithm_to_string_alloc(rr->rrsig.algorithm, &alg);
                 if (r < 0)
-                        return NULL;
-
-                t = base64mem(rr->rrsig.signature, rr->rrsig.signature_size);
-                if (!t)
                         return NULL;
 
                 r = format_timestamp_dns(expiration, sizeof(expiration), rr->rrsig.expiration);
@@ -1004,7 +1006,7 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                 /* TYPE?? follows
                  * http://tools.ietf.org/html/rfc3597#section-5 */
 
-                r = asprintf(&s, "%s %s%.*u %s %u %u %s %s %u %s %s",
+                r = asprintf(&s, "%s %s%.*u %s %u %u %s %s %u %s %n",
                              k,
                              type ?: "TYPE",
                              type ? 0 : 1, type ? 0u : (unsigned) rr->rrsig.type_covered,
@@ -1015,9 +1017,16 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                              inception,
                              rr->rrsig.key_tag,
                              rr->rrsig.signer,
-                             t);
+                             &n);
                 if (r < 0)
                         return NULL;
+
+                r = base64_append(&s, n,
+                                  rr->rrsig.signature, rr->rrsig.signature_size,
+                                  8, columns());
+                if (r < 0)
+                        return NULL;
+
                 break;
         }
 
