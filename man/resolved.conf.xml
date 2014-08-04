@@ -56,8 +56,8 @@
 
                 <para>When starting, systemd-resolved will read the
                 configuration file <filename>resolved.conf</filename>.
-                This configuration file determines the fallback DNS
-                servers.</para>
+                This configuration file controls local DNS name
+                resolving.</para>
 
         </refsect1>
 
@@ -68,12 +68,62 @@
 
                         <varlistentry>
                                 <term><varname>DNS=</varname></term>
-                                <listitem><para>A space separated list of IPv4 and IPv6
-                                addresses to be used as the fallback DNS servers. Note that
-                                the servers obtained from
+                                <listitem><para>A space separated list
+                                of IPv4 and IPv6 addresses to be used
+                                as system DNS servers. DNS requests
+                                are sent to one of the listed DNS
+                                servers in parallel to any
+                                per-interface DNS servers acquired
+                                from
+                                <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>. For
+                                compatibility reasons, if set to the
+                                empty list the DNS servers listed in
+                                <filename>/etc/resolv.conf</filename>
+                                are used, if any are
+                                configured there. This setting
+                                defaults to the empty
+                                list.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>FallbackDNS=</varname></term>
+                                <listitem><para>A space separated list
+                                of IPv4 and IPv6 addresses to be used
+                                as the fallback DNS servers. Any
+                                per-interface DNS servers obtained
+                                from
                                 <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-                                take precedence. If this option is not given, a compiled-in
-                                list of DNS servers is used instead.</para></listitem>
+                                take precedence over this setting, as
+                                do any servers set via
+                                <varname>DNS=</varname> above or
+                                <filename>/etc/resolv.conf</filename>. This
+                                setting is hence only used if no other
+                                DNS server information is known. If
+                                this option is not given, a
+                                compiled-in list of DNS servers is
+                                used instead.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>LLMNR=</varname></term>
+                                <listitem><para>Takes a boolean
+                                argument or
+                                <literal>resolve</literal>. Controls
+                                Link-Local Multicast Name Resolution support (<ulink
+                                url="https://tools.ietf.org/html/rfc4795">RFC
+                                4794</ulink>) on the local host. If
+                                true enables full LLMNR responder and
+                                resolver support. If false disable
+                                both. If set to
+                                <literal>resolve</literal> only
+                                resolving support is enabled, but
+                                responding is disabled. Note that
+                                <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                                also maintains per-interface LLMNR
+                                settings. LLMNR will be enabled on an
+                                interface only if the per-interface
+                                and the global setting is
+                                on.</para></listitem>
                         </varlistentry>
 
                 </variablelist>
@@ -84,7 +134,8 @@
                   <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>resolv.conf</refentrytitle><manvolnum>4</manvolnum></citerefentry>
                   </para>
         </refsect1>
 
