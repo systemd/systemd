@@ -71,8 +71,6 @@ Features:
 
 * Add a new verb "systemctl top"
 
-* order OnCalendar timer units after timer-sync.target if DefaultDependencies=no so that we don't trigger them prematurely
-
 * refuse mounting on symlinks
 
 * logind: allow users to kill or lock their own sessions

@@ -57,13 +57,13 @@
 #define SPECIAL_REMOTE_FS_PRE_TARGET "remote-fs-pre.target"
 #define SPECIAL_SWAP_TARGET "swap.target"
 #define SPECIAL_NETWORK_ONLINE_TARGET "network-online.target"
+#define SPECIAL_TIME_SYNC_TARGET "time-sync.target"       /* LSB's $time */
 #define SPECIAL_BASIC_TARGET "basic.target"
 
 /* LSB compatibility */
 #define SPECIAL_NETWORK_TARGET "network.target"           /* LSB's $network */
 #define SPECIAL_NSS_LOOKUP_TARGET "nss-lookup.target"     /* LSB's $named */
 #define SPECIAL_RPCBIND_TARGET "rpcbind.target"           /* LSB's $portmap */
-#define SPECIAL_TIME_SYNC_TARGET "time-sync.target"       /* LSB's $time */
 
 /*
  * Rules regarding adding further high level targets like the above:
