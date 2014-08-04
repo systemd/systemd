@@ -156,7 +156,7 @@ static int dns_query_add_transaction(DnsQuery *q, DnsScope *s, DnsResourceKey *k
         } else
                 question = dns_question_ref(q->question);
 
-        t = dns_scope_find_transaction(s, question);
+        t = dns_scope_find_transaction(s, question, true);
         if (!t) {
                 r = dns_transaction_new(&t, s, question);
                 if (r < 0)

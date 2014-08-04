@@ -546,7 +546,7 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
         }
 }
 
-DnsTransaction *dns_scope_find_transaction(DnsScope *scope, DnsQuestion *question) {
+DnsTransaction *dns_scope_find_transaction(DnsScope *scope, DnsQuestion *question, bool cache_ok) {
         DnsTransaction *t;
 
         assert(scope);
@@ -555,9 +555,19 @@ DnsTransaction *dns_scope_find_transaction(DnsScope *scope, DnsQuestion *questio
         /* Try to find an ongoing transaction that is a equal or a
          * superset of the specified question */
 
-        LIST_FOREACH(transactions_by_scope, t, scope->transactions)
+        LIST_FOREACH(transactions_by_scope, t, scope->transactions) {
+
+                /* Refuse reusing transactions that completed based on
+                 * cached data instead of a real packet, if that's
+                 * requested. */
+                if (!cache_ok &&
+                    IN_SET(t->state, DNS_TRANSACTION_SUCCESS, DNS_TRANSACTION_FAILURE) &&
+                    !t->received)
+                        continue;
+
                 if (dns_question_is_superset(t->question, question) > 0)
                         return t;
+        }
 
         return NULL;
 }

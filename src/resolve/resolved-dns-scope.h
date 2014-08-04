@@ -77,4 +77,4 @@ int dns_scope_llmnr_membership(DnsScope *s, bool b);
 
 void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p);
 
-DnsTransaction *dns_scope_find_transaction(DnsScope *scope, DnsQuestion *question);
+DnsTransaction *dns_scope_find_transaction(DnsScope *scope, DnsQuestion *question, bool cache_ok);

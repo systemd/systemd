@@ -187,7 +187,7 @@ static int dns_zone_item_probe_start(DnsZoneItem *i)  {
         if (r < 0)
                 return r;
 
-        t = dns_scope_find_transaction(i->scope, question);
+        t = dns_scope_find_transaction(i->scope, question, false);
         if (!t) {
                 r = dns_transaction_new(&t, i->scope, question);
                 if (r < 0)
