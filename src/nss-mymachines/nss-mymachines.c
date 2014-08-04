@@ -39,7 +39,7 @@ static int count_addresses(sd_bus_message *m, int af, unsigned *ret) {
         assert(m);
         assert(ret);
 
-        while ((r = sd_bus_message_enter_container(m, 'r', "yay")) > 0) {
+        while ((r = sd_bus_message_enter_container(m, 'r', "iay")) > 0) {
                 int family;
 
                 r = sd_bus_message_read(m, "i", &family);
