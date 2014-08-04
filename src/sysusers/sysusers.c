@@ -1078,7 +1078,7 @@ static bool valid_user_group_name(const char *u) {
         const char *i;
         long sz;
 
-        if (isempty(u) < 0)
+        if (isempty(u))
                 return false;
 
         if (!(u[0] >= 'a' && u[0] <= 'z') &&
