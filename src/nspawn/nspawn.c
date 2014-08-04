@@ -1606,9 +1606,10 @@ static int reset_audit_loginuid(void) {
         return 0;
 }
 
-#define HASH_KEY SD_ID128_MAKE(c3,c4,f9,19,b5,57,b2,1c,e6,cf,14,27,03,9c,ee,a2)
+#define HOST_HASH_KEY SD_ID128_MAKE(1a,37,6f,c7,46,ec,45,0b,ad,a3,d5,31,06,60,5d,b1)
+#define CONTAINER_HASH_KEY SD_ID128_MAKE(c3,c4,f9,19,b5,57,b2,1c,e6,cf,14,27,03,9c,ee,a2)
 
-static int get_mac(struct ether_addr *mac) {
+static int generate_mac(struct ether_addr *mac, sd_id128_t hash_key) {
         int r;
 
         uint8_t result[8];
@@ -1630,7 +1631,7 @@ static int get_mac(struct ether_addr *mac) {
 
         /* Let's hash the host machine ID plus the container name. We
          * use a fixed, but originally randomly created hash key here. */
-        siphash24(result, v, sz, HASH_KEY.bytes);
+        siphash24(result, v, sz, hash_key.bytes);
 
         assert_cc(ETH_ALEN <= sizeof(result));
         memcpy(mac->ether_addr_octet, result, ETH_ALEN);
@@ -1645,7 +1646,7 @@ static int get_mac(struct ether_addr *mac) {
 static int setup_veth(pid_t pid, char iface_name[IFNAMSIZ], int *ifi) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
         _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
-        struct ether_addr mac;
+        struct ether_addr mac_host, mac_container;
         int r, i;
 
         if (!arg_private_network)
@@ -1659,9 +1660,15 @@ static int setup_veth(pid_t pid, char iface_name[IFNAMSIZ], int *ifi) {
         snprintf(iface_name, IFNAMSIZ, "%s-%s",
                  arg_network_bridge ? "vb" : "ve", arg_machine);
 
-        r = get_mac(&mac);
+        r = generate_mac(&mac_container, CONTAINER_HASH_KEY);
         if (r < 0) {
-                log_error("Failed to generate predictable MAC address for host0");
+                log_error("Failed to generate predictable MAC address for container side");
+                return r;
+        }
+
+        r = generate_mac(&mac_host, HOST_HASH_KEY);
+        if (r < 0) {
+                log_error("Failed to generate predictable MAC address for host side");
                 return r;
         }
 
@@ -1680,6 +1687,12 @@ static int setup_veth(pid_t pid, char iface_name[IFNAMSIZ], int *ifi) {
         r = sd_rtnl_message_append_string(m, IFLA_IFNAME, iface_name);
         if (r < 0) {
                 log_error("Failed to add netlink interface name: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_append_ether_addr(m, IFLA_ADDRESS, &mac_host);
+        if (r < 0) {
+                log_error("Failed to add netlink MAC address: %s", strerror(-r));
                 return r;
         }
 
@@ -1707,7 +1720,7 @@ static int setup_veth(pid_t pid, char iface_name[IFNAMSIZ], int *ifi) {
                 return r;
         }
 
-        r = sd_rtnl_message_append_ether_addr(m, IFLA_ADDRESS, &mac);
+        r = sd_rtnl_message_append_ether_addr(m, IFLA_ADDRESS, &mac_container);
         if (r < 0) {
                 log_error("Failed to add netlink MAC address: %s", strerror(-r));
                 return r;
