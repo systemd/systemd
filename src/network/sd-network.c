@@ -114,6 +114,9 @@ _public_ int sd_network_get_llmnr(int ifindex, char **llmnr) {
         assert_return(ifindex > 0, -EINVAL);
         assert_return(llmnr, -EINVAL);
 
+        if (asprintf(&p, "/run/systemd/netif/links/%d", ifindex) < 0)
+                return -ENOMEM;
+
         r = parse_env_file(p, NEWLINE, "LLMNR", &s, NULL);
         if (r == -ENOENT)
                 return -ENODATA;
