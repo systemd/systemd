@@ -80,7 +80,7 @@ typedef struct JournalFile {
 
 #ifdef HAVE_XZ
         void *compress_buffer;
-        uint64_t compress_buffer_size;
+        size_t compress_buffer_size;
 #endif
 
 #ifdef HAVE_GCRYPT

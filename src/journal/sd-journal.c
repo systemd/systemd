@@ -2004,7 +2004,7 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
                                                   &f->compress_buffer, &f->compress_buffer_size,
                                                   field, field_length, '=')) {
 
-                                uint64_t rsize;
+                                size_t rsize;
 
                                 r = decompress_blob(compression,
                                                     o->data.payload, l,
@@ -2059,7 +2059,7 @@ static int return_data(sd_journal *j, JournalFile *f, Object *o, const void **da
         compression = o->object.flags & OBJECT_COMPRESSION_MASK;
         if (compression) {
 #if defined(HAVE_XZ) || defined(HAVE_LZ4)
-                uint64_t rsize;
+                size_t rsize;
                 int r;
 
                 r = decompress_blob(compression,

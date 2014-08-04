@@ -34,14 +34,13 @@
 #endif
 
 typedef int (compress_blob_t)(const void *src, uint64_t src_size,
-                              void *dst, uint64_t *dst_size);
+                              void *dst, size_t *dst_size);
 typedef int (decompress_blob_t)(const void *src, uint64_t src_size,
-                                void **dst, uint64_t *dst_alloc_size,
-                                uint64_t* dst_size, uint64_t dst_max);
-
+                                void **dst, size_t *dst_alloc_size,
+                                size_t* dst_size, size_t dst_max);
 typedef int (decompress_sw_t)(const void *src, uint64_t src_size,
-                              void **buffer, uint64_t *buffer_size,
-                              const void *prefix, uint64_t prefix_len,
+                              void **buffer, size_t *buffer_size,
+                              const void *prefix, size_t prefix_len,
                               uint8_t extra);
 
 typedef int (compress_stream_t)(int fdf, int fdt, off_t max_bytes);
@@ -53,8 +52,8 @@ static void test_compress_decompress(int compression,
         char text[] = "foofoofoofoo AAAA aaaaaaaaa ghost busters barbarbar FFF"
                       "foofoofoofoo AAAA aaaaaaaaa ghost busters barbarbar FFF";
         char compressed[512];
-        uint64_t csize = 512;
-        uint64_t usize = 0;
+        size_t csize = 512;
+        size_t usize = 0;
         _cleanup_free_ char *decompressed = NULL;
         int r;
 
@@ -92,8 +91,8 @@ static void test_decompress_startswith(int compression,
         char text[] = "foofoofoofoo AAAA aaaaaaaaa ghost busters barbarbar FFF"
                       "foofoofoofoo AAAA aaaaaaaaa ghost busters barbarbar FFF";
         char compressed[512];
-        uint64_t csize = 512;
-        uint64_t usize = 0;
+        size_t csize = 512;
+        size_t usize = 0;
         _cleanup_free_ char *decompressed = NULL;
 
         log_info("/* testing decompress_startswith with %s */",

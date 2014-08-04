@@ -47,7 +47,7 @@ static const char* const object_compressed_table[_OBJECT_COMPRESSED_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(object_compressed, int);
 
-int compress_blob_xz(const void *src, uint64_t src_size, void *dst, uint64_t *dst_size) {
+int compress_blob_xz(const void *src, uint64_t src_size, void *dst, size_t *dst_size) {
 #ifdef HAVE_XZ
         static const lzma_options_lzma opt = {
                 1u << 20u, NULL, 0, LZMA_LC_DEFAULT, LZMA_LP_DEFAULT,
@@ -82,7 +82,7 @@ int compress_blob_xz(const void *src, uint64_t src_size, void *dst, uint64_t *ds
 #endif
 }
 
-int compress_blob_lz4(const void *src, uint64_t src_size, void *dst, uint64_t *dst_size) {
+int compress_blob_lz4(const void *src, uint64_t src_size, void *dst, size_t *dst_size) {
 #ifdef HAVE_LZ4
         int r;
 
@@ -112,12 +112,12 @@ int compress_blob_lz4(const void *src, uint64_t src_size, void *dst, uint64_t *d
 
 
 int decompress_blob_xz(const void *src, uint64_t src_size,
-                       void **dst, uint64_t *dst_alloc_size, uint64_t* dst_size, uint64_t dst_max) {
+                       void **dst, size_t *dst_alloc_size, size_t* dst_size, size_t dst_max) {
 
 #ifdef HAVE_XZ
         _cleanup_(lzma_end) lzma_stream s = LZMA_STREAM_INIT;
         lzma_ret ret;
-        uint64_t space;
+        size_t space;
 
         assert(src);
         assert(src_size > 0);
@@ -130,7 +130,7 @@ int decompress_blob_xz(const void *src, uint64_t src_size,
         if (ret != LZMA_OK)
                 return -ENOMEM;
 
-        space = MIN(src_size * 2, dst_max ?: (uint64_t) -1);
+        space = MIN(src_size * 2, dst_max ?: (size_t) -1);
         if (!greedy_realloc(dst, dst_alloc_size, space, 1))
                 return -ENOMEM;
 
@@ -141,7 +141,7 @@ int decompress_blob_xz(const void *src, uint64_t src_size,
         s.avail_out = space;
 
         for (;;) {
-                uint64_t used;
+                size_t used;
 
                 ret = lzma_code(&s, LZMA_FINISH);
 
@@ -156,7 +156,7 @@ int decompress_blob_xz(const void *src, uint64_t src_size,
                         return -ENOBUFS;
 
                 used = space - s.avail_out;
-                space = MIN(2 * space, dst_max ?: (uint64_t) -1);
+                space = MIN(2 * space, dst_max ?: (size_t) -1);
                 if (!greedy_realloc(dst, dst_alloc_size, space, 1))
                         return -ENOMEM;
 
@@ -172,12 +172,11 @@ int decompress_blob_xz(const void *src, uint64_t src_size,
 }
 
 int decompress_blob_lz4(const void *src, uint64_t src_size,
-                        void **dst, uint64_t *dst_alloc_size, uint64_t* dst_size, uint64_t dst_max) {
+                        void **dst, size_t *dst_alloc_size, size_t* dst_size, size_t dst_max) {
 
 #ifdef HAVE_LZ4
         char* out;
-        uint64_t size;
-        int r;
+        int r, size; /* LZ4 uses int for size */
 
         assert(src);
         assert(src_size > 0);
@@ -190,7 +189,9 @@ int decompress_blob_lz4(const void *src, uint64_t src_size,
                 return -EBADMSG;
 
         size = le64toh( *(le64_t*)src );
-        if (size > *dst_alloc_size) {
+        if (size < 0 || (le64_t) size != *(le64_t*)src)
+                return -EFBIG;
+        if ((size_t) size > *dst_alloc_size) {
                 out = realloc(*dst, size);
                 if (!out)
                         return -ENOMEM;
@@ -200,7 +201,7 @@ int decompress_blob_lz4(const void *src, uint64_t src_size,
                 out = *dst;
 
         r = LZ4_decompress_safe(src + 8, out, src_size - 8, size);
-        if (r < 0 || (uint64_t) r != size)
+        if (r < 0 || r != size)
                 return -EBADMSG;
 
         *dst_size = size;
@@ -212,7 +213,7 @@ int decompress_blob_lz4(const void *src, uint64_t src_size,
 
 int decompress_blob(int compression,
                     const void *src, uint64_t src_size,
-                    void **dst, uint64_t *dst_alloc_size, uint64_t* dst_size, uint64_t dst_max) {
+                    void **dst, size_t *dst_alloc_size, size_t* dst_size, size_t dst_max) {
         if (compression == OBJECT_COMPRESSED_XZ)
                 return decompress_blob_xz(src, src_size,
                                           dst, dst_alloc_size, dst_size, dst_max);
@@ -225,8 +226,8 @@ int decompress_blob(int compression,
 
 
 int decompress_startswith_xz(const void *src, uint64_t src_size,
-                             void **buffer, uint64_t *buffer_size,
-                             const void *prefix, uint64_t prefix_len,
+                             void **buffer, size_t *buffer_size,
+                             const void *prefix, size_t prefix_len,
                              uint8_t extra) {
 
 #ifdef HAVE_XZ
@@ -284,8 +285,8 @@ int decompress_startswith_xz(const void *src, uint64_t src_size,
 }
 
 int decompress_startswith_lz4(const void *src, uint64_t src_size,
-                              void **buffer, uint64_t *buffer_size,
-                              const void *prefix, uint64_t prefix_len,
+                              void **buffer, size_t *buffer_size,
+                              const void *prefix, size_t prefix_len,
                               uint8_t extra) {
 #ifdef HAVE_LZ4
         /* Checks whether the decompressed blob starts with the
@@ -325,8 +326,8 @@ int decompress_startswith_lz4(const void *src, uint64_t src_size,
 
 int decompress_startswith(int compression,
                           const void *src, uint64_t src_size,
-                          void **buffer, uint64_t *buffer_size,
-                          const void *prefix, uint64_t prefix_len,
+                          void **buffer, size_t *buffer_size,
+                          const void *prefix, size_t prefix_len,
                           uint8_t extra) {
         if (compression == OBJECT_COMPRESSED_XZ)
                 return decompress_startswith_xz(src, src_size,
@@ -407,7 +408,7 @@ int compress_stream_xz(int fdf, int fdt, off_t max_bytes) {
                                 return errno ? -errno : -EIO;
 
                         if (ret == LZMA_STREAM_END) {
-                                log_debug("XZ compression finished (%zu -> %zu bytes, %.1f%%)",
+                                log_debug("XZ compression finished (%"PRIu64" -> %"PRIu64" bytes, %.1f%%)",
                                           s.total_in, s.total_out,
                                           (double) s.total_out / s.total_in * 100);
 
@@ -566,7 +567,7 @@ int decompress_stream_xz(int fdf, int fdt, off_t max_bytes) {
                                 return errno ? -errno : -EIO;
 
                         if (ret == LZMA_STREAM_END) {
-                                log_debug("XZ decompression finished (%zu -> %zu bytes, %.1f%%)",
+                                log_debug("XZ decompression finished (%"PRIu64" -> %"PRIu64" bytes, %.1f%%)",
                                           s.total_in, s.total_out,
                                           (double) s.total_out / s.total_in * 100);
 

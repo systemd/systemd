@@ -223,7 +223,7 @@ void server_process_native_message(
                         l = le64toh(l_le);
 
                         if (l > DATA_SIZE_MAX) {
-                                log_debug("Received binary data block of %zu bytes is too large, ignoring.", l);
+                                log_debug("Received binary data block of %"PRIu64" bytes is too large, ignoring.", l);
                                 break;
                         }
 

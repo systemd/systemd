@@ -142,7 +142,7 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
                 compression = o->object.flags & OBJECT_COMPRESSION_MASK;
                 if (compression) {
                         _cleanup_free_ void *b = NULL;
-                        uint64_t alloc = 0, b_size;
+                        size_t alloc = 0, b_size;
 
                         r = decompress_blob(compression,
                                             o->data.payload,

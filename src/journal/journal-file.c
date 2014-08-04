@@ -814,7 +814,8 @@ int journal_file_find_data_object_with_hash(
 
                 if (o->object.flags & OBJECT_COMPRESSION_MASK) {
 #if defined(HAVE_XZ) || defined(HAVE_LZ4)
-                        uint64_t l, rsize;
+                        uint64_t l;
+                        size_t rsize;
 
                         l = le64toh(o->object.size);
                         if (l <= offsetof(Object, data.payload))
@@ -979,7 +980,7 @@ static int journal_file_append_data(
 #if defined(HAVE_XZ) || defined(HAVE_LZ4)
         if (f->compress_xz &&
             size >= COMPRESSION_SIZE_THRESHOLD) {
-                uint64_t rsize;
+                size_t rsize;
 
                 compression = compress_blob(data, size, o->data.payload, &rsize);
 
@@ -987,7 +988,7 @@ static int journal_file_append_data(
                         o->object.size = htole64(offsetof(Object, data.payload) + rsize);
                         o->object.flags |= compression;
 
-                        log_debug("Compressed data object %"PRIu64" -> %"PRIu64" using %s",
+                        log_debug("Compressed data object %"PRIu64" -> %zu using %s",
                                   size, rsize, object_compressed_to_string(compression));
                 }
         }
@@ -2770,7 +2771,7 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
 
                 if (o->object.flags & OBJECT_COMPRESSION_MASK) {
 #if defined(HAVE_XZ) || defined(HAVE_LZ4)
-                        uint64_t rsize;
+                        size_t rsize;
 
                         r = decompress_blob(o->object.flags & OBJECT_COMPRESSION_MASK,
                                             o->data.payload, l, &from->compress_buffer, &from->compress_buffer_size, &rsize, 0);

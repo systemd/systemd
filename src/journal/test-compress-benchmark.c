@@ -21,9 +21,9 @@
 #include "util.h"
 #include "macro.h"
 
-typedef int (compress_t)(const void *src, uint64_t src_size, void *dst, uint64_t *dst_size);
+typedef int (compress_t)(const void *src, uint64_t src_size, void *dst, size_t *dst_size);
 typedef int (decompress_t)(const void *src, uint64_t src_size,
-                           void **dst, uint64_t *dst_alloc_size, uint64_t* dst_size, uint64_t dst_max);
+                           void **dst, size_t *dst_alloc_size, size_t* dst_size, size_t dst_max);
 
 #define MAX_SIZE (1024*1024LU)
 
@@ -47,7 +47,7 @@ static void test_compress_decompress(const char* label,
 
         _cleanup_free_ char *text, *buf;
         _cleanup_free_ void *buf2 = NULL;
-        uint64_t buf2_allocated = 0;
+        size_t buf2_allocated = 0;
         size_t skipped = 0, compressed = 0, total = 0;
 
         text = make_buf(MAX_SIZE);
@@ -57,7 +57,7 @@ static void test_compress_decompress(const char* label,
         n = now(CLOCK_MONOTONIC);
 
         for (size_t i = 1; i <= MAX_SIZE; i += (i < 2048 ? 1 : 217)) {
-                uint64_t j = 0, k = 0;
+                size_t j = 0, k = 0;
                 int r;
 
                 r = compress(text, i, buf, &j);
@@ -72,7 +72,7 @@ static void test_compress_decompress(const char* label,
 
                 assert(j > 0);
                 if (j >= i)
-                        log_error("%s \"compressed\" %zu -> %" PRIu64, label, i, j);
+                        log_error("%s \"compressed\" %zu -> %zu", label, i, j);
 
                 r = decompress(buf, j, &buf2, &buf2_allocated, &k, 0);
                 assert(r == 0);
