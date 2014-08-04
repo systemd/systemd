@@ -30,20 +30,21 @@
 #include "hashmap.h"
 
 typedef struct Manager Manager;
+typedef enum Support Support;
+
+enum Support {
+        SUPPORT_NO,
+        SUPPORT_YES,
+        SUPPORT_RESOLVE,
+        _SUPPORT_MAX,
+        _SUPPORT_INVALID = -1
+};
 
 #include "resolved-dns-query.h"
 #include "resolved-dns-server.h"
 #include "resolved-dns-scope.h"
 #include "resolved-dns-stream.h"
 #include "resolved-link.h"
-
-typedef enum Support {
-        SUPPORT_NO,
-        SUPPORT_YES,
-        SUPPORT_RESOLVE,
-        _SUPPORT_MAX,
-        _SUPPORT_INVALID = -1
-} Support;
 
 struct Manager {
         sd_event *event;

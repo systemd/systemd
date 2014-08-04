@@ -59,6 +59,8 @@ struct Link {
         LIST_HEAD(DnsServer, dns_servers);
         DnsServer *current_dns_server;
 
+        Support llmnr_support;
+
         DnsScope *unicast_scope;
         DnsScope *llmnr_ipv4_scope;
         DnsScope *llmnr_ipv6_scope;
