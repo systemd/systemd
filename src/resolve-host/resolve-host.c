@@ -486,7 +486,7 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_type = dns_type_from_string(optarg);
                         if (arg_type < 0) {
                                 log_error("Failed to parse RR record type %s", optarg);
-                                return r;
+                                return arg_type;
                         }
                         assert(arg_type > 0 && (uint16_t) arg_type == arg_type);
 
