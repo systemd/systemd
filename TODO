@@ -40,6 +40,9 @@ Features:
         - collect multiple responses
         - jitter interval support
         - reprobe after suspend
+        - enforce packet rate limit
+  - DNS
+        - search paths
   - mDNS/DNS-SD
         - avahi compat
   - DNS-SD service registration from socket units
