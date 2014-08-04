@@ -49,7 +49,10 @@ int unbase64char(char c) _const_;
 char *base32hexmem(const void *p, size_t l, bool padding);
 int unbase32hexmem(const char *p, size_t l, bool padding, void **mem, size_t *len);
 
-char *base64mem(const void *p, size_t l);
+ssize_t base64mem(const void *p, size_t l, char **out);
+int base64_append(char **prefix, int plen,
+                  const void *p, size_t l,
+                  int margin, int width);
 int unbase64mem(const char *p, size_t l, void **mem, size_t *len);
 
 void hexdump(FILE *f, const void *p, size_t s);

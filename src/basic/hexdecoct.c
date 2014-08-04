@@ -514,14 +514,14 @@ int unbase64char(char c) {
         return -EINVAL;
 }
 
-char *base64mem(const void *p, size_t l) {
+ssize_t base64mem(const void *p, size_t l, char **out) {
         char *r, *z;
         const uint8_t *x;
 
         /* three input bytes makes four output bytes, padding is added so we must round up */
         z = r = malloc(4 * (l + 2) / 3 + 1);
         if (!r)
-                return NULL;
+                return -ENOMEM;
 
         for (x = p; x < (const uint8_t*) p + (l / 3) * 3; x += 3) {
                 /* x[0] == XXXXXXXX; x[1] == YYYYYYYY; x[2] == ZZZZZZZZ */
@@ -549,8 +549,63 @@ char *base64mem(const void *p, size_t l) {
         }
 
         *z = 0;
-        return r;
+        *out = r;
+        return z - r;
 }
+
+static int base64_append_width(char **prefix, int plen,
+                               const char *sep, int indent,
+                               const void *p, size_t l,
+                               int width) {
+
+        _cleanup_free_ char *x = NULL;
+        char *t, *s;
+        ssize_t slen, len, avail;
+        int line, lines;
+
+        len = base64mem(p, l, &x);
+        if (len <= 0)
+                return len;
+
+        lines = (len + width - 1) / width;
+
+        slen = sep ? strlen(sep) : 0;
+        t = realloc(*prefix, plen + 1 + slen + (indent + width + 1) * lines);
+        if (!t)
+                return -ENOMEM;
+
+        memcpy(t + plen, sep, slen);
+
+        for (line = 0, s = t + plen + slen, avail = len; line < lines; line++) {
+                int act = MIN(width, avail);
+
+                if (line > 0 || sep) {
+                        memset(s, ' ', indent);
+                        s += indent;
+                }
+
+                memcpy(s, x + width * line, act);
+                s += act;
+                *(s++) = line < lines - 1 ? '\n' : '\0';
+                avail -= act;
+        }
+        assert(avail == 0);
+
+        *prefix = t;
+        return 0;
+}
+
+int base64_append(char **prefix, int plen,
+                  const void *p, size_t l,
+                  int indent, int width) {
+        if (plen > width / 2 || plen + indent > width)
+                /* leave indent on the left, keep last column free */
+                return base64_append_width(prefix, plen, "\n", indent, p, l, width - indent - 1);
+        else
+                /* leave plen on the left, keep last column free */
+                return base64_append_width(prefix, plen, NULL, plen, p, l, width - plen - 1);
+};
+
 
 int unbase64mem(const char *p, size_t l, void **mem, size_t *_len) {
         _cleanup_free_ uint8_t *r = NULL;
