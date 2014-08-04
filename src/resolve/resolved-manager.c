@@ -77,6 +77,10 @@ static int manager_process_link(sd_rtnl *rtnl, sd_rtnl_message *mm, void *userda
                 if (r < 0)
                         goto fail;
 
+                r = link_update_monitor(l);
+                if (r < 0)
+                        goto fail;
+
                 if (is_new)
                         log_debug("Found new link %i/%s", ifindex, l->name);
 
