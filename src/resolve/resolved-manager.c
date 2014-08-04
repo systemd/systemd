@@ -392,6 +392,63 @@ static int manager_watch_hostname(Manager *m) {
         return 0;
 }
 
+static void manager_llmnr_stop(Manager *m) {
+        assert(m);
+
+        m->llmnr_ipv4_udp_event_source = sd_event_source_unref(m->llmnr_ipv4_udp_event_source);
+        m->llmnr_ipv4_udp_fd = safe_close(m->llmnr_ipv4_udp_fd);
+
+        m->llmnr_ipv6_udp_event_source = sd_event_source_unref(m->llmnr_ipv6_udp_event_source);
+        m->llmnr_ipv6_udp_fd = safe_close(m->llmnr_ipv6_udp_fd);
+
+        m->llmnr_ipv4_tcp_event_source = sd_event_source_unref(m->llmnr_ipv4_tcp_event_source);
+        m->llmnr_ipv4_tcp_fd = safe_close(m->llmnr_ipv4_tcp_fd);
+
+        m->llmnr_ipv6_tcp_event_source = sd_event_source_unref(m->llmnr_ipv6_tcp_event_source);
+        m->llmnr_ipv6_tcp_fd = safe_close(m->llmnr_ipv6_tcp_fd);
+}
+
+static int manager_llmnr_start(Manager *m) {
+        int r;
+
+        assert(m);
+
+        if (m->llmnr_support == SUPPORT_NO)
+                return 0;
+
+        r = manager_llmnr_ipv4_udp_fd(m);
+        if (r == -EADDRINUSE)
+                goto eaddrinuse;
+        if (r < 0)
+                return r;
+
+        r = manager_llmnr_ipv6_udp_fd(m);
+        if (r == -EADDRINUSE)
+                goto eaddrinuse;
+        if (r < 0)
+                return r;
+
+        r = manager_llmnr_ipv4_tcp_fd(m);
+        if (r == -EADDRINUSE)
+                goto eaddrinuse;
+        if (r < 0)
+                return r;
+
+        r = manager_llmnr_ipv6_tcp_fd(m);
+        if (r == -EADDRINUSE)
+                goto eaddrinuse;
+        if (r < 0)
+                return r;
+
+        return 0;
+
+eaddrinuse:
+        log_warning("There appears to be another LLMNR respondering running. Turning off LLMNR support.");
+        m->llmnr_support = SUPPORT_NO;
+        manager_llmnr_stop(m);
+        return 0;
+}
+
 int manager_new(Manager **ret) {
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
@@ -443,21 +500,20 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        r = manager_llmnr_ipv4_udp_fd(m);
-        if (r < 0)
-                return r;
-        r = manager_llmnr_ipv6_udp_fd(m);
-        if (r < 0)
-                return r;
-        r = manager_llmnr_ipv4_tcp_fd(m);
-        if (r < 0)
-                return r;
-        r = manager_llmnr_ipv6_tcp_fd(m);
-        if (r < 0)
-                return r;
-
         *ret = m;
         m = NULL;
+
+        return 0;
+}
+
+int manager_start(Manager *m) {
+        int r;
+
+        assert(m);
+
+        r = manager_llmnr_start(m);
+        if (r < 0)
+                return r;
 
         return 0;
 }
@@ -492,15 +548,7 @@ Manager *manager_free(Manager *m) {
         safe_close(m->dns_ipv4_fd);
         safe_close(m->dns_ipv6_fd);
 
-        sd_event_source_unref(m->llmnr_ipv4_udp_event_source);
-        sd_event_source_unref(m->llmnr_ipv6_udp_event_source);
-        safe_close(m->llmnr_ipv4_udp_fd);
-        safe_close(m->llmnr_ipv6_udp_fd);
-
-        sd_event_source_unref(m->llmnr_ipv4_tcp_event_source);
-        sd_event_source_unref(m->llmnr_ipv6_tcp_event_source);
-        safe_close(m->llmnr_ipv4_tcp_fd);
-        safe_close(m->llmnr_ipv6_tcp_fd);
+        manager_llmnr_stop(m);
 
         sd_event_source_unref(m->bus_retry_event_source);
         sd_bus_unref(m->bus);

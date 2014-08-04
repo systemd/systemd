@@ -75,6 +75,12 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 log_warning("Failed to parse configuration file: %s", strerror(-r));
 
+        r = manager_start(m);
+        if (r < 0) {
+                log_error("Failed to start manager: %s", strerror(-r));
+                goto finish;
+        }
+
         /* Write finish default resolv.conf to avoid a dangling
          * symlink */
         r = manager_write_resolv_conf(m);

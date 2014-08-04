@@ -114,6 +114,7 @@ struct Manager {
 int manager_new(Manager **ret);
 Manager* manager_free(Manager *m);
 
+int manager_start(Manager *m);
 int manager_read_resolv_conf(Manager *m);
 int manager_write_resolv_conf(Manager *m);
 
