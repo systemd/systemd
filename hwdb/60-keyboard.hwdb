@@ -368,7 +368,7 @@ keyboard:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHP*Pavilion*dv7*Notebook*PC:pvr
  KEYBOARD_KEY_b7=print
  KEYBOARD_KEY_c2=media                                  # FIXME: quick play
  KEYBOARD_KEY_c6=break
- KEYBOARD_KEY_94=0
+ KEYBOARD_KEY_94=reserved
 
 # Elitebook
 keyboard:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*Compaq*:pvr*
