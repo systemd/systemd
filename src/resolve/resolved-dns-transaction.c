@@ -147,7 +147,9 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
 
         assert(t);
         assert(!IN_SET(state, DNS_TRANSACTION_NULL, DNS_TRANSACTION_PENDING));
-        assert(IN_SET(t->state, DNS_TRANSACTION_NULL, DNS_TRANSACTION_PENDING));
+
+        if (!IN_SET(t->state, DNS_TRANSACTION_NULL, DNS_TRANSACTION_PENDING))
+                return;
 
         /* Note that this call might invalidate the query. Callers
          * should hence not attempt to access the query or transaction
@@ -443,7 +445,7 @@ int dns_transaction_go(DnsTransaction *t) {
 
         dns_transaction_stop(t);
 
-        log_debug("Beginning transaction on scope %s on %s/%s",
+        log_debug("Excercising transaction on scope %s on %s/%s",
                   dns_protocol_to_string(t->scope->protocol),
                   t->scope->link ? t->scope->link->name : "*",
                   t->scope->family == AF_UNSPEC ? "*" : af_to_name(t->scope->family));
