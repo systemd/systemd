@@ -496,6 +496,8 @@ void dns_zone_item_conflict(DnsZoneItem *i) {
         dns_resource_record_to_string(i->rr, &pretty);
         log_info("Detected conflict on %s", strna(pretty));
 
+        dns_zone_item_probe_stop(i);
+
         /* Withdraw the conflict item */
         i->state = DNS_ZONE_ITEM_WITHDRAWN;
 
@@ -522,7 +524,6 @@ void dns_zone_item_ready(DnsZoneItem *i) {
 
                 dns_zone_item_probe_stop(i);
                 i->state = DNS_ZONE_ITEM_ESTABLISHED;
-
         } else
                 dns_zone_item_conflict(i);
 }
