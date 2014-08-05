@@ -38,9 +38,7 @@ Features:
         - send notifications of conflict
         - detect conflicts
         - collect multiple responses
-        - jitter interval support
         - reprobe after suspend
-        - enforce packet rate limit
   - DNS
         - search paths
   - mDNS/DNS-SD
