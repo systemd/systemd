@@ -519,7 +519,7 @@ int link_address_update_rtnl(LinkAddress *a, sd_rtnl_message *m) {
 bool link_address_relevant(LinkAddress *a) {
         assert(a);
 
-        if (a->flags & IFA_F_DEPRECATED)
+        if (a->flags & (IFA_F_DEPRECATED|IFA_F_TENTATIVE))
                 return false;
 
         if (IN_SET(a->scope, RT_SCOPE_HOST, RT_SCOPE_NOWHERE))
