@@ -55,6 +55,8 @@ struct DnsScope {
         DnsCache cache;
         DnsZone zone;
 
+        RateLimit ratelimit;
+
         LIST_HEAD(DnsTransaction, transactions);
 
         LIST_FIELDS(DnsScope, scopes);

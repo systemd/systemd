@@ -28,6 +28,9 @@
 #include "resolved-dns-domain.h"
 #include "resolved-dns-scope.h"
 
+#define MULTICAST_RATELIMIT_INTERVAL_USEC (1*USEC_PER_SEC)
+#define MULTICAST_RATELIMIT_BURST 1000
+
 int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol protocol, int family) {
         DnsScope *s;
 
@@ -48,6 +51,9 @@ int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol protocol, int
         dns_scope_llmnr_membership(s, true);
 
         log_debug("New scope on link %s, protocol %s, family %s", l ? l->name : "*", dns_protocol_to_string(protocol), family == AF_UNSPEC ? "*" : af_to_name(family));
+
+        /* Enforce ratelimiting for the multicast protocols */
+        RATELIMIT_INIT(s->ratelimit, MULTICAST_RATELIMIT_INTERVAL_USEC, MULTICAST_RATELIMIT_BURST);
 
         *ret = s;
         return 0;
@@ -160,6 +166,9 @@ int dns_scope_send(DnsScope *s, DnsPacket *p) {
 
                 if (DNS_PACKET_QDCOUNT(p) > 1)
                         return -ENOTSUP;
+
+                if (!ratelimit_test(&s->ratelimit))
+                        return -EBUSY;
 
                 family = s->family;
                 port = 5355;
@@ -524,6 +533,9 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
         if (stream)
                 r = dns_stream_write_packet(stream, reply);
         else {
+                if (!ratelimit_test(&s->ratelimit))
+                        return;
+
                 if (p->family == AF_INET)
                         fd = manager_llmnr_ipv4_udp_fd(s->manager);
                 else if (p->family == AF_INET6)

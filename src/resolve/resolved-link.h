@@ -67,9 +67,6 @@ struct Link {
 
         char name[IF_NAMESIZE];
         uint32_t mtu;
-
-        RateLimit mdns_ratelimit;
-        RateLimit llmnr_ratelimit;
 };
 
 int link_new(Manager *m, Link **ret, int ifindex);
