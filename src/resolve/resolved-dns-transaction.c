@@ -490,6 +490,33 @@ int dns_transaction_go(DnsTransaction *t) {
                 }
         }
 
+        if (t->scope->protocol == DNS_PROTOCOL_LLMNR && !t->initial_jitter) {
+                usec_t jitter;
+
+                /* RFC 4795 Section 2.7 suggests all queries should be
+                 * delayed by a random time from 0 to JITTER_INTERVAL. */
+
+                t->initial_jitter = true;
+
+                random_bytes(&jitter, sizeof(jitter));
+                jitter %= LLMNR_JITTER_INTERVAL_USEC;
+
+                r = sd_event_add_time(
+                                t->scope->manager->event,
+                                &t->timeout_event_source,
+                                clock_boottime_or_monotonic(),
+                                now(clock_boottime_or_monotonic()) + jitter, LLMNR_JITTER_INTERVAL_USEC,
+                                on_transaction_timeout, t);
+                if (r < 0)
+                        return r;
+
+                t->n_attempts = 0;
+                t->state = DNS_TRANSACTION_PENDING;
+
+                log_debug("Delaying LLMNR transaction for " USEC_FMT "us.", jitter);
+                return 0;
+        }
+
         log_debug("Cache miss!");
 
         /* Otherwise, we need to ask the network */

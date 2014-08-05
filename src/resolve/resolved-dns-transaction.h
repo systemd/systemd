@@ -54,6 +54,8 @@ struct DnsTransaction {
         DnsTransactionState state;
         uint16_t id;
 
+        bool initial_jitter;
+
         DnsPacket *sent, *received;
         DnsAnswer *cached;
         int cached_rcode;
@@ -96,7 +98,7 @@ DnsTransactionState dns_transaction_state_from_string(const char *s) _pure_;
 #define LLMNR_TRANSACTION_TIMEOUT_USEC (1 * USEC_PER_SEC)
 
 /* LLMNR Jitter interval, see RFC 4795 Section 7 */
-#define LLMNR_TRANSACTION_JITTER_INTERVAL_USEC (100 * USEC_PER_MSEC)
+#define LLMNR_JITTER_INTERVAL_USEC (100 * USEC_PER_MSEC)
 
 /* Maximum attempts to send DNS requests, across all DNS servers */
 #define DNS_TRANSACTION_ATTEMPTS_MAX 8

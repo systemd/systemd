@@ -549,6 +549,11 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
                         return;
                 }
 
+                /* Note that we always immediately reply to all LLMNR
+                 * requests, and do not wait any time, since we
+                 * verified uniqueness for all records. Also see RFC
+                 * 4795, Section 2.7 */
+
                 r = manager_send(s->manager, fd, p->ifindex, p->family, &p->sender, p->sender_port, reply);
         }
 
