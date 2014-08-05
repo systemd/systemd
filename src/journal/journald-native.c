@@ -153,8 +153,8 @@ void server_process_native_message(
                                  * field */
                                 iovec[n].iov_base = (char*) p;
                                 iovec[n].iov_len = l;
-                                n++;
                                 entry_size += iovec[n].iov_len;
+                                n++;
 
                                 /* We need to determine the priority
                                  * of this entry for the rate limiting
@@ -246,8 +246,8 @@ void server_process_native_message(
                         if (valid_user_field(p, e - p, false)) {
                                 iovec[n].iov_base = k;
                                 iovec[n].iov_len = (e - p) + 1 + l;
-                                n++;
                                 entry_size += iovec[n].iov_len;
+                                n++;
                         } else
                                 free(k);
 
