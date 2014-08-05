@@ -108,8 +108,7 @@ void server_process_native_message(
                         /* Entry separator */
 
                         if (entry_size + n + 1 > ENTRY_SIZE_MAX) { /* data + separators + trailer */
-                                log_debug("Entry is too big with %u properties and %zu bytes, ignoring.",
-                                          n, entry_size);
+                                log_debug("Entry is too big with %u properties and %zu bytes, ignoring.", n, entry_size);
                                 continue;
                         }
 
@@ -134,8 +133,7 @@ void server_process_native_message(
                 /* A property follows */
 
                 /* n received properties, +1 for _TRANSPORT */
-                if (!GREEDY_REALLOC(iovec, m, n + 1 + N_IOVEC_META_FIELDS +
-                                              !!object_pid * N_IOVEC_OBJECT_FIELDS)) {
+                if (!GREEDY_REALLOC(iovec, m, n + 1 + N_IOVEC_META_FIELDS + !!object_pid * N_IOVEC_OBJECT_FIELDS)) {
                         log_oom();
                         break;
                 }
