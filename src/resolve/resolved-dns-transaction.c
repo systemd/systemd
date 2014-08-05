@@ -523,6 +523,11 @@ int dns_transaction_go(DnsTransaction *t) {
                 return 0;
         }
         if (r < 0) {
+                if (t->scope->protocol != DNS_PROTOCOL_DNS) {
+                        dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
+                        return 0;
+                }
+
                 /* Couldn't send? Try immediately again, with a new server */
                 dns_scope_next_dns_server(t->scope);
 
