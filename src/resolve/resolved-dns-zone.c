@@ -279,14 +279,14 @@ int dns_zone_put(DnsZone *z, DnsScope *s, DnsResourceRecord *rr, bool probe) {
                 if (established)
                         i->state = DNS_ZONE_ITEM_ESTABLISHED;
                 else {
+                        i->state = DNS_ZONE_ITEM_PROBING;
+
                         r = dns_zone_item_probe_start(i);
                         if (r < 0) {
                                 dns_zone_item_remove_and_free(z, i);
                                 i = NULL;
                                 return r;
                         }
-
-                        i->state = DNS_ZONE_ITEM_PROBING;
                 }
         } else
                 i->state = DNS_ZONE_ITEM_ESTABLISHED;
