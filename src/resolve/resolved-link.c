@@ -133,7 +133,7 @@ int link_update_rtnl(Link *l, sd_rtnl_message *m) {
         sd_rtnl_message_read_u32(m, IFLA_MTU, &l->mtu);
 
         if (sd_rtnl_message_read_string(m, IFLA_IFNAME, &n) >= 0) {
-                strncpy(l->name, n, sizeof(l->name));
+                strncpy(l->name, n, sizeof(l->name)-1);
                 char_array_0(l->name);
         }
 
@@ -416,11 +416,11 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
 
                         r = dns_zone_put(&a->link->llmnr_ipv4_scope->zone, a->link->llmnr_ipv4_scope, a->llmnr_address_rr, true);
                         if (r < 0)
-                                log_warning("Failed tp add A record to LLMNR zone: %s", strerror(-r));
+                                log_warning("Failed to add A record to LLMNR zone: %s", strerror(-r));
 
                         r = dns_zone_put(&a->link->llmnr_ipv4_scope->zone, a->link->llmnr_ipv4_scope, a->llmnr_ptr_rr, false);
                         if (r < 0)
-                                log_warning("Failed tp add IPv6 PTR record to LLMNR zone: %s", strerror(-r));
+                                log_warning("Failed to add IPv6 PTR record to LLMNR zone: %s", strerror(-r));
                 } else {
                         if (a->llmnr_address_rr) {
                                 if (a->link->llmnr_ipv4_scope)
