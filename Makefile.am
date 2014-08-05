@@ -490,8 +490,7 @@ dist_systemunit_DATA = \
 	units/systemd-udevd-control.socket \
 	units/systemd-udevd-kernel.socket \
 	units/system-update.target \
-	units/initrd-switch-root.target \
-	units/ldconfig.service
+	units/initrd-switch-root.target
 
 nodist_systemunit_DATA = \
 	units/getty@.service \
@@ -918,6 +917,16 @@ libsystemd_label_la_CFLAGS = \
 
 libsystemd_label_la_LIBADD = \
 	$(SELINUX_LIBS)
+
+# -----------------------------------------------------------------------------
+
+if ENABLE_LDCONFIG
+dist_systemunit_DATA += \
+	units/ldconfig.service
+
+SYSINIT_TARGET_WANTS += \
+	ldconfig.service
+endif
 
 # ------------------------------------------------------------------------------
 
@@ -5789,8 +5798,7 @@ endif
 
 SYSINIT_TARGET_WANTS += \
 	systemd-update-utmp.service \
-	systemd-update-done.service \
-	ldconfig.service
+	systemd-update-done.service
 
 LOCAL_FS_TARGET_WANTS += \
 	systemd-remount-fs.service \

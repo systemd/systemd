@@ -1182,7 +1182,12 @@ AS_IF([test "x$enable_manpages" != xno], [have_manpages=yes])
 AM_CONDITIONAL(ENABLE_MANPAGES, [test "x$have_manpages" = "xyes"])
 
 # ------------------------------------------------------------------------------
+AC_ARG_ENABLE(ldconfig,
+       [AC_HELP_STRING([--disable-ldconfig], [disable ldconfig])],
+       enable_ldconfig=$enableval, enable_ldconfig=yes)
+AM_CONDITIONAL(ENABLE_LDCONFIG, [test x$enable_ldconfig = xyes])
 
+# ------------------------------------------------------------------------------
 # Location of the init scripts as mandated by LSB
 SYSTEM_SYSVINIT_PATH=/etc/init.d
 SYSTEM_SYSVRCND_PATH=/etc/rc.d
