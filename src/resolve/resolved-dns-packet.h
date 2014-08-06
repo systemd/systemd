@@ -81,6 +81,8 @@ struct DnsPacket {
         union in_addr_union sender, destination;
         uint16_t sender_port, destination_port;
         uint32_t ttl;
+
+        bool extracted;
 };
 
 static inline uint8_t* DNS_PACKET_DATA(DnsPacket *p) {

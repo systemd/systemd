@@ -143,7 +143,8 @@ LinkAddress* manager_find_link_address(Manager *m, int family, const union in_ad
 void manager_refresh_rrs(Manager *m);
 int manager_next_hostname(Manager *m);
 
-int manager_our_packet(Manager *m, DnsPacket *p);
+bool manager_our_packet(Manager *m, DnsPacket *p);
+DnsScope* manager_find_scope(Manager *m, DnsPacket *p);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 

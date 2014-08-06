@@ -493,6 +493,9 @@ void dns_zone_item_conflict(DnsZoneItem *i) {
 
         assert(i);
 
+        if (!IN_SET(i->state, DNS_ZONE_ITEM_PROBING, DNS_ZONE_ITEM_VERIFYING, DNS_ZONE_ITEM_ESTABLISHED))
+                return;
+
         dns_resource_record_to_string(i->rr, &pretty);
         log_info("Detected conflict on %s", strna(pretty));
 
@@ -507,6 +510,8 @@ void dns_zone_item_conflict(DnsZoneItem *i) {
 }
 
 void dns_zone_item_ready(DnsZoneItem *i) {
+        _cleanup_free_ char *pretty = NULL;
+
         assert(i);
         assert(i->probe_transaction);
 
@@ -516,14 +521,107 @@ void dns_zone_item_ready(DnsZoneItem *i) {
         if (IN_SET(i->probe_transaction->state, DNS_TRANSACTION_NULL, DNS_TRANSACTION_PENDING))
                 return;
 
-        if (i->probe_transaction->state != DNS_TRANSACTION_SUCCESS) {
-                _cleanup_free_ char *pretty = NULL;
+        if (i->probe_transaction->state == DNS_TRANSACTION_SUCCESS) {
+                bool we_lost = false;
 
-                dns_resource_record_to_string(i->rr, &pretty);
-                log_debug("Record %s successfully probed.", strna(pretty));
+                /* The probe got a successful reply. If we so far
+                 * weren't established we just give up. If we already
+                 * were established, and the peer has the
+                 * lexicographically smaller IP address we continue
+                 * and defend it. */
 
-                dns_zone_item_probe_stop(i);
+                if (!IN_SET(i->state, DNS_ZONE_ITEM_ESTABLISHED, DNS_ZONE_ITEM_VERIFYING))
+                        we_lost = true;
+                else {
+                        assert(i->probe_transaction->received);
+                        we_lost = memcmp(&i->probe_transaction->received->sender, &i->probe_transaction->received->destination, FAMILY_ADDRESS_SIZE(i->probe_transaction->received->family)) > 0;
+                }
+
+                if (we_lost) {
+                        dns_zone_item_conflict(i);
+                        return;
+                }
+
+                log_debug("Got a successful probe reply, but peer has lexicographically lower IP address and thus lost.");
+        }
+
+        dns_resource_record_to_string(i->rr, &pretty);
+        log_debug("Record %s successfully probed.", strna(pretty));
+
+        dns_zone_item_probe_stop(i);
+        i->state = DNS_ZONE_ITEM_ESTABLISHED;
+}
+
+static int dns_zone_item_verify(DnsZoneItem *i) {
+        int r;
+
+        assert(i);
+
+        if (i->state != DNS_ZONE_ITEM_ESTABLISHED)
+                return 0;
+
+        i->state = DNS_ZONE_ITEM_VERIFYING;
+        r = dns_zone_item_probe_start(i);
+        if (r < 0) {
+                log_error("Failed to start probing for verifying RR: %s", strerror(-r));
                 i->state = DNS_ZONE_ITEM_ESTABLISHED;
-        } else
-                dns_zone_item_conflict(i);
+                return r;
+        }
+
+        return 0;
+}
+
+int dns_zone_check_conflicts(DnsZone *zone, DnsResourceRecord *rr) {
+        DnsZoneItem *i, *first;
+        int c;
+
+        assert(zone);
+        assert(rr);
+
+        /* This checks whether a response RR we received from somebody
+         * else is one that we actually thought was uniquely ours. If
+         * so, we'll verify our RRs. */
+
+        /* No conflict if we don't have the name at all. */
+        first = hashmap_get(zone->by_name, DNS_RESOURCE_KEY_NAME(rr->key));
+        if (!first)
+                return 0;
+
+        /* No conflict if we have the exact same RR */
+        if (dns_zone_get(zone, rr))
+                return 0;
+
+        /* OK, somebody else has RRs for the same name. Yuck! Let's
+         * start probing again */
+
+        LIST_FOREACH(by_name, i, first) {
+                if (dns_resource_record_equal(i->rr, rr))
+                        continue;
+
+                dns_zone_item_verify(i);
+                c++;
+        }
+
+        return c;
+}
+
+int dns_zone_verify_conflicts(DnsZone *zone, DnsResourceKey *key) {
+        DnsZoneItem *i, *first;
+        int c;
+
+        assert(zone);
+
+        /* Somebody else notified us about a possible conflict. Let's
+         * verify if that's true. */
+
+        first = hashmap_get(zone->by_name, DNS_RESOURCE_KEY_NAME(key));
+        if (!first)
+                return 0;
+
+        LIST_FOREACH(by_name, i, first) {
+                dns_zone_item_verify(i);
+                c++;
+        }
+
+        return c;
 }

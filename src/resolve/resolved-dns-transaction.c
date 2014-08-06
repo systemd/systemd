@@ -132,6 +132,15 @@ static void dns_transaction_tentative(DnsTransaction *t, DnsPacket *p) {
                   t->scope->link ? t->scope->link->name : "*",
                   t->scope->family == AF_UNSPEC ? "*" : af_to_name(t->scope->family));
 
+        /* RFC 4795, Section 4.1 says that the peer with the
+         * lexicographically smaller IP address loses */
+        if (memcmp(&p->sender, &p->destination, FAMILY_ADDRESS_SIZE(p->family)) < 0) {
+                log_debug("Peer has lexicographically smaller IP address and thus lost in the conflict.");
+                return;
+        }
+
+        log_debug("We have the lexicographically smaller IP address and thus lost in the conflict.");
+
         t->block_gc++;
         SET_FOREACH(z, t->zone_items, i)
                 dns_zone_item_conflict(z);
@@ -195,6 +204,14 @@ static int on_stream_complete(DnsStream *s, int error) {
                 dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
                 return 0;
         }
+
+        if (dns_packet_validate_reply(p) <= 0) {
+                log_debug("Invalid LLMNR TCP packet.");
+                dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
+                return 0;
+        }
+
+        dns_scope_check_conflicts(t->scope, p);
 
         t->block_gc++;
         dns_transaction_process_reply(t, p);
@@ -370,7 +387,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
         }
 
         /* According to RFC 4795, section 2.9. only the RRs from the answer section shall be cached */
-        dns_cache_put(&t->scope->cache, p->question, DNS_PACKET_RCODE(p), p->answer, DNS_PACKET_ANCOUNT(p), 0);
+        dns_cache_put(&t->scope->cache, p->question, DNS_PACKET_RCODE(p), p->answer, DNS_PACKET_ANCOUNT(p), 0, p->family, &p->sender);
 
         if (DNS_PACKET_RCODE(p) == DNS_RCODE_SUCCESS)
                 dns_transaction_complete(t, DNS_TRANSACTION_SUCCESS);
@@ -507,7 +524,8 @@ int dns_transaction_go(DnsTransaction *t) {
                                 t->scope->manager->event,
                                 &t->timeout_event_source,
                                 clock_boottime_or_monotonic(),
-                                now(clock_boottime_or_monotonic()) + jitter, LLMNR_JITTER_INTERVAL_USEC,
+                                now(clock_boottime_or_monotonic()) + jitter,
+                                LLMNR_JITTER_INTERVAL_USEC,
                                 on_transaction_timeout, t);
                 if (r < 0)
                         return r;
@@ -542,7 +560,7 @@ int dns_transaction_go(DnsTransaction *t) {
                 r = dns_transaction_open_tcp(t);
         } else {
                 /* Try via UDP, and if that fails due to large size try via TCP */
-                r = dns_scope_send(t->scope, t->sent);
+                r = dns_scope_emit(t->scope, t->sent);
                 if (r == -EMSGSIZE)
                         r = dns_transaction_open_tcp(t);
         }

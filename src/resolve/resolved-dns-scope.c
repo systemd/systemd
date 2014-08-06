@@ -61,6 +61,7 @@ int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol protocol, int
 
 DnsScope* dns_scope_free(DnsScope *s) {
         DnsTransaction *t;
+        DnsResourceRecord *rr;
 
         if (!s)
                 return NULL;
@@ -80,6 +81,12 @@ DnsScope* dns_scope_free(DnsScope *s) {
 
                 dns_transaction_free(t);
         }
+
+        while ((rr = hashmap_steal_first(s->conflict_queue)))
+                dns_resource_record_unref(rr);
+
+        hashmap_free(s->conflict_queue);
+        sd_event_source_unref(s->conflict_event_source);
 
         dns_cache_flush(&s->cache);
         dns_zone_flush(&s->zone);
@@ -115,7 +122,7 @@ void dns_scope_next_dns_server(DnsScope *s) {
                 manager_next_dns_server(s->manager);
 }
 
-int dns_scope_send(DnsScope *s, DnsPacket *p) {
+int dns_scope_emit(DnsScope *s, DnsPacket *p) {
         union in_addr_union addr;
         int ifindex = 0, r;
         int family;
@@ -420,6 +427,7 @@ static int dns_scope_make_reply_packet(
         int r;
 
         assert(s);
+        assert(ret);
 
         if ((!q || q->n_keys <= 0)
             && (!answer || answer->n_rrs <= 0)
@@ -478,6 +486,20 @@ static int dns_scope_make_reply_packet(
         return 0;
 }
 
+static void dns_scope_verify_conflicts(DnsScope *s, DnsPacket *p) {
+        unsigned n;
+
+        assert(s);
+        assert(p);
+
+        if (p->question)
+                for (n = 0; n < p->question->n_keys; n++)
+                        dns_zone_verify_conflicts(&s->zone, p->question->keys[n]);
+        if (p->answer)
+                for (n = 0; n < p->answer->n_rrs; n++)
+                        dns_zone_verify_conflicts(&s->zone, p->answer->rrs[n]->key);
+}
+
 void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
         _cleanup_(dns_packet_unrefp) DnsPacket *reply = NULL;
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL, *soa = NULL;
@@ -509,7 +531,8 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
         }
 
         if (DNS_PACKET_C(p)) {
-                /* FIXME: Somebody notified us about a likely conflict */
+                /* Somebody notified us about a possible conflict */
+                dns_scope_verify_conflicts(s, p);
                 return;
         }
 
@@ -587,4 +610,175 @@ DnsTransaction *dns_scope_find_transaction(DnsScope *scope, DnsQuestion *questio
         }
 
         return NULL;
+}
+
+static int dns_scope_make_conflict_packet(
+                DnsScope *s,
+                DnsResourceRecord *rr,
+                DnsPacket **ret) {
+
+        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+        int r;
+
+        assert(s);
+        assert(rr);
+        assert(ret);
+
+        r = dns_packet_new(&p, s->protocol, 0);
+        if (r < 0)
+                return r;
+
+        DNS_PACKET_HEADER(p)->flags = htobe16(DNS_PACKET_MAKE_FLAGS(
+                                                              0 /* qr */,
+                                                              0 /* opcode */,
+                                                              1 /* conflict */,
+                                                              0 /* tc */,
+                                                              0 /* t */,
+                                                              0 /* (ra) */,
+                                                              0 /* (ad) */,
+                                                              0 /* (cd) */,
+                                                              0));
+        random_bytes(&DNS_PACKET_HEADER(p)->id, sizeof(uint16_t));
+        DNS_PACKET_HEADER(p)->qdcount = htobe16(1);
+        DNS_PACKET_HEADER(p)->arcount = htobe16(1);
+
+        r = dns_packet_append_key(p, rr->key, NULL);
+        if (r < 0)
+                return r;
+
+        r = dns_packet_append_rr(p, rr, NULL);
+        if (r < 0)
+                return r;
+
+        *ret = p;
+        p = NULL;
+
+        return 0;
+}
+
+static int on_conflict_dispatch(sd_event_source *es, usec_t usec, void *userdata) {
+        DnsScope *scope = userdata;
+        int r;
+
+        assert(es);
+        assert(scope);
+
+        scope->conflict_event_source = sd_event_source_unref(scope->conflict_event_source);
+
+        for (;;) {
+                _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+                _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+
+                rr = hashmap_steal_first(scope->conflict_queue);
+                if (!rr)
+                        break;
+
+                r = dns_scope_make_conflict_packet(scope, rr, &p);
+                if (r < 0) {
+                        log_error("Failed to make conflict packet: %s", strerror(-r));
+                        return 0;
+                }
+
+                r = dns_scope_emit(scope, p);
+                if (r < 0)
+                        log_debug("Failed to send conflict packet: %s", strerror(-r));
+        }
+
+        return 0;
+}
+
+int dns_scope_notify_conflict(DnsScope *scope, DnsResourceRecord *rr) {
+        usec_t jitter;
+        int r;
+
+        assert(scope);
+        assert(rr);
+
+        /* We don't send these queries immediately. Instead, we queue
+         * them, and send them after some jitter delay. */
+        r = hashmap_ensure_allocated(&scope->conflict_queue, dns_resource_key_hash_func, dns_resource_key_compare_func);
+        if (r < 0) {
+                log_oom();
+                return r;
+        }
+
+        /* We only place one RR per key in the conflict
+         * messages, not all of them. That should be enough to
+         * indicate where there might be a conflict */
+        r = hashmap_put(scope->conflict_queue, rr->key, rr);
+        if (r == -EEXIST || r == 0)
+                return 0;
+        if (r < 0) {
+                log_debug("Failed to queue conflicting RR: %s", strerror(-r));
+                return r;
+        }
+
+        dns_resource_record_ref(rr);
+
+        if (scope->conflict_event_source)
+                return 0;
+
+        random_bytes(&jitter, sizeof(jitter));
+        jitter %= LLMNR_JITTER_INTERVAL_USEC;
+
+        r = sd_event_add_time(scope->manager->event,
+                              &scope->conflict_event_source,
+                              clock_boottime_or_monotonic(),
+                              now(clock_boottime_or_monotonic()) + jitter,
+                              LLMNR_JITTER_INTERVAL_USEC,
+                              on_conflict_dispatch, scope);
+        if (r < 0) {
+                log_debug("Failed to add conflict dispatch event: %s", strerror(-r));
+                return r;
+        }
+
+        return 0;
+}
+
+void dns_scope_check_conflicts(DnsScope *scope, DnsPacket *p) {
+        unsigned i;
+        int r;
+
+        assert(scope);
+        assert(p);
+
+        if (p->protocol != DNS_PROTOCOL_LLMNR)
+                return;
+
+        if (DNS_PACKET_RRCOUNT(p) <= 0)
+                return;
+
+        if (DNS_PACKET_C(p) != 0)
+                return;
+
+        if (DNS_PACKET_T(p) != 0)
+                return;
+
+        if (manager_our_packet(scope->manager, p))
+                return;
+
+        r = dns_packet_extract(p);
+        if (r < 0) {
+                log_debug("Failed to extract packet: %s", strerror(-r));
+                return;
+        }
+
+        log_debug("Checking for conflicts...");
+
+        for (i = 0; i < p->answer->n_rrs; i++) {
+
+                /* Check for conflicts against the local zone. If we
+                 * found one, we won't check any further */
+                r = dns_zone_check_conflicts(&scope->zone, p->answer->rrs[i]);
+                if (r != 0)
+                        continue;
+
+                /* Check for conflicts against the local cache. If so,
+                 * send out an advisory query, to inform everybody */
+                r = dns_cache_check_conflicts(&scope->cache, p->answer->rrs[i], p->family, &p->sender);
+                if (r <= 0)
+                        continue;
+
+                dns_scope_notify_conflict(scope, p->answer->rrs[i]);
+        }
 }

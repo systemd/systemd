@@ -71,3 +71,6 @@ int dns_zone_lookup(DnsZone *z, DnsQuestion *q, DnsAnswer **answer, DnsAnswer **
 
 void dns_zone_item_conflict(DnsZoneItem *i);
 void dns_zone_item_ready(DnsZoneItem *i);
+
+int dns_zone_check_conflicts(DnsZone *zone, DnsResourceRecord *rr);
+int dns_zone_verify_conflicts(DnsZone *zone, DnsResourceKey *key);

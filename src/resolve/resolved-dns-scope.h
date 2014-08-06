@@ -55,6 +55,9 @@ struct DnsScope {
         DnsCache cache;
         DnsZone zone;
 
+        Hashmap *conflict_queue;
+        sd_event_source *conflict_event_source;
+
         RateLimit ratelimit;
 
         LIST_HEAD(DnsTransaction, transactions);
@@ -65,7 +68,7 @@ struct DnsScope {
 int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol p, int family);
 DnsScope* dns_scope_free(DnsScope *s);
 
-int dns_scope_send(DnsScope *s, DnsPacket *p);
+int dns_scope_emit(DnsScope *s, DnsPacket *p);
 int dns_scope_tcp_socket(DnsScope *s, int family, const union in_addr_union *address, uint16_t port);
 
 DnsScopeMatch dns_scope_good_domain(DnsScope *s, const char *domain);
@@ -80,3 +83,6 @@ int dns_scope_llmnr_membership(DnsScope *s, bool b);
 void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p);
 
 DnsTransaction *dns_scope_find_transaction(DnsScope *scope, DnsQuestion *question, bool cache_ok);
+
+int dns_scope_notify_conflict(DnsScope *scope, DnsResourceRecord *rr);
+void dns_scope_check_conflicts(DnsScope *scope, DnsPacket *p);

@@ -1358,6 +1358,9 @@ int dns_packet_extract(DnsPacket *p) {
         unsigned n, i;
         int r;
 
+        if (p->extracted)
+                return 0;
+
         saved_rindex = p->rindex;
         dns_packet_rewind(p, DNS_PACKET_HEADER_SIZE);
 
@@ -1408,6 +1411,8 @@ int dns_packet_extract(DnsPacket *p) {
 
         p->answer = answer;
         answer = NULL;
+
+        p->extracted = true;
 
         r = 0;
 

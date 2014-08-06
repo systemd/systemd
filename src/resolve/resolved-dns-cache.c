@@ -43,6 +43,8 @@ struct DnsCacheItem {
         usec_t until;
         DnsCacheItemType type;
         unsigned prioq_idx;
+        int owner_family;
+        union in_addr_union owner_address;
         LIST_FIELDS(DnsCacheItem, by_key);
 };
 
@@ -256,13 +258,20 @@ static void dns_cache_item_update_positive(DnsCache *c, DnsCacheItem *i, DnsReso
         prioq_reshuffle(c->by_expiry, i, &i->prioq_idx);
 }
 
-static int dns_cache_put_positive(DnsCache *c, DnsResourceRecord *rr, usec_t timestamp) {
+static int dns_cache_put_positive(
+                DnsCache *c,
+                DnsResourceRecord *rr,
+                usec_t timestamp,
+                int owner_family,
+                const union in_addr_union *owner_address) {
+
         _cleanup_(dns_cache_item_freep) DnsCacheItem *i = NULL;
         DnsCacheItem *existing;
         int r;
 
         assert(c);
         assert(rr);
+        assert(owner_address);
 
         /* New TTL is 0? Delete the entry... */
         if (rr->ttl <= 0) {
@@ -298,6 +307,8 @@ static int dns_cache_put_positive(DnsCache *c, DnsResourceRecord *rr, usec_t tim
         i->rr = dns_resource_record_ref(rr);
         i->until = timestamp + MIN(i->rr->ttl * USEC_PER_SEC, CACHE_TTL_MAX_USEC);
         i->prioq_idx = PRIOQ_IDX_NULL;
+        i->owner_family = owner_family;
+        i->owner_address = *owner_address;
 
         r = dns_cache_link_item(c, i);
         if (r < 0)
@@ -307,12 +318,21 @@ static int dns_cache_put_positive(DnsCache *c, DnsResourceRecord *rr, usec_t tim
         return 0;
 }
 
-static int dns_cache_put_negative(DnsCache *c, DnsResourceKey *key, int rcode, usec_t timestamp, uint32_t soa_ttl) {
+static int dns_cache_put_negative(
+                DnsCache *c,
+                DnsResourceKey *key,
+                int rcode,
+                usec_t timestamp,
+                uint32_t soa_ttl,
+                int owner_family,
+                const union in_addr_union *owner_address) {
+
         _cleanup_(dns_cache_item_freep) DnsCacheItem *i = NULL;
         int r;
 
         assert(c);
         assert(key);
+        assert(owner_address);
 
         dns_cache_remove(c, key);
 
@@ -340,6 +360,8 @@ static int dns_cache_put_negative(DnsCache *c, DnsResourceKey *key, int rcode, u
         i->key = dns_resource_key_ref(key);
         i->until = timestamp + MIN(soa_ttl * USEC_PER_SEC, CACHE_TTL_MAX_USEC);
         i->prioq_idx = PRIOQ_IDX_NULL;
+        i->owner_family = owner_family;
+        i->owner_address = *owner_address;
 
         r = dns_cache_link_item(c, i);
         if (r < 0)
@@ -349,7 +371,16 @@ static int dns_cache_put_negative(DnsCache *c, DnsResourceKey *key, int rcode, u
         return 0;
 }
 
-int dns_cache_put(DnsCache *c, DnsQuestion *q, int rcode, DnsAnswer *answer, unsigned max_rrs, usec_t timestamp) {
+int dns_cache_put(
+                DnsCache *c,
+                DnsQuestion *q,
+                int rcode,
+                DnsAnswer *answer,
+                unsigned max_rrs,
+                usec_t timestamp,
+                int owner_family,
+                const union in_addr_union *owner_address) {
+
         unsigned i;
         int r;
 
@@ -382,7 +413,7 @@ int dns_cache_put(DnsCache *c, DnsQuestion *q, int rcode, DnsAnswer *answer, uns
 
         /* Second, add in positive entries for all contained RRs */
         for (i = 0; i < MIN(max_rrs, answer->n_rrs); i++) {
-                r = dns_cache_put_positive(c, answer->rrs[i], timestamp);
+                r = dns_cache_put_positive(c, answer->rrs[i], timestamp, owner_family, owner_address);
                 if (r < 0)
                         goto fail;
         }
@@ -403,7 +434,7 @@ int dns_cache_put(DnsCache *c, DnsQuestion *q, int rcode, DnsAnswer *answer, uns
                 if (r == 0)
                         continue;
 
-                r = dns_cache_put_negative(c, q->keys[i], rcode, timestamp, MIN(soa->soa.minimum, soa->ttl));
+                r = dns_cache_put_negative(c, q->keys[i], rcode, timestamp, MIN(soa->soa.minimum, soa->ttl), owner_family, owner_address);
                 if (r < 0)
                         goto fail;
         }
@@ -494,4 +525,40 @@ int dns_cache_lookup(DnsCache *c, DnsQuestion *q, int *rcode, DnsAnswer **ret) {
         answer = NULL;
 
         return n;
+}
+
+int dns_cache_check_conflicts(DnsCache *cache, DnsResourceRecord *rr, int owner_family, const union in_addr_union *owner_address) {
+        DnsCacheItem *i, *first;
+        bool same_owner = true;
+
+        assert(cache);
+        assert(rr);
+
+        dns_cache_prune(cache);
+
+        /* See if there's a cache entry for the same key. If there
+         * isn't there's no conflict */
+        first = hashmap_get(cache->by_key, rr->key);
+        if (!first)
+                return 0;
+
+        /* See if the RR key is owned by the same owner, if so, there
+         * isn't a conflict either */
+        LIST_FOREACH(by_key, i, first) {
+                if (i->owner_family != owner_family ||
+                    !in_addr_equal(owner_family, &i->owner_address, owner_address)) {
+                        same_owner = false;
+                        break;
+                }
+        }
+        if (same_owner)
+                return 0;
+
+        /* See if there's the exact same RR in the cache. If yes, then
+         * there's no conflict. */
+        if (dns_cache_get(cache, rr))
+                return 0;
+
+        /* There's a conflict */
+        return 1;
 }

@@ -1219,38 +1219,34 @@ static int on_llmnr_packet(sd_event_source *s, int fd, uint32_t revents, void *u
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
         DnsTransaction *t = NULL;
         Manager *m = userdata;
+        DnsScope *scope;
         int r;
 
         r = manager_recv(m, fd, DNS_PROTOCOL_LLMNR, &p);
         if (r <= 0)
                 return r;
 
+        scope = manager_find_scope(m, p);
+        if (!scope) {
+                log_warning("Got LLMNR UDP packet on unknown scope. Ignoring.");
+                return 0;
+        }
+
         if (dns_packet_validate_reply(p) > 0) {
                 log_debug("Got reply packet for id %u", DNS_PACKET_ID(p));
 
+                dns_scope_check_conflicts(scope, p);
+
                 t = hashmap_get(m->dns_transactions, UINT_TO_PTR(DNS_PACKET_ID(p)));
-                if (!t)
-                        return 0;
+                if (t)
+                        dns_transaction_process_reply(t, p);
 
-                dns_transaction_process_reply(t, p);
+        } else if (dns_packet_validate_query(p) > 0)  {
+                log_debug("Got query packet for id %u", DNS_PACKET_ID(p));
 
-        } else if (dns_packet_validate_query(p) > 0) {
-                Link *l;
-
-                l = hashmap_get(m->links, INT_TO_PTR(p->ifindex));
-                if (l) {
-                        DnsScope *scope = NULL;
-
-                        if (p->family == AF_INET)
-                                scope = l->llmnr_ipv4_scope;
-                        else if (p->family == AF_INET6)
-                                scope = l->llmnr_ipv6_scope;
-
-                        if (scope)
-                                dns_scope_process_query(scope, NULL, p);
-                }
+                dns_scope_process_query(scope, NULL, p);
         } else
-                log_debug("Invalid LLMNR packet.");
+                log_debug("Invalid LLMNR UDP packet.");
 
         return 0;
 }
@@ -1413,29 +1409,26 @@ fail:
 }
 
 static int on_llmnr_stream_packet(DnsStream *s) {
+        DnsScope *scope;
+
         assert(s);
 
-        if (dns_packet_validate_query(s->read_packet) > 0) {
-                Link *l;
-
-                l = hashmap_get(s->manager->links, INT_TO_PTR(s->read_packet->ifindex));
-                if (l) {
-                        DnsScope *scope = NULL;
-
-                        if (s->read_packet->family == AF_INET)
-                                scope = l->llmnr_ipv4_scope;
-                        else if (s->read_packet->family == AF_INET6)
-                                scope = l->llmnr_ipv6_scope;
-
-                        if (scope) {
-                                dns_scope_process_query(scope, s, s->read_packet);
-
-                                /* If no reply packet was set, we free the stream */
-                                if (s->write_packet)
-                                        return 0;
-                        }
-                }
+        scope = manager_find_scope(s->manager, s->read_packet);
+        if (!scope) {
+                log_warning("Got LLMNR TCP packet on unknown scope. Ignroing.");
+                return 0;
         }
+
+        if (dns_packet_validate_query(s->read_packet) > 0) {
+                log_debug("Got query packet for id %u", DNS_PACKET_ID(s->read_packet));
+
+                dns_scope_process_query(scope, s, s->read_packet);
+
+                /* If no reply packet was set, we free the stream */
+                if (s->write_packet)
+                        return 0;
+        } else
+                log_debug("Invalid LLMNR TCP packet.");
 
         dns_stream_free(s);
         return 0;
@@ -1702,11 +1695,31 @@ LinkAddress* manager_find_link_address(Manager *m, int family, const union in_ad
         return NULL;
 }
 
-int manager_our_packet(Manager *m, DnsPacket *p) {
+bool manager_our_packet(Manager *m, DnsPacket *p) {
         assert(m);
         assert(p);
 
         return !!manager_find_link_address(m, p->family, &p->sender);
+}
+
+DnsScope* manager_find_scope(Manager *m, DnsPacket *p) {
+        Link *l;
+
+        assert(m);
+        assert(p);
+
+        l = hashmap_get(m->links, INT_TO_PTR(p->ifindex));
+        if (!l)
+                return NULL;
+
+        if (p->protocol == DNS_PROTOCOL_LLMNR) {
+                if (p->family == AF_INET)
+                        return l->llmnr_ipv4_scope;
+                else if (p->family == AF_INET6)
+                        return l->llmnr_ipv6_scope;
+        }
+
+        return NULL;
 }
 
 static const char* const support_table[_SUPPORT_MAX] = {
