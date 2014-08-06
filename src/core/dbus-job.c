@@ -52,7 +52,7 @@ static int property_get_unit(
         return sd_bus_message_append(reply, "(so)", j->unit->id, p);
 }
 
-static int method_cancel(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+int bus_job_method_cancel(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Job *j = userdata;
         int r;
 
@@ -71,7 +71,7 @@ static int method_cancel(sd_bus *bus, sd_bus_message *message, void *userdata, s
 
 const sd_bus_vtable bus_job_vtable[] = {
         SD_BUS_VTABLE_START(0),
-        SD_BUS_METHOD("Cancel", NULL, NULL, method_cancel, 0),
+        SD_BUS_METHOD("Cancel", NULL, NULL, bus_job_method_cancel, 0),
         SD_BUS_PROPERTY("Id", "u", NULL, offsetof(Job, id), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Unit", "(so)", property_get_unit, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("JobType", "s", property_get_type, offsetof(Job, type), SD_BUS_VTABLE_PROPERTY_CONST),
