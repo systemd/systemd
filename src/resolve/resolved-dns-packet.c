@@ -1029,6 +1029,8 @@ static bool loc_size_ok(uint8_t size) {
 }
 
 static int dnskey_parse_flags(DnsResourceRecord *rr, uint16_t flags) {
+        assert(rr);
+
         if (flags & ~(DNSKEY_FLAG_SEP | DNSKEY_FLAG_ZONE_KEY))
                 return -EBADMSG;
 

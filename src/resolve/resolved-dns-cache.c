@@ -224,7 +224,7 @@ static DnsCacheItem* dns_cache_get(DnsCache *c, DnsResourceRecord *rr) {
         assert(rr);
 
         LIST_FOREACH(by_key, i, hashmap_get(c->by_key, rr->key))
-                if (i->rr && dns_resource_record_equal(i->rr, rr))
+                if (i->rr && dns_resource_record_equal(i->rr, rr) > 0)
                         return i;
 
         return NULL;

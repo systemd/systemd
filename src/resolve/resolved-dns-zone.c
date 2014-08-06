@@ -104,7 +104,7 @@ static DnsZoneItem* dns_zone_get(DnsZone *z, DnsResourceRecord *rr) {
         assert(rr);
 
         LIST_FOREACH(by_key, i, hashmap_get(z->by_key, rr->key))
-                if (dns_resource_record_equal(i->rr, rr))
+                if (dns_resource_record_equal(i->rr, rr) > 0)
                         return i;
 
         return NULL;
