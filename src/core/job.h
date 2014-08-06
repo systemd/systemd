@@ -145,9 +145,15 @@ struct Job {
         sd_event_source *timer_event_source;
         usec_t begin_usec;
 
-        /* There can be more than one client, because of job merging. */
-        sd_bus_track *subscribed;
-        char **deserialized_subscribed;
+        /*
+         * This tracks where to send signals, and also which clients
+         * are allowed to call DBus methods on the job (other than
+         * root).
+         *
+         * There can be more than one client, because of job merging.
+         */
+        sd_bus_track *clients;
+        char **deserialized_clients;
 
         JobResult result;
 

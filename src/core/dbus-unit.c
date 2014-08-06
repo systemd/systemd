@@ -758,13 +758,13 @@ int bus_unit_queue_job(
                 return r;
 
         if (bus == u->manager->api_bus) {
-                if (!j->subscribed) {
-                        r = sd_bus_track_new(bus, &j->subscribed, NULL, NULL);
+                if (!j->clients) {
+                        r = sd_bus_track_new(bus, &j->clients, NULL, NULL);
                         if (r < 0)
                                 return r;
                 }
 
-                r = sd_bus_track_add_sender(j->subscribed, message);
+                r = sd_bus_track_add_sender(j->clients, message);
                 if (r < 0)
                         return r;
         }

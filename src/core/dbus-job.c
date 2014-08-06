@@ -132,7 +132,7 @@ void bus_job_send_change_signal(Job *j) {
                 j->in_dbus_queue = false;
         }
 
-        r = bus_foreach_bus(j->manager, j->subscribed, j->sent_dbus_new_signal ? send_changed_signal : send_new_signal, j);
+        r = bus_foreach_bus(j->manager, j->clients, j->sent_dbus_new_signal ? send_changed_signal : send_new_signal, j);
         if (r < 0)
                 log_debug("Failed to send job change signal for %u: %s", j->id, strerror(-r));
 
@@ -176,7 +176,7 @@ void bus_job_send_removed_signal(Job *j) {
         if (!j->sent_dbus_new_signal)
                 bus_job_send_change_signal(j);
 
-        r = bus_foreach_bus(j->manager, j->subscribed, send_removed_signal, j);
+        r = bus_foreach_bus(j->manager, j->clients, send_removed_signal, j);
         if (r < 0)
                 log_debug("Failed to send job remove signal for %u: %s", j->id, strerror(-r));
 }
