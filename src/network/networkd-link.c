@@ -452,13 +452,6 @@ static int link_enter_set_routes(Link *link) {
 
         link->state = LINK_STATE_SETTING_ROUTES;
 
-        if (!link->network->static_routes &&
-            !link->dhcp_lease &&
-            !ipv4ll_is_bound(link->ipv4ll))
-                return link_enter_configured(link);
-
-        log_debug_link(link, "setting routes");
-
         LIST_FOREACH(routes, rt, link->network->static_routes) {
                 r = route_configure(rt, link, &route_handler);
                 if (r < 0) {
@@ -562,7 +555,8 @@ static int link_enter_set_routes(Link *link) {
 
         if (link->route_messages == 0) {
                 link_enter_configured(link);
-        }
+        } else
+                log_debug_link(link, "setting routes");
 
         return 0;
 }
@@ -663,13 +657,6 @@ static int link_enter_set_addresses(Link *link) {
         assert(link->state != _LINK_STATE_INVALID);
 
         link->state = LINK_STATE_SETTING_ADDRESSES;
-
-        if (!link->network->static_addresses &&
-            !link->dhcp_lease &&
-            !ipv4ll_is_bound(link->ipv4ll))
-                return link_enter_set_routes(link);
-
-        log_debug_link(link, "setting addresses");
 
         LIST_FOREACH(addresses, ad, link->network->static_addresses) {
                 r = address_configure(ad, link, &address_handler);
@@ -777,6 +764,11 @@ static int link_enter_set_addresses(Link *link) {
 
                 link->addr_messages ++;
         }
+
+        if (link->addr_messages == 0) {
+                link_enter_set_routes(link);
+        } else
+                log_debug_link(link, "setting addresses");
 
         return 0;
 }
