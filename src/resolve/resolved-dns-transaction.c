@@ -118,6 +118,7 @@ static void dns_transaction_stop(DnsTransaction *t) {
 }
 
 static void dns_transaction_tentative(DnsTransaction *t, DnsPacket *p) {
+        _cleanup_free_ char *pretty = NULL;
         DnsZoneItem *z;
         Iterator i;
 
@@ -127,10 +128,13 @@ static void dns_transaction_tentative(DnsTransaction *t, DnsPacket *p) {
         if (manager_our_packet(t->scope->manager, p) != 0)
                 return;
 
-        log_debug("Transaction on scope %s on %s/%s got tentative packet",
+        in_addr_to_string(p->family, &p->sender, &pretty);
+
+        log_debug("Transaction on scope %s on %s/%s got tentative packet from %s",
                   dns_protocol_to_string(t->scope->protocol),
                   t->scope->link ? t->scope->link->name : "*",
-                  t->scope->family == AF_UNSPEC ? "*" : af_to_name(t->scope->family));
+                  t->scope->family == AF_UNSPEC ? "*" : af_to_name(t->scope->family),
+                  pretty);
 
         /* RFC 4795, Section 4.1 says that the peer with the
          * lexicographically smaller IP address loses */

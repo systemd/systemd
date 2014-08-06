@@ -530,11 +530,14 @@ void dns_zone_item_ready(DnsZoneItem *i) {
                  * lexicographically smaller IP address we continue
                  * and defend it. */
 
-                if (!IN_SET(i->state, DNS_ZONE_ITEM_ESTABLISHED, DNS_ZONE_ITEM_VERIFYING))
+                if (!IN_SET(i->state, DNS_ZONE_ITEM_ESTABLISHED, DNS_ZONE_ITEM_VERIFYING)) {
+                        log_debug("Got a successful probe for not yet established RR, we lost.");
                         we_lost = true;
-                else {
+                } else {
                         assert(i->probe_transaction->received);
                         we_lost = memcmp(&i->probe_transaction->received->sender, &i->probe_transaction->received->destination, FAMILY_ADDRESS_SIZE(i->probe_transaction->received->family)) > 0;
+                        if (we_lost)
+                                log_debug("Got a successful probe reply for an established RR, and we have a lexicographically lower IP address and thus lost.");
                 }
 
                 if (we_lost) {
@@ -553,12 +556,16 @@ void dns_zone_item_ready(DnsZoneItem *i) {
 }
 
 static int dns_zone_item_verify(DnsZoneItem *i) {
+        _cleanup_free_ char *pretty = NULL;
         int r;
 
         assert(i);
 
         if (i->state != DNS_ZONE_ITEM_ESTABLISHED)
                 return 0;
+
+        dns_resource_record_to_string(i->rr, &pretty);
+        log_debug("Verifying RR %s", strna(pretty));
 
         i->state = DNS_ZONE_ITEM_VERIFYING;
         r = dns_zone_item_probe_start(i);
