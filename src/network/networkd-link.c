@@ -375,7 +375,7 @@ static int route_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 
         link->route_messages --;
 
-        if (IN_SET(LINK_STATE_FAILED, LINK_STATE_LINGER))
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 1;
 
         r = sd_rtnl_message_get_errno(m);
