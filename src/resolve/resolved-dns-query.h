@@ -63,6 +63,8 @@ struct DnsQuery {
 
         Set *transactions;
 
+        sd_bus_track *bus_track;
+
         LIST_FIELDS(DnsQuery, queries);
 };
 
@@ -73,5 +75,7 @@ int dns_query_go(DnsQuery *q);
 void dns_query_ready(DnsQuery *q);
 
 int dns_query_cname_redirect(DnsQuery *q, const char *name);
+
+int dns_query_bus_track(DnsQuery *q, sd_bus *bus, sd_bus_message *m);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsQuery*, dns_query_free);

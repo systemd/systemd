@@ -54,6 +54,7 @@ DnsQuery *dns_query_free(DnsQuery *q) {
         dns_answer_unref(q->answer);
 
         sd_bus_message_unref(q->request);
+        sd_bus_track_unref(q->bus_track);
 
         if (q->manager) {
                 LIST_REMOVE(queries, q->manager->dns_queries, q);
@@ -447,6 +448,36 @@ int dns_query_cname_redirect(DnsQuery *q, const char *name) {
 
         dns_query_stop(q);
         q->state = DNS_TRANSACTION_NULL;
+
+        return 0;
+}
+
+static int on_bus_track(sd_bus_track *t, void *userdata) {
+        DnsQuery *q = userdata;
+
+        assert(t);
+        assert(q);
+
+        log_debug("Client of active query vanished, aborting query.");
+        dns_query_complete(q, DNS_TRANSACTION_ABORTED);
+        return 0;
+}
+
+int dns_query_bus_track(DnsQuery *q, sd_bus *bus, sd_bus_message *m) {
+        int r;
+
+        assert(q);
+        assert(m);
+
+        if (!q->bus_track) {
+                r = sd_bus_track_new(bus, &q->bus_track, on_bus_track, q);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_bus_track_add_sender(q->bus_track, m);
+        if (r < 0)
+                return r;
 
         return 0;
 }
