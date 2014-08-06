@@ -65,7 +65,7 @@ int bus_check_peercred(sd_bus *c);
 int bus_verify_polkit(sd_bus *bus, sd_bus_message *m, const char *action, bool interactive, bool *_challenge, sd_bus_error *e);
 
 int bus_verify_polkit_async(sd_bus *bus, Hashmap **registry, sd_bus_message *m, const char *action, bool interactive, sd_bus_error *error, sd_bus_message_handler_t callback, void *userdata);
-void bus_verify_polkit_async_registry_free(sd_bus *bus, Hashmap *registry);
+void bus_verify_polkit_async_registry_free(Hashmap *registry);
 
 int bus_open_system_systemd(sd_bus **_bus);
 int bus_open_user_systemd(sd_bus **_bus);

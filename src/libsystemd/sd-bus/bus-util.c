@@ -452,7 +452,7 @@ int bus_verify_polkit_async(
         return -EACCES;
 }
 
-void bus_verify_polkit_async_registry_free(sd_bus *bus, Hashmap *registry) {
+void bus_verify_polkit_async_registry_free(Hashmap *registry) {
 #ifdef ENABLE_POLKIT
         AsyncPolkitQuery *q;
 
