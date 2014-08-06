@@ -421,6 +421,12 @@ int bus_unit_method_kill(sd_bus *bus, sd_bus_message *message, void *userdata, s
         assert(message);
         assert(u);
 
+        r = bus_verify_manage_unit_async_for_kill(u->manager, message, error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
         r = sd_bus_message_read(message, "si", &swho, &signo);
         if (r < 0)
                 return r;
@@ -455,6 +461,12 @@ int bus_unit_method_reset_failed(sd_bus *bus, sd_bus_message *message, void *use
         assert(message);
         assert(u);
 
+        r = bus_verify_manage_unit_async(u->manager, message, error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
         r = selinux_unit_access_check(u, message, "reload", error);
         if (r < 0)
                 return r;
@@ -471,6 +483,12 @@ int bus_unit_method_set_properties(sd_bus *bus, sd_bus_message *message, void *u
         assert(bus);
         assert(message);
         assert(u);
+
+        r = bus_verify_manage_unit_async(u->manager, message, error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
         r = sd_bus_message_read(message, "b", &runtime);
         if (r < 0)

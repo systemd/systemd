@@ -1092,6 +1092,8 @@ void bus_done(Manager *m) {
                 m->private_listen_event_source = sd_event_source_unref(m->private_listen_event_source);
 
         m->private_listen_fd = safe_close(m->private_listen_fd);
+
+        bus_verify_polkit_async_registry_free(m->polkit_registry);
 }
 
 int bus_fdset_add_all(Manager *m, FDSet *fds) {
@@ -1214,4 +1216,21 @@ int bus_track_coldplug(Manager *m, sd_bus_track **t, char ***l) {
         *l = NULL;
 
         return r;
+}
+
+int bus_verify_manage_unit_async(Manager *m, sd_bus_message *call, sd_bus_error *error) {
+        return bus_verify_polkit_async(call, CAP_SYS_ADMIN, "org.freedesktop.systemd1.manage-units", false, &m->polkit_registry, error);
+}
+
+/* Same as bus_verify_manage_unit_async(), but checks for CAP_KILL instead of CAP_SYS_ADMIN */
+int bus_verify_manage_unit_async_for_kill(Manager *m, sd_bus_message *call, sd_bus_error *error) {
+        return bus_verify_polkit_async(call, CAP_KILL, "org.freedesktop.systemd1.manage-units", false, &m->polkit_registry, error);
+}
+
+int bus_verify_manage_unit_files_async(Manager *m, sd_bus_message *call, sd_bus_error *error) {
+        return bus_verify_polkit_async(call, CAP_SYS_ADMIN, "org.freedesktop.systemd1.manage-unit-files", false, &m->polkit_registry, error);
+}
+
+int bus_verify_reload_daemon_async(Manager *m, sd_bus_message *call, sd_bus_error *error) {
+        return bus_verify_polkit_async(call, CAP_SYS_ADMIN, "org.freedesktop.systemd1.reload-daemon", false, &m->polkit_registry, error);
 }

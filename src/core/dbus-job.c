@@ -29,6 +29,23 @@
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_type, job_type, JobType);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_state, job_state, JobState);
 
+static int verify_sys_admin_or_owner_sync(sd_bus_message *message, Job *j, sd_bus_error *error) {
+        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+        int r;
+
+        if (sd_bus_track_contains(j->clients, sd_bus_message_get_sender(message)))
+                return 0; /* One of the job owners is calling us */
+
+        r = sd_bus_query_sender_privilege(message, CAP_SYS_ADMIN);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Access denied to perform action");
+
+        /* Root has called us */
+        return 0;
+}
+
 static int property_get_unit(
                 sd_bus *bus,
                 const char *path,
@@ -60,6 +77,10 @@ int bus_job_method_cancel(sd_bus *bus, sd_bus_message *message, void *userdata, 
         assert(message);
         assert(j);
 
+        r = verify_sys_admin_or_owner_sync(message, j, error);
+        if (r < 0)
+                return r;
+
         r = selinux_unit_access_check(j->unit, message, "stop", error);
         if (r < 0)
                 return r;
@@ -71,7 +92,7 @@ int bus_job_method_cancel(sd_bus *bus, sd_bus_message *message, void *userdata, 
 
 const sd_bus_vtable bus_job_vtable[] = {
         SD_BUS_VTABLE_START(0),
-        SD_BUS_METHOD("Cancel", NULL, NULL, bus_job_method_cancel, 0),
+        SD_BUS_METHOD("Cancel", NULL, NULL, bus_job_method_cancel, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_PROPERTY("Id", "u", NULL, offsetof(Job, id), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Unit", "(so)", property_get_unit, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("JobType", "s", property_get_type, offsetof(Job, type), SD_BUS_VTABLE_PROPERTY_CONST),
