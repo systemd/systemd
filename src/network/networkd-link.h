@@ -76,7 +76,10 @@ struct Link {
         sd_dhcp_lease *dhcp_lease;
         char *lease_file;
         uint16_t original_mtu;
+
         sd_ipv4ll *ipv4ll;
+        bool ipv4ll_address;
+        bool ipv4ll_route;
 
         LIST_HEAD(Address, pool_addresses);
 
@@ -92,14 +95,23 @@ int link_get(Manager *m, int ifindex, Link **ret);
 int link_add(Manager *manager, sd_rtnl_message *message, Link **ret);
 void link_drop(Link *link);
 
+int link_get_address_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata);
+int link_address_drop_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata);
+int link_route_drop_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata);
+
+void link_enter_failed(Link *link);
+int link_initialized(Link *link, struct udev_device *device);
+
+void link_client_handler(Link *link);
+
 int link_update(Link *link, sd_rtnl_message *message);
 int link_rtnl_process_address(sd_rtnl *rtnl, sd_rtnl_message *message, void *userdata);
-
-int link_initialized(Link *link, struct udev_device *device);
 
 int link_save(Link *link);
 
 bool link_has_carrier(unsigned flags, uint8_t operstate);
+
+int ipv4ll_configure(Link *link);
 
 const char* link_state_to_string(LinkState s) _const_;
 LinkState link_state_from_string(const char *s) _pure_;

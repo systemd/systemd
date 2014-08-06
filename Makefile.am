@@ -4942,6 +4942,7 @@ libsystemd_networkd_core_la_SOURCES = \
 	src/libsystemd-network/network-internal.h \
 	src/network/networkd.h \
 	src/network/networkd-link.h \
+	src/network/networkd-ipv4ll.h \
 	src/network/networkd-netdev.h \
 	src/network/networkd-netdev-tunnel.h \
 	src/network/networkd-netdev-veth.h \
@@ -4963,6 +4964,7 @@ libsystemd_networkd_core_la_SOURCES = \
 	src/network/networkd-netdev-bond.c \
 	src/network/networkd-netdev-bridge.c \
 	src/network/networkd-link.c \
+	src/network/networkd-ipv4ll.c \
 	src/network/networkd-network.c \
 	src/network/networkd-address.c \
 	src/network/networkd-route.c \
