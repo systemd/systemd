@@ -27,6 +27,7 @@
 
 #include "sd-rtnl.h"
 #include "networkd-netdev-tunnel.h"
+#include "networkd-link.h"
 #include "network-internal.h"
 #include "util.h"
 #include "missing.h"

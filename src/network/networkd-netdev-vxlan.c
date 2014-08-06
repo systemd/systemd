@@ -25,6 +25,7 @@
 
 #include "sd-rtnl.h"
 #include "networkd-netdev-vxlan.h"
+#include "networkd-link.h"
 #include "missing.h"
 
 static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_message *m) {

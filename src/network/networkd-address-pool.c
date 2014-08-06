@@ -22,6 +22,7 @@
 #include <arpa/inet.h>
 
 #include "networkd.h"
+#include "networkd-link.h"
 
 int address_pool_new(
                 Manager *m,

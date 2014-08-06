@@ -4941,6 +4941,7 @@ libsystemd_networkd_core_la_CFLAGS = \
 libsystemd_networkd_core_la_SOURCES = \
 	src/libsystemd-network/network-internal.h \
 	src/network/networkd.h \
+	src/network/networkd-link.h \
 	src/network/networkd-netdev.h \
 	src/network/networkd-netdev-tunnel.h \
 	src/network/networkd-netdev-veth.h \

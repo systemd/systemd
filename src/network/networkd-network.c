@@ -24,6 +24,7 @@
 
 #include "networkd.h"
 #include "networkd-netdev.h"
+#include "networkd-link.h"
 #include "network-internal.h"
 #include "path-util.h"
 #include "conf-files.h"

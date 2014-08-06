@@ -26,6 +26,7 @@
 #include "path-util.h"
 #include "networkd.h"
 #include "networkd-netdev.h"
+#include "networkd-link.h"
 #include "network-internal.h"
 #include "libudev-private.h"
 #include "udev-util.h"

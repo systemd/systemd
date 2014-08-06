@@ -22,6 +22,7 @@
 #include <net/if.h>
 
 #include "networkd.h"
+#include "networkd-link.h"
 
 #include "utf8.h"
 #include "util.h"

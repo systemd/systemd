@@ -152,69 +152,6 @@ struct Route {
         LIST_FIELDS(Route, routes);
 };
 
-typedef enum LinkState {
-        LINK_STATE_INITIALIZING,
-        LINK_STATE_ENSLAVING,
-        LINK_STATE_SETTING_ADDRESSES,
-        LINK_STATE_SETTING_ROUTES,
-        LINK_STATE_CONFIGURED,
-        LINK_STATE_UNMANAGED,
-        LINK_STATE_FAILED,
-        LINK_STATE_LINGER,
-        _LINK_STATE_MAX,
-        _LINK_STATE_INVALID = -1
-} LinkState;
-
-typedef enum LinkOperationalState {
-        LINK_OPERSTATE_UNKNOWN,
-        LINK_OPERSTATE_DORMANT,
-        LINK_OPERSTATE_CARRIER,
-        LINK_OPERSTATE_DEGRADED,
-        LINK_OPERSTATE_ROUTABLE,
-        _LINK_OPERSTATE_MAX,
-        _LINK_OPERSTATE_INVALID = -1
-} LinkOperationalState;
-
-struct Link {
-        Manager *manager;
-
-        int n_ref;
-
-        int ifindex;
-        char *ifname;
-        char *state_file;
-        struct ether_addr mac;
-        uint32_t mtu;
-        struct udev_device *udev_device;
-
-        unsigned flags;
-        uint8_t kernel_operstate;
-
-        Network *network;
-
-        LinkState state;
-        LinkOperationalState operstate;
-
-        unsigned addr_messages;
-        unsigned route_messages;
-        unsigned enslaving;
-
-        LIST_HEAD(Address, addresses);
-
-        sd_dhcp_client *dhcp_client;
-        sd_dhcp_lease *dhcp_lease;
-        char *lease_file;
-        uint16_t original_mtu;
-        sd_ipv4ll *ipv4ll;
-
-        LIST_HEAD(Address, pool_addresses);
-
-        sd_dhcp_server *dhcp_server;
-
-        sd_icmp6_nd *icmp6_router_discovery;
-        sd_dhcp6_client *dhcp6_client;
-};
-
 struct AddressPool {
         Manager *manager;
 
@@ -357,32 +294,6 @@ int config_parse_broadcast(const char *unit, const char *filename, unsigned line
 int config_parse_label(const char *unit, const char *filename, unsigned line,
                        const char *section, unsigned section_line, const char *lvalue,
                        int ltype, const char *rvalue, void *data, void *userdata);
-
-/* Link */
-
-Link *link_unref(Link *link);
-Link *link_ref(Link *link);
-int link_get(Manager *m, int ifindex, Link **ret);
-int link_add(Manager *manager, sd_rtnl_message *message, Link **ret);
-void link_drop(Link *link);
-
-int link_update(Link *link, sd_rtnl_message *message);
-int link_rtnl_process_address(sd_rtnl *rtnl, sd_rtnl_message *message, void *userdata);
-
-int link_initialized(Link *link, struct udev_device *device);
-
-int link_save(Link *link);
-
-bool link_has_carrier(unsigned flags, uint8_t operstate);
-
-const char* link_state_to_string(LinkState s) _const_;
-LinkState link_state_from_string(const char *s) _pure_;
-
-const char* link_operstate_to_string(LinkOperationalState s) _const_;
-LinkOperationalState link_operstate_from_string(const char *s) _pure_;
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_unref);
-#define _cleanup_link_unref_ _cleanup_(link_unrefp)
 
 /* DHCP support */
 
