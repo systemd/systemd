@@ -554,6 +554,7 @@ Manager *manager_free(Manager *m) {
 
         manager_llmnr_stop(m);
 
+        sd_bus_slot_unref(m->prepare_for_sleep_slot);
         sd_event_source_unref(m->bus_retry_event_source);
         sd_bus_unref(m->bus);
 
@@ -1720,6 +1721,15 @@ DnsScope* manager_find_scope(Manager *m, DnsPacket *p) {
         }
 
         return NULL;
+}
+
+void manager_verify_all(Manager *m) {
+        DnsScope *s;
+
+        assert(m);
+
+        LIST_FOREACH(scopes, s, m->dns_scopes)
+                dns_zone_verify_all(&s->zone);
 }
 
 static const char* const support_table[_SUPPORT_MAX] = {

@@ -625,3 +625,17 @@ int dns_zone_verify_conflicts(DnsZone *zone, DnsResourceKey *key) {
 
         return c;
 }
+
+void dns_zone_verify_all(DnsZone *zone) {
+        DnsZoneItem *i;
+        Iterator iterator;
+
+        assert(zone);
+
+        HASHMAP_FOREACH(i, zone->by_key, iterator) {
+                DnsZoneItem *j;
+
+                LIST_FOREACH(by_key, j, i)
+                        dns_zone_item_verify(j);
+        }
+}

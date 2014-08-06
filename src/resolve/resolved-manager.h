@@ -108,6 +108,9 @@ struct Manager {
         /* Watch the system hostname */
         int hostname_fd;
         sd_event_source *hostname_event_source;
+
+        /* Watch for system suspends */
+        sd_bus_slot *prepare_for_sleep_slot;
 };
 
 /* Manager */
@@ -145,6 +148,8 @@ int manager_next_hostname(Manager *m);
 
 bool manager_our_packet(Manager *m, DnsPacket *p);
 DnsScope* manager_find_scope(Manager *m, DnsPacket *p);
+
+void manager_verify_all(Manager *m);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 

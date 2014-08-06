@@ -638,6 +638,28 @@ static int on_bus_retry(sd_event_source *s, usec_t usec, void *userdata) {
         return 0;
 }
 
+static int match_prepare_for_sleep(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *ret_error) {
+        Manager *m = userdata;
+        int b, r;
+
+        assert(bus);
+        assert(bus);
+
+        r = sd_bus_message_read(message, "b", &b);
+        if (r < 0) {
+                log_debug("Failed to parse PrepareForSleep signal: %s", strerror(-r));
+                return 0;
+        }
+
+        if (b)
+                return 0;
+
+        log_debug("Coming back from suspend, verifying all RRs...");
+
+        manager_verify_all(m);
+        return 0;
+}
+
 int manager_connect_bus(Manager *m) {
         int r;
 
@@ -680,6 +702,17 @@ int manager_connect_bus(Manager *m) {
                 log_error("Failed to attach bus to event loop: %s", strerror(-r));
                 return r;
         }
+
+        r = sd_bus_add_match(m->bus, &m->prepare_for_sleep_slot,
+                             "type='signal',"
+                             "sender='org.freedesktop.login1',"
+                             "interface='org.freedesktop.login1.Manager',"
+                             "member='PrepareForSleep',"
+                             "path='/org/freedesktop/login1'",
+                             match_prepare_for_sleep,
+                             m);
+        if (r < 0)
+                log_error("Failed to add match for PrepareForSleep: %s", strerror(-r));
 
         return 0;
 }
