@@ -51,11 +51,14 @@ static int reply_query_state(DnsQuery *q) {
         case DNS_TRANSACTION_ATTEMPTS_MAX_REACHED:
                 return sd_bus_reply_method_errorf(q->request, SD_BUS_ERROR_TIMEOUT, "All attempts to contact name servers or networks failed");
 
+        case DNS_TRANSACTION_INVALID_REPLY:
+                return sd_bus_reply_method_errorf(q->request, BUS_ERROR_INVALID_REPLY, "Received invalid reply");
+
         case DNS_TRANSACTION_RESOURCES:
                 return sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_RESOURCES, "Not enough resources");
 
-        case DNS_TRANSACTION_INVALID_REPLY:
-                return sd_bus_reply_method_errorf(q->request, BUS_ERROR_INVALID_REPLY, "Received invalid reply");
+        case DNS_TRANSACTION_ABORTED:
+                return sd_bus_reply_method_errorf(q->request, BUS_ERROR_ABORTED, "Query aborted");
 
         case DNS_TRANSACTION_FAILURE: {
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
