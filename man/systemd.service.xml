@@ -605,11 +605,12 @@ ExecStart=/bin/echo $ONE $TWO ${TWO}</programlisting>
                                 time span value such as "5min
                                 20s". Pass <literal>0</literal> to
                                 disable the timeout logic. Defaults to
-                                <varname>TimeoutStartSec=</varname> from
+                                <varname>DefaultTimeoutStartSec=</varname> from
                                 the manager configuration file, except
                                 when <varname>Type=oneshot</varname> is
                                 used, in which case the timeout
-                                is disabled by default.
+                                is disabled by default
+                                (see <citerefentry><refentrytitle>systemd-systemd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
                                 </para></listitem>
                         </varlistentry>
 
@@ -628,8 +629,9 @@ ExecStart=/bin/echo $ONE $TWO ${TWO}</programlisting>
                                 time span value such as "5min
                                 20s". Pass <literal>0</literal> to disable
                                 the timeout logic. Defaults to
-                                <varname>TimeoutStartSec=</varname> from the
-                                manager configuration file.
+                                <varname>DefaultTimeoutStopSec=</varname> from the
+                                manager configuration file
+                                (see <citerefentry><refentrytitle>systemd-systemd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
                                 </para></listitem>
                         </varlistentry>
 

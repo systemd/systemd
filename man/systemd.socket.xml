@@ -722,16 +722,18 @@
                                 finish. If a command does not exit
                                 within the configured time, the socket
                                 will be considered failed and be shut
-                                down again. All commands still running,
+                                down again. All commands still running
                                 will be terminated forcibly via
                                 <constant>SIGTERM</constant>, and after another delay of
                                 this time with <constant>SIGKILL</constant>. (See
                                 <option>KillMode=</option> in <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>.)
                                 Takes a unit-less value in seconds, or
                                 a time span value such as "5min
-                                20s". Pass 0 to disable the timeout
-                                logic. Defaults to <varname>TimeoutStartSec=</varname> from the
-                                manager configuration file.</para></listitem>
+                                20s". Pass <literal>0</literal> to disable the timeout
+                                logic. Defaults to <varname>DefaultTimeoutStartSec=</varname> from the
+                                manager configuration file
+                                (see <citerefentry><refentrytitle>systemd-systemd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
+                                </para></listitem>
                         </varlistentry>
 
                         <varlistentry>
