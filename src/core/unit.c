@@ -69,6 +69,8 @@ const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX] = {
         [UNIT_SCOPE] = &scope_vtable
 };
 
+static int maybe_warn_about_dependency(const char *id, const char *other, UnitDependency dependency);
+
 Unit *unit_new(Manager *m, size_t size) {
         Unit *u;
 
@@ -583,7 +585,7 @@ static void merge_names(Unit *u, Unit *other) {
                 assert_se(hashmap_replace(u->manager->units, t, u) == 0);
 }
 
-static void merge_dependencies(Unit *u, Unit *other, UnitDependency d) {
+static void merge_dependencies(Unit *u, Unit *other, const char *other_id, UnitDependency d) {
         Iterator i;
         Unit *back;
         int r;
@@ -599,7 +601,8 @@ static void merge_dependencies(Unit *u, Unit *other, UnitDependency d) {
                 for (k = 0; k < _UNIT_DEPENDENCY_MAX; k++) {
                         /* Do not add dependencies between u and itself */
                         if (back == u) {
-                                set_remove(back->dependencies[k], other);
+                                if (set_remove(back->dependencies[k], other))
+                                        maybe_warn_about_dependency(u->id, other_id, k);
                         } else {
                                 r = set_remove_and_put(back->dependencies[k], other, u);
                                 if (r == -EEXIST)
@@ -611,7 +614,9 @@ static void merge_dependencies(Unit *u, Unit *other, UnitDependency d) {
         }
 
         /* Also do not move dependencies on u to itself */
-        set_remove(other->dependencies[d], u);
+        back = set_remove(other->dependencies[d], u);
+        if (back)
+                maybe_warn_about_dependency(u->id, other_id, d);
 
         complete_move(&u->dependencies[d], &other->dependencies[d]);
 
@@ -621,6 +626,7 @@ static void merge_dependencies(Unit *u, Unit *other, UnitDependency d) {
 
 int unit_merge(Unit *u, Unit *other) {
         UnitDependency d;
+        const char *other_id = NULL;
 
         assert(u);
         assert(other);
@@ -651,6 +657,9 @@ int unit_merge(Unit *u, Unit *other) {
         if (!UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(other)))
                 return -EEXIST;
 
+        if (other->id)
+                other_id = strdupa(other->id);
+
         /* Merge names */
         merge_names(u, other);
 
@@ -660,7 +669,7 @@ int unit_merge(Unit *u, Unit *other) {
 
         /* Merge dependencies */
         for (d = 0; d < _UNIT_DEPENDENCY_MAX; d++)
-                merge_dependencies(u, other, d);
+                merge_dependencies(u, other, other_id, d);
 
         other->load_state = UNIT_MERGED;
         other->merged_into = u;
@@ -1038,6 +1047,9 @@ static int unit_add_slice_dependencies(Unit *u) {
 
         if (UNIT_ISSET(u->slice))
                 return unit_add_two_dependencies(u, UNIT_AFTER, UNIT_WANTS, UNIT_DEREF(u->slice), true);
+
+        if (streq(u->id, SPECIAL_ROOT_SLICE))
+                return 0;
 
         return unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_WANTS, SPECIAL_ROOT_SLICE, NULL, true);
 }
@@ -1945,6 +1957,50 @@ bool unit_job_is_applicable(Unit *u, JobType j) {
         }
 }
 
+static int maybe_warn_about_dependency(const char *id, const char *other, UnitDependency dependency) {
+        switch (dependency) {
+        case UNIT_REQUIRES:
+        case UNIT_REQUIRES_OVERRIDABLE:
+        case UNIT_WANTS:
+        case UNIT_REQUISITE:
+        case UNIT_REQUISITE_OVERRIDABLE:
+        case UNIT_BINDS_TO:
+        case UNIT_PART_OF:
+        case UNIT_REQUIRED_BY:
+        case UNIT_REQUIRED_BY_OVERRIDABLE:
+        case UNIT_WANTED_BY:
+        case UNIT_BOUND_BY:
+        case UNIT_CONSISTS_OF:
+        case UNIT_REFERENCES:
+        case UNIT_REFERENCED_BY:
+        case UNIT_PROPAGATES_RELOAD_TO:
+        case UNIT_RELOAD_PROPAGATED_FROM:
+        case UNIT_JOINS_NAMESPACE_OF:
+                return 0;
+
+        case UNIT_CONFLICTS:
+        case UNIT_CONFLICTED_BY:
+        case UNIT_BEFORE:
+        case UNIT_AFTER:
+        case UNIT_ON_FAILURE:
+        case UNIT_TRIGGERS:
+        case UNIT_TRIGGERED_BY:
+                if (streq_ptr(id, other))
+                        log_warning_unit(id, "Dependency %s=%s dropped from unit %s",
+                                         unit_dependency_to_string(dependency), id, other);
+                else
+                        log_warning_unit(id, "Dependency %s=%s dropped from unit %s merged into %s",
+                                         unit_dependency_to_string(dependency), id,
+                                         strna(other), id);
+                return -EINVAL;
+
+        case _UNIT_DEPENDENCY_MAX:
+        case _UNIT_DEPENDENCY_INVALID:
+                break;
+        }
+        assert_not_reached("Invalid dependency type");
+}
+
 int unit_add_dependency(Unit *u, UnitDependency d, Unit *other, bool add_reference) {
 
         static const UnitDependency inverse_table[_UNIT_DEPENDENCY_MAX] = {
@@ -1974,6 +2030,7 @@ int unit_add_dependency(Unit *u, UnitDependency d, Unit *other, bool add_referen
                 [UNIT_JOINS_NAMESPACE_OF] = UNIT_JOINS_NAMESPACE_OF,
         };
         int r, q = 0, v = 0, w = 0;
+        Unit *orig_u = u, *orig_other = other;
 
         assert(u);
         assert(d >= 0 && d < _UNIT_DEPENDENCY_MAX);
@@ -1984,8 +2041,10 @@ int unit_add_dependency(Unit *u, UnitDependency d, Unit *other, bool add_referen
 
         /* We won't allow dependencies on ourselves. We will not
          * consider them an error however. */
-        if (u == other)
+        if (u == other) {
+                maybe_warn_about_dependency(orig_u->id, orig_other->id, d);
                 return 0;
+        }
 
         r = set_ensure_allocated(&u->dependencies[d], trivial_hash_func, trivial_compare_func);
         if (r < 0)
