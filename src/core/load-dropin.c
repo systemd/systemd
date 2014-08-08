@@ -181,7 +181,7 @@ int unit_load_dropin(Unit *u) {
         }
 
         u->dropin_paths = unit_find_dropin_paths(u);
-        if (! u->dropin_paths)
+        if (!u->dropin_paths)
                 return 0;
 
         STRV_FOREACH(f, u->dropin_paths) {
