@@ -87,7 +87,7 @@ Architecture uname_architecture(void);
 #    define LIB_ARCH_TUPLE "ppc64-linux-gnu"
 #  else
 #    define native_architecture() ARCHITECTURE_PPC64_LE
-#    error "Missing LIB_ARCH_TUPLE for PPC64LE"
+#    define LIB_ARCH_TUPLE  "powerpc64le-linux-gnu"
 #  endif
 #elif defined(__powerpc__)
 #  if __BYTE_ORDER == __BIG_ENDIAN
