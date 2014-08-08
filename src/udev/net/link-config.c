@@ -279,9 +279,11 @@ static bool mac_is_random(struct udev_device *device) {
         unsigned type;
         int r;
 
+        /* if we can't get the assign type, assume it is not random */
         s = udev_device_get_sysattr_value(device, "addr_assign_type");
         if (!s)
-                return false; /* if we don't know, assume it is not random */
+                return false;
+
         r = safe_atou(s, &type);
         if (r < 0)
                 return false;
@@ -294,9 +296,11 @@ static bool should_rename(struct udev_device *device, bool respect_predictable) 
         unsigned type;
         int r;
 
+        /* if we can't get the assgin type, assume we should rename */
         s = udev_device_get_sysattr_value(device, "name_assign_type");
         if (!s)
-                return true; /* if we don't know, assume we should rename */
+                return true;
+
         r = safe_atou(s, &type);
         if (r < 0)
                 return true;
@@ -304,14 +308,17 @@ static bool should_rename(struct udev_device *device, bool respect_predictable) 
         switch (type) {
         case NET_NAME_USER:
         case NET_NAME_RENAMED:
-                return false; /* these were already named by userspace, do not touch again */
+                /* these were already named by userspace, do not touch again */
+                return false;
         case NET_NAME_PREDICTABLE:
+                /* the kernel claims to have given a predictable name */
                 if (respect_predictable)
-                        return false; /* the kernel claims to have given a predictable name */
+                        return false;
                 /* fall through */
         case NET_NAME_ENUM:
         default:
-                return true; /* the name is known to be bad, or of an unknown type */
+                /* the name is known to be bad, or of an unknown type */
+                return true;
         }
 }
 
@@ -333,8 +340,8 @@ static int get_mac(struct udev_device *device, bool want_random,
         }
 
         /* see eth_random_addr in the kernel */
-        mac->ether_addr_octet[0] &= 0xfe;        /* clear multicast bit */
-        mac->ether_addr_octet[0] |= 0x02;        /* set local assignment bit (IEEE802) */
+        mac->ether_addr_octet[0] &= 0xfe;  /* clear multicast bit */
+        mac->ether_addr_octet[0] |= 0x02;  /* set local assignment bit (IEEE802) */
 
         return 0;
 }
@@ -410,8 +417,8 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
         }
 
         if (should_rename(device, respect_predictable)) {
+                /* if not set by policy, fall back manually set name */
                 if (!new_name)
-                        /* if not set by policy, fall back manually set name */
                         new_name = config->name;
         } else
                 new_name = NULL;

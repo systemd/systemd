@@ -66,8 +66,7 @@ struct Link {
         LinkState state;
         LinkOperationalState operstate;
 
-        unsigned addr_messages;
-        unsigned route_messages;
+        unsigned link_messages;
         unsigned enslaving;
 
         LIST_HEAD(Address, addresses);
@@ -76,10 +75,14 @@ struct Link {
         sd_dhcp_lease *dhcp_lease;
         char *lease_file;
         uint16_t original_mtu;
+        unsigned dhcp4_messages;
+        bool dhcp4_configured;
 
         sd_ipv4ll *ipv4ll;
         bool ipv4ll_address;
         bool ipv4ll_route;
+
+        bool static_configured;
 
         LIST_HEAD(Address, pool_addresses);
 
@@ -111,7 +114,11 @@ int link_save(Link *link);
 
 bool link_has_carrier(unsigned flags, uint8_t operstate);
 
+int link_set_mtu(Link *link, uint32_t mtu);
+int link_set_hostname(Link *link, const char *hostname);
+
 int ipv4ll_configure(Link *link);
+int dhcp4_configure(Link *link);
 
 const char* link_state_to_string(LinkState s) _const_;
 LinkState link_state_from_string(const char *s) _pure_;
