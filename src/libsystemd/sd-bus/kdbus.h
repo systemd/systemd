@@ -223,6 +223,7 @@ struct kdbus_policy_access {
  * @KDBUS_ITEM_ID:		Connection ID
  * @KDBUS_ITEM_TIMESTAMP:	Timestamp
  * @KDBUS_ITEM_CREDS:		Process credential
+ * @KDBUS_ITEM_AUXGROUPS:	Auxiliary process groups
  * @KDBUS_ITEM_PID_COMM:	Process ID "comm" identifier
  * @KDBUS_ITEM_TID_COMM:	Thread ID "comm" identifier
  * @KDBUS_ITEM_EXE:		The path of the executable
@@ -263,6 +264,7 @@ enum kdbus_item_type {
 	KDBUS_ITEM_ID,
 	KDBUS_ITEM_TIMESTAMP,
 	KDBUS_ITEM_CREDS,
+	KDBUS_ITEM_AUXGROUPS,
 	KDBUS_ITEM_PID_COMM,
 	KDBUS_ITEM_TID_COMM,
 	KDBUS_ITEM_EXE,
@@ -500,6 +502,7 @@ enum kdbus_hello_flags {
  * enum kdbus_attach_flags - flags for metadata attachments
  * @KDBUS_ATTACH_TIMESTAMP:	Timestamp
  * @KDBUS_ATTACH_CREDS:		Credentials
+ * @KDBUS_ATTACH_AUXGROUPS:	Auxiliary groups
  * @KDBUS_ATTACH_NAMES:		Well-known names
  * @KDBUS_ATTACH_COMM:		The "comm" process identifier
  * @KDBUS_ATTACH_EXE:		The path of the executable
@@ -514,16 +517,17 @@ enum kdbus_hello_flags {
 enum kdbus_attach_flags {
 	KDBUS_ATTACH_TIMESTAMP		=  1 <<  0,
 	KDBUS_ATTACH_CREDS		=  1 <<  1,
-	KDBUS_ATTACH_NAMES		=  1 <<  2,
-	KDBUS_ATTACH_COMM		=  1 <<  3,
-	KDBUS_ATTACH_EXE		=  1 <<  4,
-	KDBUS_ATTACH_CMDLINE		=  1 <<  5,
-	KDBUS_ATTACH_CGROUP		=  1 <<  6,
-	KDBUS_ATTACH_CAPS		=  1 <<  7,
-	KDBUS_ATTACH_SECLABEL		=  1 <<  8,
-	KDBUS_ATTACH_AUDIT		=  1 <<  9,
-	KDBUS_ATTACH_CONN_NAME		=  1 << 10,
-	_KDBUS_ATTACH_ALL		=  (1 << 11) - 1,
+	KDBUS_ATTACH_AUXGROUPS		=  1 <<  2,
+	KDBUS_ATTACH_NAMES		=  1 <<  3,
+	KDBUS_ATTACH_COMM		=  1 <<  4,
+	KDBUS_ATTACH_EXE		=  1 <<  5,
+	KDBUS_ATTACH_CMDLINE		=  1 <<  6,
+	KDBUS_ATTACH_CGROUP		=  1 <<  7,
+	KDBUS_ATTACH_CAPS		=  1 <<  8,
+	KDBUS_ATTACH_SECLABEL		=  1 <<  9,
+	KDBUS_ATTACH_AUDIT		=  1 << 10,
+	KDBUS_ATTACH_CONN_NAME		=  1 << 11,
+	_KDBUS_ATTACH_ALL		=  (1 << 12) - 1,
 };
 
 /**
@@ -899,8 +903,9 @@ enum kdbus_ioctl_type {
  * @EEXIST:		A requested domain, bus or endpoint with the same
  *			name already exists.  A specific data type, which is
  *			only expected once, is provided multiple times.
- * @EFAULT:		The supplied memory could not be accessed, or the data
- *			is not properly aligned.
+ * @EFAULT:		The supplied memory could not be accessed, the data
+ *			is not properly aligned, or the current task's memory
+ *			is inaccessible.
  * @EINVAL:		The provided data does not match its type or other
  *			expectations, like a string which is not NUL terminated,
  *			or a string length that points behind the first
