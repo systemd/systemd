@@ -245,7 +245,7 @@ static int manager_send_request(Manager *m) {
          * The actual value does not matter, We do not care about the correct
          * NTP UINT_MAX fraction; we just pass the plain nanosecond value.
          */
-        assert_se(clock_gettime(CLOCK_MONOTONIC, &m->trans_time_mon) >= 0);
+        assert_se(clock_gettime(clock_boottime_or_monotonic(), &m->trans_time_mon) >= 0);
         assert_se(clock_gettime(CLOCK_REALTIME, &m->trans_time) >= 0);
         ntpmsg.trans_time.sec = htobe32(m->trans_time.tv_sec + OFFSET_1900_1970);
         ntpmsg.trans_time.frac = htobe32(m->trans_time.tv_nsec);
@@ -277,8 +277,8 @@ static int manager_send_request(Manager *m) {
         r = sd_event_add_time(
                         m->event,
                         &m->event_timeout,
-                        CLOCK_MONOTONIC,
-                        now(CLOCK_MONOTONIC) + TIMEOUT_USEC, 0,
+                        clock_boottime_or_monotonic(),
+                        now(clock_boottime_or_monotonic()) + TIMEOUT_USEC, 0,
                         manager_timeout, m);
         if (r < 0) {
                 log_error("Failed to arm timeout timer: %s", strerror(-r));
@@ -308,7 +308,7 @@ static int manager_arm_timer(Manager *m, usec_t next) {
         }
 
         if (m->event_timer) {
-                r = sd_event_source_set_time(m->event_timer, now(CLOCK_MONOTONIC) + next);
+                r = sd_event_source_set_time(m->event_timer, now(clock_boottime_or_monotonic()) + next);
                 if (r < 0)
                         return r;
 
@@ -318,8 +318,8 @@ static int manager_arm_timer(Manager *m, usec_t next) {
         return sd_event_add_time(
                         m->event,
                         &m->event_timer,
-                        CLOCK_MONOTONIC,
-                        now(CLOCK_MONOTONIC) + next, 0,
+                        clock_boottime_or_monotonic(),
+                        now(clock_boottime_or_monotonic()) + next, 0,
                         manager_timer, m);
 }
 
@@ -685,7 +685,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
          *  The round-trip delay, d, and system clock offset, t, are defined as:
          *  d = (T4 - T1) - (T3 - T2)     t = ((T2 - T1) + (T3 - T4)) / 2"
          */
-        assert_se(clock_gettime(CLOCK_MONOTONIC, &now_ts) >= 0);
+        assert_se(clock_gettime(clock_boottime_or_monotonic(), &now_ts) >= 0);
         origin = tv_to_d(recv_time) - (ts_to_d(&now_ts) - ts_to_d(&m->trans_time_mon)) + OFFSET_1900_1970;
         receive = ntp_ts_to_d(&ntpmsg.recv_time);
         trans = ntp_ts_to_d(&ntpmsg.trans_time);
@@ -912,7 +912,7 @@ static int manager_connect(Manager *m) {
         if (!ratelimit_test(&m->ratelimit)) {
                 log_debug("Slowing down attempts to contact servers.");
 
-                r = sd_event_add_time(m->event, &m->event_retry, CLOCK_MONOTONIC, now(CLOCK_MONOTONIC) + RETRY_USEC, 0, manager_retry, m);
+                r = sd_event_add_time(m->event, &m->event_retry, clock_boottime_or_monotonic(), now(clock_boottime_or_monotonic()) + RETRY_USEC, 0, manager_retry, m);
                 if (r < 0) {
                         log_error("Failed to create retry timer: %s", strerror(-r));
                         return r;
