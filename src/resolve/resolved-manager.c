@@ -1646,7 +1646,7 @@ void manager_refresh_rrs(Manager *m) {
 
 int manager_next_hostname(Manager *m) {
         const char *p;
-        uint64_t u;
+        uint64_t u, a;
         char *h;
 
         assert(m);
@@ -1664,7 +1664,15 @@ int manager_next_hostname(Manager *m) {
         if (*p == 0 || safe_atou64(p, &u) < 0 || u <= 0)
                 u = 1;
 
-        u++;
+        /* Add a random number to the old value. This way we can avoid
+         * that two hosts pick the same hostname, win on IPv4 and lose
+         * on IPv6 (or vice versa), and pick the same hostname
+         * replacement hostname, ad infinitum. We still want the
+         * numbers to go up monotonically, hence we just add a random
+         * value 1..10 */
+
+        random_bytes(&a, sizeof(a));
+        u += 1 + a % 10;
 
         if (asprintf(&h, "%.*s%" PRIu64, (int) (p - m->hostname), m->hostname, u) < 0)
                 return -ENOMEM;
