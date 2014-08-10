@@ -57,8 +57,14 @@
                 <title>Description</title>
 
                 <para><filename>systemd-timesyncd</filename> is a
-                system service that may be used to synchronize the local
-                system clock with a Network Time Protocol Server.</para>
+                system service that may be used to synchronize the
+                local system clock with a remote Network Time Protocol
+                server. It also saves the local time to disk every
+                time the clock has been synchronized and uses this to
+                possibly advance the system realtime clock on
+                subsequent reboots to ensure it
+                monotonically advances even if the system lacks a
+                battery-buffered RTC chip.</para>
         </refsect1>
 
         <refsect1>
