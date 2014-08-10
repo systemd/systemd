@@ -56,8 +56,8 @@
 
                 <para>When starting, systemd-resolved will read the
                 configuration file <filename>resolved.conf</filename>.
-                This configuration file controls local DNS name
-                resolving.</para>
+                This configuration file controls local DNS and LLMNR
+                name resolving.</para>
 
         </refsect1>
 
