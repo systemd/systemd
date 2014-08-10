@@ -76,3 +76,5 @@ int dns_zone_check_conflicts(DnsZone *zone, DnsResourceRecord *rr);
 int dns_zone_verify_conflicts(DnsZone *zone, DnsResourceKey *key);
 
 void dns_zone_verify_all(DnsZone *zone);
+
+void dns_zone_item_probe_stop(DnsZoneItem *i);

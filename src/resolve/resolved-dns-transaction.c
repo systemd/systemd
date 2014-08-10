@@ -120,7 +120,6 @@ static void dns_transaction_stop(DnsTransaction *t) {
 static void dns_transaction_tentative(DnsTransaction *t, DnsPacket *p) {
         _cleanup_free_ char *pretty = NULL;
         DnsZoneItem *z;
-        Iterator i;
 
         assert(t);
         assert(p);
@@ -146,8 +145,15 @@ static void dns_transaction_tentative(DnsTransaction *t, DnsPacket *p) {
         log_debug("We have the lexicographically smaller IP address and thus lost in the conflict.");
 
         t->block_gc++;
-        SET_FOREACH(z, t->zone_items, i)
+        while ((z = set_first(t->zone_items))) {
+                /* First, make sure the zone item drops the reference
+                 * to us */
+                dns_zone_item_probe_stop(z);
+
+                /* Secondly, report this as conflict, so that we might
+                 * look for a different hostname */
                 dns_zone_item_conflict(z);
+        }
         t->block_gc--;
 
         dns_transaction_gc(t);

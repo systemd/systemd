@@ -28,7 +28,7 @@
 /* Never allow more than 1K entries */
 #define ZONE_MAX 1024
 
-static void dns_zone_item_probe_stop(DnsZoneItem *i) {
+void dns_zone_item_probe_stop(DnsZoneItem *i) {
         DnsTransaction *t;
         assert(i);
 
