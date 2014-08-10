@@ -137,12 +137,12 @@ static void dns_transaction_tentative(DnsTransaction *t, DnsPacket *p) {
 
         /* RFC 4795, Section 4.1 says that the peer with the
          * lexicographically smaller IP address loses */
-        if (memcmp(&p->sender, &p->destination, FAMILY_ADDRESS_SIZE(p->family)) < 0) {
-                log_debug("Peer has lexicographically smaller IP address and thus lost in the conflict.");
+        if (memcmp(&p->sender, &p->destination, FAMILY_ADDRESS_SIZE(p->family)) >= 0) {
+                log_debug("Peer has lexicographically larger IP address and thus lost in the conflict.");
                 return;
         }
 
-        log_debug("We have the lexicographically smaller IP address and thus lost in the conflict.");
+        log_debug("We have the lexicographically larger IP address and thus lost in the conflict.");
 
         t->block_gc++;
         while ((z = set_first(t->zone_items))) {

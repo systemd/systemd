@@ -527,7 +527,7 @@ void dns_zone_item_ready(DnsZoneItem *i) {
                 /* The probe got a successful reply. If we so far
                  * weren't established we just give up. If we already
                  * were established, and the peer has the
-                 * lexicographically smaller IP address we continue
+                 * lexicographically larger IP address we continue
                  * and defend it. */
 
                 if (!IN_SET(i->state, DNS_ZONE_ITEM_ESTABLISHED, DNS_ZONE_ITEM_VERIFYING)) {
@@ -535,9 +535,9 @@ void dns_zone_item_ready(DnsZoneItem *i) {
                         we_lost = true;
                 } else {
                         assert(i->probe_transaction->received);
-                        we_lost = memcmp(&i->probe_transaction->received->sender, &i->probe_transaction->received->destination, FAMILY_ADDRESS_SIZE(i->probe_transaction->received->family)) > 0;
+                        we_lost = memcmp(&i->probe_transaction->received->sender, &i->probe_transaction->received->destination, FAMILY_ADDRESS_SIZE(i->probe_transaction->received->family)) < 0;
                         if (we_lost)
-                                log_debug("Got a successful probe reply for an established RR, and we have a lexicographically lower IP address and thus lost.");
+                                log_debug("Got a successful probe reply for an established RR, and we have a lexicographically larger IP address and thus lost.");
                 }
 
                 if (we_lost) {
