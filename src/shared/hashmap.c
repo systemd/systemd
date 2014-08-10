@@ -488,19 +488,10 @@ static bool resize_buckets(Hashmap *h) {
         return true;
 }
 
-int hashmap_put(Hashmap *h, const void *key, void *value) {
+static int __hashmap_put(Hashmap *h, const void *key, void *value, unsigned hash) {
+        /* For when we know no such entry exists yet */
+
         struct hashmap_entry *e;
-        unsigned hash;
-
-        assert(h);
-
-        hash = bucket_hash(h, key);
-        e = hash_scan(h, hash, key);
-        if (e) {
-                if (e->value == value)
-                        return 0;
-                return -EEXIST;
-        }
 
         if (resize_buckets(h))
                 hash = bucket_hash(h, key);
@@ -521,6 +512,23 @@ int hashmap_put(Hashmap *h, const void *key, void *value) {
         return 1;
 }
 
+int hashmap_put(Hashmap *h, const void *key, void *value) {
+        struct hashmap_entry *e;
+        unsigned hash;
+
+        assert(h);
+
+        hash = bucket_hash(h, key);
+        e = hash_scan(h, hash, key);
+        if (e) {
+                if (e->value == value)
+                        return 0;
+                return -EEXIST;
+        }
+
+        return __hashmap_put(h, key, value, hash);
+}
+
 int hashmap_replace(Hashmap *h, const void *key, void *value) {
         struct hashmap_entry *e;
         unsigned hash;
@@ -535,7 +543,7 @@ int hashmap_replace(Hashmap *h, const void *key, void *value) {
                 return 0;
         }
 
-        return hashmap_put(h, key, value);
+        return __hashmap_put(h, key, value, hash);
 }
 
 int hashmap_update(Hashmap *h, const void *key, void *value) {
