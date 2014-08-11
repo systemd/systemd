@@ -51,6 +51,13 @@
 
 _SD_BEGIN_DECLARATIONS;
 
+/* Get overall operational state
+ * Possible states: unknown, dormant, carrier, degraded, routable
+ * Possible return codes:
+ *   -ENODATA: networkd is not aware of any links
+ */
+int sd_network_get_operational_state(char **state);
+
 /* Get state from ifindex.
  * Possible states: failed, configuring, configured, unmanaged
  * Possible return codes:
@@ -66,29 +73,22 @@ int sd_network_get_link_state(int ifindex, char **state);
  */
 int sd_network_get_link_operational_state(int ifindex, char **state);
 
-/* Get overall opeartional state
- * Possible states: unknown, dormant, carrier, degraded, routable
- * Possible return codes:
- *   -ENODATA: networkd is not aware of any links
- */
-int sd_network_get_operational_state(char **state);
-
 /* Get DHCPv4 lease from ifindex. */
-int sd_network_get_dhcp_lease(int ifindex, sd_dhcp_lease **ret);
+int sd_network_get_link_dhcp_lease(int ifindex, sd_dhcp_lease **ret);
 
 /* Indicates whether or not LLMNR should be enabled for the link
  * Possible levels of support: yes, no, resolve
  * Possible return codes:
  *   -ENODATA: networkd is not aware of the link*/
-int sd_network_get_llmnr(int ifindex, char **llmnr);
+int sd_network_get_link_llmnr(int ifindex, char **llmnr);
 
 /* Get DNS entries for a given link. These are string representations of
  * IP addresses */
-int sd_network_get_dns(int ifindex, char ***addr);
+int sd_network_get_link_dns(int ifindex, char ***addr);
 
 /* Get NTP entries for a given link. These are domain names or string
  * reperesentations of IP addresses */
-int sd_network_get_ntp(int ifindex, char ***addr);
+int sd_network_get_link_ntp(int ifindex, char ***addr);
 
 /* Monitor object */
 typedef struct sd_network_monitor sd_network_monitor;

@@ -107,7 +107,7 @@ _public_ int sd_network_get_link_operational_state(int ifindex, char **state) {
         return 0;
 }
 
-_public_ int sd_network_get_llmnr(int ifindex, char **llmnr) {
+_public_ int sd_network_get_link_llmnr(int ifindex, char **llmnr) {
         _cleanup_free_ char *s = NULL, *p = NULL;
         int r;
 
@@ -131,7 +131,7 @@ _public_ int sd_network_get_llmnr(int ifindex, char **llmnr) {
         return 0;
 }
 
-_public_ int sd_network_get_dhcp_lease(int ifindex, sd_dhcp_lease **ret) {
+_public_ int sd_network_get_link_dhcp_lease(int ifindex, sd_dhcp_lease **ret) {
         _cleanup_free_ char *p = NULL, *s = NULL;
         sd_dhcp_lease *lease = NULL;
         int r;
@@ -158,7 +158,7 @@ _public_ int sd_network_get_dhcp_lease(int ifindex, sd_dhcp_lease **ret) {
         return 0;
 }
 
-static int network_get_strv(const char *key, int ifindex, char ***ret) {
+static int network_get_link_strv(const char *key, int ifindex, char ***ret) {
         _cleanup_free_ char *p = NULL, *s = NULL;
         _cleanup_strv_free_ char **a = NULL;
         int r;
@@ -191,12 +191,12 @@ static int network_get_strv(const char *key, int ifindex, char ***ret) {
         return r;
 }
 
-_public_ int sd_network_get_dns(int ifindex, char ***ret) {
-        return network_get_strv("DNS", ifindex, ret);
+_public_ int sd_network_get_link_dns(int ifindex, char ***ret) {
+        return network_get_link_strv("DNS", ifindex, ret);
 }
 
-_public_ int sd_network_get_ntp(int ifindex, char ***ret) {
-        return network_get_strv("NTP", ifindex, ret);
+_public_ int sd_network_get_link_ntp(int ifindex, char ***ret) {
+        return network_get_link_strv("NTP", ifindex, ret);
 }
 
 static inline int MONITOR_TO_FD(sd_network_monitor *m) {

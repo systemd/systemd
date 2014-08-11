@@ -151,7 +151,7 @@ static int link_update_dns_servers(Link *l) {
 
         assert(l);
 
-        r = sd_network_get_dns(l->ifindex, &nameservers);
+        r = sd_network_get_link_dns(l->ifindex, &nameservers);
         if (r < 0)
                 goto clear;
 
@@ -195,7 +195,7 @@ static int link_update_llmnr_support(Link *l) {
 
         assert(l);
 
-        r = sd_network_get_llmnr(l->ifindex, &b);
+        r = sd_network_get_link_llmnr(l->ifindex, &b);
         if (r < 0)
                 goto clear;
 

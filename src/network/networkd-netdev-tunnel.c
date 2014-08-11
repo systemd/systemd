@@ -114,7 +114,7 @@ static int netdev_sit_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_me
         r = sd_rtnl_message_append_u8(m, IFLA_IPTUN_TTL, t->ttl);
         if (r < 0) {
                 log_error_netdev(netdev,
-                                 "Could not append IFLA_IPTUN_TTL  attribute: %s",
+                                 "Could not append IFLA_IPTUN_TTL attribute: %s",
                                  strerror(-r));
                 return r;
         }
