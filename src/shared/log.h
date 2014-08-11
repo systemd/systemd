@@ -172,3 +172,5 @@ LogTarget log_target_from_string(const char *s) _pure_;
 #define MESSAGE_ID(x) "MESSAGE_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(x)
 
 void log_received_signal(int level, const struct signalfd_siginfo *si);
+
+void log_set_upgrade_syslog_to_journal(bool b);

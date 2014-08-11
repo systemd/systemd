@@ -341,7 +341,7 @@ static int manager_setup_signals(Manager *m) {
                         SIGRTMIN+26, /* systemd: set log target to journal-or-kmsg */
                         SIGRTMIN+27, /* systemd: set log target to console */
                         SIGRTMIN+28, /* systemd: set log target to kmsg */
-                        SIGRTMIN+29, /* systemd: set log target to syslog-or-kmsg */
+                        SIGRTMIN+29, /* systemd: set log target to syslog-or-kmsg (obsolete)*/
                         -1);
         assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) == 0);
 
@@ -1731,6 +1731,7 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                                 break;
 
                         case 26:
+                        case 29: /* compatibility: used to be mapped to LOG_TARGET_SYSLOG_OR_KMSG */
                                 log_set_target(LOG_TARGET_JOURNAL_OR_KMSG);
                                 log_notice("Setting log target to journal-or-kmsg.");
                                 break;
@@ -1743,11 +1744,6 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                         case 28:
                                 log_set_target(LOG_TARGET_KMSG);
                                 log_notice("Setting log target to kmsg.");
-                                break;
-
-                        case 29:
-                                log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
-                                log_notice("Setting log target to syslog-or-kmsg.");
                                 break;
 
                         default:

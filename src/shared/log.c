@@ -51,6 +51,8 @@ static bool syslog_is_stream = false;
 static bool show_color = false;
 static bool show_location = false;
 
+static bool upgrade_syslog_to_journal = false;
+
 /* Akin to glibc's __abort_msg; which is private and we hence cannot
  * use here. */
 static char *log_abort_msg = NULL;
@@ -266,6 +268,13 @@ int log_open(void) {
 void log_set_target(LogTarget target) {
         assert(target >= 0);
         assert(target < _LOG_TARGET_MAX);
+
+        if (upgrade_syslog_to_journal) {
+                if (target == LOG_TARGET_SYSLOG)
+                        target = LOG_TARGET_JOURNAL;
+                else if (target == LOG_TARGET_SYSLOG_OR_KMSG)
+                        target = LOG_TARGET_JOURNAL_OR_KMSG;
+        }
 
         log_target = target;
 }
@@ -983,4 +992,8 @@ void log_received_signal(int level, const struct signalfd_siginfo *si) {
                          "Received SIG%s.",
                          signal_to_string(si->ssi_signo));
 
+}
+
+void log_set_upgrade_syslog_to_journal(bool b) {
+        upgrade_syslog_to_journal = b;
 }

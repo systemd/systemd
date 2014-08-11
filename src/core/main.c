@@ -1018,7 +1018,7 @@ static int help(void) {
                "     --crash-shell[=0|1]         Run shell on crash\n"
                "     --confirm-spawn[=0|1]       Ask for confirmation when spawning processes\n"
                "     --show-status[=0|1]         Show status updates on the console during bootup\n"
-               "     --log-target=TARGET         Set log target (console, journal, syslog, kmsg, journal-or-kmsg, syslog-or-kmsg, null)\n"
+               "     --log-target=TARGET         Set log target (console, journal, kmsg, journal-or-kmsg, null)\n"
                "     --log-level=LEVEL           Set log level (debug, info, notice, warning, err, crit, alert, emerg)\n"
                "     --log-color[=0|1]           Highlight important log messages\n"
                "     --log-location[=0|1]        Include code location in log messages\n"
@@ -1328,6 +1328,7 @@ int main(int argc, char *argv[]) {
         saved_argc = argc;
 
         log_show_color(isatty(STDERR_FILENO) > 0);
+        log_set_upgrade_syslog_to_journal(true);
 
         /* Disable the umask logic */
         if (getpid() == 1)
