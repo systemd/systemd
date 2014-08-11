@@ -27,28 +27,27 @@
 #include "strv.h"
 #include "siphash24.h"
 #include "libudev-private.h"
-#include "network-internal.h"
 #include "dhcp-lease-internal.h"
 #include "log.h"
 #include "utf8.h"
 #include "util.h"
 #include "conf-parser.h"
 #include "condition.h"
+#include "network-internal.h"
 
 const char *net_get_name(struct udev_device *device) {
-        const char *name = NULL, *field = NULL;
+        const char *name, *field;
 
         assert(device);
 
         /* fetch some persistent data unique (on this machine) to this device */
-        FOREACH_STRING(field, "ID_NET_NAME_ONBOARD", "ID_NET_NAME_SLOT",
-                       "ID_NET_NAME_PATH", "ID_NET_NAME_MAC") {
+        FOREACH_STRING(field, "ID_NET_NAME_ONBOARD", "ID_NET_NAME_SLOT", "ID_NET_NAME_PATH", "ID_NET_NAME_MAC") {
                 name = udev_device_get_property_value(device, field);
                 if (name)
-                        break;
+                        return name;
         }
 
-        return name;
+        return NULL;
 }
 
 #define HASH_KEY SD_ID128_MAKE(d3,1e,48,fa,90,fe,4b,4c,9d,af,d5,d7,a1,b1,2e,8a)
@@ -131,12 +130,6 @@ bool net_match_config(const struct ether_addr *match_mac,
                 return 0;
 
         return 1;
-}
-
-unsigned net_netmask_to_prefixlen(const struct in_addr *addr) {
-        assert(addr);
-
-        return 32 - u32ctz(be32toh(addr->s_addr));
 }
 
 int config_parse_net_condition(const char *unit,
@@ -300,41 +293,6 @@ int config_parse_hwaddr(const char *unit,
 
         free(*hwaddr);
         *hwaddr = n;
-
-        return 0;
-}
-
-int net_parse_inaddr(const char *address, int *family, void *dst) {
-        int r;
-
-        assert(address);
-        assert(family);
-        assert(dst);
-
-        /* IPv4 */
-        r = inet_pton(AF_INET, address, dst);
-        if (r > 0) {
-                /* succsefully parsed IPv4 address */
-                if (*family == AF_UNSPEC)
-                        *family = AF_INET;
-                else if (*family != AF_INET)
-                        return -EINVAL;
-        } else  if (r < 0)
-                return -errno;
-        else {
-                /* not an IPv4 address, so let's try IPv6 */
-                r = inet_pton(AF_INET6, address, dst);
-                if (r > 0) {
-                        /* successfully parsed IPv6 address */
-                        if (*family == AF_UNSPEC)
-                                *family = AF_INET6;
-                        else if (*family != AF_INET6)
-                                return -EINVAL;
-                } else if (r < 0)
-                        return -errno;
-                else
-                        return -EINVAL;
-        }
 
         return 0;
 }

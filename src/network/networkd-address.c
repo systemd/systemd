@@ -394,7 +394,8 @@ int address_configure(Address *address, Link *link,
         return 0;
 }
 
-int config_parse_broadcast(const char *unit,
+int config_parse_broadcast(
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -404,9 +405,9 @@ int config_parse_broadcast(const char *unit,
                 const char *rvalue,
                 void *data,
                 void *userdata) {
+
         Network *network = userdata;
         _cleanup_address_free_ Address *n = NULL;
-        _cleanup_free_ char *address = NULL;
         int r;
 
         assert(filename);
@@ -421,18 +422,18 @@ int config_parse_broadcast(const char *unit,
 
         if (n->family == AF_INET6) {
                 log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Broadcast is not valid for IPv6 addresses, "
-                           "ignoring assignment: %s", address);
+                           "Broadcast is not valid for IPv6 addresses, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
-        r = net_parse_inaddr(address, &n->family, &n->broadcast);
+        r = in_addr_from_string(AF_INET, rvalue, (union in_addr_union*) &n->broadcast);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Broadcast is invalid, ignoring assignment: %s", address);
+                           "Broadcast is invalid, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
+        n->family = AF_INET;
         n = NULL;
 
         return 0;
@@ -448,12 +449,12 @@ int config_parse_address(const char *unit,
                 const char *rvalue,
                 void *data,
                 void *userdata) {
+
         Network *network = userdata;
         _cleanup_address_free_ Address *n = NULL;
-        _cleanup_free_ char *address = NULL;
-        union in_addr_union *addr;
-        const char *e;
-        int r;
+        const char *address, *e;
+        union in_addr_union buffer;
+        int r, f;
 
         assert(filename);
         assert(section);
@@ -471,11 +472,6 @@ int config_parse_address(const char *unit,
         if (r < 0)
                 return r;
 
-        if (streq(lvalue, "Address"))
-                addr = &n->in_addr;
-        else
-                addr = &n->in_addr_peer;
-
         /* Address=address/prefixlen */
 
         /* prefixlen */
@@ -485,32 +481,38 @@ int config_parse_address(const char *unit,
                 r = safe_atou(e + 1, &i);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                                   "Interface prefix length is invalid, "
-                                   "ignoring assignment: %s", e + 1);
+                                   "Interface prefix length is invalid, ignoring assignment: %s", e + 1);
                         return 0;
                 }
 
                 n->prefixlen = (unsigned char) i;
 
-                address = strndup(rvalue, e - rvalue);
-                if (!address)
-                        return log_oom();
-        } else {
-                address = strdup(rvalue);
-                if (!address)
-                        return log_oom();
-        }
+                address = strndupa(rvalue, e - rvalue);
+        } else
+                address = rvalue;
 
-        r = net_parse_inaddr(address, &n->family, addr);
+        r = in_addr_from_string_auto(address, &f, &buffer);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, EINVAL,
                            "Address is invalid, ignoring assignment: %s", address);
                 return 0;
         }
 
-        if (n->family == AF_INET && !n->broadcast.s_addr)
-                n->broadcast.s_addr = n->in_addr.in.s_addr |
-                                      htonl(0xfffffffflu >> n->prefixlen);
+        if (n->family != AF_UNSPEC && f != n->family) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Address is incompatible, ignoring assignment: %s", address);
+                return 0;
+        }
+
+        n->family = f;
+
+        if (streq(lvalue, "Address"))
+                n->in_addr = buffer;
+        else
+                n->in_addr_peer = buffer;
+
+        if (n->family == AF_INET && n->broadcast.s_addr == 0)
+                n->broadcast.s_addr = n->in_addr.in.s_addr | htonl(0xfffffffflu >> n->prefixlen);
 
         n = NULL;
 

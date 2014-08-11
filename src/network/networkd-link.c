@@ -750,7 +750,7 @@ static int link_enter_set_addresses(Link *link) {
                         return r;
                 }
 
-                prefixlen = net_netmask_to_prefixlen(&netmask);
+                prefixlen = in_addr_netmask_to_prefixlen(&netmask);
 
                 r = address_new_dynamic(&address);
                 if (r < 0) {
@@ -983,7 +983,7 @@ static int dhcp_lease_lost(Link *link) {
 
                 sd_dhcp_lease_get_address(link->dhcp_lease, &addr);
                 sd_dhcp_lease_get_netmask(link->dhcp_lease, &netmask);
-                prefixlen = net_netmask_to_prefixlen(&netmask);
+                prefixlen = in_addr_netmask_to_prefixlen(&netmask);
 
                 address->family = AF_INET;
                 address->in_addr.in = addr;
@@ -1073,7 +1073,7 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
                 return r;
         }
 
-        prefixlen = net_netmask_to_prefixlen(&netmask);
+        prefixlen = in_addr_netmask_to_prefixlen(&netmask);
 
         r = sd_dhcp_lease_get_router(lease, &gateway);
         if (r < 0 && r != -ENOENT) {

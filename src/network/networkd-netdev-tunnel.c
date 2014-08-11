@@ -266,20 +266,27 @@ int config_parse_tunnel_address(const char *unit,
                                 void *data,
                                 void *userdata) {
         Tunnel *t = userdata;
-        union in_addr_union *addr = data;
-        int r;
+        union in_addr_union *addr = data, buffer;
+        int r, f;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        r = net_parse_inaddr(rvalue, &t->family, addr);
+        r = in_addr_from_string_auto(rvalue, &f, &buffer);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Tunnel address is invalid, ignoring assignment: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Tunnel address is invalid, ignoring assignment: %s", rvalue);
                 return 0;
         }
+
+        if (t->family != AF_UNSPEC && t->family != f) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Tunnel addresses incompatible, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        t->family = f;
+        *addr = buffer;
 
         return 0;
 }

@@ -1,5 +1,7 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
+#pragma once
+
 /***
  This file is part of systemd.
 
@@ -18,8 +20,6 @@
   You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
-
-#pragma once
 
 #include <netinet/ether.h>
 #include <netinet/in.h>
@@ -44,8 +44,6 @@ bool net_match_config(const struct ether_addr *match_mac,
                       const char *dev_type,
                       const char *dev_name);
 
-unsigned net_netmask_to_prefixlen(const struct in_addr *netmask);
-
 int config_parse_net_condition(const char *unit, const char *filename, unsigned line,
                                const char *section, unsigned section_line, const char *lvalue,
                                int ltype, const char *rvalue, void *data, void *userdata);
@@ -61,8 +59,6 @@ int config_parse_ifname(const char *unit, const char *filename, unsigned line,
 int config_parse_ifalias(const char *unit, const char *filename, unsigned line,
                          const char *section, unsigned section_line, const char *lvalue,
                          int ltype, const char *rvalue, void *data, void *userdata);
-
-int net_parse_inaddr(const char *address, int *family, void *dst);
 
 int net_get_unique_predictable_data(struct udev_device *device, uint8_t result[8]);
 const char *net_get_name(struct udev_device *device);

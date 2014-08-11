@@ -242,3 +242,9 @@ int in_addr_from_string_auto(const char *s, int *family, union in_addr_union *re
 
         return -EINVAL;
 }
+
+unsigned in_addr_netmask_to_prefixlen(const struct in_addr *addr) {
+        assert(addr);
+
+        return 32 - u32ctz(be32toh(addr->s_addr));
+}

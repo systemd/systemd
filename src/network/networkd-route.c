@@ -256,10 +256,11 @@ int config_parse_gateway(const char *unit,
                 const char *rvalue,
                 void *data,
                 void *userdata) {
+
         Network *network = userdata;
         _cleanup_route_free_ Route *n = NULL;
-        _cleanup_free_ char *route = NULL;
-        int r;
+        union in_addr_union buffer;
+        int r, f;
 
         assert(filename);
         assert(section);
@@ -277,13 +278,15 @@ int config_parse_gateway(const char *unit,
         if (r < 0)
                 return r;
 
-        r = net_parse_inaddr(rvalue, &n->family, &n->in_addr);
+        r = in_addr_from_string_auto(rvalue, &f, &buffer);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Route is invalid, ignoring assignment: %s", route);
+                           "Route is invalid, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
+        n->family = f;
+        n->in_addr = buffer;
         n = NULL;
 
         return 0;
@@ -299,11 +302,12 @@ int config_parse_destination(const char *unit,
                 const char *rvalue,
                 void *data,
                 void *userdata) {
+
         Network *network = userdata;
         _cleanup_route_free_ Route *n = NULL;
-        _cleanup_free_ char *address = NULL;
-        const char *e;
-        int r;
+        const char *address, *e;
+        union in_addr_union buffer;
+        int r, f;
 
         assert(filename);
         assert(section);
@@ -319,17 +323,12 @@ int config_parse_destination(const char *unit,
 
         /* address */
         e = strchr(rvalue, '/');
-        if (e) {
-                address = strndup(rvalue, e - rvalue);
-                if (!address)
-                        return log_oom();
-        } else {
-                address = strdup(rvalue);
-                if (!address)
-                        return log_oom();
-        }
+        if (e)
+                address = strndupa(rvalue, e - rvalue);
+        else
+                address = rvalue;
 
-        r = net_parse_inaddr(address, &n->family, &n->dst_addr);
+        r = in_addr_from_string_auto(address, &f, &buffer);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, EINVAL,
                            "Destination is invalid, ignoring assignment: %s", address);
@@ -343,8 +342,7 @@ int config_parse_destination(const char *unit,
                 r = safe_atou(e + 1, &i);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                                   "Route destination prefix length is invalid, "
-                                   "ignoring assignment: %s", e + 1);
+                                   "Route destination prefix length is invalid, ignoring assignment: %s", e + 1);
                         return 0;
                 }
 
@@ -360,6 +358,8 @@ int config_parse_destination(const char *unit,
                 }
         }
 
+        n->family = f;
+        n->dst_addr = buffer;
         n = NULL;
 
         return 0;
