@@ -92,7 +92,7 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
                         return NSS_STATUS_NOTFOUND;
                 }
 
-                n_addresses = local_addresses(&addresses);
+                n_addresses = local_addresses(NULL, 0, &addresses);
                 if (n_addresses < 0)
                         n_addresses = 0;
 
@@ -349,7 +349,7 @@ enum nss_status _nss_myhostname_gethostbyname3_r(
                         return NSS_STATUS_NOTFOUND;
                 }
 
-                n_addresses = local_addresses(&addresses);
+                n_addresses = local_addresses(NULL, 0, &addresses);
                 if (n_addresses < 0)
                         n_addresses = 0;
 
@@ -425,7 +425,7 @@ enum nss_status _nss_myhostname_gethostbyaddr2_r(
 
         }
 
-        n_addresses = local_addresses(&addresses);
+        n_addresses = local_addresses(NULL, 0, &addresses);
         if (n_addresses < 0)
                 n_addresses = 0;
 

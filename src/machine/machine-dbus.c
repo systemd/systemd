@@ -207,7 +207,7 @@ int bus_machine_method_get_addresses(sd_bus *bus, sd_bus_message *message, void 
                 if (r < 0)
                         _exit(EXIT_FAILURE);
 
-                n = local_addresses(&addresses);
+                n = local_addresses(NULL, 0, &addresses);
                 if (n < 0)
                         _exit(EXIT_FAILURE);
 

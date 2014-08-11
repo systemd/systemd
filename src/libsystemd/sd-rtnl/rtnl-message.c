@@ -465,6 +465,21 @@ int sd_rtnl_message_link_get_flags(sd_rtnl_message *m, unsigned *flags) {
         return 0;
 }
 
+int sd_rtnl_message_link_get_type(sd_rtnl_message *m, unsigned *type) {
+        struct ifinfomsg *ifi;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(rtnl_message_type_is_link(m->hdr->nlmsg_type), -EINVAL);
+        assert_return(type, -EINVAL);
+
+        ifi = NLMSG_DATA(m->hdr);
+
+        *type = ifi->ifi_type;
+
+        return 0;
+}
+
 /* If successful the updated message will be correctly aligned, if
    unsuccessful the old message is untouched. */
 static int add_rtattr(sd_rtnl_message *m, unsigned short type, const void *data, size_t data_length) {

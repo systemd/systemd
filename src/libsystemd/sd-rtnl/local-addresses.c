@@ -48,7 +48,7 @@ static int address_compare(const void *_a, const void *_b) {
         return 0;
 }
 
-int local_addresses(struct local_address **ret) {
+int local_addresses(sd_rtnl *context, int ifindex, struct local_address **ret) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *reply = NULL;
         _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
         _cleanup_free_ struct local_address *list = NULL;
@@ -58,9 +58,13 @@ int local_addresses(struct local_address **ret) {
 
         assert(ret);
 
-        r = sd_rtnl_open(&rtnl, 0);
-        if (r < 0)
-                return r;
+        if (context)
+                rtnl = sd_rtnl_ref(context);
+        else {
+                r = sd_rtnl_open(&rtnl, 0);
+                if (r < 0)
+                        return r;
+        }
 
         r = sd_rtnl_message_new_addr(rtnl, &req, RTM_GETADDR, 0, AF_UNSPEC);
         if (r < 0)
@@ -74,6 +78,7 @@ int local_addresses(struct local_address **ret) {
                 struct local_address *a;
                 unsigned char flags;
                 uint16_t type;
+                int ifi;
 
                 r = sd_rtnl_message_get_errno(m);
                 if (r < 0)
@@ -84,6 +89,13 @@ int local_addresses(struct local_address **ret) {
                         return r;
 
                 if (type != RTM_NEWADDR)
+                        continue;
+
+                r = sd_rtnl_message_addr_get_ifindex(m, &ifi);
+                if (r < 0)
+                        return r;
+
+                if (ifindex != 0 && ifi != ifindex)
                         continue;
 
                 r = sd_rtnl_message_addr_get_flags(m, &flags);
@@ -102,7 +114,7 @@ int local_addresses(struct local_address **ret) {
                 if (r < 0)
                         return r;
 
-                if (a->scope == RT_SCOPE_HOST || a->scope == RT_SCOPE_NOWHERE)
+                if (ifindex == 0 && (a->scope == RT_SCOPE_HOST || a->scope == RT_SCOPE_NOWHERE))
                         continue;
 
                 r = sd_rtnl_message_addr_get_family(m, &a->family);
@@ -133,9 +145,7 @@ int local_addresses(struct local_address **ret) {
                         continue;
                 }
 
-                r = sd_rtnl_message_addr_get_ifindex(m, &a->ifindex);
-                if (r < 0)
-                        return r;
+                a->ifindex = ifi;
 
                 n_list++;
         };

@@ -833,6 +833,8 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/errno-list.h \
 	src/shared/af-list.c \
 	src/shared/af-list.h \
+	src/shared/arphrd-list.c \
+	src/shared/arphrd-list.h \
 	src/shared/audit.c \
 	src/shared/audit.h \
 	src/shared/xml.c \
@@ -864,7 +866,9 @@ nodist_libsystemd_shared_la_SOURCES = \
 	src/shared/errno-from-name.h \
 	src/shared/errno-to-name.h \
 	src/shared/af-from-name.h \
-	src/shared/af-to-name.h
+	src/shared/af-to-name.h \
+	src/shared/arphrd-from-name.h \
+	src/shared/arphrd-to-name.h
 
 libsystemd_shared_la_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -1150,6 +1154,8 @@ CLEANFILES += \
 	src/shared/errno-from-name.gperf \
 	src/shared/af-list.txt \
 	src/shared/af-from-name.gperf \
+	src/shared/arphrd-list.txt \
+	src/shared/arphrd-from-name.gperf \
 	src/shared/dns_type-list.txt \
 	src/shared/dns_type-from-name.gperf
 
@@ -1158,6 +1164,8 @@ BUILT_SOURCES += \
 	src/shared/errno-to-name.h \
 	src/shared/af-from-name.h \
 	src/shared/af-to-name.h \
+	src/shared/arphrd-from-name.h \
+	src/shared/arphrd-to-name.h \
 	src/resolve/dns_type-from-name.h \
 	src/resolve/dns_type-to-name.h
 
@@ -1170,7 +1178,7 @@ BUILT_SOURCES += \
 
 src/shared/errno-list.txt:
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
-	$(AM_V_GEN)$(CPP) $(CFLAGS) $(AM_CPPFLAGS) $(CPPFLAGS) -dM -include errno.h - </dev/null | $(AWK) '/^#define[ \t]+E[^ _]+[ \t]+/ { print $$2; }'  >$@
+	$(AM_V_GEN)$(CPP) $(CFLAGS) $(AM_CPPFLAGS) $(CPPFLAGS) -dM -include errno.h - </dev/null | $(AWK) '/^#define[ \t]+E[^ _]+[ \t]+/ { print $$2; }' >$@
 
 src/shared/errno-to-name.h: src/shared/errno-list.txt
 	$(AM_V_GEN)$(AWK) 'BEGIN{ print "static const char* const errno_names[] = { "} !/EDEADLOCK/ && !/EWOULDBLOCK/ && !/ENOTSUP/ { printf "[%s] = \"%s\",\n", $$1, $$1 } END{print "};"}' <$< >$@
@@ -1178,10 +1186,20 @@ src/shared/errno-to-name.h: src/shared/errno-list.txt
 
 src/shared/af-list.txt:
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
-	$(AM_V_GEN)$(CPP) $(CFLAGS) $(AM_CPPFLAGS) $(CPPFLAGS) -dM -include sys/socket.h - </dev/null | grep -v AF_UNSPEC | grep -v AF_MAX | $(AWK) '/^#define[ \t]+AF_[^ \t]+[ \t]+PF_[^ \t]/ { print $$2; }'  >$@
+	$(AM_V_GEN)$(CPP) $(CFLAGS) $(AM_CPPFLAGS) $(CPPFLAGS) -dM -include sys/socket.h - </dev/null | grep -v AF_UNSPEC | grep -v AF_MAX | $(AWK) '/^#define[ \t]+AF_[^ \t]+[ \t]+PF_[^ \t]/ { print $$2; }' >$@
 
 src/shared/af-to-name.h: src/shared/af-list.txt
 	$(AM_V_GEN)$(AWK) 'BEGIN{ print "static const char* const af_names[] = { "} !/AF_FILE/ && !/AF_ROUTE/ && !/AF_LOCAL/ { printf "[%s] = \"%s\",\n", $$1, $$1 } END{print "};"}' <$< >$@
+
+src/shared/arphrd-list.txt:
+	$(AM_V_at)$(MKDIR_P) $(dir $@)
+	$(AM_V_GEN)$(CPP) $(CFLAGS) $(AM_CPPFLAGS) $(CPPFLAGS) -dM -include net/if_arp.h - </dev/null | $(AWK) '/^#define[ \t]+ARPHRD_[^ \t]+[ \t]+[^ \t]/ { print $$2; }' | sed -e 's/ARPHRD_//' >$@
+
+src/shared/arphrd-to-name.h: src/shared/arphrd-list.txt
+	$(AM_V_GEN)$(AWK) 'BEGIN{ print "static const char* const arphrd_names[] = { "} !/CISCO/ { printf "[ARPHRD_%s] = \"%s\",\n", $$1, $$1 } END{print "};"}' <$< >$@
+
+src/shared/arphrd-from-name.gperf: src/shared/arphrd-list.txt
+	$(AM_V_GEN)$(AWK) 'BEGIN{ print "struct arphrd_name { const char* name; int id; };"; print "%null-strings"; print "%%";} { printf "%s, ARPHRD_%s\n", $$1, $$1 }' <$< >$@
 
 
 src/resolve/dns_type-list.txt: src/resolve/dns-type.h
@@ -4973,6 +4991,18 @@ systemd_networkd_wait_online_LDADD = \
 	libudev-internal.la \
 	libsystemd-internal.la \
 	libsystemd-shared.la
+
+rootbin_PROGRAMS += \
+	networkctl
+
+networkctl_SOURCES = \
+	src/network/networkctl.c
+
+networkctl_LDADD = \
+	libsystemd-internal.la \
+	libudev-internal.la \
+	libsystemd-shared.la \
+	libsystemd-network.la
 
 test_network_SOURCES = \
 	src/network/test-network.c

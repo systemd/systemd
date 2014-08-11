@@ -6,3 +6,7 @@
 /af-from-name.h
 /af-list.txt
 /af-to-name.h
+/arphrd-from-name.gperf
+/arphrd-from-name.h
+/arphrd-list.txt
+/arphrd-to-name.h

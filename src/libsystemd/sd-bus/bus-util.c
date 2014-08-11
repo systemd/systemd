@@ -1186,12 +1186,12 @@ int bus_property_get_ulong(
 #endif
 
 int bus_log_parse_error(int r) {
-        log_error("Failed to parse message: %s", strerror(-r));
+        log_error("Failed to parse bus message: %s", strerror(-r));
         return r;
 }
 
 int bus_log_create_error(int r) {
-        log_error("Failed to create message: %s", strerror(-r));
+        log_error("Failed to create bus message: %s", strerror(-r));
         return r;
 }
 

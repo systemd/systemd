@@ -43,6 +43,7 @@
 /loginctl
 /machinectl
 /mtd_probe
+/networkctl
 /scsi_id
 /systemadm
 /systemctl

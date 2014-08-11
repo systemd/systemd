@@ -5,7 +5,7 @@
 /***
   This file is part of systemd.
 
-  Copyright 2008-2011 Lennart Poettering
+  Copyright 2014 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -21,18 +21,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <inttypes.h>
-#include <sys/types.h>
-#include <assert.h>
-#include <sys/socket.h>
+const char *arphrd_to_name(int id);
+int arphrd_from_name(const char *name);
 
-#include "sd-rtnl.h"
-#include "in-addr-util.h"
-
-struct local_address {
-        int family, ifindex;
-        unsigned char scope;
-        union in_addr_union address;
-};
-
-int local_addresses(sd_rtnl *rtnl, int ifindex, struct local_address **ret);
+int arphrd_max(void);
