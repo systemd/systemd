@@ -98,7 +98,6 @@ struct Session {
         Seat *seat;
         unsigned int vtnr;
         int vtfd;
-        sd_event_source *vt_source;
 
         pid_t leader;
         uint32_t audit_id;

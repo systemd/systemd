@@ -153,8 +153,6 @@ void session_free(Session *s) {
 
         hashmap_remove(s->manager->sessions, s->id);
 
-        s->vt_source = sd_event_source_unref(s->vt_source);
-
         free(s->state_file);
         free(s);
 }
@@ -994,19 +992,9 @@ static int session_open_vt(Session *s) {
         return s->vtfd;
 }
 
-static int session_vt_fn(sd_event_source *source, const struct signalfd_siginfo *si, void *data) {
-        Session *s = data;
-
-        if (s->vtfd >= 0)
-                ioctl(s->vtfd, VT_RELDISP, 1);
-
-        return 0;
-}
-
 int session_prepare_vt(Session *s) {
         int vt, r;
         struct vt_mode mode = { 0 };
-        sigset_t mask;
 
         if (s->vtnr < 1)
                 return 0;
@@ -1036,20 +1024,12 @@ int session_prepare_vt(Session *s) {
                 goto error;
         }
 
-        sigemptyset(&mask);
-        sigaddset(&mask, SIGUSR1);
-        sigprocmask(SIG_BLOCK, &mask, NULL);
-
-        r = sd_event_add_signal(s->manager->event, &s->vt_source, SIGUSR1, session_vt_fn, s);
-        if (r < 0)
-                goto error;
-
         /* Oh, thanks to the VT layer, VT_AUTO does not work with KD_GRAPHICS.
          * So we need a dummy handler here which just acknowledges *all* VT
          * switch requests. */
         mode.mode = VT_PROCESS;
-        mode.relsig = SIGUSR1;
-        mode.acqsig = SIGUSR1;
+        mode.relsig = SIGRTMIN;
+        mode.acqsig = SIGRTMIN + 1;
         r = ioctl(vt, VT_SETMODE, &mode);
         if (r < 0) {
                 r = -errno;
@@ -1072,8 +1052,6 @@ void session_restore_vt(Session *s) {
         vt = session_open_vt(s);
         if (vt < 0)
                 return;
-
-        s->vt_source = sd_event_source_unref(s->vt_source);
 
         ioctl(vt, KDSETMODE, KD_TEXT);
 

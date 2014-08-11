@@ -720,6 +720,47 @@ static int manager_connect_bus(Manager *m) {
         return 0;
 }
 
+static int manager_vt_switch(sd_event_source *src, const struct signalfd_siginfo *si, void *data) {
+        Manager *m = data;
+        Session *active, *iter;
+
+        /*
+         * We got a VT-switch signal and we have to acknowledge it immediately.
+         * Preferably, we'd just use m->seat0->active->vtfd, but unfortunately,
+         * old user-space might run multiple sessions on a single VT, *sigh*.
+         * Therefore, we have to iterate all sessions and find one with a vtfd
+         * on the requested VT.
+         * As only VTs with active controllers have VT_PROCESS set, our current
+         * notion of the active VT might be wrong (for instance if the switch
+         * happens while we setup VT_PROCESS). Therefore, read the current VT
+         * first and then use s->active->vtnr as reference. Note that this is
+         * not racy, as no further VT-switch can happen as long as we're in
+         * synchronous VT_PROCESS mode.
+         */
+
+        assert(m->seat0);
+        seat_read_active_vt(m->seat0);
+
+        active = m->seat0->active;
+        if (!active || active->vtnr < 1) {
+                log_warning("Received VT_PROCESS signal without a registered session on that VT.");
+                return 0;
+        }
+
+        if (active->vtfd >= 0) {
+                ioctl(active->vtfd, VT_RELDISP, 1);
+        } else {
+                LIST_FOREACH(sessions_by_seat, iter, m->seat0->sessions) {
+                        if (iter->vtnr == active->vtnr && iter->vtfd >= 0) {
+                                ioctl(iter->vtfd, VT_RELDISP, 1);
+                                break;
+                        }
+                }
+        }
+
+        return 0;
+}
+
 static int manager_connect_console(Manager *m) {
         int r;
 
@@ -749,6 +790,34 @@ static int manager_connect_console(Manager *m) {
                 log_error("Failed to watch foreground console");
                 return r;
         }
+
+        /*
+         * SIGRTMIN is used as global VT-release signal, SIGRTMIN + 1 is used
+         * as VT-acquire signal. We ignore any acquire-events (yes, we still
+         * have to provide a valid signal-number for it!) and acknowledge all
+         * release events immediately.
+         */
+
+        if (SIGRTMIN + 1 > SIGRTMAX) {
+                log_error("Not enough real-time signals available: %u-%u", SIGRTMIN, SIGRTMAX);
+                return -EINVAL;
+        }
+
+        r = ignore_signals(SIGRTMIN + 1, -1);
+        if (r < 0) {
+                log_error("Cannot ignore SIGRTMIN + 1: %s", strerror(-r));
+                return r;
+        }
+
+        r = sigprocmask_many(SIG_BLOCK, SIGRTMIN, -1);
+        if (r < 0) {
+                log_error("Cannot block SIGRTMIN: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_event_add_signal(m->event, NULL, SIGRTMIN, manager_vt_switch, m);
+        if (r < 0)
+                return r;
 
         return 0;
 }
