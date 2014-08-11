@@ -881,21 +881,21 @@ static struct ps_struct *get_next_ps(struct ps_struct *ps) {
         return NULL;
 }
 
-static int ps_filter(struct ps_struct *ps) {
+static bool ps_filter(struct ps_struct *ps) {
         if (!arg_filter)
-                return 0;
+                return false;
 
         /* can't draw data when there is only 1 sample (need start + stop) */
         if (ps->first == ps->last)
-                return -1;
+                return true;
 
         /* don't filter kthreadd */
         if (ps->pid == 2)
-                return 0;
+                return false;
 
         /* drop stuff that doesn't use any real CPU time */
         if (ps->total <= 0.001)
-                return -1;
+                return true;
 
         return 0;
 }
