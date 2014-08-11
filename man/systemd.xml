@@ -180,10 +180,8 @@
                                 target. Argument must be one of
                                 <option>console</option>,
                                 <option>journal</option>,
-                                <option>syslog</option>,
                                 <option>kmsg</option>,
                                 <option>journal-or-kmsg</option>,
-                                <option>syslog-or-kmsg</option>,
                                 <option>null</option>.</para></listitem>
                         </varlistentry>
                         <varlistentry>
@@ -844,26 +842,21 @@
                                 <term><constant>SIGRTMIN+26</constant></term>
                                 <term><constant>SIGRTMIN+27</constant></term>
                                 <term><constant>SIGRTMIN+28</constant></term>
-                                <term><constant>SIGRTMIN+29</constant></term>
 
                                 <listitem><para>Sets the log level to
-                                <literal>journal-or-kmsg</literal>
-                                (or <literal>console</literal> on
+                                <literal>journal-or-kmsg</literal> (or
+                                <literal>console</literal> on
                                 <constant>SIGRTMIN+27</constant>,
                                 <literal>kmsg</literal> on
-                                <constant>SIGRTMIN+28</constant>,
-                                or <literal>syslog-or-kmsg</literal>
-                                on <constant>SIGRTMIN+29</constant>), as
+                                <constant>SIGRTMIN+28</constant>), as
                                 controlled via
                                 <varname>systemd.log_target=journal-or-kmsg</varname>
-                                (or <varname>systemd.log_target=console</varname>
-                                on <constant>SIGRTMIN+27</constant>,
+                                (or
+                                <varname>systemd.log_target=console</varname>
+                                on <constant>SIGRTMIN+27</constant> or
                                 <varname>systemd.log_target=kmsg</varname>
-                                on <constant>SIGRTMIN+28</constant>,
-                                or
-                                <varname>systemd.log_target=syslog-or-kmsg</varname>
-                                on <constant>SIGRTMIN+29</constant>) on
-                                the kernel command
+                                on <constant>SIGRTMIN+28</constant>)
+                                on the kernel command
                                 line.</para></listitem>
                         </varlistentry>
                 </variablelist>
