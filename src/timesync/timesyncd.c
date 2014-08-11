@@ -340,6 +340,7 @@ static int manager_clock_watch(sd_event_source *source, int fd, uint32_t revents
         /* resync */
         log_info("System time changed. Resyncing.");
         m->poll_resync = true;
+
         return manager_send_request(m);
 }
 
@@ -1105,6 +1106,8 @@ int config_parse_servers(
 }
 
 static int manager_parse_config_file(Manager *m) {
+        assert(m);
+
         return config_parse(NULL, "/etc/systemd/timesyncd.conf", NULL,
                             "Time\0",
                             config_item_perf_lookup, timesyncd_gperf_lookup,
@@ -1116,80 +1119,75 @@ static bool network_is_online(void) {
         int r;
 
         r = sd_network_get_operational_state(&state);
-        if (r >= 0 && STR_IN_SET(state, "routable", "degraded"))
+        if (r < 0) /* if we don't know anything, we consider the system online */
+                return true;
+
+        if (STR_IN_SET(state, "routable", "degraded"))
                 return true;
 
         return false;
 }
 
-static int manager_network_event_handler(sd_event_source *s, int fd, uint32_t revents,
-                                         void *userdata) {
+static int manager_network_event_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         Manager *m = userdata;
         bool connected, online;
         int r;
 
         assert(m);
 
+        sd_network_monitor_flush(m->network_monitor);
+
         /* check if the machine is online */
         online = network_is_online();
 
         /* check if the client is currently connected */
-        connected = (m->server_socket != -1);
+        connected = m->server_socket >= 0;
 
         if (connected && !online) {
                 log_info("No network connectivity, watching for changes.");
                 manager_disconnect(m);
+
         } else if (!connected && online) {
                 log_info("Network configuration changed, trying to establish connection.");
-                if (m->current_server_address) {
-                        r = manager_begin(m);
-                        if (r < 0)
-                                return r;
-                } else {
-                        r = manager_connect(m);
-                        if (r < 0)
-                                return r;
-                }
-        }
 
-        sd_network_monitor_flush(m->network_monitor);
+                if (m->current_server_address)
+                        r = manager_begin(m);
+                else
+                        r = manager_connect(m);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }
 
 static int manager_network_monitor_listen(Manager *m) {
-        _cleanup_event_source_unref_ sd_event_source *event_source = NULL;
-        _cleanup_network_monitor_unref_ sd_network_monitor *monitor = NULL;
         int r, fd, events;
 
-        r = sd_network_monitor_new(&monitor, NULL);
+        assert(m);
+
+        r = sd_network_monitor_new(&m->network_monitor, NULL);
         if (r < 0)
                 return r;
 
-        fd = sd_network_monitor_get_fd(monitor);
+        fd = sd_network_monitor_get_fd(m->network_monitor);
         if (fd < 0)
                 return fd;
 
-        events = sd_network_monitor_get_events(monitor);
+        events = sd_network_monitor_get_events(m->network_monitor);
         if (events < 0)
                 return events;
 
-        r = sd_event_add_io(m->event, &event_source, fd, events,
-                            &manager_network_event_handler, m);
+        r = sd_event_add_io(m->event, &m->network_event_source, fd, events, manager_network_event_handler, m);
         if (r < 0)
                 return r;
-
-        m->network_monitor = monitor;
-        m->network_event_source = event_source;
-        monitor = NULL;
-        event_source = NULL;
 
         return 0;
 }
 
 int main(int argc, char *argv[]) {
-        const char *user = "systemd-timesync";
         _cleanup_manager_free_ Manager *m = NULL;
+        const char *user = "systemd-timesync";
         uid_t uid;
         gid_t gid;
         int r;
