@@ -330,7 +330,7 @@ static int boot_id_hex(const char s[4]) {
                 else if (s[i] >= 'A' && s[i] <= 'F')
                         id |= (s[i] - 'A' + 10) << (3 - i) * 4;
                 else
-                        return -1;
+                        return -EINVAL;
 
         return id;
 }

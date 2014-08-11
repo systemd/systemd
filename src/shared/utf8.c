@@ -80,8 +80,11 @@ static bool is_unicode_control(uint32_t ch) {
 
 /* count of characters used to encode one unicode char */
 static int utf8_encoded_expected_len(const char *str) {
-        unsigned char c = (unsigned char)str[0];
+        unsigned char c;
 
+        assert(str);
+
+        c = (unsigned char) str[0];
         if (c < 0x80)
                 return 1;
         if ((c & 0xe0) == 0xc0)
@@ -94,16 +97,18 @@ static int utf8_encoded_expected_len(const char *str) {
                 return 5;
         if ((c & 0xfe) == 0xfc)
                 return 6;
+
         return 0;
 }
 
 /* decode one unicode char */
 int utf8_encoded_to_unichar(const char *str) {
-        int unichar;
-        int len;
-        int i;
+        int unichar, len, i;
+
+        assert(str);
 
         len = utf8_encoded_expected_len(str);
+
         switch (len) {
         case 1:
                 return (int)str[0];
@@ -123,12 +128,12 @@ int utf8_encoded_to_unichar(const char *str) {
                 unichar = (int)str[0] & 0x01;
                 break;
         default:
-                return -1;
+                return -EINVAL;
         }
 
         for (i = 1; i < len; i++) {
                 if (((int)str[i] & 0xc0) != 0x80)
-                        return -1;
+                        return -EINVAL;
                 unichar <<= 6;
                 unichar |= (int)str[i] & 0x3f;
         }
@@ -142,10 +147,14 @@ bool utf8_is_printable_newline(const char* str, size_t length, bool newline) {
         assert(str);
 
         for (p = (const uint8_t*) str; length;) {
-                int encoded_len = utf8_encoded_valid_unichar((const char *)p);
-                int val = utf8_encoded_to_unichar((const char*)p);
+                int encoded_len, val;
 
-                if (encoded_len < 0 || val < 0 || is_unicode_control(val) ||
+                encoded_len = utf8_encoded_valid_unichar((const char *) p);
+                val = utf8_encoded_to_unichar((const char*) p);
+
+                if (encoded_len < 0 ||
+                    val < 0 ||
+                    is_unicode_control(val) ||
                     (!newline && val == '\n'))
                         return false;
 
@@ -165,7 +174,6 @@ const char *utf8_is_valid(const char *str) {
                 int len;
 
                 len = utf8_encoded_valid_unichar((const char *)p);
-
                 if (len < 0)
                         return NULL;
 
@@ -196,6 +204,7 @@ char *utf8_escape_invalid(const char *str) {
                         str += 1;
                 }
         }
+
         *s = '\0';
 
         return p;
@@ -251,6 +260,7 @@ char *utf16_to_utf8(const void *s, size_t length) {
 
 /* expected size used to encode one unicode char */
 static int utf8_unichar_to_encoded_len(int unichar) {
+
         if (unichar < 0x80)
                 return 1;
         if (unichar < 0x800)
@@ -261,18 +271,19 @@ static int utf8_unichar_to_encoded_len(int unichar) {
                 return 4;
         if (unichar < 0x4000000)
                 return 5;
+
         return 6;
 }
 
 /* validate one encoded unicode char and return its length */
 int utf8_encoded_valid_unichar(const char *str) {
-        int len;
-        int unichar;
-        int i;
+        int len, unichar, i;
+
+        assert(str);
 
         len = utf8_encoded_expected_len(str);
         if (len == 0)
-                return -1;
+                return -EINVAL;
 
         /* ascii is valid */
         if (len == 1)
@@ -281,17 +292,17 @@ int utf8_encoded_valid_unichar(const char *str) {
         /* check if expected encoded chars are available */
         for (i = 0; i < len; i++)
                 if ((str[i] & 0x80) != 0x80)
-                        return -1;
+                        return -EINVAL;
 
         unichar = utf8_encoded_to_unichar(str);
 
         /* check if encoded length matches encoded value */
         if (utf8_unichar_to_encoded_len(unichar) != len)
-                return -1;
+                return -EINVAL;
 
         /* check if value has valid range */
         if (!is_unicode_valid(unichar))
-                return -1;
+                return -EINVAL;
 
         return len;
 }

@@ -41,7 +41,7 @@ int encode_devnode_name(const char *str, char *str_enc, size_t len) {
         size_t i, j;
 
         if (str == NULL || str_enc == NULL)
-                return -1;
+                return -EINVAL;
 
         for (i = 0, j = 0; str[i] != '\0'; i++) {
                 int seqlen;
@@ -70,5 +70,5 @@ int encode_devnode_name(const char *str, char *str_enc, size_t len) {
         str_enc[j] = '\0';
         return 0;
 err:
-        return -1;
+        return -EINVAL;
 }
