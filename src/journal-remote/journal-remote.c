@@ -795,10 +795,11 @@ static int fd_fd(const char *spec) {
         r = safe_atoi(spec, &fd);
         if (r < 0)
                 return r;
+        if (fd < 0)
+                return -EINVAL;
 
-        return -1;
+        return fd;
 }
-
 
 static int remoteserver_init(RemoteServer *s,
                              const char* key,
@@ -808,7 +809,6 @@ static int remoteserver_init(RemoteServer *s,
         char **file;
 
         assert(s);
-
 
         if ((arg_listen_raw || arg_listen_http) && trust) {
                 log_error("Option --trust makes all non-HTTPS connections untrusted.");
