@@ -149,25 +149,22 @@ static int dev_pci_onboard(struct udev_device *dev, struct netnames *names) {
 
 /* read the 256 bytes PCI configuration space to check the multi-function bit */
 static bool is_pci_multifunction(struct udev_device *dev) {
-        char filename[256];
-        FILE *f = NULL;
-        char config[64];
-        bool multi = false;
+        _cleanup_fclose_ FILE *f = NULL;
+        const char *filename;
+        uint8_t config[64];
 
-        snprintf(filename, sizeof(filename), "%s/config", udev_device_get_syspath(dev));
+        filename = strappenda(udev_device_get_syspath(dev), "/config");
         f = fopen(filename, "re");
         if (!f)
-                goto out;
+                return false;
         if (fread(&config, sizeof(config), 1, f) != 1)
-                goto out;
+                return false;
 
         /* bit 0-6 header type, bit 7 multi/single function device */
         if ((config[PCI_HEADER_TYPE] & 0x80) != 0)
-                multi = true;
-out:
-        if (f)
-                fclose(f);
-        return multi;
+                return true;
+
+        return false;
 }
 
 static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
