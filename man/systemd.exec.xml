@@ -365,39 +365,47 @@
                                 <option>tty</option>,
                                 <option>tty-force</option>,
                                 <option>tty-fail</option> or
-                                <option>socket</option>. If
-                                <option>null</option> is selected,
-                                standard input will be connected to
+                                <option>socket</option>.</para>
+
+                                <para>If <option>null</option> is
+                                selected, standard input will be
+                                connected to
                                 <filename>/dev/null</filename>,
                                 i.e. all read attempts by the process
-                                will result in immediate EOF. If
-                                <option>tty</option> is selected,
-                                standard input is connected to a TTY
-                                (as configured by
+                                will result in immediate EOF.</para>
+
+                                <para>If <option>tty</option> is
+                                selected, standard input is connected
+                                to a TTY (as configured by
                                 <varname>TTYPath=</varname>, see
                                 below) and the executed process
                                 becomes the controlling process of the
                                 terminal. If the terminal is already
-                                being controlled by another process, the
-                                executed process waits until the current
-                                controlling process releases the
-                                terminal.
-                                <option>tty-force</option>
-                                is similar to <option>tty</option>,
-                                but the executed process is forcefully
-                                and immediately made the controlling
+                                being controlled by another process,
+                                the executed process waits until the
+                                current controlling process releases
+                                the terminal.</para>
+
+                                <para><option>tty-force</option> is similar
+                                to <option>tty</option>, but the
+                                executed process is forcefully and
+                                immediately made the controlling
                                 process of the terminal, potentially
                                 removing previous controlling
                                 processes from the
-                                terminal. <option>tty-fail</option> is
+                                terminal.</para>
+
+                                <para><option>tty-fail</option> is
                                 similar to <option>tty</option> but if
                                 the terminal already has a controlling
                                 process start-up of the executed
-                                process fails.  The
-                                <option>socket</option> option is only
-                                valid in socket-activated services,
-                                and only when the socket configuration
-                                file (see
+                                process fails.</para>
+
+                                <para>The <option>socket</option>
+                                option is only valid in
+                                socket-activated services, and only
+                                when the socket configuration file
+                                (see
                                 <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                                 for details) specifies a single socket
                                 only. If this option is set, standard
@@ -407,7 +415,9 @@
                                 with daemons designed for use with the
                                 traditional
                                 <citerefentry><refentrytitle>inetd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-                                daemon. This setting defaults to
+                                daemon.</para>
+
+                                <para>This setting defaults to
                                 <option>null</option>.</para></listitem>
                         </varlistentry>
                         <varlistentry>
@@ -418,56 +428,84 @@
                                 of <option>inherit</option>,
                                 <option>null</option>,
                                 <option>tty</option>,
+                                <option>journal</option>,
                                 <option>syslog</option>,
                                 <option>kmsg</option>,
-                                <option>journal</option>,
+                                <option>journal+console</option>,
                                 <option>syslog+console</option>,
-                                <option>kmsg+console</option>,
-                                <option>journal+console</option> or
-                                <option>socket</option>. If set to
-                                <option>inherit</option>, the file
-                                descriptor of standard input is
-                                duplicated for standard output. If set
-                                to <option>null</option>, standard
-                                output will be connected to
+                                <option>kmsg+console</option> or
+                                <option>socket</option>.</para>
+
+                                <para><option>inherit</option>
+                                duplicates the file descriptor of
+                                standard input for standard
+                                output.</para>
+
+                                <para><option>null</option> connects
+                                standard output to
                                 <filename>/dev/null</filename>,
                                 i.e. everything written to it will be
-                                lost. If set to <option>tty</option>,
-                                standard output will be connected to a
-                                tty (as configured via
+                                lost.</para>
+
+                                <para><option>tty</option> connects
+                                standard output to a tty (as
+                                configured via
                                 <varname>TTYPath=</varname>, see
                                 below). If the TTY is used for output
                                 only, the executed process will not
                                 become the controlling process of the
                                 terminal, and will not fail or wait
                                 for other processes to release the
-                                terminal. <option>syslog</option>
-                                connects standard output to the
-                                <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-                                system syslog
-                                service. <option>kmsg</option>
-                                connects it with the kernel log buffer
-                                which is accessible via
-                                <citerefentry project='man-pages'><refentrytitle>dmesg</refentrytitle><manvolnum>1</manvolnum></citerefentry>. <option>journal</option>
-                                connects it with the journal which is
-                                accessible via
-                                <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-                                (Note that everything that is written
-                                to syslog or kmsg is implicitly stored
-                                in the journal as well, those options
-                                are hence supersets of this
-                                one). <option>syslog+console</option>,
-                                <option>journal+console</option> and
-                                <option>kmsg+console</option> work
-                                similarly but copy the output to the
-                                system console as
-                                well. <option>socket</option> connects
-                                standard output to a socket from
-                                socket activation, semantics are
-                                similar to the respective option of
-                                <varname>StandardInput=</varname>.
-                                This setting defaults to the value set
-                                with
+                                terminal.</para>
+
+                                <para><option>journal</option>
+                                connects standard output with the
+                                journal which is accessible via
+                                <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+                                Note that everything that is written
+                                to syslog or kmsg (see below) is
+                                implicitly stored in the journal as
+                                well, the specific two options listed
+                                below are hence supersets of this
+                                one.</para>
+
+                                <para><option>syslog</option> connects
+                                standard output to the <citerefentry
+                                project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                                system syslog service, in addition to
+                                the journal. Note that the journal
+                                daemon is usually configured to
+                                forward everything it receives to
+                                syslog anyway, in which case this
+                                option is no different from
+                                <option>journal</option>.</para>
+
+                                <para><option>kmsg</option> connects
+                                standard output with the kernel log
+                                buffer which is accessible via
+                                <citerefentry
+                                project='man-pages'><refentrytitle>dmesg</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                                in addition to the journal. The
+                                journal daemon might be configured to
+                                send all logs to kmsg anyway, in which
+                                case this option is no different from
+                                <option>journal</option>.</para>
+
+                                <para><option>journal+console</option>,
+                                <option>syslog+console</option> and
+                                <option>kmsg+console</option> work in
+                                a similar way as the three options
+                                above but copy the output to the
+                                system console as well.</para>
+
+                                <para><option>socket</option> connects
+                                standard output to a socket acquired
+                                via socket activation. The semantics
+                                are similar to the same option of
+                                <varname>StandardInput=</varname>.</para>
+
+                                <para>This setting defaults to the
+                                value set with
                                 <option>DefaultStandardOutput=</option>
                                 in
                                 <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
