@@ -26,7 +26,6 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <syslog.h>
 #include <time.h>
 #include <inttypes.h>
 #include <scsi/scsi.h>

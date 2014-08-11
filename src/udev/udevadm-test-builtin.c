@@ -23,7 +23,6 @@
 #include <errno.h>
 #include <dirent.h>
 #include <fcntl.h>
-#include <syslog.h>
 #include <getopt.h>
 #include <signal.h>
 #include <time.h>

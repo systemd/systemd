@@ -25,7 +25,6 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <string.h>
-#include <syslog.h>
 #include <ctype.h>
 #include <getopt.h>
 #include <sys/stat.h>
@@ -55,7 +54,6 @@ static bool dev_specified = false;
 static char config_file[MAX_PATH_LEN] = "/etc/scsi_id.config";
 static enum page_code default_page_code = PAGE_UNSPECIFIED;
 static int sg_version = 4;
-static int debug = 0;
 static bool reformat_serial = false;
 static bool export = false;
 static char vendor_str[64];
@@ -70,7 +68,7 @@ static void log_fn(struct udev *udev, int priority,
                    const char *file, int line, const char *fn,
                    const char *format, va_list args)
 {
-        vsyslog(priority, format, args);
+        log_metav(priority, file, line, fn, format, args);
 }
 
 static void set_type(const char *from, char *to, size_t len)
@@ -390,7 +388,10 @@ static int set_options(struct udev *udev,
                         break;
 
                 case 'v':
-                        debug++;
+                        log_set_target(LOG_TARGET_CONSOLE);
+                        log_set_max_level(LOG_DEBUG);
+                        udev_set_log_priority(udev, LOG_DEBUG);
+                        log_open();
                         break;
 
                 case 'V':
@@ -583,11 +584,13 @@ int main(int argc, char **argv)
         int newargc;
         char **newargv = NULL;
 
+        log_parse_environment();
+        log_open();
+
         udev = udev_new();
         if (udev == NULL)
                 goto exit;
 
-        log_open();
         udev_set_log_fn(udev, log_fn);
 
         /*

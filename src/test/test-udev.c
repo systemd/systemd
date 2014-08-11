@@ -26,7 +26,6 @@
 #include <ctype.h>
 #include <errno.h>
 #include <unistd.h>
-#include <syslog.h>
 #include <grp.h>
 #include <sched.h>
 #include <sys/mount.h>

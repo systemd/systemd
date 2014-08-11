@@ -25,7 +25,6 @@
 #include <errno.h>
 #include <string.h>
 #include <getopt.h>
-#include <syslog.h>
 #include <fcntl.h>
 #include <sys/epoll.h>
 

@@ -25,7 +25,6 @@
 #include <ctype.h>
 #include <fcntl.h>
 #include <signal.h>
-#include <syslog.h>
 #include <getopt.h>
 #include <sys/signalfd.h>
 

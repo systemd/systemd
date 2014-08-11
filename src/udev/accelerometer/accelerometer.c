@@ -69,19 +69,12 @@
 #define LONG(x) ((x)/BITS_PER_LONG)
 #define test_bit(bit, array)    ((array[LONG(bit)] >> OFF(bit)) & 1)
 
-static int debug = 0;
-
 _printf_(6,0)
 static void log_fn(struct udev *udev, int priority,
                    const char *file, int line, const char *fn,
                    const char *format, va_list args)
 {
-        if (debug) {
-                fprintf(stderr, "%s: ", fn);
-                vfprintf(stderr, format, args);
-        } else {
-                vsyslog(priority, format, args);
-        }
+        log_metav(priority, file, line, fn, format, args);
 }
 
 typedef enum {
@@ -233,11 +226,13 @@ int main (int argc, char** argv)
         struct udev_enumerate *enumerate;
         struct udev_list_entry *list_entry;
 
+        log_parse_environment();
+        log_open();
+
         udev = udev_new();
         if (udev == NULL)
                 return 1;
 
-        log_open();
         udev_set_log_fn(udev, log_fn);
 
         /* CLI argument parsing */
@@ -250,9 +245,10 @@ int main (int argc, char** argv)
 
                 switch (option) {
                 case 'd':
-                        debug = 1;
+                        log_set_target(LOG_TARGET_CONSOLE);
                         log_set_max_level(LOG_DEBUG);
                         udev_set_log_priority(udev, LOG_DEBUG);
+                        log_open();
                         break;
                 case 'h':
                         help();

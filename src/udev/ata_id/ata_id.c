@@ -410,7 +410,7 @@ static void log_fn(struct udev *udev, int priority,
                    const char *file, int line, const char *fn,
                    const char *format, va_list args)
 {
-        vsyslog(priority, format, args);
+        log_metav(priority, file, line, fn, format, args);
 }
 
 int main(int argc, char *argv[])
@@ -435,11 +435,13 @@ int main(int argc, char *argv[])
                 {}
         };
 
+        log_parse_environment();
+        log_open();
+
         udev = udev_new();
         if (udev == NULL)
                 goto exit;
 
-        log_open();
         udev_set_log_fn(udev, log_fn);
 
         while (1) {

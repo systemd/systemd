@@ -20,7 +20,6 @@
 #ifndef _LIBUDEV_PRIVATE_H_
 #define _LIBUDEV_PRIVATE_H_
 
-#include <syslog.h>
 #include <signal.h>
 #include <stdint.h>
 #include <stdbool.h>
