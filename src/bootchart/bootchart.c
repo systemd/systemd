@@ -380,8 +380,8 @@ int main(int argc, char *argv[]) {
 
                 sampledata = new0(struct list_sample_data, 1);
                 if (sampledata == NULL) {
-                        log_error("Failed to allocate memory for a node: %m");
-                        return -1;
+                        log_oom();
+                        return EXIT_FAILURE;
                 }
 
                 sampledata->sampletime = gettime_ns();
