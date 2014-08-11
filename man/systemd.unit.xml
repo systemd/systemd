@@ -203,7 +203,12 @@
                 settings to a unit, without having to modify their
                 unit files. Make sure that the file that is included
                 has the appropriate section headers before any
-                directive.</para>
+                directive. Note that for instanced units this logic
+                will first look for the instance
+                <literal>.d/</literal> subdirectory and read its
+                <literal>.conf</literal> files, followed by the
+                template <literal>.d/</literal> subdirectory and reads
+                its <literal>.conf</literal> files.</para>
 
                 <para>Note that while systemd offers a flexible
                 dependency system between units it is recommended to
