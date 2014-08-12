@@ -160,7 +160,7 @@ int get_locales(char ***ret) {
         _cleanup_strv_free_ char **l = NULL;
         int r;
 
-        locales = set_new(string_hash_func, string_compare_func);
+        locales = set_new(&string_hash_ops);
         if (!locales)
                 return -ENOMEM;
 

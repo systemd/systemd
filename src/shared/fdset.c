@@ -38,7 +38,7 @@
 #define PTR_TO_FD(p) (PTR_TO_INT(p)-1)
 
 FDSet *fdset_new(void) {
-        return MAKE_FDSET(set_new(trivial_hash_func, trivial_compare_func));
+        return MAKE_FDSET(set_new(NULL));
 }
 
 void fdset_free(FDSet *s) {

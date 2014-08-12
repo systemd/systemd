@@ -659,7 +659,7 @@ static int bus_on_connection(sd_event_source *s, int fd, uint32_t revents, void 
                 return 0;
         }
 
-        r = set_ensure_allocated(&m->private_buses, trivial_hash_func, trivial_compare_func);
+        r = set_ensure_allocated(&m->private_buses, NULL);
         if (r < 0) {
                 log_oom();
                 return 0;

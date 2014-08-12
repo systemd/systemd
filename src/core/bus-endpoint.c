@@ -55,7 +55,7 @@ int bus_endpoint_add_policy(BusEndpoint *ep, const char *name, BusPolicyAccess a
                         return 0;
                 }
         } else {
-                ep->policy_hash = hashmap_new(string_hash_func, string_compare_func);
+                ep->policy_hash = hashmap_new(&string_hash_ops);
                 if (!ep->policy_hash)
                         return -ENOMEM;
         }

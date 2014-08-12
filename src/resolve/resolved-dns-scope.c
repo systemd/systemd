@@ -709,7 +709,7 @@ int dns_scope_notify_conflict(DnsScope *scope, DnsResourceRecord *rr) {
 
         /* We don't send these queries immediately. Instead, we queue
          * them, and send them after some jitter delay. */
-        r = hashmap_ensure_allocated(&scope->conflict_queue, dns_resource_key_hash_func, dns_resource_key_compare_func);
+        r = hashmap_ensure_allocated(&scope->conflict_queue, &dns_resource_key_hash_ops);
         if (r < 0) {
                 log_oom();
                 return r;

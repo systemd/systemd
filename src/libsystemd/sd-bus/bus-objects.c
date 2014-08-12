@@ -225,7 +225,7 @@ static int get_child_nodes(
         assert(n);
         assert(_s);
 
-        s = set_new(string_hash_func, string_compare_func);
+        s = set_new(&string_hash_ops);
         if (!s)
                 return -ENOMEM;
 
@@ -1420,7 +1420,7 @@ static struct node *bus_node_allocate(sd_bus *bus, const char *path) {
         if (n)
                 return n;
 
-        r = hashmap_ensure_allocated(&bus->nodes, string_hash_func, string_compare_func);
+        r = hashmap_ensure_allocated(&bus->nodes, &string_hash_ops);
         if (r < 0)
                 return NULL;
 
@@ -1590,6 +1590,11 @@ static int vtable_member_compare_func(const void *a, const void *b) {
         return strcmp(x->member, y->member);
 }
 
+static const struct hash_ops vtable_member_hash_ops = {
+        .hash = vtable_member_hash_func,
+        .compare = vtable_member_compare_func
+};
+
 static int add_object_vtable_internal(
                 sd_bus *bus,
                 sd_bus_slot **slot,
@@ -1618,11 +1623,11 @@ static int add_object_vtable_internal(
                       !streq(interface, "org.freedesktop.DBus.Peer") &&
                       !streq(interface, "org.freedesktop.DBus.ObjectManager"), -EINVAL);
 
-        r = hashmap_ensure_allocated(&bus->vtable_methods, vtable_member_hash_func, vtable_member_compare_func);
+        r = hashmap_ensure_allocated(&bus->vtable_methods, &vtable_member_hash_ops);
         if (r < 0)
                 return r;
 
-        r = hashmap_ensure_allocated(&bus->vtable_properties, vtable_member_hash_func, vtable_member_compare_func);
+        r = hashmap_ensure_allocated(&bus->vtable_properties, &vtable_member_hash_ops);
         if (r < 0)
                 return r;
 

@@ -63,15 +63,15 @@ static int network_load_one(Manager *manager, const char *filename) {
         LIST_HEAD_INIT(network->static_addresses);
         LIST_HEAD_INIT(network->static_routes);
 
-        network->stacked_netdevs = hashmap_new(string_hash_func, string_compare_func);
+        network->stacked_netdevs = hashmap_new(&string_hash_ops);
         if (!network->stacked_netdevs)
                 return log_oom();
 
-        network->addresses_by_section = hashmap_new(NULL, NULL);
+        network->addresses_by_section = hashmap_new(NULL);
         if (!network->addresses_by_section)
                 return log_oom();
 
-        network->routes_by_section = hashmap_new(NULL, NULL);
+        network->routes_by_section = hashmap_new(NULL);
         if (!network->routes_by_section)
                 return log_oom();
 

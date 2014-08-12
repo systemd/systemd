@@ -227,7 +227,7 @@ static Context *context_add(MMapCache *m, unsigned id) {
         if (c)
                 return c;
 
-        r = hashmap_ensure_allocated(&m->contexts, trivial_hash_func, trivial_compare_func);
+        r = hashmap_ensure_allocated(&m->contexts, NULL);
         if (r < 0)
                 return NULL;
 
@@ -281,7 +281,7 @@ static FileDescriptor* fd_add(MMapCache *m, int fd) {
         if (f)
                 return f;
 
-        r = hashmap_ensure_allocated(&m->fds, trivial_hash_func, trivial_compare_func);
+        r = hashmap_ensure_allocated(&m->fds, NULL);
         if (r < 0)
                 return NULL;
 

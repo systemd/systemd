@@ -39,8 +39,7 @@ struct hashmap_entry {
 };
 
 struct Hashmap {
-        hash_func_t hash_func;
-        compare_func_t compare_func;
+        const struct hash_ops *hash_ops;
 
         struct hashmap_entry *iterate_list_head, *iterate_list_tail;
 
@@ -141,6 +140,11 @@ int string_compare_func(const void *a, const void *b) {
         return strcmp(a, b);
 }
 
+const struct hash_ops string_hash_ops = {
+        .hash = string_hash_func,
+        .compare = string_compare_func
+};
+
 unsigned long trivial_hash_func(const void *p, const uint8_t hash_key[HASH_KEY_SIZE]) {
         uint64_t u;
         siphash24((uint8_t*) &u, &p, sizeof(p), hash_key);
@@ -150,6 +154,11 @@ unsigned long trivial_hash_func(const void *p, const uint8_t hash_key[HASH_KEY_S
 int trivial_compare_func(const void *a, const void *b) {
         return a < b ? -1 : (a > b ? 1 : 0);
 }
+
+const struct hash_ops trivial_hash_ops = {
+        .hash = trivial_hash_func,
+        .compare = trivial_compare_func
+};
 
 unsigned long uint64_hash_func(const void *p, const uint8_t hash_key[HASH_KEY_SIZE]) {
         uint64_t u;
@@ -164,6 +173,11 @@ int uint64_compare_func(const void *_a, const void *_b) {
         return a < b ? -1 : (a > b ? 1 : 0);
 }
 
+const struct hash_ops uint64_hash_ops = {
+        .hash = uint64_hash_func,
+        .compare = uint64_compare_func
+};
+
 #if SIZEOF_DEV_T != 8
 unsigned long devt_hash_func(const void *p, const uint8_t hash_key[HASH_KEY_SIZE]) {
         uint64_t u;
@@ -177,10 +191,15 @@ int devt_compare_func(const void *_a, const void *_b) {
         b = *(const dev_t*) _b;
         return a < b ? -1 : (a > b ? 1 : 0);
 }
+
+const struct hash_ops devt_hash_ops = {
+        .hash = devt_hash_func,
+        .compare = devt_compare_func
+};
 #endif
 
 static unsigned bucket_hash(Hashmap *h, const void *p) {
-        return (unsigned) (h->hash_func(p, h->hash_key) % h->n_buckets);
+        return (unsigned) (h->hash_ops->hash(p, h->hash_key) % h->n_buckets);
 }
 
 static void get_hash_key(uint8_t hash_key[HASH_KEY_SIZE], bool reuse_is_ok) {
@@ -202,7 +221,7 @@ static void get_hash_key(uint8_t hash_key[HASH_KEY_SIZE], bool reuse_is_ok) {
         memcpy(hash_key, current, sizeof(current));
 }
 
-Hashmap *hashmap_new(hash_func_t hash_func, compare_func_t compare_func) {
+Hashmap *hashmap_new(const struct hash_ops *hash_ops) {
         bool b;
         Hashmap *h;
         size_t size;
@@ -224,8 +243,7 @@ Hashmap *hashmap_new(hash_func_t hash_func, compare_func_t compare_func) {
                         return NULL;
         }
 
-        h->hash_func = hash_func ? hash_func : trivial_hash_func;
-        h->compare_func = compare_func ? compare_func : trivial_compare_func;
+        h->hash_ops = hash_ops ? hash_ops : &trivial_hash_ops;
 
         h->n_buckets = INITIAL_N_BUCKETS;
         h->n_entries = 0;
@@ -240,7 +258,7 @@ Hashmap *hashmap_new(hash_func_t hash_func, compare_func_t compare_func) {
         return h;
 }
 
-int hashmap_ensure_allocated(Hashmap **h, hash_func_t hash_func, compare_func_t compare_func) {
+int hashmap_ensure_allocated(Hashmap **h, const struct hash_ops *hash_ops) {
         Hashmap *q;
 
         assert(h);
@@ -248,7 +266,7 @@ int hashmap_ensure_allocated(Hashmap **h, hash_func_t hash_func, compare_func_t 
         if (*h)
                 return 0;
 
-        q = hashmap_new(hash_func, compare_func);
+        q = hashmap_new(hash_ops);
         if (!q)
                 return -ENOMEM;
 
@@ -406,7 +424,7 @@ static struct hashmap_entry *hash_scan(Hashmap *h, unsigned hash, const void *ke
         assert(hash < h->n_buckets);
 
         for (e = h->buckets[hash]; e; e = e->bucket_next)
-                if (h->compare_func(e->key, key) == 0)
+                if (h->hash_ops->compare(e->key, key) == 0)
                         return e;
 
         return NULL;
@@ -438,7 +456,7 @@ static bool resize_buckets(Hashmap *h) {
         for (i = h->iterate_list_head; i; i = i->iterate_next) {
                 unsigned long old_bucket, new_bucket;
 
-                old_bucket = h->hash_func(i->key, h->hash_key) % h->n_buckets;
+                old_bucket = h->hash_ops->hash(i->key, h->hash_key) % h->n_buckets;
 
                 /* First, drop from old bucket table */
                 if (i->bucket_next)
@@ -450,7 +468,7 @@ static bool resize_buckets(Hashmap *h) {
                         h->buckets[old_bucket] = i->bucket_next;
 
                 /* Then, add to new backet table */
-                new_bucket = h->hash_func(i->key, nkey)  % m;
+                new_bucket = h->hash_ops->hash(i->key, nkey) % m;
 
                 i->bucket_next = n[new_bucket];
                 i->bucket_previous = NULL;
@@ -949,7 +967,7 @@ Hashmap *hashmap_copy(Hashmap *h) {
 
         assert(h);
 
-        copy = hashmap_new(h->hash_func, h->compare_func);
+        copy = hashmap_new(h->hash_ops);
         if (!copy)
                 return NULL;
 

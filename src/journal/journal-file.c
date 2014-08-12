@@ -2498,7 +2498,7 @@ int journal_file_open(
                 goto fail;
         }
 
-        f->chain_cache = hashmap_new(uint64_hash_func, uint64_compare_func);
+        f->chain_cache = hashmap_new(&uint64_hash_ops);
         if (!f->chain_cache) {
                 r = -ENOMEM;
                 goto fail;

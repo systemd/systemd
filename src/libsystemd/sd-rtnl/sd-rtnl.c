@@ -557,7 +557,7 @@ int sd_rtnl_call_async(sd_rtnl *nl,
         assert_return(callback, -EINVAL);
         assert_return(!rtnl_pid_changed(nl), -ECHILD);
 
-        r = hashmap_ensure_allocated(&nl->reply_callbacks, uint64_hash_func, uint64_compare_func);
+        r = hashmap_ensure_allocated(&nl->reply_callbacks, &uint64_hash_ops);
         if (r < 0)
                 return r;
 

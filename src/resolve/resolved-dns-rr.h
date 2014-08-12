@@ -159,8 +159,6 @@ DnsResourceKey* dns_resource_key_unref(DnsResourceKey *key);
 int dns_resource_key_equal(const DnsResourceKey *a, const DnsResourceKey *b);
 int dns_resource_key_match_rr(const DnsResourceKey *key, const DnsResourceRecord *rr);
 int dns_resource_key_match_cname(const DnsResourceKey *key, const DnsResourceRecord *rr);
-unsigned long dns_resource_key_hash_func(const void *i, const uint8_t hash_key[HASH_KEY_SIZE]);
-int dns_resource_key_compare_func(const void *a, const void *b);
 int dns_resource_key_to_string(const DnsResourceKey *key, char **ret);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsResourceKey*, dns_resource_key_unref);
 
@@ -175,3 +173,5 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(DnsResourceRecord*, dns_resource_record_unref);
 
 const char *dns_class_to_string(uint16_t type);
 int dns_class_from_string(const char *name, uint16_t *class);
+
+extern const struct hash_ops dns_resource_key_hash_ops;

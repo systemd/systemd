@@ -304,7 +304,7 @@ static int device_update_unit(Manager *m, struct udev_device *dev, const char *p
                         goto fail;
                 }
 
-                r = hashmap_ensure_allocated(&m->devices_by_sysfs, string_hash_func, string_compare_func);
+                r = hashmap_ensure_allocated(&m->devices_by_sysfs, &string_hash_ops);
                 if (r < 0)
                         goto fail;
 
@@ -517,7 +517,7 @@ static int device_following_set(Unit *u, Set **_set) {
                 return 0;
         }
 
-        set = set_new(NULL, NULL);
+        set = set_new(NULL);
         if (!set)
                 return -ENOMEM;
 

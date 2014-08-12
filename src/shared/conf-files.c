@@ -109,7 +109,7 @@ static int conf_files_list_strv_internal(char ***strv, const char *suffix, const
         if (!path_strv_resolve_uniq(dirs, root))
                 return -ENOMEM;
 
-        fh = hashmap_new(string_hash_func, string_compare_func);
+        fh = hashmap_new(&string_hash_ops);
         if (!fh)
                 return -ENOMEM;
 

@@ -166,7 +166,7 @@ _public_ int sd_bus_track_add_name(sd_bus_track *track, const char *name) {
         assert_return(track, -EINVAL);
         assert_return(service_name_is_valid(name), -EINVAL);
 
-        r = hashmap_ensure_allocated(&track->names, string_hash_func, string_compare_func);
+        r = hashmap_ensure_allocated(&track->names, &string_hash_ops);
         if (r < 0)
                 return r;
 

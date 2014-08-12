@@ -165,7 +165,7 @@ static void load_unix_sockets(void) {
         /* We maintain a cache of the sockets we found in
          * /proc/net/unix to speed things up a little. */
 
-        unix_sockets = set_new(string_hash_func, string_compare_func);
+        unix_sockets = set_new(&string_hash_ops);
         if (!unix_sockets)
                 return;
 
@@ -1608,8 +1608,8 @@ int main(int argc, char *argv[]) {
 
         label_init(NULL);
 
-        items = hashmap_new(string_hash_func, string_compare_func);
-        globs = hashmap_new(string_hash_func, string_compare_func);
+        items = hashmap_new(&string_hash_ops);
+        globs = hashmap_new(&string_hash_ops);
 
         if (!items || !globs) {
                 r = log_oom();

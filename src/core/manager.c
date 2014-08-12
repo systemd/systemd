@@ -449,27 +449,27 @@ int manager_new(SystemdRunningAs running_as, bool test_run, Manager **_m) {
         if (r < 0)
                 goto fail;
 
-        r = hashmap_ensure_allocated(&m->units, string_hash_func, string_compare_func);
+        r = hashmap_ensure_allocated(&m->units, &string_hash_ops);
         if (r < 0)
                 goto fail;
 
-        r = hashmap_ensure_allocated(&m->jobs, trivial_hash_func, trivial_compare_func);
+        r = hashmap_ensure_allocated(&m->jobs, NULL);
         if (r < 0)
                 goto fail;
 
-        r = hashmap_ensure_allocated(&m->cgroup_unit, string_hash_func, string_compare_func);
+        r = hashmap_ensure_allocated(&m->cgroup_unit, &string_hash_ops);
         if (r < 0)
                 goto fail;
 
-        r = hashmap_ensure_allocated(&m->watch_bus, string_hash_func, string_compare_func);
+        r = hashmap_ensure_allocated(&m->watch_bus, &string_hash_ops);
         if (r < 0)
                 goto fail;
 
-        r = set_ensure_allocated(&m->startup_units, trivial_hash_func, trivial_compare_func);
+        r = set_ensure_allocated(&m->startup_units, NULL);
         if (r < 0)
                 goto fail;
 
-        r = set_ensure_allocated(&m->failed_units, trivial_hash_func, trivial_compare_func);
+        r = set_ensure_allocated(&m->failed_units, NULL);
         if (r < 0)
                 goto fail;
 
@@ -903,7 +903,7 @@ static void manager_build_unit_path_cache(Manager *m) {
 
         set_free_free(m->unit_path_cache);
 
-        m->unit_path_cache = set_new(string_hash_func, string_compare_func);
+        m->unit_path_cache = set_new(&string_hash_ops);
         if (!m->unit_path_cache) {
                 log_error("Failed to allocate unit path cache.");
                 return;

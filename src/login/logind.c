@@ -64,17 +64,17 @@ Manager *manager_new(void) {
 
         m->runtime_dir_size = PAGE_ALIGN((size_t) (physical_memory() / 10)); /* 10% */
 
-        m->devices = hashmap_new(string_hash_func, string_compare_func);
-        m->seats = hashmap_new(string_hash_func, string_compare_func);
-        m->sessions = hashmap_new(string_hash_func, string_compare_func);
-        m->users = hashmap_new(trivial_hash_func, trivial_compare_func);
-        m->inhibitors = hashmap_new(string_hash_func, string_compare_func);
-        m->buttons = hashmap_new(string_hash_func, string_compare_func);
+        m->devices = hashmap_new(&string_hash_ops);
+        m->seats = hashmap_new(&string_hash_ops);
+        m->sessions = hashmap_new(&string_hash_ops);
+        m->users = hashmap_new(NULL);
+        m->inhibitors = hashmap_new(&string_hash_ops);
+        m->buttons = hashmap_new(&string_hash_ops);
 
-        m->user_units = hashmap_new(string_hash_func, string_compare_func);
-        m->session_units = hashmap_new(string_hash_func, string_compare_func);
+        m->user_units = hashmap_new(&string_hash_ops);
+        m->session_units = hashmap_new(&string_hash_ops);
 
-        m->busnames = set_new(string_hash_func, string_compare_func);
+        m->busnames = set_new(&string_hash_ops);
 
         if (!m->devices || !m->seats || !m->sessions || !m->users || !m->inhibitors || !m->buttons || !m->busnames ||
             !m->user_units || !m->session_units)

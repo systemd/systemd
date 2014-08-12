@@ -2276,7 +2276,7 @@ int config_parse_syscall_filter(
         }
 
         if (!c->syscall_filter) {
-                c->syscall_filter = set_new(trivial_hash_func, trivial_compare_func);
+                c->syscall_filter = set_new(NULL);
                 if (!c->syscall_filter)
                         return log_oom();
 
@@ -2368,7 +2368,7 @@ int config_parse_syscall_archs(
                 return 0;
         }
 
-        r = set_ensure_allocated(archs, trivial_hash_func, trivial_compare_func);
+        r = set_ensure_allocated(archs, NULL);
         if (r < 0)
                 return log_oom();
 
@@ -2474,7 +2474,7 @@ int config_parse_address_families(
         }
 
         if (!c->address_families) {
-                c->address_families = set_new(trivial_hash_func, trivial_compare_func);
+                c->address_families = set_new(NULL);
                 if (!c->address_families)
                         return log_oom();
 
@@ -3092,7 +3092,7 @@ int config_parse_set_status(
                         }
                 }
 
-                r = set_ensure_allocated(&status_set->status, NULL, NULL);
+                r = set_ensure_allocated(&status_set->status, NULL);
                 if (r < 0)
                         return log_oom();
 
@@ -3423,7 +3423,7 @@ static int load_from_path(Unit *u, const char *path) {
         assert(u);
         assert(path);
 
-        symlink_names = set_new(string_hash_func, string_compare_func);
+        symlink_names = set_new(&string_hash_ops);
         if (!symlink_names)
                 return -ENOMEM;
 

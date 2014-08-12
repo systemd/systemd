@@ -26,7 +26,7 @@ static void test_hashmap_replace(void) {
         Hashmap *m;
         char *val1, *val2, *val3, *val4, *val5, *r;
 
-        m = hashmap_new(string_hash_func, string_compare_func);
+        m = hashmap_new(&string_hash_ops);
 
         val1 = strdup("val1");
         assert_se(val1);
@@ -73,7 +73,7 @@ static void test_hashmap_copy(void) {
         val4 = strdup("val4");
         assert_se(val4);
 
-        m = hashmap_new(string_hash_func, string_compare_func);
+        m = hashmap_new(&string_hash_ops);
 
         hashmap_put(m, "key 1", val1);
         hashmap_put(m, "key 2", val2);
@@ -109,7 +109,7 @@ static void test_hashmap_get_strv(void) {
         val4 = strdup("val4");
         assert_se(val4);
 
-        m = hashmap_new(string_hash_func, string_compare_func);
+        m = hashmap_new(&string_hash_ops);
 
         hashmap_put(m, "key 1", val1);
         hashmap_put(m, "key 2", val2);
@@ -141,8 +141,8 @@ static void test_hashmap_move_one(void) {
         val4 = strdup("val4");
         assert_se(val4);
 
-        m = hashmap_new(string_hash_func, string_compare_func);
-        n = hashmap_new(string_hash_func, string_compare_func);
+        m = hashmap_new(&string_hash_ops);
+        n = hashmap_new(&string_hash_ops);
 
         hashmap_put(m, "key 1", val1);
         hashmap_put(m, "key 2", val2);
@@ -168,7 +168,7 @@ static void test_hashmap_next(void) {
         Hashmap *m;
         char *val1, *val2, *val3, *val4, *r;
 
-        m = hashmap_new(string_hash_func, string_compare_func);
+        m = hashmap_new(&string_hash_ops);
         val1 = strdup("val1");
         assert_se(val1);
         val2 = strdup("val2");
@@ -199,7 +199,7 @@ static void test_hashmap_update(void) {
         Hashmap *m;
         char *val1, *val2, *r;
 
-        m = hashmap_new(string_hash_func, string_compare_func);
+        m = hashmap_new(&string_hash_ops);
         val1 = strdup("old_value");
         assert_se(val1);
         val2 = strdup("new_value");
@@ -222,7 +222,7 @@ static void test_hashmap_put(void) {
         Hashmap *m;
         int valid_hashmap_put;
 
-        m = hashmap_new(string_hash_func, string_compare_func);
+        m = hashmap_new(&string_hash_ops);
 
         valid_hashmap_put = hashmap_put(m, "key 1", (void*) (const char *) "val 1");
         assert_se(valid_hashmap_put == 1);
@@ -236,7 +236,7 @@ static void test_hashmap_remove_and_put(void) {
         int valid;
         char *r;
 
-        m = hashmap_new(string_hash_func, string_compare_func);
+        m = hashmap_new(&string_hash_ops);
         assert_se(m);
 
         valid = hashmap_remove_and_put(m, "unvalid key", "new key", NULL);
@@ -261,9 +261,9 @@ static void test_hashmap_ensure_allocated(void) {
         Hashmap *m;
         int valid_hashmap;
 
-        m = hashmap_new(string_hash_func, string_compare_func);
+        m = hashmap_new(&string_hash_ops);
 
-        valid_hashmap = hashmap_ensure_allocated(&m, string_hash_func, string_compare_func);
+        valid_hashmap = hashmap_ensure_allocated(&m, &string_hash_ops);
         assert_se(valid_hashmap == 0);
 
         assert_se(m);
@@ -282,7 +282,7 @@ static void test_hashmap_foreach_key(void) {
                 "key 3\0"
                 "key 4\0";
 
-        m = hashmap_new(string_hash_func, string_compare_func);
+        m = hashmap_new(&string_hash_ops);
 
         NULSTR_FOREACH(key, key_table)
                 hashmap_put(m, key, (void*) (const char*) "my dummy val");
@@ -319,7 +319,7 @@ static void test_hashmap_foreach(void) {
         val4 = strdup("my val4");
         assert_se(val4);
 
-        m = hashmap_new(string_hash_func, string_compare_func);
+        m = hashmap_new(&string_hash_ops);
 
         hashmap_put(m, "Key 1", val1);
         hashmap_put(m, "Key 2", val2);
@@ -358,7 +358,7 @@ static void test_hashmap_foreach_backwards(void) {
         val4 = strdup("my val4");
         assert_se(val4);
 
-        m = hashmap_new(string_hash_func, string_compare_func);
+        m = hashmap_new(&string_hash_ops);
         hashmap_put(m, "Key 1", val1);
         hashmap_put(m, "Key 2", val2);
         hashmap_put(m, "Key 3", val3);
@@ -395,8 +395,8 @@ static void test_hashmap_merge(void) {
         val4 = strdup("my val4");
         assert_se(val4);
 
-        n = hashmap_new(string_hash_func, string_compare_func);
-        m = hashmap_new(string_hash_func, string_compare_func);
+        n = hashmap_new(&string_hash_ops);
+        m = hashmap_new(&string_hash_ops);
 
         hashmap_put(m, "Key 1", val1);
         hashmap_put(m, "Key 2", val2);
@@ -422,7 +422,7 @@ static void test_hashmap_contains(void) {
         val1 = strdup("my val");
         assert_se(val1);
 
-        m = hashmap_new(string_hash_func, string_compare_func);
+        m = hashmap_new(&string_hash_ops);
 
         assert_se(!hashmap_contains(m, "Key 1"));
         hashmap_put(m, "Key 1", val1);
@@ -439,7 +439,7 @@ static void test_hashmap_isempty(void) {
         val1 = strdup("my val");
         assert_se(val1);
 
-        m = hashmap_new(string_hash_func, string_compare_func);
+        m = hashmap_new(&string_hash_ops);
 
         assert_se(hashmap_isempty(m));
         hashmap_put(m, "Key 1", val1);
@@ -462,7 +462,7 @@ static void test_hashmap_size(void) {
         val4 = strdup("my val");
         assert_se(val4);
 
-        m = hashmap_new(string_hash_func, string_compare_func);
+        m = hashmap_new(&string_hash_ops);
 
         hashmap_put(m, "Key 1", val1);
         hashmap_put(m, "Key 2", val2);
@@ -482,7 +482,7 @@ static void test_hashmap_get(void) {
         val = strdup("my val");
         assert_se(val);
 
-        m = hashmap_new(string_hash_func, string_compare_func);
+        m = hashmap_new(&string_hash_ops);
 
         hashmap_put(m, "Key 1", val);
 
@@ -499,7 +499,7 @@ static void test_hashmap_many(void) {
 
 #define N_ENTRIES 100000
 
-        assert_se(h = hashmap_new(NULL, NULL));
+        assert_se(h = hashmap_new(NULL));
 
         for (i = 1; i < N_ENTRIES*3; i+=3) {
                 assert_se(hashmap_put(h, UINT_TO_PTR(i), UINT_TO_PTR(i)) >= 0);
@@ -520,7 +520,7 @@ static void test_hashmap_many(void) {
 static void test_hashmap_first_key(void) {
         _cleanup_hashmap_free_ Hashmap *m = NULL;
 
-        m = hashmap_new(string_hash_func, string_compare_func);
+        m = hashmap_new(&string_hash_ops);
         assert_se(m);
 
         assert_se(!hashmap_first_key(m));
@@ -535,7 +535,7 @@ static void test_hashmap_first_key(void) {
 static void test_hashmap_last(void) {
         _cleanup_hashmap_free_ Hashmap *m = NULL;
 
-        m = hashmap_new(string_hash_func, string_compare_func);
+        m = hashmap_new(&string_hash_ops);
         assert_se(m);
 
         assert_se(!hashmap_last(m));
@@ -550,7 +550,7 @@ static void test_hashmap_last(void) {
 static void test_hashmap_steal_first_key(void) {
         _cleanup_hashmap_free_ Hashmap *m = NULL;
 
-        m = hashmap_new(string_hash_func, string_compare_func);
+        m = hashmap_new(&string_hash_ops);
         assert_se(m);
 
         assert_se(!hashmap_steal_first_key(m));
@@ -563,7 +563,7 @@ static void test_hashmap_steal_first_key(void) {
 static void test_hashmap_clear_free_free(void) {
         _cleanup_hashmap_free_ Hashmap *m = NULL;
 
-        m = hashmap_new(string_hash_func, string_compare_func);
+        m = hashmap_new(&string_hash_ops);
         assert_se(m);
 
         assert_se(hashmap_put(m, strdup("key 1"), NULL) == 1);

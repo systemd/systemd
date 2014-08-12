@@ -695,7 +695,7 @@ static int output_json(
                         sd_id128_to_string(boot_id, sid));
         }
 
-        h = hashmap_new(string_hash_func, string_compare_func);
+        h = hashmap_new(&string_hash_ops);
         if (!h)
                 return -ENOMEM;
 

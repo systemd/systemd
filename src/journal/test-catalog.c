@@ -62,7 +62,7 @@ static void test_catalog_importing(void) {
         Hashmap *h;
         struct strbuf *sb;
 
-        assert_se(h = hashmap_new(catalog_hash_func, catalog_compare_func));
+        assert_se(h = hashmap_new(&catalog_hash_ops));
         assert_se(sb = strbuf_new());
 
 #define BUF "xxx"

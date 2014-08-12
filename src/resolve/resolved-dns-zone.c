@@ -126,11 +126,11 @@ static int dns_zone_init(DnsZone *z) {
 
         assert(z);
 
-        r = hashmap_ensure_allocated(&z->by_key, dns_resource_key_hash_func, dns_resource_key_compare_func);
+        r = hashmap_ensure_allocated(&z->by_key, &dns_resource_key_hash_ops);
         if (r < 0)
                 return r;
 
-        r = hashmap_ensure_allocated(&z->by_name, dns_name_hash_func, dns_name_compare_func);
+        r = hashmap_ensure_allocated(&z->by_name, &dns_name_hash_ops);
         if (r < 0)
                 return r;
 
@@ -194,7 +194,7 @@ static int dns_zone_item_probe_start(DnsZoneItem *i)  {
                         return r;
         }
 
-        r = set_ensure_allocated(&t->zone_items, NULL, NULL);
+        r = set_ensure_allocated(&t->zone_items, NULL);
         if (r < 0)
                 goto gc;
 

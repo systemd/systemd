@@ -1399,7 +1399,7 @@ static int method_list_unit_files(sd_bus *bus, sd_bus_message *message, void *us
         if (r < 0)
                 return r;
 
-        h = hashmap_new(string_hash_func, string_compare_func);
+        h = hashmap_new(&string_hash_ops);
         if (!h)
                 return -ENOMEM;
 

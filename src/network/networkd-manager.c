@@ -115,7 +115,7 @@ int manager_new(Manager **ret) {
                         return -ENOMEM;
         }
 
-        m->netdevs = hashmap_new(string_hash_func, string_compare_func);
+        m->netdevs = hashmap_new(&string_hash_ops);
         if (!m->netdevs)
                 return -ENOMEM;
 
@@ -485,15 +485,15 @@ int manager_save(Manager *m) {
         assert(m->state_file);
 
         /* We add all NTP and DNS server to a set, to filter out duplicates */
-        dns = set_new(string_hash_func, string_compare_func);
+        dns = set_new(&string_hash_ops);
         if (!dns)
                 return -ENOMEM;
 
-        ntp = set_new(string_hash_func, string_compare_func);
+        ntp = set_new(&string_hash_ops);
         if (!ntp)
                 return -ENOMEM;
 
-        domains = set_new(string_hash_func, string_compare_func);
+        domains = set_new(&string_hash_ops);
         if (!domains)
                 return -ENOMEM;
 

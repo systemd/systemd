@@ -685,7 +685,7 @@ static int automount_deserialize_item(Unit *u, const char *key, const char *valu
                         log_debug_unit(u->id, "Failed to parse token value %s", value);
                 else {
                         if (!a->tokens)
-                                if (!(a->tokens = set_new(trivial_hash_func, trivial_compare_func)))
+                                if (!(a->tokens = set_new(NULL)))
                                         return -ENOMEM;
 
                         r = set_put(a->tokens, UINT_TO_PTR(token));
@@ -762,7 +762,7 @@ static int automount_dispatch_io(sd_event_source *s, int fd, uint32_t events, vo
                 } else
                         log_debug_unit(UNIT(a)->id, "Got direct mount request on %s", a->where);
 
-                r = set_ensure_allocated(&a->tokens, trivial_hash_func, trivial_compare_func);
+                r = set_ensure_allocated(&a->tokens, NULL);
                 if (r < 0) {
                         log_error_unit(UNIT(a)->id, "Failed to allocate token set.");
                         goto fail;

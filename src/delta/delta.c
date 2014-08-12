@@ -268,7 +268,7 @@ static int enumerate_dir_d(Hashmap *top, Hashmap *bottom, Hashmap *drops, const 
 
                 h = hashmap_get(drops, unit);
                 if (!h) {
-                        h = hashmap_new(string_hash_func, string_compare_func);
+                        h = hashmap_new(&string_hash_ops);
                         if (!h)
                                 return -ENOMEM;
                         hashmap_put(drops, unit, h);
@@ -372,9 +372,9 @@ static int process_suffix(const char *suffix, const char *onlyprefix) {
 
         dropins = nulstr_contains(have_dropins, suffix);
 
-        top = hashmap_new(string_hash_func, string_compare_func);
-        bottom = hashmap_new(string_hash_func, string_compare_func);
-        drops = hashmap_new(string_hash_func, string_compare_func);
+        top = hashmap_new(&string_hash_ops);
+        bottom = hashmap_new(&string_hash_ops);
+        drops = hashmap_new(&string_hash_ops);
         if (!top || !bottom || !drops) {
                 r = -ENOMEM;
                 goto finish;

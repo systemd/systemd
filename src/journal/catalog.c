@@ -64,7 +64,7 @@ typedef struct CatalogItem {
         le64_t offset;
 } CatalogItem;
 
-unsigned long catalog_hash_func(const void *p, const uint8_t hash_key[HASH_KEY_SIZE]) {
+static unsigned long catalog_hash_func(const void *p, const uint8_t hash_key[HASH_KEY_SIZE]) {
         const CatalogItem *i = p;
         uint64_t u;
         size_t l, sz;
@@ -81,7 +81,7 @@ unsigned long catalog_hash_func(const void *p, const uint8_t hash_key[HASH_KEY_S
         return (unsigned long) u;
 }
 
-int catalog_compare_func(const void *a, const void *b) {
+static int catalog_compare_func(const void *a, const void *b) {
         const CatalogItem *i = a, *j = b;
         unsigned k;
 
@@ -94,6 +94,11 @@ int catalog_compare_func(const void *a, const void *b) {
 
         return strcmp(i->language, j->language);
 }
+
+const struct hash_ops catalog_hash_ops = {
+        .hash = catalog_hash_func,
+        .compare = catalog_compare_func
+};
 
 static int finish_item(
                 Hashmap *h,
@@ -407,7 +412,7 @@ int catalog_update(const char* database, const char* root, const char* const* di
         unsigned n;
         long r;
 
-        h = hashmap_new(catalog_hash_func, catalog_compare_func);
+        h = hashmap_new(&catalog_hash_ops);
         sb = strbuf_new();
 
         if (!h || !sb) {

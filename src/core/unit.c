@@ -81,7 +81,7 @@ Unit *unit_new(Manager *m, size_t size) {
         if (!u)
                 return NULL;
 
-        u->names = set_new(string_hash_func, string_compare_func);
+        u->names = set_new(&string_hash_ops);
         if (!u->names) {
                 free(u);
                 return NULL;
@@ -1843,17 +1843,17 @@ int unit_watch_pid(Unit *u, pid_t pid) {
         /* Watch a specific PID. We only support one or two units
          * watching each PID for now, not more. */
 
-        r = set_ensure_allocated(&u->pids, trivial_hash_func, trivial_compare_func);
+        r = set_ensure_allocated(&u->pids, NULL);
         if (r < 0)
                 return r;
 
-        r = hashmap_ensure_allocated(&u->manager->watch_pids1, trivial_hash_func, trivial_compare_func);
+        r = hashmap_ensure_allocated(&u->manager->watch_pids1, NULL);
         if (r < 0)
                 return r;
 
         r = hashmap_put(u->manager->watch_pids1, LONG_TO_PTR(pid), u);
         if (r == -EEXIST) {
-                r = hashmap_ensure_allocated(&u->manager->watch_pids2, trivial_hash_func, trivial_compare_func);
+                r = hashmap_ensure_allocated(&u->manager->watch_pids2, NULL);
                 if (r < 0)
                         return r;
 
@@ -2086,22 +2086,22 @@ int unit_add_dependency(Unit *u, UnitDependency d, Unit *other, bool add_referen
                 return 0;
         }
 
-        r = set_ensure_allocated(&u->dependencies[d], trivial_hash_func, trivial_compare_func);
+        r = set_ensure_allocated(&u->dependencies[d], NULL);
         if (r < 0)
                 return r;
 
         if (inverse_table[d] != _UNIT_DEPENDENCY_INVALID) {
-                r = set_ensure_allocated(&other->dependencies[inverse_table[d]], trivial_hash_func, trivial_compare_func);
+                r = set_ensure_allocated(&other->dependencies[inverse_table[d]], NULL);
                 if (r < 0)
                         return r;
         }
 
         if (add_reference) {
-                r = set_ensure_allocated(&u->dependencies[UNIT_REFERENCES], trivial_hash_func, trivial_compare_func);
+                r = set_ensure_allocated(&u->dependencies[UNIT_REFERENCES], NULL);
                 if (r < 0)
                         return r;
 
-                r = set_ensure_allocated(&other->dependencies[UNIT_REFERENCED_BY], trivial_hash_func, trivial_compare_func);
+                r = set_ensure_allocated(&other->dependencies[UNIT_REFERENCED_BY], NULL);
                 if (r < 0)
                         return r;
         }
@@ -2847,7 +2847,7 @@ static Set *unit_pid_set(pid_t main_pid, pid_t control_pid) {
         Set *pid_set;
         int r;
 
-        pid_set = set_new(trivial_hash_func, trivial_compare_func);
+        pid_set = set_new(NULL);
         if (!pid_set)
                 return NULL;
 
@@ -3385,7 +3385,7 @@ int unit_require_mounts_for(Unit *u, const char *path) {
                         char *q;
 
                         if (!u->manager->units_requiring_mounts_for) {
-                                u->manager->units_requiring_mounts_for = hashmap_new(string_hash_func, string_compare_func);
+                                u->manager->units_requiring_mounts_for = hashmap_new(&string_hash_ops);
                                 if (!u->manager->units_requiring_mounts_for)
                                         return -ENOMEM;
                         }
@@ -3394,7 +3394,7 @@ int unit_require_mounts_for(Unit *u, const char *path) {
                         if (!q)
                                 return -ENOMEM;
 
-                        x = set_new(NULL, NULL);
+                        x = set_new(NULL);
                         if (!x) {
                                 free(q);
                                 return -ENOMEM;

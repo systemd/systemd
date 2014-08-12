@@ -473,7 +473,7 @@ static int add_connection_socket(Context *context, int fd) {
                 return 0;
         }
 
-        r = set_ensure_allocated(&context->connections, trivial_hash_func, trivial_compare_func);
+        r = set_ensure_allocated(&context->connections, NULL);
         if (r < 0) {
                 log_oom();
                 return 0;
@@ -543,7 +543,7 @@ static int add_listen_socket(Context *context, int fd) {
         assert(context);
         assert(fd >= 0);
 
-        r = set_ensure_allocated(&context->listen, trivial_hash_func, trivial_compare_func);
+        r = set_ensure_allocated(&context->listen, NULL);
         if (r < 0) {
                 log_oom();
                 return r;

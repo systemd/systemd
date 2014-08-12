@@ -133,7 +133,7 @@ int dns_resource_key_match_cname(const DnsResourceKey *key, const DnsResourceRec
         return dns_name_equal(DNS_RESOURCE_KEY_NAME(rr->key), DNS_RESOURCE_KEY_NAME(key));
 }
 
-unsigned long dns_resource_key_hash_func(const void *i, const uint8_t hash_key[HASH_KEY_SIZE]) {
+static unsigned long dns_resource_key_hash_func(const void *i, const uint8_t hash_key[HASH_KEY_SIZE]) {
         const DnsResourceKey *k = i;
         unsigned long ul;
 
@@ -144,7 +144,7 @@ unsigned long dns_resource_key_hash_func(const void *i, const uint8_t hash_key[H
         return ul;
 }
 
-int dns_resource_key_compare_func(const void *a, const void *b) {
+static int dns_resource_key_compare_func(const void *a, const void *b) {
         const DnsResourceKey *x = a, *y = b;
         int ret;
 
@@ -164,6 +164,11 @@ int dns_resource_key_compare_func(const void *a, const void *b) {
 
         return 0;
 }
+
+const struct hash_ops dns_resource_key_hash_ops = {
+        .hash = dns_resource_key_hash_func,
+        .compare = dns_resource_key_compare_func
+};
 
 int dns_resource_key_to_string(const DnsResourceKey *key, char **ret) {
         char cbuf[DECIMAL_STR_MAX(uint16_t)], tbuf[DECIMAL_STR_MAX(uint16_t)];

@@ -58,7 +58,7 @@ static Set *new_matches(void) {
         char *tmp;
         int r;
 
-        set = set_new(trivial_hash_func, trivial_compare_func);
+        set = set_new(NULL);
         if (!set) {
                 log_oom();
                 return NULL;

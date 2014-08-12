@@ -907,7 +907,7 @@ static int analyze_critical_chain(sd_bus *bus, char *names[]) {
         if (n <= 0)
                 return n;
 
-        h = hashmap_new(string_hash_func, string_compare_func);
+        h = hashmap_new(&string_hash_ops);
         if (!h)
                 return -ENOMEM;
 

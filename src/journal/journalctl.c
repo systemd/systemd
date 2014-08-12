@@ -1029,7 +1029,7 @@ static int get_possible_units(sd_journal *j,
         const char *field;
         int r;
 
-        found = set_new(string_hash_func, string_compare_func);
+        found = set_new(&string_hash_ops);
         if (!found)
                 return log_oom();
 

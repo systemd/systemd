@@ -37,6 +37,7 @@ int dns_name_normalize(const char *s, char **_ret);
 
 unsigned long dns_name_hash_func(const void *s, const uint8_t hash_key[HASH_KEY_SIZE]);
 int dns_name_compare_func(const void *a, const void *b);
+extern const struct hash_ops dns_name_hash_ops;
 
 int dns_name_equal(const char *x, const char *y);
 int dns_name_endswith(const char *name, const char *suffix);

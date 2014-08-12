@@ -161,7 +161,7 @@ int cg_kill(const char *controller, const char *path, int sig, bool sigcont, boo
          * tasks list, to properly handle forking processes */
 
         if (!s) {
-                s = allocated_set = set_new(trivial_hash_func, trivial_compare_func);
+                s = allocated_set = set_new(NULL);
                 if (!s)
                         return -ENOMEM;
         }
@@ -239,7 +239,7 @@ int cg_kill_recursive(const char *controller, const char *path, int sig, bool si
         assert(sig >= 0);
 
         if (!s) {
-                s = allocated_set = set_new(trivial_hash_func, trivial_compare_func);
+                s = allocated_set = set_new(NULL);
                 if (!s)
                         return -ENOMEM;
         }
@@ -290,7 +290,7 @@ int cg_migrate(const char *cfrom, const char *pfrom, const char *cto, const char
         assert(cto);
         assert(pto);
 
-        s = set_new(trivial_hash_func, trivial_compare_func);
+        s = set_new(NULL);
         if (!s)
                 return -ENOMEM;
 

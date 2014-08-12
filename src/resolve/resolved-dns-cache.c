@@ -186,7 +186,7 @@ static int dns_cache_init(DnsCache *c) {
         if (r < 0)
                 return r;
 
-        r = hashmap_ensure_allocated(&c->by_key, dns_resource_key_hash_func, dns_resource_key_compare_func);
+        r = hashmap_ensure_allocated(&c->by_key, &dns_resource_key_hash_ops);
         if (r < 0)
                 return r;
 

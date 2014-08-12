@@ -1143,7 +1143,7 @@ Transaction *transaction_new(bool irreversible) {
         if (!tr)
                 return NULL;
 
-        tr->jobs = hashmap_new(trivial_hash_func, trivial_compare_func);
+        tr->jobs = hashmap_new(NULL);
         if (!tr->jobs) {
                 free(tr);
                 return NULL;

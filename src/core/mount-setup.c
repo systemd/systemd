@@ -235,7 +235,7 @@ int mount_cgroup_controllers(char ***join_controllers) {
                 return 0;
         }
 
-        controllers = set_new(string_hash_func, string_compare_func);
+        controllers = set_new(&string_hash_ops);
         if (!controllers)
                 return log_oom();
 

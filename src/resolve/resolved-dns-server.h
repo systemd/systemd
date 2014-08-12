@@ -60,5 +60,4 @@ int dns_server_new(
 
 DnsServer* dns_server_free(DnsServer *s);
 
-unsigned long dns_server_hash_func(const void *p, const uint8_t hash_key[HASH_KEY_SIZE]);
-int dns_server_compare_func(const void *a, const void *b);
+extern const struct hash_ops dns_server_hash_ops;

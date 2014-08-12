@@ -824,8 +824,7 @@ static int set_dependencies_from_rcnd(LookupPaths lp, Hashmap *all_services) {
                                                         MAX(a*10 + b, service->sysv_start_priority);
                                         }
 
-                                        r = set_ensure_allocated(&runlevel_services[i],
-                                                                 trivial_hash_func, trivial_compare_func);
+                                        r = set_ensure_allocated(&runlevel_services[i], NULL);
                                         if (r < 0)
                                                 goto finish;
 
@@ -836,8 +835,7 @@ static int set_dependencies_from_rcnd(LookupPaths lp, Hashmap *all_services) {
                                 } else if (de->d_name[0] == 'K' &&
                                            (rcnd_table[i].type == RUNLEVEL_DOWN)) {
 
-                                        r = set_ensure_allocated(&shutdown_services,
-                                                                 trivial_hash_func, trivial_compare_func);
+                                        r = set_ensure_allocated(&shutdown_services, NULL);
                                         if (r < 0)
                                                 goto finish;
 
@@ -905,7 +903,7 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
-        all_services = hashmap_new(string_hash_func, string_compare_func);
+        all_services = hashmap_new(&string_hash_ops);
         if (!all_services) {
                 log_oom();
                 return EXIT_FAILURE;

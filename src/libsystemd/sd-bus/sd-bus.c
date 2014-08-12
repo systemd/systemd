@@ -1756,7 +1756,7 @@ _public_ int sd_bus_call_async(
         if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;
 
-        r = hashmap_ensure_allocated(&bus->reply_callbacks, uint64_hash_func, uint64_compare_func);
+        r = hashmap_ensure_allocated(&bus->reply_callbacks, &uint64_hash_ops);
         if (r < 0)
                 return r;
 

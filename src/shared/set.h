@@ -32,12 +32,12 @@
 
 typedef struct Set Set;
 
-Set *set_new(hash_func_t hash_func, compare_func_t compare_func);
+Set *set_new(const struct hash_ops *hash_ops);
 void set_free(Set* s);
 void set_free_free(Set *s);
 
 Set* set_copy(Set *s);
-int set_ensure_allocated(Set **s, hash_func_t hash_func, compare_func_t compare_func);
+int set_ensure_allocated(Set **s, const struct hash_ops *hash_ops);
 
 int set_put(Set *s, void *value);
 int set_consume(Set *s, void *value);

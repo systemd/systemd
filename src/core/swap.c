@@ -77,7 +77,7 @@ static int swap_set_devnode(Swap *s, const char *devnode) {
 
         assert(s);
 
-        r = hashmap_ensure_allocated(&UNIT(s)->manager->swaps_by_devnode, string_hash_func, string_compare_func);
+        r = hashmap_ensure_allocated(&UNIT(s)->manager->swaps_by_devnode, &string_hash_ops);
         if (r < 0)
                 return r;
 
@@ -1226,7 +1226,7 @@ static int swap_following_set(Unit *u, Set **_set) {
                 return 0;
         }
 
-        set = set_new(NULL, NULL);
+        set = set_new(NULL);
         if (!set)
                 return -ENOMEM;
 

@@ -399,7 +399,7 @@ int bus_verify_polkit_async(
         if (!sender)
                 return -EBADMSG;
 
-        r = hashmap_ensure_allocated(registry, trivial_hash_func, trivial_compare_func);
+        r = hashmap_ensure_allocated(registry, NULL);
         if (r < 0)
                 return r;
 

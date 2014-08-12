@@ -190,7 +190,7 @@ int devnode_acl_all(struct udev *udev,
 
         assert(udev);
 
-        nodes = set_new(string_hash_func, string_compare_func);
+        nodes = set_new(&string_hash_ops);
         if (!nodes)
                 return -ENOMEM;
 

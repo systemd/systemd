@@ -78,7 +78,7 @@ int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsQuestion *q) {
         assert(s);
         assert(q);
 
-        r = hashmap_ensure_allocated(&s->manager->dns_transactions, NULL, NULL);
+        r = hashmap_ensure_allocated(&s->manager->dns_transactions, NULL);
         if (r < 0)
                 return r;
 

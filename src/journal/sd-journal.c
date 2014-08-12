@@ -70,7 +70,7 @@ static int set_put_error(sd_journal *j, int r) {
         if (r >= 0)
                 return r;
 
-        k = set_ensure_allocated(&j->errors, trivial_hash_func, trivial_compare_func);
+        k = set_ensure_allocated(&j->errors, NULL);
         if (k < 0)
                 return k;
 
@@ -1662,7 +1662,7 @@ static int allocate_inotify(sd_journal *j) {
         }
 
         if (!j->directories_by_wd) {
-                j->directories_by_wd = hashmap_new(trivial_hash_func, trivial_compare_func);
+                j->directories_by_wd = hashmap_new(NULL);
                 if (!j->directories_by_wd)
                         return -ENOMEM;
         }
@@ -1688,8 +1688,8 @@ static sd_journal *journal_new(int flags, const char *path) {
                         goto fail;
         }
 
-        j->files = hashmap_new(string_hash_func, string_compare_func);
-        j->directories_by_path = hashmap_new(string_hash_func, string_compare_func);
+        j->files = hashmap_new(&string_hash_ops);
+        j->directories_by_path = hashmap_new(&string_hash_ops);
         j->mmap = mmap_cache_new();
         if (!j->files || !j->directories_by_path || !j->mmap)
                 goto fail;

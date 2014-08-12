@@ -100,7 +100,7 @@ DnsServer* dns_server_free(DnsServer *s)  {
         return NULL;
 }
 
-unsigned long dns_server_hash_func(const void *p, const uint8_t hash_key[HASH_KEY_SIZE]) {
+static unsigned long dns_server_hash_func(const void *p, const uint8_t hash_key[HASH_KEY_SIZE]) {
         const DnsServer *s = p;
         uint64_t u;
 
@@ -110,7 +110,7 @@ unsigned long dns_server_hash_func(const void *p, const uint8_t hash_key[HASH_KE
         return u;
 }
 
-int dns_server_compare_func(const void *a, const void *b) {
+static int dns_server_compare_func(const void *a, const void *b) {
         const DnsServer *x = a, *y = b;
 
         if (x->family < y->family)
@@ -120,3 +120,8 @@ int dns_server_compare_func(const void *a, const void *b) {
 
         return memcmp(&x->address, &y->address, FAMILY_ADDRESS_SIZE(x->family));
 }
+
+const struct hash_ops dns_server_hash_ops = {
+        .hash = dns_server_hash_func,
+        .compare = dns_server_compare_func
+};

@@ -33,7 +33,7 @@ int link_new(Manager *m, Link **ret, int ifindex) {
         assert(m);
         assert(ifindex > 0);
 
-        r = hashmap_ensure_allocated(&m->links, NULL, NULL);
+        r = hashmap_ensure_allocated(&m->links, NULL);
         if (r < 0)
                 return r;
 

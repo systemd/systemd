@@ -179,7 +179,7 @@ static int mark_symlink_for_removal(
 
         assert(p);
 
-        r = set_ensure_allocated(remove_symlinks_to, string_hash_func, string_compare_func);
+        r = set_ensure_allocated(remove_symlinks_to, &string_hash_ops);
         if (r < 0)
                 return r;
 
@@ -884,7 +884,7 @@ static int install_info_add(
             hashmap_get(c->will_install, name))
                 return 0;
 
-        r = hashmap_ensure_allocated(&c->will_install, string_hash_func, string_compare_func);
+        r = hashmap_ensure_allocated(&c->will_install, &string_hash_ops);
         if (r < 0)
                 return r;
 
@@ -1393,7 +1393,7 @@ static int install_context_apply(
 
         while ((i = hashmap_first(c->will_install))) {
 
-                q = hashmap_ensure_allocated(&c->have_installed, string_hash_func, string_compare_func);
+                q = hashmap_ensure_allocated(&c->have_installed, &string_hash_ops);
                 if (q < 0)
                         return q;
 
@@ -1434,7 +1434,7 @@ static int install_context_mark_for_removal(
 
         while ((i = hashmap_first(c->will_install))) {
 
-                q = hashmap_ensure_allocated(&c->have_installed, string_hash_func, string_compare_func);
+                q = hashmap_ensure_allocated(&c->have_installed, &string_hash_ops);
                 if (q < 0)
                         return q;
 

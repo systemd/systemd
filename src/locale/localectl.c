@@ -272,7 +272,7 @@ static int list_vconsole_keymaps(sd_bus *bus, char **args, unsigned n) {
         _cleanup_strv_free_ char **l = NULL;
         const char *dir;
 
-        keymaps = set_new(string_hash_func, string_compare_func);
+        keymaps = set_new(&string_hash_ops);
         if (!keymaps)
                 return log_oom();
 

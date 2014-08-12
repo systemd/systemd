@@ -338,7 +338,7 @@ static int file_load(Policy *p, const char *path) {
 
                                         assert_cc(sizeof(uid_t) == sizeof(uint32_t));
 
-                                        r = hashmap_ensure_allocated(&p->user_items, trivial_hash_func, trivial_compare_func);
+                                        r = hashmap_ensure_allocated(&p->user_items, NULL);
                                         if (r < 0)
                                                 return log_oom();
 
@@ -369,7 +369,7 @@ static int file_load(Policy *p, const char *path) {
 
                                         assert_cc(sizeof(gid_t) == sizeof(uint32_t));
 
-                                        r = hashmap_ensure_allocated(&p->group_items, trivial_hash_func, trivial_compare_func);
+                                        r = hashmap_ensure_allocated(&p->group_items, NULL);
                                         if (r < 0)
                                                 return log_oom();
 

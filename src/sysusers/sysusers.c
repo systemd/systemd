@@ -107,11 +107,11 @@ static int load_user_database(void) {
         if (!f)
                 return errno == ENOENT ? 0 : -errno;
 
-        r = hashmap_ensure_allocated(&database_user, string_hash_func, string_compare_func);
+        r = hashmap_ensure_allocated(&database_user, &string_hash_ops);
         if (r < 0)
                 return r;
 
-        r = hashmap_ensure_allocated(&database_uid, trivial_hash_func, trivial_compare_func);
+        r = hashmap_ensure_allocated(&database_uid, NULL);
         if (r < 0)
                 return r;
 
@@ -159,11 +159,11 @@ static int load_group_database(void) {
         if (!f)
                 return errno == ENOENT ? 0 : -errno;
 
-        r = hashmap_ensure_allocated(&database_group, string_hash_func, string_compare_func);
+        r = hashmap_ensure_allocated(&database_group, &string_hash_ops);
         if (r < 0)
                 return r;
 
-        r = hashmap_ensure_allocated(&database_gid, trivial_hash_func, trivial_compare_func);
+        r = hashmap_ensure_allocated(&database_gid, NULL);
         if (r < 0)
                 return r;
 
@@ -969,7 +969,7 @@ static int add_user(Item *i) {
                 i->uid = search_uid;
         }
 
-        r = hashmap_ensure_allocated(&todo_uids, trivial_hash_func, trivial_compare_func);
+        r = hashmap_ensure_allocated(&todo_uids, NULL);
         if (r < 0)
                 return log_oom();
 
@@ -1122,7 +1122,7 @@ static int add_group(Item *i) {
                 i->gid = search_uid;
         }
 
-        r = hashmap_ensure_allocated(&todo_gids, trivial_hash_func, trivial_compare_func);
+        r = hashmap_ensure_allocated(&todo_gids, NULL);
         if (r < 0)
                 return log_oom();
 
@@ -1210,7 +1210,7 @@ static int add_implicit(void) {
                 if (!i) {
                         _cleanup_(item_freep) Item *j = NULL;
 
-                        r = hashmap_ensure_allocated(&groups, string_hash_func, string_compare_func);
+                        r = hashmap_ensure_allocated(&groups, &string_hash_ops);
                         if (r < 0)
                                 return log_oom();
 
@@ -1237,7 +1237,7 @@ static int add_implicit(void) {
                         if (!i) {
                                 _cleanup_(item_freep) Item *j = NULL;
 
-                                r = hashmap_ensure_allocated(&users, string_hash_func, string_compare_func);
+                                r = hashmap_ensure_allocated(&users, &string_hash_ops);
                                 if (r < 0)
                                         return log_oom();
 
@@ -1542,7 +1542,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                         return -EINVAL;
                 }
 
-                r = hashmap_ensure_allocated(&members, string_hash_func, string_compare_func);
+                r = hashmap_ensure_allocated(&members, &string_hash_ops);
                 if (r < 0)
                         return log_oom();
 
@@ -1584,7 +1584,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                         return -EINVAL;
                 }
 
-                r = hashmap_ensure_allocated(&users, string_hash_func, string_compare_func);
+                r = hashmap_ensure_allocated(&users, &string_hash_ops);
                 if (r < 0)
                         return log_oom();
 
@@ -1634,7 +1634,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                         return -EINVAL;
                 }
 
-                r = hashmap_ensure_allocated(&groups, string_hash_func, string_compare_func);
+                r = hashmap_ensure_allocated(&groups, &string_hash_ops);
                 if (r < 0)
                         return log_oom();
 

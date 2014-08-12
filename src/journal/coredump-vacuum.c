@@ -194,7 +194,7 @@ int coredump_vacuum(int exclude_fd, off_t keep_free, off_t max_use) {
                             exclude_st.st_ino == st.st_ino)
                                 continue;
 
-                        r = hashmap_ensure_allocated(&h, NULL, NULL);
+                        r = hashmap_ensure_allocated(&h, NULL);
                         if (r < 0)
                                 return log_oom();
 

@@ -737,11 +737,11 @@ int manager_write_resolv_conf(Manager *m) {
         manager_read_resolv_conf(m);
 
         /* Add the full list to a set, to filter out duplicates */
-        dns = set_new(dns_server_hash_func, dns_server_compare_func);
+        dns = set_new(&dns_server_hash_ops);
         if (!dns)
                 return -ENOMEM;
 
-        domains = set_new(dns_name_hash_func, dns_name_compare_func);
+        domains = set_new(&dns_name_hash_ops);
         if (!domains)
                 return -ENOMEM;
 

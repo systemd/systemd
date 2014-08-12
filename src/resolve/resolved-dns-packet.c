@@ -433,9 +433,7 @@ int dns_packet_append_name(DnsPacket *p, const char *name,
                         goto fail;
 
                 if (allow_compression) {
-                        r = hashmap_ensure_allocated(&p->names,
-                                                     dns_name_hash_func,
-                                                     dns_name_compare_func);
+                        r = hashmap_ensure_allocated(&p->names, &dns_name_hash_ops);
                         if (r < 0)
                                 goto fail;
 

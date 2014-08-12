@@ -371,6 +371,11 @@ int dns_name_compare_func(const void *a, const void *b) {
         }
 }
 
+const struct hash_ops dns_name_hash_ops = {
+        .hash = dns_name_hash_func,
+        .compare = dns_name_compare_func
+};
+
 int dns_name_equal(const char *x, const char *y) {
         int r, q, k, w;
 

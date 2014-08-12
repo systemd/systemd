@@ -1032,7 +1032,7 @@ _public_ int sd_event_add_child(
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_pid_changed(e), -ECHILD);
 
-        r = hashmap_ensure_allocated(&e->child_sources, trivial_hash_func, trivial_compare_func);
+        r = hashmap_ensure_allocated(&e->child_sources, NULL);
         if (r < 0)
                 return r;
 
@@ -1123,7 +1123,7 @@ _public_ int sd_event_add_post(
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_pid_changed(e), -ECHILD);
 
-        r = set_ensure_allocated(&e->post_sources, trivial_hash_func, trivial_compare_func);
+        r = set_ensure_allocated(&e->post_sources, NULL);
         if (r < 0)
                 return r;
 

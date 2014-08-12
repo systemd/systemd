@@ -282,7 +282,7 @@ static int collect(const char *root) {
                 goto finish;
         }
 
-        files = hashmap_new(string_hash_func, string_compare_func);
+        files = hashmap_new(&string_hash_ops);
         if (!files) {
                 log_error("Failed to allocate set.");
                 r = -ENOMEM;

@@ -206,7 +206,7 @@ static int link_new(Manager *manager, sd_rtnl_message *message, Link **ret) {
         if (r < 0)
                 return -ENOMEM;
 
-        r = hashmap_ensure_allocated(&manager->links, NULL, NULL);
+        r = hashmap_ensure_allocated(&manager->links, NULL);
         if (r < 0)
                 return r;
 

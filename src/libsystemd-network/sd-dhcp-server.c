@@ -109,6 +109,11 @@ int client_id_compare_func(const void *_a, const void *_b) {
         return memcmp(a->data, b->data, a->length);
 }
 
+static const struct hash_ops client_id_hash_ops = {
+        .hash = client_id_hash_func,
+        .compare = client_id_compare_func
+};
+
 static void dhcp_lease_free(DHCPLease *lease) {
         if (!lease)
                 return;
@@ -158,8 +163,7 @@ int sd_dhcp_server_new(sd_dhcp_server **ret, int ifindex) {
         server->address = htobe32(INADDR_ANY);
         server->netmask = htobe32(INADDR_ANY);
         server->index = ifindex;
-        server->leases_by_client_id = hashmap_new(client_id_hash_func,
-                                                  client_id_compare_func);
+        server->leases_by_client_id = hashmap_new(&client_id_hash_ops);
 
         *ret = server;
         server = NULL;

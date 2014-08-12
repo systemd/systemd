@@ -3911,7 +3911,7 @@ void execute_directory(const char *directory, DIR *d, usec_t timeout, char *argv
                         }
                 }
 
-                pids = hashmap_new(NULL, NULL);
+                pids = hashmap_new(NULL);
                 if (!pids) {
                         log_oom();
                         _exit(EXIT_FAILURE);
@@ -6694,7 +6694,7 @@ int bind_remount_recursive(const char *prefix, bool ro) {
 
         path_kill_slashes(cleaned);
 
-        done = set_new(string_hash_func, string_compare_func);
+        done = set_new(&string_hash_ops);
         if (!done)
                 return -ENOMEM;
 
@@ -6704,7 +6704,7 @@ int bind_remount_recursive(const char *prefix, bool ro) {
                 bool top_autofs = false;
                 char *x;
 
-                todo = set_new(string_hash_func, string_compare_func);
+                todo = set_new(&string_hash_ops);
                 if (!todo)
                         return -ENOMEM;
 

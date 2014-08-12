@@ -1483,7 +1483,7 @@ int server_init(Server *s) {
 
         mkdir_p("/run/systemd/journal", 0755);
 
-        s->user_journals = hashmap_new(trivial_hash_func, trivial_compare_func);
+        s->user_journals = hashmap_new(NULL);
         if (!s->user_journals)
                 return log_oom();
 

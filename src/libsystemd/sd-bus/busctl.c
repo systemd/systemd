@@ -76,7 +76,7 @@ static int list_bus_names(sd_bus *bus, char **argv) {
 
         pager_open_if_enabled();
 
-        names = hashmap_new(string_hash_func, string_compare_func);
+        names = hashmap_new(&string_hash_ops);
         if (!names)
                 return log_oom();
 

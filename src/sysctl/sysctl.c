@@ -292,7 +292,7 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        sysctl_options = hashmap_new(string_hash_func, string_compare_func);
+        sysctl_options = hashmap_new(&string_hash_ops);
         if (!sysctl_options) {
                 r = log_oom();
                 goto finish;

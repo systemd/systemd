@@ -61,7 +61,7 @@ Session* session_new(Manager *m, const char *id) {
                 return NULL;
         }
 
-        s->devices = hashmap_new(devt_hash_func, devt_compare_func);
+        s->devices = hashmap_new(&devt_hash_ops);
         if (!s->devices) {
                 free(s->state_file);
                 free(s);

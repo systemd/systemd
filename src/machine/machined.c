@@ -44,9 +44,9 @@ Manager *manager_new(void) {
         if (!m)
                 return NULL;
 
-        m->machines = hashmap_new(string_hash_func, string_compare_func);
-        m->machine_units = hashmap_new(string_hash_func, string_compare_func);
-        m->machine_leaders = hashmap_new(trivial_hash_func, trivial_compare_func);
+        m->machines = hashmap_new(&string_hash_ops);
+        m->machine_units = hashmap_new(&string_hash_ops);
+        m->machine_leaders = hashmap_new(NULL);
 
         if (!m->machines || !m->machine_units || !m->machine_leaders) {
                 manager_free(m);

@@ -222,20 +222,14 @@ static int open_output(Writer *w, const char* host) {
  **********************************************************************/
 
 static int init_writer_hashmap(RemoteServer *s) {
-        static const struct {
-                hash_func_t hash_func;
-                compare_func_t compare_func;
-        } functions[] = {
-                [JOURNAL_WRITE_SPLIT_NONE] = {trivial_hash_func,
-                                              trivial_compare_func},
-                [JOURNAL_WRITE_SPLIT_HOST] = {string_hash_func,
-                                              string_compare_func},
+        static const struct hash_ops *hash_ops[] = {
+                [JOURNAL_WRITE_SPLIT_NONE] = NULL,
+                [JOURNAL_WRITE_SPLIT_HOST] = &string_hash_ops,
         };
 
-        assert(arg_split_mode >= 0 && arg_split_mode < (int) ELEMENTSOF(functions));
+        assert(arg_split_mode >= 0 && arg_split_mode < (int) ELEMENTSOF(hash_ops));
 
-        s->writers = hashmap_new(functions[arg_split_mode].hash_func,
-                                 functions[arg_split_mode].compare_func);
+        s->writers = hashmap_new(hash_ops[arg_split_mode]);
         if (!s->writers)
                 return log_oom();
 
@@ -695,7 +689,7 @@ static int setup_microhttpd_server(RemoteServer *s,
                 goto error;
         }
 
-        r = hashmap_ensure_allocated(&s->daemons, uint64_hash_func, uint64_compare_func);
+        r = hashmap_ensure_allocated(&s->daemons, &uint64_hash_ops);
         if (r < 0) {
                 log_oom();
                 goto error;

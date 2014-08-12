@@ -30,8 +30,8 @@
 
 /* For now this is not much more than a wrapper around a hashmap */
 
-Set *set_new(hash_func_t hash_func, compare_func_t compare_func) {
-        return MAKE_SET(hashmap_new(hash_func, compare_func));
+Set *set_new(const struct hash_ops *hash_ops) {
+        return MAKE_SET(hashmap_new(hash_ops));
 }
 
 void set_free(Set* s) {
@@ -42,8 +42,8 @@ void set_free_free(Set *s) {
         hashmap_free_free(MAKE_HASHMAP(s));
 }
 
-int set_ensure_allocated(Set **s, hash_func_t hash_func, compare_func_t compare_func) {
-        return hashmap_ensure_allocated((Hashmap**) s, hash_func, compare_func);
+int set_ensure_allocated(Set **s, const struct hash_ops *hash_ops) {
+        return hashmap_ensure_allocated((Hashmap**) s, hash_ops);
 }
 
 int set_put(Set *s, void *value) {

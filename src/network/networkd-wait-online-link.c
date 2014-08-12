@@ -34,12 +34,11 @@ int link_new(Manager *m, Link **ret, int ifindex, const char *ifname) {
         assert(m);
         assert(ifindex > 0);
 
-        r = hashmap_ensure_allocated(&m->links, NULL, NULL);
+        r = hashmap_ensure_allocated(&m->links, NULL);
         if (r < 0)
                 return r;
 
-        r = hashmap_ensure_allocated(&m->links_by_name,
-                                     string_hash_func, string_compare_func);
+        r = hashmap_ensure_allocated(&m->links_by_name, &string_hash_ops);
         if (r < 0)
                 return r;
 

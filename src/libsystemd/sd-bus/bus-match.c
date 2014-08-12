@@ -450,13 +450,13 @@ static int bus_match_add_compare_value(
                 where->child = c;
 
                 if (t == BUS_MATCH_MESSAGE_TYPE) {
-                        c->compare.children = hashmap_new(trivial_hash_func, trivial_compare_func);
+                        c->compare.children = hashmap_new(NULL);
                         if (!c->compare.children) {
                                 r = -ENOMEM;
                                 goto fail;
                         }
                 } else if (BUS_MATCH_CAN_HASH(t)) {
-                        c->compare.children = hashmap_new(string_hash_func, string_compare_func);
+                        c->compare.children = hashmap_new(&string_hash_ops);
                         if (!c->compare.children) {
                                 r = -ENOMEM;
                                 goto fail;

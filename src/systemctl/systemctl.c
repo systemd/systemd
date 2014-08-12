@@ -594,7 +594,7 @@ static int get_unit_list_recursive(
         assert(_unit_infos);
         assert(_machines);
 
-        replies = set_new(NULL, NULL);
+        replies = set_new(NULL);
         if (!replies)
                 return log_oom();
 
@@ -1338,7 +1338,7 @@ static int list_unit_files(sd_bus *bus, char **args) {
                 Iterator i;
                 unsigned n_units;
 
-                h = hashmap_new(string_hash_func, string_compare_func);
+                h = hashmap_new(&string_hash_ops);
                 if (!h)
                         return log_oom();
 
@@ -2746,7 +2746,7 @@ static int start_unit(sd_bus *bus, char **args) {
                         return r;
                 }
 
-                s = set_new(string_hash_func, string_compare_func);
+                s = set_new(&string_hash_ops);
                 if (!s)
                         return log_oom();
         }

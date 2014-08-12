@@ -144,7 +144,7 @@ static int dns_query_add_transaction(DnsQuery *q, DnsScope *s, DnsResourceKey *k
         assert(q);
         assert(s);
 
-        r = set_ensure_allocated(&q->transactions, NULL, NULL);
+        r = set_ensure_allocated(&q->transactions, NULL);
         if (r < 0)
                 return r;
 
@@ -166,7 +166,7 @@ static int dns_query_add_transaction(DnsQuery *q, DnsScope *s, DnsResourceKey *k
                         return r;
         }
 
-        r = set_ensure_allocated(&t->queries, NULL, NULL);
+        r = set_ensure_allocated(&t->queries, NULL);
         if (r < 0)
                 goto gc;
 

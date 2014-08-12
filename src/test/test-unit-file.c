@@ -44,7 +44,7 @@ static int test_unit_file_get_set(void) {
         Iterator i;
         UnitFileList *p;
 
-        h = hashmap_new(string_hash_func, string_compare_func);
+        h = hashmap_new(&string_hash_ops);
         assert(h);
 
         r = unit_file_get_list(UNIT_FILE_SYSTEM, NULL, h);

@@ -205,7 +205,7 @@ void broadcast_signal(int sig, bool wait_for_exit, bool send_sighup) {
         _cleanup_set_free_ Set *pids = NULL;
 
         if (wait_for_exit)
-                pids = set_new(trivial_hash_func, trivial_compare_func);
+                pids = set_new(NULL);
 
         assert_se(sigemptyset(&mask) == 0);
         assert_se(sigaddset(&mask, SIGCHLD) == 0);

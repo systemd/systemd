@@ -64,7 +64,7 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
-        pids = hashmap_new(trivial_hash_func, trivial_compare_func);
+        pids = hashmap_new(NULL);
         if (!pids) {
                 log_error("Failed to allocate set");
                 goto finish;

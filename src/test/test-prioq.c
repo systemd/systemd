@@ -98,6 +98,11 @@ static unsigned long test_hash(const void *a, const uint8_t hash_key[HASH_KEY_SI
         return (unsigned long) u;
 }
 
+static const struct hash_ops test_hash_ops = {
+        .hash = test_hash,
+        .compare = test_compare
+};
+
 static void test_struct(void) {
         Prioq *q;
         Set *s;
@@ -109,7 +114,7 @@ static void test_struct(void) {
         q = prioq_new(test_compare);
         assert_se(q);
 
-        s = set_new(test_hash, test_compare);
+        s = set_new(&test_hash_ops);
         assert_se(s);
 
         for (i = 0; i < SET_SIZE; i++) {
