@@ -26,8 +26,6 @@
 #include <sys/types.h>
 #include <inttypes.h>
 
-#include "sd-dhcp-lease.h"
-
 #include "_sd-common.h"
 
 /*
@@ -72,9 +70,6 @@ int sd_network_get_link_state(int ifindex, char **state);
  *   -ENODATA: networkd is not aware of the link
  */
 int sd_network_get_link_operational_state(int ifindex, char **state);
-
-/* Get DHCPv4 lease from ifindex. */
-int sd_network_get_link_dhcp_lease(int ifindex, sd_dhcp_lease **ret);
 
 /* Indicates whether or not LLMNR should be enabled for the link
  * Possible levels of support: yes, no, resolve

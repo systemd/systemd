@@ -33,7 +33,6 @@
 #include "fileio.h"
 #include "sd-network.h"
 #include "network-internal.h"
-#include "dhcp-lease-internal.h"
 
 _public_ int sd_network_get_link_state(int ifindex, char **state) {
         _cleanup_free_ char *s = NULL, *p = NULL;
@@ -131,33 +130,6 @@ _public_ int sd_network_get_link_llmnr(int ifindex, char **llmnr) {
         return 0;
 }
 
-_public_ int sd_network_get_link_dhcp_lease(int ifindex, sd_dhcp_lease **ret) {
-        _cleanup_free_ char *p = NULL, *s = NULL;
-        sd_dhcp_lease *lease = NULL;
-        int r;
-
-        assert_return(ifindex > 0, -EINVAL);
-        assert_return(ret, -EINVAL);
-
-        if (asprintf(&p, "/run/systemd/netif/links/%d", ifindex) < 0)
-                return -ENOMEM;
-
-        r = parse_env_file(p, NEWLINE, "DHCP_LEASE", &s, NULL);
-
-        if (r < 0)
-                return r;
-        else if (!s)
-                return -EIO;
-
-        r = dhcp_lease_load(s, &lease);
-        if (r < 0)
-                return r;
-
-        *ret = lease;
-
-        return 0;
-}
-
 static int network_get_link_strv(const char *key, int ifindex, char ***ret) {
         _cleanup_free_ char *p = NULL, *s = NULL;
         _cleanup_strv_free_ char **a = NULL;
@@ -219,16 +191,6 @@ _public_ int sd_network_monitor_new(sd_network_monitor **m, const char *category
 
         if (!category || streq(category, "links")) {
                 k = inotify_add_watch(fd, "/run/systemd/netif/links/", IN_MOVED_TO|IN_DELETE);
-                if (k < 0) {
-                        safe_close(fd);
-                        return -errno;
-                }
-
-                good = true;
-        }
-
-        if (!category || streq(category, "leases")) {
-                k = inotify_add_watch(fd, "/run/systemd/netif/leases/", IN_MOVED_TO|IN_DELETE);
                 if (k < 0) {
                         safe_close(fd);
                         return -errno;
