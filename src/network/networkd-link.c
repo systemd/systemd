@@ -2332,7 +2332,7 @@ int link_save(Link *link) {
 
         r = fopen_temporary(link->state_file, &f, &temp_path);
         if (r < 0)
-                goto finish;
+                return r;
 
         fchmod(fileno(f), 0644);
 
@@ -2393,7 +2393,7 @@ int link_save(Link *link) {
 
                 r = dhcp_lease_save(link->dhcp_lease, link->lease_file);
                 if (r < 0)
-                        goto finish;
+                        goto fail;
 
                 fprintf(f,
                         "DHCP_LEASE=%s\n",
@@ -2401,18 +2401,21 @@ int link_save(Link *link) {
         } else
                 unlink(link->lease_file);
 
-        fflush(f);
+        r = fflush_and_check(f);
+        if (r < 0)
+                goto fail;
 
-        if (ferror(f) || rename(temp_path, link->state_file) < 0) {
+        if (rename(temp_path, link->state_file) < 0) {
                 r = -errno;
-                unlink(link->state_file);
-                unlink(temp_path);
+                goto fail;
         }
 
-finish:
-        if (r < 0)
-                log_error_link(link, "Failed to save link data to %s: %s", link->state_file, strerror(-r));
+        return 0;
 
+fail:
+        log_error_link(link, "Failed to save link data to %s: %s", link->state_file, strerror(-r));
+        unlink(link->state_file);
+        unlink(temp_path);
         return r;
 }
 

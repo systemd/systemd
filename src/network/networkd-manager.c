@@ -440,7 +440,7 @@ int manager_save(Manager *m) {
 
         r = fopen_temporary(m->state_file, &f, &temp_path);
         if (r < 0)
-                goto finish;
+                return r;
 
         fchmod(fileno(f), 0644);
 
@@ -448,18 +448,21 @@ int manager_save(Manager *m) {
                 "# This is private data. Do not parse.\n"
                 "OPER_STATE=%s\n", operstate_str);
 
-        fflush(f);
+        r = fflush_and_check(f);
+        if (r < 0)
+                goto fail;
 
-        if (ferror(f) || rename(temp_path, m->state_file) < 0) {
+        if (rename(temp_path, m->state_file) < 0) {
                 r = -errno;
-                unlink(m->state_file);
-                unlink(temp_path);
+                goto fail;
         }
 
-finish:
-        if (r < 0)
-                log_error("Failed to save network state to %s: %s", m->state_file, strerror(-r));
+        return 0;
 
+fail:
+        log_error("Failed to save network state to %s: %s", m->state_file, strerror(-r));
+        unlink(m->state_file);
+        unlink(temp_path);
         return r;
 }
 
