@@ -36,6 +36,7 @@
 
 static bool arg_no_pager = false;
 static bool arg_legend = true;
+static bool arg_all = false;
 
 static void pager_open_if_enabled(void) {
 
@@ -208,13 +209,137 @@ static void dump_list(const char *prefix, char **l) {
         }
 }
 
+static int link_status_one(sd_rtnl *rtnl, struct udev *udev, const char *name) {
+        _cleanup_strv_free_ char **dns = NULL, **ntp = NULL;
+        _cleanup_free_ char *state = NULL, *operational_state = NULL;
+        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *reply = NULL;
+        _cleanup_udev_device_unref_ struct udev_device *d = NULL;
+        char devid[2 + DECIMAL_STR_MAX(int)];
+        _cleanup_free_ char *t = NULL;
+        const char *driver = NULL, *path = NULL, *vendor = NULL, *model = NULL;
+        struct ether_addr e;
+        unsigned iftype;
+        int r, ifindex;
+        bool have_mac;
+        uint32_t mtu;
+
+        assert(rtnl);
+        assert(udev);
+        assert(name);
+
+        if (safe_atoi(name, &ifindex) >= 0 && ifindex > 0)
+                r = sd_rtnl_message_new_link(rtnl, &req, RTM_GETLINK, ifindex);
+        else {
+                r = sd_rtnl_message_new_link(rtnl, &req, RTM_GETLINK, 0);
+                if (r < 0)
+                        return rtnl_log_create_error(r);
+
+                r = sd_rtnl_message_append_string(req, IFLA_IFNAME, name);
+        }
+
+        if (r < 0)
+                return rtnl_log_create_error(r);
+
+        r = sd_rtnl_call(rtnl, req, 0, &reply);
+        if (r < 0) {
+                log_error("Failed to query link: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_link_get_ifindex(reply, &ifindex);
+        if (r < 0)
+                return rtnl_log_parse_error(r);
+
+        r = sd_rtnl_message_read_string(reply, IFLA_IFNAME, &name);
+        if (r < 0)
+                return rtnl_log_parse_error(r);
+
+        r = sd_rtnl_message_link_get_type(reply, &iftype);
+        if (r < 0)
+                return rtnl_log_parse_error(r);
+
+        have_mac = sd_rtnl_message_read_ether_addr(reply, IFLA_ADDRESS, &e) >= 0;
+
+        if (have_mac) {
+                const uint8_t *p;
+                bool all_zeroes = true;
+
+                for (p = (uint8_t*) &e; p < (uint8_t*) &e + sizeof(e); p++)
+                        if (*p != 0) {
+                                all_zeroes = false;
+                                break;
+                        }
+
+                if (all_zeroes)
+                        have_mac = false;
+        }
+
+        sd_rtnl_message_read_u32(reply, IFLA_MTU, &mtu);
+
+        sd_network_get_link_state(ifindex, &state);
+        sd_network_get_link_operational_state(ifindex, &operational_state);
+
+        sd_network_get_link_dns(ifindex, &dns);
+        sd_network_get_link_ntp(ifindex, &ntp);
+
+        sprintf(devid, "n%i", ifindex);
+        d = udev_device_new_from_device_id(udev, devid);
+
+        link_get_type_string(iftype, d, &t);
+
+        if (d) {
+                driver = udev_device_get_property_value(d, "ID_NET_DRIVER");
+                path = udev_device_get_property_value(d, "ID_PATH");
+
+                vendor = udev_device_get_property_value(d, "ID_VENDOR_FROM_DATABASE");
+                if (!vendor)
+                        vendor = udev_device_get_property_value(d, "ID_VENDOR");
+
+                model = udev_device_get_property_value(d, "ID_MODEL_FROM_DATABASE");
+                if (!model)
+                        model = udev_device_get_property_value(d, "ID_MODEL");
+        }
+
+        printf("%i: %s\n", ifindex, name);
+
+        printf("        Type: %s\n"
+               "       State: %s (%s)\n",
+               strna(t),
+               strna(operational_state),
+               strna(state));
+
+        if (path)
+                printf("        Path: %s\n", path);
+        if (driver)
+                printf("      Driver: %s\n", driver);
+        if (vendor)
+                printf("      Vendor: %s\n", vendor);
+        if (model)
+                printf("       Model: %s\n", model);
+
+        if (have_mac)
+                printf("  HW Address: %s\n", ether_ntoa(&e));
+
+        if (mtu > 0)
+                printf("         MTU: %u\n", mtu);
+
+        dump_addresses(rtnl, "     Address: ", ifindex);
+
+        if (!strv_isempty(dns))
+                dump_list("         DNS: ", dns);
+        if (!strv_isempty(ntp))
+                dump_list("         NTP: ", ntp);
+
+        return 0;
+}
+
 static int link_status(char **args, unsigned n) {
         _cleanup_udev_unref_ struct udev *udev = NULL;
         _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
         char **name;
         int r;
 
-        if (n <= 1) {
+        if (n <= 1 && !arg_all) {
                 _cleanup_free_ char *operational_state = NULL;
                 _cleanup_strv_free_ char **dns = NULL, **ntp = NULL;
 
@@ -247,126 +372,53 @@ static int link_status(char **args, unsigned n) {
                 return -errno;
         }
 
-        STRV_FOREACH(name, args + 1) {
-                _cleanup_strv_free_ char **dns = NULL, **ntp = NULL;
-                _cleanup_free_ char *state = NULL, *operational_state = NULL;
+        if (arg_all) {
                 _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *reply = NULL;
-                _cleanup_udev_device_unref_ struct udev_device *d = NULL;
-                const char *canonical_name = NULL;
-                char devid[2 + DECIMAL_STR_MAX(int)];
-                int ifindex, canonical_ifindex;
-                _cleanup_free_ char *t = NULL;
-                const char *driver = NULL, *path = NULL, *vendor = NULL, *model = NULL;
-                struct ether_addr e;
-                unsigned iftype;
-                bool have_mac;
-                uint32_t mtu;
+                sd_rtnl_message *i;
+                bool space = false;
+                uint16_t type;
 
-                if (name != args+1)
-                        printf("\n");
+                r = sd_rtnl_message_new_link(rtnl, &req, RTM_GETLINK, 0);
+                if (r < 0)
+                        return rtnl_log_create_error(r);
 
-                if (safe_atoi(*name, &ifindex) >= 0 && ifindex > 0)
-                        r = sd_rtnl_message_new_link(rtnl, &req, RTM_GETLINK, ifindex);
-                else {
-                        r = sd_rtnl_message_new_link(rtnl, &req, RTM_GETLINK, 0);
-                        if (r < 0)
-                                return rtnl_log_create_error(r);
-
-                        r = sd_rtnl_message_append_string(req, IFLA_IFNAME, *name);
-                }
-
+                r = sd_rtnl_message_request_dump(req, true);
                 if (r < 0)
                         return rtnl_log_create_error(r);
 
                 r = sd_rtnl_call(rtnl, req, 0, &reply);
                 if (r < 0) {
-                        log_error("Failed to query link: %s", strerror(-r));
-                        continue;
+                        log_error("Failed to enumerate links: %s", strerror(-r));
+                        return r;
                 }
 
-                r = sd_rtnl_message_link_get_ifindex(reply, &canonical_ifindex);
-                if (r < 0)
-                        return rtnl_log_parse_error(r);
+                for (i = reply; i; i = sd_rtnl_message_next(i)) {
+                        const char *nn;
 
-                r = sd_rtnl_message_read_string(reply, IFLA_IFNAME, &canonical_name);
-                if (r < 0)
-                        return rtnl_log_parse_error(r);
+                        r = sd_rtnl_message_get_type(i, &type);
+                        if (r < 0)
+                                return rtnl_log_parse_error(r);
 
-                r = sd_rtnl_message_link_get_type(reply, &iftype);
-                if (r < 0)
-                        return rtnl_log_parse_error(r);
+                        if (type != RTM_NEWLINK)
+                                continue;
 
-                have_mac = sd_rtnl_message_read_ether_addr(reply, IFLA_ADDRESS, &e) >= 0;
+                        r = sd_rtnl_message_read_string(i, IFLA_IFNAME, &nn);
+                        if (r < 0)
+                                return rtnl_log_parse_error(r);
 
-                if (have_mac) {
-                        const uint8_t *p;
-                        bool all_zeroes = true;
+                        if (space)
+                                fputc('\n', stdout);
 
-                        for (p = (uint8_t*) &e; p < (uint8_t*) &e + sizeof(e); p++)
-                                if (*p != 0) {
-                                        all_zeroes = false;
-                                        break;
-                                }
-
-                        if (all_zeroes)
-                                have_mac = false;
+                        link_status_one(rtnl, udev, nn);
+                        space = true;
                 }
+        }
 
-                sd_rtnl_message_read_u32(reply, IFLA_MTU, &mtu);
+        STRV_FOREACH(name, args + 1) {
+                if (name != args+1)
+                        fputc('\n', stdout);
 
-                sd_network_get_link_state(canonical_ifindex, &state);
-                sd_network_get_link_operational_state(canonical_ifindex, &operational_state);
-
-                sd_network_get_link_dns(canonical_ifindex, &dns);
-                sd_network_get_link_ntp(canonical_ifindex, &ntp);
-
-                sprintf(devid, "n%i", canonical_ifindex);
-                d = udev_device_new_from_device_id(udev, devid);
-
-                link_get_type_string(iftype, d, &t);
-
-                if (d) {
-                        driver = udev_device_get_property_value(d, "ID_NET_DRIVER");
-                        path = udev_device_get_property_value(d, "ID_PATH");
-
-                        vendor = udev_device_get_property_value(d, "ID_VENDOR_FROM_DATABASE");
-                        if (!vendor)
-                                vendor = udev_device_get_property_value(d, "ID_VENDOR");
-
-                        model = udev_device_get_property_value(d, "ID_MODEL_FROM_DATABASE");
-                        if (!model)
-                                model = udev_device_get_property_value(d, "ID_MODEL");
-                }
-
-                printf("%i: %s\n", canonical_ifindex, canonical_name);
-
-                printf("        Type: %s\n"
-                       "       State: %s (%s)\n",
-                       strna(t),
-                       strna(operational_state),
-                       strna(state));
-
-                if (path)
-                        printf("        Path: %s\n", path);
-                if (driver)
-                        printf("      Driver: %s\n", driver);
-                if (vendor)
-                        printf("      Vendor: %s\n", vendor);
-                if (model)
-                        printf("       Model: %s\n", model);
-
-                if (have_mac)
-                        printf("  HW Address: %s\n", ether_ntoa(&e));
-
-                if (mtu > 0)
-                        printf("         MTU: %u\n", mtu);
-
-                dump_addresses(rtnl, "     Address: ", canonical_ifindex);
-
-                if (!strv_isempty(dns))
-                        dump_list("         DNS: ", dns);
-                if (!strv_isempty(ntp))
-                        dump_list("         NTP: ", ntp);
+                link_status_one(rtnl, udev, *name);
         }
 
         return 0;
@@ -376,7 +428,10 @@ static void help(void) {
         printf("%s [OPTIONS...]\n\n"
                "Query and control the networking subsystem.\n\n"
                "  -h --help             Show this help\n"
-               "     --version          Show package version\n\n"
+               "     --version          Show package version\n"
+               "     --no-pager         Do not pipe output into a pager\n"
+               "     --no-legend        Do not show the headers and footers\n"
+               "  -a --all              Show status for all links\n\n"
                "Commands:\n"
                "  list                  List links\n"
                "  status LINK           Show link status\n"
@@ -396,6 +451,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",   no_argument,       NULL, ARG_VERSION   },
                 { "no-pager",  no_argument,       NULL, ARG_NO_PAGER  },
                 { "no-legend", no_argument,       NULL, ARG_NO_LEGEND },
+                { "all",       no_argument,       NULL, 'a'           },
                 {}
         };
 
@@ -404,7 +460,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "ha", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -423,6 +479,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_LEGEND:
                         arg_legend = false;
+                        break;
+
+                case 'a':
+                        arg_all = true;
                         break;
 
                 case '?':
