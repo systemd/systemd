@@ -28,6 +28,7 @@
 #include "hashmap.h"
 #include "macro.h"
 #include "siphash24.h"
+#include "mempool.h"
 
 #define INITIAL_N_BUCKETS 31
 
@@ -50,82 +51,21 @@ struct Hashmap {
         bool from_pool:1;
 };
 
-struct pool {
-        struct pool *next;
-        unsigned n_tiles;
-        unsigned n_used;
+struct hashmap_tile {
+        Hashmap h;
+        struct hashmap_entry *initial_buckets[INITIAL_N_BUCKETS];
 };
 
-static struct pool *first_hashmap_pool = NULL;
-static void *first_hashmap_tile = NULL;
-
-static struct pool *first_entry_pool = NULL;
-static void *first_entry_tile = NULL;
-
-static void* allocate_tile(struct pool **first_pool, void **first_tile, size_t tile_size, unsigned at_least) {
-        unsigned i;
-
-        /* When a tile is released we add it to the list and simply
-         * place the next pointer at its offset 0. */
-
-        assert(tile_size >= sizeof(void*));
-        assert(at_least > 0);
-
-        if (*first_tile) {
-                void *r;
-
-                r = *first_tile;
-                *first_tile = * (void**) (*first_tile);
-                return r;
-        }
-
-        if (_unlikely_(!*first_pool) || _unlikely_((*first_pool)->n_used >= (*first_pool)->n_tiles)) {
-                unsigned n;
-                size_t size;
-                struct pool *p;
-
-                n = *first_pool ? (*first_pool)->n_tiles : 0;
-                n = MAX(at_least, n * 2);
-                size = PAGE_ALIGN(ALIGN(sizeof(struct pool)) + n*tile_size);
-                n = (size - ALIGN(sizeof(struct pool))) / tile_size;
-
-                p = malloc(size);
-                if (!p)
-                        return NULL;
-
-                p->next = *first_pool;
-                p->n_tiles = n;
-                p->n_used = 0;
-
-                *first_pool = p;
-        }
-
-        i = (*first_pool)->n_used++;
-
-        return ((uint8_t*) (*first_pool)) + ALIGN(sizeof(struct pool)) + i*tile_size;
-}
-
-static void deallocate_tile(void **first_tile, void *p) {
-        * (void**) p = *first_tile;
-        *first_tile = p;
-}
+static DEFINE_MEMPOOL(hashmap_pool, struct hashmap_tile, 8);
+static DEFINE_MEMPOOL(hashmap_entry_pool, struct hashmap_entry, 64);
 
 #ifdef VALGRIND
 
-static void drop_pool(struct pool *p) {
-        while (p) {
-                struct pool *n;
-                n = p->next;
-                free(p);
-                p = n;
-        }
-}
-
-__attribute__((destructor)) static void cleanup_pool(void) {
+__attribute__((destructor)) static void cleanup_pools(void) {
         /* Be nice to valgrind */
 
-        drop_pool(first_hashmap_pool);
-        drop_pool(first_entry_pool);
+        mempool_drop(&hashmap_entry_pool);
+        mempool_drop(&hashmap_pool);
 }
 
 #endif
@@ -223,33 +163,32 @@ static void get_hash_key(uint8_t hash_key[HASH_KEY_SIZE], bool reuse_is_ok) {
 
 Hashmap *hashmap_new(const struct hash_ops *hash_ops) {
         bool b;
+        struct hashmap_tile *ht;
         Hashmap *h;
-        size_t size;
 
         b = is_main_thread();
 
-        size = ALIGN(sizeof(Hashmap)) + INITIAL_N_BUCKETS * sizeof(struct hashmap_entry*);
-
         if (b) {
-                h = allocate_tile(&first_hashmap_pool, &first_hashmap_tile, size, 8);
-                if (!h)
+                ht = mempool_alloc_tile(&hashmap_pool);
+                if (!ht)
                         return NULL;
 
-                memzero(h, size);
+                memzero(ht, sizeof(struct hashmap_tile));
         } else {
-                h = malloc0(size);
+                ht = malloc0(sizeof(struct hashmap_tile));
 
-                if (!h)
+                if (!ht)
                         return NULL;
         }
 
+        h = &ht->h;
         h->hash_ops = hash_ops ? hash_ops : &trivial_hash_ops;
 
         h->n_buckets = INITIAL_N_BUCKETS;
         h->n_entries = 0;
         h->iterate_list_head = h->iterate_list_tail = NULL;
 
-        h->buckets = (struct hashmap_entry**) ((uint8_t*) h + ALIGN(sizeof(Hashmap)));
+        h->buckets = ht->initial_buckets;
 
         h->from_pool = b;
 
@@ -339,7 +278,7 @@ static void remove_entry(Hashmap *h, struct hashmap_entry *e) {
         unlink_entry(h, e, hash);
 
         if (h->from_pool)
-                deallocate_tile(&first_entry_tile, e);
+                mempool_free_tile(&hashmap_entry_pool, e);
         else
                 free(e);
 }
@@ -357,7 +296,7 @@ void hashmap_free(Hashmap*h) {
                 free(h->buckets);
 
         if (h->from_pool)
-                deallocate_tile(&first_hashmap_tile, h);
+                mempool_free_tile(&hashmap_pool, container_of(h, struct hashmap_tile, h));
         else
                 free(h);
 }
@@ -497,7 +436,7 @@ static int __hashmap_put(Hashmap *h, const void *key, void *value, unsigned hash
                 hash = bucket_hash(h, key);
 
         if (h->from_pool)
-                e = allocate_tile(&first_entry_pool, &first_entry_tile, sizeof(struct hashmap_entry), 64U);
+                e = mempool_alloc_tile(&hashmap_entry_pool);
         else
                 e = new(struct hashmap_entry, 1);
 
