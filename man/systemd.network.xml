@@ -220,7 +220,7 @@
                                         <listitem>
                                                 <para>A boolean. When true, sets up the route needed for
                                                 non-IPv4LL hosts to communicate with IPv4LL-only hosts. Defaults
-                                                to true.
+                                                to false.
                                                 </para>
                                         </listitem>
                                 </varlistentry>

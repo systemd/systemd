@@ -79,8 +79,6 @@ static int network_load_one(Manager *manager, const char *filename) {
         if (!network->filename)
                 return log_oom();
 
-        network->ipv4ll_route = true;
-
         network->dhcp = DHCP_SUPPORT_NONE;
         network->dhcp_ntp = true;
         network->dhcp_dns = true;
