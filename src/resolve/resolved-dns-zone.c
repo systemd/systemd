@@ -580,7 +580,7 @@ static int dns_zone_item_verify(DnsZoneItem *i) {
 
 int dns_zone_check_conflicts(DnsZone *zone, DnsResourceRecord *rr) {
         DnsZoneItem *i, *first;
-        int c;
+        int c = 0;
 
         assert(zone);
         assert(rr);
@@ -614,7 +614,7 @@ int dns_zone_check_conflicts(DnsZone *zone, DnsResourceRecord *rr) {
 
 int dns_zone_verify_conflicts(DnsZone *zone, DnsResourceKey *key) {
         DnsZoneItem *i, *first;
-        int c;
+        int c = 0;
 
         assert(zone);
 
