@@ -382,8 +382,8 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
         if (ctx->enable_name_policy && config->name_policy) {
                 NamePolicy *policy;
 
-                for (policy = config->name_policy; !respect_predictable && !new_name &&
-                                                   *policy != _NAMEPOLICY_INVALID; policy++) {
+                for (policy = config->name_policy;
+                     !new_name && *policy != _NAMEPOLICY_INVALID; policy++) {
                         switch (*policy) {
                                 case NAMEPOLICY_KERNEL:
                                         respect_predictable = true;
