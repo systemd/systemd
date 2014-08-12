@@ -415,7 +415,42 @@ int manager_bus_listen(Manager *m) {
         return 0;
 }
 
+static int set_put_in_addr(Set *s, const struct in_addr *address) {
+        char *p;
+        int r;
+
+        assert(s);
+
+        r = in_addr_to_string(AF_INET, (const union in_addr_union*) address, &p);
+        if (r < 0)
+                return r;
+
+        r = set_consume(s, p);
+        if (r == -EEXIST)
+                return 0;
+
+        return r;
+}
+
+static int set_put_in_addrv(Set *s, const struct in_addr *addresses, int n) {
+        int r, i, c = 0;
+
+        assert(s);
+        assert(n <= 0 || addresses);
+
+        for (i = 0; i < n; i++) {
+                r = set_put_in_addr(s, addresses+i);
+                if (r < 0)
+                        return r;
+
+                c += r;
+        }
+
+        return c;
+}
+
 int manager_save(Manager *m) {
+        _cleanup_set_free_free_ Set *dns = NULL, *ntp = NULL;
         Link *link;
         Iterator i;
         _cleanup_free_ char *temp_path = NULL;
@@ -427,12 +462,61 @@ int manager_save(Manager *m) {
         assert(m);
         assert(m->state_file);
 
+        /* We add all NTP and DNS server to a set, to filter out duplicates */
+        dns = set_new(string_hash_func, string_compare_func);
+        if (!dns)
+                return -ENOMEM;
+
+        ntp = set_new(string_hash_func, string_compare_func);
+        if (!ntp)
+                return -ENOMEM;
+
         HASHMAP_FOREACH(link, m->links, i) {
                 if (link->flags & IFF_LOOPBACK)
                         continue;
 
                 if (link->operstate > operstate)
                         operstate = link->operstate;
+
+                if (!link->network)
+                        continue;
+
+                /* First add the static configured entries */
+                r = set_put_strdupv(dns, link->network->dns);
+                if (r < 0)
+                        return r;
+
+                r = set_put_strdupv(ntp, link->network->ntp);
+                if (r < 0)
+                        return r;
+
+                if (!link->dhcp_lease)
+                        continue;
+
+                /* Secondly, add the entries acquired via DHCP */
+                if (link->network->dhcp_dns) {
+                        const struct in_addr *addresses;
+
+                        r = sd_dhcp_lease_get_dns(link->dhcp_lease, &addresses);
+                        if (r > 0) {
+                                r = set_put_in_addrv(dns, addresses, r);
+                                if (r < 0)
+                                        return r;
+                        } else if (r != -ENOENT)
+                                return r;
+                }
+
+                if (link->network->dhcp_ntp) {
+                        const struct in_addr *addresses;
+
+                        r = sd_dhcp_lease_get_ntp(link->dhcp_lease, &addresses);
+                        if (r > 0) {
+                                r = set_put_in_addrv(ntp, addresses, r);
+                                if (r < 0)
+                                        return r;
+                        } else if (r != -ENOENT)
+                                return r;
+                }
         }
 
         operstate_str = link_operstate_to_string(operstate);
@@ -447,6 +531,34 @@ int manager_save(Manager *m) {
         fprintf(f,
                 "# This is private data. Do not parse.\n"
                 "OPER_STATE=%s\n", operstate_str);
+
+        if (!set_isempty(dns)) {
+                bool space = false;
+                char *p;
+
+                fputs("DNS=", f);
+                SET_FOREACH(p, dns, i) {
+                        if (space)
+                                fputc(' ', f);
+                        fputs(p, f);
+                        space = true;
+                }
+                fputc('\n', f);
+        }
+
+        if (!set_isempty(ntp)) {
+                bool space = false;
+                char *p;
+
+                fputs("NTP=", f);
+                SET_FOREACH(p, ntp, i) {
+                        if (space)
+                                fputc(' ', f);
+                        fputs(p, f);
+                        space = true;
+                }
+                fputc('\n', f);
+        }
 
         r = fflush_and_check(f);
         if (r < 0)

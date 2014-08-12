@@ -23,6 +23,7 @@
 
 #include "set.h"
 #include "hashmap.h"
+#include "strv.h"
 
 #define MAKE_SET(h) ((Set*) (h))
 #define MAKE_HASHMAP(s) ((Hashmap*) (s))
@@ -57,6 +58,39 @@ int set_consume(Set *s, void *value) {
                 free(value);
 
         return r;
+}
+
+int set_put_strdup(Set *s, const char *p) {
+        char *c;
+        int r;
+
+        assert(s);
+        assert(p);
+
+        c = strdup(p);
+        if (!c)
+                return -ENOMEM;
+
+        r = set_consume(s, c);
+        if (r == -EEXIST)
+                return 0;
+
+        return r;
+}
+
+int set_put_strdupv(Set *s, char **l) {
+        int n = 0, r;
+        char **i;
+
+        STRV_FOREACH(i, l) {
+                r = set_put_strdup(s, *i);
+                if (r < 0)
+                        return r;
+
+                n += r;
+        }
+
+        return n;
 }
 
 int set_replace(Set *s, void *value) {
