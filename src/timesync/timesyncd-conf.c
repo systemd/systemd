@@ -1,11 +1,9 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#pragma once
-
 /***
   This file is part of systemd.
 
-  Copyright 2014 Thomas Hindø Paabøl Andersen
+  Copyright 2014 Kay Sievers, Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -21,10 +19,31 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "util.h"
-#include "sd-network.h"
+#include "timesyncd-manager.h"
+#include "timesyncd-conf.h"
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(sd_network_monitor*, sd_network_monitor_unref);
-#define _cleanup_network_monitor_unref_ _cleanup_(sd_network_monitor_unrefp)
+int config_parse_servers(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
-bool network_is_online(void);
+        Manager *m = userdata;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue))
+                manager_flush_names(m);
+
+        manager_add_server_string(m, rvalue);
+
+        return 0;
+}

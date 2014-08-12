@@ -1,5 +1,7 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
+#pragma once
+
 /***
   This file is part of systemd.
 
@@ -19,38 +21,23 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "list.h"
-#include "socket-util.h"
-#include "ratelimit.h"
 #include "sd-event.h"
 #include "sd-resolve.h"
 #include "sd-network.h"
+#include "list.h"
+#include "socket-util.h"
+#include "ratelimit.h"
+#include "timesyncd-server.h"
 
 typedef struct Manager Manager;
-typedef struct ServerAddress ServerAddress;
-typedef struct ServerName ServerName;
-
-struct ServerAddress {
-        union sockaddr_union sockaddr;
-        socklen_t socklen;
-        LIST_FIELDS(ServerAddress, addresses);
-};
-
-struct ServerName {
-        char *string;
-        LIST_HEAD(ServerAddress, addresses);
-        LIST_FIELDS(ServerName, names);
-};
-
-static inline int server_address_pretty(ServerAddress *a, char **pretty) {
-        return sockaddr_pretty(&a->sockaddr.sa, a->socklen, true, pretty);
-}
 
 struct Manager {
         sd_event *event;
         sd_resolve *resolve;
 
+        LIST_HEAD(ServerName, link_servers);
         LIST_HEAD(ServerName, servers);
+        LIST_HEAD(ServerName, fallback_servers);
 
         RateLimit ratelimit;
 
@@ -102,6 +89,13 @@ struct Manager {
         bool rtc_local_time;
 };
 
-const struct ConfigPerfItem* timesyncd_gperf_lookup(const char *key, unsigned length);
+int manager_new(Manager **ret);
+void manager_free(Manager *m);
 
-int config_parse_servers(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
+
+int manager_parse_config_file(Manager *m);
+int manager_add_server_string(Manager *m, const char *string);
+void manager_flush_names(Manager *m);
+int manager_connect(Manager *m);
+void manager_disconnect(Manager *m);

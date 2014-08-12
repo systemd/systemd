@@ -2441,7 +2441,8 @@ libsystemd_internal_la_SOURCES = \
 	src/libsystemd/sd-login/sd-login.c \
 	src/libsystemd/sd-path/sd-path.c \
 	src/libsystemd/sd-network/sd-network.c \
-	src/libsystemd/sd-network/network-util.h
+	src/libsystemd/sd-network/network-util.h \
+	src/libsystemd/sd-network/network-util.c
 
 nodist_libsystemd_internal_la_SOURCES = \
 	src/libsystemd/libsystemd.sym \
@@ -4593,7 +4594,12 @@ EXTRA_DIST += \
 if ENABLE_TIMESYNCD
 systemd_timesyncd_SOURCES = \
 	src/timesync/timesyncd.c \
-	src/timesync/timesyncd.h
+	src/timesync/timesyncd-manager.c \
+	src/timesync/timesyncd-manager.h \
+	src/timesync/timesyncd-conf.c \
+	src/timesync/timesyncd-conf.h \
+	src/timesync/timesyncd-server.c \
+	src/timesync/timesyncd-server.h
 
 nodist_systemd_timesyncd_SOURCES = \
 	src/timesync/timesyncd-gperf.c

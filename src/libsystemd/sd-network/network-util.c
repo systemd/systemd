@@ -1,11 +1,9 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#pragma once
-
 /***
   This file is part of systemd.
 
-  Copyright 2014 Thomas Hindø Paabøl Andersen
+  Copyright 2014 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -21,10 +19,19 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "util.h"
-#include "sd-network.h"
+#include "strv.h"
+#include "network-util.h"
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(sd_network_monitor*, sd_network_monitor_unref);
-#define _cleanup_network_monitor_unref_ _cleanup_(sd_network_monitor_unrefp)
+bool network_is_online(void) {
+        _cleanup_free_ char *state = NULL;
+        int r;
 
-bool network_is_online(void);
+        r = sd_network_get_operational_state(&state);
+        if (r < 0) /* if we don't know anything, we consider the system online */
+                return true;
+
+        if (STR_IN_SET(state, "routable", "degraded"))
+                return true;
+
+        return false;
+}

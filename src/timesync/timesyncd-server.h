@@ -5,7 +5,7 @@
 /***
   This file is part of systemd.
 
-  Copyright 2014 Thomas Hindø Paabøl Andersen
+  Copyright 2014 Kay Sievers, Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -21,10 +21,24 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "util.h"
-#include "sd-network.h"
+typedef struct ServerAddress ServerAddress;
+typedef struct ServerName ServerName;
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(sd_network_monitor*, sd_network_monitor_unref);
-#define _cleanup_network_monitor_unref_ _cleanup_(sd_network_monitor_unrefp)
+#include "socket-util.h"
+#include "list.h"
 
-bool network_is_online(void);
+struct ServerAddress {
+        union sockaddr_union sockaddr;
+        socklen_t socklen;
+        LIST_FIELDS(ServerAddress, addresses);
+};
+
+struct ServerName {
+        char *string;
+        LIST_HEAD(ServerAddress, addresses);
+        LIST_FIELDS(ServerName, names);
+};
+
+static inline int server_address_pretty(ServerAddress *a, char **pretty) {
+        return sockaddr_pretty(&a->sockaddr.sa, a->socklen, true, pretty);
+}
