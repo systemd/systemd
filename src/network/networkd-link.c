@@ -33,7 +33,6 @@
 #include "network-internal.h"
 #include "conf-parser.h"
 
-#include "network-util.h"
 #include "dhcp-lease-internal.h"
 
 static int link_new(Manager *manager, sd_rtnl_message *message, Link **ret) {

@@ -212,6 +212,7 @@ AM_CPPFLAGS = \
 	-I $(top_srcdir)/src/libsystemd/sd-bus \
 	-I $(top_srcdir)/src/libsystemd/sd-event \
 	-I $(top_srcdir)/src/libsystemd/sd-rtnl \
+	-I $(top_srcdir)/src/libsystemd/sd-network \
 	-I $(top_srcdir)/src/libsystemd-network \
 	-I $(top_srcdir)/src/libsystemd-terminal \
 	$(OUR_CPPFLAGS)
