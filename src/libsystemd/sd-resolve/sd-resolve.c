@@ -772,12 +772,14 @@ static int complete_query(sd_resolve *resolve, sd_resolve_query *q) {
                 assert_not_reached("Cannot complete unknown query type");
         }
 
-        resolve->current = sd_resolve_query_unref(q);
+        resolve->current = NULL;
 
         if (q->floating) {
                 resolve_query_disconnect(q);
                 sd_resolve_query_unref(q);
         }
+
+        sd_resolve_query_unref(q);
 
         return r;
 }
