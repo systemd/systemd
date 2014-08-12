@@ -87,7 +87,7 @@ struct sd_resolve {
 
         unsigned current_id;
         sd_resolve_query* query_array[QUERIES_MAX];
-        unsigned n_queries, n_done;
+        unsigned n_queries, n_done, n_outstanding;
 
         sd_event_source *event_source;
         sd_event *event;
@@ -526,7 +526,7 @@ static int start_threads(sd_resolve *resolve, unsigned extra) {
         unsigned n;
         int r;
 
-        n = resolve->n_queries + extra - resolve->n_done;
+        n = resolve->n_outstanding + extra;
         n = CLAMP(n, WORKERS_MIN, WORKERS_MAX);
 
         while (resolve->n_valid_workers < n) {
@@ -854,6 +854,9 @@ static int handle_response(sd_resolve *resolve, const Packet *packet, size_t len
                 return 0;
         }
 
+        assert(resolve->n_outstanding > 0);
+        resolve->n_outstanding--;
+
         q = lookup_query(resolve, resp->id);
         if (!q)
                 return 0;
@@ -1099,6 +1102,8 @@ _public_ int sd_resolve_getaddrinfo(
                 return -errno;
         }
 
+        resolve->n_outstanding++;
+
         if (_q)
                 *_q = q;
 
@@ -1167,6 +1172,8 @@ _public_ int sd_resolve_getnameinfo(
                 return -errno;
         }
 
+        resolve->n_outstanding++;
+
         if (_q)
                 *_q = q;
 
@@ -1230,6 +1237,8 @@ static int resolve_res(
                 sd_resolve_query_unref(q);
                 return -errno;
         }
+
+        resolve->n_outstanding++;
 
         if (_q)
                 *_q = q;
