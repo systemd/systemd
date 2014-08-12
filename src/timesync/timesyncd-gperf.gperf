@@ -14,4 +14,6 @@ struct ConfigPerfItem;
 %struct-type
 %includes
 %%
-Time.Servers,                    config_parse_servers,      0, 0
+Time.NTP,           config_parse_servers, SERVER_SYSTEM,   0
+Time.Servers,       config_parse_servers, SERVER_SYSTEM,   0
+Time.FallbackNTP,   config_parse_servers, SERVER_FALLBACK, 0

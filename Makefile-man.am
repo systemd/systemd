@@ -1199,7 +1199,8 @@ endif
 
 if ENABLE_TIMESYNCD
 MANPAGES += \
-	man/systemd-timesyncd.service.8
+	man/systemd-timesyncd.service.8 \
+	man/timesyncd.conf.5
 MANPAGES_ALIAS += \
 	man/systemd-timesyncd.8
 man/systemd-timesyncd.8: man/systemd-timesyncd.service.8
@@ -1688,6 +1689,7 @@ EXTRA_DIST += \
 	man/sysusers.d.xml \
 	man/telinit.xml \
 	man/timedatectl.xml \
+	man/timesyncd.conf.xml \
 	man/tmpfiles.d.xml \
 	man/udev.conf.xml \
 	man/udev.xml \

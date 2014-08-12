@@ -8,4 +8,5 @@
 # See timesyncd.conf(5) for details
 
 [Time]
-#Servers=@NTP_SERVERS@
+#NTP=
+#FallbackNTP=@NTP_SERVERS@

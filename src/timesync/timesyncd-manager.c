@@ -734,33 +734,42 @@ static int manager_begin(Manager *m) {
         return manager_send_request(m);
 }
 
-static void server_name_flush_addresses(ServerName *n) {
-        ServerAddress *a;
-
-        assert(n);
-
-        while ((a = n->addresses)) {
-                LIST_REMOVE(addresses, n->addresses, a);
-                free(a);
-        }
-}
-
-void manager_flush_names(Manager *m) {
-        ServerName *n;
-
+void manager_set_server_name(Manager *m, ServerName *n) {
         assert(m);
 
-        while ((n = m->servers)) {
-                LIST_REMOVE(names, m->servers, n);
-                free(n->string);
-                server_name_flush_addresses(n);
-                free(n);
+        if (m->current_server_name == n)
+                return;
+
+        m->current_server_name = n;
+        m->current_server_address = NULL;
+
+        manager_disconnect(m);
+
+        if (n)
+                log_debug("Selected server %s.", n->string);
+}
+
+void manager_set_server_address(Manager *m, ServerAddress *a) {
+        assert(m);
+
+        if (m->current_server_address == a)
+                return;
+
+        m->current_server_name = a ? a->name : NULL;
+        m->current_server_address = a;
+
+        manager_disconnect(m);
+
+        if (a) {
+                _cleanup_free_ char *pretty = NULL;
+                server_address_pretty(a, &pretty);
+                log_debug("Selected address %s of server %s.", strna(pretty), a->name->string);
         }
 }
 
 static int manager_resolve_handler(sd_resolve_query *q, int ret, const struct addrinfo *ai, void *userdata) {
         Manager *m = userdata;
-        ServerAddress *a, *last = NULL;
+        int r;
 
         assert(q);
         assert(m);
@@ -775,31 +784,25 @@ static int manager_resolve_handler(sd_resolve_query *q, int ret, const struct ad
                 return manager_connect(m);
         }
 
-        server_name_flush_addresses(m->current_server_name);
-
         for (; ai; ai = ai->ai_next) {
                 _cleanup_free_ char *pretty = NULL;
+                ServerAddress *a;
 
                 assert(ai->ai_addr);
                 assert(ai->ai_addrlen >= offsetof(struct sockaddr, sa_data));
-                assert(ai->ai_addrlen <= sizeof(union sockaddr_union));
 
                 if (!IN_SET(ai->ai_addr->sa_family, AF_INET, AF_INET6)) {
                         log_warning("Unsuitable address protocol for %s", m->current_server_name->string);
                         continue;
                 }
 
-                a = new0(ServerAddress, 1);
-                if (!a)
-                        return log_oom();
+                r = server_address_new(m->current_server_name, &a, (const union sockaddr_union*) ai->ai_addr, ai->ai_addrlen);
+                if (r < 0) {
+                        log_error("Failed to add server address: %s", strerror(-r));
+                        return r;
+                }
 
-                memcpy(&a->sockaddr, ai->ai_addr, ai->ai_addrlen);
-                a->socklen = ai->ai_addrlen;
-
-                LIST_INSERT_AFTER(addresses, m->current_server_name->addresses, last, a);
-                last = a;
-
-                sockaddr_pretty(&a->sockaddr.sa, a->socklen, true, &pretty);
+                server_address_pretty(a, &pretty);
                 log_debug("Resolved address %s for %s.", pretty, m->current_server_name->string);
         }
 
@@ -810,12 +813,12 @@ static int manager_resolve_handler(sd_resolve_query *q, int ret, const struct ad
                 return manager_connect(m);
         }
 
-        m->current_server_address = m->current_server_name->addresses;
+        manager_set_server_address(m, m->current_server_name->addresses);
 
         return manager_begin(m);
 }
 
-static int manager_retry(sd_event_source *source, usec_t usec, void *userdata) {
+static int manager_retry_connect(sd_event_source *source, usec_t usec, void *userdata) {
         Manager *m = userdata;
 
         assert(m);
@@ -824,11 +827,6 @@ static int manager_retry(sd_event_source *source, usec_t usec, void *userdata) {
 }
 
 int manager_connect(Manager *m) {
-
-        struct addrinfo hints = {
-                .ai_flags = AI_NUMERICSERV|AI_ADDRCONFIG,
-                .ai_socktype = SOCK_DGRAM,
-        };
         int r;
 
         assert(m);
@@ -839,7 +837,7 @@ int manager_connect(Manager *m) {
         if (!ratelimit_test(&m->ratelimit)) {
                 log_debug("Slowing down attempts to contact servers.");
 
-                r = sd_event_add_time(m->event, &m->event_retry, clock_boottime_or_monotonic(), now(clock_boottime_or_monotonic()) + RETRY_USEC, 0, manager_retry, m);
+                r = sd_event_add_time(m->event, &m->event_retry, clock_boottime_or_monotonic(), now(clock_boottime_or_monotonic()) + RETRY_USEC, 0, manager_retry_connect, m);
                 if (r < 0) {
                         log_error("Failed to create retry timer: %s", strerror(-r));
                         return r;
@@ -851,26 +849,56 @@ int manager_connect(Manager *m) {
         /* If we already are operating on some address, switch to the
          * next one. */
         if (m->current_server_address && m->current_server_address->addresses_next)
-                m->current_server_address = m->current_server_address->addresses_next;
+                manager_set_server_address(m, m->current_server_address->addresses_next);
         else {
-                /* Hmm, we are through all addresses, let's look for the next host instead */
-                m->current_server_address = NULL;
+                struct addrinfo hints = {
+                        .ai_flags = AI_NUMERICSERV|AI_ADDRCONFIG,
+                        .ai_socktype = SOCK_DGRAM,
+                };
 
+                /* Hmm, we are through all addresses, let's look for the next host instead */
                 if (m->current_server_name && m->current_server_name->names_next)
-                        m->current_server_name = m->current_server_name->names_next;
+                        manager_set_server_name(m, m->current_server_name->names_next);
                 else {
-                        if (!m->servers) {
-                                m->current_server_name = NULL;
+                        ServerName *f;
+
+                        /* Our current server name list is exhausted,
+                         * let's find the next one to iterate. First
+                         * we try the system list, then the link list.
+                         * After having processed the link list we
+                         * jump back to the system list. However, if
+                         * both lists are empty, we change to the
+                         * fallback list. */
+                        if (!m->current_server_name || m->current_server_name->type == SERVER_LINK) {
+                                f = m->system_servers;
+                                if (!f)
+                                        f = m->link_servers;
+                        } else {
+                                f = m->link_servers;
+                                if (!f)
+                                        f = m->system_servers;
+                        }
+
+                        if (!f)
+                                f = m->fallback_servers;
+
+                        if (!f) {
+                                manager_set_server_name(m, NULL);
                                 log_debug("No server found.");
                                 return 0;
                         }
 
-                        m->current_server_name = m->servers;
+                        manager_set_server_name(m, f);
                 }
 
                 /* Tell the resolver to reread /etc/resolv.conf, in
                  * case it changed. */
                 res_init();
+
+                /* Flush out any previously resolved addresses */
+                server_name_flush_addresses(m->current_server_name);
+
+                log_debug("Resolving %s...", m->current_server_name->string);
 
                 r = sd_resolve_getaddrinfo(m->resolve, &m->resolve_query, m->current_server_name->string, "123", &hints, manager_resolve_handler, m);
                 if (r < 0) {
@@ -886,52 +914,6 @@ int manager_connect(Manager *m) {
                 return r;
 
         return 1;
-}
-
-static int manager_add_server(Manager *m, const char *server) {
-        ServerName *n, *tail;
-
-        assert(m);
-        assert(server);
-
-        n = new0(ServerName, 1);
-        if (!n)
-                return -ENOMEM;
-
-        n->string = strdup(server);
-        if (!n->string) {
-                free(n);
-                return -ENOMEM;
-        }
-
-        LIST_FIND_TAIL(names, m->servers, tail);
-        LIST_INSERT_AFTER(names, m->servers, tail, n);
-
-        return 0;
-}
-
-int manager_add_server_string(Manager *m, const char *string) {
-        const char *word, *state;
-        size_t l;
-        int r;
-
-        assert(m);
-        assert(string);
-
-        FOREACH_WORD_QUOTED(word, l, string, state) {
-                char t[l+1];
-
-                memcpy(t, word, l);
-                t[l] = 0;
-
-                r = manager_add_server(m, t);
-                if (r < 0)
-                        log_error("Failed to add server %s to configuration, ignoring: %s", t, strerror(-r));
-        }
-        if (!isempty(state))
-                log_warning("Trailing garbage at the end of server list, ignoring.");
-
-        return 0;
 }
 
 void manager_disconnect(Manager *m) {
@@ -952,13 +934,30 @@ void manager_disconnect(Manager *m) {
         sd_notifyf(false, "STATUS=Idle.");
 }
 
+void manager_flush_server_names(Manager  *m, ServerType t) {
+        assert(m);
+
+        if (t == SERVER_SYSTEM)
+                while (m->system_servers)
+                        server_name_free(m->system_servers);
+
+        if (t == SERVER_LINK)
+                while (m->link_servers)
+                        server_name_free(m->link_servers);
+
+        if (t == SERVER_FALLBACK)
+                while (m->fallback_servers)
+                        server_name_free(m->fallback_servers);
+}
 
 void manager_free(Manager *m) {
         if (!m)
                 return;
 
         manager_disconnect(m);
-        manager_flush_names(m);
+        manager_flush_server_names(m, SERVER_SYSTEM);
+        manager_flush_server_names(m, SERVER_LINK);
+        manager_flush_server_names(m, SERVER_FALLBACK);
 
         sd_event_source_unref(m->event_retry);
 
@@ -971,13 +970,47 @@ void manager_free(Manager *m) {
         free(m);
 }
 
-int manager_parse_config_file(Manager *m) {
+static int manager_network_read_link_servers(Manager *m) {
+        _cleanup_strv_free_ char **ntp = NULL;
+        ServerName *n, *nx;
+        char **i;
+        int r;
+
         assert(m);
 
-        return config_parse(NULL, "/etc/systemd/timesyncd.conf", NULL,
-                            "Time\0",
-                            config_item_perf_lookup, timesyncd_gperf_lookup,
-                            false, false, true, m);
+        r = sd_network_get_ntp(&ntp);
+        if (r < 0)
+                goto clear;
+
+        LIST_FOREACH(names, n, m->link_servers)
+                n->marked = true;
+
+        STRV_FOREACH(i, ntp) {
+                bool found = false;
+
+                LIST_FOREACH(names, n, m->link_servers)
+                        if (streq(n->string, *i)) {
+                                n->marked = false;
+                                found = true;
+                                break;
+                        }
+
+                if (!found) {
+                        r = server_name_new(m, NULL, SERVER_LINK, *i);
+                        if (r < 0)
+                                goto clear;
+                }
+        }
+
+        LIST_FOREACH_SAFE(names, n, nx, m->link_servers)
+                if (n->marked)
+                        server_name_free(n);
+
+        return 0;
+
+clear:
+        manager_flush_server_names(m, SERVER_LINK);
+        return r;
 }
 
 static int manager_network_event_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
@@ -989,11 +1022,13 @@ static int manager_network_event_handler(sd_event_source *s, int fd, uint32_t re
 
         sd_network_monitor_flush(m->network_monitor);
 
+        manager_network_read_link_servers(m);
+
         /* check if the machine is online */
         online = network_is_online();
 
         /* check if the client is currently connected */
-        connected = m->server_socket >= 0;
+        connected = m->server_socket >= 0 || m->resolve_query;
 
         if (connected && !online) {
                 log_info("No network connectivity, watching for changes.");
@@ -1051,7 +1086,7 @@ int manager_new(Manager **ret) {
 
         RATELIMIT_INIT(m->ratelimit, RATELIMIT_INTERVAL_USEC, RATELIMIT_BURST);
 
-        r = manager_add_server_string(m, NTP_SERVERS);
+        r = manager_parse_server_string(m, SERVER_FALLBACK, NTP_SERVERS);
         if (r < 0)
                 return r;
 
@@ -1073,6 +1108,10 @@ int manager_new(Manager **ret) {
                 return r;
 
         r = manager_network_monitor_listen(m);
+        if (r < 0)
+                return r;
+
+        r = manager_network_read_link_servers(m);
         if (r < 0)
                 return r;
 

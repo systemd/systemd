@@ -27,16 +27,17 @@
 #include "list.h"
 #include "socket-util.h"
 #include "ratelimit.h"
-#include "timesyncd-server.h"
 
 typedef struct Manager Manager;
+
+#include "timesyncd-server.h"
 
 struct Manager {
         sd_event *event;
         sd_resolve *resolve;
 
+        LIST_HEAD(ServerName, system_servers);
         LIST_HEAD(ServerName, link_servers);
-        LIST_HEAD(ServerName, servers);
         LIST_HEAD(ServerName, fallback_servers);
 
         RateLimit ratelimit;
@@ -94,8 +95,9 @@ void manager_free(Manager *m);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 
-int manager_parse_config_file(Manager *m);
-int manager_add_server_string(Manager *m, const char *string);
-void manager_flush_names(Manager *m);
+void manager_set_server_name(Manager *m, ServerName *n);
+void manager_set_server_address(Manager *m, ServerAddress *a);
+void manager_flush_server_names(Manager *m, ServerType t);
+
 int manager_connect(Manager *m);
 void manager_disconnect(Manager *m);
