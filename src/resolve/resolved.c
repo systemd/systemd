@@ -97,6 +97,8 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
+        sd_event_get_exit_code(m->event, &r);
+
 finish:
         sd_notify(false, "STATUS=Shutting down...");
 
