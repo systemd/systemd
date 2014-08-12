@@ -216,14 +216,20 @@ static int link_status(char **args, unsigned n) {
 
         if (n <= 1) {
                 _cleanup_free_ char *operational_state = NULL;
+                _cleanup_strv_free_ char **dns = NULL, **ntp = NULL;
 
-                r = sd_network_get_operational_state(&operational_state);
-                if (r < 0) {
-                        log_error("Failed to get operational state: %s", strerror(-r));
-                        return r;
-                }
+                sd_network_get_operational_state(&operational_state);
+                if (operational_state)
+                        printf("       State: %s\n", operational_state);
 
-                printf("State: %s\n", operational_state);
+                sd_network_get_dns(&dns);
+                if (!strv_isempty(dns))
+                        dump_list("         DNS: ", dns);
+
+                sd_network_get_dns(&ntp);
+                if (!strv_isempty(ntp))
+                        dump_list("         NTP: ", ntp);
+
                 return 0;
         }
 
@@ -312,7 +318,7 @@ static int link_status(char **args, unsigned n) {
                 sd_network_get_link_operational_state(canonical_ifindex, &operational_state);
 
                 sd_network_get_link_dns(canonical_ifindex, &dns);
-                sd_network_get_link_dns(canonical_ifindex, &ntp);
+                sd_network_get_link_ntp(canonical_ifindex, &ntp);
 
                 sprintf(devid, "n%i", canonical_ifindex);
                 d = udev_device_new_from_device_id(udev, devid);

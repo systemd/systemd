@@ -34,6 +34,64 @@
 #include "sd-network.h"
 #include "network-internal.h"
 
+_public_ int sd_network_get_operational_state(char **state) {
+        _cleanup_free_ char *s = NULL;
+        int r;
+
+        assert_return(state, -EINVAL);
+
+        r = parse_env_file("/run/systemd/netif/state", NEWLINE, "OPER_STATE", &s, NULL);
+        if (r == -ENOENT)
+                return -ENODATA;
+        if (r < 0)
+                return r;
+        if (isempty(s))
+                return -ENODATA;
+
+        *state = s;
+        s = NULL;
+
+        return 0;
+}
+
+static int network_get_strv(const char *key, char ***ret) {
+        _cleanup_strv_free_ char **a = NULL;
+        _cleanup_free_ char *s = NULL;
+        int r;
+
+        assert_return(ret, -EINVAL);
+
+        r = parse_env_file("/run/systemd/netif/state", NEWLINE, key, &s, NULL);
+        if (r == -ENOENT)
+                return -ENODATA;
+        if (r < 0)
+                return r;
+        if (isempty(s)) {
+                *ret = NULL;
+                return 0;
+        }
+
+        a = strv_split(s, " ");
+        if (!a)
+                return -ENOMEM;
+
+        strv_uniq(a);
+        r = strv_length(a);
+
+        *ret = a;
+        a = NULL;
+
+        return r;
+}
+
+_public_ int sd_network_get_dns(char ***ret) {
+        return network_get_strv("DNS", ret);
+}
+
+_public_ int sd_network_get_ntp(char ***ret) {
+        return network_get_strv("NTP", ret);
+}
+
 _public_ int sd_network_get_link_state(int ifindex, char **state) {
         _cleanup_free_ char *s = NULL, *p = NULL;
         int r;
@@ -47,34 +105,12 @@ _public_ int sd_network_get_link_state(int ifindex, char **state) {
         r = parse_env_file(p, NEWLINE, "ADMIN_STATE", &s, NULL);
         if (r == -ENOENT)
                 return -ENODATA;
-        else if (r < 0)
+        if (r < 0)
                 return r;
-        else if (!s)
-                return -EIO;
-
+        if (isempty(s))
+                return -ENODATA;
         if (streq(s, "initializing"))
                 return -EBUSY;
-
-        *state = s;
-        s = NULL;
-
-        return 0;
-}
-
-_public_ int sd_network_get_operational_state(char **state) {
-        _cleanup_free_ char *s = NULL;
-        int r;
-
-        assert_return(state, -EINVAL);
-
-        r = parse_env_file("/run/systemd/netif/state", NEWLINE, "OPER_STATE",
-                           &s, NULL);
-        if (r == -ENOENT)
-                return -ENODATA;
-        else if (r < 0)
-                return r;
-        else if (!s)
-                return -EIO;
 
         *state = s;
         s = NULL;
@@ -95,10 +131,10 @@ _public_ int sd_network_get_link_operational_state(int ifindex, char **state) {
         r = parse_env_file(p, NEWLINE, "OPER_STATE", &s, NULL);
         if (r == -ENOENT)
                 return -ENODATA;
-        else if (r < 0)
+        if (r < 0)
                 return r;
-        else if (!s)
-                return -EIO;
+        if (isempty(s))
+                return -ENODATA;
 
         *state = s;
         s = NULL;
@@ -119,9 +155,9 @@ _public_ int sd_network_get_link_llmnr(int ifindex, char **llmnr) {
         r = parse_env_file(p, NEWLINE, "LLMNR", &s, NULL);
         if (r == -ENOENT)
                 return -ENODATA;
-        else if (r < 0)
+        if (r < 0)
                 return r;
-        else if (!s)
+        if (isempty(s))
                 return -ENODATA;
 
         *llmnr = s;
@@ -142,11 +178,12 @@ static int network_get_link_strv(const char *key, int ifindex, char ***ret) {
                 return -ENOMEM;
 
         r = parse_env_file(p, NEWLINE, key, &s, NULL);
+        if (r == -ENOENT)
+                return -ENODATA;
         if (r < 0)
                 return r;
-        else if (!s) {
+        if (isempty(s)) {
                 *ret = NULL;
-
                 return 0;
         }
 
