@@ -456,7 +456,7 @@ int manager_save(Manager *m) {
         Iterator i;
         _cleanup_free_ char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        LinkOperationalState operstate = LINK_OPERSTATE_UNKNOWN;
+        LinkOperationalState operstate = LINK_OPERSTATE_DOWN;
         const char *operstate_str;
         int r;
 

@@ -50,7 +50,7 @@
 _SD_BEGIN_DECLARATIONS;
 
 /* Get overall operational state
- * Possible states: unknown, dormant, carrier, degraded, routable
+ * Possible states: down, up, dormant, carrier, degraded, routable
  * Possible return codes:
  *   -ENODATA: networkd is not aware of any links
  */

@@ -37,7 +37,8 @@ typedef enum LinkState {
 } LinkState;
 
 typedef enum LinkOperationalState {
-        LINK_OPERSTATE_UNKNOWN,
+        LINK_OPERSTATE_DOWN,
+        LINK_OPERSTATE_UP,
         LINK_OPERSTATE_DORMANT,
         LINK_OPERSTATE_CARRIER,
         LINK_OPERSTATE_DEGRADED,
