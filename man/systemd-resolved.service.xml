@@ -62,8 +62,10 @@
                 resolver and responder. It also generates
                 <filename>/run/systemd/resolve/resolv.conf</filename>
                 for compatibility which may be symlinked from
-                <filename>/etc/resolv.conf</filename>.  The DNS servers contacted
-                are determined from the global settings in
+                <filename>/etc/resolv.conf</filename>.</para>
+
+                <para>The DNS servers contacted are determined from
+                the global settings in
                 <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                 the per-link static settings in
                 <filename>.network</filename> files, and the per-link
@@ -79,8 +81,8 @@
         <refsect1>
                 <title>See Also</title>
                 <para>
-                        <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                 </para>
