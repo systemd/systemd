@@ -24,10 +24,6 @@ External:
 
 Features:
 
-* libsystemd-network:
-  - I don't think there should be a client side object for dhcp
-    releases (probably not even a directory in /run for it)
-
 * networkd:
   - ipv4ll with multiple interfaces doesn't work when both dhcp and
     ipv4ll is used. for some reasons the kernel will currently pick an
@@ -41,9 +37,6 @@ Features:
     indicates that we are trying to acquire some configuration for a
     link but haven't acquired any yet. Just to inform the admin that
     networkd cares about an interface, but is still in progress..
-
-* networkctl:
-  - sort output of "networkctl list" and "networkctl status -a" by ifindex
 
 * resolved:
   - DNSSEC
