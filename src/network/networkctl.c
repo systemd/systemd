@@ -88,13 +88,72 @@ static int link_get_type_string(int iftype, struct udev_device *d, char **ret) {
         return 0;
 }
 
+typedef struct LinkInfo {
+        const char *name;
+        int ifindex;
+        unsigned iftype;
+} LinkInfo;
+
+static int link_info_compare(const void *a, const void *b) {
+        const LinkInfo *x = a, *y = b;
+
+        return x->ifindex - y->ifindex;
+}
+
+static int decode_and_sort_links(sd_rtnl_message *m, LinkInfo **ret) {
+        _cleanup_free_ LinkInfo *links = NULL;
+        size_t size = 0, c = 0;
+        sd_rtnl_message *i;
+        int r;
+
+        for (i = m; i; i = sd_rtnl_message_next(i)) {
+                const char *name;
+                unsigned iftype;
+                uint16_t type;
+                int ifindex;
+
+                r = sd_rtnl_message_get_type(i, &type);
+                if (r < 0)
+                        return r;
+
+                if (type != RTM_NEWLINK)
+                        continue;
+
+                r = sd_rtnl_message_link_get_ifindex(i, &ifindex);
+                if (r < 0)
+                        return r;
+
+                r = sd_rtnl_message_read_string(i, IFLA_IFNAME, &name);
+                if (r < 0)
+                        return r;
+
+                r = sd_rtnl_message_link_get_type(i, &iftype);
+                if (r < 0)
+                        return r;
+
+                if (!GREEDY_REALLOC(links, size, c+1))
+                        return -ENOMEM;
+
+                links[c].name = name;
+                links[c].ifindex = ifindex;
+                links[c].iftype = iftype;
+                c++;
+        }
+
+        qsort(links, c, sizeof(LinkInfo), link_info_compare);
+
+        *ret = links;
+        links = NULL;
+
+        return (int) c;
+}
+
 static int list_links(char **args, unsigned n) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *reply = NULL;
         _cleanup_udev_unref_ struct udev *udev = NULL;
         _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
-        sd_rtnl_message *i;
-        unsigned c = 0;
-        int r;
+        _cleanup_free_ LinkInfo *links = NULL;
+        int r, c, i;
 
         pager_open_if_enabled();
 
@@ -127,43 +186,24 @@ static int list_links(char **args, unsigned n) {
         if (arg_legend)
                 printf("%3s %-16s %-10s %-10s %-10s\n", "IDX", "LINK", "TYPE", "ADMIN", "OPERATIONAL");
 
-        for (i = reply; i; i = sd_rtnl_message_next(i)) {
+        c = decode_and_sort_links(reply, &links);
+        if (c < 0)
+                return rtnl_log_parse_error(c);
+
+        for (i = 0; i < c; i++) {
                 _cleanup_free_ char *state = NULL, *operational_state = NULL;
                 _cleanup_udev_device_unref_ struct udev_device *d = NULL;
                 const char *on_color = "", *off_color = "";
                  char devid[2 + DECIMAL_STR_MAX(int)];
                 _cleanup_free_ char *t = NULL;
-                const char *name;
-                unsigned iftype;
-                uint16_t type;
-                int ifindex;
 
-                r = sd_rtnl_message_get_type(i, &type);
-                if (r < 0)
-                        return rtnl_log_parse_error(r);
+                sd_network_get_link_state(links[i].ifindex, &state);
+                sd_network_get_link_operational_state(links[i].ifindex, &operational_state);
 
-                if (type != RTM_NEWLINK)
-                        continue;
-
-                r = sd_rtnl_message_link_get_ifindex(i, &ifindex);
-                if (r < 0)
-                        return rtnl_log_parse_error(r);
-
-                r = sd_rtnl_message_read_string(i, IFLA_IFNAME, &name);
-                if (r < 0)
-                        return rtnl_log_parse_error(r);
-
-                r = sd_rtnl_message_link_get_type(i, &iftype);
-                if (r < 0)
-                        return rtnl_log_parse_error(r);
-
-                sd_network_get_link_state(ifindex, &state);
-                sd_network_get_link_operational_state(ifindex, &operational_state);
-
-                sprintf(devid, "n%i", ifindex);
+                sprintf(devid, "n%i", links[i].ifindex);
                 d = udev_device_new_from_device_id(udev, devid);
 
-                link_get_type_string(iftype, d, &t);
+                link_get_type_string(links[i].iftype, d, &t);
 
                 if (streq_ptr(operational_state, "routable")) {
                         on_color = ansi_highlight_green();
@@ -173,12 +213,11 @@ static int list_links(char **args, unsigned n) {
                         off_color = ansi_highlight_off();
                 }
 
-                printf("%3i %-16s %-10s %-10s %s%-10s%s\n", ifindex, name, strna(t), strna(state), on_color, strna(operational_state), off_color);
-                c++;
+                printf("%3i %-16s %-10s %-10s %s%-10s%s\n", links[i].ifindex, links[i].name, strna(t), strna(state), on_color, strna(operational_state), off_color);
         }
 
         if (arg_legend)
-                printf("\n%u links listed.\n", c);
+                printf("\n%i links listed.\n", c);
 
         return 0;
 }
@@ -392,9 +431,8 @@ static int link_status(char **args, unsigned n) {
 
         if (arg_all) {
                 _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *reply = NULL;
-                sd_rtnl_message *i;
-                bool space = false;
-                uint16_t type;
+                _cleanup_free_ LinkInfo *links = NULL;
+                int c, i;
 
                 r = sd_rtnl_message_new_link(rtnl, &req, RTM_GETLINK, 0);
                 if (r < 0)
@@ -410,25 +448,15 @@ static int link_status(char **args, unsigned n) {
                         return r;
                 }
 
-                for (i = reply; i; i = sd_rtnl_message_next(i)) {
-                        const char *nn;
+                c = decode_and_sort_links(reply, &links);
+                if (c < 0)
+                        return rtnl_log_parse_error(c);
 
-                        r = sd_rtnl_message_get_type(i, &type);
-                        if (r < 0)
-                                return rtnl_log_parse_error(r);
-
-                        if (type != RTM_NEWLINK)
-                                continue;
-
-                        r = sd_rtnl_message_read_string(i, IFLA_IFNAME, &nn);
-                        if (r < 0)
-                                return rtnl_log_parse_error(r);
-
-                        if (space)
+                for (i = 0; i < c; i++) {
+                        if (i > 0)
                                 fputc('\n', stdout);
 
-                        link_status_one(rtnl, udev, nn);
-                        space = true;
+                        link_status_one(rtnl, udev, links[i].name);
                 }
         }
 
