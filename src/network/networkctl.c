@@ -396,13 +396,39 @@ static int link_status(char **args, unsigned n) {
         char **name;
         int r;
 
+        r = sd_rtnl_open(&rtnl, 0);
+        if (r < 0) {
+                log_error("Failed to connect to netlink: %s", strerror(-r));
+                return r;
+        }
+
+        udev = udev_new();
+        if (!udev) {
+                log_error("Failed to connect to udev: %m");
+                return -errno;
+        }
+
         if (n <= 1 && !arg_all) {
                 _cleanup_free_ char *operational_state = NULL;
                 _cleanup_strv_free_ char **dns = NULL, **ntp = NULL;
+                _cleanup_free_ struct local_address *addresses = NULL;
+                int i, c;
 
                 sd_network_get_operational_state(&operational_state);
                 if (operational_state)
                         printf("       State: %s\n", operational_state);
+
+                c = local_addresses(rtnl, 0, &addresses);
+                for (i = 0; i < c; i++) {
+                        _cleanup_free_ char *pretty = NULL;
+
+                        r = in_addr_to_string(addresses[i].family, &addresses[i].address, &pretty);
+                        if (r < 0)
+                                return log_oom();
+
+                        printf("%13s %s\n",
+                               i > 0 ? "" : "Address:", pretty);
+                }
 
                 sd_network_get_dns(&dns);
                 if (!strv_isempty(dns))
@@ -416,18 +442,6 @@ static int link_status(char **args, unsigned n) {
         }
 
         pager_open_if_enabled();
-
-        r = sd_rtnl_open(&rtnl, 0);
-        if (r < 0) {
-                log_error("Failed to connect to netlink: %s", strerror(-r));
-                return r;
-        }
-
-        udev = udev_new();
-        if (!udev) {
-                log_error("Failed to connect to udev: %m");
-                return -errno;
-        }
 
         if (arg_all) {
                 _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *reply = NULL;
