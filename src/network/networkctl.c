@@ -125,12 +125,13 @@ static int list_links(char **args, unsigned n) {
         }
 
         if (arg_legend)
-                printf("%3s %-16s %-10s %-10s %-10s\n", "IDX", "LINK", "TYPE", "STATE", "OPERATIONAL");
+                printf("%3s %-16s %-10s %-10s %-10s\n", "IDX", "LINK", "TYPE", "ADMIN", "OPERATIONAL");
 
         for (i = reply; i; i = sd_rtnl_message_next(i)) {
                 _cleanup_free_ char *state = NULL, *operational_state = NULL;
                 _cleanup_udev_device_unref_ struct udev_device *d = NULL;
-                char devid[2 + DECIMAL_STR_MAX(int)];
+                const char *on_color = "", *off_color = "";
+                 char devid[2 + DECIMAL_STR_MAX(int)];
                 _cleanup_free_ char *t = NULL;
                 const char *name;
                 unsigned iftype;
@@ -164,7 +165,15 @@ static int list_links(char **args, unsigned n) {
 
                 link_get_type_string(iftype, d, &t);
 
-                printf("%3i %-16s %-10s %-10s %-10s\n", ifindex, name, strna(t), strna(state), strna(operational_state));
+                if (streq_ptr(operational_state, "routable")) {
+                        on_color = ansi_highlight_green();
+                        off_color = ansi_highlight_off();
+                } else if (streq_ptr(operational_state, "degraded")) {
+                        on_color = ansi_highlight_yellow();
+                        off_color = ansi_highlight_off();
+                }
+
+                printf("%3i %-16s %-10s %-10s %s%-10s%s\n", ifindex, name, strna(t), strna(state), on_color, strna(operational_state), off_color);
                 c++;
         }
 
@@ -217,6 +226,7 @@ static int link_status_one(sd_rtnl *rtnl, struct udev *udev, const char *name) {
         char devid[2 + DECIMAL_STR_MAX(int)];
         _cleanup_free_ char *t = NULL;
         const char *driver = NULL, *path = NULL, *vendor = NULL, *model = NULL;
+        const char *on_color = "", *off_color = "";
         struct ether_addr e;
         unsigned iftype;
         int r, ifindex;
@@ -300,12 +310,20 @@ static int link_status_one(sd_rtnl *rtnl, struct udev *udev, const char *name) {
                         model = udev_device_get_property_value(d, "ID_MODEL");
         }
 
-        printf("%i: %s\n", ifindex, name);
+        if (streq_ptr(operational_state, "routable")) {
+                on_color = ansi_highlight_green();
+                off_color = ansi_highlight_off();
+        } else if (streq_ptr(operational_state, "degraded")) {
+                on_color = ansi_highlight_yellow();
+                off_color = ansi_highlight_off();
+        }
+
+        printf("%s%s%s %i: %s\n", on_color, draw_special_char(DRAW_BLACK_CIRCLE), off_color, ifindex, name);
 
         printf("        Type: %s\n"
-               "       State: %s (%s)\n",
+               "       State: %s%s%s (%s)\n",
                strna(t),
-               strna(operational_state),
+               on_color, strna(operational_state), off_color,
                strna(state));
 
         if (path)
