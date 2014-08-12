@@ -711,3 +711,19 @@ static const char* const socket_address_bind_ipv6_only_table[_SOCKET_ADDRESS_BIN
 };
 
 DEFINE_STRING_TABLE_LOOKUP(socket_address_bind_ipv6_only, SocketAddressBindIPv6Only);
+
+bool sockaddr_equal(const union sockaddr_union *a, const union sockaddr_union *b) {
+        assert(a);
+        assert(b);
+
+        if (a->sa.sa_family != b->sa.sa_family)
+                return false;
+
+        if (a->sa.sa_family == AF_INET)
+                return a->in.sin_addr.s_addr == b->in.sin_addr.s_addr;
+
+        if (a->sa.sa_family == AF_INET6)
+                return memcmp(&a->in6.sin6_addr, &b->in6.sin6_addr, sizeof(a->in6.sin6_addr)) == 0;
+
+        return false;
+}

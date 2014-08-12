@@ -109,3 +109,5 @@ SocketAddressBindIPv6Only socket_address_bind_ipv6_only_from_string(const char *
 
 int netlink_family_to_string_alloc(int b, char **s);
 int netlink_family_from_string(const char *s) _pure_;
+
+bool sockaddr_equal(const union sockaddr_union *a, const union sockaddr_union *b);
