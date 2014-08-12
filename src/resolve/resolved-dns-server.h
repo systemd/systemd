@@ -59,3 +59,6 @@ int dns_server_new(
                 const union in_addr_union *address);
 
 DnsServer* dns_server_free(DnsServer *s);
+
+unsigned long dns_server_hash_func(const void *p, const uint8_t hash_key[HASH_KEY_SIZE]);
+int dns_server_compare_func(const void *a, const void *b);

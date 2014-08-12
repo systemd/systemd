@@ -691,7 +691,7 @@ static void write_resolve_conf_server(DnsServer *s, FILE *f, unsigned *count) {
         }
 
         if (*count == MAXNS)
-                fputs("# Too many DNS servers configured, the following entries may be ignored\n", f);
+                fputs("# Too many DNS servers configured, the following entries may be ignored.\n", f);
 
         fprintf(f, "nameserver %s\n", t);
         (*count) ++;
@@ -701,6 +701,7 @@ int manager_write_resolv_conf(Manager *m) {
         static const char path[] = "/run/systemd/resolve/resolv.conf";
         _cleanup_free_ char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_set_free_ Set *dns = NULL;
         unsigned count = 0;
         DnsServer *s;
         Iterator i;
@@ -711,6 +712,41 @@ int manager_write_resolv_conf(Manager *m) {
 
         /* Read the system /etc/resolv.conf first */
         manager_read_resolv_conf(m);
+
+        /* Add the full list to a set, to filter out duplicates */
+        dns = set_new(dns_server_hash_func, dns_server_compare_func);
+        if (!dns)
+                return -ENOMEM;
+
+        /* First add the system-wide servers */
+        LIST_FOREACH(servers, s, m->dns_servers) {
+                r = set_put(dns, s);
+                if (r == -EEXIST)
+                        continue;
+                if (r < 0)
+                        return r;
+        }
+
+        /* Then, add the per-link servers */
+        HASHMAP_FOREACH(l, m->links, i)
+                LIST_FOREACH(servers, s, l->dns_servers) {
+                        r = set_put(dns, s);
+                        if (r == -EEXIST)
+                                continue;
+                        if (r < 0)
+                                return r;
+                }
+
+        /* If we found nothing, add the fallback servers */
+        if (set_isempty(dns)) {
+                LIST_FOREACH(servers, s, m->fallback_dns_servers) {
+                        r = set_put(dns, s);
+                        if (r == -EEXIST)
+                                continue;
+                        if (r < 0)
+                                return r;
+                }
+        }
 
         r = fopen_temporary(path, &f, &temp_path);
         if (r < 0)
@@ -724,15 +760,10 @@ int manager_write_resolv_conf(Manager *m) {
               "# resolv.conf(5) in a different way, replace the symlink by a\n"
               "# static file or a different symlink.\n\n", f);
 
-        LIST_FOREACH(servers, s, m->dns_servers)
-                write_resolve_conf_server(s, f, &count);
-
-        HASHMAP_FOREACH(l, m->links, i)
-                LIST_FOREACH(servers, s, l->dns_servers)
-                        write_resolve_conf_server(s, f, &count);
-
-        if (count == 0) {
-                LIST_FOREACH(servers, s, m->fallback_dns_servers)
+        if (set_isempty(dns))
+                fputs("# No DNS servers known.\n", f);
+        else {
+                SET_FOREACH(s, dns, i)
                         write_resolve_conf_server(s, f, &count);
         }
 
