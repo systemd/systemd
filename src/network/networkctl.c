@@ -355,15 +355,8 @@ static int link_status(char **args, unsigned n) {
                 if (model)
                         printf("       Model: %s\n", model);
 
-                if (have_mac) {
-                        _cleanup_free_ char *h = NULL;
-
-                        h = hexmem(&e, sizeof(e));
-                        if (!h)
-                                return log_oom();
-
-                        printf("  HW Address: %s\n", h);
-                }
+                if (have_mac)
+                        printf("  HW Address: %s\n", ether_ntoa(&e));
 
                 if (mtu > 0)
                         printf("         MTU: %u\n", mtu);
