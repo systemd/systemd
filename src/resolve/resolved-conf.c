@@ -81,7 +81,6 @@ int config_parse_dnsv(
                 void *userdata) {
 
         Manager *m = userdata;
-        DnsServer **l;
         int r;
 
         assert(filename);
@@ -89,19 +88,10 @@ int config_parse_dnsv(
         assert(rvalue);
         assert(m);
 
-        if (ltype == DNS_SERVER_FALLBACK)
-                l = &m->fallback_dns_servers;
-        else
-                l = &m->dns_servers;
-
-        if (isempty(rvalue)) {
-
+        if (isempty(rvalue))
                 /* Empty assignment means clear the list */
-                while (*l)
-                        dns_server_free(*l);
-
-        } else {
-
+                manager_flush_dns_servers(m, ltype);
+        else {
                 /* Otherwise add to the list */
                 r = manager_parse_dns_server(m, ltype, rvalue);
                 if (r < 0) {

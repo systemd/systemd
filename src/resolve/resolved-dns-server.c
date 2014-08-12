@@ -64,9 +64,9 @@ int dns_server_new(
          * we used so far was a fallback one? Then let's try to pick
          * the new one */
         if (type != DNS_SERVER_FALLBACK &&
-            s->manager->current_dns_server &&
-            s->manager->current_dns_server->type == DNS_SERVER_FALLBACK)
-                manager_set_dns_server(s->manager, NULL);
+            m->current_dns_server &&
+            m->current_dns_server->type == DNS_SERVER_FALLBACK)
+                manager_set_dns_server(m, NULL);
 
         if (ret)
                 *ret = s;
@@ -87,13 +87,13 @@ DnsServer* dns_server_free(DnsServer *s)  {
                         LIST_REMOVE(servers, s->manager->fallback_dns_servers, s);
                 else
                         assert_not_reached("Unknown server type");
+
+                if (s->manager->current_dns_server == s)
+                        manager_set_dns_server(s->manager, NULL);
         }
 
         if (s->link && s->link->current_dns_server == s)
                 link_set_dns_server(s->link, NULL);
-
-        if (s->manager && s->manager->current_dns_server == s)
-                manager_set_dns_server(s->manager, NULL);
 
         free(s);
 

@@ -26,14 +26,14 @@
 typedef struct DnsServer DnsServer;
 typedef enum DnsServerSource DnsServerSource;
 
-#include "resolved-manager.h"
-#include "resolved-link.h"
-
 typedef enum DnsServerType {
         DNS_SERVER_SYSTEM,
         DNS_SERVER_FALLBACK,
         DNS_SERVER_LINK,
 } DnsServerType;
+
+#include "resolved-manager.h"
+#include "resolved-link.h"
 
 struct DnsServer {
         Manager *manager;

@@ -536,10 +536,8 @@ Manager *manager_free(Manager *m) {
 
         dns_scope_free(m->unicast_scope);
 
-        while (m->dns_servers)
-                dns_server_free(m->dns_servers);
-        while (m->fallback_dns_servers)
-                dns_server_free(m->fallback_dns_servers);
+        manager_flush_dns_servers(m, DNS_SERVER_SYSTEM);
+        manager_flush_dns_servers(m, DNS_SERVER_FALLBACK);
 
         hashmap_free(m->links);
         hashmap_free(m->dns_transactions);
@@ -1769,6 +1767,18 @@ void manager_verify_all(Manager *m) {
 
         LIST_FOREACH(scopes, s, m->dns_scopes)
                 dns_zone_verify_all(&s->zone);
+}
+
+void manager_flush_dns_servers(Manager *m, DnsServerType t) {
+        assert(m);
+
+        if (t == DNS_SERVER_SYSTEM)
+                while (m->dns_servers)
+                        dns_server_free(m->dns_servers);
+
+        if (t == DNS_SERVER_FALLBACK)
+                while (m->fallback_dns_servers)
+                        dns_server_free(m->fallback_dns_servers);
 }
 
 static const char* const support_table[_SUPPORT_MAX] = {
