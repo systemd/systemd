@@ -85,7 +85,7 @@ struct sd_resolve {
         pthread_t workers[WORKERS_MAX];
         unsigned n_valid_workers;
 
-        unsigned current_id, current_index;
+        unsigned current_id;
         sd_resolve_query* query_array[QUERIES_MAX];
         unsigned n_queries, n_done;
 
@@ -1024,21 +1024,17 @@ static int alloc_query(sd_resolve *resolve, bool floating, sd_resolve_query **_q
         if (r < 0)
                 return r;
 
-        while (resolve->query_array[resolve->current_index]) {
-                resolve->current_index++;
+        while (resolve->query_array[resolve->current_id % QUERIES_MAX])
                 resolve->current_id++;
 
-                resolve->current_index %= QUERIES_MAX;
-        }
-
-        q = resolve->query_array[resolve->current_index] = new0(sd_resolve_query, 1);
+        q = resolve->query_array[resolve->current_id % QUERIES_MAX] = new0(sd_resolve_query, 1);
         if (!q)
                 return -ENOMEM;
 
         q->n_ref = 1;
         q->resolve = resolve;
         q->floating = floating;
-        q->id = resolve->current_id;
+        q->id = resolve->current_id++;
 
         if (!floating)
                 sd_resolve_ref(resolve);
