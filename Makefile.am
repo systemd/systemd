@@ -2381,6 +2381,7 @@ libsystemd_internal_la_SOURCES = \
 	src/systemd/sd-id128.h \
 	src/systemd/sd-daemon.h \
 	src/systemd/sd-path.h \
+	src/systemd/sd-network.h \
 	src/libsystemd/sd-bus/sd-bus.c \
 	src/libsystemd/sd-bus/bus-control.c \
 	src/libsystemd/sd-bus/bus-control.h \
@@ -2437,7 +2438,9 @@ libsystemd_internal_la_SOURCES = \
 	src/libsystemd/sd-id128/sd-id128.c \
 	src/libsystemd/sd-daemon/sd-daemon.c \
 	src/libsystemd/sd-login/sd-login.c \
-	src/libsystemd/sd-path/sd-path.c
+	src/libsystemd/sd-path/sd-path.c \
+	src/libsystemd/sd-network/sd-network.c \
+	src/libsystemd/sd-network/network-util.h
 
 nodist_libsystemd_internal_la_SOURCES = \
 	src/libsystemd/libsystemd.sym \
@@ -2788,13 +2791,13 @@ libsystemd_network_la_CFLAGS = \
 	$(KMOD_CFLAGS)
 
 libsystemd_network_la_SOURCES = \
-	src/systemd/sd-network.h \
 	src/systemd/sd-dhcp-client.h \
 	src/systemd/sd-dhcp-server.h \
 	src/systemd/sd-dhcp-lease.h \
 	src/systemd/sd-ipv4ll.h \
-	src/network/sd-network.c \
-	src/network/network-util.h \
+	src/systemd/sd-icmp6-nd.h \
+	src/systemd/sd-dhcp6-client.h \
+	src/systemd/sd-dhcp6-lease.h \
 	src/libsystemd-network/sd-dhcp-client.c \
 	src/libsystemd-network/sd-dhcp-server.c \
 	src/libsystemd-network/dhcp-network.c \
@@ -2811,9 +2814,6 @@ libsystemd_network_la_SOURCES = \
 	src/libsystemd-network/ipv4ll-internal.h \
 	src/libsystemd-network/network-internal.c \
 	src/libsystemd-network/network-internal.h \
-	src/systemd/sd-icmp6-nd.h \
-	src/systemd/sd-dhcp6-client.h \
-	src/systemd/sd-dhcp6-lease.h \
 	src/libsystemd-network/sd-icmp6-nd.c \
 	src/libsystemd-network/sd-dhcp6-client.c \
 	src/libsystemd-network/dhcp6-internal.h \
