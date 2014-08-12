@@ -200,7 +200,8 @@ static bool enable_name_policy(void) {
 
         r = proc_cmdline(&line);
         if (r < 0)
-                log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));
+                log_warning("Failed to read /proc/cmdline, ignoring: %s",
+                            strerror(-r));
         if (r <= 0)
                 return true;
 
@@ -245,7 +246,8 @@ bool link_config_should_reload(link_config_ctx *ctx) {
         return paths_check_timestamp(link_dirs, &ctx->link_dirs_ts_usec, false);
 }
 
-int link_config_get(link_config_ctx *ctx, struct udev_device *device, link_config **ret) {
+int link_config_get(link_config_ctx *ctx, struct udev_device *device,
+                    link_config **ret) {
         link_config *link;
 
         LIST_FOREACH(links, link, ctx->links) {
@@ -313,7 +315,8 @@ static bool should_rename(struct udev_device *device, bool respect_predictable) 
         }
 }
 
-static int get_mac(struct udev_device *device, bool want_random, struct ether_addr *mac) {
+static int get_mac(struct udev_device *device, bool want_random,
+                   struct ether_addr *mac) {
         int r;
 
         if (want_random)
@@ -336,7 +339,8 @@ static int get_mac(struct udev_device *device, bool want_random, struct ether_ad
         return 0;
 }
 
-int link_config_apply(link_config_ctx *ctx, link_config *config, struct udev_device *device, const char **name) {
+int link_config_apply(link_config_ctx *ctx, link_config *config,
+                      struct udev_device *device, const char **name) {
         const char *old_name;
         const char *new_name = NULL;
         struct ether_addr generated_mac;
@@ -357,11 +361,12 @@ int link_config_apply(link_config_ctx *ctx, link_config *config, struct udev_dev
         if (!old_name)
                 return -EINVAL;
 
-        r = ethtool_set_speed(ctx->ethtool_fd, old_name, config->speed / 1024, config->duplex);
+        r = ethtool_set_speed(ctx->ethtool_fd, old_name, config->speed / 1024,
+                              config->duplex);
         if (r < 0)
                 log_warning("Could not set speed or duplex of %s to %u Mbps (%s): %s",
-                            old_name, config->speed / 1024, duplex_to_string(config->duplex),
-                            strerror(-r));
+                            old_name, config->speed / 1024,
+                            duplex_to_string(config->duplex), strerror(-r));
 
         r = ethtool_set_wol(ctx->ethtool_fd, old_name, config->wol);
         if (r < 0)
@@ -438,9 +443,11 @@ int link_config_apply(link_config_ctx *ctx, link_config *config, struct udev_dev
                         mac = config->mac;
         }
 
-        r = rtnl_set_link_properties(ctx->rtnl, ifindex, config->alias, mac, config->mtu);
+        r = rtnl_set_link_properties(ctx->rtnl, ifindex, config->alias, mac,
+                                     config->mtu);
         if (r < 0) {
-                log_warning("Could not set Alias, MACAddress or MTU on %s: %s", old_name, strerror(-r));
+                log_warning("Could not set Alias, MACAddress or MTU on %s: %s",
+                            old_name, strerror(-r));
                 return r;
         }
 
@@ -474,7 +481,8 @@ static const char* const mac_policy_table[_MACPOLICY_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(mac_policy, MACPolicy);
-DEFINE_CONFIG_PARSE_ENUM(config_parse_mac_policy, mac_policy, MACPolicy, "Failed to parse MAC address policy");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_mac_policy, mac_policy, MACPolicy,
+                         "Failed to parse MAC address policy");
 
 static const char* const name_policy_table[_NAMEPOLICY_MAX] = {
         [NAMEPOLICY_KERNEL] = "kernel",
@@ -486,4 +494,6 @@ static const char* const name_policy_table[_NAMEPOLICY_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(name_policy, NamePolicy);
-DEFINE_CONFIG_PARSE_ENUMV(config_parse_name_policy, name_policy, NamePolicy, _NAMEPOLICY_INVALID, "Failed to parse interface name policy");
+DEFINE_CONFIG_PARSE_ENUMV(config_parse_name_policy, name_policy, NamePolicy,
+                          _NAMEPOLICY_INVALID,
+                          "Failed to parse interface name policy");
