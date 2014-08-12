@@ -37,6 +37,8 @@ Features:
     indicates that we are trying to acquire some configuration for a
     link but haven't acquired any yet. Just to inform the admin that
     networkd cares about an interface, but is still in progress..
+  - the DHCP lease data (such as NTP/DNS) is still made available when
+    a carrier is lost on a link. It should be removed instantly.
 
 * resolved:
   - DNSSEC
@@ -87,8 +89,6 @@ Features:
 * machined: write NSS module for looking up IP addresses for machines
 
 * timer units: actually add extra delays to timer units with high AccuracySec values, don't start them already when we are awake...
-
-* timesyncd - hookup with networkd: NTP servers from dhcp
 
 * a way for container managers to turn off getty starting via $container_headless= or so...
 
