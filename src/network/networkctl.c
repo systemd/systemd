@@ -191,14 +191,14 @@ static int list_links(char **args, unsigned n) {
                 return rtnl_log_parse_error(c);
 
         for (i = 0; i < c; i++) {
-                _cleanup_free_ char *state = NULL, *operational_state = NULL;
+                _cleanup_free_ char *setup_state = NULL, *operational_state = NULL;
                 _cleanup_udev_device_unref_ struct udev_device *d = NULL;
                 const char *on_color_oper = "", *off_color_oper = "",
                            *on_color = "", *off_color = "";
                  char devid[2 + DECIMAL_STR_MAX(int)];
                 _cleanup_free_ char *t = NULL;
 
-                sd_network_link_get_setup_state(links[i].ifindex, &state);
+                sd_network_link_get_setup_state(links[i].ifindex, &setup_state);
                 sd_network_link_get_operational_state(links[i].ifindex, &operational_state);
 
                 sprintf(devid, "n%i", links[i].ifindex);
@@ -214,20 +214,20 @@ static int list_links(char **args, unsigned n) {
                         off_color_oper = ansi_highlight_off();
                 }
 
-                if (streq_ptr(state, "configured")) {
+                if (streq_ptr(setup_state, "configured")) {
                         on_color = ansi_highlight_green();
                         off_color = ansi_highlight_off();
-                } else if (streq_ptr(state, "configuring")) {
+                } else if (streq_ptr(setup_state, "configuring")) {
                         on_color = ansi_highlight_yellow();
                         off_color = ansi_highlight_off();
-                } else if (streq_ptr(state, "failed") ||
-                           streq_ptr(state, "linger")) {
+                } else if (streq_ptr(setup_state, "failed") ||
+                           streq_ptr(setup_state, "linger")) {
                         on_color = ansi_highlight_red();
                         off_color = ansi_highlight_off();
                 }
 
                 printf("%3i %-16s %-10s %s%-11s%s %s%-10s%s\n", links[i].ifindex,
-                       links[i].name, strna(t), on_color, strna(state), off_color,
+                       links[i].name, strna(t), on_color, strna(setup_state), off_color,
                        on_color_oper, strna(operational_state), off_color_oper);
         }
 
@@ -274,7 +274,7 @@ static void dump_list(const char *prefix, char **l) {
 
 static int link_status_one(sd_rtnl *rtnl, struct udev *udev, const char *name) {
         _cleanup_strv_free_ char **dns = NULL, **ntp = NULL;
-        _cleanup_free_ char *state = NULL, *operational_state = NULL;
+        _cleanup_free_ char *setup_state = NULL, *operational_state = NULL;
         _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *reply = NULL;
         _cleanup_udev_device_unref_ struct udev_device *d = NULL;
         char devid[2 + DECIMAL_STR_MAX(int)];
@@ -340,7 +340,7 @@ static int link_status_one(sd_rtnl *rtnl, struct udev *udev, const char *name) {
 
         sd_rtnl_message_read_u32(reply, IFLA_MTU, &mtu);
 
-        sd_network_link_get_setup_state(ifindex, &state);
+        sd_network_link_get_setup_state(ifindex, &setup_state);
         sd_network_link_get_operational_state(ifindex, &operational_state);
 
         sd_network_link_get_dns(ifindex, &dns);
@@ -378,7 +378,7 @@ static int link_status_one(sd_rtnl *rtnl, struct udev *udev, const char *name) {
                "       State: %s%s%s (%s)\n",
                strna(t),
                on_color, strna(operational_state), off_color,
-               strna(state));
+               strna(setup_state));
 
         if (path)
                 printf("        Path: %s\n", path);
