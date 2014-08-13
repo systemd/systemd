@@ -184,7 +184,7 @@ static int list_links(char **args, unsigned n) {
         }
 
         if (arg_legend)
-                printf("%3s %-16s %-10s %-11s %-10s\n", "IDX", "LINK", "TYPE", "ADMIN", "OPERATIONAL");
+                printf("%3s %-16s %-10s %-11s %-10s\n", "IDX", "LINK", "TYPE", "SETUP", "OPERATIONAL");
 
         c = decode_and_sort_links(reply, &links);
         if (c < 0)
