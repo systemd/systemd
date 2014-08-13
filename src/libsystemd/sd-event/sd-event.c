@@ -1755,7 +1755,7 @@ static int event_arm_timer(
         assert(e);
         assert(d);
 
-        if (_likely_(!d->needs_rearm))
+        if (!d->needs_rearm)
                 return 0;
         else
                 d->needs_rearm = false;
