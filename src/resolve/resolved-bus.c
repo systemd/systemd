@@ -24,6 +24,7 @@
 
 #include "resolved-dns-domain.h"
 #include "resolved-bus.h"
+#include "resolved-def.h"
 
 static int reply_query_state(DnsQuery *q) {
         _cleanup_free_ char *ip = NULL;
@@ -90,13 +91,13 @@ static int reply_query_state(DnsQuery *q) {
         }
 }
 
-static int append_address(sd_bus_message *reply, DnsResourceRecord *rr, int ifindex) {
+static int append_address(sd_bus_message *reply, DnsResourceRecord *rr) {
         int r;
 
         assert(reply);
         assert(rr);
 
-        r = sd_bus_message_open_container(reply, 'r', "iayi");
+        r = sd_bus_message_open_container(reply, 'r', "iay");
         if (r < 0)
                 return r;
 
@@ -119,10 +120,6 @@ static int append_address(sd_bus_message *reply, DnsResourceRecord *rr, int ifin
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_append(reply, "i", ifindex);
-        if (r < 0)
-                return r;
-
         r = sd_bus_message_close_container(reply);
         if (r < 0)
                 return r;
@@ -135,7 +132,7 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
         unsigned added = 0, i;
-        int r, ifindex;
+        int r;
 
         assert(q);
 
@@ -148,11 +145,13 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
         if (r < 0)
                 goto finish;
 
-        r = sd_bus_message_open_container(reply, 'a', "(iayi)");
+        r = sd_bus_message_append(reply, "i", q->answer_ifindex);
         if (r < 0)
                 goto finish;
 
-        ifindex = q->answer_ifindex;
+        r = sd_bus_message_open_container(reply, 'a', "(iay)");
+        if (r < 0)
+                goto finish;
 
         if (q->answer) {
                 answer = dns_answer_ref(q->answer);
@@ -173,7 +172,7 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
                                 continue;
                         }
 
-                        r = append_address(reply, answer->rrs[i], ifindex);
+                        r = append_address(reply, answer->rrs[i]);
                         if (r < 0)
                                 goto finish;
 
@@ -211,7 +210,7 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
                         if (r == 0)
                                 continue;
 
-                        r = append_address(reply, answer->rrs[i], ifindex);
+                        r = append_address(reply, answer->rrs[i]);
                         if (r < 0)
                                 goto finish;
 
@@ -244,7 +243,7 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
 
         /* Return the precise spelling and uppercasing reported by the server */
         assert(canonical);
-        r = sd_bus_message_append(reply, "s", DNS_RESOURCE_KEY_NAME(canonical->key));
+        r = sd_bus_message_append(reply, "st", DNS_RESOURCE_KEY_NAME(canonical->key), SD_RESOLVED_FLAGS_MAKE(q->answer_protocol, q->answer_family));
         if (r < 0)
                 goto finish;
 
@@ -259,11 +258,27 @@ finish:
         dns_query_free(q);
 }
 
+static int check_ifindex_flags(int ifindex, uint64_t *flags, sd_bus_error *error) {
+        assert(flags);
+
+        if (ifindex < 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid interface index");
+
+        if (*flags & ~SD_RESOLVED_FLAGS_ALL)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid flags parameter");
+
+        if (*flags == 0)
+                *flags = SD_RESOLVED_FLAGS_DEFAULT;
+
+        return 0;
+}
+
 static int bus_method_resolve_hostname(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
         Manager *m = userdata;
         const char *hostname;
-        int family;
+        int family, ifindex;
+        uint64_t flags;
         DnsQuery *q;
         int r;
 
@@ -271,7 +286,7 @@ static int bus_method_resolve_hostname(sd_bus *bus, sd_bus_message *message, voi
         assert(message);
         assert(m);
 
-        r = sd_bus_message_read(message, "si", &hostname, &family);
+        r = sd_bus_message_read(message, "isit", &ifindex, &hostname, &family, &flags);
         if (r < 0)
                 return r;
 
@@ -281,6 +296,10 @@ static int bus_method_resolve_hostname(sd_bus *bus, sd_bus_message *message, voi
         r = dns_name_normalize(hostname, NULL);
         if (r < 0)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid hostname '%s'", hostname);
+
+        r = check_ifindex_flags(ifindex, &flags, error);
+        if (r < 0)
+                return r;
 
         question = dns_question_new(family == AF_UNSPEC ? 2 : 1);
         if (!question)
@@ -310,7 +329,7 @@ static int bus_method_resolve_hostname(sd_bus *bus, sd_bus_message *message, voi
                         return r;
         }
 
-        r = dns_query_new(m, &q, question);
+        r = dns_query_new(m, &q, question, ifindex, flags);
         if (r < 0)
                 return r;
 
@@ -353,6 +372,10 @@ static void bus_method_resolve_address_complete(DnsQuery *q) {
         if (r < 0)
                 goto finish;
 
+        r = sd_bus_message_append(reply, "i", q->answer_ifindex);
+        if (r < 0)
+                goto finish;
+
         r = sd_bus_message_open_container(reply, 'a', "s");
         if (r < 0)
                 goto finish;
@@ -388,6 +411,10 @@ static void bus_method_resolve_address_complete(DnsQuery *q) {
         if (r < 0)
                 goto finish;
 
+        r = sd_bus_message_append(reply, "t", SD_RESOLVED_FLAGS_MAKE(q->answer_protocol, q->answer_family));
+        if (r < 0)
+                goto finish;
+
         r = sd_bus_send(q->manager->bus, reply, NULL);
 
 finish:
@@ -405,6 +432,7 @@ static int bus_method_resolve_address(sd_bus *bus, sd_bus_message *message, void
         _cleanup_free_ char *reverse = NULL;
         Manager *m = userdata;
         int family, ifindex;
+        uint64_t flags;
         const void *d;
         DnsQuery *q;
         size_t sz;
@@ -414,7 +442,7 @@ static int bus_method_resolve_address(sd_bus *bus, sd_bus_message *message, void
         assert(message);
         assert(m);
 
-        r = sd_bus_message_read(message, "i", &family);
+        r = sd_bus_message_read(message, "ii", &ifindex, &family);
         if (r < 0)
                 return r;
 
@@ -428,11 +456,13 @@ static int bus_method_resolve_address(sd_bus *bus, sd_bus_message *message, void
         if (sz != FAMILY_ADDRESS_SIZE(family))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid address size");
 
-        r = sd_bus_message_read(message, "i", &ifindex);
+        r = sd_bus_message_read(message, "t", &flags);
         if (r < 0)
                 return r;
-        if (ifindex < 0)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid interface index");
+
+        r = check_ifindex_flags(ifindex, &flags, error);
+        if (r < 0)
+                return r;
 
         r = dns_name_reverse(family, d, &reverse);
         if (r < 0)
@@ -452,7 +482,7 @@ static int bus_method_resolve_address(sd_bus *bus, sd_bus_message *message, void
         if (r < 0)
                 return r;
 
-        r = dns_query_new(m, &q, question);
+        r = dns_query_new(m, &q, question, ifindex, flags);
         if (r < 0)
                 return r;
 
@@ -492,6 +522,10 @@ static void bus_method_resolve_record_complete(DnsQuery *q) {
         }
 
         r = sd_bus_message_new_method_return(q->request, &reply);
+        if (r < 0)
+                goto finish;
+
+        r = sd_bus_message_append(reply, "i", q->answer_ifindex);
         if (r < 0)
                 goto finish;
 
@@ -549,6 +583,10 @@ static void bus_method_resolve_record_complete(DnsQuery *q) {
         if (r < 0)
                 goto finish;
 
+        r = sd_bus_message_append(reply, "t", SD_RESOLVED_FLAGS_MAKE(q->answer_protocol, q->answer_family));
+        if (r < 0)
+                goto finish;
+
         r = sd_bus_send(q->manager->bus, reply, NULL);
 
 finish:
@@ -564,22 +602,27 @@ static int bus_method_resolve_record(sd_bus *bus, sd_bus_message *message, void 
         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
         _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
         Manager *m = userdata;
-        DnsQuery *q;
-        int r;
         uint16_t class, type;
         const char *name;
+        int r, ifindex;
+        uint64_t flags;
+        DnsQuery *q;
 
         assert(bus);
         assert(message);
         assert(m);
 
-        r = sd_bus_message_read(message, "sqq", &name, &class, &type);
+        r = sd_bus_message_read(message, "isqqt", &ifindex, &name, &class, &type, &flags);
         if (r < 0)
                 return r;
 
         r = dns_name_normalize(name, NULL);
         if (r < 0)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid name '%s'", name);
+
+        r = check_ifindex_flags(ifindex, &flags, error);
+        if (r < 0)
+                return r;
 
         question = dns_question_new(1);
         if (!question)
@@ -593,7 +636,7 @@ static int bus_method_resolve_record(sd_bus *bus, sd_bus_message *message, void 
         if (r < 0)
                 return r;
 
-        r = dns_query_new(m, &q, question);
+        r = dns_query_new(m, &q, question, ifindex, flags);
         if (r < 0)
                 return r;
 
@@ -620,9 +663,9 @@ static int bus_method_resolve_record(sd_bus *bus, sd_bus_message *message, void 
 
 static const sd_bus_vtable resolve_vtable[] = {
         SD_BUS_VTABLE_START(0),
-        SD_BUS_METHOD("ResolveHostname", "si", "a(iayi)s", bus_method_resolve_hostname, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("ResolveAddress", "iayi", "as", bus_method_resolve_address, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("ResolveRecord", "sqq", "a(qqay)", bus_method_resolve_record, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("ResolveHostname", "isit", "ia(iay)st", bus_method_resolve_hostname, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("ResolveAddress", "iiayt", "iast", bus_method_resolve_address, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("ResolveRecord", "isqqt", "ia(qqay)t", bus_method_resolve_record, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_VTABLE_END,
 };
 

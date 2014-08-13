@@ -32,6 +32,7 @@
 #include "build.h"
 
 #include "resolved-dns-packet.h"
+#include "resolved-def.h"
 
 #define DNS_CALL_TIMEOUT_USEC (45*USEC_PER_SEC)
 
@@ -40,6 +41,32 @@ static int arg_ifindex = 0;
 static int arg_type = 0;
 static uint16_t arg_class = 0;
 static bool arg_legend = true;
+static uint64_t arg_flags = 0;
+
+static void print_source(int ifindex, uint64_t flags) {
+
+        if (!arg_legend)
+                return;
+
+        if (ifindex <= 0 && flags == 0)
+                return;
+
+        fputs("\n-- Information acquired via", stdout);
+
+        if (flags != 0)
+                printf(" protocol%s%s%s",
+                       flags & SD_RESOLVED_DNS ? " DNS" :"",
+                       flags & SD_RESOLVED_LLMNR_IPV4 ? " LLMNR/IPv4" : "",
+                       flags & SD_RESOLVED_LLMNR_IPV6 ? " LLMNR/IPv6" : "");
+
+        if (ifindex > 0) {
+                char ifname[IF_NAMESIZE] = "";
+                printf(" interface %s", strna(if_indextoname(ifindex, ifname)));
+        }
+
+        fputc('.', stdout);
+        fputc('\n', stdout);
+}
 
 static int resolve_host(sd_bus *bus, const char *name) {
 
@@ -47,7 +74,8 @@ static int resolve_host(sd_bus *bus, const char *name) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *canonical = NULL;
         unsigned c = 0;
-        int r;
+        int r, ifindex;
+        uint64_t flags;
 
         assert(name);
 
@@ -67,7 +95,7 @@ static int resolve_host(sd_bus *bus, const char *name) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_message_append(req, "si", name, arg_family);
+        r = sd_bus_message_append(req, "isit", arg_ifindex, name, arg_family, arg_flags);
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -77,13 +105,17 @@ static int resolve_host(sd_bus *bus, const char *name) {
                 return r;
         }
 
-        r = sd_bus_message_enter_container(reply, 'a', "(iayi)");
+        r = sd_bus_message_read(reply, "i", &ifindex);
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        while ((r = sd_bus_message_enter_container(reply, 'r', "iayi")) > 0) {
+        r = sd_bus_message_enter_container(reply, 'a', "(iay)");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        while ((r = sd_bus_message_enter_container(reply, 'r', "iay")) > 0) {
                 const void *a;
-                int family, ifindex;
+                int family;
                 size_t sz;
                 _cleanup_free_ char *pretty = NULL;
                 char ifname[IF_NAMESIZE] = "";
@@ -93,10 +125,6 @@ static int resolve_host(sd_bus *bus, const char *name) {
                         return bus_log_parse_error(r);
 
                 r = sd_bus_message_read_array(reply, 'y', &a, &sz);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                r = sd_bus_message_read(reply, "i", &ifindex);
                 if (r < 0)
                         return bus_log_parse_error(r);
 
@@ -115,12 +143,6 @@ static int resolve_host(sd_bus *bus, const char *name) {
                         continue;
                 }
 
-                if (ifindex < 0) {
-                        log_error("%s: systemd-resolved returned invalid interface index %i",
-                                  name, ifindex);
-                        continue;
-                }
-
                 if (ifindex > 0) {
                         char *t;
 
@@ -129,12 +151,6 @@ static int resolve_host(sd_bus *bus, const char *name) {
                                 log_error("Failed to resolve interface name for index %i", ifindex);
                                 continue;
                         }
-                }
-
-                if (arg_ifindex > 0 && ifindex > 0 && ifindex != arg_ifindex) {
-                        log_debug("%s: skipping entry with ifindex %i (%s)",
-                                  name, ifindex, ifname);
-                        continue;
                 }
 
                 r = in_addr_to_string(family, a, &pretty);
@@ -157,7 +173,7 @@ static int resolve_host(sd_bus *bus, const char *name) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        r = sd_bus_message_read(reply, "s", &canonical);
+        r = sd_bus_message_read(reply, "st", &canonical, &flags);
         if (r < 0)
                 return bus_log_parse_error(r);
 
@@ -172,6 +188,8 @@ static int resolve_host(sd_bus *bus, const char *name) {
                 return -ESRCH;
         }
 
+        print_source(ifindex, flags);
+
         return 0;
 }
 
@@ -180,6 +198,7 @@ static int resolve_address(sd_bus *bus, int family, const union in_addr_union *a
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *pretty = NULL;
         char ifname[IF_NAMESIZE] = "";
+        uint64_t flags;
         unsigned c = 0;
         const char *n;
         int r;
@@ -218,7 +237,7 @@ static int resolve_address(sd_bus *bus, int family, const union in_addr_union *a
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_message_append(req, "i", family);
+        r = sd_bus_message_append(req, "ii", ifindex, family);
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -226,7 +245,7 @@ static int resolve_address(sd_bus *bus, int family, const union in_addr_union *a
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_message_append(req, "i", ifindex);
+        r = sd_bus_message_append(req, "t", arg_flags);
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -235,6 +254,10 @@ static int resolve_address(sd_bus *bus, int family, const union in_addr_union *a
                 log_error("%s: resolve call failed: %s", pretty, bus_error_message(&error, r));
                 return r;
         }
+
+        r = sd_bus_message_read(reply, "i", &ifindex);
+        if (r < 0)
+                return bus_log_parse_error(r);
 
         r = sd_bus_message_enter_container(reply, 'a', "s");
         if (r < 0)
@@ -257,10 +280,16 @@ static int resolve_address(sd_bus *bus, int family, const union in_addr_union *a
         if (r < 0)
                 return bus_log_parse_error(r);
 
+        r = sd_bus_message_read(reply, "t", &flags);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
         if (c == 0) {
                 log_error("%s: no names found", pretty);
                 return -ESRCH;
         }
+
+        print_source(ifindex, flags);
 
         return 0;
 }
@@ -296,7 +325,8 @@ static int resolve_record(sd_bus *bus, const char *name) {
         _cleanup_bus_message_unref_ sd_bus_message *req = NULL, *reply = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         unsigned n = 0;
-        int r;
+        uint64_t flags;
+        int r, ifindex;
 
         assert(name);
 
@@ -317,7 +347,7 @@ static int resolve_record(sd_bus *bus, const char *name) {
                 return bus_log_create_error(r);
 
         assert((uint16_t) arg_type == arg_type);
-        r = sd_bus_message_append(req, "sqq", name, arg_class, arg_type);
+        r = sd_bus_message_append(req, "isqqt", arg_ifindex, name, arg_class, arg_type, arg_flags);
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -326,6 +356,10 @@ static int resolve_record(sd_bus *bus, const char *name) {
                 log_error("%s: resolve call failed: %s", name, bus_error_message(&error, r));
                 return r;
         }
+
+        r = sd_bus_message_read(reply, "i", &ifindex);
+        if (r < 0)
+                return bus_log_parse_error(r);
 
         r = sd_bus_message_enter_container(reply, 'a', "(qqay)");
         if (r < 0)
@@ -381,10 +415,16 @@ static int resolve_record(sd_bus *bus, const char *name) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
+        r = sd_bus_message_read(reply, "t", &flags);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
         if (n == 0) {
                 log_error("%s: no records found", name);
                 return -ESRCH;
         }
+
+        print_source(ifindex, flags);
 
         return 0;
 }
@@ -418,14 +458,15 @@ static void help_dns_classes(void) {
 static void help(void) {
         printf("%s [OPTIONS...]\n\n"
                "Resolve IPv4 or IPv6 addresses.\n\n"
-               "  -h --help             Show this help\n"
-               "     --version          Show package version\n"
-               "  -4                    Resolve IPv4 addresses\n"
-               "  -6                    Resolve IPv6 addresses\n"
-               "  -i INTERFACE          Filter by interface\n"
-               "  -t --type=TYPE        Query RR with DNS type\n"
-               "  -c --class=CLASS      Query RR with DNS class\n"
-               "     --no-legend        Do not print column headers\n"
+               "  -h --help               Show this help\n"
+               "     --version            Show package version\n"
+               "  -4                      Resolve IPv4 addresses\n"
+               "  -6                      Resolve IPv6 addresses\n"
+               "  -i INTERFACE            Look on interface\n"
+               "  -p --protocol=PROTOCOL  Look via protocol\n"
+               "  -t --type=TYPE          Query RR with DNS type\n"
+               "  -c --class=CLASS        Query RR with DNS class\n"
+               "     --no-legend          Do not print column headers\n"
                , program_invocation_short_name);
 }
 
@@ -436,11 +477,12 @@ static int parse_argv(int argc, char *argv[]) {
         };
 
         static const struct option options[] = {
-                { "help",        no_argument,       NULL, 'h'           },
-                { "version",     no_argument,       NULL, ARG_VERSION   },
-                { "type",        no_argument,       NULL, 't'           },
-                { "class",       no_argument,       NULL, 'c'           },
-                { "no-legend",   no_argument,       NULL, ARG_NO_LEGEND },
+                { "help",      no_argument,       NULL, 'h'           },
+                { "version",   no_argument,       NULL, ARG_VERSION   },
+                { "type",      required_argument, NULL, 't'           },
+                { "class",     required_argument, NULL, 'c'           },
+                { "no-legend", no_argument,       NULL, ARG_NO_LEGEND },
+                { "protocol",  required_argument, NULL, 'p'           },
                 {}
         };
 
@@ -449,7 +491,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h46i:t:c:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "h46i:t:c:p:", options, NULL)) >= 0)
                 switch(c) {
 
                 case 'h':
@@ -508,6 +550,22 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_LEGEND:
                         arg_legend = false;
+                        break;
+
+                case 'p':
+                        if (streq(optarg, "dns"))
+                                arg_flags |= SD_RESOLVED_DNS;
+                        else if (streq(optarg, "llmnr"))
+                                arg_flags |= SD_RESOLVED_LLMNR;
+                        else if (streq(optarg, "llmnr-ipv4"))
+                                arg_flags |= SD_RESOLVED_LLMNR_IPV4;
+                        else if (streq(optarg, "llmnr-ipv6"))
+                                arg_flags |= SD_RESOLVED_LLMNR_IPV6;
+                        else {
+                                log_error("Unknown protocol specifier: %s", optarg);
+                                return -EINVAL;
+                        }
+
                         break;
 
                 case '?':

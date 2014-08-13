@@ -291,11 +291,17 @@ int dns_scope_tcp_socket(DnsScope *s, int family, const union in_addr_union *add
         return ret;
 }
 
-DnsScopeMatch dns_scope_good_domain(DnsScope *s, const char *domain) {
+DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, const char *domain) {
         char **i;
 
         assert(s);
         assert(domain);
+
+        if (ifindex != 0 && (!s->link || s->link->ifindex != ifindex))
+                return DNS_SCOPE_NO;
+
+        if ((SD_RESOLVED_FLAGS_MAKE(s->protocol, s->family) & flags) == 0)
+                return DNS_SCOPE_NO;
 
         STRV_FOREACH(i, s->domains)
                 if (dns_name_endswith(domain, *i) > 0)

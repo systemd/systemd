@@ -34,6 +34,7 @@ typedef struct DnsPacket DnsPacket;
 #include "resolved-dns-rr.h"
 #include "resolved-dns-question.h"
 #include "resolved-dns-answer.h"
+#include "resolved-def.h"
 
 typedef enum DnsProtocol {
         DNS_PROTOCOL_DNS,
@@ -220,3 +221,16 @@ enum {
 
 const char* dnssec_algorithm_to_string(int i) _const_;
 int dnssec_algorithm_from_string(const char *s) _pure_;
+
+static inline uint64_t SD_RESOLVED_FLAGS_MAKE(DnsProtocol protocol, int family) {
+
+        /* Converts a protocol + family into a flags field as used in queries */
+
+        if (protocol == DNS_PROTOCOL_DNS)
+                return SD_RESOLVED_DNS;
+
+        if (protocol == DNS_PROTOCOL_LLMNR)
+                return family == AF_INET6 ? SD_RESOLVED_LLMNR_IPV6 : SD_RESOLVED_LLMNR_IPV4;
+
+        return 0;
+}

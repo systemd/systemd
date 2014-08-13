@@ -66,7 +66,7 @@ DnsQuery *dns_query_free(DnsQuery *q) {
         return NULL;
 }
 
-int dns_query_new(Manager *m, DnsQuery **ret, DnsQuestion *question) {
+int dns_query_new(Manager *m, DnsQuery **ret, DnsQuestion *question, int ifindex, uint64_t flags) {
         _cleanup_(dns_query_freep) DnsQuery *q = NULL;
         unsigned i;
         int r;
@@ -86,6 +86,8 @@ int dns_query_new(Manager *m, DnsQuery **ret, DnsQuestion *question) {
                 return -ENOMEM;
 
         q->question = dns_question_ref(question);
+        q->ifindex = ifindex;
+        q->flags = flags;
 
         for (i = 0; i < question->n_keys; i++) {
                 _cleanup_free_ char *p;
@@ -233,7 +235,7 @@ int dns_query_go(DnsQuery *q) {
         LIST_FOREACH(scopes, s, q->manager->dns_scopes) {
                 DnsScopeMatch match;
 
-                match = dns_scope_good_domain(s, name);
+                match = dns_scope_good_domain(s, q->ifindex, q->flags, name);
                 if (match < 0)
                         return match;
 
@@ -263,7 +265,7 @@ int dns_query_go(DnsQuery *q) {
         LIST_FOREACH(scopes, s, first->scopes_next) {
                 DnsScopeMatch match;
 
-                match = dns_scope_good_domain(s, name);
+                match = dns_scope_good_domain(s, q->ifindex, q->flags, name);
                 if (match < 0)
                         goto fail;
 
@@ -278,6 +280,8 @@ int dns_query_go(DnsQuery *q) {
         q->answer = dns_answer_unref(q->answer);
         q->answer_ifindex = 0;
         q->answer_rcode = 0;
+        q->answer_family = AF_UNSPEC;
+        q->answer_protocol = _DNS_PROTOCOL_INVALID;
 
         r = sd_event_add_time(
                         q->manager->event,
@@ -422,6 +426,8 @@ void dns_query_ready(DnsQuery *q) {
                 q->answer = dns_answer_ref(answer);
                 q->answer_rcode = rcode;
                 q->answer_ifindex = (scope && scope->link) ? scope->link->ifindex : 0;
+                q->answer_protocol = scope ? scope->protocol : _DNS_PROTOCOL_INVALID;
+                q->answer_family = scope ? scope->family : AF_UNSPEC;
         }
 
         dns_query_complete(q, state);

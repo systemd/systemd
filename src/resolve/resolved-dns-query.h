@@ -41,6 +41,9 @@ struct DnsQuery {
         Manager *manager;
         DnsQuestion *question;
 
+        uint64_t flags;
+        int ifindex;
+
         DnsTransactionState state;
         unsigned n_cname_redirects;
 
@@ -49,6 +52,8 @@ struct DnsQuery {
         /* Discovered data */
         DnsAnswer *answer;
         int answer_ifindex;
+        int answer_family;
+        DnsProtocol answer_protocol;
         int answer_rcode;
 
         /* Bus client information */
@@ -68,7 +73,7 @@ struct DnsQuery {
         LIST_FIELDS(DnsQuery, queries);
 };
 
-int dns_query_new(Manager *m, DnsQuery **q, DnsQuestion *question);
+int dns_query_new(Manager *m, DnsQuery **q, DnsQuestion *question, int family, uint64_t flags);
 DnsQuery *dns_query_free(DnsQuery *q);
 
 int dns_query_go(DnsQuery *q);
