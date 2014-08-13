@@ -157,7 +157,7 @@ static int link_update_dns_servers(Link *l) {
 
         assert(l);
 
-        r = sd_network_get_link_dns(l->ifindex, &nameservers);
+        r = sd_network_link_get_dns(l->ifindex, &nameservers);
         if (r < 0)
                 goto clear;
 
@@ -201,7 +201,7 @@ static int link_update_llmnr_support(Link *l) {
 
         assert(l);
 
-        r = sd_network_get_link_llmnr(l->ifindex, &b);
+        r = sd_network_link_get_llmnr(l->ifindex, &b);
         if (r < 0)
                 goto clear;
 
@@ -251,7 +251,7 @@ bool link_relevant(Link *l, int family) {
         if ((l->flags & (IFF_UP|IFF_LOWER_UP|IFF_MULTICAST)) != (IFF_UP|IFF_LOWER_UP|IFF_MULTICAST))
                 return false;
 
-        sd_network_get_link_operational_state(l->ifindex, &state);
+        sd_network_link_get_operational_state(l->ifindex, &state);
         if (state && !STR_IN_SET(state, "unknown", "degraded", "routable"))
                 return false;
 

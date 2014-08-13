@@ -198,8 +198,8 @@ static int list_links(char **args, unsigned n) {
                  char devid[2 + DECIMAL_STR_MAX(int)];
                 _cleanup_free_ char *t = NULL;
 
-                sd_network_get_link_state(links[i].ifindex, &state);
-                sd_network_get_link_operational_state(links[i].ifindex, &operational_state);
+                sd_network_link_get_state(links[i].ifindex, &state);
+                sd_network_link_get_operational_state(links[i].ifindex, &operational_state);
 
                 sprintf(devid, "n%i", links[i].ifindex);
                 d = udev_device_new_from_device_id(udev, devid);
@@ -340,11 +340,11 @@ static int link_status_one(sd_rtnl *rtnl, struct udev *udev, const char *name) {
 
         sd_rtnl_message_read_u32(reply, IFLA_MTU, &mtu);
 
-        sd_network_get_link_state(ifindex, &state);
-        sd_network_get_link_operational_state(ifindex, &operational_state);
+        sd_network_link_get_state(ifindex, &state);
+        sd_network_link_get_operational_state(ifindex, &operational_state);
 
-        sd_network_get_link_dns(ifindex, &dns);
-        sd_network_get_link_ntp(ifindex, &ntp);
+        sd_network_link_get_dns(ifindex, &dns);
+        sd_network_link_get_ntp(ifindex, &ntp);
 
         sprintf(devid, "n%i", ifindex);
         d = udev_device_new_from_device_id(udev, devid);

@@ -126,12 +126,12 @@ int link_update_monitor(Link *l) {
         free(l->operational_state);
         l->operational_state = NULL;
 
-        sd_network_get_link_operational_state(l->ifindex, &l->operational_state);
+        sd_network_link_get_operational_state(l->ifindex, &l->operational_state);
 
         free(l->state);
         l->state = NULL;
 
-        sd_network_get_link_state(l->ifindex, &l->state);
+        sd_network_link_get_state(l->ifindex, &l->state);
 
         return 0;
 }
