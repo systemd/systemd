@@ -78,7 +78,7 @@ int sd_network_get_ntp(char ***addr);
 int sd_network_get_link_state(int ifindex, char **state);
 
 /* Get operatinal state from ifindex.
- * Possible states: unknown, dormant, carrier, degraded, routable
+ * Possible states: down, up, dormant, carrier, degraded, routable
  * Possible return codes:
  *   -ENODATA: networkd is not aware of the link
  */
