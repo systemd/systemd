@@ -427,11 +427,19 @@ static int link_status(char **args, unsigned n) {
                 _cleanup_free_ char *operational_state = NULL;
                 _cleanup_strv_free_ char **dns = NULL, **ntp = NULL;
                 _cleanup_free_ struct local_address *addresses = NULL;
+                const char *on_color_oper = "", *off_color_oper = "";
                 int i, c;
 
                 sd_network_get_operational_state(&operational_state);
-                if (operational_state)
-                        printf("       State: %s\n", operational_state);
+                if (streq_ptr(operational_state, "routable")) {
+                        on_color_oper = ansi_highlight_green();
+                        off_color_oper = ansi_highlight_off();
+                } else if (streq_ptr(operational_state, "degraded")) {
+                        on_color_oper = ansi_highlight_yellow();
+                        off_color_oper = ansi_highlight_off();
+                }
+
+                printf("       State: %s%s%s\n", on_color_oper, strna(operational_state), off_color_oper);
 
                 c = local_addresses(rtnl, 0, &addresses);
                 for (i = 0; i < c; i++) {
