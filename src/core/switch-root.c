@@ -84,7 +84,7 @@ int switch_root(const char *new_root) {
                 snprintf(new_mount, sizeof(new_mount), "%s%s", new_root, i);
                 char_array_0(new_mount);
 
-                mkdir_parents(new_mount, 0755);
+                mkdir_p(new_mount, 0755);
 
                 if ((stat(new_mount, &sb) < 0) ||
                     sb.st_dev != new_root_stat.st_dev) {
