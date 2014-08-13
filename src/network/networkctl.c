@@ -148,6 +148,37 @@ static int decode_and_sort_links(sd_rtnl_message *m, LinkInfo **ret) {
         return (int) c;
 }
 
+static void operational_state_to_color(const char *state, const char **on, const char **off) {
+        assert(on);
+        assert(off);
+
+        if (streq_ptr(state, "routable")) {
+                *on = ansi_highlight_green();
+                *off = ansi_highlight_off();
+        } else if (streq_ptr(state, "degraded")) {
+                *on = ansi_highlight_yellow();
+                *off = ansi_highlight_off();
+        } else
+                *on = *off = "";
+}
+
+static void setup_state_to_color(const char *state, const char **on, const char **off) {
+        assert(on);
+        assert(off);
+
+        if (streq_ptr(state, "configured")) {
+                *on = ansi_highlight_green();
+                *off = ansi_highlight_off();
+        } else if (streq_ptr(state, "configuring")) {
+                *on = ansi_highlight_yellow();
+                *off = ansi_highlight_off();
+        } else if (streq_ptr(state, "failed") || streq_ptr(state, "linger")) {
+                *on = ansi_highlight_red();
+                *off = ansi_highlight_off();
+        } else
+                *on = *off = "";
+}
+
 static int list_links(char **args, unsigned n) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *reply = NULL;
         _cleanup_udev_unref_ struct udev *udev = NULL;
@@ -184,7 +215,7 @@ static int list_links(char **args, unsigned n) {
         }
 
         if (arg_legend)
-                printf("%3s %-16s %-10s %-11s %-10s\n", "IDX", "LINK", "TYPE", "SETUP", "OPERATIONAL");
+                printf("%3s %-16s %-10s %-11s %-10s\n", "IDX", "LINK", "TYPE", "OPERATIONAL", "SETUP");
 
         c = decode_and_sort_links(reply, &links);
         if (c < 0)
@@ -193,42 +224,26 @@ static int list_links(char **args, unsigned n) {
         for (i = 0; i < c; i++) {
                 _cleanup_free_ char *setup_state = NULL, *operational_state = NULL;
                 _cleanup_udev_device_unref_ struct udev_device *d = NULL;
-                const char *on_color_oper = "", *off_color_oper = "",
-                           *on_color = "", *off_color = "";
+                const char *on_color_operational, *off_color_operational,
+                           *on_color_setup, *off_color_setup;
                  char devid[2 + DECIMAL_STR_MAX(int)];
                 _cleanup_free_ char *t = NULL;
 
-                sd_network_link_get_setup_state(links[i].ifindex, &setup_state);
                 sd_network_link_get_operational_state(links[i].ifindex, &operational_state);
+                operational_state_to_color(operational_state, &on_color_operational, &off_color_operational);
+
+                sd_network_link_get_setup_state(links[i].ifindex, &setup_state);
+                setup_state_to_color(setup_state, &on_color_setup, &off_color_setup);
 
                 sprintf(devid, "n%i", links[i].ifindex);
                 d = udev_device_new_from_device_id(udev, devid);
 
                 link_get_type_string(links[i].iftype, d, &t);
 
-                if (streq_ptr(operational_state, "routable")) {
-                        on_color_oper = ansi_highlight_green();
-                        off_color_oper = ansi_highlight_off();
-                } else if (streq_ptr(operational_state, "degraded")) {
-                        on_color_oper = ansi_highlight_yellow();
-                        off_color_oper = ansi_highlight_off();
-                }
-
-                if (streq_ptr(setup_state, "configured")) {
-                        on_color = ansi_highlight_green();
-                        off_color = ansi_highlight_off();
-                } else if (streq_ptr(setup_state, "configuring")) {
-                        on_color = ansi_highlight_yellow();
-                        off_color = ansi_highlight_off();
-                } else if (streq_ptr(setup_state, "failed") ||
-                           streq_ptr(setup_state, "linger")) {
-                        on_color = ansi_highlight_red();
-                        off_color = ansi_highlight_off();
-                }
-
-                printf("%3i %-16s %-10s %s%-11s%s %s%-10s%s\n", links[i].ifindex,
-                       links[i].name, strna(t), on_color, strna(setup_state), off_color,
-                       on_color_oper, strna(operational_state), off_color_oper);
+                printf("%3i %-16s %-10s %s%-11s%s %s%-10s%s\n",
+                       links[i].ifindex, links[i].name, strna(t),
+                       on_color_operational, strna(operational_state), off_color_operational,
+                       on_color_setup, strna(setup_state), off_color_setup);
         }
 
         if (arg_legend)
@@ -280,7 +295,8 @@ static int link_status_one(sd_rtnl *rtnl, struct udev *udev, const char *name) {
         char devid[2 + DECIMAL_STR_MAX(int)];
         _cleanup_free_ char *t = NULL;
         const char *driver = NULL, *path = NULL, *vendor = NULL, *model = NULL;
-        const char *on_color = "", *off_color = "";
+        const char *on_color_operational, *off_color_operational,
+                   *on_color_setup, *off_color_setup;
         struct ether_addr e;
         unsigned iftype;
         int r, ifindex;
@@ -340,8 +356,11 @@ static int link_status_one(sd_rtnl *rtnl, struct udev *udev, const char *name) {
 
         sd_rtnl_message_read_u32(reply, IFLA_MTU, &mtu);
 
-        sd_network_link_get_setup_state(ifindex, &setup_state);
         sd_network_link_get_operational_state(ifindex, &operational_state);
+        operational_state_to_color(operational_state, &on_color_operational, &off_color_operational);
+
+        sd_network_link_get_setup_state(ifindex, &setup_state);
+        setup_state_to_color(setup_state, &on_color_setup, &off_color_setup);
 
         sd_network_link_get_dns(ifindex, &dns);
         sd_network_link_get_ntp(ifindex, &ntp);
@@ -364,21 +383,14 @@ static int link_status_one(sd_rtnl *rtnl, struct udev *udev, const char *name) {
                         model = udev_device_get_property_value(d, "ID_MODEL");
         }
 
-        if (streq_ptr(operational_state, "routable")) {
-                on_color = ansi_highlight_green();
-                off_color = ansi_highlight_off();
-        } else if (streq_ptr(operational_state, "degraded")) {
-                on_color = ansi_highlight_yellow();
-                off_color = ansi_highlight_off();
-        }
 
-        printf("%s%s%s %i: %s\n", on_color, draw_special_char(DRAW_BLACK_CIRCLE), off_color, ifindex, name);
+        printf("%s%s%s %i: %s\n", on_color_operational, draw_special_char(DRAW_BLACK_CIRCLE), off_color_operational, ifindex, name);
 
         printf("        Type: %s\n"
-               "       State: %s%s%s (%s)\n",
+               "       State: %s%s%s (%s%s%s)\n",
                strna(t),
-               on_color, strna(operational_state), off_color,
-               strna(setup_state));
+               on_color_operational, strna(operational_state), off_color_operational,
+               on_color_setup, strna(setup_state), off_color_setup);
 
         if (path)
                 printf("        Path: %s\n", path);
