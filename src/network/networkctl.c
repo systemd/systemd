@@ -184,7 +184,7 @@ static int list_links(char **args, unsigned n) {
         }
 
         if (arg_legend)
-                printf("%3s %-16s %-10s %-10s %-10s\n", "IDX", "LINK", "TYPE", "ADMIN", "OPERATIONAL");
+                printf("%3s %-16s %-10s %-11s %-10s\n", "IDX", "LINK", "TYPE", "ADMIN", "OPERATIONAL");
 
         c = decode_and_sort_links(reply, &links);
         if (c < 0)
@@ -193,7 +193,8 @@ static int list_links(char **args, unsigned n) {
         for (i = 0; i < c; i++) {
                 _cleanup_free_ char *state = NULL, *operational_state = NULL;
                 _cleanup_udev_device_unref_ struct udev_device *d = NULL;
-                const char *on_color = "", *off_color = "";
+                const char *on_color_oper = "", *off_color_oper = "",
+                           *on_color = "", *off_color = "";
                  char devid[2 + DECIMAL_STR_MAX(int)];
                 _cleanup_free_ char *t = NULL;
 
@@ -206,14 +207,28 @@ static int list_links(char **args, unsigned n) {
                 link_get_type_string(links[i].iftype, d, &t);
 
                 if (streq_ptr(operational_state, "routable")) {
+                        on_color_oper = ansi_highlight_green();
+                        off_color_oper = ansi_highlight_off();
+                } else if (streq_ptr(operational_state, "degraded")) {
+                        on_color_oper = ansi_highlight_yellow();
+                        off_color_oper = ansi_highlight_off();
+                }
+
+                if (streq_ptr(state, "configured")) {
                         on_color = ansi_highlight_green();
                         off_color = ansi_highlight_off();
-                } else if (streq_ptr(operational_state, "degraded")) {
+                } else if (streq_ptr(state, "configuring")) {
                         on_color = ansi_highlight_yellow();
+                        off_color = ansi_highlight_off();
+                } else if (streq_ptr(state, "failed") ||
+                           streq_ptr(state, "linger")) {
+                        on_color = ansi_highlight_red();
                         off_color = ansi_highlight_off();
                 }
 
-                printf("%3i %-16s %-10s %-10s %s%-10s%s\n", links[i].ifindex, links[i].name, strna(t), strna(state), on_color, strna(operational_state), off_color);
+                printf("%3i %-16s %-10s %s%-11s%s %s%-10s%s\n", links[i].ifindex,
+                       links[i].name, strna(t), on_color, strna(state), off_color,
+                       on_color_oper, strna(operational_state), off_color_oper);
         }
 
         if (arg_legend)
