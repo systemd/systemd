@@ -198,7 +198,7 @@ static int list_links(char **args, unsigned n) {
                  char devid[2 + DECIMAL_STR_MAX(int)];
                 _cleanup_free_ char *t = NULL;
 
-                sd_network_link_get_state(links[i].ifindex, &state);
+                sd_network_link_get_setup_state(links[i].ifindex, &state);
                 sd_network_link_get_operational_state(links[i].ifindex, &operational_state);
 
                 sprintf(devid, "n%i", links[i].ifindex);
@@ -340,7 +340,7 @@ static int link_status_one(sd_rtnl *rtnl, struct udev *udev, const char *name) {
 
         sd_rtnl_message_read_u32(reply, IFLA_MTU, &mtu);
 
-        sd_network_link_get_state(ifindex, &state);
+        sd_network_link_get_setup_state(ifindex, &state);
         sd_network_link_get_operational_state(ifindex, &operational_state);
 
         sd_network_link_get_dns(ifindex, &dns);

@@ -64,7 +64,7 @@ int sd_network_get_dns(char ***addr);
  * reperesentations of IP addresses */
 int sd_network_get_ntp(char ***addr);
 
-/* Get state from ifindex.
+/* Get setup state from ifindex.
  * Possible states:
  *   pending: udev is still processing the link, we don't yet know if we will manage it
  *   failed: networkd failed to manage the link
@@ -75,7 +75,7 @@ int sd_network_get_ntp(char ***addr);
  * Possible return codes:
  *   -ENODATA: networkd is not aware of the link
  */
-int sd_network_link_get_state(int ifindex, char **state);
+int sd_network_link_get_setup_state(int ifindex, char **state);
 
 /* Get operatinal state from ifindex.
  * Possible states:

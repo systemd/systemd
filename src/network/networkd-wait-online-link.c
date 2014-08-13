@@ -131,7 +131,7 @@ int link_update_monitor(Link *l) {
         free(l->state);
         l->state = NULL;
 
-        sd_network_link_get_state(l->ifindex, &l->state);
+        sd_network_link_get_setup_state(l->ifindex, &l->state);
 
         return 0;
 }
