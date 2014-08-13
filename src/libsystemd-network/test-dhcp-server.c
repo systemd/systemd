@@ -57,7 +57,7 @@ static int test_basic(sd_event *event) {
 
         assert_se(sd_dhcp_server_start(server) == -EUNATCH);
         assert_se(sd_dhcp_server_set_address(server, &address_any, 28) == -EINVAL);
-        assert_se(sd_dhcp_server_set_address(server, &address_any, 38) == -ERANGE);
+        assert_se(sd_dhcp_server_set_address(server, &address_lo, 38) == -ERANGE);
         assert_se(sd_dhcp_server_set_address(server, &address_lo, 8) >= 0);
         assert_se(sd_dhcp_server_set_address(server, &address_lo, 8) == -EBUSY);
 
