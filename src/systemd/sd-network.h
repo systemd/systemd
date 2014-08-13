@@ -65,10 +65,15 @@ int sd_network_get_dns(char ***addr);
 int sd_network_get_ntp(char ***addr);
 
 /* Get state from ifindex.
- * Possible states: failed, configuring, configured, unmanaged
+ * Possible states:
+ *   pending: udev is still processing the link, we don't yet know if we will manage it
+ *   failed: networkd failed to manage the link
+ *   configuring: in the process of retrieving configuration or configuring the link
+ *   configured: link configured successfully
+ *   unmanaged: networkd is not handling the link
+ *   linger: the link is gone, but has not yet been dropped by networkd
  * Possible return codes:
  *   -ENODATA: networkd is not aware of the link
- *   -EBUSY: udev is still processing the link, networkd does not yet know if it will manage it
  */
 int sd_network_get_link_state(int ifindex, char **state);
 

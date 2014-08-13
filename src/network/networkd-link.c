@@ -67,7 +67,7 @@ static int link_new(Manager *manager, sd_rtnl_message *message, Link **ret) {
 
         link->n_ref = 1;
         link->manager = manager;
-        link->state = LINK_STATE_INITIALIZING;
+        link->state = LINK_STATE_PENDING;
         link->ifindex = ifindex;
         link->ifname = strdup(ifname);
         if (!link->ifname)
@@ -1106,7 +1106,7 @@ static int link_enter_join_netdev(Link *link) {
 
         assert(link);
         assert(link->network);
-        assert(link->state == LINK_STATE_INITIALIZING);
+        assert(link->state == LINK_STATE_PENDING);
 
         link->state = LINK_STATE_ENSLAVING;
 
@@ -1196,7 +1196,7 @@ static int link_configure(Link *link) {
 
         assert(link);
         assert(link->network);
-        assert(link->state == LINK_STATE_INITIALIZING);
+        assert(link->state == LINK_STATE_PENDING);
 
         if (link->network->ipv4ll) {
                 r = ipv4ll_configure(link);
@@ -1265,7 +1265,7 @@ static int link_initialized_and_synced(sd_rtnl *rtnl, sd_rtnl_message *m,
         assert(link->ifname);
         assert(link->manager);
 
-        if (link->state != LINK_STATE_INITIALIZING)
+        if (link->state != LINK_STATE_PENDING)
                 return 1;
 
         log_debug_link(link, "link state is up-to-date");
@@ -1298,7 +1298,7 @@ int link_initialized(Link *link, struct udev_device *device) {
         assert(link->manager->rtnl);
         assert(device);
 
-        if (link->state != LINK_STATE_INITIALIZING)
+        if (link->state != LINK_STATE_PENDING)
                 return 0;
 
         if (link->udev_device)
@@ -1509,7 +1509,7 @@ int link_add(Manager *m, sd_rtnl_message *message, Link **ret) {
 
                 if (udev_device_get_is_initialized(device) <= 0) {
                         /* not yet ready */
-                        log_debug_link(link, "udev initializing link...");
+                        log_debug_link(link, "link pending udev initialization...");
                         return 0;
                 }
 
@@ -1780,7 +1780,7 @@ fail:
 }
 
 static const char* const link_state_table[_LINK_STATE_MAX] = {
-        [LINK_STATE_INITIALIZING] = "initializing",
+        [LINK_STATE_PENDING] = "pending",
         [LINK_STATE_ENSLAVING] = "configuring",
         [LINK_STATE_SETTING_ADDRESSES] = "configuring",
         [LINK_STATE_SETTING_ROUTES] = "configuring",

@@ -24,7 +24,7 @@
 #include "networkd.h"
 
 typedef enum LinkState {
-        LINK_STATE_INITIALIZING,
+        LINK_STATE_PENDING,
         LINK_STATE_ENSLAVING,
         LINK_STATE_SETTING_ADDRESSES,
         LINK_STATE_SETTING_ROUTES,

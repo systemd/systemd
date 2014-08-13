@@ -109,8 +109,6 @@ _public_ int sd_network_get_link_state(int ifindex, char **state) {
                 return r;
         if (isempty(s))
                 return -ENODATA;
-        if (streq(s, "initializing"))
-                return -EBUSY;
 
         *state = s;
         s = NULL;
