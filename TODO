@@ -24,6 +24,10 @@ External:
 
 Features:
 
+* sd-event: - make it possible to embedd our event loop into foreign
+  event loops by passing out the epoll fd and providing three functions
+  that fit into GSource nicely.
+
 * networkd:
   - add LLDP support
   - ipv4ll with multiple interfaces doesn't work when both dhcp and
