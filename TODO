@@ -31,8 +31,6 @@ Features:
   - dhcp and ipv4ll should probably be skipped for "lo" devices, even
     if the user has a catchall .network file installed, that might
     theoretically match it.
-  - when I plug/unplug my wired ethernet the operational state changes
-    between "unknown" and "carrier", not "dormant" and "carrier".
   - we probably should introduce a new operational state that
     indicates that we are trying to acquire some configuration for a
     link but haven't acquired any yet. Just to inform the admin that
