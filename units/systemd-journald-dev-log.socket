@@ -17,10 +17,16 @@ Before=sockets.target
 IgnoreOnIsolate=yes
 
 [Socket]
+Service=systemd-journald.service
 ListenDatagram=/run/systemd/journal/dev-log
 Symlinks=/dev/log
 SocketMode=0666
 PassCredentials=yes
 PassSecurity=yes
+
+# Increase both the send and receive buffer, so that things don't
+# block early. Note that journald internally uses the this socket both
+# for receiving syslog messages, and for forwarding them to any other
+# syslog, hence we bump both values.
 ReceiveBuffer=8M
-Service=systemd-journald.service
+SendBuffer=8M
