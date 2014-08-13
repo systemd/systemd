@@ -25,6 +25,7 @@ External:
 Features:
 
 * networkd:
+  - add LLDP support
   - ipv4ll with multiple interfaces doesn't work when both dhcp and
     ipv4ll is used. for some reasons the kernel will currently pick an
     ipv4ll source address to reach non-ipv4ll gateways.
