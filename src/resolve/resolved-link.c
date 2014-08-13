@@ -93,7 +93,10 @@ static void link_allocate_scopes(Link *l) {
         } else
                 l->unicast_scope = dns_scope_free(l->unicast_scope);
 
-        if (link_relevant(l, AF_INET) && l->llmnr_support != SUPPORT_NO && l->manager->llmnr_support != SUPPORT_NO) {
+        if (link_relevant(l, AF_INET) &&
+            l->llmnr_support != SUPPORT_NO &&
+            l->manager->llmnr_support != SUPPORT_NO &&
+            l->manager->llmnr_ipv4_udp_fd >= 0) {
                 if (!l->llmnr_ipv4_scope) {
                         r = dns_scope_new(l->manager, &l->llmnr_ipv4_scope, l, DNS_PROTOCOL_LLMNR, AF_INET);
                         if (r < 0)
@@ -102,7 +105,10 @@ static void link_allocate_scopes(Link *l) {
         } else
                 l->llmnr_ipv4_scope = dns_scope_free(l->llmnr_ipv4_scope);
 
-        if (link_relevant(l, AF_INET6) && l->llmnr_support != SUPPORT_NO && l->manager->llmnr_support != SUPPORT_NO) {
+        if (link_relevant(l, AF_INET6) &&
+            l->llmnr_support != SUPPORT_NO &&
+            l->manager->llmnr_support != SUPPORT_NO &&
+            l->manager->llmnr_ipv6_udp_fd >= 0) {
                 if (!l->llmnr_ipv6_scope) {
                         r = dns_scope_new(l->manager, &l->llmnr_ipv6_scope, l, DNS_PROTOCOL_LLMNR, AF_INET6);
                         if (r < 0)
