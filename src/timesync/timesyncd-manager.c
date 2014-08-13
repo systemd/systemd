@@ -1111,9 +1111,7 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        r = manager_network_read_link_servers(m);
-        if (r < 0)
-                return r;
+        manager_network_read_link_servers(m);
 
         *ret = m;
         m = NULL;
