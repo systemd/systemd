@@ -78,7 +78,13 @@ int sd_network_get_ntp(char ***addr);
 int sd_network_link_get_state(int ifindex, char **state);
 
 /* Get operatinal state from ifindex.
- * Possible states: down, up, dormant, carrier, degraded, routable
+ * Possible states:
+ *   off: the device is powered down
+ *   no-carrier: the device is powered up, but it does not yet have a carrier
+ *   dormant: the device has a carrier, but is not yet ready for normal traffic
+ *   carrier: the link has a carrier
+ *   degraded: the link has carrier and addresses valid on the local link configured
+ *   routable: the link has carrier and routable address configured
  * Possible return codes:
  *   -ENODATA: networkd is not aware of the link
  */

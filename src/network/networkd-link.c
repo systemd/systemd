@@ -1657,9 +1657,9 @@ static void link_update_operstate(Link *link) {
                         /* no useful addresses found */
                         link->operstate = LINK_OPERSTATE_CARRIER;
         } else if (link->flags & IFF_UP)
-                link->operstate = LINK_OPERSTATE_UP;
+                link->operstate = LINK_OPERSTATE_NO_CARRIER;
         else
-                link->operstate = LINK_OPERSTATE_DOWN;
+                link->operstate = LINK_OPERSTATE_OFF;
 }
 
 int link_save(Link *link) {
@@ -1793,8 +1793,8 @@ static const char* const link_state_table[_LINK_STATE_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(link_state, LinkState);
 
 static const char* const link_operstate_table[_LINK_OPERSTATE_MAX] = {
-        [LINK_OPERSTATE_DOWN] = "down",
-        [LINK_OPERSTATE_UP] = "up",
+        [LINK_OPERSTATE_OFF] = "off",
+        [LINK_OPERSTATE_NO_CARRIER] = "no-carrier",
         [LINK_OPERSTATE_DORMANT] = "dormant",
         [LINK_OPERSTATE_CARRIER] = "carrier",
         [LINK_OPERSTATE_DEGRADED] = "degraded",
