@@ -95,8 +95,7 @@ static void link_allocate_scopes(Link *l) {
 
         if (link_relevant(l, AF_INET) &&
             l->llmnr_support != SUPPORT_NO &&
-            l->manager->llmnr_support != SUPPORT_NO &&
-            l->manager->llmnr_ipv4_udp_fd >= 0) {
+            l->manager->llmnr_support != SUPPORT_NO) {
                 if (!l->llmnr_ipv4_scope) {
                         r = dns_scope_new(l->manager, &l->llmnr_ipv4_scope, l, DNS_PROTOCOL_LLMNR, AF_INET);
                         if (r < 0)
@@ -108,7 +107,7 @@ static void link_allocate_scopes(Link *l) {
         if (link_relevant(l, AF_INET6) &&
             l->llmnr_support != SUPPORT_NO &&
             l->manager->llmnr_support != SUPPORT_NO &&
-            l->manager->llmnr_ipv6_udp_fd >= 0) {
+            socket_ipv6_is_supported()) {
                 if (!l->llmnr_ipv6_scope) {
                         r = dns_scope_new(l->manager, &l->llmnr_ipv6_scope, l, DNS_PROTOCOL_LLMNR, AF_INET6);
                         if (r < 0)
