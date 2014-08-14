@@ -499,6 +499,21 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>FastOpen=</varname></term>
+                                <listitem><para>Takes a boolean
+                                argument. It works by using a TFO cookie (a TCP option) in the initial
+                                SYN packet to authenticate a previously connected client. If successful,
+                                it may start sending data to the client before the receipt of the final
+                                ACK packet of the three way handshake is received, skipping a round trip
+                                and lowering the latency in the start of transmission of data.
+                                This controls the TCP_FASTOPEN socket option (see
+                                the <ulink url="http://lwn.net/Articles/508865/">TCP
+                                Fast Open: expediting web services</ulink> for details.)
+                                Defaults to
+                                <option>false</option>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>Priority=</varname></term>
                                 <listitem><para>Takes an integer
                                 argument controlling the priority for
