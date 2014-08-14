@@ -493,6 +493,8 @@ int machine_kill(Machine *m, KillWho who, int signo) {
 
                 if (kill(m->leader, signo) < 0)
                         return -errno;
+
+                return 0;
         }
 
         /* Otherwise make PID 1 do it for us, for the entire cgroup */
