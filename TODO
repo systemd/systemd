@@ -62,8 +62,12 @@ Features:
   - networkd's dhcp server should transparently pass on the DNS and
     NTP server list it got from user configuration and its dhcp client
     to clients. It should also pass on its own timezone information.
+  - provide a way to define a per-network interface default metric value
+    for all routes to it. possibly a second default for DHCP routes.
 
 * resolved:
+  - put networkd events and rtnl events at a higher priority, so that
+    we always process them before we process client requests
   - DNSSEC
         - use base64 for key presentation?
         - add display of private key types (http://tools.ietf.org/html/rfc4034#appendix-A.1.1)?
@@ -92,8 +96,6 @@ Features:
   - add mode where we read sysusers data from stdin, so that we can run this from rpm scriptlets
 
 * Add a new verb "systemctl top"
-
-* refuse mounting on symlinks
 
 * logind: allow users to kill or lock their own sessions
 
