@@ -3056,7 +3056,7 @@ int status_vprintf(const char *status, bool ellipse, bool ephemeral, const char 
                 if (emax < 3)
                         emax = 3;
 
-                e = ellipsize(s, emax, 75);
+                e = ellipsize(s, emax, 50);
                 if (e) {
                         free(s);
                         s = e;
