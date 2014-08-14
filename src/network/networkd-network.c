@@ -83,7 +83,6 @@ static int network_load_one(Manager *manager, const char *filename) {
         network->dhcp_ntp = true;
         network->dhcp_dns = true;
         network->dhcp_hostname = true;
-        network->dhcp_domainname = true;
         network->dhcp_routes = true;
         network->dhcp_sendhost = true;
 

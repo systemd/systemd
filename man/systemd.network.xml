@@ -447,6 +447,13 @@
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
+                                        <term><varname>UseDomainName=</varname></term>
+                                        <listitem>
+                                                <para>When true (not the default), the domain name received from the DHCP server
+                                                will be used for DNS resolution over this link.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
                                         <term><varname>UseRoutes=</varname></term>
                                         <listitem>
                                                 <para>When true (the default), the static routes will be requested from the DHCP server
