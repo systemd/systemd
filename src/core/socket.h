@@ -135,7 +135,6 @@ struct Socket {
         /* Socket options */
         bool keep_alive;
         bool no_delay;
-        bool fast_open;
         bool free_bind;
         bool transparent;
         bool broadcast;

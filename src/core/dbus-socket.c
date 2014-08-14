@@ -97,7 +97,6 @@ const sd_bus_vtable bus_socket_vtable[] = {
         SD_BUS_PROPERTY("DirectoryMode", "u", bus_property_get_mode, offsetof(Socket, directory_mode), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Accept", "b", bus_property_get_bool, offsetof(Socket, accept), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("KeepAlive", "b", bus_property_get_bool, offsetof(Socket, keep_alive), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("FastOpen" , "b", bus_property_get_bool, offsetof(Socket, fast_open), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Priority", "i", bus_property_get_int, offsetof(Socket, priority), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ReceiveBuffer", "t", bus_property_get_size, offsetof(Socket, receive_buffer), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SendBuffer", "t", bus_property_get_size, offsetof(Socket, send_buffer), SD_BUS_VTABLE_PROPERTY_CONST),
