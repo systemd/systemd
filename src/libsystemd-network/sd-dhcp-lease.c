@@ -513,19 +513,39 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const uint8_t *option,
                 break;
 
         case DHCP_OPTION_DOMAIN_NAME:
-                r = lease_parse_string(option, len, &lease->domainname);
+        {
+                _cleanup_free_ char *domainname = NULL;
+
+                r = lease_parse_string(option, len, &domainname);
                 if (r < 0)
                         return r;
 
-                break;
+                if (!hostname_is_valid(domainname) || is_localhost(domainname))
+                        break;
 
+                free(lease->domainname);
+                lease->domainname = domainname;
+                domainname = NULL;
+
+                break;
+        }
         case DHCP_OPTION_HOST_NAME:
-                r = lease_parse_string(option, len, &lease->hostname);
+        {
+                _cleanup_free_ char *hostname = NULL;
+
+                r = lease_parse_string(option, len, &hostname);
                 if (r < 0)
                         return r;
 
-                break;
+                if (!hostname_is_valid(hostname))
+                        break;
 
+                free(lease->hostname);
+                lease->hostname = hostname;
+                hostname = NULL;
+
+                break;
+        }
         case DHCP_OPTION_ROOT_PATH:
                 r = lease_parse_string(option, len, &lease->root_path);
                 if (r < 0)
