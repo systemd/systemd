@@ -613,6 +613,12 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                         "%sKeepAliveProbes: %u\n",
                         prefix, s->keep_alive_cnt);
 
+        if(s->defer_accept)
+                fprintf(f,
+                        "%sDeferAccept: %s\n",
+                        prefix, format_timespan(time_string, FORMAT_TIMESPAN_MAX,
+                                                s->defer_accept, USEC_PER_SEC));
+
         LIST_FOREACH(port, p, s->ports) {
 
                 if (p->type == SOCKET_SOCKET) {
@@ -826,6 +832,12 @@ static void socket_apply_socket_options(Socket *s, int fd) {
                 int value = s->keep_alive_cnt;
                 if (setsockopt(fd, SOL_SOCKET, TCP_KEEPCNT, &value, sizeof(value)) < 0)
                         log_warning_unit(UNIT(s)->id, "TCP_KEEPCNT failed: %m");
+        }
+
+        if (s->defer_accept) {
+                int value = s->defer_accept / USEC_PER_SEC;
+                if (setsockopt(fd, SOL_TCP, TCP_DEFER_ACCEPT, &value, sizeof(value)) < 0)
+                        log_warning_unit(UNIT(s)->id, "TCP_DEFER_ACCEPT failed: %m");
         }
 
         if (s->no_delay) {

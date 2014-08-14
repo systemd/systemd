@@ -105,6 +105,7 @@ struct Socket {
         usec_t timeout_usec;
         usec_t keep_alive_time;
         usec_t keep_alive_interval;
+        usec_t defer_accept;
 
         ExecCommand* exec_command[_SOCKET_EXEC_COMMAND_MAX];
         ExecContext exec_context;

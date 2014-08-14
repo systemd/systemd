@@ -234,6 +234,7 @@ Socket.KeepAlive,                config_parse_bool,                  0,         
 Socket.KeepAliveTime,            config_parse_sec,                   0,                             offsetof(Socket, keep_alive_time)
 Socket.KeepAliveInterval,        config_parse_sec,                   0,                             offsetof(Socket, keep_alive_interval)
 Socket.KeepAliveProbes,          config_parse_unsigned,              0,                             offsetof(Socket, keep_alive_cnt)
+Socket.DeferAccept,              config_parse_sec,                   0,                             offsetof(Socket, defer_accept)
 Socket.NoDelay,                  config_parse_bool,                  0,                             offsetof(Socket, no_delay)
 Socket.Priority,                 config_parse_int,                   0,                             offsetof(Socket, priority)
 Socket.ReceiveBuffer,            config_parse_iec_size,              0,                             offsetof(Socket, receive_buffer)
