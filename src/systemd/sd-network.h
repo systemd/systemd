@@ -104,6 +104,9 @@ int sd_network_link_get_ntp(int ifindex, char ***addr);
  *   -ENODATA: networkd is not aware of the link*/
 int sd_network_link_get_llmnr(int ifindex, char **llmnr);
 
+/* Get the DNS domain names for a given link. */
+int sd_network_link_get_domains(int ifindex, char ***domains);
+
 /* Monitor object */
 typedef struct sd_network_monitor sd_network_monitor;
 

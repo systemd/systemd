@@ -206,6 +206,10 @@ _public_ int sd_network_link_get_ntp(int ifindex, char ***ret) {
         return network_get_link_strv("NTP", ifindex, ret);
 }
 
+_public_ int sd_network_link_get_domains(int ifindex, char ***ret) {
+        return network_get_link_strv("DOMAINS", ifindex, ret);
+}
+
 static inline int MONITOR_TO_FD(sd_network_monitor *m) {
         return (int) (unsigned long) m - 1;
 }

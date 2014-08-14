@@ -1763,6 +1763,15 @@ int link_save(Link *link) {
 
                 fputs("\n", f);
 
+                if (link->network->dhcp_domainname &&
+                    link->dhcp_lease) {
+                        const char *domainname;
+
+                        r = sd_dhcp_lease_get_domainname(link->dhcp_lease, &domainname);
+                        if (r >= 0)
+                                fprintf(f, "DOMAINS=%s\n", domainname);
+                }
+
                 fprintf(f, "LLMNR=%s\n",
                         llmnr_support_to_string(link->network->llmnr));
         }
