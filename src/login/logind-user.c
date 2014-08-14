@@ -714,7 +714,7 @@ int user_kill(User *u, int signo) {
 }
 
 void user_elect_display(User *u) {
-        Session *graphical = NULL, *text = NULL, *s;
+        Session *graphical = NULL, *text = NULL, *other = NULL, *s;
 
         assert(u);
 
@@ -732,22 +732,35 @@ void user_elect_display(User *u) {
 
                 if (SESSION_TYPE_IS_GRAPHICAL(s->type))
                         graphical = s;
-                else
+                else if (s->type == SESSION_TTY)
                         text = s;
+                else
+                        other = s;
         }
 
         if (graphical &&
             (!u->display ||
              u->display->class != SESSION_USER ||
              u->display->stopping ||
-             !SESSION_TYPE_IS_GRAPHICAL(u->display->type)))
+             !SESSION_TYPE_IS_GRAPHICAL(u->display->type))) {
                 u->display = graphical;
+                return;
+        }
 
         if (text &&
             (!u->display ||
              u->display->class != SESSION_USER ||
-             u->display->stopping))
+             u->display->stopping ||
+             u->display->type != SESSION_TTY)) {
                 u->display = text;
+                return;
+        }
+
+        if (other &&
+            (!u->display ||
+             u->display->class != SESSION_USER ||
+             u->display->stopping))
+                u->display = other;
 }
 
 static const char* const user_state_table[_USER_STATE_MAX] = {

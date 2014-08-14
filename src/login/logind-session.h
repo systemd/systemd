@@ -56,6 +56,7 @@ typedef enum SessionType {
         SESSION_X11,
         SESSION_WAYLAND,
         SESSION_MIR,
+        SESSION_WEB,
         _SESSION_TYPE_MAX,
         _SESSION_TYPE_INVALID = -1
 } SessionType;

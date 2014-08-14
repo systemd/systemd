@@ -1159,6 +1159,7 @@ static const char* const session_type_table[_SESSION_TYPE_MAX] = {
         [SESSION_X11] = "x11",
         [SESSION_WAYLAND] = "wayland",
         [SESSION_MIR] = "mir",
+        [SESSION_WEB] = "web",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(session_type, SessionType);
