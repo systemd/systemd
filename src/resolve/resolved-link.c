@@ -223,12 +223,30 @@ clear:
         return r;
 }
 
+static int link_update_domains(Link *l) {
+        int r;
+
+        if (!l->unicast_scope)
+                return 0;
+
+        strv_free(l->unicast_scope->domains);
+        l->unicast_scope->domains = NULL;
+
+        r = sd_network_link_get_domains(l->ifindex,
+                                        &l->unicast_scope->domains);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 int link_update_monitor(Link *l) {
         assert(l);
 
         link_update_dns_servers(l);
         link_update_llmnr_support(l);
         link_allocate_scopes(l);
+        link_update_domains(l);
         link_add_rrs(l, false);
 
         return 0;

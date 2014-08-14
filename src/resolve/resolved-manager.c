@@ -677,7 +677,7 @@ clear:
         return r;
 }
 
-static void write_resolve_conf_server(DnsServer *s, FILE *f, unsigned *count) {
+static void write_resolv_conf_server(DnsServer *s, FILE *f, unsigned *count) {
         _cleanup_free_ char *t  = NULL;
         int r;
 
@@ -698,11 +698,33 @@ static void write_resolve_conf_server(DnsServer *s, FILE *f, unsigned *count) {
         (*count) ++;
 }
 
+static void write_resolv_conf_search(const char *domain, FILE *f,
+                                     unsigned *length, unsigned *count) {
+        assert(domain);
+        assert(f);
+        assert(length);
+
+        if (*count >= MAXDNSRCH ||
+            *length + strlen(domain) > 256) {
+                if (*count == MAXDNSRCH)
+                        fputs(" # Too many search domains configured, remaining ones ignored.", f);
+                if (*length <= 256)
+                        fputs(" # Total length of all search domains is too long, remaining ones ignored.", f);
+
+                return;
+        }
+
+        fprintf(f, " %s", domain);
+
+        (*length) += strlen(domain);
+        (*count) ++;
+}
+
 int manager_write_resolv_conf(Manager *m) {
         static const char path[] = "/run/systemd/resolve/resolv.conf";
         _cleanup_free_ char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_set_free_ Set *dns = NULL;
+        _cleanup_set_free_ Set *dns = NULL, *domains = NULL;
         unsigned count = 0;
         DnsServer *s;
         Iterator i;
@@ -719,6 +741,10 @@ int manager_write_resolv_conf(Manager *m) {
         if (!dns)
                 return -ENOMEM;
 
+        domains = set_new(dns_name_hash_func, dns_name_compare_func);
+        if (!domains)
+                return -ENOMEM;
+
         /* First add the system-wide servers */
         LIST_FOREACH(servers, s, m->dns_servers) {
                 r = set_put(dns, s);
@@ -728,8 +754,10 @@ int manager_write_resolv_conf(Manager *m) {
                         return r;
         }
 
-        /* Then, add the per-link servers */
-        HASHMAP_FOREACH(l, m->links, i)
+        /* Then, add the per-link servers and domains */
+        HASHMAP_FOREACH(l, m->links, i) {
+                char **domain;
+
                 LIST_FOREACH(servers, s, l->dns_servers) {
                         r = set_put(dns, s);
                         if (r == -EEXIST)
@@ -737,6 +765,18 @@ int manager_write_resolv_conf(Manager *m) {
                         if (r < 0)
                                 return r;
                 }
+
+                if (!l->unicast_scope)
+                        continue;
+
+                STRV_FOREACH(domain, l->unicast_scope->domains) {
+                        r = set_put(domains, *domain);
+                        if (r == -EEXIST)
+                                continue;
+                        if (r < 0)
+                                return r;
+                }
+        }
 
         /* If we found nothing, add the fallback servers */
         if (set_isempty(dns)) {
@@ -765,7 +805,19 @@ int manager_write_resolv_conf(Manager *m) {
                 fputs("# No DNS servers known.\n", f);
         else {
                 SET_FOREACH(s, dns, i)
-                        write_resolve_conf_server(s, f, &count);
+                        write_resolv_conf_server(s, f, &count);
+        }
+
+        if (!set_isempty(domains)) {
+                unsigned length = 0;
+                char *domain;
+
+                count = 0;
+
+                fputs("search", f);
+                SET_FOREACH(domain, domains, i)
+                        write_resolv_conf_search(domain, f, &count, &length);
+                fputs("\n", f);
         }
 
         r = fflush_and_check(f);
