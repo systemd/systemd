@@ -45,8 +45,6 @@ Features:
     networkd cares about an interface, but is still in progress..
   - the DHCP lease data (such as NTP/DNS) is still made available when
     a carrier is lost on a link. It should be removed instantly.
-  - maybe have bool flag in .link units to enable promiscuous mode for interfaces
-    http://lists.freedesktop.org/archives/systemd-devel/2014-July/021568.html
   - .network setting that allows overriding of the hostname to send to the dhcp server
     http://lists.freedesktop.org/archives/systemd-devel/2014-July/021550.html
   - add per-network Domains= settings, with a special syntax Domains=*
