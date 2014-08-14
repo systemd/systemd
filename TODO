@@ -24,6 +24,8 @@ External:
 
 Features:
 
+* journald: allows specification of UID range for splitting up journal files
+
 * systemd.show_status= should probably have a mode where only failed
   units are shown.
 
@@ -57,6 +59,9 @@ Features:
         - option 100, 101, timezone
         - option 123, 144, geolocation
         - option 252, configure http proxy (PAC/wpad)
+  - networkd's dhcp server should transparently pass on the DNS and
+    NTP server list it got from user configuration and its dhcp client
+    to clients. It should also pass on its own timezone information.
 
 * resolved:
   - DNSSEC
@@ -83,6 +88,8 @@ Features:
 * sysusers:
   - also create entries in /etc/shadow, /etc/gshadow
   - allow setting the home directory of system users
+  - allow configuration of ranges to allocate items in
+  - add mode where we read sysusers data from stdin, so that we can run this from rpm scriptlets
 
 * Add a new verb "systemctl top"
 
