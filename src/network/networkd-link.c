@@ -380,7 +380,8 @@ void link_client_handler(Link *link) {
                 if (!link->dhcp4_configured)
                         return;
 
-        link_enter_configured(link);
+        if (link->state != LINK_STATE_CONFIGURED)
+                link_enter_configured(link);
 
         return;
 }
