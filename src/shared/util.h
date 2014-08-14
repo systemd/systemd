@@ -966,3 +966,5 @@ char *tempfn_random(const char *p);
 bool is_localhost(const char *hostname);
 
 int take_password_lock(const char *root);
+
+int is_symlink(const char *path);

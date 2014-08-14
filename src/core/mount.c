@@ -827,6 +827,23 @@ void warn_if_dir_nonempty(const char *unit, const char* where) {
                    NULL);
 }
 
+static int fail_if_symlink(const char *unit, const char* where) {
+        assert(where);
+
+        if (is_symlink(where) > 0) {
+                log_struct_unit(LOG_WARNING,
+                                unit,
+                                "MESSAGE=%s: Mount on symlink %s not allowed.",
+                                unit, where,
+                                "WHERE=%s", where,
+                                MESSAGE_ID(SD_MESSAGE_OVERMOUNTING),
+                                NULL);
+
+                return -ELOOP;
+        }
+        return 0;
+}
+
 static void mount_enter_unmounting(Mount *m) {
         int r;
 
@@ -876,6 +893,10 @@ static void mount_enter_mounting(Mount *m) {
         p = get_mount_parameters_fragment(m);
         if (p && mount_is_bind(p))
                 mkdir_p_label(p->what, m->directory_mode);
+
+        r = fail_if_symlink(m->meta.id, m->where);
+        if (r < 0)
+                goto fail;
 
         if (m->from_fragment)
                 r = exec_command_set(

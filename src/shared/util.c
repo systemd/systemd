@@ -6918,3 +6918,15 @@ int take_password_lock(const char *root) {
 
         return fd;
 }
+
+int is_symlink(const char *path) {
+        struct stat info;
+
+        if (lstat(path, &info) < 0)
+                return -errno;
+
+        if (S_ISLNK(info.st_mode))
+                return 1;
+
+        return 0;
+}
