@@ -1336,6 +1336,8 @@ int link_rtnl_process_address(sd_rtnl *rtnl, sd_rtnl_message *message,
         _cleanup_address_free_ Address *address = NULL;
         Address *ad;
         char buf[INET6_ADDRSTRLEN];
+        char valid_buf[FORMAT_TIMESPAN_MAX];
+        const char *valid_str = NULL;
         bool address_dropped = false;
         int r, ifindex;
 
@@ -1419,6 +1421,17 @@ int link_rtnl_process_address(sd_rtnl *rtnl, sd_rtnl_message *message,
                 return 0;
         }
 
+        r = sd_rtnl_message_read_cache_info(message, IFA_CACHEINFO,
+                                            &address->cinfo);
+        if (r >= 0) {
+                if (address->cinfo.ifa_valid == CACHE_INFO_INFINITY_LIFE_TIME)
+                        valid_str = "ever";
+                else
+                        valid_str = format_timespan(valid_buf, FORMAT_TIMESPAN_MAX,
+                                                    address->cinfo.ifa_valid * USEC_PER_SEC,
+                                                    USEC_PER_SEC);
+        }
+
         LIST_FOREACH(addresses, ad, link->addresses) {
                 if (address_equal(ad, address)) {
                         LIST_REMOVE(addresses, link->addresses, ad);
@@ -1434,11 +1447,13 @@ int link_rtnl_process_address(sd_rtnl *rtnl, sd_rtnl_message *message,
         switch (type) {
         case RTM_NEWADDR:
                 if (!address_dropped)
-                        log_debug_link(link, "added address: %s/%u", buf,
-                                       address->prefixlen);
+                        log_debug_link(link, "added address: %s/%u (valid for %s)",
+                                       buf, address->prefixlen,
+                                       strna(valid_str));
                 else
-                        log_debug_link(link, "updated address: %s/%u", buf,
-                                       address->prefixlen);
+                        log_debug_link(link, "updated address: %s/%u (valid for %s)",
+                                       buf, address->prefixlen,
+                                       strna(valid_str));
 
                 LIST_PREPEND(addresses, link->addresses, address);
                 address = NULL;
@@ -1448,14 +1463,16 @@ int link_rtnl_process_address(sd_rtnl *rtnl, sd_rtnl_message *message,
                 break;
         case RTM_DELADDR:
                 if (address_dropped) {
-                        log_debug_link(link, "removed address: %s/%u", buf,
-                                       address->prefixlen);
+                        log_debug_link(link, "removed address: %s/%u (valid for %s)",
+                                       buf, address->prefixlen,
+                                       strna(valid_str));
 
                         link_save(link);
                 } else
                         log_warning_link(link,
-                                         "removing non-existent address: %s/%u",
-                                         buf, address->prefixlen);
+                                         "removing non-existent address: %s/%u (valid for %s)",
+                                         buf, address->prefixlen,
+                                         strna(valid_str));
 
                 break;
         default:
