@@ -365,6 +365,10 @@ int dns_scope_good_key(DnsScope *s, DnsResourceKey *key) {
 int dns_scope_llmnr_membership(DnsScope *s, bool b) {
         int fd;
 
+        assert(s);
+        assert(s->protocol == DNS_PROTOCOL_LLMNR);
+        assert(s->link);
+
         if (s->family == AF_INET) {
                 struct ip_mreqn mreqn = {
                         .imr_multiaddr = LLMNR_MULTICAST_IPV4_ADDRESS,
