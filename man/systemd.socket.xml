@@ -488,6 +488,42 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>KeepAliveTime=</varname></term>
+                                <listitem><para>Takes time (in seconds) as argument . The connection needs to remain
+                                idle before TCP starts sending keepalive probes. This controls the TCP_KEEPIDLE
+                                socket option (see
+                                <citerefentry><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                                and the <ulink
+                                url="http://www.tldp.org/HOWTO/html_single/TCP-Keepalive-HOWTO/">TCP
+                                Keepalive HOWTO</ulink> for details.)
+                                Defaults value is 7200 seconds (2 hours).</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>KeepAliveInterval=</varname></term>
+                                <listitem><para>Takes time (in seconds) as argument between individual keepalive probes,
+                                if the socket option SO_KEEPALIVE has  been set on this socket seconds as argument.
+                                This controls the TCP_KEEPINTVL socket option (see
+                                <citerefentry><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                                and the <ulink
+                                url="http://www.tldp.org/HOWTO/html_single/TCP-Keepalive-HOWTO/">TCP
+                                Keepalive HOWTO</ulink> for details.)
+                                Defaults value is 75 seconds.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>KeepAliveProbes=</varname></term>
+                                <listitem><para>Takes interger as argument. It's the number of unacknowledged probes to
+                                send before considering the connection dead and notifying the application layer.
+                                This controls the TCP_KEEPCNT socket option (see
+                                <citerefentry><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                                and the <ulink
+                                url="http://www.tldp.org/HOWTO/html_single/TCP-Keepalive-HOWTO/">TCP
+                                Keepalive HOWTO</ulink> for details.)
+                                Defaults value is 9.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>NoDelay=</varname></term>
                                 <listitem><para>Takes a boolean
                                 argument. TCP Nagle's algorithm works by combining a number of

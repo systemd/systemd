@@ -462,6 +462,7 @@ _const_ static const char* listen_lookup(int family, int type) {
 }
 
 static void socket_dump(Unit *u, FILE *f, const char *prefix) {
+        char time_string[FORMAT_TIMESPAN_MAX];
         SocketExecCommand c;
         Socket *s = SOCKET(u);
         SocketPort *p;
@@ -594,6 +595,23 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                         "%sOwnerGroup: %s\n",
                         prefix, strna(s->user),
                         prefix, strna(s->group));
+
+        if(s->keep_alive_time)
+                fprintf(f,
+                        "%sKeepAliveTime: %s\n",
+                        prefix, format_timespan(time_string, FORMAT_TIMESPAN_MAX,
+                                                s->keep_alive_time, USEC_PER_SEC));
+
+        if(s->keep_alive_interval)
+                fprintf(f,
+                        "%sKeepAliveInterval: %s\n",
+                        prefix, format_timespan(time_string, FORMAT_TIMESPAN_MAX,
+                                                s->keep_alive_interval, USEC_PER_SEC));
+
+        if(s->keep_alive_cnt)
+                fprintf(f,
+                        "%sKeepAliveProbes: %u\n",
+                        prefix, s->keep_alive_cnt);
 
         LIST_FOREACH(port, p, s->ports) {
 
@@ -790,6 +808,24 @@ static void socket_apply_socket_options(Socket *s, int fd) {
                 int b = s->keep_alive;
                 if (setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &b, sizeof(b)) < 0)
                         log_warning_unit(UNIT(s)->id, "SO_KEEPALIVE failed: %m");
+        }
+
+        if (s->keep_alive_time) {
+                int value = s->keep_alive_time / USEC_PER_SEC;
+                if (setsockopt(fd, SOL_TCP, TCP_KEEPIDLE, &value, sizeof(value)) < 0)
+                        log_warning_unit(UNIT(s)->id, "TCP_KEEPIDLE failed: %m");
+        }
+
+        if (s->keep_alive_interval) {
+                int value =  s->keep_alive_interval / USEC_PER_SEC;
+                if (setsockopt(fd, SOL_TCP, TCP_KEEPINTVL, &value, sizeof(value)) < 0)
+                        log_warning_unit(UNIT(s)->id, "TCP_KEEPINTVL failed: %m");
+        }
+
+        if (s->keep_alive_cnt) {
+                int value = s->keep_alive_cnt;
+                if (setsockopt(fd, SOL_SOCKET, TCP_KEEPCNT, &value, sizeof(value)) < 0)
+                        log_warning_unit(UNIT(s)->id, "TCP_KEEPCNT failed: %m");
         }
 
         if (s->no_delay) {
