@@ -1201,8 +1201,8 @@ static void help(void) {
                "     --fuzz=TIMESPAN      When printing the tree of the critical chain, print also\n"
                "                          services, which finished TIMESPAN earlier, than the\n"
                "                          latest in the branch. The unit of TIMESPAN is seconds\n"
-               "                          unless specified with a different unit, i.e. 50ms\n\n"
-               "     --no-man             Do not check for existence of man pages\n"
+               "                          unless specified with a different unit, i.e. 50ms\n"
+               "     --no-man             Do not check for existence of man pages\n\n"
                "Commands:\n"
                "  time                    Print time spent in the kernel before reaching userspace\n"
                "  blame                   Print list of running units ordered by time to init\n"
@@ -1211,7 +1211,7 @@ static void help(void) {
                "  dot                     Output dependency graph in dot(1) format\n"
                "  set-log-level LEVEL     Set logging threshold for systemd\n"
                "  dump                    Output state serialization of service manager\n"
-               "  verify                  Check unit files for correctness\n"
+               "  verify FILE...          Check unit files for correctness\n"
                , program_invocation_short_name);
 
         /* When updating this list, including descriptions, apply
