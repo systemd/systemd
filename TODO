@@ -24,6 +24,9 @@ External:
 
 Features:
 
+* sd_notify("SHUTDOWN=1") to fix a dbus activation race.
+  http://lists.freedesktop.org/archives/systemd-devel/2014-July/020983.html
+
 * merge ~/.local/share and ~/.local/lib into one similar /usr/lib and /usr/share....
 
 * make "systemctl suspend" block until we are back from suspend
