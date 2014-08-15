@@ -362,15 +362,15 @@ int config_parse_domains(const char *unit,
                 return r;
 
         strv_uniq(*domains);
-
-        if (strv_isempty(*domains))
-                network->wildcard_domain = false;
-        else if (strv_find(*domains, "*"))
-                network->wildcard_domain = true;
+        network->wildcard_domain = !!strv_find(*domains, "*");
 
         STRV_FOREACH(domain, *domains)
-                if (is_localhost(*domain) || !hostname_is_valid(*domain))
+                if (is_localhost(*domain) || !hostname_is_valid(*domain) || streq(*domain, "*")) {
                         strv_remove(*domains, *domain);
+
+                        /* We removed one entry, make sure we don't skip the next one */
+                        domain--;
+                }
 
         return 0;
 }
