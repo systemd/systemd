@@ -199,8 +199,7 @@ static int whitelist_device(const char *path, const char *node, const char *acc)
                 acc);
 
         r = cg_set_attribute("devices", path, "devices.allow", buf);
-        if (r < 0)
-                log_warning("Failed to set devices.allow on %s: %s", path, strerror(-r));
+        log_full(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, "Failed to set devices.allow on %s: %s", path, strerror(-r));
 
         return r;
 }
@@ -271,8 +270,7 @@ static int whitelist_major(const char *path, const char *name, char type, const 
                         acc);
 
                 r = cg_set_attribute("devices", path, "devices.allow", buf);
-                if (r < 0)
-                        log_warning("Failed to set devices.allow on %s: %s", path, strerror(-r));
+                log_full(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, "Failed to set devices.allow on %s: %s", path, strerror(-r));
         }
 
         return 0;
@@ -303,21 +301,18 @@ void cgroup_context_apply(CGroupContext *c, CGroupControllerMask mask, const cha
                         state == MANAGER_STARTING && c->startup_cpu_shares != (unsigned long) -1 ? c->startup_cpu_shares :
                         c->cpu_shares != (unsigned long) -1 ? c->cpu_shares : 1024);
                 r = cg_set_attribute("cpu", path, "cpu.shares", buf);
-                if (r < 0)
-                        log_warning("Failed to set cpu.shares on %s: %s", path, strerror(-r));
+                log_full(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, "Failed to set cpu.shares on %s: %s", path, strerror(-r));
 
                 sprintf(buf, USEC_FMT "\n", CGROUP_CPU_QUOTA_PERIOD_USEC);
                 r = cg_set_attribute("cpu", path, "cpu.cfs_period_us", buf);
-                if (r < 0)
-                        log_warning("Failed to set cpu.cfs_period_us on %s: %s", path, strerror(-r));
+                log_full(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, "Failed to set cpu.cfs_period_us on %s: %s", path, strerror(-r));
 
                 if (c->cpu_quota_per_sec_usec != USEC_INFINITY) {
                         sprintf(buf, USEC_FMT "\n", c->cpu_quota_per_sec_usec * CGROUP_CPU_QUOTA_PERIOD_USEC / USEC_PER_SEC);
                         r = cg_set_attribute("cpu", path, "cpu.cfs_quota_us", buf);
                 } else
                         r = cg_set_attribute("cpu", path, "cpu.cfs_quota_us", "-1");
-                if (r < 0)
-                        log_warning("Failed to set cpu.cfs_quota_us on %s: %s", path, strerror(-r));
+                log_full(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, "Failed to set cpu.cfs_quota_us on %s: %s", path, strerror(-r));
         }
 
         if (mask & CGROUP_BLKIO) {
@@ -331,8 +326,7 @@ void cgroup_context_apply(CGroupContext *c, CGroupControllerMask mask, const cha
                         sprintf(buf, "%lu\n", state == MANAGER_STARTING && c->startup_blockio_weight != (unsigned long) -1 ? c->startup_blockio_weight :
                                 c->blockio_weight != (unsigned long) -1 ? c->blockio_weight : 1000);
                         r = cg_set_attribute("blkio", path, "blkio.weight", buf);
-                        if (r < 0)
-                                log_warning("Failed to set blkio.weight on %s: %s", path, strerror(-r));
+                        log_full(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, "Failed to set blkio.weight on %s: %s", path, strerror(-r));
 
                         /* FIXME: no way to reset this list */
                         LIST_FOREACH(device_weights, w, c->blockio_device_weights) {
@@ -344,8 +338,7 @@ void cgroup_context_apply(CGroupContext *c, CGroupControllerMask mask, const cha
 
                                 sprintf(buf, "%u:%u %lu", major(dev), minor(dev), w->weight);
                                 r = cg_set_attribute("blkio", path, "blkio.weight_device", buf);
-                                if (r < 0)
-                                        log_error("Failed to set blkio.weight_device on %s: %s", path, strerror(-r));
+                                log_full(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, "Failed to set blkio.weight_device on %s: %s", path, strerror(-r));
                         }
                 }
 
@@ -362,8 +355,7 @@ void cgroup_context_apply(CGroupContext *c, CGroupControllerMask mask, const cha
 
                         sprintf(buf, "%u:%u %" PRIu64 "\n", major(dev), minor(dev), b->bandwidth);
                         r = cg_set_attribute("blkio", path, a, buf);
-                        if (r < 0)
-                                log_error("Failed to set %s on %s: %s", a, path, strerror(-r));
+                        log_full(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, "Failed to set %s on %s: %s", a, path, strerror(-r));
                 }
         }
 
@@ -376,8 +368,7 @@ void cgroup_context_apply(CGroupContext *c, CGroupControllerMask mask, const cha
                 } else
                         r = cg_set_attribute("memory", path, "memory.limit_in_bytes", "-1");
 
-                if (r < 0)
-                        log_error("Failed to set memory.limit_in_bytes on %s: %s", path, strerror(-r));
+                log_full(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, "Failed to set memory.limit_in_bytes on %s: %s", path, strerror(-r));
         }
 
         if ((mask & CGROUP_DEVICE) && !is_root) {
@@ -387,8 +378,7 @@ void cgroup_context_apply(CGroupContext *c, CGroupControllerMask mask, const cha
                         r = cg_set_attribute("devices", path, "devices.deny", "a");
                 else
                         r = cg_set_attribute("devices", path, "devices.allow", "a");
-                if (r < 0)
-                        log_warning("Failed to reset devices.list on %s: %s", path, strerror(-r));
+                log_full(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, "Failed to reset devices.list on %s: %s", path, strerror(-r));
 
                 if (c->device_policy == CGROUP_CLOSED ||
                     (c->device_policy == CGROUP_AUTO && c->device_allow)) {
