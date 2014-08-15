@@ -288,7 +288,7 @@ static void dump_list(const char *prefix, char **l) {
 }
 
 static int link_status_one(sd_rtnl *rtnl, struct udev *udev, const char *name) {
-        _cleanup_strv_free_ char **dns = NULL, **ntp = NULL;
+        _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **domains = NULL;
         _cleanup_free_ char *setup_state = NULL, *operational_state = NULL;
         _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *reply = NULL;
         _cleanup_udev_device_unref_ struct udev_device *d = NULL;
@@ -364,6 +364,7 @@ static int link_status_one(sd_rtnl *rtnl, struct udev *udev, const char *name) {
 
         sd_network_link_get_dns(ifindex, &dns);
         sd_network_link_get_ntp(ifindex, &ntp);
+        sd_network_link_get_domains(ifindex, &domains);
 
         sprintf(devid, "n%i", ifindex);
         d = udev_device_new_from_device_id(udev, devid);
@@ -411,6 +412,8 @@ static int link_status_one(sd_rtnl *rtnl, struct udev *udev, const char *name) {
 
         if (!strv_isempty(dns))
                 dump_list("         DNS: ", dns);
+        if (!strv_isempty(domains))
+                dump_list("     Domains: ", domains);
         if (!strv_isempty(ntp))
                 dump_list("         NTP: ", ntp);
 
