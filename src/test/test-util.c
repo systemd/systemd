@@ -202,20 +202,21 @@ static void test_safe_atod(void) {
         assert_se(*e == ',');
 
         /* Check if this really is locale independent */
-        setlocale(LC_NUMERIC, "de_DE.utf8");
+        if (setlocale(LC_NUMERIC, "de_DE.utf8")) {
 
-        r = safe_atod("0.2244", &d);
-        assert_se(r == 0);
-        assert_se(fabs(d - 0.2244) < 0.000001);
+                r = safe_atod("0.2244", &d);
+                assert_se(r == 0);
+                assert_se(fabs(d - 0.2244) < 0.000001);
 
-        r = safe_atod("0,5", &d);
-        assert_se(r == -EINVAL);
+                r = safe_atod("0,5", &d);
+                assert_se(r == -EINVAL);
 
-        errno = 0;
-        assert_se(fabs(strtod("0.5", &e) - 0.5) < 0.00001);
+                errno = 0;
+                assert_se(fabs(strtod("0,5", &e) - 0.5) < 0.00001);
+        }
 
         /* And check again, reset */
-        setlocale(LC_NUMERIC, "C");
+        assert_se(setlocale(LC_NUMERIC, "C"));
 
         r = safe_atod("0.2244", &d);
         assert_se(r == 0);
