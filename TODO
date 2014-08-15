@@ -24,6 +24,12 @@ External:
 
 Features:
 
+* merge ~/.local/share and ~/.local/lib into one similar /usr/lib and /usr/share....
+
+* make "systemctl suspend" block until we are back from suspend
+
+* remove readahead in 217
+
 * journald: allows specification of UID range for splitting up journal files
 
 * systemd.show_status= should probably have a mode where only failed
