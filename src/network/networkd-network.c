@@ -166,6 +166,7 @@ void network_free(Network *network) {
 
         strv_free(network->ntp);
         strv_free(network->dns);
+        strv_free(network->domains);
 
         netdev_unref(network->bridge);
 
