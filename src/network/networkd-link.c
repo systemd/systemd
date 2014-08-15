@@ -1784,6 +1784,9 @@ int link_save(Link *link) {
 
                 fputs("\n", f);
 
+                fprintf(f, "WILDCARD_DOMAIN=%s\n",
+                        yes_no(link->network->wildcard_domain));
+
                 fprintf(f, "LLMNR=%s\n",
                         llmnr_support_to_string(link->network->llmnr));
         }

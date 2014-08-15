@@ -351,6 +351,7 @@ int config_parse_domains(const char *unit,
                          const char *rvalue,
                          void *data,
                          void *userdata) {
+        Network *network = userdata;
         char ***domains = data;
         char **domain;
         int r;
@@ -361,6 +362,11 @@ int config_parse_domains(const char *unit,
                 return r;
 
         strv_uniq(*domains);
+
+        if (strv_isempty(*domains))
+                network->wildcard_domain = false;
+        else if (strv_find(*domains, "*"))
+                network->wildcard_domain = true;
 
         STRV_FOREACH(domain, *domains)
                 if (is_localhost(*domain) || !hostname_is_valid(*domain))

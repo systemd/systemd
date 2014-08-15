@@ -210,6 +210,25 @@ _public_ int sd_network_link_get_domains(int ifindex, char ***ret) {
         return network_get_link_strv("DOMAINS", ifindex, ret);
 }
 
+_public_ int sd_network_link_get_wildcard_domain(int ifindex) {
+        int r;
+        _cleanup_free_ char *p = NULL, *s = NULL;
+
+        assert_return(ifindex > 0, -EINVAL);
+
+        if (asprintf(&p, "/run/systemd/netif/links/%d", ifindex) < 0)
+                return -ENOMEM;
+
+        r = parse_env_file(p, NEWLINE, "WILDCARD_DOMAIN", &s, NULL);
+        if (r < 0)
+                return r;
+
+        if (!s)
+                return -EIO;
+
+        return parse_boolean(s);
+}
+
 static inline int MONITOR_TO_FD(sd_network_monitor *m) {
         return (int) (unsigned long) m - 1;
 }

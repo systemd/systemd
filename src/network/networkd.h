@@ -111,6 +111,7 @@ struct Network {
         Hashmap *addresses_by_section;
         Hashmap *routes_by_section;
 
+        bool wildcard_domain;
         char **domains, **dns, **ntp;
 
         LLMNRSupport llmnr;
