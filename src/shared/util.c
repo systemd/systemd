@@ -2084,12 +2084,14 @@ fail:
 }
 
 int release_terminal(void) {
-        int r = 0;
-        struct sigaction sa_old, sa_new = {
+        static const struct sigaction sa_new = {
                 .sa_handler = SIG_IGN,
                 .sa_flags = SA_RESTART,
         };
-        _cleanup_close_ int fd;
+
+        _cleanup_close_ int fd = -1;
+        struct sigaction sa_old;
+        int r = 0;
 
         fd = open("/dev/tty", O_RDWR|O_NOCTTY|O_NDELAY|O_CLOEXEC);
         if (fd < 0)

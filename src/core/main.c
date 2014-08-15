@@ -228,31 +228,25 @@ static void install_crash_handler(void) {
         sigaction_many(&sa, SIGNALS_CRASH_HANDLER, -1);
 }
 
-static int console_setup(bool do_reset) {
-        int tty_fd, r;
-
-        /* If we are init, we connect stdin/stdout/stderr to /dev/null
-         * and make sure we don't have a controlling tty. */
-
-        release_terminal();
-
-        if (!do_reset)
-                return 0;
+static int console_setup(void) {
+        _cleanup_close_ int tty_fd = -1;
+        int r;
 
         tty_fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC);
         if (tty_fd < 0) {
                 log_error("Failed to open /dev/console: %s", strerror(-tty_fd));
-                return -tty_fd;
+                return tty_fd;
         }
 
-        /* We don't want to force text mode.
-         * plymouth may be showing pictures already from initrd. */
+        /* We don't want to force text mode.  plymouth may be showing
+         * pictures already from initrd. */
         r = reset_terminal_fd(tty_fd, false);
-        if (r < 0)
+        if (r < 0) {
                 log_error("Failed to reset /dev/console: %s", strerror(-r));
+                return r;
+        }
 
-        safe_close(tty_fd);
-        return r;
+        return 0;
 }
 
 static int set_default_unit(const char *u) {
@@ -1537,8 +1531,16 @@ int main(int argc, char *argv[]) {
 
         /* Reset the console, but only if this is really init and we
          * are freshly booted */
-        if (arg_running_as == SYSTEMD_SYSTEM && arg_action == ACTION_RUN)
-                console_setup(getpid() == 1 && !skip_setup);
+        if (arg_running_as == SYSTEMD_SYSTEM && arg_action == ACTION_RUN) {
+
+                /* If we are init, we connect stdin/stdout/stderr to
+                 * /dev/null and make sure we don't have a controlling
+                 * tty. */
+                release_terminal();
+
+                if (getpid() == 1 && !skip_setup)
+                        console_setup();
+        }
 
         /* Open the logging devices, if possible and necessary */
         log_open();
