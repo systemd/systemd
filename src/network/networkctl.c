@@ -371,7 +371,11 @@ static int link_status_one(sd_rtnl *rtnl, struct udev *udev, const char *name) {
                 char *wildcard;
 
                 wildcard = strdup("*");
-                strv_push(&domains, wildcard);
+                if (!wildcard)
+                        return log_oom();
+
+                if (strv_consume(&domains, wildcard) < 0)
+                        return log_oom();
         }
 
         sprintf(devid, "n%i", ifindex);
