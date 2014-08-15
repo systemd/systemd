@@ -220,11 +220,12 @@ _public_ int sd_network_link_get_wildcard_domain(int ifindex) {
                 return -ENOMEM;
 
         r = parse_env_file(p, NEWLINE, "WILDCARD_DOMAIN", &s, NULL);
+        if (r == -ENOENT)
+                return -ENODATA;
         if (r < 0)
                 return r;
-
-        if (!s)
-                return -EIO;
+        if (isempty(s))
+                return -ENODATA;
 
         return parse_boolean(s);
 }
