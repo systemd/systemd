@@ -132,12 +132,12 @@ static void context_free_locale(Context *c) {
                 free_and_replace(&c->locale[p], NULL);
 }
 
-static void context_free(Context *c, sd_bus *bus) {
+static void context_free(Context *c) {
         context_free_locale(c);
         context_free_x11(c);
         context_free_vconsole(c);
 
-        bus_verify_polkit_async_registry_free(bus, c->polkit_registry);
+        bus_verify_polkit_async_registry_free(c->polkit_registry);
 };
 
 static void locale_simplify(Context *c) {
@@ -1161,7 +1161,7 @@ int main(int argc, char *argv[]) {
         }
 
 finish:
-        context_free(&context, bus);
+        context_free(&context);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

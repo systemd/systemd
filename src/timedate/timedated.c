@@ -52,11 +52,11 @@ typedef struct Context {
         Hashmap *polkit_registry;
 } Context;
 
-static void context_free(Context *c, sd_bus *bus) {
+static void context_free(Context *c) {
         assert(c);
 
         free(c->zone);
-        bus_verify_polkit_async_registry_free(bus, c->polkit_registry);
+        bus_verify_polkit_async_registry_free(c->polkit_registry);
 }
 
 static int context_read_data(Context *c) {
@@ -727,7 +727,7 @@ int main(int argc, char *argv[]) {
         }
 
 finish:
-        context_free(&context, bus);
+        context_free(&context);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

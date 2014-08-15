@@ -34,6 +34,7 @@
 #include "architecture.h"
 #include "env-util.h"
 #include "dbus.h"
+#include "dbus-job.h"
 #include "dbus-manager.h"
 #include "dbus-unit.h"
 #include "dbus-snapshot.h"
@@ -685,13 +686,7 @@ static int method_cancel_job(sd_bus *bus, sd_bus_message *message, void *userdat
         if (!j)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_JOB, "Job %u does not exist.", (unsigned) id);
 
-        r = selinux_unit_access_check(j->unit, message, "stop", error);
-        if (r < 0)
-                return r;
-
-        job_finish_and_invalidate(j, JOB_CANCELED, true);
-
-        return sd_bus_reply_method_return(message, NULL);
+        return bus_job_method_cancel(bus, message, j, error);
 }
 
 static int method_clear_jobs(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {

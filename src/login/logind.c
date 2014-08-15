@@ -163,7 +163,7 @@ void manager_free(Manager *m) {
         if (m->udev)
                 udev_unref(m->udev);
 
-        bus_verify_polkit_async_registry_free(m->bus, m->polkit_registry);
+        bus_verify_polkit_async_registry_free(m->polkit_registry);
 
         sd_bus_unref(m->bus);
         sd_event_unref(m->event);
