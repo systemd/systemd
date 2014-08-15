@@ -1420,6 +1420,7 @@ static int client_receive_message_raw(sd_event_source *s, int fd,
 }
 
 int sd_dhcp_client_start(sd_dhcp_client *client) {
+        char buffer[ETHER_ADDR_TO_STRING_MAX];
         int r;
 
         assert_return(client, -EINVAL);
@@ -1435,7 +1436,7 @@ int sd_dhcp_client_start(sd_dhcp_client *client) {
         if (r >= 0)
                 log_dhcp_client(client, "STARTED on ifindex %u with address %s",
                                 client->index,
-                                ether_ntoa(&client->client_id.mac_addr));
+                                ether_addr_to_string(&client->client_id.mac_addr, buffer));
 
         return r;
 }

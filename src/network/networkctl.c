@@ -33,6 +33,7 @@
 #include "udev-util.h"
 #include "arphrd-list.h"
 #include "local-addresses.h"
+#include "socket-util.h"
 
 static bool arg_no_pager = false;
 static bool arg_legend = true;
@@ -402,8 +403,10 @@ static int link_status_one(sd_rtnl *rtnl, struct udev *udev, const char *name) {
         if (model)
                 printf("       Model: %s\n", model);
 
-        if (have_mac)
-                printf("  HW Address: %s\n", ether_ntoa(&e));
+        if (have_mac) {
+                char ea[ETHER_ADDR_TO_STRING_MAX];
+                printf("  HW Address: %s\n", ether_addr_to_string(&e, ea));
+        }
 
         if (mtu > 0)
                 printf("         MTU: %u\n", mtu);

@@ -34,6 +34,7 @@
 static void test_link_configure(sd_rtnl *rtnl, int ifindex) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *message;
         const char *mac = "98:fe:94:3f:c6:18", *name = "test";
+        char buffer[ETHER_ADDR_TO_STRING_MAX];
         unsigned int mtu = 1450, mtu_out;
         const char *name_out;
         struct ether_addr mac_out;
@@ -51,7 +52,7 @@ static void test_link_configure(sd_rtnl *rtnl, int ifindex) {
         assert_se(streq(name, name_out));
 
         assert_se(sd_rtnl_message_read_ether_addr(message, IFLA_ADDRESS, &mac_out) >= 0);
-        assert_se(streq(mac, ether_ntoa(&mac_out)));
+        assert_se(streq(mac, ether_addr_to_string(&mac_out, buffer)));
 
         assert_se(sd_rtnl_message_read_u32(message, IFLA_MTU, &mtu_out) >= 0);
         assert_se(mtu == mtu_out);
