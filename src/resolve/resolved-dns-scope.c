@@ -366,7 +366,10 @@ int dns_scope_llmnr_membership(DnsScope *s, bool b) {
         int fd;
 
         assert(s);
-        assert(s->protocol == DNS_PROTOCOL_LLMNR);
+
+        if (s->protocol != DNS_PROTOCOL_LLMNR)
+                return 0;
+
         assert(s->link);
 
         if (s->family == AF_INET) {
