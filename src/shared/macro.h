@@ -133,46 +133,46 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
                 })
 
 #undef MAX
-#define MAX(a,b)                                 \
-        __extension__ ({                         \
-                        typeof(a) _a = (a);      \
-                        typeof(b) _b = (b);      \
-                        _a > _b ? _a : _b;       \
+#define MAX(a,b)                                        \
+        __extension__ ({                                \
+                        const typeof(a) _a = (a);       \
+                        const typeof(b) _b = (b);       \
+                        _a > _b ? _a : _b;              \
                 })
 
-#define MAX3(x,y,z)                              \
-        __extension__ ({                         \
-                        typeof(x) _c = MAX(x,y); \
-                        MAX(_c, z);              \
+#define MAX3(x,y,z)                                     \
+        __extension__ ({                                \
+                        const typeof(x) _c = MAX(x,y);  \
+                        MAX(_c, z);                     \
                 })
 
 #undef MIN
-#define MIN(a,b)                                \
-        __extension__ ({                        \
-                        typeof(a) _a = (a);     \
-                        typeof(b) _b = (b);     \
-                        _a < _b ? _a : _b;      \
+#define MIN(a,b)                                        \
+        __extension__ ({                                \
+                        const typeof(a) _a = (a);       \
+                        const typeof(b) _b = (b);       \
+                        _a < _b ? _a : _b;              \
                 })
 
-#define MIN3(x,y,z)                              \
-        __extension__ ({                         \
-                        typeof(x) _c = MIN(x,y); \
-                        MIN(_c, z);              \
+#define MIN3(x,y,z)                                     \
+        __extension__ ({                                \
+                        const typeof(x) _c = MIN(x,y);  \
+                        MIN(_c, z);                     \
                 })
 
-#define LESS_BY(A,B)                            \
-        __extension__ ({                        \
-                        typeof(A) _A = (A);     \
-                        typeof(B) _B = (B);     \
-                        _A > _B ? _A - _B : 0;  \
+#define LESS_BY(A,B)                                    \
+        __extension__ ({                                \
+                        const typeof(A) _A = (A);       \
+                        const typeof(B) _B = (B);       \
+                        _A > _B ? _A - _B : 0;          \
                 })
 
 #ifndef CLAMP
 #define CLAMP(x, low, high)                                             \
         __extension__ ({                                                \
-                        typeof(x) _x = (x);                             \
-                        typeof(low) _low = (low);                       \
-                        typeof(high) _high = (high);                    \
+                        const typeof(x) _x = (x);                       \
+                        const typeof(low) _low = (low);                 \
+                        const typeof(high) _high = (high);              \
                         ((_x > _high) ? _high : ((_x < _low) ? _low : _x)); \
                 })
 #endif
