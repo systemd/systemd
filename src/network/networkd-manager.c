@@ -450,8 +450,27 @@ static int set_put_in_addrv(Set *s, const struct in_addr *addresses, int n) {
         return c;
 }
 
+static void print_string_set(FILE *f, const char *field, Set *s) {
+        bool space = false;
+        Iterator i;
+        char *p;
+
+        if (set_isempty(s))
+                return;
+
+        fputs(field, f);
+
+        SET_FOREACH(p, s, i) {
+                if (space)
+                        fputc(' ', f);
+                fputs(p, f);
+                space = true;
+        }
+        fputc('\n', f);
+}
+
 int manager_save(Manager *m) {
-        _cleanup_set_free_free_ Set *dns = NULL, *ntp = NULL;
+        _cleanup_set_free_free_ Set *dns = NULL, *ntp = NULL, *domains = NULL;
         Link *link;
         Iterator i;
         _cleanup_free_ char *temp_path = NULL;
@@ -470,6 +489,10 @@ int manager_save(Manager *m) {
 
         ntp = set_new(string_hash_func, string_compare_func);
         if (!ntp)
+                return -ENOMEM;
+
+        domains = set_new(string_hash_func, string_compare_func);
+        if (!domains)
                 return -ENOMEM;
 
         HASHMAP_FOREACH(link, m->links, i) {
@@ -491,6 +514,10 @@ int manager_save(Manager *m) {
                 if (r < 0)
                         return r;
 
+                r = set_put_strdupv(domains, link->network->domains);
+                if (r < 0)
+                        return r;
+
                 if (!link->dhcp_lease)
                         continue;
 
@@ -503,7 +530,7 @@ int manager_save(Manager *m) {
                                 r = set_put_in_addrv(dns, addresses, r);
                                 if (r < 0)
                                         return r;
-                        } else if (r != -ENOENT)
+                        } else if (r < 0 && r != -ENOENT)
                                 return r;
                 }
 
@@ -513,6 +540,18 @@ int manager_save(Manager *m) {
                         r = sd_dhcp_lease_get_ntp(link->dhcp_lease, &addresses);
                         if (r > 0) {
                                 r = set_put_in_addrv(ntp, addresses, r);
+                                if (r < 0)
+                                        return r;
+                        } else if (r < 0 && r != -ENOENT)
+                                return r;
+                }
+
+                if (link->network->dhcp_domains) {
+                        const char *domainname;
+
+                        r = sd_dhcp_lease_get_domainname(link->dhcp_lease, &domainname);
+                        if (r >= 0) {
+                                r = set_put_strdup(domains, domainname);
                                 if (r < 0)
                                         return r;
                         } else if (r != -ENOENT)
@@ -533,33 +572,9 @@ int manager_save(Manager *m) {
                 "# This is private data. Do not parse.\n"
                 "OPER_STATE=%s\n", operstate_str);
 
-        if (!set_isempty(dns)) {
-                bool space = false;
-                char *p;
-
-                fputs("DNS=", f);
-                SET_FOREACH(p, dns, i) {
-                        if (space)
-                                fputc(' ', f);
-                        fputs(p, f);
-                        space = true;
-                }
-                fputc('\n', f);
-        }
-
-        if (!set_isempty(ntp)) {
-                bool space = false;
-                char *p;
-
-                fputs("NTP=", f);
-                SET_FOREACH(p, ntp, i) {
-                        if (space)
-                                fputc(' ', f);
-                        fputs(p, f);
-                        space = true;
-                }
-                fputc('\n', f);
-        }
+        print_string_set(f, "DNS=", dns);
+        print_string_set(f, "NTP=", ntp);
+        print_string_set(f, "DOMAINS=", domains);
 
         r = fflush_and_check(f);
         if (r < 0)

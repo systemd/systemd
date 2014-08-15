@@ -58,11 +58,14 @@ int sd_network_get_operational_state(char **state);
 
 /* Get DNS entries for all links. These are string representations of
  * IP addresses */
-int sd_network_get_dns(char ***addr);
+int sd_network_get_dns(char ***dns);
 
 /* Get NTP entries for all links. These are domain names or string
  * reperesentations of IP addresses */
-int sd_network_get_ntp(char ***addr);
+int sd_network_get_ntp(char ***ntp);
+
+/* Get the search/routing domains for all links. */
+int sd_network_get_domains(char ***domains);
 
 /* Get setup state from ifindex.
  * Possible states:

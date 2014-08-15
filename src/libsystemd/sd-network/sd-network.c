@@ -92,6 +92,10 @@ _public_ int sd_network_get_ntp(char ***ret) {
         return network_get_strv("NTP", ret);
 }
 
+_public_ int sd_network_get_domains(char ***ret) {
+        return network_get_strv("DOMAINS", ret);
+}
+
 _public_ int sd_network_link_get_setup_state(int ifindex, char **state) {
         _cleanup_free_ char *s = NULL, *p = NULL;
         int r;
