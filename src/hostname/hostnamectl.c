@@ -68,6 +68,7 @@ typedef struct StatusInfo {
         char *icon_name;
         char *chassis;
         char *deployment;
+        char *location;
         char *kernel_name;
         char *kernel_release;
         char *os_pretty_name;
@@ -92,12 +93,19 @@ static void print_status_info(StatusInfo *i) {
             !streq_ptr(i->hostname, i->static_hostname))
                 printf("Transient hostname: %s\n", i->hostname);
 
-        printf("         Icon name: %s\n"
-               "           Chassis: %s\n"
-               "        Deployment: %s\n",
-               strna(i->icon_name),
-               strna(i->chassis),
-               strna(i->deployment));
+        if (!isempty(i->icon_name))
+                printf("         Icon name: %s\n",
+                       strna(i->icon_name));
+
+        if (!isempty(i->chassis))
+                printf("           Chassis: %s\n",
+                       strna(i->chassis));
+
+        if (!isempty(i->deployment))
+                printf("        Deployment: %s\n", i->deployment);
+
+        if (!isempty(i->location))
+                printf("          Location: %s\n", i->location);
 
         r = sd_id128_get_machine(&mid);
         if (r >= 0)
@@ -155,22 +163,23 @@ static int show_all_names(sd_bus *bus) {
         StatusInfo info = {};
 
         static const struct bus_properties_map hostname_map[]  = {
-                { "Hostname",       "s", NULL, offsetof(StatusInfo, hostname) },
-                { "StaticHostname", "s", NULL, offsetof(StatusInfo, static_hostname) },
-                { "PrettyHostname", "s", NULL, offsetof(StatusInfo, pretty_hostname) },
-                { "IconName",       "s", NULL, offsetof(StatusInfo, icon_name) },
-                { "Chassis",        "s", NULL, offsetof(StatusInfo, chassis) },
-                { "Deployment",        "s", NULL, offsetof(StatusInfo, deployment) },
-                { "KernelName",     "s", NULL, offsetof(StatusInfo, kernel_name) },
-                { "KernelRelease",     "s", NULL, offsetof(StatusInfo, kernel_release) },
-                { "OperatingSystemPrettyName",     "s", NULL, offsetof(StatusInfo, os_pretty_name) },
-                { "OperatingSystemCPEName",        "s", NULL, offsetof(StatusInfo, os_cpe_name) },
+                { "Hostname",                  "s", NULL, offsetof(StatusInfo, hostname)        },
+                { "StaticHostname",            "s", NULL, offsetof(StatusInfo, static_hostname) },
+                { "PrettyHostname",            "s", NULL, offsetof(StatusInfo, pretty_hostname) },
+                { "IconName",                  "s", NULL, offsetof(StatusInfo, icon_name)       },
+                { "Chassis",                   "s", NULL, offsetof(StatusInfo, chassis)         },
+                { "Deployment",                "s", NULL, offsetof(StatusInfo, deployment)      },
+                { "Location",                  "s", NULL, offsetof(StatusInfo, location)        },
+                { "KernelName",                "s", NULL, offsetof(StatusInfo, kernel_name)     },
+                { "KernelRelease",             "s", NULL, offsetof(StatusInfo, kernel_release)  },
+                { "OperatingSystemPrettyName", "s", NULL, offsetof(StatusInfo, os_pretty_name)  },
+                { "OperatingSystemCPEName",    "s", NULL, offsetof(StatusInfo, os_cpe_name)     },
                 {}
         };
 
         static const struct bus_properties_map manager_map[] = {
-                { "Virtualization", "s", NULL, offsetof(StatusInfo, virtualization) },
-                { "Architecture",   "s", NULL, offsetof(StatusInfo, architecture) },
+                { "Virtualization",            "s", NULL, offsetof(StatusInfo, virtualization)  },
+                { "Architecture",              "s", NULL, offsetof(StatusInfo, architecture)    },
                 {}
         };
 
@@ -199,6 +208,7 @@ fail:
         free(info.icon_name);
         free(info.chassis);
         free(info.deployment);
+        free(info.location);
         free(info.kernel_name);
         free(info.kernel_release);
         free(info.os_pretty_name);
@@ -321,6 +331,13 @@ static int set_deployment(sd_bus *bus, char **args, unsigned n) {
         return set_simple_string(bus, "SetDeployment", args[1]);
 }
 
+static int set_location(sd_bus *bus, char **args, unsigned n) {
+        assert(args);
+        assert(n == 2);
+
+        return set_simple_string(bus, "SetLocation", args[1]);
+}
+
 static void help(void) {
         printf("%s [OPTIONS...] COMMAND ...\n\n"
                "Query or change system hostname.\n\n"
@@ -338,6 +355,7 @@ static void help(void) {
                "  set-icon-name NAME     Set icon name for host\n"
                "  set-chassis NAME       Set chassis type for host\n"
                "  set-deployment NAME    Set deployment environment for host\n"
+               "  set-location NAME      Set location for host\n"
                , program_invocation_short_name);
 }
 
@@ -429,11 +447,12 @@ static int hostnamectl_main(sd_bus *bus, int argc, char *argv[]) {
                 const int argc;
                 int (* const dispatch)(sd_bus *bus, char **args, unsigned n);
         } verbs[] = {
-                { "status",        LESS,  1, show_status   },
-                { "set-hostname",  EQUAL, 2, set_hostname  },
-                { "set-icon-name", EQUAL, 2, set_icon_name },
-                { "set-chassis",   EQUAL, 2, set_chassis   },
-                { "set-deployment",   EQUAL, 2, set_deployment   },
+                { "status",           LESS,  1, show_status    },
+                { "set-hostname",     EQUAL, 2, set_hostname   },
+                { "set-icon-name",    EQUAL, 2, set_icon_name  },
+                { "set-chassis",      EQUAL, 2, set_chassis    },
+                { "set-deployment",   EQUAL, 2, set_deployment },
+                { "set-location",     EQUAL, 2, set_location   },
         };
 
         int left;
