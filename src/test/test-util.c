@@ -70,6 +70,28 @@ static void test_align_power2(void) {
         }
 }
 
+static void test_max(void) {
+        static const struct {
+                int a;
+                int b[CONST_MAX(10, 100)];
+        } val1 = {
+                .a = CONST_MAX(10, 100),
+        };
+        int d = 0;
+
+        assert_cc(sizeof(val1.b) == sizeof(int) * 100);
+
+        /* CONST_MAX returns (void) instead of a value if the passed arguments
+         * are not of the same type or not constant expressions. */
+        assert_cc(__builtin_types_compatible_p(typeof(CONST_MAX(1, 10)), int));
+        assert_cc(__builtin_types_compatible_p(typeof(CONST_MAX(d, 10)), void));
+        assert_cc(__builtin_types_compatible_p(typeof(CONST_MAX(1, 1U)), void));
+
+        assert_se(val1.a == 100);
+        assert_se(MAX(++d, 0) == 1);
+        assert_se(d == 1);
+}
+
 static void test_first_word(void) {
         assert_se(first_word("Hello", ""));
         assert_se(first_word("Hello", "Hello"));
@@ -927,6 +949,7 @@ int main(int argc, char *argv[]) {
 
         test_streq_ptr();
         test_align_power2();
+        test_max();
         test_first_word();
         test_close_many();
         test_parse_boolean();
