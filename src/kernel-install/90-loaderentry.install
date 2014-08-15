@@ -47,11 +47,10 @@ if [[ -f /etc/kernel/cmdline ]]; then
 fi
 
 if ! [[ ${BOOT_OPTIONS[*]} ]]; then
-    readarray -t line < /proc/cmdline
-    for i in ${line[*]}; do
-        if [[ "${i#initrd=*}" == "$i" ]]; then
-            BOOT_OPTIONS[${#BOOT_OPTIONS[@]}]="$i"
-        fi
+    read -ar line < /proc/cmdline
+    for i in "${line[@]}"; do
+        [[ "${i#initrd=*}" != "$i" ]] && continue
+        BOOT_OPTIONS[${#BOOT_OPTIONS[@]}]="$i"
     done
 fi
 
