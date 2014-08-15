@@ -537,7 +537,7 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const uint8_t *option,
                 if (r < 0)
                         return r;
 
-                if (!hostname_is_valid(hostname))
+                if (!hostname_is_valid(hostname) || is_localhost(hostname))
                         break;
 
                 free(lease->hostname);
