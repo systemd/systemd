@@ -1726,6 +1726,10 @@ int link_save(Link *link) {
 
                 fputs("DNS=", f);
 
+                STRV_FOREACH(address, link->network->dns)
+                        fprintf(f, "%s%s", *address,
+                                (address + 1 ? " " : ""));
+
                 if (link->network->dhcp_dns &&
                     link->dhcp_lease) {
                         const struct in_addr *addresses;
@@ -1738,13 +1742,13 @@ int link_save(Link *link) {
                         }
                 }
 
-                STRV_FOREACH(address, link->network->dns)
-                        fprintf(f, "%s%s", *address,
-                                (address + 1 ? " " : ""));
-
                 fputs("\n", f);
 
                 fprintf(f, "NTP=");
+
+                STRV_FOREACH(address, link->network->ntp)
+                        fprintf(f, "%s%s", *address,
+                                (address + 1 ? " " : ""));
 
                 if (link->network->dhcp_ntp &&
                     link->dhcp_lease) {
@@ -1758,13 +1762,13 @@ int link_save(Link *link) {
                         }
                 }
 
-                STRV_FOREACH(address, link->network->ntp)
-                        fprintf(f, "%s%s", *address,
-                                (address + 1 ? " " : ""));
-
                 fputs("\n", f);
 
                 fprintf(f, "DOMAINS=");
+
+                STRV_FOREACH(domain, link->network->domains)
+                        fprintf(f, "%s%s", *domain,
+                                (domain + 1 ? " " : ""));
 
                 if (link->network->dhcp_domains &&
                     link->dhcp_lease) {
@@ -1777,10 +1781,6 @@ int link_save(Link *link) {
                                         fputs(" ", f);
                         }
                 }
-
-                STRV_FOREACH(domain, link->network->domains)
-                        fprintf(f, "%s%s", *domain,
-                                (domain + 1 ? " " : ""));
 
                 fputs("\n", f);
 
