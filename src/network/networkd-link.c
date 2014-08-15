@@ -1763,7 +1763,7 @@ int link_save(Link *link) {
 
                 fputs("\n", f);
 
-                if (link->network->dhcp_domainname &&
+                if (link->network->dhcp_domains &&
                     link->dhcp_lease) {
                         const char *domainname;
 

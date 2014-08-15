@@ -95,7 +95,7 @@ struct Network {
         bool dhcp_ntp;
         bool dhcp_mtu;
         bool dhcp_hostname;
-        bool dhcp_domainname;
+        bool dhcp_domains;
         bool dhcp_sendhost;
         bool dhcp_broadcast;
         bool dhcp_critical;
