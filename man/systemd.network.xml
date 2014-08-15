@@ -301,7 +301,18 @@
                                                 This option may be specified more than once.</para>
                                         </listitem>
                                 </varlistentry>
-<!-- TODO: document NTP= option when it is actually used somewhere -->
+                                <varlistentry>
+                                        <term><varname>Domains=</varname></term>
+                                        <listitem>
+                                                <para>The domains used for DNS resolution over this link.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>NTP=</varname></term>
+                                        <listitem>
+                                                <para>An NTP server address. This option may be specified more than once.</para>
+                                        </listitem>
+                                </varlistentry>
                                 <varlistentry>
                                         <term><varname>Bridge=</varname></term>
                                         <listitem>

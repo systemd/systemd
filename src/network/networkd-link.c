@@ -1722,6 +1722,7 @@ int link_save(Link *link) {
 
         if (link->network) {
                 char **address;
+                char **domain;
 
                 fputs("DNS=", f);
 
@@ -1763,14 +1764,25 @@ int link_save(Link *link) {
 
                 fputs("\n", f);
 
+                fprintf(f, "DOMAINS=");
+
                 if (link->network->dhcp_domains &&
                     link->dhcp_lease) {
                         const char *domainname;
 
                         r = sd_dhcp_lease_get_domainname(link->dhcp_lease, &domainname);
-                        if (r >= 0)
-                                fprintf(f, "DOMAINS=%s\n", domainname);
+                        if (r >= 0) {
+                                fputs(domainname, f);
+                                if (link->network->domains)
+                                        fputs(" ", f);
+                        }
                 }
+
+                STRV_FOREACH(domain, link->network->domains)
+                        fprintf(f, "%s%s", *domain,
+                                (domain + 1 ? " " : ""));
+
+                fputs("\n", f);
 
                 fprintf(f, "LLMNR=%s\n",
                         llmnr_support_to_string(link->network->llmnr));

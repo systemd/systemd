@@ -341,6 +341,34 @@ int config_parse_netdev(const char *unit,
         return 0;
 }
 
+int config_parse_domains(const char *unit,
+                         const char *filename,
+                         unsigned line,
+                         const char *section,
+                         unsigned section_line,
+                         const char *lvalue,
+                         int ltype,
+                         const char *rvalue,
+                         void *data,
+                         void *userdata) {
+        char ***domains = data;
+        char **domain;
+        int r;
+
+        r = config_parse_strv(unit, filename, line, section, section_line,
+                              lvalue, ltype, rvalue, domains, userdata);
+        if (r < 0)
+                return r;
+
+        strv_uniq(*domains);
+
+        STRV_FOREACH(domain, *domains)
+                if (is_localhost(*domain) || !hostname_is_valid(*domain))
+                        strv_remove(*domains, *domain);
+
+        return 0;
+}
+
 int config_parse_tunnel(const char *unit,
                         const char *filename,
                         unsigned line,

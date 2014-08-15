@@ -37,6 +37,7 @@ Network.IPv4LL,              config_parse_bool,                  0,             
 Network.IPv4LLRoute,         config_parse_bool,                  0,                             offsetof(Network, ipv4ll_route)
 Network.Address,             config_parse_address,               0,                             0
 Network.Gateway,             config_parse_gateway,               0,                             0
+Network.Domains,             config_parse_domains,               0,                             offsetof(Network, domains)
 Network.DNS,                 config_parse_strv,                  0,                             offsetof(Network, dns)
 Network.LLMNR,               config_parse_llmnr,                 0,                             offsetof(Network, llmnr)
 Network.NTP,                 config_parse_strv,                  0,                             offsetof(Network, ntp)

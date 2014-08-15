@@ -111,7 +111,7 @@ struct Network {
         Hashmap *addresses_by_section;
         Hashmap *routes_by_section;
 
-        char **dns, **ntp;
+        char **domains, **dns, **ntp;
 
         LLMNRSupport llmnr;
 
@@ -223,6 +223,17 @@ int network_apply(Manager *manager, Network *network, Link *link);
 int config_parse_netdev(const char *unit, const char *filename, unsigned line,
                         const char *section, unsigned section_line, const char *lvalue,
                         int ltype, const char *rvalue, void *data, void *userdata);
+
+int config_parse_domains(const char *unit,
+                         const char *filename,
+                         unsigned line,
+                         const char *section,
+                         unsigned section_line,
+                         const char *lvalue,
+                         int ltype,
+                         const char *rvalue,
+                         void *data,
+                         void *userdata);
 
 int config_parse_tunnel(const char *unit,
                         const char *filename,
