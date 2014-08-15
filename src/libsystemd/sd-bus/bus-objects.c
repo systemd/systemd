@@ -287,7 +287,6 @@ static int node_callbacks_run(
 #define CAPABILITY_SHIFT(x) (((x) >> __builtin_ctzll(_SD_BUS_VTABLE_CAPABILITY_MASK)) & 0xFFFF)
 
 static int check_access(sd_bus *bus, sd_bus_message *m, struct vtable_member *c, sd_bus_error *error) {
-        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
         uint64_t cap;
         int r;
 
