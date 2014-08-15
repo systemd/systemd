@@ -374,6 +374,7 @@ global:
         sd_event_loop;
         sd_event_exit;
         sd_event_now;
+        sd_event_get_fd;
         sd_event_get_state;
         sd_event_get_tid;
         sd_event_get_exit_code;

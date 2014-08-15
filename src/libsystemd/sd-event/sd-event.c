@@ -2361,6 +2361,14 @@ finish:
         return r;
 }
 
+_public_ int sd_event_get_fd(sd_event *e) {
+
+        assert_return(e, -EINVAL);
+        assert_return(!event_pid_changed(e), -ECHILD);
+
+        return e->epoll_fd;
+}
+
 _public_ int sd_event_get_state(sd_event *e) {
         assert_return(e, -EINVAL);
         assert_return(!event_pid_changed(e), -ECHILD);
