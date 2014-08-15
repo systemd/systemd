@@ -293,26 +293,6 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
                 if (in_initrd())
                         return set_default_unit(value);
 
-        } else if (streq(key, "systemd.log_target") && value) {
-
-                if (log_set_target_from_string(value) < 0)
-                        log_warning("Failed to parse log target %s. Ignoring.", value);
-
-        } else if (streq(key, "systemd.log_level") && value) {
-
-                if (log_set_max_level_from_string(value) < 0)
-                        log_warning("Failed to parse log level %s. Ignoring.", value);
-
-        } else if (streq(key, "systemd.log_color") && value) {
-
-                if (log_show_color_from_string(value) < 0)
-                        log_warning("Failed to parse log color setting %s. Ignoring.", value);
-
-        } else if (streq(key, "systemd.log_location") && value) {
-
-                if (log_show_location_from_string(value) < 0)
-                        log_warning("Failed to parse log location setting %s. Ignoring.", value);
-
         } else if (streq(key, "systemd.dump_core") && value) {
 
                 r = parse_boolean(value);
@@ -388,7 +368,8 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
 
         } else if (streq(key, "debug") && !value) {
 
-                log_set_max_level(LOG_DEBUG);
+                /* Note that log_parse_environment() handles 'debug'
+                 * too, and sets the log level to LOG_DEBUG. */
 
                 if (detect_container(NULL) > 0)
                         log_set_target(LOG_TARGET_CONSOLE);
@@ -963,37 +944,6 @@ static int parse_argv(int argc, char *argv[]) {
                 return -EINVAL;
         }
 
-        if (detect_container(NULL) > 0) {
-                char **a;
-
-                /* All /proc/cmdline arguments the kernel didn't
-                 * understand it passed to us. We're not really
-                 * interested in that usually since /proc/cmdline is
-                 * more interesting and complete. With one exception:
-                 * if we are run in a container /proc/cmdline is not
-                 * relevant for the container, hence we rely on argv[]
-                 * instead. */
-
-                for (a = argv; a < argv + argc; a++) {
-                        _cleanup_free_ char *w;
-                        char *value;
-
-                        w = strdup(*a);
-                        if (!w)
-                                return log_oom();
-
-                        value = strchr(w, '=');
-                        if (value)
-                                *(value++) = 0;
-
-                        r = parse_proc_cmdline_item(w, value);
-                        if (r < 0) {
-                                log_error("Failed on cmdline argument %s: %s", *a, strerror(-r));
-                                return r;
-                        }
-                }
-        }
-
         return 0;
 }
 
@@ -1455,6 +1405,8 @@ int main(int argc, char *argv[]) {
                 if (parse_proc_cmdline(parse_proc_cmdline_item) < 0)
                         goto finish;
 
+        /* Note that this also parses bits from the kernel command
+         * line, including "debug". */
         log_parse_environment();
 
         if (parse_argv(argc, argv) < 0)
