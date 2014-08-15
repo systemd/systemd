@@ -212,7 +212,7 @@ static void test_safe_atod(void) {
         assert_se(r == -EINVAL);
 
         errno = 0;
-        assert_se(fabs(strtod("0,5", &e) - 0.5) < 0.00001);
+        assert_se(fabs(strtod("0.5", &e) - 0.5) < 0.00001);
 
         /* And check again, reset */
         setlocale(LC_NUMERIC, "C");
