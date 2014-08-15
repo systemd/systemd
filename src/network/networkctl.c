@@ -427,7 +427,7 @@ static int link_status_one(sd_rtnl *rtnl, struct udev *udev, const char *name) {
         if (!strv_isempty(dns))
                 dump_list("         DNS: ", dns);
         if (!strv_isempty(domains))
-                dump_list("     Domains: ", domains);
+                dump_list("      Domain: ", domains);
         if (!strv_isempty(ntp))
                 dump_list("         NTP: ", ntp);
 
@@ -454,7 +454,7 @@ static int link_status(char **args, unsigned n) {
 
         if (n <= 1 && !arg_all) {
                 _cleanup_free_ char *operational_state = NULL;
-                _cleanup_strv_free_ char **dns = NULL, **ntp = NULL;
+                _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **domains = NULL;
                 _cleanup_free_ struct local_address *addresses = NULL;
                 const char *on_color_operational, *off_color_operational;
                 int i, c;
@@ -479,6 +479,10 @@ static int link_status(char **args, unsigned n) {
                 sd_network_get_dns(&dns);
                 if (!strv_isempty(dns))
                         dump_list("         DNS: ", dns);
+
+                sd_network_get_domains(&domains);
+                if (!strv_isempty(domains))
+                        dump_list("      Domain: ", domains);
 
                 sd_network_get_dns(&ntp);
                 if (!strv_isempty(ntp))
