@@ -2210,12 +2210,8 @@ static int process_watchdog(sd_event *e) {
         return arm_watchdog(e);
 }
 
-_public_ int sd_event_run(sd_event *e, uint64_t timeout) {
-        struct epoll_event *ev_queue;
-        unsigned ev_queue_max;
-        sd_event_source *p;
-        int r, i, m;
-        bool timedout;
+_public_ int sd_event_prepare(sd_event *e) {
+        int r;
 
         assert_return(e, -EINVAL);
         assert_return(!event_pid_changed(e), -ECHILD);
@@ -2223,38 +2219,60 @@ _public_ int sd_event_run(sd_event *e, uint64_t timeout) {
         assert_return(e->state == SD_EVENT_PASSIVE, -EBUSY);
 
         if (e->exit_requested)
-                return dispatch_exit(e);
+                goto pending;
 
-        sd_event_ref(e);
         e->iteration++;
-        e->state = SD_EVENT_RUNNING;
 
         r = event_prepare(e);
         if (r < 0)
-                goto finish;
+                return r;
 
         r = event_arm_timer(e, &e->realtime);
         if (r < 0)
-                goto finish;
+                return r;
 
         r = event_arm_timer(e, &e->boottime);
         if (r < 0)
-                goto finish;
+                return r;
 
         r = event_arm_timer(e, &e->monotonic);
         if (r < 0)
-                goto finish;
+                return r;
 
         r = event_arm_timer(e, &e->realtime_alarm);
         if (r < 0)
-                goto finish;
+                return r;
 
         r = event_arm_timer(e, &e->boottime_alarm);
         if (r < 0)
-                goto finish;
+                return r;
 
         if (event_next_pending(e) || e->need_process_child)
-                timeout = 0;
+                goto pending;
+
+        e->state = SD_EVENT_PREPARED;
+
+        return 0;
+
+pending:
+        e->state = SD_EVENT_PREPARED;
+        return sd_event_wait(e, 0);
+}
+
+_public_ int sd_event_wait(sd_event *e, uint64_t timeout) {
+        struct epoll_event *ev_queue;
+        unsigned ev_queue_max;
+        int r, m, i;
+
+        assert_return(e, -EINVAL);
+        assert_return(!event_pid_changed(e), -ECHILD);
+        assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
+        assert_return(e->state == SD_EVENT_PREPARED, -EBUSY);
+
+        if (e->exit_requested) {
+                e->state = SD_EVENT_PENDING;
+                return 1;
+        }
 
         ev_queue_max = CLAMP(e->n_sources, 1U, EPOLL_QUEUE_MAX);
         ev_queue = newa(struct epoll_event, ev_queue_max);
@@ -2262,11 +2280,15 @@ _public_ int sd_event_run(sd_event *e, uint64_t timeout) {
         m = epoll_wait(e->epoll_fd, ev_queue, ev_queue_max,
                        timeout == (uint64_t) -1 ? -1 : (int) ((timeout + USEC_PER_MSEC - 1) / USEC_PER_MSEC));
         if (m < 0) {
-                r = errno == EAGAIN || errno == EINTR ? 1 : -errno;
+                if (errno == EINTR) {
+                        e->state = SD_EVENT_PENDING;
+                        return 1;
+                }
+
+                r = -errno;
+
                 goto finish;
         }
-
-        timedout = m == 0;
 
         dual_timestamp_get(&e->timestamp);
         e->timestamp_boottime = now(CLOCK_BOOTTIME);
@@ -2324,19 +2346,69 @@ _public_ int sd_event_run(sd_event *e, uint64_t timeout) {
                         goto finish;
         }
 
-        p = event_next_pending(e);
-        if (!p) {
-                r = !timedout;
-                goto finish;
+        if (event_next_pending(e)) {
+                e->state = SD_EVENT_PENDING;
+
+                return 1;
         }
 
-        r = source_dispatch(p);
+        r = 0;
 
 finish:
         e->state = SD_EVENT_PASSIVE;
-        sd_event_unref(e);
 
         return r;
+}
+
+_public_ int sd_event_dispatch(sd_event *e) {
+        sd_event_source *p;
+        int r;
+
+        assert_return(e, -EINVAL);
+        assert_return(!event_pid_changed(e), -ECHILD);
+        assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
+        assert_return(e->state == SD_EVENT_PENDING, -EBUSY);
+
+        if (e->exit_requested)
+                return dispatch_exit(e);
+
+        p = event_next_pending(e);
+        if (p) {
+                sd_event_ref(e);
+
+                e->state = SD_EVENT_RUNNING;
+                r = source_dispatch(p);
+                e->state = SD_EVENT_PASSIVE;
+
+                sd_event_unref(e);
+
+                return r;
+        }
+
+        e->state = SD_EVENT_PASSIVE;
+
+        return 1;
+}
+
+_public_ int sd_event_run(sd_event *e, uint64_t timeout) {
+        int r;
+
+        assert_return(e, -EINVAL);
+        assert_return(!event_pid_changed(e), -ECHILD);
+        assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
+        assert_return(e->state == SD_EVENT_PASSIVE, -EBUSY);
+
+        r = sd_event_prepare(e);
+        if (r > 0)
+                return sd_event_dispatch(e);
+        else if (r < 0)
+                return r;
+
+        r = sd_event_wait(e, timeout);
+        if (r > 0)
+                return sd_event_dispatch(e);
+        else
+                return r;
 }
 
 _public_ int sd_event_loop(sd_event *e) {
