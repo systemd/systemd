@@ -472,3 +472,56 @@ _public_ int sd_bus_query_sender_creds(sd_bus_message *call, uint64_t mask, sd_b
 
         return bus_creds_extend_by_pid(c, mask, creds);
 }
+
+_public_ int sd_bus_query_sender_privilege(sd_bus_message *call, int capability) {
+        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+        uid_t our_uid;
+        int r;
+
+        assert_return(call, -EINVAL);
+        assert_return(call->sealed, -EPERM);
+        assert_return(call->bus, -EINVAL);
+        assert_return(!bus_pid_changed(call->bus), -ECHILD);
+
+        if (!BUS_IS_OPEN(call->bus->state))
+                return -ENOTCONN;
+
+        /* We only trust the effective capability set if this is
+         * kdbus. On classic dbus1 we cannot retrieve the value
+         * without races. Since this function is supposed to be useful
+         * for authentication decision we hence avoid requesting and
+         * using that information. */
+        if (call->bus->is_kernel && capability >= 0) {
+                r = sd_bus_query_sender_creds(call, SD_BUS_CREDS_UID|SD_BUS_CREDS_EFFECTIVE_CAPS, &creds);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_creds_has_effective_cap(creds, capability);
+                if (r > 0)
+                        return 1;
+        } else {
+                r = sd_bus_query_sender_creds(call, SD_BUS_CREDS_UID, &creds);
+                if (r < 0)
+                        return r;
+        }
+
+        /* Now, check the UID, but only if the capability check wasn't
+         * sufficient */
+        our_uid = getuid();
+        if (our_uid != 0 || !call->bus->is_kernel || capability < 0) {
+                uid_t sender_uid;
+
+                r = sd_bus_creds_get_uid(creds, &sender_uid);
+                if (r >= 0) {
+                        /* Sender has same UID as us, then let's grant access */
+                        if (sender_uid == our_uid)
+                                return 1;
+
+                        /* Sender is root, we are not root. */
+                        if (our_uid != 0 && sender_uid == 0)
+                                return 1;
+                }
+        }
+
+        return 0;
+}

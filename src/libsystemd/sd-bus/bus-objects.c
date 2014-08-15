@@ -289,7 +289,6 @@ static int node_callbacks_run(
 static int check_access(sd_bus *bus, sd_bus_message *m, struct vtable_member *c, sd_bus_error *error) {
         _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
         uint64_t cap;
-        uid_t uid;
         int r;
 
         assert(bus);
@@ -304,17 +303,6 @@ static int check_access(sd_bus *bus, sd_bus_message *m, struct vtable_member *c,
         if (c->vtable->flags & SD_BUS_VTABLE_UNPRIVILEGED)
                 return 0;
 
-        /* If we are not connected to kdbus we cannot retrieve the
-         * effective capability set without race. Since we need this
-         * for a security decision we cannot use racy data, hence
-         * don't request it. */
-        if (bus->is_kernel)
-                r = sd_bus_query_sender_creds(m, SD_BUS_CREDS_UID|SD_BUS_CREDS_EFFECTIVE_CAPS, &creds);
-        else
-                r = sd_bus_query_sender_creds(m, SD_BUS_CREDS_UID, &creds);
-        if (r < 0)
-                return r;
-
         /* Check have the caller has the requested capability
          * set. Note that the flags value contains the capability
          * number plus one, which we need to subtract here. We do this
@@ -328,16 +316,11 @@ static int check_access(sd_bus *bus, sd_bus_message *m, struct vtable_member *c,
         else
                 cap --;
 
-        r = sd_bus_creds_has_effective_cap(creds, cap);
+        r = sd_bus_query_sender_privilege(m, cap);
+        if (r < 0)
+                return r;
         if (r > 0)
-                return 1;
-
-        /* Caller has same UID as us, then let's grant access */
-        r = sd_bus_creds_get_uid(creds, &uid);
-        if (r >= 0) {
-                if (uid == getuid())
-                        return 1;
-        }
+                return 0;
 
         return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Access to %s.%s() not permitted.", c->interface, c->member);
 }

@@ -186,28 +186,22 @@ int bus_name_has_owner(sd_bus *c, const char *name, sd_bus_error *error) {
 int bus_verify_polkit(
                 sd_bus *bus,
                 sd_bus_message *m,
+                int capability,
                 const char *action,
                 bool interactive,
                 bool *_challenge,
                 sd_bus_error *e) {
 
-        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
-        uid_t uid;
         int r;
 
         assert(bus);
         assert(m);
         assert(action);
 
-        r = sd_bus_query_sender_creds(m, SD_BUS_CREDS_UID, &creds);
+        r = sd_bus_query_sender_privilege(m, capability);
         if (r < 0)
                 return r;
-
-        r = sd_bus_creds_get_uid(creds, &uid);
-        if (r < 0)
-                return r;
-
-        if (uid == 0)
+        if (r > 0)
                 return 1;
 
 #ifdef ENABLE_POLKIT
@@ -325,6 +319,7 @@ int bus_verify_polkit_async(
                 sd_bus *bus,
                 Hashmap **registry,
                 sd_bus_message *m,
+                int capability,
                 const char *action,
                 bool interactive,
                 sd_bus_error *error,
@@ -336,8 +331,6 @@ int bus_verify_polkit_async(
         AsyncPolkitQuery *q;
         const char *sender;
 #endif
-        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
-        uid_t uid;
         int r;
 
         assert(bus);
@@ -383,15 +376,10 @@ int bus_verify_polkit_async(
         }
 #endif
 
-        r = sd_bus_query_sender_creds(m, SD_BUS_CREDS_UID, &creds);
+        r = sd_bus_query_sender_privilege(m, capability);
         if (r < 0)
                 return r;
-
-        r = sd_bus_creds_get_uid(creds, &uid);
-        if (r < 0)
-                return r;
-
-        if (uid == 0)
+        if (r > 0)
                 return 1;
 
 #ifdef ENABLE_POLKIT

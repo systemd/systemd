@@ -282,6 +282,7 @@ int sd_bus_emit_interfaces_removed_strv(sd_bus *bus, const char *path, char **in
 int sd_bus_emit_interfaces_removed(sd_bus *bus, const char *path, const char *interface, ...) _sd_sentinel_;
 
 int sd_bus_query_sender_creds(sd_bus_message *call, uint64_t mask, sd_bus_creds **creds);
+int sd_bus_query_sender_privilege(sd_bus_message *call, int capability);
 
 /* Credential handling */
 

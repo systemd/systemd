@@ -23,6 +23,7 @@
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/capability.h>
 
 #include "sd-bus.h"
 
@@ -876,7 +877,7 @@ static int method_set_locale(sd_bus *bus, sd_bus_message *m, void *userdata, sd_
         }
 
         if (modified) {
-                r = bus_verify_polkit_async(bus, &c->polkit_registry, m,
+                r = bus_verify_polkit_async(bus, &c->polkit_registry, m, CAP_SYS_ADMIN,
                                             "org.freedesktop.locale1.set-locale", interactive,
                                             error, method_set_locale, c);
                 if (r < 0)
@@ -954,7 +955,7 @@ static int method_set_vc_keyboard(sd_bus *bus, sd_bus_message *m, void *userdata
                     (keymap_toggle && (!filename_is_safe(keymap_toggle) || !string_is_safe(keymap_toggle))))
                         return sd_bus_error_set_errnof(error, -EINVAL, "Received invalid keymap data");
 
-                r = bus_verify_polkit_async(bus, &c->polkit_registry, m,
+                r = bus_verify_polkit_async(bus, &c->polkit_registry, m, CAP_SYS_ADMIN,
                                 "org.freedesktop.locale1.set-keyboard",
                                 interactive, error, method_set_vc_keyboard, c);
                 if (r < 0)
@@ -1026,7 +1027,7 @@ static int method_set_x11_keyboard(sd_bus *bus, sd_bus_message *m, void *userdat
                     (options && !string_is_safe(options)))
                         return sd_bus_error_set_errnof(error, -EINVAL, "Received invalid keyboard data");
 
-                r = bus_verify_polkit_async(bus, &c->polkit_registry, m,
+                r = bus_verify_polkit_async(bus, &c->polkit_registry, m, CAP_SYS_ADMIN,
                                 "org.freedesktop.locale1.set-keyboard",
                                 interactive, error, method_set_x11_keyboard, c);
                 if (r < 0)
