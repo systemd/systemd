@@ -215,7 +215,7 @@ static int list_links(char **args, unsigned n) {
         }
 
         if (arg_legend)
-                printf("%3s %-16s %-10s %-11s %-10s\n", "IDX", "LINK", "TYPE", "OPERATIONAL", "SETUP");
+                printf("%3s %-16s %-18s %-11s %-10s\n", "IDX", "LINK", "TYPE", "OPERATIONAL", "SETUP");
 
         c = decode_and_sort_links(reply, &links);
         if (c < 0)
@@ -240,7 +240,7 @@ static int list_links(char **args, unsigned n) {
 
                 link_get_type_string(links[i].iftype, d, &t);
 
-                printf("%3i %-16s %-10s %s%-11s%s %s%-10s%s\n",
+                printf("%3i %-16s %-18s %s%-11s%s %s%-10s%s\n",
                        links[i].ifindex, links[i].name, strna(t),
                        on_color_operational, strna(operational_state), off_color_operational,
                        on_color_setup, strna(setup_state), off_color_setup);
