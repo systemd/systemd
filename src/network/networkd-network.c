@@ -365,13 +365,20 @@ int config_parse_domains(const char *unit,
         strv_uniq(*domains);
         network->wildcard_domain = !!strv_find(*domains, "*");
 
-        STRV_FOREACH(domain, *domains)
-                if (is_localhost(*domain) || !hostname_is_valid(*domain) || streq(*domain, "*")) {
-                        strv_remove(*domains, *domain);
+        STRV_FOREACH(domain, *domains) {
+                if (is_localhost(*domain))
+                        log_syntax(unit, LOG_ERR, filename, line, EINVAL, "'localhost' domain names may not be configured, ignoring assignment: %s", *domain);
+                else if (!hostname_is_valid(*domain)) {
+                        if (!streq(*domain, "*"))
+                                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "domain name is not valid, ignoring assignment: %s", *domain);
+                } else
+                        continue;
 
-                        /* We removed one entry, make sure we don't skip the next one */
-                        domain--;
-                }
+                strv_remove(*domains, *domain);
+
+                /* We removed one entry, make sure we don't skip the next one */
+                domain--;
+        }
 
         return 0;
 }
