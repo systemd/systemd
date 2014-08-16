@@ -27,6 +27,7 @@
 #include <errno.h>
 #include <signal.h>
 #include <math.h>
+#include <sys/wait.h>
 
 #include "util.h"
 #include "mkdir.h"
@@ -943,6 +944,163 @@ static void test_strappenda(void) {
         assert_se(streq(actual, "foobarbaz"));
 }
 
+static void test_is_symlink(void) {
+        char name[] = "/tmp/test-is_symlink.XXXXXX";
+        char name_link[] = "/tmp/test-is_symlink.link";
+        _cleanup_close_ int fd = -1;
+
+        fd = mkostemp_safe(name, O_RDWR|O_CLOEXEC);
+        assert_se(fd >= 0);
+        assert_se(symlink(name, name_link) >= 0);
+
+        assert_se(is_symlink(name) == 0);
+        assert_se(is_symlink(name_link) == 1);
+        assert_se(is_symlink("/a/file/which/does/not/exist/i/guess") < 0);
+
+
+        unlink(name);
+        unlink(name_link);
+}
+
+static void test_pid_is_unwaited(void) {
+        pid_t pid;
+
+        pid = fork();
+        assert_se(pid >= 0);
+        if (pid == 0) {
+                _exit(EXIT_SUCCESS);
+        } else {
+                int status;
+
+                waitpid(pid, &status, 0);
+                assert_se(!pid_is_unwaited(pid));
+        }
+        assert_se(pid_is_unwaited(getpid()));
+        assert_se(!pid_is_unwaited(-1));
+}
+
+static void test_pid_is_alive(void) {
+        pid_t pid;
+
+        pid = fork();
+        assert_se(pid >= 0);
+        if (pid == 0) {
+                _exit(EXIT_SUCCESS);
+        } else {
+                int status;
+
+                waitpid(pid, &status, 0);
+                assert_se(!pid_is_alive(pid));
+        }
+        assert_se(pid_is_alive(getpid()));
+        assert_se(!pid_is_alive(-1));
+}
+
+static void test_search_and_fopen(void) {
+        const char *dirs[] = {"/tmp/foo/bar", "/tmp", NULL};
+        char name[] = "/tmp/test-search_and_fopen.XXXXXX";
+        int fd = -1;
+        int r;
+        FILE *f;
+
+        fd = mkostemp_safe(name, O_RDWR|O_CLOEXEC);
+        assert_se(fd >= 0);
+        close(fd);
+
+        r = search_and_fopen(basename(name), "r", NULL, dirs, &f);
+        assert_se(r >= 0);
+        fclose(f);
+
+        r = search_and_fopen(name, "r", NULL, dirs, &f);
+        assert_se(r >= 0);
+        fclose(f);
+
+        r = search_and_fopen(basename(name), "r", "/", dirs, &f);
+        assert_se(r >= 0);
+        fclose(f);
+
+        r = search_and_fopen("/a/file/which/does/not/exist/i/guess", "r", NULL, dirs, &f);
+        assert_se(r < 0);
+        r = search_and_fopen("afilewhichdoesnotexistiguess", "r", NULL, dirs, &f);
+        assert_se(r < 0);
+
+        r = unlink(name);
+        assert_se(r == 0);
+
+        r = search_and_fopen(basename(name), "r", NULL, dirs, &f);
+        assert_se(r < 0);
+}
+
+
+static void test_search_and_fopen_nulstr(void) {
+        const char dirs[] = "/tmp/foo/bar\0/tmp\0";
+        char name[] = "/tmp/test-search_and_fopen.XXXXXX";
+        int fd = -1;
+        int r;
+        FILE *f;
+
+        fd = mkostemp_safe(name, O_RDWR|O_CLOEXEC);
+        assert_se(fd >= 0);
+        close(fd);
+
+        r = search_and_fopen_nulstr(basename(name), "r", NULL, dirs, &f);
+        assert_se(r >= 0);
+        fclose(f);
+
+        r = search_and_fopen_nulstr(name, "r", NULL, dirs, &f);
+        assert_se(r >= 0);
+        fclose(f);
+
+        r = search_and_fopen_nulstr("/a/file/which/does/not/exist/i/guess", "r", NULL, dirs, &f);
+        assert_se(r < 0);
+        r = search_and_fopen_nulstr("afilewhichdoesnotexistiguess", "r", NULL, dirs, &f);
+        assert_se(r < 0);
+
+        r = unlink(name);
+        assert_se(r == 0);
+
+        r = search_and_fopen_nulstr(basename(name), "r", NULL, dirs, &f);
+        assert_se(r < 0);
+}
+
+static void test_glob_exists(void) {
+        char name[] = "/tmp/test-glob_exists.XXXXXX";
+        int fd = -1;
+        int r;
+
+        fd = mkostemp_safe(name, O_RDWR|O_CLOEXEC);
+        assert_se(fd >= 0);
+        close(fd);
+
+        r = glob_exists("/tmp/test-glob_exists*");
+        assert_se(r == 1);
+
+        r = unlink(name);
+        assert_se(r == 0);
+        r = glob_exists("/tmp/test-glob_exists*");
+        assert_se(r == 0);
+}
+
+static void test_execute_directory(void) {
+        char name[] = "/tmp/test-execute_directory/script1";
+        char name2[] = "/tmp/test-execute_directory/script2";
+        char name3[] = "/tmp/test-execute_directory/useless";
+        char tempdir[] = "/tmp/test-execute_directory/";
+
+        assert_se(mkdir_safe(tempdir, 0755, getuid(), getgid()) >= 0);
+        assert_se(write_string_file(name, "#!/bin/sh\necho 'Executing '$0\ntouch /tmp/test-execute_directory/it_works") == 0);
+        assert_se(write_string_file(name2, "#!/bin/sh\necho 'Executing '$0\ntouch /tmp/test-execute_directory/it_works2") == 0);
+        assert_se(chmod(name, 0755) == 0);
+        assert_se(chmod(name2, 0755) == 0);
+        assert_se(touch(name3) >= 0);
+
+        execute_directory(tempdir, NULL, DEFAULT_TIMEOUT_USEC, NULL);
+        assert_se(access("/tmp/test-execute_directory/it_works", F_OK) >= 0);
+        assert_se(access("/tmp/test-execute_directory/it_works2", F_OK) >= 0);
+
+        rm_rf_dangerous(tempdir, false, true, false);
+}
+
 int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
@@ -1003,6 +1161,13 @@ int main(int argc, char *argv[]) {
         test_ignore_signals();
         test_strshorten();
         test_strappenda();
+        test_is_symlink();
+        test_pid_is_unwaited();
+        test_pid_is_alive();
+        test_search_and_fopen();
+        test_search_and_fopen_nulstr();
+        test_glob_exists();
+        test_execute_directory();
 
         return 0;
 }
