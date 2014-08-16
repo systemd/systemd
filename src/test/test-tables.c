@@ -86,6 +86,7 @@ int main(int argc, char **argv) {
         test_table(policy_item_type, POLICY_ITEM_TYPE);
         test_table(protect_home, PROTECT_HOME);
         test_table(protect_system, PROTECT_SYSTEM);
+        test_table(rlimit, RLIMIT);
         test_table(scope_result, SCOPE_RESULT);
         test_table(scope_state, SCOPE_STATE);
         test_table(service_exec_command, SERVICE_EXEC_COMMAND);
