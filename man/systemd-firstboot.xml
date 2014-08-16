@@ -249,7 +249,7 @@
                                 <term><option>--setup-machine-id</option></term>
 
                                 <para>Initialize the system's machine
-                                ID to a random ID. This only works
+                                ID to a random ID. This only works in
                                 combination with
                                 <option>--root=</option>.</para>
                         </varlistentry>
