@@ -290,6 +290,72 @@ static void test_capeff(void) {
         }
 }
 
+static void test_write_string_stream(void) {
+        char fn[] = "/tmp/test-write_string_stream-XXXXXX";
+        _cleanup_fclose_ FILE *f = NULL;
+        int fd;
+        char buf[64];
+
+        fd = mkostemp_safe(fn, O_RDWR);
+        assert_se(fd >= 0);
+
+        f = fdopen(fd, "r");
+        assert_se(f);
+        assert_se(write_string_stream(f, "boohoo") < 0);
+
+        f = fdopen(fd, "r+");
+        assert_se(f);
+
+        assert_se(write_string_stream(f, "boohoo") == 0);
+        rewind(f);
+
+        assert_se(fgets(buf, sizeof(buf), f));
+        assert_se(streq(buf, "boohoo\n"));
+
+        unlink(fn);
+}
+
+static void test_write_string_file(void) {
+        char fn[] = "/tmp/test-write_string_file-XXXXXX";
+        int fd;
+        char buf[64] = {0};
+
+        fd = mkostemp_safe(fn, O_RDWR);
+        assert_se(fd >= 0);
+
+        assert_se(write_string_file(fn, "boohoo") == 0);
+
+        assert_se(read(fd, buf, sizeof(buf)));
+        assert_se(streq(buf, "boohoo\n"));
+
+        unlink(fn);
+}
+
+static void test_sendfile_full(void) {
+        char in_fn[] = "/tmp/test-sendfile_full-XXXXXX";
+        char out_fn[] = "/tmp/test-sendfile_full-XXXXXX";
+        _cleanup_close_ int in_fd = -1;
+        int out_fd;
+        char text[] = "boohoo\nfoo\n\tbar\n";
+        char buf[64] = {0};
+
+        in_fd = mkostemp_safe(in_fn, O_RDWR);
+        assert_se(in_fd >= 0);
+        out_fd = mkostemp_safe(out_fn, O_RDWR);
+        assert_se(out_fd >= 0);
+
+        assert_se(write_string_file(in_fn, text) == 0);
+        assert_se(sendfile_full(out_fd, "/a/file/which/does/not/exist/i/guess") < 0);
+        assert_se(sendfile_full(out_fd, in_fn) == sizeof(text) - 1);
+        assert_se(lseek(out_fd, SEEK_SET, 0) == 0);
+
+        assert_se(read(out_fd, buf, sizeof(buf)) == sizeof(text) - 1);
+        assert_se(streq(buf, text));
+
+        unlink(in_fn);
+        unlink(out_fn);
+}
+
 int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
@@ -299,6 +365,9 @@ int main(int argc, char *argv[]) {
         test_executable_is_script();
         test_status_field();
         test_capeff();
+        test_write_string_stream();
+        test_write_string_file();
+        test_sendfile_full();
 
         return 0;
 }
