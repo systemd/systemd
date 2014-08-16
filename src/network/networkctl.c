@@ -141,7 +141,7 @@ static int decode_and_sort_links(sd_rtnl_message *m, LinkInfo **ret) {
                 c++;
         }
 
-        qsort(links, c, sizeof(LinkInfo), link_info_compare);
+        qsort_safe(links, c, sizeof(LinkInfo), link_info_compare);
 
         *ret = links;
         links = NULL;
