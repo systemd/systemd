@@ -140,6 +140,24 @@ static void test_socket_address_get_path(void) {
         assert_se(streq(socket_address_get_path(&a), "/foo/bar"));
 }
 
+static void test_socket_address_is(void) {
+        SocketAddress a;
+
+        assert_se(socket_address_parse(&a, "192.168.1.1:8888") >= 0);
+        assert_se(socket_address_is(&a, "192.168.1.1:8888", SOCK_STREAM));
+        assert_se(!socket_address_is(&a, "route", SOCK_STREAM));
+        assert_se(!socket_address_is(&a, "192.168.1.1:8888", SOCK_RAW));
+}
+
+static void test_socket_address_is_netlink(void) {
+        SocketAddress a;
+
+        assert_se(socket_address_parse_netlink(&a, "route 10") >= 0);
+        assert_se(socket_address_is_netlink(&a, "route 10"));
+        assert_se(!socket_address_is_netlink(&a, "192.168.1.1:8888"));
+        assert_se(!socket_address_is_netlink(&a, "route 1"));
+}
+
 static void test_in_addr_prefix_intersect_one(unsigned f, const char *a, unsigned apl, const char *b, unsigned bpl, int result) {
         union in_addr_union ua, ub;
 
@@ -265,6 +283,34 @@ static void test_nameinfo_pretty(void) {
         assert(r == 0);
 }
 
+static void test_sockaddr_equal(void) {
+        union sockaddr_union a = {
+                .in.sin_family = AF_INET,
+                .in.sin_port = 0,
+                .in.sin_addr.s_addr = htonl(INADDR_ANY),
+        };
+        union sockaddr_union b = {
+                .in.sin_family = AF_INET,
+                .in.sin_port = 0,
+                .in.sin_addr.s_addr = htonl(INADDR_ANY),
+        };
+        union sockaddr_union c = {
+                .in.sin_family = AF_INET,
+                .in.sin_port = 0,
+                .in.sin_addr.s_addr = htonl(1234),
+        };
+        union sockaddr_union d = {
+                .in6.sin6_family = AF_INET6,
+                .in6.sin6_port = 0,
+                .in6.sin6_addr = IN6ADDR_ANY_INIT,
+        };
+        assert_se(sockaddr_equal(&a, &a));
+        assert_se(sockaddr_equal(&a, &b));
+        assert_se(sockaddr_equal(&d, &d));
+        assert_se(!sockaddr_equal(&a, &c));
+        assert_se(!sockaddr_equal(&b, &c));
+}
+
 int main(int argc, char *argv[]) {
 
         log_set_max_level(LOG_DEBUG);
@@ -273,11 +319,15 @@ int main(int argc, char *argv[]) {
         test_socket_address_parse_netlink();
         test_socket_address_equal();
         test_socket_address_get_path();
+        test_socket_address_is();
+        test_socket_address_is_netlink();
 
         test_in_addr_prefix_intersect();
         test_in_addr_prefix_next();
 
         test_nameinfo_pretty();
+
+        test_sockaddr_equal();
 
         return 0;
 }
