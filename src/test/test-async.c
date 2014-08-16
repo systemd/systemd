@@ -46,5 +46,7 @@ int main(int argc, char *argv[]) {
         assert_se(fcntl(fd, F_GETFD) == -1);
         assert_se(test_async);
 
+        unlink(name);
+
         return 0;
 }
