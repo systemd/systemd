@@ -153,6 +153,7 @@
 /test-cgroup-util
 /test-compress
 /test-compress-benchmark
+/test-condition-util
 /test-conf-files
 /test-coredump-vacuum
 /test-daemon
