@@ -453,35 +453,39 @@ finish:
 }
 
 static int item_set_perms(Item *i, const char *path) {
+        struct stat st;
+        bool st_valid;
+
         assert(i);
         assert(path);
+
+        st_valid = stat(path, &st) == 0;
 
         /* not using i->path directly because it may be a glob */
         if (i->mode_set) {
                 mode_t m = i->mode;
 
-                if (i->mask_perms) {
-                        struct stat st;
-
-                        if (stat(path, &st) >= 0) {
-                                if (!(st.st_mode & 0111))
-                                        m &= ~0111;
-                                if (!(st.st_mode & 0222))
-                                        m &= ~0222;
-                                if (!(st.st_mode & 0444))
-                                        m &= ~0444;
-                                if (!S_ISDIR(st.st_mode))
-                                        m &= ~07000; /* remove sticky/sgid/suid bit, unless directory */
-                        }
+                if (i->mask_perms && st_valid) {
+                        if (!(st.st_mode & 0111))
+                                m &= ~0111;
+                        if (!(st.st_mode & 0222))
+                                m &= ~0222;
+                        if (!(st.st_mode & 0444))
+                                m &= ~0444;
+                        if (!S_ISDIR(st.st_mode))
+                                m &= ~07000; /* remove sticky/sgid/suid bit, unless directory */
                 }
 
-                if (chmod(path, m) < 0) {
-                        log_error("chmod(%s) failed: %m", path);
-                        return -errno;
+                if (!st_valid || m != (st.st_mode & 07777)) {
+                        if (chmod(path, m) < 0) {
+                                log_error("chmod(%s) failed: %m", path);
+                                return -errno;
+                        }
                 }
         }
 
-        if (i->uid_set || i->gid_set)
+        if ((!st_valid || (i->uid != st.st_uid || i->gid != st.st_gid)) &&
+            (i->uid_set || i->gid_set))
                 if (chown(path,
                           i->uid_set ? i->uid : (uid_t) -1,
                           i->gid_set ? i->gid : (gid_t) -1) < 0) {
