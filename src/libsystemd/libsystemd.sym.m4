@@ -359,20 +359,6 @@ global:
         sd_bus_track_first;
         sd_bus_track_next;
 
-        /* sd-memfd */
-        sd_memfd_new;
-        sd_memfd_new_and_map;
-        sd_memfd_free;
-        sd_memfd_get_fd;
-        sd_memfd_get_file;
-        sd_memfd_dup_fd;
-        sd_memfd_map;
-        sd_memfd_set_sealed;
-        sd_memfd_get_sealed;
-        sd_memfd_get_size;
-        sd_memfd_set_size;
-        sd_memfd_get_name;
-
         /* sd-event */
         sd_event_default;
         sd_event_new;

@@ -362,46 +362,6 @@ ioctl()s are added for a single match strings.
 
 MEMFDS
 
-The "memfd" concept is used for zero-copy data transfers (see
-above). memfds are file descriptors to memory chunks of arbitrary
-sizes. If you have a memfd you can mmap() it to get access to the data
-it contains or write to it. They are comparable to file descriptors to
-unlinked files on a tmpfs, or to anonymous memory that one may refer
-to with an fd. They have one particular property: they can be
-"sealed". A memfd that is "sealed" is protected from alteration. Only
-memfds that are currently not mapped and to which a single fd refers
-may be sealed (they may also be unsealed in that case).
-
-The concept of "sealing" makes memfds useful for using them as
-transport for kdbus messages: only when the receiver knows that the
-message it has received cannot change while looking at, it can safely
-parse it without having to copy it to a safe memory area. memfds can also
-be reused in multiple messages. A sender may send the same memfd to
-multiple peers, and since it is sealed, it can be sure that the receiver
-will not be able to modify it. "Sealing" hence provides both sides of
-a transaction with the guarantee that the data stays constant and is
-reusable.
-
-memfds are a generic concept that can be used outside of the immediate
-kdbus usecase. You can send them across AF_UNIX sockets too, sealed or
-unsealed. In kdbus themselves, they can be used to send zero-copy
-payloads, but may also be sent as normal fds.
-
-memfds are allocated with the KDBUS_CMD_MEMFD_NEW ioctl. After allocation,
-simply memory map them and write to them. To set their size, use
-KDBUS_CMD_MEMFD_SIZE_SET. Note that memfds will be increased in size
-automatically if you touch previously unallocated pages. However, the
-size will only be increased in multiples of the page size in that
-case. Thus, in almost all cases, an explicit KDBUS_CMD_MEMFD_SIZE_SET
-is necessary, since it allows setting memfd sizes in finer
-granularity. To seal a memfd use the KDBUS_CMD_MEMFD_SEAL_SET ioctl
-call. It will only succeed if the caller has the only fd reference to
-the memfd open, and if the memfd is currently unmapped.
-
-If memfds are shared, keep in mind that the file pointer used by
-write/read/seek is shared too, only pread/pwrite are safe to use
-in that case.
-
 memfds may be sent across kdbus via KDBUS_ITEM_PAYLOAD_MEMFD items
 attached to messages. If this is done, the data included in the memfd
 is considered part of the payload stream of a message, and are treated

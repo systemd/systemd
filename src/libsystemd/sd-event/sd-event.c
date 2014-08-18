@@ -779,7 +779,7 @@ _public_ int sd_event_add_io(
         r = source_io_register(s, s->enabled, events);
         if (r < 0) {
                 source_free(s);
-                return -errno;
+                return r;
         }
 
         if (ret)
@@ -894,6 +894,8 @@ _public_ int sd_event_add_time(
         s->userdata = userdata;
         s->enabled = SD_EVENT_ONESHOT;
 
+        d->needs_rearm = true;
+
         r = prioq_put(d->earliest, s, &s->time.earliest_index);
         if (r < 0)
                 goto fail;
@@ -901,8 +903,6 @@ _public_ int sd_event_add_time(
         r = prioq_put(d->latest, s, &s->time.latest_index);
         if (r < 0)
                 goto fail;
-
-        d->needs_rearm = true;
 
         if (ret)
                 *ret = s;
@@ -1060,7 +1060,7 @@ _public_ int sd_event_add_child(
                 r = event_update_signal_fd(e);
                 if (r < 0) {
                         source_free(s);
-                        return -errno;
+                        return r;
                 }
         }
 
@@ -1872,6 +1872,7 @@ static int process_timer(
 
                 prioq_reshuffle(d->earliest, s, &s->time.earliest_index);
                 prioq_reshuffle(d->latest, s, &s->time.latest_index);
+                d->needs_rearm = true;
         }
 
         return 0;

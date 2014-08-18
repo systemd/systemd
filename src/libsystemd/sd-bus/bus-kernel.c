@@ -1111,9 +1111,6 @@ int bus_kernel_pop_memfd(sd_bus *bus, void **address, size_t *mapped, size_t *al
 
         if (bus->n_memfd_cache <= 0) {
                 _cleanup_free_ char *g = NULL;
-                struct kdbus_cmd_memfd_make *cmd;
-                struct kdbus_item *item;
-                size_t l, sz;
                 int r;
 
                 assert_se(pthread_mutex_unlock(&bus->memfd_cache_mutex) >= 0);
@@ -1124,26 +1121,14 @@ int bus_kernel_pop_memfd(sd_bus *bus, void **address, size_t *mapped, size_t *al
                 if (!g)
                         return -ENOMEM;
 
-                l = strlen(g);
-                sz = ALIGN8(offsetof(struct kdbus_cmd_memfd_make, items)) +
-                        ALIGN8(offsetof(struct kdbus_item, str)) +
-                        l + 1;
-                cmd = alloca0(sz);
-                cmd->size = sz;
-
-                item = cmd->items;
-                item->size = ALIGN8(offsetof(struct kdbus_item, str)) + l + 1;
-                item->type = KDBUS_ITEM_MEMFD_NAME;
-                memcpy(item->str, g, l + 1);
-
-                r = ioctl(bus->input_fd, KDBUS_CMD_MEMFD_NEW, cmd);
+                r = memfd_create(g, MFD_ALLOW_SEALING);
                 if (r < 0)
                         return -errno;
 
                 *address = NULL;
                 *mapped = 0;
                 *allocated = 0;
-                return cmd->fd;
+                return r;
         }
 
         c = &bus->memfd_cache[--bus->n_memfd_cache];
@@ -1195,7 +1180,7 @@ void bus_kernel_push_memfd(sd_bus *bus, int fd, void *address, size_t mapped, si
 
         /* If overly long, let's return a bit to the OS */
         if (mapped > max_mapped) {
-                assert_se(ioctl(fd, KDBUS_CMD_MEMFD_SIZE_SET, &max_mapped) >= 0);
+                assert_se(ftruncate(fd, max_mapped) >= 0);
                 assert_se(munmap((uint8_t*) address + max_mapped, PAGE_ALIGN(mapped - max_mapped)) >= 0);
                 c->mapped = c->allocated = max_mapped;
         } else {

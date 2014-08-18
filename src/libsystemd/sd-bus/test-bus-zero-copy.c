@@ -24,9 +24,9 @@
 
 #include "util.h"
 #include "log.h"
+#include "memfd.h"
 
 #include "sd-bus.h"
-#include "sd-memfd.h"
 #include "bus-message.h"
 #include "bus-error.h"
 #include "bus-kernel.h"
@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
         sd_bus *a, *b;
         int r, bus_ref;
         sd_bus_message *m;
-        sd_memfd *f;
+        int f;
         uint64_t sz;
         uint32_t u32;
         size_t i, l;
@@ -93,7 +93,7 @@ int main(int argc, char *argv[]) {
         memset(p+1, 'L', FIRST_ARRAY-2);
         p[FIRST_ARRAY-1] = '>';
 
-        r = sd_memfd_new_and_map(&f, NULL, STRING_SIZE, (void**) &s);
+        r = memfd_new_and_map(&f, NULL, STRING_SIZE, (void**) &s);
         assert_se(r >= 0);
 
         s[0] = '<';
@@ -103,16 +103,16 @@ int main(int argc, char *argv[]) {
         s[STRING_SIZE-1] = 0;
         munmap(s, STRING_SIZE);
 
-        r = sd_memfd_get_size(f, &sz);
+        r = memfd_get_size(f, &sz);
         assert_se(r >= 0);
         assert_se(sz == STRING_SIZE);
 
         r = sd_bus_message_append_string_memfd(m, f);
         assert_se(r >= 0);
 
-        sd_memfd_free(f);
+        close(f);
 
-        r = sd_memfd_new_and_map(&f, NULL, SECOND_ARRAY, (void**) &p);
+        r = memfd_new_and_map(&f, NULL, SECOND_ARRAY, (void**) &p);
         assert_se(r >= 0);
 
         p[0] = '<';
@@ -120,14 +120,14 @@ int main(int argc, char *argv[]) {
         p[SECOND_ARRAY-1] = '>';
         munmap(p, SECOND_ARRAY);
 
-        r = sd_memfd_get_size(f, &sz);
+        r = memfd_get_size(f, &sz);
         assert_se(r >= 0);
         assert_se(sz == SECOND_ARRAY);
 
         r = sd_bus_message_append_array_memfd(m, 'y', f);
         assert_se(r >= 0);
 
-        sd_memfd_free(f);
+        close(f);
 
         r = sd_bus_message_close_container(m);
         assert_se(r >= 0);

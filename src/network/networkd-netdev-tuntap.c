@@ -172,9 +172,35 @@ static void tuntap_done(NetDev *netdev) {
         t->group_name = NULL;
 }
 
+static int tuntap_verify(NetDev *netdev, const char *filename) {
+        TunTap *t = NULL;
+
+        assert(netdev);
+
+        if (netdev->kind == NETDEV_KIND_TUN)
+                t = TUN(netdev);
+        else
+                t = TAP(netdev);
+
+        assert(t);
+
+        if (netdev->mtu) {
+                log_warning_netdev(netdev, "MTU configured for %s, ignoring",
+                                   netdev_kind_to_string(netdev->kind));
+        }
+
+        if (netdev->mac) {
+                log_warning_netdev(netdev, "MAC configured for %s, ignoring",
+                                   netdev_kind_to_string(netdev->kind));
+        }
+
+        return 0;
+}
+
 const NetDevVTable tun_vtable = {
         .object_size = sizeof(TunTap),
         .sections = "Match\0NetDev\0Tun\0",
+        .config_verify = tuntap_verify,
         .done = tuntap_done,
         .create = netdev_create_tuntap,
         .create_type = NETDEV_CREATE_INDEPENDENT,
@@ -183,6 +209,7 @@ const NetDevVTable tun_vtable = {
 const NetDevVTable tap_vtable = {
         .object_size = sizeof(TunTap),
         .sections = "Match\0NetDev\0Tap\0",
+        .config_verify = tuntap_verify,
         .done = tuntap_done,
         .create = netdev_create_tuntap,
         .create_type = NETDEV_CREATE_INDEPENDENT,

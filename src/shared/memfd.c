@@ -26,31 +26,18 @@
 #include <sys/prctl.h>
 
 #include "util.h"
-#include "kdbus.h"
 #include "bus-label.h"
+#include "missing.h"
+#include "memfd.h"
 
-#include "sd-memfd.h"
 #include "sd-bus.h"
 
-struct sd_memfd {
-        int fd;
-        FILE *f;
-};
+int memfd_new(int *fd, const char *name) {
 
-_public_ int sd_memfd_new(sd_memfd **m, const char *name) {
-
-        struct kdbus_cmd_memfd_make *cmd;
-        struct kdbus_item *item;
-        _cleanup_close_ int kdbus = -1;
         _cleanup_free_ char *g = NULL;
-        size_t sz, l;
-        sd_memfd *n;
+        int n;
 
-        assert_return(m, -EINVAL);
-
-        kdbus = open("/dev/kdbus/control", O_RDWR|O_NOCTTY|O_CLOEXEC);
-        if (kdbus < 0)
-                return -errno;
+        assert_return(fd, -EINVAL);
 
         if (name) {
                 /* The kernel side is pretty picky about the character
@@ -89,111 +76,31 @@ _public_ int sd_memfd_new(sd_memfd **m, const char *name) {
                 }
         }
 
-        l = strlen(name);
-        sz = ALIGN8(offsetof(struct kdbus_cmd_memfd_make, items)) +
-                ALIGN8(offsetof(struct kdbus_item, str)) +
-                l + 1;
-
-        cmd = alloca0(sz);
-        cmd->size = sz;
-
-        item = cmd->items;
-        item->size = ALIGN8(offsetof(struct kdbus_item, str)) + l + 1;
-        item->type = KDBUS_ITEM_MEMFD_NAME;
-        memcpy(item->str, name, l + 1);
-
-        if (ioctl(kdbus, KDBUS_CMD_MEMFD_NEW, cmd) < 0)
+        n = memfd_create(name, MFD_ALLOW_SEALING);
+        if (n < 0)
                 return -errno;
 
-        n = new0(struct sd_memfd, 1);
-        if (!n) {
-                safe_close(cmd->fd);
-                return -ENOMEM;
-        }
-
-        n->fd = cmd->fd;
-        *m = n;
+        *fd = n;
         return 0;
 }
 
-_public_ int sd_memfd_new_from_fd(sd_memfd **m, int fd) {
-        sd_memfd *n;
-        uint64_t sz;
-
-        assert_return(m, -EINVAL);
-        assert_return(fd >= 0, -EINVAL);
-
-        /* Check if this is a valid memfd */
-        if (ioctl(fd, KDBUS_CMD_MEMFD_SIZE_GET, &sz) < 0)
-                return -ENOTTY;
-
-        n = new0(struct sd_memfd, 1);
-        if (!n)
-                return -ENOMEM;
-
-        n->fd = fd;
-        *m = n;
-
-        return 0;
-}
-
-_public_ void sd_memfd_free(sd_memfd *m) {
-        if (!m)
-                return;
-
-        if (m->f)
-                fclose(m->f);
-        else
-                safe_close(m->fd);
-
-        free(m);
-}
-
-_public_ int sd_memfd_get_fd(sd_memfd *m) {
-        assert_return(m, -EINVAL);
-
-        return m->fd;
-}
-
-_public_ int sd_memfd_get_file(sd_memfd *m, FILE **f) {
-        assert_return(m, -EINVAL);
-        assert_return(f, -EINVAL);
-
-        if (!m->f) {
-                m->f = fdopen(m->fd, "r+");
-                if (!m->f)
-                        return -errno;
-        }
-
-        *f = m->f;
-        return 0;
-}
-
-_public_ int sd_memfd_dup_fd(sd_memfd *m) {
-        int fd;
-
-        assert_return(m, -EINVAL);
-
-        fd = fcntl(m->fd, F_DUPFD_CLOEXEC, 3);
-        if (fd < 0)
-                return -errno;
-
-        return fd;
-}
-
-_public_ int sd_memfd_map(sd_memfd *m, uint64_t offset, size_t size, void **p) {
+int memfd_map(int fd, uint64_t offset, size_t size, void **p) {
         void *q;
         int sealed;
 
-        assert_return(m, -EINVAL);
+        assert_return(fd >= 0, -EINVAL);
         assert_return(size > 0, -EINVAL);
         assert_return(p, -EINVAL);
 
-        sealed = sd_memfd_get_sealed(m);
+        sealed = memfd_get_sealed(fd);
         if (sealed < 0)
                 return sealed;
 
-        q = mmap(NULL, size, sealed ? PROT_READ : PROT_READ|PROT_WRITE, MAP_SHARED, m->fd, offset);
+        if (sealed)
+                q = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, offset);
+        else
+                q = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, offset);
+
         if (q == MAP_FAILED)
                 return -errno;
 
@@ -201,89 +108,89 @@ _public_ int sd_memfd_map(sd_memfd *m, uint64_t offset, size_t size, void **p) {
         return 0;
 }
 
-_public_ int sd_memfd_set_sealed(sd_memfd *m, int b) {
+int memfd_set_sealed(int fd) {
         int r;
 
-        assert_return(m, -EINVAL);
+        assert_return(fd >= 0, -EINVAL);
 
-        r = ioctl(m->fd, KDBUS_CMD_MEMFD_SEAL_SET, b);
+        r = fcntl(fd, F_ADD_SEALS, F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE);
         if (r < 0)
                 return -errno;
 
         return 0;
 }
 
-_public_ int sd_memfd_get_sealed(sd_memfd *m) {
-        int r, b;
+int memfd_get_sealed(int fd) {
+        int r;
 
-        assert_return(m, -EINVAL);
+        assert_return(fd >= 0, -EINVAL);
 
-        r = ioctl(m->fd, KDBUS_CMD_MEMFD_SEAL_GET, &b);
+        r = fcntl(fd, F_GET_SEALS);
         if (r < 0)
                 return -errno;
 
-        return !!b;
+        return (r & (F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE)) ==
+                    (F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE);
 }
 
-_public_ int sd_memfd_get_size(sd_memfd *m, uint64_t *sz) {
+int memfd_get_size(int fd, uint64_t *sz) {
         int r;
+        struct stat stat;
 
-        assert_return(m, -EINVAL);
+        assert_return(fd >= 0, -EINVAL);
         assert_return(sz, -EINVAL);
 
-        r = ioctl(m->fd, KDBUS_CMD_MEMFD_SIZE_GET, sz);
+        r = fstat(fd, &stat);
+        if (r < 0)
+                return -errno;
+
+        *sz = stat.st_size;
+        return r;
+}
+
+int memfd_set_size(int fd, uint64_t sz) {
+        int r;
+
+        assert_return(fd >= 0, -EINVAL);
+
+        r = ftruncate(fd, sz);
         if (r < 0)
                 return -errno;
 
         return r;
 }
 
-_public_ int sd_memfd_set_size(sd_memfd *m, uint64_t sz) {
+int memfd_new_and_map(int *fd, const char *name, size_t sz, void **p) {
+        _cleanup_close_ int n = -1;
         int r;
 
-        assert_return(m, -EINVAL);
-
-        r = ioctl(m->fd, KDBUS_CMD_MEMFD_SIZE_SET, &sz);
-        if (r < 0)
-                return -errno;
-
-        return r;
-}
-
-_public_ int sd_memfd_new_and_map(sd_memfd **m, const char *name, size_t sz, void **p) {
-        sd_memfd *n;
-        int r;
-
-        r = sd_memfd_new(&n, name);
+        r = memfd_new(&n, name);
         if (r < 0)
                 return r;
 
-        r = sd_memfd_set_size(n, sz);
-        if (r < 0) {
-                sd_memfd_free(n);
+        r = memfd_set_size(n, sz);
+        if (r < 0)
                 return r;
-        }
 
-        r = sd_memfd_map(n, 0, sz, p);
-        if (r < 0) {
-                sd_memfd_free(n);
+        r = memfd_map(n, 0, sz, p);
+        if (r < 0)
                 return r;
-        }
 
-        *m = n;
+        *fd = n;
+        n = -1;
         return 0;
 }
 
-_public_ int sd_memfd_get_name(sd_memfd *m, char **name) {
+int memfd_get_name(int fd, char **name) {
         char path[sizeof("/proc/self/fd/") + DECIMAL_STR_MAX(int)], buf[FILENAME_MAX+1], *e;
         const char *delim, *end;
         _cleanup_free_ char *n = NULL;
         ssize_t k;
 
-        assert_return(m, -EINVAL);
+        assert_return(fd >= 0, -EINVAL);
         assert_return(name, -EINVAL);
 
-        sprintf(path, "/proc/self/fd/%i", m->fd);
+        sprintf(path, "/proc/self/fd/%i", fd);
 
         k = readlink(path, buf, sizeof(buf));
         if (k < 0)

@@ -908,7 +908,6 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
 }
 
 void log_parse_environment(void) {
-        _cleanup_free_ char *line = NULL;
         const char *e;
 
         parse_proc_cmdline(parse_proc_cmdline_item);

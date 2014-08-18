@@ -1076,7 +1076,7 @@ static int part_make_space(
                         uint64_t new_allocated;
 
                         new_allocated = PAGE_ALIGN(sz > 0 ? 2 * sz : 1);
-                        r = ioctl(part->memfd, KDBUS_CMD_MEMFD_SIZE_SET, &new_allocated);
+                        r = ftruncate(part->memfd, new_allocated);
                         if (r < 0) {
                                 m->poisoned = true;
                                 return -errno;
@@ -2527,7 +2527,7 @@ _public_ int sd_bus_message_append_array_iovec(
 
 _public_ int sd_bus_message_append_array_memfd(sd_bus_message *m,
                                                char type,
-                                               sd_memfd *memfd) {
+                                               int memfd) {
         _cleanup_close_ int copy_fd = -1;
         struct bus_body_part *part;
         ssize_t align, sz;
@@ -2537,7 +2537,7 @@ _public_ int sd_bus_message_append_array_memfd(sd_bus_message *m,
 
         if (!m)
                 return -EINVAL;
-        if (!memfd)
+        if (memfd < 0)
                 return -EINVAL;
         if (m->sealed)
                 return -EPERM;
@@ -2546,15 +2546,15 @@ _public_ int sd_bus_message_append_array_memfd(sd_bus_message *m,
         if (m->poisoned)
                 return -ESTALE;
 
-        r = sd_memfd_set_sealed(memfd, true);
+        r = memfd_set_sealed(memfd);
         if (r < 0)
                 return r;
 
-        copy_fd = sd_memfd_dup_fd(memfd);
+        copy_fd = dup(memfd);
         if (copy_fd < 0)
                 return copy_fd;
 
-        r = sd_memfd_get_size(memfd, &size);
+        r = memfd_get_size(memfd, &size);
         if (r < 0)
                 return r;
 
@@ -2593,7 +2593,7 @@ _public_ int sd_bus_message_append_array_memfd(sd_bus_message *m,
         return sd_bus_message_close_container(m);
 }
 
-_public_ int sd_bus_message_append_string_memfd(sd_bus_message *m, sd_memfd *memfd) {
+_public_ int sd_bus_message_append_string_memfd(sd_bus_message *m, int memfd) {
         _cleanup_close_ int copy_fd = -1;
         struct bus_body_part *part;
         struct bus_container *c;
@@ -2602,19 +2602,19 @@ _public_ int sd_bus_message_append_string_memfd(sd_bus_message *m, sd_memfd *mem
         int r;
 
         assert_return(m, -EINVAL);
-        assert_return(memfd, -EINVAL);
+        assert_return(memfd >= 0, -EINVAL);
         assert_return(!m->sealed, -EPERM);
         assert_return(!m->poisoned, -ESTALE);
 
-        r = sd_memfd_set_sealed(memfd, true);
+        r = memfd_set_sealed(memfd);
         if (r < 0)
                 return r;
 
-        copy_fd = sd_memfd_dup_fd(memfd);
+        copy_fd = dup(memfd);
         if (copy_fd < 0)
                 return copy_fd;
 
-        r = sd_memfd_get_size(memfd, &size);
+        r = memfd_get_size(memfd, &size);
         if (r < 0)
                 return r;
 
@@ -2799,11 +2799,11 @@ int bus_message_seal(sd_bus_message *m, uint64_t cookie, usec_t timeout) {
 
                                 /* Then, sync up real memfd size */
                                 sz = part->size;
-                                if (ioctl(part->memfd, KDBUS_CMD_MEMFD_SIZE_SET, &sz) < 0)
+                                if (ftruncate(part->memfd, sz) < 0)
                                         return -errno;
 
                                 /* Finally, try to seal */
-                                if (ioctl(part->memfd, KDBUS_CMD_MEMFD_SEAL_SET, 1) >= 0)
+                                if (fcntl(part->memfd, F_ADD_SEALS, F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE) >= 0)
                                         part->sealed = true;
                         }
         }
