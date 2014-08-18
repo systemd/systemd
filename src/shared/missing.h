@@ -205,8 +205,8 @@ static inline int fanotify_mark(int fanotify_fd, unsigned int flags, uint64_t ma
 #endif
 
 #ifndef HAVE_MEMFD_CREATE
-static inline int memfd_create(const char *name, uint64_t size, uint64_t flags) {
-        return syscall(__NR_memfd_create, name, size, flags);
+static inline int memfd_create(const char *name, uint64_t flags) {
+        return syscall(__NR_memfd_create, name, flags);
 }
 #endif
 

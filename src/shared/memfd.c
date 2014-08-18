@@ -90,7 +90,7 @@ int sd_memfd_new(sd_memfd **m, const char *name) {
         if (!n)
                 return -ENOMEM;
 
-        n->fd = memfd_create(name, 0, MFD_ALLOW_SEALING);
+        n->fd = memfd_create(name, MFD_ALLOW_SEALING);
         if (n->fd < 0) {
                 free(n);
                 return -errno;

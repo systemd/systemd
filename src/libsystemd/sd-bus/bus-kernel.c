@@ -1121,7 +1121,7 @@ int bus_kernel_pop_memfd(sd_bus *bus, void **address, size_t *mapped, size_t *al
                 if (!g)
                         return -ENOMEM;
 
-                r = memfd_create(g, 0, MFD_ALLOW_SEALING);
+                r = memfd_create(g, MFD_ALLOW_SEALING);
                 if (r < 0)
                         return -errno;
 
