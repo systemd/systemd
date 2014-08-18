@@ -34,6 +34,7 @@
 #include <time.h>
 
 #include "util.h"
+#include "time-util.h"
 #include "strxcpyx.h"
 #include "store.h"
 #include "bootchart.h"
@@ -54,14 +55,14 @@ double gettime_ns(void) {
 
         clock_gettime(CLOCK_MONOTONIC, &n);
 
-        return (n.tv_sec + (n.tv_nsec / 1000000000.0));
+        return (n.tv_sec + (n.tv_nsec / (double) NSEC_PER_SEC));
 }
 
 static double gettime_up(void) {
         struct timespec n;
 
         clock_gettime(CLOCK_BOOTTIME, &n);
-        return (n.tv_sec + (n.tv_nsec / 1000000000.0));
+        return (n.tv_sec + (n.tv_nsec / (double) NSEC_PER_SEC));
 }
 
 void log_uptime(void) {
