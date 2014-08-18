@@ -1029,14 +1029,13 @@ static int method_set_user_linger(sd_bus *bus, sd_bus_message *message, void *us
         if (!pw)
                 return errno ? -errno : -ENOENT;
 
-        r = bus_verify_polkit_async(bus,
-                                    &m->polkit_registry,
-                                    message,
-                                    CAP_SYS_ADMIN,
-                                    "org.freedesktop.login1.set-user-linger",
-                                    interactive,
-                                    error,
-                                    method_set_user_linger, m);
+        r = bus_verify_polkit_async(
+                        message,
+                        CAP_SYS_ADMIN,
+                        "org.freedesktop.login1.set-user-linger",
+                        interactive,
+                        &m->polkit_registry,
+                        error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -1202,14 +1201,13 @@ static int method_attach_device(sd_bus *bus, sd_bus_message *message, void *user
         if (!seat_name_is_valid(seat))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Seat %s is not valid", seat);
 
-        r = bus_verify_polkit_async(bus,
-                                    &m->polkit_registry,
-                                    message,
-                                    CAP_SYS_ADMIN,
-                                    "org.freedesktop.login1.attach-device",
-                                    interactive,
-                                    error,
-                                    method_attach_device, m);
+        r = bus_verify_polkit_async(
+                        message,
+                        CAP_SYS_ADMIN,
+                        "org.freedesktop.login1.attach-device",
+                        interactive,
+                        &m->polkit_registry,
+                        error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -1234,14 +1232,13 @@ static int method_flush_devices(sd_bus *bus, sd_bus_message *message, void *user
         if (r < 0)
                 return r;
 
-        r = bus_verify_polkit_async(bus,
-                                    &m->polkit_registry,
-                                    message,
-                                    CAP_SYS_ADMIN,
-                                    "org.freedesktop.login1.flush-devices",
-                                    interactive,
-                                    error,
-                                    method_flush_devices, m);
+        r = bus_verify_polkit_async(
+                        message,
+                        CAP_SYS_ADMIN,
+                        "org.freedesktop.login1.flush-devices",
+                        interactive,
+                        &m->polkit_registry,
+                        error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -1535,8 +1532,7 @@ static int method_do_shutdown_or_sleep(
         blocked = manager_is_inhibited(m, w, INHIBIT_BLOCK, NULL, false, true, uid, NULL);
 
         if (multiple_sessions) {
-                r = bus_verify_polkit_async(m->bus, &m->polkit_registry, message, CAP_SYS_BOOT,
-                                            action_multiple_sessions, interactive, error, method, m);
+                r = bus_verify_polkit_async(message, CAP_SYS_BOOT, action_multiple_sessions, interactive, &m->polkit_registry, error);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -1544,8 +1540,7 @@ static int method_do_shutdown_or_sleep(
         }
 
         if (blocked) {
-                r = bus_verify_polkit_async(m->bus, &m->polkit_registry, message, CAP_SYS_BOOT,
-                                            action_ignore_inhibit, interactive, error, method, m);
+                r = bus_verify_polkit_async(message, CAP_SYS_BOOT, action_ignore_inhibit, interactive, &m->polkit_registry, error);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -1553,8 +1548,7 @@ static int method_do_shutdown_or_sleep(
         }
 
         if (!multiple_sessions && !blocked) {
-                r = bus_verify_polkit_async(m->bus, &m->polkit_registry, message, CAP_SYS_BOOT,
-                                            action, interactive, error, method, m);
+                r = bus_verify_polkit_async(message, CAP_SYS_BOOT, action, interactive, &m->polkit_registry, error);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -1691,7 +1685,7 @@ static int method_can_shutdown_or_sleep(
         blocked = manager_is_inhibited(m, w, INHIBIT_BLOCK, NULL, false, true, uid, NULL);
 
         if (multiple_sessions) {
-                r = bus_verify_polkit(m->bus, message, CAP_SYS_BOOT, action_multiple_sessions, false, &challenge, error);
+                r = bus_verify_polkit(message, CAP_SYS_BOOT, action_multiple_sessions, false, &challenge, error);
                 if (r < 0)
                         return r;
 
@@ -1704,7 +1698,7 @@ static int method_can_shutdown_or_sleep(
         }
 
         if (blocked) {
-                r = bus_verify_polkit(m->bus, message, CAP_SYS_BOOT, action_ignore_inhibit, false, &challenge, error);
+                r = bus_verify_polkit(message, CAP_SYS_BOOT, action_ignore_inhibit, false, &challenge, error);
                 if (r < 0)
                         return r;
 
@@ -1720,7 +1714,7 @@ static int method_can_shutdown_or_sleep(
                 /* If neither inhibit nor multiple sessions
                  * apply then just check the normal policy */
 
-                r = bus_verify_polkit(m->bus, message, CAP_SYS_BOOT, action, false, &challenge, error);
+                r = bus_verify_polkit(message, CAP_SYS_BOOT, action, false, &challenge, error);
                 if (r < 0)
                         return r;
 
@@ -1840,7 +1834,7 @@ static int method_inhibit(sd_bus *bus, sd_bus_message *message, void *userdata, 
         if (m->action_what & w)
                 return sd_bus_error_setf(error, BUS_ERROR_OPERATION_IN_PROGRESS, "The operation inhibition has been requested for is already running");
 
-        r = bus_verify_polkit_async(bus, &m->polkit_registry, message, CAP_SYS_BOOT,
+        r = bus_verify_polkit_async(message, CAP_SYS_BOOT,
                                     w == INHIBIT_SHUTDOWN             ? (mm == INHIBIT_BLOCK ? "org.freedesktop.login1.inhibit-block-shutdown" : "org.freedesktop.login1.inhibit-delay-shutdown") :
                                     w == INHIBIT_SLEEP                ? (mm == INHIBIT_BLOCK ? "org.freedesktop.login1.inhibit-block-sleep"    : "org.freedesktop.login1.inhibit-delay-sleep") :
                                     w == INHIBIT_IDLE                 ? "org.freedesktop.login1.inhibit-block-idle" :
@@ -1848,7 +1842,7 @@ static int method_inhibit(sd_bus *bus, sd_bus_message *message, void *userdata, 
                                     w == INHIBIT_HANDLE_SUSPEND_KEY   ? "org.freedesktop.login1.inhibit-handle-suspend-key" :
                                     w == INHIBIT_HANDLE_HIBERNATE_KEY ? "org.freedesktop.login1.inhibit-handle-hibernate-key" :
                                                                         "org.freedesktop.login1.inhibit-handle-lid-switch",
-                                    false, error, method_inhibit, m);
+                                    false, &m->polkit_registry, error);
         if (r < 0)
                 return r;
         if (r == 0)

@@ -184,8 +184,7 @@ int bus_name_has_owner(sd_bus *c, const char *name, sd_bus_error *error) {
 }
 
 int bus_verify_polkit(
-                sd_bus *bus,
-                sd_bus_message *m,
+                sd_bus_message *call,
                 int capability,
                 const char *action,
                 bool interactive,
@@ -194,28 +193,26 @@ int bus_verify_polkit(
 
         int r;
 
-        assert(bus);
-        assert(m);
+        assert(call);
         assert(action);
 
-        r = sd_bus_query_sender_privilege(m, capability);
+        r = sd_bus_query_sender_privilege(call, capability);
         if (r < 0)
                 return r;
-        if (r > 0)
+        else if (r > 0)
                 return 1;
-
 #ifdef ENABLE_POLKIT
         else {
                 _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
                 int authorized = false, challenge = false;
                 const char *sender;
 
-                sender = sd_bus_message_get_sender(m);
+                sender = sd_bus_message_get_sender(call);
                 if (!sender)
                         return -EBADMSG;
 
                 r = sd_bus_call_method(
-                                bus,
+                                call->bus,
                                 "org.freedesktop.PolicyKit1",
                                 "/org/freedesktop/PolicyKit1/Authority",
                                 "org.freedesktop.PolicyKit1.Authority",
@@ -316,30 +313,29 @@ finish:
 #endif
 
 int bus_verify_polkit_async(
-                sd_bus *bus,
-                Hashmap **registry,
-                sd_bus_message *m,
+                sd_bus_message *call,
                 int capability,
                 const char *action,
                 bool interactive,
-                sd_bus_error *error,
-                sd_bus_message_handler_t callback,
-                void *userdata) {
+                Hashmap **registry,
+                sd_bus_error *error) {
 
 #ifdef ENABLE_POLKIT
         _cleanup_bus_message_unref_ sd_bus_message *pk = NULL;
+        _cleanup_bus_slot_unref_ sd_bus_slot *slot = NULL;
         AsyncPolkitQuery *q;
         const char *sender;
+        sd_bus_message_handler_t callback;
+        void *userdata;
 #endif
         int r;
 
-        assert(bus);
-        assert(registry);
-        assert(m);
+        assert(call);
         assert(action);
+        assert(registry);
 
 #ifdef ENABLE_POLKIT
-        q = hashmap_get(*registry, m);
+        q = hashmap_get(*registry, call);
         if (q) {
                 int authorized, challenge;
 
@@ -376,14 +372,23 @@ int bus_verify_polkit_async(
         }
 #endif
 
-        r = sd_bus_query_sender_privilege(m, capability);
+        r = sd_bus_query_sender_privilege(call, capability);
         if (r < 0)
                 return r;
-        if (r > 0)
+        else if (r > 0)
                 return 1;
 
 #ifdef ENABLE_POLKIT
-        sender = sd_bus_message_get_sender(m);
+        if (sd_bus_get_current_message(call->bus) != call)
+                return -EINVAL;
+
+        callback = sd_bus_get_current_handler(call->bus);
+        if (!callback)
+                return -EINVAL;
+
+        userdata = sd_bus_get_current_userdata(call->bus);
+
+        sender = sd_bus_message_get_sender(call);
         if (!sender)
                 return -EBADMSG;
 
@@ -392,7 +397,7 @@ int bus_verify_polkit_async(
                 return r;
 
         r = sd_bus_message_new_method_call(
-                        bus,
+                        call->bus,
                         &pk,
                         "org.freedesktop.PolicyKit1",
                         "/org/freedesktop/PolicyKit1/Authority",
@@ -416,11 +421,11 @@ int bus_verify_polkit_async(
         if (!q)
                 return -ENOMEM;
 
-        q->request = sd_bus_message_ref(m);
+        q->request = sd_bus_message_ref(call);
         q->callback = callback;
         q->userdata = userdata;
 
-        r = hashmap_put(*registry, m, q);
+        r = hashmap_put(*registry, call, q);
         if (r < 0) {
                 async_polkit_query_free(q);
                 return r;
@@ -428,7 +433,7 @@ int bus_verify_polkit_async(
 
         q->registry = *registry;
 
-        r = sd_bus_call_async(bus, &q->slot, pk, async_polkit_callback, q, 0);
+        r = sd_bus_call_async(call->bus, &q->slot, pk, async_polkit_callback, q, 0);
         if (r < 0) {
                 async_polkit_query_free(q);
                 return r;
