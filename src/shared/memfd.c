@@ -97,12 +97,17 @@ int sd_memfd_new(sd_memfd **m, const char *name) {
 
 int sd_memfd_new_from_fd(sd_memfd **m, int fd) {
         sd_memfd *n;
+        int r;
 
         assert_return(m, -EINVAL);
         assert_return(fd >= 0, -EINVAL);
 
-        /* Check if this is a sealable fd */
-        if (fcntl(fd, F_GET_SEALS) < 0)
+        /* Check if this is a sealable fd. The kernel sets F_SEAL_SEAL on memfds
+         * that don't support sealing, so check for that, too. A file with
+         * *only* F_SEAL_SEAL set is the same as a random shmem file, so no
+         * reason to allow opening it as memfd. */
+        r = fcntl(fd, F_GET_SEALS);
+        if (r < 0 || r == F_SEAL_SEAL)
                 return -ENOTTY;
 
         n = new0(struct sd_memfd, 1);
