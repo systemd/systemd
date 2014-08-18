@@ -24,6 +24,11 @@ External:
 
 Features:
 
+* logind: make the Suspend()/Hibernate() bus calls wait for the for
+  the job to be completed. before returning, so that clients can wait
+  for "systemctl suspend" to finish to know when the suspending is
+  complete.
+
 * sd_notify("SHUTDOWN=1") to fix a dbus activation race.
   http://lists.freedesktop.org/archives/systemd-devel/2014-July/020983.html
 
