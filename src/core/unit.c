@@ -1651,9 +1651,9 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
         }
 
         /* Keep track of failed units */
-        if (ns == UNIT_FAILED && os != UNIT_FAILED)
+        if (ns == UNIT_FAILED)
                 set_put(u->manager->failed_units, u);
-        else if (os == UNIT_FAILED && ns != UNIT_FAILED)
+        else
                 set_remove(u->manager->failed_units, u);
 
         /* Make sure the cgroup is always removed when we become inactive */
@@ -1998,6 +1998,8 @@ bool unit_job_is_applicable(Unit *u, JobType j) {
 }
 
 static int maybe_warn_about_dependency(const char *id, const char *other, UnitDependency dependency) {
+        assert(id);
+
         switch (dependency) {
         case UNIT_REQUIRES:
         case UNIT_REQUIRES_OVERRIDABLE:
@@ -2038,6 +2040,7 @@ static int maybe_warn_about_dependency(const char *id, const char *other, UnitDe
         case _UNIT_DEPENDENCY_INVALID:
                 break;
         }
+
         assert_not_reached("Invalid dependency type");
 }
 
@@ -2151,10 +2154,12 @@ int unit_add_two_dependencies(Unit *u, UnitDependency d, UnitDependency e, Unit 
 
         assert(u);
 
-        if ((r = unit_add_dependency(u, d, other, add_reference)) < 0)
+        r = unit_add_dependency(u, d, other, add_reference);
+        if (r < 0)
                 return r;
 
-        if ((r = unit_add_dependency(u, e, other, add_reference)) < 0)
+        r = unit_add_dependency(u, e, other, add_reference);
+        if (r < 0)
                 return r;
 
         return 0;
@@ -2214,22 +2219,22 @@ int unit_add_dependency_by_name(Unit *u, UnitDependency d, const char *name, con
 }
 
 int unit_add_two_dependencies_by_name(Unit *u, UnitDependency d, UnitDependency e, const char *name, const char *path, bool add_reference) {
+        _cleanup_free_ char *s = NULL;
         Unit *other;
         int r;
-        _cleanup_free_ char *s = NULL;
 
         assert(u);
         assert(name || path);
 
-        if (!(name = resolve_template(u, name, path, &s)))
+        name = resolve_template(u, name, path, &s);
+        if (!name)
                 return -ENOMEM;
 
-        if ((r = manager_load_unit(u->manager, name, path, NULL, &other)) < 0)
+        r = manager_load_unit(u->manager, name, path, NULL, &other);
+        if (r < 0)
                 return r;
 
-        r = unit_add_two_dependencies(u, d, e, other, add_reference);
-
-        return r;
+        return unit_add_two_dependencies(u, d, e, other, add_reference);
 }
 
 int unit_add_dependency_by_name_inverse(Unit *u, UnitDependency d, const char *name, const char *path, bool add_reference) {
@@ -2240,15 +2245,15 @@ int unit_add_dependency_by_name_inverse(Unit *u, UnitDependency d, const char *n
         assert(u);
         assert(name || path);
 
-        if (!(name = resolve_template(u, name, path, &s)))
+        name = resolve_template(u, name, path, &s);
+        if (!name)
                 return -ENOMEM;
 
-        if ((r = manager_load_unit(u->manager, name, path, NULL, &other)) < 0)
+        r = manager_load_unit(u->manager, name, path, NULL, &other);
+        if (r < 0)
                 return r;
 
-        r = unit_add_dependency(other, d, u, add_reference);
-
-        return r;
+        return unit_add_dependency(other, d, u, add_reference);
 }
 
 int unit_add_two_dependencies_by_name_inverse(Unit *u, UnitDependency d, UnitDependency e, const char *name, const char *path, bool add_reference) {
@@ -2259,13 +2264,16 @@ int unit_add_two_dependencies_by_name_inverse(Unit *u, UnitDependency d, UnitDep
         assert(u);
         assert(name || path);
 
-        if (!(name = resolve_template(u, name, path, &s)))
+        name = resolve_template(u, name, path, &s);
+        if (!name)
                 return -ENOMEM;
 
-        if ((r = manager_load_unit(u->manager, name, path, NULL, &other)) < 0)
+        r = manager_load_unit(u->manager, name, path, NULL, &other);
+        if (r < 0)
                 return r;
 
-        if ((r = unit_add_two_dependencies(other, d, e, u, add_reference)) < 0)
+        r = unit_add_two_dependencies(other, d, e, u, add_reference);
+        if (r < 0)
                 return r;
 
         return r;
