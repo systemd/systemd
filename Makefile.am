@@ -860,6 +860,8 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/copy.h \
 	src/shared/base-filesystem.c \
 	src/shared/base-filesystem.h \
+	src/shared/memfd.c \
+	src/shared/memfd.h \
 	src/shared/nss-util.h
 
 nodist_libsystemd_shared_la_SOURCES = \
@@ -2382,7 +2384,6 @@ libsystemd_internal_la_SOURCES = \
 	src/systemd/sd-bus.h \
 	src/systemd/sd-bus-protocol.h \
 	src/systemd/sd-bus-vtable.h \
-	src/systemd/sd-memfd.h \
 	src/systemd/sd-utf8.h \
 	src/systemd/sd-event.h \
 	src/systemd/sd-rtnl.h \
@@ -2432,7 +2433,6 @@ libsystemd_internal_la_SOURCES = \
 	src/libsystemd/sd-bus/bus-slot.h \
 	src/libsystemd/sd-bus/bus-protocol.h \
 	src/libsystemd/sd-bus/kdbus.h \
-	src/libsystemd/sd-bus/sd-memfd.c \
 	src/libsystemd/sd-utf8/sd-utf8.c \
 	src/libsystemd/sd-event/sd-event.c \
 	src/libsystemd/sd-event/event-util.h \
@@ -2550,7 +2550,6 @@ pkginclude_HEADERS += \
 	src/systemd/sd-bus.h \
 	src/systemd/sd-bus-protocol.h \
 	src/systemd/sd-bus-vtable.h \
-	src/systemd/sd-memfd.h \
 	src/systemd/sd-utf8.h \
 	src/systemd/sd-event.h \
 	src/systemd/sd-rtnl.h \

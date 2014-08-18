@@ -28,8 +28,8 @@
 #include "util.h"
 #include "bus-label.h"
 #include "missing.h"
+#include "memfd.h"
 
-#include "sd-memfd.h"
 #include "sd-bus.h"
 
 struct sd_memfd {
@@ -37,7 +37,7 @@ struct sd_memfd {
         FILE *f;
 };
 
-_public_ int sd_memfd_new(sd_memfd **m, const char *name) {
+int sd_memfd_new(sd_memfd **m, const char *name) {
 
         _cleanup_close_ int kdbus = -1;
         _cleanup_free_ char *g = NULL;
@@ -100,7 +100,7 @@ _public_ int sd_memfd_new(sd_memfd **m, const char *name) {
         return 0;
 }
 
-_public_ int sd_memfd_new_from_fd(sd_memfd **m, int fd) {
+int sd_memfd_new_from_fd(sd_memfd **m, int fd) {
         sd_memfd *n;
 
         assert_return(m, -EINVAL);
@@ -120,7 +120,7 @@ _public_ int sd_memfd_new_from_fd(sd_memfd **m, int fd) {
         return 0;
 }
 
-_public_ void sd_memfd_free(sd_memfd *m) {
+void sd_memfd_free(sd_memfd *m) {
         if (!m)
                 return;
 
@@ -132,13 +132,13 @@ _public_ void sd_memfd_free(sd_memfd *m) {
         free(m);
 }
 
-_public_ int sd_memfd_get_fd(sd_memfd *m) {
+int sd_memfd_get_fd(sd_memfd *m) {
         assert_return(m, -EINVAL);
 
         return m->fd;
 }
 
-_public_ int sd_memfd_get_file(sd_memfd *m, FILE **f) {
+int sd_memfd_get_file(sd_memfd *m, FILE **f) {
         assert_return(m, -EINVAL);
         assert_return(f, -EINVAL);
 
@@ -152,7 +152,7 @@ _public_ int sd_memfd_get_file(sd_memfd *m, FILE **f) {
         return 0;
 }
 
-_public_ int sd_memfd_dup_fd(sd_memfd *m) {
+int sd_memfd_dup_fd(sd_memfd *m) {
         int fd;
 
         assert_return(m, -EINVAL);
@@ -164,7 +164,7 @@ _public_ int sd_memfd_dup_fd(sd_memfd *m) {
         return fd;
 }
 
-_public_ int sd_memfd_map(sd_memfd *m, uint64_t offset, size_t size, void **p) {
+int sd_memfd_map(sd_memfd *m, uint64_t offset, size_t size, void **p) {
         void *q;
         int sealed;
 
@@ -184,7 +184,7 @@ _public_ int sd_memfd_map(sd_memfd *m, uint64_t offset, size_t size, void **p) {
         return 0;
 }
 
-_public_ int sd_memfd_set_sealed(sd_memfd *m) {
+int sd_memfd_set_sealed(sd_memfd *m) {
         int r;
 
         assert_return(m, -EINVAL);
@@ -196,7 +196,7 @@ _public_ int sd_memfd_set_sealed(sd_memfd *m) {
         return 0;
 }
 
-_public_ int sd_memfd_get_sealed(sd_memfd *m) {
+int sd_memfd_get_sealed(sd_memfd *m) {
         int r;
 
         assert_return(m, -EINVAL);
@@ -209,7 +209,7 @@ _public_ int sd_memfd_get_sealed(sd_memfd *m) {
                     (F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE);
 }
 
-_public_ int sd_memfd_get_size(sd_memfd *m, uint64_t *sz) {
+int sd_memfd_get_size(sd_memfd *m, uint64_t *sz) {
         int r;
         struct stat stat;
 
@@ -224,7 +224,7 @@ _public_ int sd_memfd_get_size(sd_memfd *m, uint64_t *sz) {
         return r;
 }
 
-_public_ int sd_memfd_set_size(sd_memfd *m, uint64_t sz) {
+int sd_memfd_set_size(sd_memfd *m, uint64_t sz) {
         int r;
 
         assert_return(m, -EINVAL);
@@ -236,7 +236,7 @@ _public_ int sd_memfd_set_size(sd_memfd *m, uint64_t sz) {
         return r;
 }
 
-_public_ int sd_memfd_new_and_map(sd_memfd **m, const char *name, size_t sz, void **p) {
+int sd_memfd_new_and_map(sd_memfd **m, const char *name, size_t sz, void **p) {
         sd_memfd *n;
         int r;
 
@@ -260,7 +260,7 @@ _public_ int sd_memfd_new_and_map(sd_memfd **m, const char *name, size_t sz, voi
         return 0;
 }
 
-_public_ int sd_memfd_get_name(sd_memfd *m, char **name) {
+int sd_memfd_get_name(sd_memfd *m, char **name) {
         char path[sizeof("/proc/self/fd/") + DECIMAL_STR_MAX(int)], buf[FILENAME_MAX+1], *e;
         const char *delim, *end;
         _cleanup_free_ char *n = NULL;
