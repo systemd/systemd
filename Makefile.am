@@ -2724,10 +2724,6 @@ test_bus_kernel_benchmark_LDADD = \
 	libsystemd-internal.la \
 	libsystemd-shared.la
 
-test_bus_memfd_LDADD = \
-	libsystemd-internal.la \
-	libsystemd-shared.la
-
 test_bus_zero_copy_SOURCES = \
 	src/libsystemd/sd-bus/test-bus-zero-copy.c
 
