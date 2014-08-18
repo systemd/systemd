@@ -32,17 +32,12 @@
 
 #include "sd-bus.h"
 
-struct sd_memfd {
-        int fd;
-        FILE *f;
-};
-
-int sd_memfd_new(sd_memfd **m, const char *name) {
+int memfd_new(int *fd, const char *name) {
 
         _cleanup_free_ char *g = NULL;
-        sd_memfd *n;
+        int n;
 
-        assert_return(m, -EINVAL);
+        assert_return(fd, -EINVAL);
 
         if (name) {
                 /* The kernel side is pretty picky about the character
@@ -81,105 +76,30 @@ int sd_memfd_new(sd_memfd **m, const char *name) {
                 }
         }
 
-        n = new0(struct sd_memfd, 1);
-        if (!n)
-                return -ENOMEM;
-
-        n->fd = memfd_create(name, MFD_ALLOW_SEALING);
-        if (n->fd < 0) {
-                free(n);
-                return -errno;
-        }
-
-        *m = n;
-        return 0;
-}
-
-int sd_memfd_new_from_fd(sd_memfd **m, int fd) {
-        sd_memfd *n;
-        int r;
-
-        assert_return(m, -EINVAL);
-        assert_return(fd >= 0, -EINVAL);
-
-        /* Check if this is a sealable fd. The kernel sets F_SEAL_SEAL on memfds
-         * that don't support sealing, so check for that, too. A file with
-         * *only* F_SEAL_SEAL set is the same as a random shmem file, so no
-         * reason to allow opening it as memfd. */
-        r = fcntl(fd, F_GET_SEALS);
-        if (r < 0 || r == F_SEAL_SEAL)
-                return -ENOTTY;
-
-        n = new0(struct sd_memfd, 1);
-        if (!n)
-                return -ENOMEM;
-
-        n->fd = fd;
-        *m = n;
-
-        return 0;
-}
-
-void sd_memfd_free(sd_memfd *m) {
-        if (!m)
-                return;
-
-        if (m->f)
-                fclose(m->f);
-        else
-                safe_close(m->fd);
-
-        free(m);
-}
-
-int sd_memfd_get_fd(sd_memfd *m) {
-        assert_return(m, -EINVAL);
-
-        return m->fd;
-}
-
-int sd_memfd_get_file(sd_memfd *m, FILE **f) {
-        assert_return(m, -EINVAL);
-        assert_return(f, -EINVAL);
-
-        if (!m->f) {
-                m->f = fdopen(m->fd, "r+");
-                if (!m->f)
-                        return -errno;
-        }
-
-        *f = m->f;
-        return 0;
-}
-
-int sd_memfd_dup_fd(sd_memfd *m) {
-        int fd;
-
-        assert_return(m, -EINVAL);
-
-        fd = fcntl(m->fd, F_DUPFD_CLOEXEC, 3);
-        if (fd < 0)
+        n = memfd_create(name, MFD_ALLOW_SEALING);
+        if (n < 0)
                 return -errno;
 
-        return fd;
+        *fd = n;
+        return 0;
 }
 
-int sd_memfd_map(sd_memfd *m, uint64_t offset, size_t size, void **p) {
+int memfd_map(int fd, uint64_t offset, size_t size, void **p) {
         void *q;
         int sealed;
 
-        assert_return(m, -EINVAL);
+        assert_return(fd >= 0, -EINVAL);
         assert_return(size > 0, -EINVAL);
         assert_return(p, -EINVAL);
 
-        sealed = sd_memfd_get_sealed(m);
+        sealed = memfd_get_sealed(fd);
         if (sealed < 0)
                 return sealed;
 
         if (sealed)
-                q = mmap(NULL, size, PROT_READ, MAP_PRIVATE, m->fd, offset);
+                q = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, offset);
         else
-                q = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, m->fd, offset);
+                q = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, offset);
 
         if (q == MAP_FAILED)
                 return -errno;
@@ -188,24 +108,24 @@ int sd_memfd_map(sd_memfd *m, uint64_t offset, size_t size, void **p) {
         return 0;
 }
 
-int sd_memfd_set_sealed(sd_memfd *m) {
+int memfd_set_sealed(int fd) {
         int r;
 
-        assert_return(m, -EINVAL);
+        assert_return(fd >= 0, -EINVAL);
 
-        r = fcntl(m->fd, F_ADD_SEALS, F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE);
+        r = fcntl(fd, F_ADD_SEALS, F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE);
         if (r < 0)
                 return -errno;
 
         return 0;
 }
 
-int sd_memfd_get_sealed(sd_memfd *m) {
+int memfd_get_sealed(int fd) {
         int r;
 
-        assert_return(m, -EINVAL);
+        assert_return(fd >= 0, -EINVAL);
 
-        r = fcntl(m->fd, F_GET_SEALS);
+        r = fcntl(fd, F_GET_SEALS);
         if (r < 0)
                 return -errno;
 
@@ -213,14 +133,14 @@ int sd_memfd_get_sealed(sd_memfd *m) {
                     (F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE);
 }
 
-int sd_memfd_get_size(sd_memfd *m, uint64_t *sz) {
+int memfd_get_size(int fd, uint64_t *sz) {
         int r;
         struct stat stat;
 
-        assert_return(m, -EINVAL);
+        assert_return(fd >= 0, -EINVAL);
         assert_return(sz, -EINVAL);
 
-        r = fstat(m->fd, &stat);
+        r = fstat(fd, &stat);
         if (r < 0)
                 return -errno;
 
@@ -228,49 +148,49 @@ int sd_memfd_get_size(sd_memfd *m, uint64_t *sz) {
         return r;
 }
 
-int sd_memfd_set_size(sd_memfd *m, uint64_t sz) {
+int memfd_set_size(int fd, uint64_t sz) {
         int r;
 
-        assert_return(m, -EINVAL);
+        assert_return(fd >= 0, -EINVAL);
 
-        r = ftruncate(m->fd, sz);
+        r = ftruncate(fd, sz);
         if (r < 0)
                 return -errno;
 
         return r;
 }
 
-int sd_memfd_new_and_map(sd_memfd **m, const char *name, size_t sz, void **p) {
-        _cleanup_(sd_memfd_freep) sd_memfd *n = NULL;
+int memfd_new_and_map(int *fd, const char *name, size_t sz, void **p) {
+        _cleanup_close_ int n = -1;
         int r;
 
-        r = sd_memfd_new(&n, name);
+        r = memfd_new(&n, name);
         if (r < 0)
                 return r;
 
-        r = sd_memfd_set_size(n, sz);
+        r = memfd_set_size(n, sz);
         if (r < 0)
                 return r;
 
-        r = sd_memfd_map(n, 0, sz, p);
+        r = memfd_map(n, 0, sz, p);
         if (r < 0)
                 return r;
 
-        *m = n;
-        n = NULL;
+        *fd = n;
+        n = -1;
         return 0;
 }
 
-int sd_memfd_get_name(sd_memfd *m, char **name) {
+int memfd_get_name(int fd, char **name) {
         char path[sizeof("/proc/self/fd/") + DECIMAL_STR_MAX(int)], buf[FILENAME_MAX+1], *e;
         const char *delim, *end;
         _cleanup_free_ char *n = NULL;
         ssize_t k;
 
-        assert_return(m, -EINVAL);
+        assert_return(fd >= 0, -EINVAL);
         assert_return(name, -EINVAL);
 
-        sprintf(path, "/proc/self/fd/%i", m->fd);
+        sprintf(path, "/proc/self/fd/%i", fd);
 
         k = readlink(path, buf, sizeof(buf));
         if (k < 0)

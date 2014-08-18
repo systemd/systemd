@@ -68,7 +68,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <funcdef>int sd_bus_message_append_array_memfd</funcdef>
         <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
         <paramdef>char <parameter>type</parameter></paramdef>
-        <paramdef>sd_memfd *<parameter>memfd</parameter></paramdef>
+        <paramdef>int <parameter>memfd</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>

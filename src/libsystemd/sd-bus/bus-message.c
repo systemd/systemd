@@ -2527,7 +2527,7 @@ _public_ int sd_bus_message_append_array_iovec(
 
 _public_ int sd_bus_message_append_array_memfd(sd_bus_message *m,
                                                char type,
-                                               sd_memfd *memfd) {
+                                               int memfd) {
         _cleanup_close_ int copy_fd = -1;
         struct bus_body_part *part;
         ssize_t align, sz;
@@ -2537,7 +2537,7 @@ _public_ int sd_bus_message_append_array_memfd(sd_bus_message *m,
 
         if (!m)
                 return -EINVAL;
-        if (!memfd)
+        if (memfd < 0)
                 return -EINVAL;
         if (m->sealed)
                 return -EPERM;
@@ -2546,15 +2546,15 @@ _public_ int sd_bus_message_append_array_memfd(sd_bus_message *m,
         if (m->poisoned)
                 return -ESTALE;
 
-        r = sd_memfd_set_sealed(memfd);
+        r = memfd_set_sealed(memfd);
         if (r < 0)
                 return r;
 
-        copy_fd = sd_memfd_dup_fd(memfd);
+        copy_fd = dup(memfd);
         if (copy_fd < 0)
                 return copy_fd;
 
-        r = sd_memfd_get_size(memfd, &size);
+        r = memfd_get_size(memfd, &size);
         if (r < 0)
                 return r;
 
@@ -2593,7 +2593,7 @@ _public_ int sd_bus_message_append_array_memfd(sd_bus_message *m,
         return sd_bus_message_close_container(m);
 }
 
-_public_ int sd_bus_message_append_string_memfd(sd_bus_message *m, sd_memfd *memfd) {
+_public_ int sd_bus_message_append_string_memfd(sd_bus_message *m, int memfd) {
         _cleanup_close_ int copy_fd = -1;
         struct bus_body_part *part;
         struct bus_container *c;
@@ -2602,19 +2602,19 @@ _public_ int sd_bus_message_append_string_memfd(sd_bus_message *m, sd_memfd *mem
         int r;
 
         assert_return(m, -EINVAL);
-        assert_return(memfd, -EINVAL);
+        assert_return(memfd >= 0, -EINVAL);
         assert_return(!m->sealed, -EPERM);
         assert_return(!m->poisoned, -ESTALE);
 
-        r = sd_memfd_set_sealed(memfd);
+        r = memfd_set_sealed(memfd);
         if (r < 0)
                 return r;
 
-        copy_fd = sd_memfd_dup_fd(memfd);
+        copy_fd = dup(memfd);
         if (copy_fd < 0)
                 return copy_fd;
 
-        r = sd_memfd_get_size(memfd, &size);
+        r = memfd_get_size(memfd, &size);
         if (r < 0)
                 return r;
 

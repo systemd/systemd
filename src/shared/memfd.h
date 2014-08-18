@@ -27,26 +27,15 @@
 #include "macro.h"
 #include "util.h"
 
-typedef struct sd_memfd sd_memfd;
+int memfd_new(int *fd, const char *name);
+int memfd_new_and_map(int *fd, const char *name, size_t sz, void **p);
 
-int sd_memfd_new(sd_memfd **m, const char *name);
-int sd_memfd_new_from_fd(sd_memfd **m, int fd);
-int sd_memfd_new_and_map(sd_memfd **m, const char *name, size_t sz, void **p);
+int memfd_map(int fd, uint64_t offset, size_t size, void **p);
 
-void sd_memfd_free(sd_memfd *m);
+int memfd_set_sealed(int fd);
+int memfd_get_sealed(int fd);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(sd_memfd*, sd_memfd_free);
+int memfd_get_size(int fd, uint64_t *sz);
+int memfd_set_size(int fd, uint64_t sz);
 
-int sd_memfd_get_fd(sd_memfd *m);
-int sd_memfd_dup_fd(sd_memfd *n);
-int sd_memfd_get_file(sd_memfd *m, FILE **f);
-
-int sd_memfd_map(sd_memfd *m, uint64_t offset, size_t size, void **p);
-
-int sd_memfd_set_sealed(sd_memfd *m);
-int sd_memfd_get_sealed(sd_memfd *m);
-
-int sd_memfd_get_size(sd_memfd *m, uint64_t *sz);
-int sd_memfd_set_size(sd_memfd *m, uint64_t sz);
-
-int sd_memfd_get_name(sd_memfd *m, char **name);
+int memfd_get_name(int fd, char **name);
