@@ -1322,19 +1322,19 @@ int bus_kernel_create_bus(const char *name, bool world, char **s) {
         return fd;
 }
 
-static int bus_kernel_translate_access(BusNamePolicyAccess access) {
+static int bus_kernel_translate_access(BusPolicyAccess access) {
         assert(access >= 0);
-        assert(access < _BUSNAME_POLICY_ACCESS_MAX);
+        assert(access < _BUS_POLICY_ACCESS_MAX);
 
         switch (access) {
 
-        case BUSNAME_POLICY_ACCESS_SEE:
+        case BUS_POLICY_ACCESS_SEE:
                 return KDBUS_POLICY_SEE;
 
-        case BUSNAME_POLICY_ACCESS_TALK:
+        case BUS_POLICY_ACCESS_TALK:
                 return KDBUS_POLICY_TALK;
 
-        case BUSNAME_POLICY_ACCESS_OWN:
+        case BUS_POLICY_ACCESS_OWN:
                 return KDBUS_POLICY_OWN;
 
         default:
@@ -1414,7 +1414,7 @@ int bus_kernel_make_starter(
                 bool activating,
                 bool accept_fd,
                 BusNamePolicy *policy,
-                BusNamePolicyAccess world_policy) {
+                BusPolicyAccess world_policy) {
 
         struct kdbus_cmd_hello *hello;
         struct kdbus_item *n;

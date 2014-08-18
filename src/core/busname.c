@@ -911,14 +911,6 @@ static const char* const busname_result_table[_BUSNAME_RESULT_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(busname_result, BusNameResult);
 
-static const char* const busname_policy_access_table[_BUSNAME_POLICY_ACCESS_MAX] = {
-        [BUSNAME_POLICY_ACCESS_SEE] = "see",
-        [BUSNAME_POLICY_ACCESS_TALK] = "talk",
-        [BUSNAME_POLICY_ACCESS_OWN] = "own",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(busname_policy_access, BusNamePolicyAccess);
-
 const UnitVTable busname_vtable = {
         .object_size = sizeof(BusName),
 

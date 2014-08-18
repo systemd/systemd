@@ -55,7 +55,7 @@ int main(int argc, char **argv) {
         test_table(architecture, ARCHITECTURE);
         test_table(automount_result, AUTOMOUNT_RESULT);
         test_table(automount_state, AUTOMOUNT_STATE);
-        test_table(busname_policy_access, BUSNAME_POLICY_ACCESS);
+        test_table(bus_policy_access, BUS_POLICY_ACCESS);
         test_table(busname_result, BUSNAME_RESULT);
         test_table(busname_state, BUSNAME_STATE);
         test_table(cgroup_device_policy, CGROUP_DEVICE_POLICY);

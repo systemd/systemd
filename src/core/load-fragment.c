@@ -1686,7 +1686,7 @@ int config_parse_busname_service(
         return 0;
 }
 
-DEFINE_CONFIG_PARSE_ENUM(config_parse_bus_policy_world, busname_policy_access, BusNamePolicyAccess, "Failed to parse bus name policy access");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_bus_policy_world, bus_policy_access, BusPolicyAccess, "Failed to parse bus name policy access");
 
 int config_parse_bus_policy(
                 const char *unit,
@@ -1736,7 +1736,7 @@ int config_parse_bus_policy(
         access_str++;
         access_str += strspn(access_str, WHITESPACE);
 
-        p->access = busname_policy_access_from_string(access_str);
+        p->access = bus_policy_access_from_string(access_str);
         if (p->access < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, EINVAL,
                            "Invalid busname policy access type '%s'", access_str);
