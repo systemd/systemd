@@ -23,6 +23,7 @@
 #include <pwd.h>
 #include <grp.h>
 #include <shadow.h>
+#include <gshadow.h>
 #include <getopt.h>
 #include <utmp.h>
 
@@ -298,22 +299,70 @@ static int putgrent_with_members(const struct group *gr, FILE *group) {
         return 0;
 }
 
+static int putsgent_with_members(const struct sgrp *sg, FILE *gshadow) {
+        char **a;
+
+        assert(sg);
+        assert(gshadow);
+
+        a = hashmap_get(members, sg->sg_namp);
+        if (a) {
+                _cleanup_strv_free_ char **l = NULL;
+                bool added = false;
+                char **i;
+
+                l = strv_copy(sg->sg_mem);
+                if (!l)
+                        return -ENOMEM;
+
+                STRV_FOREACH(i, a) {
+                        if (strv_find(l, *i))
+                                continue;
+
+                        if (strv_extend(&l, *i) < 0)
+                                return -ENOMEM;
+
+                        added = true;
+                }
+
+                if (added) {
+                        struct sgrp t;
+
+                        strv_uniq(l);
+                        strv_sort(l);
+
+                        t = *sg;
+                        t.sg_mem = l;
+
+                        errno = 0;
+                        if (putsgent(&t, gshadow) != 0)
+                                return errno ? -errno : -EIO;
+
+                        return 1;
+                }
+        }
+
+        errno = 0;
+        if (putsgent(sg, gshadow) != 0)
+                return errno ? -errno : -EIO;
+
+        return 0;
+}
+
 static int write_files(void) {
 
-        _cleanup_fclose_ FILE *passwd = NULL, *group = NULL;
-        _cleanup_free_ char *passwd_tmp = NULL, *group_tmp = NULL;
-        const char *passwd_path = NULL, *group_path = NULL;
+        _cleanup_fclose_ FILE *passwd = NULL, *group = NULL, *shadow = NULL, *gshadow = NULL;
+        _cleanup_free_ char *passwd_tmp = NULL, *group_tmp = NULL, *shadow_tmp = NULL, *gshadow_tmp = NULL;
+        const char *passwd_path = NULL, *group_path = NULL, *shadow_path = NULL, *gshadow_path = NULL;
         bool group_changed = false;
         Iterator iterator;
         Item *i;
         int r;
 
-        /* We don't patch /etc/shadow or /etc/gshadow here, since we
-         * only create user accounts without passwords anyway. */
-
         if (hashmap_size(todo_gids) > 0 || hashmap_size(members) > 0) {
                 _cleanup_fclose_ FILE *original = NULL;
 
+                /* First we update the actual group list file */
                 group_path = fix_root("/etc/group");
                 r = fopen_temporary_label("/etc/group", group_path, &group, &group_tmp);
                 if (r < 0)
@@ -352,7 +401,6 @@ static int write_files(void) {
                                 r = putgrent_with_members(gr, group);
                                 if (r < 0)
                                         goto finish;
-
                                 if (r > 0)
                                         group_changed = true;
 
@@ -385,11 +433,77 @@ static int write_files(void) {
                 r = fflush_and_check(group);
                 if (r < 0)
                         goto finish;
+
+                if (original) {
+                        fclose(original);
+                        original = NULL;
+                }
+
+                /* OK, now also update the shadow file for the group list */
+                gshadow_path = fix_root("/etc/gshadow");
+                r = fopen_temporary_label("/etc/gshadow", gshadow_path, &gshadow, &gshadow_tmp);
+                if (r < 0)
+                        goto finish;
+
+                if (fchmod(fileno(gshadow), 0000) < 0) {
+                        r = -errno;
+                        goto finish;
+                }
+
+                original = fopen(gshadow_path, "re");
+                if (original) {
+                        struct sgrp *sg;
+
+                        errno = 0;
+                        while ((sg = fgetsgent(original))) {
+
+                                i = hashmap_get(groups, sg->sg_namp);
+                                if (i && i->todo_group) {
+                                        r = -EEXIST;
+                                        goto finish;
+                                }
+
+                                r = putsgent_with_members(sg, gshadow);
+                                if (r < 0)
+                                        goto finish;
+                                if (r > 0)
+                                        group_changed = true;
+
+                                errno = 0;
+                        }
+                        if (!IN_SET(errno, 0, ENOENT)) {
+                                r = -errno;
+                                goto finish;
+                        }
+
+                } else if (errno != ENOENT) {
+                        r = -errno;
+                        goto finish;
+                }
+
+                HASHMAP_FOREACH(i, todo_gids, iterator) {
+                        struct sgrp n = {
+                                .sg_namp = i->name,
+                                .sg_passwd = (char*) "!!",
+                        };
+
+                        r = putsgent_with_members(&n, gshadow);
+                        if (r < 0)
+                                goto finish;
+
+                        group_changed = true;
+                }
+
+                r = fflush_and_check(gshadow);
+                if (r < 0)
+                        goto finish;
         }
 
         if (hashmap_size(todo_uids) > 0) {
                 _cleanup_fclose_ FILE *original = NULL;
+                long lstchg;
 
+                /* First we update the user database itself */
                 passwd_path = fix_root("/etc/passwd");
                 r = fopen_temporary_label("/etc/passwd", passwd_path, &passwd, &passwd_tmp);
                 if (r < 0)
@@ -466,13 +580,91 @@ static int write_files(void) {
                 r = fflush_and_check(passwd);
                 if (r < 0)
                         goto finish;
+
+                if (original) {
+                        fclose(original);
+                        original = NULL;
+                }
+
+                /* The we update the shadow database */
+                shadow_path = fix_root("/etc/shadow");
+                r = fopen_temporary_label("/etc/shadow", shadow_path, &shadow, &shadow_tmp);
+                if (r < 0)
+                        goto finish;
+
+                if (fchmod(fileno(shadow), 0000) < 0) {
+                        r = -errno;
+                        goto finish;
+                }
+
+                original = fopen(shadow_path, "re");
+                if (original) {
+                        struct spwd *sp;
+
+                        errno = 0;
+                        while ((sp = fgetspent(original))) {
+
+                                i = hashmap_get(users, sp->sp_namp);
+                                if (i && i->todo_user) {
+                                        r = -EEXIST;
+                                        goto finish;
+                                }
+
+                                errno = 0;
+                                if (putspent(sp, shadow) < 0) {
+                                        r = errno ? -errno : -EIO;
+                                        goto finish;
+                                }
+
+                                errno = 0;
+                        }
+                        if (!IN_SET(errno, 0, ENOENT)) {
+                                r = -errno;
+                                goto finish;
+                        }
+                } else if (errno != ENOENT) {
+                        r = -errno;
+                        goto finish;
+                }
+
+                lstchg = (long) (now(CLOCK_REALTIME) / USEC_PER_DAY);
+                HASHMAP_FOREACH(i, todo_uids, iterator) {
+                        struct spwd n = {
+                                .sp_namp = i->name,
+                                .sp_pwdp = (char*) "!!",
+                                .sp_lstchg = lstchg,
+                                .sp_min = -1,
+                                .sp_max = -1,
+                                .sp_warn = -1,
+                                .sp_inact = -1,
+                                .sp_expire = -1,
+                                .sp_flag = (unsigned long) -1, /* this appears to be what everybody does ... */
+                        };
+
+                        errno = 0;
+                        if (putspent(&n, shadow) != 0) {
+                                r = errno ? -errno : -EIO;
+                                goto finish;
+                        }
+                }
+
+                r = fflush_and_check(shadow);
+                if (r < 0)
+                        goto finish;
         }
 
         /* Make a backup of the old files */
-        if (group && group_changed) {
-                r = make_backup("/etc/group", group_path);
-                if (r < 0)
-                        goto finish;
+        if (group_changed) {
+                if (group) {
+                        r = make_backup("/etc/group", group_path);
+                        if (r < 0)
+                                goto finish;
+                }
+                if (gshadow) {
+                        r = make_backup("/etc/gshadow", gshadow_path);
+                        if (r < 0)
+                                goto finish;
+                }
         }
 
         if (passwd) {
@@ -480,16 +672,32 @@ static int write_files(void) {
                 if (r < 0)
                         goto finish;
         }
+        if (shadow) {
+                r = make_backup("/etc/shadow", shadow_path);
+                if (r < 0)
+                        goto finish;
+        }
 
         /* And make the new files count */
-        if (group && group_changed) {
-                if (rename(group_tmp, group_path) < 0) {
-                        r = -errno;
-                        goto finish;
-                }
+        if (group_changed) {
+                if (group) {
+                        if (rename(group_tmp, group_path) < 0) {
+                                r = -errno;
+                                goto finish;
+                        }
 
-                free(group_tmp);
-                group_tmp = NULL;
+                        free(group_tmp);
+                        group_tmp = NULL;
+                }
+                if (gshadow) {
+                        if (rename(gshadow_tmp, gshadow_path) < 0) {
+                                r = -errno;
+                                goto finish;
+                        }
+
+                        free(gshadow_tmp);
+                        gshadow_tmp = NULL;
+                }
         }
 
         if (passwd) {
@@ -501,14 +709,27 @@ static int write_files(void) {
                 free(passwd_tmp);
                 passwd_tmp = NULL;
         }
+        if (shadow) {
+                if (rename(shadow_tmp, shadow_path) < 0) {
+                        r = -errno;
+                        goto finish;
+                }
+
+                free(shadow_tmp);
+                shadow_tmp = NULL;
+        }
 
         r = 0;
 
 finish:
         if (passwd_tmp)
                 unlink(passwd_tmp);
+        if (shadow_tmp)
+                unlink(shadow_tmp);
         if (group_tmp)
                 unlink(group_tmp);
+        if (gshadow_tmp)
+                unlink(gshadow_tmp);
 
         return r;
 }
