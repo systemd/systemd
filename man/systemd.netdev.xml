@@ -177,7 +177,9 @@
                                                 <para>The maximum transmission unit in bytes to
                                                 set for the device. The usual suffixes K, M, G,
                                                 are supported and are understood to the base of
-                                                1024.</para>
+                                                1024. This key is not currently suported for
+                                                <literal>tun</literal> or <literal>tap</literal> devices.
+                                                </para>
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
@@ -187,6 +189,7 @@
                                                 If none is given, one is generated based on
                                                 the interface name and the
                                                 <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+                                                This key is not currently suported for <literal>tun</literal> or <literal>tap</literal> devices.
                                                 </para>
                                         </listitem>
                                 </varlistentry>
