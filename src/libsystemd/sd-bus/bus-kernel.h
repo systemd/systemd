@@ -24,6 +24,7 @@
 #include <stdbool.h>
 
 #include "busname.h"
+#include "bus-endpoint.h"
 #include "sd-bus.h"
 
 #define KDBUS_ITEM_NEXT(item) \
@@ -69,7 +70,10 @@ int bus_kernel_open_bus_fd(const char *bus, char **path);
 int bus_kernel_make_starter(int fd, const char *name, bool activating, bool accept_fd, BusNamePolicy *policy, BusPolicyAccess world_policy);
 
 int bus_kernel_create_bus(const char *name, bool world, char **s);
+int bus_kernel_create_endpoint(const char *bus_name, const char *ep_name, char **path);
 int bus_kernel_create_domain(const char *name, char **s);
+
+int bus_kernel_set_endpoint_policy(int fd, uid_t uid, BusEndpoint *ep);
 
 int bus_kernel_pop_memfd(sd_bus *bus, void **address, size_t *mapped, size_t *allocated);
 void bus_kernel_push_memfd(sd_bus *bus, int fd, void *address, size_t mapped, size_t allocated);

@@ -25,6 +25,7 @@
 
 #include <fcntl.h>
 #include <malloc.h>
+#include <libgen.h>
 #include <sys/mman.h>
 #include <sys/prctl.h>
 
@@ -1406,6 +1407,95 @@ int bus_kernel_open_bus_fd(const char *bus, char **path) {
                 return -errno;
 
         return fd;
+}
+
+int bus_kernel_create_endpoint(const char *bus_name, const char *ep_name, char **ep_path) {
+        _cleanup_free_ char *path;
+        struct kdbus_cmd_make *make;
+        struct kdbus_item *n;
+        size_t size;
+        int fd;
+
+        fd = bus_kernel_open_bus_fd(bus_name, &path);
+        if (fd < 0)
+                return fd;
+
+        size = ALIGN8(offsetof(struct kdbus_cmd_make, items));
+        size += ALIGN8(offsetof(struct kdbus_item, str) + strlen(ep_name) + 1);
+
+        make = alloca0(size);
+        make->size = size;
+        make->flags = KDBUS_MAKE_ACCESS_WORLD;
+
+        n = make->items;
+
+        n->type = KDBUS_ITEM_MAKE_NAME;
+        n->size = offsetof(struct kdbus_item, str) + strlen(ep_name) + 1;
+        strcpy(n->str, ep_name);
+
+        if (ioctl(fd, KDBUS_CMD_EP_MAKE, make) < 0) {
+                safe_close(fd);
+                return -errno;
+        }
+
+        /* The higher 32bit of the flags field are considered
+         * 'incompatible flags'. Refuse them all for now. */
+        if (make->flags > 0xFFFFFFFFULL) {
+                safe_close(fd);
+                return -ENOTSUP;
+        }
+
+        if (ep_path) {
+                asprintf(ep_path, "%s/%s", dirname(path), ep_name);
+                if (!*ep_path)
+                        return -ENOMEM;
+        }
+
+        return fd;
+}
+
+int bus_kernel_set_endpoint_policy(int fd, uid_t uid, BusEndpoint *ep) {
+
+        struct kdbus_cmd_update *update;
+        struct kdbus_item *n;
+        BusEndpointPolicy *po;
+        Iterator i;
+        size_t size;
+        int r;
+
+        size = ALIGN8(offsetof(struct kdbus_cmd_update, items));
+
+        HASHMAP_FOREACH(po, ep->policy_hash, i) {
+                size += ALIGN8(offsetof(struct kdbus_item, str) + strlen(po->name) + 1);
+                size += ALIGN8(offsetof(struct kdbus_item, policy_access) + sizeof(struct kdbus_policy_access));
+        }
+
+        update = alloca0(size);
+        update->size = size;
+
+        n = update->items;
+
+        HASHMAP_FOREACH(po, ep->policy_hash, i) {
+                n->type = KDBUS_ITEM_NAME;
+                n->size = offsetof(struct kdbus_item, str) + strlen(po->name) + 1;
+                strcpy(n->str, po->name);
+                n = KDBUS_ITEM_NEXT(n);
+
+                n->type = KDBUS_ITEM_POLICY_ACCESS;
+                n->size = offsetof(struct kdbus_item, policy_access) + sizeof(struct kdbus_policy_access);
+
+                n->policy_access.type = KDBUS_POLICY_ACCESS_USER;
+                n->policy_access.access = bus_kernel_translate_access(po->access);
+                n->policy_access.id = uid;
+
+                n = KDBUS_ITEM_NEXT(n);
+        }
+
+        r = ioctl(fd, KDBUS_CMD_EP_UPDATE, update);
+        if (r < 0)
+                return -errno;
+
+        return 0;
 }
 
 int bus_kernel_make_starter(
