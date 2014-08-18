@@ -503,8 +503,9 @@
 
                                 <listitem><para>Show messages for the
                                 specified systemd unit
-                                <replaceable>UNIT</replaceable>, or
-                                for any of the units matched by
+                                <replaceable>UNIT</replaceable> (such
+                                as a service unit), or for any of the
+                                units matched by
                                 <replaceable>PATTERN</replaceable>.
                                 If a pattern is specified, a list of
                                 unit names found in the journal is
@@ -910,6 +911,10 @@
                 <para>Show all kernel logs from previous boot:</para>
 
                 <programlisting>journalctl -k -b -1</programlisting>
+
+                <para>Show a live log display from a system service <filename>apache.service</filename>:</para>
+
+                <programlisting>journalctl -f -u apache</programlisting>
 
         </refsect1>
 
