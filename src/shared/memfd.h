@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foosdmemfdhfoo
-#define foosdmemfdhfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -25,10 +24,8 @@
 #include <inttypes.h>
 #include <sys/types.h>
 #include <stdio.h>
-
-#include "_sd-common.h"
-
-_SD_BEGIN_DECLARATIONS;
+#include "macro.h"
+#include "util.h"
 
 typedef struct sd_memfd sd_memfd;
 
@@ -37,6 +34,8 @@ int sd_memfd_new_from_fd(sd_memfd **m, int fd);
 int sd_memfd_new_and_map(sd_memfd **m, const char *name, size_t sz, void **p);
 
 void sd_memfd_free(sd_memfd *m);
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(sd_memfd*, sd_memfd_free);
 
 int sd_memfd_get_fd(sd_memfd *m);
 int sd_memfd_dup_fd(sd_memfd *n);
@@ -51,7 +50,3 @@ int sd_memfd_get_size(sd_memfd *m, uint64_t *sz);
 int sd_memfd_set_size(sd_memfd *m, uint64_t sz);
 
 int sd_memfd_get_name(sd_memfd *m, char **name);
-
-_SD_END_DECLARATIONS;
-
-#endif
