@@ -52,8 +52,22 @@ int string_compare_func(const void *a, const void *b) _pure_;
 unsigned long trivial_hash_func(const void *p, const uint8_t hash_key[HASH_KEY_SIZE]) _pure_;
 int trivial_compare_func(const void *a, const void *b) _const_;
 
+/* 32bit values we can always just embedd in the pointer itself, but
+ * in order to support 32bit archs we need store 64bit values
+ * indirectly, since they don't fit in a pointer. */
 unsigned long uint64_hash_func(const void *p, const uint8_t hash_key[HASH_KEY_SIZE]) _pure_;
 int uint64_compare_func(const void *a, const void *b) _pure_;
+
+/* On some archs dev_t is 32bit, and on others 64bit. And sometimes
+ * it's 64bit on 32bit archs, and sometimes 32bit on 64bit archs. Yuck! */
+#if SIZEOF_DEV_T != 8
+unsigned long devt_hash_func(const void *p, const uint8_t hash_key[HASH_KEY_SIZE]) _pure_;
+int devt_compare_func(const void *a, const void *b) _pure_;
+#else
+/* No need to define a second version of this... */
+#define devt_hash_func uint64_hash_func
+#define devt_compare_func uint64_compare_func
+#endif
 
 Hashmap *hashmap_new(hash_func_t hash_func, compare_func_t compare_func);
 void hashmap_free(Hashmap *h);

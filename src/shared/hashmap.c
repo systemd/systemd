@@ -164,6 +164,21 @@ int uint64_compare_func(const void *_a, const void *_b) {
         return a < b ? -1 : (a > b ? 1 : 0);
 }
 
+#if SIZEOF_DEV_T != 8
+unsigned long devt_hash_func(const void *p, const uint8_t hash_key[HASH_KEY_SIZE]) {
+        uint64_t u;
+        siphash24((uint8_t*) &u, p, sizeof(dev_t), hash_key);
+        return (unsigned long) u;
+}
+
+int devt_compare_func(const void *_a, const void *_b) {
+        dev_t a, b;
+        a = *(const dev_t*) _a;
+        b = *(const dev_t*) _b;
+        return a < b ? -1 : (a > b ? 1 : 0);
+}
+#endif
+
 static unsigned bucket_hash(Hashmap *h, const void *p) {
         return (unsigned) (h->hash_func(p, h->hash_key) % h->n_buckets);
 }

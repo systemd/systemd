@@ -44,21 +44,6 @@
 
 static void session_remove_fifo(Session *s);
 
-static unsigned long devt_hash_func(const void *p, const uint8_t hash_key[HASH_KEY_SIZE]) {
-        uint64_t u = *(const dev_t*)p;
-
-        return uint64_hash_func(&u, hash_key);
-}
-
-static int devt_compare_func(const void *_a, const void *_b) {
-        dev_t a, b;
-
-        a = *(const dev_t*) _a;
-        b = *(const dev_t*) _b;
-
-        return a < b ? -1 : (a > b ? 1 : 0);
-}
-
 Session* session_new(Manager *m, const char *id) {
         Session *s;
 
