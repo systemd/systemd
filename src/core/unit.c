@@ -1471,9 +1471,41 @@ static void unit_check_unneeded(Unit *u) {
                 if (unit_active_or_pending(other))
                         return;
 
-        log_info_unit(u->id, "Service %s is not needed anymore. Stopping.", u->id);
+        log_info_unit(u->id, "Unit %s is not needed anymore. Stopping.", u->id);
 
         /* Ok, nobody needs us anymore. Sniff. Then let's commit suicide */
+        manager_add_job(u->manager, JOB_STOP, u, JOB_FAIL, true, NULL, NULL);
+}
+
+static void unit_check_binds_to(Unit *u) {
+        bool stop = false;
+        Unit *other;
+        Iterator i;
+
+        assert(u);
+
+        if (u->job)
+                return;
+
+        if (unit_active_state(u) != UNIT_ACTIVE)
+                return;
+
+        SET_FOREACH(other, u->dependencies[UNIT_BINDS_TO], i) {
+                if (other->job)
+                        continue;
+
+                if (!UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(other)))
+                        continue;
+
+                stop = true;
+        }
+
+        if (!stop)
+                return;
+
+        log_info_unit(u->id, "Unit %s is bound to inactive service. Stopping, too.", u->id);
+
+        /* A unit we need to run is gone. Sniff. Let's stop this. */
         manager_add_job(u->manager, JOB_STOP, u, JOB_FAIL, true, NULL, NULL);
 }
 
@@ -1788,10 +1820,18 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
         manager_recheck_journal(m);
         unit_trigger_notify(u);
 
-        /* Maybe we finished startup and are now ready for being
-         * stopped because unneeded? */
-        if (u->manager->n_reloading <= 0)
+        if (u->manager->n_reloading <= 0) {
+                /* Maybe we finished startup and are now ready for
+                 * being stopped because unneeded? */
                 unit_check_unneeded(u);
+
+                /* Maybe we finished startup, but something we needed
+                 * has vanished? Let's die then. (This happens when
+                 * something BindsTo= to a Type=oneshot unit, as these
+                 * units go directly from starting to inactive,
+                 * without ever entering started.) */
+                unit_check_binds_to(u);
+        }
 
         unit_add_to_dbus_queue(u);
         unit_add_to_gc_queue(u);
