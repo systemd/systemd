@@ -39,15 +39,10 @@ struct sd_memfd {
 
 int sd_memfd_new(sd_memfd **m, const char *name) {
 
-        _cleanup_close_ int kdbus = -1;
         _cleanup_free_ char *g = NULL;
         sd_memfd *n;
 
         assert_return(m, -EINVAL);
-
-        kdbus = open("/dev/kdbus/control", O_RDWR|O_NOCTTY|O_CLOEXEC);
-        if (kdbus < 0)
-                return -errno;
 
         if (name) {
                 /* The kernel side is pretty picky about the character
