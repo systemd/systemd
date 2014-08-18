@@ -298,6 +298,8 @@ struct sd_bus {
 
         sd_bus_message *current_message;
         sd_bus_slot *current_slot;
+        sd_bus_message_handler_t current_handler;
+        void *current_userdata;
 
         sd_bus **default_bus_ptr;
         pid_t tid;

@@ -51,7 +51,9 @@ static int node_vtable_get_userdata(
         u = s->userdata;
         if (c->find) {
                 bus->current_slot = sd_bus_slot_ref(s);
+                bus->current_userdata = u;
                 r = c->find(bus, path, c->interface, u, &u, error);
+                bus->current_userdata = NULL;
                 bus->current_slot = sd_bus_slot_unref(s);
 
                 if (r < 0)
@@ -123,7 +125,9 @@ static int add_enumerated_to_set(
                 slot = container_of(c, sd_bus_slot, node_enumerator);
 
                 bus->current_slot = sd_bus_slot_ref(slot);
+                bus->current_userdata = slot->userdata;
                 r = c->callback(bus, prefix, slot->userdata, &children, error);
+                bus->current_userdata = NULL;
                 bus->current_slot = sd_bus_slot_unref(slot);
 
                 if (r < 0)
@@ -273,7 +277,11 @@ static int node_callbacks_run(
                 slot = container_of(c, sd_bus_slot, node_callback);
 
                 bus->current_slot = sd_bus_slot_ref(slot);
+                bus->current_handler = c->callback;
+                bus->current_userdata = slot->userdata;
                 r = c->callback(bus, m, slot->userdata, &error_buffer);
+                bus->current_userdata = NULL;
+                bus->current_handler = NULL;
                 bus->current_slot = sd_bus_slot_unref(slot);
 
                 r = bus_maybe_reply_error(m, r, &error_buffer);
@@ -388,7 +396,11 @@ static int method_callbacks_run(
                 slot = container_of(c->parent, sd_bus_slot, node_vtable);
 
                 bus->current_slot = sd_bus_slot_ref(slot);
+                bus->current_handler = c->vtable->x.method.handler;
+                bus->current_userdata = u;
                 r = c->vtable->x.method.handler(bus, m, u, &error);
+                bus->current_userdata = NULL;
+                bus->current_handler = NULL;
                 bus->current_slot = sd_bus_slot_unref(slot);
 
                 return bus_maybe_reply_error(m, r, &error);
@@ -427,7 +439,9 @@ static int invoke_property_get(
         if (v->x.property.get) {
 
                 bus->current_slot = sd_bus_slot_ref(slot);
+                bus->current_userdata = userdata;
                 r = v->x.property.get(bus, path, interface, property, reply, userdata, error);
+                bus->current_userdata = NULL;
                 bus->current_slot = sd_bus_slot_unref(slot);
 
                 if (r < 0)
@@ -489,7 +503,9 @@ static int invoke_property_set(
         if (v->x.property.set) {
 
                 bus->current_slot = sd_bus_slot_ref(slot);
+                bus->current_userdata = userdata;
                 r = v->x.property.set(bus, path, interface, property, value, userdata, error);
+                bus->current_userdata = NULL;
                 bus->current_slot = sd_bus_slot_unref(slot);
 
                 if (r < 0)

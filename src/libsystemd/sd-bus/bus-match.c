@@ -294,11 +294,17 @@ int bus_match_run(
                         sd_bus_slot *slot;
 
                         slot = container_of(node->leaf.callback, sd_bus_slot, match_callback);
-                        if (bus)
+                        if (bus) {
                                 bus->current_slot = sd_bus_slot_ref(slot);
+                                bus->current_handler = node->leaf.callback->callback;
+                                bus->current_userdata = slot->userdata;
+                        }
                         r = node->leaf.callback->callback(bus, m, slot->userdata, &error_buffer);
-                        if (bus)
+                        if (bus) {
+                                bus->current_userdata = NULL;
+                                bus->current_handler = NULL;
                                 bus->current_slot = sd_bus_slot_unref(slot);
+                        }
 
                         r = bus_maybe_reply_error(m, r, &error_buffer);
                         if (r != 0)

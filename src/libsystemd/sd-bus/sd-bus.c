@@ -2102,7 +2102,11 @@ static int process_timeout(sd_bus *bus) {
 
         bus->current_message = m;
         bus->current_slot = sd_bus_slot_ref(slot);
+        bus->current_handler = c->callback;
+        bus->current_userdata = slot->userdata;
         r = c->callback(bus, m, slot->userdata, &error_buffer);
+        bus->current_userdata = NULL;
+        bus->current_handler = NULL;
         bus->current_slot = sd_bus_slot_unref(slot);
         bus->current_message = NULL;
 
@@ -2194,7 +2198,11 @@ static int process_reply(sd_bus *bus, sd_bus_message *m) {
         }
 
         bus->current_slot = sd_bus_slot_ref(slot);
+        bus->current_handler = c->callback;
+        bus->current_userdata = slot->userdata;
         r = c->callback(bus, m, slot->userdata, &error_buffer);
+        bus->current_userdata = NULL;
+        bus->current_handler = NULL;
         bus->current_slot = sd_bus_slot_unref(slot);
 
         if (slot->floating) {
@@ -2235,7 +2243,11 @@ static int process_filter(sd_bus *bus, sd_bus_message *m) {
                         slot = container_of(l, sd_bus_slot, filter_callback);
 
                         bus->current_slot = sd_bus_slot_ref(slot);
+                        bus->current_handler = l->callback;
+                        bus->current_userdata = slot->userdata;
                         r = l->callback(bus, m, slot->userdata, &error_buffer);
+                        bus->current_userdata = NULL;
+                        bus->current_handler = NULL;
                         bus->current_slot = sd_bus_slot_unref(slot);
 
                         r = bus_maybe_reply_error(m, r, &error_buffer);
@@ -2512,7 +2524,11 @@ static int process_closing(sd_bus *bus, sd_bus_message **ret) {
 
                 bus->current_message = m;
                 bus->current_slot = sd_bus_slot_ref(slot);
+                bus->current_handler = c->callback;
+                bus->current_userdata = slot->userdata;
                 r = c->callback(bus, m, slot->userdata, &error_buffer);
+                bus->current_userdata = NULL;
+                bus->current_handler = NULL;
                 bus->current_slot = sd_bus_slot_unref(slot);
                 bus->current_message = NULL;
 
@@ -3111,6 +3127,18 @@ _public_ sd_bus_slot* sd_bus_get_current_slot(sd_bus *bus) {
         assert_return(bus, NULL);
 
         return bus->current_slot;
+}
+
+_public_ sd_bus_message_handler_t sd_bus_get_current_handler(sd_bus *bus) {
+        assert_return(bus, NULL);
+
+        return bus->current_handler;
+}
+
+_public_ void* sd_bus_get_current_userdata(sd_bus *bus) {
+        assert_return(bus, NULL);
+
+        return bus->current_userdata;
 }
 
 static int bus_default(int (*bus_open)(sd_bus **), sd_bus **default_bus, sd_bus **ret) {

@@ -148,8 +148,10 @@ int sd_bus_process(sd_bus *bus, sd_bus_message **r);
 int sd_bus_process_priority(sd_bus *bus, int64_t max_priority, sd_bus_message **r);
 int sd_bus_wait(sd_bus *bus, uint64_t timeout_usec);
 int sd_bus_flush(sd_bus *bus);
-sd_bus_message* sd_bus_get_current_message(sd_bus *bus);
 sd_bus_slot* sd_bus_get_current_slot(sd_bus *bus);
+sd_bus_message* sd_bus_get_current_message(sd_bus *bus);
+sd_bus_message_handler_t sd_bus_get_current_handler(sd_bus *bus);
+void* sd_bus_get_current_userdata(sd_bus *bus);
 
 int sd_bus_attach_event(sd_bus *bus, sd_event *e, int priority);
 int sd_bus_detach_event(sd_bus *bus);
@@ -175,6 +177,8 @@ void *sd_bus_slot_get_userdata(sd_bus_slot *slot);
 void *sd_bus_slot_set_userdata(sd_bus_slot *slot, void *userdata);
 
 sd_bus_message* sd_bus_slot_get_current_message(sd_bus_slot *slot);
+sd_bus_message_handler_t sd_bus_slot_get_current_handler(sd_bus_slot *bus);
+void *sd_bus_slot_get_current_userdata(sd_bus_slot *slot);
 
 /* Message object */
 

@@ -245,3 +245,23 @@ _public_ sd_bus_message *sd_bus_slot_get_current_message(sd_bus_slot *slot) {
 
         return slot->bus->current_message;
 }
+
+_public_ sd_bus_message_handler_t sd_bus_slot_get_current_handler(sd_bus_slot *slot) {
+        assert_return(slot, NULL);
+        assert_return(slot->type >= 0, NULL);
+
+        if (slot->bus->current_slot != slot)
+                return NULL;
+
+        return slot->bus->current_handler;
+}
+
+_public_ void* sd_bus_slot_get_current_userdata(sd_bus_slot *slot) {
+        assert_return(slot, NULL);
+        assert_return(slot->type >= 0, NULL);
+
+        if (slot->bus->current_slot != slot)
+                return NULL;
+
+        return slot->bus->current_userdata;
+}
