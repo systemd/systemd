@@ -2840,7 +2840,7 @@ int bus_body_part_map(struct bus_body_part *part) {
         psz = PAGE_ALIGN(part->size);
 
         if (part->memfd >= 0)
-                p = mmap(NULL, psz, PROT_READ, MAP_SHARED, part->memfd, 0);
+                p = mmap(NULL, psz, PROT_READ, MAP_PRIVATE, part->memfd, 0);
         else if (part->is_zero)
                 p = mmap(NULL, psz, PROT_READ, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
         else
