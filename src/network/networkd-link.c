@@ -1721,14 +1721,17 @@ int link_save(Link *link) {
                 admin_state, oper_state);
 
         if (link->network) {
-                char **address;
-                char **domain;
+                char **address, **domain;
+                bool space;
 
                 fputs("DNS=", f);
-
-                STRV_FOREACH(address, link->network->dns)
-                        fprintf(f, "%s%s", *address,
-                                (address + 1 ? " " : ""));
+                space = false;
+                STRV_FOREACH(address, link->network->dns) {
+                        if (space)
+                                fputc(' ', f);
+                        fputs(*address, f);
+                        space = true;
+                }
 
                 if (link->network->dhcp_dns &&
                     link->dhcp_lease) {
@@ -1736,19 +1739,22 @@ int link_save(Link *link) {
 
                         r = sd_dhcp_lease_get_dns(link->dhcp_lease, &addresses);
                         if (r > 0) {
+                                if (space)
+                                        fputc(' ', f);
                                 serialize_in_addrs(f, addresses, r);
-                                if (link->network->dns)
-                                        fputs(" ", f);
                         }
                 }
 
                 fputs("\n", f);
 
                 fprintf(f, "NTP=");
-
-                STRV_FOREACH(address, link->network->ntp)
-                        fprintf(f, "%s%s", *address,
-                                (address + 1 ? " " : ""));
+                space = false;
+                STRV_FOREACH(address, link->network->ntp) {
+                        if (space)
+                                fputc(' ', f);
+                        fputs(*address, f);
+                        space = true;
+                }
 
                 if (link->network->dhcp_ntp &&
                     link->dhcp_lease) {
@@ -1756,19 +1762,22 @@ int link_save(Link *link) {
 
                         r = sd_dhcp_lease_get_ntp(link->dhcp_lease, &addresses);
                         if (r > 0) {
+                                if (space)
+                                        fputc(' ', f);
                                 serialize_in_addrs(f, addresses, r);
-                                if (link->network->ntp)
-                                        fputs(" ", f);
                         }
                 }
 
                 fputs("\n", f);
 
                 fprintf(f, "DOMAINS=");
-
-                STRV_FOREACH(domain, link->network->domains)
-                        fprintf(f, "%s%s", *domain,
-                                (domain + 1 ? " " : ""));
+                space = false;
+                STRV_FOREACH(domain, link->network->domains) {
+                        if (space)
+                                fputc(' ', f);
+                        fputs(*domain, f);
+                        space = true;
+                }
 
                 if (link->network->dhcp_domains &&
                     link->dhcp_lease) {
@@ -1776,9 +1785,9 @@ int link_save(Link *link) {
 
                         r = sd_dhcp_lease_get_domainname(link->dhcp_lease, &domainname);
                         if (r >= 0) {
+                                if (space)
+                                        fputc(' ', f);
                                 fputs(domainname, f);
-                                if (link->network->domains)
-                                        fputs(" ", f);
                         }
                 }
 
