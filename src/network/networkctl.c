@@ -484,7 +484,7 @@ static int link_status(char **args, unsigned n) {
                 if (!strv_isempty(domains))
                         dump_list("      Domain: ", domains);
 
-                sd_network_get_dns(&ntp);
+                sd_network_get_ntp(&ntp);
                 if (!strv_isempty(ntp))
                         dump_list("         NTP: ", ntp);
 
