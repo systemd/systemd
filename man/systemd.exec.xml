@@ -1013,7 +1013,7 @@
                                 made inaccessible and empty for
                                 processes invoked by this unit. If set
                                 to <literal>read-only</literal>, the
-                                two directores are made read-only
+                                two directories are made read-only
                                 instead. It is recommended to enable
                                 this setting for all long-running
                                 services (in particular network-facing
