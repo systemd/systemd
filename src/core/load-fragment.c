@@ -1752,6 +1752,62 @@ int config_parse_bus_policy(
         return 0;
 }
 
+int config_parse_bus_endpoint_policy(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_free_ char *name = NULL;
+        BusPolicyAccess access;
+        ExecContext *c = data;
+        char *access_str;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        name = strdup(rvalue);
+        if (!name)
+                return log_oom();
+
+        access_str = strpbrk(name, WHITESPACE);
+        if (!access_str) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Invalid endpoint policy value '%s'", rvalue);
+                return 0;
+        }
+
+        *access_str = '\0';
+        access_str++;
+        access_str += strspn(access_str, WHITESPACE);
+
+        access = bus_policy_access_from_string(access_str);
+        if (access <= _BUS_POLICY_ACCESS_INVALID ||
+            access >= _BUS_POLICY_ACCESS_MAX) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Invalid endpoint policy access type '%s'", access_str);
+                return 0;
+        }
+
+        if (!c->bus_endpoint) {
+                r = bus_endpoint_new(&c->bus_endpoint);
+
+                if (r < 0)
+                        return r;
+        }
+
+        return bus_endpoint_add_policy(c->bus_endpoint, name, access);
+}
+
 int config_parse_unit_env_file(const char *unit,
                                const char *filename,
                                unsigned line,
