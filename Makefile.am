@@ -1028,6 +1028,8 @@ libsystemd_core_la_SOURCES = \
 	src/core/busname.h \
 	src/core/bus-common.c \
 	src/core/bus-common.h \
+	src/core/bus-endpoint.c \
+	src/core/bus-endpoint.h \
 	src/core/target.c \
 	src/core/target.h \
 	src/core/snapshot.c \

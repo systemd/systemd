@@ -1908,6 +1908,9 @@ void exec_context_done(ExecContext *c) {
 
         strv_free(c->runtime_directory);
         c->runtime_directory = NULL;
+
+        bus_endpoint_free(c->bus_endpoint);
+        c->bus_endpoint = NULL;
 }
 
 int exec_context_destroy_runtime_directory(ExecContext *c, const char *runtime_prefix) {

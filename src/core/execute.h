@@ -41,6 +41,7 @@ typedef struct ExecParameters ExecParameters;
 #include "fdset.h"
 #include "missing.h"
 #include "namespace.h"
+#include "bus-endpoint.h"
 
 typedef enum ExecInput {
         EXEC_INPUT_NULL,
@@ -188,6 +189,9 @@ struct ExecContext {
         bool ioprio_set:1;
         bool cpu_sched_set:1;
         bool no_new_privileges_set:1;
+
+        /* custom dbus enpoint */
+        BusEndpoint *bus_endpoint;
 };
 
 #include "cgroup.h"
