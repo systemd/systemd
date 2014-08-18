@@ -176,7 +176,11 @@ int sd_memfd_map(sd_memfd *m, uint64_t offset, size_t size, void **p) {
         if (sealed < 0)
                 return sealed;
 
-        q = mmap(NULL, size, sealed ? PROT_READ : PROT_READ|PROT_WRITE, MAP_PRIVATE, m->fd, offset);
+        if (sealed)
+                q = mmap(NULL, size, PROT_READ, MAP_PRIVATE, m->fd, offset);
+        else
+                q = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, m->fd, offset);
+
         if (q == MAP_FAILED)
                 return -errno;
 
