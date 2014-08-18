@@ -495,11 +495,9 @@ static int bus_get_owner_kdbus(
                                         goto fail;
                                 }
 
-                                if (!bus->cgroup_root) {
-                                        r = cg_get_root_path(&bus->cgroup_root);
-                                        if (r < 0)
-                                                goto fail;
-                                }
+                                r = bus_get_root_path(bus);
+                                if (r < 0)
+                                        goto fail;
 
                                 c->cgroup_root = strdup(bus->cgroup_root);
                                 if (!c->cgroup_root) {

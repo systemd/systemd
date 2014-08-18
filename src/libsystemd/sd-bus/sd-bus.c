@@ -3358,3 +3358,21 @@ _public_ int sd_bus_get_name(sd_bus *bus, const char **name) {
         *name = bus->connection_name;
         return 0;
 }
+
+int bus_get_root_path(sd_bus *bus) {
+        int r;
+
+        if (bus->cgroup_root)
+                return 0;
+
+        r = cg_get_root_path(&bus->cgroup_root);
+        if (r == -ENOENT) {
+                bus->cgroup_root = strdup("/");
+                if (!bus->cgroup_root)
+                        return -ENOMEM;
+
+                r = 0;
+        }
+
+        return r;
+}
