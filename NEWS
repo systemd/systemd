@@ -101,7 +101,9 @@ CHANGES WITH 216:
           3.17 memfd subsystem instead of the old kdbus-specific one.
 
         * systemd-networkd's DHCP client and server now support
-          FORCERENEW.
+          FORCERENEW. There are also new configuration options to
+          configure the vendor client identifier and broadcast mode
+          for DHCP.
 
         * systemd will no longer inform the kernel about the current
           timezone, as this is necessarily incorrect and racy as the
@@ -174,6 +176,13 @@ CHANGES WITH 216:
           hostname, root password) interactively on first
           boot. Alternatively it may also be used to provision these
           things offline on OS images installed into directories.
+
+        * The default sysctl.d/ snippets will now set
+
+                net.ipv4.conf.default.promote_secondaries=1
+
+          This has the benefit of no flushing secondary IP addresses
+          when primary addresses are removed.
 
         Contributions from: Ansgar Burchardt, Bastien Nocera, Colin
         Walters, Dan Dedrick, Daniel Buch, Daniel Korostil, Daniel
